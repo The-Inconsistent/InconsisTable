@@ -46,6 +46,17 @@ Clerk (only through `@inconsistable/auth`).
 - Platform roles live in Clerk and are changed only in the Clerk Dashboard. The room owner is
   `campaign.owner_user_id`, not a role.
 
+## Standards
+
+These are binding: follow them when writing code and use them when reviewing.
+- **Backend:** `.claude/backend-code-style.md`.
+- **Frontend:** `.claude/frontend-code-style.md`.
+- **Reviews:** `.claude/code-review.md` (checklist and block-merge rules).
+- **Review procedure:** the `/review` command (`.claude/commands/review.md`), which falls back to the local diff when
+  there's no PR.
+- **Multi-file investigation:** the `codebase-navigator` agent.
+- **Open engine choices:** `docs/house-decisions.md`.
+
 ## Git
 
 The trunk is `main`. Work happens on a branch and lands through a pull request.

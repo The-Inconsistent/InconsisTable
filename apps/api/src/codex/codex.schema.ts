@@ -20,8 +20,8 @@ export const codexEntry = pgTable(
   (t) => [index().on(t.campaignId, t.kind)],
 );
 
-// Who a `listed` entry reaches. Deleting the last listed character hides the entry (codex.actions), so a private
-// handout never falls back to the whole table.
+// Who a `listed` entry reaches. Deleting the last listed character hides the entry (actor.actions,
+// hideOrphanedEntries), so a private handout never falls back to the whole table.
 export const codexReveal = pgTable(
   "codex_reveal",
   {

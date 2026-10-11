@@ -19,10 +19,8 @@ export type SeatRole = z.infer<typeof SeatRole>;
 export const CogmScope = z.enum(["combat", "codex", "codex.secrets", "party", "session"]);
 export type CogmScope = z.infer<typeof CogmScope>;
 
-// Platform roles live in Clerk and are only ever changed in the Clerk Dashboard (decided 2026-10-11, keeps #178 of
-// Auspex). The app reads them from the verified session token and never writes them.
-export const PlatformRole = z.enum(["user", "creator", "moderator", "admin"]);
-export type PlatformRole = z.infer<typeof PlatformRole>;
+// Platform roles (decided 2026-10-11, keeps #178 of Auspex) are defined once, next to Clerk: `PlatformRole` in
+// @inconsistable/auth.
 
 export type Seat =
   | { kind: "member"; role: MemberRole; scopes: CogmScope[]; characterIds: string[] }

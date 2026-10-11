@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ScalarType } from "../enums.ts";
 
 export const BinaryOp = z.enum(["+", "-", "*", "/", "%", "<", "<=", ">", ">=", "==", "!=", "&&", "||"]);
 export type BinaryOp = z.infer<typeof BinaryOp>;
@@ -27,9 +28,9 @@ export type ExprNode =
   | { k: "cond"; test: ExprNode; then: ExprNode; else: ExprNode }
   | { k: "call"; fn: FnName; args: ExprNode[] };
 
-/** Static types the checker assigns. Scalars are strings; containers are tagged objects. */
+/** Static types the checker assigns. Scalars are the engine's ScalarType; containers are tagged objects. */
 export type ExprType =
-  "int" | "bool" | "text" | { list: ExprType } | { record: Readonly<Record<string, ExprType>> } | { dict: ExprType };
+  ScalarType | { list: ExprType } | { record: Readonly<Record<string, ExprType>> } | { dict: ExprType };
 
 /** The identifiers an expression may name, with their types. */
 export type ExprScope = Readonly<Record<string, ExprType>>;

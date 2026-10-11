@@ -1,6 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference -- type.d.ts is a global Clerk augmentation, not a module
 /// <reference path="../type.d.ts" />
 import { auth, clerkMiddleware } from "@clerk/nextjs/server";
+import { unstable_rethrow } from "next/navigation.js";
 
 // Next server side of Clerk: the proxy's session handling, and who is signed in on this request.
 export const authMiddleware = clerkMiddleware;
@@ -11,10 +12,14 @@ export const SESSION_COOKIE = "__session";
 
 // `auth()` throws when clerkMiddleware() didn't run for the request. That is deliberate for a guest, whom proxy.ts
 // skips, so treat it as signed out instead of failing the page — a guest has no Clerk session to read anyway.
+// Next's own control flow (dynamic rendering, redirects) passes through; anything else unexpected is logged.
 async function signedOutIfNoClerk<T>(read: () => Promise<T | null>): Promise<T | null> {
   try {
-    return await read();
-  } catch {
+    const result = await read();
+    return result;
+  } catch (e) {
+    unstable_rethrow(e);
+    if (!(e instanceof Error && e.message.includes("can't detect usage of clerkMiddleware"))) console.error(e);
     return null;
   }
 }

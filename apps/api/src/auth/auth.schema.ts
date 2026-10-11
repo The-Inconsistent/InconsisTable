@@ -1,5 +1,6 @@
 import { boolean, integer, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
-import type { CogmScope, MemberRole, PlatformRole, TokenRole, InviteMode } from "@inconsistable/core-schema";
+import type { PlatformRole } from "@inconsistable/auth/api";
+import type { CogmScope, MemberRole, TokenRole, InviteMode } from "@inconsistable/core-schema";
 import { actor } from "../actor/actor.schema.ts";
 import { campaign } from "../campaign/campaign.schema.ts";
 import { createdAt, pk } from "../core/sql.ts";

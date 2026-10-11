@@ -105,7 +105,7 @@ export class CampaignController {
   // The guest cookie's table, so a returning guest lands back at it.
   @Get("guest")
   async guest(@Req() req: Request) {
-    const ctx = await resolveGuest(readCookie(req.headers.cookie));
+    const ctx = await resolveGuest(readCookie({ header: req.headers.cookie }));
     if (!ctx) throw new UnauthorizedException();
     return ctx;
   }

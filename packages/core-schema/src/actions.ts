@@ -146,13 +146,19 @@ export const ARCHIVED_OPEN: ReadonlySet<ActionType> = new Set([
 ]);
 
 // Housekeeping an admin may send from /admin without a seat, logged in admin_event (kept from Auspex).
-export const ADMIN_ACTIONS: ReadonlySet<ActionType> = new Set([
+export const AdminAction = z.enum([
   "member.seat",
   "member.remove",
   "campaign.archive",
   "campaign.unarchive",
   "campaign.delete",
   "campaign.transfer",
-]);
+] as const satisfies readonly ActionType[]);
+export type AdminAction = z.infer<typeof AdminAction>;
+export const ADMIN_ACTIONS: ReadonlySet<ActionType> = new Set(AdminAction.options);
+
+// What an admin_event row records: that housekeeping, an admin opening a room without a seat, a moderator's lock.
+export const AdminEventAction = z.enum([...AdminAction.options, "room.open", "user.lock", "user.unlock"]);
+export type AdminEventAction = z.infer<typeof AdminEventAction>;
 
 export type ActionResult = { ok: true; id?: string; token?: string } | { ok: false; error: string };

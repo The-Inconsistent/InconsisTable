@@ -1,8 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { SESSION_COOKIE, bearerOf, verifySession, type AuthUser } from "@inconsistable/auth/api";
-import type { Ctx, PlatformRole } from "@inconsistable/core-schema";
+import { z } from "zod";
+import { SESSION_COOKIE, bearerOf, verifySession, type AuthUser, type PlatformRole } from "@inconsistable/auth/api";
+import type { Ctx } from "@inconsistable/core-schema";
 import { campaign } from "../campaign/campaign.schema.ts";
+import { isAdminKey } from "../campaign/campaign.service.ts";
 import { db, type Db, type Tx } from "../core/db.ts";
 import { accessToken, appUser, membership, membershipCharacter } from "./auth.schema.ts";
 
@@ -29,7 +31,7 @@ export async function issueScreenToken(tx: Tx, { campaignId }: { campaignId: str
 
 // Header is attacker-controlled: a malformed escape (`it_token=%`) reads as no value instead of throwing, which in the
 // socket middleware would be an unhandled rejection and take the process down.
-export function readCookie(header: string | undefined, name = COOKIE): string | undefined {
+export function readCookie({ header, name = COOKIE }: { header: string | undefined; name?: string }) {
   for (const part of header?.split(";") ?? []) {
     const [k, ...v] = part.trim().split("=");
     if (k !== name) continue;
@@ -47,7 +49,9 @@ const platformRoleOf = (user: AuthUser): PlatformRole =>
 // The signed-in Clerk user on a request, if any, and not locked by a moderator. Their display name and a display copy
 // of their Clerk role are kept fresh for member lists and the admin page; the app never writes the role to Clerk.
 export async function signedInUser(headers: { authorization?: string; cookie?: string }): Promise<AuthUser | null> {
-  const user = await verifySession(bearerOf(headers.authorization) ?? readCookie(headers.cookie, SESSION_COOKIE));
+  const user = await verifySession(
+    bearerOf(headers.authorization) ?? readCookie({ header: headers.cookie, name: SESSION_COOKIE }),
+  );
   if (!user) return null;
   const role = platformRoleOf(user);
   const [row] = await db
@@ -125,6 +129,48 @@ export async function resolveCtx({
         openedAsAdmin: true,
       };
   }
-  const guest = await resolveGuest(readCookie(headers.cookie));
+  const guest = await resolveGuest(readCookie({ header: headers.cookie }));
   return guest?.campaignId === campaignId ? { ctx: guest, openedAsAdmin: false } : null;
+}
+
+// What a client puts in `io({ auth })`. Browsers send only campaignId; the Clerk `__session` or guest cookie proves who
+// they are. Scripts and tests pass a token instead: a guest `token`, a Clerk `clerkToken`, or the server's `adminKey`.
+const Handshake = z.object({
+  campaignId: z.uuid().optional(),
+  token: z.string().max(200).optional(),
+  clerkToken: z.string().max(5000).optional(),
+  adminKey: z.string().max(500).optional(),
+});
+
+// The caller of a socket handshake, or null to refuse it. `script` marks the admin-key script (exempt from the action
+// limit); `openedAsAdmin` an admin at a table without a seat, which is logged (logRoomOpen).
+export async function resolveSocketCtx({
+  auth,
+  headers,
+}: {
+  auth: unknown;
+  headers: { cookie?: string };
+}): Promise<{ ctx: Ctx; script: boolean; openedAsAdmin: boolean } | null> {
+  const h = Handshake.safeParse(auth ?? {});
+  if (!h.success) return null;
+  const { campaignId, token, clerkToken, adminKey } = h.data;
+  if (adminKey && campaignId) {
+    if (!isAdminKey(adminKey)) return null;
+    const c = await ownerOf(db, campaignId);
+    if (!c) return null;
+    const ctx: Ctx = { campaignId, userId: null, campaignOwnerId: c.ownerUserId, seat: { kind: "admin" } };
+    return { ctx, script: true, openedAsAdmin: false };
+  }
+  if (token) {
+    const guest = await resolveGuest(token);
+    return guest && (!campaignId || guest.campaignId === campaignId)
+      ? { ctx: guest, script: false, openedAsAdmin: false }
+      : null;
+  }
+  if (!campaignId) return null;
+  const r = await resolveCtx({
+    campaignId,
+    headers: { cookie: headers.cookie, authorization: clerkToken ? `Bearer ${clerkToken}` : undefined },
+  });
+  return r && { ...r, script: false };
 }

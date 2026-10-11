@@ -127,27 +127,27 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
       if (!allowConnect(clientIp(socket.handshake.headers, socket.handshake.address))) {
         return next(new Error("rate limited"));
       }
-      let r: Awaited<ReturnType<typeof handshake>>;
       try {
-        r = await handshake({ auth: socket.handshake.auth, headers: socket.handshake.headers });
-      } catch {
+        const r = await handshake({ auth: socket.handshake.auth, headers: socket.handshake.headers });
+        if (!r) return next(new Error("unauthorized"));
+        socket.data = r.data;
+        // Opening a room without a seat is logged (docs/design.md §3.6).
+        if (r.openedAsAdmin && r.data.ctx.userId) {
+          const [c] = await db
+            .select({ name: campaign.name })
+            .from(campaign)
+            .where(eq(campaign.id, r.data.ctx.campaignId));
+          await db.insert(adminEvent).values({
+            actorUserId: r.data.ctx.userId,
+            action: "room.open",
+            campaignId: r.data.ctx.campaignId,
+            campaignName: c?.name ?? null,
+          });
+        }
+      } catch (e) {
         // DB down: the client retries (use-table), unlike "unauthorized" which it treats as a dead token.
+        this.log.error(e);
         return next(new Error("unavailable"));
-      }
-      if (!r) return next(new Error("unauthorized"));
-      socket.data = r.data;
-      // Opening a room without a seat is logged (docs/design.md §3.6).
-      if (r.openedAsAdmin && r.data.ctx.userId) {
-        const [c] = await db
-          .select({ name: campaign.name })
-          .from(campaign)
-          .where(eq(campaign.id, r.data.ctx.campaignId));
-        await db.insert(adminEvent).values({
-          actorUserId: r.data.ctx.userId,
-          action: "room.open",
-          campaignId: r.data.ctx.campaignId,
-          campaignName: c?.name ?? null,
-        });
       }
       next();
     });
@@ -155,13 +155,19 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
 
   async handleConnection(socket: Socket) {
     const { ctx } = socket.data as SocketData;
-    await socket.join(room(ctx.campaignId));
-    if (ctx.userId) await socket.join(userRoom(ctx.userId));
-    const [state, codex] = await Promise.all([loadState(ctx.campaignId), loadCodex(ctx.campaignId)]);
-    const full = fullView(ctx);
-    if (state) socket.emit("state", full ? state : toSeatState({ state, ctx }));
-    socket.emit("codex", full ? codex : toSeatCodex({ codex, ctx }));
-    this.announceBooks(ctx.campaignId, socket);
+    try {
+      await socket.join(room(ctx.campaignId));
+      if (ctx.userId) await socket.join(userRoom(ctx.userId));
+      const [state, codex] = await Promise.all([loadState(ctx.campaignId), loadCodex(ctx.campaignId)]);
+      const full = fullView(ctx);
+      if (state) socket.emit("state", full ? state : toSeatState({ state, ctx }));
+      socket.emit("codex", full ? codex : toSeatCodex({ codex, ctx }));
+      this.announceBooks(ctx.campaignId, socket);
+    } catch (e) {
+      // No snapshot to show (DB down): drop the socket so the client reconnects instead of waiting on an empty table.
+      this.log.error(e);
+      socket.disconnect(true);
+    }
   }
 
   // A serving GM left (closed the tab, lost signal): the players' page links go back to plain text.
@@ -271,16 +277,19 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
       const result = await fn();
       return result;
     })();
-    this.tails.set(
-      key,
-      (async () => {
-        try {
-          await run;
-        } catch {
-          // The caller of `run` sees the error; the next call just waits for it to settle.
-        }
-      })(),
-    );
+    const settled = (async () => {
+      try {
+        await run;
+      } catch {
+        // The caller of `run` sees the error; the next call just waits for it to settle.
+      }
+    })();
+    this.tails.set(key, settled);
+    // An idle campaign leaves nothing behind, unless a later call has queued behind this one.
+    void (async () => {
+      await settled;
+      if (this.tails.get(key) === settled) this.tails.delete(key);
+    })();
     return run;
   }
 

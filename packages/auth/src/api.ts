@@ -1,5 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference -- type.d.ts is a global Clerk augmentation, not a module
 /// <reference path="../type.d.ts" />
+import { timingSafeEqual } from "node:crypto";
 import { verifyToken } from "@clerk/backend";
 
 // Clerk session tokens (JWTs). The browser keeps one in the `__session` cookie; server-side Next sends it as a Bearer
@@ -21,10 +22,18 @@ const userOf = ({ userId, name, role }: { userId: string; name: string; role: st
 });
 
 // Test-only tokens `test.<secret>.<userId>.<creator|member|moderator|admin>` let the smoke test act as signed-in users without a
-// Clerk instance. Never in production.
-const TEST_SECRET = process.env.CLERK_TEST_SECRET;
-if (TEST_SECRET && process.env.NODE_ENV === "production")
+// Clerk instance. Never in production, and fail closed: only when NODE_ENV says test or development (Bun leaves it unset).
+if (process.env.CLERK_TEST_SECRET && process.env.NODE_ENV === "production")
   throw new Error("CLERK_TEST_SECRET must not be set in production");
+const TEST_SECRET =
+  process.env.NODE_ENV === "test" || process.env.NODE_ENV === "development"
+    ? process.env.CLERK_TEST_SECRET || undefined
+    : undefined;
+const isTestSecret = (s: string) => {
+  const a = Buffer.from(s);
+  const b = Buffer.from(TEST_SECRET ?? "");
+  return a.length === b.length && timingSafeEqual(a, b);
+};
 
 export const testSessionToken = ({
   secret,
@@ -52,7 +61,7 @@ export async function verifySession(token: string | undefined): Promise<AuthUser
   if (!token) return null;
   if (TEST_SECRET && token.startsWith("test.")) {
     const [, secret, userId, role] = token.split(".");
-    return secret === TEST_SECRET && userId ? userOf({ userId, name: userId, role }) : null;
+    return secret !== undefined && isTestSecret(secret) && userId ? userOf({ userId, name: userId, role }) : null;
   }
   try {
     const claims = await verifyToken(token, { jwtKey, secretKey: process.env.CLERK_SECRET_KEY, authorizedParties });

@@ -3,11 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/main.ts",
+    "dev": "NODE_ENV=development bun --watch src/main.ts",
     "start": "bun src/main.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "drizzle-kit generate",
-    "test:smoke": "bun test test/"
+    "test:smoke": "NODE_ENV=test bun test test/"
   },
   "dependencies": {
     "@inconsistable/auth": "workspace:*",

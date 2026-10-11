@@ -37,7 +37,8 @@ export function kicks(a: Action): Kick | null {
   if (a.type === "token.revoke") return { actorId: a.actorId, tokensOnly: true }; // members keep their seat
   if (a.type === "actor.delete") return { actorId: a.id, tokensOnly: false };
   if (a.type === "screen.revoke") return { screens: true };
-  if (a.type === "campaign.delete") return { all: true };
+  // A new owner: every seat resolves again, so the old owner loses the owner's powers and the new one gains them.
+  if (a.type === "campaign.delete" || a.type === "campaign.transferAccept") return { all: true };
   return null;
 }
 
@@ -45,7 +46,7 @@ export function kicks(a: Action): Kick | null {
 const targetOf = (a: Action) => (a.type === "actor.rename" ? { actorId: a.id } : undefined);
 
 // authorize = state guard, then the permission the action declares, then the action's own rules (docs/design.md §5.3).
-// The state guard (archived) needs the campaign row, so it runs in applyAction.
+// The state guard (archived) and the current owner need the campaign row, so applyAction reads it first.
 export function authorize(ctx: Ctx, a: Action) {
   const perm = ACTION_PERMS[a.type];
   if (perm === null) return; // the action checks its caller itself (campaign.transferAccept)
@@ -57,16 +58,21 @@ export function authorize(ctx: Ctx, a: Action) {
   fail(perm.endsWith(":own") ? "Not your character" : "You don't have permission to do that");
 }
 
-export async function applyAction(tx: Tx, { ctx, action }: { ctx: Ctx; action: Action }): Promise<ActionResult> {
-  authorize(ctx, action);
+export async function applyAction(
+  tx: Tx,
+  { ctx: seated, action }: { ctx: Ctx; action: Action },
+): Promise<ActionResult> {
   // Every action bumps the state version in its own transaction (docs/design.md §5.6), and an archived game is
   // read-only except for the way out of it. The name goes to the admin log, copied since campaign.delete removes it.
   const [c] = await tx
     .update(campaign)
     .set({ stateVersion: sql`${campaign.stateVersion} + 1` })
-    .where(eq(campaign.id, ctx.campaignId))
-    .returning({ name: campaign.name, archivedAt: campaign.archivedAt });
+    .where(eq(campaign.id, seated.campaignId))
+    .returning({ name: campaign.name, archivedAt: campaign.archivedAt, ownerUserId: campaign.ownerUserId });
   if (!c) fail("Game not found");
+  // The owner comes from this row, not the handshake: a socket opened before a transfer must not keep its powers.
+  const ctx: Ctx = { ...seated, campaignOwnerId: c.ownerUserId };
+  authorize(ctx, action); // a refusal throws and rolls back the version bump
   if (c.archivedAt && !ARCHIVED_OPEN.has(action.type)) fail("This game is archived");
   const result = await dispatch(tx, { ctx, action });
   // Only the housekeeping is logged: an admin running a table would otherwise bury it under every tap.

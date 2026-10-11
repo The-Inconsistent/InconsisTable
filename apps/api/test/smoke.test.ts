@@ -189,12 +189,14 @@ test("a GM can't remove the owner, and the owner hands the room on only when the
   const offered = await owner.until((s) => s.access.transfer?.toUserId === uid("ben"));
   assert.equal(offered.campaign.ownerUserId, uid("owner-Transfer"));
   refused(await owner.send({ type: "campaign.transferAccept" }), /no offer for you/);
+  const kicked = [owner, ben].map((s) => new Promise<void>((r) => s.socket.once("disconnect", () => r())));
   ok(await ben.send({ type: "campaign.transferAccept" }));
+  // The old owner's socket, still open from before the transfer, has lost the owner's powers already.
+  refused(await owner.send({ type: "member.appoint", userId: uid("ben"), role: "cogm", scopes: [] }), /permission/);
   const moved = await owner.until((s) => s.campaign.ownerUserId === uid("ben"));
   assert.equal(moved.access.transfer, null);
-  // Seats resolve again on reconnect: Ben now holds the owner's powers, the old owner is a GM.
-  ben.socket.close();
-  owner.socket.close();
+  // Then every seat is kicked and resolves again: Ben now holds the owner's powers, the old owner is a GM.
+  await Promise.all(kicked);
   const ben2 = connect({ auth: { campaignId, clerkToken: benClerk } });
   await ben2.until(() => true);
   ok(await ben2.send({ type: "member.appoint", userId: uid("owner-Transfer"), role: "cogm", scopes: ["combat"] }));

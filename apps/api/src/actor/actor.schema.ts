@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, check, index, integer, pgTable, primaryKey, text, uuid } from "drizzle-orm/pg-core";
-import type { ActorKind, ActorLinkKind, ActorStatus, ConditionExpiry } from "@inconsistable/core-schema";
+import type { ActorKind, ActorLinkKind, ActorStatus } from "@inconsistable/core-schema";
+import type { ConditionDuration } from "@inconsistable/rules-engine";
 import { owned } from "../campaign/campaign.schema.ts";
 import { pk } from "../core/sql.ts";
 
@@ -78,7 +79,7 @@ export const actorCondition = pgTable("actor_condition", {
   conditionId: text().notNull(),
   stacks: integer().notNull().default(1),
   source: text().notNull().default(""),
-  expiresOn: text().$type<ConditionExpiry>().notNull().default("manual"),
+  expiresOn: text().$type<ConditionDuration>().notNull().default("manual"),
   expiresAfter: integer(), // turns or rounds left, for the expiries that count
 });
 

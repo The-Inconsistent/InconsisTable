@@ -42,3 +42,21 @@ export const seatRole = (seat: Seat): SeatRole => (seat.kind === "admin" ? "gm" 
 
 // Rank for acting on other members: you only act on seats strictly below your own.
 export const MEMBER_RANK: Record<MemberRole, number> = { gm: 3, cogm: 2, player: 1 };
+
+// What /api/campaigns/:id/me answers: the caller's Ctx, parsed on the web server before it picks an app.
+export const Me = z.object({
+  campaignId: z.string(),
+  userId: z.string().nullable(),
+  campaignOwnerId: z.string().nullable(),
+  seat: z.discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("member"),
+      role: MemberRole,
+      scopes: z.array(CogmScope),
+      characterIds: z.array(z.string()),
+    }),
+    z.object({ kind: z.literal("token"), role: TokenRole, characterIds: z.array(z.string()) }),
+    z.object({ kind: z.literal("admin") }),
+  ]),
+}) satisfies z.ZodType<Ctx>;
+export type Me = z.infer<typeof Me>;

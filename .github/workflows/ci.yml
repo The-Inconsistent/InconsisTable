@@ -28,3 +28,24 @@ jobs:
       - run: bun run lint
       - run: bun run format:check
       - run: bun run test
+      # End-to-end against the postgres service above. The test secret is made per run, so no repo secret is needed.
+      - name: Generate a test-only Clerk secret
+        run: echo "CLERK_TEST_SECRET=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+      - name: Start the api
+        working-directory: apps/api
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgres://it:it@localhost:5435/it
+          PORT: "4000"
+        run: |
+          nohup bun src/main.ts > "$RUNNER_TEMP/api.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -s -o /dev/null http://localhost:4000/api/lobby; then exit 0; fi
+            sleep 1
+          done
+          echo "The api did not start"
+          exit 1
+      - run: bun run test:smoke
+      - name: Show the api log
+        if: failure()
+        run: cat "$RUNNER_TEMP/api.log"

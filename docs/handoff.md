@@ -108,6 +108,7 @@ Do not reopen these.
 
 - The Clerk `user.updated` webhook, to kick a user whose role or lock changed. `TableGateway.kickUser` is ready for it.
 - The co-GM and multi-character UI beyond PARTY's basics is planned for P2.
+- Nothing writes the `session_event` table yet. P1 undo will write each action's deltas to it.
 - **Open product question:** should the GM see an "Admin accessed" line? It would reverse Auspex's #178.
 - **Backlog** from the design review (scored 50, dropped from the doc):
   - X-card anonymity;

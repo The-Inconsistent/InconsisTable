@@ -39,6 +39,7 @@ export const session = pgTable("session", {
 // The session log: deltas with their before and after values (Postgres 18 RETURNING OLD/NEW), rolls, reveals. It is
 // the basis of server-side undo and of the recap draft. Append-only; read by session and time.
 // ponytail: unbounded per campaign; partition by month and compact into the recap at session end when it grows
+// ponytail: nothing writes it yet (P0 has no undo); P1 undo writes each action's deltas here
 export const sessionEvent = pgTable(
   "session_event",
   {

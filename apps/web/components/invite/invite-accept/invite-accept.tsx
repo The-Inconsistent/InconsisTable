@@ -4,9 +4,10 @@ import { useState, type FormEvent } from "react";
 
 import type { AcceptInvite, InvitePreview } from "@inconsistable/core-schema";
 
-type InviteAcceptProps = { code: string; preview: InvitePreview };
+import { ROLE_LABEL } from "@/app/constants";
+import { ApiMessage, CampaignRef, readJson } from "@/lib/api-reply/api-reply";
 
-const ROLE_LABEL = { gm: "a GM", cogm: "a co-GM", player: "a player" } as const;
+type InviteAcceptProps = { code: string; preview: InvitePreview };
 
 // Claim a seat from an invite: the invited character, an open one, or a new one (room invites). Signed-in users become
 // members; guests (if the GM allowed them) get a guest cookie for this device. A GM or co-GM invite seats them with no
@@ -22,15 +23,21 @@ export function InviteAccept({ code, preview: p }: InviteAcceptProps) {
   // Any claim button: POSTs the choice, then opens the table.
   const accept = async (choice: AcceptInvite) => {
     setBusy(true);
-    const res = await fetch(`/api/invites/${encodeURIComponent(code)}/accept`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...choice, asGuest: !p.signedIn }),
-    }).catch(() => null);
-    const body = (await res?.json().catch(() => null)) as { campaignId?: string; message?: string } | null;
+    try {
+      const res = await fetch(`/api/invites/${encodeURIComponent(code)}/accept`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...choice, asGuest: !p.signedIn }),
+      });
+      const body = await readJson(res);
+      const seat = CampaignRef.safeParse(body);
+      if (res.ok && seat.success) return router.push(`/c/${seat.data.campaignId}`);
+      const refusal = ApiMessage.safeParse(body);
+      setError(refusal.success ? refusal.data.message : "Couldn't take the seat. Try again");
+    } catch {
+      setError("No signal");
+    }
     setBusy(false);
-    if (!res?.ok || !body?.campaignId) return setError(body?.message ?? "No signal");
-    router.push(`/c/${body.campaignId}`);
   };
 
   // NEW CHARACTER form (room invites).
@@ -43,7 +50,7 @@ export function InviteAccept({ code, preview: p }: InviteAcceptProps) {
     <main className="center">
       <div className="card" style={{ maxWidth: 480, width: "100%" }}>
         <h1 className="title">Join {p.campaignName}</h1>
-        <p className="dim">You&apos;re invited as {ROLE_LABEL[p.role]}.</p>
+        <p className="dim">You&apos;re invited to a {ROLE_LABEL[p.role]} seat.</p>
         {p.member && (
           <a className="btn primary" href={`/c/${p.campaignId}`}>
             You&apos;re seated · open the table
@@ -84,7 +91,12 @@ export function InviteAccept({ code, preview: p }: InviteAcceptProps) {
               {p.openActors.map((a) => (
                 <li key={a.id}>
                   <strong>{a.name}</strong>
-                  <button className="btn sm primary" disabled={busy} onClick={() => accept({ actorId: a.id })}>
+                  <button
+                    className="btn sm primary"
+                    aria-label={`Play ${a.name}`}
+                    disabled={busy}
+                    onClick={() => accept({ actorId: a.id })}
+                  >
                     Play
                   </button>
                 </li>

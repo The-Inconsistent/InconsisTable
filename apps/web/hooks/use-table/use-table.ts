@@ -1,17 +1,30 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
+import { z } from "zod";
 
-import type {
-  ActionInput,
-  ActionResult,
-  BookAvailable,
+import {
   BookPage,
-  BookReply,
   BookSource,
   Codex,
   LiveState,
+  type ActionInput,
+  type ActionResult,
+  type BookReply,
 } from "@inconsistable/core-schema";
+
+// Acks are untrusted socket payloads too; core-schema has only their types, so they're checked against those.
+const ActionReply = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), id: z.string().optional(), token: z.string().optional() }),
+  z.object({ ok: z.literal(false), error: z.string() }),
+]) satisfies z.ZodType<ActionResult>;
+// The union of every serving GM's sources (each one capped by BookServing, the union not).
+const BookAvailable = z.object({ sources: z.array(BookSource) });
+// socket.io-client hands binary over as an ArrayBuffer.
+const PageReply = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), image: z.instanceof(ArrayBuffer) }),
+  z.object({ ok: z.literal(false), error: z.string() }),
+]) satisfies z.ZodType<BookReply>;
 
 const ACK_TIMEOUT_MS = 5000;
 const REFUSED_RETRY_MS = 3000;
@@ -45,10 +58,14 @@ export function useTable(campaignId: string) {
       setOnline(true);
       if (serving.current) s.emit("book:serving", { sources: serving.current.sources });
     });
-    s.on("disconnect", () => {
+    s.on("disconnect", (reason) => {
       setOnline(false);
       setBooks([]);
-      // A kicked seat (removed, re-appointed, a platform role changed) comes back with its new seat.
+      // Our own close (unmount, campaign change): stay closed.
+      if (reason === "io client disconnect") return;
+      // A kicked seat (removed, re-appointed, a platform role changed, a held character gone): the page's `me` is
+      // stale, so reload it from the server; a dead seat lands on the NO ACCESS screen.
+      if (reason === "io server disconnect") return location.reload();
       if (!s.active) retry = setTimeout(() => s.connect(), REFUSED_RETRY_MS);
     });
     // socket.io doesn't retry a refusal from the server's auth middleware. A dead seat reloads into the NO ACCESS
@@ -59,14 +76,28 @@ export function useTable(campaignId: string) {
       else retry = setTimeout(() => s.connect(), REFUSED_RETRY_MS);
     });
     // Two api nodes may deliver broadcasts out of order: never step back to an older snapshot.
-    s.on("state", (next: LiveState) => setState((cur) => (cur && cur.stateVersion > next.stateVersion ? cur : next)));
-    s.on("codex", setCodex);
-    s.on("book:available", (a: BookAvailable) => setBooks(a.sources));
-    s.on("book:request", async (p: BookPage, ack: (r: BookReply) => void) => {
+    // A payload that doesn't parse is dropped: the last good snapshot stays on screen.
+    s.on("state", (raw: unknown) => {
+      const parsed = LiveState.safeParse(raw);
+      if (!parsed.success) return;
+      const next = parsed.data;
+      setState((cur) => (cur && cur.stateVersion > next.stateVersion ? cur : next));
+    });
+    s.on("codex", (raw: unknown) => {
+      const parsed = Codex.safeParse(raw);
+      if (parsed.success) setCodex(parsed.data);
+    });
+    s.on("book:available", (raw: unknown) => {
+      const parsed = BookAvailable.safeParse(raw);
+      if (parsed.success) setBooks(parsed.data.sources);
+    });
+    s.on("book:request", async (raw: unknown, ack: (r: BookReply) => void) => {
       const render = serving.current?.render;
       if (!render) return ack({ ok: false, error: "The GM isn't serving that book." });
+      const page = BookPage.safeParse(raw);
+      if (!page.success) return ack({ ok: false, error: "That page request is malformed." });
       try {
-        ack(await render(p));
+        ack(await render(page.data));
       } catch {
         ack({ ok: false, error: "The GM's tablet couldn't render it." });
       }
@@ -130,7 +161,8 @@ export function useTable(campaignId: string) {
     const s = socket.current;
     if (!s?.connected) return { ok: false, error: "No signal" };
     try {
-      return await s.timeout(PAGE_TIMEOUT_MS).emitWithAck("book:request", p);
+      const reply = PageReply.safeParse(await s.timeout(PAGE_TIMEOUT_MS).emitWithAck("book:request", p));
+      return reply.success ? reply.data : { ok: false, error: "The page arrived damaged. Try again" };
     } catch {
       return { ok: false, error: "No reply. Try again" };
     }
@@ -148,7 +180,8 @@ export function useTable(campaignId: string) {
 async function emit(s: Socket | null, a: ActionInput): Promise<ActionResult> {
   if (!s?.connected) return { ok: false, error: "No signal" };
   try {
-    return await s.timeout(ACK_TIMEOUT_MS).emitWithAck("action", a);
+    const reply = ActionReply.safeParse(await s.timeout(ACK_TIMEOUT_MS).emitWithAck("action", a));
+    return reply.success ? reply.data : { ok: false, error: "Unreadable reply from server. Check before retrying" };
   } catch {
     // It may still have applied: counters are deltas, so check the screen before tapping again.
     return { ok: false, error: "No reply from server. Check before retrying" };

@@ -12,8 +12,13 @@ export function TableScreen({ campaignId }: TableScreenProps) {
   const revealed = (codex?.entries ?? []).filter((e) => e.audienceMode === "all");
   return (
     <main className="screen stack">
+      {/* The screen has no header band: the badge is its first row instead. */}
+      {!online && (
+        <span className="badge-offline" role="status">
+          NO SIGNAL
+        </span>
+      )}
       <h1 className="title">{state.campaign.name}</h1>
-      {!online && <span className="offline">No signal</span>}
       <p>{state.session ? `Session ${state.session.number}` : "Between sessions"}</p>
       <p className="dim">
         {state.actors

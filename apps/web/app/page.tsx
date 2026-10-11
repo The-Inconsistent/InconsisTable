@@ -2,23 +2,22 @@ import { redirect } from "next/navigation";
 
 import { signedInUserId } from "@inconsistable/auth/next";
 import { Lobby } from "@inconsistable/core-schema";
-import { z } from "zod";
 
 import { JOIN_ERRORS, type JoinError } from "@/app/constants";
 import { apiGet } from "@/app/server-api";
 import { LobbyView } from "@/components/lobby/lobby-view/lobby-view";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
+import { CampaignRef } from "@/lib/api-reply/api-reply";
 
 type HomeProps = { searchParams: Promise<{ join?: string | string[] }> };
 
 const isJoinError = (v: unknown): v is JoinError => typeof v === "string" && Object.hasOwn(JOIN_ERRORS, v);
-const GuestSeat = z.object({ campaignId: z.string() });
 
 // A returning guest's table (from their QR cookie), if they have one.
 async function guestTable(): Promise<string | null> {
   try {
     const res = await apiGet("/api/guest");
-    const parsed = GuestSeat.safeParse(res.ok ? await res.json() : null);
+    const parsed = CampaignRef.safeParse(res.ok ? await res.json() : null);
     return parsed.success ? parsed.data.campaignId : null;
   } catch {
     return null;

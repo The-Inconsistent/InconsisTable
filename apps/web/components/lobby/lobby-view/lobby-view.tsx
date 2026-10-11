@@ -5,9 +5,10 @@ import { useState, type FormEvent } from "react";
 import { UserButton } from "@inconsistable/auth/react";
 import { CreateGame, type Lobby, type LobbyGame } from "@inconsistable/core-schema";
 
-type LobbyViewProps = { lobby: Lobby };
+import { ROLE_LABEL } from "@/app/constants";
+import { ApiMessage, CampaignRef, readJson } from "@/lib/api-reply/api-reply";
 
-const ROLE_LABEL = { gm: "GM", cogm: "Co-GM", player: "Player" } as const;
+type LobbyViewProps = { lobby: Lobby };
 
 function GameCard({ game }: { game: LobbyGame }) {
   return (
@@ -60,13 +61,15 @@ export function LobbyView({ lobby }: LobbyViewProps) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(parsed.data),
       });
-      const body = (await res.json().catch(() => null)) as { campaignId?: string; message?: string } | null;
-      if (!res.ok || !body?.campaignId) throw new Error(body?.message ?? "Couldn't create the room");
-      router.push(`/c/${body.campaignId}?tab=party`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't create the room");
-      setBusy(false);
+      const body = await readJson(res);
+      const room = CampaignRef.safeParse(body);
+      if (res.ok && room.success) return router.push(`/c/${room.data.campaignId}?tab=party`);
+      const refusal = ApiMessage.safeParse(body);
+      setError(refusal.success ? refusal.data.message : "Couldn't create the room");
+    } catch {
+      setError("No signal. Check the connection and retry.");
     }
+    setBusy(false);
   };
 
   return (

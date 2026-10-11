@@ -1,26 +1,26 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 
 import {
   CogmScope,
   canActOnMember,
   canGrantRole,
   canInCampaign,
+  MemberRole,
   type ActionInput,
   type LiveState,
   type Me,
   type Member,
-  type MemberRole,
 } from "@inconsistable/core-schema";
 
+import { ROLE_LABEL } from "@/app/constants";
 import type { Send } from "@/hooks/use-table/use-table";
 import { qrImage } from "@/lib/qr/qr";
 import { shareOrigin } from "@/lib/share-origin/share-origin";
 
 type PartyProps = { me: Me; state: LiveState; send: Send };
 
-const ROLE_LABEL: Record<MemberRole, string> = { gm: "GM", cogm: "Co-GM", player: "Player" };
 const SCOPE_LABEL: Record<CogmScope, string> = {
   combat: "Combat",
   codex: "Codex",
@@ -45,6 +45,7 @@ export function Party({ me, state, send }: PartyProps) {
   const holderOf = (actorId: string) =>
     state.access.members.find((m) => m.characterIds.includes(actorId))?.name ??
     (state.access.guests.some((g) => g.actorId === actorId) ? "Guest" : null);
+  const actorNames = useMemo(() => new Map(state.actors.map((a) => [a.id, a.name])), [state.actors]);
 
   // Sends an action and shows its refusal, if any.
   const act = async (a: ActionInput) => {
@@ -56,7 +57,11 @@ export function Party({ me, state, send }: PartyProps) {
   // Shows a join link for a token or invite code as a QR the phones can scan.
   const show = async ({ title, path }: { title: string; path: string }) => {
     const url = `${shareOrigin(location)}${path}`;
-    setShown({ title, url, qr: await qrImage(url) });
+    try {
+      setShown({ title, url, qr: await qrImage(url) });
+    } catch {
+      setError("Couldn't draw the QR code. Try again");
+    }
   };
 
   // ROOM QR / INVITE: a room invite for the chosen role (players by anyone allowed; GMs and co-GMs by the owner).
@@ -71,7 +76,7 @@ export function Party({ me, state, send }: PartyProps) {
   };
 
   // GUEST QR for one character: a phone without an account plays it.
-  const handleGuest = async (actorId: string, name: string) => {
+  const handleGuest = async ({ actorId, name }: { actorId: string; name: string }) => {
     const r = await act({ type: "token.issue", actorId });
     if (r.ok && r.token) await show({ title: `Guest QR · ${name}`, path: `/join/${r.token}` });
   };
@@ -90,6 +95,18 @@ export function Party({ me, state, send }: PartyProps) {
     if (r.ok) setNewName("");
   };
 
+  // INVITE AS: the role picker; only a role from the closed set is taken.
+  const handleInviteRole = (e: ChangeEvent<HTMLSelectElement>) => {
+    const role = MemberRole.safeParse(e.target.value);
+    if (role.success) setInviteRole(role.data);
+  };
+
+  // The owner re-seats a member at the picked role.
+  const handleAppoint = (m: Member) => (e: ChangeEvent<HTMLSelectElement>) => {
+    const role = MemberRole.safeParse(e.target.value);
+    if (role.success) void act({ type: "member.appoint", userId: m.userId, role: role.data });
+  };
+
   // The owner's scope ticks for a co-GM.
   const handleScope = (m: Member, scope: CogmScope) => {
     const scopes = m.scopes.includes(scope) ? m.scopes.filter((s) => s !== scope) : [...m.scopes, scope];
@@ -102,7 +119,6 @@ export function Party({ me, state, send }: PartyProps) {
   };
 
   const transferTo = state.access.transfer;
-  const mine = transferTo?.toUserId === me.userId;
 
   return (
     <div className="stack" style={{ gap: 24 }}>
@@ -110,15 +126,6 @@ export function Party({ me, state, send }: PartyProps) {
         <p className="error" role="alert">
           {error}
         </p>
-      )}
-
-      {mine && (
-        <div className="card">
-          <strong>The owner offered you this room.</strong>
-          <button className="btn primary" onClick={() => act({ type: "campaign.transferAccept" })}>
-            Accept and take over
-          </button>
-        </div>
       )}
 
       {can("session:run") && (
@@ -140,8 +147,8 @@ export function Party({ me, state, send }: PartyProps) {
         <div className="row">
           <label>
             As
-            <select id="invite-role" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as MemberRole)}>
-              {(["player", "cogm", "gm"] as const)
+            <select id="invite-role" value={inviteRole} onChange={handleInviteRole}>
+              {MemberRole.options
                 .filter((role) => canGrantRole({ ctx: me, role }))
                 .map((role) => (
                   <option key={role} value={role}>
@@ -191,11 +198,19 @@ export function Party({ me, state, send }: PartyProps) {
                     <strong>{a.name}</strong> <span className="dim small">{holder ?? "Open"}</span>
                   </span>
                   <span className="row">
-                    <button className="btn sm" onClick={() => handleGuest(a.id, a.name)}>
+                    <button
+                      className="btn sm"
+                      aria-label={`Guest QR for ${a.name}`}
+                      onClick={() => handleGuest({ actorId: a.id, name: a.name })}
+                    >
                       Guest QR
                     </button>
                     {state.access.guests.some((g) => g.actorId === a.id) && (
-                      <button className="btn sm" onClick={() => act({ type: "token.revoke", actorId: a.id })}>
+                      <button
+                        className="btn sm"
+                        aria-label={`Revoke guest of ${a.name}`}
+                        onClick={() => act({ type: "token.revoke", actorId: a.id })}
+                      >
                         Revoke guest
                       </button>
                     )}
@@ -233,7 +248,7 @@ export function Party({ me, state, send }: PartyProps) {
                   {m.characterIds.length > 0 && (
                     <span className="dim small">
                       {" "}
-                      {m.characterIds.map((id) => state.actors.find((a) => a.id === id)?.name ?? "?").join(", ")}
+                      {m.characterIds.map((id) => actorNames.get(id) ?? "?").join(", ")}
                     </span>
                   )}
                 </span>
@@ -243,11 +258,9 @@ export function Party({ me, state, send }: PartyProps) {
                       id={`role-${m.userId}`}
                       aria-label={`Seat of ${m.name}`}
                       value={m.role}
-                      onChange={(e) =>
-                        act({ type: "member.appoint", userId: m.userId, role: e.target.value as MemberRole })
-                      }
+                      onChange={handleAppoint(m)}
                     >
-                      {(["gm", "cogm", "player"] as const).map((r) => (
+                      {MemberRole.options.map((r) => (
                         <option key={r} value={r}>
                           {ROLE_LABEL[r]}
                         </option>
@@ -257,6 +270,7 @@ export function Party({ me, state, send }: PartyProps) {
                   {isOwner && !owner && m.role !== "player" && (
                     <button
                       className="btn sm"
+                      aria-label={`Offer the room to ${m.name}`}
                       disabled={transferTo?.toUserId === m.userId}
                       onClick={() => act({ type: "campaign.transfer", toUserId: m.userId })}
                     >
@@ -264,7 +278,11 @@ export function Party({ me, state, send }: PartyProps) {
                     </button>
                   )}
                   {removable && m.userId !== me.userId && (
-                    <button className="btn sm" onClick={() => act({ type: "member.remove", userId: m.userId })}>
+                    <button
+                      className="btn sm"
+                      aria-label={`Remove ${m.name}`}
+                      onClick={() => act({ type: "member.remove", userId: m.userId })}
+                    >
                       Remove
                     </button>
                   )}
@@ -272,7 +290,8 @@ export function Party({ me, state, send }: PartyProps) {
                 {isOwner && m.role === "cogm" && (
                   <div className="row" role="group" aria-label={`Scopes of ${m.name}`} style={{ width: "100%" }}>
                     {CogmScope.options.map((s) => (
-                      <label key={s} className="row small" style={{ gap: 4 }}>
+                      // The whole label is the touch target (44px); the box itself stays small.
+                      <label key={s} className="row small" style={{ gap: 4, minHeight: 44 }}>
                         <input
                           type="checkbox"
                           id={`scope-${m.userId}-${s}`}

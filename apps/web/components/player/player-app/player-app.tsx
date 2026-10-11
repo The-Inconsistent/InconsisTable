@@ -3,13 +3,12 @@ import { useState } from "react";
 
 import type { Me } from "@inconsistable/core-schema";
 
+import { PLAYER_TABS, type PlayerTab } from "@/components/player/player-app/constants";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
+import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useTable } from "@/hooks/use-table/use-table";
 
 type PlayerAppProps = { me: Me };
-
-const PLAYER_TABS = { sheet: "Sheet", fight: "Fight", map: "Map", intel: "Intel" } as const;
-type PlayerTab = keyof typeof PLAYER_TABS;
 
 // The phone: one seat, possibly several characters (a companion, a funnel, a friend's character). The strip at the
 // top switches between them (docs/design.md §3.7). Sheets, the fight and the map arrive with the first ruleset (P1).
@@ -36,12 +35,15 @@ export function PlayerApp({ me }: PlayerAppProps) {
   return (
     <>
       <header className="band">
+        {!online && (
+          <span className="badge-offline" role="status">
+            NO SIGNAL
+          </span>
+        )}
         <strong>{state.campaign.name}</strong>
-        <span className="row">
-          {state.session && <span className="chip">Session {state.session.number}</span>}
-          {!online && <span className="offline">No signal</span>}
-        </span>
+        <span className="row">{state.session && <span className="chip">Session {state.session.number}</span>}</span>
       </header>
+      <TransferOffer me={me} state={state} send={send} />
       {mine.length > 1 && (
         <nav className="tabs" role="tablist" aria-label="Your characters">
           {mine.map((a) => (

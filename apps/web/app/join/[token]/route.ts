@@ -1,4 +1,5 @@
 import { API_ORIGIN, type JoinError } from "@/app/constants";
+import { CampaignRef, readJson } from "@/lib/api-reply/api-reply";
 
 type JoinContext = { params: Promise<{ token: string }> };
 
@@ -27,8 +28,8 @@ export async function GET(request: Request, { params }: JoinContext) {
   if (!res.ok) return redirectError("nosignal");
 
   // Straight to the guest's table (the api answers with their seat).
-  const seat = (await res.json().catch(() => null)) as { campaignId?: unknown } | null;
-  const response = redirectHome(typeof seat?.campaignId === "string" ? `c/${seat.campaignId}` : "");
+  const seat = CampaignRef.safeParse(await readJson(res));
+  const response = redirectHome(seat.success ? `c/${seat.data.campaignId}` : "");
   for (const cookie of res.headers.getSetCookie()) response.headers.append("set-cookie", cookie);
   return response;
 }

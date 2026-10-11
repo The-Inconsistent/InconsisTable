@@ -1,3 +1,8 @@
+import type { MemberRole } from "@inconsistable/core-schema";
+
+// A seat's role as the table reads it (lobby cards, invites, PARTY).
+export const ROLE_LABEL: Record<MemberRole, string> = { gm: "GM", cogm: "Co-GM", player: "Player" };
+
 // Server-side only: where Next reaches the api directly (the browser goes through the rewrites in next.config.ts).
 export const API_ORIGIN = process.env.API_ORIGIN ?? "http://localhost:4000";
 

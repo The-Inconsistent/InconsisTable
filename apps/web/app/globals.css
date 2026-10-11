@@ -114,13 +114,33 @@ a {
 .band a {
   color: var(--band-ink);
 }
-.offline {
+/* Lost connection: the first row of the header band, full width and in flow, so it never covers the band's buttons and
+   the last state stays readable under it. */
+.badge-offline {
+  flex-basis: 100%;
   background: var(--accent);
   color: var(--accent-ink);
-  padding: 2px 8px;
+  padding: 4px 8px;
   border-radius: 4px;
   font-size: 14px;
   font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+/* The owner's room offer to this viewer, right under the band on every tab. */
+.offer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--paper-2);
+  border-bottom: 3px solid var(--accent);
+}
+.offer .error {
+  flex-basis: 100%;
+  margin: 0;
 }
 
 .tabs {
@@ -260,4 +280,7 @@ label {
 }
 .screen .title {
   font-size: 48px;
+}
+.screen .badge-offline {
+  font-size: 24px;
 }

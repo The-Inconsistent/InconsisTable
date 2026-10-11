@@ -6,6 +6,7 @@ import { canInCampaign, type Me } from "@inconsistable/core-schema";
 import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
 import { Party } from "@/components/gm/party/party";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
+import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useTable } from "@/hooks/use-table/use-table";
 
 type GmAppProps = { me: Me; initialTab: GmTab };
@@ -29,13 +30,16 @@ export function GmApp({ me, initialTab }: GmAppProps) {
   return (
     <>
       <header className="band">
+        {!online && (
+          <span className="badge-offline" role="status">
+            NO SIGNAL
+          </span>
+        )}
         <a href="/">← Rooms</a>
         <strong>{state.campaign.name}</strong>
-        <span className="row">
-          {state.session && <span className="chip">Session {state.session.number}</span>}
-          {!online && <span className="offline">No signal</span>}
-        </span>
+        <span className="row">{state.session && <span className="chip">Session {state.session.number}</span>}</span>
       </header>
+      <TransferOffer me={me} state={state} send={send} />
       <nav className="tabs" role="tablist" aria-label="GM tabs">
         {tabs.map((t) => (
           <button key={t} className="tab" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>

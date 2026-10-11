@@ -1,0 +1,13 @@
+node_modules/
+.env*
+!.env.example
+.DS_Store
+# Book PDFs never enter the repo: they stay on the GM's device (CLAUDE.md, "Books never reach the server").
+*.pdf
+books/
+dist/
+.next/
+*.tsbuildinfo
+.turbo/
+coverage/
+.claude/worktrees/

@@ -16,6 +16,14 @@ export type ActorStatus = z.infer<typeof ActorStatus>;
 
 export const ActorName = z.string().trim().min(1).max(100);
 
+// How two actors relate: a familiar is `companionOf` its PC, a sailor `crewOf` the ship.
+export const ActorLinkKind = z.enum(["companionOf", "crewOf", "summonedBy", "memberOf"]);
+export type ActorLinkKind = z.infer<typeof ActorLinkKind>;
+
+// When a condition ends. `ownTurnEnd` counts the affected actor's own turns, not rounds.
+export const ConditionExpiry = z.enum(["ownTurnEnd", "roundEnd", "encounterEnd", "manual"]);
+export type ConditionExpiry = z.infer<typeof ConditionExpiry>;
+
 export const InviteMode = z.enum(["room", "character"]); // room: claim or start a character; character: one character
 export type InviteMode = z.infer<typeof InviteMode>;
 

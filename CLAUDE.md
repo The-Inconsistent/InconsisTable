@@ -62,6 +62,8 @@ bun install
 bun run dev:db              # Postgres 18 in Docker on localhost:5435
 bun run dev:api             # api on :4000 (apps/api/.env, see .env.example)
 bun run dev:web             # web on :3000 (apps/web/.env.local needs the Clerk keys)
+aspire run                  # optional: Postgres 18 → api → web with a dashboard; TypeScript AppHost
+                            # (aspire-apphost/apphost.mts), no .NET SDK. Stop the compose Postgres first: same port
 bun run typecheck           # packages + api + web (with test, the Husky pre-commit hook)
 bun run lint
 bun run format              # Prettier, width 120; skips *.md

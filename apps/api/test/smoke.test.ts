@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { io } from "socket.io-client";
-import { testSessionToken } from "@inconsistable/auth/api";
+import { testSessionToken, type PlatformRole } from "@inconsistable/auth/api";
 import type {
   ActionInput,
   ActionResult,
@@ -17,8 +17,7 @@ import type {
 const API = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 4000}`;
 const run = Date.now().toString(36); // test users are fresh per run, so reruns never collide
 
-type Role = "creator" | "member" | "moderator" | "admin";
-const clerk = (userId: string, role: Role = "member") =>
+const clerk = (userId: string, role: PlatformRole = "user") =>
   testSessionToken({ secret: process.env.CLERK_TEST_SECRET ?? "", userId: `${userId}-${run}`, role });
 const uid = (userId: string) => `${userId}-${run}`;
 const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
@@ -279,5 +278,184 @@ test("state versions only go up", async () => {
   ok(await owner.send({ type: "actor.create", name: "A" }));
   const v1 = (await owner.until((s) => s.actors.length === 1)).stateVersion;
   assert.ok(v1 > v0);
+  owner.socket.close();
+});
+
+// Resolves when the socket drops (a kick).
+const dropped = (c: ReturnType<typeof connect>) => new Promise<void>((r) => c.socket.once("disconnect", () => r()));
+
+// A signed-in player seated through a room invite with a new character of their name; returns their Clerk token.
+async function seatPlayer(owner: ReturnType<typeof connect>, name: string) {
+  const code = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
+  const token = clerk(name);
+  assert.equal((await post(`/invites/${code}/accept`, { newCharacterName: name }, bearer(token))).status, 200);
+  await owner.until((s) => s.access.members.some((m) => m.userId === uid(name)));
+  return token;
+}
+
+test("the room's settings and its sessions: update, start, edit, end", async () => {
+  const { owner, campaignId } = await newRoom("Settings");
+  const anaClerk = await seatPlayer(owner, "ana-set");
+  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  await ana.until(() => true);
+
+  ok(await owner.send({ type: "campaign.update", name: "Settings 2", nextSessionPlace: "Ana's" }));
+  await owner.until((s) => s.campaign.name === "Settings 2" && s.campaign.nextSessionPlace === "Ana's");
+  refused(await ana.send({ type: "campaign.update", name: "Mine" }), /permission/);
+
+  const sessionId = ok(await owner.send({ type: "session.start", title: "One" })).id!;
+  ok(await owner.send({ type: "session.edit", sessionId, title: "One, again", notes: "the twist" }));
+  await owner.until((s) => s.session?.title === "One, again" && s.session.notes === "the twist");
+  refused(await ana.send({ type: "session.edit", sessionId, title: "x" }), /permission/);
+  refused(await owner.send({ type: "session.edit", sessionId: crypto.randomUUID(), title: "x" }), /not found/);
+
+  // A co-GM who runs sessions but holds no secrets edits the title, never the notes they aren't shown.
+  const cogmInv = ok(
+    await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false }),
+  ).token!;
+  const coClerk = clerk("co-set");
+  assert.equal((await post(`/invites/${cogmInv}/accept`, {}, bearer(coClerk))).status, 200);
+  ok(await owner.send({ type: "member.appoint", userId: uid("co-set"), role: "cogm", scopes: ["session"] }));
+  const co = connect({ auth: { campaignId, clerkToken: coClerk } });
+  assert.equal((await co.until(() => true)).session?.notes, "", "the co-GM isn't shown the notes");
+  refused(await co.send({ type: "session.edit", sessionId, notes: "" }), /secrets scope/);
+  ok(await co.send({ type: "session.edit", sessionId, title: "Co's title" }));
+  await owner.until((s) => s.session?.title === "Co's title" && s.session.notes === "the twist");
+
+  refused(await ana.send({ type: "session.end" }), /permission/);
+  ok(await owner.send({ type: "session.end", recap: "We met." }));
+  await owner.until((s) => s.session === null);
+  refused(await owner.send({ type: "session.end" }), /No session is running/);
+  for (const s of [owner, ana, co]) s.socket.close();
+});
+
+test("invites and guest tokens: revoke, issue, and revoking drops the guest", async () => {
+  const { owner, campaignId } = await newRoom("Tokens");
+  const anaClerk = await seatPlayer(owner, "ana-tok");
+  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  await ana.until(() => true);
+
+  const inv = ok(await owner.send({ type: "invite.create", mode: "room" })).id!;
+  refused(await ana.send({ type: "invite.revoke", id: inv }), /permission/);
+  ok(await owner.send({ type: "invite.revoke", id: inv }));
+  await owner.until((s) => !s.access.invites.some((i) => i.id === inv));
+  refused(await owner.send({ type: "invite.revoke", id: inv }), /Invite not found/);
+
+  const heroId = ok(await owner.send({ type: "actor.create", name: "Hero" })).id!;
+  refused(await ana.send({ type: "token.issue", actorId: heroId }), /permission/);
+  refused(await owner.send({ type: "token.issue", actorId: crypto.randomUUID() }), /Character not found/);
+  const tok = ok(await owner.send({ type: "token.issue", actorId: heroId })).token!;
+  const guest = connect({ auth: { campaignId, token: tok } });
+  await guest.until((s) => s.actors.some((a) => a.id === heroId));
+
+  refused(await ana.send({ type: "token.revoke", actorId: heroId }), /permission/);
+  refused(await owner.send({ type: "token.revoke", actorId: crypto.randomUUID() }), /Character not found/);
+  const gone = dropped(guest);
+  ok(await owner.send({ type: "token.revoke", actorId: heroId }));
+  await gone;
+  await assert.rejects(connect({ auth: { campaignId, token: tok } }).connected(), /unauthorized/);
+  for (const s of [owner, ana]) s.socket.close();
+});
+
+test("leaving drops every socket of that seat, and an offer to the leaver goes with them", async () => {
+  const { owner, campaignId } = await newRoom("Leave");
+  refused(await owner.send({ type: "seat.leave" }), /Hand the room on/);
+
+  // A member with two tabs open leaves from one: the other goes too, and the room offer to them is withdrawn.
+  const anaClerk = await seatPlayer(owner, "ana-leave");
+  const tab1 = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  const tab2 = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  await Promise.all([tab1.until(() => true), tab2.until(() => true)]);
+  ok(await owner.send({ type: "campaign.transfer", toUserId: uid("ana-leave") }));
+  await owner.until((s) => s.access.transfer?.toUserId === uid("ana-leave"));
+  const gone = [dropped(tab1), dropped(tab2)];
+  ok(await tab1.send({ type: "seat.leave" }));
+  await Promise.all(gone);
+  const after = await owner.until((s) => !s.access.members.some((m) => m.userId === uid("ana-leave")));
+  assert.equal(after.access.transfer, null);
+
+  // A guest on two phones leaves from one: both go, and the QR stops working.
+  const code = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
+  const g = await post(`/invites/${code}/accept`, { newCharacterName: "Bran", asGuest: true });
+  const cookie = g.headers.get("set-cookie")?.split(";")[0] ?? "";
+  const phone1 = connect({ auth: { campaignId }, headers: { cookie } });
+  const phone2 = connect({ auth: { campaignId }, headers: { cookie } });
+  await Promise.all([phone1.until(() => true), phone2.until(() => true)]);
+  const both = [dropped(phone1), dropped(phone2)];
+  ok(await phone1.send({ type: "seat.leave" }));
+  await Promise.all(both);
+  await assert.rejects(connect({ auth: { campaignId }, headers: { cookie } }).connected(), /unauthorized/);
+  owner.socket.close();
+});
+
+test("a room offer: cancelled by the owner, and withdrawn when the recipient is removed", async () => {
+  const { owner, campaignId } = await newRoom("Offer");
+  const gmInv = ok(await owner.send({ type: "invite.create", mode: "room", role: "gm", allowGuests: false })).token!;
+  const benClerk = clerk("ben-offer");
+  assert.equal((await post(`/invites/${gmInv}/accept`, {}, bearer(benClerk))).status, 200);
+  const ben = connect({ auth: { campaignId, clerkToken: benClerk } });
+  await ben.until(() => true);
+
+  ok(await owner.send({ type: "campaign.transfer", toUserId: uid("ben-offer") }));
+  refused(await ben.send({ type: "campaign.transferCancel" }), /permission/);
+  ok(await owner.send({ type: "campaign.transferCancel" }));
+  await owner.until((s) => s.access.transfer === null);
+  refused(await ben.send({ type: "campaign.transferAccept" }), /no offer for you/);
+
+  ok(await owner.send({ type: "campaign.transfer", toUserId: uid("ben-offer") }));
+  await owner.until((s) => s.access.transfer?.toUserId === uid("ben-offer"));
+  const gone = dropped(ben);
+  ok(await owner.send({ type: "member.remove", userId: uid("ben-offer") }));
+  await gone;
+  const after = await owner.until((s) => !s.access.members.some((m) => m.userId === uid("ben-offer")));
+  assert.equal(after.access.transfer, null, "the offer went with the seat");
+  owner.socket.close();
+});
+
+test("codex: a reader listed twice is one reader, and an entry deletes once", async () => {
+  const { owner } = await newRoom("Codex");
+  const hero = ok(await owner.send({ type: "actor.create", name: "Hero" })).id!;
+  const h = ok(await owner.send({ type: "codex.save", kind: "handout", title: "Map" })).id!;
+  ok(
+    await owner.send({
+      type: "codex.reveal",
+      id: h,
+      visibility: "party",
+      audienceMode: "listed",
+      audience: [hero, hero],
+    }),
+  );
+  await eventually(
+    () => JSON.stringify(owner.codex()?.entries.find((e) => e.id === h)?.audience) === JSON.stringify([hero]),
+    "one reader",
+  );
+  ok(await owner.send({ type: "codex.delete", id: h }));
+  await eventually(() => !owner.codex()?.entries.some((e) => e.id === h), "the entry is gone");
+  refused(await owner.send({ type: "codex.delete", id: h }), /Entry not found/);
+  owner.socket.close();
+});
+
+test("the admin action route seats a known user and refuses anything but housekeeping", async () => {
+  const { owner, campaignId } = await newRoom("Seat");
+  const rootClerk = clerk("root-seat", "admin");
+  const act = (body: unknown) => post(`/admin/campaigns/${campaignId}/action`, body, bearer(rootClerk));
+  assert.equal((await act({ type: "session.start" })).status, 400, "not an admin action");
+  assert.equal((await post(`/admin/campaigns/${campaignId}/action`, { type: "member.seat", userId: "x" })).status, 401);
+  refused((await (await act({ type: "member.seat", userId: uid("nobody") })).json()) as ActionResult, /User not found/);
+  await get("/lobby", bearer(clerk("dana-seat"))); // the app has now seen them
+  ok((await (await act({ type: "member.seat", userId: uid("dana-seat") })).json()) as ActionResult);
+  await owner.until((s) => s.access.members.some((m) => m.userId === uid("dana-seat") && m.role === "gm"));
+  refused(await owner.send({ type: "member.seat", userId: uid("dana-seat") }), /permission/);
+  owner.socket.close();
+});
+
+test("accepting an invite moves the state version", async () => {
+  const { owner } = await newRoom("InviteVersion");
+  const code = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
+  const v0 = (await owner.until((s) => s.access.invites.length === 1)).stateVersion;
+  const token = clerk("ana-ver");
+  assert.equal((await post(`/invites/${code}/accept`, { newCharacterName: "Ana" }, bearer(token))).status, 200);
+  const s = await owner.until((st) => st.access.members.some((m) => m.userId === uid("ana-ver")));
+  assert.ok(s.stateVersion > v0, "the accept bumps it, so a client keeps the new snapshot");
   owner.socket.close();
 });

@@ -9,7 +9,7 @@ import {
   type OnGatewayDisconnect,
   type OnGatewayInit,
 } from "@nestjs/websockets";
-import type { Server, Socket } from "socket.io";
+import type { DefaultEventsMap, Server, Socket } from "socket.io";
 import { z } from "zod";
 import {
   Action,
@@ -25,28 +25,16 @@ import {
   type BookSource,
   type Ctx,
 } from "@inconsistable/core-schema";
-import { eq } from "drizzle-orm";
-import { adminEvent } from "../admin/admin.schema.ts";
-import { resolveCtx, resolveGuest } from "../auth/auth.service.ts";
-import { campaign } from "../campaign/campaign.schema.ts";
-import { isAdminKey } from "../campaign/campaign.service.ts";
+import { logRoomOpen } from "../admin/admin.service.ts";
+import { resolveSocketCtx } from "../auth/auth.service.ts";
 import { db } from "../core/db.ts";
 import { ActionError } from "../core/errors.ts";
 import { clientIp, limiter } from "../core/rate-limit.ts";
-import { applyAction, kicks, touches, type Kick } from "./table.dispatch.ts";
+import { applyAction, kicks, kicksSender, touches, type Kick } from "./table.dispatch.ts";
 import { loadCodex, loadState } from "./table.state.ts";
 
 const room = (campaignId: string) => `c:${campaignId}`;
 export const userRoom = (userId: string) => `u:${userId}`;
-
-// What a client puts in `io({ auth })`. Browsers send only campaignId; the Clerk `__session` or guest cookie proves who
-// they are. Scripts and tests pass a token instead: a guest `token`, a Clerk `clerkToken`, or the server's `adminKey`.
-const Handshake = z.object({
-  campaignId: z.uuid().optional(),
-  token: z.string().max(200).optional(),
-  clerkToken: z.string().max(5000).optional(),
-  adminKey: z.string().max(500).optional(),
-});
 
 // Per IP for connects (a whole table shares one NAT, and all of it reconnects after an api restart), per socket for
 // actions: a GM tapping fast stays far below 2/s over a minute.
@@ -60,40 +48,8 @@ const KICK_GRACE_MS = 200;
 // What a socket carries: who it is, whether it's the admin-key script (exempt from the action limit), and the book
 // sources a GM tablet serves from its own PDFs (presence only, so it dies with the socket).
 type SocketData = { ctx: Ctx; script: boolean; books?: BookSource[] };
-
-async function handshake({
-  auth,
-  headers,
-}: {
-  auth: unknown;
-  headers: { cookie?: string };
-}): Promise<{ data: SocketData; openedAsAdmin: boolean } | null> {
-  const h = Handshake.safeParse(auth ?? {});
-  if (!h.success) return null;
-  const { campaignId, token, clerkToken, adminKey } = h.data;
-  if (adminKey && campaignId) {
-    if (!isAdminKey(adminKey)) return null;
-    const [c] = await db
-      .select({ ownerUserId: campaign.ownerUserId })
-      .from(campaign)
-      .where(eq(campaign.id, campaignId));
-    if (!c) return null;
-    const ctx: Ctx = { campaignId, userId: null, campaignOwnerId: c.ownerUserId, seat: { kind: "admin" } };
-    return { data: { ctx, script: true }, openedAsAdmin: false };
-  }
-  if (token) {
-    const guest = await resolveGuest(token);
-    return guest && (!campaignId || guest.campaignId === campaignId)
-      ? { data: { ctx: guest, script: false }, openedAsAdmin: false }
-      : null;
-  }
-  if (!campaignId) return null;
-  const r = await resolveCtx({
-    campaignId,
-    headers: { cookie: headers.cookie, authorization: clerkToken ? `Bearer ${clerkToken}` : undefined },
-  });
-  return r && { data: { ctx: r.ctx, script: false }, openedAsAdmin: r.openedAsAdmin };
-}
+type TableServer = Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
+type TableSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 
 // A GM seat sees the raw snapshots; everyone else gets their own filtered copy (core-schema view.ts).
 const fullView = (ctx: Ctx) => ctx.seat.kind === "admin" || (ctx.seat.kind === "member" && ctx.seat.role === "gm");
@@ -114,36 +70,24 @@ const viewKey = (ctx: Ctx) =>
   maxHttpBufferSize: MAX_PAGE_BYTES + 100_000, // a relayed book page (book:request), plus the ack envelope
 })
 export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
-  @WebSocketServer() server!: Server;
+  @WebSocketServer() server!: TableServer;
   private readonly log = new Logger(TableGateway.name);
   // ponytail: in-process per-campaign queue, assumes one api instance; pg_advisory_xact_lock per campaign when we scale
   // out (docs/design.md §5.6)
   private readonly tails = new Map<string, Promise<void>>();
 
   // Authenticate in middleware, before the connection is accepted, so no event can arrive without a seat.
-  afterInit(server: Server) {
+  afterInit(server: TableServer) {
     server.use(async (socket, next) => {
       // Anything but "unauthorized" makes the client retry later (use-table), so a limited socket backs off.
       if (!allowConnect(clientIp(socket.handshake.headers, socket.handshake.address))) {
         return next(new Error("rate limited"));
       }
       try {
-        const r = await handshake({ auth: socket.handshake.auth, headers: socket.handshake.headers });
+        const r = await resolveSocketCtx({ auth: socket.handshake.auth, headers: socket.handshake.headers });
         if (!r) return next(new Error("unauthorized"));
-        socket.data = r.data;
-        // Opening a room without a seat is logged (docs/design.md §3.6).
-        if (r.openedAsAdmin && r.data.ctx.userId) {
-          const [c] = await db
-            .select({ name: campaign.name })
-            .from(campaign)
-            .where(eq(campaign.id, r.data.ctx.campaignId));
-          await db.insert(adminEvent).values({
-            actorUserId: r.data.ctx.userId,
-            action: "room.open",
-            campaignId: r.data.ctx.campaignId,
-            campaignName: c?.name ?? null,
-          });
-        }
+        socket.data = { ctx: r.ctx, script: r.script };
+        if (r.openedAsAdmin && r.ctx.userId) await logRoomOpen({ userId: r.ctx.userId, campaignId: r.ctx.campaignId });
       } catch (e) {
         // DB down: the client retries (use-table), unlike "unauthorized" which it treats as a dead token.
         this.log.error(e);
@@ -153,15 +97,18 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     });
   }
 
-  async handleConnection(socket: Socket) {
-    const { ctx } = socket.data as SocketData;
+  async handleConnection(socket: TableSocket) {
+    const { ctx } = socket.data;
     try {
       await socket.join(room(ctx.campaignId));
       if (ctx.userId) await socket.join(userRoom(ctx.userId));
-      const [state, codex] = await Promise.all([loadState(ctx.campaignId), loadCodex(ctx.campaignId)]);
-      const full = fullView(ctx);
-      if (state) socket.emit("state", full ? state : toSeatState({ state, ctx }));
-      socket.emit("codex", full ? codex : toSeatCodex({ codex, ctx }));
+      // In the campaign's queue, so this first snapshot can't land after (and overwrite) a newer broadcast.
+      await this.serial(ctx.campaignId, async () => {
+        const [state, codex] = await Promise.all([loadState(ctx.campaignId), loadCodex(ctx.campaignId)]);
+        const full = fullView(ctx);
+        if (state) socket.emit("state", full ? state : toSeatState({ state, ctx }));
+        socket.emit("codex", full ? codex : toSeatCodex({ codex, ctx }));
+      });
       this.announceBooks(ctx.campaignId, socket);
     } catch (e) {
       // No snapshot to show (DB down): drop the socket so the client reconnects instead of waiting on an empty table.
@@ -171,15 +118,14 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   }
 
   // A serving GM left (closed the tab, lost signal): the players' page links go back to plain text.
-  handleDisconnect(socket: Socket) {
-    const data = socket.data as SocketData | undefined;
-    if (data?.books?.length) this.announceBooks(data.ctx.campaignId);
+  handleDisconnect(socket: TableSocket) {
+    if (socket.data?.books?.length) this.announceBooks(socket.data.ctx.campaignId);
   }
 
   // A GM tablet serves these sources from PDFs picked on that device; an empty list stops serving.
   @SubscribeMessage("book:serving")
-  onBookServing(@ConnectedSocket() socket: Socket, @MessageBody() body: unknown) {
-    const data = socket.data as SocketData;
+  onBookServing(@ConnectedSocket() socket: TableSocket, @MessageBody() body: unknown) {
+    const data = socket.data;
     const parsed = BookServing.safeParse(body);
     if (!canInCampaign({ ctx: data.ctx, perm: "codex:write" }) || !parsed.success) return;
     data.books = parsed.data.sources;
@@ -190,16 +136,14 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   // only. Nothing is stored (CLAUDE.md, "Books never reach the server").
   // ponytail: any page of a served book, allow-list the cited pages if the table ever needs it
   @SubscribeMessage("book:request")
-  async onBookRequest(@ConnectedSocket() socket: Socket, @MessageBody() body: unknown) {
-    const { ctx } = socket.data as SocketData;
+  async onBookRequest(@ConnectedSocket() socket: TableSocket, @MessageBody() body: unknown) {
+    const { ctx } = socket.data;
     if (ctx.seat.kind === "token" && ctx.seat.role === "screen")
       return { ok: false, error: "The table screen shows no book pages." };
     if (!allowPage(socket.id)) return { ok: false, error: "Too many pages. Slow down." };
     const parsed = BookPage.safeParse(body);
     if (!parsed.success) return { ok: false, error: z.prettifyError(parsed.error) };
-    const server = this.bookServers(ctx.campaignId).find((s) =>
-      (s.data as SocketData).books?.includes(parsed.data.source),
-    );
+    const server = this.bookServers(ctx.campaignId).find((s) => s.data.books?.includes(parsed.data.source));
     if (!server) return { ok: false, error: "The GM isn't serving that book." };
     let reply: unknown;
     try {
@@ -213,8 +157,8 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   }
 
   @SubscribeMessage("action")
-  async onAction(@ConnectedSocket() socket: Socket, @MessageBody() body: unknown): Promise<ActionResult> {
-    const { ctx, script } = socket.data as SocketData;
+  async onAction(@ConnectedSocket() socket: TableSocket, @MessageBody() body: unknown): Promise<ActionResult> {
+    const { ctx, script } = socket.data;
     if (!script && !allowAction(socket.id)) return { ok: false, error: "Too many actions. Slow down." };
     const parsed = Action.safeParse(body);
     if (!parsed.success) return { ok: false, error: z.prettifyError(parsed.error) };
@@ -236,14 +180,12 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
       }
       // Committed: report success even if fan-out fails, or a retap would apply a delta twice. The next broadcast resyncs.
       try {
-        const kick = kicks(action);
-        // A deleted game kicks its sender too, so the room goes a moment later: the ack has to reach them first.
-        if (kick && "all" in kick)
-          setTimeout(
-            () => this.kick({ campaignId: ctx.campaignId, kick }).catch((e) => this.log.error(e)),
-            KICK_GRACE_MS,
-          );
-        else if (kick) await this.kick({ campaignId: ctx.campaignId, kick });
+        const kick = async () => {
+          for (const k of kicks({ ctx, action })) await this.kick({ campaignId: ctx.campaignId, kick: k });
+        };
+        // Kicks that reach the sender go a moment later: the ack has to reach them first.
+        if (kicksSender(action)) setTimeout(() => kick().catch((e) => this.log.error(e)), KICK_GRACE_MS);
+        else await kick();
         await this.broadcast(ctx.campaignId, touches(action));
       } catch (e) {
         this.log.error(e);
@@ -294,16 +236,16 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   }
 
   // This campaign's GM sockets that serve at least one book. Local sockets: one api instance, as the queue assumes.
-  private bookServers(campaignId: string): Socket[] {
+  private bookServers(campaignId: string): TableSocket[] {
     const ids = this.server.sockets.adapter.rooms.get(room(campaignId)) ?? new Set<string>();
     return [...ids]
       .map((id) => this.server.sockets.sockets.get(id))
-      .filter((s): s is Socket => !!(s?.data as SocketData | undefined)?.books?.length);
+      .filter((s): s is TableSocket => !!s?.data?.books?.length);
   }
 
   // Which sources any GM is serving right now, to everyone at the table (or to one socket that just joined).
-  private announceBooks(campaignId: string, to?: Socket) {
-    const sources = [...new Set(this.bookServers(campaignId).flatMap((s) => (s.data as SocketData).books ?? []))];
+  private announceBooks(campaignId: string, to?: TableSocket) {
+    const sources = [...new Set(this.bookServers(campaignId).flatMap((s) => s.data.books ?? []))];
     (to ?? this.server.to(room(campaignId))).emit("book:available", { sources } satisfies BookAvailable);
   }
 
@@ -314,7 +256,7 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     const send = <T>(event: string, value: T, view: (ctx: Ctx) => unknown) => {
       const views = new Map<string, unknown>();
       for (const s of sockets) {
-        const { ctx } = s.data as SocketData;
+        const { ctx } = s.data;
         if (fullView(ctx)) {
           s.emit(event, value);
           continue;
@@ -337,7 +279,7 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   // Disconnects the sockets whose seat just changed or went: they reconnect and resolve their seat again.
   private async kick({ campaignId, kick }: { campaignId: string; kick: Kick }) {
     for (const s of await this.server.in(room(campaignId)).fetchSockets()) {
-      const { ctx } = s.data as SocketData;
+      const { ctx } = s.data;
       const hit =
         "all" in kick
           ? true

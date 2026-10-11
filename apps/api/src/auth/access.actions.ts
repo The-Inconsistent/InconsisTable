@@ -27,8 +27,14 @@ export type AccessAction = Extract<
   }
 >;
 
-// An offer to take over a room lasts a week, like a character invite.
+// An offer to take over a room lasts a week.
 const TRANSFER_HOURS = 168;
+
+// An offer to someone who no longer sits here goes with their seat.
+const dropOfferTo = (tx: Tx, { campaignId, userId }: { campaignId: string; userId: string }) =>
+  tx
+    .delete(ownershipTransfer)
+    .where(and(eq(ownershipTransfer.campaignId, campaignId), eq(ownershipTransfer.toUserId, userId)));
 
 const memberOf = async (tx: Tx, { campaignId, userId }: { campaignId: string; userId: string }) =>
   (
@@ -90,6 +96,7 @@ export async function applyAccessAction(
             : "You can only remove seats below your own",
         );
       await tx.delete(membership).where(eq(membership.id, m.id));
+      await dropOfferTo(tx, { campaignId: cid, userId: a.userId });
       return { ok: true };
     }
 
@@ -116,11 +123,13 @@ export async function applyAccessAction(
     }
 
     case "seat.leave": {
-      // No kick: the phone navigates away on the ack, and a kick would drop the socket before the ack reaches it.
+      // The leaver's sockets are kicked a moment after the ack (kicks), so this phone gets its answer first.
       if (ctx.seat.kind === "admin") fail("You hold no seat here");
       if (ctx.userId && ctx.userId === ctx.campaignOwnerId) fail("Hand the room on before you leave it");
-      if (ctx.seat.kind === "member" && ctx.userId)
+      if (ctx.seat.kind === "member" && ctx.userId) {
         await tx.delete(membership).where(and(eq(membership.campaignId, cid), eq(membership.userId, ctx.userId)));
+        await dropOfferTo(tx, { campaignId: cid, userId: ctx.userId });
+      }
       // ponytail: a guest can't be told apart from another phone on the same character's QR, so all its tokens go.
       else
         for (const actorId of ctx.seat.characterIds)
@@ -187,11 +196,11 @@ export async function applyAccessAction(
         )
         .returning({ toUserId: ownershipTransfer.toUserId });
       if (!offer) fail("There is no offer for you to accept");
+      // Only a member takes over (campaign.transfer): one who has left since can't come back through the offer.
+      const m =
+        (await memberOf(tx, { campaignId: cid, userId: ctx.userId })) ?? fail("Only a member can take over the room");
       // The new owner always sits as a GM; the old owner keeps their GM seat until the new owner decides.
-      await tx
-        .insert(membership)
-        .values({ campaignId: cid, userId: ctx.userId, role: "gm" })
-        .onConflictDoUpdate({ target: [membership.campaignId, membership.userId], set: { role: "gm", scopes: [] } });
+      await tx.update(membership).set({ role: "gm", scopes: [] }).where(eq(membership.id, m.id));
       await tx.update(campaign).set({ ownerUserId: ctx.userId }).where(eq(campaign.id, cid));
       return { ok: true };
     }

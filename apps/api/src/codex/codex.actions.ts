@@ -46,20 +46,21 @@ export async function applyCodexAction(
     case "codex.reveal": {
       await ownEntry(tx, { campaignId: cid, id: a.id });
       const listed = a.audienceMode === "listed";
-      if (listed && a.visibility !== "gm" && !a.audience.length) fail("Pick who sees it");
+      const audience = [...new Set(a.audience)]; // a reader listed twice is one row
+      if (listed && a.visibility !== "gm" && !audience.length) fail("Pick who sees it");
       if (listed) {
         // Only this campaign's characters can be readers.
         const held = await tx.select({ id: actor.id }).from(actor).where(eq(actor.campaignId, cid));
         const ids = new Set(held.map((r) => r.id));
-        if (a.audience.some((x) => !ids.has(x))) fail("Character not found");
+        if (audience.some((x) => !ids.has(x))) fail("Character not found");
       }
       await tx
         .update(codexEntry)
         .set({ visibility: a.visibility, audienceMode: a.audienceMode })
         .where(eq(codexEntry.id, a.id));
       await tx.delete(codexReveal).where(eq(codexReveal.entryId, a.id));
-      if (listed && a.audience.length)
-        await tx.insert(codexReveal).values(a.audience.map((actorId) => ({ entryId: a.id, actorId })));
+      if (listed && audience.length)
+        await tx.insert(codexReveal).values(audience.map((actorId) => ({ entryId: a.id, actorId })));
       return { ok: true };
     }
 

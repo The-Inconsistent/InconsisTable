@@ -1,8 +1,8 @@
 import { eq, sql } from "drizzle-orm";
 import {
   ACTION_PERMS,
-  ADMIN_ACTIONS,
   ARCHIVED_OPEN,
+  AdminAction,
   OWN_FALLBACK,
   canInCampaign,
   type Action,
@@ -29,24 +29,33 @@ export function touches(a: Action): { state: boolean; codex: boolean } {
 }
 
 // Sockets to disconnect after this action, so they reconnect with their new (or no) seat: a removed or re-appointed
-// member, the guests of a revoked or deleted character, every screen, or everyone at a deleted game.
+// member, the guests of a revoked or deleted character, every screen, everyone at a deleted game, or every socket of a
+// seat that left (a member's other tabs, the other phones on a guest's characters).
 export type Kick = { userId: string } | { actorId: string; tokensOnly: boolean } | { screens: true } | { all: true };
-export function kicks(a: Action): Kick | null {
+export function kicks({ ctx, action: a }: { ctx: Ctx; action: Action }): Kick[] {
   if (a.type === "member.remove" || a.type === "member.appoint" || a.type === "member.seat")
-    return { userId: a.userId };
-  if (a.type === "token.revoke") return { actorId: a.actorId, tokensOnly: true }; // members keep their seat
-  if (a.type === "actor.delete") return { actorId: a.id, tokensOnly: false };
-  if (a.type === "screen.revoke") return { screens: true };
+    return [{ userId: a.userId }];
+  if (a.type === "token.revoke") return [{ actorId: a.actorId, tokensOnly: true }]; // members keep their seat
+  if (a.type === "actor.delete") return [{ actorId: a.id, tokensOnly: false }];
+  if (a.type === "screen.revoke") return [{ screens: true }];
   // A new owner: every seat resolves again, so the old owner loses the owner's powers and the new one gains them.
-  if (a.type === "campaign.delete" || a.type === "campaign.transferAccept") return { all: true };
-  return null;
+  if (a.type === "campaign.delete" || a.type === "campaign.transferAccept") return [{ all: true }];
+  if (a.type === "seat.leave") {
+    if (ctx.seat.kind === "member" && ctx.userId) return [{ userId: ctx.userId }];
+    if (ctx.seat.kind === "token") return ctx.seat.characterIds.map((actorId) => ({ actorId, tokensOnly: true }));
+  }
+  return [];
 }
+
+// Kicks that reach the sender wait a moment, so the ack gets there first.
+export const kicksSender = (a: Action) =>
+  a.type === "campaign.delete" || a.type === "campaign.transferAccept" || a.type === "seat.leave";
 
 // The `:own` target an action names, if any.
 const targetOf = (a: Action) => (a.type === "actor.rename" ? { actorId: a.id } : undefined);
 
-// authorize = state guard, then the permission the action declares, then the action's own rules (docs/design.md §5.3).
-// The state guard (archived) and the current owner need the campaign row, so applyAction reads it first.
+// The permission the action declares. The pipeline (docs/design.md §5.3) is the state guard (archived, in
+// applyAction, which reads the campaign row first), then this, then the action's own rules in its handler.
 export function authorize(ctx: Ctx, a: Action) {
   const perm = ACTION_PERMS[a.type];
   if (perm === null) return; // the action checks its caller itself (campaign.transferAccept)
@@ -72,14 +81,16 @@ export async function applyAction(
   if (!c) fail("Game not found");
   // The owner comes from this row, not the handshake: a socket opened before a transfer must not keep its powers.
   const ctx: Ctx = { ...seated, campaignOwnerId: c.ownerUserId };
-  authorize(ctx, action); // a refusal throws and rolls back the version bump
+  // A refusal throws and rolls back the version bump.
   if (c.archivedAt && !ARCHIVED_OPEN.has(action.type)) fail("This game is archived");
+  authorize(ctx, action);
   const result = await dispatch(tx, { ctx, action });
   // Only the housekeeping is logged: an admin running a table would otherwise bury it under every tap.
-  if (ctx.seat.kind === "admin" && ctx.userId && result.ok && ADMIN_ACTIONS.has(action.type))
+  const logged = AdminAction.safeParse(action.type);
+  if (ctx.seat.kind === "admin" && ctx.userId && result.ok && logged.success)
     await tx.insert(adminEvent).values({
       actorUserId: ctx.userId,
-      action: action.type,
+      action: logged.data,
       campaignId: ctx.campaignId,
       campaignName: c.name,
       targetUserId: "userId" in action ? action.userId : "toUserId" in action ? action.toUserId : null,

@@ -95,7 +95,12 @@ export async function acceptInvite(
   const b = parsed.data;
   const inv = await liveInvite(tx, code);
   const campaignId = inv.campaignId;
-  const [c] = await tx.select({ archivedAt: campaign.archivedAt }).from(campaign).where(eq(campaign.id, campaignId));
+  // A change at the table like any action: it bumps the state version (docs/design.md §5.6); a refusal rolls it back.
+  const [c] = await tx
+    .update(campaign)
+    .set({ stateVersion: sql`${campaign.stateVersion} + 1` })
+    .where(eq(campaign.id, campaignId))
+    .returning({ archivedAt: campaign.archivedAt });
   if (c?.archivedAt) fail("This game is archived");
   if (b.asGuest && !inv.allowGuests) fail("This invite needs an account. Sign in first");
   if (!b.asGuest && !user) fail("Sign in first, or join as a guest");

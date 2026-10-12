@@ -26,6 +26,17 @@ export function TableScreen({ campaignId }: TableScreenProps) {
           .map((a) => a.name)
           .join(" · ")}
       </p>
+      {/* A Test in progress: that it is, and how far along. Never who, or any number (the state carries none). */}
+      {state.tests
+        .filter((c) => c.status === "open")
+        .map((c) => (
+          <section key={c.id} className="card" role="status">
+            <strong>Test in progress</strong>
+            <span>
+              {c.testId}: {c.reported} of {c.called} have rolled
+            </span>
+          </section>
+        ))}
       {revealed.map((e) => (
         <section key={e.id} className="card">
           <strong>{e.title}</strong>

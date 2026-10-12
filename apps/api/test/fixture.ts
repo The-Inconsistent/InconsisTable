@@ -89,6 +89,19 @@ export const FIXTURE_RULESET: RulesetInput = {
     { id: "burning", label: "Burning", cite: "Fixture p.4", duration: "roundEnd", stacking: "refresh", effects: [] },
     { id: "marked", label: "Marked", cite: "Fixture p.4", duration: "manual", effects: [] },
   ],
+  // A d20-style check: roll against a number the caller supplies, adding the named score's modifier.
+  tests: {
+    check: {
+      kind: "sumVsTarget",
+      dice: "1d20",
+      modifier: "mod(attr[ctx.ability])",
+      target: "ctx.dc",
+      advantage: true,
+      critOn: [20],
+      inputs: { ability: "text", dc: "int" },
+      cite: "Fixture p.6",
+    },
+  },
   initiative: { strategy: "ranked", score: "mod(attr.dex)", cite: "Fixture p.5" },
   health: {
     tracks: [{ resource: "hp", temp: "tempHp", deathSaves: { successes: 3, failures: 3 } }],

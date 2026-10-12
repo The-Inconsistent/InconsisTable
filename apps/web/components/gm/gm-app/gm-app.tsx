@@ -5,6 +5,7 @@ import { canInCampaign, type Me } from "@inconsistable/core-schema";
 
 import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
 import { Party } from "@/components/gm/party/party";
+import { Tests } from "@/components/gm/tests/tests";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useTable } from "@/hooks/use-table/use-table";
@@ -12,7 +13,7 @@ import { useTable } from "@/hooks/use-table/use-table";
 type GmAppProps = { me: Me; initialTab: GmTab };
 
 // What each tab will hold, until it does (docs/p0-plan.md, docs/design.md §3.4).
-const COMING: Record<Exclude<GmTab, "party">, string> = {
+const COMING: Record<Exclude<GmTab, "party" | "tests">, string> = {
   track: "The combat tracker arrives with the first ruleset (P1).",
   prep: "Adventures and scenes arrive in P1.",
   codex: "NPCs, places, factions and handouts arrive in P1.",
@@ -48,7 +49,13 @@ export function GmApp({ me, initialTab }: GmAppProps) {
         ))}
       </nav>
       <main className="page">
-        {tab === "party" ? <Party me={me} state={state} send={send} /> : <p className="dim">{COMING[tab]}</p>}
+        {tab === "party" ? (
+          <Party me={me} state={state} send={send} />
+        ) : tab === "tests" ? (
+          <Tests state={state} send={send} />
+        ) : (
+          <p className="dim">{COMING[tab]}</p>
+        )}
       </main>
     </>
   );

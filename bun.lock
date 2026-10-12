@@ -46,6 +46,7 @@
       "dependencies": {
         "@inconsistable/auth": "workspace:*",
         "@inconsistable/core-schema": "workspace:*",
+        "@inconsistable/rules-engine": "workspace:*",
         "next": "^16.3.6",
         "qrcode": "^1.5.4",
         "react": "^19.3.0",

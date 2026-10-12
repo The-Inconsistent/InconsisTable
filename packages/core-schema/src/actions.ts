@@ -13,6 +13,7 @@ import {
   FieldValue,
   InviteMode,
 } from "./state.ts";
+import { TestCallAction, TestCloseAction, TestReportAction } from "./test-call.ts";
 
 // Every mutation goes through one socket event: "action" (CLAUDE.md, "The server decides"). These are the core
 // actions; ruleset actions (res.adjust, turn.op, rule.op, test.*) are declared by the engine's primitives instead.
@@ -81,6 +82,12 @@ export const Action = z.discriminatedUnion("type", [
   z.object({ type: z.literal("actor.rest"), event: z.string().min(1).max(40), actorId: id.optional() }),
   // Undoes the newest logged action of the running session that is not undone yet. There is no redo.
   z.object({ type: z.literal("event.undo") }),
+
+  // A Test the GM calls, the physical roll a player or the GM reports, and the close (docs/design.md §6.3). The api
+  // resolves a report with the engine's `dice.sumVsTarget`, so a hidden target number never leaves it.
+  TestCallAction,
+  TestReportAction,
+  TestCloseAction,
 
   z.object({
     type: z.literal("invite.create"),
@@ -155,6 +162,9 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "condition.remove": "encounter:run",
   "actor.rest": "session:run",
   "event.undo": "encounter:run", // the GM, and a co-GM with the combat scope
+  "test.call": "test:call",
+  "test.report": "test:report:own", // the player of that character; the GM side through OWN_FALLBACK
+  "test.close": "test:call",
   "invite.create": "member:invite",
   "invite.revoke": "member:invite",
   "member.remove": "member:remove",
@@ -171,7 +181,10 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
 };
 
 // `:own` permissions that a GM-side permission also satisfies: a GM renames any character.
-export const OWN_FALLBACK: Partial<Record<Permission, Permission>> = { "character:edit:own": "character:edit:any" };
+export const OWN_FALLBACK: Partial<Record<Permission, Permission>> = {
+  "character:edit:own": "character:edit:any",
+  "test:report:own": "test:call",
+};
 
 // Actions an archived room still takes: unarchive, delete, leaving, and revoking access (kept from Auspex).
 export const ARCHIVED_OPEN: ReadonlySet<ActionType> = new Set([

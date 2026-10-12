@@ -7,6 +7,7 @@ export const GM_TABS = {
   prep: { label: "Prep", perm: "codex:write" },
   codex: { label: "Codex", perm: "codex:read" },
   party: { label: "Party", perm: "member:invite" },
+  tests: { label: "Tests", perm: "test:call" },
   map: { label: "Map", perm: "codex:read" },
   rules: { label: "Rules", perm: "codex:read" },
 } as const satisfies Record<string, { label: string; perm: Permission }>;

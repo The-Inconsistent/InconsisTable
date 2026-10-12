@@ -382,3 +382,75 @@ summary {
 .credit {
   margin: 0;
 }
+
+/* A called Test: the roll as read off the physical dice. Big numerals and keys, so it reads at arm's length and takes
+   a few taps; the keys stand in for the phone's keyboard, which would cover the screen. */
+.btn[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.roll-card {
+  border-width: 2px;
+  border-color: var(--accent);
+}
+.roll-title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+}
+.roll-result {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.roll-line {
+  min-width: 0;
+}
+.roll-slots {
+  display: flex;
+  gap: 12px;
+}
+.roll-slot {
+  flex: 1;
+  min-height: 88px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 56px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.roll-slot[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 -6px 0 var(--accent);
+}
+.roll-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.roll-key {
+  min-height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.roll-key.report {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-size: 20px;
+}
+.roll-key:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

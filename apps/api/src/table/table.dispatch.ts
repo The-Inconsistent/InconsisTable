@@ -18,6 +18,7 @@ import { applyCodexAction } from "../codex/codex.actions.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
 import { applyRuleAction, primitiveOp } from "../ruleset/ruleset.actions.ts";
+import { applyTestCallAction } from "../test-call/test-call.actions.ts";
 import { requirePerm } from "./table.authorize.ts";
 
 // Which snapshot an action changes, so the gateway only rebroadcasts what moved.
@@ -61,7 +62,11 @@ export const kicksSender = (a: Action) =>
 
 // The `:own` target an action names, if any.
 const targetOf = (a: Action) =>
-  a.type === "actor.rename" ? { actorId: a.id } : a.type === "field.set" ? { actorId: a.actorId } : undefined;
+  a.type === "actor.rename"
+    ? { actorId: a.id }
+    : a.type === "field.set" || a.type === "test.report"
+      ? { actorId: a.actorId }
+      : undefined;
 
 // The permission the action declares. The pipeline (docs/design.md §5.3) is the state guard (archived, in
 // applyAction, which reads the campaign row first), then this, then the action's own rules in its handler.
@@ -144,6 +149,11 @@ function dispatch(tx: Tx, { ctx, action }: { ctx: Ctx; action: Action }): Promis
     case "condition.remove":
     case "actor.rest":
       return applyRuleAction(tx, { ctx, action });
+
+    case "test.call":
+    case "test.report":
+    case "test.close":
+      return applyTestCallAction(tx, { ctx, action });
 
     case "event.undo":
       return applyEventAction(tx, { ctx, action });

@@ -24,8 +24,9 @@ export type RuleAction = Extract<
 
 // Where each primitive reads its params in the pinned ruleset (docs/design.md §4.1): `rule.op` never takes params from
 // the client. A primitive missing here is not run through `rule.op` yet.
-// ponytail: dice.sumVsTarget takes its params from a named Test and runs through the test.* actions (workstream G);
-// a primitive added to the engine is one line here until the manifest says where its params live
+// dice.sumVsTarget takes its params from a named Test, not from the ruleset's one block, so it runs through the
+// test.* actions (test-call/). A primitive added to the engine is one line here until the manifest says where its
+// params live.
 const PRIMITIVE_PARAMS: Readonly<Record<string, (r: Ruleset) => unknown>> = {
   "initiative.ranked": (r) => r.initiative,
   "health.tracks": (r) => r.health,

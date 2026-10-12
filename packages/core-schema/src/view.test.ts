@@ -88,6 +88,11 @@ test("seats outside the party/combat side see the party and their own characters
     name: id,
     status: "active",
     ownerUserId: "x",
+    entity: "",
+    fields: {},
+    resources: {},
+    derived: {},
+    conditions: [],
   });
   const state: LiveState = {
     campaign: { id: "c1", name: "R", ownerUserId: "owner", archived: false, nextSessionAt: null, nextSessionPlace: "" },

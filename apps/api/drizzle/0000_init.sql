@@ -155,6 +155,9 @@ CREATE TABLE "session_event" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"session_id" uuid,
 	"type" text NOT NULL,
+	"action_id" uuid,
+	"seat_user_id" text,
+	"undone_by" uuid,
 	"payload" jsonb NOT NULL
 );
 --> statement-breakpoint
@@ -227,6 +230,7 @@ ALTER TABLE "campaign" ADD CONSTRAINT "campaign_ruleset_version_id_ruleset_versi
 ALTER TABLE "session" ADD CONSTRAINT "session_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session_event" ADD CONSTRAINT "session_event_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session_event" ADD CONSTRAINT "session_event_session_id_session_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."session"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "session_event" ADD CONSTRAINT "session_event_undone_by_session_event_id_fk" FOREIGN KEY ("undone_by") REFERENCES "public"."session_event"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "codex_entry" ADD CONSTRAINT "codex_entry_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "codex_reveal" ADD CONSTRAINT "codex_reveal_entry_id_codex_entry_id_fk" FOREIGN KEY ("entry_id") REFERENCES "public"."codex_entry"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "codex_reveal" ADD CONSTRAINT "codex_reveal_actor_id_actor_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -236,4 +240,5 @@ ALTER TABLE "ruleset_version" ADD CONSTRAINT "ruleset_version_extends_version_id
 CREATE INDEX "actor_campaign_id_kind_index" ON "actor" USING btree ("campaign_id","kind");--> statement-breakpoint
 CREATE INDEX "admin_event_created_at_index" ON "admin_event" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "session_event_campaign_id_created_at_index" ON "session_event" USING btree ("campaign_id","created_at");--> statement-breakpoint
+CREATE INDEX "session_event_campaign_id_undone_by_created_at_index" ON "session_event" USING btree ("campaign_id","undone_by","created_at");--> statement-breakpoint
 CREATE INDEX "codex_entry_campaign_id_kind_index" ON "codex_entry" USING btree ("campaign_id","kind");

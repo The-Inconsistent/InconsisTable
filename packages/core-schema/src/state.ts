@@ -23,12 +23,28 @@ export type ActorLinkKind = z.infer<typeof ActorLinkKind>;
 export const InviteMode = z.enum(["room", "character"]); // room: claim or start a character; character: one character
 export type InviteMode = z.infer<typeof InviteMode>;
 
-export const Actor = z.object({
+// A stored field value (docs/design.md §5.4): what the actor_field rows hold, or null for an unset field.
+export const FieldValue = z.union([z.number(), z.string(), z.boolean(), z.array(z.string()), z.null()]);
+export type FieldValue = z.infer<typeof FieldValue>;
+
+// An actor without its ruleset values: what an invite preview shows anyone holding the code.
+export const ActorBrief = z.object({
   id: z.string(),
   kind: ActorKind,
   name: ActorName,
   status: ActorStatus,
   ownerUserId: z.string().nullable(), // who may export it to their library; editing goes by seat (permissions.ts)
+});
+export type ActorBrief = z.infer<typeof ActorBrief>;
+
+export const Actor = ActorBrief.extend({
+  // The ruleset's values. The api filters them per seat with the rules engine's `toViewerView` (a GM seat gets them
+  // whole); empty until a ruleset is pinned and the actor has an entity type.
+  entity: z.string(), // the ruleset's entity type id
+  fields: z.record(z.string(), FieldValue),
+  resources: z.record(z.string(), z.number()),
+  derived: z.record(z.string(), z.number()),
+  conditions: z.array(z.string()), // active condition ids
 });
 export type Actor = z.infer<typeof Actor>;
 

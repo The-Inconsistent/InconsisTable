@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { MemberRole } from "./seat.ts";
-import { Actor, CampaignName, InviteMode } from "./state.ts";
+import { ActorBrief, CampaignName, InviteMode } from "./state.ts";
 
 // REST shapes for signed-in users outside a table: the lobby, creating a game, and invite links.
 
@@ -35,8 +35,8 @@ export const InvitePreview = z.object({
   campaignName: z.string(),
   mode: InviteMode,
   role: MemberRole,
-  actor: Actor.nullable(), // the invited character (mode "character")
-  openActors: z.array(Actor), // unclaimed characters to pick from (mode "room")
+  actor: ActorBrief.nullable(), // the invited character (mode "character")
+  openActors: z.array(ActorBrief), // unclaimed characters to pick from (mode "room")
   allowGuests: z.boolean(),
   signedIn: z.boolean(),
   member: z.boolean(),

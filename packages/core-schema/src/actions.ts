@@ -10,6 +10,7 @@ import {
   CodexText,
   CodexTitle,
   CodexVisibility,
+  FieldValue,
   InviteMode,
 } from "./state.ts";
 
@@ -51,6 +52,30 @@ export const Action = z.discriminatedUnion("type", [
   z.object({ type: z.literal("actor.create"), kind: ActorKind.default("pc"), name: ActorName }),
   z.object({ type: z.literal("actor.rename"), id, name: ActorName }),
   z.object({ type: z.literal("actor.delete"), id }),
+
+  // Ruleset actions (docs/design.md §5.3). `rule.op` runs one op of a primitive the engine registers: the op declares
+  // its permission, targets and what it touches, so a new ruleset never adds a case to the dispatch. The others write
+  // an actor's typed value rows. Every one lands in the session log and can be undone.
+  z.object({
+    type: z.literal("rule.op"),
+    primitive: z.string().min(1).max(64),
+    op: z.string().min(1).max(64),
+    input: z.record(z.string().max(64), z.unknown()).default({}),
+  }),
+  z.object({ type: z.literal("field.set"), actorId: id, field: z.string().min(1).max(120), value: FieldValue }),
+  z.object({
+    type: z.literal("condition.add"),
+    actorId: id,
+    condition: z.string().min(1).max(64),
+    source: z.string().max(100).default(""),
+    expiresAfter: z.int().min(1).max(1000).optional(), // turns or rounds, for the expiries that count
+  }),
+  z.object({ type: z.literal("condition.remove"), actorId: id, condition: z.string().min(1).max(64) }),
+  // The ruleset's `resetOn` for one rest or boundary event, on one actor or on all of them. `event` is the engine's
+  // ResetEvent; core-schema can't import the engine, so the api parses it.
+  z.object({ type: z.literal("actor.rest"), event: z.string().min(1).max(40), actorId: id.optional() }),
+  // Undoes one logged action of the running session (the newest when `actionId` is left out). There is no redo.
+  z.object({ type: z.literal("event.undo"), actionId: id.optional() }),
 
   z.object({
     type: z.literal("invite.create"),
@@ -101,7 +126,7 @@ export type ActionInput = z.input<typeof Action>; // what clients send: defaulte
 export type ActionType = Action["type"];
 
 // The permission each action needs (CLAUDE.md, "Adding a core action"). A missing entry is a type error. `null` means
-// the action checks its caller itself (the transfer's recipient holds no permission yet).
+// the action checks its caller itself (the transfer's recipient holds no permission yet; `rule.op` takes its op's).
 export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "campaign.update": "campaign:update",
   "campaign.archive": "campaign:archive",
@@ -116,6 +141,12 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "actor.create": "character:create",
   "actor.rename": "character:edit:own",
   "actor.delete": "character:edit:any",
+  "rule.op": null, // the op declares it (a primitive's `perm`); the ruleset pipeline checks it
+  "field.set": "character:edit:own", // then the field's `editableBy`
+  "condition.add": "encounter:run",
+  "condition.remove": "encounter:run",
+  "actor.rest": "session:run",
+  "event.undo": "encounter:run", // the GM, and a co-GM with the combat scope
   "invite.create": "member:invite",
   "invite.revoke": "member:invite",
   "member.remove": "member:remove",

@@ -19,7 +19,6 @@ import {
   MAX_PAGE_BYTES,
   canInCampaign,
   toSeatCodex,
-  toSeatState,
   type ActionResult,
   type BookAvailable,
   type BookSource,
@@ -31,7 +30,7 @@ import { db } from "../core/db.ts";
 import { ActionError } from "../core/errors.ts";
 import { clientIp, limiter } from "../core/rate-limit.ts";
 import { applyAction, kicks, kicksSender, touches, type Kick } from "./table.dispatch.ts";
-import { loadCodex, loadState } from "./table.state.ts";
+import { loadCodex, loadLive, seatState } from "./table.state.ts";
 
 const room = (campaignId: string) => `c:${campaignId}`;
 export const userRoom = (userId: string) => `u:${userId}`;
@@ -104,9 +103,9 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
       if (ctx.userId) await socket.join(userRoom(ctx.userId));
       // In the campaign's queue, so this first snapshot can't land after (and overwrite) a newer broadcast.
       await this.serial(ctx.campaignId, async () => {
-        const [state, codex] = await Promise.all([loadState(ctx.campaignId), loadCodex(ctx.campaignId)]);
+        const [live, codex] = await Promise.all([loadLive(ctx.campaignId), loadCodex(ctx.campaignId)]);
         const full = fullView(ctx);
-        if (state) socket.emit("state", full ? state : toSeatState({ state, ctx }));
+        if (live) socket.emit("state", full ? live.state : seatState({ live, ctx }));
         socket.emit("codex", full ? codex : toSeatCodex({ codex, ctx }));
       });
       this.announceBooks(ctx.campaignId, socket);
@@ -267,8 +266,8 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
       }
     };
     if (what.state) {
-      const state = await loadState(campaignId);
-      if (state) send("state", state, (ctx) => toSeatState({ state, ctx }));
+      const live = await loadLive(campaignId);
+      if (live) send("state", live.state, (ctx) => seatState({ live, ctx }));
     }
     if (what.codex) {
       const codex = await loadCodex(campaignId);

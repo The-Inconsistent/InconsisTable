@@ -1,4 +1,4 @@
-import { bigint, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, index, integer, jsonb, pgTable, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { appUser } from "../auth/auth.schema.ts";
 import { body, createdAt, pk } from "../core/sql.ts";
 import { rulesetVersion } from "../ruleset/ruleset.schema.ts";
@@ -43,16 +43,20 @@ export const session = pgTable("session", {
 });
 
 // The session log: deltas with their before and after values (Postgres 18 RETURNING OLD/NEW), rolls, reveals. It is
-// the basis of server-side undo and of the recap draft. Append-only; read by session and time.
+// the basis of server-side undo and of the recap draft. Append-only apart from `undone_by`, which marks a delta row
+// once an `undo` event has reversed it. A `delta` row is one write (payload: target, kind, before, after); the rows of
+// one action share `action_id`, and an undo is itself an event (type `undo`) that never becomes undoable.
 // ponytail: unbounded per campaign; partition by month and compact into the recap at session end when it grows
-// ponytail: nothing writes it yet (P0 has no undo); P1 undo writes each action's deltas here
 export const sessionEvent = pgTable(
   "session_event",
   {
     ...owned(),
     sessionId: uuid().references(() => session.id, { onDelete: "set null" }),
     type: text().notNull(),
+    actionId: uuid(), // groups the deltas of one action
+    seatUserId: text(), // who acted; null for a guest, a screen, the admin key and the system
+    undoneBy: uuid().references((): AnyPgColumn => sessionEvent.id, { onDelete: "set null" }),
     payload: jsonb().notNull(),
   },
-  (t) => [index().on(t.campaignId, t.createdAt)],
+  (t) => [index().on(t.campaignId, t.createdAt), index().on(t.campaignId, t.undoneBy, t.createdAt)],
 );

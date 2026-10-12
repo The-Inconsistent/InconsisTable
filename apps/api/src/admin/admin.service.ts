@@ -4,6 +4,7 @@ import type { Action, ActionResult, Ctx } from "@inconsistable/core-schema";
 import { appUser } from "../auth/auth.schema.ts";
 import { campaign } from "../campaign/campaign.schema.ts";
 import { db } from "../core/db.ts";
+import { pack } from "../pack/pack.schema.ts";
 import { adminEvent } from "./admin.schema.ts";
 
 // The part of the table socket this service drives (TableGateway has it), so the service imports no Nest code.
@@ -26,6 +27,47 @@ export const listCampaigns = () =>
     })
     .from(campaign)
     .orderBy(desc(campaign.createdAt));
+
+// Every imported pack, for finding the one a takedown notice names. Metadata only: an admin does not read pack content.
+export const listPacks = () =>
+  db
+    .select({
+      id: pack.id,
+      slug: pack.slug,
+      ownerUserId: pack.ownerUserId,
+      license: pack.license,
+      disabled: sql<boolean>`${pack.disabledAt} is not null`,
+    })
+    .from(pack)
+    .orderBy(desc(pack.createdAt));
+
+// Notice-and-takedown (docs/design.md §4.6): a disabled pack is served to nobody and can't be attached or re-imported,
+// at once, in every room. Logged with the owner as target. false when there is no such pack.
+export async function setPackDisabled({
+  actorUserId,
+  packId,
+  disabled,
+}: {
+  actorUserId: string;
+  packId: string;
+  disabled: boolean;
+}): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const [p] = await tx
+      .update(pack)
+      .set({ disabledAt: disabled ? new Date() : null })
+      .where(eq(pack.id, packId))
+      .returning({ slug: pack.slug, ownerUserId: pack.ownerUserId });
+    if (!p) return false;
+    await tx.insert(adminEvent).values({
+      actorUserId,
+      action: disabled ? "pack.disable" : "pack.enable",
+      targetUserId: p.ownerUserId,
+      detail: `${p.slug} (${packId})`,
+    });
+    return true;
+  });
+}
 
 export const listEvents = () => db.select().from(adminEvent).orderBy(desc(adminEvent.createdAt)).limit(200);
 

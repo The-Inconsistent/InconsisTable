@@ -38,6 +38,11 @@ export const Action = z.discriminatedUnion("type", [
   z.object({ type: z.literal("campaign.transfer"), toUserId: userId }),
   z.object({ type: z.literal("campaign.transferCancel") }),
   z.object({ type: z.literal("campaign.transferAccept") }),
+  // The room's ruleset and packs: versions the owner imported (docs/design.md §4.6). Never taken from the client's word
+  // for who owns them; the handler looks them up as the caller's.
+  z.object({ type: z.literal("campaign.setRuleset"), rulesetVersionId: id }),
+  z.object({ type: z.literal("campaign.attachPack"), packVersionId: id }),
+  z.object({ type: z.literal("campaign.detachPack"), packVersionId: id }),
 
   z.object({ type: z.literal("session.start"), title: SessionTitle.default("") }),
   z.object({ type: z.literal("session.end"), recap: z.string().max(10_000).default("") }),
@@ -135,6 +140,9 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "campaign.transfer": "campaign:transfer",
   "campaign.transferCancel": "campaign:transfer",
   "campaign.transferAccept": null,
+  "campaign.setRuleset": "campaign:ruleset",
+  "campaign.attachPack": "campaign:ruleset",
+  "campaign.detachPack": "campaign:ruleset",
   "session.start": "session:run",
   "session.end": "session:run",
   "session.edit": "session:run",
@@ -189,7 +197,14 @@ export type AdminAction = z.infer<typeof AdminAction>;
 export const ADMIN_ACTIONS: ReadonlySet<ActionType> = new Set(AdminAction.options);
 
 // What an admin_event row records: that housekeeping, an admin opening a room without a seat, a moderator's lock.
-export const AdminEventAction = z.enum([...AdminAction.options, "room.open", "user.lock", "user.unlock"]);
+export const AdminEventAction = z.enum([
+  ...AdminAction.options,
+  "room.open",
+  "user.lock",
+  "user.unlock",
+  "pack.disable", // notice-and-takedown: the pack stops being served at once (docs/design.md §4.6)
+  "pack.enable",
+]);
 export type AdminEventAction = z.infer<typeof AdminEventAction>;
 
 export type ActionResult = { ok: true; id?: string; token?: string } | { ok: false; error: string };

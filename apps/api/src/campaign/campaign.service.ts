@@ -5,6 +5,8 @@ import type { Lobby, LobbyGame } from "@inconsistable/core-schema";
 import { actor } from "../actor/actor.schema.ts";
 import { appUser, membership } from "../auth/auth.schema.ts";
 import { db } from "../core/db.ts";
+import { fail } from "../core/errors.ts";
+import { ruleset, rulesetVersion } from "../ruleset/ruleset.schema.ts";
 import { campaign, session } from "./campaign.schema.ts";
 
 // The admin key (scripts only) compared in constant time.
@@ -17,12 +19,29 @@ export function isAdminKey(key: string | undefined) {
 }
 
 // A new room with its creator as owner and GM. `owner.name` is a placeholder until they next sign in.
-export function createCampaign({ name, owner }: { name: string; owner: { userId: string; name: string } | null }) {
+// A ruleset version can be picked at creation, if the owner imported it (the same rule as campaign.setRuleset).
+export function createCampaign({
+  name,
+  owner,
+  rulesetVersionId,
+}: {
+  name: string;
+  owner: { userId: string; name: string } | null;
+  rulesetVersionId?: string;
+}) {
   return db.transaction(async (tx) => {
     if (owner) await tx.insert(appUser).values({ id: owner.userId, name: owner.name }).onConflictDoNothing();
+    if (rulesetVersionId) {
+      const [mine] = await tx
+        .select({ id: rulesetVersion.id })
+        .from(rulesetVersion)
+        .innerJoin(ruleset, eq(ruleset.id, rulesetVersion.rulesetId))
+        .where(and(eq(rulesetVersion.id, rulesetVersionId), eq(ruleset.ownerUserId, owner?.userId ?? "")));
+      if (!mine) fail("Ruleset not found");
+    }
     const [c] = await tx
       .insert(campaign)
-      .values({ name, ownerUserId: owner?.userId ?? null })
+      .values({ name, ownerUserId: owner?.userId ?? null, rulesetVersionId })
       .returning({ id: campaign.id });
     const campaignId = c!.id; // the row was just inserted
     if (owner) await tx.insert(membership).values({ campaignId, userId: owner.userId, role: "gm" });

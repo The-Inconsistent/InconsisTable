@@ -25,8 +25,9 @@ export const Lobby = z.object({
 });
 export type Lobby = z.infer<typeof Lobby>;
 
-// NEW CAMPAIGN in P0 asks only for a name; the ruleset and World steps arrive in P2 (docs/design.md §3.3).
-export const CreateGame = z.object({ name: CampaignName });
+// NEW CAMPAIGN asks for a name and, optionally, one of the owner's imported ruleset versions; the World step arrives in
+// P2 (docs/design.md §3.3).
+export const CreateGame = z.object({ name: CampaignName, rulesetVersionId: z.uuid().optional() });
 export type CreateGame = z.infer<typeof CreateGame>;
 
 // What /invite/<code> shows before accepting.

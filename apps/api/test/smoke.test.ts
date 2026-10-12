@@ -14,6 +14,10 @@ import type {
   LiveState,
   Lobby,
 } from "@inconsistable/core-schema";
+import { MAX_PACKS_PER_USER } from "../src/pack/pack.normalize.ts";
+// Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
+import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+import { SAMPLE_PACK } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
 
 const API = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 4000}`;
@@ -487,9 +491,317 @@ test("accepting an invite moves the state version", async () => {
   owner.socket.close();
 });
 
+// ---- The importer: rulesets and packs, and what a seat may read of them (docs/design.md §4.6) --------------------------
+// SAMPLE_D20 and SAMPLE_PACK are made up for the engine's own tests (no book text).
+
+interface Problem {
+  path: string;
+  message: string;
+}
+interface RulesetReply {
+  ok: boolean;
+  versionId: string;
+  unchanged: boolean;
+}
+interface PackReply {
+  ok: boolean;
+  packId: string;
+  versionId: string;
+  unchanged: boolean;
+  diff: { added: string[]; changed: string[]; removed: string[] };
+  warnings: Problem[];
+  problems?: Problem[];
+}
+interface RulesReply {
+  ruleset: { versionId: string; manifest: { entities: { id: string; fields: Record<string, unknown> }[] } } | null;
+  packs: { id: string; slug: string; license: string }[];
+  entries: { pack: string; key: string; type: string; visibility: string }[];
+  total: number;
+}
+
+// A signed-in caller with an address of its own, so the importer's rate limit doesn't add up across tests.
+let ips = 0;
+const ipBlock = 20 + Math.floor(Math.random() * 200); // per run: the api's windows outlive a test run
+function caller(token: string) {
+  const headers = { ...bearer(token), "cf-connecting-ip": `10.${ipBlock}.${Math.floor(++ips / 250)}.${ips % 250}` };
+  const read = async <T>(res: Response) => ({ status: res.status, body: (await res.json()) as T });
+  return {
+    post: async <T>(path: string, body: unknown) => read<T>(await post(path, body, headers)),
+    get: async <T>(path: string) => read<T>(await get(path, headers)),
+  };
+}
+const keysOf = (r: RulesReply) => r.entries.map((e) => e.key).sort();
+const SAMPLE_KEYS = ["coil-rope", "ember-wisp", "reedfolk", "wayfinder"];
+
+test("importer: a ruleset and a pack are stored once, a re-import reports its diff, bad files are refused by path", async () => {
+  assert.equal((await post("/rulesets", SAMPLE_D20)).status, 401);
+  assert.equal((await post("/packs", SAMPLE_PACK)).status, 401);
+  const me = caller(clerk("imp"));
+
+  // A pack needs the ruleset it is written for, imported first.
+  const early = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  assert.equal(early.status, 422);
+  assert.equal(early.body.problems?.[0]?.path, "ruleset.id");
+
+  // A manifest without a cite is refused, by path, and nothing is stored.
+  const uncited = structuredClone(SAMPLE_D20);
+  delete uncited.resources?.[0]?.cite;
+  const refusedRuleset = await me.post<PackReply>("/rulesets", uncited);
+  assert.equal(refusedRuleset.status, 422);
+  assert.ok(refusedRuleset.body.problems?.some((p) => p.path === "resources[0].cite"));
+  assert.deepEqual((await me.get<unknown[]>("/rulesets")).body, []);
+
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  assert.equal(rs.status, 201);
+  assert.equal(rs.body.unchanged, false);
+  const same = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  assert.deepEqual([same.body.unchanged, same.body.versionId], [true, rs.body.versionId], "the same file twice is one");
+  const clash = await me.post<PackReply>("/rulesets", { ...SAMPLE_D20, terms: { party: "Band" } });
+  assert.equal(clash.body.problems?.[0]?.path, "version", "a version is immutable: raise it to change it");
+  const listed = await me.get<{ slug: string; versions: { id: string }[] }[]>("/rulesets");
+  assert.deepEqual(
+    listed.body.map((r) => [r.slug, r.versions.length]),
+    [["sample-d20", 1]],
+  );
+
+  // First import: everything added, entries stored as rows.
+  const first = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  assert.equal(first.status, 201);
+  assert.deepEqual(first.body.diff, { added: SAMPLE_KEYS, changed: [], removed: [] });
+  assert.equal(first.body.unchanged, false);
+  const rows = await query<{ n: string }>("SELECT count(*) AS n FROM pack_entry WHERE pack_version_id = $1", [
+    first.body.versionId,
+  ]);
+  assert.equal(rows[0]?.n, "4");
+
+  // The same file again writes nothing; an edit reports exactly what moved, and only the new version is kept.
+  const repeat = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  assert.deepEqual([repeat.body.unchanged, repeat.body.versionId], [true, first.body.versionId]);
+  const edited = structuredClone(SAMPLE_PACK);
+  edited.entries = edited.entries.filter((e) => e.key !== "coil-rope");
+  edited.entries.push({ key: "lantern", type: "gear", name: "Lantern", cite: "Sample p.51", body: { weight: 1 } });
+  if (edited.entries[0]) edited.entries[0].name = "Reed Folk";
+  const second = await me.post<PackReply>("/packs", { ...edited, version: "0.2.0" });
+  assert.equal(second.status, 201);
+  assert.deepEqual(second.body.diff, { added: ["lantern"], changed: ["reedfolk"], removed: ["coil-rope"] });
+  assert.equal(second.body.packId, first.body.packId);
+  const versions = await query("SELECT id FROM pack_version WHERE pack_id = $1", [first.body.packId]);
+  assert.equal(versions.length, 1, "the version no room attached is dropped");
+
+  // A missing cite and an over-large entry body are refused with their paths; so is a different license.
+  const uncitedPack = structuredClone(SAMPLE_PACK);
+  delete uncitedPack.entries[0]?.cite;
+  const noCite = await me.post<PackReply>("/packs", uncitedPack);
+  assert.equal(noCite.status, 422);
+  assert.ok(noCite.body.problems?.some((p) => p.path === "entries[0].cite"));
+  const fat = structuredClone(SAMPLE_PACK);
+  if (fat.entries[0]) fat.entries[0].body = { blurb: "x".repeat(20_000) };
+  const tooBig = await me.post<PackReply>("/packs", fat);
+  assert.ok(tooBig.body.problems?.some((p) => p.path.startsWith("entries[0].body")));
+  const relabelled = await me.post<PackReply>("/packs", { ...SAMPLE_PACK, license: "srd", attribution: "Someone" });
+  assert.equal(relabelled.body.problems?.[0]?.path, "license", "a private pack can't be re-imported as srd");
+  assert.equal((await me.get<unknown[]>("/rulesets")).status, 200);
+
+  // The file over 5 MB never reaches the validator.
+  const huge = await post(
+    "/packs",
+    { pad: "x".repeat(5.5 * 1024 * 1024) },
+    { ...bearer(clerk("imp")), "cf-connecting-ip": `10.${ipBlock}.250.1` },
+  );
+  assert.equal(huge.status, 413);
+
+  // My packs, with the quota used; the owner's export is the pack as it stands; nobody else gets it.
+  const mine = await me.get<{
+    packs: { id: string; slug: string; license: string; versions: { id: string }[] }[];
+    usage: { packs: number; maxPacks: number };
+  }>("/packs");
+  assert.deepEqual(
+    mine.body.packs.map((p) => [p.slug, p.license, p.versions.length]),
+    [["sample-bestiary", "private", 1]],
+  );
+  assert.deepEqual([mine.body.usage.packs, mine.body.usage.maxPacks], [1, MAX_PACKS_PER_USER]);
+  const exported = await me.get<{ id: string; version: string; entries: { key: string }[] }>(
+    `/packs/${first.body.packId}/export`,
+  );
+  assert.equal(exported.status, 200);
+  assert.deepEqual([exported.body.id, exported.body.version], ["sample-bestiary", "0.2.0"]);
+  assert.deepEqual(exported.body.entries.map((e) => e.key).sort(), ["ember-wisp", "lantern", "reedfolk", "wayfinder"]);
+  const again = await me.post<PackReply>("/packs", exported.body);
+  assert.equal(again.body.unchanged, true, "the export is a file the importer takes back as it is");
+  assert.equal((await caller(clerk("snoop")).get(`/packs/${first.body.packId}/export`)).status, 404);
+  assert.equal((await get(`/packs/${first.body.packId}/export`)).status, 401);
+
+  // Deleting a pack no room uses removes it for real.
+  const gone = await me.post<{ deleted: boolean }>(`/packs/${first.body.packId}/hide`, {});
+  assert.deepEqual(gone.body, { deleted: true });
+  assert.deepEqual((await me.get<{ packs: unknown[] }>("/packs")).body.packs, []);
+  assert.equal((await query("SELECT 1 FROM pack_entry WHERE pack_version_id = $1", [second.body.versionId])).length, 0);
+});
+
+test("importer: the 51st pack is over the quota, and imports are rate limited", async () => {
+  const me = caller(clerk("quota"));
+  assert.equal((await me.post("/rulesets", SAMPLE_D20)).status, 201);
+  for (let i = 0; i < MAX_PACKS_PER_USER; i++)
+    assert.equal((await caller(clerk("quota")).post("/packs", { ...SAMPLE_PACK, id: `pack-${i}` })).status, 201);
+  const over = await caller(clerk("quota")).post<PackReply>("/packs", { ...SAMPLE_PACK, id: "one-too-many" });
+  assert.equal(over.status, 422);
+  assert.equal(over.body.problems?.[0]?.path, "(quota)");
+
+  const flood = caller(clerk("flood"));
+  const statuses: number[] = [];
+  for (let i = 0; i < 25; i++) statuses.push((await flood.post("/packs", {})).status);
+  assert.ok(statuses.includes(429), "a burst of imports from one address is refused");
+});
+
+test("packs in a room: the pin, the seat-scoped read, and a private pack that stays with its GM", async () => {
+  const ownerClerk = clerk("pk-owner", "creator");
+  const me = caller(ownerClerk);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const pk = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  assert.deepEqual([rs.status, pk.status], [201, 201]);
+
+  // The room is made with a ruleset the owner imported, not someone else's.
+  const rival = caller(clerk("pk-rival", "creator"));
+  assert.equal((await rival.post("/campaigns", { name: "Steal", rulesetVersionId: rs.body.versionId })).status, 400);
+  const made = await me.post<{ campaignId: string }>("/campaigns", { name: "Pk", rulesetVersionId: rs.body.versionId });
+  assert.equal(made.status, 201);
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, clerkToken: ownerClerk } });
+  await owner.until(() => true);
+
+  // Attach the pack; a player can't, and a pack that isn't the caller's is simply not found.
+  const anaClerk = await seatPlayer(owner, "ana-pk");
+  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  await ana.until(() => true);
+  refused(await ana.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /permission/);
+  refused(await ana.send({ type: "campaign.setRuleset", rulesetVersionId: rs.body.versionId }), /permission/);
+  refused(await owner.send({ type: "campaign.attachPack", packVersionId: crypto.randomUUID() }), /Pack not found/);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId })); // pinned once, not twice
+
+  // The GM reads everything, with the full manifest; filters page and narrow the list.
+  const gm = await me.get<RulesReply>(`/campaigns/${campaignId}/rules`);
+  assert.equal(gm.status, 200);
+  assert.deepEqual(keysOf(gm.body), SAMPLE_KEYS);
+  assert.equal(gm.body.packs.length, 1);
+  assert.ok(gm.body.ruleset?.manifest.entities.some((e) => "gmNote" in e.fields));
+  assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules?type=creature`)).body.entries.length, 1);
+  assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules?q=EMBER`)).body.entries.length, 1);
+  const page = (await me.get<RulesReply>(`/campaigns/${campaignId}/rules?limit=2&offset=1`)).body;
+  assert.deepEqual([page.entries.length, page.total], [2, 4]);
+  assert.equal((await me.get(`/campaigns/${campaignId}/rules?limit=100000`)).status, 400);
+
+  // A player never gets a `gm` entry or a `gm` definition; nobody without a seat gets anything.
+  const seen = await caller(anaClerk).get<RulesReply>(`/campaigns/${campaignId}/rules`);
+  assert.deepEqual(keysOf(seen.body), ["coil-rope", "reedfolk", "wayfinder"]);
+  assert.ok(seen.body.entries.every((e) => e.visibility !== "gm"));
+  assert.ok(seen.body.ruleset?.manifest.entities.every((e) => !("gmNote" in e.fields)));
+  assert.ok(seen.body.ruleset?.manifest.entities.some((e) => "level" in e.fields));
+  assert.equal((await get(`/campaigns/${campaignId}/rules`)).status, 401);
+  assert.equal((await caller(clerk("pk-outsider")).get(`/campaigns/${campaignId}/rules`)).status, 401);
+
+  // A private pack is served only while its owner is a GM here.
+  await query("UPDATE membership SET role = 'cogm' WHERE campaign_id = $1 AND user_id = $2", [
+    campaignId,
+    uid("pk-owner"),
+  ]);
+  const demoted = await me.get<RulesReply>(`/campaigns/${campaignId}/rules`);
+  assert.deepEqual([demoted.body.packs.length, demoted.body.entries.length], [0, 0]);
+  await query("UPDATE membership SET role = 'gm' WHERE campaign_id = $1 AND user_id = $2", [
+    campaignId,
+    uid("pk-owner"),
+  ]);
+
+  // Another room, someone else's: the owner's pack can't be attached by a rival, nor by an admin who is no GM there.
+  const rivalClerk = clerk("pk-rival", "creator");
+  const rivalRoom = await rival.post<{ campaignId: string }>("/campaigns", { name: "Rival" });
+  const rivalSocket = connect({ auth: { campaignId: rivalRoom.body.campaignId, clerkToken: rivalClerk } });
+  await rivalSocket.until(() => true);
+  refused(await rivalSocket.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /Pack not found/);
+  refused(
+    await rivalSocket.send({ type: "campaign.setRuleset", rulesetVersionId: rs.body.versionId }),
+    /Ruleset not found/,
+  );
+  const adminClerk = clerk("pk-admin", "admin");
+  const adm = caller(adminClerk);
+  const adminRs = await adm.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const adminPack = await adm.post<PackReply>("/packs", SAMPLE_PACK);
+  const adminSocket = connect({ auth: { campaignId: rivalRoom.body.campaignId, clerkToken: adminClerk } });
+  await adminSocket.until(() => true);
+  ok(await adminSocket.send({ type: "campaign.setRuleset", rulesetVersionId: adminRs.body.versionId }));
+  refused(
+    await adminSocket.send({ type: "campaign.attachPack", packVersionId: adminPack.body.versionId }),
+    /private pack can only be used in a room you run as GM/,
+  );
+  assert.deepEqual(
+    (await query("SELECT 1 FROM campaign_pack WHERE campaign_id = $1", [rivalRoom.body.campaignId])).length,
+    0,
+  );
+
+  // A room with no ruleset has nothing to attach a pack to.
+  const bare = await me.post<{ campaignId: string }>("/campaigns", { name: "Bare" });
+  const bareSocket = connect({ auth: { campaignId: bare.body.campaignId, clerkToken: ownerClerk } });
+  await bareSocket.until(() => true);
+  refused(await bareSocket.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /ruleset first/);
+  bareSocket.socket.close();
+
+  // Deleting an attached pack hides it but keeps what the room uses; detached and deleted, it can't come back.
+  assert.deepEqual((await me.post<{ deleted: boolean }>(`/packs/${pk.body.packId}/hide`, {})).body, { deleted: false });
+  assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.entries.length, 4);
+  ok(await owner.send({ type: "campaign.detachPack", packVersionId: pk.body.versionId }));
+  refused(await owner.send({ type: "campaign.detachPack", packVersionId: pk.body.versionId }), /isn't attached/);
+  refused(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /deleted/);
+  assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.entries.length, 0);
+  assert.deepEqual((await me.post<{ deleted: boolean }>(`/packs/${pk.body.packId}/hide`, {})).body, { deleted: true });
+  for (const c of [owner, ana, rivalSocket, adminSocket]) c.socket.close();
+});
+
+test("takedown: an admin disables a pack in every room at once, and it is logged", async () => {
+  const ownerClerk = clerk("td-owner", "creator");
+  const me = caller(ownerClerk);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const pk = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Takedown", rulesetVersionId: rs.body.versionId })
+  ).body;
+  const owner = connect({ auth: { campaignId, clerkToken: ownerClerk } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.entries.length, 4);
+
+  const disable = (token: string | null, disabled: boolean) =>
+    post(`/admin/packs/${pk.body.packId}/disable`, { disabled }, token ? bearer(token) : {});
+  assert.equal((await disable(null, true)).status, 401);
+  assert.equal((await disable(ownerClerk, true)).status, 403, "the owner can't undo their own takedown");
+  const adminClerk = clerk("td-admin", "admin");
+  assert.equal((await disable(adminClerk, true)).status, 200);
+
+  const served = await me.get<RulesReply>(`/campaigns/${campaignId}/rules`);
+  assert.deepEqual([served.body.packs.length, served.body.entries.length], [0, 0], "no longer served to anyone");
+  refused(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /taken down/);
+  assert.equal((await me.get(`/packs/${pk.body.packId}/export`)).status, 403);
+  const reimport = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  assert.equal(reimport.status, 422);
+  assert.match(reimport.body.problems?.[0]?.message ?? "", /taken down/);
+  const mine = await me.get<{ packs: { disabled: boolean }[] }>("/packs");
+  assert.equal(mine.body.packs[0]?.disabled, true);
+
+  const events = (await (await get("/admin/events", bearer(adminClerk))).json()) as {
+    action: string;
+    targetUserId: string | null;
+  }[];
+  assert.ok(events.some((e) => e.action === "pack.disable" && e.targetUserId === uid("td-owner")));
+  assert.equal((await get("/admin/packs", bearer(adminClerk))).status, 200);
+
+  // Put back, it serves again.
+  assert.equal((await disable(adminClerk, false)).status, 200);
+  assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.entries.length, 4);
+  owner.socket.close();
+});
+
 // ---- Ruleset actions: the pipeline, the value rows and undo (docs/design.md §5.3-5.4) ----------------------------
-// There is no importer yet (P1 C), so a room gets its ruleset and its actors' values straight from the database. The
-// ruleset is test/fixture.ts, our own invention.
+// A room gets its ruleset through the importer; its actors' values are written straight to the database (nothing
+// creates them yet). The ruleset is test/fixture.ts, our own invention.
 
 const withDb = async <T>(fn: (c: Client) => Promise<T>) => {
   const c = new Client({ connectionString: process.env.DATABASE_URL });
@@ -501,20 +813,11 @@ const withDb = async <T>(fn: (c: Client) => Promise<T>) => {
   }
 };
 
-let rulesets = 0;
-async function pinFixture(campaignId: string) {
-  const n = `${run}-${++rulesets}`;
-  await withDb(async (c) => {
-    const rs = await c.query(
-      "INSERT INTO ruleset (owner_user_id, slug, title) VALUES ($1, $2, 'Fixture') RETURNING id",
-      [`fixture-${n}`, `fixture-${n}`],
-    );
-    const v = await c.query(
-      "INSERT INTO ruleset_version (ruleset_id, version, hash, manifest) VALUES ($1, '0.1.0', $2, $3) RETURNING id",
-      [rs.rows[0].id, `fixture-${n}`, JSON.stringify(FIXTURE_RULESET)],
-    );
-    await c.query("UPDATE campaign SET ruleset_version_id = $1 WHERE id = $2", [v.rows[0].id, campaignId]);
-  });
+// Imports the fixture ruleset as the room owner and pins it, the way a GM does: the importer, then campaign.setRuleset.
+async function pinFixture({ owner, ownerClerk }: { owner: ReturnType<typeof connect>; ownerClerk: string }) {
+  const res = await caller(ownerClerk).post<RulesetReply>("/rulesets", FIXTURE_RULESET);
+  assert.equal(res.status, 201);
+  ok(await owner.send({ type: "campaign.setRuleset", rulesetVersionId: res.body.versionId }));
 }
 
 // Gives an actor the ruleset's entity type, field values and resource rows.
@@ -541,7 +844,7 @@ const query = <R extends object = Record<string, unknown>>(sql: string, params: 
 // A room with the fixture ruleset, a player (Ana) holding a character, and a creature the GM runs. The character has
 // level 3 and Grit 14, so 14 Vigour at most; the creature has 10.
 async function rulesRoom(name: string) {
-  const { owner, campaignId } = await newRoom(name);
+  const { owner, ownerClerk, campaignId } = await newRoom(name);
   const anaClerk = await seatPlayer(owner, `ana-${name}`);
   const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
   await ana.until(() => true);
@@ -549,7 +852,7 @@ async function rulesRoom(name: string) {
     (a) => a.kind === "pc",
   )!.id;
   const ogre = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Ogre" })).id!;
-  await pinFixture(campaignId);
+  await pinFixture({ owner, ownerClerk });
   await equip(hero, "character", {
     fields: { level: 3, "attr.con": 14, "attr.dex": 12, diary: "" },
     resources: { hp: 14, focus: 1 },
@@ -559,7 +862,7 @@ async function rulesRoom(name: string) {
   ok(await owner.send({ type: "actor.rename", id: hero, name: "Lyra" }));
   await owner.until((s) => s.actors.find((a) => a.id === hero)?.entity === "character");
   await ana.until((s) => s.actors.find((a) => a.id === hero)?.entity === "character");
-  return { owner, ana, campaignId, hero, ogre };
+  return { owner, ownerClerk, ana, campaignId, hero, ogre };
 }
 
 const adjust = (actorId: string, resource: string, delta: number) =>
@@ -567,6 +870,17 @@ const adjust = (actorId: string, resource: string, delta: number) =>
 const resourceOf = (c: ReturnType<typeof connect>, id: string, resource: string, value: number) =>
   c.until((s) => s.actors.find((a) => a.id === id)?.resources[resource] === value);
 const actorIn = (s: LiveState, id: string) => s.actors.find((a) => a.id === id);
+
+test("campaign.setRuleset: a room whose characters use a version can't move to another", async () => {
+  const { owner, ana, ownerClerk } = await rulesRoom("Pin");
+  const next = await caller(ownerClerk).post<RulesetReply>("/rulesets", { ...FIXTURE_RULESET, version: "0.2.0" });
+  assert.equal(next.status, 201);
+  refused(
+    await owner.send({ type: "campaign.setRuleset", rulesetVersionId: next.body.versionId }),
+    /already use another version/,
+  );
+  for (const c of [owner, ana]) c.socket.close();
+});
 
 test("rule.op: the server clamps, and each seat writes only what its `editableBy` allows", async () => {
   const { owner, ana, hero, ogre } = await rulesRoom("Clamp");

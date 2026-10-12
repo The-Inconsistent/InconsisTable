@@ -13,6 +13,7 @@ import { applyAccessAction } from "../auth/access.actions.ts";
 import { applyCampaignAction } from "../campaign/campaign.actions.ts";
 import { campaign } from "../campaign/campaign.schema.ts";
 import { applyEventAction } from "../campaign/event.actions.ts";
+import { applyRulesAction } from "../campaign/rules.actions.ts";
 import { applyCodexAction } from "../codex/codex.actions.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
@@ -111,6 +112,11 @@ function dispatch(tx: Tx, { ctx, action }: { ctx: Ctx; action: Action }): Promis
     case "session.end":
     case "session.edit":
       return applyCampaignAction(tx, { ctx, action });
+
+    case "campaign.setRuleset":
+    case "campaign.attachPack":
+    case "campaign.detachPack":
+      return applyRulesAction(tx, { ctx, action });
 
     case "actor.create":
     case "actor.rename":

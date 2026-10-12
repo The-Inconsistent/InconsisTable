@@ -297,6 +297,18 @@ test("damage: overflow stops at the min and starts dying", () => {
   assert.deepEqual(noSaves, [{ target: { actorId: "pc1", resource: "hp" }, kind: "add", value: -5 }]);
 });
 
+test("damage: a stable actor starts dying again with fresh tallies (house decision 12)", () => {
+  const s = actor({
+    hp: { value: 0, min: 0, max: 15 },
+    fields: { healthState: "stable", deathSaveSuccesses: 3, deathSaveFailures: 2 },
+  });
+  const after = applyDeltas(s, health("damage", s, { actorId: "pc1", amount: 1 })).actors.pc1;
+  assert.deepEqual(
+    [after?.fields.healthState, after?.fields.deathSaveSuccesses, after?.fields.deathSaveFailures],
+    ["dying", 0, 0],
+  );
+});
+
 test("heal: capped at max, clears dying, refused when dead", () => {
   const s = actor({ hp: { value: 12, min: 0, max: 15 } });
   assert.deepEqual(health("heal", s, { actorId: "pc1", amount: 10 }), [

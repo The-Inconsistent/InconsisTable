@@ -159,6 +159,7 @@ export const healthTracks: Primitive<HealthTracksParams> = {
         if (next !== hp.value)
           deltas.push({ target: { actorId: actor.id, resource: track.resource }, kind: "add", value: next - hp.value });
         // Only a track with death saves has a dying state; a hit that reaches the track at its min starts it.
+        // A stable actor hit again starts dying with fresh tallies (docs/house-decisions.md #12).
         if (track.deathSaves !== undefined && rest > 0 && next <= hp.min && c.status !== "dying") {
           deltas.push(...setStatus({ params, actorId: actor.id, status: "dying" }));
         }

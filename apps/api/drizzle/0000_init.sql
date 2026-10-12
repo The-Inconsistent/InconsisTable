@@ -205,6 +205,7 @@ CREATE TABLE "ruleset_version" (
 );
 --> statement-breakpoint
 ALTER TABLE "actor" ADD CONSTRAINT "actor_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "actor" ADD CONSTRAINT "actor_ruleset_version_id_ruleset_version_id_fk" FOREIGN KEY ("ruleset_version_id") REFERENCES "public"."ruleset_version"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "actor_choice" ADD CONSTRAINT "actor_choice_actor_id_actor_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "actor_condition" ADD CONSTRAINT "actor_condition_actor_id_actor_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "actor_field" ADD CONSTRAINT "actor_field_actor_id_actor_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -221,6 +222,8 @@ ALTER TABLE "membership_character" ADD CONSTRAINT "membership_character_membersh
 ALTER TABLE "membership_character" ADD CONSTRAINT "membership_character_actor_id_actor_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ownership_transfer" ADD CONSTRAINT "ownership_transfer_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ownership_transfer" ADD CONSTRAINT "ownership_transfer_to_user_id_app_user_id_fk" FOREIGN KEY ("to_user_id") REFERENCES "public"."app_user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "campaign" ADD CONSTRAINT "campaign_owner_user_id_app_user_id_fk" FOREIGN KEY ("owner_user_id") REFERENCES "public"."app_user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "campaign" ADD CONSTRAINT "campaign_ruleset_version_id_ruleset_version_id_fk" FOREIGN KEY ("ruleset_version_id") REFERENCES "public"."ruleset_version"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session_event" ADD CONSTRAINT "session_event_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session_event" ADD CONSTRAINT "session_event_session_id_session_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."session"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -229,6 +232,7 @@ ALTER TABLE "codex_reveal" ADD CONSTRAINT "codex_reveal_entry_id_codex_entry_id_
 ALTER TABLE "codex_reveal" ADD CONSTRAINT "codex_reveal_actor_id_actor_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "resource_pool" ADD CONSTRAINT "resource_pool_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ruleset_version" ADD CONSTRAINT "ruleset_version_ruleset_id_ruleset_id_fk" FOREIGN KEY ("ruleset_id") REFERENCES "public"."ruleset"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "ruleset_version" ADD CONSTRAINT "ruleset_version_extends_version_id_ruleset_version_id_fk" FOREIGN KEY ("extends_version_id") REFERENCES "public"."ruleset_version"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "actor_campaign_id_kind_index" ON "actor" USING btree ("campaign_id","kind");--> statement-breakpoint
 CREATE INDEX "admin_event_created_at_index" ON "admin_event" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "session_event_campaign_id_created_at_index" ON "session_event" USING btree ("campaign_id","created_at");--> statement-breakpoint

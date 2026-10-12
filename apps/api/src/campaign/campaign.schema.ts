@@ -1,13 +1,16 @@
 import { bigint, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { appUser } from "../auth/auth.schema.ts";
 import { body, createdAt, pk } from "../core/sql.ts";
+import { rulesetVersion } from "../ruleset/ruleset.schema.ts";
 
 export const campaign = pgTable("campaign", {
   id: pk(),
   name: text().notNull(),
   // The room owner (docs/design.md §3.6): the only source, so there can never be two. A deleted owner account leaves
   // the room owner-less until an admin hands it on or archives it.
-  ownerUserId: text(),
-  rulesetVersionId: uuid(), // null until a ruleset is pinned (P1)
+  ownerUserId: text().references(() => appUser.id, { onDelete: "set null" }),
+  // Null until a ruleset is pinned (P1). A pinned version can't be deleted from under a room.
+  rulesetVersionId: uuid().references(() => rulesetVersion.id, { onDelete: "restrict" }),
   // When and where the table meets next; session.start clears the date, the place stays for next time.
   nextSessionAt: timestamp({ withTimezone: true }),
   nextSessionPlace: text().notNull().default(""),
@@ -17,14 +20,17 @@ export const campaign = pgTable("campaign", {
   createdAt: createdAt(),
 });
 
-// Columns of every row a campaign owns.
-export const owned = () => ({
-  id: pk(),
-  campaignId: uuid()
-    .notNull()
-    .references(() => campaign.id, { onDelete: "cascade" }),
-  createdAt: createdAt(),
-});
+// Columns of every row a campaign owns. A function declaration, hoisted: the schema files import each other, and
+// actor.schema calls this while this file may still be loading.
+export function owned() {
+  return {
+    id: pk(),
+    campaignId: uuid()
+      .notNull()
+      .references(() => campaign.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  };
+}
 
 export const session = pgTable("session", {
   ...owned(),

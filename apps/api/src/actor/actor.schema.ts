@@ -4,6 +4,7 @@ import type { ActorKind, ActorLinkKind, ActorStatus } from "@inconsistable/core-
 import type { ConditionDuration } from "@inconsistable/rules-engine";
 import { owned } from "../campaign/campaign.schema.ts";
 import { pk } from "../core/sql.ts";
+import { rulesetVersion } from "../ruleset/ruleset.schema.ts";
 
 // Everything with stats at a table is an actor (docs/design.md §5.4). The manifest says which fields, resources and
 // conditions exist; their values are typed rows keyed by actor, never a JSON document, so a counter changes by one
@@ -19,7 +20,7 @@ export const actor = pgTable(
     status: text().$type<ActorStatus>().notNull().default("active"),
     temporary: boolean().notNull().default(false), // creatures and summons cleared at encounter end unless kept
     ownerUserId: text(), // who may export it to their library; editing goes by seat (canInCampaign)
-    rulesetVersionId: uuid(),
+    rulesetVersionId: uuid().references(() => rulesetVersion.id, { onDelete: "restrict" }), // its stats follow it
     memberCount: integer(), // groups only
   },
   (t) => [index().on(t.campaignId, t.kind)],

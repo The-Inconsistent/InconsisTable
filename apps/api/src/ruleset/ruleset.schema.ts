@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, primaryKey, text, unique, uuid } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, primaryKey, text, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import type { ResourceScope } from "@inconsistable/rules-engine";
 import { campaign } from "../campaign/campaign.schema.ts";
 import { createdAt, pk } from "../core/sql.ts";
@@ -26,7 +26,9 @@ export const rulesetVersion = pgTable(
       .references(() => ruleset.id, { onDelete: "cascade" }),
     version: text().notNull(),
     hash: text().notNull(), // the compiled cache key
-    extendsVersionId: uuid(),
+    // A parent can't be deleted while a version extends it. NO ACTION (checked at statement end), so deleting a whole
+    // ruleset still cascades through its versions that extend each other.
+    extendsVersionId: uuid().references((): AnyPgColumn => rulesetVersion.id, { onDelete: "no action" }),
     manifest: jsonb().notNull(), // a whole document, read once and compiled (CLAUDE.md, "Data rules")
     createdAt: createdAt(),
   },

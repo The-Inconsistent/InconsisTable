@@ -1,5 +1,5 @@
 {
-  "id": "dc3628eb-5dcf-4481-b921-fd6f9ab0687e",
+  "id": "77f33948-0060-4a78-a145-2c57d38c76df",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -122,6 +122,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "actor_ruleset_version_id_ruleset_version_id_fk": {
+          "name": "actor_ruleset_version_id_ruleset_version_id_fk",
+          "tableFrom": "actor",
+          "tableTo": "ruleset_version",
+          "columnsFrom": [
+            "ruleset_version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
@@ -1078,7 +1091,34 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "campaign_owner_user_id_app_user_id_fk": {
+          "name": "campaign_owner_user_id_app_user_id_fk",
+          "tableFrom": "campaign",
+          "tableTo": "app_user",
+          "columnsFrom": [
+            "owner_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "campaign_ruleset_version_id_ruleset_version_id_fk": {
+          "name": "campaign_ruleset_version_id_ruleset_version_id_fk",
+          "tableFrom": "campaign",
+          "tableTo": "ruleset_version",
+          "columnsFrom": [
+            "ruleset_version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -1617,6 +1657,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "ruleset_version_extends_version_id_ruleset_version_id_fk": {
+          "name": "ruleset_version_extends_version_id_ruleset_version_id_fk",
+          "tableFrom": "ruleset_version",
+          "tableTo": "ruleset_version",
+          "columnsFrom": [
+            "extends_version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },

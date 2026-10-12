@@ -4,6 +4,10 @@
 export * from "./enums.ts";
 export { formatPath, type Problem } from "./problem.ts";
 export * from "./manifest.ts";
+export * from "./field-value.ts";
+export * from "./pack.ts";
+export * from "./pack-hash.ts";
+export * from "./creation.ts";
 export {
   compileRuleset,
   fieldScope,
@@ -23,8 +27,10 @@ export {
   applyBaseEffects,
   deriveValues,
   healthStatesOf,
+  instantDeathAt,
   nestFields,
   resetValue,
+  resetValues,
   resourceBounds,
   type ActorValues,
   type FieldValue,

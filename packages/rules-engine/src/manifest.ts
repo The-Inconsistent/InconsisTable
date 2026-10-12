@@ -4,6 +4,7 @@ import { parseDice } from "./dice/dice.ts";
 import {
   ConditionDuration,
   ConditionStacking,
+  CreationKind,
   EditableBy,
   EffectMode,
   EffectPhase,
@@ -12,10 +13,12 @@ import {
   ResetEvent,
   ResourceScope,
   ScalarType,
+  ScoreMethodKind,
   TieRule,
   Visibility,
 } from "./enums.ts";
 import { MAX_EXPR_LENGTH } from "./expr/expr.ast.ts";
+import { own } from "./own.ts";
 import { formatPath, type Problem } from "./problem.ts";
 
 /** Manifests are user-written imports stored as JSONB: bound them before anything else reads them. */
@@ -203,6 +206,12 @@ export const DeathSaves = z.object({
   criticalFailureCounts: z.int().min(1).max(20).default(1),
   /** When set, a critical success heals this much and ends dying; otherwise it counts as one success. */
   criticalSuccessHeals: z.int().min(1).optional(),
+  /**
+   * Failures a hit adds to an actor that is already dying (house decision #7: without this, a hit changes nothing).
+   * A ruleset that counts a critical hit differently sets `failuresOnCriticalDamage`; it defaults to this value.
+   */
+  failuresOnDamage: z.int().min(1).max(20).optional(),
+  failuresOnCriticalDamage: z.int().min(1).max(20).optional(),
 });
 export type DeathSaves = z.infer<typeof DeathSaves>;
 
@@ -211,6 +220,11 @@ export const HealthTrack = z.object({
   /** A resource that absorbs damage before this one (temporary hit points). */
   temp: Id.optional(),
   deathSaves: DeathSaves.optional(),
+  /**
+   * Instant death: damage left over once the track is at its minimum kills the actor when it is **at least** this
+   * value (house decision #13). Read on the actor like a bound; write `max + 1` for a rule that says "exceeds".
+   */
+  instantDeathOverflow: ExprSource.optional(),
 });
 export type HealthTrack = z.infer<typeof HealthTrack>;
 
@@ -224,6 +238,62 @@ export const Health = z.object({
   cite: Cite.optional(),
 });
 export type Health = z.infer<typeof Health>;
+
+/** One house decision of the ruleset: where a book is ambiguous, what this ruleset does. Shown on RULES. */
+export const Decision = z.object({
+  id: Id,
+  text: z.string().min(1).max(1000),
+  cite: Cite.optional(),
+});
+export type Decision = z.infer<typeof Decision>;
+
+const stepBase = {
+  id: Id,
+  /** The actor entity type the step builds. */
+  actor: Id,
+  label: z.string().min(1).max(80),
+  cite: Cite.optional(),
+  /** true: the builder may skip the step. */
+  optional: z.boolean().default(false),
+};
+
+/** Scores handed out by the manifest's own table or budget; the numbers are the ruleset's, never the engine's. */
+export const ScoreMethod = z.discriminatedUnion("kind", [
+  /** Each listed value goes to exactly one of the step's fields. */
+  z.object({ kind: z.literal(ScoreMethodKind.enum.table), values: z.array(z.int()).min(1).max(30) }),
+  /** Every field scores within [min, max]; `costs` maps a score (as text) to its price, and the total stays in budget. */
+  z.object({
+    kind: z.literal(ScoreMethodKind.enum.pointBuy),
+    budget: z.int().min(0).max(1000),
+    min: z.int().min(-1000).max(1000),
+    max: z.int().min(-1000).max(1000),
+    costs: z.record(z.string().regex(/^-?\d+$/, "a score such as 8"), z.int().min(0).max(1000)),
+  }),
+]);
+export type ScoreMethod = z.infer<typeof ScoreMethod>;
+
+export const CreationStep = z.discriminatedUnion("kind", [
+  /** Pick pack entries of one entity type; `copy` moves a value of the chosen entry onto the actor. */
+  z.object({
+    ...stepBase,
+    kind: z.literal(CreationKind.enum.choose),
+    pick: Id,
+    count: z.int().min(1).max(20).default(1),
+    copy: z
+      .array(z.object({ from: FieldId, to: FieldId }))
+      .max(20)
+      .default([]),
+  }),
+  z.object({
+    ...stepBase,
+    kind: z.literal(CreationKind.enum.assign),
+    fields: z.array(FieldId).min(1).max(30),
+    method: ScoreMethod,
+  }),
+  /** Free input for the listed fields, checked against their `FieldDef`. */
+  z.object({ ...stepBase, kind: z.literal(CreationKind.enum.fields), fields: z.array(FieldId).min(1).max(50) }),
+]);
+export type CreationStep = z.infer<typeof CreationStep>;
 
 /** A layout hint for the sheet: sections listing field, derived or resource paths. Never HTML. */
 export const Layout = z.object({
@@ -247,6 +317,9 @@ export const Ruleset = z.object({
   tests: z.record(Id, DiceMechanic).default({}),
   initiative: Initiative,
   health: Health.default({ tracks: [], states: [] }),
+  /** Steps of the character builder, in order. Empty: the ruleset has no builder and actors are filled by hand. */
+  creation: z.array(CreationStep).max(50).default([]),
+  decisions: z.array(Decision).max(200).default([]),
   layout: z.record(Id, Layout).default({}),
 });
 export type Ruleset = z.infer<typeof Ruleset>;
@@ -266,7 +339,7 @@ export const RESERVED_ROOTS: ReadonlySet<string> = new Set([
 
 export type ValidateResult = { ok: true; ruleset: Ruleset } | { ok: false; problems: Problem[] };
 
-function byteSize(input: unknown): number | null {
+export function byteSize(input: unknown): number | null {
   try {
     const json = JSON.stringify(input);
     return json === undefined ? null : new TextEncoder().encode(json).length;
@@ -293,6 +366,66 @@ export function plainDice(notation: string): { count: number; sides: number } | 
   return { count: t.count, sides: t.die };
 }
 
+/** Steps name real actor entities, pack entity types and fields, and no field has two writers. */
+function creationProblems(r: Ruleset, out: Problem[]): void {
+  const entities = new Map(r.entities.map((e) => [e.id, e]));
+  const written = new Map<string, string>(); // "actor/field" → step id
+  const claim = ({ actor, field, step, path }: { actor: string; field: string; step: string; path: string }) => {
+    const key = `${actor}/${field}`;
+    const prev = written.get(key);
+    if (prev !== undefined) out.push({ path, message: `"${field}" is already set by step "${prev}"` });
+    else written.set(key, step);
+  };
+  r.creation.forEach((step, i) => {
+    const at = `creation[${i}]`;
+    const actor = entities.get(step.actor);
+    if (actor?.base !== "actor") {
+      out.push({ path: `${at}.actor`, message: `"${step.actor}" is not an actor entity` });
+      return;
+    }
+    const fieldOf = (id: string, path: string) => {
+      const def = own(actor.fields, id);
+      if (def === undefined) out.push({ path, message: `${actor.id} has no field "${id}"` });
+      return def;
+    };
+    if (step.kind === "choose") {
+      const picked = entities.get(step.pick);
+      if (picked === undefined) out.push({ path: `${at}.pick`, message: `unknown entity "${step.pick}"` });
+      if (step.copy.length > 0 && step.count !== 1)
+        out.push({ path: `${at}.copy`, message: "copy needs count 1: with several picks it is ambiguous" });
+      step.copy.forEach((c, j) => {
+        const to = fieldOf(c.to, `${at}.copy[${j}].to`);
+        const from = picked === undefined ? undefined : own(picked.fields, c.from);
+        if (picked !== undefined && from === undefined)
+          out.push({ path: `${at}.copy[${j}].from`, message: `${picked.id} has no field "${c.from}"` });
+        if (from !== undefined && to !== undefined && from.type !== to.type)
+          out.push({ path: `${at}.copy[${j}]`, message: `a ${from.type} field cannot fill a ${to.type} field` });
+        claim({ actor: actor.id, field: c.to, step: step.id, path: `${at}.copy[${j}].to` });
+      });
+      return;
+    }
+    step.fields.forEach((id, j) => {
+      const def = fieldOf(id, `${at}.fields[${j}]`);
+      if (step.kind === "assign" && def !== undefined && def.type !== "int")
+        out.push({ path: `${at}.fields[${j}]`, message: "a scored field must be an int" });
+      claim({ actor: actor.id, field: id, step: step.id, path: `${at}.fields[${j}]` });
+    });
+    if (step.kind !== "assign") return;
+    const m = step.method;
+    if (m.kind === "table" && m.values.length !== step.fields.length)
+      out.push({ path: `${at}.method.values`, message: `${m.values.length} values for ${step.fields.length} fields` });
+    if (m.kind === "pointBuy") {
+      if (m.max < m.min) out.push({ path: `${at}.method.max`, message: "max is below min" });
+      // min and max are capped at ±1000 by the schema, so this loop is short.
+      for (let score = m.min; score <= m.max; score++) {
+        if (own(m.costs, String(score)) !== undefined) continue;
+        out.push({ path: `${at}.method.costs`, message: `no cost for the score ${score}` });
+        break;
+      }
+    }
+  });
+}
+
 function semanticProblems(r: Ruleset): Problem[] {
   const out: Problem[] = [];
   // CLAUDE.md principle 1: every rule entry cites its printed page, unless the whole ruleset is homebrew.
@@ -310,6 +443,7 @@ function semanticProblems(r: Ruleset): Problem[] {
   needCite(r.initiative.cite, "initiative");
   // Death saves and damage order are rules too.
   if (r.health.tracks.length > 0) needCite(r.health.cite, "health");
+  r.creation.forEach((x, i) => needCite(x.cite, `creation[${i}]`));
 
   const fieldCount = r.entities.reduce((n, e) => n + Object.keys(e.fields).length + e.derived.length, 0);
   if (fieldCount > MAX_FIELDS)
@@ -321,6 +455,9 @@ function semanticProblems(r: Ruleset): Problem[] {
   duplicates({ ids: r.resources.map((x) => x.id), path: "resources", out });
   duplicates({ ids: r.conditions.map((x) => x.id), path: "conditions", out });
   duplicates({ ids: r.options.map((x) => x.id), path: "options", out });
+  duplicates({ ids: r.creation.map((x) => x.id), path: "creation", out });
+  duplicates({ ids: r.decisions.map((x) => x.id), path: "decisions", out });
+  creationProblems(r, out);
 
   const entityIds = new Set(r.entities.map((e) => e.id));
   r.entities.forEach((e, i) => {

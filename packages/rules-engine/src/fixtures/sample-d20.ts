@@ -23,6 +23,7 @@ export const SAMPLE_D20: RulesetInput = {
         "attr.dex": { type: "int", label: "Grace", min: 1, max: 30, visibility: "party", editableBy: "owner" },
         "attr.con": { type: "int", label: "Grit", min: 1, max: 30, visibility: "party", editableBy: "owner" },
         guard: { type: "int", label: "Guard", visibility: "party" },
+        size: { type: "enum", label: "Size", values: ["small", "medium"], visibility: "party" },
         diary: { type: "text", label: "Diary", visibility: "owner", editableBy: "owner" },
         gmNote: { type: "text", label: "GM note" },
         healthState: { type: "enum", label: "Status", values: ["ok", "dying", "stable", "dead"], visibility: "party" },
@@ -59,6 +60,24 @@ export const SAMPLE_D20: RulesetInput = {
       derived: [{ id: "maxHp", label: "Max Vigour", expr: "4 + max(0, mod(attr.con)) * 2 + level * 3" }],
     },
     {
+      id: "lineage",
+      label: "Lineage",
+      base: "ability",
+      fields: {
+        size: { type: "enum", label: "Size", values: ["small", "medium"], visibility: "public" },
+        blurb: { type: "text", label: "Blurb", visibility: "public" },
+      },
+    },
+    {
+      id: "calling",
+      label: "Calling",
+      base: "ability",
+      fields: {
+        guardBase: { type: "int", label: "Base guard", min: 0, max: 20, visibility: "public" },
+        blurb: { type: "text", label: "Blurb", visibility: "public" },
+      },
+    },
+    {
       id: "gear",
       label: "Gear",
       base: "item",
@@ -83,7 +102,10 @@ export const SAMPLE_D20: RulesetInput = {
       scope: "entity",
       entities: ["character"],
       max: "1",
-      resetOn: [{ event: "shortRest", to: "max" }],
+      resetOn: [
+        { event: "shortRest", to: "max" },
+        { event: "longRest", to: "max" },
+      ],
       visibility: "owner",
       editableBy: "ownerSpendOnly",
     },
@@ -97,7 +119,14 @@ export const SAMPLE_D20: RulesetInput = {
       visibility: "party",
       editableBy: "owner",
     },
-    { id: "menace", label: "Menace", cite: "Sample p.7", scope: "gm", max: "party.characters * 2" },
+    {
+      id: "menace",
+      label: "Menace",
+      cite: "Sample p.7",
+      scope: "gm",
+      max: "party.characters * 2",
+      resetOn: [{ event: "encounterEnd", to: "min" }],
+    },
   ],
   conditions: [
     {
@@ -117,6 +146,7 @@ export const SAMPLE_D20: RulesetInput = {
       effects: [{ path: "derived.defense", mode: "add", value: "2", phase: "derived" }],
     },
     { id: "marked", label: "Marked", cite: "Sample p.8", duration: "manual" },
+    { id: "staggered", label: "Staggered", cite: "Sample p.8", duration: "ownTurnEnd", visibility: "party" },
   ],
   tests: {
     check: {
@@ -149,6 +179,43 @@ export const SAMPLE_D20: RulesetInput = {
     states: [{ id: "bloodied", label: "Bloodied", when: "res.hp * 2 <= derived.maxHp" }],
     cite: "Sample p.5",
   },
+  creation: [
+    {
+      kind: "choose",
+      id: "lineage",
+      actor: "character",
+      label: "Lineage",
+      cite: "Sample p.10",
+      pick: "lineage",
+      copy: [{ from: "size", to: "size" }],
+    },
+    {
+      kind: "choose",
+      id: "calling",
+      actor: "character",
+      label: "Calling",
+      cite: "Sample p.11",
+      pick: "calling",
+      copy: [{ from: "guardBase", to: "guard" }],
+    },
+    {
+      kind: "assign",
+      id: "scores",
+      actor: "character",
+      label: "Scores",
+      cite: "Sample p.12",
+      fields: ["attr.str", "attr.dex", "attr.con"],
+      method: { kind: "table", values: [15, 12, 9] },
+    },
+    { kind: "fields", id: "identity", actor: "character", label: "Name", cite: "Sample p.13", fields: ["name"] },
+  ],
+  decisions: [
+    {
+      id: "restsDoNotCascade",
+      text: "A long rest does not run the short-rest resets on its own; Focus lists both events.",
+      cite: "Sample p.9",
+    },
+  ],
   layout: {
     sheet: { sections: [{ id: "abilities", label: "Abilities", show: ["attr.str", "attr.dex", "attr.con"] }] },
   },

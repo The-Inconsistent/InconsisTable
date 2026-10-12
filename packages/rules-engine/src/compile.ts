@@ -80,6 +80,8 @@ export interface CompiledRuleset {
   tests: Record<string, CompiledTest>;
   initiative: CompiledInitiative;
   healthStates: { id: string; label: string | undefined; when: CompiledExpr }[];
+  /** `health.tracks[].instantDeathOverflow`, by the track's resource id. */
+  instantDeath: Record<string, CompiledExpr>;
 }
 
 export type CompileResult = { ok: true; compiled: CompiledRuleset } | { ok: false; problems: Problem[] };
@@ -428,6 +430,18 @@ class Compiler {
       return when === null ? [] : [{ id: s.id, label: s.label, when }];
     });
 
+    const instantDeath: Record<string, CompiledExpr> = {};
+    this.r.health.tracks.forEach((t, j) => {
+      if (t.instantDeathOverflow === undefined) return;
+      const expr = this.expr({
+        source: t.instantDeathOverflow,
+        scopes: actorScopes,
+        expect: "int",
+        path: `health.tracks[${j}].instantDeathOverflow`,
+      });
+      if (expr !== null) instantDeath[t.resource] = expr;
+    });
+
     if (this.problems.length > 0 || score === null) return null;
     return {
       ruleset: this.r,
@@ -437,6 +451,7 @@ class Compiler {
       tests,
       initiative: { def: init, score, tiebreak: tiebreak.filter((t): t is CompiledExpr => t !== null) },
       healthStates,
+      instantDeath,
     };
   }
 }

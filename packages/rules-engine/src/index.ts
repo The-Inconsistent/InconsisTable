@@ -1,0 +1,63 @@
+// The public API of @inconsistable/rules-engine: the ruleset manifest, its compiler, expressions, dice, the mechanic
+// primitives and the viewer filter. Pure functions only; the web previews with them, the api decides with them.
+
+export * from "./enums.ts";
+export { formatPath, type Problem } from "./problem.ts";
+export * from "./manifest.ts";
+export {
+  compileRuleset,
+  fieldScope,
+  PARTY_SCOPE,
+  topoSort,
+  type CompiledDerived,
+  type CompiledEffect,
+  type CompiledEntity,
+  type CompiledInitiative,
+  type CompiledResource,
+  type CompiledRuleset,
+  type CompiledTest,
+  type CompileResult,
+} from "./compile.ts";
+export {
+  actorScope,
+  applyBaseEffects,
+  deriveValues,
+  healthStatesOf,
+  nestFields,
+  resetValue,
+  resourceBounds,
+  type ActorValues,
+  type FieldValue,
+} from "./derived.ts";
+export {
+  BinaryOp,
+  ExprError,
+  FnName,
+  MAX_EXPR_LENGTH,
+  MAX_EXPR_NODES,
+  UnaryOp,
+  type ExprNode,
+  type ExprRecord,
+  type ExprScope,
+  type ExprType,
+  type ExprValue,
+} from "./expr/expr.ast.ts";
+export { checkExpr, typeName, type CheckResult } from "./expr/expr.check.ts";
+export { evaluate } from "./expr/expr.eval.ts";
+export { parseExpr } from "./expr/expr.parser.ts";
+export {
+  compileExpr,
+  evaluateBool,
+  evaluateExpr,
+  evaluateInt,
+  type CompiledExpr,
+  type CompileExprResult,
+} from "./expr/expr.ts";
+export * from "./dice/dice.ts";
+export * from "./primitives/primitive.ts";
+export * from "./primitives/dice-sum-vs-target.ts";
+export * from "./primitives/initiative-ranked.ts";
+export * from "./primitives/health-tracks.ts";
+export * from "./primitives/resource-capped.ts";
+export { PRIMITIVES, runOp, type RunOpResult } from "./primitives/registry.ts";
+export * from "./view.ts";

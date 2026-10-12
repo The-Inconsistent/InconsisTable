@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: it
+          POSTGRES_PASSWORD: it
+          POSTGRES_DB: it
+        ports: ["5435:5432"]
+        options: >-
+          --health-cmd "pg_isready -U it" --health-interval 2s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run format:check
+      - run: bun run test
+      # End-to-end against the postgres service above. The test secret is made per run, so no repo secret is needed.
+      - name: Generate a test-only Clerk secret
+        run: echo "CLERK_TEST_SECRET=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+      - name: Start the api
+        working-directory: apps/api
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgres://it:it@localhost:5435/it
+          PORT: "4000"
+        run: |
+          nohup bun src/main.ts > "$RUNNER_TEMP/api.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -s -o /dev/null http://localhost:4000/api/lobby; then exit 0; fi
+            sleep 1
+          done
+          echo "The api did not start"
+          exit 1
+      - run: bun run test:smoke
+      - name: Show the api log
+        if: failure()
+        run: cat "$RUNNER_TEMP/api.log"

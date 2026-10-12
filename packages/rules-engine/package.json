@@ -1,0 +1,14 @@
+{
+  "name": "@inconsistable/rules-engine",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "scripts": {
+    "test": "bun test"
+  }
+}

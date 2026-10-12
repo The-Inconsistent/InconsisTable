@@ -36,6 +36,45 @@ Bun (package manager, runtime, test runner; never npm or pnpm), Turborepo, TypeS
 the Next and Nest toolchains), Next.js 16 + React 19, NestJS on Bun, Socket.IO, Drizzle ORM, **Postgres 18**, zod 4,
 Clerk (only through `@inconsistable/auth`).
 
+## Layout
+
+```
+apps/api/src/        NestJS on Bun, run from source. One folder per feature, each owning its `*.schema.ts`:
+  core/              db (Postgres 18, migrations at boot), errors, sql helpers (uuidv7 ids), rate limits
+  auth/              seats: membership (+ held characters), tokens (guest, screen), invites, ownership transfer
+  campaign/          rooms and sessions, lobby, create (REST), the session event log
+  actor/             actors and their typed value rows
+  codex/             codex entries and their listed readers
+  ruleset/           imported rulesets, versions, pools
+  admin/             OPEN AS ADMIN housekeeping, moderator lock, the admin event log
+  table/             the socket: gateway (queue, per-seat views, book relay, kicks), dispatch (authorize), loaders
+apps/api/test/       smoke.test.ts: end-to-end against a running api and Postgres 18
+apps/web/            Next.js 16: lobby, invite, join, the table page (GM app, player app, table screen)
+packages/core-schema seats, permissions (canInCampaign), the core Action union, snapshots, per-seat views, book relay
+packages/rules-engine manifests, expressions, dice, primitives, viewer views (no game content)
+packages/auth        the only Clerk dependency
+```
+
+## Commands
+
+```bash
+bun install
+bun run dev:db              # Postgres 18 in Docker on localhost:5435
+bun run dev:api             # api on :4000 (apps/api/.env, see .env.example)
+bun run dev:web             # web on :3000 (apps/web/.env.local needs the Clerk keys)
+aspire run                  # optional: Postgres 18 → api → web with a dashboard; TypeScript AppHost
+                            # (aspire-apphost/apphost.mts), no .NET SDK. Stop the compose Postgres first: same port
+bun run typecheck           # packages + api + web (with test, the Husky pre-commit hook)
+bun run lint
+bun run format              # Prettier, width 120; skips *.md
+bun run test                # unit tests
+bun run test:smoke          # end-to-end; needs dev:db and dev:api with CLERK_TEST_SECRET
+cd apps/api && bun run db:generate   # after editing any src/**/*.schema.ts
+```
+
+Pre-release: the migration may be regenerated from scratch (delete `apps/api/drizzle/`, `db:generate`,
+`docker compose down -v`). Once there is real data, add migrations instead.
+
 ## Data rules
 
 - JSONB only for documents read and written whole: ruleset manifests, pack entry bodies, stat snapshots, the session
@@ -45,6 +84,17 @@ Clerk (only through `@inconsistable/auth`).
 - Every query is scoped to `ctx.campaignId`. Never trust ids from the client.
 - Platform roles live in Clerk and are changed only in the Clerk Dashboard. The room owner is
   `campaign.owner_user_id`, not a role.
+
+## Standards
+
+These are binding: follow them when writing code and use them when reviewing.
+- **Backend:** `.claude/backend-code-style.md`.
+- **Frontend:** `.claude/frontend-code-style.md`.
+- **Reviews:** `.claude/code-review.md` (checklist and block-merge rules).
+- **Review procedure:** the `/review` command (`.claude/commands/review.md`), which falls back to the local diff when
+  there's no PR.
+- **Multi-file investigation:** the `codebase-navigator` agent.
+- **Open engine choices:** `docs/house-decisions.md`.
 
 ## Git
 

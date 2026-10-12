@@ -17,7 +17,7 @@ const devOrigins = process.env.DEV_ORIGINS?.split(",")
   .filter(Boolean);
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@inconsistable/auth", "@inconsistable/core-schema"],
+  transpilePackages: ["@inconsistable/auth", "@inconsistable/core-schema", "@inconsistable/rules-engine"],
   ...(devOrigins?.length ? { allowedDevOrigins: devOrigins } : {}),
   output: "standalone",
   skipTrailingSlashRedirect: true, // socket.io's path is "/socket.io/"; Next's slash-stripping 308 would break it

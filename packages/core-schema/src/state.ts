@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CogmScope, MemberRole } from "./seat.ts";
+import { TestCall, TestDef } from "./test-call.ts";
 
 // The two snapshots every seat receives (docs/design.md §5.5): `state` (the live table) and `codex` (the world).
 // Each seat gets its own filtered copy (view.ts); the GM room gets them whole.
@@ -94,6 +95,10 @@ export const LiveState = z.object({
   stateVersion: z.number().int(),
   session: Session.nullable(),
   actors: z.array(Actor),
+  // Tests called and still open, or closed in this session; each seat gets its own filter (test-call.ts).
+  tests: z.array(TestCall),
+  // The pinned ruleset's Tests, so the GM can call one. GM seats only.
+  testDefs: z.array(TestDef),
   access: z.object({
     members: z.array(Member),
     invites: z.array(Invite), // GM seats only

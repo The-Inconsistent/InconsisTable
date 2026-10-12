@@ -48,6 +48,7 @@ apps/api/src/        NestJS on Bun, run from source. One folder per feature, eac
   ruleset/           imported rulesets, versions, pools
   admin/             OPEN AS ADMIN housekeeping, moderator lock, the admin event log
   table/             the socket: gateway (queue, per-seat views, book relay, kicks), dispatch (authorize), loaders
+  test-call/         Tests the GM calls: calls, called characters, reported rolls (physical dice, the server resolves)
 apps/api/test/       smoke.test.ts: end-to-end against a running api and Postgres 18
 apps/web/            Next.js 16: lobby, invite, join, the table page (GM app, player app, table screen)
 packages/core-schema seats, permissions (canInCampaign), the core Action union, snapshots, per-seat views, book relay

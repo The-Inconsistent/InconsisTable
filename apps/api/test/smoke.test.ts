@@ -831,3 +831,206 @@ test("a turn op is refused until the combat tracker gives it an encounter, and n
   assert.equal(rows.length, 0, "the refusal rolled the action back");
   owner.socket.close();
 });
+
+// ---- Tests called by the GM: the dice stay physical, the server resolves them (docs/design.md §6.3) ----------------
+
+// Every number anywhere in a payload, so a hidden target is looked for by value, not in ids or dates.
+const numbersIn = (v: unknown): number[] =>
+  typeof v === "number" ? [v] : v !== null && typeof v === "object" ? Object.values(v).flatMap(numbersIn) : [];
+
+const DN = 23; // far from any roll below, so a leak is found by value
+const callIn = (s: LiveState, id: string) => s.tests.find((t) => t.id === id);
+const report = (callId: string, actorId: string, faces: number[], advantage = "none") =>
+  ({ type: "test.report", callId, actorId, advantage, roll: { kind: "faces", faces } }) as ActionInput;
+
+// A room with the fixture ruleset, a running session, Ana holding Lyra and Ben holding Bram. Every socket counts against
+// the api's connect limit (60 a minute per IP), so a test opens only the ones it reads.
+async function testRoom(name: string) {
+  const { owner, ana, campaignId, hero, ogre } = await rulesRoom(name);
+  const ben = connect({ auth: { campaignId, clerkToken: await seatPlayer(owner, `ben-${name}`) } });
+  const members = (await owner.until((s) => s.access.members.some((m) => m.userId === uid(`ben-${name}`)))).access;
+  const bram = members.members.find((m) => m.userId === uid(`ben-${name}`))!.characterIds[0]!;
+  await equip(bram, "character", {
+    fields: { level: 1, "attr.con": 10, "attr.dex": 14, diary: "" },
+    resources: { hp: 8, focus: 1 },
+  });
+  ok(await owner.send({ type: "actor.rename", id: bram, name: "Bram" }));
+  await ben.until((s) => s.actors.find((a) => a.id === bram)?.entity === "character");
+  // The snapshot carries the open calls and the running session's closed ones.
+  ok(await owner.send({ type: "session.start" }));
+  const call = (over: Record<string, unknown> = {}) =>
+    ({
+      type: "test.call",
+      testId: "check",
+      actorIds: [hero, bram],
+      inputs: { ability: "dex", dc: DN },
+      hideTarget: true,
+      ...over,
+    }) as ActionInput;
+  return { owner, ana, ben, campaignId, hero, bram, ogre, call };
+}
+
+async function coGm({
+  owner,
+  campaignId,
+  name,
+  scopes,
+}: {
+  owner: ReturnType<typeof connect>;
+  campaignId: string;
+  name: string;
+  scopes: ("combat" | "session")[];
+}) {
+  const code = ok(await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false })).token!;
+  const token = clerk(name);
+  assert.equal((await post(`/invites/${code}/accept`, {}, bearer(token))).status, 200);
+  ok(await owner.send({ type: "member.appoint", userId: uid(name), role: "cogm", scopes }));
+  const c = connect({ auth: { campaignId, clerkToken: token } });
+  await c.until(() => true);
+  return c;
+}
+
+test("test.call / test.report / test.close: a hidden target stays on the GM side, the server resolves the roll", async () => {
+  const { owner, ana, ben, campaignId, hero, bram, call } = await testRoom("TestReport");
+  const screen = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  const combat = await coGm({ owner, campaignId, name: "co-combat-TestReport", scopes: ["combat"] });
+
+  // Who may call: the GM and a co-GM with the session scope. The call is checked against the pinned ruleset.
+  refused(await ana.send(call({ actorIds: [hero] })), /permission/);
+  refused(await screen.send(call()), /read-only/);
+  refused(await combat.send(call()), /permission/);
+  refused(await owner.send(call({ testId: "nope" })), /No Test "nope"/);
+  refused(await owner.send(call({ inputs: { ability: "dex" } })), /dc/);
+  refused(await owner.send(call({ inputs: { ability: "dex", dc: "hard" } })), /whole number/);
+  refused(await owner.send(call({ inputs: { ability: "dex", dc: 5, extra: 1 } })), /extra/);
+  refused(await owner.send(call({ inputs: { ability: "wis", dc: 5 } })), /Lyra/); // no such score
+  refused(await owner.send(call({ actorIds: [crypto.randomUUID()] })), /Character not found/);
+  refused(await owner.send(call({ actorIds: [] })), /too small|at least|Invalid/i);
+  const bare = ok(await owner.send({ type: "actor.create", kind: "npc", name: "Bare" })).id!;
+  refused(await owner.send(call({ actorIds: [bare] })), /isn't built/);
+  const session = await coGm({ owner, campaignId, name: "co-session-TestReport", scopes: ["session"] });
+  ok(await session.send({ type: "test.close", callId: ok(await session.send(call({ actorIds: [hero] }))).id! }));
+  session.socket.close();
+
+  // The GM calls two characters with a hidden target.
+  const id = ok(await owner.send(call())).id!;
+  const gm = callIn(await owner.until((s) => callIn(s, id) !== undefined), id)!;
+  assert.equal(gm.status, "open");
+  const byActor = (c: typeof gm) => Object.fromEntries(c.targets.map((t) => [t.actorId, t]));
+  assert.deepEqual([byActor(gm)[hero]?.modifier, byActor(gm)[hero]?.target], [1, DN]);
+  assert.deepEqual([byActor(gm)[bram]?.modifier, byActor(gm)[bram]?.target], [2, DN]);
+  assert.deepEqual(gm.secretInputs, ["dc"]);
+  assert.deepEqual(
+    (await owner.until(() => true)).testDefs.map((d) => d.id),
+    ["check"],
+  );
+
+  // Each seat gets its own copy: a player only their own character, never the target number or the dc input.
+  const anaState = await ana.until((s) => callIn(s, id) !== undefined);
+  const anaCall = callIn(anaState, id)!;
+  assert.deepEqual(anaCall.targets, [{ actorId: hero, modifier: 1, target: null, report: null }]);
+  assert.deepEqual(anaCall.inputs, { ability: "dex" });
+  assert.deepEqual(anaState.testDefs, []);
+  assert.ok(!numbersIn(anaState.tests).includes(DN), "the target number is nowhere in the player's state");
+  const tv = callIn(await screen.until((s) => callIn(s, id) !== undefined), id)!;
+  assert.deepEqual([tv.called, tv.reported, tv.targets], [2, 0, []]);
+  assert.ok(!numbersIn((await screen.until(() => true)).tests).includes(DN));
+  assert.equal(callIn(await combat.until(() => true), id), undefined, "a co-GM without the scope sees no call");
+
+  // A player reports the physical roll for their own character, never for another's; a bad roll is refused.
+  refused(await ana.send(report(id, bram, [12])), /Not your character/);
+  refused(await ana.send(report(id, hero, [21])), /d20 rolls/);
+  refused(await ana.send(report(id, hero, [4, 5])), /expected 1 face/);
+  refused(await ana.send(report(id, hero, [4], "lucky")), /advantage, disadvantage or none/);
+  refused(await ana.send(report(crypto.randomUUID(), hero, [4])), /isn't at this table/);
+  ok(await ana.send(report(id, hero, [13])));
+
+  // The server computed the outcome (13 + 1 against 23 fails); Ana is not told it, the GM is.
+  const gmAfter = callIn(await owner.until((s) => callIn(s, id)?.reported === 1), id)!;
+  assert.deepEqual(byActor(gmAfter)[hero]?.report, { natural: 13, total: 14, outcome: "failure" });
+  const anaAfter = callIn(await ana.until((s) => callIn(s, id)?.reported === 1), id)!;
+  assert.deepEqual(anaAfter.targets[0]?.report, { natural: 13, total: 14, outcome: null });
+  assert.ok(!numbersIn((await ana.until(() => true)).tests).includes(DN));
+  refused(await ana.send(report(id, hero, [20])), /Already reported/);
+  const stored = (a: string) =>
+    query<{ outcome: string; reported_by_role: string }>(
+      "SELECT outcome, reported_by_role FROM test_report WHERE call_id = $1 AND actor_id = $2",
+      [id, a],
+    );
+  assert.deepEqual(await stored(hero), [{ outcome: "failure", reported_by_role: "player" }]);
+
+  // The GM side reports for anyone and may correct one: a natural 20 is critical, then Bram's 19 + 2 fails.
+  ok(await owner.send(report(id, bram, [20])));
+  const crit = callIn(await owner.until((s) => callIn(s, id)?.reported === 2), id)!;
+  assert.equal(byActor(crit)[bram]?.report?.outcome, "critical");
+  ok(await owner.send(report(id, bram, [19])));
+  const fixed = callIn(await owner.until((s) => byActor(callIn(s, id)!)[bram]?.report?.natural === 19), id)!;
+  assert.deepEqual(byActor(fixed)[bram]?.report, { natural: 19, total: 21, outcome: "failure" });
+  assert.deepEqual(await stored(bram), [{ outcome: "failure", reported_by_role: "gm" }]);
+
+  // Closing is the GM side's; nothing more is reported afterwards, and Ana is still not shown Bram's result.
+  refused(await ana.send({ type: "test.close", callId: id }), /permission/);
+  refused(await combat.send({ type: "test.close", callId: id }), /permission/);
+  ok(await owner.send({ type: "test.close", callId: id }));
+  refused(await owner.send({ type: "test.close", callId: id }), /closed/);
+  refused(await owner.send(report(id, hero, [5])), /closed/);
+  const closed = callIn(await ana.until((s) => callIn(s, id)?.status === "closed"), id)!;
+  assert.deepEqual(
+    closed.targets.map((t) => [t.actorId, t.report?.outcome]),
+    [[hero, null]],
+  );
+  assert.deepEqual((await screen.until(() => true)).tests, [], "the TV shows only what is open");
+  for (const c of [owner, ana, ben, screen, combat]) c.socket.close();
+});
+
+test("a Test can tell the called players pass or fail, show its target, or reveal every result when closed", async () => {
+  const { owner, ana, ben, campaignId, hero, bram, call } = await testRoom("TestShow");
+
+  // showOutcome: the outcome without the number.
+  const id = ok(await owner.send(call({ showOutcome: true }))).id!;
+  ok(await ana.send(report(id, hero, [12])));
+  ok(await ben.send(report(id, bram, [3])));
+  const told = callIn(await ana.until((s) => callIn(s, id)?.targets[0]?.report?.outcome === "failure"), id)!;
+  assert.deepEqual(told.targets[0]?.report, { natural: 12, total: 13, outcome: "failure" });
+  assert.ok(!numbersIn((await ana.until(() => true)).tests).includes(DN));
+
+  // Revealing on close: the other character's outcome and die, never their modifier, total or the target.
+  assert.equal(callIn(await ana.until(() => true), id)?.targets.length, 1);
+  ok(await owner.send({ type: "test.close", callId: id, reveal: true }));
+  const revealed = callIn(await ana.until((s) => callIn(s, id)?.revealed === true), id)!;
+  assert.deepEqual(revealed.targets.map((t) => t.actorId).toSorted(), [hero, bram].toSorted());
+  const other = revealed.targets.find((t) => t.actorId === bram)!;
+  assert.deepEqual(other, {
+    actorId: bram,
+    modifier: null,
+    target: null,
+    report: { natural: 3, total: null, outcome: "failure" },
+  });
+  assert.ok(!numbersIn((await ana.until(() => true)).tests).includes(DN));
+
+  // A target the GM didn't hide is told to the called player, with its input.
+  const shownId = ok(await owner.send(call({ hideTarget: false, actorIds: [hero] }))).id!;
+  const shown = callIn(await ana.until((s) => callIn(s, shownId) !== undefined), shownId)!;
+  assert.equal(shown.targets[0]?.target, DN);
+  assert.equal(shown.inputs.dc, DN);
+  assert.equal(shown.showOutcome, true, "a shown target gives the outcome away, so it is shown");
+
+  // The session log keeps the story for the recap, GM side only; it has no Test steps for undo to take back.
+  const log = await query<{ type: string; seat_user_id: string | null; session_id: string | null }>(
+    "SELECT type, seat_user_id, session_id FROM session_event WHERE campaign_id = $1 AND type LIKE 'test.%' ORDER BY created_at, id",
+    [campaignId],
+  );
+  assert.deepEqual(
+    log.map((e) => [e.type, e.seat_user_id]),
+    [
+      ["test.call", uid("owner-TestShow")],
+      ["test.report", uid("ana-TestShow")],
+      ["test.report", uid("ben-TestShow")],
+      ["test.close", uid("owner-TestShow")],
+      ["test.call", uid("owner-TestShow")],
+    ],
+  );
+  assert.ok(log.every((e) => e.session_id !== null));
+  refused(await owner.send({ type: "event.undo" }), /Nothing to undo/);
+  for (const c of [owner, ana, ben]) c.socket.close();
+});

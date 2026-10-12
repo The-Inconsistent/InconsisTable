@@ -14,6 +14,7 @@ import { campaign, session } from "../campaign/campaign.schema.ts";
 import { codexEntry, codexReveal } from "../codex/codex.schema.ts";
 import { db } from "../core/db.ts";
 import { loadCompiled } from "../ruleset/ruleset.compiled.ts";
+import { loadTests, testDefsOf } from "../test-call/test-call.state.ts";
 
 const iso = (d: Date | null) => d?.toISOString() ?? null;
 
@@ -70,6 +71,12 @@ export async function loadLive(campaignId: string): Promise<Live | null> {
   ]);
   const last = sessions[0];
   const built = buildActors({ compiled, rows: actorRows });
+  const tests = await loadTests(db, {
+    campaignId,
+    sessionId: last && last.endedAt === null ? last.id : null,
+    compiled,
+    built,
+  });
   const state: LiveState = {
     campaign: {
       id: c.id,
@@ -93,6 +100,8 @@ export async function loadLive(campaignId: string): Promise<Live | null> {
           }
         : null,
     actors: actorRows.map((r) => toLiveActor(built[r.actor.id]!)), // built from these very rows
+    tests,
+    testDefs: testDefsOf(compiled),
     access: {
       members: members.map((m) => ({
         userId: m.userId,

@@ -65,5 +65,7 @@ export * from "./primitives/dice-sum-vs-target.ts";
 export * from "./primitives/initiative-ranked.ts";
 export * from "./primitives/health-tracks.ts";
 export * from "./primitives/resource-capped.ts";
+export * from "./primitives/conditions-expire.ts";
+export * from "./primitives/rest.ts";
 export { PRIMITIVES, runOp, type RunOpResult } from "./primitives/registry.ts";
 export * from "./view.ts";

@@ -3,88 +3,12 @@ import { test } from "node:test";
 
 import { z } from "zod";
 
-import { compileRuleset, type CompiledRuleset } from "../compile.ts";
-import type { FieldValue } from "../derived.ts";
-import { SAMPLE_D20 } from "../fixtures/sample-d20.ts";
 import { resolveSumVsTarget } from "./dice-sum-vs-target.ts";
-import { HealthTracksParams } from "./health-tracks.ts";
 import { rankOrder } from "./initiative-ranked.ts";
-import {
-  checkDeltas,
-  defineOp,
-  type Delta,
-  type Primitive,
-  type ResourceState,
-  type RuleState,
-  type TurnState,
-} from "./primitive.ts";
+import { checkDeltas, defineOp, type Primitive, type RuleState } from "./primitive.ts";
 import { PRIMITIVES, runOp } from "./registry.ts";
 import { clampResource } from "./resource-capped.ts";
-
-function compiled(): CompiledRuleset {
-  const r = compileRuleset(SAMPLE_D20);
-  if (!r.ok) throw new Error(JSON.stringify(r.problems));
-  return r.compiled;
-}
-const C = compiled();
-const CHECK = C.tests.check?.def;
-const INIT = C.initiative.def;
-const HEALTH = HealthTracksParams.parse(C.ruleset.health);
-
-function actor({
-  id = "pc1",
-  hp = { value: 10, min: 0, max: 15 },
-  tempHp,
-  fields = {},
-}: {
-  id?: string;
-  hp?: ResourceState;
-  tempHp?: ResourceState;
-  fields?: Record<string, FieldValue>;
-}): RuleState {
-  const resources: Record<string, ResourceState> = { hp, ...(tempHp === undefined ? {} : { tempHp }) };
-  return { actors: { [id]: { id, fields, resources } }, turn: null };
-}
-
-function deltas(args: Parameters<typeof runOp>[0]): Delta[] {
-  const r = runOp(args);
-  if (!r.ok) throw new Error(`${r.refusal.code}: ${r.refusal.message}`);
-  return r.deltas;
-}
-
-function refusal(args: Parameters<typeof runOp>[0]): string {
-  const r = runOp(args);
-  assert.equal(r.ok, false, "should be refused");
-  return r.ok ? "" : r.refusal.code;
-}
-
-/** Applies deltas to a copy of the state, the way the pipeline would write them. */
-function applyDeltas(state: RuleState, list: readonly Delta[]): RuleState {
-  const actors = structuredClone(state.actors) as Record<
-    string,
-    { id: string; fields: Record<string, FieldValue>; resources: Record<string, ResourceState> }
-  >;
-  let turn: TurnState | null = state.turn === null ? null : { ...state.turn };
-  for (const d of list) {
-    const t = d.target;
-    if ("turn" in t) {
-      turn ??= { round: 0, currentId: null, order: [] };
-      if (t.turn === "round" && typeof d.value === "number") turn.round = d.value;
-      if (t.turn === "currentId" && (typeof d.value === "string" || d.value === null)) turn.currentId = d.value;
-      if (t.turn === "order" && Array.isArray(d.value)) turn.order = d.value;
-      continue;
-    }
-    if (!("actorId" in t)) continue;
-    const a = actors[t.actorId];
-    assert.ok(a !== undefined);
-    if ("resource" in t) {
-      const res = a.resources[t.resource];
-      assert.ok(res !== undefined && typeof d.value === "number");
-      res.value = d.kind === "add" ? res.value + d.value : d.value;
-    } else a.fields[t.field] = d.value;
-  }
-  return { actors, turn };
-}
+import { actor, applyDeltas, C, CHECK, deltas, HEALTH, INIT, refusal } from "./test-helpers.ts";
 
 // dice.sumVsTarget
 

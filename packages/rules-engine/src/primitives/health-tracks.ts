@@ -27,15 +27,18 @@ export const HealthTracksParams = Health.extend({
 });
 export type HealthTracksParams = z.infer<typeof HealthTracksParams>;
 
-export const DamageInput = z.object({
+export const HealInput = z.object({
   actorId: z.string().min(1),
   amount: z.int().min(0).max(1_000_000),
   /** The track's resource id; the first track when omitted. */
   track: Id.optional(),
 });
+export type HealInput = z.infer<typeof HealInput>;
+export const DamageInput = HealInput.extend({
+  /** A critical hit; counts `failuresOnCriticalDamage` failures on a dying actor. The table reports it. */
+  critical: z.boolean().default(false),
+});
 export type DamageInput = z.infer<typeof DamageInput>;
-export const HealInput = DamageInput;
-export type HealInput = DamageInput;
 
 export const DeathSaveInput = z.object({ actorId: z.string().min(1), result: DeathSaveResult });
 export type DeathSaveInput = z.infer<typeof DeathSaveInput>;
@@ -158,10 +161,27 @@ export const healthTracks: Primitive<HealthTracksParams> = {
         }
         if (next !== hp.value)
           deltas.push({ target: { actorId: actor.id, resource: track.resource }, kind: "add", value: next - hp.value });
+        // Damage left once the track is at its min; an instant death rule reads it (docs/house-decisions.md #13).
+        const overflow = Math.max(0, rest - Math.max(0, hp.value - hp.min));
+        if (hp.instantDeathAt != null && overflow >= hp.instantDeathAt) {
+          deltas.push({ target: { actorId: actor.id, field: params.stateField }, kind: "set", value: "dead" });
+          return deltas;
+        }
         // Only a track with death saves has a dying state; a hit that reaches the track at its min starts it.
         // A stable actor hit again starts dying with fresh tallies (docs/house-decisions.md #12).
         if (track.deathSaves !== undefined && rest > 0 && next <= hp.min && c.status !== "dying") {
           deltas.push(...setStatus({ params, actorId: actor.id, status: "dying" }));
+        }
+        // A dying actor hit again: failures only when the ruleset says so (docs/house-decisions.md #7).
+        const rules = track.deathSaves;
+        if (rules?.failuresOnDamage !== undefined && rest > 0 && c.status === "dying") {
+          const added = input.critical
+            ? (rules.failuresOnCriticalDamage ?? rules.failuresOnDamage)
+            : rules.failuresOnDamage;
+          const failures = tally({ actor, field: params.failureField }) + added;
+          deltas.push({ target: { actorId: actor.id, field: params.failureField }, kind: "set", value: failures });
+          if (failures >= rules.failures)
+            deltas.push({ target: { actorId: actor.id, field: params.stateField }, kind: "set", value: "dead" });
         }
         return deltas;
       },

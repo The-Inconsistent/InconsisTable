@@ -1,12 +1,25 @@
 import { z } from "zod";
 
 import type { FieldValue } from "../derived.ts";
-import { DeltaKind, TestKey, TurnKey, type RefusalCode, type Touches } from "../enums.ts";
+import {
+  DeltaKind,
+  TestKey,
+  TurnKey,
+  type ConditionDuration,
+  type RefusalCode,
+  type ResetEvent,
+  type Touches,
+} from "../enums.ts";
 
-/** Where a delta writes. An actor's resource or field, the encounter's turn state, or the open Test call. */
+/**
+ * Where a delta writes. An actor's resource, field or condition row, the encounter's turn state, or the open Test
+ * call. A `condition` target names the row (`ConditionState.id`): `add` changes its `expiresAfter`, `set` with
+ * `null` removes the row.
+ */
 export const DeltaTarget = z.union([
   z.strictObject({ actorId: z.string().min(1), resource: z.string().min(1) }),
   z.strictObject({ actorId: z.string().min(1), field: z.string().min(1) }),
+  z.strictObject({ actorId: z.string().min(1), condition: z.string().min(1) }),
   z.strictObject({ turn: TurnKey }),
   z.strictObject({ test: TestKey }),
 ]);
@@ -20,7 +33,8 @@ export const Delta = z.object({ target: DeltaTarget, kind: DeltaKind, value: Del
 export type Delta = z.infer<typeof Delta>;
 
 /** What an op may write: a resource or field id (`*` for any), a turn key or a Test key. No actor: that is `perm`'s job. */
-export type TargetPattern = { resource: string } | { field: string } | { turn: TurnKey } | { test: TestKey };
+export type TargetPattern =
+  { resource: string } | { field: string } | { condition: "*" } | { turn: TurnKey } | { test: TestKey };
 
 /** A resource as the op sees it: its value and the bounds the caller evaluated (`resourceBounds`). */
 export interface ResourceState {
@@ -28,12 +42,28 @@ export interface ResourceState {
   min: number;
   /** null: no ceiling (no max, or `capped: false`). */
   max: number | null;
+  /** The value each reset event sets it to for this holder, evaluated by the caller (`resetValues`). */
+  reset?: Partial<Record<ResetEvent, number>>;
+  /** Health tracks: the overflow damage that kills outright, evaluated by the caller (`instantDeathAt`). */
+  instantDeathAt?: number | null;
+}
+
+/** An active condition: one `actor_condition` row. */
+export interface ConditionState {
+  /** The row's id, which a `condition` delta target names. */
+  id: string;
+  conditionId: string;
+  expiresOn: ConditionDuration;
+  /** Turns or rounds left, for the expiries that count. null reads as 1 (house decision #14). */
+  expiresAfter: number | null;
 }
 
 export interface ActorState {
   id: string;
   fields: Readonly<Record<string, FieldValue>>;
   resources: Readonly<Record<string, ResourceState>>;
+  /** Active conditions in the order the table applied them. Absent: none loaded. */
+  conditions?: readonly ConditionState[];
 }
 
 export interface TurnState {
@@ -115,6 +145,7 @@ function matches(target: DeltaTarget, pattern: TargetPattern): boolean {
   if ("resource" in target)
     return "resource" in pattern && (pattern.resource === "*" || pattern.resource === target.resource);
   if ("field" in target) return "field" in pattern && (pattern.field === "*" || pattern.field === target.field);
+  if ("condition" in target) return "condition" in pattern;
   if ("turn" in target) return "turn" in pattern && pattern.turn === target.turn;
   return "test" in pattern && pattern.test === target.test;
 }

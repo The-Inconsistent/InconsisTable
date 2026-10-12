@@ -30,7 +30,14 @@ async function openCall(tx: Tx, { campaignId, callId }: { campaignId: string; ca
 }
 
 /** The log keeps the whole story (the recap draws on it); it is a GM-side document and never reaches a phone. */
-async function log(tx: Tx, { ctx, type, payload }: { ctx: Ctx; type: "test.call" | "test.report" | "test.close"; payload: Record<string, unknown> }) {
+async function log(
+  tx: Tx,
+  {
+    ctx,
+    type,
+    payload,
+  }: { ctx: Ctx; type: "test.call" | "test.report" | "test.close"; payload: Record<string, unknown> },
+) {
   const sessionId = await runningSessionId(tx, ctx.campaignId);
   await tx
     .insert(sessionEvent)

@@ -11,7 +11,12 @@ const INT4_MIN = -2_147_483_648;
 const INT4_MAX = 2_147_483_647;
 
 /** A field value as a pack body or a builder answer carries it. `null` (unset) is not allowed: omit the field. */
-export const FieldValueInput = z.union([z.number(), z.string(), z.boolean(), z.array(z.string())]);
+export const FieldValueInput = z.union([
+  z.number().min(INT4_MIN).max(INT4_MAX),
+  z.string().max(MAX_TEXT_CHARS),
+  z.boolean(),
+  z.array(z.string().max(MAX_LIST_ITEM_CHARS)).max(MAX_LIST_ITEMS),
+]);
 export type FieldValueInput = z.infer<typeof FieldValueInput>;
 
 /** Why `value` does not fit `def`, or null when it does. The one place a value is checked against a `FieldDef`. */

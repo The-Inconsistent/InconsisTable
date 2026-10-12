@@ -36,13 +36,17 @@ test("a pack's problems come back by path: a missing cite, an unknown entity, an
   const bad = structuredClone(SAMPLE_PACK);
   delete bad.entries[0]?.cite;
   if (bad.entries[1]) bad.entries[1].type = "nope";
-  if (bad.entries[2]) bad.entries[2].body = { name: "x".repeat(20_000) };
   const r = validatePack({ input: bad, ruleset });
   assert.ok(!r.ok);
   const paths = r.problems.map((p) => p.path);
   assert.ok(paths.includes("entries[0].cite"));
   assert.ok(paths.includes("entries[1].type"));
-  assert.ok(paths.some((p) => p.startsWith("entries[2].body")));
+  // Too long for the schema itself, so it is refused before the entries are read one by one.
+  const fat = structuredClone(SAMPLE_PACK);
+  if (fat.entries[2]) fat.entries[2].body = { name: "x".repeat(20_000) };
+  const f = validatePack({ input: fat, ruleset });
+  assert.ok(!f.ok);
+  assert.ok(f.problems.some((p) => p.path === "entries[2].body.name"));
 });
 
 test("the version hash is stable, and follows content, the ruleset version and nothing else", () => {

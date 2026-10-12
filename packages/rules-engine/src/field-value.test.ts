@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { checkFieldValue, MAX_LIST_ITEM_CHARS, MAX_LIST_ITEMS, MAX_TEXT_CHARS } from "./field-value.ts";
+import {
+  checkFieldValue,
+  FieldValueInput,
+  MAX_LIST_ITEM_CHARS,
+  MAX_LIST_ITEMS,
+  MAX_TEXT_CHARS,
+} from "./field-value.ts";
 import type { FieldDef } from "./manifest.ts";
 
 const base = { label: "F", visibility: "gm", editableBy: "gm" } as const;
@@ -24,4 +30,13 @@ test("an int outside int4 is refused", () => {
   assert.equal(checkFieldValue({ def: int, value: 2_147_483_647 }), null);
   assert.notEqual(checkFieldValue({ def: int, value: 2_147_483_648 }), null);
   assert.notEqual(checkFieldValue({ def: int, value: -2_147_483_649 }), null);
+});
+
+test("a pack body value is bounded like a stored one", () => {
+  assert.ok(FieldValueInput.safeParse("x".repeat(MAX_TEXT_CHARS)).success);
+  assert.ok(!FieldValueInput.safeParse("x".repeat(MAX_TEXT_CHARS + 1)).success);
+  assert.ok(!FieldValueInput.safeParse(Array(MAX_LIST_ITEMS + 1).fill("a")).success);
+  assert.ok(!FieldValueInput.safeParse(["x".repeat(MAX_LIST_ITEM_CHARS + 1)]).success);
+  assert.ok(FieldValueInput.safeParse(2_147_483_647).success);
+  assert.ok(!FieldValueInput.safeParse(2_147_483_648).success);
 });

@@ -35,10 +35,20 @@ const post = (path: string, body: unknown, headers: Record<string, string> = {})
     body: JSON.stringify(body),
   });
 
+// Each socket comes from its own address: the suite opens more sockets than the api allows one address a minute.
+let sockets = 0;
+const nextSocketIp = () =>
+  `172.${16 + (Math.floor(++sockets / 250) % 16)}.${sockets % 250}.${1 + Math.floor(Math.random() * 250)}`;
+
 // A socket at one table: `auth` carries campaignId plus a Clerk test token, a guest token or the admin key; `headers`
 // can carry a guest cookie instead.
 function connect({ auth, headers }: { auth: Record<string, string>; headers?: Record<string, string> }) {
-  const socket = io(API, { auth, extraHeaders: headers, transports: ["websocket"], reconnection: false });
+  const socket = io(API, {
+    auth,
+    extraHeaders: { "cf-connecting-ip": nextSocketIp(), ...headers },
+    transports: ["websocket"],
+    reconnection: false,
+  });
   let latest: LiveState | null = null;
   let codex: Codex | null = null;
   socket.on("codex", (c: Codex) => (codex = c));
@@ -597,7 +607,7 @@ test("importer: a ruleset and a pack are stored once, a re-import reports its di
   const fat = structuredClone(SAMPLE_PACK);
   if (fat.entries[0]) fat.entries[0].body = { blurb: "x".repeat(20_000) };
   const tooBig = await me.post<PackReply>("/packs", fat);
-  assert.ok(tooBig.body.problems?.some((p) => p.path.startsWith("entries[0].body")));
+  assert.ok(tooBig.body.problems?.some((p) => p.path === "entries[0].body.blurb"));
   const relabelled = await me.post<PackReply>("/packs", { ...SAMPLE_PACK, license: "srd", attribution: "Someone" });
   assert.equal(relabelled.body.problems?.[0]?.path, "license", "a private pack can't be re-imported as srd");
   assert.equal((await me.get<unknown[]>("/rulesets")).status, 200);

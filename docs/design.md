@@ -678,6 +678,14 @@ Mọi entry luật (resource, condition, test, initiative, effect, option) có `
     khác.
   - Người chơi có ghế chỉ thấy entry qua view đã lọc của bàn.
 - **License tự khai** (`srd|orc|cc-by`) không tự đưa pack lên danh mục công khai; cần `pack:approve`.
+- **Lưu trữ (chốt 2026-10-13):**
+  - File gốc thuộc người dùng; sau khi nhập, DB là bản chính, file tải lên không được giữ.
+  - Mỗi lần nhập tạo `pack_version` bất biến; `content_hash` mỗi entry để diff và bỏ trùng. Phòng pin phiên bản, spawn
+    chép giá trị thành hàng, nên sửa pack không đổi bàn đang chơi.
+  - Giới hạn: file ≤ 5 MB, ≤ 5.000 entry/pack, `body` ≤ 16 KB/entry; quota theo user.
+  - "Xoá" là ẩn (`pack.hidden_at`); xoá thật chỉ khi không phòng nào tham chiếu (FK `RESTRICT`).
+  - `pack.disabled_at` cho admin gỡ ngay khi có yêu cầu (notice-and-takedown), ghi `admin_event`.
+  - Chủ pack export lại JSON của mình.
 - **Cổng theo route:**
 
   | Route | Cổng |

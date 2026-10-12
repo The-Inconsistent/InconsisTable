@@ -82,8 +82,9 @@ Một bàn chơi one-shot 5e SRD từ lúc tạo nhân vật tới hết buổi,
   - `session.start/end` gọi `rest` cho các resource có `resetOn` tương ứng.
 - **Schema:** `session_event` thêm cột `action_id uuid` (gom các delta của một action), `seat_user_id text`,
   `undone_by uuid null`; index `(campaign_id, undone_by, created_at)`. Payload vẫn là JSONB (log chỉ ghi thêm).
-- **Undo:** đảo `after − before` cho delta `add` của action gần nhất chưa undo, trong cùng transaction, ghi một event
-  `undo` mới. Delta `set` (field, turn) xử lý theo house decision (xem dưới).
+- **Undo:** GM và co-GM `combat` undo action gần nhất chưa undo của session đang chạy, lần lượt ngược về trước, trong
+  cùng transaction, ghi một event `undo` mới. Delta `add` đảo `after − before` (không đè delta đến sau). Delta `set`
+  (field, turn) chỉ undo khi giá trị hiện tại còn bằng `after`; khác thì từ chối và báo rõ. Không có redo.
 - **Snapshot:** `table.state.ts` nạp hàng giá trị, compile manifest một lần theo `hash` (cache trong process), tính
   derived, rồi `toViewerView` cho từng ghế. `LiveState.actors` mang thêm `entity`, `fields`, `resources`, `derived`,
   `conditions`.
@@ -94,9 +95,21 @@ Một bàn chơi one-shot 5e SRD từ lúc tạo nhân vật tới hết buổi,
 ### C. Importer ruleset và pack (`apps/api/src/ruleset`, web)
 
 - **Mục tiêu:** người dùng dán JSON hoặc chọn file, thấy lỗi theo `path`, lưu phiên bản bất biến, mặc định riêng tư.
-- **Schema:** `pack`, `pack_version` (`hash`, `license`, `visibility`), `pack_entry` (`key`, `type`, `name`, `level`,
-  `tags text[]`, `visibility`, `cite`, `content_hash`, `body jsonb`; index `(pack_version_id, type)`, `pg_trgm` trên
-  `name`), `campaign_pack (campaign_id, pack_version_id)`.
+- **Schema:** `pack` (`owner_user_id`, `license` `private|srd|cc-by|orc|original`, `attribution`, `hidden_at`,
+  `disabled_at`), `pack_version` (`hash`, bất biến), `pack_entry` (`key`, `type`, `name`, `level`, `tags text[]`,
+  `visibility` `public|party|gm`, `cite`, `content_hash`, `body jsonb`; index `(pack_version_id, type)`, `pg_trgm` trên
+  `name`, không GIN trên `body`), `campaign_pack (campaign_id, pack_version_id)` với FK `RESTRICT`.
+- **Cách lưu (chốt 2026-10-13):** file gốc là của người dùng, giữ ở đâu tuỳ họ; sau khi nhập, DB là bản chính và file
+  tải lên bị bỏ. Ruleset là JSONB nguyên khối; pack là một hàng mỗi entry (cột có kiểu để lọc, `body` để hiển thị).
+- **Nhập trong một transaction:** parse + zod; giới hạn file ≤ 5 MB, ≤ 5.000 entry/pack, `body` ≤ 16 KB/entry;
+  bắt buộc `cite` (trừ homebrew); cảnh báo mô tả > 280 ký tự; chuẩn hoá key `pack:key`; tính `content_hash`, diff với
+  bản trước (thêm/sửa/xoá), ghi `pack_version` + entry, trả diff cho người dùng.
+- **Vòng đời:** mỗi lần nhập là một phiên bản mới, không sửa đè. Phòng pin phiên bản; spawn chép giá trị thành hàng
+  nên đổi pack không đổi bàn đang chơi. "Xoá" là ẩn (`hidden_at`); chỉ xoá thật khi không phòng nào tham chiếu.
+- **Quota và gỡ:** quota theo user (số pack, tổng dung lượng). Admin đặt `disabled_at` để gỡ ngay khi có yêu cầu
+  (notice-and-takedown), ghi `admin_event`. Chủ pack tải lại JSON của mình (`GET /api/packs/:id/export`).
+- **License:** `srd|cc-by|orc` bắt buộc `attribution` và hiện trên UI; không tự lên danh mục công khai (cần
+  `pack:approve`, P3).
 - **Đường đi:** REST cho ghi thuộc chủ sở hữu ngoài campaign (§5.3): `POST /api/rulesets`, `POST /api/packs`,
   `GET` danh sách của tôi. Gắn vào phòng là socket action: `campaign.setRuleset` (`campaign:ruleset`, từ chối khi đã
   có actor dùng phiên bản khác), `campaign.attachPack` (pack `private` chỉ gắn được vào phòng mà người gọi là chủ pack
@@ -183,10 +196,9 @@ Mỗi workstream song song chạy ở session/agent riêng, trên nhánh riêng,
 7. **Chơi thử P1:** máy dev trong LAN (Aspire/Podman), điện thoại vào qua IP LAN (`DEV_ORIGINS`,
    `NEXT_PUBLIC_DEV_HOST`). Chưa deploy.
 
-## Còn chờ quyết
-
-- **Manifest và pack SRD được soạn và giữ ở đâu** ngoài repo này (SRD 5.2 là CC-BY-4.0 nhưng repo không ship nội
-  dung); có cần công cụ chuyển đổi không.
+8. **Nguồn SRD:** người dùng tự soạn và giữ file gốc; hệ thống chỉ lưu bản đã nhập (xem C). Không có converter trong
+   repo. Playtest dùng một manifest và pack SRD nhỏ đủ một one-shot, nhập qua UI; converter đầy đủ (nếu cần) ở repo
+   riêng.
 
 ## Không làm ở P1
 

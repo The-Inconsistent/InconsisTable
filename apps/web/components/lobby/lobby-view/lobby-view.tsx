@@ -7,8 +7,11 @@ import { CreateGame, type Lobby, type LobbyGame } from "@inconsistable/core-sche
 
 import { ROLE_LABEL } from "@/app/constants";
 import { ApiMessage, CampaignRef, readJson } from "@/lib/api-reply/api-reply";
+import type { RulesetList } from "@/lib/library/library";
 
-type LobbyViewProps = { lobby: Lobby };
+type LobbyViewProps = { lobby: Lobby; rulesets: RulesetList };
+
+const NO_RULESET = "";
 
 function GameCard({ game }: { game: LobbyGame }) {
   return (
@@ -42,16 +45,20 @@ function Section({ title, games, empty }: { title: string; games: LobbyGame[]; e
 }
 
 // The signed-in home: rooms you own, rooms where you play or co-GM, and the archived ones; plus NEW ROOM for creators.
-export function LobbyView({ lobby }: LobbyViewProps) {
+export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [rulesetVersionId, setRulesetVersionId] = useState(NO_RULESET);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   // NEW ROOM: the api creates it with the caller as owner and GM, then we open it.
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
-    const parsed = CreateGame.safeParse({ name });
+    const parsed = CreateGame.safeParse({
+      name,
+      rulesetVersionId: rulesetVersionId === NO_RULESET ? undefined : rulesetVersionId,
+    });
     if (!parsed.success) return setError("Give the room a name");
     setBusy(true);
     setError(null);
@@ -77,6 +84,7 @@ export function LobbyView({ lobby }: LobbyViewProps) {
       <header className="band">
         <strong>InconsisTable</strong>
         <span className="row">
+          <a href="/library">Rulesets &amp; packs</a>
           {lobby.admin && <a href="/admin">Admin</a>}
           <UserButton />
         </span>
@@ -90,10 +98,30 @@ export function LobbyView({ lobby }: LobbyViewProps) {
                 Name
                 <input id="new-room-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />
               </label>
+              <label>
+                Ruleset
+                <select value={rulesetVersionId} onChange={(e) => setRulesetVersionId(e.target.value)}>
+                  <option value={NO_RULESET}>None yet</option>
+                  {rulesets.map((r) => (
+                    <optgroup key={r.id} label={r.slug}>
+                      {r.versions.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {r.slug} {v.version}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </label>
               <button className="btn primary" type="submit" disabled={busy} style={{ alignSelf: "end" }}>
                 Create
               </button>
             </div>
+            {rulesets.length === 0 && (
+              <p className="small dim">
+                To start with a ruleset, <a href="/library">import one</a> first.
+              </p>
+            )}
             {error && <p className="error">{error}</p>}
           </form>
         )}

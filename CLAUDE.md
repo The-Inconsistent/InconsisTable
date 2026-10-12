@@ -98,6 +98,7 @@ These are binding: follow them when writing code and use them when reviewing.
 - **Review procedure:** the `/review` command (`.claude/commands/review.md`), which falls back to the local diff when
   there's no PR.
 - **Multi-file investigation:** the `codebase-navigator` agent.
+- **Delegating planned work:** the `plan-executor` agent (Sonnet, effort medium), prompted with the `delegate` skill.
 - **Open engine choices:** `docs/house-decisions.md`.
 
 ## Git

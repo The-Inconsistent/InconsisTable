@@ -24,7 +24,14 @@ export const InviteMode = z.enum(["room", "character"]); // room: claim or start
 export type InviteMode = z.infer<typeof InviteMode>;
 
 // A stored field value (docs/design.md §5.4): what the actor_field rows hold, or null for an unset field.
-export const FieldValue = z.union([z.number(), z.string(), z.boolean(), z.array(z.string()), z.null()]);
+// The bounds repeat MAX_TEXT_CHARS, MAX_LIST_ITEMS and MAX_LIST_ITEM_CHARS in rules-engine/field-value.ts.
+export const FieldValue = z.union([
+  z.number().int().min(-2147483648).max(2147483647),
+  z.string().max(10_000),
+  z.boolean(),
+  z.array(z.string().max(1_000)).max(500),
+  z.null(),
+]);
 export type FieldValue = z.infer<typeof FieldValue>;
 
 // An actor without its ruleset values: what an invite preview shows anyone holding the code.

@@ -112,14 +112,14 @@ test("GMs don't send player requests or safety signals", () => {
   }
 });
 
-test("members act only on lower seats, and never on the owner", () => {
+test("GMs act on players only; the owner on every other seat", () => {
   const target = (userId: string, role: "gm" | "cogm" | "player") => ({ userId, role });
   // The owner acts on every other seat.
   assert.equal(canActOnMember({ ctx: owner, target: target("u-gm", "gm") }), true);
   assert.equal(canActOnMember({ ctx: owner, target: target("u-co", "cogm") }), true);
-  // A GM removes players and co-GMs, not another GM, and never the owner.
+  // A GM removes players, not a co-GM or another GM, and never the owner (docs/design.md §3.6).
   assert.equal(canActOnMember({ ctx: gm, target: target("u-pl", "player") }), true);
-  assert.equal(canActOnMember({ ctx: gm, target: target("u-co", "cogm") }), true);
+  assert.equal(canActOnMember({ ctx: gm, target: target("u-co", "cogm") }), false);
   assert.equal(canActOnMember({ ctx: gm, target: target("u-gm2", "gm") }), false);
   assert.equal(canActOnMember({ ctx: gm, target: target(OWNER, "gm") }), false);
   // A co-GM removes players only; a player nobody.

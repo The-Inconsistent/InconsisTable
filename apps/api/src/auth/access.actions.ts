@@ -1,11 +1,12 @@
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull } from "drizzle-orm";
 import { canActOnMember, canGrantRole, type Action, type ActionResult, type Ctx } from "@inconsistable/core-schema";
 import { ownActor } from "../actor/actor.actions.ts";
+import { actor } from "../actor/actor.schema.ts";
 import { campaign } from "../campaign/campaign.schema.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
 import { accessToken, appUser, invite, membership, ownershipTransfer } from "./auth.schema.ts";
-import { hash, issueScreenToken, issueToken, newSecret } from "./auth.service.ts";
+import { hash, heldCharacters, issueScreenToken, issueToken, newSecret } from "./auth.service.ts";
 
 export type AccessAction = Extract<
   Action,
@@ -35,6 +36,23 @@ const dropOfferTo = (tx: Tx, { campaignId, userId }: { campaignId: string; userI
   tx
     .delete(ownershipTransfer)
     .where(and(eq(ownershipTransfer.campaignId, campaignId), eq(ownershipTransfer.toUserId, userId)));
+
+// The characters of a seat that goes stay at the table, retired: the GM still needs them (docs/design.md §3.6). A
+// dead one stays dead.
+const retire = async (tx: Tx, { campaignId, actorIds }: { campaignId: string; actorIds: string[] }) => {
+  if (actorIds.length)
+    await tx
+      .update(actor)
+      .set({ status: "retired" })
+      .where(and(eq(actor.campaignId, campaignId), inArray(actor.id, actorIds), eq(actor.status, "active")));
+};
+
+// A member leaves or is removed: their characters retire, their seat and any room offer to them go.
+const unseat = async (tx: Tx, { campaignId, userId, id }: { campaignId: string; userId: string; id: string }) => {
+  await retire(tx, { campaignId, actorIds: await heldCharacters(tx, id) });
+  await tx.delete(membership).where(eq(membership.id, id));
+  await dropOfferTo(tx, { campaignId, userId });
+};
 
 const memberOf = async (tx: Tx, { campaignId, userId }: { campaignId: string; userId: string }) =>
   (
@@ -93,10 +111,9 @@ export async function applyAccessAction(
         fail(
           a.userId === ctx.campaignOwnerId
             ? "The owner can't be removed; they can hand the room on"
-            : "You can only remove seats below your own",
+            : "Only the owner removes a GM or co-GM",
         );
-      await tx.delete(membership).where(eq(membership.id, m.id));
-      await dropOfferTo(tx, { campaignId: cid, userId: a.userId });
+      await unseat(tx, { campaignId: cid, userId: a.userId, id: m.id });
       return { ok: true };
     }
 
@@ -127,11 +144,12 @@ export async function applyAccessAction(
       if (ctx.seat.kind === "admin") fail("You hold no seat here");
       if (ctx.userId && ctx.userId === ctx.campaignOwnerId) fail("Hand the room on before you leave it");
       if (ctx.seat.kind === "member" && ctx.userId) {
-        await tx.delete(membership).where(and(eq(membership.campaignId, cid), eq(membership.userId, ctx.userId)));
-        await dropOfferTo(tx, { campaignId: cid, userId: ctx.userId });
-      }
-      // ponytail: a guest can't be told apart from another phone on the same character's QR, so all its tokens go.
-      else
+        const m = await memberOf(tx, { campaignId: cid, userId: ctx.userId });
+        if (m) await unseat(tx, { campaignId: cid, userId: ctx.userId, id: m.id });
+      } else {
+        // A guest is a player too: their character stays, retired.
+        await retire(tx, { campaignId: cid, actorIds: ctx.seat.characterIds });
+        // ponytail: a guest can't be told apart from another phone on the same character's QR, so all its tokens go.
         for (const actorId of ctx.seat.characterIds)
           await tx
             .update(accessToken)
@@ -139,6 +157,7 @@ export async function applyAccessAction(
             .where(
               and(eq(accessToken.campaignId, cid), eq(accessToken.actorId, actorId), isNull(accessToken.revokedAt)),
             );
+      }
       return { ok: true };
     }
 

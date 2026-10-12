@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MEMBER_RANK, type CogmScope, type Ctx, type MemberRole, type SeatRole } from "./seat.ts";
+import { type CogmScope, type Ctx, type MemberRole, type SeatRole } from "./seat.ts";
 
 // Permissions are data (docs/design.md §3.6). Every action declares the one it needs (ACTION_PERMS in actions.ts), and
 // `authorize` asks `canInCampaign` before the action's own validator runs.
@@ -115,14 +115,15 @@ export function canInCampaign({ ctx, perm, target }: { ctx: Ctx; perm: Permissio
   return scopes.some((s) => held.includes(s));
 }
 
-// Whether the seat may act on another member's seat (remove them, change their role or scopes). Only strictly lower
-// seats, and never the owner: the owner can't be removed, only transfer the room (docs/design.md §3.6).
+// Whether the seat may act on another member's seat (remove them, change their role or scopes). A GM or co-GM acts on
+// players only; only the owner acts on a GM or co-GM, and nobody on the owner, who hands the room on instead
+// (docs/design.md §3.6).
 export function canActOnMember({ ctx, target }: { ctx: Ctx; target: { userId: string; role: MemberRole } }): boolean {
   if (target.userId === ctx.campaignOwnerId) return false;
   if (ctx.seat.kind === "admin") return true;
   if (ctx.userId === ctx.campaignOwnerId && ctx.userId !== null) return true; // the owner acts on every other seat
   if (ctx.seat.kind !== "member") return false;
-  return MEMBER_RANK[ctx.seat.role] > MEMBER_RANK[target.role];
+  return ctx.seat.role !== "player" && target.role === "player";
 }
 
 // Whether the seat may hand out `role` (an invite, an appointment). Players only, unless you own the room.

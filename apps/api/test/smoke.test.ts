@@ -373,6 +373,7 @@ test("leaving drops every socket of that seat, and an offer to the leaver goes w
   await Promise.all(gone);
   const after = await owner.until((s) => !s.access.members.some((m) => m.userId === uid("ana-leave")));
   assert.equal(after.access.transfer, null);
+  assert.equal(after.actors.find((a) => a.name === "ana-leave")?.status, "retired", "the character stays, retired");
 
   // A guest on two phones leaves from one: both go, and the QR stops working.
   const code = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
@@ -385,7 +386,31 @@ test("leaving drops every socket of that seat, and an offer to the leaver goes w
   ok(await phone1.send({ type: "seat.leave" }));
   await Promise.all(both);
   await assert.rejects(connect({ auth: { campaignId }, headers: { cookie } }).connected(), /unauthorized/);
+  await owner.until((s) => s.actors.find((a) => a.name === "Bran")?.status === "retired");
+  // The room QR doesn't offer a retired character to the next player.
+  const preview = (await (await get(`/invites/${code}`)).json()) as InvitePreview;
+  assert.deepEqual(preview.openActors, []);
   owner.socket.close();
+});
+
+test("a GM removes players only; a removed player's character stays, retired", async () => {
+  const { owner, campaignId } = await newRoom("Remove");
+  const gmInv = ok(await owner.send({ type: "invite.create", mode: "room", role: "gm", allowGuests: false })).token!;
+  const benClerk = clerk("ben-rm");
+  assert.equal((await post(`/invites/${gmInv}/accept`, {}, bearer(benClerk))).status, 200);
+  const coInv = ok(await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false })).token!;
+  assert.equal((await post(`/invites/${coInv}/accept`, {}, bearer(clerk("co-rm")))).status, 200);
+  await seatPlayer(owner, "ana-rm");
+  const ben = connect({ auth: { campaignId, clerkToken: benClerk } });
+  await ben.until(() => true);
+
+  // Only the owner removes a GM or co-GM (docs/design.md §3.6).
+  refused(await ben.send({ type: "member.remove", userId: uid("co-rm") }), /Only the owner/);
+  ok(await ben.send({ type: "member.remove", userId: uid("ana-rm") }));
+  const s = await owner.until((st) => !st.access.members.some((m) => m.userId === uid("ana-rm")));
+  assert.equal(s.actors.find((a) => a.name === "ana-rm")?.status, "retired");
+  ok(await owner.send({ type: "member.remove", userId: uid("co-rm") }));
+  for (const c of [owner, ben]) c.socket.close();
 });
 
 test("a room offer: cancelled by the owner, and withdrawn when the recipient is removed", async () => {

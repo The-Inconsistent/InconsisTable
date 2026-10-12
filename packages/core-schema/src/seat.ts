@@ -38,9 +38,6 @@ export type Ctx = {
 // The role a seat acts as; an admin acts as a GM.
 export const seatRole = (seat: Seat): SeatRole => (seat.kind === "admin" ? "gm" : seat.role);
 
-// Rank for acting on other members: you only act on seats strictly below your own.
-export const MEMBER_RANK: Record<MemberRole, number> = { gm: 3, cogm: 2, player: 1 };
-
 // What /api/campaigns/:id/me answers: the caller's Ctx, parsed on the web server before it picks an app.
 export const Me = z.object({
   campaignId: z.string(),

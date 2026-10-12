@@ -22,7 +22,8 @@ These rules decide reviews. Breaking one blocks a merge.
 5. **The dice stay physical.** The app records results and only rolls on random tables. Rolling Tests for players is a
    per-ruleset option that needs a house decision.
 6. **The server decides.** One mutation path. Counters take deltas and are clamped on the server. Players see only what
-   the table's view lets them see.
+   the table's view lets them see. The only writes outside it are owner-scoped REST: a user importing their own
+   rulesets and packs (`/api/rulesets`, `/api/packs`, the pack library), creating a room, and the admin console.
 7. **Shortcuts are marked:** `// ponytail: <ceiling>, <upgrade path>`.
 8. **It serves a real table.** Readable at arm's length, no chat, phones never pull players away from the table. Each
    World gets a look made with care.
@@ -42,10 +43,12 @@ Clerk (only through `@inconsistable/auth`).
 apps/api/src/        NestJS on Bun, run from source. One folder per feature, each owning its `*.schema.ts`:
   core/              db (Postgres 18, migrations at boot), errors, sql helpers (uuidv7 ids), rate limits
   auth/              seats: membership (+ held characters), tokens (guest, screen), invites, ownership transfer
-  campaign/          rooms and sessions, lobby, create (REST), the session event log
+  campaign/          rooms and sessions, lobby, create (REST), the session event log, the room's ruleset and packs
+                     (`campaign.setRuleset/attachPack`, the seat-scoped `GET /api/campaigns/:id/rules`)
   actor/             actors and their typed value rows
   codex/             codex entries and their listed readers
-  ruleset/           imported rulesets, versions, pools
+  ruleset/           imported rulesets (owner-scoped REST import), versions, pools
+  pack/              imported content packs: immutable versions, one row per entry, quota, export, takedown
   admin/             OPEN AS ADMIN housekeeping, moderator lock, the admin event log
   table/             the socket: gateway (queue, per-seat views, book relay, kicks), dispatch (authorize), loaders
 apps/api/test/       smoke.test.ts: end-to-end against a running api and Postgres 18

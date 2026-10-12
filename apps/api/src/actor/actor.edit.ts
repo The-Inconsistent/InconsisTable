@@ -33,7 +33,7 @@ export function checkEditable({
   if (!heldBy(ctx).includes(actorId)) return "Not your character";
   switch (editableBy) {
     case "gm":
-      return `Only the GM can change ${what}`;
+      return "Only the GM can change that";
     case "owner":
       return null;
     case "ownerSpendOnly":

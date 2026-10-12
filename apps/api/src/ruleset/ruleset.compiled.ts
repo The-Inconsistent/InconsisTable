@@ -12,14 +12,20 @@ const cache = new Map<string, CompiledRuleset>();
 /** The compiled ruleset a campaign has pinned, or null before one is. */
 export async function loadCompiled(conn: Db, campaignId: string): Promise<CompiledRuleset | null> {
   const [row] = await conn
-    .select({ hash: rulesetVersion.hash, manifest: rulesetVersion.manifest })
+    .select({ id: rulesetVersion.id, hash: rulesetVersion.hash })
     .from(campaign)
     .innerJoin(rulesetVersion, eq(rulesetVersion.id, campaign.rulesetVersionId))
     .where(eq(campaign.id, campaignId));
   if (!row) return null;
   const hit = cache.get(row.hash);
   if (hit) return hit;
-  const result = compileRuleset(row.manifest);
+  // Only a miss reads the manifest document (design §5.4: read once, cache by hash).
+  const [full] = await conn
+    .select({ manifest: rulesetVersion.manifest })
+    .from(rulesetVersion)
+    .where(eq(rulesetVersion.id, row.id));
+  if (!full) return null;
+  const result = compileRuleset(full.manifest);
   // The importer validates before it stores, so this means a stored manifest the engine no longer accepts.
   if (!result.ok) throw new Error(`ruleset ${row.hash} does not compile: ${JSON.stringify(result.problems[0])}`);
   if (cache.size >= MAX_COMPILED) cache.delete(cache.keys().next().value ?? "");

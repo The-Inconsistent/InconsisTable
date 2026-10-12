@@ -12,14 +12,10 @@ import { invertDelta } from "./event.undo.ts";
 
 export type EventAction = Extract<Action, { type: "event.undo" }>;
 
-// Undo (docs/p1-plan.md, decisions 2-3). One logged action of the running session, the newest one that is not undone
-// unless the GM names another, is taken back in reverse order inside this transaction, and an `undo` event records it.
+// Undo (docs/p1-plan.md, decisions 2-3). One logged action of the running session, the newest one that is not undone, is taken back in reverse order inside this transaction, and an `undo` event records it.
 // A step that can no longer be taken back refuses the whole undo with a message, and nothing is written. There is no
 // redo: the inverse writes are in the undo event, not in new `delta` rows, so they can't be undone in turn.
-export async function applyEventAction(
-  tx: Tx,
-  { ctx, action: a }: { ctx: Ctx; action: EventAction },
-): Promise<ActionResult> {
+export async function applyEventAction(tx: Tx, { ctx }: { ctx: Ctx; action: EventAction }): Promise<ActionResult> {
   const cid = ctx.campaignId;
   const sessionId = (await runningSessionId(tx, cid)) ?? fail("No session is running");
   const deltas = and(
@@ -28,26 +24,14 @@ export async function applyEventAction(
     eq(sessionEvent.type, "delta"),
   );
 
-  let actionId: string;
-  if (a.actionId !== undefined) {
-    const [row] = await tx
-      .select({ undoneBy: sessionEvent.undoneBy })
-      .from(sessionEvent)
-      .where(and(deltas, eq(sessionEvent.actionId, a.actionId)))
-      .limit(1);
-    if (!row) fail("That step isn't in this session's log");
-    if (row.undoneBy) fail("That step is already undone");
-    actionId = a.actionId;
-  } else {
-    const [row] = await tx
-      .select({ actionId: sessionEvent.actionId })
-      .from(sessionEvent)
-      .where(and(deltas, isNull(sessionEvent.undoneBy), isNotNull(sessionEvent.actionId)))
-      .orderBy(desc(sessionEvent.createdAt), desc(sessionEvent.id))
-      .limit(1);
-    if (!row?.actionId) fail("Nothing to undo");
-    actionId = row.actionId;
-  }
+  const [newest] = await tx
+    .select({ actionId: sessionEvent.actionId })
+    .from(sessionEvent)
+    .where(and(deltas, isNull(sessionEvent.undoneBy), isNotNull(sessionEvent.actionId)))
+    .orderBy(desc(sessionEvent.createdAt), desc(sessionEvent.id))
+    .limit(1);
+  if (!newest?.actionId) fail("Nothing to undo");
+  const actionId = newest.actionId;
 
   const compiled = (await loadCompiled(tx, cid)) ?? fail("This game has no ruleset yet");
   const steps = await tx
@@ -57,6 +41,7 @@ export async function applyEventAction(
     .orderBy(desc(sessionEvent.createdAt), desc(sessionEvent.id));
 
   const written: Written[] = [];
+  const skipped: { actorId: string; reason: "deleted" }[] = [];
   for (const step of steps) {
     const logged = LoggedDelta.parse(step.payload);
     const { target } = logged;
@@ -65,7 +50,11 @@ export async function applyEventAction(
     // ponytail: turn and Test steps are never logged yet (writeDelta refuses them); the encounter work undoes them
     if (!("actorId" in target)) fail("Can't undo that kind of step yet");
     const actor = Object.hasOwn(built, target.actorId) ? built[target.actorId] : undefined;
-    if (!actor) fail("Can't undo: that character is gone");
+    if (!actor) {
+      // A deleted actor can't be brought back, so its steps are skipped and noted; the GM moves past them.
+      skipped.push({ actorId: target.actorId, reason: "deleted" });
+      continue;
+    }
 
     let fieldType: FieldType | undefined;
     let current: LogValue = null;
@@ -89,7 +78,7 @@ export async function applyEventAction(
       type: "undo",
       actionId: crypto.randomUUID(),
       seatUserId: ctx.userId,
-      payload: { undone: actionId, deltas: written },
+      payload: { undone: actionId, deltas: written, skipped },
     })
     .returning({ id: sessionEvent.id });
   await tx

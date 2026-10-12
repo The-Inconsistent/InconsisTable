@@ -283,4 +283,4 @@ const stable = (v: LogValue) =>
       ? Object.fromEntries(Object.entries(x).sort(([p], [q]) => (p < q ? -1 : p > q ? 1 : 0)))
       : x,
   );
-export const sameValue = (a: LogValue, b: LogValue) => stable(a) === stable(b);
+export const sameValue = ({ a, b }: { a: LogValue; b: LogValue }) => stable(a) === stable(b);

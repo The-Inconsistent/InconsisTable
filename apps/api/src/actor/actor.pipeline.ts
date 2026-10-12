@@ -1,5 +1,5 @@
 import type { Ctx } from "@inconsistable/core-schema";
-import { checkFieldValue, type CompiledRuleset } from "@inconsistable/rules-engine";
+import { checkFieldValue, type CompiledRuleset, type EditableBy } from "@inconsistable/rules-engine";
 import { recordWritten } from "../campaign/event.log.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
@@ -59,7 +59,7 @@ export async function applyDeltas(
     }
     const actor = Object.hasOwn(built, target.actorId) ? built[target.actorId] : undefined;
     if (!actor) fail("Character not found");
-    let editableBy: "gm" | "owner" | "ownerSpendOnly" = "gm";
+    let editableBy: EditableBy = "gm";
     let what = "that";
     let write: Parameters<typeof writeDelta>[1] = { campaignId: ctx.campaignId, delta };
     if ("resource" in target) {

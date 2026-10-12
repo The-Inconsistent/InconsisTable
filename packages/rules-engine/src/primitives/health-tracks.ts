@@ -139,7 +139,7 @@ export const healthTracks: Primitive<HealthTracksParams> = {
   ops: {
     damage: defineOp<HealthTracksParams, DamageInput>({
       input: DamageInput,
-      perm: "character:edit:any",
+      perm: "encounter:run",
       touches: "state",
       targets,
       validate: ({ ctx: { params, state }, input }) => {
@@ -188,7 +188,7 @@ export const healthTracks: Primitive<HealthTracksParams> = {
     }),
     heal: defineOp<HealthTracksParams, HealInput>({
       input: HealInput,
-      perm: "character:edit:any",
+      perm: "encounter:run",
       touches: "state",
       targets,
       validate: ({ ctx: { params, state }, input }) => {
@@ -204,7 +204,7 @@ export const healthTracks: Primitive<HealthTracksParams> = {
     }),
     deathSave: defineOp<HealthTracksParams, DeathSaveInput>({
       input: DeathSaveInput,
-      perm: "character:edit:any",
+      perm: "encounter:run",
       touches: "state",
       targets,
       validate: ({ ctx: { params, state }, input }) => {

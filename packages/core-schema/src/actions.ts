@@ -74,8 +74,8 @@ export const Action = z.discriminatedUnion("type", [
   // The ruleset's `resetOn` for one rest or boundary event, on one actor or on all of them. `event` is the engine's
   // ResetEvent; core-schema can't import the engine, so the api parses it.
   z.object({ type: z.literal("actor.rest"), event: z.string().min(1).max(40), actorId: id.optional() }),
-  // Undoes one logged action of the running session (the newest when `actionId` is left out). There is no redo.
-  z.object({ type: z.literal("event.undo"), actionId: id.optional() }),
+  // Undoes the newest logged action of the running session that is not undone yet. There is no redo.
+  z.object({ type: z.literal("event.undo") }),
 
   z.object({
     type: z.literal("invite.create"),

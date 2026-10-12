@@ -25,14 +25,14 @@ export async function recordWritten(
   tx: Tx,
   { ctx, actionId, written }: { ctx: Ctx; actionId: string; written: readonly Written[] },
 ): Promise<boolean> {
-  const changed = written.filter((w) => !sameValue(w.before, w.after));
+  const changed = written.filter((w) => !sameValue({ a: w.before, b: w.after }));
   if (changed.length === 0) return false;
   const sessionId = await runningSessionId(tx, ctx.campaignId);
   await tx.insert(sessionEvent).values(
     changed.map((w) => ({
       campaignId: ctx.campaignId,
       sessionId,
-      type: "delta",
+      type: "delta" as const,
       actionId,
       seatUserId: ctx.userId,
       payload: { target: w.target, kind: w.kind, before: w.before, after: w.after } satisfies LoggedDelta,

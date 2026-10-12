@@ -241,4 +241,5 @@ CREATE INDEX "actor_campaign_id_kind_index" ON "actor" USING btree ("campaign_id
 CREATE INDEX "admin_event_created_at_index" ON "admin_event" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "session_event_campaign_id_created_at_index" ON "session_event" USING btree ("campaign_id","created_at");--> statement-breakpoint
 CREATE INDEX "session_event_campaign_id_undone_by_created_at_index" ON "session_event" USING btree ("campaign_id","undone_by","created_at");--> statement-breakpoint
+CREATE INDEX "session_event_action_id_index" ON "session_event" USING btree ("action_id");--> statement-breakpoint
 CREATE INDEX "codex_entry_campaign_id_kind_index" ON "codex_entry" USING btree ("campaign_id","kind");

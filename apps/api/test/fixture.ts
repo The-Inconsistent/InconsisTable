@@ -86,6 +86,7 @@ export const FIXTURE_RULESET: RulesetInput = {
       visibility: "party",
       effects: [],
     },
+    { id: "burning", label: "Burning", cite: "Fixture p.4", duration: "roundEnd", stacking: "refresh", effects: [] },
     { id: "marked", label: "Marked", cite: "Fixture p.4", duration: "manual", effects: [] },
   ],
   initiative: { strategy: "ranked", score: "mod(attr.dex)", cite: "Fixture p.5" },

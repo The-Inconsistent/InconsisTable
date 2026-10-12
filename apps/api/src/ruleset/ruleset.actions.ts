@@ -150,7 +150,7 @@ export async function applyRuleAction(
         row =
           def.stacking === "stack"
             ? { ...had[1], stacks: Math.min(had[1].stacks + 1, def.maxStacks ?? 100) }
-            : { ...had[1], source: a.source || had[1].source, expiresAfter: a.expiresAfter ?? had[1].expiresAfter };
+            : { ...had[1], source: a.source || had[1].source, expiresAfter: a.expiresAfter ?? null };
       }
       const id = await applyDeltas(tx, {
         ctx,

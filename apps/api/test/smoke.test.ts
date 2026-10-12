@@ -592,7 +592,7 @@ test("rule.op: the server clamps, and each seat writes only what its `editableBy
   ok(await ana.send(adjust(hero, "focus", -1)));
   await resourceOf(ana, hero, "focus", 0);
   refused(await ana.send(adjust(hero, "focus", 1)), /only spend/);
-  refused(await ana.send(adjust(hero, "hp", -1)), /Only the GM can change Vigour/);
+  refused(await ana.send(adjust(hero, "hp", -1)), /Only the GM can change that/);
   refused(await ana.send(adjust(ogre, "hp", -1)), /Not your character/);
   refused(
     await ana.send({ type: "rule.op", primitive: "health.tracks", op: "damage", input: { actorId: hero, amount: 1 } }),
@@ -612,8 +612,8 @@ test("field.set: type and range are checked, `editableBy` decides who writes, hi
   // The owner writes their own `owner` fields; `gm` fields and other characters are the GM's.
   ok(await ana.send(set(hero, "diary", "Met a dragon")));
   refused(await ana.send(set(hero, "diary", "x".repeat(41))), /over the cap of 40/);
-  refused(await ana.send(set(hero, "gmNote", "hm")), /Only the GM can change GM note/);
-  refused(await ana.send(set(hero, "level", 4)), /Only the GM can change Level/);
+  refused(await ana.send(set(hero, "gmNote", "hm")), /Only the GM can change that/);
+  refused(await ana.send(set(hero, "level", 4)), /Only the GM can change that/);
   refused(await ana.send(set(ogre, "level", 4)), /Not your character/);
   refused(await ana.send(set(hero, "nope", 1)), /no field "nope"/);
 
@@ -667,6 +667,20 @@ test("conditions: stack by the manifest, tick down through conditions.expire, hi
   );
   refused(await owner.send(add("nope")), /No condition "nope"/);
 
+  // `refresh`: applying it again restarts the count, and without one the count is cleared (house decision 19).
+  const burning = () =>
+    query<{ expires_after: number | null }>(
+      "SELECT expires_after FROM actor_condition WHERE actor_id = $1 AND condition_id = 'burning'",
+      [hero],
+    );
+  ok(await owner.send(add("burning", 2)));
+  assert.deepEqual(await burning(), [{ expires_after: 2 }]);
+  ok(await owner.send(add("burning", 5)));
+  assert.deepEqual(await burning(), [{ expires_after: 5 }]);
+  ok(await owner.send(add("burning")));
+  assert.deepEqual(await burning(), [{ expires_after: null }]);
+  ok(await owner.send({ type: "condition.remove", actorId: hero, condition: "burning" }));
+
   // `dazed` lasts two round ends: the first ticks it down (a row delta), the second removes it.
   const roundEnd = { type: "rule.op", primitive: "conditions.expire", op: "roundEnd", input: {} } as const;
   refused(await ana.send(roundEnd), /permission/);
@@ -708,7 +722,7 @@ test("actor.rest and session boundaries run the engine's rest primitive", async 
   await resourceOf(owner, hero, "hp", 14);
   assert.equal(actorIn(await owner.until(() => true), ogre)?.resources.hp, 3, "only the one asked");
   ok(await owner.send(rest("longRest")));
-  await resourceOf(owner, ogre, "hp", 10);
+  await resourceOf(owner, hero, "hp", 14);
   assert.equal(ok(await owner.send(rest("longRest"))).id, undefined, "already full: nothing to log");
 
   ok(await owner.send(rest("shortRest")));
@@ -721,57 +735,63 @@ test("actor.rest and session boundaries run the engine's rest primitive", async 
   for (const c of [owner, ana]) c.socket.close();
 });
 
-test("event.undo: newest first or a chosen step, deltas stay, a changed set refuses, only the combat side may", async () => {
-  const { owner, ana, campaignId, hero } = await rulesRoom("Undo");
+test("event.undo: newest first, deltas stay, a deleted actor is skipped, only the combat side may", async () => {
+  const { owner, ana, campaignId, hero, ogre } = await rulesRoom("Undo");
   const set = (field: string, value: string) => ({ type: "field.set", actorId: hero, field, value }) as const;
   refused(await owner.send({ type: "event.undo" }), /No session is running/);
   ok(await owner.send({ type: "session.start" }));
   refused(await owner.send({ type: "event.undo" }), /Nothing to undo/);
 
-  // Two hits, then the first is taken back on its own: its 3 comes back, the second hit stays (12, not 14).
+  // Two hits come back newest first: the second (2), then the first (3).
   const hit1 = ok(await owner.send(adjust(hero, "hp", -3))).id!;
   const hit2 = ok(await owner.send(adjust(hero, "hp", -2))).id!;
   await resourceOf(owner, hero, "hp", 9);
-  ok(await owner.send({ type: "event.undo", actionId: hit1 }));
-  await resourceOf(owner, hero, "hp", 12);
-  refused(await owner.send({ type: "event.undo", actionId: hit1 }), /already undone/);
-  refused(await owner.send({ type: "event.undo", actionId: crypto.randomUUID() }), /isn't in this session's log/);
-  // With no id it takes the newest step that is not undone, which is the second hit.
   assert.equal(ok(await owner.send({ type: "event.undo" })).id, hit2);
+  await resourceOf(owner, hero, "hp", 11);
+  assert.equal(ok(await owner.send({ type: "event.undo" })).id, hit1);
   await resourceOf(owner, hero, "hp", 14);
   refused(await owner.send({ type: "event.undo" }), /Nothing to undo/);
 
-  // A set can't be taken back once a later step changed it: undo the later step first.
-  const note1 = ok(await owner.send(set("gmNote", "one"))).id!;
-  const note2 = ok(await owner.send(set("gmNote", "two"))).id!;
+  // A set goes back to what it held before, one step at a time.
+  ok(await owner.send(set("gmNote", "one")));
+  ok(await owner.send(set("gmNote", "two")));
   const note = (s: LiveState) => actorIn(s, hero)?.fields.gmNote;
-  refused(
-    await owner.send({ type: "event.undo", actionId: note1 }),
-    /changed after this step.*Undo the later steps first/,
-  );
-  assert.equal(note(await owner.until(() => true)), "two", "the refused undo wrote nothing");
-  ok(await owner.send({ type: "event.undo", actionId: note2 }));
+  ok(await owner.send({ type: "event.undo" }));
   await owner.until((s) => note(s) === "one");
-  ok(await owner.send({ type: "event.undo", actionId: note1 }));
+  ok(await owner.send({ type: "event.undo" }));
   await owner.until((s) => note(s) === undefined);
 
-  // A refusal part-way through an action rolls the whole undo back: damage that also set a status, edited since.
-  const damage = ok(
+  // One action with several writes (hp, status, tallies) is taken back together, after the edit made on top of it.
+  ok(
     await owner.send({
       type: "rule.op",
       primitive: "health.tracks",
       op: "damage",
       input: { actorId: hero, amount: 20 },
     }),
-  ).id!;
+  );
   await owner.until((s) => actorIn(s, hero)?.fields.healthState === "dying");
-  const edit = ok(await owner.send(set("healthState", "stable"))).id!;
-  refused(await owner.send({ type: "event.undo", actionId: damage }), /field "healthState" changed/);
-  await resourceOf(owner, hero, "hp", 0); // the hp inverse that ran first was rolled back with the rest
-  ok(await owner.send({ type: "event.undo", actionId: edit }));
-  ok(await owner.send({ type: "event.undo", actionId: damage })); // hp, status and tallies together
+  ok(await owner.send(set("healthState", "stable")));
+  ok(await owner.send({ type: "event.undo" }));
+  await owner.until((s) => actorIn(s, hero)?.fields.healthState === "dying");
+  ok(await owner.send({ type: "event.undo" }));
   await resourceOf(owner, hero, "hp", 14);
   await owner.until((s) => actorIn(s, hero)?.fields.healthState === undefined);
+
+  // A deleted actor doesn't block undo: its step is skipped and noted, and the next undo goes on to the one before.
+  ok(await owner.send(adjust(hero, "hp", -1)));
+  ok(await owner.send(adjust(ogre, "hp", -2)));
+  ok(await owner.send({ type: "actor.delete", id: ogre }));
+  ok(await owner.send({ type: "event.undo" }));
+  const [undoEvent] = await query<{ payload: { skipped: { actorId: string; reason: string }[] } }>(
+    "SELECT payload FROM session_event WHERE campaign_id = $1 AND type = 'undo' ORDER BY created_at DESC, id DESC LIMIT 1",
+    [campaignId],
+  );
+  assert.deepEqual(undoEvent?.payload.skipped, [{ actorId: ogre, reason: "deleted" }]);
+  await resourceOf(owner, hero, "hp", 13);
+  ok(await owner.send({ type: "event.undo" }));
+  await resourceOf(owner, hero, "hp", 14);
+  refused(await owner.send({ type: "event.undo" }), /Nothing to undo/);
 
   // Who may undo: not the player, not a co-GM without the combat scope; a co-GM with it, yes.
   ok(await owner.send(adjust(hero, "hp", -1)));
@@ -791,6 +811,20 @@ test("event.undo: newest first or a chosen step, deltas stay, a changed set refu
   ok(await combat.send({ type: "event.undo" }));
   await resourceOf(owner, hero, "hp", 14);
 
+  // HP is the combat side's: a co-GM with only the combat scope deals damage, the session co-GM and a player can't.
+  const damage = {
+    type: "rule.op",
+    primitive: "health.tracks",
+    op: "damage",
+    input: { actorId: hero, amount: 1 },
+  } as const;
+  ok(await combat.send(damage));
+  await resourceOf(owner, hero, "hp", 13);
+  refused(await session.send(damage), /permission/);
+  refused(await ana.send(damage), /permission/);
+  ok(await combat.send({ type: "event.undo" }));
+  await resourceOf(owner, hero, "hp", 14);
+
   // Ended session: nothing left to undo.
   ok(await owner.send({ type: "session.end" }));
   refused(await owner.send({ type: "event.undo" }), /No session is running/);
@@ -804,7 +838,7 @@ test("event.undo: newest first or a chosen step, deltas stay, a changed set refu
   assert.ok(undoIds.size >= 7, `${undoIds.size} undo events`);
   const deltas = log.filter((e) => e.type === "delta");
   assert.ok(deltas.length >= 8);
-  assert.ok(deltas.every((e) => e.seat_user_id === uid("owner-Undo")));
+  assert.ok(deltas.every((e) => [uid("owner-Undo"), uid("co-combat-Undo")].includes(e.seat_user_id ?? "")));
   assert.ok(deltas.filter((e) => e.undone_by !== null).every((e) => undoIds.has(e.undone_by!)));
   assert.equal(deltas.filter((e) => e.undone_by === null).length, 0, "everything in this run was taken back");
   for (const c of [owner, ana, session, combat]) c.socket.close();

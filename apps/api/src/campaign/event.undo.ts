@@ -37,7 +37,7 @@ export function invertDelta({ logged, current }: { logged: LoggedDelta; current:
     if (was === null || now === null) return { ok: false, message: `Can't undo: ${describeTarget(target)} is gone.` };
     return { ok: true, delta: was === now ? null : { target, kind: "add", value: was - now } };
   }
-  if (!sameValue(current, after)) {
+  if (!sameValue({ a: current, b: after })) {
     return {
       ok: false,
       message: `Can't undo: ${describeTarget(target)} changed after this step (now ${JSON.stringify(current)}, the step left ${JSON.stringify(after)}). Undo the later steps first.`,

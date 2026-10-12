@@ -1,5 +1,5 @@
 {
-  "id": "ae8a41d1-ae9f-40c2-9bcb-b9a97209a8a5",
+  "id": "9a3e7e2c-d366-4a02-84ea-d9e104412ab0",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1312,6 +1312,21 @@
             },
             {
               "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "session_event_action_id_index": {
+          "name": "session_event_action_id_index",
+          "columns": [
+            {
+              "expression": "action_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

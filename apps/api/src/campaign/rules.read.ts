@@ -1,8 +1,8 @@
-import { and, asc, count, eq, exists, ilike, inArray, isNull, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray } from "drizzle-orm";
 import { seatRole, type Ctx } from "@inconsistable/core-schema";
 import { validateRuleset } from "@inconsistable/rules-engine";
-import { membership } from "../auth/auth.schema.ts";
 import { db } from "../core/db.ts";
+import { servedPacks } from "../pack/pack.lookup.ts";
 import { campaignPack, pack, packEntry, packVersion } from "../pack/pack.schema.ts";
 import { ruleset, rulesetVersion } from "../ruleset/ruleset.schema.ts";
 import { manifestForSeat } from "../ruleset/ruleset.view.ts";
@@ -47,22 +47,6 @@ export async function readRules({ ctx, query }: { ctx: Ctx; query: RulesQuery })
   const checked = pinned && validateRuleset(pinned.manifest);
   if (checked && !checked.ok) throw new Error(`pinned ruleset ${pinned?.id} no longer validates`);
 
-  // The pack versions this seat may be served from.
-  const served: SQL = and(
-    eq(campaignPack.campaignId, cid),
-    isNull(pack.disabledAt),
-    or(
-      ne(pack.license, "private"),
-      exists(
-        db
-          .select({ one: sql`1` })
-          .from(membership)
-          .where(
-            and(eq(membership.campaignId, cid), eq(membership.userId, pack.ownerUserId), eq(membership.role, "gm")),
-          ),
-      ),
-    ),
-  )!;
   const packs = await db
     .select({
       versionId: packVersion.id,
@@ -74,7 +58,7 @@ export async function readRules({ ctx, query }: { ctx: Ctx; query: RulesQuery })
     .from(campaignPack)
     .innerJoin(packVersion, eq(packVersion.id, campaignPack.packVersionId))
     .innerJoin(pack, eq(pack.id, packVersion.packId))
-    .where(served)
+    .where(servedPacks(db, cid))
     .orderBy(asc(pack.slug));
 
   const where = and(

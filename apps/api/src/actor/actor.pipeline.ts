@@ -47,7 +47,15 @@ export async function applyDeltas(
     compiled,
     built,
     deltas,
-  }: { ctx: Ctx; compiled: CompiledRuleset; built: Record<string, BuiltActor>; deltas: readonly DeltaInput[] },
+    trusted = false,
+  }: {
+    ctx: Ctx;
+    compiled: CompiledRuleset;
+    built: Record<string, BuiltActor>;
+    deltas: readonly DeltaInput[];
+    /** Skips `editableBy`: for the values the engine's own `creation` or a pack entry decided (the types still apply). */
+    trusted?: boolean;
+  },
 ): Promise<string | null> {
   const written: Written[] = [];
   for (const delta of deltas) {
@@ -82,7 +90,7 @@ export async function applyDeltas(
     } else {
       what = `the ${target.condition} condition`;
     }
-    const refused = checkEditable({ ctx, editableBy, actorId: target.actorId, delta, what });
+    const refused = trusted ? null : checkEditable({ ctx, editableBy, actorId: target.actorId, delta, what });
     if (refused) fail(refused);
     written.push(await writeDelta(tx, write));
   }

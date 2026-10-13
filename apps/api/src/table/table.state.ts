@@ -1,6 +1,14 @@
 import { and, asc, count, desc, eq, gt, isNull } from "drizzle-orm";
-import { toSeatState, type Actor, type Codex, type Ctx, type LiveState } from "@inconsistable/core-schema";
+import {
+  toSeatState,
+  type Actor,
+  type BuilderDraftBody,
+  type Codex,
+  type Ctx,
+  type LiveState,
+} from "@inconsistable/core-schema";
 import { toViewerView, type ActorView, type CompiledRuleset, type Viewer } from "@inconsistable/rules-engine";
+import { loadDrafts } from "../actor/actor.draft.ts";
 import { buildActors, loadActorRows, toLiveActor } from "../actor/actor.values.ts";
 import {
   accessToken,
@@ -25,6 +33,8 @@ const iso = (d: Date | null) => d?.toISOString() ?? null;
 export interface Live {
   state: LiveState;
   compiled: CompiledRuleset | null;
+  /** Builder drafts by user. Never part of `state`: each user is sent only their own (`forUser`). */
+  drafts: Map<string, BuilderDraftBody>;
 }
 
 export async function loadLive(campaignId: string): Promise<Live | null> {
@@ -100,6 +110,7 @@ export async function loadLive(campaignId: string): Promise<Live | null> {
           }
         : null,
     actors: actorRows.map((r) => toLiveActor(built[r.actor.id]!)), // built from these very rows
+    myDraft: null, // filled in per user (forUser)
     tests,
     testDefs: testDefsOf(compiled),
     access: {
@@ -128,7 +139,8 @@ export async function loadLive(campaignId: string): Promise<Live | null> {
           : null,
     },
   };
-  return { state, compiled };
+  // ponytail: every draft in the room is reloaded on each broadcast, load only connected users' drafts if it shows
+  return { state, compiled, drafts: await loadDrafts(db, campaignId) };
 }
 
 // The viewer the rules engine filters for: what the seat is, and the characters it holds.

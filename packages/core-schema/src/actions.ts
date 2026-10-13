@@ -5,6 +5,7 @@ import {
   ActorKind,
   ActorName,
   AudienceMode,
+  BuilderDraftBody,
   CampaignName,
   CodexKind,
   CodexText,
@@ -55,7 +56,26 @@ export const Action = z.discriminatedUnion("type", [
     notes: z.string().max(10_000).optional(),
   }),
 
-  z.object({ type: z.literal("actor.create"), kind: ActorKind.default("pc"), name: ActorName }),
+  // `entityType` is an entity of the pinned ruleset (docs/design.md §5.4); the api refuses an unknown one.
+  z.object({
+    type: z.literal("actor.create"),
+    kind: ActorKind.default("pc"),
+    name: ActorName,
+    entityType: z.string().min(1).max(64).optional(),
+  }),
+  // The builder's answers by creation step id; the server runs the ruleset's `creation` again before it writes.
+  z.object({ type: z.literal("actor.build"), actorId: id, answers: z.record(z.string().max(120), z.unknown()) }),
+  // N creatures from one attached pack entry, numbered after the ones already at the table.
+  z.object({
+    type: z.literal("actor.spawn"),
+    packVersionId: id,
+    key: z.string().min(1).max(80),
+    count: z.int().min(1).max(20),
+    temporary: z.boolean().default(false),
+  }),
+  // The signed-in user's builder draft in this room (one per user and room).
+  z.object({ type: z.literal("draft.save"), body: BuilderDraftBody }),
+  z.object({ type: z.literal("draft.discard") }),
   z.object({ type: z.literal("actor.rename"), id, name: ActorName }),
   z.object({ type: z.literal("actor.delete"), id }),
 
@@ -154,6 +174,10 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "session.end": "session:run",
   "session.edit": "session:run",
   "actor.create": "character:create",
+  "actor.build": "character:edit:own", // a player on a held character; the GM side through OWN_FALLBACK
+  "actor.spawn": "encounter:run",
+  "draft.save": null, // a signed-in member's own draft; the handler checks the caller
+  "draft.discard": null,
   "actor.rename": "character:edit:own",
   "actor.delete": "character:edit:any",
   "rule.op": null, // the op declares it (a primitive's `perm`); the ruleset pipeline checks it

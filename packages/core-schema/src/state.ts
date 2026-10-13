@@ -88,6 +88,14 @@ export const Session = z.object({
 });
 export type Session = z.infer<typeof Session>;
 
+// A builder draft is one JSON document read and written whole (docs/p1-plan.md decision 4): the character being built
+// and the answers so far, by creation step id. Capped at 64 KB serialized.
+export const MAX_DRAFT_BYTES = 64 * 1024;
+export const BuilderDraftBody = z
+  .object({ actorId: z.uuid(), answers: z.record(z.string().max(120), z.unknown()) })
+  .refine((b) => new TextEncoder().encode(JSON.stringify(b)).length <= MAX_DRAFT_BYTES, "The draft is over 64 KB");
+export type BuilderDraftBody = z.infer<typeof BuilderDraftBody>;
+
 export const LiveState = z.object({
   campaign: z.object({
     id: z.string(),
@@ -102,6 +110,8 @@ export const LiveState = z.object({
   stateVersion: z.number().int(),
   session: Session.nullable(),
   actors: z.array(Actor),
+  // The receiving user's own builder draft, under the ruleset this room has pinned; null for every other seat.
+  myDraft: BuilderDraftBody.nullable(),
   // Tests called and still open, or closed in this session; each seat gets its own filter (test-call.ts).
   tests: z.array(TestCall),
   // The pinned ruleset's Tests, so the GM can call one. GM seats only.

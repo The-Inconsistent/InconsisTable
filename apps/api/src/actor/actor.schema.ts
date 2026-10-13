@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, index, integer, pgTable, primaryKey, text, uuid } from "drizzle-orm/pg-core";
-import type { ActorKind, ActorLinkKind, ActorStatus } from "@inconsistable/core-schema";
+import { boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import type { ActorKind, ActorLinkKind, ActorStatus, BuilderDraftBody } from "@inconsistable/core-schema";
 import type { ConditionDuration } from "@inconsistable/rules-engine";
-import { owned } from "../campaign/campaign.schema.ts";
+import { campaign, owned } from "../campaign/campaign.schema.ts";
 import { pk } from "../core/sql.ts";
 import { rulesetVersion } from "../ruleset/ruleset.schema.ts";
 
@@ -96,4 +96,22 @@ export const actorChoice = pgTable(
     optionKey: text().notNull(),
   },
   (t) => [primaryKey({ columns: [t.actorId, t.stepId, t.ordinal] })],
+);
+
+// A builder draft (docs/p1-plan.md decision 4): the answers so far, one JSON document read and written whole, one per
+// user and room. Only its owner is ever sent it; a successful `actor.build` deletes it.
+export const builderDraft = pgTable(
+  "builder_draft",
+  {
+    userId: text().notNull(),
+    campaignId: uuid()
+      .notNull()
+      .references(() => campaign.id, { onDelete: "cascade" }),
+    rulesetVersionId: uuid()
+      .notNull()
+      .references(() => rulesetVersion.id, { onDelete: "restrict" }), // answers belong to the ruleset they were given for
+    body: jsonb().$type<BuilderDraftBody>().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.campaignId] })],
 );

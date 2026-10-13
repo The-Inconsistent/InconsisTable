@@ -8,6 +8,7 @@ import { RulesReply, type RulesEntry } from "@/lib/library/library";
 
 type BuildProps = { params: Promise<{ campaignId: string; actorId: string }> };
 
+// ponytail: a step lists at most 500 entries of a type, page or search once a pack holds more
 const MAX_PICKS = 500;
 
 // BUILD CHARACTER for one actor. The ruleset and the entries a step may pick are read here, on the server, through the

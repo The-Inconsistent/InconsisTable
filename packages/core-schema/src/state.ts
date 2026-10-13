@@ -93,7 +93,7 @@ export type Session = z.infer<typeof Session>;
 export const MAX_DRAFT_BYTES = 64 * 1024;
 export const BuilderDraftBody = z
   .object({ actorId: z.uuid(), answers: z.record(z.string().max(120), z.unknown()) })
-  .refine((b) => JSON.stringify(b).length <= MAX_DRAFT_BYTES, "The draft is over 64 KB");
+  .refine((b) => new TextEncoder().encode(JSON.stringify(b)).length <= MAX_DRAFT_BYTES, "The draft is over 64 KB");
 export type BuilderDraftBody = z.infer<typeof BuilderDraftBody>;
 
 export const LiveState = z.object({

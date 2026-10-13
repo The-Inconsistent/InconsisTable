@@ -139,6 +139,7 @@ export async function loadLive(campaignId: string): Promise<Live | null> {
           : null,
     },
   };
+  // ponytail: every draft in the room is reloaded on each broadcast, load only connected users' drafts if it shows
   return { state, compiled, drafts: await loadDrafts(db, campaignId) };
 }
 

@@ -18,6 +18,7 @@ import {
   restsOf,
   sectionsOf,
   stepsOf,
+  timeLeft,
   type SheetRow,
 } from "@/lib/sheet/sheet";
 
@@ -160,7 +161,11 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
               <li key={c.id}>
                 <span className="stack" style={{ gap: 2 }}>
                   <strong>{c.label}</strong>
-                  <span className="small dim">{DURATION_WORDS[c.duration]}</span>
+                  <span className="small dim">
+                    {DURATION_WORDS[c.duration]}
+                    {timeLeft({ timers: actor.conditionTimers, id: c.id }) &&
+                      `, ${timeLeft({ timers: actor.conditionTimers, id: c.id })} left`}
+                  </span>
                   {c.cite && <Cite cite={c.cite} {...{ ruleset, books, requestPage }} />}
                 </span>
               </li>

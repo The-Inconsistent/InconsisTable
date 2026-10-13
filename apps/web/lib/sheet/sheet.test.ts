@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { compileRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
-import { adjustAction, pageOfCite, rangeOf, restsOf, sectionsOf, stepsOf } from "./sheet.ts";
+import { adjustAction, pageOfCite, rangeOf, restsOf, sectionsOf, stepsOf, timeLeft } from "./sheet.ts";
 
 const ruleset = Ruleset.parse(SAMPLE_D20);
 const actor = {
@@ -102,4 +102,16 @@ test("a resource's bounds are worked out from the character, or not at all", () 
     rangeOf({ compiled: c.compiled, resource: "hp", actor: { ...actor, fields: {}, derived: {} }, characters: 4 }),
     null,
   );
+});
+
+test("the time left on a condition reads off its timer, or is empty without a count", () => {
+  const timers = [
+    { id: "a", expiresOn: "roundEnd", expiresAfter: 2 },
+    { id: "b", expiresOn: "ownTurnEnd", expiresAfter: 1 },
+    { id: "c", expiresOn: "manual", expiresAfter: null },
+  ];
+  assert.equal(timeLeft({ timers, id: "a" }), "2 rounds");
+  assert.equal(timeLeft({ timers, id: "b" }), "1 turn");
+  assert.equal(timeLeft({ timers, id: "c" }), "");
+  assert.equal(timeLeft({ timers, id: "zzz" }), "");
 });

@@ -55,7 +55,7 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
         {tab === "party" ? (
           <Party me={me} state={state} send={send} sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }} />
         ) : tab === "track" ? (
-          <Track state={state} send={send} />
+          <Track state={state} send={send} sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }} />
         ) : tab === "tests" ? (
           <Tests state={state} send={send} />
         ) : tab === "rules" ? (

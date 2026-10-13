@@ -15,11 +15,18 @@ import {
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
 import { amountOf, leftText, pressKey } from "@/lib/track/track";
 
-type CombatantPanelProps = { encounter: Encounter; combatant: Combatant; actor: Actor | undefined; run: Run };
+type CombatantPanelProps = {
+  encounter: Encounter;
+  combatant: Combatant;
+  actor: Actor | undefined;
+  run: Run;
+  /** Opens this actor's sheet (GM only; absent when there is no ruleset to read it by). */
+  onSheet?: (actorId: string) => void;
+};
 
 // The selected combatant: a keypad for damage, healing and temporary points, death saves, what the table sees, the
 // conditions it carries with their time left, and the way out of the fight.
-export function CombatantPanel({ encounter, combatant: c, actor, run }: CombatantPanelProps) {
+export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet }: CombatantPanelProps) {
   const [entry, setEntry] = useState("");
   const [critical, setCritical] = useState(false);
   const [condition, setCondition] = useState("");
@@ -76,6 +83,11 @@ export function CombatantPanel({ encounter, combatant: c, actor, run }: Combatan
         {c.name}
       </h2>
       <HealthBar combatant={c} />
+      {onSheet && actor && actor.entity !== "" && (
+        <button className="btn" style={{ justifySelf: "start" }} onClick={() => onSheet(actor.id)}>
+          Sheet
+        </button>
+      )}
 
       {health && (
         <div className="stack">

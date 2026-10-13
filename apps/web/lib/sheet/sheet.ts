@@ -1,4 +1,4 @@
-import type { Actor, BookPage } from "@inconsistable/core-schema";
+import type { Actor, BookPage, ConditionTimer } from "@inconsistable/core-schema";
 import {
   actorScope,
   resourceBounds,
@@ -8,6 +8,8 @@ import {
   type ResetEvent,
   type Ruleset,
 } from "@inconsistable/rules-engine";
+
+import { leftText } from "../track/track.ts";
 
 // The sheet's pure side: which rows a ruleset's `layout` puts on a character, who may step a resource, which rests the
 // manifest declares, and how a printed cite becomes a page of the GM's book. Values never come from here: they are the
@@ -187,3 +189,9 @@ export const DURATION_WORDS = {
   encounterEnd: "until the fight ends",
   manual: "until the GM ends it",
 } as const;
+
+/** What is left of a condition's count ("2 rounds"), or "" when the condition has no count or no timer. */
+export function timeLeft({ timers, id }: { timers: readonly ConditionTimer[]; id: string }): string {
+  const t = timers.find((x) => x.id === id);
+  return t ? leftText({ left: t.expiresAfter, expiresOn: t.expiresOn }) : "";
+}

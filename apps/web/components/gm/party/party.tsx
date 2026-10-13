@@ -15,7 +15,9 @@ import {
 } from "@inconsistable/core-schema";
 
 import { ROLE_LABEL } from "@/app/constants";
+import { Creatures } from "@/components/gm/creatures/creatures";
 import type { Send } from "@/hooks/use-table/use-table";
+import { needsBuild } from "@/lib/builder/builder";
 import { qrImage } from "@/lib/qr/qr";
 import { shareOrigin } from "@/lib/share-origin/share-origin";
 
@@ -198,6 +200,15 @@ export function Party({ me, state, send }: PartyProps) {
                     <strong>{a.name}</strong> <span className="dim small">{holder ?? "Open"}</span>
                   </span>
                   <span className="row">
+                    {needsBuild(a) && can("character:edit:any") && (
+                      <a
+                        className="btn sm"
+                        aria-label={`Build ${a.name}`}
+                        href={`/c/${state.campaign.id}/build/${a.id}`}
+                      >
+                        {state.myDraft?.actorId === a.id ? "Continue building" : "Build"}
+                      </a>
+                    )}
                     <button
                       className="btn sm"
                       aria-label={`Guest QR for ${a.name}`}
@@ -234,6 +245,8 @@ export function Party({ me, state, send }: PartyProps) {
           </form>
         )}
       </section>
+
+      {can("encounter:run") && <Creatures campaignId={state.campaign.id} send={send} />}
 
       <section className="stack">
         <h2 className="head">Seats</h2>

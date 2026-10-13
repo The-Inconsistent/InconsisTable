@@ -234,6 +234,15 @@ select {
   font: inherit;
   min-width: 0;
 }
+textarea {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  min-width: 0;
+}
 label {
   display: grid;
   gap: 4px;
@@ -453,4 +462,145 @@ summary {
 .roll-key:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* The builder: one card per creation step on a single column, so a thumb walks down the page. A pick is a whole-row
+   touch target; the points left in a point buy read as one big numeral. */
+.build {
+  max-width: 640px;
+}
+.step-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.step-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+}
+.step-state {
+  font-size: 14px;
+  font-weight: 700;
+}
+.step-state[data-done="true"] {
+  color: var(--ok);
+}
+.pick {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  cursor: pointer;
+}
+.pick:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+.pick:has(input:focus-visible) {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.pick input {
+  min-height: 24px;
+  width: 24px;
+  margin-top: 2px;
+  flex: none;
+}
+.pick-name {
+  font-weight: 700;
+}
+.score-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+.score-row label {
+  flex: 1;
+}
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.stepper .btn {
+  min-width: 48px;
+  font-size: 22px;
+}
+.stepper output {
+  min-width: 48px;
+  text-align: center;
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.points-left {
+  font-size: 36px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.derived-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.derived-list div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--paper);
+}
+.derived-list dt {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.derived-list dd {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.build-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--paper);
+  border-top: 2px solid var(--line);
+}
+.problem-lines {
+  margin: 0;
+  padding-left: 20px;
+}
+.found {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.found[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 4px 0 0 var(--accent);
 }

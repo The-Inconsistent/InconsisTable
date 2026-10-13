@@ -8,6 +8,7 @@ import { TestPrompt } from "@/components/player/test-prompt/test-prompt";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useTable } from "@/hooks/use-table/use-table";
+import { needsBuild } from "@/lib/builder/builder";
 
 type PlayerAppProps = { me: Me };
 
@@ -63,6 +64,15 @@ export function PlayerApp({ me }: PlayerAppProps) {
       <main className="page">
         <TestPrompt state={state} send={send} />
         <h1 className="title">{character?.name ?? "No character"}</h1>
+        {character && needsBuild(character) && (
+          <a
+            className="btn primary"
+            href={`/c/${me.campaignId}/build/${character.id}`}
+            style={{ justifySelf: "start" }}
+          >
+            {state.myDraft?.actorId === character.id ? "Continue building" : "Build character"}
+          </a>
+        )}
         {tab === "intel" ? (
           <ul className="list">
             {(codex?.entries ?? []).map((e) => (

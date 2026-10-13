@@ -72,6 +72,45 @@ export type PackList = z.infer<typeof PackList>;
 
 export const HideReply = z.object({ deleted: z.boolean() });
 
+/** What the GM's Rules tab reads on the server: the room's pin and attached packs, and the owner's own libraries. */
+export interface RulesTabData {
+  rulesets: RulesetList;
+  packs: PackList;
+  pinned: { versionId: string; slug: string; version: string } | null;
+  attached: { id: string; slug: string; version: string; license: string }[];
+}
+
+/** One entry of an attached pack, as the seat-scoped rules route serves it (`GET /api/campaigns/:id/rules`). */
+export const RulesEntry = z.object({
+  pack: z.string(),
+  key: z.string(),
+  type: z.string(),
+  name: z.string(),
+  level: z.number().nullable(),
+  tags: z.array(z.string()),
+  cite: z.string().nullable(),
+  visibility: z.string(),
+  body: z.record(z.string(), z.unknown()),
+});
+export type RulesEntry = z.infer<typeof RulesEntry>;
+
+/** What a room has: its pinned ruleset (with the manifest as this seat may read it) and the packs attached to it. */
+export const RulesReply = z.object({
+  ruleset: z.object({ versionId: z.string(), slug: z.string(), version: z.string(), manifest: z.unknown() }).nullable(),
+  packs: z.array(
+    z.object({
+      id: z.string(),
+      slug: z.string(),
+      version: z.string(),
+      license: z.string(),
+      attribution: z.string().nullable(),
+    }),
+  ),
+  entries: z.array(RulesEntry),
+  total: z.number(),
+});
+export type RulesReply = z.infer<typeof RulesReply>;
+
 /** What a pasted document is, by its shape: a ruleset has `entities`, a pack has `entries`. */
 export function kindOf(doc: unknown): "ruleset" | "pack" | null {
   if (typeof doc !== "object" || doc === null || Array.isArray(doc)) return null;

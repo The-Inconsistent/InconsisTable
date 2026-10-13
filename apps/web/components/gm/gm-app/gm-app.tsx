@@ -7,6 +7,7 @@ import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
 import { Party } from "@/components/gm/party/party";
 import { RulesPanel } from "@/components/gm/rules/rules-panel";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
+import { Track } from "@/components/gm/track/track";
 import { Tests } from "@/components/gm/tests/tests";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
@@ -17,8 +18,7 @@ import type { RulesView } from "@/lib/rules-reader/rules-reader";
 type GmAppProps = { me: Me; initialTab: GmTab; rules: RulesTabData | null; view: RulesView | null };
 
 // What each tab will hold, until it does (docs/p0-plan.md, docs/design.md §3.4).
-const COMING: Record<Exclude<GmTab, "party" | "tests" | "rules">, string> = {
-  track: "The combat tracker arrives with the first ruleset (P1).",
+const COMING: Record<Exclude<GmTab, "party" | "tests" | "rules" | "track">, string> = {
   prep: "Adventures and scenes arrive in P1.",
   codex: "NPCs, places, factions and handouts arrive in P1.",
   map: "Maps that help the table remember arrive in P2.",
@@ -54,6 +54,8 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
       <main className="page">
         {tab === "party" ? (
           <Party me={me} state={state} send={send} sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }} />
+        ) : tab === "track" ? (
+          <Track state={state} send={send} />
         ) : tab === "tests" ? (
           <Tests state={state} send={send} />
         ) : tab === "rules" ? (

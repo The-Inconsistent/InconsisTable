@@ -295,8 +295,6 @@ export function Party({ me, state, send, sheet }: PartyProps) {
         )}
       </section>
 
-      {can("encounter:run") && <Creatures campaignId={state.campaign.id} send={send} />}
-
       <section className="stack">
         <h2 className="head">Seats</h2>
         <ul className="list">

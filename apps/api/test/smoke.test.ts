@@ -1592,3 +1592,169 @@ test("actor.spawn: the GM places numbered creatures from an attached pack, as ro
   );
   for (const c of [owner, ana.c, ben.c]) c.socket.close();
 });
+
+// ---- The combat tracker (docs/p1-plan.md workstream F) ----------------------------------------------------------
+
+// Spare Vigour clears at the end of a fight, so the closing rest can be seen. Applies to every test using this ruleset.
+const spare = BUILD_RULESET.resources?.find((r) => r.id === "tempHp");
+if (spare) spare.resetOn = [{ event: "encounterEnd", to: "min" }];
+
+test("encounter: a full round of turns, seat views, undo of a turn, and the end of the fight", async () => {
+  const { owner, ana, ben, campaignId, packVersionId } = await buildRoom("Track");
+  const cc = await coGm({ owner, campaignId, name: "co-combat-Track", scopes: ["combat"] });
+  const pregen = ok(
+    await owner.send({ type: "actor.create", kind: "pc", name: "Pregen", entityType: "character" }),
+  ).id!;
+  for (const [c, held] of [
+    [ana.c, ana.held],
+    [ben.c, ben.held],
+    [owner, pregen],
+  ] as const)
+    ok(await c.send({ type: "actor.build", actorId: held, answers: GOOD_ANSWERS }));
+  const [pcA, pcB, pcC] = [ana.held, ben.held, pregen];
+  await owner.until((s) => [pcA, pcB, pcC].every((id) => actorIn(s, id)?.resources.hp === 16));
+
+  // Start: a session first, the combat side only, once.
+  refused(await owner.send({ type: "encounter.start" }), /Start a session first/);
+  ok(await owner.send({ type: "session.start" }));
+  refused(await ana.c.send({ type: "encounter.start" }), /permission/);
+  refused(await owner.send({ type: "turn.next" }), /No encounter is running/);
+  ok(await owner.send({ type: "encounter.start" }));
+  refused(await cc.send({ type: "encounter.start" }), /already running/);
+
+  // Three creatures spawned while the fight is on join it, hidden; the three characters are added from the party.
+  ok(await owner.send({ type: "actor.spawn", packVersionId, key: "ember-wisp", count: 3, temporary: true }));
+  const spawned = await owner.until((s) => s.encounter?.combatants.length === 3);
+  assert.ok(spawned.encounter?.combatants.every((c) => c.side === "foe" && c.visibility === "hidden"));
+  refused(await ana.c.send({ type: "encounter.add", actorIds: [pcA], side: "party" }), /permission/);
+  refused(await owner.send({ type: "encounter.add", actorIds: [crypto.randomUUID()], side: "party" }), /not found/);
+  ok(await owner.send({ type: "encounter.add", actorIds: [pcA, pcB, pcC], side: "party", visibility: "full" }));
+  refused(await owner.send({ type: "encounter.add", actorIds: [pcA], side: "party" }), /already in the fight/);
+  const all = await owner.until((s) => s.encounter?.combatants.length === 6);
+  const cb = (s: LiveState, actorId: string) => s.encounter!.combatants.find((c) => c.actorId === actorId)!;
+  const wisps = all.actors.filter((a) => a.kind === "creature").sort((x, y) => x.name.localeCompare(y.name));
+  const [w1, w2, w3] = wisps.map((w) => w.id) as [string, string, string];
+
+  // The GM types every initiative (nothing rolls); a tie is settled by moving one place, and only among equals.
+  for (const [id, score] of [
+    [pcA, 18],
+    [w1, 15],
+    [pcB, 12],
+    [w2, 12],
+    [pcC, 9],
+    [w3, 5],
+  ] as const)
+    ok(await owner.send({ type: "encounter.setInitiative", combatantId: cb(all, id).id, score }));
+  const ranked = await owner.until((s) => s.encounter?.combatants.every((c) => c.initiative !== null) === true);
+  const ids = (s: LiveState) => s.encounter!.combatants.map((c) => c.actorId);
+  assert.deepEqual(ids(ranked), [pcA, w1, pcB, w2, pcC, w3]); // a tie keeps the place it came in
+  refused(
+    await owner.send({ type: "encounter.move", combatantId: cb(ranked, pcC).id, direction: "up" }),
+    /same initiative/,
+  );
+  ok(await owner.send({ type: "encounter.move", combatantId: cb(ranked, pcB).id, direction: "down" }));
+  const order = [pcA, w1, w2, pcB, pcC, w3];
+  await owner.until((s) => ids(s).join() === order.join());
+
+  // What the table may see: w1 a bar, w2 the numbers, w3 nothing; the GM keeps w2.
+  ok(await owner.send({ type: "encounter.setVisibility", combatantId: cb(ranked, w1).id, visibility: "bar" }));
+  ok(await owner.send({ type: "encounter.setVisibility", combatantId: cb(ranked, w2).id, visibility: "full" }));
+  ok(await owner.send({ type: "encounter.keep", combatantId: cb(ranked, w2).id, keep: true }));
+
+  // Timed conditions: Staggered (ends with its holder's turn) on A for two turns, Dazed (round end) on w1, Braced
+  // (fight end) on B, and spare Vigour on A for the closing rest to clear.
+  ok(await owner.send({ type: "condition.add", actorId: pcA, condition: "staggered", expiresAfter: 2 }));
+  ok(await owner.send({ type: "condition.add", actorId: w1, condition: "dazed", expiresAfter: 1 }));
+  ok(await owner.send({ type: "condition.add", actorId: pcB, condition: "braced" }));
+  ok(await owner.send(adjust(pcA, "tempHp", 3)));
+
+  // One round: the first turn starts at the top, each next passes the turn and ticks the finished holder's conditions.
+  const turn = () => owner.send({ type: "turn.next" });
+  const at = (s: LiveState) => s.encounter?.combatants.find((c) => c.id === s.encounter!.currentId)?.actorId;
+  ok(await turn());
+  assert.equal(at(await owner.until((s) => s.encounter?.currentId != null)), pcA);
+  ok(await turn());
+  const second = await owner.until((s) => at(s) === w1);
+  assert.deepEqual(cb(second, pcA).conditions, [{ id: "staggered", left: 1, expiresOn: "ownTurnEnd" }]);
+  assert.deepEqual(actorIn(second, pcA)?.conditionTimers, [
+    { id: "staggered", expiresOn: "ownTurnEnd", expiresAfter: 1 },
+  ]);
+  for (const next of [w2, pcB, pcC, w3]) {
+    ok(await turn());
+    await owner.until((s) => at(s) === next);
+  }
+  const hasDazed = (s: LiveState) => cb(s, w1).conditions.some((c) => c.id === "dazed");
+  assert.ok(hasDazed(await owner.until(() => true)));
+  const wrap = ok(await turn()).id!;
+  const round2 = await owner.until((s) => s.encounter?.round === 2);
+  assert.equal(at(round2), pcA);
+  assert.equal(hasDazed(round2), false, "the round-end condition ticked off at the wrap");
+
+  // One undo takes the whole step back: the round, whose turn it is, and the condition.
+  assert.equal(ok(await owner.send({ type: "event.undo" })).id, wrap);
+  const back = await owner.until((s) => s.encounter?.round === 1);
+  assert.equal(at(back), w3);
+  assert.deepEqual(cb(back, w1).conditions, [{ id: "dazed", left: 1, expiresOn: "roundEnd" }]);
+  ok(await turn());
+  await owner.until((s) => s.encounter?.round === 2);
+  ok(await owner.send({ type: "turn.prev" }));
+  const prev = await owner.until((s) => s.encounter?.round === 1);
+  assert.equal(at(prev), w3);
+  ok(await owner.send({ type: "event.undo" }));
+  await owner.until((s) => s.encounter?.round === 2 && at(s) === pcA);
+
+  // Damage from a co-GM who holds only the combat scope; a player can't.
+  const hit = (actorId: string, amount: number) =>
+    ({ type: "rule.op", primitive: "health.tracks", op: "damage", input: { actorId, amount } }) as const;
+  refused(await ana.c.send(hit(w1, 3)), /permission/);
+  ok(await cc.send(hit(w1, 3)));
+  ok(await cc.send(hit(w2, 2)));
+  const hurt = await owner.until((s) => cb(s, w2).hp?.value === 5);
+  assert.deepEqual(cb(hurt, w1).hp, { value: 4, max: 7 });
+
+  // Seats: no hidden combatant at all, a bar without numbers, numbers where shown in full.
+  const seen = await ana.c.until(
+    (s) => s.encounter?.combatants.some((c) => c.actorId === w2 && c.hp?.value === 5) === true,
+  );
+  const enc = seen.encounter!;
+  assert.equal(
+    enc.combatants.some((c) => c.actorId === w3),
+    false,
+  );
+  assert.equal(JSON.stringify(enc).includes("Ember Wisp 3"), false);
+  assert.equal(enc.combatants.length, 5);
+  const bar = enc.combatants.find((c) => c.actorId === w1)!;
+  assert.equal(bar.hp, null);
+  assert.ok(Math.abs((bar.bar ?? -1) - 4 / 7) < 1e-9);
+  assert.deepEqual(enc.combatants.find((c) => c.actorId === w2)?.hp, { value: 5, max: 7 });
+  assert.ok(enc.combatants.every((c) => c.conditions.length === 0 && !c.keep));
+  assert.equal(enc.round, 2);
+  assert.equal(enc.combatants.find((c) => c.id === enc.currentId)?.actorId, pcA); // A holds this turn: Ana's banner
+  assert.equal((await ben.c.until((s) => s.encounter?.round === 2)).encounter?.combatants.length, 5);
+
+  // The end: players can't; expiry and rest run for those who stay; non-kept temporary creatures go, the kept one stays.
+  refused(await ana.c.send({ type: "encounter.end" }), /permission/);
+  ok(await owner.send({ type: "encounter.end" }));
+  const ended = await owner.until((s) => s.encounter === null);
+  assert.deepEqual(
+    ended.actors.filter((a) => a.kind === "creature").map((a) => a.id),
+    [w2],
+  );
+  assert.equal(actorIn(ended, pcA)?.resources.tempHp, 0, "the encounterEnd rest ran");
+  assert.equal(actorIn(ended, pcB)?.conditions.includes("braced"), false, "the encounterEnd expiry ran");
+  assert.equal(actorIn(ended, pcA)?.resources.hp, 16);
+  assert.equal((await ana.c.until((s) => s.encounter === null)).encounter, null);
+  refused(await owner.send({ type: "turn.next" }), /No encounter is running/);
+
+  // Undo past the end: the end's own step comes back, then the hit on a creature that is gone is skipped and noted.
+  ok(await owner.send({ type: "event.undo" }));
+  await owner.until((s) => actorIn(s, pcB)?.conditions.includes("braced") === true);
+  ok(await owner.send({ type: "event.undo" })); // the hit on w2, who stays
+  ok(await owner.send({ type: "event.undo" }));
+  const [undoEvent] = await query<{ payload: { skipped: { actorId?: string; reason: string }[] } }>(
+    "SELECT payload FROM session_event WHERE campaign_id = $1 AND type = 'undo' ORDER BY created_at DESC, id DESC LIMIT 1",
+    [campaignId],
+  );
+  assert.deepEqual(undoEvent?.payload.skipped, [{ actorId: w1, reason: "deleted" }]);
+  for (const c of [owner, ana.c, ben.c, cc]) c.socket.close();
+});

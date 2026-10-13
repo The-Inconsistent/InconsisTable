@@ -6,6 +6,8 @@ import type { Me } from "@inconsistable/core-schema";
 import { PLAYER_TABS, type PlayerTab } from "@/components/player/player-app/constants";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
+import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
+import { OrderView } from "@/components/ui/order-view/order-view";
 import { TestPrompt } from "@/components/player/test-prompt/test-prompt";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
@@ -65,6 +67,7 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
         </nav>
       )}
       <main className="page">
+        <TurnBanner encounter={state.encounter} held={held} />
         <TestPrompt state={state} send={send} />
         <h1 className="title">{character?.name ?? "No character"}</h1>
         {character && needsBuild(character) && (
@@ -76,6 +79,7 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
             {state.myDraft?.actorId === character.id ? "Continue building" : "Build character"}
           </a>
         )}
+        {state.encounter && <OrderView encounter={state.encounter} />}
         {tab === "intel" ? (
           <ul className="list">
             {(codex?.entries ?? []).map((e) => (

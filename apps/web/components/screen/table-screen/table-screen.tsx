@@ -1,4 +1,5 @@
 "use client";
+import { OrderView } from "@/components/ui/order-view/order-view";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { useTable } from "@/hooks/use-table/use-table";
 
@@ -26,6 +27,7 @@ export function TableScreen({ campaignId }: TableScreenProps) {
           .map((a) => a.name)
           .join(" · ")}
       </p>
+      {state.encounter && <OrderView encounter={state.encounter} />}
       {/* A Test in progress: that it is, and how far along. Never who, or any number (the state carries none). */}
       {state.tests
         .filter((c) => c.status === "open")

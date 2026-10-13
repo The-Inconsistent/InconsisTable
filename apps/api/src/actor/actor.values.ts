@@ -197,6 +197,11 @@ export function toLiveActor(b: BuiltActor): Actor {
     resources: b.resources,
     derived: b.derived,
     conditions: activeIds(b.conditions),
+    conditionTimers: Object.values(b.conditions).map((c) => ({
+      id: c.conditionId,
+      expiresOn: c.expiresOn,
+      expiresAfter: c.expiresAfter,
+    })),
   };
 }
 

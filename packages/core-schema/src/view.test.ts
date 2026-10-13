@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Ctx } from "./seat.ts";
 import type { Actor, Codex, CodexEntry, LiveState } from "./state.ts";
-import { toSeatCodex, toSeatState } from "./view.ts";
+import { toSeatCodex, toSeatState, visibleTimers } from "./view.ts";
 
 const ctx = (seat: Ctx["seat"]): Ctx => ({ campaignId: "c1", userId: "u", campaignOwnerId: "owner", seat });
 const gm = ctx({ kind: "member", role: "gm", scopes: [], characterIds: [] });
@@ -57,6 +57,7 @@ test("seats outside the GM side get no invites and no session notes", () => {
     myDraft: null,
     tests: [],
     testDefs: [],
+    encounter: null,
     access: {
       members: [],
       invites: [
@@ -96,6 +97,7 @@ test("seats outside the party/combat side see the party and their own characters
     resources: {},
     derived: {},
     conditions: [],
+    conditionTimers: [],
   });
   const state: LiveState = {
     campaign: { id: "c1", name: "R", ownerUserId: "owner", archived: false, nextSessionAt: null, nextSessionPlace: "" },
@@ -105,6 +107,7 @@ test("seats outside the party/combat side see the party and their own characters
     myDraft: null,
     tests: [],
     testDefs: [],
+    encounter: null,
     access: { members: [], invites: [], guests: [], screens: 0, transfer: null },
   };
   const view = (c: Ctx) => toSeatState({ state, ctx: c }).actors;
@@ -124,4 +127,13 @@ test("seats outside the party/combat side see the party and their own characters
   // A seat holding an NPC sees it.
   const npcHolder = ctx({ kind: "token", role: "player", characterIds: ["ogre"] });
   assert.ok(view(npcHolder).some((a) => a.id === "ogre" && a.ownerUserId === "x"));
+});
+
+test("a viewer gets the durations of the conditions it sees, and no others", () => {
+  const timers = [
+    { id: "dazed", expiresOn: "roundEnd", expiresAfter: 2 },
+    { id: "cursed", expiresOn: "manual", expiresAfter: null },
+  ];
+  assert.deepEqual(visibleTimers({ timers, visible: ["dazed"] }), [timers[0]]);
+  assert.deepEqual(visibleTimers({ timers, visible: [] }), []);
 });

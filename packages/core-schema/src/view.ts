@@ -1,6 +1,7 @@
+import { toSeatEncounter } from "./encounter.ts";
 import { canInCampaign } from "./permissions.ts";
 import type { Ctx } from "./seat.ts";
-import type { ActorKind, Codex, CodexEntry, LiveState } from "./state.ts";
+import type { ActorKind, Codex, CodexEntry, ConditionTimer, LiveState } from "./state.ts";
 import { toSeatTests } from "./test-call.ts";
 
 // What one seat may see of the two snapshots (docs/design.md §5.5). The gateway computes each once per distinct seat
@@ -26,6 +27,7 @@ export function toSeatState({ state, ctx }: { state: LiveState; ctx: Ctx }): Liv
     actors,
     session: state.session && { ...state.session, notes: gmNotes ? state.session.notes : "" },
     tests: toSeatTests({ tests: state.tests, ctx }),
+    encounter: toSeatEncounter({ encounter: state.encounter, ctx }),
     testDefs: canInCampaign({ ctx, perm: "test:call" }) ? state.testDefs : [],
     access: {
       ...state.access,
@@ -60,3 +62,7 @@ export function toSeatCodex({ codex, ctx }: { codex: Codex; ctx: Ctx }): Codex {
       })),
   };
 }
+
+/** The durations of the conditions a viewer sees; `visible` is what the ruleset's viewer view left of the ids. */
+export const visibleTimers = ({ timers, visible }: { timers: readonly ConditionTimer[]; visible: readonly string[] }) =>
+  timers.filter((t) => visible.includes(t.id));

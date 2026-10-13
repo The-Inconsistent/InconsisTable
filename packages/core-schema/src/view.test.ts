@@ -54,6 +54,8 @@ test("seats outside the GM side get no invites and no session notes", () => {
     stateVersion: 3,
     session: { id: "s", number: 1, title: "", startedAt: "", endedAt: null, recap: "", notes: "gm only" },
     actors: [],
+    tests: [],
+    testDefs: [],
     access: {
       members: [],
       invites: [
@@ -88,12 +90,19 @@ test("seats outside the party/combat side see the party and their own characters
     name: id,
     status: "active",
     ownerUserId: "x",
+    entity: "",
+    fields: {},
+    resources: {},
+    derived: {},
+    conditions: [],
   });
   const state: LiveState = {
     campaign: { id: "c1", name: "R", ownerUserId: "owner", archived: false, nextSessionAt: null, nextSessionPlace: "" },
     stateVersion: 1,
     session: null,
     actors: [actor("lyra", "pc"), actor("bran", "pc"), actor("cat", "companion"), actor("ogre", "creature")],
+    tests: [],
+    testDefs: [],
     access: { members: [], invites: [], guests: [], screens: 0, transfer: null },
   };
   const view = (c: Ctx) => toSeatState({ state, ctx: c }).actors;

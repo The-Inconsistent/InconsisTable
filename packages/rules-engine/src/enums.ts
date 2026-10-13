@@ -27,6 +27,17 @@ export type ResetEvent = z.infer<typeof ResetEvent>;
 export const License = z.enum(["srd", "orc", "cc-by", "private", "homebrew"]);
 export type License = z.infer<typeof License>;
 
+/** A pack's license. `original` is the author's own work (the pack analogue of a homebrew ruleset). */
+export const PackLicense = z.enum(["private", "srd", "cc-by", "orc", "original"]);
+export type PackLicense = z.infer<typeof PackLicense>;
+
+/** Licenses that oblige the pack to name its attribution. */
+export const ATTRIBUTION_LICENSES: ReadonlySet<PackLicense> = new Set(["srd", "cc-by", "orc"]);
+
+/** Who sees a pack entry. Narrower than `Visibility`: an entry is never `owner`-only. Undeclared means `gm`. */
+export const EntryVisibility = z.enum(["public", "party", "gm"]);
+export type EntryVisibility = z.infer<typeof EntryVisibility>;
+
 export const EntityBase = z.enum(["actor", "item", "ability", "condition"]);
 export type EntityBase = z.infer<typeof EntityBase>;
 
@@ -39,6 +50,12 @@ export type ConditionDuration = z.infer<typeof ConditionDuration>;
 /** `none`: applying it again does nothing; `stack`: adds a stack up to maxStacks; `refresh`: restarts its duration. */
 export const ConditionStacking = z.enum(["none", "stack", "refresh"]);
 export type ConditionStacking = z.infer<typeof ConditionStacking>;
+
+export const CreationKind = z.enum(["choose", "assign", "fields"]);
+export type CreationKind = z.infer<typeof CreationKind>;
+
+export const ScoreMethodKind = z.enum(["table", "pointBuy"]);
+export type ScoreMethodKind = z.infer<typeof ScoreMethodKind>;
 
 export const EffectMode = z.enum(["add", "multiply", "override", "upgrade", "downgrade"]);
 export type EffectMode = z.infer<typeof EffectMode>;

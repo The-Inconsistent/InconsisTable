@@ -9,6 +9,7 @@ import {
   Inject,
   Param,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -22,12 +23,19 @@ import { db } from "../core/db.ts";
 import { ActionError } from "../core/errors.ts";
 import { TableGateway } from "../table/table.gateway.ts";
 import { createCampaign, isAdminKey, lobby } from "./campaign.service.ts";
+import { DEFAULT_RULES_PAGE, MAX_RULES_PAGE, readRules } from "./rules.read.ts";
 
 const Join = z.object({ token: z.string().min(1).max(200) });
 // Scripts (admin key) name the Clerk user who will own the new room.
 const AdminCreate = CreateGame.extend({ ownerUserId: z.string().min(1).max(100).optional() });
 const CampaignId = z.uuid();
 const InviteCode = z.string().min(1).max(200);
+const RulesQuery = z.object({
+  type: z.string().min(1).max(64).optional(),
+  q: z.string().min(1).max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(MAX_RULES_PAGE).default(DEFAULT_RULES_PAGE),
+  offset: z.coerce.number().int().min(0).default(0),
+});
 
 const parse = <T>(schema: z.ZodType<T>, body: unknown): T => {
   const r = schema.safeParse(body);
@@ -67,13 +75,15 @@ export class CampaignController {
   @Post("campaigns")
   async create(@Headers("x-admin-key") key: string | undefined, @Req() req: Request, @Body() body: unknown) {
     if (isAdminKey(key)) {
-      const { ownerUserId, name } = parse(AdminCreate, body);
-      return createCampaign({ name, owner: ownerUserId ? { userId: ownerUserId, name: "GM" } : null });
+      const { ownerUserId, ...rest } = parse(AdminCreate, body);
+      return refusing(() =>
+        createCampaign({ ...rest, owner: ownerUserId ? { userId: ownerUserId, name: "GM" } : null }),
+      );
     }
     const user = await signedInUser(headersOf(req));
     if (!user) throw new UnauthorizedException();
     if (!user.creator) throw new ForbiddenException("Only creators can start a game");
-    return createCampaign({ ...parse(CreateGame, body), owner: user });
+    return refusing(() => createCampaign({ ...parse(CreateGame, body), owner: user }));
   }
 
   @Get("lobby")
@@ -89,6 +99,14 @@ export class CampaignController {
     const r = await resolveCtx({ campaignId: parse(CampaignId, id), headers: headersOf(req) });
     if (!r) throw new UnauthorizedException();
     return r.ctx;
+  }
+
+  // The room's pinned ruleset and attached pack entries, filtered for the caller's seat. No seat, no rules.
+  @Get("campaigns/:id/rules")
+  async rules(@Param("id") id: string, @Req() req: Request, @Query() query: unknown) {
+    const r = await resolveCtx({ campaignId: parse(CampaignId, id), headers: headersOf(req) });
+    if (!r) throw new UnauthorizedException();
+    return readRules({ ctx: r.ctx, query: parse(RulesQuery, query) });
   }
 
   // A guest's QR: the token becomes the guest cookie.

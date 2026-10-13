@@ -1,6 +1,7 @@
 import { canInCampaign } from "./permissions.ts";
 import type { Ctx } from "./seat.ts";
 import type { ActorKind, Codex, CodexEntry, LiveState } from "./state.ts";
+import { toSeatTests } from "./test-call.ts";
 
 // What one seat may see of the two snapshots (docs/design.md §5.5). The gateway computes each once per distinct seat
 // and never sends the raw snapshot to a non-GM seat. Ruleset values (actor fields, resources) are filtered by the
@@ -24,6 +25,8 @@ export function toSeatState({ state, ctx }: { state: LiveState; ctx: Ctx }): Liv
     ...state,
     actors,
     session: state.session && { ...state.session, notes: gmNotes ? state.session.notes : "" },
+    tests: toSeatTests({ tests: state.tests, ctx }),
+    testDefs: canInCampaign({ ctx, perm: "test:call" }) ? state.testDefs : [],
     access: {
       ...state.access,
       // Invite codes are never in the snapshot, but who was invited for what is the GM side's business.

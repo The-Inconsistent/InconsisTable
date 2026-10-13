@@ -1,6 +1,6 @@
 import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import type { AuthUser } from "@inconsistable/auth/api";
-import { AcceptInvite, type Actor, type InvitePreview } from "@inconsistable/core-schema";
+import { AcceptInvite, type ActorBrief, type InvitePreview } from "@inconsistable/core-schema";
 import { actor } from "../actor/actor.schema.ts";
 import { createActor } from "../actor/actor.actions.ts";
 import { campaign } from "../campaign/campaign.schema.ts";
@@ -41,7 +41,7 @@ export async function claimedActorIds(conn: Db, campaignId: string): Promise<Set
   return new Set([...seated, ...guests].flatMap((r) => (r.actorId ? [r.actorId] : [])));
 }
 
-const toActor = (r: typeof actor.$inferSelect): Actor => ({
+const toActor = (r: typeof actor.$inferSelect): ActorBrief => ({
   id: r.id,
   kind: r.kind,
   name: r.name,

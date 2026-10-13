@@ -4,6 +4,10 @@
 export * from "./enums.ts";
 export { formatPath, type Problem } from "./problem.ts";
 export * from "./manifest.ts";
+export * from "./field-value.ts";
+export * from "./pack.ts";
+export * from "./pack-hash.ts";
+export * from "./creation.ts";
 export {
   compileRuleset,
   fieldScope,
@@ -23,8 +27,10 @@ export {
   applyBaseEffects,
   deriveValues,
   healthStatesOf,
+  instantDeathAt,
   nestFields,
   resetValue,
+  resetValues,
   resourceBounds,
   type ActorValues,
   type FieldValue,
@@ -59,5 +65,7 @@ export * from "./primitives/dice-sum-vs-target.ts";
 export * from "./primitives/initiative-ranked.ts";
 export * from "./primitives/health-tracks.ts";
 export * from "./primitives/resource-capped.ts";
+export * from "./primitives/conditions-expire.ts";
+export * from "./primitives/rest.ts";
 export { PRIMITIVES, runOp, type RunOpResult } from "./primitives/registry.ts";
 export * from "./view.ts";

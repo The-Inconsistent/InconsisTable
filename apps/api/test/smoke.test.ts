@@ -2,6 +2,7 @@
 // CLERK_TEST_SECRET set (apps/api/.env, dev only), so these tests can act as signed-in Clerk users.
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { Client } from "pg";
 import { io } from "socket.io-client";
 import { testSessionToken, type PlatformRole } from "@inconsistable/auth/api";
 import type {
@@ -13,6 +14,11 @@ import type {
   LiveState,
   Lobby,
 } from "@inconsistable/core-schema";
+import { MAX_PACKS_PER_USER } from "../src/pack/pack.normalize.ts";
+// Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
+import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+import { SAMPLE_PACK } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
+import { FIXTURE_RULESET } from "./fixture.ts";
 
 const API = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 4000}`;
 const run = Date.now().toString(36); // test users are fresh per run, so reruns never collide
@@ -29,10 +35,20 @@ const post = (path: string, body: unknown, headers: Record<string, string> = {})
     body: JSON.stringify(body),
   });
 
+// Each socket comes from its own address: the suite opens more sockets than the api allows one address a minute.
+let sockets = 0;
+const nextSocketIp = () =>
+  `172.${16 + (Math.floor(++sockets / 250) % 16)}.${sockets % 250}.${1 + Math.floor(Math.random() * 250)}`;
+
 // A socket at one table: `auth` carries campaignId plus a Clerk test token, a guest token or the admin key; `headers`
 // can carry a guest cookie instead.
 function connect({ auth, headers }: { auth: Record<string, string>; headers?: Record<string, string> }) {
-  const socket = io(API, { auth, extraHeaders: headers, transports: ["websocket"], reconnection: false });
+  const socket = io(API, {
+    auth,
+    extraHeaders: { "cf-connecting-ip": nextSocketIp(), ...headers },
+    transports: ["websocket"],
+    reconnection: false,
+  });
   let latest: LiveState | null = null;
   let codex: Codex | null = null;
   socket.on("codex", (c: Codex) => (codex = c));
@@ -483,4 +499,896 @@ test("accepting an invite moves the state version", async () => {
   const s = await owner.until((st) => st.access.members.some((m) => m.userId === uid("ana-ver")));
   assert.ok(s.stateVersion > v0, "the accept bumps it, so a client keeps the new snapshot");
   owner.socket.close();
+});
+
+// ---- The importer: rulesets and packs, and what a seat may read of them (docs/design.md §4.6) --------------------------
+// SAMPLE_D20 and SAMPLE_PACK are made up for the engine's own tests (no book text).
+
+interface Problem {
+  path: string;
+  message: string;
+}
+interface RulesetReply {
+  ok: boolean;
+  versionId: string;
+  unchanged: boolean;
+}
+interface PackReply {
+  ok: boolean;
+  packId: string;
+  versionId: string;
+  unchanged: boolean;
+  diff: { added: string[]; changed: string[]; removed: string[] };
+  warnings: Problem[];
+  problems?: Problem[];
+}
+interface RulesReply {
+  ruleset: { versionId: string; manifest: { entities: { id: string; fields: Record<string, unknown> }[] } } | null;
+  packs: { id: string; slug: string; license: string }[];
+  entries: { pack: string; key: string; type: string; visibility: string }[];
+  total: number;
+}
+
+// A signed-in caller with an address of its own, so the importer's rate limit doesn't add up across tests.
+let ips = 0;
+const ipBlock = 20 + Math.floor(Math.random() * 200); // per run: the api's windows outlive a test run
+function caller(token: string) {
+  const headers = { ...bearer(token), "cf-connecting-ip": `10.${ipBlock}.${Math.floor(++ips / 250)}.${ips % 250}` };
+  const read = async <T>(res: Response) => ({ status: res.status, body: (await res.json()) as T });
+  return {
+    post: async <T>(path: string, body: unknown) => read<T>(await post(path, body, headers)),
+    get: async <T>(path: string) => read<T>(await get(path, headers)),
+  };
+}
+const keysOf = (r: RulesReply) => r.entries.map((e) => e.key).sort();
+const SAMPLE_KEYS = ["coil-rope", "ember-wisp", "reedfolk", "wayfinder"];
+
+test("importer: a ruleset and a pack are stored once, a re-import reports its diff, bad files are refused by path", async () => {
+  assert.equal((await post("/rulesets", SAMPLE_D20)).status, 401);
+  assert.equal((await post("/packs", SAMPLE_PACK)).status, 401);
+  const me = caller(clerk("imp"));
+
+  // A pack needs the ruleset it is written for, imported first.
+  const early = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  assert.equal(early.status, 422);
+  assert.equal(early.body.problems?.[0]?.path, "ruleset.id");
+
+  // A manifest without a cite is refused, by path, and nothing is stored.
+  const uncited = structuredClone(SAMPLE_D20);
+  delete uncited.resources?.[0]?.cite;
+  const refusedRuleset = await me.post<PackReply>("/rulesets", uncited);
+  assert.equal(refusedRuleset.status, 422);
+  assert.ok(refusedRuleset.body.problems?.some((p) => p.path === "resources[0].cite"));
+  assert.deepEqual((await me.get<unknown[]>("/rulesets")).body, []);
+
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  assert.equal(rs.status, 201);
+  assert.equal(rs.body.unchanged, false);
+  const same = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  assert.deepEqual([same.body.unchanged, same.body.versionId], [true, rs.body.versionId], "the same file twice is one");
+  const clash = await me.post<PackReply>("/rulesets", { ...SAMPLE_D20, terms: { party: "Band" } });
+  assert.equal(clash.body.problems?.[0]?.path, "version", "a version is immutable: raise it to change it");
+  const listed = await me.get<{ slug: string; versions: { id: string }[] }[]>("/rulesets");
+  assert.deepEqual(
+    listed.body.map((r) => [r.slug, r.versions.length]),
+    [["sample-d20", 1]],
+  );
+
+  // First import: everything added, entries stored as rows.
+  const first = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  assert.equal(first.status, 201);
+  assert.deepEqual(first.body.diff, { added: SAMPLE_KEYS, changed: [], removed: [] });
+  assert.equal(first.body.unchanged, false);
+  const rows = await query<{ n: string }>("SELECT count(*) AS n FROM pack_entry WHERE pack_version_id = $1", [
+    first.body.versionId,
+  ]);
+  assert.equal(rows[0]?.n, "4");
+
+  // The same file again writes nothing; an edit reports exactly what moved, and only the new version is kept.
+  const repeat = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  assert.deepEqual([repeat.body.unchanged, repeat.body.versionId], [true, first.body.versionId]);
+  const edited = structuredClone(SAMPLE_PACK);
+  edited.entries = edited.entries.filter((e) => e.key !== "coil-rope");
+  edited.entries.push({ key: "lantern", type: "gear", name: "Lantern", cite: "Sample p.51", body: { weight: 1 } });
+  if (edited.entries[0]) edited.entries[0].name = "Reed Folk";
+  const second = await me.post<PackReply>("/packs", { ...edited, version: "0.2.0" });
+  assert.equal(second.status, 201);
+  assert.deepEqual(second.body.diff, { added: ["lantern"], changed: ["reedfolk"], removed: ["coil-rope"] });
+  assert.equal(second.body.packId, first.body.packId);
+  const versions = await query("SELECT id FROM pack_version WHERE pack_id = $1", [first.body.packId]);
+  assert.equal(versions.length, 1, "the version no room attached is dropped");
+
+  // A missing cite and an over-large entry body are refused with their paths; so is a different license.
+  const uncitedPack = structuredClone(SAMPLE_PACK);
+  delete uncitedPack.entries[0]?.cite;
+  const noCite = await me.post<PackReply>("/packs", uncitedPack);
+  assert.equal(noCite.status, 422);
+  assert.ok(noCite.body.problems?.some((p) => p.path === "entries[0].cite"));
+  const fat = structuredClone(SAMPLE_PACK);
+  if (fat.entries[0]) fat.entries[0].body = { blurb: "x".repeat(20_000) };
+  const tooBig = await me.post<PackReply>("/packs", fat);
+  assert.ok(tooBig.body.problems?.some((p) => p.path === "entries[0].body.blurb"));
+  const relabelled = await me.post<PackReply>("/packs", { ...SAMPLE_PACK, license: "srd", attribution: "Someone" });
+  assert.equal(relabelled.body.problems?.[0]?.path, "license", "a private pack can't be re-imported as srd");
+  assert.equal((await me.get<unknown[]>("/rulesets")).status, 200);
+
+  // The file over 5 MB never reaches the validator.
+  const huge = await post(
+    "/packs",
+    { pad: "x".repeat(5.5 * 1024 * 1024) },
+    { ...bearer(clerk("imp")), "cf-connecting-ip": `10.${ipBlock}.250.1` },
+  );
+  assert.equal(huge.status, 413);
+
+  // My packs, with the quota used; the owner's export is the pack as it stands; nobody else gets it.
+  const mine = await me.get<{
+    packs: { id: string; slug: string; license: string; versions: { id: string }[] }[];
+    usage: { packs: number; maxPacks: number };
+  }>("/packs");
+  assert.deepEqual(
+    mine.body.packs.map((p) => [p.slug, p.license, p.versions.length]),
+    [["sample-bestiary", "private", 1]],
+  );
+  assert.deepEqual([mine.body.usage.packs, mine.body.usage.maxPacks], [1, MAX_PACKS_PER_USER]);
+  const exported = await me.get<{ id: string; version: string; entries: { key: string }[] }>(
+    `/packs/${first.body.packId}/export`,
+  );
+  assert.equal(exported.status, 200);
+  assert.deepEqual([exported.body.id, exported.body.version], ["sample-bestiary", "0.2.0"]);
+  assert.deepEqual(exported.body.entries.map((e) => e.key).sort(), ["ember-wisp", "lantern", "reedfolk", "wayfinder"]);
+  const again = await me.post<PackReply>("/packs", exported.body);
+  assert.equal(again.body.unchanged, true, "the export is a file the importer takes back as it is");
+  assert.equal((await caller(clerk("snoop")).get(`/packs/${first.body.packId}/export`)).status, 404);
+  assert.equal((await get(`/packs/${first.body.packId}/export`)).status, 401);
+
+  // Deleting a pack no room uses removes it for real.
+  const gone = await me.post<{ deleted: boolean }>(`/packs/${first.body.packId}/hide`, {});
+  assert.deepEqual(gone.body, { deleted: true });
+  assert.deepEqual((await me.get<{ packs: unknown[] }>("/packs")).body.packs, []);
+  assert.equal((await query("SELECT 1 FROM pack_entry WHERE pack_version_id = $1", [second.body.versionId])).length, 0);
+});
+
+test("importer: the 51st pack is over the quota, and imports are rate limited", async () => {
+  const me = caller(clerk("quota"));
+  assert.equal((await me.post("/rulesets", SAMPLE_D20)).status, 201);
+  for (let i = 0; i < MAX_PACKS_PER_USER; i++)
+    assert.equal((await caller(clerk("quota")).post("/packs", { ...SAMPLE_PACK, id: `pack-${i}` })).status, 201);
+  const over = await caller(clerk("quota")).post<PackReply>("/packs", { ...SAMPLE_PACK, id: "one-too-many" });
+  assert.equal(over.status, 422);
+  assert.equal(over.body.problems?.[0]?.path, "(quota)");
+
+  const flood = caller(clerk("flood"));
+  const statuses: number[] = [];
+  for (let i = 0; i < 25; i++) statuses.push((await flood.post("/packs", {})).status);
+  assert.ok(statuses.includes(429), "a burst of imports from one address is refused");
+});
+
+test("packs in a room: the pin, the seat-scoped read, and a private pack that stays with its GM", async () => {
+  const ownerClerk = clerk("pk-owner", "creator");
+  const me = caller(ownerClerk);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const pk = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  assert.deepEqual([rs.status, pk.status], [201, 201]);
+
+  // The room is made with a ruleset the owner imported, not someone else's.
+  const rival = caller(clerk("pk-rival", "creator"));
+  assert.equal((await rival.post("/campaigns", { name: "Steal", rulesetVersionId: rs.body.versionId })).status, 400);
+  const made = await me.post<{ campaignId: string }>("/campaigns", { name: "Pk", rulesetVersionId: rs.body.versionId });
+  assert.equal(made.status, 201);
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, clerkToken: ownerClerk } });
+  await owner.until(() => true);
+
+  // Attach the pack; a player can't, and a pack that isn't the caller's is simply not found.
+  const anaClerk = await seatPlayer(owner, "ana-pk");
+  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  await ana.until(() => true);
+  refused(await ana.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /permission/);
+  refused(await ana.send({ type: "campaign.setRuleset", rulesetVersionId: rs.body.versionId }), /permission/);
+  refused(await owner.send({ type: "campaign.attachPack", packVersionId: crypto.randomUUID() }), /Pack not found/);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId })); // pinned once, not twice
+
+  // The GM reads everything, with the full manifest; filters page and narrow the list.
+  const gm = await me.get<RulesReply>(`/campaigns/${campaignId}/rules`);
+  assert.equal(gm.status, 200);
+  assert.deepEqual(keysOf(gm.body), SAMPLE_KEYS);
+  assert.equal(gm.body.packs.length, 1);
+  assert.ok(gm.body.ruleset?.manifest.entities.some((e) => "gmNote" in e.fields));
+  assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules?type=creature`)).body.entries.length, 1);
+  assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules?q=EMBER`)).body.entries.length, 1);
+  const page = (await me.get<RulesReply>(`/campaigns/${campaignId}/rules?limit=2&offset=1`)).body;
+  assert.deepEqual([page.entries.length, page.total], [2, 4]);
+  assert.equal((await me.get(`/campaigns/${campaignId}/rules?limit=100000`)).status, 400);
+
+  // A player never gets a `gm` entry or a `gm` definition; nobody without a seat gets anything.
+  const seen = await caller(anaClerk).get<RulesReply>(`/campaigns/${campaignId}/rules`);
+  assert.deepEqual(keysOf(seen.body), ["coil-rope", "reedfolk", "wayfinder"]);
+  assert.ok(seen.body.entries.every((e) => e.visibility !== "gm"));
+  assert.ok(seen.body.ruleset?.manifest.entities.every((e) => !("gmNote" in e.fields)));
+  assert.ok(seen.body.ruleset?.manifest.entities.some((e) => "level" in e.fields));
+  assert.equal((await get(`/campaigns/${campaignId}/rules`)).status, 401);
+  assert.equal((await caller(clerk("pk-outsider")).get(`/campaigns/${campaignId}/rules`)).status, 401);
+
+  // A private pack is served only while its owner is a GM here.
+  await query("UPDATE membership SET role = 'cogm' WHERE campaign_id = $1 AND user_id = $2", [
+    campaignId,
+    uid("pk-owner"),
+  ]);
+  const demoted = await me.get<RulesReply>(`/campaigns/${campaignId}/rules`);
+  assert.deepEqual([demoted.body.packs.length, demoted.body.entries.length], [0, 0]);
+  await query("UPDATE membership SET role = 'gm' WHERE campaign_id = $1 AND user_id = $2", [
+    campaignId,
+    uid("pk-owner"),
+  ]);
+
+  // Another room, someone else's: the owner's pack can't be attached by a rival, nor by an admin who is no GM there.
+  const rivalClerk = clerk("pk-rival", "creator");
+  const rivalRoom = await rival.post<{ campaignId: string }>("/campaigns", { name: "Rival" });
+  const rivalSocket = connect({ auth: { campaignId: rivalRoom.body.campaignId, clerkToken: rivalClerk } });
+  await rivalSocket.until(() => true);
+  refused(await rivalSocket.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /Pack not found/);
+  refused(
+    await rivalSocket.send({ type: "campaign.setRuleset", rulesetVersionId: rs.body.versionId }),
+    /Ruleset not found/,
+  );
+  const adminClerk = clerk("pk-admin", "admin");
+  const adm = caller(adminClerk);
+  const adminRs = await adm.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const adminPack = await adm.post<PackReply>("/packs", SAMPLE_PACK);
+  const adminSocket = connect({ auth: { campaignId: rivalRoom.body.campaignId, clerkToken: adminClerk } });
+  await adminSocket.until(() => true);
+  ok(await adminSocket.send({ type: "campaign.setRuleset", rulesetVersionId: adminRs.body.versionId }));
+  refused(
+    await adminSocket.send({ type: "campaign.attachPack", packVersionId: adminPack.body.versionId }),
+    /private pack can only be used in a room you run as GM/,
+  );
+  assert.deepEqual(
+    (await query("SELECT 1 FROM campaign_pack WHERE campaign_id = $1", [rivalRoom.body.campaignId])).length,
+    0,
+  );
+
+  // A room with no ruleset has nothing to attach a pack to.
+  const bare = await me.post<{ campaignId: string }>("/campaigns", { name: "Bare" });
+  const bareSocket = connect({ auth: { campaignId: bare.body.campaignId, clerkToken: ownerClerk } });
+  await bareSocket.until(() => true);
+  refused(await bareSocket.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /ruleset first/);
+  bareSocket.socket.close();
+
+  // Deleting an attached pack hides it but keeps what the room uses; detached and deleted, it can't come back.
+  assert.deepEqual((await me.post<{ deleted: boolean }>(`/packs/${pk.body.packId}/hide`, {})).body, { deleted: false });
+  assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.entries.length, 4);
+  ok(await owner.send({ type: "campaign.detachPack", packVersionId: pk.body.versionId }));
+  refused(await owner.send({ type: "campaign.detachPack", packVersionId: pk.body.versionId }), /isn't attached/);
+  refused(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /deleted/);
+  assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.entries.length, 0);
+  assert.deepEqual((await me.post<{ deleted: boolean }>(`/packs/${pk.body.packId}/hide`, {})).body, { deleted: true });
+  for (const c of [owner, ana, rivalSocket, adminSocket]) c.socket.close();
+});
+
+test("takedown: an admin disables a pack in every room at once, and it is logged", async () => {
+  const ownerClerk = clerk("td-owner", "creator");
+  const me = caller(ownerClerk);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const pk = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Takedown", rulesetVersionId: rs.body.versionId })
+  ).body;
+  const owner = connect({ auth: { campaignId, clerkToken: ownerClerk } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.entries.length, 4);
+
+  const disable = (token: string | null, disabled: boolean) =>
+    post(`/admin/packs/${pk.body.packId}/disable`, { disabled }, token ? bearer(token) : {});
+  assert.equal((await disable(null, true)).status, 401);
+  assert.equal((await disable(ownerClerk, true)).status, 403, "the owner can't undo their own takedown");
+  const adminClerk = clerk("td-admin", "admin");
+  assert.equal((await disable(adminClerk, true)).status, 200);
+
+  const served = await me.get<RulesReply>(`/campaigns/${campaignId}/rules`);
+  assert.deepEqual([served.body.packs.length, served.body.entries.length], [0, 0], "no longer served to anyone");
+  refused(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /taken down/);
+  assert.equal((await me.get(`/packs/${pk.body.packId}/export`)).status, 403);
+  const reimport = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  assert.equal(reimport.status, 422);
+  assert.match(reimport.body.problems?.[0]?.message ?? "", /taken down/);
+  const mine = await me.get<{ packs: { disabled: boolean }[] }>("/packs");
+  assert.equal(mine.body.packs[0]?.disabled, true);
+
+  const events = (await (await get("/admin/events", bearer(adminClerk))).json()) as {
+    action: string;
+    targetUserId: string | null;
+  }[];
+  assert.ok(events.some((e) => e.action === "pack.disable" && e.targetUserId === uid("td-owner")));
+  assert.equal((await get("/admin/packs", bearer(adminClerk))).status, 200);
+
+  // Put back, it serves again.
+  assert.equal((await disable(adminClerk, false)).status, 200);
+  assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.entries.length, 4);
+  owner.socket.close();
+});
+
+// ---- Ruleset actions: the pipeline, the value rows and undo (docs/design.md §5.3-5.4) ----------------------------
+// A room gets its ruleset through the importer; its actors' values are written straight to the database (nothing
+// creates them yet). The ruleset is test/fixture.ts, our own invention.
+
+const withDb = async <T>(fn: (c: Client) => Promise<T>) => {
+  const c = new Client({ connectionString: process.env.DATABASE_URL });
+  await c.connect();
+  try {
+    return await fn(c);
+  } finally {
+    await c.end();
+  }
+};
+
+// Imports the fixture ruleset as the room owner and pins it, the way a GM does: the importer, then campaign.setRuleset.
+async function pinFixture({ owner, ownerClerk }: { owner: ReturnType<typeof connect>; ownerClerk: string }) {
+  const res = await caller(ownerClerk).post<RulesetReply>("/rulesets", FIXTURE_RULESET);
+  assert.equal(res.status, 201);
+  ok(await owner.send({ type: "campaign.setRuleset", rulesetVersionId: res.body.versionId }));
+}
+
+// Gives an actor the ruleset's entity type, field values and resource rows.
+async function equip(
+  actorId: string,
+  entity: string,
+  values: { fields?: Record<string, number | string>; resources?: Record<string, number> },
+) {
+  await withDb(async (c) => {
+    await c.query("UPDATE actor SET entity_type = $1 WHERE id = $2", [entity, actorId]);
+    for (const [id, v] of Object.entries(values.fields ?? {}))
+      await c.query(
+        "INSERT INTO actor_field (actor_id, field_id, ordinal, int_value, text_value) VALUES ($1, $2, 0, $3, $4)",
+        [actorId, id, typeof v === "number" ? v : null, typeof v === "string" ? v : null],
+      );
+    for (const [id, v] of Object.entries(values.resources ?? {}))
+      await c.query("INSERT INTO actor_resource (actor_id, resource_id, value) VALUES ($1, $2, $3)", [actorId, id, v]);
+  });
+}
+
+const query = <R extends object = Record<string, unknown>>(sql: string, params: unknown[] = []) =>
+  withDb(async (c) => (await c.query<R>(sql, params)).rows);
+
+// A room with the fixture ruleset, a player (Ana) holding a character, and a creature the GM runs. The character has
+// level 3 and Grit 14, so 14 Vigour at most; the creature has 10.
+async function rulesRoom(name: string) {
+  const { owner, ownerClerk, campaignId } = await newRoom(name);
+  const anaClerk = await seatPlayer(owner, `ana-${name}`);
+  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  await ana.until(() => true);
+  const hero = (await owner.until((s) => s.actors.some((a) => a.kind === "pc"))).actors.find(
+    (a) => a.kind === "pc",
+  )!.id;
+  const ogre = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Ogre" })).id!;
+  await pinFixture({ owner, ownerClerk });
+  await equip(hero, "character", {
+    fields: { level: 3, "attr.con": 14, "attr.dex": 12, diary: "" },
+    resources: { hp: 14, focus: 1 },
+  });
+  await equip(ogre, "creature", { fields: { level: 2, "attr.con": 10, "attr.dex": 10 }, resources: { hp: 10 } });
+  // Any action rebroadcasts, now with the ruleset in place.
+  ok(await owner.send({ type: "actor.rename", id: hero, name: "Lyra" }));
+  await owner.until((s) => s.actors.find((a) => a.id === hero)?.entity === "character");
+  await ana.until((s) => s.actors.find((a) => a.id === hero)?.entity === "character");
+  return { owner, ownerClerk, ana, campaignId, hero, ogre };
+}
+
+const adjust = (actorId: string, resource: string, delta: number) =>
+  ({ type: "rule.op", primitive: "resource.capped", op: "adjust", input: { actorId, resource, delta } }) as const;
+const resourceOf = (c: ReturnType<typeof connect>, id: string, resource: string, value: number) =>
+  c.until((s) => s.actors.find((a) => a.id === id)?.resources[resource] === value);
+const actorIn = (s: LiveState, id: string) => s.actors.find((a) => a.id === id);
+
+test("campaign.setRuleset: a room whose characters use a version can't move to another", async () => {
+  const { owner, ana, ownerClerk } = await rulesRoom("Pin");
+  const next = await caller(ownerClerk).post<RulesetReply>("/rulesets", { ...FIXTURE_RULESET, version: "0.2.0" });
+  assert.equal(next.status, 201);
+  refused(
+    await owner.send({ type: "campaign.setRuleset", rulesetVersionId: next.body.versionId }),
+    /already use another version/,
+  );
+  for (const c of [owner, ana]) c.socket.close();
+});
+
+test("rule.op: the server clamps, and each seat writes only what its `editableBy` allows", async () => {
+  const { owner, ana, hero, ogre } = await rulesRoom("Clamp");
+  const lyra = actorIn(await owner.until(() => true), hero)!;
+  assert.deepEqual(
+    [lyra.resources.hp, lyra.derived.maxHp, lyra.conditions],
+    [14, 14, []],
+    "the snapshot carries values and derived",
+  );
+
+  // Damage far past zero stops at the minimum; healing past the max stops at the max.
+  ok(await owner.send(adjust(hero, "hp", -100)));
+  await resourceOf(owner, hero, "hp", 0);
+  ok(await owner.send(adjust(hero, "hp", 100)));
+  await resourceOf(owner, hero, "hp", 14);
+  refused(await owner.send(adjust(hero, "hp", 5_000_000)), /delta/);
+  refused(await owner.send({ type: "rule.op", primitive: "nope", op: "adjust", input: {} }), /No operation/);
+  refused(await owner.send({ type: "rule.op", primitive: "resource.capped", op: "nope", input: {} }), /No operation/);
+  refused(await owner.send(adjust(crypto.randomUUID(), "hp", -1)), /no actor/);
+  refused(await owner.send(adjust(hero, "mana", -1)), /no resource "mana"/);
+
+  // A player: spends their own `ownerSpendOnly` focus, never gains it, and never touches a `gm` resource.
+  ok(await ana.send(adjust(hero, "focus", -1)));
+  await resourceOf(ana, hero, "focus", 0);
+  refused(await ana.send(adjust(hero, "focus", 1)), /only spend/);
+  refused(await ana.send(adjust(hero, "hp", -1)), /Only the GM can change that/);
+  refused(await ana.send(adjust(ogre, "hp", -1)), /Not your character/);
+  refused(
+    await ana.send({ type: "rule.op", primitive: "health.tracks", op: "damage", input: { actorId: hero, amount: 1 } }),
+    /permission/,
+  );
+  await resourceOf(owner, hero, "hp", 14);
+  for (const c of [owner, ana]) c.socket.close();
+});
+
+test("field.set: type and range are checked, `editableBy` decides who writes, hidden fields stay hidden", async () => {
+  const { owner, ana, campaignId, hero, ogre } = await rulesRoom("Fields");
+  const ben = connect({ auth: { campaignId, clerkToken: await seatPlayer(owner, "ben-Fields") } });
+  await ben.until(() => true);
+  const set = (actorId: string, field: string, value: number | string | string[] | null) =>
+    ({ type: "field.set", actorId, field, value }) as const;
+
+  // The owner writes their own `owner` fields; `gm` fields and other characters are the GM's.
+  ok(await ana.send(set(hero, "diary", "Met a dragon")));
+  refused(await ana.send(set(hero, "diary", "x".repeat(41))), /over the cap of 40/);
+  refused(await ana.send(set(hero, "gmNote", "hm")), /Only the GM can change that/);
+  refused(await ana.send(set(hero, "level", 4)), /Only the GM can change that/);
+  refused(await ana.send(set(ogre, "level", 4)), /Not your character/);
+  refused(await ana.send(set(hero, "nope", 1)), /no field "nope"/);
+
+  // The GM is checked against the declaration too.
+  ok(await owner.send(set(hero, "gmNote", "she is the heir")));
+  refused(await owner.send(set(hero, "level", 99)), /above the maximum of 20/);
+  refused(await owner.send(set(hero, "level", "high")), /expected a whole number/);
+  ok(await owner.send(set(hero, "level", 5)));
+  ok(await owner.send(set(hero, "tags", ["a", "b"])));
+  refused(await owner.send(set(hero, "tags", ["a", "b", "c", "d"])), /more than 3 items/);
+  const gm = await owner.until((s) => actorIn(s, hero)?.derived.maxHp === 18);
+  assert.deepEqual(actorIn(gm, hero)?.fields.tags, ["a", "b"]);
+  assert.equal(actorIn(gm, hero)?.fields.gmNote, "she is the heir");
+
+  // What each seat is sent: the GM note never leaves the GM, the diary goes to its owner only, party fields to all.
+  const mine = actorIn(await ana.until((s) => actorIn(s, hero)?.fields.level === 5), hero)!;
+  assert.equal(mine.fields.diary, "Met a dragon");
+  assert.equal("gmNote" in mine.fields, false);
+  assert.equal(mine.derived.maxHp, 18);
+  assert.equal(mine.resources.focus, 1);
+  const theirs = actorIn(await ben.until((s) => actorIn(s, hero)?.fields.level === 5), hero)!;
+  assert.equal("diary" in theirs.fields, false, "another player doesn't see the diary");
+  assert.equal("gmNote" in theirs.fields, false);
+  assert.equal(theirs.resources.focus, undefined, "focus is the owner's");
+  assert.equal(actorIn(await ana.until(() => true), ogre), undefined, "the creature stays on the GM side");
+  for (const c of [owner, ana, ben]) c.socket.close();
+});
+
+test("conditions: stack by the manifest, tick down through conditions.expire, hidden where the manifest hides them", async () => {
+  const { owner, ana, hero } = await rulesRoom("Conditions");
+  const add = (condition: string, expiresAfter?: number) =>
+    ({ type: "condition.add", actorId: hero, condition, expiresAfter }) as const;
+  refused(await ana.send(add("dazed")), /permission/);
+  ok(await owner.send(add("dazed", 2)));
+  ok(await owner.send(add("marked")));
+  const gm = await owner.until((s) => (actorIn(s, hero)?.conditions.length ?? 0) === 2);
+  assert.deepEqual(actorIn(gm, hero)?.conditions.toSorted(), ["dazed", "marked"]);
+  const seen = await ana.until((s) => (actorIn(s, hero)?.conditions.length ?? 0) === 1);
+  assert.deepEqual(actorIn(seen, hero)?.conditions, ["dazed"], "`marked` is gm-only");
+
+  assert.equal(ok(await owner.send(add("dazed"))).id, undefined, "stacking `none`: again does nothing");
+  for (let i = 0; i < 4; i++) ok(await owner.send(add("braced")));
+  const braced = await query<{ stacks: number }>(
+    "SELECT stacks FROM actor_condition WHERE actor_id = $1 AND condition_id = 'braced'",
+    [hero],
+  );
+  assert.deepEqual(
+    braced.map((r) => r.stacks),
+    [3],
+    "one row, and maxStacks caps it",
+  );
+  refused(await owner.send(add("nope")), /No condition "nope"/);
+
+  // `refresh`: applying it again restarts the count, and without one the count is cleared (house decision 19).
+  const burning = () =>
+    query<{ expires_after: number | null }>(
+      "SELECT expires_after FROM actor_condition WHERE actor_id = $1 AND condition_id = 'burning'",
+      [hero],
+    );
+  ok(await owner.send(add("burning", 2)));
+  assert.deepEqual(await burning(), [{ expires_after: 2 }]);
+  ok(await owner.send(add("burning", 5)));
+  assert.deepEqual(await burning(), [{ expires_after: 5 }]);
+  ok(await owner.send(add("burning")));
+  assert.deepEqual(await burning(), [{ expires_after: null }]);
+  ok(await owner.send({ type: "condition.remove", actorId: hero, condition: "burning" }));
+
+  // `dazed` lasts two round ends: the first ticks it down (a row delta), the second removes it.
+  const roundEnd = { type: "rule.op", primitive: "conditions.expire", op: "roundEnd", input: {} } as const;
+  refused(await ana.send(roundEnd), /permission/);
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send(roundEnd));
+  const left = () =>
+    query<{ expires_after: number | null }>(
+      "SELECT expires_after FROM actor_condition WHERE actor_id = $1 AND condition_id = 'dazed'",
+      [hero],
+    );
+  assert.deepEqual(await left(), [{ expires_after: 1 }]);
+  ok(await owner.send({ type: "event.undo" }));
+  assert.deepEqual(await left(), [{ expires_after: 2 }], "a tick is undone by the tick back");
+  ok(await owner.send(roundEnd));
+  ok(await owner.send(roundEnd));
+  assert.deepEqual(await left(), [], "the last tick removes the row");
+  ok(await owner.send({ type: "event.undo" }));
+  assert.deepEqual(await left(), [{ expires_after: 1 }], "and undo puts the row back");
+
+  ok(await owner.send({ type: "condition.remove", actorId: hero, condition: "dazed" }));
+  refused(await owner.send({ type: "condition.remove", actorId: hero, condition: "dazed" }), /doesn't have/);
+  refused(await ana.send({ type: "condition.remove", actorId: hero, condition: "marked" }), /permission/);
+  const bare = ok(await owner.send({ type: "actor.create", kind: "npc", name: "Bare" })).id!;
+  refused(await owner.send({ ...add("dazed"), actorId: bare }), /isn't built for this ruleset/);
+  for (const c of [owner, ana]) c.socket.close();
+});
+
+test("actor.rest and session boundaries run the engine's rest primitive", async () => {
+  const { owner, ana, hero, ogre } = await rulesRoom("Rest");
+  const rest = (event: string, actorId?: string) => ({ type: "actor.rest", event, actorId }) as const;
+  ok(await owner.send(adjust(hero, "hp", -9)));
+  ok(await owner.send(adjust(ogre, "hp", -7)));
+  await resourceOf(owner, hero, "hp", 5);
+
+  refused(await ana.send(rest("longRest")), /permission/);
+  refused(await owner.send(rest("nap")), /No rest called "nap"/);
+  refused(await owner.send(rest("longRest", crypto.randomUUID())), /no actor/);
+  ok(await owner.send(rest("longRest", hero)));
+  await resourceOf(owner, hero, "hp", 14);
+  assert.equal(actorIn(await owner.until(() => true), ogre)?.resources.hp, 3, "only the one asked");
+  ok(await owner.send(rest("longRest")));
+  await resourceOf(owner, hero, "hp", 14);
+  assert.equal(ok(await owner.send(rest("longRest"))).id, undefined, "already full: nothing to log");
+
+  ok(await owner.send(rest("shortRest")));
+  await resourceOf(owner, hero, "focus", 3);
+  // Starting a session sets focus to 1 (sessionStart), and the running session's undo takes it back.
+  ok(await owner.send({ type: "session.start" }));
+  await resourceOf(owner, hero, "focus", 1);
+  ok(await owner.send({ type: "event.undo" }));
+  await resourceOf(owner, hero, "focus", 3);
+  for (const c of [owner, ana]) c.socket.close();
+});
+
+test("event.undo: newest first, deltas stay, a deleted actor is skipped, only the combat side may", async () => {
+  const { owner, ana, campaignId, hero, ogre } = await rulesRoom("Undo");
+  const set = (field: string, value: string) => ({ type: "field.set", actorId: hero, field, value }) as const;
+  refused(await owner.send({ type: "event.undo" }), /No session is running/);
+  ok(await owner.send({ type: "session.start" }));
+  refused(await owner.send({ type: "event.undo" }), /Nothing to undo/);
+
+  // Two hits come back newest first: the second (2), then the first (3).
+  const hit1 = ok(await owner.send(adjust(hero, "hp", -3))).id!;
+  const hit2 = ok(await owner.send(adjust(hero, "hp", -2))).id!;
+  await resourceOf(owner, hero, "hp", 9);
+  assert.equal(ok(await owner.send({ type: "event.undo" })).id, hit2);
+  await resourceOf(owner, hero, "hp", 11);
+  assert.equal(ok(await owner.send({ type: "event.undo" })).id, hit1);
+  await resourceOf(owner, hero, "hp", 14);
+  refused(await owner.send({ type: "event.undo" }), /Nothing to undo/);
+
+  // A set goes back to what it held before, one step at a time.
+  ok(await owner.send(set("gmNote", "one")));
+  ok(await owner.send(set("gmNote", "two")));
+  const note = (s: LiveState) => actorIn(s, hero)?.fields.gmNote;
+  ok(await owner.send({ type: "event.undo" }));
+  await owner.until((s) => note(s) === "one");
+  ok(await owner.send({ type: "event.undo" }));
+  await owner.until((s) => note(s) === undefined);
+
+  // One action with several writes (hp, status, tallies) is taken back together, after the edit made on top of it.
+  ok(
+    await owner.send({
+      type: "rule.op",
+      primitive: "health.tracks",
+      op: "damage",
+      input: { actorId: hero, amount: 20 },
+    }),
+  );
+  await owner.until((s) => actorIn(s, hero)?.fields.healthState === "dying");
+  ok(await owner.send(set("healthState", "stable")));
+  ok(await owner.send({ type: "event.undo" }));
+  await owner.until((s) => actorIn(s, hero)?.fields.healthState === "dying");
+  ok(await owner.send({ type: "event.undo" }));
+  await resourceOf(owner, hero, "hp", 14);
+  await owner.until((s) => actorIn(s, hero)?.fields.healthState === undefined);
+
+  // A deleted actor doesn't block undo: its step is skipped and noted, and the next undo goes on to the one before.
+  ok(await owner.send(adjust(hero, "hp", -1)));
+  ok(await owner.send(adjust(ogre, "hp", -2)));
+  ok(await owner.send({ type: "actor.delete", id: ogre }));
+  ok(await owner.send({ type: "event.undo" }));
+  const [undoEvent] = await query<{ payload: { skipped: { actorId: string; reason: string }[] } }>(
+    "SELECT payload FROM session_event WHERE campaign_id = $1 AND type = 'undo' ORDER BY created_at DESC, id DESC LIMIT 1",
+    [campaignId],
+  );
+  assert.deepEqual(undoEvent?.payload.skipped, [{ actorId: ogre, reason: "deleted" }]);
+  await resourceOf(owner, hero, "hp", 13);
+  ok(await owner.send({ type: "event.undo" }));
+  await resourceOf(owner, hero, "hp", 14);
+  refused(await owner.send({ type: "event.undo" }), /Nothing to undo/);
+
+  // Who may undo: not the player, not a co-GM without the combat scope; a co-GM with it, yes.
+  ok(await owner.send(adjust(hero, "hp", -1)));
+  refused(await ana.send({ type: "event.undo" }), /permission/);
+  const cogm = async (name: string, scopes: ("combat" | "session")[]) => {
+    const code = ok(await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false })).token!;
+    const token = clerk(name);
+    assert.equal((await post(`/invites/${code}/accept`, {}, bearer(token))).status, 200);
+    ok(await owner.send({ type: "member.appoint", userId: uid(name), role: "cogm", scopes }));
+    const c = connect({ auth: { campaignId, clerkToken: token } });
+    await c.until(() => true);
+    return c;
+  };
+  const session = await cogm("co-session-Undo", ["session"]);
+  refused(await session.send({ type: "event.undo" }), /permission/);
+  const combat = await cogm("co-combat-Undo", ["combat"]);
+  ok(await combat.send({ type: "event.undo" }));
+  await resourceOf(owner, hero, "hp", 14);
+
+  // HP is the combat side's: a co-GM with only the combat scope deals damage, the session co-GM and a player can't.
+  const damage = {
+    type: "rule.op",
+    primitive: "health.tracks",
+    op: "damage",
+    input: { actorId: hero, amount: 1 },
+  } as const;
+  ok(await combat.send(damage));
+  await resourceOf(owner, hero, "hp", 13);
+  refused(await session.send(damage), /permission/);
+  refused(await ana.send(damage), /permission/);
+  ok(await combat.send({ type: "event.undo" }));
+  await resourceOf(owner, hero, "hp", 14);
+
+  // Ended session: nothing left to undo.
+  ok(await owner.send({ type: "session.end" }));
+  refused(await owner.send({ type: "event.undo" }), /No session is running/);
+
+  // The log: every write has its action and seat, undone steps point at their undo event.
+  const log = await query<{ type: string; seat_user_id: string | null; undone_by: string | null; id: string }>(
+    "SELECT id, type, seat_user_id, undone_by FROM session_event WHERE campaign_id = $1 ORDER BY created_at, id",
+    [campaignId],
+  );
+  const undoIds = new Set(log.filter((e) => e.type === "undo").map((e) => e.id));
+  assert.ok(undoIds.size >= 7, `${undoIds.size} undo events`);
+  const deltas = log.filter((e) => e.type === "delta");
+  assert.ok(deltas.length >= 8);
+  assert.ok(deltas.every((e) => [uid("owner-Undo"), uid("co-combat-Undo")].includes(e.seat_user_id ?? "")));
+  assert.ok(deltas.filter((e) => e.undone_by !== null).every((e) => undoIds.has(e.undone_by!)));
+  assert.equal(deltas.filter((e) => e.undone_by === null).length, 0, "everything in this run was taken back");
+  for (const c of [owner, ana, session, combat]) c.socket.close();
+});
+
+test("a turn op is refused until the combat tracker gives it an encounter, and nothing is logged", async () => {
+  const { owner, campaignId, hero, ogre } = await rulesRoom("Turn");
+  ok(await owner.send({ type: "session.start" }));
+  refused(
+    await owner.send({
+      type: "rule.op",
+      primitive: "initiative.ranked",
+      op: "start",
+      input: {
+        combatants: [
+          { id: hero, score: 3 },
+          { id: ogre, score: 1 },
+        ],
+      },
+    }),
+    /encounter/,
+  );
+  const rows = await query("SELECT 1 FROM session_event WHERE campaign_id = $1", [campaignId]);
+  assert.equal(rows.length, 0, "the refusal rolled the action back");
+  owner.socket.close();
+});
+
+// ---- Tests called by the GM: the dice stay physical, the server resolves them (docs/design.md §6.3) ----------------
+
+// Every number anywhere in a payload, so a hidden target is looked for by value, not in ids or dates.
+const numbersIn = (v: unknown): number[] =>
+  typeof v === "number" ? [v] : v !== null && typeof v === "object" ? Object.values(v).flatMap(numbersIn) : [];
+
+const DN = 23; // far from any roll below, so a leak is found by value
+const callIn = (s: LiveState, id: string) => s.tests.find((t) => t.id === id);
+const report = (callId: string, actorId: string, faces: number[], advantage = "none") =>
+  ({ type: "test.report", callId, actorId, advantage, roll: { kind: "faces", faces } }) as ActionInput;
+
+// A room with the fixture ruleset, a running session, Ana holding Lyra and Ben holding Bram. Every socket counts against
+// the api's connect limit (60 a minute per IP), so a test opens only the ones it reads.
+async function testRoom(name: string) {
+  const { owner, ana, campaignId, hero, ogre } = await rulesRoom(name);
+  const ben = connect({ auth: { campaignId, clerkToken: await seatPlayer(owner, `ben-${name}`) } });
+  const members = (await owner.until((s) => s.access.members.some((m) => m.userId === uid(`ben-${name}`)))).access;
+  const bram = members.members.find((m) => m.userId === uid(`ben-${name}`))!.characterIds[0]!;
+  await equip(bram, "character", {
+    fields: { level: 1, "attr.con": 10, "attr.dex": 14, diary: "" },
+    resources: { hp: 8, focus: 1 },
+  });
+  ok(await owner.send({ type: "actor.rename", id: bram, name: "Bram" }));
+  await ben.until((s) => s.actors.find((a) => a.id === bram)?.entity === "character");
+  // The snapshot carries the open calls and the running session's closed ones.
+  ok(await owner.send({ type: "session.start" }));
+  const call = (over: Record<string, unknown> = {}) =>
+    ({
+      type: "test.call",
+      testId: "check",
+      actorIds: [hero, bram],
+      inputs: { ability: "dex", dc: DN },
+      hideTarget: true,
+      ...over,
+    }) as ActionInput;
+  return { owner, ana, ben, campaignId, hero, bram, ogre, call };
+}
+
+async function coGm({
+  owner,
+  campaignId,
+  name,
+  scopes,
+}: {
+  owner: ReturnType<typeof connect>;
+  campaignId: string;
+  name: string;
+  scopes: ("combat" | "session")[];
+}) {
+  const code = ok(await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false })).token!;
+  const token = clerk(name);
+  assert.equal((await post(`/invites/${code}/accept`, {}, bearer(token))).status, 200);
+  ok(await owner.send({ type: "member.appoint", userId: uid(name), role: "cogm", scopes }));
+  const c = connect({ auth: { campaignId, clerkToken: token } });
+  await c.until(() => true);
+  return c;
+}
+
+test("test.call / test.report / test.close: a hidden target stays on the GM side, the server resolves the roll", async () => {
+  const { owner, ana, ben, campaignId, hero, bram, call } = await testRoom("TestReport");
+  const screen = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  const combat = await coGm({ owner, campaignId, name: "co-combat-TestReport", scopes: ["combat"] });
+
+  // Who may call: the GM and a co-GM with the session scope. The call is checked against the pinned ruleset.
+  refused(await ana.send(call({ actorIds: [hero] })), /permission/);
+  refused(await screen.send(call()), /read-only/);
+  refused(await combat.send(call()), /permission/);
+  refused(await owner.send(call({ testId: "nope" })), /No Test "nope"/);
+  refused(await owner.send(call({ inputs: { ability: "dex" } })), /dc/);
+  refused(await owner.send(call({ inputs: { ability: "dex", dc: "hard" } })), /whole number/);
+  refused(await owner.send(call({ inputs: { ability: "dex", dc: 5, extra: 1 } })), /extra/);
+  refused(await owner.send(call({ inputs: { ability: "wis", dc: 5 } })), /Lyra/); // no such score
+  refused(await owner.send(call({ actorIds: [crypto.randomUUID()] })), /Character not found/);
+  refused(await owner.send(call({ actorIds: [] })), /too small|at least|Invalid/i);
+  const bare = ok(await owner.send({ type: "actor.create", kind: "npc", name: "Bare" })).id!;
+  refused(await owner.send(call({ actorIds: [bare] })), /isn't built/);
+  const session = await coGm({ owner, campaignId, name: "co-session-TestReport", scopes: ["session"] });
+  ok(await session.send({ type: "test.close", callId: ok(await session.send(call({ actorIds: [hero] }))).id! }));
+  session.socket.close();
+
+  // The GM calls two characters with a hidden target.
+  const id = ok(await owner.send(call())).id!;
+  const gm = callIn(await owner.until((s) => callIn(s, id) !== undefined), id)!;
+  assert.equal(gm.status, "open");
+  const byActor = (c: typeof gm) => Object.fromEntries(c.targets.map((t) => [t.actorId, t]));
+  assert.deepEqual([byActor(gm)[hero]?.modifier, byActor(gm)[hero]?.target], [1, DN]);
+  assert.deepEqual([byActor(gm)[bram]?.modifier, byActor(gm)[bram]?.target], [2, DN]);
+  assert.deepEqual(gm.secretInputs, ["dc"]);
+  assert.deepEqual(
+    (await owner.until(() => true)).testDefs.map((d) => d.id),
+    ["check"],
+  );
+
+  // Each seat gets its own copy: a player only their own character, never the target number or the dc input.
+  const anaState = await ana.until((s) => callIn(s, id) !== undefined);
+  const anaCall = callIn(anaState, id)!;
+  assert.deepEqual(anaCall.targets, [{ actorId: hero, modifier: 1, target: null, report: null }]);
+  assert.deepEqual(anaCall.inputs, { ability: "dex" });
+  assert.deepEqual(anaState.testDefs, []);
+  assert.ok(!numbersIn(anaState.tests).includes(DN), "the target number is nowhere in the player's state");
+  const tv = callIn(await screen.until((s) => callIn(s, id) !== undefined), id)!;
+  assert.deepEqual([tv.called, tv.reported, tv.targets], [2, 0, []]);
+  assert.ok(!numbersIn((await screen.until(() => true)).tests).includes(DN));
+  assert.equal(callIn(await combat.until(() => true), id), undefined, "a co-GM without the scope sees no call");
+
+  // A player reports the physical roll for their own character, never for another's; a bad roll is refused.
+  refused(await ana.send(report(id, bram, [12])), /Not your character/);
+  refused(await ana.send(report(id, hero, [21])), /d20 rolls/);
+  refused(await ana.send(report(id, hero, [4, 5])), /expected 1 face/);
+  refused(await ana.send(report(id, hero, [4], "lucky")), /advantage, disadvantage or none/);
+  refused(await ana.send(report(crypto.randomUUID(), hero, [4])), /isn't at this table/);
+  ok(await ana.send(report(id, hero, [13])));
+
+  // The server computed the outcome (13 + 1 against 23 fails); Ana is not told it, the GM is.
+  const gmAfter = callIn(await owner.until((s) => callIn(s, id)?.reported === 1), id)!;
+  assert.deepEqual(byActor(gmAfter)[hero]?.report, { natural: 13, total: 14, outcome: "failure" });
+  const anaAfter = callIn(await ana.until((s) => callIn(s, id)?.reported === 1), id)!;
+  assert.deepEqual(anaAfter.targets[0]?.report, { natural: 13, total: 14, outcome: null });
+  assert.ok(!numbersIn((await ana.until(() => true)).tests).includes(DN));
+  refused(await ana.send(report(id, hero, [20])), /Already reported/);
+  const stored = (a: string) =>
+    query<{ outcome: string; reported_by_role: string }>(
+      "SELECT outcome, reported_by_role FROM test_report WHERE call_id = $1 AND actor_id = $2",
+      [id, a],
+    );
+  assert.deepEqual(await stored(hero), [{ outcome: "failure", reported_by_role: "player" }]);
+
+  // The GM side reports for anyone and may correct one: a natural 20 is critical, then Bram's 19 + 2 fails.
+  ok(await owner.send(report(id, bram, [20])));
+  const crit = callIn(await owner.until((s) => callIn(s, id)?.reported === 2), id)!;
+  assert.equal(byActor(crit)[bram]?.report?.outcome, "critical");
+  ok(await owner.send(report(id, bram, [19])));
+  const fixed = callIn(await owner.until((s) => byActor(callIn(s, id)!)[bram]?.report?.natural === 19), id)!;
+  assert.deepEqual(byActor(fixed)[bram]?.report, { natural: 19, total: 21, outcome: "failure" });
+  assert.deepEqual(await stored(bram), [{ outcome: "failure", reported_by_role: "gm" }]);
+
+  // Closing is the GM side's; nothing more is reported afterwards, and Ana is still not shown Bram's result.
+  refused(await ana.send({ type: "test.close", callId: id }), /permission/);
+  refused(await combat.send({ type: "test.close", callId: id }), /permission/);
+  ok(await owner.send({ type: "test.close", callId: id }));
+  refused(await owner.send({ type: "test.close", callId: id }), /closed/);
+  refused(await owner.send(report(id, hero, [5])), /closed/);
+  const closed = callIn(await ana.until((s) => callIn(s, id)?.status === "closed"), id)!;
+  assert.deepEqual(
+    closed.targets.map((t) => [t.actorId, t.report?.outcome]),
+    [[hero, null]],
+  );
+  assert.deepEqual((await screen.until(() => true)).tests, [], "the TV shows only what is open");
+  for (const c of [owner, ana, ben, screen, combat]) c.socket.close();
+});
+
+test("a Test can tell the called players pass or fail, show its target, or reveal every result when closed", async () => {
+  const { owner, ana, ben, campaignId, hero, bram, call } = await testRoom("TestShow");
+
+  // showOutcome: the outcome without the number.
+  const id = ok(await owner.send(call({ showOutcome: true }))).id!;
+  ok(await ana.send(report(id, hero, [12])));
+  ok(await ben.send(report(id, bram, [3])));
+  const told = callIn(await ana.until((s) => callIn(s, id)?.targets[0]?.report?.outcome === "failure"), id)!;
+  assert.deepEqual(told.targets[0]?.report, { natural: 12, total: 13, outcome: "failure" });
+  assert.ok(!numbersIn((await ana.until(() => true)).tests).includes(DN));
+
+  // Revealing on close: the other character's outcome and die, never their modifier, total or the target.
+  assert.equal(callIn(await ana.until(() => true), id)?.targets.length, 1);
+  ok(await owner.send({ type: "test.close", callId: id, reveal: true }));
+  const revealed = callIn(await ana.until((s) => callIn(s, id)?.revealed === true), id)!;
+  assert.deepEqual(revealed.targets.map((t) => t.actorId).toSorted(), [hero, bram].toSorted());
+  const other = revealed.targets.find((t) => t.actorId === bram)!;
+  assert.deepEqual(other, {
+    actorId: bram,
+    modifier: null,
+    target: null,
+    report: { natural: 3, total: null, outcome: "failure" },
+  });
+  assert.ok(!numbersIn((await ana.until(() => true)).tests).includes(DN));
+
+  // A target the GM didn't hide is told to the called player, with its input.
+  const shownId = ok(await owner.send(call({ hideTarget: false, actorIds: [hero] }))).id!;
+  const shown = callIn(await ana.until((s) => callIn(s, shownId) !== undefined), shownId)!;
+  assert.equal(shown.targets[0]?.target, DN);
+  assert.equal(shown.inputs.dc, DN);
+  assert.equal(shown.showOutcome, true, "a shown target gives the outcome away, so it is shown");
+
+  // The session log keeps the story for the recap, GM side only; it has no Test steps for undo to take back.
+  const log = await query<{ type: string; seat_user_id: string | null; session_id: string | null }>(
+    "SELECT type, seat_user_id, session_id FROM session_event WHERE campaign_id = $1 AND type LIKE 'test.%' ORDER BY created_at, id",
+    [campaignId],
+  );
+  assert.deepEqual(
+    log.map((e) => [e.type, e.seat_user_id]),
+    [
+      ["test.call", uid("owner-TestShow")],
+      ["test.report", uid("ana-TestShow")],
+      ["test.report", uid("ben-TestShow")],
+      ["test.close", uid("owner-TestShow")],
+      ["test.call", uid("owner-TestShow")],
+    ],
+  );
+  assert.ok(log.every((e) => e.session_id !== null));
+  refused(await owner.send({ type: "event.undo" }), /Nothing to undo/);
+  for (const c of [owner, ana, ben]) c.socket.close();
 });

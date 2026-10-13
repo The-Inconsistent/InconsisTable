@@ -45,7 +45,10 @@ jobs:
           done
           echo "The api did not start"
           exit 1
-      - run: bun run test:smoke
+      - name: Smoke tests
+        env:
+          DATABASE_URL: postgres://it:it@localhost:5435/it
+        run: bun run test:smoke
       - name: Show the api log
         if: failure()
         run: cat "$RUNNER_TEMP/api.log"

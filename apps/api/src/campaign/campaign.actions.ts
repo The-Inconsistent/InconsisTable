@@ -3,6 +3,7 @@ import { canInCampaign, type Action, type ActionResult, type Ctx } from "@incons
 import { invite, ownershipTransfer } from "../auth/auth.schema.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
+import { restActors } from "../ruleset/ruleset.actions.ts";
 import { campaign, session } from "./campaign.schema.ts";
 
 export type CampaignAction = Extract<
@@ -21,7 +22,7 @@ export type CampaignAction = Extract<
 
 const running = (campaignId: string) => and(eq(session.campaignId, campaignId), isNull(session.endedAt));
 
-// Ruleset resets (resetOn: sessionStart / sessionEnd) join these in P1, once a ruleset is pinned.
+// Starting and ending a session apply the ruleset's resetOn: sessionStart / sessionEnd to every actor.
 export async function applyCampaignAction(
   tx: Tx,
   { ctx, action: a }: { ctx: Ctx; action: CampaignAction },
@@ -84,10 +85,13 @@ export async function applyCampaignAction(
         .values({ campaignId: cid, number: (last?.number ?? 0) + 1, title: a.title })
         .returning({ id: session.id });
       await tx.update(campaign).set({ nextSessionAt: null }).where(eq(campaign.id, cid));
+      await restActors(tx, { ctx, event: "sessionStart" }); // logged in the session just opened
       return { ok: true, id: row!.id }; // the row was just inserted
     }
 
     case "session.end": {
+      // Before the session ends, so the reset is logged in it. With no session running the refusal below rolls it back.
+      await restActors(tx, { ctx, event: "sessionEnd" });
       const r = await tx
         .update(session)
         .set({ endedAt: new Date(), recap: a.recap })

@@ -172,6 +172,38 @@ export function resetValue({
   return evaluateInt({ expr: reset.to, scope: { ...scope, min, ...(max === null ? {} : { max }) } });
 }
 
+/** Every event a resource resets on, with the value it resets to for one holder. The caller hands this to the `rest` primitive. */
+export function resetValues({
+  compiled,
+  resource,
+  scope,
+}: {
+  compiled: CompiledRuleset;
+  resource: string;
+  scope: ExprRecord;
+}): Partial<Record<ResetEvent, number>> {
+  const out: Partial<Record<ResetEvent, number>> = {};
+  for (const r of own(compiled.resources, resource)?.resetOn ?? []) {
+    const to = resetValue({ compiled, resource, event: r.event, scope });
+    if (to !== null) out[r.event] = to;
+  }
+  return out;
+}
+
+/** The overflow that kills outright for a health track's resource, or null when the ruleset declares none. */
+export function instantDeathAt({
+  compiled,
+  resource,
+  scope,
+}: {
+  compiled: CompiledRuleset;
+  resource: string;
+  scope: ExprRecord;
+}): number | null {
+  const expr = own(compiled.instantDeath, resource);
+  return expr === undefined ? null : evaluateInt({ expr, scope });
+}
+
 /** The display health states (`bloodied`…) whose condition holds for an actor. */
 export function healthStatesOf({ compiled, scope }: { compiled: CompiledRuleset; scope: ExprRecord }): string[] {
   return compiled.healthStates.filter((s) => evaluateBool({ expr: s.when, scope })).map((s) => s.id);

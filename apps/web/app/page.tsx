@@ -8,6 +8,7 @@ import { apiGet } from "@/app/server-api";
 import { LobbyView } from "@/components/lobby/lobby-view/lobby-view";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { CampaignRef } from "@/lib/api-reply/api-reply";
+import { RulesetList } from "@/lib/library/library";
 
 type HomeProps = { searchParams: Promise<{ join?: string | string[] }> };
 
@@ -21,6 +22,17 @@ async function guestTable(): Promise<string | null> {
     return parsed.success ? parsed.data.campaignId : null;
   } catch {
     return null;
+  }
+}
+
+// The rulesets the caller imported, for the picker in NEW ROOM. Without them the room is made without one.
+async function importedRulesets(): Promise<RulesetList> {
+  try {
+    const res = await apiGet("/api/rulesets");
+    const parsed = RulesetList.safeParse(res.ok ? await res.json() : null);
+    return parsed.success ? parsed.data : [];
+  } catch {
+    return [];
   }
 }
 
@@ -56,5 +68,5 @@ export default async function Home({ searchParams }: HomeProps) {
   } catch {
     return <StatusScreen text={JOIN_ERRORS.nosignal} />;
   }
-  return <LobbyView lobby={lobby} />;
+  return <LobbyView lobby={lobby} rulesets={lobby.canCreate ? await importedRulesets() : []} />;
 }

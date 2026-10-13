@@ -120,6 +120,12 @@ Một bàn chơi one-shot 5e SRD từ lúc tạo nhân vật tới hết buổi,
   bạn, kèm trang" ngay ở ô nhập, cảnh báo mô tả dài. Bước chọn ruleset khi tạo phòng.
 - **Test:** smoke nhập fixture hợp lệ, bản thiếu cite, bản quá cỡ; pack private bị từ chối ở phòng người khác.
 - **Xong khi:** một phòng mới pin được ruleset và pack đã nhập; rate limit trên route nhập.
+- **Đã làm, chi tiết chọn khi code (2026-10-13):** quota 50 pack / 50 MB mỗi user (tính mọi phiên bản còn lưu, kể cả pack
+  đã ẩn); POST nhập 20 lần/phút/IP. Nhập lại đúng nội dung (cùng hash, cùng phiên bản ruleset) không ghi gì. Phiên bản
+  cũ chưa phòng nào gắn bị xoá khi có bản mới (bản phòng đang gắn thì giữ), nên nhập lại bản sửa không ăn quota. License
+  và ruleset của pack cố định từ lần nhập đầu (không đổi `private` thành `srd` bằng cách nhập lại). "Xoá" pack ẩn ngay và
+  xoá thật nếu không phòng nào dùng. Pack `private` chỉ được phục vụ khi chủ pack vẫn là GM của phòng. Pack gắn theo
+  ruleset (cùng `ruleset`, chưa so khoảng phiên bản). Admin gỡ qua `POST /api/admin/packs/:id/disable`.
 
 ### D. Actor và builder (`apps/api/src/actor`, web)
 

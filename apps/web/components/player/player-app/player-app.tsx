@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Me } from "@inconsistable/core-schema";
 
 import { PLAYER_TABS, type PlayerTab } from "@/components/player/player-app/constants";
+import { TestPrompt } from "@/components/player/test-prompt/test-prompt";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useTable } from "@/hooks/use-table/use-table";
@@ -60,6 +61,7 @@ export function PlayerApp({ me }: PlayerAppProps) {
         </nav>
       )}
       <main className="page">
+        <TestPrompt state={state} send={send} />
         <h1 className="title">{character?.name ?? "No character"}</h1>
         {tab === "intel" ? (
           <ul className="list">

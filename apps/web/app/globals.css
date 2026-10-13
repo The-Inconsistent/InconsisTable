@@ -284,3 +284,173 @@ label {
 .screen .badge-offline {
   font-size: 24px;
 }
+
+/* RULESETS & PACKS: the importer is a paste box that talks back. Each problem the api finds is a row that selects its
+   spot in the text, so the fix is one tap away on a tablet. */
+.between {
+  justify-content: space-between;
+}
+.library-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.reminder {
+  margin: 0;
+  padding-left: 10px;
+  border-left: 4px solid var(--accent);
+  font-weight: 600;
+}
+textarea.json {
+  width: 100%;
+  min-height: 260px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+  resize: vertical;
+}
+.problems-title {
+  margin: 0;
+  font-size: 16px;
+}
+.problems-title[data-tone="error"] {
+  color: var(--accent);
+}
+.problems {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.problem {
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 10px;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-left-width: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.problem[data-tone="error"] {
+  border-left-color: var(--accent);
+}
+.problem[data-tone="warn"] {
+  border-left-style: dashed;
+}
+.problem-path {
+  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: 14px;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.saved {
+  margin: 0;
+  padding-left: 10px;
+  border-left: 4px solid var(--ok);
+  font-weight: 600;
+}
+.diff {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+}
+.keys {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+summary {
+  min-height: 32px;
+  cursor: pointer;
+}
+.credit {
+  margin: 0;
+}
+
+/* A called Test: the roll as read off the physical dice. Big numerals and keys, so it reads at arm's length and takes
+   a few taps; the keys stand in for the phone's keyboard, which would cover the screen. */
+.btn[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.roll-card {
+  border-width: 2px;
+  border-color: var(--accent);
+}
+.roll-title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+}
+.roll-result {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.roll-line {
+  min-width: 0;
+}
+.roll-slots {
+  display: flex;
+  gap: 12px;
+}
+.roll-slot {
+  flex: 1;
+  min-height: 88px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 56px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.roll-slot[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 -6px 0 var(--accent);
+}
+.roll-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.roll-key {
+  min-height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.roll-key.report {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-size: 20px;
+}
+.roll-key:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

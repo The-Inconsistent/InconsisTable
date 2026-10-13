@@ -17,11 +17,12 @@ import { z } from "zod";
 import { ADMIN_ACTIONS, Action } from "@inconsistable/core-schema";
 import { signedInUser } from "../auth/auth.service.ts";
 import { TableGateway } from "../table/table.gateway.ts";
-import { adminAction, listCampaigns, listEvents, setLock } from "./admin.service.ts";
+import { adminAction, listCampaigns, listEvents, listPacks, setLock, setPackDisabled } from "./admin.service.ts";
 
 const Id = z.uuid();
 const UserId = z.string().min(1).max(100);
 const Lock = z.object({ locked: z.boolean() });
+const Takedown = z.object({ disabled: z.boolean() });
 
 // The admin console's reads and housekeeping. Platform roles come from the verified Clerk token only; the app never
 // changes them (they are edited in the Clerk Dashboard).
@@ -73,6 +74,25 @@ export class AdminController {
     const r = await setLock(this.table, { actorUserId: actor.userId, userId: userId.data, locked: lock.data.locked });
     if (r === "not-found") throw new NotFoundException("User not found");
     if (r === "protected") throw new ForbiddenException("Admins and moderators are managed in Clerk");
+    return { ok: true };
+  }
+
+  @Get("packs")
+  async packs(@Req() req: Request) {
+    await this.caller(req);
+    return listPacks();
+  }
+
+  // Takes a pack down at once (notice-and-takedown), or puts it back. Admins only: moderators handle accounts.
+  @Post("packs/:id/disable")
+  @HttpCode(200)
+  async disablePack(@Param("id") id: string, @Req() req: Request, @Body() body: unknown) {
+    const admin = await this.caller(req);
+    const packId = Id.safeParse(id);
+    const takedown = Takedown.safeParse(body);
+    if (!packId.success || !takedown.success) throw new BadRequestException("Not a takedown request");
+    if (!(await setPackDisabled({ actorUserId: admin.userId, packId: packId.data, disabled: takedown.data.disabled })))
+      throw new NotFoundException("Pack not found");
     return { ok: true };
   }
 

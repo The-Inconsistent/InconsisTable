@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { Actor } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
@@ -96,6 +96,8 @@ function BuilderForm({ campaignId, actorId, ruleset, entries, entity, name, init
     Object.keys(initial).length ? "saved" : "idle",
   );
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // The draft timer: a save still pending when the builder unmounts would fire after the player left and recreate it.
+  useEffect(() => () => clearTimeout(timer.current), []);
   const steps = stepsFor({ ruleset, entity });
   const defs = useMemo(() => new Map(ruleset.entities.map((e) => [e.id, e])), [ruleset.entities]);
   const allEntries = useMemo(() => Object.values(entries).flat(), [entries]);

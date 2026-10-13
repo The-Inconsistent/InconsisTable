@@ -9,19 +9,29 @@ import {
   canInCampaign,
   MemberRole,
   type ActionInput,
+  type BookSource,
   type LiveState,
   type Me,
   type Member,
 } from "@inconsistable/core-schema";
+import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { ROLE_LABEL } from "@/app/constants";
+import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { Creatures } from "@/components/gm/creatures/creatures";
-import type { Send } from "@/hooks/use-table/use-table";
+import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
+import { restsOf } from "@/lib/sheet/sheet";
 import { qrImage } from "@/lib/qr/qr";
 import { shareOrigin } from "@/lib/share-origin/share-origin";
 
-type PartyProps = { me: Me; state: LiveState; send: Send };
+type PartyProps = {
+  me: Me;
+  state: LiveState;
+  send: Send;
+  /** What a character sheet needs: the ruleset as the GM reads it, the served books and the page relay. */
+  sheet: { ruleset: Ruleset | null; books: readonly BookSource[]; requestPage: RequestPage };
+};
 
 const SCOPE_LABEL: Record<CogmScope, string> = {
   combat: "Combat",
@@ -35,13 +45,14 @@ const SCOPE_LABEL: Record<CogmScope, string> = {
 type Shown = { title: string; url: string; qr: string };
 
 // PARTY: who sits at this table, how others join, and the room's owner controls (docs/design.md §3.6, §3.7).
-export function Party({ me, state, send }: PartyProps) {
+export function Party({ me, state, send, sheet }: PartyProps) {
   const router = useRouter();
   const [shown, setShown] = useState<Shown | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [inviteRole, setInviteRole] = useState<MemberRole>("player");
   const [deleteName, setDeleteName] = useState("");
+  const [sheetOf, setSheetOf] = useState<string | null>(null);
   const isOwner = me.userId !== null && me.userId === state.campaign.ownerUserId;
   const can = (perm: Parameters<typeof canInCampaign>[0]["perm"]) => canInCampaign({ ctx: me, perm });
   const holderOf = (actorId: string) =>
@@ -200,6 +211,16 @@ export function Party({ me, state, send }: PartyProps) {
                     <strong>{a.name}</strong> <span className="dim small">{holder ?? "Open"}</span>
                   </span>
                   <span className="row">
+                    {sheet.ruleset && !needsBuild(a) && (
+                      <button
+                        className="btn sm"
+                        aria-label={`${sheetOf === a.id ? "Close" : "Open"} the sheet of ${a.name}`}
+                        aria-expanded={sheetOf === a.id}
+                        onClick={() => setSheetOf(sheetOf === a.id ? null : a.id)}
+                      >
+                        Sheet
+                      </button>
+                    )}
                     {needsBuild(a) && can("character:edit:any") && (
                       <a
                         className="btn sm"
@@ -226,10 +247,38 @@ export function Party({ me, state, send }: PartyProps) {
                       </button>
                     )}
                   </span>
+                  {sheet.ruleset && sheetOf === a.id && (
+                    <div className="card" style={{ width: "100%" }}>
+                      <SheetView
+                        key={a.id}
+                        actor={a}
+                        ruleset={sheet.ruleset}
+                        characters={state.actors.filter((x) => x.kind === "pc").length}
+                        gm
+                        send={send}
+                        books={sheet.books}
+                        requestPage={sheet.requestPage}
+                      />
+                    </div>
+                  )}
                 </li>
               );
             })}
         </ul>
+        {can("session:run") && sheet.ruleset && (
+          <div className="row">
+            {restsOf(sheet.ruleset).map((b) => (
+              <button
+                key={b.event}
+                className="btn"
+                aria-label={`${b.label} for the whole party`}
+                onClick={() => act({ type: "actor.rest", event: b.event })}
+              >
+                {b.label} (party)
+              </button>
+            ))}
+          </div>
+        )}
         {can("character:create") && (
           <form className="row" onSubmit={handleNewCharacter}>
             <input

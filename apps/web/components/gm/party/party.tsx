@@ -18,7 +18,6 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { ROLE_LABEL } from "@/app/constants";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
-import { Creatures } from "@/components/gm/creatures/creatures";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
 import { restsOf } from "@/lib/sheet/sheet";

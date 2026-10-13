@@ -673,6 +673,7 @@ summary {
 }
 .bottom-sheet .bottom-sheet {
   z-index: 11;
+}
 
 /* The combat tracker. On the tablet the order and the selected combatant sit side by side; the phone and the TV read
    the same order list without the controls. The acting row carries a heavy accent edge and the word ACTING. */

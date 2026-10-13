@@ -64,7 +64,7 @@ export const kicksSender = (a: Action) =>
 const targetOf = (a: Action) =>
   a.type === "actor.rename"
     ? { actorId: a.id }
-    : a.type === "field.set" || a.type === "test.report"
+    : a.type === "field.set" || a.type === "test.report" || a.type === "actor.build"
       ? { actorId: a.actorId }
       : undefined;
 
@@ -126,6 +126,10 @@ function dispatch(tx: Tx, { ctx, action }: { ctx: Ctx; action: Action }): Promis
     case "actor.create":
     case "actor.rename":
     case "actor.delete":
+    case "actor.build":
+    case "actor.spawn":
+    case "draft.save":
+    case "draft.discard":
       return applyActorAction(tx, { ctx, action });
 
     case "invite.create":

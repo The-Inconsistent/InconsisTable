@@ -1392,3 +1392,203 @@ test("a Test can tell the called players pass or fail, show its target, or revea
   refused(await owner.send({ type: "event.undo" }), /Nothing to undo/);
   for (const c of [owner, ana, ben]) c.socket.close();
 });
+
+// ---- The builder, creatures from packs and builder drafts (docs/p1-plan.md workstream D) ---------------------------
+// The sample ruleset, with the level asked in the last creation step so derived values can be computed, and the sample
+// pack with one lineage that only the GM side may pick.
+
+const BUILD_RULESET = structuredClone(SAMPLE_D20);
+const identity = BUILD_RULESET.creation?.find((s) => s.id === "identity");
+if (identity?.kind === "fields") identity.fields = ["name", "level"];
+const BUILD_PACK = structuredClone(SAMPLE_PACK);
+BUILD_PACK.entries.push({
+  key: "hidden-kin",
+  type: "lineage",
+  name: "Hidden Kin",
+  cite: "Sample p.10",
+  visibility: "gm",
+  body: { size: "medium", blurb: "Only the GM side may pick this." },
+});
+const GOOD_ANSWERS = {
+  lineage: ["reedfolk"],
+  calling: ["wayfinder"],
+  scores: { "attr.str": 12, "attr.dex": 9, "attr.con": 15 },
+  identity: { name: "Lyra", level: 3 },
+};
+
+async function buildRoom(name: string) {
+  const ownerClerk = clerk(`owner-${name}`, "creator");
+  const me = caller(ownerClerk);
+  const rs = await me.post<RulesetReply>("/rulesets", BUILD_RULESET);
+  const pk = await me.post<PackReply>("/packs", BUILD_PACK);
+  const other = await me.post<PackReply>("/packs", { ...BUILD_PACK, id: "sample-other" });
+  assert.deepEqual([rs.status, pk.status, other.status], [201, 201, 201]);
+  const made = await me.post<{ campaignId: string }>("/campaigns", { name, rulesetVersionId: rs.body.versionId });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, clerkToken: ownerClerk } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const player = async (who: string) => {
+    const c = connect({ auth: { campaignId, clerkToken: await seatPlayer(owner, `${who}-${name}`) } });
+    const s = await owner.until((x) => x.access.members.some((m) => m.userId === uid(`${who}-${name}`)));
+    const held = s.access.members.find((m) => m.userId === uid(`${who}-${name}`))!.characterIds[0]!;
+    await c.until((x) => x.actors.some((a) => a.id === held));
+    return { c, held };
+  };
+  const [ana, ben] = [await player("ana"), await player("ben")];
+  return { owner, ana, ben, campaignId, packVersionId: pk.body.versionId, otherVersionId: other.body.versionId };
+}
+
+test("actor.create: a typed actor needs a ruleset and one of its actor entities", async () => {
+  const bare = await newRoom("TypedBare");
+  refused(await bare.owner.send({ type: "actor.create", name: "Kay", entityType: "character" }), /no ruleset/);
+  bare.owner.socket.close();
+
+  const { owner, ana } = await buildRoom("Typed");
+  refused(await owner.send({ type: "actor.create", name: "Kay", entityType: "dragon" }), /no "dragon"/);
+  refused(await owner.send({ type: "actor.create", name: "Kay", entityType: "lineage" }), /no "lineage"/); // not an actor
+  refused(await ana.c.send({ type: "actor.create", name: "Kay", entityType: "character" }), /permission/);
+  const id = ok(await owner.send({ type: "actor.create", kind: "pc", name: "Kay", entityType: "character" })).id!;
+  const s = await owner.until((x) => x.actors.some((a) => a.id === id));
+  assert.equal(actorIn(s, id)?.entity, "character");
+  for (const c of [owner, ana.c]) c.socket.close();
+});
+
+test("actor.build: the server runs the creation, writes the values, and refuses what isn't allowed", async () => {
+  const { owner, ana, ben, campaignId } = await buildRoom("Build");
+  const mine = ana.held;
+  const build = (answers: Record<string, unknown>, actorId = mine) =>
+    ({ type: "actor.build", actorId, answers }) as const;
+
+  // Someone else's character, a gm entry picked by a player, and answers that break the creation (by step path).
+  refused(await ben.c.send(build(GOOD_ANSWERS)), /Not your character/);
+  refused(
+    await ana.c.send(build({ ...GOOD_ANSWERS, lineage: ["hidden-kin"] })),
+    /lineage\[0\]: no lineage "hidden-kin"/,
+  );
+  refused(
+    await ana.c.send(build({ ...GOOD_ANSWERS, scores: { "attr.str": 15, "attr.dex": 15, "attr.con": 9 } })),
+    /scores\.attr\.dex: 15 is not left in the table/,
+  );
+  refused(await ana.c.send(build({ ...GOOD_ANSWERS, identity: { name: "Lyra", level: 99 } })), /identity\.level/);
+  refused(await ana.c.send(build({ lineage: ["reedfolk"] })), /calling: this step needs an answer/);
+  refused(await ana.c.send(build({ ...GOOD_ANSWERS, bogus: 1 })), /bogus: no such step/);
+  const none = await query("SELECT 1 FROM actor_field WHERE actor_id = $1", [mine]);
+  assert.equal(none.length, 0); // nothing was written by the refusals
+
+  // The same pick is fine for the GM side (a gm entry is theirs to choose).
+  const pregen = ok(
+    await owner.send({ type: "actor.create", kind: "pc", name: "Pregen", entityType: "character" }),
+  ).id!;
+  ok(
+    await owner.send(build({ ...GOOD_ANSWERS, lineage: ["hidden-kin"], identity: { name: "Mara", level: 2 } }, pregen)),
+  );
+
+  // The player builds their own character; derived values appear in the owner's view and the GM's.
+  ok(await ana.c.send(build(GOOD_ANSWERS)));
+  const maxHp = 6 + 2 + (3 - 1) * 4; // base 6 + mod(15) + (level - 1) * 4
+  const seen = (s: LiveState) => actorIn(s, mine)?.derived.maxHp === maxHp;
+  for (const s of [await ana.c.until(seen), await owner.until(seen)]) {
+    const a = actorIn(s, mine)!;
+    assert.equal(a.name, "Lyra"); // the name step names the actor
+    assert.equal(a.entity, "character");
+    assert.equal(a.fields["attr.con"], 15);
+    assert.equal(a.fields.guard, 3); // copied from the calling
+    assert.equal(a.resources.hp, maxHp); // starts full
+  }
+  assert.equal(actorIn(await ben.c.until(seen), mine)?.derived.maxHp, maxHp); // the party sees it too
+  const chosen = await query<{ step_id: string; option_key: string }>(
+    "SELECT step_id, option_key FROM actor_choice WHERE actor_id = $1 ORDER BY step_id",
+    [mine],
+  );
+  assert.deepEqual(
+    chosen.map((c) => `${c.step_id}:${c.option_key}`),
+    ["calling:wayfinder", "lineage:reedfolk"],
+  );
+  const logged = await query("SELECT 1 FROM session_event WHERE campaign_id = $1 AND type = 'delta'", [campaignId]);
+  assert.ok(logged.length >= 2); // written as deltas, in the log like any other
+
+  refused(await ana.c.send(build(GOOD_ANSWERS)), /Already built/);
+  for (const c of [owner, ana.c, ben.c]) c.socket.close();
+});
+
+test("builder drafts: only their owner is sent one, a good build deletes it, and the size is capped", async () => {
+  const { owner, ana, ben, campaignId } = await buildRoom("Draft");
+  const body = { actorId: ana.held, answers: { lineage: ["reedfolk"] } };
+  ok(await ana.c.send({ type: "draft.save", body }));
+  const got = await ana.c.until((s) => s.myDraft !== null);
+  assert.deepEqual(got.myDraft, body);
+  // Everyone else keeps getting null, whatever is broadcast after.
+  ok(await owner.send({ type: "actor.rename", id: ana.held, name: "Lyra" }));
+  assert.equal((await ben.c.until((s) => s.actors.some((a) => a.name === "Lyra"))).myDraft, null);
+  assert.equal((await owner.until((s) => s.actors.some((a) => a.name === "Lyra"))).myDraft, null);
+
+  refused(await ben.c.send({ type: "draft.save", body }), /Not your character/); // not his to build
+  refused(await ana.c.send({ type: "draft.save", body: { ...body, answers: { big: "x".repeat(70_000) } } }), /64 KB/);
+
+  // A draft is one per user: saving again replaces it, discarding removes it.
+  const more = { ...body, answers: { lineage: ["reedfolk"], calling: ["wayfinder"] } };
+  ok(await ana.c.send({ type: "draft.save", body: more }));
+  await ana.c.until((s) => Object.keys(s.myDraft?.answers ?? {}).length === 2);
+  ok(await ana.c.send({ type: "draft.discard" }));
+  await ana.c.until((s) => s.myDraft === null);
+
+  ok(await ana.c.send({ type: "draft.save", body }));
+  await ana.c.until((s) => s.myDraft !== null);
+  ok(await ana.c.send({ type: "actor.build", actorId: ana.held, answers: GOOD_ANSWERS }));
+  await ana.c.until((s) => s.myDraft === null);
+  assert.equal((await query("SELECT 1 FROM builder_draft WHERE campaign_id = $1", [campaignId])).length, 0);
+  for (const c of [owner, ana.c, ben.c]) c.socket.close();
+});
+
+test("actor.spawn: the GM places numbered creatures from an attached pack, as rows, and nobody else may", async () => {
+  const { owner, ana, ben, campaignId, packVersionId, otherVersionId } = await buildRoom("Spawn");
+  const spawn = (over: Record<string, unknown> = {}) =>
+    ({ type: "actor.spawn", packVersionId, key: "ember-wisp", count: 3, temporary: true, ...over }) as ActionInput;
+
+  refused(await ana.c.send(spawn()), /permission/);
+  refused(await owner.send(spawn({ packVersionId: otherVersionId })), /isn't in a pack attached/);
+  refused(await owner.send(spawn({ packVersionId: crypto.randomUUID() })), /isn't in a pack attached/);
+  refused(await owner.send(spawn({ key: "nope" })), /isn't in a pack attached/);
+  refused(await owner.send(spawn({ key: "coil-rope" })), /takes a place at the table/); // gear isn't an actor
+  refused(await owner.send(spawn({ count: 21 })), /too big|<=20|20/);
+  refused(await owner.send(spawn({ count: 0 })), /too small|>=1|1/);
+
+  ok(await owner.send(spawn()));
+  const s = await owner.until((x) => x.actors.filter((a) => a.kind === "creature").length === 3);
+  const wisps = s.actors.filter((a) => a.kind === "creature");
+  assert.deepEqual(wisps.map((a) => a.name).sort(), ["Ember Wisp 1", "Ember Wisp 2", "Ember Wisp 3"]);
+  for (const w of wisps) {
+    assert.equal(w.entity, "creature");
+    assert.equal(w.fields["attr.dex"], 14); // the pack entry's body, as rows
+    assert.equal(w.derived.maxHp, 7); // 4 + max(0, mod 8) * 2 + level 1 * 3
+    assert.equal(w.resources.hp, 7);
+  }
+  const rows = await query<{ n: number; temporary: boolean }>(
+    "SELECT count(*)::int AS n, bool_and(temporary) AS temporary FROM actor WHERE campaign_id = $1 AND kind = 'creature'",
+    [campaignId],
+  );
+  assert.deepEqual(rows[0], { n: 3, temporary: true });
+  const fieldRows = await query(
+    "SELECT 1 FROM actor_field f JOIN actor a ON a.id = f.actor_id WHERE a.campaign_id = $1 AND a.kind = 'creature'",
+    [campaignId],
+  );
+  assert.equal(fieldRows.length, 3 * 6); // name, level, three scores and guard
+
+  // More of the same continue the numbering; the party keeps not seeing creatures.
+  ok(await owner.send(spawn({ count: 2, temporary: false })));
+  const next = await owner.until((x) => x.actors.filter((a) => a.kind === "creature").length === 5);
+  assert.deepEqual(
+    next.actors
+      .filter((a) => a.kind === "creature")
+      .map((a) => a.name)
+      .sort()
+      .slice(3),
+    ["Ember Wisp 4", "Ember Wisp 5"],
+  );
+  assert.equal(
+    (await ana.c.until(() => true)).actors.some((a) => a.kind === "creature"),
+    false,
+  );
+  for (const c of [owner, ana.c, ben.c]) c.socket.close();
+});

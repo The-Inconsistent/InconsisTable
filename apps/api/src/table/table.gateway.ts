@@ -24,6 +24,7 @@ import {
   type BookSource,
   type Ctx,
 } from "@inconsistable/core-schema";
+import { forUser } from "../actor/actor.draft.ts";
 import { logRoomOpen } from "../admin/admin.service.ts";
 import { resolveSocketCtx } from "../auth/auth.service.ts";
 import { db } from "../core/db.ts";
@@ -105,7 +106,11 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
       await this.serial(ctx.campaignId, async () => {
         const [live, codex] = await Promise.all([loadLive(ctx.campaignId), loadCodex(ctx.campaignId)]);
         const full = fullView(ctx);
-        if (live) socket.emit("state", full ? live.state : seatState({ live, ctx }));
+        if (live)
+          socket.emit(
+            "state",
+            forUser({ state: full ? live.state : seatState({ live, ctx }), drafts: live.drafts, ctx }),
+          );
         socket.emit("codex", full ? codex : toSeatCodex({ codex, ctx }));
       });
       this.announceBooks(ctx.campaignId, socket);
@@ -252,26 +257,35 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     if (!what.state && !what.codex) return;
     // ponytail: per-socket fan-out with one view per distinct seat, fine at table scale; per-seat rooms if it grows
     const sockets = await this.server.in(room(campaignId)).fetchSockets();
-    const send = <T>(event: string, value: T, view: (ctx: Ctx) => unknown) => {
-      const views = new Map<string, unknown>();
+    // `own` adds what is one user's alone (their draft) to the view that seats of the same shape share.
+    const send = <T>(
+      event: string,
+      value: T,
+      { view, own }: { view: (ctx: Ctx) => T; own?: (view: T, ctx: Ctx) => unknown },
+    ) => {
+      const views = new Map<string, T>();
       for (const s of sockets) {
         const { ctx } = s.data;
-        if (fullView(ctx)) {
-          s.emit(event, value);
-          continue;
+        let shared = value;
+        if (!fullView(ctx)) {
+          const key = viewKey(ctx);
+          if (!views.has(key)) views.set(key, view(ctx));
+          shared = views.get(key) as T; // set just above
         }
-        const key = viewKey(ctx);
-        if (!views.has(key)) views.set(key, view(ctx));
-        s.emit(event, views.get(key));
+        s.emit(event, own ? own(shared, ctx) : shared);
       }
     };
     if (what.state) {
       const live = await loadLive(campaignId);
-      if (live) send("state", live.state, (ctx) => seatState({ live, ctx }));
+      if (live)
+        send("state", live.state, {
+          view: (ctx) => seatState({ live, ctx }),
+          own: (state, ctx) => forUser({ state, drafts: live.drafts, ctx }),
+        });
     }
     if (what.codex) {
       const codex = await loadCodex(campaignId);
-      send("codex", codex, (ctx) => toSeatCodex({ codex, ctx }));
+      send("codex", codex, { view: (ctx) => toSeatCodex({ codex, ctx }) });
     }
   }
 

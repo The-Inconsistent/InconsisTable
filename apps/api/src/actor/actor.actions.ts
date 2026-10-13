@@ -1,11 +1,22 @@
 import { and, eq, inArray, notExists, sql } from "drizzle-orm";
 import type { Action, ActionResult, Ctx } from "@inconsistable/core-schema";
+import { campaign } from "../campaign/campaign.schema.ts";
 import { codexEntry, codexReveal } from "../codex/codex.schema.ts";
 import type { Db, Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
+import { loadCompiled } from "../ruleset/ruleset.compiled.ts";
+import { buildActor } from "./actor.build.ts";
+import { applyDraftAction } from "./actor.draft.ts";
 import { actor } from "./actor.schema.ts";
+import { spawnActors } from "./actor.spawn.ts";
 
-export type ActorAction = Extract<Action, { type: "actor.create" | "actor.rename" | "actor.delete" }>;
+export type ActorAction = Extract<
+  Action,
+  {
+    type:
+      "actor.create" | "actor.rename" | "actor.delete" | "actor.build" | "actor.spawn" | "draft.save" | "draft.discard";
+  }
+>;
 
 // An actor of this campaign, or a refusal. Never trust an id from the client (CLAUDE.md, "Data rules").
 export async function ownActor(conn: Db, { campaignId, id }: { campaignId: string; id: string }) {
@@ -57,9 +68,32 @@ export async function applyActorAction(
   const campaignId = ctx.campaignId;
   switch (a.type) {
     case "actor.create": {
+      if (a.entityType === undefined) {
+        const id = await createActor(tx, { campaignId, kind: a.kind, name: a.name, ownerUserId: null });
+        return { ok: true, id };
+      }
+      // A typed actor belongs to the pinned ruleset: an unknown type, or a room with no ruleset, is refused.
+      const compiled = (await loadCompiled(tx, campaignId)) ?? fail("This game has no ruleset yet");
+      const ce = Object.hasOwn(compiled.entities, a.entityType) ? compiled.entities[a.entityType] : undefined;
+      if (ce?.def.base !== "actor") fail(`This ruleset has no "${a.entityType}" to create`);
+      const [room] = await tx
+        .select({ v: campaign.rulesetVersionId })
+        .from(campaign)
+        .where(eq(campaign.id, campaignId));
       const id = await createActor(tx, { campaignId, kind: a.kind, name: a.name, ownerUserId: null });
+      await tx
+        .update(actor)
+        .set({ entityType: a.entityType, rulesetVersionId: room?.v ?? null })
+        .where(eq(actor.id, id));
       return { ok: true, id };
     }
+    case "actor.build":
+      return buildActor(tx, { ctx, action: a });
+    case "actor.spawn":
+      return spawnActors(tx, { ctx, action: a });
+    case "draft.save":
+    case "draft.discard":
+      return applyDraftAction(tx, { ctx, action: a });
     case "actor.rename": {
       await ownActor(tx, { campaignId, id: a.id });
       await tx.update(actor).set({ name: a.name }).where(eq(actor.id, a.id));

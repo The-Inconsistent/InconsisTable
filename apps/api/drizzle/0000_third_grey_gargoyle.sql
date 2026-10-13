@@ -57,6 +57,15 @@ CREATE TABLE "actor_resource" (
 	CONSTRAINT "actor_resource_actor_id_resource_id_pk" PRIMARY KEY("actor_id","resource_id")
 );
 --> statement-breakpoint
+CREATE TABLE "builder_draft" (
+	"user_id" text NOT NULL,
+	"campaign_id" uuid NOT NULL,
+	"ruleset_version_id" uuid NOT NULL,
+	"body" jsonb NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "builder_draft_user_id_campaign_id_pk" PRIMARY KEY("user_id","campaign_id")
+);
+--> statement-breakpoint
 CREATE TABLE "admin_event" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
 	"actor_user_id" text NOT NULL,
@@ -300,6 +309,8 @@ ALTER TABLE "actor_field" ADD CONSTRAINT "actor_field_actor_id_actor_id_fk" FORE
 ALTER TABLE "actor_link" ADD CONSTRAINT "actor_link_actor_id_actor_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "actor_link" ADD CONSTRAINT "actor_link_related_actor_id_actor_id_fk" FOREIGN KEY ("related_actor_id") REFERENCES "public"."actor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "actor_resource" ADD CONSTRAINT "actor_resource_actor_id_actor_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "builder_draft" ADD CONSTRAINT "builder_draft_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "builder_draft" ADD CONSTRAINT "builder_draft_ruleset_version_id_ruleset_version_id_fk" FOREIGN KEY ("ruleset_version_id") REFERENCES "public"."ruleset_version"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "access_token" ADD CONSTRAINT "access_token_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "access_token" ADD CONSTRAINT "access_token_actor_id_actor_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "invite" ADD CONSTRAINT "invite_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

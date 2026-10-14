@@ -1,6 +1,863 @@
-/* PROTOTYPE variant "guild". Everything under .proto-guild; tokens first, then component overrides. */
+/* PROTOTYPE variant "guild": iron and brass guild hall. Hard-edged, engineered. Everything is scoped under
+   .proto-guild; every colour, font and texture is a token here so a World can re-map it. */
+
+/* ---------- tokens ---------- */
 .proto-guild {
+  color-scheme: dark; /* table surfaces are always dark: prefers-color-scheme is ignored */
+
+  /* palette */
+  --iron: #11161d;
+  --iron-2: #1a212b;
+  --iron-3: #252e3a;
+  --steel: #3c4757;
+  --steel-hi: #66758a;
+  --cream: #efe6cf;
+  --cream-2: #bdb5a0;
+  --brass: #c9a24a;
+  --brass-hi: #efcf7c;
+  --brass-lo: #8a6a22;
+  --brass-deep: #4a3510;
+  --lamp: #ffb85c;
+  --ember: #f0803c;
+  --parchment: #e9dcb8;
+  --parchment-hi: #f4ebd0;
+  --pen: #251b0f;
+  --pen-2: #5a4a33;
+  --pen-line: #7d6740;
+  --pen-red: #a8340f;
+  --focus: #ffd45e;
+  --focus-edge: #0b0e12;
+
+  /* the base theme's token names, re-mapped (cards re-map them again to the parchment set) */
+  --paper: var(--iron);
+  --paper-2: var(--iron-2);
+  --ink: var(--cream);
+  --ink-2: var(--cream-2);
+  --line: var(--steel);
+  --band: var(--brass);
+  --band-ink: #2a1c06;
+  --accent: var(--ember);
+  --accent-ink: #1a0f05;
+  --ok: #86d09a;
+
+  /* type */
+  --font-display: var(--font-guild-display), "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+
+  /* textures: hand-made, no image files */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --grain-ink: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .22 0 0 0 0 .08 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --hatch:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px);
+  --lamplight: radial-gradient(1100px 720px at 0% 0%, rgba(255, 184, 92, 0.2), transparent 70%);
+  --ledger: repeating-linear-gradient(to bottom, transparent 0 31px, rgba(110, 80, 40, 0.13) 31px 32px);
+  --brass-plate: linear-gradient(#dcb95f, #c9a24a 45%, #b08a35 55%, #9c7a2d);
+  --iron-plate: linear-gradient(#2d3745, #1d2530);
+
+  /* icons: masks painted with currentColor */
+  --ico-die: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M12 2l9 5v10l-9 5-9-5V7z'/%3E%3Cpath d='M12 7l5 8H7z'/%3E%3Cpath d='M12 2v5M3 7l4 8M21 7l-4 8M12 22l-5-7M12 22l5-7'/%3E%3C/svg%3E");
+  --ico-heart: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.5S3 15.8 3 9.6A5 5 0 0 1 12 7a5 5 0 0 1 9 2.6c0 6.200-9 11.900-9 11.900z'/%3E%3C/svg%3E");
+  --ico-shield: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.500l9 3.200v6.800c0 5.200-3.800 9.200-9 11-5.200-1.800-9-5.800-9-11V4.700z'/%3E%3C/svg%3E");
+  --ico-turn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 4l11 8-11 8z'/%3E%3Cpath d='M16 4h5v16h-5z'/%3E%3C/svg%3E");
+
+  /* density: phone first (big thumb targets) */
+  --tap: 52px;
+  --tap-sm: 44px;
+  --pad: 16px;
+  --gap: 18px;
+  --text: 18px;
+  --small: 15px;
+  --num: 44px;
+  --h1: 44px;
+  --h2: 28px;
+
   min-height: 100dvh;
+  background: var(--lamplight), var(--hatch), var(--grain), linear-gradient(#141a22, #0c1016);
+  background-attachment: fixed, scroll, scroll, fixed;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text);
+}
+@media (min-width: 768px) {
+  .proto-guild {
+    /* tablet: dense */
+    --tap: 44px;
+    --tap-sm: 34px;
+    --pad: 14px;
+    --gap: 14px;
+    --text: 16px;
+    --small: 14px;
+    --num: 38px;
+    --h1: 40px;
+    --h2: 26px;
+  }
+}
+.proto-guild[data-density="tv"],
+.proto-guild [data-density="tv"] {
+  /* tokens only: no TV screen is rendered in this prototype */
+  --tap: 72px;
+  --tap-sm: 56px;
+  --pad: 28px;
+  --gap: 32px;
+  --text: 32px;
+  --small: 26px;
+  --num: 96px;
+  --h1: 84px;
+  --h2: 56px;
+  --cream: #fff8e6;
+  --cream-2: #e2dac4;
+}
+
+/* ---------- base ---------- */
+.proto-guild * {
+  border-radius: 0;
+}
+.proto-guild a {
+  color: var(--brass-hi);
+}
+.proto-guild :focus-visible {
+  outline: 3px solid var(--focus) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--focus-edge) !important;
+}
+.proto-guild .page {
+  gap: var(--gap);
+  padding: var(--pad);
+  font-size: var(--text);
+}
+.proto-guild .small {
+  font-size: var(--small);
+}
+.proto-guild .dim {
+  color: var(--ink-2);
+}
+.proto-guild .title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--h2);
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+}
+.proto-guild .head {
+  font-family: var(--font-display);
+  font-size: calc(var(--h2) * 0.75);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--brass-lo);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+/* the character's name: a brass nameplate */
+.proto-guild .page > h1.title {
+  font-size: var(--h1);
+  padding: 6px 18px 2px;
+  color: #2a1c06;
+  background: var(--brass-plate);
+  box-shadow:
+    inset 0 1px 0 #f6e2a0,
+    inset 0 -2px 0 rgba(0, 0, 0, 0.35),
+    0 3px 0 #000a;
+  text-shadow: 0 1px 0 rgba(255, 236, 170, 0.6);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+
+/* ---------- header band: brass plate with rivets ---------- */
+.proto-guild .band {
+  position: relative;
+  padding: 8px 34px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  background:
+    radial-gradient(circle at 50% 40%, #f6e2a0 0 1.5px, var(--brass-lo) 2.5px, #2a1c06 5px, transparent 5.5px) left 14px
+      center / 12px 12px no-repeat,
+    radial-gradient(circle at 50% 40%, #f6e2a0 0 1.5px, var(--brass-lo) 2.5px, #2a1c06 5px, transparent 5.5px) right
+      14px center / 12px 12px no-repeat,
+    var(--grain),
+    var(--brass-plate);
+  color: var(--band-ink);
+  border-bottom: 3px solid var(--brass-deep);
+  box-shadow:
+    inset 0 1px 0 #f6e2a0,
+    0 3px 0 #000a;
+  text-shadow: 0 1px 0 rgba(255, 236, 170, 0.6);
+  font-weight: 700;
+}
+.proto-guild .band strong {
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.proto-guild .band a {
+  color: var(--band-ink);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-sm);
+}
+.proto-guild .band .chip {
+  border: 2px solid var(--brass-deep);
+  background: rgba(74, 53, 16, 0.12);
+  color: var(--band-ink);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  font-weight: 800;
+}
+.proto-guild .chip {
+  border: 1px solid var(--steel-hi);
+  border-radius: 0;
+  padding: 2px 8px;
+  font-size: var(--small);
+  font-weight: 700;
+}
+
+/* ---------- tab rail (tablet) and dock (phone): plates ---------- */
+.proto-guild .tabs {
+  gap: 6px;
+  padding: 8px 12px 0;
+  background: var(--grain), linear-gradient(#7b5e22, #5b4415);
+  border-bottom: 4px solid var(--brass-deep);
+  box-shadow: inset 0 1px 0 rgba(246, 226, 160, 0.5);
+}
+.proto-guild .tab {
+  position: relative;
+  min-height: var(--tap);
+  padding: 0 20px;
+  opacity: 1;
+  background: var(--iron-plate);
+  color: var(--cream);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  border: 1px solid #0b0e12;
+  border-bottom: 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 -1px 0 #000;
+}
+.proto-guild .tab[aria-selected="true"] {
+  background: var(--brass-plate);
+  color: #2a1c06;
+  text-shadow: 0 1px 0 rgba(255, 236, 170, 0.7);
+  transform: translateY(-2px);
+  min-height: calc(var(--tap) + 4px);
+  text-decoration: underline 4px solid #2a1c06;
+  text-underline-offset: 6px;
+  box-shadow:
+    inset 0 1px 0 #f6e2a0,
+    inset 0 -4px 0 var(--ember),
+    0 -2px 10px rgba(255, 184, 92, 0.45);
+}
+.proto-guild .tab:focus-visible {
+  outline-offset: -5px;
+}
+@media (max-width: 767.98px) {
+  /* the dock: fixed to the bottom, five plates across (the player tabs set position inline) */
+  .proto-guild .tabs {
+    position: fixed !important;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    gap: 6px;
+    padding: 8px 8px max(8px, env(safe-area-inset-bottom));
+    border-bottom: 0;
+    border-top: 3px solid var(--brass-hi);
+    box-shadow: 0 -6px 14px rgba(0, 0, 0, 0.55);
+    overflow: visible;
+  }
+  .proto-guild .tab {
+    flex: 1;
+    min-width: 0;
+    padding: 0 2px;
+    min-height: 56px;
+    font-size: 19px;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid #0b0e12;
+  }
+  .proto-guild .tab[aria-selected="true"] {
+    min-height: 60px;
+    transform: translateY(-4px);
+  }
+  .proto-guild .page {
+    padding-bottom: 104px;
+  }
+}
+
+/* ---------- parchment cards: ledger tags nailed to the board ---------- */
+.proto-guild :is(.card, .bottom-sheet, :where(section.stack:has(> .sheet-rows), section.stack:has(> .list))) {
+  --paper: var(--parchment-hi);
+  --paper-2: var(--parchment);
+  --ink: var(--pen);
+  --ink-2: var(--pen-2);
+  --line: var(--pen-line);
+  --accent: var(--pen-red);
+  --accent-ink: #fffaf0;
+  --ok: #1f6b3a;
+  --focus: #0b3d91;
+  --focus-edge: #fff8e0;
+  color: var(--ink);
+}
+.proto-guild :is(.card, :where(section.stack:has(> .sheet-rows), section.stack:has(> .list))) {
+  position: relative;
+  border: 0;
+  padding: calc(var(--pad) + 6px) var(--pad) var(--pad) calc(var(--pad) + 8px);
+  background:
+    radial-gradient(circle at 50% 40%, #f6e2a0 0 1px, var(--brass) 2px, var(--brass-lo) 4px, transparent 4.5px) right
+      7px bottom 7px / 10px 10px no-repeat,
+    linear-gradient(to top right, transparent 50%, var(--brass) 50% 72%, transparent 72%) left bottom / 14px 14px
+      no-repeat,
+    var(--ledger),
+    var(--grain-ink),
+    radial-gradient(120% 90% at 50% 40%, transparent 60%, rgba(120, 80, 30, 0.28)),
+    linear-gradient(var(--parchment-hi), var(--parchment));
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+/* the nail head, and the brass strip across the cut corner */
+.proto-guild :is(.card, :where(section.stack:has(> .sheet-rows), section.stack:has(> .list)))::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50% !important;
+  background: radial-gradient(circle at 35% 30%, #fff1bd, var(--brass) 45%, var(--brass-deep));
+  box-shadow: 1px 2px 1px rgba(0, 0, 0, 0.4);
+}
+.proto-guild :is(.card, :where(section.stack:has(> .sheet-rows), section.stack:has(> .list)))::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(to bottom left, transparent 50%, var(--brass) 50% 72%, transparent 72%);
+}
+.proto-guild :is(.card, :where(section.stack:has(> .sheet-rows), section.stack:has(> .list))) .head {
+  color: var(--pen);
+  border-bottom-color: var(--pen);
+  box-shadow: none;
+}
+.proto-guild .card .title {
+  color: var(--pen);
+}
+.proto-guild .bottom-sheet {
+  background: var(--grain-ink), linear-gradient(var(--parchment-hi), var(--parchment));
+  border-top: 6px solid var(--brass);
+  box-shadow: 0 -8px 0 #000a;
+}
+.proto-guild .list > li {
+  border-bottom: 1px dotted var(--pen-line);
+}
+.proto-guild .list > li:last-child {
+  border-bottom: 0;
+}
+
+/* the Test prompt and the Test call: card with a die in the heading */
+.proto-guild .roll-card {
+  border: 0;
+}
+.proto-guild .roll-title,
+.proto-guild .card > .row:first-child > strong {
+  font-family: var(--font-display);
+  font-size: calc(var(--h2) * 0.95);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1.1;
+}
+.proto-guild .roll-result {
+  padding-left: 10px;
+  border-left: 4px solid var(--brass);
+  font-size: calc(var(--text) + 1px);
+}
+
+/* ---------- icons: masks on the real elements ---------- */
+.proto-guild .roll-title::before,
+.proto-guild .card > .row:first-child > strong::before,
+.proto-guild .fightbar .round::before,
+.proto-guild .turn-banner::before,
+.proto-guild .state-word::before,
+.proto-guild .sheet-row:has(.sheet-num[aria-label^="Vigour:"]) > .stack > span:first-child::before,
+.proto-guild .sheet-derived[aria-label^="Defense"] > span::before,
+.proto-guild .sheet-derived[aria-label^="Max Vigour"] > span::before {
+  content: "";
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-right: 0.35em;
+  vertical-align: -0.08em;
+  background: currentColor;
+  mask: var(--ico) center / contain no-repeat;
+  -webkit-mask: var(--ico) center / contain no-repeat;
+}
+.proto-guild .roll-title::before,
+.proto-guild .card > .row:first-child > strong::before,
+.proto-guild .fightbar .round::before {
+  --ico: var(--ico-die);
+  color: var(--brass-lo);
+}
+.proto-guild .fightbar .round::before {
+  color: var(--brass);
+}
+.proto-guild .turn-banner::before,
+.proto-guild .state-word::before {
+  --ico: var(--ico-turn);
+}
+.proto-guild .sheet-row:has(.sheet-num[aria-label^="Vigour:"]) > .stack > span:first-child::before,
+.proto-guild .sheet-derived[aria-label^="Max Vigour"] > span::before {
+  --ico: var(--ico-heart);
+  color: var(--pen-red);
+}
+.proto-guild .sheet-derived[aria-label^="Defense"] > span::before {
+  --ico: var(--ico-shield);
+  color: var(--brass-lo);
+}
+
+/* ---------- buttons: brass plates with a bevel; pressed moves 1px ---------- */
+.proto-guild .btn,
+.proto-guild input,
+.proto-guild select,
+.proto-guild textarea {
+  border-radius: 2px;
+}
+.proto-guild .btn {
+  min-height: var(--tap);
+  padding: 0 18px;
+  color: var(--ink);
+  background: linear-gradient(var(--paper), var(--paper-2));
+  border: 2px solid var(--line);
+  font-family: var(--font-display);
+  font-size: calc(var(--text) + 4px);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 2px 0 rgba(0, 0, 0, 0.45);
+}
+.proto-guild .fightbar .btn,
+.proto-guild .track > .card .btn,
+.proto-guild .seg .btn {
+  background: var(--iron-plate);
+  color: var(--cream);
+  border-color: var(--steel-hi);
+  text-shadow: 0 -1px 0 #000;
+}
+.proto-guild .btn.primary {
+  background: var(--brass-plate);
+  color: #2a1c06;
+  border-color: var(--brass-deep);
+  text-shadow: 0 1px 0 rgba(255, 236, 170, 0.6);
+  box-shadow:
+    inset 0 1px 0 #f6e2a0,
+    inset 0 -2px 0 rgba(0, 0, 0, 0.3),
+    0 2px 0 var(--brass-deep),
+    0 3px 0 rgba(0, 0, 0, 0.5);
+}
+.proto-guild .btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.45),
+    0 1px 0 rgba(0, 0, 0, 0.45);
+}
+.proto-guild .btn.sm {
+  min-height: var(--tap-sm);
+  font-size: calc(var(--text) + 1px);
+  padding: 0 12px;
+}
+.proto-guild .btn.step {
+  min-width: var(--tap);
+  padding: 0;
+  font-size: 32px;
+}
+.proto-guild .btn[aria-pressed="true"] {
+  background: var(--brass-plate);
+  color: #2a1c06;
+  border-color: var(--brass-deep);
+  text-shadow: 0 1px 0 rgba(255, 236, 170, 0.6);
+  text-decoration: underline 3px;
+  text-underline-offset: 5px;
+  box-shadow:
+    inset 0 2px 5px rgba(0, 0, 0, 0.4),
+    inset 0 -4px 0 var(--ember);
+}
+.proto-guild .btn:disabled,
+.proto-guild input:disabled,
+.proto-guild select:disabled,
+.proto-guild fieldset:disabled .btn {
+  opacity: 0.55;
+  filter: grayscale(0.7);
+  cursor: not-allowed;
+}
+.proto-guild input,
+.proto-guild select,
+.proto-guild textarea {
+  min-height: var(--tap);
   background: var(--paper);
   color: var(--ink);
+  border: 2px solid var(--line);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+.proto-guild .track > .card input,
+.proto-guild .track > .card select,
+.proto-guild .order input,
+.proto-guild .stack > form input {
+  background: #0b0e13;
+  color: var(--cream);
+  border-color: var(--steel-hi);
+  box-shadow: inset 0 2px 6px #000;
+}
+
+/* ---------- sheet: stamped plate figures on ledger rows ---------- */
+.proto-guild .sheet-rows {
+  border-top: 0;
+}
+.proto-guild .sheet-row {
+  min-height: calc(var(--tap) + 8px);
+  border-bottom: 1px dotted var(--pen-line);
+  font-weight: 700;
+}
+.proto-guild .sheet-row:last-child {
+  border-bottom: 0;
+}
+.proto-guild .sheet-num {
+  font-family: var(--font-display);
+  font-size: var(--num);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  min-width: 3ch;
+  white-space: nowrap;
+  flex: none;
+  padding: 6px 12px 3px;
+  text-align: center;
+  color: var(--brass-hi);
+  background: linear-gradient(#212a36, #10151b);
+  border: 2px solid var(--brass-lo);
+  box-shadow:
+    inset 0 0 0 1px #000,
+    inset 0 3px 8px rgba(0, 0, 0, 0.8),
+    0 1px 0 rgba(255, 255, 255, 0.6);
+  text-shadow: 0 0 10px rgba(255, 184, 92, 0.4);
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+.proto-guild .sheet-num .dim {
+  color: var(--cream-2);
+  font-family: var(--font-body);
+  font-size: var(--small);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.proto-guild .sheet-num.sheet-text {
+  min-width: 0;
+  padding: 0;
+  font-size: calc(var(--num) * 0.75);
+  color: var(--pen);
+  background: none;
+  border: 0;
+  box-shadow: none;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.55);
+  clip-path: none;
+}
+.proto-guild .sheet-derived .sheet-num {
+  border: 2px solid var(--brass-lo);
+  outline: 1px dotted var(--brass);
+  outline-offset: -6px;
+}
+.proto-guild .sheet-derived {
+  min-height: calc(var(--tap) + 8px);
+  font-weight: 700;
+}
+.proto-guild .sheet-row .row.small.dim {
+  font-weight: 400;
+}
+
+/* ---------- turn order: a ledger with a ruled brass marker on the acting row ---------- */
+.proto-guild .order {
+  gap: 0;
+  border: 2px solid var(--steel);
+  background: rgba(8, 11, 15, 0.55);
+  box-shadow: inset 0 2px 8px #000a;
+}
+.proto-guild .combatant {
+  position: relative;
+  border: 0;
+  border-bottom: 1px solid var(--steel);
+  border-left: 10px solid var(--iron-3);
+  padding: 8px 12px;
+  background: transparent;
+}
+.proto-guild .combatant:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
+.proto-guild .combatant:last-child {
+  border-bottom: 0;
+}
+.proto-guild .combatant[data-acting="true"] {
+  border-left-color: var(--brass-hi);
+  background: linear-gradient(90deg, rgba(255, 184, 92, 0.28), rgba(255, 184, 92, 0.06) 70%), var(--iron-2);
+  box-shadow:
+    inset 0 2px 0 var(--brass),
+    inset 0 -2px 0 var(--brass);
+}
+.proto-guild .combatant[data-selected="true"] {
+  outline: 2px dashed var(--cream);
+  outline-offset: -5px;
+}
+.proto-guild .combatant .who {
+  min-height: var(--tap);
+}
+.proto-guild .combatant .name {
+  font-family: var(--font-display);
+  font-size: calc(var(--h2) * 0.95);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1.1;
+}
+.proto-guild .combatant .score {
+  width: 76px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--brass-hi);
+}
+.proto-guild .combatant .btn {
+  min-width: var(--tap);
+  padding: 0;
+}
+.proto-guild .combatant .who:focus-visible {
+  outline-offset: -3px;
+}
+.proto-guild .state-word {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px 1px;
+  font-family: var(--font-display);
+  font-size: calc(var(--small) + 3px);
+  letter-spacing: 0.14em;
+  color: #2a1c06;
+  background: var(--brass-plate);
+  box-shadow: 0 1px 0 #000a;
+}
+.proto-guild .bar {
+  height: 16px;
+  min-width: 80px;
+  border: 2px solid #000;
+  background: #07090c;
+  box-shadow: 0 1px 0 var(--steel);
+  --fill: var(--ok);
+}
+.proto-guild .bar[data-low="true"] {
+  --fill: var(--ember);
+}
+.proto-guild .bar > span {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 9px, rgba(0, 0, 0, 0.55) 9px 11px),
+    linear-gradient(var(--fill), var(--fill));
+}
+.proto-guild .bar[data-low="true"] > span {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 9px, rgba(0, 0, 0, 0.55) 9px 11px),
+    linear-gradient(var(--fill), var(--fill));
+}
+.proto-guild .order .small {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+/* ---------- turn banner: the lamp lights ---------- */
+.proto-guild .turn-banner {
+  border: 3px solid var(--brass);
+  background: radial-gradient(60% 140% at 50% 0%, rgba(255, 184, 92, 0.35), transparent), var(--iron-2);
+  color: var(--cream);
+  font-family: var(--font-display);
+  font-size: calc(var(--h1) * 0.7);
+  letter-spacing: 0.05em;
+  padding: 8px 16px 4px;
+  text-shadow: 0 0 14px rgba(255, 184, 92, 0.55);
+  box-shadow:
+    inset 0 0 0 2px #000,
+    0 3px 0 #000a;
+}
+.proto-guild .turn-banner::before {
+  color: var(--ember);
+}
+
+/* ---------- TRACK: fight bar and the instrument plate ---------- */
+.proto-guild .fightbar {
+  padding: 10px 16px;
+  background:
+    radial-gradient(circle at 50% 40%, #e9d79a 0 1px, var(--brass-lo) 2px, #000 4px, transparent 4.5px) left 5px
+      center / 10px 10px no-repeat,
+    radial-gradient(circle at 50% 40%, #e9d79a 0 1px, var(--brass-lo) 2px, #000 4px, transparent 4.5px) right 5px
+      center / 10px 10px no-repeat,
+    var(--grain),
+    var(--iron-plate);
+  border-bottom: 3px solid var(--brass-lo);
+  box-shadow: 0 4px 0 #000a;
+}
+.proto-guild .fightbar .round {
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--brass-hi);
+  text-shadow: 0 0 12px rgba(255, 184, 92, 0.4);
+}
+.proto-guild .track > .card {
+  --paper: var(--iron);
+  --paper-2: var(--iron-2);
+  --ink: var(--cream);
+  --ink-2: var(--cream-2);
+  --line: var(--steel);
+  --accent: var(--ember);
+  --accent-ink: #1a0f05;
+  --ok: #86d09a;
+  --focus: #ffd45e;
+  --focus-edge: #0b0e12;
+  color: var(--cream);
+  padding: calc(var(--pad) + 8px);
+  background:
+    radial-gradient(circle at 50% 40%, #e9d79a 0 1px, var(--brass-lo) 2px, #000 4px, transparent 4.5px) left 8px top
+      8px / 12px 12px no-repeat,
+    radial-gradient(circle at 50% 40%, #e9d79a 0 1px, var(--brass-lo) 2px, #000 4px, transparent 4.5px) right 8px top
+      8px / 12px 12px no-repeat,
+    radial-gradient(circle at 50% 40%, #e9d79a 0 1px, var(--brass-lo) 2px, #000 4px, transparent 4.5px) left 8px bottom
+      8px / 12px 12px no-repeat,
+    radial-gradient(circle at 50% 40%, #e9d79a 0 1px, var(--brass-lo) 2px, #000 4px, transparent 4.5px) right 8px bottom
+      8px / 12px 12px no-repeat,
+    var(--hatch),
+    var(--grain),
+    linear-gradient(#232c38, #171d26);
+  border: 0;
+  box-shadow:
+    inset 0 0 0 3px var(--brass-lo),
+    inset 0 0 0 5px #000,
+    inset 0 0 0 6px var(--steel);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+}
+.proto-guild .track > .card::before,
+.proto-guild .track > .card::after {
+  display: none;
+}
+.proto-guild .track > .card .title {
+  color: var(--brass-hi);
+  font-size: var(--h1);
+  text-shadow: 0 0 12px rgba(255, 184, 92, 0.35);
+}
+.proto-guild .track > .card strong {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--cream);
+}
+.proto-guild .keypad-out {
+  min-height: 72px;
+  padding: 4px 16px 0;
+  font-family: var(--font-display);
+  font-size: 64px;
+  line-height: 1.1;
+  color: var(--lamp);
+  background: #07090c;
+  border: 2px solid #000;
+  box-shadow:
+    inset 0 3px 10px #000,
+    0 1px 0 var(--steel-hi);
+  text-shadow: 0 0 14px rgba(255, 184, 92, 0.7);
+}
+.proto-guild .roll-pad {
+  gap: 8px;
+  padding: 10px;
+  background: #0a0d12;
+  border: 2px solid #000;
+  box-shadow:
+    inset 0 2px 8px #000,
+    0 1px 0 var(--steel-hi);
+}
+.proto-guild .roll-key {
+  min-height: 72px;
+  border: 1px solid #000;
+  border-radius: 2px;
+  background: linear-gradient(#3a4556, #232c38 55%, #1b222c);
+  color: var(--cream);
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 800;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.35),
+    0 3px 0 #000;
+  text-shadow:
+    0 -1px 0 #000,
+    0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.proto-guild .roll-key:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 6px #000,
+    0 1px 0 #000;
+}
+.proto-guild .roll-key.report {
+  background: var(--brass-plate);
+  color: #2a1c06;
+  font-size: 26px;
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 0 rgba(255, 236, 170, 0.6);
+  border-color: var(--brass-deep);
+}
+.proto-guild .roll-slots {
+  gap: 10px;
+}
+.proto-guild .roll-slot {
+  border: 2px solid #000;
+  border-radius: 2px;
+  background: #07090c;
+  color: var(--lamp);
+  font-family: var(--font-display);
+  font-size: 72px;
+  box-shadow:
+    inset 0 3px 10px #000,
+    0 1px 0 var(--steel-hi);
+  text-shadow: 0 0 14px rgba(255, 184, 92, 0.6);
+}
+.proto-guild .roll-slot[aria-pressed="true"] {
+  border-color: var(--brass-hi);
+  box-shadow:
+    inset 0 3px 10px #000,
+    inset 0 -6px 0 var(--ember);
+}
+.proto-guild .roll-key:disabled {
+  opacity: 0.45;
+}
+.proto-guild .fightbar .btn,
+.proto-guild .seg .btn {
+  min-width: 0;
+}
+.proto-guild .seg {
+  gap: 6px;
+}
+.proto-guild .offer {
+  background: var(--iron-2);
+  border-bottom: 3px solid var(--brass);
+}
+.proto-guild .badge-offline {
+  border: 2px solid #000;
+}
+.proto-guild .track,
+.proto-guild .grid {
+  gap: var(--gap);
+}
+.proto-guild .grid > *,
+.proto-guild .track > * {
+  min-width: 0;
+}
+.proto-guild input[type="checkbox"] {
+  width: 28px;
+  height: 28px;
+  min-height: 0;
+  accent-color: var(--brass);
 }

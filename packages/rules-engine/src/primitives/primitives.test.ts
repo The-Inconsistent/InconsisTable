@@ -387,7 +387,7 @@ test("resource.capped: a max below the min never makes an empty range", () => {
 test("runOp refuses unknown primitives, ops and bad params", () => {
   const state = actor({});
   assert.equal(
-    refusal({ primitive: "dice.poolSuccesses", op: "resolve", params: {}, state, input: {} }),
+    refusal({ primitive: "dice.unheardOf", op: "resolve", params: {}, state, input: {} }),
     "unknownPrimitive",
   );
   assert.equal(

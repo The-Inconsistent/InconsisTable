@@ -16,11 +16,25 @@ export type TestInputValue = z.infer<typeof TestInputValue>;
 export const TestInputs = z.record(z.string().max(64), TestInputValue);
 export type TestInputs = z.infer<typeof TestInputs>;
 
+/**
+ * What a phone needs to take a Dice pool report: the die, the scoring bands to count dice in and how many special
+ * dice are read face by face. Null on a sum Test. Rules numbers, so the ruleset's own; flags and shifts are not here.
+ */
+export const PoolSpec = z.object({
+  die: z.int(),
+  bands: z.array(z.object({ id: z.string(), from: z.int(), to: z.int(), worth: z.int() })),
+  special: z.object({ label: z.string(), count: z.int() }).nullable(),
+  /** The band whose dice may be shifted. */
+  shift: z.string().nullable(),
+});
+export type PoolSpec = z.infer<typeof PoolSpec>;
+
 /** A Test of the pinned ruleset the GM can call: what the call form asks for. GM seats only. */
 export const TestDef = z.object({
   id: z.string(),
   dice: z.string(),
   advantage: z.boolean(),
+  pool: PoolSpec.nullable(),
   inputs: z.array(z.object({ id: z.string(), type: z.string(), options: z.array(z.string()).optional() })),
 });
 export type TestDef = z.infer<typeof TestDef>;
@@ -28,17 +42,25 @@ export type TestDef = z.infer<typeof TestDef>;
 /** A reported roll as a seat may see it: a field the seat may not see is null. */
 export const TestResult = z.object({
   natural: z.int().nullable(),
+  /** A Dice pool's score. */
   total: z.int().nullable(),
   outcome: z.string().nullable(),
+  // A Dice pool's: the score minus the difficulty number, and the dice that could be shifted. Null for a sum Test.
+  margin: z.int().nullable(),
+  shifts: z.int().nullable(),
+  /** What a Dice pool's special dice flagged (the engine's `PoolFlag`); empty for a sum Test. */
+  flags: z.array(z.string()),
 });
 export type TestResult = z.infer<typeof TestResult>;
 
 export const TestTargetState = z.object({
   actorId: z.string(),
-  /** Added to the die: null when the seat may not be told it (or it was never computed). */
+  /** Added to the die, or dice added to a pool: null when the seat may not be told it (or it was never computed). */
   modifier: z.int().nullable(),
   /** The number to beat: null when it is hidden from the seat. */
   target: z.int().nullable(),
+  /** A Dice pool's dice to roll, modifier included: null for a sum Test or when the seat may not be told it. */
+  pool: z.int().nullable(),
   report: TestResult.nullable(),
 });
 export type TestTargetState = z.infer<typeof TestTargetState>;
@@ -49,6 +71,8 @@ export const TestCall = z.object({
   dice: z.string(),
   /** Whether the Test allows rolling with advantage or disadvantage. */
   advantage: z.boolean(),
+  /** Set on a Dice pool Test: the phone reports counts per band instead of faces. */
+  pool: PoolSpec.nullable(),
   status: TestCallStatus,
   createdAt: z.string(),
   /** What the GM supplied when calling. Inputs the hidden target reads are removed for seats without GM rights. */
@@ -119,15 +143,22 @@ export function toSeatTests({ tests, ctx }: { tests: readonly TestCall[]; ctx: C
     if (mine.length === 0) return [];
     const targets = (c.revealed ? c.targets : mine).map((t): TestTargetState => {
       const own = held.includes(t.actorId);
+      // A Dice pool's margin and shifts give the difficulty number away (score minus margin), so they follow the
+      // number itself, or the GM revealing it; the flags come from the dice the seat read out, so they leak nothing.
+      const knowsNumber = c.revealed || (own && c.showTarget);
       const report = t.report && {
         natural: t.report.natural,
         total: own && c.showModifier ? t.report.total : null,
         outcome: own && !c.showOutcome && !c.revealed ? null : t.report.outcome,
+        margin: knowsNumber ? t.report.margin : null,
+        shifts: knowsNumber ? t.report.shifts : null,
+        flags: t.report.flags,
       };
       return {
         actorId: t.actorId,
         modifier: own && c.showModifier ? t.modifier : null,
         target: own && c.showTarget ? t.target : null,
+        pool: own && c.showModifier ? t.pool : null,
         report,
       };
     });

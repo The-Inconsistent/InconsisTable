@@ -305,6 +305,7 @@ CREATE TABLE "test_call_target" (
 	"actor_id" uuid NOT NULL,
 	"modifier" integer NOT NULL,
 	"target" integer NOT NULL,
+	"pool" integer,
 	CONSTRAINT "test_call_target_call_id_actor_id_pk" PRIMARY KEY("call_id","actor_id")
 );
 --> statement-breakpoint
@@ -315,6 +316,11 @@ CREATE TABLE "test_report" (
 	"faces" integer[],
 	"natural" integer,
 	"total" integer NOT NULL,
+	"band_counts" jsonb,
+	"special_faces" integer[],
+	"margin" integer,
+	"shifts" integer,
+	"flags" text[] DEFAULT '{}' NOT NULL,
 	"outcome" text NOT NULL,
 	"reported_by_user_id" text,
 	"reported_by_role" text NOT NULL,

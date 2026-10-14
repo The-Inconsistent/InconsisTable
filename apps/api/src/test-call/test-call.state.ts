@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, or } from "drizzle-orm";
-import type { TestCall, TestDef } from "@inconsistable/core-schema";
-import { VISIBILITY_RANK, type CompiledRuleset, type Visibility } from "@inconsistable/rules-engine";
+import type { PoolSpec, TestCall, TestDef } from "@inconsistable/core-schema";
+import { VISIBILITY_RANK, type CompiledRuleset, type DiceMechanic, type Visibility } from "@inconsistable/rules-engine";
 import type { BuiltActor } from "../actor/actor.values.ts";
 import type { Db } from "../core/db.ts";
 import { targetInputs } from "./test-call.resolve.ts";
@@ -10,12 +10,27 @@ import { testCall, testCallTarget, testReport } from "./test-call.schema.ts";
 // ponytail: the newest 50 calls; page the rest into a results screen if a session ever calls more
 const MAX_CALLS = 50;
 
+/** What the Test rolls, as the table reads it: the dice of a sum Test, the die of a Dice pool. */
+const diceOf = (def: DiceMechanic): string => (def.kind === "sumVsTarget" ? def.dice : `d${def.die} pool`);
+
+/** The phone's part of a Dice pool Test: the die, the bands to count in and the special dice. Null for a sum Test. */
+function poolSpecOf(def: DiceMechanic): PoolSpec | null {
+  if (def.kind !== "poolSuccesses") return null;
+  return {
+    die: def.die,
+    bands: def.bands.map(({ id, from, to, worth }) => ({ id, from, to, worth })),
+    special: def.special ? { label: def.special.label, count: def.special.count } : null,
+    shift: def.shift ?? null,
+  };
+}
+
 /** The pinned ruleset's Tests as the GM's call form needs them. */
 export function testDefsOf(compiled: CompiledRuleset | null): TestDef[] {
   return Object.entries(compiled?.tests ?? {}).map(([id, t]) => ({
     id,
-    dice: t.def.dice,
-    advantage: t.def.advantage,
+    dice: diceOf(t.def),
+    advantage: t.def.kind === "sumVsTarget" && t.def.advantage,
+    pool: poolSpecOf(t.def),
     inputs: Object.entries(t.def.inputs).map(([inputId, type]) => ({
       id: inputId,
       type,
@@ -76,8 +91,9 @@ export async function loadTests(
       {
         id: c.id,
         testId: c.testId,
-        dice: test.def.dice,
-        advantage: test.def.advantage,
+        dice: diceOf(test.def),
+        advantage: test.def.kind === "sumVsTarget" && test.def.advantage,
+        pool: poolSpecOf(test.def),
         status: c.status,
         createdAt: c.createdAt.toISOString(),
         inputs: c.inputs,
@@ -94,7 +110,17 @@ export async function loadTests(
             actorId: t.actorId,
             modifier: t.modifier,
             target: t.target,
-            report: r ? { natural: r.natural, total: r.total, outcome: r.outcome } : null,
+            pool: t.pool,
+            report: r
+              ? {
+                  natural: r.natural,
+                  total: r.total,
+                  outcome: r.outcome,
+                  margin: r.margin,
+                  shifts: r.shifts,
+                  flags: r.flags,
+                }
+              : null,
           };
         }),
       },

@@ -16,7 +16,7 @@ import {
   type RankedInitiative,
   type Resource,
   type Ruleset,
-  type SumVsTarget,
+  type DiceMechanic,
 } from "./manifest.ts";
 import { own } from "./own.ts";
 import type { Problem } from "./problem.ts";
@@ -61,10 +61,15 @@ export interface CompiledResource {
 }
 
 export interface CompiledTest {
-  def: SumVsTarget;
+  def: DiceMechanic;
   modifier: CompiledExpr;
   target: CompiledExpr;
-  /** By actor type: the strictest visibility of anything the expression reads, i.e. who may be told its value. */
+  /** A Dice pool's size before the modifier; null for every other kind. */
+  pool: CompiledExpr | null;
+  /**
+   * By actor type: the strictest visibility of anything the expression reads, i.e. who may be told its value. A Dice
+   * pool's modifier also covers the pool, since the dice to roll are told as one number.
+   */
   modifierVisibility: Record<string, Visibility>;
   targetVisibility: Record<string, Visibility>;
 }
@@ -419,20 +424,27 @@ class Compiler {
       const scopes = actorScopes.map((s) => ({ ...s, ctx }));
       const modifier = this.expr({ source: t.modifier, scopes, expect: "int", path: `tests.${id}.modifier` });
       const target = this.expr({ source: t.target, scopes, expect: "int", path: `tests.${id}.target` });
-      if (modifier === null || target === null) continue;
+      const pool =
+        t.kind === "poolSuccesses"
+          ? this.expr({ source: t.pool, scopes, expect: "int", path: `tests.${id}.pool` })
+          : null;
+      if (modifier === null || target === null || (t.kind === "poolSuccesses" && pool === null)) continue;
       // A value the call computes for an actor is as hidden as its most hidden input, like a derived value.
-      const seen = (expr: CompiledExpr) =>
+      const seen = (...exprs: CompiledExpr[]) =>
         Object.fromEntries(
           this.actorEntities().flatMap((e): [string, Visibility][] => {
             const ce = own(entities, e.id);
             if (ce === undefined) return [];
             const carried = new Map([...this.resources].filter(([, x]) => carries(x, e)));
             const derived = new Map(ce.derived.map((d) => [d.id, d.visibility]));
-            const refs = expr.refs.map((ref) => pathVisibility({ ref, entity: e, resources: carried, derived }));
+            const refs = exprs.flatMap((expr) =>
+              expr.refs.map((ref) => pathVisibility({ ref, entity: e, resources: carried, derived })),
+            );
             return [[e.id, strictestVisibility(refs)]];
           }),
         );
-      tests[id] = { def: t, modifier, target, modifierVisibility: seen(modifier), targetVisibility: seen(target) };
+      const modifierVisibility = pool === null ? seen(modifier) : seen(modifier, pool);
+      tests[id] = { def: t, modifier, target, pool, modifierVisibility, targetVisibility: seen(target) };
     }
 
     const init = this.r.initiative;

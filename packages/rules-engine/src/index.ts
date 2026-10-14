@@ -62,6 +62,7 @@ export {
 export * from "./dice/dice.ts";
 export * from "./primitives/primitive.ts";
 export * from "./primitives/dice-sum-vs-target.ts";
+export * from "./primitives/dice-pool-successes.ts";
 export * from "./primitives/initiative-ranked.ts";
 export * from "./primitives/health-tracks.ts";
 export * from "./primitives/resource-capped.ts";

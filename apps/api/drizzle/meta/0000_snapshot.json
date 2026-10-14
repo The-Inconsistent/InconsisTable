@@ -1,5 +1,5 @@
 {
-  "id": "5df14e83-75d3-48bc-b062-0e6ac72ac7ab",
+  "id": "cfa227e6-3988-404c-a1e3-9b3b97c8cebc",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2685,6 +2685,12 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "pool": {
+          "name": "pool",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -2769,6 +2775,37 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "band_counts": {
+          "name": "band_counts",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "special_faces": {
+          "name": "special_faces",
+          "type": "integer[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "margin": {
+          "name": "margin",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shifts": {
+          "name": "shifts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "flags": {
+          "name": "flags",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
         },
         "outcome": {
           "name": "outcome",

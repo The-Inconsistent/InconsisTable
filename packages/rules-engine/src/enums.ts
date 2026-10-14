@@ -84,7 +84,7 @@ export const TurnKey = z.enum(["round", "currentId", "order"]);
 export type TurnKey = z.infer<typeof TurnKey>;
 
 /** Values of the open Test call that a test primitive writes. */
-export const TestKey = z.enum(["outcome", "total", "natural"]);
+export const TestKey = z.enum(["outcome", "total", "natural", "margin", "shifts", "flags"]);
 export type TestKey = z.infer<typeof TestKey>;
 
 export const ViewerRole = z.enum(["gm", "cogm", "player", "screen", "public"]);
@@ -92,6 +92,10 @@ export type ViewerRole = z.infer<typeof ViewerRole>;
 
 export const TestOutcome = z.enum(["success", "failure", "critical"]);
 export type TestOutcome = z.infer<typeof TestOutcome>;
+
+/** What the special dice of a Dice pool can flag on a roll, beside its outcome. */
+export const PoolFlag = z.enum(["critical", "complication"]);
+export type PoolFlag = z.infer<typeof PoolFlag>;
 
 export const AdvantageMode = z.enum(["none", "advantage", "disadvantage"]);
 export type AdvantageMode = z.infer<typeof AdvantageMode>;

@@ -102,6 +102,26 @@ export const FIXTURE_RULESET: RulesetInput = {
       inputOptions: { ability: ["str", "dex", "con", "wis"] },
       cite: "Fixture p.6",
     },
+    // A d8 Dice pool sized by Grit: the top face scores two, the Omen die flags its ends, the top dice can be shifted.
+    skill: {
+      kind: "poolSuccesses",
+      pool: "attr.con / 4",
+      modifier: "ctx.bonus",
+      die: 8,
+      bands: [
+        { id: "top", from: 8, to: 8, worth: 2 },
+        { id: "hit", from: 5, to: 7, worth: 1 },
+      ],
+      special: {
+        label: "Omen die",
+        count: 1,
+        flags: { critical: { from: 8, to: 8 }, complication: { from: 1, to: 1 } },
+      },
+      shift: "top",
+      target: "ctx.dn",
+      inputs: { dn: "int", bonus: "int" },
+      cite: "Fixture p.7",
+    },
   },
   initiative: { strategy: "ranked", score: "mod(attr.dex)", cite: "Fixture p.5" },
   health: {

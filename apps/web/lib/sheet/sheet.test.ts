@@ -52,19 +52,25 @@ test("without a layout the sheet lists numbers, resources, then details", () => 
 });
 
 test("a player steps only what the resource lets its owner; the GM steps everything", () => {
-  const withEdit = (editableBy: string) =>
+  const withEdit = (editableBy: string, id = "focus") =>
     Ruleset.parse({
       ...SAMPLE_D20,
-      resources: SAMPLE_D20.resources?.map((r) => (r.id === "hp" ? { ...r, editableBy } : r)),
+      resources: SAMPLE_D20.resources?.map((r) => (r.id === id ? { ...r, editableBy } : r)),
     });
-  assert.deepEqual(stepsOf({ ruleset: withEdit("owner"), resource: "hp", gm: false }), { dec: true, inc: true });
-  assert.deepEqual(stepsOf({ ruleset: withEdit("ownerSpendOnly"), resource: "hp", gm: false }), {
+  assert.deepEqual(stepsOf({ ruleset: withEdit("owner"), resource: "focus", gm: false }), { dec: true, inc: true });
+  assert.deepEqual(stepsOf({ ruleset: withEdit("ownerSpendOnly"), resource: "focus", gm: false }), {
     dec: true,
     inc: false,
   });
-  assert.deepEqual(stepsOf({ ruleset: withEdit("gm"), resource: "hp", gm: false }), { dec: false, inc: false });
-  assert.deepEqual(stepsOf({ ruleset: withEdit("gm"), resource: "hp", gm: true }), { dec: true, inc: true });
+  assert.deepEqual(stepsOf({ ruleset: withEdit("gm"), resource: "focus", gm: false }), { dec: false, inc: false });
+  assert.deepEqual(stepsOf({ ruleset: withEdit("gm"), resource: "focus", gm: true }), { dec: true, inc: true });
   assert.deepEqual(stepsOf({ ruleset, resource: "unknown", gm: true }), { dec: false, inc: false });
+  // HP moves only through the health track, which only the GM side runs, whatever its `editableBy`.
+  assert.deepEqual(stepsOf({ ruleset: withEdit("owner", "hp"), resource: "hp", gm: false }), {
+    dec: false,
+    inc: false,
+  });
+  assert.deepEqual(stepsOf({ ruleset: withEdit("owner", "hp"), resource: "hp", gm: true }), { dec: true, inc: true });
 });
 
 test("a step on a health track's resource goes through the track: − is damage, + is heal", () => {

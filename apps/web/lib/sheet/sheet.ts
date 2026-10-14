@@ -97,7 +97,9 @@ export function stepsOf({ ruleset, resource, gm }: { ruleset: Ruleset; resource:
   inc: boolean;
 } {
   const r = ruleset.resources.find((x) => x.id === resource);
-  if (!r) return { dec: false, inc: false };
+  // A health track's resource moves only through the track, whose ops need `encounter:run`.
+  const trackOnly = !gm && ruleset.health.tracks.some((t) => t.resource === resource);
+  if (!r || trackOnly) return { dec: false, inc: false };
   return stepsFor({ editableBy: r.editableBy, gmSide: gm });
 }
 

@@ -21,7 +21,7 @@ export const TestDef = z.object({
   id: z.string(),
   dice: z.string(),
   advantage: z.boolean(),
-  inputs: z.array(z.object({ id: z.string(), type: z.string() })),
+  inputs: z.array(z.object({ id: z.string(), type: z.string(), options: z.array(z.string()).optional() })),
 });
 export type TestDef = z.infer<typeof TestDef>;
 

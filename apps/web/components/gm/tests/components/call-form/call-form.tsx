@@ -118,13 +118,28 @@ export function CallForm({ state, send, initialTargets = [], onCalled }: CallFor
           ) : (
             <label key={input.id}>
               {input.id}
-              <input
-                id={`call-input-${input.id}`}
-                inputMode={input.type === "int" ? "numeric" : "text"}
-                value={textOf(draft, input.id)}
-                onChange={(e) => setDraft({ ...draft, [input.id]: e.target.value })}
-                style={{ width: input.type === "int" ? 96 : 160 }}
-              />
+              {input.options ? (
+                <select
+                  id={`call-input-${input.id}`}
+                  value={textOf(draft, input.id)}
+                  onChange={(e) => setDraft({ ...draft, [input.id]: e.target.value })}
+                >
+                  <option value="">Pick…</option>
+                  {input.options.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id={`call-input-${input.id}`}
+                  inputMode={input.type === "int" ? "numeric" : "text"}
+                  value={textOf(draft, input.id)}
+                  onChange={(e) => setDraft({ ...draft, [input.id]: e.target.value })}
+                  style={{ width: input.type === "int" ? 96 : 160 }}
+                />
+              )}
             </label>
           ),
         )}

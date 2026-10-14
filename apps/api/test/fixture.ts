@@ -99,6 +99,7 @@ export const FIXTURE_RULESET: RulesetInput = {
       advantage: true,
       critOn: [20],
       inputs: { ability: "text", dc: "int" },
+      inputOptions: { ability: ["str", "dex", "con", "wis"] },
       cite: "Fixture p.6",
     },
   },

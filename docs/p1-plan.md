@@ -1,11 +1,11 @@
-# InconsisTable P1: 5e SRD chơi được trọn một buổi
+# InconsisTable P1: một ruleset homebrew chơi được trọn một buổi
 
 > Kế hoạch cho giai đoạn P1 của `docs/design.md` (§7). Chờ duyệt trước khi code.
 > Dựng trên P0 (`docs/p0-plan.md`, nhánh `claude/p0-skeleton`). Đọc `CLAUDE.md` trước: 8 nguyên tắc là bắt buộc.
 
 ## Mục tiêu
 
-Một bàn chơi one-shot 5e SRD từ lúc tạo nhân vật tới hết buổi, chỉ dùng app để giữ sổ sách:
+Một bàn chơi one-shot với một ruleset homebrew từ lúc tạo nhân vật tới hết buổi, chỉ dùng app để giữ sổ sách:
 - Nhập ruleset và pack có kiểm tra cite.
 - Actor có giá trị thật, builder tạo nhân vật.
 - Sheet chơi trên điện thoại.
@@ -23,8 +23,8 @@ Một bàn chơi one-shot 5e SRD từ lúc tạo nhân vật tới hết buổi,
    - Undo đưa đúng giá trị về, kể cả khi có delta khác ghi sau nó.
    - Người chơi không thấy field `gm`; pack `private` không tới được người không có ghế hay phòng mà chủ pack không
      làm GM.
-4. Chơi thử trên trình duyệt (tablet GM, 2 điện thoại, TV) với manifest và pack SRD do người dùng tự nhập trên máy
-   mình, từ tạo nhân vật tới `session.end`.
+4. Chơi thử trên trình duyệt (tablet GM, 2 điện thoại, TV) với ruleset và pack homebrew nhập qua `/library`, từ tạo
+   nhân vật tới `session.end` (chi tiết ở "P1 xong khi" bên dưới).
 
 ## Nguyên tắc nội dung
 
@@ -158,6 +158,9 @@ Một bàn chơi one-shot 5e SRD từ lúc tạo nhân vật tới hết buổi,
 - **Schema:** `encounter (id, campaign_id, round, active, current_combatant_id)`, `combatant (id, encounter_id,
   actor_id, side, ord, initiative_score, visibility enum[hidden|bar|full])`. Không có `stat_snapshot`: actor
   `creature` đã chép giá trị lúc spawn.
+- **Encounter mở qua nhiều session:** một encounter có thể còn mở khi hết session. Khi không có session đang chạy, mọi
+  action của encounter bị từ chối ("Start a session to continue"); TV và điện thoại vẫn hiện thứ tự với nhãn
+  "Paused", không có banner đến lượt và không rung. Undo chỉ trong session đang chạy (quyết định 2).
 - **Action:** `encounter.start/end/add/remove` (core, `encounter:run`); `turn.op` → `initiative.ranked`, rồi
   `conditions.expire`; `encounter.end` chạy `rest(encounterEnd)` và dọn actor `temporary` trừ con GM giữ.
 - **Web:** TRACK trên tablet: thứ tự, lượt hiện tại, bàn phím sát thương/hồi máu/HP tạm, death save, condition có
@@ -168,12 +171,25 @@ Một bàn chơi one-shot 5e SRD từ lúc tạo nhân vật tới hết buổi,
 
 ### G. Gọi Test (api, web; dựa trên B)
 
-- **Schema:** `test_call (id, campaign_id, mechanic_id, target int, hide_target bool, closed_at)`,
-  `test_call_target (test_call_id, actor_id)`, `test_report (test_call_id, actor_id, natural int, total int, outcome)`.
+- **Schema (đã dựng):** `test_call` (`test_id`, `inputs` jsonb = giá trị GM cấp cho các biểu thức của Test, `hide_target`,
+  `show_outcome`, `revealed`, `status`); `test_call_target` (modifier và target tính cho từng nhân vật lúc gọi và giữ
+  nguyên); `test_report` (`faces`, `natural`, `total`, `outcome` do server tính, `reported_by`).
 - **Action:** `test.call` (`test:call`), `test.report` (chủ nhân vật; người chơi nhập số trên xúc xắc thật, server
   tính outcome bằng `dice.sumVsTarget.resolve` vì DC có thể ẩn), `test.close` ghi vào `session_event`.
-- **Web:** GM gọi Test từ TRACK; điện thoại hiện `d20 + mod` đã tính và ô nhập số; GM thấy bảng tổng hợp.
+- **Web:** điểm vào là tab Tests, cùng nút "Call a Test" trong TRACK mở đúng form đó với combatant đang chọn điền sẵn; điện thoại hiện `d20 + mod` đã tính và ô nhập số; GM thấy bảng tổng hợp.
 - **Xong khi:** smoke gọi, báo, đóng một Test có DC ẩn; người chơi không nhận được DC.
+
+## P1 xong khi
+
+- PR #13 đã merge; Clerk có role và chế độ invite-only xong.
+- Ruleset homebrew và pack đã nhập qua `/library`.
+- Chơi thử trong LAN: 9 bước trình duyệt của `docs/handoff.md`, cộng dựng một nhân vật, một trận và một Test.
+
+### Sang P2
+
+- Tablet GM phục vụ trang sách (`serveBooks` chưa được gọi ở đâu).
+- Resource theo pool (party/GM/campaign).
+- Màn admin gỡ pack (takedown).
 
 ## Thứ tự làm
 
@@ -202,9 +218,9 @@ Mỗi workstream song song chạy ở session/agent riêng, trên nhánh riêng,
 7. **Chơi thử P1:** máy dev trong LAN (Aspire/Podman), điện thoại vào qua IP LAN (`DEV_ORIGINS`,
    `NEXT_PUBLIC_DEV_HOST`). Chưa deploy.
 
-8. **Nguồn SRD:** người dùng tự soạn và giữ file gốc; hệ thống chỉ lưu bản đã nhập (xem C). Không có converter trong
-   repo. Playtest dùng một manifest và pack SRD nhỏ đủ một one-shot, nhập qua UI; converter đầy đủ (nếu cần) ở repo
-   riêng.
+8. **Nội dung playtest:** một ruleset homebrew kiểu d20 cùng một pack nhỏ đủ một one-shot, do Claude soạn trong repo
+   riêng `The-Inconsistent/inconsistable-content` (private), nhập qua `/library`, không bao giờ commit vào repo này.
+   Không có converter SRD trong repo; hệ thống chỉ lưu bản đã nhập (xem C).
 
 ## Không làm ở P1
 

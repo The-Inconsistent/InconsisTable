@@ -2,7 +2,7 @@
 
 The GM runs the table from a tablet, players use their phones, a TV can show the shared view. Real dice, miniatures and
 terrain stay on the table; the app keeps the bookkeeping. The design is `docs/design.md` (Vietnamese); the current
-milestone is `docs/p0-plan.md`.
+milestone is `docs/p1-plan.md`.
 
 ## Principles (binding, carried over from Auspex)
 
@@ -64,10 +64,15 @@ packages/auth        the only Clerk dependency
 ```bash
 bun install
 bun run dev:db              # Postgres 18 in Docker on localhost:5435
+                            # no Docker: podman run -d --name inconsistable-pg -e POSTGRES_USER=it
+                            #   -e POSTGRES_PASSWORD=it -e POSTGRES_DB=it
+                            #   -p 127.0.0.1:5435:5432 -v inconsistable_pgdata:/var/lib/postgresql
+                            #   docker.io/library/postgres:18
 bun run dev:api             # api on :4000 (apps/api/.env, see .env.example)
 bun run dev:web             # web on :3000 (apps/web/.env.local needs the Clerk keys)
 aspire run                  # optional: Postgres 18 → api → web with a dashboard; TypeScript AppHost
                             # (aspire-apphost/apphost.mts), no .NET SDK. Stop the compose Postgres first: same port
+                            # With Podman: ASPIRE_CONTAINER_RUNTIME=podman aspire run
 bun run typecheck           # packages + api + web (with test, the Husky pre-commit hook)
 bun run lint
 bun run format              # Prettier, width 120; skips *.md

@@ -42,6 +42,8 @@ export const Encounter = z.object({
   id: z.string(),
   round: z.number().int(),
   currentId: z.string().nullable(), // the combatant whose turn it is
+  /** Open with no session running: the order shows, nothing moves (house decision #28). */
+  paused: z.boolean(),
   /** The ruleset's first health track: which resources the tracker's keypad changes. Null when it declares none. */
   health: z.object({ resource: z.string(), temp: z.string().nullable(), deathSaves: z.boolean() }).nullable(),
   /** The ruleset's conditions, for the GM's picker. GM side only. */
@@ -62,8 +64,9 @@ export function toSeatEncounter({ encounter, ctx }: { encounter: Encounter | nul
     ...encounter,
     conditionDefs: [],
     currentId: seen.some((c) => c.id === encounter.currentId) ? encounter.currentId : null,
-    combatants: seen.map((c) => ({
+    combatants: seen.map((c, i) => ({
       ...c,
+      ord: i, // renumbered over what the seat sees, so a gap never shows where a hidden one sits
       keep: false,
       conditions: [],
       hp: c.visibility === "full" ? c.hp : null,

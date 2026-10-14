@@ -35,7 +35,8 @@ const post = (path: string, body: unknown, headers: Record<string, string> = {})
     body: JSON.stringify(body),
   });
 
-// Each socket comes from its own address: the suite opens more sockets than the api allows one address a minute.
+// Each socket comes from its own address: the suite opens more sockets than the api allows one address a minute. The
+// api honours cf-connecting-ip only when started with TRUST_CF=1, so the suite needs it.
 let sockets = 0;
 const nextSocketIp = () =>
   `172.${16 + (Math.floor(++sockets / 250) % 16)}.${sockets % 250}.${1 + Math.floor(Math.random() * 250)}`;
@@ -648,7 +649,8 @@ test("importer: a ruleset and a pack are stored once, a re-import reports its di
   assert.equal((await query("SELECT 1 FROM pack_entry WHERE pack_version_id = $1", [second.body.versionId])).length, 0);
 });
 
-test("importer: the 51st pack is over the quota, and imports are rate limited", async () => {
+// 51 imports are slow on a CI runner: its own timeout.
+test("importer: the 51st pack is over the quota, and imports are rate limited", { timeout: 30_000 }, async () => {
   const me = caller(clerk("quota"));
   assert.equal((await me.post("/rulesets", SAMPLE_D20)).status, 201);
   for (let i = 0; i < MAX_PACKS_PER_USER; i++)
@@ -661,7 +663,7 @@ test("importer: the 51st pack is over the quota, and imports are rate limited", 
   const statuses: number[] = [];
   for (let i = 0; i < 25; i++) statuses.push((await flood.post("/packs", {})).status);
   assert.ok(statuses.includes(429), "a burst of imports from one address is refused");
-});
+}); // imports 51 packs
 
 test("packs in a room: the pin, the seat-scoped read, and a private pack that stays with its GM", async () => {
   const ownerClerk = clerk("pk-owner", "creator");
@@ -1757,4 +1759,134 @@ test("encounter: a full round of turns, seat views, undo of a turn, and the end 
   );
   assert.deepEqual(undoEvent?.payload.skipped, [{ actorId: w1, reason: "deleted" }]);
   for (const c of [owner, ana.c, ben.c, cc]) c.socket.close();
+});
+
+test("encounter: open between sessions it is paused, and the next session continues the same order", async () => {
+  const { owner, ana, ben } = await buildRoom("Paused");
+  for (const p of [ana, ben]) ok(await p.c.send({ type: "actor.build", actorId: p.held, answers: GOOD_ANSWERS }));
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: [ana.held, ben.held], side: "party", visibility: "full" }));
+  const added = await owner.until((s) => s.encounter?.combatants.length === 2);
+  assert.equal(added.encounter?.paused, false);
+  for (const [i, p] of [ana, ben].entries()) {
+    const combatantId = added.encounter!.combatants.find((c) => c.actorId === p.held)!.id;
+    ok(await owner.send({ type: "encounter.setInitiative", combatantId, score: 20 - i }));
+  }
+  ok(await owner.send({ type: "turn.next" }));
+  const first = await owner.until((s) => s.encounter?.currentId != null);
+
+  // Between sessions the fight stays open, but nothing in it moves, not even its end.
+  ok(await owner.send({ type: "session.end" }));
+  const paused = await ana.c.until((s) => s.encounter?.paused === true);
+  assert.equal(paused.encounter?.combatants.length, 2);
+  const combatantId = first.encounter!.currentId!;
+  for (const action of [
+    { type: "turn.next" },
+    { type: "turn.prev" },
+    { type: "encounter.end" },
+    { type: "encounter.keep", combatantId, keep: true },
+    { type: "rule.op", primitive: "initiative.ranked", op: "next", input: {} },
+  ] as const)
+    refused(await owner.send(action), /^Start a session to continue$/);
+  refused(await owner.send({ type: "encounter.start" }), /Start a session first/);
+
+  // A new session picks the same order up where it stopped.
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "turn.next" }));
+  const moved = await owner.until((s) => s.encounter?.paused === false && s.encounter.currentId !== combatantId);
+  assert.equal(moved.encounter?.combatants.length, 2);
+  for (const c of [owner, ana.c, ben.c]) c.socket.close();
+});
+
+test("encounter: only the combat side runs it, undo moves past a combatant who left, other rooms' ids are refused", async () => {
+  const { owner, ana, ben, campaignId } = await buildRoom("Guard");
+  const other = await buildRoom("GuardB");
+  const tv = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  await tv.until(() => true);
+  for (const p of [ana, ben]) ok(await p.c.send({ type: "actor.build", actorId: p.held, answers: GOOD_ANSWERS }));
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: [ana.held, ben.held], side: "party", visibility: "full" }));
+  const added = await owner.until((s) => s.encounter?.combatants.length === 2);
+  const byActor = (s: LiveState, id: string) => s.encounter!.combatants.find((c) => c.actorId === id)!;
+  const [a, b] = [byActor(added, ana.held), byActor(added, ben.held)];
+  ok(await owner.send({ type: "encounter.setInitiative", combatantId: a.id, score: 20 }));
+  ok(await owner.send({ type: "encounter.setInitiative", combatantId: b.id, score: 10 }));
+
+  // Every action of the tracker: a player is refused the permission, the TV is read-only.
+  const all: ActionInput[] = [
+    { type: "encounter.start" },
+    { type: "encounter.end" },
+    { type: "encounter.add", actorIds: [ana.held], side: "party" },
+    { type: "encounter.remove", combatantId: a.id },
+    { type: "encounter.setInitiative", combatantId: a.id, score: 1 },
+    { type: "encounter.move", combatantId: a.id, direction: "down" },
+    { type: "encounter.setVisibility", combatantId: a.id, visibility: "hidden" },
+    { type: "encounter.keep", combatantId: a.id, keep: true },
+    { type: "turn.next" },
+    { type: "turn.prev" },
+  ];
+  for (const action of all) {
+    refused(await ana.c.send(action), /permission/);
+    refused(await tv.send(action), /read-only/);
+  }
+
+  // A combatant of another room is not in this fight.
+  ok(await other.owner.send({ type: "session.start" }));
+  ok(await other.owner.send({ type: "encounter.start" }));
+  ok(await other.owner.send({ type: "encounter.add", actorIds: [other.ana.held], side: "party" }));
+  const foreign = (await other.owner.until((s) => s.encounter?.combatants.length === 1)).encounter!.combatants[0]!.id;
+  refused(await owner.send({ type: "encounter.remove", combatantId: foreign }), /That isn't in the fight/);
+  refused(await owner.send({ type: "encounter.keep", combatantId: foreign, keep: true }), /That isn't in the fight/);
+
+  // A's turn, then the turn passes to B, then A leaves: undoing the pass cannot hand the turn back to A, so it is
+  // skipped and noted, and the undo still succeeds.
+  ok(await owner.send({ type: "turn.next" }));
+  ok(await owner.send({ type: "turn.next" }));
+  await owner.until((s) => s.encounter?.currentId === b.id);
+  ok(await owner.send({ type: "encounter.remove", combatantId: a.id }));
+  ok(await owner.send({ type: "event.undo" }));
+  const [undoEvent] = await query<{ payload: { skipped: { turn?: string; reason: string }[] } }>(
+    "SELECT payload FROM session_event WHERE campaign_id = $1 AND type = 'undo' ORDER BY created_at DESC, id DESC LIMIT 1",
+    [campaignId],
+  );
+  assert.deepEqual(undoEvent?.payload.skipped, [{ turn: "currentId", reason: "gone" }]);
+  for (const c of [owner, ana.c, ben.c, tv, other.owner, other.ana.c, other.ben.c]) c.socket.close();
+});
+
+test("encounter: a full combatant's health stays home where the viewer view hides it", async () => {
+  const ownerClerk = clerk("owner-HpHide", "creator");
+  const me = caller(ownerClerk);
+  const hidden = {
+    ...BUILD_RULESET,
+    resources: BUILD_RULESET.resources?.map((r) => (r.id === "hp" ? { ...r, visibility: "owner" as const } : r)),
+  };
+  const rs = await me.post<RulesetReply>("/rulesets", hidden);
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "HpHide", rulesetVersionId: rs.body.versionId })
+  ).body;
+  const owner = connect({ auth: { campaignId, clerkToken: ownerClerk } });
+  await owner.until(() => true);
+  const pk = await me.post<PackReply>("/packs", BUILD_PACK);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const anaClerk = await seatPlayer(owner, "ana-HpHide");
+  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  await ana.until(() => true);
+  const state = await owner.until((s) => s.access.members.some((m) => m.userId === uid("ana-HpHide")));
+  const held = state.access.members.find((m) => m.userId === uid("ana-HpHide"))!.characterIds[0]!;
+  const npc = ok(await owner.send({ type: "actor.create", kind: "pc", name: "Pregen", entityType: "character" })).id!;
+  for (const [c, actorId] of [
+    [ana, held],
+    [owner, npc],
+  ] as const)
+    ok(await c.send({ type: "actor.build", actorId, answers: GOOD_ANSWERS }));
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: [held, npc], side: "party", visibility: "full" }));
+  const seen = await ana.until((s) => s.encounter?.combatants.length === 2);
+  const hp = (actorId: string) => seen.encounter!.combatants.find((c) => c.actorId === actorId)!.hp;
+  assert.notEqual(hp(held), null, "her own character's health is hers to see");
+  assert.equal(hp(npc), null, "the party's health stays home where the ruleset keeps it private");
+  for (const c of [owner, ana]) c.socket.close();
 });

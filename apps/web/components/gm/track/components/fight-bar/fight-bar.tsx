@@ -24,10 +24,15 @@ export function FightBar({ encounter, sessionRunning, run }: FightBarProps) {
       {encounter ? (
         <>
           <span className="round">Round {encounter.round}</span>
-          <button className="btn" onClick={() => run({ type: "turn.prev" })}>
+          <button className="btn" disabled={encounter.paused} onClick={() => run({ type: "turn.prev" })}>
             Prev
           </button>
-          <button className="btn primary" onClick={() => run({ type: "turn.next" })} style={{ minWidth: 120 }}>
+          <button
+            className="btn primary"
+            disabled={encounter.paused}
+            onClick={() => run({ type: "turn.next" })}
+            style={{ minWidth: 120 }}
+          >
             Next turn
           </button>
         </>
@@ -48,7 +53,7 @@ export function FightBar({ encounter, sessionRunning, run }: FightBarProps) {
         Undo
       </button>
       {encounter && (
-        <button className="btn" onClick={handleEnd} onBlur={() => setEnding(false)}>
+        <button className="btn" disabled={encounter.paused} onClick={handleEnd} onBlur={() => setEnding(false)}>
           {ending ? "End fight and clear temporary creatures" : "End fight"}
         </button>
       )}

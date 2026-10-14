@@ -10,7 +10,9 @@ type OrderViewProps = { encounter: Encounter };
 export function OrderView({ encounter }: OrderViewProps) {
   return (
     <section className="stack" aria-label="Turn order">
-      <h2 className="title">Round {encounter.round}</h2>
+      <h2 className="title">
+        Round {encounter.round} {encounter.paused && <span className="chip">Paused</span>}
+      </h2>
       <ol className="order">
         {encounter.combatants.map((c) => {
           const acting = c.id === encounter.currentId;

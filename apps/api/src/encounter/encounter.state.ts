@@ -3,6 +3,7 @@ import type { Combatant, Encounter } from "@inconsistable/core-schema";
 import type { CompiledRuleset } from "@inconsistable/rules-engine";
 import { actor } from "../actor/actor.schema.ts";
 import type { BuiltActor } from "../actor/actor.values.ts";
+import { runningSessionId } from "../campaign/event.log.ts";
 import type { Db } from "../core/db.ts";
 import { combatant } from "./encounter.schema.ts";
 import { activeEncounter } from "./encounter.turn.ts";
@@ -49,6 +50,7 @@ export async function loadEncounter(
     id: e.id,
     round: e.round,
     currentId: e.currentCombatantId,
+    paused: (await runningSessionId(conn, campaignId)) === null,
     health:
       resource === undefined
         ? null

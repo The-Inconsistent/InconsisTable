@@ -10,6 +10,7 @@ import { AddCombatants } from "@/components/gm/track/components/add-combatants/a
 import { CombatantPanel } from "@/components/gm/track/components/combatant-panel/combatant-panel";
 import { FightBar } from "@/components/gm/track/components/fight-bar/fight-bar";
 import { OrderList } from "@/components/gm/track/components/order-list/order-list";
+import { CallForm } from "@/components/gm/tests/components/call-form/call-form";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
@@ -26,6 +27,7 @@ type TrackProps = {
 // turn it is stay in view, and Undo is always under the thumb. Test calls live in their own tab.
 export function Track({ state, send, sheet }: TrackProps) {
   const [sheetOf, setSheetOf] = useState<string | null>(null);
+  const [testFor, setTestFor] = useState<string | null>(null); // the actor a Test is being called for
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const encounter = state.encounter;
@@ -51,31 +53,40 @@ export function Track({ state, send, sheet }: TrackProps) {
           {error}
         </p>
       )}
+      {encounter?.paused && (
+        <p className="dim" role="status">
+          Paused — start a session to continue
+        </p>
+      )}
       {encounter ? (
-        <div className="track">
-          <div className="stack">
-            {encounter.combatants.length === 0 && (
-              <p className="dim">Nobody is in the fight yet. Add the party below.</p>
+        <fieldset disabled={encounter.paused} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+          <div className="track">
+            <div className="stack">
+              {encounter.combatants.length === 0 && (
+                <p className="dim">Nobody is in the fight yet. Add the party below.</p>
+              )}
+              <OrderList
+                encounter={encounter}
+                actors={actors}
+                selectedId={selected?.id}
+                onSelect={setSelectedId}
+                run={run}
+              />
+            </div>
+            {selected && (
+              <CombatantPanel
+                key={selected.id}
+                encounter={encounter}
+                combatant={selected}
+                actor={actors.get(selected.actorId)}
+                run={run}
+                onSheet={sheet.ruleset ? setSheetOf : undefined}
+                onCallTest={state.testDefs.length > 0 ? setTestFor : undefined}
+              />
             )}
-            <OrderList
-              encounter={encounter}
-              actors={actors}
-              selectedId={selected?.id}
-              onSelect={setSelectedId}
-              run={run}
-            />
           </div>
-          {selected && (
-            <CombatantPanel
-              key={selected.id}
-              encounter={encounter}
-              combatant={selected}
-              actor={actors.get(selected.actorId)}
-              run={run}
-              onSheet={sheet.ruleset ? setSheetOf : undefined}
-            />
-          )}
-        </div>
+          {encounter && <AddCombatants encounter={encounter} actors={state.actors} run={run} />}
+        </fieldset>
       ) : (
         <p className="dim">
           {state.session
@@ -83,7 +94,6 @@ export function Track({ state, send, sheet }: TrackProps) {
             : "Start a session in the Party tab, then start a fight here."}
         </p>
       )}
-      {encounter && <AddCombatants encounter={encounter} actors={state.actors} run={run} />}
       {sheet.ruleset && sheetActor && (
         <BottomSheet title={`Sheet of ${sheetActor.name}`} onClose={() => setSheetOf(null)}>
           <SheetView
@@ -95,6 +105,20 @@ export function Track({ state, send, sheet }: TrackProps) {
             send={send}
             books={sheet.books}
             requestPage={sheet.requestPage}
+          />
+        </BottomSheet>
+      )}
+      {testFor && (
+        <BottomSheet
+          title={`Call a Test for ${actors.get(testFor)?.name ?? "a character"}`}
+          onClose={() => setTestFor(null)}
+        >
+          <CallForm
+            key={testFor}
+            state={state}
+            send={send}
+            initialTargets={[testFor]}
+            onCalled={() => setTestFor(null)}
           />
         </BottomSheet>
       )}

@@ -1,10 +1,12 @@
 import { Permission, type Action, type ActionResult, type Ctx } from "@inconsistable/core-schema";
 import { PRIMITIVES, ResetEvent, type PrimitiveOp } from "@inconsistable/rules-engine";
+import { runningSessionId } from "../campaign/event.log.ts";
 import type { ConditionRow } from "../actor/actor.delta.ts";
 import { applyDeltas, fieldDef } from "../actor/actor.pipeline.ts";
 import { type BuiltActor, loadBuilt } from "../actor/actor.values.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
+import { PAUSED } from "../encounter/encounter.actions.ts";
 import { loadTurn } from "../encounter/encounter.turn.ts";
 import { requirePerm } from "../table/table.authorize.ts";
 import { loadCompiled } from "./ruleset.compiled.ts";
@@ -20,6 +22,8 @@ export function primitiveOp(primitive: string, op: string): PrimitiveOp<unknown,
   const prim = Object.hasOwn(PRIMITIVES, primitive) ? PRIMITIVES[primitive] : undefined;
   return prim && Object.hasOwn(prim.ops, op) ? prim.ops[op] : undefined;
 }
+
+const TURN_PRIMITIVES = new Set(["initiative.ranked", "conditions.expire"]);
 
 const find = <T>(rec: Readonly<Record<string, T>>, key: string): T | undefined =>
   Object.hasOwn(rec, key) ? rec[key] : undefined;
@@ -72,6 +76,9 @@ export async function applyRuleAction(
       const actorId = a.input.actorId;
       requirePerm({ ctx, perm: perm.data, target: typeof actorId === "string" ? { actorId } : undefined });
       const { compiled, built, turn } = await load(tx, ctx.campaignId);
+      // Turn-driven ops wait for a session (house decision #28); the same refusal as the tracker's actions.
+      if (turn && TURN_PRIMITIVES.has(a.primitive) && (await runningSessionId(tx, ctx.campaignId)) === null)
+        fail(PAUSED);
       const deltas = runPrimitive({
         ruleset: compiled.ruleset,
         state: ruleState({ built, turn }),

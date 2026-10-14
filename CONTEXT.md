@@ -47,6 +47,14 @@ _Avoid_: Snapshot (that is the unfiltered whole), filtered state, player view
 The read-only token seat of the TV that shows the shared view.
 _Avoid_: TV seat, display
 
+**World**:
+The setting a campaign is played in: its theme, the words it uses in place of the ruleset's, and its shared lore.
+_Avoid_: Setting (alone), universe, campaign
+
+**Theme**:
+The look of the app (colours, type, texture); there is one base theme, and a World may bring its own.
+_Avoid_: Skin, style, World (that is the whole setting)
+
 ### Written decisions
 
 **House decision**:

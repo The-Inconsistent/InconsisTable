@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import type {
   Actor,
@@ -410,4 +410,118 @@ test("no ruleset pinned: no value reaches a seat below the GM side", () => {
   const v = seatView({ snapshot, compiled: null, ctx: ctx(member("player", [], ["lyra"]), "u-lyra") });
   assert.ok(v.state.actors.every((a) => Object.keys(a.fields).length + Object.keys(a.resources).length === 0));
   assert.equal(v.manifest, null);
+});
+
+// What the Encounter says of a Combatant's conditions follows the actor's values: a `gm` condition on a Character
+// needs the party scope, in the Encounter as on the sheet.
+test("a Combatant's conditions are the ones the seat sees on its actor", () => {
+  const withLyra: Snapshot = {
+    ...snapshot,
+    state: {
+      ...state,
+      encounter: {
+        ...state.encounter!,
+        combatants: [
+          combatant("lyra", "full", 9, {
+            side: "party",
+            conditions: [
+              { id: "dazed", left: 2, expiresOn: "roundEnd" },
+              { id: "marked", left: null, expiresOn: "manual" }, // `gm` in the ruleset
+            ],
+          }),
+        ],
+      },
+    },
+  };
+  const conditions = (c: Ctx) =>
+    seatView({ snapshot: withLyra, compiled, ctx: c }).state.encounter?.combatants[0]?.conditions.map((x) => x.id);
+  assert.deepEqual(conditions(ctx(member("gm"), "u-gm")), ["dazed", "marked"]);
+  assert.deepEqual(conditions(ctx(member("cogm", ["combat", "party"]), "u-co")), ["dazed", "marked"]);
+  assert.deepEqual(conditions(ctx(member("cogm", ["combat"]), "u-co")), ["dazed"]);
+  assert.deepEqual(conditions(ctx(member("cogm", ["party"]), "u-co")), []); // the marks stay on the combat side
+  assert.deepEqual(conditions(ctx(member("player", [], ["lyra"]), "u-lyra")), []);
+});
+
+// Two characters called, the target number and the outcome shown or the Test revealed.
+describe("a Test Call as a player sees it", () => {
+  const two = (over: Partial<TestCall> = {}): TestCall => ({
+    ...sum,
+    called: 2,
+    reported: 1,
+    targets: [sum.targets[0]!, { actorId: "bran", modifier: 1, target: 17, pool: null, report: null }],
+    ...over,
+  });
+  const callFor = (call: TestCall, c: Ctx) =>
+    seatView({ snapshot: { ...snapshot, state: { ...state, tests: [call] } }, compiled, ctx: c }).state.tests[0];
+  const lyra = ctx(member("player", [], ["lyra"]), "u-lyra");
+  const bran = ctx({ kind: "token", role: "player", characterIds: ["bran"] }, null);
+
+  test("counts only the characters the seat holds", () => {
+    const gm = callFor(two(), ctx(member("gm"), "u-gm"));
+    assert.deepEqual([gm?.called, gm?.reported], [2, 1]);
+    const l = callFor(two(), lyra);
+    assert.deepEqual([l?.called, l?.reported], [1, 1]);
+    const b = callFor(two(), bran);
+    assert.deepEqual([b?.called, b?.reported], [1, 0]);
+  });
+
+  test("a shown target reaches the called player, with its input and the outcome", () => {
+    const shown = two({ showTarget: true, showOutcome: true, secretInputs: [] });
+    const l = callFor(shown, lyra);
+    assert.equal(l?.targets[0]?.target, 17);
+    assert.equal(l?.inputs.dc, 17);
+    assert.equal(l?.targets[0]?.report?.outcome, "failure");
+    assert.equal(callFor(shown, bran)?.targets[0]?.target, 17); // Bran is called too, and told his own
+    assert.equal(callFor(shown, bran)?.targets.length, 1);
+  });
+
+  test("an outcome shown without the target does not show the target", () => {
+    const t = callFor(two({ showOutcome: true }), lyra)?.targets[0];
+    assert.deepEqual([t?.target, t?.report?.outcome, t?.report?.natural], [null, "failure", 12]);
+  });
+
+  test("a reveal shows the other characters' outcome and die, never their modifier or total", () => {
+    const b = callFor(
+      two({
+        revealed: true,
+        status: "closed",
+        targets: [
+          sum.targets[0]!,
+          {
+            actorId: "bran",
+            modifier: 1,
+            target: 17,
+            pool: null,
+            report: { natural: 20, total: 21, outcome: "critical", margin: null, shifts: null, flags: [] },
+          },
+        ],
+      }),
+      lyra,
+    )?.targets.find((t) => t.actorId === "bran");
+    assert.deepEqual(b, {
+      actorId: "bran",
+      modifier: null,
+      target: null,
+      pool: null,
+      report: { natural: 20, total: null, outcome: "critical", margin: null, shifts: null, flags: [] },
+    });
+  });
+
+  test("a Dice pool's margin and shifts are told once the number is shown or the Test is revealed", () => {
+    const report = (c: TestCall) => callFor(c, lyra)?.targets[0]?.report;
+    assert.deepEqual([report(pool)?.margin, report(pool)?.shifts], [null, null]);
+    const shown = report({ ...pool, showTarget: true, showOutcome: true, secretInputs: [] });
+    assert.deepEqual([shown?.margin, shown?.shifts], [2, 1]);
+    const closed = { ...pool, revealed: true, status: "closed" } as const;
+    assert.deepEqual([report(closed)?.margin, report(closed)?.shifts], [2, 1]);
+    assert.equal(callFor(closed, lyra)?.targets[0]?.target, null);
+  });
+});
+
+test("a codex reader is never told who else an entry was shown to", () => {
+  const audience = (c: Ctx) =>
+    seatView({ snapshot, compiled, ctx: c }).codex.entries.find((e) => e.id === "for-lyra")?.audience;
+  assert.deepEqual(audience(ctx(member("player", [], ["lyra"]), "u-lyra")), ["lyra"]);
+  assert.deepEqual(audience(ctx(member("cogm", ["codex.secrets"]), "u-co")), ["lyra", "kael"]);
+  assert.deepEqual(audience(ctx(member("gm"), "u-gm")), ["lyra", "kael"]);
 });

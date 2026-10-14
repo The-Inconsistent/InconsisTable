@@ -140,7 +140,14 @@ function seatEncounter({
   const resource = encounter.health?.resource;
   const hpOf = (c: Encounter["combatants"][number]) =>
     resource !== undefined && Object.hasOwn(views.get(c.actorId)?.resources ?? {}, resource) ? c.hp : null;
-  if (sight.combat) return { ...encounter, combatants: encounter.combatants.map((c) => ({ ...c, hp: hpOf(c) })) };
+  // Conditions follow the actor's values too: only those the ruleset lets this seat see on that actor.
+  const conditionsOf = (c: Encounter["combatants"][number]) =>
+    c.conditions.filter((x) => views.get(c.actorId)?.conditions.includes(x.id));
+  if (sight.combat)
+    return {
+      ...encounter,
+      combatants: encounter.combatants.map((c) => ({ ...c, hp: hpOf(c), conditions: conditionsOf(c) })),
+    };
   const seen = encounter.combatants.filter((c) => c.visibility !== "hidden");
   return {
     ...encounter,

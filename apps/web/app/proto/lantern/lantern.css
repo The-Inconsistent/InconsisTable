@@ -1,6 +1,771 @@
-/* PROTOTYPE variant "lantern". Everything under .proto-lantern; tokens first, then component overrides. */
+/* PROTOTYPE variant "lantern": a candlelit wood table. Brown plank wood, brass fittings, cream parchment cards.
+   Everything lives under .proto-lantern. Tokens first (a World re-maps these), then the component overrides.
+   Surfaces: the page and header are WOOD (cream ink). A card, a turn slip and the sheet are PARCHMENT: inside them the
+   shared tokens (--paper, --ink, --line, --accent, --ok ...) are re-declared dark-on-cream, so the real components
+   pick the right colours without knowing which surface they sit on. Icons are data-URI SVG masks, textures are CSS. */
+
+/* ---------- Tokens ---------- */
 .proto-lantern {
+  /* palette */
+  --wood-0: #170d07;
+  --wood: #2a1a10;
+  --wood-2: #3b2517;
+  --wood-3: #52341f;
+  --brass: #c99a3e;
+  --brass-hi: #f0c870;
+  --brass-lo: #8a6322;
+  --brass-ink: #251509;
+  --candle: #ffb64f;
+  --wax: #9c2f23;
+  --parchment: #f2e5c6;
+  --parchment-hi: #f9f0da;
+  --parchment-2: #e7d5ad;
+  --parchment-ink: #2a1b10;
+  --parchment-ink-2: #5a4430;
+  --parchment-line: #b59a68;
+  --shadow: rgba(8, 3, 0, 0.55);
+
+  /* the shared tokens from globals.css, mapped to the wood surface */
+  --paper: var(--wood);
+  --paper-2: var(--wood-2);
+  --ink: #f4e8cd;
+  --ink-2: #d2bf99;
+  --line: #7d5d34;
+  --band: var(--wood-0);
+  --band-ink: #f4e8cd;
+  --accent: var(--brass);
+  --accent-ink: var(--brass-ink);
+  --ok: #a6d68e;
+  --focus: var(--brass-hi);
+  --focus-halo: #120a05;
+
+  /* type */
+  --font-display: var(--font-lantern-display), "Iowan Old Style", Georgia, serif;
+  --display-axes: "SOFT" 100, "WONK" 1;
+
+  /* textures: hand-made, no image files */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7 0.012' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.04 0 0 0 0 0.015 0 0 0 0 0 1.9 0 0 0 -0.78'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  --grain-h: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.55' numOctaves='3' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.03 0 0 0 0 0.012 0 0 0 0 0 1.9 0 0 0 -0.8'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  --fibre: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.22 0 0 0 0 0.08 0 0 0 0.55 -0.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+  --planks: repeating-linear-gradient(
+    90deg,
+    transparent 0 150px,
+    rgba(0, 0, 0, 0.6) 150px 152px,
+    rgba(255, 200, 120, 0.07) 152px 154px,
+    transparent 154px 301px,
+    rgba(0, 0, 0, 0.6) 301px 303px,
+    rgba(255, 200, 120, 0.07) 303px 305px,
+    transparent 305px 420px,
+    rgba(0, 0, 0, 0.6) 420px 422px,
+    rgba(255, 200, 120, 0.07) 422px 424px
+  );
+  --candle-glow: radial-gradient(
+    ellipse 85% 420px at 50% -60px,
+    rgba(255, 182, 79, 0.5),
+    rgba(255, 150, 50, 0.16) 55%,
+    transparent 80%
+  );
+  --edge: polygon(
+    0 3px,
+    9% 0,
+    21% 2px,
+    36% 0,
+    52% 2px,
+    68% 0,
+    83% 3px,
+    100% 1px,
+    calc(100% - 2px) 14%,
+    100% 31%,
+    calc(100% - 3px) 52%,
+    100% 74%,
+    calc(100% - 1px) 100%,
+    90% calc(100% - 2px),
+    74% 100%,
+    58% calc(100% - 3px),
+    41% 100%,
+    24% calc(100% - 1px),
+    8% 100%,
+    0 calc(100% - 2px),
+    2px 82%,
+    0 61%,
+    3px 40%,
+    0 19%
+  );
+  --edge-slip: polygon(
+    0 2px,
+    18% 0,
+    42% 2px,
+    70% 0,
+    100% 2px,
+    calc(100% - 2px) 50%,
+    100% calc(100% - 2px),
+    76% 100%,
+    48% calc(100% - 2px),
+    20% 100%,
+    0 calc(100% - 1px),
+    2px 55%
+  );
+
+  /* icons (24px viewBox, black = the shape; tinted by mask) */
+  --icon-die: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.8 21.2 7v10L12 22.2 2.8 17V7z' fill='none' stroke='black' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M12 7 7 15.5h10z' fill='none' stroke='black' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --icon-heart: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.5S2.8 15 2.8 8.7A5 5 0 0 1 12 6.1a5 5 0 0 1 9.2 2.6C21.2 15 12 21.5 12 21.5z' fill='black'/%3E%3C/svg%3E");
+  --icon-shield: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.8 20.4 5v6.6c0 5.2-3.6 8.8-8.4 10.6-4.8-1.8-8.4-5.4-8.4-10.6V5z' fill='black'/%3E%3C/svg%3E");
+  --icon-turn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 12a8 8 0 1 1-2.8-6.1' fill='none' stroke='black' stroke-width='2.8' stroke-linecap='round'/%3E%3Cpath d='M21.5 2.5v7h-7z' fill='black'/%3E%3C/svg%3E");
+
+  /* density: phone first (big thumbs) */
+  --tap: 52px;
+  --tap-key: 68px;
+  --gap: 16px;
+  --pad-page: 16px;
+  --pad-card: 16px 18px;
+  --fs-body: 18px;
+  --fs-small: 14px;
+  --fs-num: 30px;
+  --fs-title: 32px;
+  --fs-name: 21px;
+  --fs-banner: 28px;
+
+  color-scheme: dark;
+  isolation: isolate;
+  position: relative;
   min-height: 100dvh;
-  background: var(--paper);
+  font-size: var(--fs-body);
   color: var(--ink);
+  background: var(--grain), var(--planks), linear-gradient(180deg, var(--wood-2), var(--wood) 40%, var(--wood-0));
+  background-size:
+    360px 360px,
+    auto,
+    auto;
+}
+/* Tablet: dense, but a tap stays at least 44px. */
+@media (min-width: 768px) {
+  .proto-lantern {
+    --tap: 44px;
+    --tap-key: 64px;
+    --gap: 12px;
+    --pad-page: 20px;
+    --pad-card: 14px 16px;
+    --fs-body: 16px;
+    --fs-num: 26px;
+    --fs-title: 30px;
+    --fs-name: 19px;
+    --fs-banner: 26px;
+  }
+}
+/* TV: tokens only, far-away type, nothing is rendered with it yet. */
+.proto-lantern[data-density="tv"],
+[data-density="tv"] .proto-lantern {
+  --tap: 72px;
+  --tap-key: 96px;
+  --gap: 28px;
+  --pad-page: 48px;
+  --pad-card: 28px 32px;
+  --fs-body: 32px;
+  --fs-small: 24px;
+  --fs-num: 64px;
+  --fs-title: 64px;
+  --fs-name: 40px;
+  --fs-banner: 56px;
+  --ink: #fff6e0;
+  --ink-2: #ecdcb4;
+}
+
+/* The candle: a fixed pool of warm light near the top, under the content. */
+.proto-lantern::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--candle-glow), radial-gradient(ellipse 120% 90% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.55));
+}
+
+/* ---------- Parchment surfaces: dark ink on cream ---------- */
+.proto-lantern :is(.card, .combatant, .bottom-sheet, .page > .stack:has(.sheet-rows)) {
+  --paper: var(--parchment-hi);
+  --paper-2: var(--parchment-2);
+  --ink: var(--parchment-ink);
+  --ink-2: var(--parchment-ink-2);
+  --line: var(--parchment-line);
+  --accent: var(--wax);
+  --accent-ink: #fff6e2;
+  --ok: #3e6a2a;
+  --focus: #123a8f;
+  --focus-halo: #fff3cf;
+  color: var(--ink);
+  position: relative;
+  border: 0;
+  background: transparent;
+  /* the shadow is on the element, the torn edge is clipped on ::before, so the shadow follows the edge */
+  filter: drop-shadow(0 5px 3px var(--shadow)) drop-shadow(0 14px 14px rgba(8, 3, 0, 0.35));
+}
+.proto-lantern :is(.card, .combatant, .page > .stack:has(.sheet-rows))::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: var(--edge);
+  background: var(--fibre), radial-gradient(ellipse at 30% 0%, var(--parchment-hi), var(--parchment) 70%);
+  box-shadow:
+    inset 0 0 0 1px rgba(110, 70, 20, 0.28),
+    inset 0 0 34px rgba(150, 100, 40, 0.3);
+}
+.proto-lantern .combatant::before {
+  clip-path: var(--edge-slip);
+}
+/* Brass pin on a card, a wax seal on every other one. */
+.proto-lantern :is(.card, .page > .stack:has(.sheet-rows))::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 22px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--brass-hi), var(--brass) 50%, var(--brass-lo));
+  box-shadow:
+    0 2px 2px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(60, 35, 5, 0.5);
+}
+.proto-lantern :is(.card, .page > .stack:has(.sheet-rows)):nth-child(even)::after {
+  background: radial-gradient(circle at 35% 30%, #d9594a, var(--wax) 55%, #5a1710);
+}
+.proto-lantern .card:nth-child(odd) {
+  transform: rotate(-0.3deg);
+}
+.proto-lantern .card:nth-child(even) {
+  transform: rotate(0.4deg);
+}
+.proto-lantern .card {
+  padding: var(--pad-card);
+}
+
+/* ---------- Type ---------- */
+.proto-lantern
+  :is(.title, .roll-title, .step-title, .fightbar .round, .turn-banner, .band strong, .combatant .name, .head) {
+  font-family: var(--font-display);
+  font-variation-settings: var(--display-axes);
+}
+.proto-lantern .title {
+  font-size: var(--fs-title);
+  font-weight: 650;
+  line-height: 1.1;
+  text-shadow: 0 2px 10px rgba(255, 170, 70, 0.25);
+}
+.proto-lantern .card .title,
+.proto-lantern .page > .stack[aria-label="Turn order"] .title {
+  text-shadow: none;
+}
+.proto-lantern .page > .stack[aria-label="Turn order"] .title {
+  font-size: calc(var(--fs-title) * 0.72);
+}
+.proto-lantern .head {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.proto-lantern .dim {
+  color: var(--ink-2);
+}
+.proto-lantern a {
+  color: var(--brass-hi);
+}
+
+/* ---------- Focus: brass on the wood, ink blue on the parchment, always with a halo ---------- */
+.proto-lantern :focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px var(--focus-halo);
+}
+
+/* ---------- Page ---------- */
+.proto-lantern .page {
+  padding: var(--pad-page);
+  gap: calc(var(--gap) * 1.5);
+}
+.proto-lantern .stack {
+  gap: var(--gap);
+}
+.proto-lantern fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+/* ---------- Header: a dark wooden beam with a brass rule ---------- */
+.proto-lantern .band {
+  position: relative;
+  background: var(--grain-h), linear-gradient(180deg, #3a2416, var(--wood-0));
+  background-size:
+    360px 120px,
+    auto;
+  color: var(--band-ink);
+  border-bottom: 3px solid var(--brass);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 215, 150, 0.16),
+    0 2px 0 var(--brass-lo),
+    0 8px 18px rgba(0, 0, 0, 0.6);
+  z-index: 3;
+}
+.proto-lantern .band strong {
+  font-size: 22px;
+  font-weight: 650;
+}
+.proto-lantern .badge-offline {
+  border: 2px solid var(--brass-ink);
+}
+.proto-lantern .chip {
+  border: 1px solid var(--brass);
+  background: rgba(201, 154, 62, 0.14);
+  color: inherit;
+  padding: 2px 11px;
+}
+.proto-lantern :is(.card, .combatant) .chip {
+  border-color: var(--parchment-line);
+  background: rgba(120, 80, 30, 0.1);
+}
+
+/* ---------- Tabs: brass-edged plates; the selected plate is heavier, lit and carries an underline bar ---------- */
+.proto-lantern .tabs {
+  background: var(--grain-h), linear-gradient(180deg, #2a1a0f, var(--wood-0));
+  background-size:
+    360px 120px,
+    auto;
+  padding: 8px 10px 0;
+  gap: 6px;
+  align-items: flex-end;
+  border-bottom: 2px solid var(--brass-lo);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.proto-lantern .tab {
+  min-height: var(--tap);
+  flex: 1 0 auto;
+  padding: 0 18px;
+  color: var(--band-ink);
+  opacity: 1;
+  font-weight: 500;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  background: linear-gradient(180deg, var(--wood-3), var(--wood-2));
+  border: 1px solid var(--brass-lo);
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  box-shadow: inset 0 1px 0 rgba(255, 215, 150, 0.2);
+}
+.proto-lantern .tab[aria-selected="true"] {
+  font-weight: 800;
+  color: var(--brass-ink);
+  background: linear-gradient(180deg, var(--brass-hi), var(--brass));
+  border-color: var(--brass-hi);
+  box-shadow:
+    inset 0 -6px 0 var(--brass-ink),
+    0 -3px 10px rgba(255, 182, 79, 0.35);
+}
+.proto-lantern .tab[aria-selected="true"]::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  vertical-align: 1px;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+.proto-lantern .tab:focus-visible {
+  outline-offset: -4px;
+  box-shadow: inset 0 0 0 6px var(--focus-halo);
+}
+
+/* ---------- Buttons: plates. Wood plates on wood, light parchment plates on parchment ---------- */
+.proto-lantern .btn {
+  min-height: var(--tap);
+  font-size: calc(var(--fs-body) - 1px);
+  font-weight: 700;
+  border: 1px solid var(--brass-lo);
+  border-radius: 7px;
+  background: linear-gradient(180deg, var(--wood-3), var(--wood-2));
+  color: var(--ink);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 215, 150, 0.22),
+    0 2px 0 rgba(0, 0, 0, 0.5);
+}
+.proto-lantern :is(.card, .combatant, .bottom-sheet, .page > .stack:has(.sheet-rows)) .btn {
+  background: linear-gradient(180deg, var(--parchment-hi), var(--parchment-2));
+  border-color: var(--parchment-line);
+  box-shadow:
+    inset 0 1px 0 #fffbe8,
+    0 2px 0 rgba(90, 60, 20, 0.35);
+}
+.proto-lantern .btn.primary,
+.proto-lantern :is(.card, .combatant, .bottom-sheet, .page > .stack:has(.sheet-rows)) .btn.primary {
+  background: linear-gradient(180deg, var(--brass-hi), var(--brass));
+  border-color: var(--brass-lo);
+  color: var(--brass-ink);
+  box-shadow:
+    inset 0 1px 0 #fff0bf,
+    0 2px 0 var(--brass-lo);
+}
+.proto-lantern .btn.sm {
+  min-height: 32px;
+}
+.proto-lantern .btn.step {
+  min-width: 48px;
+  min-height: var(--tap);
+}
+.proto-lantern .btn[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.5);
+}
+.proto-lantern :is(.card, .combatant, .bottom-sheet, .page > .stack:has(.sheet-rows)) .btn[aria-pressed="true"] {
+  background: linear-gradient(180deg, #5a3a22, var(--parchment-ink));
+  color: var(--parchment-hi);
+}
+.proto-lantern .btn[aria-pressed="true"]::before {
+  content: "\2713";
+  margin-right: 6px;
+  font-weight: 800;
+}
+.proto-lantern .btn:disabled {
+  opacity: 0.5;
+}
+.proto-lantern input,
+.proto-lantern select {
+  min-height: var(--tap);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+.proto-lantern .wood-input,
+.proto-lantern .page > section > form input {
+  background: var(--wood-0);
+}
+
+/* ---------- Icons ---------- */
+.proto-lantern
+  :is(
+    .roll-title,
+    .sheet-row:has([aria-label*="Vigour:"]) > .stack > span:first-child,
+    .sheet-derived[aria-label^="Defense"] > span,
+    .combatant[data-acting="true"] .state-word,
+    .turn-banner,
+    .card[aria-label^="Test"] > .row:first-child strong
+  )::before {
+  content: "";
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.4em;
+  vertical-align: -0.14em;
+  background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+.proto-lantern .roll-title,
+.proto-lantern .card[aria-label^="Test"] > .row:first-child strong {
+  --icon: var(--icon-die);
+}
+.proto-lantern .sheet-row:has([aria-label*="Vigour:"]) > .stack > span:first-child {
+  --icon: var(--icon-heart);
+}
+.proto-lantern .sheet-derived[aria-label^="Defense"] > span {
+  --icon: var(--icon-shield);
+}
+.proto-lantern .state-word,
+.proto-lantern .turn-banner {
+  --icon: var(--icon-turn);
+}
+.proto-lantern .sheet-row:has([aria-label*="Vigour:"]) > .stack > span:first-child::before {
+  color: var(--wax);
+}
+
+/* ---------- Turn banner: a glowing lantern plate, the one thing that is not a card ---------- */
+.proto-lantern .turn-banner {
+  font-size: var(--fs-banner);
+  font-weight: 700;
+  color: var(--parchment-hi);
+  background:
+    radial-gradient(ellipse 70% 120% at 50% 0%, rgba(255, 182, 79, 0.55), transparent 70%), var(--grain-h),
+    linear-gradient(180deg, var(--wood-3), var(--wood-2));
+  background-size:
+    auto,
+    360px 120px,
+    auto;
+  border: 3px solid var(--brass);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 4px var(--wood-0),
+    inset 0 0 0 5px var(--brass-lo),
+    0 0 26px rgba(255, 182, 79, 0.45),
+    0 8px 14px var(--shadow);
+  text-shadow: 0 0 14px rgba(255, 190, 90, 0.8);
+}
+
+/* ---------- Test prompt (the roll card) and the keys ---------- */
+.proto-lantern .roll-card {
+  border: 0;
+}
+.proto-lantern .roll-card::before {
+  box-shadow:
+    inset 0 0 0 7px var(--parchment),
+    inset 0 0 0 8px rgba(156, 47, 35, 0.8),
+    inset 0 0 0 10px var(--parchment),
+    inset 0 0 0 11px rgba(156, 47, 35, 0.4),
+    inset 0 0 34px rgba(150, 100, 40, 0.3);
+}
+.proto-lantern .roll-card::after {
+  background: radial-gradient(circle at 35% 30%, #d9594a, var(--wax) 55%, #5a1710);
+  width: 24px;
+  height: 24px;
+  top: -10px;
+  left: 20px;
+}
+.proto-lantern .roll-title {
+  font-size: 24px;
+  font-weight: 700;
+}
+.proto-lantern .roll-slot {
+  font-family: var(--font-display);
+  font-variation-settings: var(--display-axes);
+  min-height: 92px;
+  border: 2px solid var(--parchment-line);
+  border-radius: 12px;
+  background: var(--parchment-hi);
+  box-shadow: inset 0 3px 8px rgba(110, 70, 20, 0.35);
+}
+.proto-lantern .roll-slot[aria-pressed="true"] {
+  border-color: var(--wax);
+  box-shadow:
+    inset 0 -7px 0 var(--wax),
+    inset 0 3px 8px rgba(110, 70, 20, 0.35);
+}
+.proto-lantern .roll-pad {
+  gap: 10px;
+}
+.proto-lantern .roll-key {
+  min-height: var(--tap-key);
+  font-size: 28px;
+  border: 1px solid var(--parchment-line);
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--parchment-hi), var(--parchment-2));
+  box-shadow:
+    inset 0 1px 0 #fffbe8,
+    0 3px 0 rgba(90, 60, 20, 0.45);
+}
+.proto-lantern .roll-key:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+.proto-lantern .roll-key.report {
+  background: linear-gradient(180deg, var(--brass-hi), var(--brass));
+  border-color: var(--brass-lo);
+  color: var(--brass-ink);
+  font-size: 20px;
+  font-weight: 800;
+}
+.proto-lantern .roll-result {
+  color: var(--ink);
+}
+
+/* ---------- Sheet ---------- */
+.proto-lantern .page > .stack:has(.sheet-rows) {
+  padding: 22px 20px 12px;
+  gap: 22px;
+  transform: rotate(0.25deg);
+}
+.proto-lantern .page > .stack:has(.sheet-rows) > .stack {
+  gap: 4px;
+}
+.proto-lantern .sheet-rows {
+  border-top: 0;
+}
+.proto-lantern .sheet-row {
+  min-height: calc(var(--tap) + 6px);
+  font-size: calc(var(--fs-body) + 1px);
+  border-bottom: 1px dotted var(--parchment-line);
+}
+.proto-lantern .sheet-row:last-child {
+  border-bottom: 0;
+}
+.proto-lantern .sheet-row > .row {
+  flex-wrap: nowrap;
+  flex: none;
+}
+.proto-lantern .sheet-num {
+  white-space: nowrap;
+  font-size: var(--fs-num);
+  font-weight: 800;
+}
+.proto-lantern .sheet-num.sheet-text {
+  font-size: calc(var(--fs-body) + 1px);
+}
+.proto-lantern .sheet-derived {
+  min-height: calc(var(--tap) + 6px);
+}
+.proto-lantern .sheet-derived .sheet-num {
+  border-bottom: 2px dotted var(--wax);
+}
+.proto-lantern .page > .stack:has(.sheet-rows) .list > li {
+  border-bottom: 1px dotted var(--parchment-line);
+}
+@media (min-width: 768px) {
+  .proto-lantern .page > .stack:has(.sheet-rows) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 36px;
+  }
+}
+
+.proto-lantern .bottom-sheet {
+  border-top: 4px solid var(--brass);
+  filter: drop-shadow(0 -8px 14px rgba(0, 0, 0, 0.5));
+  background: var(--parchment);
+}
+
+/* ---------- Turn order: parchment slips. The acting one is pulled out of line and lit by a candle ---------- */
+.proto-lantern .order {
+  gap: 10px;
+}
+.proto-lantern .combatant {
+  padding: 10px 14px 10px 18px;
+  gap: 4px 12px;
+  filter: drop-shadow(0 3px 2px var(--shadow));
+  transform: rotate(-0.3deg);
+}
+.proto-lantern .combatant:nth-child(even) {
+  transform: rotate(0.45deg);
+}
+.proto-lantern .combatant::before {
+  box-shadow:
+    inset 6px 0 0 var(--parchment-line),
+    inset 0 0 20px rgba(150, 100, 40, 0.28);
+}
+.proto-lantern .combatant[data-acting="true"] {
+  box-shadow: none;
+  transform: translateX(8px) rotate(0deg);
+  filter: drop-shadow(0 0 16px rgba(255, 182, 79, 0.85)) drop-shadow(0 8px 6px var(--shadow));
+}
+.proto-lantern .combatant[data-acting="true"]::before {
+  background: radial-gradient(ellipse at 20% 0%, #fffbe8, #f6e2ae 80%);
+  box-shadow:
+    inset 9px 0 0 var(--wax),
+    inset 0 0 0 2px var(--brass),
+    inset 0 0 26px rgba(255, 182, 79, 0.45);
+}
+.proto-lantern .combatant[data-selected="true"] {
+  outline: 3px dashed var(--brass-hi);
+  outline-offset: 4px;
+}
+.proto-lantern .combatant .name {
+  font-size: var(--fs-name);
+  font-weight: 650;
+}
+.proto-lantern .combatant .score {
+  width: 76px;
+  font-size: 22px;
+  font-weight: 800;
+}
+.proto-lantern .state-word {
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: var(--wax);
+  white-space: nowrap;
+}
+.proto-lantern .bar {
+  height: 14px;
+  border: 1px solid #4a3220;
+  background: #4a3220;
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.5);
+  min-width: 90px;
+}
+.proto-lantern .bar > span {
+  background: linear-gradient(180deg, #7fb85f, var(--ok));
+}
+.proto-lantern .bar[data-low="true"] > span {
+  background: linear-gradient(180deg, #d9594a, var(--wax));
+}
+
+/* ---------- Track (tablet): slips on the left, a larger sheet for the combatant on the right ---------- */
+.proto-lantern .fightbar {
+  background: var(--grain-h), linear-gradient(180deg, #2a1a0f, var(--wood-0));
+  background-size:
+    360px 120px,
+    auto;
+  border-bottom: 2px solid var(--brass);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.5);
+  padding: 10px var(--pad-page);
+  margin: calc(var(--pad-page) * -1) calc(var(--pad-page) * -1) 0;
+  top: 0;
+}
+.proto-lantern .fightbar .round {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--candle);
+  text-shadow: 0 0 14px rgba(255, 182, 79, 0.6);
+}
+.proto-lantern .track {
+  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  padding: 8px 12px 0 0;
+}
+@media (max-width: 800px) {
+  .proto-lantern .track {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (min-width: 801px) {
+  .proto-lantern .track > section.card {
+    position: sticky;
+    top: 84px;
+    padding: 24px 26px 22px;
+    gap: 14px;
+  }
+  .proto-lantern .track > section.card > .title {
+    font-size: 34px;
+  }
+}
+.proto-lantern .keypad-out {
+  font-family: var(--font-display);
+  font-variation-settings: var(--display-axes);
+  font-size: 48px;
+  padding: 2px 14px;
+  border-radius: 8px;
+  background: rgba(110, 70, 20, 0.14);
+  box-shadow: inset 0 3px 6px rgba(110, 70, 20, 0.3);
+}
+.proto-lantern .seg .btn {
+  min-height: var(--tap);
+}
+.proto-lantern .list > li {
+  border-bottom: 1px dotted var(--line);
+}
+
+/* ---------- Test calls ---------- */
+.proto-lantern .grid {
+  gap: calc(var(--gap) * 1.6);
+  padding-top: 8px;
+}
+.proto-lantern .card > .row:first-child strong {
+  font-family: var(--font-display);
+  font-variation-settings: var(--display-axes);
+  font-size: 21px;
+  font-weight: 650;
+}
+.proto-lantern .roll-line {
+  line-height: 1.5;
+}
+.proto-lantern .roll-result {
+  font-size: 17px;
+}
+
+/* ---------- Reduced motion: no pulse movement, the plate just lights ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .proto-lantern .roll-key:active {
+    transform: none;
+  }
 }

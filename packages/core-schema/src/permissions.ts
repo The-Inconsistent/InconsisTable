@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { type CogmScope, type Ctx, type MemberRole, type SeatRole } from "./seat.ts";
+import type { ActorKind } from "./state.ts";
 
 // Permissions are data (docs/design.md §3.6). Every action declares the one it needs (ACTION_PERMS in actions.ts), and
 // `authorize` asks `canInCampaign` before the action's own validator runs.
@@ -133,3 +134,11 @@ export function canGrantRole({ ctx, role }: { ctx: Ctx; role: MemberRole }): boo
   if (ctx.userId !== null && ctx.userId === ctx.campaignOwnerId) return true;
   return role === "player" && canInCampaign({ ctx, perm: "member:invite" });
 }
+
+// Actors every seat sees by name: the party. NPCs, creatures and the rest stay on the GM side until a seat holds one.
+export const PARTY_KINDS: ReadonlySet<ActorKind> = new Set(["pc", "companion"]);
+
+// The permission that puts a seat on the GM side of one actor: the `party` scope for the party's characters, `combat`
+// for every other kind (house decision #31). The web asks it to show a sheet whole; the api asks it before a write.
+export const gmPermOf = (kind: ActorKind): Permission =>
+  PARTY_KINDS.has(kind) ? "character:edit:any" : "encounter:run";

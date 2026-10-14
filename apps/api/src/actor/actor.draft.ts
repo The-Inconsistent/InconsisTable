@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import type { Action, ActionResult, BuilderDraftBody, Ctx, LiveState } from "@inconsistable/core-schema";
+import type { Action, ActionResult, BuilderDraftBody, Ctx } from "@inconsistable/core-schema";
 import { campaign } from "../campaign/campaign.schema.ts";
 import type { Db, Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
@@ -40,17 +40,6 @@ export async function applyDraftAction(
     });
   return { ok: true };
 }
-
-/** A snapshot with the receiving user's own draft in `myDraft`; every other user's stays out of it. */
-export const forUser = ({
-  state,
-  drafts,
-  ctx,
-}: {
-  state: LiveState;
-  drafts: ReadonlyMap<string, BuilderDraftBody>;
-  ctx: Ctx;
-}): LiveState => ({ ...state, myDraft: (ctx.userId !== null && drafts.get(ctx.userId)) || null });
 
 /** The room's drafts by user, only those written under the ruleset the room has pinned now. */
 export async function loadDrafts(conn: Db, campaignId: string): Promise<Map<string, BuilderDraftBody>> {

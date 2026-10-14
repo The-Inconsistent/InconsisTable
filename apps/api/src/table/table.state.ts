@@ -1,15 +1,6 @@
 import { and, asc, count, desc, eq, gt, isNull } from "drizzle-orm";
-import {
-  canInCampaign,
-  toSeatState,
-  visibleTimers,
-  type Actor,
-  type BuilderDraftBody,
-  type Codex,
-  type Ctx,
-  type LiveState,
-} from "@inconsistable/core-schema";
-import { toViewerView, type ActorView, type CompiledRuleset, type Viewer } from "@inconsistable/rules-engine";
+import type { BuilderDraftBody, Codex, LiveState } from "@inconsistable/core-schema";
+import type { CompiledRuleset } from "@inconsistable/rules-engine";
 import { loadDrafts } from "../actor/actor.draft.ts";
 import { buildActors, loadActorRows, toLiveActor } from "../actor/actor.values.ts";
 import {
@@ -22,21 +13,22 @@ import {
 } from "../auth/auth.schema.ts";
 import { campaign, session } from "../campaign/campaign.schema.ts";
 import { codexEntry, codexReveal } from "../codex/codex.schema.ts";
-import { healthResource, loadEncounter } from "../encounter/encounter.state.ts";
+import { loadEncounter } from "../encounter/encounter.state.ts";
 import { db } from "../core/db.ts";
 import { loadCompiled } from "../ruleset/ruleset.compiled.ts";
 import { loadTests, testDefsOf } from "../test-call/test-call.state.ts";
+import type { Snapshot } from "../view/view.ts";
 
 const iso = (d: Date | null) => d?.toISOString() ?? null;
 
 // The live snapshot with the ruleset it was built under, read after the action's transaction commits (CLAUDE.md, "The
-// server decides"). The full snapshot is for GM seats; every other seat goes through `seatState`.
+// server decides"). It is whole: what a seat receives of it is the Seat view module's call (../view/view.seat.ts).
 // ponytail: whole snapshot per action, fine at table scale; versioned per-seat patches once a snapshot passes ~256 KB
 // or its build passes ~50 ms at p95 in the P3 load test (docs/design.md §5.6)
 export interface Live {
   state: LiveState;
   compiled: CompiledRuleset | null;
-  /** Builder drafts by user. Never part of `state`: each user is sent only their own (`forUser`). */
+  /** Builder drafts by user. Never part of `state`: each user is sent only their own (the Seat view). */
   drafts: Map<string, BuilderDraftBody>;
 }
 
@@ -113,7 +105,7 @@ export async function loadLive(campaignId: string): Promise<Live | null> {
           }
         : null,
     actors: actorRows.map((r) => toLiveActor(built[r.actor.id]!)), // built from these very rows
-    myDraft: null, // filled in per user (forUser)
+    myDraft: null, // filled in per seat (the Seat view)
     tests,
     testDefs: testDefsOf(compiled),
     encounter: await loadEncounter(db, { campaignId, compiled, built }),
@@ -147,68 +139,6 @@ export async function loadLive(campaignId: string): Promise<Live | null> {
   return { state, compiled, drafts: await loadDrafts(db, campaignId) };
 }
 
-// The viewer the rules engine filters for: what the seat is, and the characters it holds.
-const viewerOf = (ctx: Ctx): Viewer =>
-  ctx.seat.kind === "admin"
-    ? { role: "gm", characterIds: [] }
-    : { role: ctx.seat.role, characterIds: ctx.seat.characterIds };
-
-// The ruleset values of one actor as a seat may see them, in the snapshot's (mutable) shape.
-const copyValues = (v: ActorView): Pick<Actor, "entity" | "fields" | "resources" | "derived" | "conditions"> => ({
-  entity: v.entity,
-  fields: Object.fromEntries(
-    Object.entries(v.fields).map(([k, x]) => [k, typeof x === "object" && x !== null ? [...x] : x]),
-  ),
-  resources: { ...v.resources },
-  derived: { ...v.derived },
-  conditions: [...v.conditions],
-});
-
-// What one non-GM seat receives: the core filter (which actors, access, notes), then the ruleset's declared visibility
-// over each actor's values (docs/design.md §5.5). Fail-closed: with no ruleset to say who sees a value, none is sent.
-export function seatState({ live, ctx }: { live: Live; ctx: Ctx }): LiveState {
-  const state = toSeatState({ state: live.state, ctx });
-  const { compiled } = live;
-  const seen = new Map(
-    (compiled ? toViewerView({ compiled, viewer: viewerOf(ctx), actors: state.actors }).actors : []).map((v) => [
-      v.id,
-      v,
-    ]),
-  );
-  // A `full` combatant shows its health numbers only where the ruleset lets this viewer see them (a creature the seat
-  // doesn't hold is not in `state.actors`, so its values are run through the viewer view here).
-  const resource = healthResource(compiled);
-  const full = state.encounter?.combatants.filter((c) => c.hp !== null) ?? [];
-  const sees =
-    compiled && resource !== undefined && full.length > 0 && !canInCampaign({ ctx, perm: "encounter:run" })
-      ? new Set(
-          toViewerView({
-            compiled,
-            viewer: viewerOf(ctx),
-            actors: live.state.actors.filter((a) => full.some((c) => c.actorId === a.id)),
-          }).actors.flatMap((v) => (Object.hasOwn(v.resources, resource) ? [v.id] : [])),
-        )
-      : null;
-  return {
-    ...state,
-    encounter:
-      state.encounter && sees
-        ? {
-            ...state.encounter,
-            combatants: state.encounter.combatants.map((c) => (sees.has(c.actorId) ? c : { ...c, hp: null })),
-          }
-        : state.encounter,
-    actors: state.actors.map((a) => {
-      const v = seen.get(a.id);
-      return {
-        ...a,
-        ...(v ? copyValues(v) : { entity: "", fields: {}, resources: {}, derived: {}, conditions: [] }),
-        conditionTimers: visibleTimers({ timers: a.conditionTimers, visible: v?.conditions ?? [] }),
-      };
-    }),
-  };
-}
-
 export async function loadCodex(campaignId: string): Promise<Codex> {
   const [entries, reveals] = await Promise.all([
     db.select().from(codexEntry).where(eq(codexEntry.campaignId, campaignId)).orderBy(asc(codexEntry.createdAt)),
@@ -230,4 +160,12 @@ export async function loadCodex(campaignId: string): Promise<Codex> {
       audience: reveals.filter((r) => r.entryId === e.id).map((r) => r.actorId),
     })),
   };
+}
+
+/** Both snapshots, whole, with the ruleset they were built under: the input of a Seat view. Null for a gone campaign. */
+export async function loadSnapshot(
+  campaignId: string,
+): Promise<{ snapshot: Snapshot; compiled: CompiledRuleset | null } | null> {
+  const [live, codex] = await Promise.all([loadLive(campaignId), loadCodex(campaignId)]);
+  return live && { snapshot: { state: live.state, codex, drafts: live.drafts }, compiled: live.compiled };
 }

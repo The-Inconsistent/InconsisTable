@@ -1,9 +1,7 @@
 import { z } from "zod";
-import { canInCampaign } from "./permissions.ts";
-import type { Ctx } from "./seat.ts";
 
-// The combat tracker's wire shapes (docs/p1-plan.md, F): the encounter in the live snapshot, what each seat is allowed
-// of it, and the actions that run it.
+// The combat tracker's wire shapes (docs/p1-plan.md, F): the encounter in the live snapshot and the actions that run it
+// (what each seat gets of it is decided by the api's Seat view module).
 
 export const CombatSide = z.enum(["party", "foe", "other"]);
 export type CombatSide = z.infer<typeof CombatSide>;
@@ -51,28 +49,6 @@ export const Encounter = z.object({
   combatants: z.array(Combatant), // in turn order
 });
 export type Encounter = z.infer<typeof Encounter>;
-
-/**
- * The encounter one seat receives. The side that runs the fight sees everything. Anyone else (players, the table screen)
- * gets no hidden combatant at all, the turn passes over a hidden one without naming it, a `bar` combatant carries its
- * fraction and no numbers, and the GM's own marks (keep, conditions) stay home.
- */
-export function toSeatEncounter({ encounter, ctx }: { encounter: Encounter | null; ctx: Ctx }): Encounter | null {
-  if (encounter === null || canInCampaign({ ctx, perm: "encounter:run" })) return encounter;
-  const seen = encounter.combatants.filter((c) => c.visibility !== "hidden");
-  return {
-    ...encounter,
-    conditionDefs: [],
-    currentId: seen.some((c) => c.id === encounter.currentId) ? encounter.currentId : null,
-    combatants: seen.map((c, i) => ({
-      ...c,
-      ord: i, // renumbered over what the seat sees, so a gap never shows where a hidden one sits
-      keep: false,
-      conditions: [],
-      hp: c.visibility === "full" ? c.hp : null,
-    })),
-  };
-}
 
 const id = z.uuid();
 

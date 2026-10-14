@@ -4,7 +4,7 @@ import { CogmScope, MemberRole } from "./seat.ts";
 import { TestCall, TestDef } from "./test-call.ts";
 
 // The two snapshots every seat receives (docs/design.md §5.5): `state` (the live table) and `codex` (the world).
-// Each seat gets its own filtered copy (view.ts); the GM room gets them whole.
+// Each seat gets its own filtered copy (the api Seat view module); a GM seat gets them whole.
 
 export const CampaignName = z.string().trim().min(1).max(100);
 
@@ -95,7 +95,7 @@ export const Session = z.object({
   startedAt: z.string(),
   endedAt: z.string().nullable(),
   recap: z.string(),
-  notes: z.string(), // GM only (view.ts)
+  notes: z.string(), // the session side only (the api's Seat view module)
 });
 export type Session = z.infer<typeof Session>;
 
@@ -123,7 +123,7 @@ export const LiveState = z.object({
   actors: z.array(Actor),
   // The receiving user's own builder draft, under the ruleset this room has pinned; null for every other seat.
   myDraft: BuilderDraftBody.nullable(),
-  // Tests called and still open, or closed in this session; each seat gets its own filter (test-call.ts).
+  // Tests called and still open, or closed in this session; each seat gets its own filter (the api's Seat view module).
   tests: z.array(TestCall),
   // The pinned ruleset's Tests, so the GM can call one. GM seats only.
   testDefs: z.array(TestDef),

@@ -1,11 +1,12 @@
 import { and, eq, sql } from "drizzle-orm";
-import { seatRole, type Action, type ActionResult, type Ctx } from "@inconsistable/core-schema";
+import type { Action, ActionResult, Ctx } from "@inconsistable/core-schema";
 import { runCreation, type CompiledRuleset } from "@inconsistable/rules-engine";
 import { campaign } from "../campaign/campaign.schema.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
 import { entryLookup, loadServedEntries } from "../pack/pack.lookup.ts";
 import { loadCompiled } from "../ruleset/ruleset.compiled.ts";
+import { sightOf } from "../view/view.ts";
 import { actor, actorChoice, actorField, builderDraft } from "./actor.schema.ts";
 import { writeStart } from "./actor.start.ts";
 
@@ -49,11 +50,11 @@ export async function buildActor(tx: Tx, { ctx, action: a }: { ctx: Ctx; action:
   ]);
   if ((fields[0]?.n ?? 0) + (choices[0]?.n ?? 0) > 0) fail("Already built. Ask the GM to correct a value");
 
-  // A player picks from what a player may see; a GM side from everything attached (house decision #18).
+  // A player picks from what a player may see; the combat side from everything attached (house decisions #18, #31).
   const types = [...new Set(compiled.ruleset.creation.flatMap((s) => (s.kind === "choose" ? [s.pick] : [])))];
   const lookup = entryLookup({
     entries: await loadServedEntries(tx, { campaignId: cid, types }),
-    gm: ["gm", "cogm"].includes(seatRole(ctx.seat)),
+    gm: sightOf(ctx).combat,
   });
   const result = runCreation({ ruleset: compiled.ruleset, actor: entity, answers: a.answers, lookup });
   if (!result.ok) fail(problemLines(result.problems));

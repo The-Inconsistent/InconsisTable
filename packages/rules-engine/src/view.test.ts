@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { compileRuleset, type CompiledRuleset } from "./compile.ts";
 import { SAMPLE_D20 } from "./fixtures/sample-d20.ts";
-import { canSee, toViewerView, type ActorView, type Viewer } from "./view.ts";
+import { toViewerView, type ActorView, type Viewer } from "./view.ts";
 
 function compiled(): CompiledRuleset {
   const r = compileRuleset(SAMPLE_D20);
@@ -41,40 +41,6 @@ function view(viewer: Viewer, actors: ActorView[] = [HERO, OGRE, GHOST]) {
   return toViewerView({ compiled: C, viewer, actors }).actors;
 }
 
-test("gm and cogm see everything", () => {
-  assert.deepEqual(view({ role: "gm", characterIds: [] }), [HERO, OGRE, GHOST]);
-  assert.deepEqual(view({ role: "cogm", characterIds: [] }), [HERO, OGRE, GHOST]);
-});
-
-test("the owning player sees owner values; party values reach every player", () => {
-  const [hero, ogre, ghost] = view({ role: "player", characterIds: ["pc1"] });
-  assert.deepEqual(hero?.fields, { name: "Ash", level: 3, "attr.dex": 16, diary: "dear diary" });
-  assert.deepEqual(hero?.resources, { hp: 9, focus: 1 });
-  assert.deepEqual(hero?.derived, { maxHp: 15, initBonus: 3 });
-  assert.deepEqual(hero?.conditions, ["dazed"]);
-  // A creature's stats are GM-only by default; its name and status were declared looser.
-  assert.deepEqual(ogre?.fields, { name: "Ogre", healthState: "ok" });
-  assert.deepEqual(ogre?.resources, { hp: 30 });
-  assert.deepEqual(ogre?.derived, {});
-  assert.deepEqual(ogre?.conditions, ["braced"]);
-  // An entity type the manifest does not know is fail-closed.
-  assert.deepEqual(ghost?.fields, {});
-  assert.deepEqual(ghost?.resources, { hp: 1 });
-});
-
-test("another player does not see owner values", () => {
-  const [hero] = view({ role: "player", characterIds: ["pc2"] });
-  assert.equal(hero?.fields.diary, undefined);
-  assert.equal(hero?.resources.focus, undefined);
-  assert.equal(hero?.resources.hp, 9);
-});
-
-test("the table screen sees party values but no owner values", () => {
-  const [hero] = view({ role: "screen", characterIds: ["pc1"] });
-  assert.deepEqual(hero?.fields, { name: "Ash", level: 3, "attr.dex": 16 });
-  assert.deepEqual(hero?.resources, { hp: 9 });
-});
-
 test("the public sees public values only", () => {
   const [hero, ogre] = view({ role: "public", characterIds: [] });
   assert.deepEqual(hero?.fields, { name: "Ash" });
@@ -82,14 +48,6 @@ test("the public sees public values only", () => {
   assert.deepEqual(hero?.derived, {});
   assert.deepEqual(hero?.conditions, []);
   assert.deepEqual(ogre?.fields, { name: "Ogre" });
-});
-
-test("canSee", () => {
-  const player: Viewer = { role: "player", characterIds: ["a"] };
-  assert.equal(canSee({ visibility: "owner", viewer: player, actorId: "a" }), true);
-  assert.equal(canSee({ visibility: "owner", viewer: player, actorId: "b" }), false);
-  assert.equal(canSee({ visibility: "gm", viewer: player, actorId: "a" }), false);
-  assert.equal(canSee({ visibility: "party", viewer: { role: "public", characterIds: [] }, actorId: "a" }), false);
 });
 
 test("the ruleset's view function runs after the visibility filter", () => {

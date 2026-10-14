@@ -38,8 +38,8 @@ export function canSee({
   viewer: Viewer;
   actorId: string;
 }): boolean {
-  // ponytail: a cogm reads like a gm; per-scope reads (codex.secrets…) come with the cogm scopes in core-schema.
-  if (viewer.role === "gm" || viewer.role === "cogm") return true;
+  // Who counts as a `gm` for which actor is the api's Seat view module's call; it hands a co-GM the role it earns.
+  if (viewer.role === "gm") return true;
   switch (visibility) {
     case "public":
       return true;

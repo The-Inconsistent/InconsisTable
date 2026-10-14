@@ -1,10 +1,8 @@
 import { z } from "zod";
-import { canInCampaign } from "./permissions.ts";
-import type { Ctx } from "./seat.ts";
 
 // A Test the GM has called (docs/design.md §6.3, docs/p1-plan.md G). The dice stay physical: a seat reports what
 // it rolled and the server resolves it with the engine, because the target number may be hidden. Everything here is
-// what the *snapshot* carries; `toSeatTests` decides, per seat, which of it leaves the server.
+// what the *snapshot* carries; the api's Seat view module decides, per seat, which of it leaves the server.
 
 // What the engine calls the outcome (`TestOutcome`) and a Test input's type (`ScalarType`) are the engine's closed
 // sets; core-schema can't import the engine, so they travel as strings and the web parses them with the engine's schemas.
@@ -113,65 +111,3 @@ export const TestCloseAction = z.object({
   callId: z.uuid(),
   reveal: z.boolean().default(false),
 });
-
-/**
- * The calls one seat may see. GM seats (and a co-GM with the session scope) see them whole. The table screen sees that a
- * Test is open and how far it is, never who or what. A player sees only the calls that name a character they hold,
- * and in them: the target only if it is shown, their own result only as far as the call allows, and the other
- * characters' results (outcome and die, never the modifier) only once the GM revealed them.
- */
-export function toSeatTests({ tests, ctx }: { tests: readonly TestCall[]; ctx: Ctx }): TestCall[] {
-  if (canInCampaign({ ctx, perm: "test:call" })) return [...tests];
-  const held = ctx.seat.kind === "admin" ? [] : ctx.seat.characterIds;
-  const stripped = { secretInputs: [] };
-  if (ctx.seat.kind === "token" && ctx.seat.role === "screen") {
-    return tests
-      .filter((c) => c.status === "open")
-      .map((c) => ({
-        ...c,
-        ...stripped,
-        inputs: {},
-        showTarget: false,
-        showModifier: false,
-        showOutcome: false,
-        revealed: false,
-        targets: [],
-      }));
-  }
-  return tests.flatMap((c) => {
-    const mine = c.targets.filter((t) => held.includes(t.actorId));
-    if (mine.length === 0) return [];
-    const targets = (c.revealed ? c.targets : mine).map((t): TestTargetState => {
-      const own = held.includes(t.actorId);
-      // A Dice pool's margin and shifts give the difficulty number away (score minus margin), so they follow the
-      // number itself, or the GM revealing it; the flags come from the dice the seat read out, so they leak nothing.
-      const knowsNumber = c.revealed || (own && c.showTarget);
-      const report = t.report && {
-        natural: t.report.natural,
-        total: own && c.showModifier ? t.report.total : null,
-        outcome: own && !c.showOutcome && !c.revealed ? null : t.report.outcome,
-        margin: knowsNumber ? t.report.margin : null,
-        shifts: knowsNumber ? t.report.shifts : null,
-        flags: t.report.flags,
-      };
-      return {
-        actorId: t.actorId,
-        modifier: own && c.showModifier ? t.modifier : null,
-        target: own && c.showTarget ? t.target : null,
-        pool: own && c.showModifier ? t.pool : null,
-        report,
-      };
-    });
-    return [
-      {
-        ...c,
-        ...stripped,
-        inputs: Object.fromEntries(Object.entries(c.inputs).filter(([k]) => !c.secretInputs.includes(k))),
-        // Players count what concerns them, not how many others were called.
-        called: mine.length,
-        reported: mine.filter((t) => t.report !== null).length,
-        targets,
-      },
-    ];
-  });
-}

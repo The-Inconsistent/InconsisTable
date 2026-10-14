@@ -332,7 +332,7 @@ test("the room's settings and its sessions: update, start, edit, end", async () 
   refused(await ana.send({ type: "session.edit", sessionId, title: "x" }), /permission/);
   refused(await owner.send({ type: "session.edit", sessionId: crypto.randomUUID(), title: "x" }), /not found/);
 
-  // A co-GM who runs sessions but holds no secrets edits the title, never the notes they aren't shown.
+  // A co-GM who runs sessions reads the notes (house decision #31) but holds no secrets: they edit the title, not the notes.
   const cogmInv = ok(
     await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false }),
   ).token!;
@@ -340,7 +340,7 @@ test("the room's settings and its sessions: update, start, edit, end", async () 
   assert.equal((await post(`/invites/${cogmInv}/accept`, {}, bearer(coClerk))).status, 200);
   ok(await owner.send({ type: "member.appoint", userId: uid("co-set"), role: "cogm", scopes: ["session"] }));
   const co = connect({ auth: { campaignId, clerkToken: coClerk } });
-  assert.equal((await co.until(() => true)).session?.notes, "", "the co-GM isn't shown the notes");
+  assert.equal((await co.until(() => true)).session?.notes, "the twist", "the session scope reads the notes");
   refused(await co.send({ type: "session.edit", sessionId, notes: "" }), /secrets scope/);
   ok(await co.send({ type: "session.edit", sessionId, title: "Co's title" }));
   await owner.until((s) => s.session?.title === "Co's title" && s.session.notes === "the twist");
@@ -2065,4 +2065,31 @@ test("encounter: a full combatant's health stays home where the viewer view hide
   assert.notEqual(hp(held), null, "her own character's health is hers to see");
   assert.equal(hp(npc), null, "the party's health stays home where the ruleset keeps it private");
   for (const c of [owner, ana]) c.socket.close();
+});
+
+test("seat views: a combat-only co-GM runs the hidden creature, and reads no codex secret nor hidden Test target", async () => {
+  const { owner, ana, campaignId, ogre, call } = await testRoom("SeatView");
+  const co = await coGm({ owner, campaignId, name: "co-combat-SeatView", scopes: ["combat"] });
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: [ogre], side: "foe", visibility: "hidden" }));
+  const id = ok(await owner.send(call())).id!;
+  const secret = ok(await owner.send({ type: "codex.save", kind: "handout", title: "Secret", gmNotes: "a trap" })).id!;
+
+  const combatants = (s: LiveState) => s.encounter?.combatants.length;
+  const gm = await owner.until((s) => combatants(s) === 1 && s.tests.some((t) => t.id === id));
+  assert.equal(gm.tests.find((t) => t.id === id)?.targets[0]?.target, DN);
+  const player = await ana.until((s) => s.encounter !== null && s.tests.some((t) => t.id === id));
+  assert.equal(combatants(player), 0, "a hidden Combatant is not in the player's order");
+  assert.equal(player.tests.find((t) => t.id === id)?.targets[0]?.target, null);
+
+  const coState = await co.until((s) => combatants(s) === 1);
+  assert.equal(actorIn(coState, ogre)?.fields["attr.con"], 10, "the combat scope reads the creature's values");
+  assert.equal(coState.tests.length, 0, "no Test without the session scope");
+  await eventually(() => owner.codex()?.entries.some((e) => e.id === secret) ?? false, "the GM reads the secret");
+  assert.equal(
+    co.codex()?.entries.some((e) => e.id === secret),
+    false,
+    "a combat-only co-GM reads no secret",
+  );
+  for (const c of [owner, ana, co]) c.socket.close();
 });

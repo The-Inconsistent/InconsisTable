@@ -5,6 +5,7 @@ import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
 import { campaignPack, pack, packVersion } from "../pack/pack.schema.ts";
 import { ruleset, rulesetVersion } from "../ruleset/ruleset.schema.ts";
+import { runsAsGm } from "../view/view.ts";
 import { campaign } from "./campaign.schema.ts";
 
 export type RulesAction = Extract<
@@ -73,8 +74,7 @@ export async function applyRulesAction(
       if (p.disabledAt) fail("This pack was taken down by an admin");
       if (p.hiddenAt) fail("This pack is deleted: import it again to use it");
       // A `private` pack (copied from a book) never leaves the rooms its owner runs as GM (CLAUDE.md, principle 4).
-      if (p.license === "private" && !(ctx.seat.kind === "member" && ctx.seat.role === "gm"))
-        fail("A private pack can only be used in a room you run as GM");
+      if (p.license === "private" && !runsAsGm(ctx)) fail("A private pack can only be used in a room you run as GM");
 
       const [room] = await tx
         .select({ rulesetId: rulesetVersion.rulesetId })

@@ -87,7 +87,7 @@ export type TurnKey = z.infer<typeof TurnKey>;
 export const TestKey = z.enum(["outcome", "total", "natural", "margin", "shifts", "flags"]);
 export type TestKey = z.infer<typeof TestKey>;
 
-export const ViewerRole = z.enum(["gm", "cogm", "player", "screen", "public"]);
+export const ViewerRole = z.enum(["gm", "player", "screen", "public"]);
 export type ViewerRole = z.infer<typeof ViewerRole>;
 
 export const TestOutcome = z.enum(["success", "failure", "critical"]);

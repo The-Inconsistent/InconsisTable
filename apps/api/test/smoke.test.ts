@@ -1520,7 +1520,7 @@ test("a Dice pool Test: the pool is set at the call, the server counts the repor
     shifts: null,
     flags: ["critical"],
   });
-  const tv = callIn(await screen.until((s) => callIn(s, id) !== undefined), id)!;
+  const tv = callIn(await screen.until((s) => callIn(s, id)?.reported === 1), id)!;
   assert.deepEqual([tv.called, tv.reported, tv.targets, tv.pool?.die], [2, 1, [], 8]);
 
   // Bram, a complication on an empty count: fails by 3 (0 against 3), no shift.

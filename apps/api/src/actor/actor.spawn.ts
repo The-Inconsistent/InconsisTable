@@ -4,6 +4,8 @@ import type { FieldValue } from "@inconsistable/rules-engine";
 import { campaign } from "../campaign/campaign.schema.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
+import { addCombatants } from "../encounter/encounter.combatants.ts";
+import { activeEncounter } from "../encounter/encounter.turn.ts";
 import { entryLookup, loadServedEntries } from "../pack/pack.lookup.ts";
 import { loadCompiled } from "../ruleset/ruleset.compiled.ts";
 import { actor } from "./actor.schema.ts";
@@ -63,5 +65,15 @@ export async function spawnActors(
     .returning({ id: actor.id });
   const fields = entry.body as Record<string, FieldValue>;
   const id = await writeStart(tx, { ctx, compiled, targets: made.map((m) => ({ actorId: m.id, fields })) });
+  // A fight is on: the creatures join it, unseen by the table until the GM shows them.
+  const fight = await activeEncounter(tx, cid);
+  if (fight)
+    await addCombatants(tx, {
+      campaignId: cid,
+      encounterId: fight.id,
+      actorIds: made.map((m) => m.id),
+      side: "foe",
+      visibility: "hidden",
+    });
   return { ok: true, id: id ?? undefined };
 }

@@ -1,6 +1,8 @@
 import { and, asc, count, desc, eq, gt, isNull } from "drizzle-orm";
 import {
+  canInCampaign,
   toSeatState,
+  visibleTimers,
   type Actor,
   type BuilderDraftBody,
   type Codex,
@@ -20,6 +22,7 @@ import {
 } from "../auth/auth.schema.ts";
 import { campaign, session } from "../campaign/campaign.schema.ts";
 import { codexEntry, codexReveal } from "../codex/codex.schema.ts";
+import { healthResource, loadEncounter } from "../encounter/encounter.state.ts";
 import { db } from "../core/db.ts";
 import { loadCompiled } from "../ruleset/ruleset.compiled.ts";
 import { loadTests, testDefsOf } from "../test-call/test-call.state.ts";
@@ -113,6 +116,7 @@ export async function loadLive(campaignId: string): Promise<Live | null> {
     myDraft: null, // filled in per user (forUser)
     tests,
     testDefs: testDefsOf(compiled),
+    encounter: await loadEncounter(db, { campaignId, compiled, built }),
     access: {
       members: members.map((m) => ({
         userId: m.userId,
@@ -171,11 +175,36 @@ export function seatState({ live, ctx }: { live: Live; ctx: Ctx }): LiveState {
       v,
     ]),
   );
+  // A `full` combatant shows its health numbers only where the ruleset lets this viewer see them (a creature the seat
+  // doesn't hold is not in `state.actors`, so its values are run through the viewer view here).
+  const resource = healthResource(compiled);
+  const full = state.encounter?.combatants.filter((c) => c.hp !== null) ?? [];
+  const sees =
+    compiled && resource !== undefined && full.length > 0 && !canInCampaign({ ctx, perm: "encounter:run" })
+      ? new Set(
+          toViewerView({
+            compiled,
+            viewer: viewerOf(ctx),
+            actors: live.state.actors.filter((a) => full.some((c) => c.actorId === a.id)),
+          }).actors.flatMap((v) => (Object.hasOwn(v.resources, resource) ? [v.id] : [])),
+        )
+      : null;
   return {
     ...state,
+    encounter:
+      state.encounter && sees
+        ? {
+            ...state.encounter,
+            combatants: state.encounter.combatants.map((c) => (sees.has(c.actorId) ? c : { ...c, hp: null })),
+          }
+        : state.encounter,
     actors: state.actors.map((a) => {
       const v = seen.get(a.id);
-      return { ...a, ...(v ? copyValues(v) : { entity: "", fields: {}, resources: {}, derived: {}, conditions: [] }) };
+      return {
+        ...a,
+        ...(v ? copyValues(v) : { entity: "", fields: {}, resources: {}, derived: {}, conditions: [] }),
+        conditionTimers: visibleTimers({ timers: a.conditionTimers, visible: v?.conditions ?? [] }),
+      };
     }),
   };
 }

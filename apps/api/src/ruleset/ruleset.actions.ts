@@ -1,39 +1,19 @@
 import { Permission, type Action, type ActionResult, type Ctx } from "@inconsistable/core-schema";
-import {
-  PRIMITIVES,
-  ResetEvent,
-  runOp,
-  type CompiledRuleset,
-  type Delta,
-  type PrimitiveOp,
-  type Ruleset,
-  type RuleState,
-} from "@inconsistable/rules-engine";
+import { PRIMITIVES, ResetEvent, type PrimitiveOp } from "@inconsistable/rules-engine";
 import type { ConditionRow } from "../actor/actor.delta.ts";
 import { applyDeltas, fieldDef } from "../actor/actor.pipeline.ts";
 import { type BuiltActor, loadBuilt } from "../actor/actor.values.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
+import { loadTurn } from "../encounter/encounter.turn.ts";
 import { requirePerm } from "../table/table.authorize.ts";
 import { loadCompiled } from "./ruleset.compiled.ts";
+import { runPrimitive, ruleState } from "./ruleset.run.ts";
 
 export type RuleAction = Extract<
   Action,
   { type: "rule.op" | "field.set" | "condition.add" | "condition.remove" | "actor.rest" }
 >;
-
-// Where each primitive reads its params in the pinned ruleset (docs/design.md §4.1): `rule.op` never takes params from
-// the client. A primitive missing here is not run through `rule.op` yet.
-// dice.sumVsTarget takes its params from a named Test, not from the ruleset's one block, so it runs through the
-// test.* actions (test-call/). A primitive added to the engine is one line here until the manifest says where its
-// params live.
-const PRIMITIVE_PARAMS: Readonly<Record<string, (r: Ruleset) => unknown>> = {
-  "initiative.ranked": (r) => r.initiative,
-  "health.tracks": (r) => r.health,
-  "resource.capped": () => ({}),
-  "conditions.expire": () => ({}),
-  rest: () => ({}),
-};
 
 /** The registered op an action names, for the dispatch to read `touches` from. */
 export function primitiveOp(primitive: string, op: string): PrimitiveOp<unknown, unknown> | undefined {
@@ -46,7 +26,7 @@ const find = <T>(rec: Readonly<Record<string, T>>, key: string): T | undefined =
 
 async function load(tx: Tx, campaignId: string) {
   const compiled = (await loadCompiled(tx, campaignId)) ?? fail("This game has no ruleset yet");
-  return { compiled, built: await loadBuilt(tx, { campaignId, compiled }) };
+  return { compiled, built: await loadBuilt(tx, { campaignId, compiled }), turn: await loadTurn(tx, campaignId) };
 }
 
 /** The actor and its entity, or a refusal: values are only written to an actor the ruleset has a type for. */
@@ -54,33 +34,6 @@ function entityActor({ built, actorId }: { built: Record<string, BuiltActor>; ac
   const actor = find(built, actorId) ?? fail("Character not found");
   if (actor.entity === "") fail(`${actor.row.name} isn't built for this ruleset yet`);
   return actor;
-}
-
-// Steps 4-6 of docs/design.md §5.3 for one op: parse, validate, apply, every delta inside the op's targets. The ops see
-// the live state of every actor in the campaign (the turn waits for the combat tracker).
-// ponytail: `turn` is null until the combat tracker exists, so a turn op refuses; it supplies the state then
-function runPrimitive({
-  compiled,
-  built,
-  primitive,
-  op,
-  input,
-}: {
-  compiled: CompiledRuleset;
-  built: Record<string, BuiltActor>;
-  primitive: string;
-  op: string;
-  input: unknown;
-}): Delta[] {
-  const params = find(PRIMITIVE_PARAMS, primitive);
-  if (!params) fail(`"${primitive}" isn't run this way`);
-  const state: RuleState = {
-    actors: Object.fromEntries(Object.entries(built).map(([id, b]) => [id, b.state])),
-    turn: null,
-  };
-  const run = runOp({ primitive, op, params: params(compiled.ruleset), state, input });
-  if (!run.ok) fail(run.refusal.message);
-  return run.deltas;
 }
 
 /**
@@ -96,7 +49,13 @@ export async function restActors(
   if (!compiled) return { pinned: false, actionId: null };
   const built = await loadBuilt(tx, { campaignId: ctx.campaignId, compiled });
   const input = { event, actorIds: actorId === undefined ? undefined : [actorId] };
-  const deltas = runPrimitive({ compiled, built, primitive: "rest", op: "apply", input });
+  const deltas = runPrimitive({
+    ruleset: compiled.ruleset,
+    state: ruleState({ built, turn: null }),
+    primitive: "rest",
+    op: "apply",
+    input,
+  });
   return { pinned: true, actionId: await applyDeltas(tx, { ctx, compiled, built, deltas }) };
 }
 
@@ -112,8 +71,14 @@ export async function applyRuleAction(
       if (!perm.success) fail(`"${a.primitive}.${a.op}" declares no permission`);
       const actorId = a.input.actorId;
       requirePerm({ ctx, perm: perm.data, target: typeof actorId === "string" ? { actorId } : undefined });
-      const { compiled, built } = await load(tx, ctx.campaignId);
-      const deltas = runPrimitive({ compiled, built, primitive: a.primitive, op: a.op, input: a.input });
+      const { compiled, built, turn } = await load(tx, ctx.campaignId);
+      const deltas = runPrimitive({
+        ruleset: compiled.ruleset,
+        state: ruleState({ built, turn }),
+        primitive: a.primitive,
+        op: a.op,
+        input: a.input,
+      });
       const id = await applyDeltas(tx, { ctx, compiled, built, deltas });
       return { ok: true, id: id ?? undefined };
     }

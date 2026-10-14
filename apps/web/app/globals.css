@@ -604,3 +604,212 @@ summary {
   border-color: var(--accent);
   box-shadow: inset 4px 0 0 var(--accent);
 }
+
+/* SHEET: a character as the ruleset lays it out. The numbers are the biggest thing on the phone, so they read at arm's
+   length; a number you can tap to see where it comes from is drawn as a button, the rest as plain rows. */
+.sheet-rows {
+  display: grid;
+  border-top: 1px solid var(--line);
+}
+.sheet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 18px;
+}
+.sheet-num {
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  min-width: 2ch;
+  text-align: right;
+}
+.sheet-num.sheet-text {
+  font-size: 18px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.btn.step {
+  min-width: 44px;
+  padding: 0;
+  font-size: 24px;
+}
+.sheet-derived {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 56px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.sheet-derived .sheet-num {
+  border-bottom: 2px dotted var(--ink-2);
+}
+
+/* BREAKDOWN, and a book page: rise from the bottom edge, leave the table in reach above them. */
+.bottom-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  max-height: 70vh;
+  overflow-y: auto;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: var(--paper);
+  border-top: 4px solid var(--accent);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.25);
+}
+.bottom-sheet .bottom-sheet {
+  z-index: 11;
+}
+
+/* The combat tracker. On the tablet the order and the selected combatant sit side by side; the phone and the TV read
+   the same order list without the controls. The acting row carries a heavy accent edge and the word ACTING. */
+.fightbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.fightbar .round {
+  font-size: 28px;
+  font-weight: 800;
+  margin-right: auto;
+}
+.track {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: start;
+}
+@media (max-width: 800px) {
+  .track {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.order {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.combatant {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-left: 8px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-2);
+  padding: 10px 12px;
+}
+.combatant[data-acting="true"] {
+  border-left-color: var(--accent);
+  background: var(--paper);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.combatant[data-selected="true"] {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.combatant .who {
+  all: unset;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  min-height: 44px;
+  align-content: center;
+  min-width: 0;
+}
+.combatant .who:focus-visible {
+  outline: 2px solid var(--accent);
+}
+.combatant .name {
+  font-size: 20px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.combatant .score {
+  width: 72px;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+}
+.state-word {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  font-size: 14px;
+}
+.bar {
+  height: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--ink-2);
+  background: var(--paper);
+  overflow: hidden;
+  min-width: 80px;
+}
+.bar > span {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+}
+.bar[data-low="true"] > span {
+  background: var(--accent);
+}
+.keypad-out {
+  font-size: 40px;
+  font-weight: 800;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  min-height: 52px;
+}
+.seg {
+  display: flex;
+  gap: 4px;
+}
+.seg .btn {
+  flex: 1;
+}
+.seg .btn[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.turn-banner {
+  border: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--paper);
+  padding: 16px;
+  font-size: 28px;
+  font-weight: 800;
+  text-align: center;
+}
+.screen .order .combatant .name {
+  font-size: 36px;
+}
+.screen .order .combatant {
+  padding: 16px 20px;
+}
+.screen .bar {
+  height: 20px;
+}

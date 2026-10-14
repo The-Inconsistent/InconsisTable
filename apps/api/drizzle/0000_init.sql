@@ -188,6 +188,27 @@ CREATE TABLE "codex_reveal" (
 	CONSTRAINT "codex_reveal_entry_id_actor_id_pk" PRIMARY KEY("entry_id","actor_id")
 );
 --> statement-breakpoint
+CREATE TABLE "combatant" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
+	"encounter_id" uuid NOT NULL,
+	"actor_id" uuid NOT NULL,
+	"side" text NOT NULL,
+	"ord" integer NOT NULL,
+	"initiative_score" integer,
+	"visibility" text DEFAULT 'bar' NOT NULL,
+	"keep" boolean DEFAULT false NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "encounter" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
+	"campaign_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"session_id" uuid,
+	"round" integer DEFAULT 1 NOT NULL,
+	"active" boolean DEFAULT true NOT NULL,
+	"current_combatant_id" uuid
+);
+--> statement-breakpoint
 CREATE TABLE "campaign_pack" (
 	"campaign_id" uuid NOT NULL,
 	"pack_version_id" uuid NOT NULL,
@@ -330,6 +351,11 @@ ALTER TABLE "session_event" ADD CONSTRAINT "session_event_undone_by_session_even
 ALTER TABLE "codex_entry" ADD CONSTRAINT "codex_entry_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "codex_reveal" ADD CONSTRAINT "codex_reveal_entry_id_codex_entry_id_fk" FOREIGN KEY ("entry_id") REFERENCES "public"."codex_entry"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "codex_reveal" ADD CONSTRAINT "codex_reveal_actor_id_actor_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "combatant" ADD CONSTRAINT "combatant_encounter_id_encounter_id_fk" FOREIGN KEY ("encounter_id") REFERENCES "public"."encounter"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "combatant" ADD CONSTRAINT "combatant_actor_id_actor_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actor"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "encounter" ADD CONSTRAINT "encounter_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "encounter" ADD CONSTRAINT "encounter_session_id_session_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."session"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "encounter" ADD CONSTRAINT "encounter_current_combatant_id_combatant_id_fk" FOREIGN KEY ("current_combatant_id") REFERENCES "public"."combatant"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "campaign_pack" ADD CONSTRAINT "campaign_pack_campaign_id_campaign_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaign"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "campaign_pack" ADD CONSTRAINT "campaign_pack_pack_version_id_pack_version_id_fk" FOREIGN KEY ("pack_version_id") REFERENCES "public"."pack_version"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pack" ADD CONSTRAINT "pack_ruleset_id_ruleset_id_fk" FOREIGN KEY ("ruleset_id") REFERENCES "public"."ruleset"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -350,6 +376,9 @@ CREATE INDEX "session_event_campaign_id_created_at_index" ON "session_event" USI
 CREATE INDEX "session_event_campaign_id_undone_by_created_at_index" ON "session_event" USING btree ("campaign_id","undone_by","created_at");--> statement-breakpoint
 CREATE INDEX "session_event_action_id_index" ON "session_event" USING btree ("action_id");--> statement-breakpoint
 CREATE INDEX "codex_entry_campaign_id_kind_index" ON "codex_entry" USING btree ("campaign_id","kind");--> statement-breakpoint
+CREATE UNIQUE INDEX "combatant_encounter_id_actor_id_index" ON "combatant" USING btree ("encounter_id","actor_id");--> statement-breakpoint
+CREATE INDEX "combatant_encounter_id_ord_index" ON "combatant" USING btree ("encounter_id","ord");--> statement-breakpoint
+CREATE UNIQUE INDEX "encounter_campaign_id_index" ON "encounter" USING btree ("campaign_id") WHERE "encounter"."active";--> statement-breakpoint
 CREATE INDEX "pack_entry_pack_version_id_type_index" ON "pack_entry" USING btree ("pack_version_id","type");--> statement-breakpoint
 CREATE INDEX "pack_entry_name_trgm" ON "pack_entry" USING gin ("name" gin_trgm_ops);--> statement-breakpoint
 CREATE INDEX "pack_version_pack_id_created_at_index" ON "pack_version" USING btree ("pack_id","created_at");--> statement-breakpoint

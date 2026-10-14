@@ -1,4 +1,5 @@
 import { Me } from "@inconsistable/core-schema";
+import { Ruleset } from "@inconsistable/rules-engine";
 
 import { JOIN_ERRORS, NO_ACCESS } from "@/app/constants";
 import { apiGet } from "@/app/server-api";
@@ -8,6 +9,7 @@ import { PlayerApp } from "@/components/player/player-app/player-app";
 import { TableScreen } from "@/components/screen/table-screen/table-screen";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { PackList, RulesReply, RulesetList, type RulesTabData } from "@/lib/library/library";
+import { RULES_PAGE, type RulesView } from "@/lib/rules-reader/rules-reader";
 
 type TableProps = {
   params: Promise<{ campaignId: string }>;
@@ -41,6 +43,20 @@ async function rulesTab(campaignId: string): Promise<RulesTabData | null> {
   }
 }
 
+// The ruleset as this seat may read it and the first entries of the attached packs, for the sheet and the RULES reader.
+// Null when the read fails; a manifest that does not parse leaves `ruleset` null, so the sheet shows nothing wrong.
+async function rulesView(campaignId: string): Promise<RulesView | null> {
+  try {
+    const res = await apiGet(`/api/campaigns/${campaignId}/rules?limit=${RULES_PAGE}`);
+    const first = RulesReply.safeParse(res.ok ? await res.json() : null);
+    if (!first.success) return null;
+    const ruleset = Ruleset.safeParse(first.data.ruleset?.manifest);
+    return { ruleset: ruleset.success ? ruleset.data : null, first: first.data };
+  } catch {
+    return null;
+  }
+}
+
 // One table: the GM app (GM, co-GM, or an admin who opened it), the player app, or the table screen, by the caller's
 // seat. The api decides what each seat may do; the app only hides what it can't.
 export default async function Table({ params, searchParams }: TableProps) {
@@ -59,8 +75,15 @@ export default async function Table({ params, searchParams }: TableProps) {
 
   const seat = me.seat;
   if (seat.kind === "admin" || (seat.kind === "member" && seat.role !== "player"))
-    return <GmApp me={me} initialTab={asGmTab(query[TAB_PARAM])} rules={await rulesTab(campaignId)} />;
+    return (
+      <GmApp
+        me={me}
+        initialTab={asGmTab(query[TAB_PARAM])}
+        rules={await rulesTab(campaignId)}
+        view={await rulesView(campaignId)}
+      />
+    );
   if (seat.kind === "token" && seat.role === "screen") return <TableScreen campaignId={me.campaignId} />;
   if (!seat.characterIds.length) return <StatusScreen text="No character yet. Ask your GM." />;
-  return <PlayerApp me={me} />;
+  return <PlayerApp me={me} view={await rulesView(campaignId)} />;
 }

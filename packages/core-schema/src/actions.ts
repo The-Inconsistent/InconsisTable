@@ -14,6 +14,7 @@ import {
   FieldValue,
   InviteMode,
 } from "./state.ts";
+import { ENCOUNTER_ACTIONS } from "./encounter.ts";
 import { TestCallAction, TestCloseAction, TestReportAction } from "./test-call.ts";
 
 // Every mutation goes through one socket event: "action" (CLAUDE.md, "The server decides"). These are the core
@@ -105,6 +106,7 @@ export const Action = z.discriminatedUnion("type", [
 
   // A Test the GM calls, the physical roll a player or the GM reports, and the close (docs/design.md §6.3). The api
   // resolves a report with the engine's `dice.sumVsTarget`, so a hidden target number never leaves it.
+  ...ENCOUNTER_ACTIONS,
   TestCallAction,
   TestReportAction,
   TestCloseAction,
@@ -186,6 +188,16 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "condition.remove": "encounter:run",
   "actor.rest": "session:run",
   "event.undo": "encounter:run", // the GM, and a co-GM with the combat scope
+  "encounter.start": "encounter:run",
+  "encounter.end": "encounter:run",
+  "encounter.add": "encounter:run",
+  "encounter.remove": "encounter:run",
+  "encounter.setInitiative": "encounter:run",
+  "encounter.move": "encounter:run",
+  "encounter.setVisibility": "encounter:run",
+  "encounter.keep": "encounter:run",
+  "turn.next": "encounter:run",
+  "turn.prev": "encounter:run",
   "test.call": "test:call",
   "test.report": "test:report:own", // the player of that character; the GM side through OWN_FALLBACK
   "test.close": "test:call",

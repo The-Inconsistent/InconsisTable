@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ConditionDuration, DeltaKind, DeltaTarget, DeltaValue, type FieldDef } from "@inconsistable/rules-engine";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
+import { readTurn, writeTurn } from "../encounter/encounter.turn.ts";
 
 // The one place an actor's value rows are written (docs/design.md §5.4). A delta goes in, the row before and after
 // comes out (Postgres 18 RETURNING OLD/NEW), which is what the session log and undo are built on. Nothing else
@@ -245,9 +246,14 @@ export async function writeDelta(
   }
   if ("field" in target) return writeField(tx, { campaignId, delta, target, type: fieldType ?? "text" });
   if ("condition" in target) return writeCondition(tx, { campaignId, delta, target });
-  // ponytail: turn and Test values live in the encounter and test_call tables, which arrive with the combat tracker
-  // and the Test call; until then an op that writes them is refused here, before anything else is changed.
-  return fail("That needs an encounter, which arrives with the combat tracker");
+  if ("turn" in target) {
+    // The round and whose turn it is live on the encounter row; they are `set` like any field, so they log and undo.
+    if (delta.kind !== "set") fail(`The ${target.turn} is set, not adjusted`);
+    const { before, after } = await writeTurn(tx, { campaignId, key: target.turn, value: delta.value });
+    return { target, kind: "set", before, after };
+  }
+  // ponytail: Test values live in test_call; no op writes them as deltas yet, so one that tries is refused here.
+  return fail("That value can't be written");
 }
 
 /** The value a target holds now, for undo to compare with what a delta left behind. Resources are never compared. */
@@ -264,6 +270,7 @@ export async function readTarget(
         AND c.id = ${target.condition}::uuid`);
     return conditionOf(first(res.rows), "b_");
   }
+  if ("turn" in target) return readTurn(tx, { campaignId, key: target.turn });
   if (!("field" in target)) return fail("That value can't be read back");
   const type = fieldType ?? "text";
   const res = await tx.execute(sql`

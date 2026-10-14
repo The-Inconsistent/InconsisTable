@@ -15,6 +15,7 @@ import { campaign } from "../campaign/campaign.schema.ts";
 import { applyEventAction } from "../campaign/event.actions.ts";
 import { applyRulesAction } from "../campaign/rules.actions.ts";
 import { applyCodexAction } from "../codex/codex.actions.ts";
+import { applyEncounterAction } from "../encounter/encounter.actions.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
 import { applyRuleAction, primitiveOp } from "../ruleset/ruleset.actions.ts";
@@ -158,6 +159,18 @@ function dispatch(tx: Tx, { ctx, action }: { ctx: Ctx; action: Action }): Promis
     case "test.report":
     case "test.close":
       return applyTestCallAction(tx, { ctx, action });
+
+    case "encounter.start":
+    case "encounter.end":
+    case "encounter.add":
+    case "encounter.remove":
+    case "encounter.setInitiative":
+    case "encounter.move":
+    case "encounter.setVisibility":
+    case "encounter.keep":
+    case "turn.next":
+    case "turn.prev":
+      return applyEncounterAction(tx, { ctx, action });
 
     case "event.undo":
       return applyEventAction(tx, { ctx, action });

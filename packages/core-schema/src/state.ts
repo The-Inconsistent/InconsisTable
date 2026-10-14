@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Encounter } from "./encounter.ts";
 import { CogmScope, MemberRole } from "./seat.ts";
 import { TestCall, TestDef } from "./test-call.ts";
 
@@ -45,6 +46,14 @@ export const ActorBrief = z.object({
 });
 export type ActorBrief = z.infer<typeof ActorBrief>;
 
+// How long an active condition lasts: what is left of its count, for the expiries that count (null: no count).
+export const ConditionTimer = z.object({
+  id: z.string(), // the condition id
+  expiresOn: z.string(),
+  expiresAfter: z.number().int().nullable(),
+});
+export type ConditionTimer = z.infer<typeof ConditionTimer>;
+
 export const Actor = ActorBrief.extend({
   // The ruleset's values. The api filters them per seat with the rules engine's `toViewerView` (a GM seat gets them
   // whole); empty until a ruleset is pinned and the actor has an entity type.
@@ -53,6 +62,8 @@ export const Actor = ActorBrief.extend({
   resources: z.record(z.string(), z.number()),
   derived: z.record(z.string(), z.number()),
   conditions: z.array(z.string()), // active condition ids
+  // Their durations, for the conditions this viewer sees (the same visibility as the condition itself).
+  conditionTimers: z.array(ConditionTimer),
 });
 export type Actor = z.infer<typeof Actor>;
 
@@ -116,6 +127,8 @@ export const LiveState = z.object({
   tests: z.array(TestCall),
   // The pinned ruleset's Tests, so the GM can call one. GM seats only.
   testDefs: z.array(TestDef),
+  // The combat tracker: the active encounter, if any. Each seat gets its own filter (encounter.ts).
+  encounter: Encounter.nullable(),
   access: z.object({
     members: z.array(Member),
     invites: z.array(Invite), // GM seats only

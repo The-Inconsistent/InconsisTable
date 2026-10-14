@@ -4,18 +4,23 @@ import { useState } from "react";
 import type { Me } from "@inconsistable/core-schema";
 
 import { PLAYER_TABS, type PlayerTab } from "@/components/player/player-app/constants";
+import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
+import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
+import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
+import { OrderView } from "@/components/ui/order-view/order-view";
 import { TestPrompt } from "@/components/player/test-prompt/test-prompt";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useTable } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
+import type { RulesView } from "@/lib/rules-reader/rules-reader";
 
-type PlayerAppProps = { me: Me };
+type PlayerAppProps = { me: Me; view: RulesView | null };
 
 // The phone: one seat, possibly several characters (a companion, a funnel, a friend's character). The strip at the
 // top switches between them (docs/design.md §3.7). Sheets, the fight and the map arrive with the first ruleset (P1).
-export function PlayerApp({ me }: PlayerAppProps) {
-  const { state, codex, online, send } = useTable(me.campaignId);
+export function PlayerApp({ me, view }: PlayerAppProps) {
+  const { state, codex, online, send, books, requestPage } = useTable(me.campaignId);
   const held = me.seat.kind === "admin" ? [] : me.seat.characterIds;
   const [current, setCurrent] = useState(held[0] ?? "");
   const [tab, setTab] = useState<PlayerTab>("sheet");
@@ -62,6 +67,7 @@ export function PlayerApp({ me }: PlayerAppProps) {
         </nav>
       )}
       <main className="page">
+        <TurnBanner encounter={state.encounter} held={held} />
         <TestPrompt state={state} send={send} />
         <h1 className="title">{character?.name ?? "No character"}</h1>
         {character && needsBuild(character) && (
@@ -73,6 +79,7 @@ export function PlayerApp({ me }: PlayerAppProps) {
             {state.myDraft?.actorId === character.id ? "Continue building" : "Build character"}
           </a>
         )}
+        {state.encounter && <OrderView encounter={state.encounter} />}
         {tab === "intel" ? (
           <ul className="list">
             {(codex?.entries ?? []).map((e) => (
@@ -86,8 +93,33 @@ export function PlayerApp({ me }: PlayerAppProps) {
             ))}
             {!codex?.entries.length && <li className="dim">Nothing revealed yet.</li>}
           </ul>
+        ) : tab === "rules" ? (
+          view ? (
+            <RulesReader
+              campaignId={me.campaignId}
+              ruleset={view.ruleset}
+              first={view.first}
+              books={books}
+              requestPage={requestPage}
+            />
+          ) : (
+            <p className="error">Couldn&apos;t read the rules. Check the connection and reload.</p>
+          )
+        ) : tab === "sheet" ? (
+          character && view?.ruleset && !needsBuild(character) ? (
+            <SheetView
+              key={character.id}
+              actor={character}
+              ruleset={view.ruleset}
+              characters={state.actors.filter((a) => a.kind === "pc").length}
+              gm={false}
+              {...{ send, books, requestPage }}
+            />
+          ) : !character || !needsBuild(character) ? (
+            <p className="dim">This tab fills in when the table picks a ruleset.</p>
+          ) : null
         ) : (
-          <p className="dim">This tab fills in when the table picks a ruleset.</p>
+          <p className="dim">This tab fills in when the table plays on.</p>
         )}
         {error && (
           <p className="error" role="alert">

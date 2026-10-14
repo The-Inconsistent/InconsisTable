@@ -5,6 +5,7 @@ import { fieldTypeOf } from "../actor/actor.pipeline.ts";
 import { loadBuilt } from "../actor/actor.values.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
+import { activeEncounter } from "../encounter/encounter.turn.ts";
 import { loadCompiled } from "../ruleset/ruleset.compiled.ts";
 import { sessionEvent } from "./campaign.schema.ts";
 import { LoggedDelta, runningSessionId } from "./event.log.ts";
@@ -41,14 +42,25 @@ export async function applyEventAction(tx: Tx, { ctx }: { ctx: Ctx; action: Even
     .orderBy(desc(sessionEvent.createdAt), desc(sessionEvent.id));
 
   const written: Written[] = [];
-  const skipped: { actorId: string; reason: "deleted" }[] = [];
+  const skipped: ({ actorId: string; reason: "deleted" } | { turn: string; reason: "ended" })[] = [];
   for (const step of steps) {
     const logged = LoggedDelta.parse(step.payload);
     const { target } = logged;
     // Read again for every step: an inverse can move another actor's bounds (a level back down lowers the max).
     const built = await loadBuilt(tx, { campaignId: cid, compiled });
-    // ponytail: turn and Test steps are never logged yet (writeDelta refuses them); the encounter work undoes them
-    if (!("actorId" in target)) fail("Can't undo that kind of step yet");
+    if ("test" in target) fail("Can't undo that kind of step yet");
+    if ("turn" in target) {
+      // The round and the turn belong to the running encounter. Once it has ended there is nothing to put back.
+      // ponytail: a step of an earlier encounter of this session is compared with the running one by value only
+      if (!(await activeEncounter(tx, cid))) {
+        skipped.push({ turn: target.turn, reason: "ended" });
+        continue;
+      }
+      const turnInverse = invertDelta({ logged, current: await readTarget(tx, { campaignId: cid, target }) });
+      if (!turnInverse.ok) fail(turnInverse.message);
+      if (turnInverse.delta !== null) written.push(await writeDelta(tx, { campaignId: cid, delta: turnInverse.delta }));
+      continue;
+    }
     const actor = Object.hasOwn(built, target.actorId) ? built[target.actorId] : undefined;
     if (!actor) {
       // A deleted actor can't be brought back, so its steps are skipped and noted; the GM moves past them.

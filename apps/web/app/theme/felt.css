@@ -111,6 +111,12 @@
   flex: 0 0 min(250px, 72vw);
   scroll-snap-align: center;
 }
+/* On the GM's tablet the order stays a column: each seat carries its controls. */
+.theme-felt .track .seat-strip {
+  display: grid;
+  overflow: visible;
+  padding: 0;
+}
 .theme-felt .seat-strip > .combatant[data-acting="true"] {
   transform: translateY(-10px);
 }

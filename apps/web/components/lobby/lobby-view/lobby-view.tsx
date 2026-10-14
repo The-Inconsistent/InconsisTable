@@ -15,7 +15,7 @@ const NO_RULESET = "";
 
 function GameCard({ game }: { game: LobbyGame }) {
   return (
-    <a className="card" href={`/c/${game.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+    <a className="card" href={`/c/${game.id}`} style={{ textDecoration: "none" }}>
       <strong>{game.name}</strong>
       <span className="row small dim">
         <span>{game.isOwner ? "Your room" : `Owner: ${game.owner}`}</span>

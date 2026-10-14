@@ -540,7 +540,7 @@ const Visibility = z.enum(["public", "party", "owner", "gm"]);
 export const Ruleset = z.object({
   id: Id, version: SemVer, core: SemVerRange,           // tương thích với API primitive của core
   extends: z.object({ id: Id, version: SemVer }).optional(), // fork / homebrew
-  sources: z.array(Source),                            // { id, title, license: srd|orc|cc-by|private, pageOffset }
+  sources: z.array(Source),                            // { id, title, license: srd|orc|cc-by|original|private, pageOffset }
   terms: z.record(Id, z.string()),                     // từ vựng: { party: "Agents", foe: "Threats", hp: "Wounds" }
   campaignFields: z.record(Id, FieldDef),              // W&G: tier; 5e: không có
   options: z.array(RuleOption),                        // variant rules để GM bật/tắt
@@ -663,7 +663,8 @@ Mọi entry luật (resource, condition, test, initiative, effect, option) có `
 - **Pack** = `{ id, version, ruleset: range, license, attribution, visibility, entries[] }`. Key có namespace `pack:key`.
 - **Platform không đi kèm nội dung (đã chốt 2026-10-11).** Mọi ruleset và pack do người dùng nhập: dán JSON, tải file,
   hoặc nhập qua form như threat builder. 5e SRD cũng được nhập như mọi pack khác.
-- **Công khai:** chỉ pack có license `srd | orc | cc-by` hoặc do chính người dùng sáng tác, sau khi qua `pack:approve`.
+- **Công khai:** chỉ pack có license `srd | orc | cc-by | original`, sau khi qua `pack:approve`. `original` là nội dung
+  người dùng tự sáng tác: không cần cite trang, không cần attribution.
   Attribution hiện trong UI.
 - **Riêng tư:** nội dung sách có bản quyền (W&G, CoC...) là pack thuộc user hoặc campaign, không liệt kê, không share
   link công khai, không phục vụ cho người không có ghế. Đây là tổng quát hoá các gate hiện có (`/threats`, `/wargear`
@@ -677,7 +678,7 @@ Mọi entry luật (resource, condition, test, initiative, effect, option) có `
     chơi thấy qua view của bàn. Chủ pack không cấp được grant cho user khác, vì như vậy là phân phối nội dung của người
     khác.
   - Người chơi có ghế chỉ thấy entry qua view đã lọc của bàn.
-- **License tự khai** (`srd|orc|cc-by`) không tự đưa pack lên danh mục công khai; cần `pack:approve`.
+- **License tự khai** (`srd|orc|cc-by|original`) không tự đưa pack lên danh mục công khai; cần `pack:approve`.
 - **Lưu trữ (chốt 2026-10-13):**
   - File gốc thuộc người dùng; sau khi nhập, DB là bản chính, file tải lên không được giữ.
   - Mỗi lần nhập tạo `pack_version` bất biến; `content_hash` mỗi entry để diff và bỏ trùng. Phòng pin phiên bản, spawn
@@ -833,7 +834,6 @@ cộng trừ delta, ràng buộc khoá ngoại hay unique thì là cột hoặc 
 |---|---|
 | `ruleset_version.manifest` | Tài liệu bất biến, đọc một lần rồi compile và cache theo `hash` |
 | `pack_entry.body` | Stat block, nội dung luật: hiển thị nguyên khối. Tìm kiếm dùng các cột có kiểu đi kèm |
-| `combatant.stat_snapshot` | Bản chụp bất biến khi threat vào trận |
 | `session_event.payload` | Log chỉ ghi thêm (append-only), đọc theo `session_id` và thời gian |
 | `world.theme`, `house_rule.patch` | Cấu hình trình bày và overlay, đọc nguyên khối |
 | `library_character.draft` [Có] | Bản nháp autosave qua REST (tới 120 lần/phút), chưa có hình dạng theo field; ghi nguyên khối nên nguyên tử. Build xong mới thành hàng |
@@ -935,7 +935,7 @@ RETURNING OLD.value AS before, NEW.value AS after;                     -- Postgr
 | `resource_pool` | campaign_id, scope `ResourceScope` (party, gm, campaign), resource_id, value | Thay `campaign.glory/ruin` |
 | `clock` | id, campaign_id, label, segments, filled, visibility | |
 | `encounter` | id, campaign_id, round, active, current_combatant_id, turn_side, seized_side | Cột của các strategy đang có (`ranked`, `alternatingSides`, `popcorn`). `ponytail:` strategy có state riêng (deck của `cardDraw`) tự đăng ký bảng của nó khi primitive đó được viết, ví dụ `encounter_card(encounter_id, ord, card, pile)` |
-| `combatant` | id, encounter_id, actor_id, side, ord, initiative_score, acted, ambushed, visibility, marker, threat_class, mob_count, mob_start, stat_snapshot jsonb | `personalRuin` là `actor_resource` của threat |
+| `combatant` | id, encounter_id, actor_id, side, ord, initiative_score, acted, ambushed, visibility, marker, threat_class, mob_count, mob_start | `personalRuin` là `actor_resource` của threat. Không có `stat_snapshot`: giá trị của creature được chép thành hàng có kiểu lúc spawn và phiên bản pack bất biến, nên chính các hàng đó là bản chụp |
 | `test_call` / `test_call_target` / `test_report` | mechanic_id, skill_id, target int, hide_target / character_id / outcome enum, value int | Thay `reports jsonb` |
 | `request` | id, campaign_id, actor_id, kind, resource_id, amount, status | Tổng quát hoá `spend_request` |
 | `session_event` | id uuidv7, campaign_id, session_id, type, at, payload jsonb | Log: recap, audit, undo, kết quả gieo |

@@ -1,0 +1,6 @@
+/* PROTOTYPE variant "lantern". Everything under .proto-lantern; tokens first, then component overrides. */
+.proto-lantern {
+  min-height: 100dvh;
+  background: var(--paper);
+  color: var(--ink);
+}

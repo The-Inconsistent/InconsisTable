@@ -1,0 +1,6 @@
+/* PROTOTYPE variant "guild". Everything under .proto-guild; tokens first, then component overrides. */
+.proto-guild {
+  min-height: 100dvh;
+  background: var(--paper);
+  color: var(--ink);
+}

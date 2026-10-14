@@ -1,0 +1,6 @@
+/* PROTOTYPE variant "felt". Everything under .proto-felt; tokens first, then component overrides. */
+.proto-felt {
+  min-height: 100dvh;
+  background: var(--paper);
+  color: var(--ink);
+}

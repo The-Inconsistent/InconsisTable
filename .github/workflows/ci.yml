@@ -37,6 +37,7 @@ jobs:
           NODE_ENV: test
           DATABASE_URL: postgres://it:it@localhost:5435/it
           PORT: "4000"
+          TRUST_CF: "1" # the smoke suite gives each socket its own cf-connecting-ip
         run: |
           nohup bun src/main.ts > "$RUNNER_TEMP/api.log" 2>&1 &
           for i in $(seq 1 60); do

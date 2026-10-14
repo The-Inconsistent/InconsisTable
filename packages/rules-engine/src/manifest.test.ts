@@ -121,6 +121,21 @@ test("ids, references and engine constraints", () => {
   hasProblem(list, "health.tracks", /only one track may have deathSaves/);
 });
 
+test("input options are only for declared text inputs", () => {
+  const m = sample();
+  m.tests = {
+    t: {
+      kind: "sumVsTarget",
+      dice: "1d20",
+      target: "ctx.dc",
+      inputs: { dc: "int" },
+      inputOptions: { dc: ["1"] },
+      cite: "Sample p.2",
+    },
+  };
+  hasProblem(problems(m), "tests.t.inputOptions.dc", /only for text/);
+});
+
 test("sumVsTarget takes plain dice, and advantage a single die", () => {
   const m = sample();
   m.tests = {

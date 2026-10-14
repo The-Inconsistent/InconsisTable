@@ -23,6 +23,8 @@ export function checkInputs({ test, inputs }: { test: CompiledTest; inputs: Test
     if (type === "int" && !(typeof v === "number" && Number.isSafeInteger(v))) return `"${key}" takes a whole number`;
     if (type === "bool" && typeof v !== "boolean") return `"${key}" is yes or no`;
     if (type === "text" && typeof v !== "string") return `"${key}" takes text`;
+    const options = test.def.inputOptions[key];
+    if (options && !options.includes(String(v))) return `${key}: pick one of ${options.join(", ")}`;
   }
   return null;
 }

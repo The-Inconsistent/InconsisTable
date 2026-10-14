@@ -176,6 +176,8 @@ export const SumVsTarget = z.object({
   ties: TieRule.default("meetOrBeat"),
   /** Values the caller supplies when the Test is called, read as `ctx.<id>` (e.g. `ctx.dc`, `ctx.ability`). */
   inputs: z.record(Id, ScalarType).default({}),
+  /** The allowed values of a text input; the call form shows a picker and the server refuses anything else. */
+  inputOptions: z.record(Id, z.array(z.string().min(1).max(60)).min(1).max(50)).default({}),
   cite: Cite.optional(),
 });
 export type SumVsTarget = z.infer<typeof SumVsTarget>;
@@ -512,6 +514,10 @@ function semanticProblems(r: Ruleset): Problem[] {
     }
     if (t.advantage && shape.count !== 1) {
       out.push({ path: `tests.${id}.advantage`, message: "advantage needs a single die (1dX)" });
+    }
+    for (const key of Object.keys(t.inputOptions)) {
+      if (t.inputs[key] !== "text")
+        out.push({ path: `tests.${id}.inputOptions.${key}`, message: "options are only for text inputs" });
     }
     t.critOn?.forEach((n, j) => {
       if (n > shape.count * shape.sides)

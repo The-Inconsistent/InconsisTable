@@ -16,7 +16,11 @@ export function testDefsOf(compiled: CompiledRuleset | null): TestDef[] {
     id,
     dice: t.def.dice,
     advantage: t.def.advantage,
-    inputs: Object.entries(t.def.inputs).map(([inputId, type]) => ({ id: inputId, type })),
+    inputs: Object.entries(t.def.inputs).map(([inputId, type]) => ({
+      id: inputId,
+      type,
+      options: t.def.inputOptions[inputId],
+    })),
   }));
 }
 

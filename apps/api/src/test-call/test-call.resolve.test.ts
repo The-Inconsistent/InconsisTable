@@ -26,6 +26,10 @@ test("inputs must be exactly the Test's declared ones, with the right types", ()
   assert.match(checkInputs({ test: check, inputs: { ability: "dex", dc: "high" } }) ?? "", /whole number/);
   assert.match(checkInputs({ test: check, inputs: { ability: "dex", dc: 1.5 } }) ?? "", /whole number/);
   assert.match(checkInputs({ test: check, inputs: { ability: 4, dc: 15 } }) ?? "", /text/);
+  assert.equal(
+    checkInputs({ test: check, inputs: { ability: "2", dc: 15 } }),
+    "ability: pick one of str, dex, con, wis",
+  );
 });
 
 test("the modifier and the target come from the character's values and the call's inputs", () => {

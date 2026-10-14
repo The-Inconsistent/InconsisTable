@@ -1263,6 +1263,7 @@ test("test.call / test.report / test.close: a hidden target stays on the GM side
   refused(await owner.send(call({ inputs: { ability: "dex" } })), /dc/);
   refused(await owner.send(call({ inputs: { ability: "dex", dc: "hard" } })), /whole number/);
   refused(await owner.send(call({ inputs: { ability: "dex", dc: 5, extra: 1 } })), /extra/);
+  refused(await owner.send(call({ inputs: { ability: "2", dc: 5 } })), /ability: pick one of str, dex/);
   refused(await owner.send(call({ inputs: { ability: "wis", dc: 5 } })), /Lyra/); // no such score
   refused(await owner.send(call({ actorIds: [crypto.randomUUID()] })), /Character not found/);
   refused(await owner.send(call({ actorIds: [] })), /too small|at least|Invalid/i);

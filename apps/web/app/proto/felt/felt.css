@@ -1,6 +1,704 @@
-/* PROTOTYPE variant "felt". Everything under .proto-felt; tokens first, then component overrides. */
+/* PROTOTYPE variant "felt": a card table. Bottle-green baize, brass thread, cream playing cards lying flat on it.
+   Everything is scoped under .proto-felt. Tokens first (a World re-maps these), then component overrides. */
 .proto-felt {
+  color-scheme: dark; /* the table is always dark, whatever the device prefers */
+
+  /* palette */
+  --felt: #0f3d2e;
+  --felt-deep: #082a20;
+  --felt-lift: #17503d;
+  --brass: #d9b45a;
+  --brass-deep: #8a6a22;
+  --chalk: #f3efe2;
+  --chalk-dim: #c4d3c6;
+  --parchment: #fbf4e0;
+  --parchment-2: #efe3c4;
+  --parchment-line: #b9a67c;
+  --card-ink: #231c14;
+  --card-ink-2: #5a4c3a;
+  --card-red: #962f1a;
+  --card-green: #1f6b44;
+  --focus-felt: var(--brass);
+  --focus-card: #0b3a2b;
+
+  /* textures: woven noise + soft vignette on the baize, fine grain + sheen on the stock */
+  --grain:
+    radial-gradient(ellipse at 50% 25%, transparent 35%, rgb(0 0 0 / 0.5) 100%),
+    repeating-linear-gradient(45deg, rgb(255 255 255 / 0.03) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.07) 0 1px, transparent 1px 3px),
+    radial-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1.6px) 0 0 / 5px 5px;
+  --paper-grain:
+    linear-gradient(135deg, rgb(255 255 255 / 0.55), transparent 38%),
+    repeating-linear-gradient(0deg, rgb(120 90 40 / 0.035) 0 1px, transparent 1px 3px);
+  --thread: 2px dashed var(--brass);
+
+  /* icons: masks, drawn in currentColor */
+  --icon-heart: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21C5 15.5 2.5 12 2.5 8.4 2.5 5.6 4.6 3.5 7.2 3.5c1.9 0 3.6 1 4.8 2.9 1.2-1.9 2.9-2.9 4.8-2.9 2.6 0 4.7 2.1 4.7 4.9 0 3.6-2.5 7.1-9.5 12.6z'/%3E%3C/svg%3E");
+  --icon-shield: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5l8 3v6c0 5-3.4 8.7-8 10-4.6-1.3-8-5-8-10v-6z'/%3E%3C/svg%3E");
+  --icon-die: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M7 3h10a4 4 0 014 4v10a4 4 0 01-4 4H7a4 4 0 01-4-4V7a4 4 0 014-4zM8.5 7a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM12 10.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM8.5 14a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z'/%3E%3C/svg%3E");
+  --icon-turn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M12 3a9 9 0 100 18 9 9 0 000-18zM10 8l7 4-7 4z'/%3E%3C/svg%3E");
+  --icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.5 17.6L4.4 12.5l2-2 3.1 3.1 8.1-8.1 2 2z'/%3E%3C/svg%3E");
+
+  /* type */
+  --font-display: var(--font-young), Georgia, "Times New Roman", serif;
+
+  /* the names the real components read */
+  --paper: var(--felt);
+  --paper-2: var(--felt-deep);
+  --ink: var(--chalk);
+  --ink-2: var(--chalk-dim);
+  --line: #3f7a62;
+  --band: var(--felt-deep);
+  --band-ink: var(--chalk);
+  --accent: var(--brass);
+  --accent-ink: #1b1608;
+  --ok: #7fd3a1;
+
+  /* density: phone first (big thumb targets) */
+  --tap: 52px;
+  --gap: 16px;
+  --text: 18px;
+  --num: 34px;
+
   min-height: 100dvh;
+  background: var(--grain), var(--felt);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text);
+}
+@media (min-width: 768px) {
+  .proto-felt {
+    --tap: 44px;
+    --gap: 14px;
+    --text: 17px;
+    --num: 30px;
+  }
+}
+.proto-felt[data-density="tv"],
+.proto-felt [data-density="tv"] {
+  --tap: 72px;
+  --gap: 28px;
+  --text: 30px;
+  --num: 64px;
+}
+
+.proto-felt :focus-visible {
+  outline: 3px solid var(--focus-felt);
+  outline-offset: 3px;
+}
+
+/* Everything that is a card lying on the felt: it re-maps the tokens to ink-on-cream for its children. */
+.proto-felt .card,
+.proto-felt .roll-card,
+.proto-felt .turn-banner,
+.proto-felt .combatant,
+.proto-felt .bottom-sheet,
+.proto-felt section.stack:has(> .sheet-rows) {
+  --paper: var(--parchment);
+  --paper-2: var(--parchment-2);
+  --ink: var(--card-ink);
+  --ink-2: var(--card-ink-2);
+  --line: var(--parchment-line);
+  --accent: var(--card-red);
+  --accent-ink: #fff;
+  --ok: var(--card-green);
+  color: var(--ink);
+  background: var(--paper-grain), var(--parchment);
+  border: 1px solid #2b2112;
+  border-radius: 16px;
+  padding: 18px;
+  position: relative;
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.45); /* thin contact edge, no drop shadow */
+}
+.proto-felt .card :focus-visible,
+.proto-felt .roll-card :focus-visible,
+.proto-felt .combatant :focus-visible,
+.proto-felt .bottom-sheet :focus-visible,
+.proto-felt section.stack:has(> .sheet-rows) :focus-visible {
+  outline-color: var(--focus-card);
+}
+/* the inner rule line, 6px in from the edge */
+.proto-felt .card::before,
+.proto-felt .roll-card::before,
+.proto-felt .turn-banner::before,
+.proto-felt .combatant::before,
+.proto-felt .bottom-sheet::before,
+.proto-felt section.stack:has(> .sheet-rows)::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgb(138 106 34 / 0.55);
+  border-radius: 11px;
+  pointer-events: none;
+}
+
+/* ---------- type ---------- */
+.proto-felt .title,
+.proto-felt .roll-title,
+.proto-felt .step-title,
+.proto-felt .combatant .name,
+.proto-felt .fightbar .round,
+.proto-felt .band strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+.proto-felt .title {
+  font-size: 34px;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.proto-felt .head {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--brass);
+}
+.proto-felt section.stack:has(> .sheet-rows) .head,
+.proto-felt .card .head {
+  color: var(--card-red);
+}
+.proto-felt .dim {
+  color: var(--ink-2);
+}
+
+/* ---------- header band: stitched piping ---------- */
+.proto-felt .band {
+  background: var(--felt-deep);
+  color: var(--chalk);
+  padding: 12px 18px 20px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  border-bottom: 2px solid #000;
+  position: relative;
+}
+.proto-felt .band::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 6px;
+  border-bottom: var(--thread);
+  opacity: 0.85;
+}
+.proto-felt .band strong {
+  font-size: 22px;
+}
+.proto-felt .band a {
+  color: var(--brass);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.proto-felt .chip {
+  border: 2px dashed var(--brass);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.proto-felt .card .chip,
+.proto-felt .combatant .chip {
+  border-color: var(--brass-deep);
+}
+
+/* ---------- tabs: a centred segmented bar of pill chips ---------- */
+.proto-felt .tabs {
+  background: transparent;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+}
+.proto-felt .tab {
+  min-height: var(--tap);
+  min-width: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 2px solid var(--brass-deep);
+  background: var(--felt-deep);
+  color: var(--chalk);
+  opacity: 1;
+  letter-spacing: 0;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.proto-felt .tab[aria-selected="true"] {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: #1b1608;
+  box-shadow:
+    inset 0 0 0 3px var(--brass),
+    inset 0 0 0 4px rgb(27 22 8 / 0.55);
+}
+.proto-felt .tab[aria-selected="true"]::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--icon-check) center / contain no-repeat;
+}
+/* the phone's bottom bar floats over the baize */
+.proto-felt nav.tabs[style] {
+  background: linear-gradient(to top, var(--felt-deep) 70%, transparent);
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 5;
+}
+
+/* ---------- buttons: poker chips with a dashed inner ring ---------- */
+.proto-felt .btn {
+  position: relative;
+  min-height: var(--tap);
+  padding: 0 22px;
+  border-radius: 999px;
+  border: 2px solid var(--brass);
+  background: var(--felt-lift);
+  color: var(--chalk);
+  font-weight: 700;
+  gap: 8px;
+}
+.proto-felt .btn::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1.5px dashed currentColor;
+  border-radius: 999px;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.proto-felt .btn.primary {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: #1b1608;
+}
+.proto-felt .btn.sm {
+  min-height: 32px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+.proto-felt .btn.sm::after {
+  inset: 2px;
+}
+.proto-felt .btn.step {
+  min-width: var(--tap);
+  padding: 0;
+  font-size: 26px;
+  font-family: var(--font-display);
+}
+/* on a card the chips turn cream and red */
+.proto-felt .card .btn,
+.proto-felt .roll-card .btn,
+.proto-felt .bottom-sheet .btn,
+.proto-felt section.stack:has(> .sheet-rows) .btn,
+.proto-felt .combatant .btn {
+  background: var(--parchment-2);
+  border-color: var(--card-ink);
+  color: var(--card-ink);
+}
+.proto-felt .card .btn.primary,
+.proto-felt .roll-card .btn.primary,
+.proto-felt .bottom-sheet .btn.primary {
+  background: var(--card-red);
+  border-color: var(--card-red);
+  color: #fff;
+}
+.proto-felt .btn[aria-pressed="true"],
+.proto-felt .card .btn[aria-pressed="true"],
+.proto-felt .roll-card .btn[aria-pressed="true"] {
+  background: var(--card-ink);
+  border-color: var(--card-ink);
+  color: var(--parchment);
+}
+.proto-felt .btn[aria-pressed="true"]::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  mask: var(--icon-check) center / contain no-repeat;
+}
+.proto-felt .fightbar .btn[aria-pressed="true"] {
+  background: var(--chalk);
+  color: var(--felt-deep);
+}
+
+/* ---------- inputs ---------- */
+.proto-felt input,
+.proto-felt select,
+.proto-felt textarea {
+  border-radius: 12px;
+  border: 2px solid var(--line);
   background: var(--paper);
   color: var(--ink);
+}
+.proto-felt input,
+.proto-felt select {
+  min-height: var(--tap);
+}
+
+/* ---------- fight bar ---------- */
+.proto-felt .fightbar {
+  background: var(--felt-deep);
+  border-bottom: 2px solid #000;
+  padding: 12px 18px 18px;
+  gap: 10px;
+}
+.proto-felt .fightbar::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 5px;
+  border-bottom: var(--thread);
+  opacity: 0.7;
+  pointer-events: none;
+}
+.proto-felt .fightbar .round {
+  font-size: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.proto-felt .fightbar .round::before {
+  content: "";
+  width: 30px;
+  height: 30px;
+  background: var(--brass);
+  mask: var(--icon-die) center / contain no-repeat;
+}
+
+/* ---------- character sheet: one parchment card per section ---------- */
+.proto-felt section.stack:has(> .sheet-rows) {
+  gap: 4px;
+  padding: 18px 22px 12px;
+}
+.proto-felt .sheet-rows {
+  border-top: 0;
+}
+.proto-felt .sheet-row {
+  border-bottom: 1px solid var(--parchment-line);
+  min-height: 60px;
+}
+.proto-felt .sheet-row:last-child {
+  border-bottom: 0;
+}
+/* rank-style numerals */
+.proto-felt .sheet-num {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--num);
+  line-height: 1;
+  white-space: nowrap;
+}
+.proto-felt .sheet-num.sheet-text {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 18px;
+}
+.proto-felt .sheet-derived .sheet-num {
+  border-bottom: 2px dotted var(--card-ink-2);
+}
+.proto-felt .sheet-num .small {
+  font-family: var(--font-body);
+  font-size: 16px;
+}
+/* an icon before the HP row and the defence row */
+.proto-felt .sheet-row:has(.sheet-num[aria-label^="Vigour"]) > .stack > span:first-child::before,
+.proto-felt .sheet-row:has(button[aria-label^="Defen"]) .sheet-derived > span::before {
+  content: "";
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  vertical-align: -3px;
+  background: var(--card-red);
+  mask: var(--icon-heart) center / contain no-repeat;
+}
+.proto-felt .sheet-row:has(button[aria-label^="Defen"]) .sheet-derived > span::before {
+  background: var(--card-ink);
+  mask-image: var(--icon-shield);
+}
+
+/* ---------- Test prompt: a card with a die, ringed in brass ---------- */
+.proto-felt .roll-card {
+  border-color: #2b2112;
+  box-shadow:
+    0 0 0 3px var(--felt-deep),
+    0 0 0 5px var(--brass);
+  margin: 5px;
+}
+.proto-felt .roll-title {
+  font-size: 26px;
+  line-height: 1.15;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.proto-felt .roll-title::before {
+  content: "";
+  flex: none;
+  width: 32px;
+  height: 32px;
+  background: var(--card-red);
+  mask: var(--icon-die) center / contain no-repeat;
+}
+.proto-felt .roll-result {
+  font-size: 20px;
+}
+.proto-felt .roll-slot {
+  min-height: 92px;
+  border-radius: 16px;
+  border: 2px solid var(--card-ink);
+  background: var(--parchment);
+  color: var(--card-ink);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 60px;
+}
+.proto-felt .roll-slot[aria-pressed="true"] {
+  border-color: var(--card-red);
+  border-style: dashed;
+  box-shadow: none;
+  background: #fff;
+}
+.proto-felt .roll-key {
+  position: relative;
+  min-height: 64px;
+  border-radius: 999px;
+  border: 2px solid var(--card-ink);
+  background: var(--parchment-2);
+  color: var(--card-ink);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 28px;
+}
+.proto-felt .roll-key::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1.5px dashed currentColor;
+  border-radius: 999px;
+  opacity: 0.4;
+  pointer-events: none;
+}
+.proto-felt .roll-key.report {
+  background: var(--card-red);
+  border-color: var(--card-red);
+  color: #fff;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 20px;
+}
+.proto-felt .roll-key:disabled {
+  opacity: 0.55;
+}
+
+/* ---------- turn banner ---------- */
+.proto-felt .turn-banner {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 24px;
+  border: 2px solid var(--brass);
+  box-shadow:
+    0 0 0 3px var(--felt-deep),
+    0 0 26px 4px rgb(217 180 90 / 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  margin: 3px;
+}
+.proto-felt .turn-banner::after {
+  content: "";
+  order: -1;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  background: currentColor;
+  mask: var(--icon-turn) center / contain no-repeat;
+}
+
+/* ---------- turn order: a strip of seats, the acting one lifted and haloed ---------- */
+.proto-felt .order {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 26px 22px 14px;
+  margin: 0 -22px;
+  scroll-snap-type: x proximity;
+  scrollbar-color: var(--brass-deep) transparent;
+}
+.proto-felt .combatant {
+  flex: 0 0 min(250px, 72vw);
+  scroll-snap-align: center;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding: 16px 16px 14px;
+  border-left: 1px solid #2b2112;
+}
+.proto-felt .combatant[data-acting="true"] {
+  background: var(--paper-grain), #fffaf0;
+  transform: translateY(-12px);
+  box-shadow:
+    0 0 0 3px var(--brass),
+    0 0 30px 6px rgb(217 180 90 / 0.4);
+}
+.proto-felt .combatant[data-selected="true"] {
+  outline: 3px dashed var(--chalk);
+  outline-offset: 5px;
+}
+.proto-felt .combatant .who {
+  position: relative;
+  z-index: 1;
+}
+.proto-felt .combatant .name {
+  font-size: 22px;
+  line-height: 1.15;
+}
+.proto-felt .combatant .who[aria-pressed="true"] .name::after {
+  content: " ✓";
+  color: var(--card-green);
+}
+.proto-felt .state-word {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.proto-felt .combatant[data-acting="true"] .state-word::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  background: var(--card-red);
+  mask: var(--icon-turn) center / contain no-repeat;
+}
+.proto-felt .bar {
+  height: 14px;
+  border: 2px solid var(--card-ink);
+  background: var(--parchment-2);
+  border-radius: 999px;
+}
+.proto-felt .bar > span {
+  background: var(--card-green);
+}
+.proto-felt .bar[data-low="true"] > span {
+  background: var(--card-red);
+}
+.proto-felt .combatant .small {
+  font-weight: 700;
+  color: var(--card-ink);
+}
+.proto-felt .combatant .score {
+  width: 72px;
+  font-family: var(--font-display);
+  font-size: 26px;
+  border-radius: 14px;
+}
+.proto-felt .combatant .btn {
+  min-width: var(--tap);
+  padding: 0;
+}
+.proto-felt .combatant .row:has(> .score) {
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* ---------- TRACK: seats on top, one big card below ---------- */
+.proto-felt .track {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+.proto-felt .track > .stack {
+  min-width: 0;
+}
+.proto-felt .track > .card {
+  padding: 26px 28px;
+  border-radius: 20px;
+  gap: 16px;
+}
+.proto-felt .track > .card::before {
+  border-radius: 15px;
+  inset: 8px;
+}
+@media (min-width: 900px) {
+  .proto-felt .track > .card {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 36px;
+    align-content: start;
+  }
+  .proto-felt .track > .card > * {
+    grid-column: 2;
+    min-width: 0;
+  }
+  .proto-felt .track > .card > h2,
+  .proto-felt .track > .card > .row,
+  .proto-felt .track > .card > span:has(> .bar) {
+    grid-column: 1 / -1;
+  }
+  .proto-felt .track > .card > .stack:has(> .keypad-out) {
+    grid-column: 1;
+    grid-row: 4 / span 6;
+  }
+}
+.proto-felt .keypad-out {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 52px;
+  background: var(--parchment-2);
+  border: 2px solid var(--card-ink);
+  border-radius: 14px;
+  padding: 4px 18px;
+}
+.proto-felt .seg .btn {
+  padding: 0 8px;
+}
+
+/* ---------- lists in cards (call card) ---------- */
+.proto-felt .list > li {
+  border-bottom: 1px dashed var(--parchment-line);
+}
+.proto-felt .list > li:last-child {
+  border-bottom: 0;
+}
+.proto-felt article.card > .row:first-child > strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.proto-felt article.card > .row:first-child > strong::before {
+  content: "";
+  width: 26px;
+  height: 26px;
+  background: var(--card-red);
+  mask: var(--icon-die) center / contain no-repeat;
+}
+.proto-felt .roll-line {
+  flex: 1 1 200px;
+}
+.proto-felt .grid {
+  gap: var(--gap);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+}
+.proto-felt .grid > .card {
+  padding: 20px;
+}
+
+/* ---------- bottom sheet, page ---------- */
+.proto-felt .bottom-sheet {
+  border-radius: 20px 20px 0 0;
+  border-top: 3px dashed var(--brass-deep);
+  box-shadow: 0 -2px 0 #000;
+}
+.proto-felt .page {
+  gap: var(--gap);
+  padding-bottom: 96px;
 }

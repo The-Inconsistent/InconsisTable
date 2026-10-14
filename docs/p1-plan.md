@@ -211,6 +211,23 @@ house-decisions của ruleset.
 
 Nháp `docs/p2-plan.md` khi rảnh, chốt sau buổi chơi.
 
+### Theme nền và admin tối thiểu (chốt 2026-10-14)
+
+- **Theme nền "quán trọ đêm + thẻ giấy":** nền tối ấm (gỗ, ánh nến, đồng); sheet, Test Call, entry là thẻ giấy da
+  trên bàn. GM, điện thoại, TV luôn tối; lobby, library, builder, admin theo hệ thống (sáng = giấy da, tối = quán
+  trọ). Chung token, khác mật độ: tablet dày, điện thoại nút to, TV chữ rất to và tương phản cao.
+- **Chữ:** giữ Atkinson Hyperlegible cho số và chữ chạy; thêm một font tiêu đề có cá tính (chọn ở prototype), tránh
+  font fantasy sáo mòn.
+- **Texture và icon:** CSS/SVG inline tự vẽ, không ảnh, không phụ thuộc license.
+- **Chỗ cho World:** mọi màu, font, texture là CSS token để một World gán lại; chưa có bảng `world` hay UI chọn theme
+  (`ponytail:` sang P2). Theme W&G thuộc P2.
+- Giữ các quy tắc của `.claude/frontend-code-style.md`; sửa token `--red` mà nó nhắc nhưng không tồn tại.
+- **Admin tối thiểu:** một màn danh sách campaign và OPEN AS ADMIN, cùng họ theme nhưng tiết chế (dày, không trang
+  trí); sửa link `/admin` ở lobby đang trỏ vào trang trống. Pack/takedown, khoá tài khoản, log admin: sau.
+- **Thứ tự:** `/prototype` 2–3 biến thể ngay (branch `prototype/theme`, route `/proto`, dữ liệu giả; sheet điện
+  thoại, thẻ Test Call, TRACK tablet), chọn trên thiết bị thật; áp theme vào app sau khi Dice pool merge; admin tối
+  thiểu đi cùng bàn giao deploy. Tất cả xong trước buổi chơi thật.
+
 ### Sang P2
 
 - Tablet GM phục vụ trang sách (`serveBooks` chưa được gọi ở đâu).

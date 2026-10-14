@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import type { LiveState, TestCall, TestTargetState } from "@inconsistable/core-schema";
 import type { AdvantageMode } from "@inconsistable/rules-engine";
 
+import { PoolOutcome } from "@/components/ui/pool-outcome/pool-outcome";
+import { PoolPad } from "@/components/ui/pool-pad/pool-pad";
 import { RollPad } from "@/components/ui/roll-pad/roll-pad";
 import type { Send } from "@/hooks/use-table/use-table";
 import { outcomeWord, signed } from "@/lib/roll-slots/roll-slots";
@@ -14,6 +16,7 @@ type TestPromptProps = { state: LiveState; send: Send };
 function resultText({ call, target }: { call: TestCall; target: TestTargetState }): string {
   const report = target.report;
   if (!report) return "Waiting for the GM";
+  if (call.pool) return call.status === "open" ? "Reported. Waiting for the GM" : "Closed";
   const parts = [`Rolled ${report.natural ?? report.total ?? "?"}`];
   if (report.total !== null && report.total !== report.natural) parts.push(`total ${report.total}`);
   const word = outcomeWord(report.outcome);
@@ -31,6 +34,14 @@ export function TestPrompt({ state, send }: TestPromptProps) {
   const [dismissed, setDismissed] = useState<string | null>(null);
   const newestClosed = state.tests.find((c) => c.status === "closed");
   const lastClosed = newestClosed?.id === dismissed ? undefined : newestClosed;
+
+  // REPORT POOL: the dice counted per band and the special dice's faces; the server counts and resolves the outcome.
+  const reportPool =
+    ({ callId, actorId }: { callId: string; actorId: string }) =>
+    async (roll: { kind: "pool"; counts: Record<string, number>; special: number[] }): Promise<string | null> => {
+      const r = await send({ type: "test.report", callId, actorId, advantage: "none", roll });
+      return r.ok ? null : r.error;
+    };
 
   // REPORT: the faces read off the die for one character; the server adds the modifier and resolves the outcome.
   const report =
@@ -55,12 +66,19 @@ export function TestPrompt({ state, send }: TestPromptProps) {
           return (
             <div key={`${call.id}-${t.actorId}`} className="card roll-card">
               <h2 className="roll-title">
-                Roll {call.dice} for {who}
+                Roll {call.pool ? `${t.pool ?? "your"} ${call.dice}` : call.dice} for {who}
               </h2>
               {t.report ? (
                 <p className="roll-result" role="status">
-                  {resultText({ call, target: t })}
+                  {call.pool ? <PoolOutcome report={t.report} /> : resultText({ call, target: t })}
                 </p>
+              ) : call.pool ? (
+                <PoolPad
+                  spec={call.pool}
+                  pool={t.pool}
+                  who={who}
+                  onReport={reportPool({ callId: call.id, actorId: t.actorId })}
+                />
               ) : (
                 <>
                   <p className="dim small">
@@ -83,7 +101,12 @@ export function TestPrompt({ state, send }: TestPromptProps) {
           <p className="dim small">Last Test closed</p>
           {lastClosed.targets.map((t) => (
             <p key={t.actorId} className="roll-result">
-              {names.get(t.actorId) ?? "?"}: {resultText({ call: lastClosed, target: t })}
+              {names.get(t.actorId) ?? "?"}:{" "}
+              {lastClosed.pool && t.report ? (
+                <PoolOutcome report={t.report} />
+              ) : (
+                resultText({ call: lastClosed, target: t })
+              )}
             </p>
           ))}
           <button className="btn" onClick={() => setDismissed(lastClosed.id)}>

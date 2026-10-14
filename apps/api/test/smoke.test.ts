@@ -1297,15 +1297,12 @@ test("test.call / test.report / test.close: a hidden target stays on the GM side
   assert.deepEqual([byActor(gm)[hero]?.modifier, byActor(gm)[hero]?.target], [1, DN]);
   assert.deepEqual([byActor(gm)[bram]?.modifier, byActor(gm)[bram]?.target], [2, DN]);
   assert.deepEqual(gm.secretInputs, ["dc"]);
-  assert.deepEqual(
-    (await owner.until(() => true)).testDefs.map((d) => d.id),
-    ["check"],
-  );
+  assert.deepEqual((await owner.until(() => true)).testDefs.map((d) => d.id).toSorted(), ["check", "skill"]);
 
   // Each seat gets its own copy: a player only their own character, never the target number or the dc input.
   const anaState = await ana.until((s) => callIn(s, id) !== undefined);
   const anaCall = callIn(anaState, id)!;
-  assert.deepEqual(anaCall.targets, [{ actorId: hero, modifier: 1, target: null, report: null }]);
+  assert.deepEqual(anaCall.targets, [{ actorId: hero, modifier: 1, target: null, pool: null, report: null }]);
   assert.deepEqual(anaCall.inputs, { ability: "dex" });
   assert.deepEqual(anaState.testDefs, []);
   assert.ok(!numbersIn(anaState.tests).includes(DN), "the target number is nowhere in the player's state");
@@ -1324,9 +1321,23 @@ test("test.call / test.report / test.close: a hidden target stays on the GM side
 
   // The server computed the outcome (13 + 1 against 23 fails); Ana is not told it, the GM is.
   const gmAfter = callIn(await owner.until((s) => callIn(s, id)?.reported === 1), id)!;
-  assert.deepEqual(byActor(gmAfter)[hero]?.report, { natural: 13, total: 14, outcome: "failure" });
+  assert.deepEqual(byActor(gmAfter)[hero]?.report, {
+    natural: 13,
+    total: 14,
+    outcome: "failure",
+    margin: null,
+    shifts: null,
+    flags: [],
+  });
   const anaAfter = callIn(await ana.until((s) => callIn(s, id)?.reported === 1), id)!;
-  assert.deepEqual(anaAfter.targets[0]?.report, { natural: 13, total: 14, outcome: null });
+  assert.deepEqual(anaAfter.targets[0]?.report, {
+    natural: 13,
+    total: 14,
+    outcome: null,
+    margin: null,
+    shifts: null,
+    flags: [],
+  });
   assert.ok(!numbersIn((await ana.until(() => true)).tests).includes(DN));
   refused(await ana.send(report(id, hero, [20])), /Already reported/);
   const stored = (a: string) =>
@@ -1342,7 +1353,14 @@ test("test.call / test.report / test.close: a hidden target stays on the GM side
   assert.equal(byActor(crit)[bram]?.report?.outcome, "critical");
   ok(await owner.send(report(id, bram, [19])));
   const fixed = callIn(await owner.until((s) => byActor(callIn(s, id)!)[bram]?.report?.natural === 19), id)!;
-  assert.deepEqual(byActor(fixed)[bram]?.report, { natural: 19, total: 21, outcome: "failure" });
+  assert.deepEqual(byActor(fixed)[bram]?.report, {
+    natural: 19,
+    total: 21,
+    outcome: "failure",
+    margin: null,
+    shifts: null,
+    flags: [],
+  });
   assert.deepEqual(await stored(bram), [{ outcome: "failure", reported_by_role: "gm" }]);
 
   // Closing is the GM side's; nothing more is reported afterwards, and Ana is still not shown Bram's result.
@@ -1368,7 +1386,14 @@ test("a Test can tell the called players pass or fail, show its target, or revea
   ok(await ana.send(report(id, hero, [12])));
   ok(await ben.send(report(id, bram, [3])));
   const told = callIn(await ana.until((s) => callIn(s, id)?.targets[0]?.report?.outcome === "failure"), id)!;
-  assert.deepEqual(told.targets[0]?.report, { natural: 12, total: 13, outcome: "failure" });
+  assert.deepEqual(told.targets[0]?.report, {
+    natural: 12,
+    total: 13,
+    outcome: "failure",
+    margin: null,
+    shifts: null,
+    flags: [],
+  });
   assert.ok(!numbersIn((await ana.until(() => true)).tests).includes(DN));
 
   // Revealing on close: the other character's outcome and die, never their modifier, total or the target.
@@ -1381,7 +1406,8 @@ test("a Test can tell the called players pass or fail, show its target, or revea
     actorId: bram,
     modifier: null,
     target: null,
-    report: { natural: 3, total: null, outcome: "failure" },
+    pool: null,
+    report: { natural: 3, total: null, outcome: "failure", margin: null, shifts: null, flags: [] },
   });
   assert.ok(!numbersIn((await ana.until(() => true)).tests).includes(DN));
 
@@ -1410,6 +1436,133 @@ test("a Test can tell the called players pass or fail, show its target, or revea
   assert.ok(log.every((e) => e.session_id !== null));
   refused(await owner.send({ type: "event.undo" }), /Nothing to undo/);
   for (const c of [owner, ana, ben]) c.socket.close();
+});
+
+test("a Dice pool Test: the pool is set at the call, the server counts the report, the number stays hidden", async () => {
+  const { owner, ana, ben, campaignId, hero, bram, call } = await testRoom("TestPool");
+  const screen = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  const DN_POOL = 3;
+  const poolCall = (over: Record<string, unknown> = {}) =>
+    call({ testId: "skill", inputs: { dn: DN_POOL, bonus: 0 }, ...over });
+  const poolReport = (
+    callId: string,
+    actorId: string,
+    counts: Record<string, number>,
+    special: number[],
+    advantage = "none",
+  ) =>
+    ({
+      type: "test.report",
+      callId,
+      actorId,
+      advantage,
+      roll: { kind: "pool", counts, special },
+    }) as ActionInput;
+
+  // The ruleset's Tests as the GM's form reads them: the Dice pool carries what the phone needs.
+  const defs = (await owner.until(() => true)).testDefs;
+  assert.deepEqual(defs.map((d) => d.id).toSorted(), ["check", "skill"]);
+  assert.equal(defs.find((d) => d.id === "skill")?.pool?.special?.count, 1);
+  refused(await owner.send(poolCall({ inputs: { dn: DN_POOL } })), /bonus/);
+
+  // Lyra's Grit 14 gives 3 dice, Bram's 10 gives 2; the call's modifier adds or removes dice, down to none.
+  const id = ok(await owner.send(poolCall())).id!;
+  const gm = callIn(await owner.until((s) => callIn(s, id) !== undefined), id)!;
+  const byActor = (c: typeof gm) => Object.fromEntries(c.targets.map((t) => [t.actorId, t]));
+  assert.deepEqual([byActor(gm)[hero]?.pool, byActor(gm)[bram]?.pool], [3, 2]);
+  assert.deepEqual(
+    gm.pool?.bands.map((b) => [b.id, b.worth]),
+    [
+      ["top", 2],
+      ["hit", 1],
+    ],
+  );
+  const sized = ok(await owner.send(poolCall({ inputs: { dn: DN_POOL, bonus: 2 }, actorIds: [hero] }))).id!;
+  const bonus = callIn(await owner.until((s) => callIn(s, sized) !== undefined), sized)!;
+  assert.equal(bonus.targets[0]?.pool, 5);
+  const fewer = ok(await owner.send(poolCall({ inputs: { dn: DN_POOL, bonus: -9 }, actorIds: [hero] }))).id!;
+  assert.equal(callIn(await owner.until((s) => callIn(s, fewer) !== undefined), fewer)!.targets[0]?.pool, 0);
+
+  // The phone's copy: the pool size and the bands, never the difficulty number.
+  const anaCall = callIn(await ana.until((s) => callIn(s, id) !== undefined), id)!;
+  assert.deepEqual([anaCall.targets[0]?.pool, anaCall.targets[0]?.target], [3, null]);
+  assert.equal(anaCall.pool?.die, 8);
+  assert.ok(!JSON.stringify(anaCall.inputs).includes("dn"), "the dn input is hidden with the number");
+
+  // An impossible report is refused with a reason, and a sum report or a pool report on the wrong Test too.
+  refused(await ana.send(poolReport(id, bram, { top: 1 }, [4])), /Not your character/);
+  refused(await ana.send(poolReport(id, hero, { top: 3 }, [4])), /4 dice counted, but the pool is 3/);
+  refused(await ana.send(poolReport(id, hero, { top: -1 }, [4])), /can't be negative/);
+  refused(await ana.send(poolReport(id, hero, { gold: 1 }, [4])), /no scoring band "gold"/);
+  refused(await ana.send(poolReport(id, hero, { top: 1 }, [])), /expected 1 special die/);
+  refused(await ana.send(poolReport(id, hero, { top: 1 }, [9])), /a d8 rolls 1–8/);
+  refused(await ana.send(report(id, hero, [4])), /./); // faces are for a sum Test
+  refused(await ana.send(poolReport(id, hero, { top: 1 }, [4], "advantage")), /no advantage/);
+
+  // Lyra counts a top face, a scoring face and an Omen 8: 2 + 1 + 2 = 5 against 3. Margin 2, one shift, a critical.
+  ok(await ana.send(poolReport(id, hero, { top: 1, hit: 1 }, [8])));
+  const gmAfter = callIn(await owner.until((s) => callIn(s, id)?.reported === 1), id)!;
+  assert.deepEqual(byActor(gmAfter)[hero]?.report, {
+    natural: null,
+    total: 5,
+    outcome: "success",
+    margin: 2,
+    shifts: 1,
+    flags: ["critical"],
+  });
+  // Ana is told her score and flags, not pass or fail, the margin or the shifts: those would give the number away.
+  const anaAfter = callIn(await ana.until((s) => callIn(s, id)?.reported === 1), id)!;
+  assert.deepEqual(anaAfter.targets[0]?.report, {
+    natural: null,
+    total: 5,
+    outcome: null,
+    margin: null,
+    shifts: null,
+    flags: ["critical"],
+  });
+  const tv = callIn(await screen.until((s) => callIn(s, id) !== undefined), id)!;
+  assert.deepEqual([tv.called, tv.reported, tv.targets, tv.pool?.die], [2, 1, [], 8]);
+
+  // Bram, a complication on an empty count: fails by 3 (0 against 3), no shift.
+  ok(await owner.send(poolReport(id, bram, {}, [1])));
+  const failed = byActor(callIn(await owner.until((s) => callIn(s, id)?.reported === 2), id)!)[bram]?.report;
+  assert.deepEqual(
+    [failed?.total, failed?.outcome, failed?.margin, failed?.shifts, failed?.flags],
+    [0, "failure", -3, 0, ["complication"]],
+  );
+  const stored = await query<Record<string, unknown>>(
+    "SELECT outcome, total, margin, shifts, flags, band_counts, special_faces FROM test_report WHERE call_id = $1 AND actor_id = $2",
+    [id, hero],
+  );
+  assert.deepEqual(stored, [
+    {
+      outcome: "success",
+      total: 5,
+      margin: 2,
+      shifts: 1,
+      flags: ["critical"],
+      band_counts: { top: 1, hit: 1 },
+      special_faces: [8],
+    },
+  ]);
+
+  // Revealing on close tells Ana the margin and the shifts, and Ben his character's.
+  ok(await owner.send({ type: "test.close", callId: id, reveal: true }));
+  const revealed = callIn(await ana.until((s) => callIn(s, id)?.revealed === true), id)!;
+  assert.deepEqual(
+    [
+      revealed.targets.find((t) => t.actorId === hero)?.report?.margin,
+      revealed.targets.find((t) => t.actorId === hero)?.report?.shifts,
+    ],
+    [2, 1],
+  );
+  assert.equal(revealed.targets.find((t) => t.actorId === bram)?.report?.margin, -3);
+  assert.equal(
+    revealed.targets.find((t) => t.actorId === bram)?.report?.total,
+    null,
+    "another character's score stays",
+  );
+  for (const c of [owner, ana, ben, screen]) c.socket.close();
 });
 
 // ---- The builder, creatures from packs and builder drafts (docs/p1-plan.md workstream D) ---------------------------

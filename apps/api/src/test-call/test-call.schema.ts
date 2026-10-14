@@ -11,7 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { SeatRole, TestCallStatus, TestInputs } from "@inconsistable/core-schema";
-import type { AdvantageMode, TestOutcome } from "@inconsistable/rules-engine";
+import type { AdvantageMode, PoolFlag, TestOutcome } from "@inconsistable/rules-engine";
 import { actor } from "../actor/actor.schema.ts";
 import { owned, session } from "../campaign/campaign.schema.ts";
 
@@ -48,6 +48,7 @@ export const testCallTarget = pgTable(
       .references(() => actor.id, { onDelete: "cascade" }),
     modifier: integer().notNull(),
     target: integer().notNull(),
+    pool: integer(), // a Dice pool: the dice this character was told to roll, modifier included; null for a sum Test
   },
   (t) => [primaryKey({ columns: [t.callId, t.actorId] })],
 );
@@ -62,7 +63,14 @@ export const testReport = pgTable(
     advantage: text().$type<AdvantageMode>().notNull(),
     faces: integer().array(), // the dice as read off the table; null when only a total was reported
     natural: integer(), // the kept dice before the modifier; null when only a total was reported without it
-    total: integer().notNull(),
+    total: integer().notNull(), // a Dice pool's score
+    // A Dice pool as read off the table: dice counted per scoring band and the face of each special die. A whole
+    // document, read as one; null for a sum Test.
+    bandCounts: jsonb().$type<Record<string, number>>(),
+    specialFaces: integer().array(),
+    margin: integer(), // the score minus the difficulty number; null for a sum Test
+    shifts: integer(),
+    flags: text().array().$type<PoolFlag[]>().notNull().default([]),
     outcome: text().$type<TestOutcome>().notNull(),
     reportedByUserId: text(),
     reportedByRole: text().$type<SeatRole>().notNull(),

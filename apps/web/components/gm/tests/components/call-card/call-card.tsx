@@ -4,6 +4,8 @@ import { useState } from "react";
 import type { TestCall, TestTargetState } from "@inconsistable/core-schema";
 import type { AdvantageMode } from "@inconsistable/rules-engine";
 
+import { PoolOutcome } from "@/components/ui/pool-outcome/pool-outcome";
+import { PoolPad } from "@/components/ui/pool-pad/pool-pad";
 import { RollPad } from "@/components/ui/roll-pad/roll-pad";
 import type { Send } from "@/hooks/use-table/use-table";
 import { outcomeWord, signed } from "@/lib/roll-slots/roll-slots";
@@ -45,6 +47,15 @@ export function CallCard({ call, names, send }: CallCardProps) {
       return r.ok ? null : r.error;
     };
 
+  // REPORT POOL FOR: the GM counts the dice a player read out, or fixes a report.
+  const handlePoolReport =
+    (actorId: string) =>
+    async (roll: { kind: "pool"; counts: Record<string, number>; special: number[] }): Promise<string | null> => {
+      const r = await send({ type: "test.report", callId: call.id, actorId, advantage: "none", roll });
+      if (r.ok) setReporting(null);
+      return r.ok ? null : r.error;
+    };
+
   // CLOSE: ends the call; with `reveal` the called characters see each other's results.
   const handleClose = async (reveal: boolean) => {
     const r = await send({ type: "test.close", callId: call.id, reveal });
@@ -75,9 +86,15 @@ export function CallCard({ call, names, send }: CallCardProps) {
           <li key={t.actorId}>
             <span className="roll-line">
               <strong>{names.get(t.actorId) ?? "?"}</strong>{" "}
-              <span className="dim">{t.modifier !== null && `${signed(t.modifier)} vs ${t.target ?? "?"}`}</span>
+              <span className="dim">
+                {call.pool
+                  ? `${t.pool ?? "?"} dice (${t.modifier !== null ? signed(t.modifier) : "?"}) vs DN ${t.target ?? "?"}`
+                  : t.modifier !== null && `${signed(t.modifier)} vs ${t.target ?? "?"}`}
+              </span>
               <br />
-              <span className="roll-result">{resultText(t)}</span>
+              <span className="roll-result">
+                {call.pool && t.report ? <PoolOutcome report={t.report} /> : resultText(t)}
+              </span>
             </span>
             {open && (
               <button
@@ -90,12 +107,21 @@ export function CallCard({ call, names, send }: CallCardProps) {
             )}
             {open && reporting === t.actorId && (
               <div style={{ flexBasis: "100%" }}>
-                <RollPad
-                  dice={call.dice}
-                  allowAdvantage={call.advantage}
-                  who={names.get(t.actorId) ?? "a character"}
-                  onReport={handleReport(t.actorId)}
-                />
+                {call.pool ? (
+                  <PoolPad
+                    spec={call.pool}
+                    pool={t.pool}
+                    who={names.get(t.actorId) ?? "a character"}
+                    onReport={handlePoolReport(t.actorId)}
+                  />
+                ) : (
+                  <RollPad
+                    dice={call.dice}
+                    allowAdvantage={call.advantage}
+                    who={names.get(t.actorId) ?? "a character"}
+                    onReport={handleReport(t.actorId)}
+                  />
+                )}
               </div>
             )}
           </li>

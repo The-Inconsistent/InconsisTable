@@ -1,13 +1,19 @@
 import { and, eq } from "drizzle-orm";
 import { canInCampaign, seatRole, type Action, type ActionResult, type Ctx } from "@inconsistable/core-schema";
-import { AdvantageMode, type CompiledRuleset, type CompiledTest } from "@inconsistable/rules-engine";
+import {
+  AdvantageMode,
+  PoolRoll,
+  type CompiledRuleset,
+  type CompiledTest,
+  type PoolFlag,
+} from "@inconsistable/rules-engine";
 import { loadBuilt } from "../actor/actor.values.ts";
 import { runningSessionId } from "../campaign/event.log.ts";
 import { sessionEvent } from "../campaign/campaign.schema.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
 import { loadCompiled } from "../ruleset/ruleset.compiled.ts";
-import { checkInputs, evaluateCall, resolveRoll } from "./test-call.resolve.ts";
+import { checkInputs, evaluateCall, resolvePoolRoll, resolveRoll } from "./test-call.resolve.ts";
 import { testCall, testCallTarget, testReport } from "./test-call.schema.ts";
 
 export type TestCallAction = Extract<Action, { type: "test.call" | "test.report" | "test.close" }>;
@@ -44,6 +50,65 @@ async function log(
     .values({ campaignId: ctx.campaignId, sessionId, type, seatUserId: ctx.userId, payload });
 }
 
+type Target = typeof testCallTarget.$inferSelect;
+
+// The columns of a sum Test's report: the faces as read, the die before the modifier, the total and the outcome.
+function sumRow({
+  test,
+  target,
+  advantage,
+  roll,
+}: {
+  test: CompiledTest;
+  target: Target;
+  advantage: AdvantageMode;
+  roll: Record<string, unknown>;
+}) {
+  const resolved = resolveRoll({ test, target: target.target, modifier: target.modifier, advantage, roll });
+  if (!resolved.ok) fail(resolved.message);
+  const faces = Array.isArray(roll.faces) ? roll.faces.filter((f): f is number => typeof f === "number") : null;
+  return {
+    faces,
+    natural: resolved.natural,
+    total: resolved.total,
+    outcome: resolved.outcome,
+    bandCounts: null,
+    specialFaces: null,
+    margin: null,
+    shifts: null,
+    flags: [] as PoolFlag[],
+  };
+}
+
+// The columns of a Dice pool's report: dice counted per band, the special dice's faces, and what the server worked out.
+function poolRow({
+  test,
+  target,
+  advantage,
+  roll,
+}: {
+  test: CompiledTest;
+  target: Target;
+  advantage: AdvantageMode;
+  roll: Record<string, unknown>;
+}) {
+  if (advantage !== "none") fail("A Dice pool has no advantage");
+  const resolved = resolvePoolRoll({ test, target: target.target, pool: target.pool ?? 0, roll });
+  if (!resolved.ok) fail(resolved.message);
+  const parsed = PoolRoll.parse(roll); // resolvePoolRoll just accepted it
+  return {
+    faces: null,
+    natural: null,
+    total: resolved.score,
+    outcome: resolved.outcome,
+    bandCounts: parsed.counts,
+    specialFaces: parsed.special,
+    margin: resolved.margin,
+    shifts: resolved.shifts,
+    flags: resolved.flags,
+  };
+}
+
 // `test:call` for the call and the close, `test:report:own` for a report (the permission was checked by the dispatch,
 // with the called character as the target). The dice stay physical: nothing here rolls (docs/house-decisions.md #1).
 export async function applyTestCallAction(
@@ -65,7 +130,7 @@ export async function applyTestCallAction(
         if (actor.entity === "" || actor.scope === null) fail(`${actor.row.name} isn't built for this ruleset yet`);
         const r = evaluateCall({ test, scope: actor.scope, inputs: a.inputs });
         if (!r.ok) fail(`${actor.row.name}: ${r.message}`);
-        return { actorId, modifier: r.modifier, target: r.target };
+        return { actorId, modifier: r.modifier, target: r.target, pool: r.pool };
       });
       const [call] = await tx
         .insert(testCall)
@@ -107,24 +172,14 @@ export async function applyTestCallAction(
       if (had && !gmSide) fail("Already reported. Ask the GM if it needs to change");
       const advantage = AdvantageMode.safeParse(a.advantage);
       if (!advantage.success) fail(`"${a.advantage}" isn't advantage, disadvantage or none`);
-      const roll = resolveRoll({
-        test,
-        target: target.target,
-        modifier: target.modifier,
-        advantage: advantage.data,
-        roll: a.roll,
-      });
-      if (!roll.ok) fail(roll.message);
-      const faces = Array.isArray(a.roll.faces) ? a.roll.faces.filter((f): f is number => typeof f === "number") : null;
       const row = {
         advantage: advantage.data,
-        faces,
-        natural: roll.natural,
-        total: roll.total,
-        outcome: roll.outcome,
         reportedByUserId: ctx.userId,
         reportedByRole: seatRole(ctx.seat),
         reportedAt: new Date(),
+        ...(test.def.kind === "poolSuccesses"
+          ? poolRow({ test, target, advantage: advantage.data, roll: a.roll })
+          : sumRow({ test, target, advantage: advantage.data, roll: a.roll })),
       };
       await tx
         .insert(testReport)
@@ -152,7 +207,14 @@ export async function applyTestCallAction(
           callId: call.id,
           testId: call.testId,
           revealed: a.reveal,
-          reports: reports.map((r) => ({ actorId: r.actorId, natural: r.natural, total: r.total, outcome: r.outcome })),
+          reports: reports.map((r) => ({
+            actorId: r.actorId,
+            natural: r.natural,
+            total: r.total,
+            margin: r.margin,
+            flags: r.flags,
+            outcome: r.outcome,
+          })),
         },
       });
       return { ok: true };

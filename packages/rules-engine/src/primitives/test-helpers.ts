@@ -16,7 +16,7 @@ function compiled(): CompiledRuleset {
 }
 export const C = compiled();
 const check = C.tests.check?.def;
-if (check === undefined) throw new Error("the sample ruleset has no check test");
+if (check?.kind !== "sumVsTarget") throw new Error("the sample ruleset has no check test");
 export const CHECK = check;
 export const INIT = C.initiative.def;
 export const HEALTH = HealthTracksParams.parse(C.ruleset.health);

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { ACTION_PERMS, Action } from "./actions.ts";
 import { canInCampaign } from "./permissions.ts";
 import type { Ctx } from "./seat.ts";
-import { toSeatTests, type TestCall } from "./test-call.ts";
+import { toSeatTests, type TestCall, type TestResult } from "./test-call.ts";
 
 const ctx = (seat: Ctx["seat"]): Ctx => ({ campaignId: "c1", userId: "u", campaignOwnerId: "owner", seat });
 const gm = ctx({ kind: "member", role: "gm", scopes: [], characterIds: [] });
@@ -14,12 +14,20 @@ const bran = ctx({ kind: "token", role: "player", characterIds: ["bran"] });
 const idle = ctx({ kind: "token", role: "player", characterIds: ["zed"] });
 const screen = ctx({ kind: "token", role: "screen", characterIds: [] });
 
+const sum = (r: Pick<TestResult, "natural" | "total" | "outcome">): TestResult => ({
+  ...r,
+  margin: null,
+  shifts: null,
+  flags: [],
+});
+
 // A call on two characters with a hidden target number of 17, which the ruleset says it is computed from `dc`.
 const call = (over: Partial<TestCall> = {}): TestCall => ({
   id: "t1",
   testId: "check",
   dice: "1d20",
   advantage: true,
+  pool: null,
   status: "open",
   createdAt: "",
   inputs: { ability: "dex", dc: 17 },
@@ -31,8 +39,20 @@ const call = (over: Partial<TestCall> = {}): TestCall => ({
   called: 2,
   reported: 2,
   targets: [
-    { actorId: "lyra", modifier: 3, target: 17, report: { natural: 12, total: 15, outcome: "failure" } },
-    { actorId: "bran", modifier: 1, target: 17, report: { natural: 20, total: 21, outcome: "critical" } },
+    {
+      actorId: "lyra",
+      modifier: 3,
+      target: 17,
+      pool: null,
+      report: sum({ natural: 12, total: 15, outcome: "failure" }),
+    },
+    {
+      actorId: "bran",
+      modifier: 1,
+      target: 17,
+      pool: null,
+      report: sum({ natural: 20, total: 21, outcome: "critical" }),
+    },
   ],
   ...over,
 });
@@ -95,7 +115,8 @@ test("revealing shows the other characters' outcome and die, never their modifie
     actorId: "bran",
     modifier: null,
     target: null,
-    report: { natural: 20, total: null, outcome: "critical" },
+    pool: null,
+    report: sum({ natural: 20, total: null, outcome: "critical" }),
   });
   assert.equal(seen?.targets.find((t) => t.actorId === "lyra")?.report?.outcome, "failure"); // revealed to its owner too
 });
@@ -133,4 +154,55 @@ test("the call and report actions parse their payloads", () => {
     true,
   );
   assert.equal(Action.safeParse({ type: "test.close", callId: "nope" }).success, false);
+});
+
+// A Dice pool: 5 dice for Lyra against a difficulty number of 17 that the GM hid. Score 19, so margin 2, 1 shift.
+const poolCall = (over: Partial<TestCall> = {}) =>
+  call({
+    dice: "d6 pool",
+    advantage: false,
+    pool: {
+      die: 6,
+      bands: [{ id: "top", from: 6, to: 6, worth: 2 }],
+      special: { label: "Wrath die", count: 1 },
+      shift: "top",
+    },
+    called: 1,
+    reported: 1,
+    targets: [
+      {
+        actorId: "lyra",
+        modifier: 1,
+        target: 17,
+        pool: 5,
+        report: { natural: null, total: 19, outcome: "success", margin: 2, shifts: 1, flags: ["complication"] },
+      },
+    ],
+    ...over,
+  });
+
+test("a hidden difficulty number reaches no seat through a Dice pool's margin or shifts", () => {
+  for (const c of [lyra, screen, coCombat]) {
+    for (const over of [{}, { showOutcome: true }]) {
+      const [seen] = toSeatTests({ tests: [poolCall(over)], ctx: c });
+      const report = seen?.targets[0]?.report;
+      assert.deepEqual([report?.margin ?? null, report?.shifts ?? null], [null, null], c.seat.kind);
+      assert.ok(!/17/.test(text(seen)), c.seat.kind);
+    }
+  }
+  // The flags come from the dice the player read out, so they are told with or without the outcome.
+  const own = toSeatTests({ tests: [poolCall()], ctx: lyra })[0]?.targets[0];
+  assert.deepEqual([own?.report?.outcome, own?.report?.flags, own?.pool], [null, ["complication"], 5]);
+});
+
+test("a Dice pool's margin and shifts are told once the number is shown or the GM reveals the Test", () => {
+  const shown = toSeatTests({ tests: [poolCall({ showTarget: true, showOutcome: true })], ctx: lyra })[0]?.targets[0];
+  assert.deepEqual([shown?.report?.margin, shown?.report?.shifts], [2, 1]);
+  const closed = poolCall({ revealed: true, status: "closed" });
+  const revealed = toSeatTests({ tests: [closed], ctx: lyra })[0]?.targets[0];
+  assert.deepEqual([revealed?.report?.margin, revealed?.report?.shifts, revealed?.target], [2, 1, null]);
+});
+
+test("the GM side sees a Dice pool whole", () => {
+  assert.deepEqual(toSeatTests({ tests: [poolCall()], ctx: gm }), [poolCall()]);
 });

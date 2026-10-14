@@ -1,6 +1,7 @@
 import type { Touches } from "../enums.ts";
 import { own } from "../own.ts";
 import { conditionsExpire } from "./conditions-expire.ts";
+import { dicePoolSuccesses } from "./dice-pool-successes.ts";
 import { diceSumVsTarget } from "./dice-sum-vs-target.ts";
 import { healthTracks } from "./health-tracks.ts";
 import { initiativeRanked } from "./initiative-ranked.ts";
@@ -11,6 +12,7 @@ import { rest } from "./rest.ts";
 /** Every primitive the platform maintains, by id. Adding one is a platform PR, never a manifest (design §4.1). */
 export const PRIMITIVES: Readonly<Record<string, Primitive<unknown>>> = {
   [diceSumVsTarget.id]: diceSumVsTarget,
+  [dicePoolSuccesses.id]: dicePoolSuccesses,
   [initiativeRanked.id]: initiativeRanked,
   [healthTracks.id]: healthTracks,
   [resourceCapped.id]: resourceCapped,

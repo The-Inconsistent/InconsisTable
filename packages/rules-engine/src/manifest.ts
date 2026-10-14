@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { parseDice } from "./dice/dice.ts";
+import { MAX_SIDES, parseDice } from "./dice/dice.ts";
 import {
   ConditionDuration,
   ConditionStacking,
@@ -10,6 +10,7 @@ import {
   EffectPhase,
   EntityBase,
   License,
+  PoolFlag,
   ResetEvent,
   ResourceScope,
   ScalarType,
@@ -162,27 +163,67 @@ export const RuleOption = z.object({
 });
 export type RuleOption = z.infer<typeof RuleOption>;
 
-/** Roll dice, add a modifier, compare with a target. Also the params of the `dice.sumVsTarget` primitive. */
-export const SumVsTarget = z.object({
-  kind: z.literal("sumVsTarget"),
-  /** Plain `NdX`: the primitive sums the faces it is given. */
-  dice: DiceNotation,
-  modifier: ExprSource.default("0"),
+// What every kind of Test declares: the number it is compared with, how a tie goes, and what the GM fills in to call it.
+const testBase = {
   target: ExprSource,
-  /** Allows advantage and disadvantage: roll the die twice, keep the higher or the lower. */
-  advantage: z.boolean().default(false),
-  /** Natural results that make the outcome `critical`. */
-  critOn: z.array(z.int().min(1)).max(20).optional(),
   ties: TieRule.default("meetOrBeat"),
   /** Values the caller supplies when the Test is called, read as `ctx.<id>` (e.g. `ctx.dc`, `ctx.ability`). */
   inputs: z.record(Id, ScalarType).default({}),
   /** The allowed values of a text input; the call form shows a picker and the server refuses anything else. */
   inputOptions: z.record(Id, z.array(z.string().min(1).max(60)).min(1).max(50)).default({}),
   cite: Cite.optional(),
+};
+
+/** Roll dice, add a modifier, compare with a target. Also the params of the `dice.sumVsTarget` primitive. */
+export const SumVsTarget = z.object({
+  ...testBase,
+  kind: z.literal("sumVsTarget"),
+  /** Plain `NdX`: the primitive sums the faces it is given. */
+  dice: DiceNotation,
+  modifier: ExprSource.default("0"),
+  /** Allows advantage and disadvantage: roll the die twice, keep the higher or the lower. */
+  advantage: z.boolean().default(false),
+  /** Natural results that make the outcome `critical`. */
+  critOn: z.array(z.int().min(1)).max(20).optional(),
 });
 export type SumVsTarget = z.infer<typeof SumVsTarget>;
 
-export const DiceMechanic = z.discriminatedUnion("kind", [SumVsTarget]);
+/** A run of faces of one die, both ends included. */
+export const FaceRange = z.object({ from: z.int().min(1).max(MAX_SIDES), to: z.int().min(1).max(MAX_SIDES) });
+export type FaceRange = z.infer<typeof FaceRange>;
+
+/**
+ * A Dice pool: roll as many dice as the character's values say, count the faces that score, compare the score with
+ * the target (the difficulty number). Also the params of the `dice.poolSuccesses` primitive.
+ */
+export const PoolSuccesses = z.object({
+  ...testBase,
+  kind: z.literal("poolSuccesses"),
+  /** How many dice the character rolls, special dice included. */
+  pool: ExprSource,
+  /** Dice added to or taken from the pool by the call; the pool never drops below zero. */
+  modifier: ExprSource.default("0"),
+  /** Sides of every die of the pool. */
+  die: z.int().min(2).max(MAX_SIDES),
+  /** The faces that score and what one die showing them is worth. Bands never overlap. */
+  bands: z
+    .array(z.object({ id: Id, ...FaceRange.shape, worth: z.int().min(1).max(10) }))
+    .min(1)
+    .max(10),
+  /** Dice of the pool read one by one, whose faces flag the roll. They score like every other die. */
+  special: z
+    .object({
+      label: z.string().min(1).max(40),
+      count: z.int().min(1).max(10),
+      flags: z.partialRecord(PoolFlag, FaceRange).default({}),
+    })
+    .optional(),
+  /** The band whose dice may be shifted, as long as the roll still passes without them. */
+  shift: Id.optional(),
+});
+export type PoolSuccesses = z.infer<typeof PoolSuccesses>;
+
+export const DiceMechanic = z.discriminatedUnion("kind", [SumVsTarget, PoolSuccesses]);
 export type DiceMechanic = z.infer<typeof DiceMechanic>;
 
 /** Highest score acts first. Also the params of the `initiative.ranked` primitive. */
@@ -428,6 +469,23 @@ function creationProblems(r: Ruleset, out: Problem[]): void {
   });
 }
 
+/** Every face range fits the die, bands never overlap, and `shift` names a band. */
+function poolProblems({ t, path, out }: { t: PoolSuccesses; path: string; out: Problem[] }): void {
+  const range = (f: FaceRange, at: string) => {
+    if (f.to < f.from) out.push({ path: `${at}.to`, message: "to is below from" });
+    if (f.to > t.die) out.push({ path: `${at}.to`, message: `a d${t.die} has no face ${f.to}` });
+  };
+  duplicates({ ids: t.bands.map((b) => b.id), path: `${path}.bands`, out });
+  t.bands.forEach((b, i) => {
+    range(b, `${path}.bands[${i}]`);
+    const other = t.bands.findIndex((o, j) => j < i && o.from <= b.to && b.from <= o.to);
+    if (other >= 0) out.push({ path: `${path}.bands[${i}]`, message: `overlaps bands[${other}]` });
+  });
+  for (const [flag, f] of Object.entries(t.special?.flags ?? {})) range(f, `${path}.special.flags.${flag}`);
+  if (t.shift !== undefined && !t.bands.some((b) => b.id === t.shift))
+    out.push({ path: `${path}.shift`, message: `no band "${t.shift}"` });
+}
+
 function semanticProblems(r: Ruleset): Problem[] {
   const out: Problem[] = [];
   // CLAUDE.md principle 1: every rule entry cites its printed page, unless the whole ruleset is homebrew.
@@ -507,6 +565,14 @@ function semanticProblems(r: Ruleset): Problem[] {
   }
 
   for (const [id, t] of Object.entries(r.tests)) {
+    for (const key of Object.keys(t.inputOptions)) {
+      if (t.inputs[key] !== "text")
+        out.push({ path: `tests.${id}.inputOptions.${key}`, message: "options are only for text inputs" });
+    }
+    if (t.kind === "poolSuccesses") {
+      poolProblems({ t, path: `tests.${id}`, out });
+      continue;
+    }
     const shape = plainDice(t.dice);
     if (shape === null) {
       out.push({ path: `tests.${id}.dice`, message: "sumVsTarget takes plain NdX dice" });
@@ -514,10 +580,6 @@ function semanticProblems(r: Ruleset): Problem[] {
     }
     if (t.advantage && shape.count !== 1) {
       out.push({ path: `tests.${id}.advantage`, message: "advantage needs a single die (1dX)" });
-    }
-    for (const key of Object.keys(t.inputOptions)) {
-      if (t.inputs[key] !== "text")
-        out.push({ path: `tests.${id}.inputOptions.${key}`, message: "options are only for text inputs" });
     }
     t.critOn?.forEach((n, j) => {
       if (n > shape.count * shape.sides)

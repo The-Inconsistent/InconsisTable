@@ -1,0 +1,116 @@
+/* The second Theme, "felt": a card table. Bottle-green baize, brass thread, ivory playing cards lying flat on it.
+   It exists to prove the contract: it re-maps every token lantern.css declares and changes the look of the same markup
+   without a component knowing. It is selected by the root class .theme-felt, which the layout sets only outside
+   production (INCONSISTABLE_THEME=felt); it is not in the product UI. A World's Theme is built the same way (P2).
+   Beyond the tokens it carries the few rules a token cannot express: the dashed ring on a plate, the seat strip. */
+:root.theme-felt {
+  /* palette: the "wood" names hold the baize here */
+  --wood-0: #082a20;
+  --wood: #0f3d2e;
+  --wood-2: #17503d;
+  --wood-3: #1f6350;
+  --brass: #d9b45a;
+  --brass-hi: #ecd089;
+  --brass-lo: #8a6a22;
+  --brass-ink: #1b1608;
+  --candle: #f3d98b;
+  --wax: #962f1a;
+  --cream: #ffffff;
+  --leaf: #1f6b44;
+  --moss: #7fd3a1;
+  --parchment: #f3ead0;
+  --parchment-hi: #fbf4e0;
+  --parchment-2: #efe3c4;
+  --parchment-ink: #231c14;
+  --parchment-ink-2: #5a4c3a;
+  --parchment-line: #b9a67c;
+  --ink-blue: #0b3a2b;
+  --halo-light: #fff7dc;
+  --halo-dark: #04150f;
+  --shadow: rgb(0 0 0 / 0.45);
+
+  --paper: light-dark(var(--parchment), var(--wood));
+  --paper-2: light-dark(var(--parchment-2), var(--wood-0));
+  --ink: light-dark(var(--parchment-ink), #f3efe2);
+  --ink-2: light-dark(var(--parchment-ink-2), #c4d3c6);
+  --line: light-dark(var(--parchment-line), #3f7a62);
+  --band: var(--wood-0);
+  --band-ink: #f3efe2;
+  --accent: light-dark(var(--wax), var(--brass));
+  --accent-ink: light-dark(var(--cream), var(--brass-ink));
+  --ok: light-dark(var(--leaf), var(--moss));
+  --link: light-dark(var(--wax), var(--brass-hi));
+  --focus: light-dark(var(--ink-blue), var(--brass-hi));
+  --focus-halo: light-dark(var(--halo-light), var(--halo-dark));
+
+  --plate: var(--wood-2);
+  --plate-line: var(--brass);
+  --plate-shade: rgb(0 0 0 / 0.4);
+  --plate-lit: rgb(255 255 255 / 0.1);
+  --plate-main: var(--brass);
+  --plate-main-ink: var(--brass-ink);
+
+  --radius-btn: 999px;
+  --radius-card: 16px;
+  --edge: inset(0 round 16px);
+  --edge-slip: inset(0 round 14px);
+
+  --font-display: var(--font-display-felt), Georgia, "Times New Roman", serif;
+  --display-axes: normal;
+
+  --grain:
+    radial-gradient(ellipse at 50% 25%, transparent 35%, rgb(0 0 0 / 0.5) 100%),
+    repeating-linear-gradient(45deg, rgb(255 255 255 / 0.03) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.07) 0 1px, transparent 1px 3px);
+  --grain-h: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.04) 0 1px, transparent 1px 4px);
+  --fibre:
+    linear-gradient(135deg, rgb(255 255 255 / 0.55), transparent 38%),
+    repeating-linear-gradient(0deg, rgb(120 90 40 / 0.035) 0 1px, transparent 1px 3px);
+  --planks: radial-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1.6px) 0 0 / 5px 5px;
+  --candle-glow: radial-gradient(ellipse 90% 380px at 50% -80px, rgb(236 208 137 / 0.22), transparent 75%);
+  --bg-wood: var(--grain), var(--planks), var(--wood);
+  --bg-parchment: var(--fibre), var(--parchment);
+  --bg-card: var(--fibre), var(--parchment-hi);
+
+  --icon-die: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M7 3h10a4 4 0 014 4v10a4 4 0 01-4 4H7a4 4 0 01-4-4V7a4 4 0 014-4zM8.5 7a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM12 10.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM8.5 14a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z'/%3E%3C/svg%3E");
+  --icon-heart: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21C5 15.5 2.5 12 2.5 8.4 2.5 5.6 4.6 3.5 7.2 3.5c1.9 0 3.6 1 4.8 2.9 1.2-1.9 2.9-2.9 4.8-2.9 2.6 0 4.7 2.1 4.7 4.9 0 3.6-2.5 7.1-9.5 12.6z'/%3E%3C/svg%3E");
+  --icon-shield: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5l8 3v6c0 5-3.4 8.7-8 10-4.6-1.3-8-5-8-10v-6z'/%3E%3C/svg%3E");
+  --icon-turn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M12 3a9 9 0 100 18 9 9 0 000-18zM10 8l7 4-7 4z'/%3E%3C/svg%3E");
+  --icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.5 17.6L4.4 12.5l2-2 3.1 3.1 8.1-8.1 2 2z'/%3E%3C/svg%3E");
+}
+
+/* A plate on felt is a chip: a dashed ring inside the rim. */
+.theme-felt .btn:not(.sm, .step)::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1.5px dashed currentColor;
+  border-radius: 999px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+/* The cards lie flat: no pin, no tilt. */
+.theme-felt .card::after,
+.theme-felt .sheet-card::after {
+  display: none;
+}
+.theme-felt .grid > .card,
+.theme-felt .sheet-card,
+.theme-felt .combatant {
+  transform: none;
+}
+/* The order of play is a strip of seats along the table, the acting one lifted. */
+.theme-felt .seat-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 22px 8px 14px;
+  scroll-snap-type: x proximity;
+}
+.theme-felt .seat-strip > .combatant {
+  flex: 0 0 min(250px, 72vw);
+  scroll-snap-align: center;
+}
+.theme-felt .seat-strip > .combatant[data-acting="true"] {
+  transform: translateY(-10px);
+}

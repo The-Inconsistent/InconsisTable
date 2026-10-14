@@ -1,56 +1,122 @@
-/* The neutral base theme. Each World re-maps these tokens with its own look (docs/design.md §4.7); the base has to
-   read at arm's length on a phone and on a tablet propped on a table (CLAUDE.md, principle 8). Raw values used outside
-   CSS are mirrored in lib/tokens/tokens.ts. */
+/* The skin. Colours, fonts, textures and icons are the Theme's tokens (theme/lantern.css, re-mapped by a World; the
+   contract is tested in lib/tokens). This file holds the layout, the density tokens and the rules that read the Theme.
+   Never write a colour here that is not a token. Raw values used outside CSS are mirrored in lib/tokens/tokens.ts.
+
+   Surfaces: .surface-app is the body (lobby, library, builder: follows the system). .surface-table wraps the GM, the
+   phone and the TV: always dark. Density: the phone is the base (44px targets or more), the tablet is dense from 768px,
+   the TV sets [data-density="tv"]. */
 :root {
-  --paper: #f4f2ee;
-  --paper-2: #e8e5df;
-  --ink: #1d2126;
-  --ink-2: #4a5059;
-  --line: #c9c4bb;
-  --band: #23303b;
-  --band-ink: #f4f2ee;
-  --accent: #b5452f;
-  --accent-ink: #ffffff;
-  --ok: #2f7a4d;
   --font-body: var(--font-text), system-ui, sans-serif;
-  color-scheme: light;
+  --tap: 52px;
+  --tap-key: 68px;
+  --gap: 16px;
+  --pad-page: 16px;
+  --pad-card: 16px 18px;
+  --fs-body: 18px;
+  --fs-small: 14px;
+  --fs-num: 30px;
+  --fs-title: 32px;
+  --fs-name: 21px;
+  --fs-banner: 28px;
 }
-@media (prefers-color-scheme: dark) {
+/* Tablet: dense, a tap still at least 44px. */
+@media (min-width: 768px) {
   :root {
-    --paper: #15191d;
-    --paper-2: #1f252b;
-    --ink: #ece9e3;
-    --ink-2: #aeb4bb;
-    --line: #3a424b;
-    --band: #0c1014;
-    --band-ink: #ece9e3;
-    --accent: #e0775f;
-    --accent-ink: #15191d;
-    --ok: #5fbf86;
-    color-scheme: dark;
+    --tap: 44px;
+    --tap-key: 64px;
+    --gap: 12px;
+    --pad-page: 20px;
+    --pad-card: 14px 16px;
+    --fs-body: 16px;
+    --fs-num: 26px;
+    --fs-title: 30px;
+    --fs-name: 19px;
+    --fs-banner: 26px;
   }
+}
+/* TV: read from the sofa. Far-away type, high contrast, nothing to tap. */
+[data-density="tv"] {
+  --tap: 72px;
+  --tap-key: 96px;
+  --gap: 28px;
+  --pad-page: 48px;
+  --pad-card: 28px 32px;
+  --fs-body: 32px;
+  --fs-small: 24px;
+  --fs-num: 64px;
+  --fs-title: 64px;
+  --fs-name: 40px;
+  --fs-banner: 56px;
+  --ink: var(--cream);
+  --ink-2: var(--parchment-2);
 }
 
 * {
   box-sizing: border-box;
 }
-html,
+html {
+  background: var(--paper);
+}
+html:has(.surface-table) {
+  color-scheme: dark;
+  background: var(--wood-0);
+}
 body {
   margin: 0;
-  background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
-  font-size: 18px;
+  font-size: var(--fs-body);
   line-height: 1.45;
 }
 a {
-  color: var(--accent);
+  color: var(--link);
 }
 :focus-visible {
-  outline: 3px solid var(--accent);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
+  box-shadow: 0 0 0 6px var(--focus-halo);
 }
 
+/* ---------- Surfaces ---------- */
+.surface-app,
+.surface-table {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  background: var(--bg-parchment);
+  color: var(--ink);
+}
+.surface-table {
+  color-scheme: dark;
+  background: var(--bg-wood);
+}
+@media (prefers-color-scheme: dark) {
+  .surface-app {
+    background: var(--bg-wood);
+  }
+}
+/* The candle: a fixed pool of warm light near the top, under the content, and a vignette. */
+.surface-table::before,
+.surface-app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.surface-table::before {
+  background: var(--candle-glow), radial-gradient(ellipse 120% 90% at 50% 40%, transparent 55%, rgb(0 0 0 / 0.55));
+}
+@media (prefers-color-scheme: dark) {
+  .surface-app::before {
+    background: var(--candle-glow), radial-gradient(ellipse 120% 90% at 50% 40%, transparent 55%, rgb(0 0 0 / 0.55));
+  }
+}
+.surface-table :is(a, .dim) {
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Layout ---------- */
 .center {
   min-height: 100dvh;
   display: grid;
@@ -65,13 +131,13 @@ a {
 .page {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 16px;
+  padding: var(--pad-page);
   display: grid;
-  gap: 20px;
+  gap: calc(var(--gap) * 1.5);
 }
 .stack {
   display: grid;
-  gap: 12px;
+  gap: var(--gap);
   min-width: 0;
 }
 .row {
@@ -84,35 +150,85 @@ a {
   color: var(--ink-2);
 }
 .small {
-  font-size: 14px;
+  font-size: var(--fs-small);
 }
-.title {
-  font-size: 28px;
-  font-weight: 800;
+fieldset {
+  border: 0;
+  padding: 0;
   margin: 0;
-}
-.head {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  margin: 0;
+  min-width: 0;
 }
 
+/* ---------- Type ---------- */
+.title,
+.head,
+.band strong,
+.roll-title,
+.step-title,
+.fightbar .round,
+.turn-banner,
+.combatant .name,
+.keypad-out,
+.roll-slot,
+.sheet-num,
+.pool-count,
+.pool-faces strong,
+.pool-size strong,
+.points-left,
+.derived-list dd {
+  font-family: var(--font-display);
+  font-variation-settings: var(--display-axes);
+}
+.title {
+  font-size: var(--fs-title);
+  font-weight: 650;
+  line-height: 1.1;
+  margin: 0;
+  text-wrap: balance;
+}
+.head {
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.sheet-name {
+  text-shadow: 0 2px 10px rgb(255 170 70 / 0.25);
+}
+
+/* ---------- The header beam ---------- */
 .band {
-  background: var(--band);
-  color: var(--band-ink);
-  padding: 10px 16px;
-  padding-top: max(10px, env(safe-area-inset-top));
+  position: relative;
+  z-index: 3;
   display: flex;
   gap: 12px;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
+  padding: 10px 16px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  background: var(--grain-h), linear-gradient(180deg, var(--wood-3), var(--wood-0));
+  background-size:
+    360px 120px,
+    auto;
+  color: var(--band-ink);
+  border-bottom: 3px solid var(--brass);
+  box-shadow:
+    inset 0 1px 0 rgb(255 215 150 / 0.16),
+    0 2px 0 var(--brass-lo),
+    0 8px 18px rgb(0 0 0 / 0.6);
+}
+.band strong {
+  font-size: 22px;
+  font-weight: 650;
 }
 .band a {
   color: var(--band-ink);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 /* Lost connection: the first row of the header band, full width and in flow, so it never covers the band's buttons and
    the last state stays readable under it. */
@@ -120,9 +236,10 @@ a {
   flex-basis: 100%;
   background: var(--accent);
   color: var(--accent-ink);
+  border: 2px solid var(--brass-ink);
   padding: 4px 8px;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: var(--fs-small);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-align: center;
@@ -143,85 +260,214 @@ a {
   margin: 0;
 }
 
+/* ---------- Tabs: brass-edged plates. The selected one is heavier, lit, underlined and marked. ---------- */
 .tabs {
   display: flex;
   overflow-x: auto;
-  gap: 4px;
-  background: var(--band);
-  padding: 0 8px;
+  gap: 6px;
+  align-items: flex-end;
+  padding: 8px 10px 0;
+  background: var(--grain-h), linear-gradient(180deg, var(--wood), var(--wood-0));
+  background-size:
+    360px 120px,
+    auto;
+  border-bottom: 2px solid var(--brass-lo);
+}
+/* The phone's bottom bar: stays under the thumb and clear of the home indicator. */
+.tabs-bottom {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  border-bottom: 0;
+  border-top: 2px solid var(--brass-lo);
+}
+.safe-bottom {
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
 }
 .tab {
-  min-height: 48px;
-  padding: 0 16px;
-  border: 0;
-  background: transparent;
+  flex: 1 0 auto;
+  min-height: var(--tap);
+  padding: 0 18px;
   color: var(--band-ink);
-  opacity: 0.7;
   font: inherit;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  background: linear-gradient(180deg, var(--wood-3), var(--wood-2));
+  border: 1px solid var(--brass-lo);
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  box-shadow: inset 0 1px 0 rgb(255 215 150 / 0.2);
   cursor: pointer;
 }
 .tab[aria-selected="true"] {
-  opacity: 1;
-  box-shadow: inset 0 -4px 0 var(--accent);
+  font-weight: 800;
+  color: var(--brass-ink);
+  background: linear-gradient(180deg, var(--brass-hi), var(--brass));
+  border-color: var(--brass-hi);
+  box-shadow:
+    inset 0 -6px 0 var(--brass-ink),
+    0 -3px 10px rgb(255 182 79 / 0.35);
+}
+.tab[aria-selected="true"]::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  vertical-align: 1px;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+.tab:focus-visible {
+  outline-offset: -4px;
+  box-shadow: inset 0 0 0 6px var(--focus-halo);
 }
 
+/* ---------- Parchment cards: the shadow is on the element, the torn edge is clipped on ::before ---------- */
+.card,
+.combatant,
+.sheet-card {
+  position: relative;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  border-radius: var(--radius-card);
+  filter: drop-shadow(0 5px 3px var(--shadow)) drop-shadow(0 14px 14px rgb(8 3 0 / 0.35));
+}
+.card::before,
+.combatant::before,
+.sheet-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: var(--edge);
+  background: var(--bg-card);
+  box-shadow:
+    inset 0 0 0 1px rgb(110 70 20 / 0.28),
+    inset 0 0 34px rgb(150 100 40 / 0.3);
+}
 .card {
-  border: 1px solid var(--line);
-  background: var(--paper-2);
-  border-radius: 8px;
-  padding: 14px 16px;
   display: grid;
   gap: 10px;
-  min-width: 0;
+  padding: var(--pad-card);
+}
+/* A brass pin on a card, a wax seal on every other one. */
+.card::after,
+.sheet-card::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 22px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--brass-hi), var(--brass) 50%, var(--brass-lo));
+  box-shadow:
+    0 2px 2px rgb(0 0 0 / 0.5),
+    inset 0 0 0 1px rgb(60 35 5 / 0.5);
+}
+:is(.card, .sheet-card):nth-child(even)::after {
+  background: radial-gradient(
+    circle at 35% 30%,
+    color-mix(in srgb, var(--wax), white 28%),
+    var(--wax) 55%,
+    var(--wood-0)
+  );
+}
+.grid > .card:nth-child(odd) {
+  transform: rotate(-0.3deg);
+}
+.grid > .card:nth-child(even) {
+  transform: rotate(0.4deg);
 }
 .grid {
   display: grid;
-  gap: 12px;
+  gap: calc(var(--gap) * 1.6);
+  padding-top: 8px;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
 }
 
+/* ---------- Buttons: plates ---------- */
 .btn {
-  min-height: 44px;
+  position: relative;
+  min-height: var(--tap);
   padding: 0 16px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: var(--paper);
+  border-radius: var(--radius-btn);
+  border: 1px solid var(--plate-line);
+  background: var(--plate);
   color: var(--ink);
   font: inherit;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: calc(var(--fs-body) - 1px);
+  font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   text-decoration: none;
+  box-shadow:
+    inset 0 1px 0 var(--plate-lit),
+    0 2px 0 var(--plate-shade);
 }
 .btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  background: var(--plate-main);
+  border-color: var(--brass-lo);
+  color: var(--plate-main-ink);
+  box-shadow:
+    inset 0 1px 0 rgb(255 240 191 / 0.8),
+    0 2px 0 var(--brass-lo);
 }
 .btn.sm {
   min-height: 32px;
   padding: 0 10px;
-  font-size: 14px;
+  font-size: var(--fs-small);
+}
+.btn.step {
+  min-width: 48px;
+  min-height: var(--tap);
+  padding: 0;
+  font-size: 24px;
 }
 .btn[aria-busy="true"] {
   opacity: 0.7;
 }
 .btn[data-sent="ok"] {
-  box-shadow: 0 0 0 3px var(--ok);
+  outline: 3px solid var(--ok);
+  outline-offset: 2px;
 }
 .btn[data-sent="no"] {
-  box-shadow: 0 0 0 3px var(--accent);
+  outline: 3px dashed var(--accent);
+  outline-offset: 2px;
+}
+/* A pressed toggle sinks, inverts and carries a check, so it never rests on colour. */
+.btn[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+  box-shadow: inset 0 3px 6px rgb(0 0 0 / 0.5);
+}
+.btn[aria-pressed="true"]::before {
+  content: "";
+  flex: none;
+  width: 1em;
+  height: 1em;
+  margin-right: 6px;
+  background: currentColor;
+  mask: var(--icon-check) center / contain no-repeat;
+}
+.seg {
+  display: flex;
+  gap: 4px;
+}
+.seg .btn {
+  flex: 1;
 }
 
 input,
 select {
-  min-height: 44px;
+  min-height: var(--tap);
   padding: 0 10px;
   border-radius: 6px;
   border: 1px solid var(--line);
@@ -229,6 +475,11 @@ select {
   color: var(--ink);
   font: inherit;
   min-width: 0;
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.25);
+}
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
 }
 textarea {
   padding: 8px 10px;
@@ -238,6 +489,7 @@ textarea {
   color: var(--ink);
   font: inherit;
   min-width: 0;
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.25);
 }
 label {
   display: grid;
@@ -245,15 +497,23 @@ label {
   font-size: 15px;
 }
 .chip {
-  border: 1px solid var(--line);
+  border: 1px solid var(--brass);
+  background: rgb(201 154 62 / 0.14);
   border-radius: 999px;
-  padding: 2px 10px;
-  font-size: 14px;
+  padding: 2px 11px;
+  font-size: var(--fs-small);
   font-weight: 600;
+}
+.card .chip,
+.combatant .chip {
+  border-color: var(--parchment-line);
+  background: rgb(120 80 30 / 0.1);
 }
 .error {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 700;
+  padding-left: 10px;
+  border-left: 4px solid var(--accent);
 }
 .qr {
   width: min(100%, 320px);
@@ -274,20 +534,20 @@ label {
   gap: 8px;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px dotted var(--line);
   padding-bottom: 8px;
 }
 
-/* The table screen: read from across the room. */
+/* ---------- The table screen: read from across the room ---------- */
 .screen {
-  font-size: 28px;
-  padding: 32px;
+  font-size: var(--fs-body);
+  padding: var(--pad-page);
 }
-.screen .title {
-  font-size: 48px;
+.screen .order .combatant {
+  padding: 16px 20px;
 }
-.screen .badge-offline {
-  font-size: 24px;
+.screen .bar {
+  height: 20px;
 }
 
 /* RULESETS & PACKS: the importer is a paste box that talks back. Each problem the api finds is a row that selects its
@@ -310,12 +570,8 @@ textarea.json {
   width: 100%;
   min-height: 260px;
   padding: 10px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: var(--paper);
-  color: var(--ink);
   font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
-  font-size: 14px;
+  font-size: var(--fs-small);
   line-height: 1.5;
   tab-size: 2;
   white-space: pre;
@@ -360,7 +616,7 @@ textarea.json {
 }
 .problem-path {
   font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
-  font-size: 14px;
+  font-size: var(--fs-small);
   color: var(--ink-2);
   overflow-wrap: anywhere;
 }
@@ -388,29 +644,43 @@ summary {
   margin: 0;
 }
 
-/* A called Test: the roll as read off the physical dice. Big numerals and keys, so it reads at arm's length and takes
-   a few taps; the keys stand in for the phone's keyboard, which would cover the screen. */
-.btn[aria-pressed="true"] {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--paper);
+/* ---------- A called Test: the roll as read off the physical dice ----------
+   Big numerals and keys, so it reads at arm's length and takes a few taps; the keys stand in for the phone's keyboard,
+   which would cover the screen. */
+.roll-card::before {
+  box-shadow:
+    inset 0 0 0 7px var(--parchment),
+    inset 0 0 0 8px rgb(156 47 35 / 0.8),
+    inset 0 0 0 10px var(--parchment),
+    inset 0 0 0 11px rgb(156 47 35 / 0.4),
+    inset 0 0 34px rgb(150 100 40 / 0.3);
 }
-.roll-card {
-  border-width: 2px;
-  border-color: var(--accent);
+.roll-card::after {
+  background: radial-gradient(
+    circle at 35% 30%,
+    color-mix(in srgb, var(--wax), white 28%),
+    var(--wax) 55%,
+    var(--wood-0)
+  );
+  width: 24px;
+  height: 24px;
+  top: -10px;
+  left: 20px;
 }
 .roll-title {
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 24px;
+  font-weight: 700;
   margin: 0;
 }
 .roll-result {
   margin: 0;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  font-size: 17px;
 }
 .roll-line {
   min-width: 0;
+  line-height: 1.5;
 }
 .roll-slots {
   display: flex;
@@ -418,50 +688,67 @@ summary {
 }
 .roll-slot {
   flex: 1;
-  min-height: 88px;
+  min-width: 0;
+  min-height: 92px;
   border: 2px solid var(--line);
   border-radius: 12px;
   background: var(--paper);
   color: var(--ink);
-  font: inherit;
   font-size: 56px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
+  box-shadow: inset 0 3px 8px rgb(110 70 20 / 0.35);
 }
 .roll-slot[aria-pressed="true"] {
   border-color: var(--accent);
-  box-shadow: inset 0 -6px 0 var(--accent);
+  box-shadow:
+    inset 0 -7px 0 var(--accent),
+    inset 0 3px 8px rgb(110 70 20 / 0.35);
 }
 .roll-pad {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 .roll-key {
-  min-height: 64px;
-  border: 1px solid var(--line);
+  min-height: var(--tap-key);
+  border: 1px solid var(--plate-line);
   border-radius: 10px;
-  background: var(--paper);
+  background: var(--plate);
   color: var(--ink);
   font: inherit;
   font-size: 28px;
   font-weight: 700;
   cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 var(--plate-lit),
+    0 3px 0 var(--plate-shade);
+}
+.roll-key:active {
+  transform: translateY(2px);
+  box-shadow: none;
 }
 .roll-key.report {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  background: var(--plate-main);
+  border-color: var(--brass-lo);
+  color: var(--plate-main-ink);
   font-size: 20px;
-}
-.roll-key:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  font-weight: 800;
 }
 
-/* The builder: one card per creation step on a single column, so a thumb walks down the page. A pick is a whole-row
-   touch target; the points left in a point buy read as one big numeral. */
+/* The outcome beside its printed word: a line that differs in shape as well as colour. */
+.outcome-success {
+  border-bottom: 3px solid var(--ok);
+}
+.outcome-failure {
+  border-bottom: 3px dashed var(--accent);
+}
+.outcome-critical {
+  border-bottom: 4px double var(--brass-lo);
+}
+
+/* ---------- The builder: one card per creation step on a single column, so a thumb walks down the page ---------- */
 .build {
   max-width: 640px;
 }
@@ -474,11 +761,11 @@ summary {
 }
 .step-title {
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 650;
   margin: 0;
 }
 .step-state {
-  font-size: 14px;
+  font-size: var(--fs-small);
   font-weight: 700;
 }
 .step-state[data-done="true"] {
@@ -500,7 +787,7 @@ summary {
   box-shadow: inset 4px 0 0 var(--accent);
 }
 .pick:has(input:focus-visible) {
-  outline: 3px solid var(--accent);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 .pick input {
@@ -556,7 +843,7 @@ summary {
   background: var(--paper);
 }
 .derived-list dt {
-  font-size: 14px;
+  font-size: var(--fs-small);
   color: var(--ink-2);
 }
 .derived-list dd {
@@ -573,8 +860,10 @@ summary {
   gap: 8px;
   align-items: center;
   padding: 10px 16px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
   background: var(--paper);
-  border-top: 2px solid var(--line);
+  border-top: 3px solid var(--brass);
+  box-shadow: 0 -6px 14px rgb(0 0 0 / 0.2);
 }
 .problem-lines {
   margin: 0;
@@ -601,45 +890,69 @@ summary {
   box-shadow: inset 4px 0 0 var(--accent);
 }
 
-/* SHEET: a character as the ruleset lays it out. The numbers are the biggest thing on the phone, so they read at arm's
-   length; a number you can tap to see where it comes from is drawn as a button, the rest as plain rows. */
+/* ---------- SHEET: a character as the ruleset lays it out ----------
+   One parchment card per section. The numbers are the biggest thing on the phone, so they read at arm's length; a
+   number you can tap to see where it comes from is drawn as a button, the rest as plain rows. */
+.sheet {
+  gap: calc(var(--gap) * 1.5);
+}
+@media (min-width: 768px) {
+  .sheet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 36px;
+    align-items: start;
+  }
+  .sheet > :not(.sheet-card) {
+    grid-column: 1 / -1;
+  }
+}
+.sheet-card {
+  padding: 22px 20px 12px;
+  gap: 4px;
+  transform: rotate(0.25deg);
+}
 .sheet-rows {
   display: grid;
-  border-top: 1px solid var(--line);
 }
 .sheet-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 56px;
+  min-height: calc(var(--tap) + 6px);
   padding: 6px 0;
-  border-bottom: 1px solid var(--line);
-  font-size: 18px;
+  border-bottom: 1px dotted var(--line);
+  font-size: calc(var(--fs-body) + 1px);
+}
+.sheet-row:last-child {
+  border-bottom: 0;
+}
+.sheet-row > .row {
+  flex-wrap: nowrap;
+  flex: none;
 }
 .sheet-num {
-  font-size: 28px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
   min-width: 2ch;
   text-align: right;
+  white-space: nowrap;
+  font-size: var(--fs-num);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 .sheet-num.sheet-text {
-  font-size: 18px;
+  font-family: var(--font-body);
+  font-variation-settings: normal;
+  font-size: calc(var(--fs-body) + 1px);
   font-weight: 700;
+  white-space: normal;
   overflow-wrap: anywhere;
-}
-.btn.step {
-  min-width: 44px;
-  padding: 0;
-  font-size: 24px;
 }
 .sheet-derived {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 56px;
+  min-height: calc(var(--tap) + 6px);
   padding: 0;
   border: 0;
   background: transparent;
@@ -648,85 +961,110 @@ summary {
   cursor: pointer;
 }
 .sheet-derived .sheet-num {
-  border-bottom: 2px dotted var(--ink-2);
+  border-bottom: 2px dotted var(--accent);
+}
+.sheet-card .list > li:last-child {
+  border-bottom: 0;
+}
+/* An icon before a stat that names health or defence. The hook is the row's own id and kind, never its label.
+   ponytail: matches the ids rulesets usually give these rows (hp, vigour ...), upgrade: the manifest names a role. */
+.sheet-row:is([data-stat="hp"], [data-stat="health"], [data-stat="vigour"], [data-stat="vigor"], [data-stat="wounds"])
+  .stat-label::before,
+.sheet-row:is([data-stat="defense"], [data-stat="defence"], [data-stat="ac"], [data-stat="armour"], [data-stat="armor"])
+  .stat-label::before {
+  content: "";
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.4em;
+  vertical-align: -0.14em;
+  background: currentColor;
+  mask: var(--icon-heart) center / contain no-repeat;
+  color: var(--accent);
+}
+.sheet-row:is([data-stat="defense"], [data-stat="defence"], [data-stat="ac"], [data-stat="armour"], [data-stat="armor"])
+  .stat-label::before {
+  mask-image: var(--icon-shield);
+  color: var(--ink);
 }
 
-/* BREAKDOWN, and a book page: rise from the bottom edge, leave the table in reach above them. */
+/* ---------- BREAKDOWN, and a book page: a sheet of parchment risen from the bottom edge ---------- */
 .bottom-sheet {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 10;
+  width: min(100%, 960px);
+  margin: 0 auto;
   max-height: 70vh;
   overflow-y: auto;
   display: grid;
   gap: 12px;
   padding: 16px;
-  background: var(--paper);
-  border-top: 4px solid var(--accent);
-  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.25);
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  color: var(--ink);
+  background: var(--bg-card);
+  border-top: 4px solid var(--brass);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  box-shadow:
+    inset 0 0 34px rgb(150 100 40 / 0.3),
+    0 -8px 18px rgb(0 0 0 / 0.5);
 }
 .bottom-sheet .bottom-sheet {
   z-index: 11;
 }
+/* A sheet shown inside the panel is already on parchment: no second card. */
+.bottom-sheet .sheet-card {
+  filter: none;
+  transform: none;
+  padding: 0 0 8px;
+}
+.bottom-sheet .sheet-card::before,
+.bottom-sheet .sheet-card::after {
+  display: none;
+}
 
-/* The combat tracker. On the tablet the order and the selected combatant sit side by side; the phone and the TV read
-   the same order list without the controls. The acting row carries a heavy accent edge and the word ACTING. */
-.fightbar {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  padding: 10px 16px;
-  background: var(--paper);
-  border-bottom: 1px solid var(--line);
-}
-.fightbar .round {
-  font-size: 28px;
-  font-weight: 800;
-  margin-right: auto;
-}
-.track {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  align-items: start;
-}
-@media (max-width: 800px) {
-  .track {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
+/* ---------- Turn order: parchment slips. The acting one is pulled out of line and lit by a candle. ---------- */
 .order {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 .combatant {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 4px 12px;
   align-items: center;
-  border: 1px solid var(--line);
-  border-left: 8px solid var(--line);
-  border-radius: 8px;
-  background: var(--paper-2);
-  padding: 10px 12px;
+  padding: 10px 14px 10px 18px;
+  filter: drop-shadow(0 3px 2px var(--shadow));
+  transform: rotate(-0.3deg);
+}
+.combatant:nth-child(even) {
+  transform: rotate(0.45deg);
+}
+.combatant::before {
+  clip-path: var(--edge-slip);
+  box-shadow:
+    inset 6px 0 0 var(--parchment-line),
+    inset 0 0 20px rgb(150 100 40 / 0.28);
 }
 .combatant[data-acting="true"] {
-  border-left-color: var(--accent);
-  background: var(--paper);
-  box-shadow: 0 0 0 2px var(--accent);
+  transform: translateX(8px) rotate(0deg);
+  filter: drop-shadow(0 0 16px rgb(255 182 79 / 0.85)) drop-shadow(0 8px 6px var(--shadow));
+}
+.combatant[data-acting="true"]::before {
+  background: radial-gradient(ellipse at 20% 0%, var(--cream), var(--parchment) 80%);
+  box-shadow:
+    inset 9px 0 0 var(--accent),
+    inset 0 0 0 2px var(--brass),
+    inset 0 0 26px rgb(255 182 79 / 0.45);
 }
 .combatant[data-selected="true"] {
-  outline: 2px solid var(--ink);
-  outline-offset: 2px;
+  outline: 3px dashed var(--brass-hi);
+  outline-offset: 4px;
 }
 .combatant .who {
   all: unset;
@@ -738,67 +1076,166 @@ summary {
   min-width: 0;
 }
 .combatant .who:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px var(--focus-halo);
 }
 .combatant .name {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: var(--fs-name);
+  font-weight: 650;
   overflow-wrap: anywhere;
 }
 .combatant .score {
-  width: 72px;
+  width: 76px;
   font-size: 22px;
   font-weight: 800;
   text-align: center;
 }
 .state-word {
   font-weight: 800;
-  letter-spacing: 0.06em;
-  font-size: 14px;
+  letter-spacing: 0.08em;
+  font-size: var(--fs-small);
+  color: var(--accent);
+  white-space: nowrap;
+}
+.state-word[data-state="acting"]::before {
+  content: "";
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  margin-right: 0.4em;
+  vertical-align: -0.2em;
+  background: currentColor;
+  mask: var(--icon-turn) center / contain no-repeat;
+}
+.state-word[data-state="down"],
+.state-word[data-state="dead"] {
+  text-decoration: underline wavy;
+  text-underline-offset: 3px;
 }
 .bar {
-  height: 12px;
+  height: 14px;
+  min-width: 90px;
   border-radius: 6px;
-  border: 1px solid var(--ink-2);
-  background: var(--paper);
+  border: 1px solid var(--wood-2);
+  background: var(--wood-2);
   overflow: hidden;
-  min-width: 80px;
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / 0.5);
 }
 .bar > span {
   display: block;
   height: 100%;
-  background: var(--ok);
+  background: linear-gradient(180deg, var(--moss), var(--ok));
 }
+/* Low health is a different fill pattern as well as a different colour. */
 .bar[data-low="true"] > span {
-  background: var(--accent);
+  background:
+    repeating-linear-gradient(45deg, rgb(0 0 0 / 0.3) 0 4px, transparent 4px 8px),
+    linear-gradient(180deg, var(--wax), var(--wax));
+}
+
+/* ---------- The fight (the tablet): slips on the left, a larger sheet for the combatant on the right ---------- */
+.fightbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px var(--pad-page);
+  margin: calc(var(--pad-page) * -1) calc(var(--pad-page) * -1) 0;
+  background: var(--grain-h), linear-gradient(180deg, var(--wood), var(--wood-0));
+  background-size:
+    360px 120px,
+    auto;
+  border-bottom: 2px solid var(--brass);
+  box-shadow: 0 6px 14px rgb(0 0 0 / 0.5);
+}
+.fightbar .round {
+  font-size: 30px;
+  font-weight: 700;
+  margin-right: auto;
+  color: var(--candle);
+  text-shadow: 0 0 14px rgb(255 182 79 / 0.6);
+}
+.track {
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  align-items: start;
+  padding: 8px 12px 0 0;
+}
+.track > * {
+  min-width: 0;
+}
+@media (max-width: 800px) {
+  .track {
+    grid-template-columns: minmax(0, 1fr);
+    padding-right: 0;
+  }
+}
+@media (min-width: 801px) {
+  .combatant-panel {
+    position: sticky;
+    top: 84px;
+    padding: 24px 26px 22px;
+    gap: 14px;
+  }
+  .combatant-panel > .title {
+    font-size: 34px;
+  }
+}
+.keypad {
+  gap: 10px;
 }
 .keypad-out {
-  font-size: 40px;
+  margin: 0;
+  min-height: 52px;
+  padding: 2px 14px;
+  border-radius: 8px;
+  background: rgb(110 70 20 / 0.14);
+  box-shadow: inset 0 3px 6px rgb(110 70 20 / 0.3);
+  font-size: 48px;
   font-weight: 800;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  min-height: 52px;
 }
-.seg {
-  display: flex;
-  gap: 4px;
-}
-.seg .btn {
-  flex: 1;
-}
-.seg .btn[aria-pressed="true"] {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--paper);
-}
+
+/* ---------- Your turn: a glowing lantern plate, the one thing on the phone that is not a card ---------- */
 .turn-banner {
-  border: 3px solid var(--accent);
-  border-radius: 10px;
-  background: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  margin: 0;
   padding: 16px;
-  font-size: 28px;
-  font-weight: 800;
+  font-size: var(--fs-banner);
+  font-weight: 700;
   text-align: center;
+  color: var(--parchment-hi);
+  background:
+    radial-gradient(ellipse 70% 120% at 50% 0%, rgb(255 182 79 / 0.35), transparent 70%), var(--grain-h),
+    linear-gradient(180deg, var(--wood-3), var(--wood-2));
+  background-size:
+    auto,
+    360px 120px,
+    auto;
+  border: 3px solid var(--brass);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 4px var(--wood-0),
+    inset 0 0 0 5px var(--brass-lo),
+    0 0 26px rgb(255 182 79 / 0.45),
+    0 8px 14px var(--shadow);
+  text-shadow: 0 1px 3px var(--wood-0);
+}
+.turn-icon {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  background: currentColor;
+  mask: var(--icon-turn) center / contain no-repeat;
 }
 /* The turn starts: three pulses of the accent, then it stays steady. Reduced motion: one colour change, no movement. */
 .turn-banner {
@@ -815,6 +1252,9 @@ summary {
   .turn-banner {
     animation: turn-flash 1200ms ease-out 1;
   }
+  .roll-key:active {
+    transform: none;
+  }
   @keyframes turn-flash {
     from {
       background: var(--accent);
@@ -822,39 +1262,44 @@ summary {
     }
   }
 }
-.screen .order .combatant .name {
-  font-size: 36px;
+
+/* ---------- Test calls ---------- */
+.call-head strong {
+  font-family: var(--font-display);
+  font-variation-settings: var(--display-axes);
+  font-size: 21px;
+  font-weight: 650;
 }
-.screen .order .combatant {
-  padding: 16px 20px;
+.call-head strong::before {
+  content: "";
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.4em;
+  vertical-align: -0.14em;
+  background: currentColor;
+  mask: var(--icon-die) center / contain no-repeat;
 }
-.screen .bar {
-  height: 20px;
+.roll-title::before {
+  content: "";
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.4em;
+  vertical-align: -0.14em;
+  background: currentColor;
+  mask: var(--icon-die) center / contain no-repeat;
 }
 
-/* Inactive controls, a paused TRACK's disabled fieldset included. Last in the file so it beats the selected and
-   primary variants; no hover or accent shows while disabled. */
-.btn:disabled,
-input:disabled,
-select:disabled,
-fieldset:disabled .btn,
-fieldset:disabled input,
-fieldset:disabled select {
-  opacity: 0.5;
-  cursor: not-allowed;
-  filter: grayscale(1);
-  box-shadow: none;
-}
-
-/* A Dice pool report: the tray is the pool as dice (the special ones ringed), the bands are one big stepper each. */
+/* ---------- A Dice pool report: the tray is the pool as dice (the special ones ringed), the bands are one big stepper each ---------- */
 .pool-tray {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 .pool-die {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border: 2px solid var(--line);
   border-radius: 6px;
   display: grid;
@@ -862,15 +1307,21 @@ fieldset:disabled select {
   font-size: 14px;
   font-weight: 800;
   background: var(--paper);
+  box-shadow: inset 0 2px 3px rgb(110 70 20 / 0.3);
 }
 .pool-die[data-set="true"] {
   background: var(--ink);
   border-color: var(--ink);
   color: var(--paper);
+  box-shadow: none;
 }
 .pool-die.special {
-  border-color: var(--accent);
   border-width: 3px;
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px var(--paper),
+    0 0 0 4px var(--accent);
+  margin: 0 3px;
 }
 .pool-die.special[data-set="true"] {
   background: var(--accent);
@@ -886,7 +1337,7 @@ fieldset:disabled select {
 }
 .pool-band {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 56px 56px 56px;
+  grid-template-columns: minmax(0, 1fr) 56px 52px 56px;
   gap: 8px;
   align-items: center;
 }
@@ -909,10 +1360,13 @@ fieldset:disabled select {
   font-size: 36px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  border-radius: 8px;
+  background: rgb(110 70 20 / 0.14);
+  box-shadow: inset 0 3px 6px rgb(110 70 20 / 0.3);
 }
 .pool-faces-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
   gap: 6px;
 }
 .pool-faces-grid .btn {
@@ -920,16 +1374,17 @@ fieldset:disabled select {
   padding: 0;
   font-size: 20px;
 }
+.pool-faces-grid .btn[aria-pressed="true"]::before {
+  width: 0.8em;
+  height: 0.8em;
+  margin-right: 2px;
+}
 .pool-report {
   min-height: 56px;
   justify-content: center;
   font-size: 20px;
 }
-.pool-report:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-/* A Dice pool's outcome on the GM's tablet: score and margin large, flags as filled badges. */
+/* A Dice pool's outcome on the GM's tablet: score and margin large, flags as filled badges that name themselves. */
 .pool-result {
   display: flex;
   flex-wrap: wrap;
@@ -944,16 +1399,35 @@ fieldset:disabled select {
 .flag {
   border-radius: 6px;
   padding: 2px 10px;
-  font-size: 14px;
+  font-size: var(--fs-small);
   font-weight: 800;
   border: 2px solid var(--accent);
 }
 .flag.critical {
   background: var(--ok);
   border-color: var(--ok);
-  color: var(--accent-ink);
+  color: var(--paper);
 }
 .flag.complication {
   background: var(--accent);
+  border-style: dashed;
   color: var(--accent-ink);
+}
+
+/* Inactive controls, a paused TRACK's disabled fieldset included. Last in the file so it beats the selected and
+   primary variants. Marked by a hatch and a dashed rim, not only by being dimmer; no shadow, no pointer. */
+.btn:disabled,
+.roll-key:disabled,
+input:disabled,
+select:disabled,
+fieldset:disabled .btn,
+fieldset:disabled .roll-key,
+fieldset:disabled input,
+fieldset:disabled select {
+  opacity: 0.6;
+  cursor: not-allowed;
+  filter: grayscale(1);
+  box-shadow: none;
+  border-style: dashed;
+  background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgb(128 128 128 / 0.3) 6px 8px);
 }

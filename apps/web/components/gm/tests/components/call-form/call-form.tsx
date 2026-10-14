@@ -6,7 +6,14 @@ import { ScalarType } from "@inconsistable/rules-engine";
 
 import type { Send } from "@/hooks/use-table/use-table";
 
-type CallFormProps = { state: LiveState; send: Send };
+type CallFormProps = {
+  state: LiveState;
+  send: Send;
+  /** Who rolls when the form opens (TRACK pre-selects the combatant it was opened from). */
+  initialTargets?: string[];
+  /** Runs once the call went through. */
+  onCalled?: () => void;
+};
 
 // What the form holds for one input while it is being filled in; the Test's declared type decides how it is sent.
 type Draft = Record<string, string | boolean>;
@@ -38,10 +45,10 @@ function toInputs({ def, draft }: { def: TestDef; draft: Draft }): TestInputs | 
 
 // CALL A TEST: pick one of the ruleset's Tests, who rolls it and the number to beat. The target is hidden from the
 // table unless the GM unticks that (docs/house-decisions.md #21).
-export function CallForm({ state, send }: CallFormProps) {
+export function CallForm({ state, send, initialTargets = [], onCalled }: CallFormProps) {
   const [testId, setTestId] = useState(state.testDefs[0]?.id ?? "");
   const [draft, setDraft] = useState<Draft>({});
-  const [targets, setTargets] = useState<string[]>([]);
+  const [targets, setTargets] = useState<string[]>(initialTargets);
   const [hideTarget, setHideTarget] = useState(true);
   const [showOutcome, setShowOutcome] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +81,10 @@ export function CallForm({ state, send }: CallFormProps) {
       showOutcome: hideTarget && showOutcome,
     });
     setError(r.ok ? null : r.error);
-    if (r.ok) setTargets([]);
+    if (r.ok) {
+      setTargets([]);
+      onCalled?.();
+    }
   };
 
   if (!def) {

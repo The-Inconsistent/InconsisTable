@@ -28,9 +28,13 @@ const encounter = (currentId: string): Encounter => ({
   id: "e",
   round: 2,
   currentId,
+  paused: false,
   health: null,
   conditionDefs: [{ id: "dazed", label: "Dazed", duration: "roundEnd" }],
-  combatants: [combatant("sneak", "hidden"), combatant("wisp", "bar"), combatant("boss", "full")],
+  combatants: [combatant("sneak", "hidden"), combatant("wisp", "bar"), combatant("boss", "full")].map((c, ord) => ({
+    ...c,
+    ord,
+  })),
 });
 
 test("the combat side sees the whole encounter", () => {
@@ -53,6 +57,11 @@ test("everyone else loses hidden combatants, and the numbers of `bar` ones", () 
     assert.equal(v.round, 2);
     assert.deepEqual(v.conditionDefs, []);
     assert.equal(v.currentId, "wisp");
+    assert.deepEqual(
+      v.combatants.map((x) => x.ord),
+      [0, 1],
+      "no gap where the hidden one sits",
+    );
   }
 });
 

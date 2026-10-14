@@ -5,7 +5,7 @@ import { fieldTypeOf } from "../actor/actor.pipeline.ts";
 import { loadBuilt } from "../actor/actor.values.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
-import { activeEncounter } from "../encounter/encounter.turn.ts";
+import { activeEncounter, loadTurn } from "../encounter/encounter.turn.ts";
 import { loadCompiled } from "../ruleset/ruleset.compiled.ts";
 import { sessionEvent } from "./campaign.schema.ts";
 import { LoggedDelta, runningSessionId } from "./event.log.ts";
@@ -42,7 +42,7 @@ export async function applyEventAction(tx: Tx, { ctx }: { ctx: Ctx; action: Even
     .orderBy(desc(sessionEvent.createdAt), desc(sessionEvent.id));
 
   const written: Written[] = [];
-  const skipped: ({ actorId: string; reason: "deleted" } | { turn: string; reason: "ended" })[] = [];
+  const skipped: ({ actorId: string; reason: "deleted" } | { turn: string; reason: "ended" | "gone" })[] = [];
   for (const step of steps) {
     const logged = LoggedDelta.parse(step.payload);
     const { target } = logged;
@@ -58,6 +58,12 @@ export async function applyEventAction(tx: Tx, { ctx }: { ctx: Ctx; action: Even
       }
       const turnInverse = invertDelta({ logged, current: await readTarget(tx, { campaignId: cid, target }) });
       if (!turnInverse.ok) fail(turnInverse.message);
+      // The holder it would hand the turn back to has left the fight since: nothing to put back, the rest still reverts.
+      const back = turnInverse.delta?.value;
+      if (target.turn === "currentId" && typeof back === "string" && !(await loadTurn(tx, cid))?.order.includes(back)) {
+        skipped.push({ turn: target.turn, reason: "gone" });
+        continue;
+      }
       if (turnInverse.delta !== null) written.push(await writeDelta(tx, { campaignId: cid, delta: turnInverse.delta }));
       continue;
     }

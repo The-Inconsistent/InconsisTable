@@ -30,6 +30,9 @@ export type EncounterRunAction = Extract<
   }
 >;
 
+/** Refusal for anything that would move an encounter left open between sessions. */
+export const PAUSED = "Start a session to continue";
+
 const running = async (tx: Tx, campaignId: string) =>
   (await activeEncounter(tx, campaignId)) ?? fail("No encounter is running");
 
@@ -48,6 +51,9 @@ export async function applyEncounterAction(
   { ctx, action: a }: { ctx: Ctx; action: EncounterRunAction },
 ): Promise<ActionResult> {
   const cid = ctx.campaignId;
+  // House decision #28: an encounter may stay open across sessions, but nothing moves until the next one starts.
+  if (a.type !== "encounter.start" && (await runningSessionId(tx, cid)) === null && (await activeEncounter(tx, cid)))
+    fail(PAUSED);
   switch (a.type) {
     case "encounter.start": {
       const sessionId = (await runningSessionId(tx, cid)) ?? fail("Start a session first");

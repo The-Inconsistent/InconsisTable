@@ -22,11 +22,13 @@ type CombatantPanelProps = {
   run: Run;
   /** Opens this actor's sheet (GM only; absent when there is no ruleset to read it by). */
   onSheet?: (actorId: string) => void;
+  /** Opens the Tests call form for this actor (GM only; absent when the ruleset has no Tests). */
+  onCallTest?: (actorId: string) => void;
 };
 
 // The selected combatant: a keypad for damage, healing and temporary points, death saves, what the table sees, the
 // conditions it carries with their time left, and the way out of the fight.
-export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet }: CombatantPanelProps) {
+export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet, onCallTest }: CombatantPanelProps) {
   const [entry, setEntry] = useState("");
   const [critical, setCritical] = useState(false);
   const [condition, setCondition] = useState("");
@@ -83,10 +85,19 @@ export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet }:
         {c.name}
       </h2>
       <HealthBar combatant={c} />
-      {onSheet && actor && actor.entity !== "" && (
-        <button className="btn" style={{ justifySelf: "start" }} onClick={() => onSheet(actor.id)}>
-          Sheet
-        </button>
+      {actor && actor.entity !== "" && (onSheet || onCallTest) && (
+        <div className="row">
+          {onSheet && (
+            <button className="btn" onClick={() => onSheet(actor.id)}>
+              Sheet
+            </button>
+          )}
+          {onCallTest && (
+            <button className="btn" onClick={() => onCallTest(actor.id)}>
+              Call a Test
+            </button>
+          )}
+        </div>
       )}
 
       {health && (

@@ -104,3 +104,19 @@ These are binding: follow them when writing code and use them when reviewing.
 ## Git
 
 The trunk is `main`. Work happens on a branch and lands through a pull request.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues of The-Inconsistent/InconsisTable, through the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default labels: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See
+`docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one root `CONTEXT.md` and `docs/adr/`, alongside `docs/design.md` and `docs/house-decisions.md`. See
+`docs/agents/domain.md`.

@@ -9,7 +9,7 @@ import { Cite } from "@/components/ui/cite/cite";
 import { ResourceRow } from "@/components/ui/resource-row/resource-row";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import {
-  adjustAction,
+  stepAction,
   DURATION_WORDS,
   printValue,
   rangeOf,
@@ -49,7 +49,7 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
 
   // ± on a resource: a delta the server clamps.
   const handleStep = async ({ resource, delta }: { resource: string; delta: number }) => {
-    const r = await send(adjustAction({ actorId: actor.id, resource, delta }));
+    const r = await send(stepAction({ ruleset, actorId: actor.id, resource, delta }));
     setError(r.ok ? null : r.error);
   };
   // SHORT REST / LONG REST: the GM resets this character's resources the manifest says refill then.

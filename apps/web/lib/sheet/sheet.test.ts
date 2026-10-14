@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { compileRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
-import { adjustAction, pageOfCite, rangeOf, restsOf, sectionsOf, stepsOf, timeLeft } from "./sheet.ts";
+import { pageOfCite, rangeOf, restsOf, sectionsOf, stepAction, stepsOf, timeLeft } from "./sheet.ts";
 
 const ruleset = Ruleset.parse(SAMPLE_D20);
 const actor = {
@@ -67,12 +67,27 @@ test("a player steps only what the resource lets its owner; the GM steps everyth
   assert.deepEqual(stepsOf({ ruleset, resource: "unknown", gm: true }), { dec: false, inc: false });
 });
 
-test("a step is the resource.capped adjust op with a delta", () => {
-  assert.deepEqual(adjustAction({ actorId: "a1", resource: "hp", delta: -1 }), {
+test("a step on a health track's resource goes through the track: − is damage, + is heal", () => {
+  assert.deepEqual(stepAction({ ruleset, actorId: "a1", resource: "hp", delta: -2 }), {
+    type: "rule.op",
+    primitive: "health.tracks",
+    op: "damage",
+    input: { actorId: "a1", amount: 2, track: "hp", critical: false },
+  });
+  assert.deepEqual(stepAction({ ruleset, actorId: "a1", resource: "hp", delta: 1 }), {
+    type: "rule.op",
+    primitive: "health.tracks",
+    op: "heal",
+    input: { actorId: "a1", amount: 1, track: "hp" },
+  });
+});
+
+test("a step on any other resource is the resource.capped adjust op with a delta", () => {
+  assert.deepEqual(stepAction({ ruleset, actorId: "a1", resource: "focus", delta: -1 }), {
     type: "rule.op",
     primitive: "resource.capped",
     op: "adjust",
-    input: { actorId: "a1", resource: "hp", delta: -1 },
+    input: { actorId: "a1", resource: "focus", delta: -1 },
   });
 });
 

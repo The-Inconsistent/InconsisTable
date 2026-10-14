@@ -39,6 +39,9 @@ export function runPrimitive({
 }): Delta[] {
   const params = Object.hasOwn(PRIMITIVE_PARAMS, primitive) ? PRIMITIVE_PARAMS[primitive] : undefined;
   if (!params) fail(`"${primitive}" isn't run this way`);
+  const target = typeof input === "object" && input !== null && "resource" in input ? input.resource : undefined;
+  if (primitive === "resource.capped" && ruleset.health.tracks.some((t) => t.resource === target))
+    fail("HP changes through damage and heal");
   const run = runOp({ primitive, op, params: params(ruleset), state, input });
   if (!run.ok) fail(run.refusal.message);
   return run.deltas;

@@ -1,5 +1,5 @@
 import type { Ctx } from "@inconsistable/core-schema";
-import type { DeltaKind, EditableBy } from "@inconsistable/rules-engine";
+import { stepsFor, type DeltaKind, type EditableBy } from "@inconsistable/rules-engine";
 
 // What a seat may write (docs/design.md §5.3, step 6). Pure, so it is unit tested without a database.
 
@@ -31,14 +31,10 @@ export function checkEditable({
 }): string | null {
   if (isGmSide(ctx)) return null;
   if (!heldBy(ctx).includes(actorId)) return "Not your character";
-  switch (editableBy) {
-    case "gm":
-      return "Only the GM can change that";
-    case "owner":
-      return null;
-    case "ownerSpendOnly":
-      return delta.kind === "add" && typeof delta.value === "number" && delta.value < 0
-        ? null
-        : `You can only spend ${what}`;
-  }
+  const { dec, inc } = stepsFor({ editableBy, gmSide: false });
+  if (!dec && !inc) return "Only the GM can change that";
+  if (inc) return null;
+  return delta.kind === "add" && typeof delta.value === "number" && delta.value < 0
+    ? null
+    : `You can only spend ${what}`;
 }

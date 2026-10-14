@@ -18,6 +18,15 @@ export function strictestVisibility(list: readonly Visibility[]): Visibility {
 export const EditableBy = z.enum(["gm", "owner", "ownerSpendOnly"]);
 export type EditableBy = z.infer<typeof EditableBy>;
 
+/** Which of the − and + a seat gets on a value declared `editableBy`: the GM side both, `owner` both, `ownerSpendOnly` − only. */
+export function stepsFor({ editableBy, gmSide }: { editableBy: EditableBy; gmSide: boolean }): {
+  dec: boolean;
+  inc: boolean;
+} {
+  if (gmSide || editableBy === "owner") return { dec: true, inc: true };
+  return { dec: editableBy === "ownerSpendOnly", inc: false };
+}
+
 export const ResourceScope = z.enum(["entity", "party", "gm", "campaign"]);
 export type ResourceScope = z.infer<typeof ResourceScope>;
 

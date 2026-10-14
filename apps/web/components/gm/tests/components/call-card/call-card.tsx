@@ -8,7 +8,7 @@ import { PoolOutcome } from "@/components/ui/pool-outcome/pool-outcome";
 import { PoolPad } from "@/components/ui/pool-pad/pool-pad";
 import { RollPad } from "@/components/ui/roll-pad/roll-pad";
 import type { Send } from "@/hooks/use-table/use-table";
-import { outcomeWord, signed } from "@/lib/roll-slots/roll-slots";
+import { outcomeClass, outcomeWord, signed } from "@/lib/roll-slots/roll-slots";
 
 type CallCardProps = { call: TestCall; names: ReadonlyMap<string, string>; send: Send };
 
@@ -63,8 +63,8 @@ export function CallCard({ call, names, send }: CallCardProps) {
   };
 
   return (
-    <article className="card" aria-label={`Test ${call.testId}`}>
-      <div className="row" style={{ justifyContent: "space-between" }}>
+    <article className="card call-card" aria-label={`Test ${call.testId}`}>
+      <div className="row between call-head">
         <strong>
           {call.testId} <span className="dim">{call.dice}</span>
         </strong>
@@ -92,7 +92,7 @@ export function CallCard({ call, names, send }: CallCardProps) {
                   : t.modifier !== null && `${signed(t.modifier)} vs ${t.target ?? "?"}`}
               </span>
               <br />
-              <span className="roll-result">
+              <span className={`roll-result ${outcomeClass(t.report?.outcome ?? null)}`.trim()}>
                 {call.pool && t.report ? <PoolOutcome report={t.report} /> : resultText(t)}
               </span>
             </span>

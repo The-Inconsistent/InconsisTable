@@ -64,6 +64,7 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
       const resets = resetsOn({ ruleset, resource: row.id });
       return (
         <ResourceRow
+          stat={row.id}
           key={`r-${row.id}`}
           label={row.label}
           value={actor.resources[row.id] ?? 0}
@@ -82,21 +83,21 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
     }
     if (row.kind === "derived")
       return (
-        <div key={`d-${row.id}`} className="sheet-row">
+        <div key={`d-${row.id}`} className="sheet-row" data-stat={row.id} data-kind="derived">
           <button
             className="sheet-derived"
             aria-label={`${row.label} ${actor.derived[row.id]}: show where it comes from`}
             onClick={() => setOpen(row.id)}
           >
-            <span>{row.label}</span>
+            <span className="stat-label">{row.label}</span>
             <strong className="sheet-num">{actor.derived[row.id]}</strong>
           </button>
         </div>
       );
     return (
-      <div key={`f-${row.id}`} className="sheet-row">
+      <div key={`f-${row.id}`} className="sheet-row" data-stat={row.id} data-kind="field">
         <span className="stack" style={{ gap: 2 }}>
-          <span>{row.label}</span>
+          <span className="stat-label">{row.label}</span>
           {cite}
         </span>
         <strong className="sheet-num sheet-text">{printValue(actor.fields[row.id])}</strong>
@@ -124,7 +125,7 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
       : null;
 
   return (
-    <div className="stack" style={{ gap: 20 }}>
+    <div className="stack sheet">
       {gm && rests.length > 0 && (
         <div className="row">
           {rests.map((b) => (
@@ -145,13 +146,13 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
         </p>
       )}
       {sections.map((s) => (
-        <section key={s.id} className="stack">
+        <section key={s.id} className="stack sheet-card">
           <h2 className="head">{s.label}</h2>
           <div className="sheet-rows">{s.rows.map(rowView)}</div>
         </section>
       ))}
       {sections.length === 0 && <p className="dim">The ruleset has nothing to show for this character yet.</p>}
-      <section className="stack">
+      <section className="stack sheet-card">
         <h2 className="head">Conditions</h2>
         {conditions.length === 0 ? (
           <p className="dim">None.</p>

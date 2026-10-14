@@ -1175,6 +1175,12 @@ summary {
     padding-right: 0;
   }
 }
+.combatant-panel > .title {
+  font-size: 26px;
+}
+.order-view > .title {
+  font-size: calc(var(--fs-title) * 0.72);
+}
 @media (min-width: 801px) {
   .combatant-panel {
     position: sticky;

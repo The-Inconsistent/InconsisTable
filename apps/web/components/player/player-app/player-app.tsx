@@ -40,7 +40,7 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
   };
 
   return (
-    <>
+    <div className="surface-table">
       <header className="band">
         {!online && (
           <span className="badge-offline" role="status">
@@ -69,7 +69,7 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
       <main className="page">
         <TurnBanner encounter={state.encounter} held={held} />
         <TestPrompt state={state} send={send} />
-        <h1 className="title">{character?.name ?? "No character"}</h1>
+        <h1 className="title sheet-name">{character?.name ?? "No character"}</h1>
         {character && needsBuild(character) && (
           <a
             className="btn primary"
@@ -130,13 +130,13 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
           Leave this table
         </button>
       </main>
-      <nav className="tabs" role="tablist" aria-label="Player tabs" style={{ position: "sticky", bottom: 0 }}>
+      <nav className="tabs tabs-bottom safe-bottom" role="tablist" aria-label="Player tabs">
         {(Object.keys(PLAYER_TABS) as PlayerTab[]).map((t) => (
           <button key={t} className="tab" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
             {PLAYER_TABS[t]}
           </button>
         ))}
       </nav>
-    </>
+    </div>
   );
 }

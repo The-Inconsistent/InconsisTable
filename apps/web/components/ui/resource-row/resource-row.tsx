@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 
 type ResourceRowProps = {
   label: string;
+  /** The resource's id: a structural hook for the Theme (never its label). */
+  stat?: string;
   value: number;
   /** Bounds for this holder, when they can be worked out; the − and + stop at them. */
   range: { min: number; max: number | null } | null;
@@ -16,11 +18,11 @@ type ResourceRowProps = {
 
 // One resource with its − and + (44px each), as the sheet and the combat tracker show them. A button the seat may not
 // press is not drawn at all: "tell the GM" is the rule for everything else.
-export function ResourceRow({ label, value, range, steps, holder, note, onStep }: ResourceRowProps) {
+export function ResourceRow({ stat, label, value, range, steps, holder, note, onStep }: ResourceRowProps) {
   return (
-    <div className="sheet-row">
+    <div className="sheet-row" data-stat={stat} data-kind="resource">
       <div className="stack" style={{ gap: 2 }}>
-        <span>{label}</span>
+        <span className="stat-label">{label}</span>
         {note}
       </div>
       <div className="row" style={{ flexWrap: "nowrap" }}>

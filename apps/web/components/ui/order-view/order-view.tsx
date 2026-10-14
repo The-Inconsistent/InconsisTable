@@ -9,11 +9,11 @@ type OrderViewProps = { encounter: Encounter };
 // health the seat was sent. The acting row is marked by an edge and by the word ACTING, not by colour alone.
 export function OrderView({ encounter }: OrderViewProps) {
   return (
-    <section className="stack" aria-label="Turn order">
+    <section className="stack order-view" aria-label="Turn order">
       <h2 className="title">
         Round {encounter.round} {encounter.paused && <span className="chip">Paused</span>}
       </h2>
-      <ol className="order">
+      <ol className="order seat-strip">
         {encounter.combatants.map((c) => {
           const acting = c.id === encounter.currentId;
           const word = stateWord({ current: acting, healthState: undefined });
@@ -23,7 +23,11 @@ export function OrderView({ encounter }: OrderViewProps) {
                 <span className="name">{c.name}</span>
                 <HealthBar combatant={c} />
               </span>
-              {word && <span className="state-word">{word}</span>}
+              {word && (
+                <span className="state-word" data-state={word.toLowerCase()}>
+                  {word}
+                </span>
+              )}
             </li>
           );
         })}

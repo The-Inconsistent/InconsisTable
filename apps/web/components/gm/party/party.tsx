@@ -7,6 +7,7 @@ import {
   canActOnMember,
   canGrantRole,
   canInCampaign,
+  gmPermOf,
   MemberRole,
   type ActionInput,
   type BookSource,
@@ -253,7 +254,7 @@ export function Party({ me, state, send, sheet }: PartyProps) {
                         actor={a}
                         ruleset={sheet.ruleset}
                         characters={state.actors.filter((x) => x.kind === "pc").length}
-                        gm
+                        gm={canInCampaign({ ctx: me, perm: gmPermOf(a.kind) })}
                         send={send}
                         books={sheet.books}
                         requestPage={sheet.requestPage}

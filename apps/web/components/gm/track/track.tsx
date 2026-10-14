@@ -1,7 +1,14 @@
 "use client";
 import { useMemo, useState } from "react";
 
-import type { ActionInput, BookSource, LiveState } from "@inconsistable/core-schema";
+import {
+  canInCampaign,
+  gmPermOf,
+  type ActionInput,
+  type BookSource,
+  type LiveState,
+  type Me,
+} from "@inconsistable/core-schema";
 
 import type { Ruleset } from "@inconsistable/rules-engine";
 
@@ -17,6 +24,7 @@ import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { currentOf } from "@/lib/track/track";
 
 type TrackProps = {
+  me: Me;
   state: LiveState;
   send: Send;
   /** What a character sheet needs: the ruleset as the GM reads it, the served books and the page relay. */
@@ -25,7 +33,7 @@ type TrackProps = {
 
 // TRACK: the fight from the GM's tablet. Initiative is typed from the dice (the app never rolls), the order and whose
 // turn it is stay in view, and Undo is always under the thumb. Test calls live in their own tab.
-export function Track({ state, send, sheet }: TrackProps) {
+export function Track({ me, state, send, sheet }: TrackProps) {
   const [sheetOf, setSheetOf] = useState<string | null>(null);
   const [testFor, setTestFor] = useState<string | null>(null); // the actor a Test is being called for
   const [selectedId, setSelectedId] = useState<string | undefined>();
@@ -101,7 +109,7 @@ export function Track({ state, send, sheet }: TrackProps) {
             actor={sheetActor}
             ruleset={sheet.ruleset}
             characters={state.actors.filter((x) => x.kind === "pc").length}
-            gm
+            gm={canInCampaign({ ctx: me, perm: gmPermOf(sheetActor.kind) })}
             send={send}
             books={sheet.books}
             requestPage={sheet.requestPage}

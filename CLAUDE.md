@@ -65,7 +65,8 @@ packages/auth        the only Clerk dependency
 bun install
 bun run dev:db              # Postgres 18 in Docker on localhost:5435
                             # no Docker: podman run -d --name inconsistable-pg -e POSTGRES_USER=it
-                            #   -e POSTGRES_PASSWORD=it -e POSTGRES_DB=it -p 127.0.0.1:5435:5432 -v inconsistable_pgdata:/var/lib/postgresql
+                            #   -e POSTGRES_PASSWORD=it -e POSTGRES_DB=it
+                            #   -p 127.0.0.1:5435:5432 -v inconsistable_pgdata:/var/lib/postgresql
                             #   docker.io/library/postgres:18
 bun run dev:api             # api on :4000 (apps/api/.env, see .env.example)
 bun run dev:web             # web on :3000 (apps/web/.env.local needs the Clerk keys)

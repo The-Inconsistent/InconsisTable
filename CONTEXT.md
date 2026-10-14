@@ -38,6 +38,11 @@ _Avoid_: Membership (that is only the account kind), user, role
 The seat that runs the campaign at the table, sees everything and decides; a co-GM holds a GM seat limited to scopes.
 _Avoid_: DM, owner
 
+**Seat view**:
+Everything one seat receives from a campaign, after every rule about what that seat may see has been applied; a
+co-GM sees hidden parts only where one of their scopes covers them.
+_Avoid_: Snapshot (that is the unfiltered whole), filtered state, player view
+
 **Screen**:
 The read-only token seat of the TV that shows the shared view.
 _Avoid_: TV seat, display
@@ -83,6 +88,11 @@ _Avoid_: Roll, check (as the domain term)
 The GM asking named characters to make a Test, with a target that may be hidden from them.
 _Avoid_: Request, prompt
 
+**Dice pool**:
+A Test where a character rolls a number of dice set by their values and counts the faces that score, against a
+difficulty number; a special die in the pool may flag a critical or a complication.
+_Avoid_: Pool (alone), success roll
+
 **Report**:
 A player's entry of what their physical dice showed for a Test Call; the server works out the outcome.
 _Avoid_: Result (that is the outcome), submission
@@ -105,6 +115,10 @@ _Avoid_: Monster, mob, enemy
 **NPC**:
 An actor the GM runs that does not come from a pack.
 _Avoid_: Creature (for hand-made NPCs)
+
+**Shared resource**:
+A resource held by the party, the GM or the campaign instead of by one actor.
+_Avoid_: Pool, resource pool
 
 **Combatant**:
 An actor's place in an encounter: its side, order and how much of it the table may see. Not an actor of its own.

@@ -3,7 +3,7 @@ import {
   actorScope,
   resourceBounds,
   type CompiledRuleset,
-  type EditableBy,
+  stepsFor,
   type FieldValue,
   type ResetEvent,
   type Ruleset,
@@ -91,30 +91,50 @@ export function printValue(v: FieldValue | undefined): string {
   return Array.isArray(v) ? (v.length ? v.join(", ") : "—") : String(v);
 }
 
-const STEPS: Record<EditableBy, { dec: boolean; inc: boolean }> = {
-  gm: { dec: false, inc: false },
-  owner: { dec: true, inc: true },
-  ownerSpendOnly: { dec: true, inc: false },
-};
-
 /** Which of the − and + a resource gets: the GM's seat both, a player's by the resource's `editableBy`. */
 export function stepsOf({ ruleset, resource, gm }: { ruleset: Ruleset; resource: string; gm: boolean }): {
   dec: boolean;
   inc: boolean;
 } {
   const r = ruleset.resources.find((x) => x.id === resource);
-  if (!r) return { dec: false, inc: false };
-  return gm ? { dec: true, inc: true } : STEPS[r.editableBy];
+  // A health track's resource moves only through the track, whose ops need `encounter:run`.
+  const trackOnly = !gm && ruleset.health.tracks.some((t) => t.resource === resource);
+  if (!r || trackOnly) return { dec: false, inc: false };
+  return stepsFor({ editableBy: r.editableBy, gmSide: gm });
 }
 
-/** The `rule.op` that moves one resource of one character by `delta` (the server clamps it). */
-export const adjustAction = ({ actorId, resource, delta }: { actorId: string; resource: string; delta: number }) =>
-  ({
-    type: "rule.op",
-    primitive: "resource.capped",
-    op: "adjust",
-    input: { actorId, resource, delta },
-  }) as const;
+/**
+ * The `rule.op` that moves one resource of one character by `delta`. A health track's resource goes through the track
+ * (damage or heal, so dying and temporary points apply); any other resource is a clamped adjust the server applies.
+ */
+export function stepAction({
+  ruleset,
+  actorId,
+  resource,
+  delta,
+}: {
+  ruleset: Ruleset;
+  actorId: string;
+  resource: string;
+  delta: number;
+}) {
+  if (ruleset.health.tracks.some((t) => t.resource === resource)) {
+    return delta < 0
+      ? ({
+          type: "rule.op",
+          primitive: "health.tracks",
+          op: "damage",
+          input: { actorId, amount: -delta, track: resource, critical: false },
+        } as const)
+      : ({
+          type: "rule.op",
+          primitive: "health.tracks",
+          op: "heal",
+          input: { actorId, amount: delta, track: resource },
+        } as const);
+  }
+  return { type: "rule.op", primitive: "resource.capped", op: "adjust", input: { actorId, resource, delta } } as const;
+}
 
 /** The rests the manifest declares, in the order the table says them. A rest nothing resets on is not offered. */
 export const REST_BUTTONS = [

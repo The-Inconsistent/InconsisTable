@@ -184,6 +184,32 @@ Một bàn chơi one-shot với một ruleset homebrew từ lúc tạo nhân v�
 - PR #13 đã merge; Clerk có role và chế độ invite-only xong.
 - Ruleset homebrew và pack đã nhập qua `/library`.
 - Chơi thử trong LAN: 9 bước trình duyệt của `docs/handoff.md`, cộng dựng một nhân vật, một trận và một Test.
+- Một buổi chơi thật với nhóm, chơi Wrath & Glory trên bản deploy riêng tư (invite-only). Xem "Đến buổi chơi thật".
+
+### Đến buổi chơi thật (chốt 2026-10-14)
+
+Chơi thử LAN đã xong (#21, #22). P1 chỉ đóng sau buổi chơi thật; không ép mốc.
+
+Luồng code, theo thứ tự, mỗi mục một PR:
+
+1. **Một đường đổi HP** (kiến trúc #5): web chọn `health.tracks` cho resource HP, `resource.capped` cho phần còn lại;
+   server từ chối `resource.capped` nhắm vào resource HP; bỏ `stepsOf` chép lại `editableBy`; co-GM không còn
+   `gm=true` cứng.
+2. **Dice pool, mức Wrath & Glory tối thiểu** (spec issue riêng). Engine trung lập, mọi con số từ ruleset: pool từ
+   biểu thức, modifier của Test Call cộng/trừ xúc xắc, dải mặt tính điểm (có mặt tính đôi), xúc xắc đặc biệt gắn cờ
+   critical/complication. Server tính icon so DN, margin, số viên shift được và các cờ; tiêu shift do bàn quyết. DN ẩn
+   như DC. Người chơi báo bằng stepper đếm theo dải cộng mặt xúc xắc đặc biệt. Wounds/Shock tạm dùng track đếm xuống,
+   initiative GM nhập, soak GM tự tính.
+3. **Module Seat view** (#23), gồm cả view của Test pool.
+4. **Bảo mật** #15–#19, gộp một PR.
+5. **Bàn giao deploy** cho devops: Containerfile api và web, compose có Postgres 18, `docs/deploy.md` (env, health
+   check, `TRUST_CF`, Clerk production). Host do devops chọn.
+
+Luồng nội dung, song song: Claude dựng khung manifest W&G trong `inconsistable-content` theo tên mục chủ sản phẩm
+đưa; chủ sản phẩm điền số, cite trang và tóm tắt bằng lời mình (nguyên tắc 1, 2); chỗ sách mơ hồ ghi vào
+house-decisions của ruleset.
+
+Nháp `docs/p2-plan.md` khi rảnh, chốt sau buổi chơi.
 
 ### Sang P2
 

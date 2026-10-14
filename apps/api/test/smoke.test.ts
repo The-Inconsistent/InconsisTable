@@ -879,6 +879,21 @@ async function rulesRoom(name: string) {
 
 const adjust = (actorId: string, resource: string, delta: number) =>
   ({ type: "rule.op", primitive: "resource.capped", op: "adjust", input: { actorId, resource, delta } }) as const;
+// HP moves only through the health track; a plain adjust on it is refused.
+const hpStep = (actorId: string, resource: string, delta: number) =>
+  delta < 0
+    ? ({
+        type: "rule.op",
+        primitive: "health.tracks",
+        op: "damage",
+        input: { actorId, amount: -delta, track: resource, critical: false },
+      } as const)
+    : ({
+        type: "rule.op",
+        primitive: "health.tracks",
+        op: "heal",
+        input: { actorId, amount: delta, track: resource },
+      } as const);
 const resourceOf = (c: ReturnType<typeof connect>, id: string, resource: string, value: number) =>
   c.until((s) => s.actors.find((a) => a.id === id)?.resources[resource] === value);
 const actorIn = (s: LiveState, id: string) => s.actors.find((a) => a.id === id);
@@ -904,22 +919,23 @@ test("rule.op: the server clamps, and each seat writes only what its `editableBy
   );
 
   // Damage far past zero stops at the minimum; healing past the max stops at the max.
-  ok(await owner.send(adjust(hero, "hp", -100)));
+  ok(await owner.send(hpStep(hero, "hp", -100)));
   await resourceOf(owner, hero, "hp", 0);
-  ok(await owner.send(adjust(hero, "hp", 100)));
+  ok(await owner.send(hpStep(hero, "hp", 100)));
   await resourceOf(owner, hero, "hp", 14);
-  refused(await owner.send(adjust(hero, "hp", 5_000_000)), /delta/);
+  refused(await owner.send(hpStep(hero, "hp", 5_000_000)), /amount/);
   refused(await owner.send({ type: "rule.op", primitive: "nope", op: "adjust", input: {} }), /No operation/);
   refused(await owner.send({ type: "rule.op", primitive: "resource.capped", op: "nope", input: {} }), /No operation/);
-  refused(await owner.send(adjust(crypto.randomUUID(), "hp", -1)), /no actor/);
+  refused(await owner.send(hpStep(crypto.randomUUID(), "hp", -1)), /no actor/);
   refused(await owner.send(adjust(hero, "mana", -1)), /no resource "mana"/);
+  refused(await owner.send(adjust(hero, "hp", -1)), /HP changes through damage and heal/);
 
   // A player: spends their own `ownerSpendOnly` focus, never gains it, and never touches a `gm` resource.
   ok(await ana.send(adjust(hero, "focus", -1)));
   await resourceOf(ana, hero, "focus", 0);
   refused(await ana.send(adjust(hero, "focus", 1)), /only spend/);
-  refused(await ana.send(adjust(hero, "hp", -1)), /Only the GM can change that/);
-  refused(await ana.send(adjust(ogre, "hp", -1)), /Not your character/);
+  refused(await ana.send(adjust(hero, "hp", -1)), /HP changes through damage and heal/);
+  refused(await ana.send(adjust(ogre, "focus", -1)), /Not your character/);
   refused(
     await ana.send({ type: "rule.op", primitive: "health.tracks", op: "damage", input: { actorId: hero, amount: 1 } }),
     /permission/,
@@ -1037,8 +1053,8 @@ test("conditions: stack by the manifest, tick down through conditions.expire, hi
 test("actor.rest and session boundaries run the engine's rest primitive", async () => {
   const { owner, ana, hero, ogre } = await rulesRoom("Rest");
   const rest = (event: string, actorId?: string) => ({ type: "actor.rest", event, actorId }) as const;
-  ok(await owner.send(adjust(hero, "hp", -9)));
-  ok(await owner.send(adjust(ogre, "hp", -7)));
+  ok(await owner.send(hpStep(hero, "hp", -9)));
+  ok(await owner.send(hpStep(ogre, "hp", -7)));
   await resourceOf(owner, hero, "hp", 5);
 
   refused(await ana.send(rest("longRest")), /permission/);
@@ -1069,8 +1085,8 @@ test("event.undo: newest first, deltas stay, a deleted actor is skipped, only th
   refused(await owner.send({ type: "event.undo" }), /Nothing to undo/);
 
   // Two hits come back newest first: the second (2), then the first (3).
-  const hit1 = ok(await owner.send(adjust(hero, "hp", -3))).id!;
-  const hit2 = ok(await owner.send(adjust(hero, "hp", -2))).id!;
+  const hit1 = ok(await owner.send(hpStep(hero, "hp", -3))).id!;
+  const hit2 = ok(await owner.send(hpStep(hero, "hp", -2))).id!;
   await resourceOf(owner, hero, "hp", 9);
   assert.equal(ok(await owner.send({ type: "event.undo" })).id, hit2);
   await resourceOf(owner, hero, "hp", 11);
@@ -1105,8 +1121,8 @@ test("event.undo: newest first, deltas stay, a deleted actor is skipped, only th
   await owner.until((s) => actorIn(s, hero)?.fields.healthState === undefined);
 
   // A deleted actor doesn't block undo: its step is skipped and noted, and the next undo goes on to the one before.
-  ok(await owner.send(adjust(hero, "hp", -1)));
-  ok(await owner.send(adjust(ogre, "hp", -2)));
+  ok(await owner.send(hpStep(hero, "hp", -1)));
+  ok(await owner.send(hpStep(ogre, "hp", -2)));
   ok(await owner.send({ type: "actor.delete", id: ogre }));
   ok(await owner.send({ type: "event.undo" }));
   const [undoEvent] = await query<{ payload: { skipped: { actorId: string; reason: string }[] } }>(
@@ -1120,7 +1136,7 @@ test("event.undo: newest first, deltas stay, a deleted actor is skipped, only th
   refused(await owner.send({ type: "event.undo" }), /Nothing to undo/);
 
   // Who may undo: not the player, not a co-GM without the combat scope; a co-GM with it, yes.
-  ok(await owner.send(adjust(hero, "hp", -1)));
+  ok(await owner.send(hpStep(hero, "hp", -1)));
   refused(await ana.send({ type: "event.undo" }), /permission/);
   const cogm = async (name: string, scopes: ("combat" | "session")[]) => {
     const code = ok(await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false })).token!;

@@ -108,6 +108,12 @@ const refused = (r: ActionResult, pattern: RegExp) => {
   if (!r.ok) assert.match(r.error, pattern);
 };
 
+test("GET /api/health answers 200 without a sign-in", async () => {
+  const res = await get("/health");
+  assert.equal(res.status, 200);
+  assert.equal((await res.text()).length, 0);
+});
+
 test("only creators open rooms, and the creator owns the room", async () => {
   assert.equal((await post("/campaigns", { name: "x" })).status, 401);
   assert.equal((await post("/campaigns", { name: "x" }, bearer(clerk("plain")))).status, 403);

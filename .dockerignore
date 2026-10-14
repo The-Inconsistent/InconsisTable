@@ -1,0 +1,13 @@
+# Build context for deploy/*.Containerfile (the repo root). Keeps secrets, git and local state out of every layer.
+.git
+.claude
+.env*
+!.env.example
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/*.tsbuildinfo
+**/*.pdf
+books
+deploy/*.env

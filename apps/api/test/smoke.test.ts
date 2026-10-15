@@ -308,6 +308,21 @@ test("the admin key: its room and socket actions are logged as admin-key, and it
   assert.ok(statuses.includes(429), "a burst of admin-key calls from one address is refused");
 });
 
+test("book pages are limited per seat: a second socket of the same seat shares the limit", async () => {
+  const { owner, campaignId } = await newRoom("PageLimit");
+  const anaClerk = await seatPlayer(owner, "ana-pages");
+  const first = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  const second = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  await Promise.all([first.until(() => true), second.until(() => true)]);
+  const ask = (c: typeof first) =>
+    c.socket.emitWithAck("book:request", { source: "sample", page: 1 }) as Promise<ActionResult>;
+  // Nobody serves "sample", so each answer is a quick refusal; the 31st request in the window is the limiter's.
+  for (let i = 0; i < 30; i++) refused(await ask(first), /isn't serving/);
+  refused(await ask(second), /Too many pages/);
+  refused(await ask(first), /Too many pages/);
+  for (const c of [owner, first, second]) c.socket.close();
+});
+
 test("a moderator locks an ordinary account but not an admin", async () => {
   const modClerk = clerk("mod", "moderator");
   const victimClerk = clerk("victim");

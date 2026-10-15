@@ -35,18 +35,22 @@ import { loadSnapshot } from "./table.state.ts";
 const room = (campaignId: string) => `c:${campaignId}`;
 export const userRoom = (userId: string) => `u:${userId}`;
 
-// Per IP for connects (a whole table shares one NAT, and all of it reconnects after an api restart), per socket for
-// actions: a GM tapping fast stays far below 2/s over a minute.
+// Per IP for connects (a whole table shares one NAT, and all of it reconnects after an api restart), per seat for
+// actions (reconnecting or opening more sockets doesn't reset it): a GM tapping fast stays far below 2/s over a minute.
 const allowConnect = limiter({ max: 60, windowMs: 60_000 });
 const allowAction = limiter({ max: 120, windowMs: 60_000 });
-// A player flipping through cited pages; each one costs the GM's tablet a render.
+// A player flipping through cited pages; each one costs the GM's tablet a render. Per seat, like actions.
 const allowPage = limiter({ max: 30, windowMs: 60_000 });
 const PAGE_TIMEOUT_MS = 15_000;
+// Page requests waiting on a GM tablet at once, per campaign; each holds an ack for up to PAGE_TIMEOUT_MS.
+// ponytail: in-process counter, one api instance and one flat cap for the whole table; per-seat caps or a queue if a table needs more
+const MAX_PAGES_IN_FLIGHT = 8;
 const KICK_GRACE_MS = 200;
 
-// What a socket carries: who it is, whether it's the admin-key script (exempt from the action limit), and the book
-// sources a GM tablet serves from its own PDFs (presence only, so it dies with the socket).
-type SocketData = { ctx: Ctx; script: boolean; books?: BookSource[] };
+// What a socket carries: who it is, the key of its seat (the rate limits' key), whether it's the admin-key script
+// (exempt from the action limit), and the book sources a GM tablet serves from its own PDFs (presence only, so it dies
+// with the socket).
+type SocketData = { ctx: Ctx; seatKey: string; script: boolean; books?: BookSource[] };
 type TableServer = Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 type TableSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 type Loaded = NonNullable<Awaited<ReturnType<typeof loadSnapshot>>>;
@@ -63,6 +67,7 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   // ponytail: in-process per-campaign queue, assumes one api instance; pg_advisory_xact_lock per campaign when we scale
   // out (docs/design.md §5.6)
   private readonly tails = new Map<string, Promise<void>>();
+  private readonly pagesInFlight = new Map<string, number>();
 
   // Authenticate in middleware, before the connection is accepted, so no event can arrive without a seat.
   afterInit(server: TableServer) {
@@ -74,7 +79,7 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
       try {
         const r = await resolveSocketCtx({ auth: socket.handshake.auth, headers: socket.handshake.headers });
         if (!r) return next(new Error("unauthorized"));
-        socket.data = { ctx: r.ctx, script: r.script };
+        socket.data = { ctx: r.ctx, seatKey: r.seatKey, script: r.script };
         if (r.openedAsAdmin && r.ctx.userId) await logRoomOpen({ userId: r.ctx.userId, campaignId: r.ctx.campaignId });
         if (r.script) await logAdminKey({ action: "room.open", campaignId: r.ctx.campaignId });
       } catch (e) {
@@ -124,19 +129,26 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   // ponytail: any page of a served book, allow-list the cited pages if the table ever needs it
   @SubscribeMessage("book:request")
   async onBookRequest(@ConnectedSocket() socket: TableSocket, @MessageBody() body: unknown) {
-    const { ctx } = socket.data;
+    const { ctx, seatKey } = socket.data;
     if (ctx.seat.kind === "token" && ctx.seat.role === "screen")
       return { ok: false, error: "The table screen shows no book pages." };
-    if (!allowPage(socket.id)) return { ok: false, error: "Too many pages. Slow down." };
+    if (!allowPage(seatKey)) return { ok: false, error: "Too many pages. Slow down." };
     const parsed = BookPage.safeParse(body);
     if (!parsed.success) return { ok: false, error: z.prettifyError(parsed.error) };
     const server = this.bookServers(ctx.campaignId).find((s) => s.data.books?.includes(parsed.data.source));
     if (!server) return { ok: false, error: "The GM isn't serving that book." };
+    if ((this.pagesInFlight.get(ctx.campaignId) ?? 0) >= MAX_PAGES_IN_FLIGHT)
+      return { ok: false, error: "The GM's tablet is busy. Try again in a moment." };
+    this.pagesInFlight.set(ctx.campaignId, (this.pagesInFlight.get(ctx.campaignId) ?? 0) + 1);
     let reply: unknown;
     try {
       reply = await server.timeout(PAGE_TIMEOUT_MS).emitWithAck("book:request", parsed.data);
     } catch {
       return { ok: false, error: "No reply from the GM's tablet." };
+    } finally {
+      const left = (this.pagesInFlight.get(ctx.campaignId) ?? 1) - 1;
+      if (left > 0) this.pagesInFlight.set(ctx.campaignId, left);
+      else this.pagesInFlight.delete(ctx.campaignId);
     }
     // Only a GM socket answers, but its reply is still parsed before it's passed on.
     const ack = BookAck.safeParse(reply);
@@ -145,8 +157,8 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
 
   @SubscribeMessage("action")
   async onAction(@ConnectedSocket() socket: TableSocket, @MessageBody() body: unknown): Promise<ActionResult> {
-    const { ctx, script } = socket.data;
-    if (!script && !allowAction(socket.id)) return { ok: false, error: "Too many actions. Slow down." };
+    const { ctx, seatKey, script } = socket.data;
+    if (!script && !allowAction(seatKey)) return { ok: false, error: "Too many actions. Slow down." };
     const parsed = Action.safeParse(body);
     if (!parsed.success) return { ok: false, error: z.prettifyError(parsed.error) };
     if (script) {

@@ -6,4 +6,3 @@ export * from "./permissions.ts";
 export * from "./seat.ts";
 export * from "./state.ts";
 export * from "./test-call.ts";
-export * from "./view.ts";

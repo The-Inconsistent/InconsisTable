@@ -1,5 +1,5 @@
 import type { Ctx } from "@inconsistable/core-schema";
-import { checkFieldValue, type CompiledRuleset, type EditableBy } from "@inconsistable/rules-engine";
+import { checkFieldValue, type CompiledRuleset, type EditableBy, type Visibility } from "@inconsistable/rules-engine";
 import { recordWritten } from "../campaign/event.log.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
@@ -68,6 +68,7 @@ export async function applyDeltas(
     const actor = Object.hasOwn(built, target.actorId) ? built[target.actorId] : undefined;
     if (!actor) fail("Character not found");
     let editableBy: EditableBy = "gm";
+    let visibility: Visibility = "gm"; // undeclared is `gm`, fail-closed
     let what = "that";
     let write: Parameters<typeof writeDelta>[1] = { campaignId: ctx.campaignId, delta };
     if ("resource" in target) {
@@ -75,6 +76,7 @@ export async function applyDeltas(
       const bounds = Object.hasOwn(actor.bounds, target.resource) ? actor.bounds[target.resource] : undefined;
       if (!res || !bounds) fail(`This character has no ${target.resource} to change`);
       editableBy = res.def.editableBy;
+      visibility = res.def.visibility;
       what = res.def.label;
       write = { ...write, bounds };
     } else if ("field" in target) {
@@ -84,13 +86,20 @@ export async function applyDeltas(
         const bad = delta.value === null ? null : checkFieldValue({ def, value: delta.value });
         if (bad) fail(`${def.label}: ${bad}`);
         editableBy = def.editableBy;
+        visibility = def.visibility;
         what = def.label;
       }
       write = { ...write, fieldType: def?.type ?? inferFieldType(delta.value) };
     } else {
       what = `the ${target.condition} condition`;
+      const cond = Object.hasOwn(compiled.conditions, target.condition)
+        ? compiled.conditions[target.condition]
+        : undefined;
+      visibility = cond?.visibility ?? "gm";
     }
-    const refused = trusted ? null : checkEditable({ ctx, editableBy, actorId: target.actorId, delta, what });
+    const refused = trusted
+      ? null
+      : checkEditable({ ctx, editableBy, actorId: target.actorId, kind: actor.row.kind, visibility, delta, what });
     if (refused) fail(refused);
     written.push(await writeDelta(tx, write));
   }

@@ -27,7 +27,7 @@ function healthOf({ built, resource }: { built: BuiltActor | undefined; resource
 
 /**
  * The running encounter as the GM sees it, whole: combatants in turn order, each with its health and conditions.
- * `toSeatEncounter` and the api's `seatState` cut it down for every other seat.
+ * the Seat view module (`seatView`) cuts it down for every other seat.
  */
 export async function loadEncounter(
   conn: Db,

@@ -1,5 +1,5 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { canInCampaign, type Action, type ActionResult, type Ctx } from "@inconsistable/core-schema";
+import { type Action, type ActionResult, type Ctx } from "@inconsistable/core-schema";
 import { invite, ownershipTransfer } from "../auth/auth.schema.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
@@ -101,9 +101,6 @@ export async function applyCampaignAction(
     }
 
     case "session.edit": {
-      // Session notes are the GM's secrets: a co-GM who was never shown them can't overwrite them (as in codex.save).
-      if (a.notes !== undefined && !canInCampaign({ ctx, perm: "codex:read_secret" }))
-        fail("Session notes need the secrets scope");
       const { type: _type, sessionId, ...patch } = a;
       const r = await tx
         .update(session)

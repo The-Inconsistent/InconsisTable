@@ -1,11 +1,11 @@
 import { and, asc, count, eq, ilike, inArray } from "drizzle-orm";
-import { seatRole, type Ctx } from "@inconsistable/core-schema";
+import type { Ctx } from "@inconsistable/core-schema";
 import { validateRuleset } from "@inconsistable/rules-engine";
 import { db } from "../core/db.ts";
 import { servedPacks } from "../pack/pack.lookup.ts";
 import { campaignPack, pack, packEntry, packVersion } from "../pack/pack.schema.ts";
 import { ruleset, rulesetVersion } from "../ruleset/ruleset.schema.ts";
-import { manifestForSeat } from "../ruleset/ruleset.view.ts";
+import { readableEntryVisibilities, seatManifest } from "../view/view.ts";
 import { campaign } from "./campaign.schema.ts";
 
 export const MAX_RULES_PAGE = 500;
@@ -25,12 +25,11 @@ const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, "\\$&")}%`;
  * What a seat may read of the room's rules: the pinned ruleset's manifest and the entries of the attached packs, both
  * filtered for the seat. The only door to pack content (CLAUDE.md, principle 4):
  * - the caller is a seat of this room (resolved by the controller; this takes its Ctx);
- * - a `gm` entry goes to GM-side seats only, `party` and `public` to every seat;
+ * - a `gm` entry goes to the combat side only (the Seat view module), `party` and `public` to every seat;
  * - a pack taken down by an admin is served to nobody;
  * - a `private` pack is served only while its owner is a GM of this room.
  */
 export async function readRules({ ctx, query }: { ctx: Ctx; query: RulesQuery }) {
-  const gm = ["gm", "cogm"].includes(seatRole(ctx.seat));
   const cid = ctx.campaignId;
 
   const [pinned] = await db
@@ -66,7 +65,7 @@ export async function readRules({ ctx, query }: { ctx: Ctx; query: RulesQuery })
       packEntry.packVersionId,
       packs.map((p) => p.versionId),
     ),
-    gm ? undefined : inArray(packEntry.visibility, ["public", "party"]),
+    inArray(packEntry.visibility, readableEntryVisibilities(ctx)),
     query.type ? eq(packEntry.type, query.type) : undefined,
     query.q ? ilike(packEntry.name, likePattern(query.q)) : undefined,
   );
@@ -101,7 +100,7 @@ export async function readRules({ ctx, query }: { ctx: Ctx; query: RulesQuery })
             versionId: pinned.id,
             slug: pinned.slug,
             version: pinned.version,
-            manifest: manifestForSeat({ ruleset: checked.ruleset, gm }),
+            manifest: seatManifest({ ruleset: checked.ruleset, ctx }),
           }
         : null,
     packs: packs.map(({ versionId, ...p }) => ({ id: versionId, ...p })),

@@ -40,8 +40,8 @@ export function testDefsOf(compiled: CompiledRuleset | null): TestDef[] {
 }
 
 /**
- * The open calls and this session's closed ones, whole (every target number and result): the GM's copy. `toSeatTests`
- * decides what each other seat gets. A number the call computed is told to the table only if the GM didn't hide it and
+ * The open calls and this session's closed ones, whole (every target number and result): the GM's copy. the Seat view
+ * module decides what each other seat gets. A number the call computed is told to the table only if the GM didn't hide it and
  * the ruleset lets every called character's owner see what it was computed from.
  */
 export async function loadTests(

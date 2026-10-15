@@ -9,7 +9,7 @@ import {
   type OnGatewayDisconnect,
   type OnGatewayInit,
 } from "@nestjs/websockets";
-import type { DefaultEventsMap, Server, Socket } from "socket.io";
+import type { DefaultEventsMap, RemoteSocket, Server, Socket } from "socket.io";
 import { z } from "zod";
 import {
   Action,
@@ -18,20 +18,19 @@ import {
   BookServing,
   MAX_PAGE_BYTES,
   canInCampaign,
-  toSeatCodex,
   type ActionResult,
   type BookAvailable,
   type BookSource,
   type Ctx,
 } from "@inconsistable/core-schema";
-import { forUser } from "../actor/actor.draft.ts";
 import { logRoomOpen } from "../admin/admin.service.ts";
 import { resolveSocketCtx } from "../auth/auth.service.ts";
 import { db } from "../core/db.ts";
 import { ActionError } from "../core/errors.ts";
 import { clientIp, limiter } from "../core/rate-limit.ts";
 import { applyAction, kicks, kicksSender, touches, type Kick } from "./table.dispatch.ts";
-import { loadCodex, loadLive, seatState } from "./table.state.ts";
+import { seatView } from "../view/view.ts";
+import { loadSnapshot } from "./table.state.ts";
 
 const room = (campaignId: string) => `c:${campaignId}`;
 export const userRoom = (userId: string) => `u:${userId}`;
@@ -50,19 +49,8 @@ const KICK_GRACE_MS = 200;
 type SocketData = { ctx: Ctx; script: boolean; books?: BookSource[] };
 type TableServer = Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 type TableSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
-
-// A GM seat sees the raw snapshots; everyone else gets their own filtered copy (core-schema view.ts).
-const fullView = (ctx: Ctx) => ctx.seat.kind === "admin" || (ctx.seat.kind === "member" && ctx.seat.role === "gm");
-// Seats that see the same thing share one computed view.
-const viewKey = (ctx: Ctx) =>
-  ctx.seat.kind === "admin"
-    ? "admin"
-    : JSON.stringify([
-        ctx.seat.kind,
-        ctx.seat.role,
-        ctx.seat.kind === "member" ? ctx.seat.scopes : [],
-        ctx.seat.characterIds,
-      ]);
+type Loaded = NonNullable<Awaited<ReturnType<typeof loadSnapshot>>>;
+type Touches = { state: boolean; codex: boolean };
 
 // WEB_ORIGIN may list several origins (localhost and the LAN address), comma separated.
 @WebSocketGateway({
@@ -104,14 +92,8 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
       if (ctx.userId) await socket.join(userRoom(ctx.userId));
       // In the campaign's queue, so this first snapshot can't land after (and overwrite) a newer broadcast.
       await this.serial(ctx.campaignId, async () => {
-        const [live, codex] = await Promise.all([loadLive(ctx.campaignId), loadCodex(ctx.campaignId)]);
-        const full = fullView(ctx);
-        if (live)
-          socket.emit(
-            "state",
-            forUser({ state: full ? live.state : seatState({ live, ctx }), drafts: live.drafts, ctx }),
-          );
-        socket.emit("codex", full ? codex : toSeatCodex({ codex, ctx }));
+        const loaded = await loadSnapshot(ctx.campaignId);
+        if (loaded) this.emitView(socket, loaded, { state: true, codex: true });
       });
       this.announceBooks(ctx.campaignId, socket);
     } catch (e) {
@@ -253,40 +235,19 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     (to ?? this.server.to(room(campaignId))).emit("book:available", { sources } satisfies BookAvailable);
   }
 
-  private async broadcast(campaignId: string, what: { state: boolean; codex: boolean }) {
+  // One socket's Seat view, as the events the web reads. The gateway decides nothing about what is in it.
+  private emitView(socket: TableSocket | RemoteSocket<DefaultEventsMap, SocketData>, loaded: Loaded, what: Touches) {
+    const view = seatView({ ...loaded, ctx: socket.data.ctx });
+    if (what.state) socket.emit("state", view.state);
+    if (what.codex) socket.emit("codex", view.codex);
+  }
+
+  private async broadcast(campaignId: string, what: Touches) {
     if (!what.state && !what.codex) return;
-    // ponytail: per-socket fan-out with one view per distinct seat, fine at table scale; per-seat rooms if it grows
-    const sockets = await this.server.in(room(campaignId)).fetchSockets();
-    // `own` adds what is one user's alone (their draft) to the view that seats of the same shape share.
-    const send = <T>(
-      event: string,
-      value: T,
-      { view, own }: { view: (ctx: Ctx) => T; own?: (view: T, ctx: Ctx) => unknown },
-    ) => {
-      const views = new Map<string, T>();
-      for (const s of sockets) {
-        const { ctx } = s.data;
-        let shared = value;
-        if (!fullView(ctx)) {
-          const key = viewKey(ctx);
-          if (!views.has(key)) views.set(key, view(ctx));
-          shared = views.get(key) as T; // set just above
-        }
-        s.emit(event, own ? own(shared, ctx) : shared);
-      }
-    };
-    if (what.state) {
-      const live = await loadLive(campaignId);
-      if (live)
-        send("state", live.state, {
-          view: (ctx) => seatState({ live, ctx }),
-          own: (state, ctx) => forUser({ state, drafts: live.drafts, ctx }),
-        });
-    }
-    if (what.codex) {
-      const codex = await loadCodex(campaignId);
-      send("codex", codex, { view: (ctx) => toSeatCodex({ codex, ctx }) });
-    }
+    const loaded = await loadSnapshot(campaignId);
+    if (!loaded) return;
+    // ponytail: payload computed per socket, fine at table size (one GM, a few phones, one Screen); cache by a seat-kind key if rooms grow
+    for (const s of await this.server.in(room(campaignId)).fetchSockets()) this.emitView(s, loaded, what);
   }
 
   // Disconnects the sockets whose seat just changed or went: they reconnect and resolve their seat again.

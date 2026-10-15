@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
 import type { Encounter } from "@inconsistable/core-schema";
@@ -8,6 +9,7 @@ type TurnBannerProps = { encounter: Encounter | null; held: readonly string[] };
 // "Your turn" when the acting combatant is a character this seat holds. The banner pulses once in the accent as the turn
 // starts (CSS; iOS has no vibrate), and Android phones also buzz once (no sound).
 export function TurnBanner({ encounter, held }: TurnBannerProps) {
+  const t = useTranslations("turnBanner");
   const acting = encounter?.combatants.find((c) => c.id === encounter.currentId);
   // A paused fight (no session running) announces nobody and buzzes nobody.
   const mine = encounter?.paused === false && acting !== undefined && held.includes(acting.actorId);
@@ -29,7 +31,7 @@ export function TurnBanner({ encounter, held }: TurnBannerProps) {
   return (
     <p key={turnKey} className="turn-banner" role="status">
       <span className="turn-icon" aria-hidden="true" />
-      Your turn, {acting.name}
+      {t("yourTurn", { name: acting.name })}
     </p>
   );
 }

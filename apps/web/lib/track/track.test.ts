@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { amountOf, barPercent, leftText, pressKey, stateWord } from "./track.ts";
+import { amountOf, barPercent, leftOf, pressKey, stateKey } from "./track.ts";
 
 test("the keypad types a whole number of at most four digits", () => {
   const type = (keys: string[]) => keys.reduce((entry, key) => pressKey({ entry, key }), "");
@@ -15,16 +15,16 @@ test("the keypad types a whole number of at most four digits", () => {
 });
 
 test("a combatant's state is a word", () => {
-  assert.equal(stateWord({ current: true, healthState: "ok" }), "ACTING");
-  assert.equal(stateWord({ current: true, healthState: "dying" }), "DOWN");
-  assert.equal(stateWord({ current: false, healthState: "dead" }), "DEAD");
-  assert.equal(stateWord({ current: false, healthState: undefined }), "");
+  assert.equal(stateKey({ current: true, healthState: "ok" }), "acting");
+  assert.equal(stateKey({ current: true, healthState: "dying" }), "down");
+  assert.equal(stateKey({ current: false, healthState: "dead" }), "dead");
+  assert.equal(stateKey({ current: false, healthState: undefined }), null);
 });
 
 test("a condition's time left, and a bar's width", () => {
-  assert.equal(leftText({ left: 1, expiresOn: "ownTurnEnd" }), "1 turn");
-  assert.equal(leftText({ left: 3, expiresOn: "roundEnd" }), "3 rounds");
-  assert.equal(leftText({ left: null, expiresOn: "manual" }), "");
+  assert.deepEqual(leftOf({ left: 1, expiresOn: "ownTurnEnd" }), { count: 1, unit: "turn" });
+  assert.deepEqual(leftOf({ left: 3, expiresOn: "roundEnd" }), { count: 3, unit: "round" });
+  assert.equal(leftOf({ left: null, expiresOn: "manual" }), null);
   assert.equal(barPercent({ bar: 4 / 7 }), 57);
   assert.equal(barPercent({ bar: null }), null);
 });

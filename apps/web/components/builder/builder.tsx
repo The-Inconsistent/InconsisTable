@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -9,6 +10,7 @@ import { AssignStep } from "@/components/builder/components/assign-step/assign-s
 import { ChooseStep } from "@/components/builder/components/choose-step/choose-step";
 import { FieldsStep } from "@/components/builder/components/fields-step/fields-step";
 import { DRAFT_DELAY_MS } from "@/components/builder/constants";
+import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { type Send, useTable } from "@/hooks/use-table/use-table";
 import {
@@ -32,10 +34,12 @@ type BuilderProps = {
 
 // BUILD CHARACTER: waits for the table's first snapshot (it carries this user's draft), then walks the ruleset's creation.
 export function Builder({ campaignId, actorId, ruleset, entries }: BuilderProps) {
+  const t = useTranslations("builder");
+  const tStatus = useTranslations("status");
   const { state, send } = useTable(campaignId);
-  if (!state) return <StatusScreen text="Syncing…" />;
+  if (!state) return <StatusScreen text={tStatus("syncing")} />;
   const actor = state.actors.find((a) => a.id === actorId);
-  if (!actor) return <StatusScreen text="That character isn't at this table." />;
+  if (!actor) return <StatusScreen text={t("notAtTable")} />;
   return (
     <BuilderGate
       {...{ campaignId, actorId, ruleset, entries, send, actor }}
@@ -49,26 +53,27 @@ type GateProps = BuilderProps & { actor: Actor; draft: Answers; send: Send };
 // Decides once, from the first snapshot, whether there is anything to build: a build that lands while the form is open
 // must not swap the form away before it has taken the player back to the table.
 function BuilderGate({ campaignId, actorId, ruleset, entries, send, actor, draft }: GateProps) {
+  const t = useTranslations("builder");
   const [built] = useState(() => !needsBuild(actor)); // the server refuses a second build
   const entity = entityFor({ ruleset, entityType: actor.entity });
   const steps = entity ? stepsFor({ ruleset, entity }) : [];
   if (built)
     return (
       <main className="page build">
-        <h1 className="title">{actor.name} is built</h1>
-        <p className="dim">The GM can correct a value from the sheet.</p>
+        <h1 className="title">{t("isBuilt", { name: actor.name })}</h1>
+        <p className="dim">{t("correctHint")}</p>
         <a className="btn" href={`/c/${campaignId}`}>
-          Back to the table
+          {t("backToTable")}
         </a>
       </main>
     );
   if (!entity || steps.length === 0)
     return (
       <main className="page build">
-        <h1 className="title">Nothing to build yet</h1>
-        <p className="dim">This table has no ruleset with a character builder. Ask the GM.</p>
+        <h1 className="title">{t("nothingTitle")}</h1>
+        <p className="dim">{t("nothingHint")}</p>
         <a className="btn" href={`/c/${campaignId}`}>
-          Back to the table
+          {t("backToTable")}
         </a>
       </main>
     );
@@ -87,6 +92,7 @@ type BuilderFormProps = BuilderProps & { entity: string; name: string; initial: 
 // The steps of one entity as cards on one column, the draft saved a moment after each change, the server's refusal
 // shown under the step it names.
 function BuilderForm({ campaignId, actorId, ruleset, entries, entity, name, initial, send }: BuilderFormProps) {
+  const t = useTranslations("builder");
   const router = useRouter();
   const [answers, setAnswers] = useState<Answers>(initial);
   const [serverProblems, setServerProblems] = useState<Record<string, string[]>>({});
@@ -133,7 +139,7 @@ function BuilderForm({ campaignId, actorId, ruleset, entries, entity, name, init
     if (r.ok) return router.push(`/c/${campaignId}`);
     const problems = parseProblems(r.error);
     setServerProblems(problemsByStep(problems));
-    setError(problems.length > 0 ? "Fix the steps marked below." : r.error);
+    setError(problems.length > 0 ? t("fixSteps") : r.error);
   };
 
   // START OVER: forgets the answers and the saved draft.
@@ -152,8 +158,9 @@ function BuilderForm({ campaignId, actorId, ruleset, entries, entity, name, init
   return (
     <>
       <header className="band">
-        <a href={`/c/${campaignId}`}>← Table</a>
-        <strong>Build {name}</strong>
+        <a href={`/c/${campaignId}`}>{t("backLink")}</a>
+        <strong>{t("buildTitle", { name })}</strong>
+        <LocaleSwitch />
       </header>
       <main className="page build">
         {steps.map((step) => {
@@ -169,7 +176,7 @@ function BuilderForm({ campaignId, actorId, ruleset, entries, entity, name, init
                   {step.label}
                 </h2>
                 <span className="step-state" data-done={done}>
-                  {done ? "Done" : step.optional ? "Optional" : "To do"}
+                  {done ? t("stepDone") : step.optional ? t("stepOptional") : t("stepTodo")}
                   {step.cite ? ` · ${step.cite}` : ""}
                 </span>
               </div>
@@ -209,8 +216,8 @@ function BuilderForm({ campaignId, actorId, ruleset, entries, entity, name, init
           );
         })}
 
-        <section className="card" aria-label="What this makes">
-          <h2 className="step-title">What this makes</h2>
+        <section className="card" aria-label={t("makesLabel")}>
+          <h2 className="step-title">{t("makesLabel")}</h2>
           {preview.derived.length > 0 ? (
             <dl className="derived-list">
               {preview.derived.map((d) => (
@@ -221,24 +228,20 @@ function BuilderForm({ campaignId, actorId, ruleset, entries, entity, name, init
               ))}
             </dl>
           ) : (
-            <p className="dim">
-              {complete
-                ? "The numbers show on the sheet once the GM sets what is left."
-                : "Finish every step to see the numbers."}
-            </p>
+            <p className="dim">{complete ? t("derivedLater") : t("derivedIncomplete")}</p>
           )}
-          <p className="small dim">The table checks these again when you build.</p>
+          <p className="small dim">{t("recheck")}</p>
         </section>
       </main>
       <div className="build-bar">
         <button className="btn primary" disabled={busy || !answeredAll} onClick={handleBuild}>
-          Build character
+          {t("buildButton")}
         </button>
         <button className="btn" disabled={busy || Object.keys(answers).length === 0} onClick={handleDiscard}>
-          Start over
+          {t("startOver")}
         </button>
         <span className="small dim" role="status">
-          {draftSaved === "saved" ? "Draft saved" : draftSaved === "off" ? "Draft not kept: sign in to keep one" : ""}
+          {draftSaved === "saved" ? t("draftSaved") : draftSaved === "off" ? t("draftOff") : ""}
         </span>
         {error && (
           <p className="error" role="alert" style={{ flexBasis: "100%", margin: 0 }}>

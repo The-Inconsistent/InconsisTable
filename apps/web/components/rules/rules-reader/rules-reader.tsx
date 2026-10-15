@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useState, type ChangeEvent, type FormEvent } from "react";
 
 import type { BookSource } from "@inconsistable/core-schema";
@@ -9,7 +10,6 @@ import type { RequestPage } from "@/hooks/use-table/use-table";
 import { summaryOf } from "@/lib/builder/builder";
 import { RulesReply } from "@/lib/library/library";
 import { appendPage, matching, rulesUrl, typeOptions } from "@/lib/rules-reader/rules-reader";
-import { DURATION_WORDS } from "@/lib/sheet/sheet";
 
 type RulesReaderProps = {
   campaignId: string;
@@ -23,6 +23,8 @@ type RulesReaderProps = {
 // RULES, reading side: the conditions and house decisions of the ruleset, and the pack entries this seat may see, each
 // with its cite. The api cuts the entries down per seat; this only searches and pages them.
 export function RulesReader({ campaignId, ruleset, first, books, requestPage }: RulesReaderProps) {
+  const t = useTranslations("rulesReader");
+  const tDuration = useTranslations("duration");
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [entries, setEntries] = useState(first.entries);
@@ -42,7 +44,7 @@ export function RulesReader({ campaignId, ruleset, first, books, requestPage }: 
       setTotal(page.data.total);
       setError(null);
     } catch {
-      setError("Couldn't read the rules. Check the connection and try again.");
+      setError(t("failed"));
     } finally {
       setBusy(false);
     }
@@ -73,22 +75,22 @@ export function RulesReader({ campaignId, ruleset, first, books, requestPage }: 
         <input
           id="rules-search"
           type="search"
-          aria-label="Search the rules by name"
-          placeholder="Search by name"
+          aria-label={t("searchLabel")}
+          placeholder={t("searchPlaceholder")}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           style={{ flex: 1, minWidth: 0 }}
         />
-        <select id="rules-type" aria-label="Filter entries by type" value={type} onChange={handleType}>
-          <option value="">All types</option>
-          {typeOptions({ ruleset, entries }).map((t) => (
-            <option key={t} value={t}>
-              {t}
+        <select id="rules-type" aria-label={t("typeLabel")} value={type} onChange={handleType}>
+          <option value="">{t("allTypes")}</option>
+          {typeOptions({ ruleset, entries }).map((o) => (
+            <option key={o} value={o}>
+              {o}
             </option>
           ))}
         </select>
         <button className="btn primary" disabled={busy}>
-          Search
+          {t("search")}
         </button>
       </form>
       {error && (
@@ -99,13 +101,13 @@ export function RulesReader({ campaignId, ruleset, first, books, requestPage }: 
 
       {conditions.length > 0 && (
         <section className="stack">
-          <h2 className="head">Conditions</h2>
+          <h2 className="head">{t("conditions")}</h2>
           <ul className="list">
             {conditions.map((c) => (
               <li key={c.id}>
                 <span className="stack" style={{ gap: 2 }}>
                   <strong>{c.label}</strong>
-                  <span className="small dim">Lasts {DURATION_WORDS[c.duration]}</span>
+                  <span className="small dim">{t("lasts", { duration: tDuration(c.duration) })}</span>
                   {cite(c.cite)}
                 </span>
               </li>
@@ -116,7 +118,7 @@ export function RulesReader({ campaignId, ruleset, first, books, requestPage }: 
 
       {decisions.length > 0 && (
         <section className="stack">
-          <h2 className="head">House decisions</h2>
+          <h2 className="head">{t("decisions")}</h2>
           <ul className="list">
             {decisions.map((d) => (
               <li key={d.id}>
@@ -131,9 +133,9 @@ export function RulesReader({ campaignId, ruleset, first, books, requestPage }: 
       )}
 
       <section className="stack">
-        <h2 className="head">Entries</h2>
+        <h2 className="head">{t("entries")}</h2>
         {entries.length === 0 ? (
-          <p className="dim">{first.packs.length === 0 ? "No pack is attached to this table." : "No entry matches."}</p>
+          <p className="dim">{first.packs.length === 0 ? t("noPack") : t("noMatch")}</p>
         ) : (
           <ul className="list">
             {entries.map((e) => (
@@ -141,7 +143,7 @@ export function RulesReader({ campaignId, ruleset, first, books, requestPage }: 
                 <span className="stack" style={{ gap: 2 }}>
                   <span>
                     <strong>{e.name}</strong> <span className="chip">{e.type}</span>
-                    {e.level !== null && <span className="chip">Level {e.level}</span>}
+                    {e.level !== null && <span className="chip">{t("level", { level: e.level })}</span>}
                   </span>
                   <span className="small dim">{summaryOf({ entry: e, def: defs.get(e.type) })}</span>
                   {cite(e.cite)}
@@ -152,7 +154,7 @@ export function RulesReader({ campaignId, ruleset, first, books, requestPage }: 
         )}
         {entries.length < total && (
           <button className="btn" disabled={busy} onClick={() => load({ q, type, append: true })}>
-            Show more ({total - entries.length} left)
+            {t("showMore", { left: total - entries.length })}
           </button>
         )}
       </section>

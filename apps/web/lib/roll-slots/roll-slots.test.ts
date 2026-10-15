@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { digitsOf, facesFrom, outcomeClass, outcomeWord, rollSlots, signed } from "./roll-slots.ts";
+import { digitsOf, facesFrom, outcomeClass, outcomeKey, rollSlots, signed } from "./roll-slots.ts";
 
 test("an outcome has a Theme class only when it is the engine's", () => {
   assert.equal(outcomeClass("critical"), "outcome-critical");
@@ -26,8 +26,8 @@ test("faces are sent only when every slot holds a face of the die", () => {
 
 test("modifiers and outcomes read as the table says them", () => {
   assert.deepEqual([signed(2), signed(0), signed(-1)], ["+2", "+0", "−1"]);
-  assert.equal(outcomeWord("critical"), "Critical");
-  assert.equal(outcomeWord(null), null);
-  assert.equal(outcomeWord("fumble"), null);
+  assert.equal(outcomeKey("critical"), "critical");
+  assert.equal(outcomeKey(null), null);
+  assert.equal(outcomeKey("fumble"), null);
   assert.deepEqual([digitsOf(6), digitsOf(20), digitsOf(100)], [1, 2, 3]);
 });

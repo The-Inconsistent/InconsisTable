@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 type ResourceRowProps = {
@@ -19,6 +20,7 @@ type ResourceRowProps = {
 // One resource with its − and + (44px each), as the sheet and the combat tracker show them. A button the seat may not
 // press is not drawn at all: "tell the GM" is the rule for everything else.
 export function ResourceRow({ stat, label, value, range, steps, holder, note, onStep }: ResourceRowProps) {
+  const t = useTranslations("resourceRow");
   return (
     <div className="sheet-row" data-stat={stat} data-kind="resource">
       <div className="stack" style={{ gap: 2 }}>
@@ -29,21 +31,26 @@ export function ResourceRow({ stat, label, value, range, steps, holder, note, on
         {steps.dec && (
           <button
             className="btn step"
-            aria-label={`Decrease ${label} of ${holder}`}
+            aria-label={t("decrease", { label, holder })}
             disabled={range !== null && value <= range.min}
             onClick={() => onStep(-1)}
           >
             −
           </button>
         )}
-        <strong className="sheet-num" aria-label={`${label}: ${value}${range?.max != null ? ` of ${range.max}` : ""}`}>
+        <strong
+          className="sheet-num"
+          aria-label={
+            range?.max != null ? t("valueOf", { label, value, max: range.max }) : t("value", { label, value })
+          }
+        >
           {value}
           {range?.max != null && <span className="dim small"> / {range.max}</span>}
         </strong>
         {steps.inc && (
           <button
             className="btn step"
-            aria-label={`Increase ${label} of ${holder}`}
+            aria-label={t("increase", { label, holder })}
             disabled={range?.max != null && value >= range.max}
             onClick={() => onStep(1)}
           >

@@ -19,6 +19,11 @@
   line, the player banner); never swallow it.
 - **State:** React hooks; avoid prop drilling (see Context below).
 - **Formatting:** Prettier, 2-space indentation.
+- **No hard-coded user-facing strings.** Every button, label, heading, message, empty state, `aria-label`, `alt` and page
+  title is a key in `apps/web/messages/en.json` (and the same key in `vi.json`), read with next-intl's
+  `useTranslations` / `getTranslations`. Plurals, numbers and dates go through ICU and `Intl`, never string
+  concatenation. Content a user imported (ruleset and pack terms, codex, names) and the api's refusal text are shown as
+  they arrive.
 
 ## Development Best Practices
 

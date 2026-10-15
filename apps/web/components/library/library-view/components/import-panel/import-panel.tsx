@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useRef, useState, type ChangeEvent } from "react";
 
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
@@ -12,7 +13,7 @@ import {
   type Problem,
 } from "@/lib/library/library";
 
-import { DIFF_KEYS_SHOWN, IMPORT_ERRORS, MAX_UPLOAD_BYTES, SUMMARY_REMINDER } from "../../constants";
+import { DIFF_KEYS_SHOWN, MAX_UPLOAD_BYTES } from "../../constants";
 import { ProblemList, type Located } from "../problem-list/problem-list";
 
 type Outcome =
@@ -33,16 +34,15 @@ function savedOutcome({ kind, body }: { kind: "pack" | "ruleset"; body: unknown 
 
 type ImportPanelProps = { onSaved: () => void };
 
-function KeyList({ label, keys }: { label: string; keys: string[] }) {
+function KeyList({ kind, keys }: { kind: "added" | "changed" | "removed"; keys: string[] }) {
+  const t = useTranslations("importPanel");
   if (keys.length === 0) return null;
   return (
     <details>
-      <summary>
-        {keys.length} {label}
-      </summary>
+      <summary>{t(kind, { count: keys.length })}</summary>
       <p className="small dim keys">
         {keys.slice(0, DIFF_KEYS_SHOWN).join(", ")}
-        {keys.length > DIFF_KEYS_SHOWN && ` and ${keys.length - DIFF_KEYS_SHOWN} more`}
+        {keys.length > DIFF_KEYS_SHOWN && ` ${t("moreKeys", { count: keys.length - DIFF_KEYS_SHOWN })}`}
       </p>
     </details>
   );
@@ -51,6 +51,7 @@ function KeyList({ label, keys }: { label: string; keys: string[] }) {
 // Paste a ruleset or a pack, or choose its file. The problems come back by path and each one selects its spot in the
 // text; nothing is kept of the file but the rows the api writes.
 export function ImportPanel({ onSaved }: ImportPanelProps) {
+  const t = useTranslations("importPanel");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
@@ -74,27 +75,28 @@ export function ImportPanel({ onSaved }: ImportPanelProps) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (file.size > MAX_UPLOAD_BYTES) return setOutcome({ kind: "error", message: IMPORT_ERRORS.tooBig });
+    if (file.size > MAX_UPLOAD_BYTES) return setOutcome({ kind: "error", message: t("tooBig") });
     try {
       setText(await file.text());
       setOutcome(null);
     } catch {
-      setOutcome({ kind: "error", message: IMPORT_ERRORS.readFailed });
+      setOutcome({ kind: "error", message: t("readFailed") });
     }
   };
 
   // IMPORT: the document goes to the api as it was typed; a refusal lists its problems, a save shows what changed.
   const handleImport = async () => {
-    if (new Blob([text]).size > MAX_UPLOAD_BYTES) return setOutcome({ kind: "error", message: IMPORT_ERRORS.tooBig });
+    if (new Blob([text]).size > MAX_UPLOAD_BYTES) return setOutcome({ kind: "error", message: t("tooBig") });
     let doc: unknown;
     try {
       doc = JSON.parse(text);
     } catch (e) {
-      const message = e instanceof Error ? e.message : IMPORT_ERRORS.notJson;
+      // The parser's own message is the engine's English; the line before it is ours.
+      const message = e instanceof Error ? e.message : "";
       const at = parseErrorAt({ message, text }) ?? undefined;
       return setOutcome({
         kind: "problems",
-        problems: [{ path: "(root)", message: `${IMPORT_ERRORS.notJson} ${message}`, at }],
+        problems: [{ path: "(root)", message: `${t("notJson")} ${message}`.trim(), at }],
         warnings: [],
       });
     }
@@ -102,7 +104,7 @@ export function ImportPanel({ onSaved }: ImportPanelProps) {
     if (!kind)
       return setOutcome({
         kind: "problems",
-        problems: [{ path: "(root)", message: IMPORT_ERRORS.unknownShape }],
+        problems: [{ path: "(root)", message: t("unknownShape") }],
         warnings: [],
       });
 
@@ -126,12 +128,12 @@ export function ImportPanel({ onSaved }: ImportPanelProps) {
         const message = ApiMessage.safeParse(body);
         if (refusal.success)
           setOutcome({ kind: "problems", problems: refusal.data.problems, warnings: refusal.data.warnings });
-        else if (res.status === 413) setOutcome({ kind: "error", message: IMPORT_ERRORS.tooBig });
-        else if (res.status === 401) setOutcome({ kind: "error", message: IMPORT_ERRORS.signedOut });
-        else setOutcome({ kind: "error", message: message.success ? message.data.message : IMPORT_ERRORS.failed });
+        else if (res.status === 413) setOutcome({ kind: "error", message: t("tooBig") });
+        else if (res.status === 401) setOutcome({ kind: "error", message: t("signedOut") });
+        else setOutcome({ kind: "error", message: message.success ? message.data.message : t("failed") });
       }
     } catch {
-      setOutcome({ kind: "error", message: IMPORT_ERRORS.failed });
+      setOutcome({ kind: "error", message: t("failed") });
     }
     setBusy(false);
   };
@@ -141,12 +143,12 @@ export function ImportPanel({ onSaved }: ImportPanelProps) {
 
   return (
     <section className="card import">
-      <h2 className="head">Import</h2>
+      <h2 className="head">{t("title")}</h2>
       <p className="reminder" id="import-reminder">
-        {SUMMARY_REMINDER}
+        {t("reminder")}
       </p>
       <label>
-        Ruleset or pack (JSON)
+        {t("fieldLabel")}
         <textarea
           ref={area}
           className="json"
@@ -155,20 +157,20 @@ export function ImportPanel({ onSaved }: ImportPanelProps) {
           wrap="off"
           spellCheck={false}
           aria-describedby="import-reminder"
-          placeholder="Paste JSON here, or choose a file."
+          placeholder={t("placeholder")}
         />
       </label>
       <div className="row">
         <button type="button" className="btn primary" onClick={handleImport} disabled={busy || text.trim() === ""}>
-          {busy ? "Importing…" : "Import"}
+          {busy ? t("importing") : t("import")}
         </button>
         <button type="button" className="btn" onClick={() => picker.current?.click()} disabled={busy}>
-          Choose file
+          {t("chooseFile")}
         </button>
         <input ref={picker} type="file" accept=".json,application/json" hidden onChange={handleFile} />
         {text !== "" && (
           <button type="button" className="btn" onClick={() => setText("")} disabled={busy}>
-            Clear
+            {t("clear")}
           </button>
         )}
       </div>
@@ -181,36 +183,36 @@ export function ImportPanel({ onSaved }: ImportPanelProps) {
       {outcome?.kind === "ruleset" && (
         <p className="saved" role="status">
           {outcome.saved.unchanged
-            ? `${outcome.saved.slug} ${outcome.saved.version} was already imported. Nothing changed.`
-            : `Saved ${outcome.saved.slug} ${outcome.saved.version}. Pick it when you create a room.`}
+            ? t("rulesetUnchanged", { slug: outcome.saved.slug, version: outcome.saved.version })
+            : t("rulesetSaved", { slug: outcome.saved.slug, version: outcome.saved.version })}
         </p>
       )}
       {outcome?.kind === "pack" && (
         <div className="stack saved" role="status">
           <p>
             {outcome.saved.unchanged
-              ? `Version ${outcome.saved.version} was already imported. Nothing changed.`
-              : `Saved version ${outcome.saved.version}.`}
+              ? t("packUnchanged", { version: outcome.saved.version })
+              : t("packSaved", { version: outcome.saved.version })}
           </p>
           {!outcome.saved.unchanged && (
             <>
               <p className="diff">
-                <span>{outcome.saved.diff.added.length} added</span>
-                <span>{outcome.saved.diff.changed.length} changed</span>
-                <span>{outcome.saved.diff.removed.length} removed</span>
+                <span>{t("added", { count: outcome.saved.diff.added.length })}</span>
+                <span>{t("changed", { count: outcome.saved.diff.changed.length })}</span>
+                <span>{t("removed", { count: outcome.saved.diff.removed.length })}</span>
               </p>
-              <KeyList label="added" keys={outcome.saved.diff.added} />
-              <KeyList label="changed" keys={outcome.saved.diff.changed} />
-              <KeyList label="removed" keys={outcome.saved.diff.removed} />
+              <KeyList kind="added" keys={outcome.saved.diff.added} />
+              <KeyList kind="changed" keys={outcome.saved.diff.changed} />
+              <KeyList kind="removed" keys={outcome.saved.diff.removed} />
             </>
           )}
         </div>
       )}
       {outcome?.kind === "problems" && (
-        <ProblemList title="Fix these, then import again" items={outcome.problems} tone="error" onPick={handlePick} />
+        <ProblemList title={t("fixThese")} items={outcome.problems} tone="error" onPick={handlePick} />
       )}
       <ProblemList
-        title={outcome?.kind === "pack" ? "Saved, but check these descriptions" : "Also check these descriptions"}
+        title={outcome?.kind === "pack" ? t("warnSaved") : t("warnAlso")}
         items={warnings}
         tone="warn"
         onPick={handlePick}

@@ -55,17 +55,8 @@ export function poolRoll({
   };
 }
 
-const FLAG_WORD: Record<PoolFlag, string> = { critical: "Critical", complication: "Complication" };
-
-/** A flag as a word. The state carries flags as strings; one that isn't the engine's is shown as nothing. */
-export function flagWord(flag: string): string | null {
+/** A flag the engine knows (`critical`, `complication`: also the Theme's class and the `poolFlag` message), or null. */
+export function flagKey(flag: string): PoolFlag | null {
   const parsed = PoolFlag.safeParse(flag);
-  return parsed.success ? FLAG_WORD[parsed.data] : null;
+  return parsed.success ? parsed.data : null;
 }
-
-/** A margin as the table says it: +2, −3, 0 on the number. */
-export const marginText = (margin: number): string =>
-  margin === 0 ? "on the number" : margin > 0 ? `+${margin}` : `−${-margin}`;
-
-/** "1 shift", "3 shifts". */
-export const shiftsText = (n: number): string => `${n} ${n === 1 ? "shift" : "shifts"}`;

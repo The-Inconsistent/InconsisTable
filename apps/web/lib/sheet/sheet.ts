@@ -9,7 +9,7 @@ import {
   type Ruleset,
 } from "@inconsistable/rules-engine";
 
-import { leftText } from "../track/track.ts";
+import { leftOf } from "../track/track.ts";
 
 // The sheet's pure side: which rows a ruleset's `layout` puts on a character, who may step a resource, which rests the
 // manifest declares, and how a printed cite becomes a page of the GM's book. Values never come from here: they are the
@@ -23,7 +23,8 @@ export type SheetRow = {
   label: string;
   cite: string | null;
 };
-export type SheetSection = { id: string; label: string; rows: SheetRow[] };
+/** A section of the sheet. `label` is the ruleset's own; null for the three built-in ones, named by the `sheet.section` messages. */
+export type SheetSection = { id: string; label: string | null; rows: SheetRow[] };
 
 /** The layout key a ruleset may use for every entity that has no layout of its own. */
 export const SHARED_LAYOUT = "sheet";
@@ -65,17 +66,17 @@ export function sectionsOf({ ruleset, actor }: { ruleset: Ruleset; actor: SheetA
     : [
         {
           id: "derived",
-          label: "Numbers",
+          label: null,
           rows: def.derived.flatMap((d) => rowFor({ ruleset, actor, path: `derived.${d.id}` }) ?? []),
         },
         {
           id: "resources",
-          label: "Resources",
+          label: null,
           rows: ruleset.resources.flatMap((r) => rowFor({ ruleset, actor, path: `res.${r.id}` }) ?? []),
         },
         {
           id: "fields",
-          label: "Details",
+          label: null,
           rows: Object.keys(def.fields).flatMap((f) =>
             f in actor.fields ? (rowFor({ ruleset, actor, path: f }) ?? []) : [],
           ),
@@ -85,9 +86,9 @@ export function sectionsOf({ ruleset, actor }: { ruleset: Ruleset; actor: SheetA
 }
 
 /** A field value as the sheet prints it. */
-export function printValue(v: FieldValue | undefined): string {
+export function printValue({ value: v, yes, no }: { value: FieldValue | undefined; yes: string; no: string }): string {
   if (v === null || v === undefined || v === "") return "—";
-  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v === "boolean") return v ? yes : no;
   return Array.isArray(v) ? (v.length ? v.join(", ") : "—") : String(v);
 }
 
@@ -137,10 +138,9 @@ export function stepAction({
 }
 
 /** The rests the manifest declares, in the order the table says them. A rest nothing resets on is not offered. */
-export const REST_BUTTONS = [
-  { event: "shortRest", label: "Short rest" },
-  { event: "longRest", label: "Long rest" },
-] as const satisfies readonly { event: ResetEvent; label: string }[];
+export const REST_BUTTONS = [{ event: "shortRest" }, { event: "longRest" }] as const satisfies readonly {
+  event: ResetEvent;
+}[];
 
 export function restsOf(ruleset: Ruleset) {
   const declared = new Set(ruleset.resources.flatMap((r) => r.resetOn.map((x) => x.event)));
@@ -193,25 +193,8 @@ export function pageOfCite({ cite, ruleset }: { cite: string; ruleset: Ruleset }
   return source ? { source: source.id, page } : null;
 }
 
-/** Words for when a resource refills. */
-export const RESET_WORDS = {
-  sessionStart: "each session",
-  sessionEnd: "session end",
-  encounterEnd: "fight end",
-  shortRest: "short rest",
-  longRest: "long rest",
-} as const satisfies Record<ResetEvent, string>;
-
-/** Words for how long a condition lasts. */
-export const DURATION_WORDS = {
-  ownTurnEnd: "until the end of its turn",
-  roundEnd: "until the end of the round",
-  encounterEnd: "until the fight ends",
-  manual: "until the GM ends it",
-} as const;
-
-/** What is left of a condition's count ("2 rounds"), or "" when the condition has no count or no timer. */
-export function timeLeft({ timers, id }: { timers: readonly ConditionTimer[]; id: string }): string {
+/** What is left of a condition's count (2 rounds, 1 turn), or null when the condition has no count or no timer. */
+export function timeLeft({ timers, id }: { timers: readonly ConditionTimer[]; id: string }) {
   const t = timers.find((x) => x.id === id);
-  return t ? leftText({ left: t.expiresAfter, expiresOn: t.expiresOn }) : "";
+  return t ? leftOf({ left: t.expiresAfter, expiresOn: t.expiresOn }) : null;
 }

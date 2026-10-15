@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import type { LiveState, Me } from "@inconsistable/core-schema";
@@ -10,6 +11,7 @@ type TransferOfferProps = { me: Me; state: LiveState; send: Send };
 // The owner offered this room to the viewer: shown under the header band on every tab and app, so the recipient sees it
 // whatever their seat or scopes.
 export function TransferOffer({ me, state, send }: TransferOfferProps) {
+  const t = useTranslations("transferOffer");
   const [error, setError] = useState<string | null>(null);
   if (!me.userId || state.access.transfer?.toUserId !== me.userId) return null;
 
@@ -20,10 +22,10 @@ export function TransferOffer({ me, state, send }: TransferOfferProps) {
   };
 
   return (
-    <section className="offer" aria-label="Room offer">
-      <strong>The owner offered you this room.</strong>
+    <section className="offer" aria-label={t("label")}>
+      <strong>{t("offered")}</strong>
       <button className="btn primary" onClick={handleAccept}>
-        Accept and take over
+        {t("accept")}
       </button>
       {error && (
         <p className="error" role="alert">

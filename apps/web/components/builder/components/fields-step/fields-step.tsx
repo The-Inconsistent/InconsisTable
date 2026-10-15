@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import type { CreationStep, EntityType, FieldDef } from "@inconsistable/rules-engine";
@@ -30,6 +31,7 @@ function parse({ def, raw }: { def: FieldDef; raw: string }): unknown {
 // FIELDS: free input for the step's fields, each by its declared type. The ruleset's own range and length are shown as
 // hints; the server checks them again.
 export function FieldsStep({ step, def, value, onChange }: FieldsStepProps) {
+  const t = useTranslations("fieldsStep");
   const [raw, setRaw] = useState<Record<string, string>>(() =>
     Object.fromEntries(step.fields.map((f) => [f, rawOf(value[f])])),
   );
@@ -46,9 +48,14 @@ export function FieldsStep({ step, def, value, onChange }: FieldsStepProps) {
     <div className="stack">
       {step.fields.map((f) => {
         const fd = def?.fields[f];
-        if (!fd) return <p key={f} className="error">{`${f}: not a field of this ruleset`}</p>;
+        if (!fd)
+          return (
+            <p key={f} className="error">
+              {t("notAField", { field: f })}
+            </p>
+          );
         const text = raw[f] ?? "";
-        const set = (t: string) => handleChange({ field: f, fieldDef: fd, text: t });
+        const set = (next: string) => handleChange({ field: f, fieldDef: fd, text: next });
         if (fd.type === "bool")
           return (
             <label key={f} className="row" style={{ minHeight: 44 }}>
@@ -78,9 +85,9 @@ export function FieldsStep({ step, def, value, onChange }: FieldsStepProps) {
         const long = fd.type === "list" || (fd.type === "text" && (fd.maxLength ?? 0) > 200);
         const hint =
           fd.type === "int" && (fd.min !== undefined || fd.max !== undefined)
-            ? `${fd.min ?? "any"} to ${fd.max ?? "any"}`
+            ? t("range", { min: fd.min ?? t("any"), max: fd.max ?? t("any") })
             : fd.type === "list"
-              ? "one per line"
+              ? t("onePerLine")
               : null;
         return (
           <label key={f}>

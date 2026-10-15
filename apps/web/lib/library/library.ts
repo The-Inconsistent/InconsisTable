@@ -130,8 +130,11 @@ export function parseErrorAt({ message, text }: { message: string; text: string 
   return before + Number(lc[2]) - 1;
 }
 
-/** "3.1 MB" / "420 KB": stored sizes as people read them. */
-export function formatBytes(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+/** "3.1 MB" / "420 KB": stored sizes as people read them, with the locale's digits and separators. */
+export function formatBytes(bytes: number, locale = "en"): string {
+  if (bytes >= 1024 * 1024) {
+    const mb = new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    return `${mb.format(bytes / (1024 * 1024))} MB`;
+  }
+  return `${new Intl.NumberFormat(locale).format(Math.max(1, Math.round(bytes / 1024)))} KB`;
 }

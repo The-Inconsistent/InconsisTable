@@ -1,4 +1,5 @@
 "use client";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
@@ -8,6 +9,9 @@ type PackListProps = { packs: PackListData["packs"]; onChanged: () => void };
 
 // The owner's packs: what each is, the credit its license asks for, and the two things they can do with it.
 export function PackList({ packs, onChanged }: PackListProps) {
+  const t = useTranslations("packList");
+  const tStatus = useTranslations("status");
+  const locale = useLocale();
   const [confirming, setConfirming] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +24,7 @@ export function PackList({ packs, onChanged }: PackListProps) {
       const res = await fetch(`/api/packs/${id}/export`);
       if (!res.ok) {
         const refusal = ApiMessage.safeParse(await readJson(res));
-        setError(refusal.success ? refusal.data.message : "Couldn't export that pack.");
+        setError(refusal.success ? refusal.data.message : t("exportFailed"));
       } else {
         const url = URL.createObjectURL(await res.blob());
         const link = document.createElement("a");
@@ -30,7 +34,7 @@ export function PackList({ packs, onChanged }: PackListProps) {
         URL.revokeObjectURL(url);
       }
     } catch {
-      setError("No signal. Check the connection and retry.");
+      setError(tStatus("nosignal"));
     }
     setBusy(null);
   };
@@ -45,14 +49,14 @@ export function PackList({ packs, onChanged }: PackListProps) {
       if (res.ok && body.success) {
         setConfirming(null);
         onChanged();
-      } else setError("Couldn't delete that pack.");
+      } else setError(t("deleteFailed"));
     } catch {
-      setError("No signal. Check the connection and retry.");
+      setError(tStatus("nosignal"));
     }
     setBusy(null);
   };
 
-  if (packs.length === 0) return <p className="dim">No packs yet. Import one above, after its ruleset.</p>;
+  if (packs.length === 0) return <p className="dim">{t("empty")}</p>;
   return (
     <>
       <ul className="stack library-list">
@@ -64,18 +68,22 @@ export function PackList({ packs, onChanged }: PackListProps) {
                 <strong>{p.slug}</strong>
                 <span className="row">
                   <span className="chip">{p.license}</span>
-                  <span className="chip">for {p.rulesetSlug}</span>
+                  <span className="chip">{t("forRuleset", { slug: p.rulesetSlug })}</span>
                 </span>
               </div>
               {latest && (
                 <p className="small dim">
-                  Version {latest.version}, {latest.entryCount} entries, {formatBytes(latest.bytes)}
+                  {t("latest", {
+                    version: latest.version,
+                    count: latest.entryCount,
+                    size: formatBytes(latest.bytes, locale),
+                  })}
                 </p>
               )}
-              {p.attribution && <p className="small credit">Credit: {p.attribution}</p>}
+              {p.attribution && <p className="small credit">{t("credit", { text: p.attribution })}</p>}
               {p.disabled && (
                 <p className="error" role="status">
-                  Taken down by an admin. It is not served to any room.
+                  {t("takenDown")}
                 </p>
               )}
               <div className="row">
@@ -84,24 +92,24 @@ export function PackList({ packs, onChanged }: PackListProps) {
                   className="btn sm"
                   disabled={busy === p.id || p.disabled}
                   onClick={() => handleExport({ id: p.id, slug: p.slug })}
-                  aria-label={`Export ${p.slug}`}
+                  aria-label={t("exportLabel", { slug: p.slug })}
                 >
-                  Export
+                  {t("export")}
                 </button>
                 {confirming === p.id ? (
                   <>
-                    <span className="small">Rooms using it keep their copy.</span>
+                    <span className="small">{t("keepCopy")}</span>
                     <button
                       type="button"
                       className="btn sm primary"
                       disabled={busy === p.id}
                       onClick={() => handleDelete(p.id)}
-                      aria-label={`Confirm delete ${p.slug}`}
+                      aria-label={t("confirmDeleteLabel", { slug: p.slug })}
                     >
-                      Delete
+                      {t("delete")}
                     </button>
                     <button type="button" className="btn sm" onClick={() => setConfirming(null)}>
-                      Keep
+                      {t("keep")}
                     </button>
                   </>
                 ) : (
@@ -110,9 +118,9 @@ export function PackList({ packs, onChanged }: PackListProps) {
                     className="btn sm"
                     disabled={busy === p.id}
                     onClick={() => setConfirming(p.id)}
-                    aria-label={`Delete ${p.slug}`}
+                    aria-label={t("deleteLabel", { slug: p.slug })}
                   >
-                    Delete
+                    {t("delete")}
                   </button>
                 )}
               </div>

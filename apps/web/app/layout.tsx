@@ -1,5 +1,7 @@
-import type { Metadata, Viewport } from "next";
-import { Atkinson_Hyperlegible, Fraunces, Literata } from "next/font/google";
+import type { Viewport } from "next";
+import { Be_Vietnam_Pro, Fraunces, Literata } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { AuthProvider } from "@inconsistable/auth/react";
 
@@ -9,10 +11,10 @@ import "./theme/lantern.css";
 import "./globals.css";
 import "./theme/felt.css";
 
-// Atkinson Hyperlegible: made to stay readable at a distance and in poor light, which is a game table at night. It has
-// no Vietnamese subset, so a Vietnamese mark falls back to the system face (see --font-body).
-const text = Atkinson_Hyperlegible({
-  subsets: ["latin", "latin-ext"],
+// Be Vietnam Pro: one body face for both languages, with a Vietnamese subset. (Atkinson Hyperlegible Next, which reads
+// well at a distance, has no Vietnamese subset on Google Fonts, so a Vietnamese mark would fall to the system face.)
+const text = Be_Vietnam_Pro({
+  subsets: ["latin", "latin-ext", "vietnamese"],
   weight: ["400", "700"],
   variable: "--font-text",
 });
@@ -36,10 +38,10 @@ const feltDisplay = Literata({
 // ponytail: one Theme per deployment, upgrade: the World a room belongs to picks its Theme (P2).
 const theme = process.env.NODE_ENV !== "production" && process.env.INCONSISTABLE_THEME === "felt" ? "theme-felt" : "";
 
-export const metadata: Metadata = {
-  title: "InconsisTable",
-  description: "A table companion for in-person tabletop RPGs",
-};
+export async function generateMetadata() {
+  const t = await getTranslations("meta");
+  return { title: t("title"), description: t("description") };
+}
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -49,11 +51,14 @@ export const viewport: Viewport = {
 
 type RootLayoutProps = { children: React.ReactNode };
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export default async function RootLayout({ children }: RootLayoutProps) {
+  const locale = await getLocale();
   return (
-    <html lang="en" className={`${text.variable} ${display.variable} ${feltDisplay.variable} ${theme}`.trim()}>
+    <html lang={locale} className={`${text.variable} ${display.variable} ${feltDisplay.variable} ${theme}`.trim()}>
       <body className="surface-app">
-        <AuthProvider>{children}</AuthProvider>
+        <NextIntlClientProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

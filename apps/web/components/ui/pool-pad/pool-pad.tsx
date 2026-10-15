@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import type { PoolSpec } from "@inconsistable/core-schema";
@@ -26,12 +27,13 @@ type PoolPadProps = {
 // every special die. A few taps whatever the pool size, and the numbers stay big enough to read at arm's length.
 // The server counts the report again; the tray only shows how many dice are still unsorted.
 export function PoolPad({ spec, pool, who, onReport }: PoolPadProps) {
+  const t = useTranslations("poolPad");
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [special, setSpecial] = useState<(number | null)[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (pool === null) return <p className="error">Your pool size isn&apos;t shown to you. Ask the GM how many dice.</p>;
+  if (pool === null) return <p className="error">{t("hidden")}</p>;
   const specials = specialCountOf({ spec, pool });
   const ordinary = ordinaryDiceOf({ spec, pool });
   const counted = countedIn(counts);
@@ -67,30 +69,32 @@ export function PoolPad({ spec, pool, who, onReport }: PoolPadProps) {
       </div>
       <p className="pool-size" role="status">
         <strong>{pool}</strong> d{spec.die}
-        {specials > 0 && ` · ${specials} ${spec.special?.label ?? "special"}`}
-        <span className="dim small">{` ${counted} of ${ordinary} sorted, the rest scored nothing`}</span>
+        {specials > 0 && ` · ${specials} ${spec.special?.label ?? t("special")}`}
+        <span className="dim small">{` ${t("sorted", { counted, ordinary })}`}</span>
       </p>
-      <div className="stack" role="group" aria-label={`Dice counted by ${who}`}>
+      <div className="stack" role="group" aria-label={t("countedBy", { who })}>
         {spec.bands.map((band) => (
           <div key={band.id} className="pool-band">
             <span className="pool-faces">
               <strong>{facesLabel(band)}</strong>
-              <span className="dim small">{band.worth === 1 ? "scores 1" : `scores ${band.worth} each`}</span>
+              <span className="dim small">
+                {band.worth === 1 ? t("scoresOne") : t("scoresEach", { worth: band.worth })}
+              </span>
             </span>
             <button
               className="btn step"
-              aria-label={`One fewer die showing ${facesLabel(band)} for ${who}`}
+              aria-label={t("fewer", { faces: facesLabel(band), who })}
               disabled={(counts[band.id] ?? 0) === 0}
               onClick={() => handleStep(band.id, -1)}
             >
               −
             </button>
-            <output className="pool-count" aria-label={`Dice showing ${facesLabel(band)}`}>
+            <output className="pool-count" aria-label={t("showing", { faces: facesLabel(band) })}>
               {counts[band.id] ?? 0}
             </output>
             <button
               className="btn step"
-              aria-label={`One more die showing ${facesLabel(band)} for ${who}`}
+              aria-label={t("more", { faces: facesLabel(band), who })}
               disabled={counted >= ordinary}
               onClick={() => handleStep(band.id, 1)}
             >
@@ -104,9 +108,9 @@ export function PoolPad({ spec, pool, who, onReport }: PoolPadProps) {
           key={i}
           className="stack"
           role="group"
-          aria-label={`${spec.special?.label ?? "Special die"} ${i + 1} for ${who}`}
+          aria-label={t("specialFor", { label: spec.special?.label ?? t("specialDie"), index: i + 1, who })}
         >
-          <span className="small">{spec.special?.label ?? "Special die"}: which face?</span>
+          <span className="small">{t("whichFace", { label: spec.special?.label ?? t("specialDie") })}</span>
           {/* ponytail: one button per face, fine for the dice games use (d6–d20); a numeric field for a bigger die */}
           <div className="pool-faces-grid">
             {Array.from({ length: spec.die }, (_, f) => (
@@ -114,7 +118,7 @@ export function PoolPad({ spec, pool, who, onReport }: PoolPadProps) {
                 key={f}
                 className="btn"
                 aria-pressed={special[i] === f + 1}
-                aria-label={`Face ${f + 1}`}
+                aria-label={t("face", { face: f + 1 })}
                 onClick={() => handleFace(i, f + 1)}
               >
                 {f + 1}
@@ -129,7 +133,7 @@ export function PoolPad({ spec, pool, who, onReport }: PoolPadProps) {
         </p>
       )}
       <button className="btn primary pool-report" disabled={roll === null || busy} onClick={handleReport}>
-        Report
+        {t("report")}
       </button>
     </div>
   );

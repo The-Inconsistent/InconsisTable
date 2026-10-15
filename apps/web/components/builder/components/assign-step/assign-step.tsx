@@ -1,4 +1,5 @@
 "use client";
+import { useFormatter, useTranslations } from "next-intl";
 import type { ChangeEvent } from "react";
 
 import type { EntityType } from "@inconsistable/rules-engine";
@@ -18,6 +19,8 @@ const labelOf = ({ def, id }: { def: EntityType | undefined; id: string }) => de
 // ASSIGN: scores from the ruleset's own table (each value once) or its point buy (a budget, shown as the points left).
 // The numbers are the manifest's; the builder never invents a method.
 export function AssignStep({ step, def, value, onChange }: AssignStepProps) {
+  const t = useTranslations("assignStep");
+  const format = useFormatter();
   const method = step.method;
 
   // TABLE: gives one field the chosen value, or takes it back.
@@ -30,7 +33,9 @@ export function AssignStep({ step, def, value, onChange }: AssignStepProps) {
     const left = tableLeft({ values: method.values, scores: value });
     return (
       <div className="stack">
-        <p className="small dim">Left to hand out: {left.length > 0 ? left.join(", ") : "none"}</p>
+        <p className="small dim">
+          {t("leftToHandOut", { list: left.length > 0 ? format.list(left.map(String)) : t("none") })}
+        </p>
         {step.fields.map((f) => {
           const now = value[f];
           const options = now === undefined ? left : [now, ...left];
@@ -66,7 +71,7 @@ export function AssignStep({ step, def, value, onChange }: AssignStepProps) {
     <div className="stack">
       <p className="row" aria-live="polite">
         <span className="points-left">{left}</span>
-        <span className="dim">of {method.budget} points left</span>
+        <span className="dim">{t("pointsLeft", { budget: method.budget })}</span>
       </p>
       {step.fields.map((f) => (
         <div key={f} className="score-row">
@@ -75,17 +80,17 @@ export function AssignStep({ step, def, value, onChange }: AssignStepProps) {
             <button
               type="button"
               className="btn"
-              aria-label={`Lower ${labelOf({ def, id: f })}`}
+              aria-label={t("lower", { label: labelOf({ def, id: f }) })}
               disabled={!canStep({ method, scores, field: f, by: -1 })}
               onClick={() => handleBuy({ field: f, by: -1 })}
             >
               −
             </button>
-            <output aria-label={`${labelOf({ def, id: f })} score`}>{scores[f]}</output>
+            <output aria-label={t("score", { label: labelOf({ def, id: f }) })}>{scores[f]}</output>
             <button
               type="button"
               className="btn"
-              aria-label={`Raise ${labelOf({ def, id: f })}`}
+              aria-label={t("raise", { label: labelOf({ def, id: f }) })}
               disabled={!canStep({ method, scores, field: f, by: 1 })}
               onClick={() => handleBuy({ field: f, by: 1 })}
             >

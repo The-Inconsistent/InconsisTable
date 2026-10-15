@@ -13,19 +13,33 @@ export function pressKey({ entry, key }: { entry: string; key: string }): string
 /** The whole number the keypad shows; 0 when nothing is typed. */
 export const amountOf = (entry: string) => (entry === "" ? 0 : Number(entry));
 
-/** A combatant's state as a word (never colour alone): ACTING, or what the character's health status says. */
-export function stateWord({ current, healthState }: { current: boolean; healthState: unknown }): string {
-  if (healthState === "dead") return "DEAD";
-  if (healthState === "dying") return "DOWN";
-  if (healthState === "stable") return "STABLE";
-  return current ? "ACTING" : "";
+/**
+ * A combatant's state (never colour alone): `acting`, or what the character's health status says. The key is also the
+ * Theme's hook (`data-state`) and the `combatState` message that words it.
+ */
+export function stateKey({
+  current,
+  healthState,
+}: {
+  current: boolean;
+  healthState: unknown;
+}): "acting" | "dead" | "down" | "stable" | null {
+  if (healthState === "dead") return "dead";
+  if (healthState === "dying") return "down";
+  if (healthState === "stable") return "stable";
+  return current ? "acting" : null;
 }
 
-/** "2 rounds", "1 turn", or "" for a condition that doesn't count. */
-export function leftText({ left, expiresOn }: { left: number | null; expiresOn: string }): string {
-  if (left === null) return "";
-  const unit = expiresOn === "ownTurnEnd" ? "turn" : "round";
-  return `${left} ${unit}${left === 1 ? "" : "s"}`;
+/** What is left of a condition's count ("2 rounds", "1 turn") as a count and a unit, or null for one that doesn't count. */
+export function leftOf({
+  left,
+  expiresOn,
+}: {
+  left: number | null;
+  expiresOn: string;
+}): { count: number; unit: "turn" | "round" } | null {
+  if (left === null) return null;
+  return { count: left, unit: expiresOn === "ownTurnEnd" ? "turn" : "round" };
 }
 
 /** A health bar's width as a percentage for the CSS; empty when the actor has no health to show. */

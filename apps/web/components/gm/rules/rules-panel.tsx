@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type ChangeEvent } from "react";
 
@@ -13,6 +14,7 @@ type RulesPanelProps = { me: Me; send: Send; data: RulesTabData | null };
 // or detaches their packs; a refusal (characters already use another version, a private pack in the wrong room) shows
 // under the thing that was tapped. Everything imported lives in the library (/library).
 export function RulesPanel({ me, send, data }: RulesPanelProps) {
+  const t = useTranslations("rulesPanel");
   const router = useRouter();
   const canEdit = canInCampaign({ ctx: me, perm: "campaign:ruleset" });
   const versions = (data?.rulesets ?? []).flatMap((r) =>
@@ -34,30 +36,28 @@ export function RulesPanel({ me, send, data }: RulesPanelProps) {
   // RULESET picker: the version to pin.
   const handlePick = (e: ChangeEvent<HTMLSelectElement>) => setPick(e.target.value);
 
-  if (!data) return <p className="error">Couldn&apos;t read the rules. Check the connection and reload.</p>;
+  if (!data) return <p className="error">{t("readFailed")}</p>;
   const { pinned, attached } = data;
   const mine = pinned ? data.packs.packs.filter((p) => p.rulesetSlug === pinned.slug) : [];
 
   return (
     <div className="stack" style={{ gap: 24, maxWidth: 640 }}>
       <section className="stack">
-        <h2 className="head">Ruleset</h2>
+        <h2 className="head">{t("ruleset")}</h2>
         {pinned ? (
           <p>
             <strong>{pinned.slug}</strong> <span className="chip">{pinned.version}</span>
           </p>
         ) : (
-          <p className="dim">No ruleset yet. Pin one to build characters and call Tests.</p>
+          <p className="dim">{t("noRuleset")}</p>
         )}
         {canEdit &&
           (versions.length === 0 ? (
-            <p className="dim">
-              You haven&apos;t imported a ruleset. <a href="/library">Import one</a> first.
-            </p>
+            <p className="dim">{t.rich("importFirst", { link: (chunks) => <a href="/library">{chunks}</a> })}</p>
           ) : (
             <div className="row" style={{ alignItems: "end" }}>
               <label>
-                My rulesets
+                {t("myRulesets")}
                 <select id="rules-pick" value={pick} onChange={handlePick}>
                   {versions.map((v) => (
                     <option key={v.id} value={v.id}>
@@ -71,7 +71,7 @@ export function RulesPanel({ me, send, data }: RulesPanelProps) {
                 disabled={busy === "pin" || pick === pinned?.versionId}
                 onClick={() => act({ key: "pin", action: { type: "campaign.setRuleset", rulesetVersionId: pick } })}
               >
-                {pinned ? "Switch to this" : "Pin this ruleset"}
+                {pinned ? t("switchTo") : t("pin")}
               </button>
             </div>
           ))}
@@ -83,8 +83,8 @@ export function RulesPanel({ me, send, data }: RulesPanelProps) {
       </section>
 
       <section className="stack">
-        <h2 className="head">Packs</h2>
-        {!pinned && <p className="dim">Pin a ruleset first: a pack is written for one.</p>}
+        <h2 className="head">{t("packs")}</h2>
+        {!pinned && <p className="dim">{t("pinFirst")}</p>}
         {pinned && !canEdit && (
           <ul className="list">
             {attached.map((p) => (
@@ -92,12 +92,12 @@ export function RulesPanel({ me, send, data }: RulesPanelProps) {
                 <strong>{p.slug}</strong> <span className="chip">{p.version}</span>
               </li>
             ))}
-            {attached.length === 0 && <li className="dim">No pack is attached.</li>}
+            {attached.length === 0 && <li className="dim">{t("noneAttached")}</li>}
           </ul>
         )}
         {pinned && canEdit && mine.length === 0 && (
           <p className="dim">
-            You have no pack for {pinned.slug}. <a href="/library">Import one</a>.
+            {t.rich("noPackFor", { slug: pinned.slug, link: (chunks) => <a href="/library">{chunks}</a> })}
           </p>
         )}
         {pinned && canEdit && (
@@ -112,38 +112,36 @@ export function RulesPanel({ me, send, data }: RulesPanelProps) {
                     <strong>{p.slug}</strong>
                     <span className="row">
                       <span className="chip">{p.license}</span>
-                      {on && <span className="chip">Attached {on.version}</span>}
+                      {on && <span className="chip">{t("attached", { version: on.version })}</span>}
                     </span>
                   </div>
                   {latest && (
-                    <p className="small dim">
-                      Latest {latest.version}, {latest.entryCount} entries
-                    </p>
+                    <p className="small dim">{t("latest", { version: latest.version, count: latest.entryCount })}</p>
                   )}
-                  {p.disabled && <p className="error">Taken down by an admin.</p>}
+                  {p.disabled && <p className="error">{t("takenDown")}</p>}
                   <div className="row">
                     {latest && (!on || outdated) && (
                       <button
                         className="btn primary"
                         disabled={busy === p.id || p.disabled}
-                        aria-label={`${outdated ? "Update" : "Attach"} ${p.slug}`}
+                        aria-label={outdated ? t("updateLabel", { slug: p.slug }) : t("attachLabel", { slug: p.slug })}
                         onClick={() =>
                           act({ key: p.id, action: { type: "campaign.attachPack", packVersionId: latest.id } })
                         }
                       >
-                        {outdated ? `Update to ${latest.version}` : "Attach"}
+                        {outdated ? t("updateTo", { version: latest.version }) : t("attach")}
                       </button>
                     )}
                     {on && (
                       <button
                         className="btn"
                         disabled={busy === p.id}
-                        aria-label={`Detach ${p.slug}`}
+                        aria-label={t("detachLabel", { slug: p.slug })}
                         onClick={() =>
                           act({ key: p.id, action: { type: "campaign.detachPack", packVersionId: on.id } })
                         }
                       >
-                        Detach
+                        {t("detach")}
                       </button>
                     )}
                   </div>
@@ -158,9 +156,7 @@ export function RulesPanel({ me, send, data }: RulesPanelProps) {
           </ul>
         )}
         {canEdit && (
-          <p className="small">
-            <a href="/library">Rulesets &amp; packs</a>: import, export or delete.
-          </p>
+          <p className="small">{t.rich("libraryNote", { link: (chunks) => <a href="/library">{chunks}</a> })}</p>
         )}
       </section>
     </div>

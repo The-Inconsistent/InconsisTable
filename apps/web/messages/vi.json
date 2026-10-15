@@ -1,0 +1,593 @@
+{
+  "meta": {
+    "title": "InconsisTable",
+    "description": "Trợ thủ cho bàn chơi RPG ngoài đời thật"
+  },
+  "common": {
+    "brand": "InconsisTable"
+  },
+  "status": {
+    "invalid": "Liên kết không hợp lệ hoặc đã bị thu hồi. Hãy xin GM mã QR mới.",
+    "nosignal": "Mất tín hiệu. Kiểm tra kết nối rồi thử lại.",
+    "noAccess": "Không có quyền vào. Hãy xin GM một lời mời.",
+    "noCharacter": "Chưa có nhân vật. Hãy hỏi GM.",
+    "noRuleset": "GM chưa chọn bộ luật.",
+    "syncing": "Đang đồng bộ…"
+  },
+  "localeSwitch": {
+    "label": "Ngôn ngữ",
+    "name": {
+      "en": "English",
+      "vi": "Tiếng Việt"
+    }
+  },
+  "roles": {
+    "gm": "GM",
+    "cogm": "Co-GM",
+    "player": "Người chơi"
+  },
+  "home": {
+    "tagline": "Trợ thủ cho bàn chơi RPG ngoài đời thật.",
+    "signIn": "Đăng nhập",
+    "guestHint": "Vào với tư cách khách? Quét mã QR trên máy tính bảng của GM."
+  },
+  "lobby": {
+    "yourCampaign": "Campaign của bạn",
+    "owner": "Chủ campaign: {name}",
+    "characters": "{count, plural, other {# nhân vật}}",
+    "sessionRunning": "Buổi {number} đang chạy",
+    "nameRequired": "Hãy đặt tên cho campaign",
+    "createFailed": "Không tạo được campaign",
+    "libraryLink": "Bộ luật & pack",
+    "admin": "Admin",
+    "newCampaign": "Campaign mới",
+    "name": "Tên",
+    "ruleset": "Bộ luật",
+    "noneYet": "Chưa có",
+    "create": "Tạo",
+    "importHint": "Muốn bắt đầu với một bộ luật, hãy <link>nhập một bộ</link> trước.",
+    "yourCampaigns": "Campaign của bạn",
+    "wherePlay": "Nơi bạn chơi",
+    "archived": "Đã lưu trữ",
+    "emptyMine": "Bạn chưa có campaign nào.",
+    "emptySeated": "Chưa ai mời bạn vào bàn nào."
+  },
+  "library": {
+    "campaigns": "Campaign",
+    "title": "Bộ luật & pack",
+    "rulesets": "Bộ luật",
+    "noRulesets": "Chưa có bộ luật. Hãy nhập một bộ trước: pack được viết cho một bộ luật.",
+    "packs": "Pack",
+    "usage": "{packs, plural, other {# / {maxPacks} pack}}, đã dùng {bytes} / {maxBytes}."
+  },
+  "importPanel": {
+    "tooBig": "Tệp này lớn hơn 5 MB. Hãy tách pack làm hai.",
+    "notJson": "Đây không phải tài liệu JSON.",
+    "unknownShape": "Không phải bộ luật (cần entities) cũng không phải pack (cần entries).",
+    "signedOut": "Bạn đã đăng xuất. Hãy đăng nhập lại rồi thử lại.",
+    "failed": "Không nhập được. Kiểm tra kết nối rồi thử lại.",
+    "readFailed": "Không đọc được tệp này.",
+    "added": "{count} thêm mới",
+    "changed": "{count} thay đổi",
+    "removed": "{count} đã xóa",
+    "moreKeys": "và {count} mục nữa",
+    "title": "Nhập",
+    "reminder": "Hãy tóm tắt bằng lời của bạn, kèm số trang. Đừng dán nguyên văn từ sách.",
+    "fieldLabel": "Bộ luật hoặc pack (JSON)",
+    "placeholder": "Dán JSON vào đây, hoặc chọn một tệp.",
+    "importing": "Đang nhập…",
+    "import": "Nhập",
+    "chooseFile": "Chọn tệp",
+    "clear": "Xóa",
+    "rulesetUnchanged": "{slug} {version} đã được nhập từ trước. Không có gì thay đổi.",
+    "rulesetSaved": "Đã lưu {slug} {version}. Chọn nó khi bạn tạo campaign.",
+    "packUnchanged": "Phiên bản {version} đã được nhập từ trước. Không có gì thay đổi.",
+    "packSaved": "Đã lưu phiên bản {version}.",
+    "fixThese": "Sửa các mục này rồi nhập lại",
+    "warnSaved": "Đã lưu, nhưng hãy xem lại các mô tả này",
+    "warnAlso": "Hãy xem lại cả các mô tả này"
+  },
+  "packList": {
+    "exportFailed": "Không xuất được pack này.",
+    "deleteFailed": "Không xóa được pack này.",
+    "empty": "Chưa có pack nào. Hãy nhập một pack ở trên, sau khi có bộ luật của nó.",
+    "forRuleset": "cho {slug}",
+    "latest": "Phiên bản {version}, {count, plural, other {# mục}}, {size}",
+    "credit": "Ghi công: {text}",
+    "takenDown": "Đã bị admin gỡ. Không campaign nào nhận được pack này.",
+    "exportLabel": "Xuất {slug}",
+    "export": "Xuất",
+    "keepCopy": "Campaign đang dùng vẫn giữ bản của mình.",
+    "confirmDeleteLabel": "Xác nhận xóa {slug}",
+    "delete": "Xóa",
+    "keep": "Giữ",
+    "deleteLabel": "Xóa {slug}"
+  },
+  "invite": {
+    "title": "Vào {name}",
+    "invited": "Bạn được mời vào ghế {role}.",
+    "seatedOpen": "Bạn đã có ghế · mở bàn",
+    "signInToJoin": "Đăng nhập để vào",
+    "guestOrSignIn": "Hoặc vào với tư cách khách bên dưới: không cần tài khoản, chỉ dùng trên thiết bị này.",
+    "needsAccount": "Bàn này cần có tài khoản.",
+    "takeSeat": "Nhận ghế",
+    "playAs": "Chơi {name}",
+    "playAsGuest": "Chơi {name} với tư cách khách",
+    "pickCharacter": "Chọn nhân vật của bạn",
+    "allTaken": "Nhân vật nào cũng đã có người. Hãy tạo nhân vật mới:",
+    "playLabel": "Chơi {name}",
+    "play": "Chơi",
+    "newName": "Tên nhân vật mới",
+    "newButton": "Mới",
+    "takeFailed": "Không nhận được ghế. Hãy thử lại"
+  },
+  "builder": {
+    "notAtTable": "Nhân vật này không có ở bàn này.",
+    "isBuilt": "{name} đã tạo xong",
+    "correctHint": "GM có thể sửa giá trị từ sheet.",
+    "backToTable": "Về bàn",
+    "nothingTitle": "Chưa có gì để tạo",
+    "nothingHint": "Bàn này chưa có bộ luật nào hỗ trợ tạo nhân vật. Hãy hỏi GM.",
+    "fixSteps": "Hãy sửa các bước được đánh dấu bên dưới.",
+    "backLink": "← Bàn",
+    "buildTitle": "Tạo {name}",
+    "stepDone": "Xong",
+    "stepOptional": "Tùy chọn",
+    "stepTodo": "Cần làm",
+    "makesLabel": "Kết quả",
+    "derivedLater": "Các chỉ số sẽ hiện trên sheet khi GM đặt xong phần còn lại.",
+    "derivedIncomplete": "Hoàn tất mọi bước để xem các chỉ số.",
+    "recheck": "Bàn sẽ kiểm tra lại các chỉ số này khi bạn tạo.",
+    "buildButton": "Tạo nhân vật",
+    "startOver": "Làm lại",
+    "draftSaved": "Đã lưu nháp",
+    "draftOff": "Chưa giữ nháp: đăng nhập để giữ"
+  },
+  "assignStep": {
+    "leftToHandOut": "Còn lại để chia: {list}",
+    "none": "không còn",
+    "pointsLeft": "trên {budget} điểm còn lại",
+    "lower": "Giảm {label}",
+    "raise": "Tăng {label}",
+    "score": "Điểm {label}"
+  },
+  "chooseStep": {
+    "none": "Bàn này chưa gắn {label} nào. Hãy hỏi GM.",
+    "pickCount": "Chọn {count}: đã chọn {chosen}"
+  },
+  "fieldsStep": {
+    "notAField": "{field}: không phải trường của bộ luật này",
+    "any": "tùy ý",
+    "range": "từ {min} đến {max}",
+    "onePerLine": "mỗi dòng một mục"
+  },
+  "bottomSheet": {
+    "close": "Đóng",
+    "closeLabel": "Đóng {title}"
+  },
+  "cite": {
+    "openLabel": "Mở trang của {cite}",
+    "pageAlt": "Trang sách {cite}"
+  },
+  "healthBar": {
+    "label": "HP của {name}: {percent} phần trăm"
+  },
+  "orderView": {
+    "label": "Thứ tự lượt",
+    "round": "Vòng {round}",
+    "paused": "Tạm dừng"
+  },
+  "combatState": {
+    "acting": "ĐẾN LƯỢT",
+    "dead": "CHẾT",
+    "down": "GỤC",
+    "stable": "ỔN ĐỊNH"
+  },
+  "poolOutcome": {
+    "score": "Điểm {total}",
+    "onTheNumber": "vừa đúng mốc",
+    "shifts": "{count, plural, other {# shift}}",
+    "outcome": {
+      "success": "Đạt",
+      "failure": "Trượt",
+      "critical": "Crit"
+    },
+    "flag": {
+      "critical": "Crit",
+      "complication": "Rắc rối"
+    }
+  },
+  "poolPad": {
+    "hidden": "Bạn không được xem số xúc xắc của dice pool. Hãy hỏi GM.",
+    "special": "đặc biệt",
+    "specialDie": "Xúc xắc đặc biệt",
+    "sorted": "đã xếp {counted}/{ordinary}, phần còn lại không được điểm",
+    "countedBy": "Xúc xắc do {who} đếm",
+    "scoresOne": "được 1 điểm",
+    "scoresEach": "mỗi viên được {worth} điểm",
+    "fewer": "Bớt một viên ra mặt {faces} của {who}",
+    "showing": "Xúc xắc ra mặt {faces}",
+    "more": "Thêm một viên ra mặt {faces} của {who}",
+    "specialFor": "{label} {index} của {who}",
+    "whichFace": "{label}: ra mặt nào?",
+    "face": "Mặt {face}",
+    "report": "Báo"
+  },
+  "resourceRow": {
+    "decrease": "Giảm {label} của {holder}",
+    "increase": "Tăng {label} của {holder}",
+    "value": "{label}: {value}",
+    "valueOf": "{label}: {value} / {max}"
+  },
+  "rollPad": {
+    "notPlain": "Test này không đổ bằng xúc xắc thường. Hãy báo GM.",
+    "rollType": "Kiểu đổ của {who}",
+    "advantage": {
+      "none": "Thường",
+      "advantage": "Lợi thế",
+      "disadvantage": "Bất lợi"
+    },
+    "diceRolledBy": "Xúc xắc do {who} đổ",
+    "dieLabel": "Viên {index}/{count}: {value}",
+    "empty": "trống",
+    "numberPad": "Bàn phím số",
+    "deleteDigit": "Xóa chữ số cuối",
+    "del": "Xóa",
+    "report": "Báo"
+  },
+  "transferOffer": {
+    "label": "Nhượng campaign",
+    "offered": "Chủ campaign muốn nhượng campaign này cho bạn.",
+    "accept": "Nhận và tiếp quản"
+  },
+  "table": {
+    "offline": "MẤT TÍN HIỆU",
+    "session": "Buổi {number}"
+  },
+  "settingsMenu": {
+    "label": "Cài đặt",
+    "language": "Ngôn ngữ"
+  },
+  "playerApp": {
+    "charactersLabel": "Nhân vật của bạn",
+    "noCharacter": "Chưa có nhân vật",
+    "continueBuilding": "Tạo tiếp",
+    "build": "Tạo nhân vật",
+    "nothingRevealed": "Chưa hé lộ gì.",
+    "rulesFailed": "Không đọc được luật. Kiểm tra kết nối rồi tải lại.",
+    "sheetPending": "Tab này sẽ có nội dung khi bàn chọn bộ luật.",
+    "tabPending": "Tab này sẽ có nội dung khi bàn chơi tiếp.",
+    "leave": "Rời bàn này",
+    "tabsLabel": "Tab người chơi",
+    "tabs": {
+      "sheet": "Sheet",
+      "rules": "Luật",
+      "fight": "Trận",
+      "map": "Bản đồ",
+      "intel": "Tin"
+    }
+  },
+  "turnBanner": {
+    "yourTurn": "Đến lượt bạn, {name}"
+  },
+  "testPrompt": {
+    "waiting": "Đang chờ GM",
+    "reportedWaiting": "Đã báo. Đang chờ GM",
+    "closed": "Đã đóng",
+    "rolled": "Đổ được {value}",
+    "total": "tổng {total}",
+    "outcome": {
+      "success": "Đạt",
+      "failure": "Trượt",
+      "critical": "Crit"
+    },
+    "label": "Test GM đã gọi",
+    "yourCharacter": "nhân vật của bạn",
+    "your": "của bạn",
+    "rollPool": "Đổ {pool} {dice} cho {who}",
+    "roll": "Đổ {dice} cho {who}",
+    "readHidden": "Hãy đọc mặt xúc xắc. Modifier của bạn sẽ được cộng giúp bạn.",
+    "readModifier": "Hãy đọc mặt xúc xắc. {modifier} sẽ được cộng giúp bạn.",
+    "lastClosed": "Test gần nhất đã đóng",
+    "gotIt": "Đã hiểu"
+  },
+  "tableScreen": {
+    "between": "Giữa các buổi",
+    "testInProgress": "Đang có Test",
+    "rolledCount": "{test}: {reported}/{called} người đã đổ"
+  },
+  "gmApp": {
+    "campaigns": "← Campaign",
+    "tabsLabel": "Tab GM",
+    "readRules": "Đọc luật",
+    "tabs": {
+      "track": "Trận",
+      "prep": "Chuẩn bị",
+      "codex": "Sổ tay",
+      "party": "Party",
+      "tests": "Test",
+      "map": "Bản đồ",
+      "rules": "Luật"
+    },
+    "coming": {
+      "prep": "Cuộc phiêu lưu và cảnh sẽ có ở P1.",
+      "codex": "NPC, địa điểm, phe phái và tài liệu phát tay sẽ có ở P1.",
+      "map": "Bản đồ giúp cả bàn nhớ sẽ có ở P2."
+    }
+  },
+  "rest": {
+    "shortRest": "Nghỉ ngắn",
+    "longRest": "Nghỉ dài"
+  },
+  "duration": {
+    "ownTurnEnd": "đến hết lượt của nó",
+    "roundEnd": "đến hết vòng",
+    "encounterEnd": "đến khi trận kết thúc",
+    "manual": "đến khi GM gỡ bỏ"
+  },
+  "resetEvent": {
+    "sessionStart": "mỗi buổi chơi",
+    "sessionEnd": "cuối buổi chơi",
+    "encounterEnd": "cuối trận",
+    "shortRest": "nghỉ ngắn",
+    "longRest": "nghỉ dài"
+  },
+  "sheet": {
+    "refills": "Hồi lại: {events}",
+    "showWhere": "{label} {value}: xem nó đến từ đâu",
+    "yes": "Có",
+    "no": "Không",
+    "restFor": "{rest} cho {name}",
+    "section": {
+      "derived": "Chỉ số",
+      "resources": "Tài nguyên",
+      "fields": "Chi tiết"
+    },
+    "nothing": "Bộ luật chưa có gì để hiện cho nhân vật này.",
+    "conditions": "Trạng thái",
+    "none": "Không có.",
+    "turnsLeft": "{count, plural, other {còn # lượt}}",
+    "roundsLeft": "{count, plural, other {còn # vòng}}"
+  },
+  "breakdown": {
+    "hidden": "Các thành phần của chỉ số này không hiện trên điện thoại của bạn."
+  },
+  "rulesReader": {
+    "failed": "Không đọc được luật. Kiểm tra kết nối rồi thử lại.",
+    "searchLabel": "Tìm luật theo tên",
+    "searchPlaceholder": "Tìm theo tên",
+    "typeLabel": "Lọc mục theo loại",
+    "allTypes": "Mọi loại",
+    "search": "Tìm",
+    "conditions": "Trạng thái",
+    "lasts": "Kéo dài {duration}",
+    "decisions": "Quyết định luật",
+    "entries": "Mục",
+    "noPack": "Bàn này chưa gắn pack nào.",
+    "noMatch": "Không có mục nào khớp.",
+    "level": "Cấp {level}",
+    "showMore": "Xem thêm (còn {left})"
+  },
+  "party": {
+    "guest": "Khách",
+    "qrFailed": "Không vẽ được mã QR. Hãy thử lại",
+    "campaignInviteTitle": "Lời mời campaign · {role}",
+    "guestQrTitle": "QR khách · {name}",
+    "tableScreen": "Màn hình bàn",
+    "endSession": "Kết thúc buổi {number}",
+    "startSession": "Bắt đầu buổi chơi",
+    "invite": "Mời",
+    "as": "Vai trò",
+    "campaignQr": "QR campaign",
+    "screenQr": "QR màn hình",
+    "revokeScreens": "Thu hồi màn hình ({count})",
+    "qrAlt": "Mã QR của {title}",
+    "hide": "Ẩn",
+    "characters": "Nhân vật",
+    "open": "Còn trống",
+    "closeSheet": "Đóng sheet của {name}",
+    "openSheet": "Mở sheet của {name}",
+    "sheet": "Sheet",
+    "buildLabel": "Tạo {name}",
+    "continueBuilding": "Tạo tiếp",
+    "build": "Tạo",
+    "guestQrLabel": "QR khách cho {name}",
+    "guestQr": "QR khách",
+    "revokeGuestLabel": "Thu hồi khách của {name}",
+    "revokeGuest": "Thu hồi khách",
+    "restParty": "{rest} cho cả party",
+    "restPartyButton": "{rest} (party)",
+    "newCharacter": "Tên nhân vật mới",
+    "add": "Thêm",
+    "seats": "Ghế",
+    "owner": "Chủ campaign",
+    "seatOf": "Ghế của {name}",
+    "offerLabel": "Nhượng campaign cho {name}",
+    "offer": "Nhượng campaign",
+    "removeLabel": "Gỡ {name}",
+    "remove": "Gỡ",
+    "scopesOf": "Phạm vi của {name}",
+    "scope": {
+      "combat": "Trận đánh",
+      "codex": "Sổ tay",
+      "secrets": "Bí mật",
+      "party": "Party",
+      "session": "Buổi chơi"
+    },
+    "waitingFor": "Đang chờ {name} đồng ý nhận campaign.",
+    "them": "họ",
+    "cancelOffer": "Hủy nhượng",
+    "campaign": "Campaign",
+    "unarchive": "Bỏ lưu trữ",
+    "archive": "Lưu trữ",
+    "deleteLabel": "Gõ tên campaign để xóa",
+    "deleteForGood": "Xóa vĩnh viễn"
+  },
+  "rulesPanel": {
+    "readFailed": "Không đọc được luật. Kiểm tra kết nối rồi tải lại.",
+    "ruleset": "Bộ luật",
+    "noRuleset": "Chưa có bộ luật. Hãy ghim một bộ để tạo nhân vật và gọi Test.",
+    "importFirst": "Bạn chưa nhập bộ luật nào. Hãy <link>nhập một bộ</link> trước.",
+    "myRulesets": "Bộ luật của tôi",
+    "switchTo": "Chuyển sang bộ này",
+    "pin": "Ghim bộ luật này",
+    "packs": "Pack",
+    "pinFirst": "Hãy ghim bộ luật trước: pack được viết cho một bộ luật.",
+    "noneAttached": "Chưa gắn pack nào.",
+    "noPackFor": "Bạn chưa có pack cho {slug}. <link>Nhập một pack</link>.",
+    "attached": "Đã gắn {version}",
+    "latest": "Mới nhất {version}, {count, plural, other {# mục}}",
+    "takenDown": "Đã bị admin gỡ.",
+    "updateLabel": "Cập nhật {slug}",
+    "attachLabel": "Gắn {slug}",
+    "updateTo": "Cập nhật lên {version}",
+    "attach": "Gắn",
+    "detachLabel": "Gỡ {slug}",
+    "detach": "Gỡ",
+    "libraryNote": "<link>Bộ luật & pack</link>: nhập, xuất hoặc xóa."
+  },
+  "creatures": {
+    "readFailed": "Không đọc được luật. Hãy thử lại",
+    "pickRuleset": "Hãy chọn bộ luật trước (tab Luật)",
+    "added": "Đã thêm {count} × {name}",
+    "title": "Thêm quái",
+    "searchLabel": "Tìm quái theo tên",
+    "search": "Tìm",
+    "noMatch": "Không có quái nào khớp. Hãy gắn pack có quái trong tab Luật.",
+    "found": "Quái tìm thấy",
+    "level": "Cấp {level}",
+    "fewer": "Ít quái hơn",
+    "howMany": "Bao nhiêu",
+    "more": "Nhiều quái hơn",
+    "temporary": "Tạm thời (biến mất khi trận kết thúc)",
+    "spawn": "Thêm {count} × {name}"
+  },
+  "track": {
+    "paused": "Tạm dừng — hãy bắt đầu buổi chơi để tiếp tục",
+    "nobody": "Chưa có ai trong trận. Hãy thêm party ở bên dưới.",
+    "noFight": "Chưa có trận nào đang chạy. Hãy bắt đầu một trận để thêm party và quái.",
+    "startSession": "Hãy bắt đầu buổi chơi ở tab Party, rồi bắt đầu trận ở đây.",
+    "sheetOf": "Sheet của {name}",
+    "callTestFor": "Gọi Test cho {name}",
+    "aCharacter": "một nhân vật"
+  },
+  "addCombatants": {
+    "everyone": "Mọi người ở bàn đều đã vào trận.",
+    "title": "Thêm vào trận",
+    "addParty": "Thêm party ({count})",
+    "addLabel": "Thêm {name} vào trận",
+    "add": "Thêm"
+  },
+  "fightBar": {
+    "label": "Điều khiển trận",
+    "round": "Vòng {round}",
+    "prev": "Trước",
+    "next": "Lượt sau",
+    "noFight": "Không có trận nào",
+    "startSessionFirst": "Hãy bắt đầu buổi chơi trước",
+    "start": "Bắt đầu trận",
+    "undo": "Hoàn tác",
+    "endConfirm": "Kết thúc trận và xóa quái tạm thời",
+    "end": "Kết thúc trận"
+  },
+  "orderList": {
+    "label": "Thứ tự lượt",
+    "initiative": "Initiative của {name}",
+    "moveUp": "Đẩy {name} lên trong các initiative bằng nhau",
+    "moveDown": "Đẩy {name} xuống trong các initiative bằng nhau"
+  },
+  "combatSide": {
+    "party": "Party",
+    "foe": "Địch",
+    "other": "Khác"
+  },
+  "combatVisibility": {
+    "hidden": "Ẩn",
+    "bar": "Thanh",
+    "full": "Số"
+  },
+  "deathSave": {
+    "criticalSuccess": "Crit đạt",
+    "success": "Đạt",
+    "failure": "Trượt",
+    "criticalFailure": "Crit trượt"
+  },
+  "keypad": {
+    "clear": "Xóa hết",
+    "back": "Xóa chữ số cuối"
+  },
+  "combatantPanel": {
+    "controls": "Điều khiển {name}",
+    "sheet": "Sheet",
+    "callTest": "Gọi Test",
+    "amount": "Số lượng",
+    "damage": "Sát thương",
+    "heal": "Hồi máu",
+    "tempHp": "HP tạm",
+    "critical": "Đòn Crit",
+    "deathSave": "Death save",
+    "deathSaves": "Death save: {passed} đạt, {failed} trượt",
+    "tableSees": "Cả bàn thấy",
+    "keep": "Giữ lại khi trận kết thúc",
+    "conditions": "Trạng thái",
+    "none": "Không có.",
+    "removeCondition": "Gỡ {condition} khỏi {name}",
+    "remove": "Gỡ",
+    "conditionToAdd": "Trạng thái cần thêm",
+    "addCondition": "Thêm trạng thái…",
+    "lastsLabel": "Kéo dài bao nhiêu lượt hoặc vòng",
+    "lasts": "Kéo dài",
+    "add": "Thêm",
+    "removeFromFight": "Gỡ khỏi trận"
+  },
+  "tests": {
+    "open": "Đang mở",
+    "noneOpen": "Chưa có Test nào mở. Gọi một Test ở trên.",
+    "closedThisSession": "Đã đóng trong buổi này"
+  },
+  "callCard": {
+    "waiting": "Đang chờ",
+    "total": "tổng {total}",
+    "outcome": {
+      "success": "Đạt",
+      "failure": "Trượt",
+      "critical": "Crit"
+    },
+    "label": "Test {id}",
+    "statusOpen": "Đang mở",
+    "statusShown": "Đã đóng, đã hiện",
+    "statusClosed": "Đã đóng",
+    "rolledCount": "{reported}/{called} đã đổ",
+    "hiddenTarget": "(cả bàn không được biết con số)",
+    "poolLine": "{pool} xúc xắc ({modifier}) so với DN {target}",
+    "plainLine": "{modifier} so với {target}",
+    "aCharacter": "một nhân vật",
+    "changeLabel": "Sửa kết quả đổ của {name}",
+    "reportLabel": "Báo kết quả cho {name}",
+    "change": "Sửa",
+    "report": "Báo",
+    "close": "Đóng",
+    "closeShow": "Đóng và hiện kết quả"
+  },
+  "callForm": {
+    "wholeNumber": "Hãy nhập số nguyên cho {id}",
+    "fillIn": "Hãy điền {id}",
+    "pickWho": "Chọn người đổ",
+    "pinRuleset": "Hãy ghim bộ luật có Test để gọi Test từ đây.",
+    "title": "Gọi Test",
+    "test": "Test",
+    "pick": "Chọn…",
+    "whoRolls": "Ai đổ",
+    "noCharacter": "Chưa có nhân vật nào được tạo cho bộ luật này.",
+    "hideTarget": "Giấu con số cần vượt khỏi cả bàn",
+    "showOutcome": "Cho họ biết đạt hay trượt",
+    "callTest": "Gọi Test"
+  },
+  "socket": {
+    "noSignal": "Mất tín hiệu",
+    "unreadable": "Không đọc được phản hồi từ máy chủ. Hãy kiểm tra trước khi thử lại",
+    "noReply": "Máy chủ không phản hồi. Hãy kiểm tra trước khi thử lại",
+    "pageDamaged": "Trang nhận về bị lỗi. Hãy thử lại",
+    "pageNoReply": "Không có phản hồi. Hãy thử lại"
+  }
+}

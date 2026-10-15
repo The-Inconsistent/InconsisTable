@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 
 import { signedInUserId } from "@inconsistable/auth/next";
@@ -6,13 +7,15 @@ import { Lobby } from "@inconsistable/core-schema";
 import { JOIN_ERRORS, type JoinError } from "@/app/constants";
 import { apiGet } from "@/app/server-api";
 import { LobbyView } from "@/components/lobby/lobby-view/lobby-view";
+import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { CampaignRef } from "@/lib/api-reply/api-reply";
 import { RulesetList } from "@/lib/library/library";
 
 type HomeProps = { searchParams: Promise<{ join?: string | string[] }> };
 
-const isJoinError = (v: unknown): v is JoinError => typeof v === "string" && Object.hasOwn(JOIN_ERRORS, v);
+const isJoinError = (v: unknown): v is JoinError =>
+  typeof v === "string" && (JOIN_ERRORS as readonly string[]).includes(v);
 
 // A returning guest's table (from their QR cookie), if they have one.
 async function guestTable(): Promise<string | null> {
@@ -38,8 +41,9 @@ async function importedRulesets(): Promise<RulesetList> {
 
 // The lobby for signed-in users; guests go back to their table; everyone else is asked to sign in.
 export default async function Home({ searchParams }: HomeProps) {
+  const t = await getTranslations();
   const { join } = await searchParams;
-  if (isJoinError(join)) return <StatusScreen text={JOIN_ERRORS[join]} />;
+  if (isJoinError(join)) return <StatusScreen text={t(`status.${join}`)} />;
 
   const userId = await signedInUserId();
   if (!userId) {
@@ -48,12 +52,13 @@ export default async function Home({ searchParams }: HomeProps) {
     return (
       <main className="center">
         <div className="stack" style={{ justifyItems: "center", textAlign: "center" }}>
-          <h1 className="title">InconsisTable</h1>
-          <p className="dim">A table companion for in-person tabletop RPGs.</p>
+          <h1 className="title">{t("common.brand")}</h1>
+          <p className="dim">{t("home.tagline")}</p>
           <a className="btn primary" href="/sign-in">
-            Sign in
+            {t("home.signIn")}
           </a>
-          <p className="dim small">Joining as a guest? Scan the QR code on the GM&apos;s tablet.</p>
+          <p className="dim small">{t("home.guestHint")}</p>
+          <LocaleSwitch />
         </div>
       </main>
     );
@@ -63,10 +68,10 @@ export default async function Home({ searchParams }: HomeProps) {
   try {
     const res = await apiGet("/api/lobby");
     const parsed = Lobby.safeParse(res.ok ? await res.json() : null);
-    if (!parsed.success) return <StatusScreen text={JOIN_ERRORS.nosignal} />;
+    if (!parsed.success) return <StatusScreen text={t("status.nosignal")} />;
     lobby = parsed.data;
   } catch {
-    return <StatusScreen text={JOIN_ERRORS.nosignal} />;
+    return <StatusScreen text={t("status.nosignal")} />;
   }
   return <LobbyView lobby={lobby} rulesets={lobby.canCreate ? await importedRulesets() : []} />;
 }

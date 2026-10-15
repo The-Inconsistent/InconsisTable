@@ -1,8 +1,8 @@
+import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 
 import { signedInUserId } from "@inconsistable/auth/next";
 
-import { JOIN_ERRORS } from "@/app/constants";
 import { apiGet } from "@/app/server-api";
 import { LibraryView } from "@/components/library/library-view/library-view";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
@@ -21,5 +21,5 @@ export default async function LibraryPage() {
   } catch {
     // falls through to the same message as an answer we can't read
   }
-  return <StatusScreen text={JOIN_ERRORS.nosignal} />;
+  return <StatusScreen text={(await getTranslations("status"))("nosignal")} />;
 }

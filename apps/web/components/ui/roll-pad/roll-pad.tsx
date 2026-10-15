@@ -1,9 +1,10 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { AdvantageMode } from "@inconsistable/rules-engine";
 
-import { ADVANTAGE_LABEL, PAD_DIGITS } from "@/components/ui/roll-pad/constants";
+import { PAD_DIGITS } from "@/components/ui/roll-pad/constants";
 import { digitsOf, facesFrom, rollSlots } from "@/lib/roll-slots/roll-slots";
 
 type RollPadProps = {
@@ -19,6 +20,7 @@ type RollPadProps = {
 // The roll as read off the table: tap the number on each die, then report. Big keys instead of the phone's keyboard, so
 // nothing covers the screen and the thumb never travels (CLAUDE.md, principle 8). The server resolves the roll again.
 export function RollPad({ dice, allowAdvantage, who, onReport }: RollPadProps) {
+  const t = useTranslations("rollPad");
   const [advantage, setAdvantage] = useState<AdvantageMode>("none");
   const slots = rollSlots({ dice, advantage });
   const [typed, setTyped] = useState<string[]>([""]);
@@ -26,7 +28,7 @@ export function RollPad({ dice, allowAdvantage, who, onReport }: RollPadProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (slots === null) return <p className="error">This Test is not rolled with plain dice. Tell the GM.</p>;
+  if (slots === null) return <p className="error">{t("notPlain")}</p>;
   const { count, sides } = slots;
   const shown = Array.from({ length: count }, (_, i) => typed[i] ?? "");
   const faces = facesFrom({ typed: shown, sides });
@@ -43,13 +45,13 @@ export function RollPad({ dice, allowAdvantage, who, onReport }: RollPadProps) {
     const cur = shown[active] ?? "";
     const joined = `${cur}${digit}`;
     const next = cur.length < digitsOf(sides) && Number(joined) <= sides ? joined : digit;
-    setTyped(shown.map((t, i) => (i === active ? next : t)));
+    setTyped(shown.map((d, i) => (i === active ? next : d)));
     const full = next.length >= digitsOf(sides) || Number(`${next}0`) > sides;
     if (full && active + 1 < count) setActive(active + 1);
   };
 
   // DELETE: takes the last digit off the active die.
-  const handleDelete = () => setTyped(shown.map((t, i) => (i === active ? t.slice(0, -1) : t)));
+  const handleDelete = () => setTyped(shown.map((d, i) => (i === active ? d.slice(0, -1) : d)));
 
   // REPORT: sends the faces; a refusal stays on screen so the roll can be fixed or told to the GM.
   const handleReport = async () => {
@@ -62,41 +64,41 @@ export function RollPad({ dice, allowAdvantage, who, onReport }: RollPadProps) {
   return (
     <div className="stack roll">
       {allowAdvantage && (
-        <div className="row" role="group" aria-label={`Roll type for ${who}`}>
+        <div className="row" role="group" aria-label={t("rollType", { who })}>
           {AdvantageMode.options.map((m) => (
             <button key={m} className="btn" aria-pressed={advantage === m} onClick={() => handleAdvantage(m)}>
-              {ADVANTAGE_LABEL[m]}
+              {t(`advantage.${m}`)}
             </button>
           ))}
         </div>
       )}
-      <div className="roll-slots" role="group" aria-label={`Dice rolled by ${who}`}>
-        {shown.map((t, i) => (
+      <div className="roll-slots" role="group" aria-label={t("diceRolledBy", { who })}>
+        {shown.map((face, i) => (
           <button
             key={i}
             className="roll-slot"
             aria-pressed={active === i}
-            aria-label={`Die ${i + 1} of ${count}: ${t === "" ? "empty" : t}`}
+            aria-label={t("dieLabel", { index: i + 1, count, value: face === "" ? t("empty") : face })}
             onClick={() => setActive(i)}
           >
-            {t === "" ? "–" : t}
+            {face === "" ? "–" : face}
           </button>
         ))}
       </div>
-      <div className="roll-pad" role="group" aria-label="Number pad">
+      <div className="roll-pad" role="group" aria-label={t("numberPad")}>
         {PAD_DIGITS.map((d) => (
           <button key={d} className="roll-key" onClick={() => handleDigit(d)}>
             {d}
           </button>
         ))}
-        <button className="roll-key" aria-label="Delete last digit" onClick={handleDelete}>
-          Del
+        <button className="roll-key" aria-label={t("deleteDigit")} onClick={handleDelete}>
+          {t("del")}
         </button>
         <button className="roll-key" onClick={() => handleDigit("0")}>
           0
         </button>
         <button className="roll-key report" disabled={faces === null || busy} onClick={handleReport}>
-          Report
+          {t("report")}
         </button>
       </div>
       {error && (

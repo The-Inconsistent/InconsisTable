@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
 import {
@@ -34,6 +35,7 @@ type TrackProps = {
 // TRACK: the fight from the GM's tablet. Initiative is typed from the dice (the app never rolls), the order and whose
 // turn it is stay in view, and Undo is always under the thumb. Test calls live in their own tab.
 export function Track({ me, state, send, sheet }: TrackProps) {
+  const t = useTranslations("track");
   const [sheetOf, setSheetOf] = useState<string | null>(null);
   const [testFor, setTestFor] = useState<string | null>(null); // the actor a Test is being called for
   const [selectedId, setSelectedId] = useState<string | undefined>();
@@ -63,16 +65,14 @@ export function Track({ me, state, send, sheet }: TrackProps) {
       )}
       {encounter?.paused && (
         <p className="dim" role="status">
-          Paused — start a session to continue
+          {t("paused")}
         </p>
       )}
       {encounter ? (
         <fieldset disabled={encounter.paused} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
           <div className="track">
             <div className="stack">
-              {encounter.combatants.length === 0 && (
-                <p className="dim">Nobody is in the fight yet. Add the party below.</p>
-              )}
+              {encounter.combatants.length === 0 && <p className="dim">{t("nobody")}</p>}
               <OrderList
                 encounter={encounter}
                 actors={actors}
@@ -96,14 +96,10 @@ export function Track({ me, state, send, sheet }: TrackProps) {
           {encounter && <AddCombatants encounter={encounter} actors={state.actors} run={run} />}
         </fieldset>
       ) : (
-        <p className="dim">
-          {state.session
-            ? "No fight is running. Start one to add the party and the creatures."
-            : "Start a session in the Party tab, then start a fight here."}
-        </p>
+        <p className="dim">{state.session ? t("noFight") : t("startSession")}</p>
       )}
       {sheet.ruleset && sheetActor && (
-        <BottomSheet title={`Sheet of ${sheetActor.name}`} onClose={() => setSheetOf(null)}>
+        <BottomSheet title={t("sheetOf", { name: sheetActor.name })} onClose={() => setSheetOf(null)}>
           <SheetView
             key={sheetActor.id}
             actor={sheetActor}
@@ -118,7 +114,7 @@ export function Track({ me, state, send, sheet }: TrackProps) {
       )}
       {testFor && (
         <BottomSheet
-          title={`Call a Test for ${actors.get(testFor)?.name ?? "a character"}`}
+          title={t("callTestFor", { name: actors.get(testFor)?.name ?? t("aCharacter") })}
           onClose={() => setTestFor(null)}
         >
           <CallForm

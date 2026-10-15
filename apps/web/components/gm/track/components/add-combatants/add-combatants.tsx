@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 
 import type { Actor, Encounter } from "@inconsistable/core-schema";
@@ -13,6 +14,7 @@ const joinAs = (a: Actor) =>
 // Who is at the table but not in the fight: the party joins in one tap, anyone else one by one. A creature spawned
 // while the fight is on joins it by itself, hidden.
 export function AddCombatants({ encounter, actors, run }: AddCombatantsProps) {
+  const t = useTranslations("addCombatants");
   const waiting = useMemo(() => {
     const inFight = new Set(encounter.combatants.map((c) => c.actorId));
     return actors.filter((a) => !inFight.has(a.id) && a.status === "active");
@@ -25,13 +27,13 @@ export function AddCombatants({ encounter, actors, run }: AddCombatantsProps) {
   // ADD ONE: this actor, on the side its kind usually fights on.
   const handleOne = (a: Actor) => () => run({ type: "encounter.add", actorIds: [a.id], ...joinAs(a) });
 
-  if (waiting.length === 0) return <p className="dim">Everyone at the table is in the fight.</p>;
+  if (waiting.length === 0) return <p className="dim">{t("everyone")}</p>;
   return (
     <section className="stack">
-      <h2 className="head">Add to the fight</h2>
+      <h2 className="head">{t("title")}</h2>
       {party.length > 1 && (
         <button className="btn primary" onClick={handleParty} style={{ justifySelf: "start" }}>
-          Add the party ({party.length})
+          {t("addParty", { count: party.length })}
         </button>
       )}
       <ul className="list">
@@ -40,8 +42,8 @@ export function AddCombatants({ encounter, actors, run }: AddCombatantsProps) {
             <span>
               {a.name} <span className="dim">{a.kind}</span>
             </span>
-            <button className="btn sm" aria-label={`Add ${a.name} to the fight`} onClick={handleOne(a)}>
-              Add
+            <button className="btn sm" aria-label={t("addLabel", { name: a.name })} onClick={handleOne(a)}>
+              {t("add")}
             </button>
           </li>
         ))}

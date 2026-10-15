@@ -1,0 +1,593 @@
+{
+  "meta": {
+    "title": "InconsisTable",
+    "description": "A table companion for in-person tabletop RPGs"
+  },
+  "common": {
+    "brand": "InconsisTable"
+  },
+  "status": {
+    "invalid": "Link invalid or revoked. Ask your GM for a new QR code.",
+    "nosignal": "No signal. Check the connection and retry.",
+    "noAccess": "No access. Ask your GM for an invite.",
+    "noCharacter": "No character yet. Ask your GM.",
+    "noRuleset": "The GM hasn't picked a ruleset yet.",
+    "syncing": "Syncing…"
+  },
+  "localeSwitch": {
+    "label": "Language",
+    "name": {
+      "en": "English",
+      "vi": "Tiếng Việt"
+    }
+  },
+  "roles": {
+    "gm": "GM",
+    "cogm": "Co-GM",
+    "player": "Player"
+  },
+  "home": {
+    "tagline": "A table companion for in-person tabletop RPGs.",
+    "signIn": "Sign in",
+    "guestHint": "Joining as a guest? Scan the QR code on the GM's tablet."
+  },
+  "lobby": {
+    "yourCampaign": "Your campaign",
+    "owner": "Owner: {name}",
+    "characters": "{count, plural, one {# character} other {# characters}}",
+    "sessionRunning": "Session {number} running",
+    "nameRequired": "Give the campaign a name",
+    "createFailed": "Couldn't create the campaign",
+    "libraryLink": "Rulesets & packs",
+    "admin": "Admin",
+    "newCampaign": "New campaign",
+    "name": "Name",
+    "ruleset": "Ruleset",
+    "noneYet": "None yet",
+    "create": "Create",
+    "importHint": "To start with a ruleset, <link>import one</link> first.",
+    "yourCampaigns": "Your campaigns",
+    "wherePlay": "Where you play",
+    "archived": "Archived",
+    "emptyMine": "You don't own a campaign yet.",
+    "emptySeated": "Nobody has invited you to a table yet."
+  },
+  "library": {
+    "campaigns": "Campaigns",
+    "title": "Rulesets & packs",
+    "rulesets": "Rulesets",
+    "noRulesets": "No rulesets yet. Import one first: a pack is written for a ruleset.",
+    "packs": "Packs",
+    "usage": "{packs, plural, one {# of {maxPacks} pack} other {# of {maxPacks} packs}}, {bytes} of {maxBytes} stored."
+  },
+  "importPanel": {
+    "tooBig": "That file is over 5 MB. Split the pack into two.",
+    "notJson": "That isn't a JSON document.",
+    "unknownShape": "Not a ruleset (it needs entities) or a pack (it needs entries).",
+    "signedOut": "You're signed out. Sign in again and retry.",
+    "failed": "Couldn't import. Check the connection and retry.",
+    "readFailed": "Couldn't read that file.",
+    "added": "{count} added",
+    "changed": "{count} changed",
+    "removed": "{count} removed",
+    "moreKeys": "and {count} more",
+    "title": "Import",
+    "reminder": "Summarize in your own words, with the page. Don't paste text from a book.",
+    "fieldLabel": "Ruleset or pack (JSON)",
+    "placeholder": "Paste JSON here, or choose a file.",
+    "importing": "Importing…",
+    "import": "Import",
+    "chooseFile": "Choose file",
+    "clear": "Clear",
+    "rulesetUnchanged": "{slug} {version} was already imported. Nothing changed.",
+    "rulesetSaved": "Saved {slug} {version}. Pick it when you create a campaign.",
+    "packUnchanged": "Version {version} was already imported. Nothing changed.",
+    "packSaved": "Saved version {version}.",
+    "fixThese": "Fix these, then import again",
+    "warnSaved": "Saved, but check these descriptions",
+    "warnAlso": "Also check these descriptions"
+  },
+  "packList": {
+    "exportFailed": "Couldn't export that pack.",
+    "deleteFailed": "Couldn't delete that pack.",
+    "empty": "No packs yet. Import one above, after its ruleset.",
+    "forRuleset": "for {slug}",
+    "latest": "Version {version}, {count, plural, one {# entry} other {# entries}}, {size}",
+    "credit": "Credit: {text}",
+    "takenDown": "Taken down by an admin. It is not served to any campaign.",
+    "exportLabel": "Export {slug}",
+    "export": "Export",
+    "keepCopy": "Campaigns using it keep their copy.",
+    "confirmDeleteLabel": "Confirm delete {slug}",
+    "delete": "Delete",
+    "keep": "Keep",
+    "deleteLabel": "Delete {slug}"
+  },
+  "invite": {
+    "title": "Join {name}",
+    "invited": "You're invited to a {role} seat.",
+    "seatedOpen": "You're seated · open the table",
+    "signInToJoin": "Sign in to join",
+    "guestOrSignIn": "Or join as a guest below: no account, this device only.",
+    "needsAccount": "This table needs an account.",
+    "takeSeat": "Take the seat",
+    "playAs": "Play {name}",
+    "playAsGuest": "Play {name} as a guest",
+    "pickCharacter": "Pick your character",
+    "allTaken": "Every character is taken. Start a new one:",
+    "playLabel": "Play {name}",
+    "play": "Play",
+    "newName": "New character name",
+    "newButton": "New",
+    "takeFailed": "Couldn't take the seat. Try again"
+  },
+  "builder": {
+    "notAtTable": "That character isn't at this table.",
+    "isBuilt": "{name} is built",
+    "correctHint": "The GM can correct a value from the sheet.",
+    "backToTable": "Back to the table",
+    "nothingTitle": "Nothing to build yet",
+    "nothingHint": "This table has no ruleset with a character builder. Ask the GM.",
+    "fixSteps": "Fix the steps marked below.",
+    "backLink": "← Table",
+    "buildTitle": "Build {name}",
+    "stepDone": "Done",
+    "stepOptional": "Optional",
+    "stepTodo": "To do",
+    "makesLabel": "What this makes",
+    "derivedLater": "The numbers show on the sheet once the GM sets what is left.",
+    "derivedIncomplete": "Finish every step to see the numbers.",
+    "recheck": "The table checks these again when you build.",
+    "buildButton": "Build character",
+    "startOver": "Start over",
+    "draftSaved": "Draft saved",
+    "draftOff": "Draft not kept: sign in to keep one"
+  },
+  "assignStep": {
+    "leftToHandOut": "Left to hand out: {list}",
+    "none": "none",
+    "pointsLeft": "of {budget} points left",
+    "lower": "Lower {label}",
+    "raise": "Raise {label}",
+    "score": "{label} score"
+  },
+  "chooseStep": {
+    "none": "No {label} is attached to this table yet. Ask the GM.",
+    "pickCount": "Pick {count}: {chosen} chosen"
+  },
+  "fieldsStep": {
+    "notAField": "{field}: not a field of this ruleset",
+    "any": "any",
+    "range": "{min} to {max}",
+    "onePerLine": "one per line"
+  },
+  "bottomSheet": {
+    "close": "Close",
+    "closeLabel": "Close {title}"
+  },
+  "cite": {
+    "openLabel": "Open the page of {cite}",
+    "pageAlt": "Book page {cite}"
+  },
+  "healthBar": {
+    "label": "{name} health {percent} percent"
+  },
+  "orderView": {
+    "label": "Turn order",
+    "round": "Round {round}",
+    "paused": "Paused"
+  },
+  "combatState": {
+    "acting": "ACTING",
+    "dead": "DEAD",
+    "down": "DOWN",
+    "stable": "STABLE"
+  },
+  "poolOutcome": {
+    "score": "Score {total}",
+    "onTheNumber": "on the number",
+    "shifts": "{count, plural, one {# shift} other {# shifts}}",
+    "outcome": {
+      "success": "Success",
+      "failure": "Failure",
+      "critical": "Critical"
+    },
+    "flag": {
+      "critical": "Critical",
+      "complication": "Complication"
+    }
+  },
+  "poolPad": {
+    "hidden": "Your pool size isn't shown to you. Ask the GM how many dice.",
+    "special": "special",
+    "specialDie": "Special die",
+    "sorted": "{counted} of {ordinary} sorted, the rest scored nothing",
+    "countedBy": "Dice counted by {who}",
+    "scoresOne": "scores 1",
+    "scoresEach": "scores {worth} each",
+    "fewer": "One fewer die showing {faces} for {who}",
+    "showing": "Dice showing {faces}",
+    "more": "One more die showing {faces} for {who}",
+    "specialFor": "{label} {index} for {who}",
+    "whichFace": "{label}: which face?",
+    "face": "Face {face}",
+    "report": "Report"
+  },
+  "resourceRow": {
+    "decrease": "Decrease {label} of {holder}",
+    "increase": "Increase {label} of {holder}",
+    "value": "{label}: {value}",
+    "valueOf": "{label}: {value} of {max}"
+  },
+  "rollPad": {
+    "notPlain": "This Test is not rolled with plain dice. Tell the GM.",
+    "rollType": "Roll type for {who}",
+    "advantage": {
+      "none": "Normal",
+      "advantage": "Advantage",
+      "disadvantage": "Disadvantage"
+    },
+    "diceRolledBy": "Dice rolled by {who}",
+    "dieLabel": "Die {index} of {count}: {value}",
+    "empty": "empty",
+    "numberPad": "Number pad",
+    "deleteDigit": "Delete last digit",
+    "del": "Del",
+    "report": "Report"
+  },
+  "transferOffer": {
+    "label": "Campaign offer",
+    "offered": "The owner offered you this campaign.",
+    "accept": "Accept and take over"
+  },
+  "table": {
+    "offline": "NO SIGNAL",
+    "session": "Session {number}"
+  },
+  "settingsMenu": {
+    "label": "Settings",
+    "language": "Language"
+  },
+  "playerApp": {
+    "charactersLabel": "Your characters",
+    "noCharacter": "No character",
+    "continueBuilding": "Continue building",
+    "build": "Build character",
+    "nothingRevealed": "Nothing revealed yet.",
+    "rulesFailed": "Couldn't read the rules. Check the connection and reload.",
+    "sheetPending": "This tab fills in when the table picks a ruleset.",
+    "tabPending": "This tab fills in when the table plays on.",
+    "leave": "Leave this table",
+    "tabsLabel": "Player tabs",
+    "tabs": {
+      "sheet": "Sheet",
+      "rules": "Rules",
+      "fight": "Fight",
+      "map": "Map",
+      "intel": "Intel"
+    }
+  },
+  "turnBanner": {
+    "yourTurn": "Your turn, {name}"
+  },
+  "testPrompt": {
+    "waiting": "Waiting for the GM",
+    "reportedWaiting": "Reported. Waiting for the GM",
+    "closed": "Closed",
+    "rolled": "Rolled {value}",
+    "total": "total {total}",
+    "outcome": {
+      "success": "Success",
+      "failure": "Failure",
+      "critical": "Critical"
+    },
+    "label": "Tests called by the GM",
+    "yourCharacter": "your character",
+    "your": "your",
+    "rollPool": "Roll {pool} {dice} for {who}",
+    "roll": "Roll {dice} for {who}",
+    "readHidden": "Read the die. Your modifier is added for you.",
+    "readModifier": "Read the die. {modifier} is added for you.",
+    "lastClosed": "Last Test closed",
+    "gotIt": "Got it"
+  },
+  "tableScreen": {
+    "between": "Between sessions",
+    "testInProgress": "Test in progress",
+    "rolledCount": "{test}: {reported} of {called} have rolled"
+  },
+  "gmApp": {
+    "campaigns": "← Campaigns",
+    "tabsLabel": "GM tabs",
+    "readRules": "Read the rules",
+    "tabs": {
+      "track": "Track",
+      "prep": "Prep",
+      "codex": "Codex",
+      "party": "Party",
+      "tests": "Tests",
+      "map": "Map",
+      "rules": "Rules"
+    },
+    "coming": {
+      "prep": "Adventures and scenes arrive in P1.",
+      "codex": "NPCs, places, factions and handouts arrive in P1.",
+      "map": "Maps that help the table remember arrive in P2."
+    }
+  },
+  "rest": {
+    "shortRest": "Short rest",
+    "longRest": "Long rest"
+  },
+  "duration": {
+    "ownTurnEnd": "until the end of its turn",
+    "roundEnd": "until the end of the round",
+    "encounterEnd": "until the fight ends",
+    "manual": "until the GM ends it"
+  },
+  "resetEvent": {
+    "sessionStart": "each session",
+    "sessionEnd": "session end",
+    "encounterEnd": "fight end",
+    "shortRest": "short rest",
+    "longRest": "long rest"
+  },
+  "sheet": {
+    "refills": "Refills: {events}",
+    "showWhere": "{label} {value}: show where it comes from",
+    "yes": "Yes",
+    "no": "No",
+    "restFor": "{rest} for {name}",
+    "section": {
+      "derived": "Numbers",
+      "resources": "Resources",
+      "fields": "Details"
+    },
+    "nothing": "The ruleset has nothing to show for this character yet.",
+    "conditions": "Conditions",
+    "none": "None.",
+    "turnsLeft": "{count, plural, one {# turn left} other {# turns left}}",
+    "roundsLeft": "{count, plural, one {# round left} other {# rounds left}}"
+  },
+  "breakdown": {
+    "hidden": "The parts of this number aren't shown on your phone."
+  },
+  "rulesReader": {
+    "failed": "Couldn't read the rules. Check the connection and try again.",
+    "searchLabel": "Search the rules by name",
+    "searchPlaceholder": "Search by name",
+    "typeLabel": "Filter entries by type",
+    "allTypes": "All types",
+    "search": "Search",
+    "conditions": "Conditions",
+    "lasts": "Lasts {duration}",
+    "decisions": "House decisions",
+    "entries": "Entries",
+    "noPack": "No pack is attached to this table.",
+    "noMatch": "No entry matches.",
+    "level": "Level {level}",
+    "showMore": "Show more ({left} left)"
+  },
+  "party": {
+    "guest": "Guest",
+    "qrFailed": "Couldn't draw the QR code. Try again",
+    "campaignInviteTitle": "Campaign invite · {role}",
+    "guestQrTitle": "Guest QR · {name}",
+    "tableScreen": "Table screen",
+    "endSession": "End session {number}",
+    "startSession": "Start a session",
+    "invite": "Invite",
+    "as": "As",
+    "campaignQr": "Campaign QR",
+    "screenQr": "Screen QR",
+    "revokeScreens": "Revoke screens ({count})",
+    "qrAlt": "QR code for {title}",
+    "hide": "Hide",
+    "characters": "Characters",
+    "open": "Open",
+    "closeSheet": "Close the sheet of {name}",
+    "openSheet": "Open the sheet of {name}",
+    "sheet": "Sheet",
+    "buildLabel": "Build {name}",
+    "continueBuilding": "Continue building",
+    "build": "Build",
+    "guestQrLabel": "Guest QR for {name}",
+    "guestQr": "Guest QR",
+    "revokeGuestLabel": "Revoke guest of {name}",
+    "revokeGuest": "Revoke guest",
+    "restParty": "{rest} for the whole party",
+    "restPartyButton": "{rest} (party)",
+    "newCharacter": "New character name",
+    "add": "Add",
+    "seats": "Seats",
+    "owner": "Owner",
+    "seatOf": "Seat of {name}",
+    "offerLabel": "Offer the campaign to {name}",
+    "offer": "Offer the campaign",
+    "removeLabel": "Remove {name}",
+    "remove": "Remove",
+    "scopesOf": "Scopes of {name}",
+    "scope": {
+      "combat": "Combat",
+      "codex": "Codex",
+      "secrets": "Secrets",
+      "party": "Party",
+      "session": "Session"
+    },
+    "waitingFor": "Waiting for {name} to accept the campaign.",
+    "them": "them",
+    "cancelOffer": "Cancel offer",
+    "campaign": "Campaign",
+    "unarchive": "Unarchive",
+    "archive": "Archive",
+    "deleteLabel": "Type the campaign's name to delete it",
+    "deleteForGood": "Delete for good"
+  },
+  "rulesPanel": {
+    "readFailed": "Couldn't read the rules. Check the connection and reload.",
+    "ruleset": "Ruleset",
+    "noRuleset": "No ruleset yet. Pin one to build characters and call Tests.",
+    "importFirst": "You haven't imported a ruleset. <link>Import one</link> first.",
+    "myRulesets": "My rulesets",
+    "switchTo": "Switch to this",
+    "pin": "Pin this ruleset",
+    "packs": "Packs",
+    "pinFirst": "Pin a ruleset first: a pack is written for one.",
+    "noneAttached": "No pack is attached.",
+    "noPackFor": "You have no pack for {slug}. <link>Import one</link>.",
+    "attached": "Attached {version}",
+    "latest": "Latest {version}, {count, plural, one {# entry} other {# entries}}",
+    "takenDown": "Taken down by an admin.",
+    "updateLabel": "Update {slug}",
+    "attachLabel": "Attach {slug}",
+    "updateTo": "Update to {version}",
+    "attach": "Attach",
+    "detachLabel": "Detach {slug}",
+    "detach": "Detach",
+    "libraryNote": "<link>Rulesets & packs</link>: import, export or delete."
+  },
+  "creatures": {
+    "readFailed": "Couldn't read the rules. Try again",
+    "pickRuleset": "Pick a ruleset first (Rules tab)",
+    "added": "Added {count} × {name}",
+    "title": "Add creatures",
+    "searchLabel": "Search creatures by name",
+    "search": "Search",
+    "noMatch": "No creature matches. Attach a pack with creatures in the Rules tab.",
+    "found": "Creatures found",
+    "level": "Level {level}",
+    "fewer": "Fewer creatures",
+    "howMany": "How many",
+    "more": "More creatures",
+    "temporary": "Temporary (gone when the encounter ends)",
+    "spawn": "Spawn {count} × {name}"
+  },
+  "track": {
+    "paused": "Paused — start a session to continue",
+    "nobody": "Nobody is in the fight yet. Add the party below.",
+    "noFight": "No fight is running. Start one to add the party and the creatures.",
+    "startSession": "Start a session in the Party tab, then start a fight here.",
+    "sheetOf": "Sheet of {name}",
+    "callTestFor": "Call a Test for {name}",
+    "aCharacter": "a character"
+  },
+  "addCombatants": {
+    "everyone": "Everyone at the table is in the fight.",
+    "title": "Add to the fight",
+    "addParty": "Add the party ({count})",
+    "addLabel": "Add {name} to the fight",
+    "add": "Add"
+  },
+  "fightBar": {
+    "label": "Fight controls",
+    "round": "Round {round}",
+    "prev": "Prev",
+    "next": "Next turn",
+    "noFight": "No fight",
+    "startSessionFirst": "Start a session first",
+    "start": "Start fight",
+    "undo": "Undo",
+    "endConfirm": "End fight and clear temporary creatures",
+    "end": "End fight"
+  },
+  "orderList": {
+    "label": "Turn order",
+    "initiative": "Initiative of {name}",
+    "moveUp": "Move {name} up among equal initiatives",
+    "moveDown": "Move {name} down among equal initiatives"
+  },
+  "combatSide": {
+    "party": "Party",
+    "foe": "Foe",
+    "other": "Other"
+  },
+  "combatVisibility": {
+    "hidden": "Hidden",
+    "bar": "Bar",
+    "full": "Numbers"
+  },
+  "deathSave": {
+    "criticalSuccess": "Critical success",
+    "success": "Success",
+    "failure": "Failure",
+    "criticalFailure": "Critical failure"
+  },
+  "keypad": {
+    "clear": "Clear",
+    "back": "Delete last digit"
+  },
+  "combatantPanel": {
+    "controls": "{name} controls",
+    "sheet": "Sheet",
+    "callTest": "Call a Test",
+    "amount": "Amount",
+    "damage": "Damage",
+    "heal": "Heal",
+    "tempHp": "Temp HP",
+    "critical": "Critical hit",
+    "deathSave": "Death save",
+    "deathSaves": "Death saves: {passed} passed, {failed} failed",
+    "tableSees": "The table sees",
+    "keep": "Keep when the fight ends",
+    "conditions": "Conditions",
+    "none": "None.",
+    "removeCondition": "Remove {condition} from {name}",
+    "remove": "Remove",
+    "conditionToAdd": "Condition to add",
+    "addCondition": "Add a condition…",
+    "lastsLabel": "Turns or rounds it lasts",
+    "lasts": "Lasts",
+    "add": "Add",
+    "removeFromFight": "Remove from fight"
+  },
+  "tests": {
+    "open": "Open",
+    "noneOpen": "No Test is open. Call one above.",
+    "closedThisSession": "Closed this session"
+  },
+  "callCard": {
+    "waiting": "Waiting",
+    "total": "total {total}",
+    "outcome": {
+      "success": "Success",
+      "failure": "Failure",
+      "critical": "Critical"
+    },
+    "label": "Test {id}",
+    "statusOpen": "Open",
+    "statusShown": "Closed, shown",
+    "statusClosed": "Closed",
+    "rolledCount": "{reported} of {called} rolled",
+    "hiddenTarget": "(the table isn't told the number)",
+    "poolLine": "{pool} dice ({modifier}) vs DN {target}",
+    "plainLine": "{modifier} vs {target}",
+    "aCharacter": "a character",
+    "changeLabel": "Change the roll of {name}",
+    "reportLabel": "Report a roll for {name}",
+    "change": "Change",
+    "report": "Report",
+    "close": "Close",
+    "closeShow": "Close and show results"
+  },
+  "callForm": {
+    "wholeNumber": "Fill in {id} with a whole number",
+    "fillIn": "Fill in {id}",
+    "pickWho": "Pick who rolls",
+    "pinRuleset": "Pin a ruleset with Tests to call one from here.",
+    "title": "Call a Test",
+    "test": "Test",
+    "pick": "Pick…",
+    "whoRolls": "Who rolls",
+    "noCharacter": "No character is built for this ruleset yet.",
+    "hideTarget": "Hide the number to beat from the table",
+    "showOutcome": "Tell them success or failure",
+    "callTest": "Call Test"
+  },
+  "socket": {
+    "noSignal": "No signal",
+    "unreadable": "Unreadable reply from server. Check before retrying",
+    "noReply": "No reply from server. Check before retrying",
+    "pageDamaged": "The page arrived damaged. Try again",
+    "pageNoReply": "No reply. Try again"
+  }
+}

@@ -465,6 +465,26 @@ fieldset {
   flex: 1;
 }
 
+/* Settings in the header band: a single small button that unfolds a card under it (the language today). */
+.menu {
+  position: relative;
+}
+.menu > summary {
+  list-style: none;
+}
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+.menu-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 6;
+  display: grid;
+  gap: 8px;
+  min-width: 168px;
+}
+
 input,
 select {
   min-height: var(--tap);

@@ -7,6 +7,7 @@ import { UserButton } from "@inconsistable/auth/react";
 import { CreateGame, type Lobby, type LobbyGame } from "@inconsistable/core-schema";
 
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
+import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, CampaignRef, readJson } from "@/lib/api-reply/api-reply";
 import type { RulesetList } from "@/lib/library/library";
 
@@ -51,6 +52,7 @@ function Section({ title, games, empty }: { title: string; games: LobbyGame[]; e
 export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
   const t = useTranslations("lobby");
   const tStatus = useTranslations("status");
+  const tr = useRefusal();
   const tCommon = useTranslations("common");
   const router = useRouter();
   const [name, setName] = useState("");
@@ -78,7 +80,7 @@ export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
       const room = CampaignRef.safeParse(body);
       if (res.ok && room.success) return router.push(`/c/${room.data.campaignId}?tab=party`);
       const refusal = ApiMessage.safeParse(body);
-      setError(refusal.success ? refusal.data.message : t("createFailed"));
+      setError(refusal.success ? tr(refusal.data) : t("createFailed"));
     } catch {
       setError(tStatus("nosignal"));
     }

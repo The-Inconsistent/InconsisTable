@@ -9,22 +9,34 @@ import {
   BookSource,
   Codex,
   LiveState,
+  RefusalKey,
+  RefusalParamsSchema,
+  refused,
   type ActionInput,
   type ActionResult,
   type BookReply,
+  type Refused,
 } from "@inconsistable/core-schema";
 
+import { useRefusal } from "@/hooks/use-refusal/use-refusal";
+
+// What a refusal adds to `error`: the code and params to translate by (an unknown code is dropped, the text stays).
+const Refusal = {
+  code: RefusalKey.optional().catch(undefined),
+  message: z.string().optional(),
+  params: RefusalParamsSchema.optional().catch(undefined),
+};
 // Acks are untrusted socket payloads too; core-schema has only their types, so they're checked against those.
 const ActionReply = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(true), id: z.string().optional(), token: z.string().optional() }),
-  z.object({ ok: z.literal(false), error: z.string() }),
+  z.object({ ok: z.literal(false), error: z.string(), ...Refusal }),
 ]) satisfies z.ZodType<ActionResult>;
 // The union of every serving GM's sources (each one capped by BookServing, the union not).
 const BookAvailable = z.object({ sources: z.array(BookSource) });
 // socket.io-client hands binary over as an ArrayBuffer.
 const PageReply = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(true), image: z.instanceof(ArrayBuffer) }),
-  z.object({ ok: z.literal(false), error: z.string() }),
+  z.object({ ok: z.literal(false), error: z.string(), ...Refusal }),
 ]) satisfies z.ZodType<BookReply>;
 
 const ACK_TIMEOUT_MS = 5000;
@@ -42,6 +54,9 @@ export type RenderPage = (p: BookPage) => Promise<BookReply>;
 // cookie); the server sends a full snapshot on connect and after every change, so reconnecting needs no extra logic.
 export function useTable(campaignId: string) {
   const t = useTranslations("socket");
+  const tr = useRefusal();
+  // The refusal worded for this device: `error` is what the screen shows, the api's English when there are no words.
+  const worded = useCallback(<R extends Refused>(r: R): R => ({ ...r, error: tr({ ...r, message: r.error }) }), [tr]);
   const socket = useRef<Socket | null>(null);
   const [state, setState] = useState<LiveState | null>(null);
   const [codex, setCodex] = useState<Codex | null>(null);
@@ -95,15 +110,14 @@ export function useTable(campaignId: string) {
     });
     s.on("book:request", async (raw: unknown, ack: (r: BookReply) => void) => {
       const render = serving.current?.render;
-      // ponytail: these three refusals are relayed to the player who asked and stay English, upgrade: error codes the
-      // asking phone words in its own language (the api change after the i18n part 1).
-      if (!render) return ack({ ok: false, error: "The GM isn't serving that book." });
+      // Relayed to the player who asked: the code lets that phone word it in its own language.
+      if (!render) return ack(refused("bookNotServed"));
       const page = BookPage.safeParse(raw);
-      if (!page.success) return ack({ ok: false, error: "That page request is malformed." });
+      if (!page.success) return ack(refused("bookMalformed"));
       try {
         ack(await render(page.data));
       } catch {
-        ack({ ok: false, error: "The GM's tablet couldn't render it." });
+        ack(refused("bookRenderFailed"));
       }
     });
     return () => {
@@ -163,9 +177,9 @@ export function useTable(campaignId: string) {
         btn.setAttribute("data-sent", result.ok ? "ok" : "no");
         setTimeout(() => btn.removeAttribute("data-sent"), SENT_MS);
       }
-      return result;
+      return result.ok ? result : worded(result);
     },
-    [t],
+    [t, worded],
   );
 
   const requestPage: RequestPage = useCallback(
@@ -174,12 +188,13 @@ export function useTable(campaignId: string) {
       if (!s?.connected) return { ok: false, error: t("noSignal") };
       try {
         const reply = PageReply.safeParse(await s.timeout(PAGE_TIMEOUT_MS).emitWithAck("book:request", p));
-        return reply.success ? reply.data : { ok: false, error: t("pageDamaged") };
+        if (!reply.success) return { ok: false, error: t("pageDamaged") };
+        return reply.data.ok ? reply.data : worded(reply.data);
       } catch {
         return { ok: false, error: t("pageNoReply") };
       }
     },
-    [t],
+    [t, worded],
   );
 
   // GM: serve these sources with `render`, or stop (null or no sources).

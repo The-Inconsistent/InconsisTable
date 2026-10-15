@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useRef, useState, type ChangeEvent } from "react";
 
+import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
 import { locate } from "@/lib/json-locate/json-locate";
 import {
@@ -52,6 +53,7 @@ function KeyList({ kind, keys }: { kind: "added" | "changed" | "removed"; keys: 
 // text; nothing is kept of the file but the rows the api writes.
 export function ImportPanel({ onSaved }: ImportPanelProps) {
   const t = useTranslations("importPanel");
+  const tr = useRefusal();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
@@ -130,7 +132,7 @@ export function ImportPanel({ onSaved }: ImportPanelProps) {
           setOutcome({ kind: "problems", problems: refusal.data.problems, warnings: refusal.data.warnings });
         else if (res.status === 413) setOutcome({ kind: "error", message: t("tooBig") });
         else if (res.status === 401) setOutcome({ kind: "error", message: t("signedOut") });
-        else setOutcome({ kind: "error", message: message.success ? message.data.message : t("failed") });
+        else setOutcome({ kind: "error", message: message.success ? tr(message.data) : t("failed") });
       }
     } catch {
       setOutcome({ kind: "error", message: t("failed") });

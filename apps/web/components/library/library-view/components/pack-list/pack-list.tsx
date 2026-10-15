@@ -2,6 +2,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
+import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
 import { HideReply, formatBytes, type PackList as PackListData } from "@/lib/library/library";
 
@@ -11,6 +12,7 @@ type PackListProps = { packs: PackListData["packs"]; onChanged: () => void };
 export function PackList({ packs, onChanged }: PackListProps) {
   const t = useTranslations("packList");
   const tStatus = useTranslations("status");
+  const tr = useRefusal();
   const locale = useLocale();
   const [confirming, setConfirming] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export function PackList({ packs, onChanged }: PackListProps) {
       const res = await fetch(`/api/packs/${id}/export`);
       if (!res.ok) {
         const refusal = ApiMessage.safeParse(await readJson(res));
-        setError(refusal.success ? refusal.data.message : t("exportFailed"));
+        setError(refusal.success ? tr(refusal.data) : t("exportFailed"));
       } else {
         const url = URL.createObjectURL(await res.blob());
         const link = document.createElement("a");

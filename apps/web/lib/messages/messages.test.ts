@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { REFUSALS } from "@inconsistable/core-schema";
 
 const load = (locale: string): unknown =>
   JSON.parse(readFileSync(new URL(`../../messages/${locale}.json`, import.meta.url), "utf8"));
@@ -29,4 +30,16 @@ test("each vi message fills in the same names as its en message", () => {
 
 test("vi.json has exactly the keys of en.json", () => {
   assert.deepEqual(paths(load("vi")).toSorted(), paths(load("en")).toSorted());
+});
+
+// Every api refusal code has an English and a Vietnamese message with the catalogue's {slots}; en says what the api says.
+test("the errors namespace has one en and one vi message per refusal code", () => {
+  for (const locale of ["en", "vi"]) {
+    const errors = (load(locale) as { errors: Record<string, string> }).errors;
+    assert.deepEqual(Object.keys(errors).toSorted(), Object.keys(REFUSALS).toSorted(), locale);
+    for (const [code, text] of Object.entries(REFUSALS)) {
+      assert.deepEqual(slotsOf(errors[code] ?? ""), slotsOf(text), `${locale}.${code}`);
+      if (locale === "en") assert.equal(errors[code], text, code);
+    }
+  }
 });

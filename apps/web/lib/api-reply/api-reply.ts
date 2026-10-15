@@ -4,8 +4,12 @@ import { z } from "zod";
 // URL path, so only id characters pass.
 export const CampaignRef = z.object({ campaignId: z.string().regex(/^[A-Za-z0-9-]+$/) });
 
-// The api's refusal body; any other shape falls back to the caller's own text.
-export const ApiMessage = z.object({ message: z.string() });
+// The api's refusal body (code, English message, params); any other shape falls back to the caller's own text.
+export const ApiMessage = z.object({
+  message: z.string(),
+  code: z.string().optional(),
+  params: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
+});
 
 // A fetch body as untrusted JSON, or null when it isn't JSON.
 export async function readJson(res: Response): Promise<unknown> {

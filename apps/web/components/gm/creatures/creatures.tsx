@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 
 import { Ruleset } from "@inconsistable/rules-engine";
 
+import { useRefusal, type RefusalText } from "@/hooks/use-refusal/use-refusal";
 import type { Send } from "@/hooks/use-table/use-table";
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
 import { clampCount, creatureTypes, MAX_SPAWN, MIN_SPAWN } from "@/lib/creatures/creatures";
@@ -14,13 +15,21 @@ type CreaturesProps = { campaignId: string; send: Send };
 const PAGE = 50;
 
 // One read of the seat-scoped rules route, parsed. Throws the api's own words when it refuses.
-async function readRules({ path, fallback }: { path: string; fallback: string }): Promise<RulesReply> {
+async function readRules({
+  path,
+  fallback,
+  tr,
+}: {
+  path: string;
+  fallback: string;
+  tr: (r: RefusalText) => string;
+}): Promise<RulesReply> {
   const res = await fetch(path);
   const body = await readJson(res);
   const parsed = RulesReply.safeParse(body);
   if (res.ok && parsed.success) return parsed.data;
   const refusal = ApiMessage.safeParse(body);
-  throw new Error(refusal.success ? refusal.data.message : fallback);
+  throw new Error(refusal.success ? tr(refusal.data) : fallback);
 }
 
 // ADD CREATURES: search the attached packs for creatures by name, pick one, say how many, and place them. They arrive
@@ -28,6 +37,7 @@ async function readRules({ path, fallback }: { path: string; fallback: string })
 export function Creatures({ campaignId, send }: CreaturesProps) {
   const t = useTranslations("creatures");
   const tStatus = useTranslations("status");
+  const tr = useRefusal();
   const readFailed = t("readFailed");
   const [q, setQ] = useState("");
   const [found, setFound] = useState<{ entries: RulesEntry[]; versions: Map<string, string> } | null>(null);
@@ -44,13 +54,17 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
     setMessage(null);
     try {
       const base = `/api/campaigns/${encodeURIComponent(campaignId)}/rules`;
-      const room = await readRules({ path: `${base}?limit=1`, fallback: readFailed });
+      const room = await readRules({ path: `${base}?limit=1`, fallback: readFailed, tr });
       const ruleset = Ruleset.safeParse(room.ruleset?.manifest);
       if (!ruleset.success) throw new Error(t("pickRuleset"));
       const name = q.trim() === "" ? "" : `&q=${encodeURIComponent(q.trim())}`;
       const replies = await Promise.all(
         creatureTypes(ruleset.data).map((type) =>
-          readRules({ path: `${base}?type=${encodeURIComponent(type)}${name}&limit=${PAGE}`, fallback: readFailed }),
+          readRules({
+            path: `${base}?type=${encodeURIComponent(type)}${name}&limit=${PAGE}`,
+            fallback: readFailed,
+            tr,
+          }),
         ),
       );
       const versions = new Map(replies.flatMap((r) => r.packs.map((p) => [p.slug, p.id] as const)));

@@ -1,5 +1,6 @@
 // End-to-end check against a running api (bun run dev:api) + Postgres 18 (bun run dev:db). The api must run with
 // CLERK_TEST_SECRET set (apps/api/.env, dev only), so these tests can act as signed-in Clerk users.
+import { createHmac } from "node:crypto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Client } from "pg";
@@ -303,6 +304,47 @@ test("a room invite makes only so many characters, and the refusal says why", { 
   owner.socket.close();
 });
 
+// The Clerk webhook, signed the way Svix does it with the api's own CLERK_WEBHOOK_SECRET.
+const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+function clerkWebhook(event: unknown, secret = WEBHOOK_SECRET ?? "") {
+  const body = JSON.stringify(event);
+  const id = `msg_${run}`;
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const key = Buffer.from(secret.slice("whsec_".length), "base64");
+  const signature = createHmac("sha256", key).update(`${id}.${timestamp}.${body}`).digest("base64");
+  return fetch(`${API}/api/webhooks/clerk`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "cf-connecting-ip": nextSocketIp(),
+      "svix-id": id,
+      "svix-timestamp": timestamp,
+      "svix-signature": `v1,${signature}`,
+    },
+    body,
+  });
+}
+
+test("the Clerk webhook refuses unsigned requests, and a signed user.deleted drops that user's sockets", async () => {
+  const unsigned = await post("/webhooks/clerk", { type: "user.deleted", data: { id: "x" } });
+  assert.ok([400, 503].includes(unsigned.status), `unsigned: ${unsigned.status}`);
+  if (!WEBHOOK_SECRET) return; // the api has no CLERK_WEBHOOK_SECRET to verify against
+  const { owner, campaignId } = await newRoom("Webhook");
+  const anaClerk = await seatPlayer(owner, "ana-hook");
+  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  await ana.until(() => true);
+  const forged = await clerkWebhook({ type: "user.deleted", data: { id: uid("ana-hook") } }, `whsec_${btoa("forged")}`);
+  assert.equal(forged.status, 400);
+  assert.equal(ana.socket.connected, true, "a forged webhook kicks nobody");
+  const unrelated = await clerkWebhook({ type: "user.created", data: { id: uid("ana-hook") } });
+  assert.equal(unrelated.status, 200);
+  assert.equal(ana.socket.connected, true);
+  const signed = await clerkWebhook({ type: "user.deleted", data: { id: uid("ana-hook"), deleted: true } });
+  assert.equal(signed.status, 200);
+  await eventually(() => !ana.socket.connected, "the deleted user's socket is dropped");
+  owner.socket.close();
+});
+
 test("the admin key: its room and socket actions are logged as admin-key, and its REST calls are rate limited", async () => {
   const key = process.env.ADMIN_KEY ?? "";
   const scriptIp = { "x-admin-key": key, "cf-connecting-ip": nextSocketIp() };
@@ -375,7 +417,9 @@ const dropped = (c: ReturnType<typeof connect>) => new Promise<void>((r) => c.so
 async function seatPlayer(owner: ReturnType<typeof connect>, name: string) {
   const code = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
   const token = clerk(name);
-  assert.equal((await post(`/invites/${code}/accept`, { newCharacterName: name }, bearer(token))).status, 200);
+  // An address of its own: the door's window (60 a minute) is shared by every accept of the suite otherwise.
+  const headers = { ...bearer(token), "cf-connecting-ip": nextSocketIp() };
+  assert.equal((await post(`/invites/${code}/accept`, { newCharacterName: name }, headers)).status, 200);
   await owner.until((s) => s.access.members.some((m) => m.userId === uid(name)));
   return token;
 }

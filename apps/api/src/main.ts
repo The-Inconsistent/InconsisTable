@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
-import { json, type NextFunction, type Request, type Response } from "express";
+import { json, text, type NextFunction, type Request, type Response } from "express";
 import { MAX_PACK_BYTES } from "@inconsistable/rules-engine";
 import { AppModule } from "./app.module.ts";
 import { runMigrations } from "./core/db.ts";
@@ -49,8 +49,17 @@ app.use(IMPORT_ROUTES, (req: Request, res: Response, next: NextFunction) => {
   res.status(429).json({ message: "Too many imports. Wait a minute." });
 });
 
-// The JSON parsers, after the limiters so a flood is refused before its body is read. Only the importer takes a big
+// Clerk's webhooks: refused unsigned in the controller, limited here per address (Svix retries are few), and read as the
+// raw text the signature covers.
+const allowWebhook = limiter({ max: 60, windowMs: 60_000 });
+app.use("/api/webhooks", (req: Request, res: Response, next: NextFunction) => {
+  if (allowWebhook(clientIp(req.headers, req.socket.remoteAddress))) return next();
+  res.status(429).json({ message: "Too many requests. Wait a minute." });
+});
+
+// The body parsers, after the limiters so a flood is refused before its body is read. Only the importer takes a big
 // body (MAX_PACK_BYTES); everything else keeps express' 100 KB.
+app.use("/api/webhooks", text({ type: "*/*" }));
 app.use(IMPORT_ROUTES, json({ limit: MAX_PACK_BYTES }));
 app.use(json());
 

@@ -14,6 +14,7 @@ import type {
   InvitePreview,
   LiveState,
   Lobby,
+  RefusalKey,
 } from "@inconsistable/core-schema";
 import { MAX_NEW_CHARACTERS_PER_INVITE } from "../src/auth/invite.limits.ts";
 import { MAX_PACKS_PER_USER } from "../src/pack/pack.normalize.ts";
@@ -105,9 +106,13 @@ const ok = (r: ActionResult) => {
   assert.equal(r.ok, true, r.ok ? "" : r.error);
   return r as Extract<ActionResult, { ok: true }>;
 };
-const refused = (r: ActionResult, pattern: RegExp) => {
+// A refusal by its code (sturdy), or by a pattern on the English text for the dynamic ones.
+const refused = (r: ActionResult, expected: RegExp | RefusalKey) => {
   assert.equal(r.ok, false, "expected a refusal");
-  if (!r.ok) assert.match(r.error, pattern);
+  if (r.ok) return;
+  assert.equal(r.message, r.error, "message and error are the same text");
+  if (typeof expected === "string") assert.equal(r.code, expected, r.error);
+  else assert.match(r.error, expected);
 };
 
 test("GET /api/health answers 200 without a sign-in", async () => {
@@ -162,11 +167,11 @@ test("room QR: a signed-in player and a guest join, each holding their own chara
   const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
   await ana.until(() => true);
   ok(await ana.send({ type: "actor.rename", id: lyra.id, name: "Lyra the Bold" }));
-  refused(await ana.send({ type: "actor.rename", id: bran.id, name: "Mine now" }), /Not your character/);
+  refused(await ana.send({ type: "actor.rename", id: bran.id, name: "Mine now" }), "notYourCharacter");
   ok(await guest.send({ type: "actor.rename", id: bran.id, name: "Bran Stout" }));
-  refused(await guest.send({ type: "actor.rename", id: lyra.id, name: "Mine now" }), /Not your character/);
-  refused(await ana.send({ type: "session.start" }), /permission/);
-  refused(await ana.send({ type: "invite.create", mode: "room" }), /permission/);
+  refused(await guest.send({ type: "actor.rename", id: lyra.id, name: "Mine now" }), "notYourCharacter");
+  refused(await ana.send({ type: "session.start" }), "noPermission");
+  refused(await ana.send({ type: "invite.create", mode: "room" }), "noPermission");
 
   for (const s of [owner, ana, guest]) s.socket.close();
 });
@@ -177,10 +182,10 @@ test("the table screen joins by token and only reads", async () => {
   const screen = connect({ auth: { campaignId, token: tok } });
   const s = await screen.until(() => true);
   assert.deepEqual(s.access.invites, []);
-  refused(await screen.send({ type: "session.start" }), /read-only/);
-  refused(await screen.send({ type: "actor.create", name: "TV hero" }), /read-only/);
+  refused(await screen.send({ type: "session.start" }), "screenReadOnly");
+  refused(await screen.send({ type: "actor.create", name: "TV hero" }), "screenReadOnly");
   const page = (await screen.socket.emitWithAck("book:request", { source: "sample", page: 1 })) as ActionResult;
-  refused(page, /no book pages/);
+  refused(page, "bookScreenNone");
   // Revoking screens drops the TV.
   const gone = new Promise<void>((r) => screen.socket.once("disconnect", () => r()));
   ok(await owner.send({ type: "screen.revoke" }));
@@ -198,25 +203,25 @@ test("a GM can't remove the owner, and the owner hands the room on only when the
   await ben.until((s) => s.access.members.some((m) => m.userId === uid("ben") && m.role === "gm"));
 
   // The GM can't remove the owner, invite another GM, delete the room or hand it on.
-  refused(await ben.send({ type: "member.remove", userId: uid("owner-Transfer") }), /owner can't be removed/);
+  refused(await ben.send({ type: "member.remove", userId: uid("owner-Transfer") }), "ownerNotRemovable");
   refused(
     await ben.send({ type: "invite.create", mode: "room", role: "gm", allowGuests: false }),
     /only invite players/,
   );
-  refused(await ben.send({ type: "campaign.transfer", toUserId: uid("ben") }), /permission/);
+  refused(await ben.send({ type: "campaign.transfer", toUserId: uid("ben") }), "noPermission");
   ok(await ben.send({ type: "campaign.archive" })); // any GM archives (kept from Auspex)
-  refused(await ben.send({ type: "campaign.delete", name: "Transfer" }), /permission/); // only the owner deletes
+  refused(await ben.send({ type: "campaign.delete", name: "Transfer" }), "noPermission"); // only the owner deletes
   ok(await owner.send({ type: "campaign.unarchive" }));
 
   // Offer the room: nothing moves until Ben accepts; nobody else can accept it.
   ok(await owner.send({ type: "campaign.transfer", toUserId: uid("ben") }));
   const offered = await owner.until((s) => s.access.transfer?.toUserId === uid("ben"));
   assert.equal(offered.campaign.ownerUserId, uid("owner-Transfer"));
-  refused(await owner.send({ type: "campaign.transferAccept" }), /no offer for you/);
+  refused(await owner.send({ type: "campaign.transferAccept" }), "noOffer");
   const kicked = [owner, ben].map((s) => new Promise<void>((r) => s.socket.once("disconnect", () => r())));
   ok(await ben.send({ type: "campaign.transferAccept" }));
   // The old owner's socket, still open from before the transfer, has lost the owner's powers already.
-  refused(await owner.send({ type: "member.appoint", userId: uid("ben"), role: "cogm", scopes: [] }), /permission/);
+  refused(await owner.send({ type: "member.appoint", userId: uid("ben"), role: "cogm", scopes: [] }), "noPermission");
   const moved = await owner.until((s) => s.campaign.ownerUserId === uid("ben"));
   assert.equal(moved.access.transfer, null);
   // Then every seat is kicked and resolves again: Ben now holds the owner's powers, the old owner is a GM.
@@ -226,7 +231,7 @@ test("a GM can't remove the owner, and the owner hands the room on only when the
   ok(await ben2.send({ type: "member.appoint", userId: uid("owner-Transfer"), role: "cogm", scopes: ["combat"] }));
   const old = connect({ auth: { campaignId, clerkToken: ownerClerk } });
   await old.until(() => true);
-  refused(await old.send({ type: "session.start" }), /permission/); // a combat-only co-GM
+  refused(await old.send({ type: "session.start" }), "noPermission"); // a combat-only co-GM
   ok(await ben2.send({ type: "member.remove", userId: uid("owner-Transfer") }));
   ben2.socket.close();
   old.socket.close();
@@ -266,7 +271,7 @@ test("a seated admin plays by their seat; OPEN AS ADMIN is logged", async () => 
   assert.equal(me.seat.kind, "member", "a seated admin gets their seat");
   const seated = connect({ auth: { campaignId, clerkToken: rootClerk } });
   await seated.until(() => true);
-  refused(await seated.send({ type: "session.start" }), /permission/);
+  refused(await seated.send({ type: "session.start" }), "noPermission");
   seated.socket.close();
 
   // Another admin without a seat opens the room as admin.
@@ -292,7 +297,10 @@ test("a room invite makes only so many characters, and the refusal says why", { 
   for (let n = 1; n <= MAX_NEW_CHARACTERS_PER_INVITE; n++) assert.equal((await accept(n)).status, 200, `guest ${n}`);
   const over = await accept(MAX_NEW_CHARACTERS_PER_INVITE + 1);
   assert.equal(over.status, 400);
-  assert.match(((await over.json()) as { message: string }).message, /limit/);
+  const refusal = (await over.json()) as { code: string; message: string; params?: { limit: number } };
+  assert.equal(refusal.code, "inviteCharacterLimit");
+  assert.equal(refusal.params?.limit, MAX_NEW_CHARACTERS_PER_INVITE);
+  assert.match(refusal.message, /limit/);
   const s = await owner.until(
     (st) => st.actors.filter((a) => a.kind === "pc").length === MAX_NEW_CHARACTERS_PER_INVITE,
   );
@@ -382,9 +390,9 @@ test("book pages are limited per seat: a second socket of the same seat shares t
   const ask = (c: typeof first) =>
     c.socket.emitWithAck("book:request", { source: "sample", page: 1 }) as Promise<ActionResult>;
   // Nobody serves "sample", so each answer is a quick refusal; the 31st request in the window is the limiter's.
-  for (let i = 0; i < 30; i++) refused(await ask(first), /isn't serving/);
-  refused(await ask(second), /Too many pages/);
-  refused(await ask(first), /Too many pages/);
+  for (let i = 0; i < 30; i++) refused(await ask(first), "bookNotServed");
+  refused(await ask(second), "tooManyPages");
+  refused(await ask(first), "tooManyPages");
   for (const c of [owner, first, second]) c.socket.close();
 });
 
@@ -433,13 +441,13 @@ test("the room's settings and its sessions: update, start, edit, end", async () 
 
   ok(await owner.send({ type: "campaign.update", name: "Settings 2", nextSessionPlace: "Ana's" }));
   await owner.until((s) => s.campaign.name === "Settings 2" && s.campaign.nextSessionPlace === "Ana's");
-  refused(await ana.send({ type: "campaign.update", name: "Mine" }), /permission/);
+  refused(await ana.send({ type: "campaign.update", name: "Mine" }), "noPermission");
 
   const sessionId = ok(await owner.send({ type: "session.start", title: "One" })).id!;
   ok(await owner.send({ type: "session.edit", sessionId, title: "One, again", notes: "the twist" }));
   await owner.until((s) => s.session?.title === "One, again" && s.session.notes === "the twist");
-  refused(await ana.send({ type: "session.edit", sessionId, title: "x" }), /permission/);
-  refused(await owner.send({ type: "session.edit", sessionId: crypto.randomUUID(), title: "x" }), /not found/);
+  refused(await ana.send({ type: "session.edit", sessionId, title: "x" }), "noPermission");
+  refused(await owner.send({ type: "session.edit", sessionId: crypto.randomUUID(), title: "x" }), "sessionNotFound");
 
   // A co-GM who runs sessions reads the notes (house decision #31) but holds no secrets: they edit the title, not the notes.
   const cogmInv = ok(
@@ -452,15 +460,15 @@ test("the room's settings and its sessions: update, start, edit, end", async () 
   assert.equal((await co.until(() => true)).session?.notes, "the twist", "the session scope reads the notes");
   ok(await co.send({ type: "session.edit", sessionId, notes: "the co-GM's twist" }));
   const codexCo = await coGm({ owner, campaignId, name: "co-codex-set", scopes: ["codex"] });
-  refused(await codexCo.send({ type: "session.edit", sessionId, notes: "no" }), /permission/); // no session scope
+  refused(await codexCo.send({ type: "session.edit", sessionId, notes: "no" }), "noPermission"); // no session scope
   codexCo.socket.close();
   ok(await co.send({ type: "session.edit", sessionId, title: "Co's title" }));
   await owner.until((s) => s.session?.title === "Co's title" && s.session.notes === "the co-GM's twist");
 
-  refused(await ana.send({ type: "session.end" }), /permission/);
+  refused(await ana.send({ type: "session.end" }), "noPermission");
   ok(await owner.send({ type: "session.end", recap: "We met." }));
   await owner.until((s) => s.session === null);
-  refused(await owner.send({ type: "session.end" }), /No session is running/);
+  refused(await owner.send({ type: "session.end" }), "noSessionRunning");
   for (const s of [owner, ana, co]) s.socket.close();
 });
 
@@ -471,20 +479,20 @@ test("invites and guest tokens: revoke, issue, and revoking drops the guest", as
   await ana.until(() => true);
 
   const inv = ok(await owner.send({ type: "invite.create", mode: "room" })).id!;
-  refused(await ana.send({ type: "invite.revoke", id: inv }), /permission/);
+  refused(await ana.send({ type: "invite.revoke", id: inv }), "noPermission");
   ok(await owner.send({ type: "invite.revoke", id: inv }));
   await owner.until((s) => !s.access.invites.some((i) => i.id === inv));
-  refused(await owner.send({ type: "invite.revoke", id: inv }), /Invite not found/);
+  refused(await owner.send({ type: "invite.revoke", id: inv }), "inviteNotFound");
 
   const heroId = ok(await owner.send({ type: "actor.create", name: "Hero" })).id!;
-  refused(await ana.send({ type: "token.issue", actorId: heroId }), /permission/);
-  refused(await owner.send({ type: "token.issue", actorId: crypto.randomUUID() }), /Character not found/);
+  refused(await ana.send({ type: "token.issue", actorId: heroId }), "noPermission");
+  refused(await owner.send({ type: "token.issue", actorId: crypto.randomUUID() }), "characterNotFound");
   const tok = ok(await owner.send({ type: "token.issue", actorId: heroId })).token!;
   const guest = connect({ auth: { campaignId, token: tok } });
   await guest.until((s) => s.actors.some((a) => a.id === heroId));
 
-  refused(await ana.send({ type: "token.revoke", actorId: heroId }), /permission/);
-  refused(await owner.send({ type: "token.revoke", actorId: crypto.randomUUID() }), /Character not found/);
+  refused(await ana.send({ type: "token.revoke", actorId: heroId }), "noPermission");
+  refused(await owner.send({ type: "token.revoke", actorId: crypto.randomUUID() }), "characterNotFound");
   const gone = dropped(guest);
   ok(await owner.send({ type: "token.revoke", actorId: heroId }));
   await gone;
@@ -494,7 +502,7 @@ test("invites and guest tokens: revoke, issue, and revoking drops the guest", as
 
 test("leaving drops every socket of that seat, and an offer to the leaver goes with them", async () => {
   const { owner, campaignId } = await newRoom("Leave");
-  refused(await owner.send({ type: "seat.leave" }), /Hand the room on/);
+  refused(await owner.send({ type: "seat.leave" }), "handOnFirst");
 
   // A member with two tabs open leaves from one: the other goes too, and the room offer to them is withdrawn.
   const anaClerk = await seatPlayer(owner, "ana-leave");
@@ -540,7 +548,7 @@ test("a GM removes players only; a removed player's character stays, retired", a
   await ben.until(() => true);
 
   // Only the owner removes a GM or co-GM (docs/design.md §3.6).
-  refused(await ben.send({ type: "member.remove", userId: uid("co-rm") }), /Only the owner/);
+  refused(await ben.send({ type: "member.remove", userId: uid("co-rm") }), "onlyOwnerRemovesGm");
   ok(await ben.send({ type: "member.remove", userId: uid("ana-rm") }));
   const s = await owner.until((st) => !st.access.members.some((m) => m.userId === uid("ana-rm")));
   assert.equal(s.actors.find((a) => a.name === "ana-rm")?.status, "retired");
@@ -557,10 +565,10 @@ test("a room offer: cancelled by the owner, and withdrawn when the recipient is 
   await ben.until(() => true);
 
   ok(await owner.send({ type: "campaign.transfer", toUserId: uid("ben-offer") }));
-  refused(await ben.send({ type: "campaign.transferCancel" }), /permission/);
+  refused(await ben.send({ type: "campaign.transferCancel" }), "noPermission");
   ok(await owner.send({ type: "campaign.transferCancel" }));
   await owner.until((s) => s.access.transfer === null);
-  refused(await ben.send({ type: "campaign.transferAccept" }), /no offer for you/);
+  refused(await ben.send({ type: "campaign.transferAccept" }), "noOffer");
 
   ok(await owner.send({ type: "campaign.transfer", toUserId: uid("ben-offer") }));
   await owner.until((s) => s.access.transfer?.toUserId === uid("ben-offer"));
@@ -591,7 +599,7 @@ test("codex: a reader listed twice is one reader, and an entry deletes once", as
   );
   ok(await owner.send({ type: "codex.delete", id: h }));
   await eventually(() => !owner.codex()?.entries.some((e) => e.id === h), "the entry is gone");
-  refused(await owner.send({ type: "codex.delete", id: h }), /Entry not found/);
+  refused(await owner.send({ type: "codex.delete", id: h }), "entryNotFound");
   owner.socket.close();
 });
 
@@ -601,11 +609,11 @@ test("the admin action route seats a known user and refuses anything but houseke
   const act = (body: unknown) => post(`/admin/campaigns/${campaignId}/action`, body, bearer(rootClerk));
   assert.equal((await act({ type: "session.start" })).status, 400, "not an admin action");
   assert.equal((await post(`/admin/campaigns/${campaignId}/action`, { type: "member.seat", userId: "x" })).status, 401);
-  refused((await (await act({ type: "member.seat", userId: uid("nobody") })).json()) as ActionResult, /User not found/);
+  refused((await (await act({ type: "member.seat", userId: uid("nobody") })).json()) as ActionResult, "userNotFound");
   await get("/lobby", bearer(clerk("dana-seat"))); // the app has now seen them
   ok((await (await act({ type: "member.seat", userId: uid("dana-seat") })).json()) as ActionResult);
   await owner.until((s) => s.access.members.some((m) => m.userId === uid("dana-seat") && m.role === "gm"));
-  refused(await owner.send({ type: "member.seat", userId: uid("dana-seat") }), /permission/);
+  refused(await owner.send({ type: "member.seat", userId: uid("dana-seat") }), "noPermission");
   owner.socket.close();
 });
 
@@ -803,9 +811,9 @@ test("packs in a room: the pin, the seat-scoped read, and a private pack that st
   const anaClerk = await seatPlayer(owner, "ana-pk");
   const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
   await ana.until(() => true);
-  refused(await ana.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /permission/);
-  refused(await ana.send({ type: "campaign.setRuleset", rulesetVersionId: rs.body.versionId }), /permission/);
-  refused(await owner.send({ type: "campaign.attachPack", packVersionId: crypto.randomUUID() }), /Pack not found/);
+  refused(await ana.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), "noPermission");
+  refused(await ana.send({ type: "campaign.setRuleset", rulesetVersionId: rs.body.versionId }), "noPermission");
+  refused(await owner.send({ type: "campaign.attachPack", packVersionId: crypto.randomUUID() }), "packNotFound");
   ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
   ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId })); // pinned once, not twice
 
@@ -847,7 +855,7 @@ test("packs in a room: the pin, the seat-scoped read, and a private pack that st
   const rivalRoom = await rival.post<{ campaignId: string }>("/campaigns", { name: "Rival" });
   const rivalSocket = connect({ auth: { campaignId: rivalRoom.body.campaignId, clerkToken: rivalClerk } });
   await rivalSocket.until(() => true);
-  refused(await rivalSocket.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /Pack not found/);
+  refused(await rivalSocket.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), "packNotFound");
   refused(
     await rivalSocket.send({ type: "campaign.setRuleset", rulesetVersionId: rs.body.versionId }),
     /Ruleset not found/,
@@ -872,15 +880,15 @@ test("packs in a room: the pin, the seat-scoped read, and a private pack that st
   const bare = await me.post<{ campaignId: string }>("/campaigns", { name: "Bare" });
   const bareSocket = connect({ auth: { campaignId: bare.body.campaignId, clerkToken: ownerClerk } });
   await bareSocket.until(() => true);
-  refused(await bareSocket.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /ruleset first/);
+  refused(await bareSocket.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), "pickRulesetFirst");
   bareSocket.socket.close();
 
   // Deleting an attached pack hides it but keeps what the room uses; detached and deleted, it can't come back.
   assert.deepEqual((await me.post<{ deleted: boolean }>(`/packs/${pk.body.packId}/hide`, {})).body, { deleted: false });
   assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.entries.length, 4);
   ok(await owner.send({ type: "campaign.detachPack", packVersionId: pk.body.versionId }));
-  refused(await owner.send({ type: "campaign.detachPack", packVersionId: pk.body.versionId }), /isn't attached/);
-  refused(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /deleted/);
+  refused(await owner.send({ type: "campaign.detachPack", packVersionId: pk.body.versionId }), "packNotAttached");
+  refused(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), "packDeleted");
   assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.entries.length, 0);
   assert.deepEqual((await me.post<{ deleted: boolean }>(`/packs/${pk.body.packId}/hide`, {})).body, { deleted: true });
   for (const c of [owner, ana, rivalSocket, adminSocket]) c.socket.close();
@@ -908,7 +916,7 @@ test("takedown: an admin disables a pack in every room at once, and it is logged
 
   const served = await me.get<RulesReply>(`/campaigns/${campaignId}/rules`);
   assert.deepEqual([served.body.packs.length, served.body.entries.length], [0, 0], "no longer served to anyone");
-  refused(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), /taken down/);
+  refused(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), "packTakenDown");
   assert.equal((await me.get(`/packs/${pk.body.packId}/export`)).status, 403);
   const reimport = await me.post<PackReply>("/packs", SAMPLE_PACK);
   assert.equal(reimport.status, 422);
@@ -1042,18 +1050,18 @@ test("rule.op: the server clamps, and each seat writes only what its `editableBy
   ok(await owner.send(hpStep(hero, "hp", 100)));
   await resourceOf(owner, hero, "hp", 14);
   refused(await owner.send(hpStep(hero, "hp", 5_000_000)), /amount/);
-  refused(await owner.send({ type: "rule.op", primitive: "nope", op: "adjust", input: {} }), /No operation/);
-  refused(await owner.send({ type: "rule.op", primitive: "resource.capped", op: "nope", input: {} }), /No operation/);
-  refused(await owner.send(hpStep(crypto.randomUUID(), "hp", -1)), /no actor/);
-  refused(await owner.send(adjust(hero, "mana", -1)), /no resource "mana"/);
-  refused(await owner.send(adjust(hero, "hp", -1)), /HP changes through damage and heal/);
+  refused(await owner.send({ type: "rule.op", primitive: "nope", op: "adjust", input: {} }), "noOperation");
+  refused(await owner.send({ type: "rule.op", primitive: "resource.capped", op: "nope", input: {} }), "noOperation");
+  refused(await owner.send(hpStep(crypto.randomUUID(), "hp", -1)), "unknownActor");
+  refused(await owner.send(adjust(hero, "mana", -1)), "unknownResource");
+  refused(await owner.send(adjust(hero, "hp", -1)), "hpThroughDamage");
 
   // A player: spends their own `ownerSpendOnly` focus, never gains it, and never touches a `gm` resource.
   ok(await ana.send(adjust(hero, "focus", -1)));
   await resourceOf(ana, hero, "focus", 0);
-  refused(await ana.send(adjust(hero, "focus", 1)), /only spend/);
-  refused(await ana.send(adjust(hero, "hp", -1)), /HP changes through damage and heal/);
-  refused(await ana.send(adjust(ogre, "focus", -1)), /Not your character/);
+  refused(await ana.send(adjust(hero, "focus", 1)), "onlySpend");
+  refused(await ana.send(adjust(hero, "hp", -1)), "hpThroughDamage");
+  refused(await ana.send(adjust(ogre, "focus", -1)), "notYourCharacter");
   refused(
     await ana.send({ type: "rule.op", primitive: "health.tracks", op: "damage", input: { actorId: hero, amount: 1 } }),
     /permission/,
@@ -1072,10 +1080,10 @@ test("field.set: type and range are checked, `editableBy` decides who writes, hi
   // The owner writes their own `owner` fields; `gm` fields and other characters are the GM's.
   ok(await ana.send(set(hero, "diary", "Met a dragon")));
   refused(await ana.send(set(hero, "diary", "x".repeat(41))), /over the cap of 40/);
-  refused(await ana.send(set(hero, "gmNote", "hm")), /Only the GM can change that/);
-  refused(await ana.send(set(hero, "level", 4)), /Only the GM can change that/);
-  refused(await ana.send(set(ogre, "level", 4)), /Not your character/);
-  refused(await ana.send(set(hero, "nope", 1)), /no field "nope"/);
+  refused(await ana.send(set(hero, "gmNote", "hm")), "gmOnly");
+  refused(await ana.send(set(hero, "level", 4)), "gmOnly");
+  refused(await ana.send(set(ogre, "level", 4)), "notYourCharacter");
+  refused(await ana.send(set(hero, "nope", 1)), "noField");
 
   // The GM is checked against the declaration too.
   ok(await owner.send(set(hero, "gmNote", "she is the heir")));
@@ -1106,7 +1114,7 @@ test("conditions: stack by the manifest, tick down through conditions.expire, hi
   const { owner, ana, hero } = await rulesRoom("Conditions");
   const add = (condition: string, expiresAfter?: number) =>
     ({ type: "condition.add", actorId: hero, condition, expiresAfter }) as const;
-  refused(await ana.send(add("dazed")), /permission/);
+  refused(await ana.send(add("dazed")), "noPermission");
   ok(await owner.send(add("dazed", 2)));
   ok(await owner.send(add("marked")));
   const gm = await owner.until((s) => (actorIn(s, hero)?.conditions.length ?? 0) === 2);
@@ -1143,7 +1151,7 @@ test("conditions: stack by the manifest, tick down through conditions.expire, hi
 
   // `dazed` lasts two round ends: the first ticks it down (a row delta), the second removes it.
   const roundEnd = { type: "rule.op", primitive: "conditions.expire", op: "roundEnd", input: {} } as const;
-  refused(await ana.send(roundEnd), /permission/);
+  refused(await ana.send(roundEnd), "noPermission");
   ok(await owner.send({ type: "session.start" }));
   ok(await owner.send(roundEnd));
   const left = () =>
@@ -1162,7 +1170,7 @@ test("conditions: stack by the manifest, tick down through conditions.expire, hi
 
   ok(await owner.send({ type: "condition.remove", actorId: hero, condition: "dazed" }));
   refused(await owner.send({ type: "condition.remove", actorId: hero, condition: "dazed" }), /doesn't have/);
-  refused(await ana.send({ type: "condition.remove", actorId: hero, condition: "marked" }), /permission/);
+  refused(await ana.send({ type: "condition.remove", actorId: hero, condition: "marked" }), "noPermission");
   const bare = ok(await owner.send({ type: "actor.create", kind: "npc", name: "Bare" })).id!;
   refused(await owner.send({ ...add("dazed"), actorId: bare }), /isn't built for this ruleset/);
   for (const c of [owner, ana]) c.socket.close();
@@ -1175,9 +1183,9 @@ test("actor.rest and session boundaries run the engine's rest primitive", async 
   ok(await owner.send(hpStep(ogre, "hp", -7)));
   await resourceOf(owner, hero, "hp", 5);
 
-  refused(await ana.send(rest("longRest")), /permission/);
+  refused(await ana.send(rest("longRest")), "noPermission");
   refused(await owner.send(rest("nap")), /No rest called "nap"/);
-  refused(await owner.send(rest("longRest", crypto.randomUUID())), /no actor/);
+  refused(await owner.send(rest("longRest", crypto.randomUUID())), "unknownActor");
   ok(await owner.send(rest("longRest", hero)));
   await resourceOf(owner, hero, "hp", 14);
   assert.equal(actorIn(await owner.until(() => true), ogre)?.resources.hp, 3, "only the one asked");
@@ -1198,7 +1206,7 @@ test("actor.rest and session boundaries run the engine's rest primitive", async 
 test("event.undo: newest first, deltas stay, a deleted actor is skipped, only the combat side may", async () => {
   const { owner, ana, campaignId, hero, ogre } = await rulesRoom("Undo");
   const set = (field: string, value: string) => ({ type: "field.set", actorId: hero, field, value }) as const;
-  refused(await owner.send({ type: "event.undo" }), /No session is running/);
+  refused(await owner.send({ type: "event.undo" }), "noSessionRunning");
   ok(await owner.send({ type: "session.start" }));
   refused(await owner.send({ type: "event.undo" }), /Nothing to undo/);
 
@@ -1255,7 +1263,7 @@ test("event.undo: newest first, deltas stay, a deleted actor is skipped, only th
 
   // Who may undo: not the player, not a co-GM without the combat scope; a co-GM with it, yes.
   ok(await owner.send(hpStep(hero, "hp", -1)));
-  refused(await ana.send({ type: "event.undo" }), /permission/);
+  refused(await ana.send({ type: "event.undo" }), "noPermission");
   const cogm = async (name: string, scopes: ("combat" | "session")[]) => {
     const code = ok(await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false })).token!;
     const token = clerk(name);
@@ -1266,7 +1274,7 @@ test("event.undo: newest first, deltas stay, a deleted actor is skipped, only th
     return c;
   };
   const session = await cogm("co-session-Undo", ["session"]);
-  refused(await session.send({ type: "event.undo" }), /permission/);
+  refused(await session.send({ type: "event.undo" }), "noPermission");
   const combat = await cogm("co-combat-Undo", ["combat"]);
   ok(await combat.send({ type: "event.undo" }));
   await resourceOf(owner, hero, "hp", 14);
@@ -1280,14 +1288,14 @@ test("event.undo: newest first, deltas stay, a deleted actor is skipped, only th
   } as const;
   ok(await combat.send(damage));
   await resourceOf(owner, hero, "hp", 13);
-  refused(await session.send(damage), /permission/);
-  refused(await ana.send(damage), /permission/);
+  refused(await session.send(damage), "noPermission");
+  refused(await ana.send(damage), "noPermission");
   ok(await combat.send({ type: "event.undo" }));
   await resourceOf(owner, hero, "hp", 14);
 
   // Ended session: nothing left to undo.
   ok(await owner.send({ type: "session.end" }));
-  refused(await owner.send({ type: "event.undo" }), /No session is running/);
+  refused(await owner.send({ type: "event.undo" }), "noSessionRunning");
 
   // The log: every write has its action and seat, undone steps point at their undo event.
   const log = await query<{ type: string; seat_user_id: string | null; undone_by: string | null; id: string }>(
@@ -1390,16 +1398,16 @@ test("test.call / test.report / test.close: a hidden target stays on the GM side
   const combat = await coGm({ owner, campaignId, name: "co-combat-TestReport", scopes: ["combat"] });
 
   // Who may call: the GM and a co-GM with the session scope. The call is checked against the pinned ruleset.
-  refused(await ana.send(call({ actorIds: [hero] })), /permission/);
-  refused(await screen.send(call()), /read-only/);
-  refused(await combat.send(call()), /permission/);
+  refused(await ana.send(call({ actorIds: [hero] })), "noPermission");
+  refused(await screen.send(call()), "screenReadOnly");
+  refused(await combat.send(call()), "noPermission");
   refused(await owner.send(call({ testId: "nope" })), /No Test "nope"/);
   refused(await owner.send(call({ inputs: { ability: "dex" } })), /dc/);
   refused(await owner.send(call({ inputs: { ability: "dex", dc: "hard" } })), /whole number/);
   refused(await owner.send(call({ inputs: { ability: "dex", dc: 5, extra: 1 } })), /extra/);
   refused(await owner.send(call({ inputs: { ability: "2", dc: 5 } })), /ability: pick one of str, dex/);
   refused(await owner.send(call({ inputs: { ability: "wis", dc: 5 } })), /Lyra/); // no such score
-  refused(await owner.send(call({ actorIds: [crypto.randomUUID()] })), /Character not found/);
+  refused(await owner.send(call({ actorIds: [crypto.randomUUID()] })), "characterNotFound");
   refused(await owner.send(call({ actorIds: [] })), /too small|at least|Invalid/i);
   const bare = ok(await owner.send({ type: "actor.create", kind: "npc", name: "Bare" })).id!;
   refused(await owner.send(call({ actorIds: [bare] })), /isn't built/);
@@ -1430,7 +1438,7 @@ test("test.call / test.report / test.close: a hidden target stays on the GM side
   assert.equal(callIn(await combat.until(() => true), id), undefined, "a co-GM without the scope sees no call");
 
   // A player reports the physical roll for their own character, never for another's; a bad roll is refused.
-  refused(await ana.send(report(id, bram, [12])), /Not your character/);
+  refused(await ana.send(report(id, bram, [12])), "notYourCharacter");
   refused(await ana.send(report(id, hero, [21])), /d20 rolls/);
   refused(await ana.send(report(id, hero, [4, 5])), /expected 1 face/);
   refused(await ana.send(report(id, hero, [4], "lucky")), /advantage, disadvantage or none/);
@@ -1482,8 +1490,8 @@ test("test.call / test.report / test.close: a hidden target stays on the GM side
   assert.deepEqual(await stored(bram), [{ outcome: "failure", reported_by_role: "gm" }]);
 
   // Closing is the GM side's; nothing more is reported afterwards, and Ana is still not shown Bram's result.
-  refused(await ana.send({ type: "test.close", callId: id }), /permission/);
-  refused(await combat.send({ type: "test.close", callId: id }), /permission/);
+  refused(await ana.send({ type: "test.close", callId: id }), "noPermission");
+  refused(await combat.send({ type: "test.close", callId: id }), "noPermission");
   ok(await owner.send({ type: "test.close", callId: id }));
   refused(await owner.send({ type: "test.close", callId: id }), /closed/);
   refused(await owner.send(report(id, hero, [5])), /closed/);
@@ -1608,7 +1616,7 @@ test("a Dice pool Test: the pool is set at the call, the server counts the repor
   assert.ok(!JSON.stringify(anaCall.inputs).includes("dn"), "the dn input is hidden with the number");
 
   // An impossible report is refused with a reason, and a sum report or a pool report on the wrong Test too.
-  refused(await ana.send(poolReport(id, bram, { top: 1 }, [4])), /Not your character/);
+  refused(await ana.send(poolReport(id, bram, { top: 1 }, [4])), "notYourCharacter");
   refused(await ana.send(poolReport(id, hero, { top: 3 }, [4])), /4 dice counted, but the pool is 3/);
   refused(await ana.send(poolReport(id, hero, { top: -1 }, [4])), /can't be negative/);
   refused(await ana.send(poolReport(id, hero, { gold: 1 }, [4])), /no scoring band "gold"/);
@@ -1737,7 +1745,7 @@ test("actor.create: a typed actor needs a ruleset and one of its actor entities"
   const { owner, ana } = await buildRoom("Typed");
   refused(await owner.send({ type: "actor.create", name: "Kay", entityType: "dragon" }), /no "dragon"/);
   refused(await owner.send({ type: "actor.create", name: "Kay", entityType: "lineage" }), /no "lineage"/); // not an actor
-  refused(await ana.c.send({ type: "actor.create", name: "Kay", entityType: "character" }), /permission/);
+  refused(await ana.c.send({ type: "actor.create", name: "Kay", entityType: "character" }), "noPermission");
   const id = ok(await owner.send({ type: "actor.create", kind: "pc", name: "Kay", entityType: "character" })).id!;
   const s = await owner.until((x) => x.actors.some((a) => a.id === id));
   assert.equal(actorIn(s, id)?.entity, "character");
@@ -1751,7 +1759,7 @@ test("actor.build: the server runs the creation, writes the values, and refuses 
     ({ type: "actor.build", actorId, answers }) as const;
 
   // Someone else's character, a gm entry picked by a player, and answers that break the creation (by step path).
-  refused(await ben.c.send(build(GOOD_ANSWERS)), /Not your character/);
+  refused(await ben.c.send(build(GOOD_ANSWERS)), "notYourCharacter");
   refused(
     await ana.c.send(build({ ...GOOD_ANSWERS, lineage: ["hidden-kin"] })),
     /lineage\[0\]: no lineage "hidden-kin"/,
@@ -1813,7 +1821,7 @@ test("builder drafts: only their owner is sent one, a good build deletes it, and
   assert.equal((await ben.c.until((s) => s.actors.some((a) => a.name === "Lyra"))).myDraft, null);
   assert.equal((await owner.until((s) => s.actors.some((a) => a.name === "Lyra"))).myDraft, null);
 
-  refused(await ben.c.send({ type: "draft.save", body }), /Not your character/); // not his to build
+  refused(await ben.c.send({ type: "draft.save", body }), "notYourCharacter"); // not his to build
   refused(await ana.c.send({ type: "draft.save", body: { ...body, answers: { big: "x".repeat(70_000) } } }), /64 KB/);
 
   // A draft is one per user: saving again replaces it, discarding removes it.
@@ -1836,7 +1844,7 @@ test("actor.spawn: the GM places numbered creatures from an attached pack, as ro
   const spawn = (over: Record<string, unknown> = {}) =>
     ({ type: "actor.spawn", packVersionId, key: "ember-wisp", count: 3, temporary: true, ...over }) as ActionInput;
 
-  refused(await ana.c.send(spawn()), /permission/);
+  refused(await ana.c.send(spawn()), "noPermission");
   refused(await owner.send(spawn({ packVersionId: otherVersionId })), /isn't in a pack attached/);
   refused(await owner.send(spawn({ packVersionId: crypto.randomUUID() })), /isn't in a pack attached/);
   refused(await owner.send(spawn({ key: "nope" })), /isn't in a pack attached/);
@@ -1907,7 +1915,7 @@ test("encounter: a full round of turns, seat views, undo of a turn, and the end 
   // Start: a session first, the combat side only, once.
   refused(await owner.send({ type: "encounter.start" }), /Start a session first/);
   ok(await owner.send({ type: "session.start" }));
-  refused(await ana.c.send({ type: "encounter.start" }), /permission/);
+  refused(await ana.c.send({ type: "encounter.start" }), "noPermission");
   refused(await owner.send({ type: "turn.next" }), /No encounter is running/);
   ok(await owner.send({ type: "encounter.start" }));
   refused(await cc.send({ type: "encounter.start" }), /already running/);
@@ -1916,8 +1924,11 @@ test("encounter: a full round of turns, seat views, undo of a turn, and the end 
   ok(await owner.send({ type: "actor.spawn", packVersionId, key: "ember-wisp", count: 3, temporary: true }));
   const spawned = await owner.until((s) => s.encounter?.combatants.length === 3);
   assert.ok(spawned.encounter?.combatants.every((c) => c.side === "foe" && c.visibility === "hidden"));
-  refused(await ana.c.send({ type: "encounter.add", actorIds: [pcA], side: "party" }), /permission/);
-  refused(await owner.send({ type: "encounter.add", actorIds: [crypto.randomUUID()], side: "party" }), /not found/);
+  refused(await ana.c.send({ type: "encounter.add", actorIds: [pcA], side: "party" }), "noPermission");
+  refused(
+    await owner.send({ type: "encounter.add", actorIds: [crypto.randomUUID()], side: "party" }),
+    "sessionNotFound",
+  );
   ok(await owner.send({ type: "encounter.add", actorIds: [pcA, pcB, pcC], side: "party", visibility: "full" }));
   refused(await owner.send({ type: "encounter.add", actorIds: [pcA], side: "party" }), /already in the fight/);
   const all = await owner.until((s) => s.encounter?.combatants.length === 6);
@@ -1996,7 +2007,7 @@ test("encounter: a full round of turns, seat views, undo of a turn, and the end 
   // Damage from a co-GM who holds only the combat scope; a player can't.
   const hit = (actorId: string, amount: number) =>
     ({ type: "rule.op", primitive: "health.tracks", op: "damage", input: { actorId, amount } }) as const;
-  refused(await ana.c.send(hit(w1, 3)), /permission/);
+  refused(await ana.c.send(hit(w1, 3)), "noPermission");
   ok(await cc.send(hit(w1, 3)));
   ok(await cc.send(hit(w2, 2)));
   const hurt = await owner.until((s) => cb(s, w2).hp?.value === 5);
@@ -2023,7 +2034,7 @@ test("encounter: a full round of turns, seat views, undo of a turn, and the end 
   assert.equal((await ben.c.until((s) => s.encounter?.round === 2)).encounter?.combatants.length, 5);
 
   // The end: players can't; expiry and rest run for those who stay; non-kept temporary creatures go, the kept one stays.
-  refused(await ana.c.send({ type: "encounter.end" }), /permission/);
+  refused(await ana.c.send({ type: "encounter.end" }), "noPermission");
   ok(await owner.send({ type: "encounter.end" }));
   const ended = await owner.until((s) => s.encounter === null);
   assert.deepEqual(
@@ -2116,8 +2127,8 @@ test("encounter: only the combat side runs it, undo moves past a combatant who l
     { type: "turn.prev" },
   ];
   for (const action of all) {
-    refused(await ana.c.send(action), /permission/);
-    refused(await tv.send(action), /read-only/);
+    refused(await ana.c.send(action), "noPermission");
+    refused(await tv.send(action), "screenReadOnly");
   }
 
   // A combatant of another room is not in this fight.

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { ActorKind, Ctx } from "@inconsistable/core-schema";
+import { refusalMessage, type ActorKind, type Ctx } from "@inconsistable/core-schema";
 import type { EditableBy, Visibility } from "@inconsistable/rules-engine";
 import { checkEditable } from "./actor.edit.ts";
 
@@ -25,7 +25,10 @@ const check = (
   delta: Parameters<typeof checkEditable>[0]["delta"],
   kind: ActorKind = "pc",
   visibility: Visibility = "gm",
-) => checkEditable({ ctx: c, editableBy, actorId, kind, visibility, delta, what: "Focus" });
+) => {
+  const r = checkEditable({ ctx: c, editableBy, actorId, kind, visibility, delta, what: "Focus" });
+  return r && refusalMessage(r.code, r.params);
+};
 
 test("the GM side writes any value on any actor", () => {
   for (const c of [gm, admin, coParty])

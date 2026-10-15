@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Permission } from "./permissions.ts";
+import type { RefusalBody } from "./refusals.ts";
 import { CogmScope, MemberRole } from "./seat.ts";
 import {
   ActorKind,
@@ -258,4 +259,7 @@ export const AdminEventAction = z.enum([
 ]);
 export type AdminEventAction = z.infer<typeof AdminEventAction>;
 
-export type ActionResult = { ok: true; id?: string; token?: string } | { ok: false; error: string };
+// A refusal carries its code, English message and params (refusals.ts). `error` repeats the message for older web builds
+// and is what the screen shows: the web puts the translation there when it has one for the code.
+export type Refused = { ok: false; error: string } & Partial<RefusalBody>;
+export type ActionResult = { ok: true; id?: string; token?: string } | Refused;

@@ -65,15 +65,14 @@ export async function applyCampaignAction(
         .select({ name: campaign.name, archivedAt: campaign.archivedAt })
         .from(campaign)
         .where(eq(campaign.id, cid));
-      if (!c?.archivedAt) fail("Archive the game before deleting it");
-      if (a.name.trim() !== c.name) fail("Type the game's name to delete it");
+      if (!c?.archivedAt) fail("archiveFirst");
+      if (a.name.trim() !== c.name) fail("typeNameToDelete");
       await tx.delete(campaign).where(eq(campaign.id, cid)); // everything it owns cascades
       return { ok: true };
     }
 
     case "session.start": {
-      if ((await tx.select({ id: session.id }).from(session).where(running(cid))).length)
-        fail("A session is already running");
+      if ((await tx.select({ id: session.id }).from(session).where(running(cid))).length) fail("sessionRunning");
       const [last] = await tx
         .select({ number: session.number })
         .from(session)
@@ -97,7 +96,7 @@ export async function applyCampaignAction(
         .set({ endedAt: new Date(), recap: a.recap })
         .where(running(cid))
         .returning({ id: session.id });
-      return r.length ? { ok: true } : fail("No session is running");
+      return r.length ? { ok: true } : fail("noSessionRunning");
     }
 
     case "session.edit": {
@@ -107,7 +106,7 @@ export async function applyCampaignAction(
         .set(patch)
         .where(and(eq(session.id, sessionId), eq(session.campaignId, cid)))
         .returning({ id: session.id });
-      return r.length ? { ok: true } : fail("Session not found");
+      return r.length ? { ok: true } : fail("sessionNotFound");
     }
   }
 }

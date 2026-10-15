@@ -18,7 +18,7 @@ export type EventAction = Extract<Action, { type: "event.undo" }>;
 // redo: the inverse writes are in the undo event, not in new `delta` rows, so they can't be undone in turn.
 export async function applyEventAction(tx: Tx, { ctx }: { ctx: Ctx; action: EventAction }): Promise<ActionResult> {
   const cid = ctx.campaignId;
-  const sessionId = (await runningSessionId(tx, cid)) ?? fail("No session is running");
+  const sessionId = (await runningSessionId(tx, cid)) ?? fail("noSessionRunning");
   const deltas = and(
     eq(sessionEvent.campaignId, cid),
     eq(sessionEvent.sessionId, sessionId),
@@ -31,10 +31,10 @@ export async function applyEventAction(tx: Tx, { ctx }: { ctx: Ctx; action: Even
     .where(and(deltas, isNull(sessionEvent.undoneBy), isNotNull(sessionEvent.actionId)))
     .orderBy(desc(sessionEvent.createdAt), desc(sessionEvent.id))
     .limit(1);
-  if (!newest?.actionId) fail("Nothing to undo");
+  if (!newest?.actionId) fail("nothingToUndo");
   const actionId = newest.actionId;
 
-  const compiled = (await loadCompiled(tx, cid)) ?? fail("This game has no ruleset yet");
+  const compiled = (await loadCompiled(tx, cid)) ?? fail("noRuleset");
   const steps = await tx
     .select({ payload: sessionEvent.payload })
     .from(sessionEvent)
@@ -48,7 +48,7 @@ export async function applyEventAction(tx: Tx, { ctx }: { ctx: Ctx; action: Even
     const { target } = logged;
     // Read again for every step: an inverse can move another actor's bounds (a level back down lowers the max).
     const built = await loadBuilt(tx, { campaignId: cid, compiled });
-    if ("test" in target) fail("Can't undo that kind of step yet");
+    if ("test" in target) fail("cantUndoKind");
     if ("turn" in target) {
       // The round and the turn belong to the running encounter. Once it has ended there is nothing to put back.
       // ponytail: a step of an earlier encounter of this session is compared with the running one by value only
@@ -57,7 +57,7 @@ export async function applyEventAction(tx: Tx, { ctx }: { ctx: Ctx; action: Even
         continue;
       }
       const turnInverse = invertDelta({ logged, current: await readTarget(tx, { campaignId: cid, target }) });
-      if (!turnInverse.ok) fail(turnInverse.message);
+      if (!turnInverse.ok) fail(turnInverse.code, turnInverse.params);
       // The holder it would hand the turn back to has left the fight since: nothing to put back, the rest still reverts.
       const back = turnInverse.delta?.value;
       if (target.turn === "currentId" && typeof back === "string" && !(await loadTurn(tx, cid))?.order.includes(back)) {
@@ -82,7 +82,7 @@ export async function applyEventAction(tx: Tx, { ctx }: { ctx: Ctx; action: Even
     if (!("resource" in target)) current = await readTarget(tx, { campaignId: cid, target, fieldType });
 
     const inverse = invertDelta({ logged, current });
-    if (!inverse.ok) fail(inverse.message);
+    if (!inverse.ok) fail(inverse.code, inverse.params);
     if (inverse.delta === null) continue;
     const bounds = "resource" in target ? actor.bounds[target.resource] : undefined;
     written.push(await writeDelta(tx, { campaignId: cid, delta: inverse.delta, bounds, fieldType }));

@@ -88,11 +88,11 @@ export async function applyAction(
     .set({ stateVersion: sql`${campaign.stateVersion} + 1` })
     .where(eq(campaign.id, seated.campaignId))
     .returning({ name: campaign.name, archivedAt: campaign.archivedAt, ownerUserId: campaign.ownerUserId });
-  if (!c) fail("Game not found");
+  if (!c) fail("gameNotFound");
   // The owner comes from this row, not the handshake: a socket opened before a transfer must not keep its powers.
   const ctx: Ctx = { ...seated, campaignOwnerId: c.ownerUserId };
   // A refusal throws and rolls back the version bump.
-  if (c.archivedAt && !ARCHIVED_OPEN.has(action.type)) fail("This game is archived");
+  if (c.archivedAt && !ARCHIVED_OPEN.has(action.type)) fail("gameArchived");
   authorize(ctx, action);
   const result = await dispatch(tx, { ctx, action });
   // Only the housekeeping is logged: an admin running a table would otherwise bury it under every tap.

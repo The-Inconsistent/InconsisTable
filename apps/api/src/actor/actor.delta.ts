@@ -77,7 +77,7 @@ async function writeResource(
   }: { campaignId: string; delta: DeltaInput; target: ActorResource; bounds: Bounds },
 ): Promise<Written> {
   const { value } = delta;
-  if (typeof value !== "number" || !Number.isSafeInteger(value)) fail(`${target.resource} takes a whole number`);
+  if (typeof value !== "number" || !Number.isSafeInteger(value)) fail("wholeNumber", { what: target.resource });
   const min = bounds.min;
   const clamp = (v: SQL): SQL => {
     const floor = sql`GREATEST(${v}, ${min}::int)`;
@@ -93,7 +93,7 @@ async function writeResource(
     ON CONFLICT (actor_id, resource_id) DO UPDATE SET value = ${update}
     RETURNING OLD.value AS before, NEW.value AS after`);
   const row = first(res.rows);
-  if (!row) fail("Character not found");
+  if (!row) fail("characterNotFound");
   return { target, kind: delta.kind, before: toInt(row.before), after: toInt(row.after) };
 }
 
@@ -102,13 +102,13 @@ async function writeField(
   tx: Tx,
   { campaignId, delta, target, type }: { campaignId: string; delta: DeltaInput; target: ActorField; type: FieldType },
 ): Promise<Written> {
-  if (delta.kind !== "set") fail(`${target.field} is set, not adjusted`);
+  if (delta.kind !== "set") fail("setNotAdjusted", { what: target.field });
   const { actorId, field } = target;
   const { value } = delta;
   const mine = sql`a.id = ${actorId}::uuid AND a.campaign_id = ${campaignId}::uuid`;
   // An empty list is an unset field: it has no rows.
   const next = Array.isArray(value) && value.length === 0 ? null : value;
-  if (type === "list" && next !== null && !Array.isArray(next)) fail(`${field} takes a list`);
+  if (type === "list" && next !== null && !Array.isArray(next)) fail("takesList", { field });
 
   const removed = async () => {
     const res = await tx.execute(sql`
@@ -134,14 +134,14 @@ async function writeField(
       SELECT a.id, ${field}::text, (u.ord - 1)::int, u.v FROM actor a,
         jsonb_array_elements_text(${JSON.stringify(next)}::jsonb) WITH ORDINALITY AS u(v, ord)
       WHERE ${mine}`);
-    if (res.rowCount !== next.length) fail("Character not found");
+    if (res.rowCount !== next.length) fail("characterNotFound");
     return { target, kind: "set", before, after: next };
   }
 
   const int = typeof next === "boolean" ? Number(next) : typeof next === "number" ? next : null;
   const text = typeof next === "string" && type !== "ref" ? next : null;
   const ref = typeof next === "string" && type === "ref" ? next : null;
-  if (int === null && text === null && ref === null) fail(`${field} doesn't take that value`);
+  if (int === null && text === null && ref === null) fail("badFieldValue", { field });
   const res = await tx.execute(sql`
     INSERT INTO actor_field AS f (actor_id, field_id, ordinal, int_value, text_value, ref_key)
     SELECT a.id, ${field}::text, 0, ${int}::int, ${text}::text, ${ref}::text FROM actor a WHERE ${mine}
@@ -150,7 +150,7 @@ async function writeField(
     RETURNING OLD.int_value AS b_int, OLD.text_value AS b_text, OLD.ref_key AS b_ref,
               NEW.int_value AS a_int, NEW.text_value AS a_text, NEW.ref_key AS a_ref`);
   const row = first(res.rows);
-  if (!row) fail("Character not found");
+  if (!row) fail("characterNotFound");
   return {
     target,
     kind: "set",
@@ -184,17 +184,17 @@ async function writeCondition(
   { campaignId, delta, target }: { campaignId: string; delta: DeltaInput; target: ConditionTarget },
 ): Promise<Written> {
   const { actorId, condition } = target;
-  if (!z.uuid().safeParse(condition).success) fail("That isn't a condition on this character");
+  if (!z.uuid().safeParse(condition).success) fail("notConditionHere");
   const mine = sql`a.id = ${actorId}::uuid AND a.campaign_id = ${campaignId}::uuid`;
   const rowId = sql`${condition}::uuid`;
 
   if (delta.kind === "add") {
-    if (typeof delta.value !== "number" || !Number.isSafeInteger(delta.value)) fail("A count takes a whole number");
+    if (typeof delta.value !== "number" || !Number.isSafeInteger(delta.value)) fail("countWholeNumber");
     const res = await tx.execute(sql`
       UPDATE actor_condition AS c SET expires_after = COALESCE(c.expires_after, 1) + ${delta.value}::int
       FROM actor a WHERE c.id = ${rowId} AND c.actor_id = a.id AND ${mine} ${CONDITION_OLD_NEW}`);
     const out = first(res.rows);
-    if (!out) fail("That condition is gone");
+    if (!out) fail("conditionGone");
     return { target, kind: "add", before: conditionOf(out, "b_"), after: conditionOf(out, "a_") };
   }
 
@@ -206,7 +206,7 @@ async function writeCondition(
     return { target, kind: "set", before: conditionOf(first(res.rows), "b_"), after: null };
   }
   const row = ConditionRow.safeParse(delta.value);
-  if (!row.success) fail("That isn't a condition");
+  if (!row.success) fail("notACondition");
   const c = row.data;
   const res = await tx.execute(sql`
     INSERT INTO actor_condition AS c (id, actor_id, condition_id, stacks, source, expires_on, expires_after)
@@ -219,7 +219,7 @@ async function writeCondition(
       WHERE c.actor_id = EXCLUDED.actor_id AND c.condition_id = EXCLUDED.condition_id
     ${CONDITION_OLD_NEW}`);
   const out = first(res.rows);
-  if (!out) fail("Character not found");
+  if (!out) fail("characterNotFound");
   return { target, kind: "set", before: conditionOf(out, "b_"), after: conditionOf(out, "a_") };
 }
 
@@ -241,19 +241,19 @@ export async function writeDelta(
 ): Promise<Written> {
   const target = delta.target;
   if ("resource" in target) {
-    if (!bounds) fail(`${target.resource} has no bounds`);
+    if (!bounds) fail("noBounds", { resource: target.resource });
     return writeResource(tx, { campaignId, delta, target, bounds });
   }
   if ("field" in target) return writeField(tx, { campaignId, delta, target, type: fieldType ?? "text" });
   if ("condition" in target) return writeCondition(tx, { campaignId, delta, target });
   if ("turn" in target) {
     // The round and whose turn it is live on the encounter row; they are `set` like any field, so they log and undo.
-    if (delta.kind !== "set") fail(`The ${target.turn} is set, not adjusted`);
+    if (delta.kind !== "set") fail("turnSetNotAdjusted", { turn: target.turn });
     const { before, after } = await writeTurn(tx, { campaignId, key: target.turn, value: delta.value });
     return { target, kind: "set", before, after };
   }
   // ponytail: Test values live in test_call; no op writes them as deltas yet, so one that tries is refused here.
-  return fail("That value can't be written");
+  return fail("cannotWrite");
 }
 
 /** The value a target holds now, for undo to compare with what a delta left behind. Resources are never compared. */
@@ -271,7 +271,7 @@ export async function readTarget(
     return conditionOf(first(res.rows), "b_");
   }
   if ("turn" in target) return readTurn(tx, { campaignId, key: target.turn });
-  if (!("field" in target)) return fail("That value can't be read back");
+  if (!("field" in target)) return fail("cannotRead");
   const type = fieldType ?? "text";
   const res = await tx.execute(sql`
     SELECT f.ordinal, f.int_value AS v_int, f.text_value AS v_text, f.ref_key AS v_ref

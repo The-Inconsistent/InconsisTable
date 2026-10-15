@@ -18,6 +18,7 @@ import {
   BookServing,
   MAX_PAGE_BYTES,
   canInCampaign,
+  refused,
   type ActionResult,
   type BookAvailable,
   type BookSource,
@@ -130,21 +131,19 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   @SubscribeMessage("book:request")
   async onBookRequest(@ConnectedSocket() socket: TableSocket, @MessageBody() body: unknown) {
     const { ctx, seatKey } = socket.data;
-    if (ctx.seat.kind === "token" && ctx.seat.role === "screen")
-      return { ok: false, error: "The table screen shows no book pages." };
-    if (!allowPage(seatKey)) return { ok: false, error: "Too many pages. Slow down." };
+    if (ctx.seat.kind === "token" && ctx.seat.role === "screen") return refused("bookScreenNone");
+    if (!allowPage(seatKey)) return refused("tooManyPages");
     const parsed = BookPage.safeParse(body);
-    if (!parsed.success) return { ok: false, error: z.prettifyError(parsed.error) };
+    if (!parsed.success) return refused("badRequest", { detail: z.prettifyError(parsed.error) });
     const server = this.bookServers(ctx.campaignId).find((s) => s.data.books?.includes(parsed.data.source));
-    if (!server) return { ok: false, error: "The GM isn't serving that book." };
-    if ((this.pagesInFlight.get(ctx.campaignId) ?? 0) >= MAX_PAGES_IN_FLIGHT)
-      return { ok: false, error: "The GM's tablet is busy. Try again in a moment." };
+    if (!server) return refused("bookNotServed");
+    if ((this.pagesInFlight.get(ctx.campaignId) ?? 0) >= MAX_PAGES_IN_FLIGHT) return refused("bookBusy");
     this.pagesInFlight.set(ctx.campaignId, (this.pagesInFlight.get(ctx.campaignId) ?? 0) + 1);
     let reply: unknown;
     try {
       reply = await server.timeout(PAGE_TIMEOUT_MS).emitWithAck("book:request", parsed.data);
     } catch {
-      return { ok: false, error: "No reply from the GM's tablet." };
+      return refused("bookNoReply");
     } finally {
       const left = (this.pagesInFlight.get(ctx.campaignId) ?? 1) - 1;
       if (left > 0) this.pagesInFlight.set(ctx.campaignId, left);
@@ -152,21 +151,21 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     }
     // Only a GM socket answers, but its reply is still parsed before it's passed on.
     const ack = BookAck.safeParse(reply);
-    return ack.success ? ack.data : { ok: false, error: "The GM's tablet couldn't render it." };
+    return ack.success ? ack.data : refused("bookRenderFailed");
   }
 
   @SubscribeMessage("action")
   async onAction(@ConnectedSocket() socket: TableSocket, @MessageBody() body: unknown): Promise<ActionResult> {
     const { ctx, seatKey, script } = socket.data;
-    if (!script && !allowAction(seatKey)) return { ok: false, error: "Too many actions. Slow down." };
+    if (!script && !allowAction(seatKey)) return refused("tooManyActions");
     const parsed = Action.safeParse(body);
-    if (!parsed.success) return { ok: false, error: z.prettifyError(parsed.error) };
+    if (!parsed.success) return refused("badRequest", { detail: z.prettifyError(parsed.error) });
     if (script) {
       try {
         await logAdminKey({ action: "key.action", campaignId: ctx.campaignId, detail: parsed.data.type });
       } catch (e) {
         this.log.error(e);
-        return { ok: false, error: "Server error" }; // an admin-key action that can't be logged doesn't run
+        return refused("serverError"); // an admin-key action that can't be logged doesn't run
       }
     }
     const result = await this.run({ ctx, action: parsed.data });
@@ -181,9 +180,9 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
       try {
         result = await db.transaction((tx) => applyAction(tx, { ctx, action }));
       } catch (e) {
-        if (e instanceof ActionError) return { ok: false, error: e.message };
+        if (e instanceof ActionError) return refused(e.code, e.params);
         this.log.error(e);
-        return { ok: false, error: "Server error" };
+        return refused("serverError");
       }
       // Committed: report success even if fan-out fails, or a retap would apply a delta twice. The next broadcast resyncs.
       try {

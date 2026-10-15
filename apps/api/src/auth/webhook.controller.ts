@@ -10,6 +10,7 @@ import {
 import { eq } from "drizzle-orm";
 import type { Request } from "express";
 import { readUserWebhook } from "@inconsistable/auth/api";
+import { refusalBody } from "@inconsistable/core-schema";
 import { db } from "../core/db.ts";
 import { TableGateway } from "../table/table.gateway.ts";
 import { appUser } from "./auth.schema.ts";
@@ -38,7 +39,7 @@ export class WebhookController {
       request: new Request("http://localhost/", { method: "POST", headers, body }),
       signingSecret,
     }).catch(() => {
-      throw new BadRequestException("Invalid webhook");
+      throw new BadRequestException(refusalBody("webhookInvalid"));
     });
     if (!change) return { ok: true };
     await applyUserWebhook(change, {

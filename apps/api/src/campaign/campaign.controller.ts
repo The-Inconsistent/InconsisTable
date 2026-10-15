@@ -16,7 +16,7 @@ import {
 } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { CreateGame } from "@inconsistable/core-schema";
+import { CreateGame, refusalBody } from "@inconsistable/core-schema";
 import { logAdminKey } from "../admin/admin.service.ts";
 import { COOKIE, readCookie, resolveCtx, resolveGuest, signedInUser } from "../auth/auth.service.ts";
 import { acceptInvite, previewInvite } from "../auth/invite.service.ts";
@@ -41,7 +41,7 @@ const RulesQuery = z.object({
 
 const parse = <T>(schema: z.ZodType<T>, body: unknown): T => {
   const r = schema.safeParse(body);
-  if (!r.success) throw new BadRequestException(z.prettifyError(r.error));
+  if (!r.success) throw new BadRequestException(refusalBody("badRequest", { detail: z.prettifyError(r.error) }));
   return r.data;
 };
 
@@ -51,7 +51,7 @@ async function refusing<T>(fn: () => Promise<T>): Promise<T> {
     const result = await fn();
     return result;
   } catch (e) {
-    if (e instanceof ActionError) throw new BadRequestException(e.message);
+    if (e instanceof ActionError) throw new BadRequestException(e.body());
     throw e;
   }
 }
@@ -85,15 +85,15 @@ export class CampaignController {
       return created;
     }
     const user = await signedInUser(headersOf(req));
-    if (!user) throw new UnauthorizedException();
-    if (!user.creator) throw new ForbiddenException("Only creators can start a game");
+    if (!user) throw new UnauthorizedException(refusalBody("unauthorized"));
+    if (!user.creator) throw new ForbiddenException(refusalBody("creatorsOnly"));
     return refusing(() => createCampaign({ ...parse(CreateGame, body), owner: user }));
   }
 
   @Get("lobby")
   async lobby(@Req() req: Request) {
     const user = await signedInUser(headersOf(req));
-    if (!user) throw new UnauthorizedException();
+    if (!user) throw new UnauthorizedException(refusalBody("unauthorized"));
     return lobby(user);
   }
 
@@ -101,7 +101,7 @@ export class CampaignController {
   @Get("campaigns/:id/me")
   async me(@Param("id") id: string, @Req() req: Request) {
     const r = await resolveCtx({ campaignId: parse(CampaignId, id), headers: headersOf(req) });
-    if (!r) throw new UnauthorizedException();
+    if (!r) throw new UnauthorizedException(refusalBody("unauthorized"));
     return r.ctx;
   }
 
@@ -109,7 +109,7 @@ export class CampaignController {
   @Get("campaigns/:id/rules")
   async rules(@Param("id") id: string, @Req() req: Request, @Query() query: unknown) {
     const r = await resolveCtx({ campaignId: parse(CampaignId, id), headers: headersOf(req) });
-    if (!r) throw new UnauthorizedException();
+    if (!r) throw new UnauthorizedException(refusalBody("unauthorized"));
     return readRules({ ctx: r.ctx, query: parse(RulesQuery, query) });
   }
 
@@ -119,7 +119,7 @@ export class CampaignController {
   async join(@Body() body: unknown, @Res({ passthrough: true }) res: Response) {
     const { token } = parse(Join, body);
     const ctx = await resolveGuest(token);
-    if (!ctx) throw new UnauthorizedException("Invalid or revoked link");
+    if (!ctx) throw new UnauthorizedException(refusalBody("linkInvalid"));
     setGuestCookie(res, token);
     return ctx;
   }
@@ -128,7 +128,7 @@ export class CampaignController {
   @Get("guest")
   async guest(@Req() req: Request) {
     const ctx = await resolveGuest(readCookie({ header: req.headers.cookie }));
-    if (!ctx) throw new UnauthorizedException();
+    if (!ctx) throw new UnauthorizedException(refusalBody("unauthorized"));
     return ctx;
   }
 

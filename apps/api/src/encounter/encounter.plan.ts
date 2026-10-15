@@ -16,10 +16,9 @@ const turnDelta = (turn: "round" | "currentId", value: number | string | null): 
  * `conditions.expire.turnEnd` for the actor whose turn just ended, then `roundEnd` when the round wrapped.
  */
 export function planNext({ ruleset, state }: { ruleset: Ruleset; state: RuleState }): Delta[] {
-  if (state.turn === null) fail("No encounter is running");
+  if (state.turn === null) fail("noEncounterRunning");
   // ponytail: a ruleset that re-rolls initiative each round needs the GM to type new scores mid-wrap; refused until then
-  if (ruleset.initiative.rerollEachRound)
-    fail("This ruleset re-rolls initiative every round, which the tracker doesn't run yet");
+  if (ruleset.initiative.rerollEachRound) fail("rerollUnsupported");
   const ended = state.turn.currentId;
   const run = (primitive: string, op: string, input: unknown) => runPrimitive({ ruleset, state, primitive, op, input });
   const next = run("initiative.ranked", "next", {});
@@ -36,13 +35,13 @@ export function planNext({ ruleset, state }: { ruleset: Ruleset; state: RuleStat
  * order. It only moves the marker; expiries already ticked come back by Undo, which takes the whole step back.
  */
 export function planPrev({ state }: { state: RuleState }): Delta[] {
-  const turn = state.turn ?? fail("No encounter is running");
+  const turn = state.turn ?? fail("noEncounterRunning");
   const { order, currentId, round } = turn;
   const at = currentId === null ? -1 : order.indexOf(currentId);
-  if (at < 0) return fail("Nobody has acted yet");
+  if (at < 0) return fail("nobodyActed");
   const before = order[at - 1];
   if (before !== undefined) return [turnDelta("currentId", before)];
-  if (round <= 1) return fail("This is the first turn of the fight");
+  if (round <= 1) return fail("firstTurn");
   return [turnDelta("round", round - 1), turnDelta("currentId", order[order.length - 1] ?? null)];
 }
 
@@ -80,9 +79,9 @@ export function movedIds({
   const at = ids.indexOf(id);
   const to = direction === "up" ? at - 1 : at + 1;
   const [me, other] = [rows.find((r) => r.id === id), rows.find((r) => r.id === ids[to])];
-  if (at < 0 || !me) return fail("That combatant isn't in the fight");
-  if (!other) return fail(direction === "up" ? "Already first" : "Already last");
-  if (me.initiativeScore !== other.initiativeScore) fail("Only combatants with the same initiative swap places");
+  if (at < 0 || !me) return fail("combatantNotInFight");
+  if (!other) return fail(direction === "up" ? "alreadyFirst" : "alreadyLast");
+  if (me.initiativeScore !== other.initiativeScore) fail("sameInitiativeOnly");
   ids[at] = other.id;
   ids[to] = me.id;
   return ids;

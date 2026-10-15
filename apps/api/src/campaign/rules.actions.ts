@@ -20,7 +20,7 @@ async function ownPackVersion(tx: Tx, { ctx, packVersionId }: { ctx: Ctx; packVe
     .from(packVersion)
     .innerJoin(pack, eq(pack.id, packVersion.packId))
     .where(and(eq(packVersion.id, packVersionId), eq(pack.ownerUserId, ctx.userId ?? "")));
-  return row?.pack ?? fail("Pack not found");
+  return row?.pack ?? fail("packNotFound");
 }
 
 // ponytail: a room pins its ruleset version once. Moving a room that already has characters to another version needs
@@ -38,7 +38,7 @@ export async function applyRulesAction(
         .from(rulesetVersion)
         .innerJoin(ruleset, eq(ruleset.id, rulesetVersion.rulesetId))
         .where(and(eq(rulesetVersion.id, a.rulesetVersionId), eq(ruleset.ownerUserId, ctx.userId ?? "")));
-      if (!version) fail("Ruleset not found");
+      if (!version) fail("rulesetNotFound");
       const [room] = await tx.select({ current: campaign.rulesetVersionId }).from(campaign).where(eq(campaign.id, cid));
       if (room?.current === version.id) return { ok: true };
 
@@ -54,7 +54,7 @@ export async function applyRulesAction(
           ),
         )
         .limit(1);
-      if (used.length) fail("Characters here already use another version of the ruleset");
+      if (used.length) fail("charactersUseOtherVersion");
 
       // Packs are written for one ruleset; keep only ones that fit the new version's.
       const attached = await tx
@@ -63,7 +63,7 @@ export async function applyRulesAction(
         .innerJoin(packVersion, eq(packVersion.id, campaignPack.packVersionId))
         .innerJoin(pack, eq(pack.id, packVersion.packId))
         .where(and(eq(campaignPack.campaignId, cid), ne(pack.rulesetId, version.rulesetId)));
-      if (attached.length) fail("Detach the packs written for the other ruleset first");
+      if (attached.length) fail("detachPacksFirst");
 
       await tx.update(campaign).set({ rulesetVersionId: version.id }).where(eq(campaign.id, cid));
       return { ok: true };
@@ -71,18 +71,18 @@ export async function applyRulesAction(
 
     case "campaign.attachPack": {
       const p = await ownPackVersion(tx, { ctx, packVersionId: a.packVersionId });
-      if (p.disabledAt) fail("This pack was taken down by an admin");
-      if (p.hiddenAt) fail("This pack is deleted: import it again to use it");
+      if (p.disabledAt) fail("packTakenDown");
+      if (p.hiddenAt) fail("packDeleted");
       // A `private` pack (copied from a book) never leaves the rooms its owner runs as GM (CLAUDE.md, principle 4).
-      if (p.license === "private" && !runsAsGm(ctx)) fail("A private pack can only be used in a room you run as GM");
+      if (p.license === "private" && !runsAsGm(ctx)) fail("privatePackGmOnly");
 
       const [room] = await tx
         .select({ rulesetId: rulesetVersion.rulesetId })
         .from(campaign)
         .innerJoin(rulesetVersion, eq(rulesetVersion.id, campaign.rulesetVersionId))
         .where(eq(campaign.id, cid));
-      if (!room) fail("Pick the room's ruleset first");
-      if (room.rulesetId !== p.rulesetId) fail("This pack is written for another ruleset");
+      if (!room) fail("pickRulesetFirst");
+      if (room.rulesetId !== p.rulesetId) fail("packWrongRuleset");
 
       // One version of a pack at a time: attaching a newer one replaces the older.
       await tx.delete(campaignPack).where(
@@ -107,7 +107,7 @@ export async function applyRulesAction(
         .delete(campaignPack)
         .where(and(eq(campaignPack.campaignId, cid), eq(campaignPack.packVersionId, a.packVersionId)))
         .returning({ id: campaignPack.packVersionId });
-      return gone.length ? { ok: true } : fail("That pack isn't attached");
+      return gone.length ? { ok: true } : fail("packNotAttached");
     }
   }
 }

@@ -22,7 +22,7 @@ const find = <T>(rec: Readonly<Record<string, T>>, key: string): T | undefined =
   Object.hasOwn(rec, key) ? rec[key] : undefined;
 
 const testOf = ({ compiled, testId }: { compiled: CompiledRuleset; testId: string }): CompiledTest =>
-  find(compiled.tests, testId) ?? fail(`No Test "${testId}" in this ruleset`);
+  find(compiled.tests, testId) ?? fail("noSuchTest", { test: testId });
 
 /** An open call of this campaign; an id from the client is never trusted. */
 async function openCall(tx: Tx, { campaignId, callId }: { campaignId: string; callId: string }) {
@@ -30,8 +30,8 @@ async function openCall(tx: Tx, { campaignId, callId }: { campaignId: string; ca
     .select()
     .from(testCall)
     .where(and(eq(testCall.id, callId), eq(testCall.campaignId, campaignId)));
-  if (!call) fail("That Test isn't at this table");
-  if (call.status === "closed") fail("That Test is closed");
+  if (!call) fail("testNotHere");
+  if (call.status === "closed") fail("testClosed");
   return call;
 }
 
@@ -65,7 +65,7 @@ function sumRow({
   roll: Record<string, unknown>;
 }) {
   const resolved = resolveRoll({ test, target: target.target, modifier: target.modifier, advantage, roll });
-  if (!resolved.ok) fail(resolved.message);
+  if (!resolved.ok) fail("testProblem", { detail: resolved.message });
   const faces = Array.isArray(roll.faces) ? roll.faces.filter((f): f is number => typeof f === "number") : null;
   return {
     faces,
@@ -92,9 +92,9 @@ function poolRow({
   advantage: AdvantageMode;
   roll: Record<string, unknown>;
 }) {
-  if (advantage !== "none") fail("A Dice pool has no advantage");
+  if (advantage !== "none") fail("poolNoAdvantage");
   const resolved = resolvePoolRoll({ test, target: target.target, pool: target.pool ?? 0, roll });
-  if (!resolved.ok) fail(resolved.message);
+  if (!resolved.ok) fail("testProblem", { detail: resolved.message });
   const parsed = PoolRoll.parse(roll); // resolvePoolRoll just accepted it
   return {
     faces: null,
@@ -118,18 +118,18 @@ export async function applyTestCallAction(
   const cid = ctx.campaignId;
   switch (a.type) {
     case "test.call": {
-      const compiled = (await loadCompiled(tx, cid)) ?? fail("This game has no ruleset yet");
+      const compiled = (await loadCompiled(tx, cid)) ?? fail("noRuleset");
       const test = testOf({ compiled, testId: a.testId });
       const bad = checkInputs({ test, inputs: a.inputs });
-      if (bad) fail(bad);
+      if (bad) fail("testProblem", { detail: bad });
       const built = await loadBuilt(tx, { campaignId: cid, compiled });
       const actorIds = [...new Set(a.actorIds)];
       // Computed now, for each character, and kept: what the phone shows must not move under a player's hand.
       const targets = actorIds.map((actorId) => {
-        const actor = find(built, actorId) ?? fail("Character not found");
-        if (actor.entity === "" || actor.scope === null) fail(`${actor.row.name} isn't built for this ruleset yet`);
+        const actor = find(built, actorId) ?? fail("characterNotFound");
+        if (actor.entity === "" || actor.scope === null) fail("notBuilt", { name: actor.row.name });
         const r = evaluateCall({ test, scope: actor.scope, inputs: a.inputs });
-        if (!r.ok) fail(`${actor.row.name}: ${r.message}`);
+        if (!r.ok) fail("callProblem", { name: actor.row.name, detail: r.message });
         return { actorId, modifier: r.modifier, target: r.target, pool: r.pool };
       });
       const [call] = await tx
@@ -144,7 +144,7 @@ export async function applyTestCallAction(
           createdByUserId: ctx.userId,
         })
         .returning({ id: testCall.id });
-      if (!call) fail("Couldn't call the Test"); // the row was just inserted
+      if (!call) fail("cantCallTest"); // the row was just inserted
       await tx.insert(testCallTarget).values(targets.map((t) => ({ callId: call.id, ...t })));
       await log(tx, {
         ctx,
@@ -156,22 +156,22 @@ export async function applyTestCallAction(
 
     case "test.report": {
       const call = await openCall(tx, { campaignId: cid, callId: a.callId });
-      const compiled = (await loadCompiled(tx, cid)) ?? fail("This game has no ruleset yet");
+      const compiled = (await loadCompiled(tx, cid)) ?? fail("noRuleset");
       const test = testOf({ compiled, testId: call.testId });
       const [target] = await tx
         .select()
         .from(testCallTarget)
         .where(and(eq(testCallTarget.callId, call.id), eq(testCallTarget.actorId, a.actorId)));
-      if (!target) fail("That character wasn't called");
+      if (!target) fail("notCalled");
       const [had] = await tx
         .select({ actorId: testReport.actorId })
         .from(testReport)
         .where(and(eq(testReport.callId, call.id), eq(testReport.actorId, a.actorId)));
       // A player's first report stands, so a roll that failed can't be quietly retaken; the GM side corrects one.
       const gmSide = canInCampaign({ ctx, perm: "test:call" });
-      if (had && !gmSide) fail("Already reported. Ask the GM if it needs to change");
+      if (had && !gmSide) fail("alreadyReported");
       const advantage = AdvantageMode.safeParse(a.advantage);
-      if (!advantage.success) fail(`"${a.advantage}" isn't advantage, disadvantage or none`);
+      if (!advantage.success) fail("badAdvantage", { advantage: a.advantage });
       const row = {
         advantage: advantage.data,
         reportedByUserId: ctx.userId,

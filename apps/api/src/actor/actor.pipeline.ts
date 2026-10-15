@@ -66,7 +66,7 @@ export async function applyDeltas(
       continue;
     }
     const actor = Object.hasOwn(built, target.actorId) ? built[target.actorId] : undefined;
-    if (!actor) fail("Character not found");
+    if (!actor) fail("characterNotFound");
     let editableBy: EditableBy = "gm";
     let visibility: Visibility = "gm"; // undeclared is `gm`, fail-closed
     let what = "that";
@@ -74,7 +74,7 @@ export async function applyDeltas(
     if ("resource" in target) {
       const res = Object.hasOwn(compiled.resources, target.resource) ? compiled.resources[target.resource] : undefined;
       const bounds = Object.hasOwn(actor.bounds, target.resource) ? actor.bounds[target.resource] : undefined;
-      if (!res || !bounds) fail(`This character has no ${target.resource} to change`);
+      if (!res || !bounds) fail("noResourceHere", { resource: target.resource });
       editableBy = res.def.editableBy;
       visibility = res.def.visibility;
       what = res.def.label;
@@ -84,7 +84,7 @@ export async function applyDeltas(
       if (def) {
         // Unsetting a field is always allowed; any other value must fit the declaration.
         const bad = delta.value === null ? null : checkFieldValue({ def, value: delta.value });
-        if (bad) fail(`${def.label}: ${bad}`);
+        if (bad) fail("fieldInvalid", { label: def.label, detail: bad });
         editableBy = def.editableBy;
         visibility = def.visibility;
         what = def.label;
@@ -100,7 +100,7 @@ export async function applyDeltas(
     const refused = trusted
       ? null
       : checkEditable({ ctx, editableBy, actorId: target.actorId, kind: actor.row.kind, visibility, delta, what });
-    if (refused) fail(refused);
+    if (refused) fail(refused.code, refused.params);
     written.push(await writeDelta(tx, write));
   }
   const actionId = crypto.randomUUID();

@@ -24,7 +24,7 @@ export async function ownActor(conn: Db, { campaignId, id }: { campaignId: strin
     .select({ id: actor.id, kind: actor.kind, name: actor.name, ownerUserId: actor.ownerUserId })
     .from(actor)
     .where(and(eq(actor.id, id), eq(actor.campaignId, campaignId)));
-  return row ?? fail("Character not found");
+  return row ?? fail("characterNotFound");
 }
 
 export async function createActor(
@@ -73,9 +73,9 @@ export async function applyActorAction(
         return { ok: true, id };
       }
       // A typed actor belongs to the pinned ruleset: an unknown type, or a room with no ruleset, is refused.
-      const compiled = (await loadCompiled(tx, campaignId)) ?? fail("This game has no ruleset yet");
+      const compiled = (await loadCompiled(tx, campaignId)) ?? fail("noRuleset");
       const ce = Object.hasOwn(compiled.entities, a.entityType) ? compiled.entities[a.entityType] : undefined;
-      if (ce?.def.base !== "actor") fail(`This ruleset has no "${a.entityType}" to create`);
+      if (ce?.def.base !== "actor") fail("noSuchEntity", { entity: a.entityType });
       const [room] = await tx
         .select({ v: campaign.rulesetVersionId })
         .from(campaign)

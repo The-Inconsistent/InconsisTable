@@ -7,6 +7,6 @@ export function requirePerm({ ctx, perm, target }: { ctx: Ctx; perm: Permission;
   const fallback = OWN_FALLBACK[perm];
   if (canInCampaign({ ctx, perm, target })) return;
   if (fallback && canInCampaign({ ctx, perm: fallback, target })) return;
-  if (ctx.seat.kind === "token" && ctx.seat.role === "screen") fail("The table screen is read-only");
-  fail(perm.endsWith(":own") ? "Not your character" : "You don't have permission to do that");
+  if (ctx.seat.kind === "token" && ctx.seat.role === "screen") fail("screenReadOnly");
+  fail(perm.endsWith(":own") ? "notYourCharacter" : "noPermission");
 }

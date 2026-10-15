@@ -49,6 +49,7 @@ Next.js fixes these at build time, so changing them means rebuilding the web ima
 | ------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | `DATABASE_URL`     | `postgres://<user>:<password>@postgres:5432/<db>`; must match `postgres.env`. Postgres 18 is required.              |
 | `ADMIN_KEY`        | Optional. Leave unset unless admin scripts need it: unset turns the admin-key path off, and admins work through their platform role. If set, a long random secret (32+ characters, e.g. `openssl rand -hex 32`); the api refuses to boot with a shorter one or `change-me`. Its actions are logged as actor `admin-key`. |
+| `PLATFORM_ADMINS`  | Optional. User ids (comma separated) that are platform admins whatever their Clerk role is: they see the admin page and can open any campaign as admin. Keep it to the operators. |
 | `WEB_ORIGIN`       | The real public origin of the web, with scheme and no trailing slash (`https://table.example.com`). Comma separated for several. Sets CORS and the Clerk token's allowed origin, so a wrong value signs everyone out. |
 | `PORT`             | `4000`. Keep it; the web image and the health check assume it.                                                       |
 | `CLERK_SECRET_KEY` | The production secret key (`sk_live_...`).                                                                           |

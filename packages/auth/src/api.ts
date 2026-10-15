@@ -29,13 +29,20 @@ const TOKEN_FAULTS = new Set<string>([
   Reason.JWKKidMismatch,
 ]);
 
-const userOf = ({ userId, name, role }: { userId: string; name: string; role: string | undefined }): AuthUser => ({
-  userId,
-  name,
-  creator: role === "creator" || role === "admin",
-  moderator: role === "moderator",
-  admin: role === "admin",
-});
+// PLATFORM_ADMINS: user ids (comma separated) that are admins whatever their provider role says, so the operator's
+// account keeps every screen across an auth-provider change. ponytail: one env list, move to the provider's roles or a
+// table once more than a couple of people run the platform.
+const platformAdmins = new Set(
+  (process.env.PLATFORM_ADMINS ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean),
+);
+
+const userOf = ({ userId, name, role }: { userId: string; name: string; role: string | undefined }): AuthUser => {
+  const admin = role === "admin" || platformAdmins.has(userId);
+  return { userId, name, creator: admin || role === "creator", moderator: role === "moderator", admin };
+};
 
 // Test-only tokens `test.<secret>.<userId>.<creator|member|moderator|admin>` let the smoke test act as signed-in users without a
 // Clerk instance. Never in production, and fail closed: only when NODE_ENV says test or development (Bun leaves it unset).

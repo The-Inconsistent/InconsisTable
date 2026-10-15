@@ -204,7 +204,7 @@ function seatState({
   };
 }
 
-// The entries a seat sees: the secrets side reads all of them; anyone else only what is revealed to them, and a reader
+// The entries a seat sees: the codex and secrets sides read all of them; anyone else only what is revealed to them, and a reader
 // never learns who else an entry was shown to.
 function seatCodex({ codex, ctx, sight }: { codex: Codex; ctx: Ctx; sight: Sight }): Codex {
   const held = heldBy(ctx);
@@ -213,12 +213,13 @@ function seatCodex({ codex, ctx, sight }: { codex: Codex; ctx: Ctx; sight: Sight
       .filter(
         (e) =>
           sight.secrets ||
+          sight.codex ||
           (e.visibility !== "gm" && (e.audienceMode === "all" || e.audience.some((a) => held.includes(a)))),
       )
       .map((e) => ({
         ...e,
         gmNotes: sight.secrets ? e.gmNotes : "",
-        audience: sight.secrets ? e.audience : e.audience.filter((a) => held.includes(a)),
+        audience: sight.secrets || sight.codex ? e.audience : e.audience.filter((a) => held.includes(a)),
       })),
   };
 }

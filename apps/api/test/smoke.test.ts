@@ -341,9 +341,12 @@ test("the room's settings and its sessions: update, start, edit, end", async () 
   ok(await owner.send({ type: "member.appoint", userId: uid("co-set"), role: "cogm", scopes: ["session"] }));
   const co = connect({ auth: { campaignId, clerkToken: coClerk } });
   assert.equal((await co.until(() => true)).session?.notes, "the twist", "the session scope reads the notes");
-  refused(await co.send({ type: "session.edit", sessionId, notes: "" }), /secrets scope/);
+  ok(await co.send({ type: "session.edit", sessionId, notes: "the co-GM's twist" }));
+  const codexCo = await coGm({ owner, campaignId, name: "co-codex-set", scopes: ["codex"] });
+  refused(await codexCo.send({ type: "session.edit", sessionId, notes: "no" }), /permission/); // no session scope
+  codexCo.socket.close();
   ok(await co.send({ type: "session.edit", sessionId, title: "Co's title" }));
-  await owner.until((s) => s.session?.title === "Co's title" && s.session.notes === "the twist");
+  await owner.until((s) => s.session?.title === "Co's title" && s.session.notes === "the co-GM's twist");
 
   refused(await ana.send({ type: "session.end" }), /permission/);
   ok(await owner.send({ type: "session.end", recap: "We met." }));
@@ -1261,7 +1264,7 @@ async function coGm({
   owner: ReturnType<typeof connect>;
   campaignId: string;
   name: string;
-  scopes: ("combat" | "session")[];
+  scopes: ("combat" | "session" | "codex")[];
 }) {
   const code = ok(await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false })).token!;
   const token = clerk(name);
@@ -2091,5 +2094,14 @@ test("seat views: a combat-only co-GM runs the hidden creature, and reads no cod
     false,
     "a combat-only co-GM reads no secret",
   );
-  for (const c of [owner, ana, co]) c.socket.close();
+  // A codex co-GM's new entry (GM-only by default) stays in their own view, with its notes left to the secrets scope.
+  const codexCo = await coGm({ owner, campaignId, name: "co-codex-SeatView", scopes: ["codex"] });
+  const mine = ok(await codexCo.send({ type: "codex.save", kind: "handout", title: "Mine" })).id!;
+  await eventually(
+    () => codexCo.codex()?.entries.some((e) => e.id === mine) ?? false,
+    "the codex co-GM keeps their entry",
+  );
+  await eventually(() => codexCo.codex()?.entries.some((e) => e.id === secret) ?? false, "and reads every entry");
+  assert.equal(codexCo.codex()?.entries.find((e) => e.id === secret)?.gmNotes, "", "but not the notes on it");
+  for (const c of [owner, ana, co, codexCo]) c.socket.close();
 });

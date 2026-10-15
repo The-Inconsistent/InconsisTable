@@ -15,6 +15,8 @@ export interface Sight {
   session: boolean;
   /** Secret codex entries and the notes on them. */
   secrets: boolean;
+  /** Every codex entry, `gm` ones and each entry's audience (not the notes on them: those are `secrets`). */
+  codex: boolean;
   /** The `gm` fields and resources of the party's Characters. */
   party: boolean;
 }
@@ -31,6 +33,7 @@ export function sightOf(ctx: Ctx): Sight {
     combat: can("encounter:run"),
     session: can("test:call"),
     secrets: can("codex:read_secret"),
+    codex: can("codex:write"),
     party: can("character:edit:any"),
   };
 }

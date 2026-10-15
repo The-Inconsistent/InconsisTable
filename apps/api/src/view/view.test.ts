@@ -323,9 +323,15 @@ test("the Screen sees the shared view: that a Test is open, never who or what, a
   });
 });
 
-test("a co-GM with no scope, or only the codex scope, sees as a player who holds nothing", () => {
+test("a co-GM with no scope sees as a player who holds nothing", () => {
   assert.deepEqual(digest(ctx(member("cogm"), "u-co")), NOBODY);
-  assert.deepEqual(digest(ctx(member("cogm", ["codex"]), "u-co")), NOBODY);
+});
+
+test("codex opens every entry and its whole audience, never the notes on them", () => {
+  assert.deepEqual(digest(ctx(member("cogm", ["codex"]), "u-co")), { ...NOBODY, codex: ALL.codex });
+  const seen = seatView({ snapshot, compiled, ctx: ctx(member("cogm", ["codex"]), "u-co") }).codex.entries;
+  assert.deepEqual(seen.find((e) => e.id === "for-lyra")?.audience, ["lyra", "kael"]);
+  assert.ok(seen.every((e) => e.gmNotes === ""));
 });
 
 test("a co-GM keeps their own characters", () => {
@@ -523,5 +529,6 @@ test("a codex reader is never told who else an entry was shown to", () => {
     seatView({ snapshot, compiled, ctx: c }).codex.entries.find((e) => e.id === "for-lyra")?.audience;
   assert.deepEqual(audience(ctx(member("player", [], ["lyra"]), "u-lyra")), ["lyra"]);
   assert.deepEqual(audience(ctx(member("cogm", ["codex.secrets"]), "u-co")), ["lyra", "kael"]);
+  assert.deepEqual(audience(ctx(member("cogm", ["codex"]), "u-co")), ["lyra", "kael"]);
   assert.deepEqual(audience(ctx(member("gm"), "u-gm")), ["lyra", "kael"]);
 });

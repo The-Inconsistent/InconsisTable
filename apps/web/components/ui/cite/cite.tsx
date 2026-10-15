@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import type { BookSource } from "@inconsistable/core-schema";
@@ -19,6 +20,7 @@ type CiteProps = {
 // A printed page reference. When a GM tablet serves that book it is a button that asks the tablet for the page
 // (the `book:*` relay: nothing is stored); otherwise it is the cite text alone.
 export function Cite({ cite, ruleset, books, requestPage }: CiteProps) {
+  const t = useTranslations("cite");
   const [shown, setShown] = useState<{ url: string } | { error: string } | null>(null);
   const page = pageOfCite({ cite, ruleset });
   if (!page || !books.includes(page.source)) return <span className="small dim">{cite}</span>;
@@ -36,7 +38,7 @@ export function Cite({ cite, ruleset, books, requestPage }: CiteProps) {
 
   return (
     <>
-      <button className="btn sm" onClick={handleOpen} aria-label={`Open the page of ${cite}`}>
+      <button className="btn sm" onClick={handleOpen} aria-label={t("openLabel", { cite })}>
         {cite}
       </button>
       {shown && (
@@ -44,7 +46,7 @@ export function Cite({ cite, ruleset, books, requestPage }: CiteProps) {
           {"url" in shown ? (
             // A blob made in this browser from the relayed page; next/image has nothing to optimise.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={shown.url} alt={`Book page ${cite}`} style={{ width: "100%", height: "auto" }} />
+            <img src={shown.url} alt={t("pageAlt", { cite })} style={{ width: "100%", height: "auto" }} />
           ) : (
             <p className="error" role="alert">
               {shown.error}

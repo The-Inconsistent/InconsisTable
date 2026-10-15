@@ -25,18 +25,16 @@ export function facesFrom({ typed, sides }: { typed: readonly string[]; sides: n
 /** A modifier as the table writes it: +2, −1, +0. */
 export const signed = (n: number): string => (n < 0 ? `−${-n}` : `+${n}`);
 
-const OUTCOME_WORD: Record<TestOutcome, string> = { success: "Success", failure: "Failure", critical: "Critical" };
-
 /** The Theme's hook for a reported outcome: `outcome-success`, `-failure`, `-critical`, or nothing for anything else. */
 export function outcomeClass(outcome: string | null): string {
   const parsed = TestOutcome.safeParse(outcome);
   return parsed.success ? `outcome-${parsed.data}` : "";
 }
 
-/** The outcome as a word. The state carries it as a string; one that isn't the engine's is shown as nothing. */
-export function outcomeWord(outcome: string | null): string | null {
+/** The outcome the engine knows (the `outcome` message words it). The state carries a string; any other is nothing. */
+export function outcomeKey(outcome: string | null): TestOutcome | null {
   const parsed = TestOutcome.safeParse(outcome);
-  return parsed.success ? OUTCOME_WORD[parsed.data] : null;
+  return parsed.success ? parsed.data : null;
 }
 
 /** The digits a die with this many sides can need: a d20 takes two, a d6 one. */

@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import type { ChangeEvent } from "react";
 
 import type { CreationStep, EntityType } from "@inconsistable/rules-engine";
@@ -18,6 +19,7 @@ type ChooseStepProps = {
 // CHOOSE: pick `count` entries the table has attached, each shown by name, a short summary and its page. One pick is a
 // radio; more are checkboxes that stop at the count.
 export function ChooseStep({ step, entries, def, value, onChange }: ChooseStepProps) {
+  const t = useTranslations("chooseStep");
   const single = step.count === 1;
 
   // A pick: replaces the choice (one pick) or toggles it (several), never past the count.
@@ -27,15 +29,10 @@ export function ChooseStep({ step, entries, def, value, onChange }: ChooseStepPr
     if (value.length < step.count) onChange([...value, key]);
   };
 
-  if (entries.length === 0)
-    return <p className="dim">No {def?.label ?? step.pick} is attached to this table yet. Ask the GM.</p>;
+  if (entries.length === 0) return <p className="dim">{t("none", { label: def?.label ?? step.pick })}</p>;
   return (
     <div className="stack" role={single ? "radiogroup" : "group"} aria-label={step.label}>
-      {!single && (
-        <p className="small dim">
-          Pick {step.count}: {value.length} chosen
-        </p>
-      )}
+      {!single && <p className="small dim">{t("pickCount", { count: step.count, chosen: value.length })}</p>}
       {entries.map((e) => (
         <label key={e.key} className="pick">
           <input

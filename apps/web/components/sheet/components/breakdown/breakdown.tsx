@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import type { BookSource } from "@inconsistable/core-schema";
 import type { BreakdownLine } from "@inconsistable/rules-engine";
 import type { Ruleset } from "@inconsistable/rules-engine";
@@ -23,6 +25,7 @@ const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 
 // "Why is Defense 5?": each source with what it adds or takes away and the page that says so (docs/design.md §4.4).
 export function Breakdown({ label, total, lines, cite, ruleset, books, requestPage, onClose }: BreakdownProps) {
+  const t = useTranslations("breakdown");
   return (
     <BottomSheet title={`${label} ${total}`} onClose={onClose}>
       {lines ? (
@@ -38,7 +41,7 @@ export function Breakdown({ label, total, lines, cite, ruleset, books, requestPa
           ))}
         </ul>
       ) : (
-        <p className="dim">The parts of this number aren&apos;t shown on your phone.</p>
+        <p className="dim">{t("hidden")}</p>
       )}
       {!lines && cite && <Cite {...{ cite, ruleset, books, requestPage }} />}
     </BottomSheet>

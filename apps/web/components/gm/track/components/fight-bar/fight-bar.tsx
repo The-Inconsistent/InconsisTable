@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import type { Encounter } from "@inconsistable/core-schema";
@@ -10,6 +11,7 @@ type FightBarProps = { encounter: Encounter | null; sessionRunning: boolean; run
 // The bar that stays under the thumb: the round, Prev and Next, and Undo (always, even between fights: it takes back the
 // newest step of the session). Ending the fight asks twice, because temporary creatures go with it and that stays.
 export function FightBar({ encounter, sessionRunning, run }: FightBarProps) {
+  const t = useTranslations("fightBar");
   const [ending, setEnding] = useState(false);
 
   // END: the first tap asks, the second ends and clears the temporary creatures nobody marked Keep.
@@ -20,12 +22,12 @@ export function FightBar({ encounter, sessionRunning, run }: FightBarProps) {
   };
 
   return (
-    <div className="fightbar" role="toolbar" aria-label="Fight controls">
+    <div className="fightbar" role="toolbar" aria-label={t("label")}>
       {encounter ? (
         <>
-          <span className="round">Round {encounter.round}</span>
+          <span className="round">{t("round", { round: encounter.round })}</span>
           <button className="btn" disabled={encounter.paused} onClick={() => run({ type: "turn.prev" })}>
-            Prev
+            {t("prev")}
           </button>
           <button
             className="btn primary"
@@ -33,28 +35,28 @@ export function FightBar({ encounter, sessionRunning, run }: FightBarProps) {
             onClick={() => run({ type: "turn.next" })}
             style={{ minWidth: 120 }}
           >
-            Next turn
+            {t("next")}
           </button>
         </>
       ) : (
         <>
-          <span className="round">No fight</span>
+          <span className="round">{t("noFight")}</span>
           <button
             className="btn primary"
             disabled={!sessionRunning}
             onClick={() => run({ type: "encounter.start" })}
-            title={sessionRunning ? undefined : "Start a session first"}
+            title={sessionRunning ? undefined : t("startSessionFirst")}
           >
-            Start fight
+            {t("start")}
           </button>
         </>
       )}
       <button className="btn" onClick={() => run({ type: "event.undo" })} disabled={!sessionRunning}>
-        Undo
+        {t("undo")}
       </button>
       {encounter && (
         <button className="btn" disabled={encounter.paused} onClick={handleEnd} onBlur={() => setEnding(false)}>
-          {ending ? "End fight and clear temporary creatures" : "End fight"}
+          {ending ? t("endConfirm") : t("end")}
         </button>
       )}
     </div>

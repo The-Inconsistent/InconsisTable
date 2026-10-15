@@ -1,11 +1,12 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { UserButton } from "@inconsistable/auth/react";
 import { CreateGame, type Lobby, type LobbyGame } from "@inconsistable/core-schema";
 
-import { ROLE_LABEL } from "@/app/constants";
+import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ApiMessage, CampaignRef, readJson } from "@/lib/api-reply/api-reply";
 import type { RulesetList } from "@/lib/library/library";
 
@@ -14,14 +15,16 @@ type LobbyViewProps = { lobby: Lobby; rulesets: RulesetList };
 const NO_RULESET = "";
 
 function GameCard({ game }: { game: LobbyGame }) {
+  const t = useTranslations("lobby");
+  const tRoles = useTranslations("roles");
   return (
     <a className="card" href={`/c/${game.id}`} style={{ textDecoration: "none" }}>
       <strong>{game.name}</strong>
       <span className="row small dim">
-        <span>{game.isOwner ? "Your room" : `Owner: ${game.owner}`}</span>
-        {game.role && <span className="chip">{ROLE_LABEL[game.role]}</span>}
-        <span>{game.players} characters</span>
-        {game.session !== null && <span className="chip">Session {game.session} running</span>}
+        <span>{game.isOwner ? t("yourRoom") : t("owner", { name: game.owner })}</span>
+        {game.role && <span className="chip">{tRoles(game.role)}</span>}
+        <span>{t("characters", { count: game.players })}</span>
+        {game.session !== null && <span className="chip">{t("sessionRunning", { number: game.session })}</span>}
       </span>
     </a>
   );
@@ -46,6 +49,9 @@ function Section({ title, games, empty }: { title: string; games: LobbyGame[]; e
 
 // The signed-in home: rooms you own, rooms where you play or co-GM, and the archived ones; plus NEW ROOM for creators.
 export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
+  const t = useTranslations("lobby");
+  const tStatus = useTranslations("status");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const [name, setName] = useState("");
   const [rulesetVersionId, setRulesetVersionId] = useState(NO_RULESET);
@@ -59,7 +65,7 @@ export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
       name,
       rulesetVersionId: rulesetVersionId === NO_RULESET ? undefined : rulesetVersionId,
     });
-    if (!parsed.success) return setError("Give the room a name");
+    if (!parsed.success) return setError(t("nameRequired"));
     setBusy(true);
     setError(null);
     try {
@@ -72,9 +78,9 @@ export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
       const room = CampaignRef.safeParse(body);
       if (res.ok && room.success) return router.push(`/c/${room.data.campaignId}?tab=party`);
       const refusal = ApiMessage.safeParse(body);
-      setError(refusal.success ? refusal.data.message : "Couldn't create the room");
+      setError(refusal.success ? refusal.data.message : t("createFailed"));
     } catch {
-      setError("No signal. Check the connection and retry.");
+      setError(tStatus("nosignal"));
     }
     setBusy(false);
   };
@@ -82,26 +88,27 @@ export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
   return (
     <>
       <header className="band">
-        <strong>InconsisTable</strong>
+        <strong>{tCommon("brand")}</strong>
         <span className="row">
-          <a href="/library">Rulesets &amp; packs</a>
-          {lobby.admin && <a href="/admin">Admin</a>}
+          <a href="/library">{t("libraryLink")}</a>
+          {lobby.admin && <a href="/admin">{t("admin")}</a>}
+          <LocaleSwitch />
           <UserButton />
         </span>
       </header>
       <main className="page">
         {lobby.canCreate && (
           <form className="card" onSubmit={handleCreate}>
-            <h2 className="head">New room</h2>
+            <h2 className="head">{t("newRoom")}</h2>
             <div className="row">
               <label style={{ flex: 1 }}>
-                Name
+                {t("name")}
                 <input id="new-room-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />
               </label>
               <label>
-                Ruleset
+                {t("ruleset")}
                 <select value={rulesetVersionId} onChange={(e) => setRulesetVersionId(e.target.value)}>
-                  <option value={NO_RULESET}>None yet</option>
+                  <option value={NO_RULESET}>{t("noneYet")}</option>
                   {rulesets.map((r) => (
                     <optgroup key={r.id} label={r.slug}>
                       {r.versions.map((v) => (
@@ -114,20 +121,18 @@ export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
                 </select>
               </label>
               <button className="btn primary" type="submit" disabled={busy} style={{ alignSelf: "end" }}>
-                Create
+                {t("create")}
               </button>
             </div>
             {rulesets.length === 0 && (
-              <p className="small dim">
-                To start with a ruleset, <a href="/library">import one</a> first.
-              </p>
+              <p className="small dim">{t.rich("importHint", { link: (chunks) => <a href="/library">{chunks}</a> })}</p>
             )}
             {error && <p className="error">{error}</p>}
           </form>
         )}
-        <Section title="Your rooms" games={lobby.mine} empty="You don't own a room yet." />
-        <Section title="Where you play" games={lobby.seated} empty="Nobody has invited you to a table yet." />
-        {lobby.archived.length > 0 && <Section title="Archived" games={lobby.archived} empty="" />}
+        <Section title={t("yourRooms")} games={lobby.mine} empty={t("emptyMine")} />
+        <Section title={t("wherePlay")} games={lobby.seated} empty={t("emptySeated")} />
+        {lobby.archived.length > 0 && <Section title={t("archived")} games={lobby.archived} empty="" />}
       </main>
     </>
   );

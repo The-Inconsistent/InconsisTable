@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
 import { Ruleset } from "@inconsistable/rules-engine";
@@ -13,18 +14,21 @@ type CreaturesProps = { campaignId: string; send: Send };
 const PAGE = 50;
 
 // One read of the seat-scoped rules route, parsed. Throws the api's own words when it refuses.
-async function readRules(path: string): Promise<RulesReply> {
+async function readRules({ path, fallback }: { path: string; fallback: string }): Promise<RulesReply> {
   const res = await fetch(path);
   const body = await readJson(res);
   const parsed = RulesReply.safeParse(body);
   if (res.ok && parsed.success) return parsed.data;
   const refusal = ApiMessage.safeParse(body);
-  throw new Error(refusal.success ? refusal.data.message : "Couldn't read the rules. Try again");
+  throw new Error(refusal.success ? refusal.data.message : fallback);
 }
 
 // ADD CREATURES: search the attached packs for creatures by name, pick one, say how many, and place them. They arrive
 // numbered ("Goblin 1", "Goblin 2"…) with the entry's values; a temporary one goes when the encounter ends.
 export function Creatures({ campaignId, send }: CreaturesProps) {
+  const t = useTranslations("creatures");
+  const tStatus = useTranslations("status");
+  const readFailed = t("readFailed");
   const [q, setQ] = useState("");
   const [found, setFound] = useState<{ entries: RulesEntry[]; versions: Map<string, string> } | null>(null);
   const [picked, setPicked] = useState<RulesEntry | null>(null);
@@ -40,19 +44,21 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
     setMessage(null);
     try {
       const base = `/api/campaigns/${encodeURIComponent(campaignId)}/rules`;
-      const room = await readRules(`${base}?limit=1`);
+      const room = await readRules({ path: `${base}?limit=1`, fallback: readFailed });
       const ruleset = Ruleset.safeParse(room.ruleset?.manifest);
-      if (!ruleset.success) throw new Error("Pick a ruleset first (Rules tab)");
+      if (!ruleset.success) throw new Error(t("pickRuleset"));
       const name = q.trim() === "" ? "" : `&q=${encodeURIComponent(q.trim())}`;
       const replies = await Promise.all(
-        creatureTypes(ruleset.data).map((t) => readRules(`${base}?type=${encodeURIComponent(t)}${name}&limit=${PAGE}`)),
+        creatureTypes(ruleset.data).map((type) =>
+          readRules({ path: `${base}?type=${encodeURIComponent(type)}${name}&limit=${PAGE}`, fallback: readFailed }),
+        ),
       );
       const versions = new Map(replies.flatMap((r) => r.packs.map((p) => [p.slug, p.id] as const)));
       setFound({ entries: replies.flatMap((r) => r.entries), versions });
       setPicked(null);
     } catch (err) {
       setMessage({
-        text: err instanceof Error ? err.message : "No signal. Check the connection and retry.",
+        text: err instanceof Error ? err.message : tStatus("nosignal"),
         ok: false,
       });
     }
@@ -66,31 +72,29 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
     setBusy(true);
     const r = await send({ type: "actor.spawn", packVersionId, key: picked.key, count, temporary });
     setBusy(false);
-    setMessage(r.ok ? { text: `Added ${count} × ${picked.name}`, ok: true } : { text: r.error, ok: false });
+    setMessage(r.ok ? { text: t("added", { count, name: picked.name }), ok: true } : { text: r.error, ok: false });
   };
 
   return (
     <section className="stack">
-      <h2 className="head">Add creatures</h2>
+      <h2 className="head">{t("title")}</h2>
       <form className="row" onSubmit={handleSearch}>
         <input
           id="creature-search"
-          aria-label="Search creatures by name"
-          placeholder="Search creatures by name"
+          aria-label={t("searchLabel")}
+          placeholder={t("searchLabel")}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           maxLength={100}
           style={{ flex: 1 }}
         />
         <button className="btn" disabled={busy}>
-          Search
+          {t("search")}
         </button>
       </form>
-      {found && found.entries.length === 0 && (
-        <p className="dim">No creature matches. Attach a pack with creatures in the Rules tab.</p>
-      )}
+      {found && found.entries.length === 0 && <p className="dim">{t("noMatch")}</p>}
       {found && found.entries.length > 0 && (
-        <div className="stack" role="group" aria-label="Creatures found">
+        <div className="stack" role="group" aria-label={t("found")}>
           {found.entries.map((e) => (
             <button
               key={`${e.pack}/${e.key}`}
@@ -101,7 +105,7 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
             >
               <strong>{e.name}</strong>
               <span className="row small dim">
-                {e.level !== null && <span className="chip">Level {e.level}</span>}
+                {e.level !== null && <span className="chip">{t("level", { level: e.level })}</span>}
                 {e.tags.join(", ")}
               </span>
             </button>
@@ -116,17 +120,17 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
               <button
                 type="button"
                 className="btn"
-                aria-label="Fewer creatures"
+                aria-label={t("fewer")}
                 disabled={count <= MIN_SPAWN}
                 onClick={() => setCount(clampCount(count - 1))}
               >
                 −
               </button>
-              <output aria-label="How many">{count}</output>
+              <output aria-label={t("howMany")}>{count}</output>
               <button
                 type="button"
                 className="btn"
-                aria-label="More creatures"
+                aria-label={t("more")}
                 disabled={count >= MAX_SPAWN}
                 onClick={() => setCount(clampCount(count + 1))}
               >
@@ -140,11 +144,11 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
                 onChange={(e) => setTemporary(e.target.checked)}
                 style={{ minHeight: 24 }}
               />
-              Temporary (gone when the encounter ends)
+              {t("temporary")}
             </label>
           </div>
           <button className="btn primary" disabled={busy} onClick={handleSpawn} style={{ justifySelf: "start" }}>
-            Spawn {count} × {picked.name}
+            {t("spawn", { count, name: picked.name })}
           </button>
         </div>
       )}

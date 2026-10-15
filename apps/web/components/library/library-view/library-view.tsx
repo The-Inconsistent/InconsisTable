@@ -1,8 +1,10 @@
 "use client";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
 import { UserButton } from "@inconsistable/auth/react";
 
+import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { formatBytes, type PackList as PackListData, type RulesetList } from "@/lib/library/library";
 
 import { ImportPanel } from "./components/import-panel/import-panel";
@@ -13,6 +15,8 @@ type LibraryViewProps = { rulesets: RulesetList; packs: PackListData };
 // MY RULESETS & PACKS: everything the signed-in user imported. Nothing here is shared; a room can use what its owner
 // imported, and a private pack only in rooms its owner runs as GM.
 export function LibraryView({ rulesets, packs }: LibraryViewProps) {
+  const t = useTranslations("library");
+  const locale = useLocale();
   const router = useRouter();
   const { usage } = packs;
   const handleChanged = () => router.refresh();
@@ -20,17 +24,20 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
   return (
     <>
       <header className="band">
-        <a href="/">Rooms</a>
-        <strong>Rulesets &amp; packs</strong>
-        <UserButton />
+        <a href="/">{t("rooms")}</a>
+        <strong>{t("title")}</strong>
+        <span className="row">
+          <LocaleSwitch />
+          <UserButton />
+        </span>
       </header>
       <main className="page library">
         <ImportPanel onSaved={handleChanged} />
 
         <section className="stack">
-          <h2 className="head">Rulesets</h2>
+          <h2 className="head">{t("rulesets")}</h2>
           {rulesets.length === 0 ? (
-            <p className="dim">No rulesets yet. Import one first: a pack is written for a ruleset.</p>
+            <p className="dim">{t("noRulesets")}</p>
           ) : (
             <ul className="stack library-list">
               {rulesets.map((r) => (
@@ -50,9 +57,14 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
         </section>
 
         <section className="stack">
-          <h2 className="head">Packs</h2>
+          <h2 className="head">{t("packs")}</h2>
           <p className="small dim">
-            {usage.packs} of {usage.maxPacks} packs, {formatBytes(usage.bytes)} of {formatBytes(usage.maxBytes)} stored.
+            {t("usage", {
+              packs: usage.packs,
+              maxPacks: usage.maxPacks,
+              bytes: formatBytes(usage.bytes, locale),
+              maxBytes: formatBytes(usage.maxBytes, locale),
+            })}
           </p>
           <PackList packs={packs.packs} onChanged={handleChanged} />
         </section>

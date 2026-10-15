@@ -1,4 +1,5 @@
 "use client";
+import { useFormatter, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
 import type { Actor, BookSource } from "@inconsistable/core-schema";
@@ -10,10 +11,8 @@ import { ResourceRow } from "@/components/ui/resource-row/resource-row";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import {
   stepAction,
-  DURATION_WORDS,
   printValue,
   rangeOf,
-  RESET_WORDS,
   resetsOn,
   restsOf,
   sectionsOf,
@@ -37,6 +36,11 @@ type SheetViewProps = {
 // SHEET: one character as the ruleset's layout lays it out. Every value is the server's, already cut down to what this
 // seat may see; the only thing worked out here is the Breakdown of a number, from the same manifest.
 export function SheetView({ actor, ruleset, characters, gm, send, books, requestPage }: SheetViewProps) {
+  const t = useTranslations("sheet");
+  const tDuration = useTranslations("duration");
+  const tReset = useTranslations("resetEvent");
+  const tRest = useTranslations("rest");
+  const format = useFormatter();
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const compiled = useMemo(() => {
@@ -46,6 +50,12 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
   const sections = sectionsOf({ ruleset, actor });
   const conditions = actor.conditions.flatMap((id) => ruleset.conditions.find((c) => c.id === id) ?? []);
   const rests = restsOf(ruleset);
+
+  // What is left of a condition's count ("2 rounds left"), or "" when it has none.
+  const leftText = (id: string) => {
+    const left = timeLeft({ timers: actor.conditionTimers, id });
+    return left ? t(left.unit === "turn" ? "turnsLeft" : "roundsLeft", { count: left.count }) : "";
+  };
 
   // ± on a resource: a delta the server clamps.
   const handleStep = async ({ resource, delta }: { resource: string; delta: number }) => {
@@ -73,7 +83,7 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
           holder={actor.name}
           note={
             <span className="row small dim" style={{ gap: 6 }}>
-              {resets.length > 0 && <span>Refills: {resets.map((e) => RESET_WORDS[e]).join(", ")}</span>}
+              {resets.length > 0 && <span>{t("refills", { events: format.list(resets.map((e) => tReset(e))) })}</span>}
               {cite}
             </span>
           }
@@ -86,7 +96,7 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
         <div key={`d-${row.id}`} className="sheet-row" data-stat={row.id} data-kind="derived">
           <button
             className="sheet-derived"
-            aria-label={`${row.label} ${actor.derived[row.id]}: show where it comes from`}
+            aria-label={t("showWhere", { label: row.label, value: actor.derived[row.id] ?? 0 })}
             onClick={() => setOpen(row.id)}
           >
             <span className="stat-label">{row.label}</span>
@@ -100,7 +110,9 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
           <span className="stat-label">{row.label}</span>
           {cite}
         </span>
-        <strong className="sheet-num sheet-text">{printValue(actor.fields[row.id])}</strong>
+        <strong className="sheet-num sheet-text">
+          {printValue({ value: actor.fields[row.id], yes: t("yes"), no: t("no") })}
+        </strong>
       </div>
     );
   };
@@ -132,10 +144,10 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
             <button
               key={b.event}
               className="btn"
-              aria-label={`${b.label} for ${actor.name}`}
+              aria-label={t("restFor", { rest: tRest(b.event), name: actor.name })}
               onClick={() => handleRest(b.event)}
             >
-              {b.label}
+              {tRest(b.event)}
             </button>
           ))}
         </div>
@@ -147,15 +159,15 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
       )}
       {sections.map((s) => (
         <section key={s.id} className="stack sheet-card">
-          <h2 className="head">{s.label}</h2>
+          <h2 className="head">{s.label ?? t(`section.${s.id as "derived" | "resources" | "fields"}`)}</h2>
           <div className="sheet-rows">{s.rows.map(rowView)}</div>
         </section>
       ))}
-      {sections.length === 0 && <p className="dim">The ruleset has nothing to show for this character yet.</p>}
+      {sections.length === 0 && <p className="dim">{t("nothing")}</p>}
       <section className="stack sheet-card">
-        <h2 className="head">Conditions</h2>
+        <h2 className="head">{t("conditions")}</h2>
         {conditions.length === 0 ? (
-          <p className="dim">None.</p>
+          <p className="dim">{t("none")}</p>
         ) : (
           <ul className="list">
             {conditions.map((c) => (
@@ -163,9 +175,8 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
                 <span className="stack" style={{ gap: 2 }}>
                   <strong>{c.label}</strong>
                   <span className="small dim">
-                    {DURATION_WORDS[c.duration]}
-                    {timeLeft({ timers: actor.conditionTimers, id: c.id }) &&
-                      `, ${timeLeft({ timers: actor.conditionTimers, id: c.id })} left`}
+                    {tDuration(c.duration)}
+                    {leftText(c.id) && `, ${leftText(c.id)}`}
                   </span>
                   {c.cite && <Cite cite={c.cite} {...{ ruleset, books, requestPage }} />}
                 </span>

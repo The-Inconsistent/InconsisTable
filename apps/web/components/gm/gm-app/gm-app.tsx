@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { canInCampaign, type Me } from "@inconsistable/core-schema";
@@ -9,6 +10,7 @@ import { RulesPanel } from "@/components/gm/rules/rules-panel";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { Track } from "@/components/gm/track/track";
 import { Tests } from "@/components/gm/tests/tests";
+import { SettingsMenu } from "@/components/ui/settings-menu/settings-menu";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useTable } from "@/hooks/use-table/use-table";
@@ -17,37 +19,36 @@ import type { RulesView } from "@/lib/rules-reader/rules-reader";
 
 type GmAppProps = { me: Me; initialTab: GmTab; rules: RulesTabData | null; view: RulesView | null };
 
-// What each tab will hold, until it does (docs/p0-plan.md, docs/design.md §3.4).
-const COMING: Record<Exclude<GmTab, "party" | "tests" | "rules" | "track">, string> = {
-  prep: "Adventures and scenes arrive in P1.",
-  codex: "NPCs, places, factions and handouts arrive in P1.",
-  map: "Maps that help the table remember arrive in P2.",
-};
-
 // The GM side of a table: the room's owner, its GMs, co-GMs (tabs filtered by scope), or an admin who opened it.
 export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
+  const t = useTranslations("gmApp");
+  const tTable = useTranslations("table");
+  const tStatus = useTranslations("status");
   const { state, online, send, books, requestPage } = useTable(me.campaignId);
-  const tabs = (Object.keys(GM_TABS) as GmTab[]).filter((t) => canInCampaign({ ctx: me, perm: GM_TABS[t].perm }));
+  const tabs = (Object.keys(GM_TABS) as GmTab[]).filter((k) => canInCampaign({ ctx: me, perm: GM_TABS[k].perm }));
   const [tab, setTab] = useState<GmTab>(tabs.includes(initialTab) ? initialTab : (tabs[0] ?? "rules"));
 
-  if (!state) return <StatusScreen text="Syncing…" />;
+  if (!state) return <StatusScreen text={tStatus("syncing")} />;
   return (
     <div className="surface-table">
       <header className="band">
         {!online && (
           <span className="badge-offline" role="status">
-            NO SIGNAL
+            {tTable("offline")}
           </span>
         )}
-        <a href="/">← Rooms</a>
+        <a href="/">{t("rooms")}</a>
         <strong>{state.campaign.name}</strong>
-        <span className="row">{state.session && <span className="chip">Session {state.session.number}</span>}</span>
+        <span className="row">
+          {state.session && <span className="chip">{tTable("session", { number: state.session.number })}</span>}
+          <SettingsMenu />
+        </span>
       </header>
       <TransferOffer me={me} state={state} send={send} />
-      <nav className="tabs" role="tablist" aria-label="GM tabs">
-        {tabs.map((t) => (
-          <button key={t} className="tab" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-            {GM_TABS[t].label}
+      <nav className="tabs" role="tablist" aria-label={t("tabsLabel")}>
+        {tabs.map((name) => (
+          <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => setTab(name)}>
+            {t(`tabs.${name}`)}
           </button>
         ))}
       </nav>
@@ -63,7 +64,7 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
             <RulesPanel me={me} send={send} data={rules} />
             {view && (
               <section className="stack">
-                <h2 className="title">Read the rules</h2>
+                <h2 className="title">{t("readRules")}</h2>
                 <RulesReader
                   campaignId={me.campaignId}
                   ruleset={view.ruleset}
@@ -75,7 +76,7 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
             )}
           </div>
         ) : (
-          <p className="dim">{COMING[tab]}</p>
+          <p className="dim">{t(`coming.${tab}`)}</p>
         )}
       </main>
     </div>

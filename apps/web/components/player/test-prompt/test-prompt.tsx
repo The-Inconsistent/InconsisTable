@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
 import type { LiveState, TestCall, TestTargetState } from "@inconsistable/core-schema";
@@ -8,32 +9,33 @@ import { PoolOutcome } from "@/components/ui/pool-outcome/pool-outcome";
 import { PoolPad } from "@/components/ui/pool-pad/pool-pad";
 import { RollPad } from "@/components/ui/roll-pad/roll-pad";
 import type { Send } from "@/hooks/use-table/use-table";
-import { outcomeClass, outcomeWord, signed } from "@/lib/roll-slots/roll-slots";
+import { outcomeClass, outcomeKey, signed } from "@/lib/roll-slots/roll-slots";
 
 type TestPromptProps = { state: LiveState; send: Send };
-
-// What a reported roll says to the player: what they read, and the rest only if the call lets the server say it.
-function resultText({ call, target }: { call: TestCall; target: TestTargetState }): string {
-  const report = target.report;
-  if (!report) return "Waiting for the GM";
-  if (call.pool) return call.status === "open" ? "Reported. Waiting for the GM" : "Closed";
-  const parts = [`Rolled ${report.natural ?? report.total ?? "?"}`];
-  if (report.total !== null && report.total !== report.natural) parts.push(`total ${report.total}`);
-  const word = outcomeWord(report.outcome);
-  parts.push(word ?? (call.status === "open" ? "Waiting for the GM" : "Closed"));
-  return parts.join(" · ");
-}
 
 // The phone's Test prompt: sits at the top of the page when the GM calls a Test on one of this seat's characters. It
 // asks for the number on the physical die and nothing else, and never moves the player off the table (no sound, no
 // modal). The state is already this seat's own: a hidden target number is not in it.
 export function TestPrompt({ state, send }: TestPromptProps) {
+  const t = useTranslations("testPrompt");
   const names = useMemo(() => new Map(state.actors.map((a) => [a.id, a.name])), [state.actors]);
   const open = state.tests.filter((c) => c.status === "open");
   // The newest closed call is kept for a moment so the result doesn't vanish the instant the GM closes.
   const [dismissed, setDismissed] = useState<string | null>(null);
   const newestClosed = state.tests.find((c) => c.status === "closed");
   const lastClosed = newestClosed?.id === dismissed ? undefined : newestClosed;
+
+  // What a reported roll says to the player: what they read, and the rest only if the call lets the server say it.
+  const resultText = ({ call, target }: { call: TestCall; target: TestTargetState }): string => {
+    const report = target.report;
+    if (!report) return t("waiting");
+    if (call.pool) return call.status === "open" ? t("reportedWaiting") : t("closed");
+    const parts = [t("rolled", { value: report.natural ?? report.total ?? "?" })];
+    if (report.total !== null && report.total !== report.natural) parts.push(t("total", { total: report.total }));
+    const key = outcomeKey(report.outcome);
+    parts.push(key ? t(`outcome.${key}`) : call.status === "open" ? t("waiting") : t("closed"));
+    return parts.join(" · ");
+  };
 
   // REPORT POOL: the dice counted per band and the special dice's faces; the server counts and resolves the outcome.
   const reportPool =
@@ -59,36 +61,40 @@ export function TestPrompt({ state, send }: TestPromptProps) {
 
   if (open.length === 0 && !lastClosed) return null;
   return (
-    <section className="stack" aria-label="Tests called by the GM">
+    <section className="stack" aria-label={t("label")}>
       {open.flatMap((call) =>
-        call.targets.map((t) => {
-          const who = names.get(t.actorId) ?? "your character";
+        call.targets.map((target) => {
+          const who = names.get(target.actorId) ?? t("yourCharacter");
           return (
-            <div key={`${call.id}-${t.actorId}`} className="card roll-card">
+            <div key={`${call.id}-${target.actorId}`} className="card roll-card">
               <h2 className="roll-title">
-                Roll {call.pool ? `${t.pool ?? "your"} ${call.dice}` : call.dice} for {who}
+                {call.pool
+                  ? t("rollPool", { pool: target.pool ?? t("your"), dice: call.dice, who })
+                  : t("roll", { dice: call.dice, who })}
               </h2>
-              {t.report ? (
-                <p className={`roll-result ${outcomeClass(t.report.outcome)}`.trim()} role="status">
-                  {call.pool ? <PoolOutcome report={t.report} /> : resultText({ call, target: t })}
+              {target.report ? (
+                <p className={`roll-result ${outcomeClass(target.report.outcome)}`.trim()} role="status">
+                  {call.pool ? <PoolOutcome report={target.report} /> : resultText({ call, target })}
                 </p>
               ) : call.pool ? (
                 <PoolPad
                   spec={call.pool}
-                  pool={t.pool}
+                  pool={target.pool}
                   who={who}
-                  onReport={reportPool({ callId: call.id, actorId: t.actorId })}
+                  onReport={reportPool({ callId: call.id, actorId: target.actorId })}
                 />
               ) : (
                 <>
                   <p className="dim small">
-                    Read the die. {t.modifier === null ? "Your modifier is" : `${signed(t.modifier)} is`} added for you.
+                    {target.modifier === null
+                      ? t("readHidden")
+                      : t("readModifier", { modifier: signed(target.modifier) })}
                   </p>
                   <RollPad
                     dice={call.dice}
                     allowAdvantage={call.advantage}
                     who={who}
-                    onReport={report({ callId: call.id, actorId: t.actorId })}
+                    onReport={report({ callId: call.id, actorId: target.actorId })}
                   />
                 </>
               )}
@@ -98,19 +104,19 @@ export function TestPrompt({ state, send }: TestPromptProps) {
       )}
       {lastClosed && open.length === 0 && (
         <div className="card">
-          <p className="dim small">Last Test closed</p>
-          {lastClosed.targets.map((t) => (
-            <p key={t.actorId} className="roll-result">
-              {names.get(t.actorId) ?? "?"}:{" "}
-              {lastClosed.pool && t.report ? (
-                <PoolOutcome report={t.report} />
+          <p className="dim small">{t("lastClosed")}</p>
+          {lastClosed.targets.map((target) => (
+            <p key={target.actorId} className="roll-result">
+              {names.get(target.actorId) ?? "?"}:{" "}
+              {lastClosed.pool && target.report ? (
+                <PoolOutcome report={target.report} />
               ) : (
-                resultText({ call: lastClosed, target: t })
+                resultText({ call: lastClosed, target })
               )}
             </p>
           ))}
           <button className="btn" onClick={() => setDismissed(lastClosed.id)}>
-            Got it
+            {t("gotIt")}
           </button>
         </div>
       )}

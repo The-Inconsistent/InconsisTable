@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 
@@ -17,7 +18,6 @@ import {
 } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
-import { ROLE_LABEL } from "@/app/constants";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
@@ -33,19 +33,22 @@ type PartyProps = {
   sheet: { ruleset: Ruleset | null; books: readonly BookSource[]; requestPage: RequestPage };
 };
 
-const SCOPE_LABEL: Record<CogmScope, string> = {
-  combat: "Combat",
-  codex: "Codex",
-  "codex.secrets": "Secrets",
-  party: "Party",
-  session: "Session",
-};
+const SCOPE_KEY = {
+  combat: "combat",
+  codex: "codex",
+  "codex.secrets": "secrets",
+  party: "party",
+  session: "session",
+} as const satisfies Record<CogmScope, string>;
 
 // A link the phones open, shown as a QR and as text to copy.
 type Shown = { title: string; url: string; qr: string };
 
 // PARTY: who sits at this table, how others join, and the room's owner controls (docs/design.md §3.6, §3.7).
 export function Party({ me, state, send, sheet }: PartyProps) {
+  const t = useTranslations("party");
+  const tRoles = useTranslations("roles");
+  const tRest = useTranslations("rest");
   const router = useRouter();
   const [shown, setShown] = useState<Shown | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +60,7 @@ export function Party({ me, state, send, sheet }: PartyProps) {
   const can = (perm: Parameters<typeof canInCampaign>[0]["perm"]) => canInCampaign({ ctx: me, perm });
   const holderOf = (actorId: string) =>
     state.access.members.find((m) => m.characterIds.includes(actorId))?.name ??
-    (state.access.guests.some((g) => g.actorId === actorId) ? "Guest" : null);
+    (state.access.guests.some((g) => g.actorId === actorId) ? t("guest") : null);
   const actorNames = useMemo(() => new Map(state.actors.map((a) => [a.id, a.name])), [state.actors]);
 
   // Sends an action and shows its refusal, if any.
@@ -73,7 +76,7 @@ export function Party({ me, state, send, sheet }: PartyProps) {
     try {
       setShown({ title, url, qr: await qrImage(url) });
     } catch {
-      setError("Couldn't draw the QR code. Try again");
+      setError(t("qrFailed"));
     }
   };
 
@@ -85,19 +88,20 @@ export function Party({ me, state, send, sheet }: PartyProps) {
       role: inviteRole,
       allowGuests: inviteRole === "player",
     });
-    if (r.ok && r.token) await show({ title: `Room invite · ${ROLE_LABEL[inviteRole]}`, path: `/invite/${r.token}` });
+    if (r.ok && r.token)
+      await show({ title: t("roomInviteTitle", { role: tRoles(inviteRole) }), path: `/invite/${r.token}` });
   };
 
   // GUEST QR for one character: a phone without an account plays it.
   const handleGuest = async ({ actorId, name }: { actorId: string; name: string }) => {
     const r = await act({ type: "token.issue", actorId });
-    if (r.ok && r.token) await show({ title: `Guest QR · ${name}`, path: `/join/${r.token}` });
+    if (r.ok && r.token) await show({ title: t("guestQrTitle", { name }), path: `/join/${r.token}` });
   };
 
   // SCREEN QR: the TV at the table joins read-only.
   const handleScreen = async () => {
     const r = await act({ type: "screen.issue" });
-    if (r.ok && r.token) await show({ title: "Table screen", path: `/join/${r.token}` });
+    if (r.ok && r.token) await show({ title: t("tableScreen"), path: `/join/${r.token}` });
   };
 
   // NEW CHARACTER, for a pregen or a player who'll claim it from the room QR.
@@ -145,40 +149,40 @@ export function Party({ me, state, send, sheet }: PartyProps) {
         <section className="row">
           {state.session ? (
             <button className="btn" onClick={() => act({ type: "session.end" })}>
-              End session {state.session.number}
+              {t("endSession", { number: state.session.number })}
             </button>
           ) : (
             <button className="btn primary" onClick={() => act({ type: "session.start" })}>
-              Start a session
+              {t("startSession")}
             </button>
           )}
         </section>
       )}
 
       <section className="stack">
-        <h2 className="head">Invite</h2>
+        <h2 className="head">{t("invite")}</h2>
         <div className="row">
           <label>
-            As
+            {t("as")}
             <select id="invite-role" value={inviteRole} onChange={handleInviteRole}>
               {MemberRole.options
                 .filter((role) => canGrantRole({ ctx: me, role }))
                 .map((role) => (
                   <option key={role} value={role}>
-                    {ROLE_LABEL[role]}
+                    {tRoles(role)}
                   </option>
                 ))}
             </select>
           </label>
           <button className="btn primary" onClick={handleInvite} style={{ alignSelf: "end" }}>
-            Room QR
+            {t("roomQr")}
           </button>
           <button className="btn" onClick={handleScreen} style={{ alignSelf: "end" }}>
-            Screen QR
+            {t("screenQr")}
           </button>
           {state.access.screens > 0 && (
             <button className="btn" onClick={() => act({ type: "screen.revoke" })} style={{ alignSelf: "end" }}>
-              Revoke screens ({state.access.screens})
+              {t("revokeScreens", { count: state.access.screens })}
             </button>
           )}
         </div>
@@ -187,19 +191,19 @@ export function Party({ me, state, send, sheet }: PartyProps) {
             <strong>{shown.title}</strong>
             {/* A data: URL made in this browser; next/image has nothing to optimise. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="qr" src={shown.qr} alt={`QR code for ${shown.title}`} />
+            <img className="qr" src={shown.qr} alt={t("qrAlt", { title: shown.title })} />
             <code className="small" style={{ wordBreak: "break-all" }}>
               {shown.url}
             </code>
             <button className="btn sm" onClick={() => setShown(null)}>
-              Hide
+              {t("hide")}
             </button>
           </div>
         )}
       </section>
 
       <section className="stack">
-        <h2 className="head">Characters</h2>
+        <h2 className="head">{t("characters")}</h2>
         <ul className="list">
           {state.actors
             .filter((a) => a.kind === "pc")
@@ -208,42 +212,44 @@ export function Party({ me, state, send, sheet }: PartyProps) {
               return (
                 <li key={a.id}>
                   <span>
-                    <strong>{a.name}</strong> <span className="dim small">{holder ?? "Open"}</span>
+                    <strong>{a.name}</strong> <span className="dim small">{holder ?? t("open")}</span>
                   </span>
                   <span className="row">
                     {sheet.ruleset && !needsBuild(a) && (
                       <button
                         className="btn sm"
-                        aria-label={`${sheetOf === a.id ? "Close" : "Open"} the sheet of ${a.name}`}
+                        aria-label={
+                          sheetOf === a.id ? t("closeSheet", { name: a.name }) : t("openSheet", { name: a.name })
+                        }
                         aria-expanded={sheetOf === a.id}
                         onClick={() => setSheetOf(sheetOf === a.id ? null : a.id)}
                       >
-                        Sheet
+                        {t("sheet")}
                       </button>
                     )}
                     {needsBuild(a) && can("character:edit:any") && (
                       <a
                         className="btn sm"
-                        aria-label={`Build ${a.name}`}
+                        aria-label={t("buildLabel", { name: a.name })}
                         href={`/c/${state.campaign.id}/build/${a.id}`}
                       >
-                        {state.myDraft?.actorId === a.id ? "Continue building" : "Build"}
+                        {state.myDraft?.actorId === a.id ? t("continueBuilding") : t("build")}
                       </a>
                     )}
                     <button
                       className="btn sm"
-                      aria-label={`Guest QR for ${a.name}`}
+                      aria-label={t("guestQrLabel", { name: a.name })}
                       onClick={() => handleGuest({ actorId: a.id, name: a.name })}
                     >
-                      Guest QR
+                      {t("guestQr")}
                     </button>
                     {state.access.guests.some((g) => g.actorId === a.id) && (
                       <button
                         className="btn sm"
-                        aria-label={`Revoke guest of ${a.name}`}
+                        aria-label={t("revokeGuestLabel", { name: a.name })}
                         onClick={() => act({ type: "token.revoke", actorId: a.id })}
                       >
-                        Revoke guest
+                        {t("revokeGuest")}
                       </button>
                     )}
                   </span>
@@ -271,10 +277,10 @@ export function Party({ me, state, send, sheet }: PartyProps) {
               <button
                 key={b.event}
                 className="btn"
-                aria-label={`${b.label} for the whole party`}
+                aria-label={t("restParty", { rest: tRest(b.event) })}
                 onClick={() => act({ type: "actor.rest", event: b.event })}
               >
-                {b.label} (party)
+                {t("restPartyButton", { rest: tRest(b.event) })}
               </button>
             ))}
           </div>
@@ -283,20 +289,20 @@ export function Party({ me, state, send, sheet }: PartyProps) {
           <form className="row" onSubmit={handleNewCharacter}>
             <input
               id="party-new-character"
-              aria-label="New character name"
-              placeholder="New character name"
+              aria-label={t("newCharacter")}
+              placeholder={t("newCharacter")}
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               maxLength={100}
               style={{ flex: 1 }}
             />
-            <button className="btn">Add</button>
+            <button className="btn">{t("add")}</button>
           </form>
         )}
       </section>
 
       <section className="stack">
-        <h2 className="head">Seats</h2>
+        <h2 className="head">{t("seats")}</h2>
         <ul className="list">
           {state.access.members.map((m) => {
             const owner = m.userId === state.campaign.ownerUserId;
@@ -304,7 +310,7 @@ export function Party({ me, state, send, sheet }: PartyProps) {
             return (
               <li key={m.userId}>
                 <span>
-                  <strong>{m.name}</strong> <span className="chip">{owner ? "Owner" : ROLE_LABEL[m.role]}</span>
+                  <strong>{m.name}</strong> <span className="chip">{owner ? t("owner") : tRoles(m.role)}</span>
                   {m.characterIds.length > 0 && (
                     <span className="dim small">
                       {" "}
@@ -316,13 +322,13 @@ export function Party({ me, state, send, sheet }: PartyProps) {
                   {isOwner && !owner && (
                     <select
                       id={`role-${m.userId}`}
-                      aria-label={`Seat of ${m.name}`}
+                      aria-label={t("seatOf", { name: m.name })}
                       value={m.role}
                       onChange={handleAppoint(m)}
                     >
                       {MemberRole.options.map((r) => (
                         <option key={r} value={r}>
-                          {ROLE_LABEL[r]}
+                          {tRoles(r)}
                         </option>
                       ))}
                     </select>
@@ -330,25 +336,30 @@ export function Party({ me, state, send, sheet }: PartyProps) {
                   {isOwner && !owner && m.role !== "player" && (
                     <button
                       className="btn sm"
-                      aria-label={`Offer the room to ${m.name}`}
+                      aria-label={t("offerLabel", { name: m.name })}
                       disabled={transferTo?.toUserId === m.userId}
                       onClick={() => act({ type: "campaign.transfer", toUserId: m.userId })}
                     >
-                      Offer the room
+                      {t("offer")}
                     </button>
                   )}
                   {removable && m.userId !== me.userId && (
                     <button
                       className="btn sm"
-                      aria-label={`Remove ${m.name}`}
+                      aria-label={t("removeLabel", { name: m.name })}
                       onClick={() => act({ type: "member.remove", userId: m.userId })}
                     >
-                      Remove
+                      {t("remove")}
                     </button>
                   )}
                 </span>
                 {isOwner && m.role === "cogm" && (
-                  <div className="row" role="group" aria-label={`Scopes of ${m.name}`} style={{ width: "100%" }}>
+                  <div
+                    className="row"
+                    role="group"
+                    aria-label={t("scopesOf", { name: m.name })}
+                    style={{ width: "100%" }}
+                  >
                     {CogmScope.options.map((s) => (
                       // The whole label is the touch target (44px); the box itself stays small.
                       <label key={s} className="row small" style={{ gap: 4, minHeight: 44 }}>
@@ -359,7 +370,7 @@ export function Party({ me, state, send, sheet }: PartyProps) {
                           onChange={() => handleScope(m, s)}
                           style={{ minHeight: 24 }}
                         />
-                        {SCOPE_LABEL[s]}
+                        {t(`scope.${SCOPE_KEY[s]}`)}
                       </label>
                     ))}
                   </div>
@@ -371,11 +382,12 @@ export function Party({ me, state, send, sheet }: PartyProps) {
         {isOwner && transferTo && (
           <p className="row">
             <span className="dim">
-              Waiting for {state.access.members.find((m) => m.userId === transferTo.toUserId)?.name ?? "them"} to accept
-              the room.
+              {t("waitingFor", {
+                name: state.access.members.find((m) => m.userId === transferTo.toUserId)?.name ?? t("them"),
+              })}
             </span>
             <button className="btn sm" onClick={() => act({ type: "campaign.transferCancel" })}>
-              Cancel offer
+              {t("cancelOffer")}
             </button>
           </p>
         )}
@@ -383,15 +395,15 @@ export function Party({ me, state, send, sheet }: PartyProps) {
 
       {can("campaign:archive") && (
         <section className="stack">
-          <h2 className="head">Room</h2>
+          <h2 className="head">{t("room")}</h2>
           <div className="row">
             {state.campaign.archived ? (
               <button className="btn" onClick={() => act({ type: "campaign.unarchive" })}>
-                Unarchive
+                {t("unarchive")}
               </button>
             ) : (
               <button className="btn" onClick={() => act({ type: "campaign.archive" })}>
-                Archive
+                {t("archive")}
               </button>
             )}
           </div>
@@ -399,13 +411,13 @@ export function Party({ me, state, send, sheet }: PartyProps) {
             <div className="row">
               <input
                 id="delete-room-name"
-                aria-label="Type the room's name to delete it"
+                aria-label={t("deleteLabel")}
                 placeholder={state.campaign.name}
                 value={deleteName}
                 onChange={(e) => setDeleteName(e.target.value)}
               />
               <button className="btn" disabled={deleteName.trim() !== state.campaign.name} onClick={handleDelete}>
-                Delete for good
+                {t("deleteForGood")}
               </button>
             </div>
           )}

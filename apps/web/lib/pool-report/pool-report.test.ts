@@ -3,17 +3,7 @@ import { test } from "node:test";
 
 import type { PoolSpec } from "@inconsistable/core-schema";
 
-import {
-  countedIn,
-  facesLabel,
-  flagWord,
-  marginText,
-  ordinaryDiceOf,
-  poolRoll,
-  shiftsText,
-  specialCountOf,
-  stepCount,
-} from "./pool-report.ts";
+import { countedIn, facesLabel, flagKey, ordinaryDiceOf, poolRoll, specialCountOf, stepCount } from "./pool-report.ts";
 
 const spec: PoolSpec = {
   die: 6,
@@ -56,11 +46,9 @@ test("the report waits for every special die and leaves out bands that counted n
   assert.deepEqual(poolRoll({ counts: {}, special: [], expected: 0 }), { kind: "pool", counts: {}, special: [] });
 });
 
-test("flags, margins and shifts are worded for the table", () => {
+test("a flag is the engine's or nothing", () => {
   assert.deepEqual(
-    [flagWord("critical"), flagWord("complication"), flagWord("jackpot")],
-    ["Critical", "Complication", null],
+    [flagKey("critical"), flagKey("complication"), flagKey("jackpot")],
+    ["critical", "complication", null],
   );
-  assert.deepEqual([marginText(2), marginText(-3), marginText(0)], ["+2", "−3", "on the number"]);
-  assert.deepEqual([shiftsText(1), shiftsText(0), shiftsText(3)], ["1 shift", "0 shifts", "3 shifts"]);
 });

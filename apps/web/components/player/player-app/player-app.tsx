@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import type { Me } from "@inconsistable/core-schema";
@@ -9,6 +10,7 @@ import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
 import { OrderView } from "@/components/ui/order-view/order-view";
 import { TestPrompt } from "@/components/player/test-prompt/test-prompt";
+import { SettingsMenu } from "@/components/ui/settings-menu/settings-menu";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useTable } from "@/hooks/use-table/use-table";
@@ -20,13 +22,16 @@ type PlayerAppProps = { me: Me; view: RulesView | null };
 // The phone: one seat, possibly several characters (a companion, a funnel, a friend's character). The strip at the
 // top switches between them (docs/design.md §3.7). Sheets, the fight and the map arrive with the first ruleset (P1).
 export function PlayerApp({ me, view }: PlayerAppProps) {
+  const t = useTranslations("playerApp");
+  const tTable = useTranslations("table");
+  const tStatus = useTranslations("status");
   const { state, codex, online, send, books, requestPage } = useTable(me.campaignId);
   const held = me.seat.kind === "admin" ? [] : me.seat.characterIds;
   const [current, setCurrent] = useState(held[0] ?? "");
   const [tab, setTab] = useState<PlayerTab>("sheet");
   const [error, setError] = useState<string | null>(null);
 
-  if (!state) return <StatusScreen text="Syncing…" />;
+  if (!state) return <StatusScreen text={tStatus("syncing")} />;
   const mine = state.actors.filter((a) => held.includes(a.id));
   const character = mine.find((a) => a.id === current) ?? mine[0];
 
@@ -44,15 +49,18 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
       <header className="band">
         {!online && (
           <span className="badge-offline" role="status">
-            NO SIGNAL
+            {tTable("offline")}
           </span>
         )}
         <strong>{state.campaign.name}</strong>
-        <span className="row">{state.session && <span className="chip">Session {state.session.number}</span>}</span>
+        <span className="row">
+          {state.session && <span className="chip">{tTable("session", { number: state.session.number })}</span>}
+          <SettingsMenu />
+        </span>
       </header>
       <TransferOffer me={me} state={state} send={send} />
       {mine.length > 1 && (
-        <nav className="tabs" role="tablist" aria-label="Your characters">
+        <nav className="tabs" role="tablist" aria-label={t("charactersLabel")}>
           {mine.map((a) => (
             <button
               key={a.id}
@@ -69,14 +77,14 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
       <main className="page">
         <TurnBanner encounter={state.encounter} held={held} />
         <TestPrompt state={state} send={send} />
-        <h1 className="title sheet-name">{character?.name ?? "No character"}</h1>
+        <h1 className="title sheet-name">{character?.name ?? t("noCharacter")}</h1>
         {character && needsBuild(character) && (
           <a
             className="btn primary"
             href={`/c/${me.campaignId}/build/${character.id}`}
             style={{ justifySelf: "start" }}
           >
-            {state.myDraft?.actorId === character.id ? "Continue building" : "Build character"}
+            {state.myDraft?.actorId === character.id ? t("continueBuilding") : t("build")}
           </a>
         )}
         {state.encounter && <OrderView encounter={state.encounter} />}
@@ -91,7 +99,7 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
                 </span>
               </li>
             ))}
-            {!codex?.entries.length && <li className="dim">Nothing revealed yet.</li>}
+            {!codex?.entries.length && <li className="dim">{t("nothingRevealed")}</li>}
           </ul>
         ) : tab === "rules" ? (
           view ? (
@@ -103,7 +111,7 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
               requestPage={requestPage}
             />
           ) : (
-            <p className="error">Couldn&apos;t read the rules. Check the connection and reload.</p>
+            <p className="error">{t("rulesFailed")}</p>
           )
         ) : tab === "sheet" ? (
           character && view?.ruleset && !needsBuild(character) ? (
@@ -116,10 +124,10 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
               {...{ send, books, requestPage }}
             />
           ) : !character || !needsBuild(character) ? (
-            <p className="dim">This tab fills in when the table picks a ruleset.</p>
+            <p className="dim">{t("sheetPending")}</p>
           ) : null
         ) : (
-          <p className="dim">This tab fills in when the table plays on.</p>
+          <p className="dim">{t("tabPending")}</p>
         )}
         {error && (
           <p className="error" role="alert">
@@ -127,13 +135,13 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
           </p>
         )}
         <button className="btn" onClick={handleLeave} style={{ justifySelf: "start" }}>
-          Leave this table
+          {t("leave")}
         </button>
       </main>
-      <nav className="tabs tabs-bottom safe-bottom" role="tablist" aria-label="Player tabs">
-        {(Object.keys(PLAYER_TABS) as PlayerTab[]).map((t) => (
-          <button key={t} className="tab" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-            {PLAYER_TABS[t]}
+      <nav className="tabs tabs-bottom safe-bottom" role="tablist" aria-label={t("tabsLabel")}>
+        {PLAYER_TABS.map((name) => (
+          <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => setTab(name)}>
+            {t(`tabs.${name}`)}
           </button>
         ))}
       </nav>

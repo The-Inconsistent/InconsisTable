@@ -1,7 +1,8 @@
+import { getTranslations } from "next-intl/server";
+
 import { Me } from "@inconsistable/core-schema";
 import { Ruleset } from "@inconsistable/rules-engine";
 
-import { JOIN_ERRORS, NO_ACCESS } from "@/app/constants";
 import { apiGet } from "@/app/server-api";
 import { asGmTab, TAB_PARAM } from "@/components/gm/gm-app/constants";
 import { GmApp } from "@/components/gm/gm-app/gm-app";
@@ -60,17 +61,17 @@ async function rulesView(campaignId: string): Promise<RulesView | null> {
 // One table: the GM app (GM, co-GM, or an admin who opened it), the player app, or the table screen, by the caller's
 // seat. The api decides what each seat may do; the app only hides what it can't.
 export default async function Table({ params, searchParams }: TableProps) {
-  const [p, query] = await Promise.all([params, searchParams]);
+  const [p, query, t] = await Promise.all([params, searchParams, getTranslations("status")]);
   const campaignId = encodeURIComponent(p.campaignId);
   let me: Me;
   try {
     const res = await apiGet(`/api/campaigns/${campaignId}/me`);
-    if (res.status === 400 || res.status === 401) return <StatusScreen text={NO_ACCESS} />;
+    if (res.status === 400 || res.status === 401) return <StatusScreen text={t("noAccess")} />;
     const parsed = Me.safeParse(res.ok ? await res.json() : null);
-    if (!parsed.success) return <StatusScreen text={JOIN_ERRORS.nosignal} />;
+    if (!parsed.success) return <StatusScreen text={t("nosignal")} />;
     me = parsed.data;
   } catch {
-    return <StatusScreen text={JOIN_ERRORS.nosignal} />;
+    return <StatusScreen text={t("nosignal")} />;
   }
 
   const seat = me.seat;
@@ -84,6 +85,6 @@ export default async function Table({ params, searchParams }: TableProps) {
       />
     );
   if (seat.kind === "token" && seat.role === "screen") return <TableScreen campaignId={me.campaignId} />;
-  if (!seat.characterIds.length) return <StatusScreen text="No character yet. Ask your GM." />;
+  if (!seat.characterIds.length) return <StatusScreen text={t("noCharacter")} />;
   return <PlayerApp me={me} view={await rulesView(campaignId)} />;
 }

@@ -1,10 +1,11 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import type { AcceptInvite, InvitePreview } from "@inconsistable/core-schema";
 
-import { ROLE_LABEL } from "@/app/constants";
+import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ApiMessage, CampaignRef, readJson } from "@/lib/api-reply/api-reply";
 
 type InviteAcceptProps = { code: string; preview: InvitePreview };
@@ -13,6 +14,9 @@ type InviteAcceptProps = { code: string; preview: InvitePreview };
 // members; guests (if the GM allowed them) get a guest cookie for this device. A GM or co-GM invite seats them with no
 // character.
 export function InviteAccept({ code, preview: p }: InviteAcceptProps) {
+  const t = useTranslations("invite");
+  const tRoles = useTranslations("roles");
+  const tStatus = useTranslations("status");
   const router = useRouter();
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,9 +37,9 @@ export function InviteAccept({ code, preview: p }: InviteAcceptProps) {
       const seat = CampaignRef.safeParse(body);
       if (res.ok && seat.success) return router.push(`/c/${seat.data.campaignId}`);
       const refusal = ApiMessage.safeParse(body);
-      setError(refusal.success ? refusal.data.message : "Couldn't take the seat. Try again");
+      setError(refusal.success ? refusal.data.message : t("takeFailed"));
     } catch {
-      setError("No signal");
+      setError(tStatus("nosignal"));
     }
     setBusy(false);
   };
@@ -49,55 +53,50 @@ export function InviteAccept({ code, preview: p }: InviteAcceptProps) {
   return (
     <main className="center">
       <div className="card" style={{ maxWidth: 480, width: "100%" }}>
-        <h1 className="title">Join {p.campaignName}</h1>
-        <p className="dim">You&apos;re invited to a {ROLE_LABEL[p.role]} seat.</p>
+        <h1 className="title">{t("title", { name: p.campaignName })}</h1>
+        <p className="dim">{t("invited", { role: tRoles(p.role) })}</p>
         {p.member && (
           <a className="btn primary" href={`/c/${p.campaignId}`}>
-            You&apos;re seated · open the table
+            {t("seatedOpen")}
           </a>
         )}
 
         {!p.member && !p.signedIn && (
           <div className="stack">
             <a className="btn primary" href={`/sign-in?redirect_url=${encodeURIComponent(here)}`}>
-              Sign in to join
+              {t("signInToJoin")}
             </a>
-            <p className="dim small">
-              {p.allowGuests
-                ? "Or join as a guest below: no account, this device only."
-                : "This table needs an account."}
-            </p>
+            <p className="dim small">{p.allowGuests ? t("guestOrSignIn") : t("needsAccount")}</p>
           </div>
         )}
 
         {!p.member && p.signedIn && p.role !== "player" && (
           <button className="btn primary" disabled={busy} onClick={() => accept({})}>
-            Take the seat
+            {t("takeSeat")}
           </button>
         )}
 
         {!p.member && canClaim && p.role === "player" && p.mode === "character" && p.actor && (
           <button className="btn primary" disabled={busy} onClick={() => accept({})}>
-            Play {p.actor.name}
-            {p.signedIn ? "" : " as a guest"}
+            {p.signedIn ? t("playAs", { name: p.actor.name }) : t("playAsGuest", { name: p.actor.name })}
           </button>
         )}
 
         {!p.member && canClaim && p.role === "player" && p.mode === "room" && (
           <div className="stack">
-            <h2 className="head">Pick your character</h2>
-            {p.openActors.length === 0 && <p className="dim">Every character is taken. Start a new one:</p>}
+            <h2 className="head">{t("pickCharacter")}</h2>
+            {p.openActors.length === 0 && <p className="dim">{t("allTaken")}</p>}
             <ul className="list">
               {p.openActors.map((a) => (
                 <li key={a.id}>
                   <strong>{a.name}</strong>
                   <button
                     className="btn sm primary"
-                    aria-label={`Play ${a.name}`}
+                    aria-label={t("playLabel", { name: a.name })}
                     disabled={busy}
                     onClick={() => accept({ actorId: a.id })}
                   >
-                    Play
+                    {t("play")}
                   </button>
                 </li>
               ))}
@@ -105,20 +104,21 @@ export function InviteAccept({ code, preview: p }: InviteAcceptProps) {
             <form className="row" onSubmit={handleNew}>
               <input
                 id="new-character-name"
-                aria-label="New character name"
+                aria-label={t("newName")}
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="New character name"
+                placeholder={t("newName")}
                 maxLength={100}
                 style={{ flex: 1 }}
               />
               <button className="btn" disabled={busy}>
-                New
+                {t("newButton")}
               </button>
             </form>
           </div>
         )}
 
+        <LocaleSwitch />
         {error && (
           <p className="error" role="alert">
             {error}

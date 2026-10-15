@@ -131,8 +131,8 @@ test("the time left on a condition reads off its timer, or is empty without a co
     { id: "b", expiresOn: "ownTurnEnd", expiresAfter: 1 },
     { id: "c", expiresOn: "manual", expiresAfter: null },
   ];
-  assert.equal(timeLeft({ timers, id: "a" }), "2 rounds");
-  assert.equal(timeLeft({ timers, id: "b" }), "1 turn");
-  assert.equal(timeLeft({ timers, id: "c" }), "");
-  assert.equal(timeLeft({ timers, id: "zzz" }), "");
+  assert.deepEqual(timeLeft({ timers, id: "a" }), { count: 2, unit: "round" });
+  assert.deepEqual(timeLeft({ timers, id: "b" }), { count: 1, unit: "turn" });
+  assert.equal(timeLeft({ timers, id: "c" }), null);
+  assert.equal(timeLeft({ timers, id: "zzz" }), null);
 });

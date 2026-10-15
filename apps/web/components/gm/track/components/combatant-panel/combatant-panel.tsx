@@ -1,19 +1,12 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useState, type ChangeEvent } from "react";
 
 import { CombatVisibility, type Actor, type Combatant, type Encounter } from "@inconsistable/core-schema";
 
-import {
-  DEATH_SAVE_LABELS,
-  KEYPAD_KEYS,
-  KEY_LABELS,
-  KEY_NAMES,
-  VISIBILITY_LABELS,
-  type DeathSaveKey,
-  type Run,
-} from "@/components/gm/track/constants";
+import { DEATH_SAVE_KEYS, KEYPAD_KEYS, KEY_LABELS, type DeathSaveKey, type Run } from "@/components/gm/track/constants";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
-import { amountOf, leftText, pressKey } from "@/lib/track/track";
+import { amountOf, leftOf, pressKey } from "@/lib/track/track";
 
 type CombatantPanelProps = {
   encounter: Encounter;
@@ -29,6 +22,11 @@ type CombatantPanelProps = {
 // The selected combatant: a keypad for damage, healing and temporary points, death saves, what the table sees, the
 // conditions it carries with their time left, and the way out of the fight.
 export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet, onCallTest }: CombatantPanelProps) {
+  const t = useTranslations("combatantPanel");
+  const tSave = useTranslations("deathSave");
+  const tVisibility = useTranslations("combatVisibility");
+  const tKeys = useTranslations("keypad");
+  const tSheet = useTranslations("sheet");
   const [entry, setEntry] = useState("");
   const [critical, setCritical] = useState(false);
   const [condition, setCondition] = useState("");
@@ -74,25 +72,31 @@ export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet, o
   const handleKeep = (e: ChangeEvent<HTMLInputElement>) =>
     run({ type: "encounter.keep", combatantId: c.id, keep: e.target.checked });
 
+  // What a condition has left ("2 rounds left"), or "" when it doesn't count.
+  const leftText = (k: { left: number | null; expiresOn: string }) => {
+    const l = leftOf(k);
+    return l ? tSheet(l.unit === "turn" ? "turnsLeft" : "roundsLeft", { count: l.count }) : "";
+  };
+
   const tally = (field: string) => {
     const v = actor?.fields[field];
     return typeof v === "number" ? v : 0;
   };
 
   return (
-    <section className="card combatant-panel" aria-label={`${c.name} controls`}>
+    <section className="card combatant-panel" aria-label={t("controls", { name: c.name })}>
       <h2 className="title">{c.name}</h2>
       <HealthBar combatant={c} />
       {actor && actor.entity !== "" && (onSheet || onCallTest) && (
         <div className="row">
           {onSheet && (
             <button className="btn" onClick={() => onSheet(actor.id)}>
-              Sheet
+              {t("sheet")}
             </button>
           )}
           {onCallTest && (
             <button className="btn" onClick={() => onCallTest(actor.id)}>
-              Call a Test
+              {t("callTest")}
             </button>
           )}
         </div>
@@ -100,26 +104,31 @@ export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet, o
 
       {health && (
         <div className="stack keypad">
-          <output className="keypad-out" aria-label="Amount">
+          <output className="keypad-out" aria-label={t("amount")}>
             {entry === "" ? "0" : entry}
           </output>
           <div className="roll-pad">
             {KEYPAD_KEYS.map((k) => (
-              <button key={k} className="roll-key" aria-label={KEY_NAMES[k] ?? k} onClick={handleKey(k)}>
+              <button
+                key={k}
+                className="roll-key"
+                aria-label={k === "clear" || k === "back" ? tKeys(k) : k}
+                onClick={handleKey(k)}
+              >
                 {KEY_LABELS[k] ?? k}
               </button>
             ))}
           </div>
           <div className="row">
             <button className="btn primary" disabled={amount === 0} onClick={handleHit("damage")}>
-              Damage
+              {t("damage")}
             </button>
             <button className="btn" disabled={amount === 0} onClick={handleHit("heal")}>
-              Heal
+              {t("heal")}
             </button>
             {health.temp && (
               <button className="btn" disabled={amount === 0} onClick={handleTemp}>
-                Temp HP
+                {t("tempHp")}
               </button>
             )}
             <label className="row" style={{ display: "flex", minHeight: 44 }}>
@@ -129,47 +138,47 @@ export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet, o
                 onChange={(e) => setCritical(e.target.checked)}
                 style={{ minHeight: 24 }}
               />
-              Critical hit
+              {t("critical")}
             </label>
           </div>
         </div>
       )}
 
       {health?.deathSaves && dying && (
-        <div className="stack" role="group" aria-label="Death save">
+        <div className="stack" role="group" aria-label={t("deathSave")}>
           <strong>
-            Death saves: {tally("deathSaveSuccesses")} passed, {tally("deathSaveFailures")} failed
+            {t("deathSaves", { passed: tally("deathSaveSuccesses"), failed: tally("deathSaveFailures") })}
           </strong>
           <div className="row">
-            {(Object.keys(DEATH_SAVE_LABELS) as DeathSaveKey[]).map((k) => (
+            {DEATH_SAVE_KEYS.map((k) => (
               <button key={k} className="btn" onClick={handleSave(k)}>
-                {DEATH_SAVE_LABELS[k]}
+                {tSave(k)}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      <div className="stack" role="group" aria-label="What the table sees">
-        <strong>The table sees</strong>
+      <div className="stack" role="group" aria-label={t("tableSees")}>
+        <strong>{t("tableSees")}</strong>
         <div className="seg">
           {CombatVisibility.options.map((v) => (
             <button key={v} className="btn" aria-pressed={c.visibility === v} onClick={handleVisibility(v)}>
-              {VISIBILITY_LABELS[v]}
+              {tVisibility(v)}
             </button>
           ))}
         </div>
         {c.side !== "party" && (
           <label className="row" style={{ display: "flex", minHeight: 44 }}>
             <input type="checkbox" checked={c.keep} onChange={handleKeep} style={{ minHeight: 24 }} />
-            Keep when the fight ends
+            {t("keep")}
           </label>
         )}
       </div>
 
       <div className="stack">
-        <strong>Conditions</strong>
-        {c.conditions.length === 0 && <span className="dim">None.</span>}
+        <strong>{t("conditions")}</strong>
+        {c.conditions.length === 0 && <span className="dim">{t("none")}</span>}
         <ul className="list">
           {c.conditions.map((k) => (
             <li key={k.id}>
@@ -179,17 +188,17 @@ export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet, o
               </span>
               <button
                 className="btn sm"
-                aria-label={`Remove ${k.id} from ${c.name}`}
+                aria-label={t("removeCondition", { condition: k.id, name: c.name })}
                 onClick={() => run({ type: "condition.remove", actorId: c.actorId, condition: k.id })}
               >
-                Remove
+                {t("remove")}
               </button>
             </li>
           ))}
         </ul>
         <div className="row">
-          <select aria-label="Condition to add" value={condition} onChange={(e) => setCondition(e.target.value)}>
-            <option value="">Add a condition…</option>
+          <select aria-label={t("conditionToAdd")} value={condition} onChange={(e) => setCondition(e.target.value)}>
+            <option value="">{t("addCondition")}</option>
             {encounter.conditionDefs.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.label}
@@ -200,14 +209,14 @@ export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet, o
             type="number"
             inputMode="numeric"
             min={1}
-            aria-label="Turns or rounds it lasts"
-            placeholder="Lasts"
+            aria-label={t("lastsLabel")}
+            placeholder={t("lasts")}
             value={after}
             onChange={(e) => setAfter(e.target.value)}
             style={{ width: 90 }}
           />
           <button className="btn" disabled={condition === ""} onClick={handleAddCondition}>
-            Add
+            {t("add")}
           </button>
         </div>
       </div>
@@ -217,7 +226,7 @@ export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet, o
         style={{ justifySelf: "start" }}
         onClick={() => run({ type: "encounter.remove", combatantId: c.id })}
       >
-        Remove from fight
+        {t("removeFromFight")}
       </button>
     </section>
   );

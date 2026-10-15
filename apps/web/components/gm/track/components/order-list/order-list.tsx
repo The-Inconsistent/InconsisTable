@@ -1,11 +1,12 @@
 "use client";
+import { useTranslations } from "next-intl";
 import type { FocusEvent, KeyboardEvent } from "react";
 
 import type { Actor, Combatant, Encounter } from "@inconsistable/core-schema";
 
-import { SIDE_LABELS, VISIBILITY_LABELS, type Run } from "@/components/gm/track/constants";
+import type { Run } from "@/components/gm/track/constants";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
-import { stateWord } from "@/lib/track/track";
+import { stateKey } from "@/lib/track/track";
 
 type OrderListProps = {
   encounter: Encounter;
@@ -18,6 +19,10 @@ type OrderListProps = {
 // The turn order. Each row is a big target that selects the combatant for the panel beside it; the number beside it is
 // what the GM types from the dice (blank clears it), and the arrows settle a tie one place at a time.
 export function OrderList({ encounter, actors, selectedId, onSelect, run }: OrderListProps) {
+  const t = useTranslations("orderList");
+  const tState = useTranslations("combatState");
+  const tSide = useTranslations("combatSide");
+  const tVisibility = useTranslations("combatVisibility");
   // INITIATIVE: sends the typed number when the field is left; a blank field clears the score.
   const handleScore = (c: Combatant) => async (e: FocusEvent<HTMLInputElement>) => {
     const typed = e.target.value.trim();
@@ -32,20 +37,20 @@ export function OrderList({ encounter, actors, selectedId, onSelect, run }: Orde
   };
 
   return (
-    <ol className="order seat-strip" aria-label="Turn order">
+    <ol className="order seat-strip" aria-label={t("label")}>
       {encounter.combatants.map((c) => {
         const acting = c.id === encounter.currentId;
-        const word = stateWord({ current: acting, healthState: actors.get(c.actorId)?.fields.healthState });
+        const word = stateKey({ current: acting, healthState: actors.get(c.actorId)?.fields.healthState });
         return (
           <li key={c.id} className="combatant" data-acting={acting} data-selected={c.id === selectedId}>
             <button className="who" aria-pressed={c.id === selectedId} onClick={() => onSelect(c.id)}>
               <span className="name">{c.name}</span>
               <span className="row small dim">
-                <span className="chip">{SIDE_LABELS[c.side]}</span>
-                <span className="chip">{VISIBILITY_LABELS[c.visibility]}</span>
+                <span className="chip">{tSide(c.side)}</span>
+                <span className="chip">{tVisibility(c.visibility)}</span>
                 {word && (
-                  <span className="state-word" data-state={word.toLowerCase()}>
-                    {word}
+                  <span className="state-word" data-state={word}>
+                    {tState(word)}
                   </span>
                 )}
               </span>
@@ -57,21 +62,21 @@ export function OrderList({ encounter, actors, selectedId, onSelect, run }: Orde
                 className="score"
                 type="number"
                 inputMode="numeric"
-                aria-label={`Initiative of ${c.name}`}
+                aria-label={t("initiative", { name: c.name })}
                 defaultValue={c.initiative ?? ""}
                 onBlur={handleScore(c)}
                 onKeyDown={handleEnter}
               />
               <button
                 className="btn"
-                aria-label={`Move ${c.name} up among equal initiatives`}
+                aria-label={t("moveUp", { name: c.name })}
                 onClick={() => run({ type: "encounter.move", combatantId: c.id, direction: "up" })}
               >
                 ↑
               </button>
               <button
                 className="btn"
-                aria-label={`Move ${c.name} down among equal initiatives`}
+                aria-label={t("moveDown", { name: c.name })}
                 onClick={() => run({ type: "encounter.move", combatantId: c.id, direction: "down" })}
               >
                 ↓

@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import { z } from "zod";
@@ -40,6 +41,7 @@ export type RenderPage = (p: BookPage) => Promise<BookReply>;
 // One socket per tab, for one table. The browser's cookies authenticate it (Clerk's `__session`, or a guest's QR
 // cookie); the server sends a full snapshot on connect and after every change, so reconnecting needs no extra logic.
 export function useTable(campaignId: string) {
+  const t = useTranslations("socket");
   const socket = useRef<Socket | null>(null);
   const [state, setState] = useState<LiveState | null>(null);
   const [codex, setCodex] = useState<Codex | null>(null);
@@ -93,6 +95,8 @@ export function useTable(campaignId: string) {
     });
     s.on("book:request", async (raw: unknown, ack: (r: BookReply) => void) => {
       const render = serving.current?.render;
+      // ponytail: these three refusals are relayed to the player who asked and stay English, upgrade: error codes the
+      // asking phone words in its own language (the api change after the i18n part 1).
       if (!render) return ack({ ok: false, error: "The GM isn't serving that book." });
       const page = BookPage.safeParse(raw);
       if (!page.success) return ack({ ok: false, error: "That page request is malformed." });
@@ -143,30 +147,40 @@ export function useTable(campaignId: string) {
   }, []);
 
   // Tap feedback (globals.css): the tapped button dims until the server answers, then rings once, applied or refused.
-  const send: Send = useCallback(async (a) => {
-    const t = tapped.current;
-    const focused = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
-    const btn = focused ?? (t && performance.now() - t.at < TAP_WINDOW_MS ? t.el : null);
-    btn?.setAttribute("aria-busy", "true");
-    const result = await emit(socket.current, a);
-    if (btn) {
-      btn.removeAttribute("aria-busy");
-      btn.setAttribute("data-sent", result.ok ? "ok" : "no");
-      setTimeout(() => btn.removeAttribute("data-sent"), SENT_MS);
-    }
-    return result;
-  }, []);
+  const send: Send = useCallback(
+    async (a) => {
+      const last = tapped.current;
+      const focused = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
+      const btn = focused ?? (last && performance.now() - last.at < TAP_WINDOW_MS ? last.el : null);
+      btn?.setAttribute("aria-busy", "true");
+      const result = await emit({
+        socket: socket.current,
+        action: a,
+        words: { noSignal: t("noSignal"), unreadable: t("unreadable"), noReply: t("noReply") },
+      });
+      if (btn) {
+        btn.removeAttribute("aria-busy");
+        btn.setAttribute("data-sent", result.ok ? "ok" : "no");
+        setTimeout(() => btn.removeAttribute("data-sent"), SENT_MS);
+      }
+      return result;
+    },
+    [t],
+  );
 
-  const requestPage: RequestPage = useCallback(async (p) => {
-    const s = socket.current;
-    if (!s?.connected) return { ok: false, error: "No signal" };
-    try {
-      const reply = PageReply.safeParse(await s.timeout(PAGE_TIMEOUT_MS).emitWithAck("book:request", p));
-      return reply.success ? reply.data : { ok: false, error: "The page arrived damaged. Try again" };
-    } catch {
-      return { ok: false, error: "No reply. Try again" };
-    }
-  }, []);
+  const requestPage: RequestPage = useCallback(
+    async (p) => {
+      const s = socket.current;
+      if (!s?.connected) return { ok: false, error: t("noSignal") };
+      try {
+        const reply = PageReply.safeParse(await s.timeout(PAGE_TIMEOUT_MS).emitWithAck("book:request", p));
+        return reply.success ? reply.data : { ok: false, error: t("pageDamaged") };
+      } catch {
+        return { ok: false, error: t("pageNoReply") };
+      }
+    },
+    [t],
+  );
 
   // GM: serve these sources with `render`, or stop (null or no sources).
   const serveBooks = useCallback((next: { sources: BookSource[]; render: RenderPage } | null) => {
@@ -177,13 +191,23 @@ export function useTable(campaignId: string) {
   return { state, codex, online, send, books, requestPage, serveBooks };
 }
 
-async function emit(s: Socket | null, a: ActionInput): Promise<ActionResult> {
-  if (!s?.connected) return { ok: false, error: "No signal" };
+type EmitWords = { noSignal: string; unreadable: string; noReply: string };
+
+async function emit({
+  socket: s,
+  action,
+  words,
+}: {
+  socket: Socket | null;
+  action: ActionInput;
+  words: EmitWords;
+}): Promise<ActionResult> {
+  if (!s?.connected) return { ok: false, error: words.noSignal };
   try {
-    const reply = ActionReply.safeParse(await s.timeout(ACK_TIMEOUT_MS).emitWithAck("action", a));
-    return reply.success ? reply.data : { ok: false, error: "Unreadable reply from server. Check before retrying" };
+    const reply = ActionReply.safeParse(await s.timeout(ACK_TIMEOUT_MS).emitWithAck("action", action));
+    return reply.success ? reply.data : { ok: false, error: words.unreadable };
   } catch {
     // It may still have applied: counters are deltas, so check the screen before tapping again.
-    return { ok: false, error: "No reply from server. Check before retrying" };
+    return { ok: false, error: words.noReply };
   }
 }

@@ -7,3 +7,6 @@ export function assertAdminKey(key: string | undefined) {
   if (!key || key.length < MIN_ADMIN_KEY_LENGTH || key === PLACEHOLDER_ADMIN_KEY)
     throw new Error(`ADMIN_KEY must be at least ${MIN_ADMIN_KEY_LENGTH} characters and not "change-me"`);
 }
+
+// The guest seat cookie is Secure everywhere but local development and tests (plain http on a LAN address).
+export const cookieSecure = (nodeEnv: string | undefined) => nodeEnv !== "development" && nodeEnv !== "test";

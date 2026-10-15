@@ -5,6 +5,7 @@ import { appUser } from "../auth/auth.schema.ts";
 import { campaign } from "../campaign/campaign.schema.ts";
 import { db } from "../core/db.ts";
 import { pack } from "../pack/pack.schema.ts";
+import { ruleset, rulesetVersion } from "../ruleset/ruleset.schema.ts";
 import { adminEvent } from "./admin.schema.ts";
 
 // The part of the table socket this service drives (TableGateway has it), so the service imports no Nest code.
@@ -23,9 +24,18 @@ export const listCampaigns = () =>
       id: campaign.id,
       name: campaign.name,
       ownerUserId: campaign.ownerUserId,
+      ownerName: appUser.name,
+      ruleset: ruleset.title,
+      rulesetVersion: rulesetVersion.version,
+      lastPlayedAt: sql<
+        string | null
+      >`(select max(coalesce(s.ended_at, s.started_at)) from session s where s.campaign_id = ${campaign.id})`,
       archived: sql<boolean>`${campaign.archivedAt} is not null`,
     })
     .from(campaign)
+    .leftJoin(appUser, eq(appUser.id, campaign.ownerUserId))
+    .leftJoin(rulesetVersion, eq(rulesetVersion.id, campaign.rulesetVersionId))
+    .leftJoin(ruleset, eq(ruleset.id, rulesetVersion.rulesetId))
     .orderBy(desc(campaign.createdAt));
 
 // Every imported pack, for finding the one a takedown notice names. Metadata only: an admin does not read pack content.

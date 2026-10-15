@@ -346,7 +346,8 @@ test("the Clerk webhook refuses unsigned requests, and a signed user.deleted dro
 });
 
 test("the admin key: its room and socket actions are logged as admin-key, and its REST calls are rate limited", async () => {
-  const key = process.env.ADMIN_KEY ?? "";
+  const key = process.env.ADMIN_KEY;
+  if (!key) return; // the admin-key path is off without ADMIN_KEY (it is optional)
   const scriptIp = { "x-admin-key": key, "cf-connecting-ip": nextSocketIp() };
   const res = await post("/campaigns", { name: "Scripted", ownerUserId: uid("script-owner") }, scriptIp);
   assert.equal(res.status, 201);
@@ -2212,4 +2213,24 @@ test("seat views: a combat-only co-GM runs the hidden creature, and reads no cod
   await eventually(() => codexCo.codex()?.entries.some((e) => e.id === secret) ?? false, "and reads every entry");
   assert.equal(codexCo.codex()?.entries.find((e) => e.id === secret)?.gmNotes, "", "but not the notes on it");
   for (const c of [owner, ana, co, codexCo]) c.socket.close();
+});
+
+test("a non-admin and a signed-out caller are refused the campaign list and OPEN AS ADMIN", async () => {
+  const { owner, campaignId } = await newRoom("AdminGuard");
+  const plain = bearer(clerk("not-admin"));
+  assert.equal((await get("/admin/campaigns", plain)).status, 403);
+  assert.equal((await get("/admin/campaigns")).status, 401);
+  const open = (headers: Record<string, string>) =>
+    post(`/admin/campaigns/${campaignId}/action`, { type: "member.seat", userId: uid("x") }, headers);
+  assert.equal((await open(plain)).status, 403);
+  assert.equal((await open({})).status, 401);
+  const rows = (await (await get("/admin/campaigns", bearer(clerk("guard-admin", "admin")))).json()) as {
+    id: string;
+    ownerName: string | null;
+  }[];
+  assert.ok(
+    rows.some((r) => r.id === campaignId && "ownerName" in r),
+    "an admin sees the room with its owner",
+  );
+  owner.socket.close();
 });

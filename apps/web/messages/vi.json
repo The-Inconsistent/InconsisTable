@@ -31,6 +31,26 @@
     "signIn": "Đăng nhập",
     "guestHint": "Vào với tư cách khách? Quét mã QR trên máy tính bảng của GM."
   },
+  "admin": {
+    "title": "Admin",
+    "back": "Campaign",
+    "filter": "Lọc theo tên hoặc chủ phòng",
+    "name": "Tên",
+    "owner": "Chủ phòng",
+    "ruleset": "Bộ luật",
+    "lastPlayed": "Chơi gần nhất",
+    "actions": "Thao tác",
+    "open": "Mở với tư cách admin",
+    "archived": "đã lưu trữ",
+    "noOwner": "Không có chủ phòng",
+    "noRuleset": "Chưa có",
+    "never": "Chưa chơi",
+    "empty": "Không có campaign nào khớp.",
+    "confirmTitle": "Mở {name} với tư cách admin?",
+    "confirmLogged": "Lần mở này được ghi lại cùng tên và thời gian của bạn. Bạn sẽ thấy bàn chơi như GM của nó thấy.",
+    "confirmOpen": "Mở với tư cách admin",
+    "cancel": "Hủy"
+  },
   "lobby": {
     "yourCampaign": "Campaign của bạn",
     "owner": "Chủ campaign: {name}",

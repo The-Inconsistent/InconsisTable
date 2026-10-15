@@ -1457,3 +1457,57 @@ fieldset:disabled select {
   border-style: dashed;
   background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgb(128 128 128 / 0.3) 6px 8px);
 }
+
+/* ---------- Admin ledger: dense rows, no ornament ---------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.ledger-search {
+  max-width: 360px;
+}
+.ledger-wrap {
+  overflow-x: auto;
+}
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+}
+.ledger th,
+.ledger td {
+  padding: 6px 12px 6px 0;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--line);
+}
+.ledger thead th {
+  color: var(--ink-2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ledger tbody th {
+  font-weight: 700;
+}
+.ledger td:last-child {
+  text-align: right;
+  padding-right: 0;
+}
+.ledger-confirm {
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 16px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-btn);
+}
+.ledger-confirm::backdrop {
+  background: rgb(0 0 0 / 0.55);
+}
+.ledger-confirm .row {
+  margin-top: 12px;
+}

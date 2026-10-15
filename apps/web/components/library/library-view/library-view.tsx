@@ -24,7 +24,7 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
   return (
     <>
       <header className="band">
-        <a href="/">{t("rooms")}</a>
+        <a href="/">{t("campaigns")}</a>
         <strong>{t("title")}</strong>
         <span className="row">
           <LocaleSwitch />

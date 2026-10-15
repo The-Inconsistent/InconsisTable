@@ -37,7 +37,7 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
             {tTable("offline")}
           </span>
         )}
-        <a href="/">{t("rooms")}</a>
+        <a href="/">{t("campaigns")}</a>
         <strong>{state.campaign.name}</strong>
         <span className="row">
           {state.session && <span className="chip">{tTable("session", { number: state.session.number })}</span>}

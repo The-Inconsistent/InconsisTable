@@ -21,7 +21,7 @@ function GameCard({ game }: { game: LobbyGame }) {
     <a className="card" href={`/c/${game.id}`} style={{ textDecoration: "none" }}>
       <strong>{game.name}</strong>
       <span className="row small dim">
-        <span>{game.isOwner ? t("yourRoom") : t("owner", { name: game.owner })}</span>
+        <span>{game.isOwner ? t("yourCampaign") : t("owner", { name: game.owner })}</span>
         {game.role && <span className="chip">{tRoles(game.role)}</span>}
         <span>{t("characters", { count: game.players })}</span>
         {game.session !== null && <span className="chip">{t("sessionRunning", { number: game.session })}</span>}
@@ -99,7 +99,7 @@ export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
       <main className="page">
         {lobby.canCreate && (
           <form className="card" onSubmit={handleCreate}>
-            <h2 className="head">{t("newRoom")}</h2>
+            <h2 className="head">{t("newCampaign")}</h2>
             <div className="row">
               <label style={{ flex: 1 }}>
                 {t("name")}
@@ -130,7 +130,7 @@ export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
             {error && <p className="error">{error}</p>}
           </form>
         )}
-        <Section title={t("yourRooms")} games={lobby.mine} empty={t("emptyMine")} />
+        <Section title={t("yourCampaigns")} games={lobby.mine} empty={t("emptyMine")} />
         <Section title={t("wherePlay")} games={lobby.seated} empty={t("emptySeated")} />
         {lobby.archived.length > 0 && <Section title={t("archived")} games={lobby.archived} empty="" />}
       </main>

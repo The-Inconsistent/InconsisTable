@@ -89,7 +89,7 @@ export function Party({ me, state, send, sheet }: PartyProps) {
       allowGuests: inviteRole === "player",
     });
     if (r.ok && r.token)
-      await show({ title: t("roomInviteTitle", { role: tRoles(inviteRole) }), path: `/invite/${r.token}` });
+      await show({ title: t("campaignInviteTitle", { role: tRoles(inviteRole) }), path: `/invite/${r.token}` });
   };
 
   // GUEST QR for one character: a phone without an account plays it.
@@ -175,7 +175,7 @@ export function Party({ me, state, send, sheet }: PartyProps) {
             </select>
           </label>
           <button className="btn primary" onClick={handleInvite} style={{ alignSelf: "end" }}>
-            {t("roomQr")}
+            {t("campaignQr")}
           </button>
           <button className="btn" onClick={handleScreen} style={{ alignSelf: "end" }}>
             {t("screenQr")}
@@ -395,7 +395,7 @@ export function Party({ me, state, send, sheet }: PartyProps) {
 
       {can("campaign:archive") && (
         <section className="stack">
-          <h2 className="head">{t("room")}</h2>
+          <h2 className="head">{t("campaign")}</h2>
           <div className="row">
             {state.campaign.archived ? (
               <button className="btn" onClick={() => act({ type: "campaign.unarchive" })}>

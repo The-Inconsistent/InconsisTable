@@ -12,6 +12,21 @@ function paths(tree: unknown, prefix = ""): string[] {
   return Object.entries(tree).flatMap(([k, v]) => paths(v, prefix === "" ? k : `${prefix}.${k}`));
 }
 
+// Every leaf with its text.
+function leaves(tree: unknown, prefix = ""): [string, string][] {
+  if (typeof tree === "string") return [[prefix, tree]];
+  return Object.entries(tree as object).flatMap(([k, v]) => leaves(v, prefix === "" ? k : `${prefix}.${k}`));
+}
+
+// The names a message fills in ({name}, {count, plural, …}) and the tags it wraps (<link>), ICU keywords left out.
+const slotsOf = (text: string): string[] =>
+  [...new Set([...text.matchAll(/\{(\w+)\s*[,}]|<(\w+)>/g)].map((m) => m[1] ?? m[2] ?? ""))].toSorted();
+
+test("each vi message fills in the same names as its en message", () => {
+  const vi = new Map(leaves(load("vi")));
+  for (const [key, text] of leaves(load("en"))) assert.deepEqual(slotsOf(vi.get(key) ?? ""), slotsOf(text), key);
+});
+
 test("vi.json has exactly the keys of en.json", () => {
   assert.deepEqual(paths(load("vi")).toSorted(), paths(load("en")).toSorted());
 });

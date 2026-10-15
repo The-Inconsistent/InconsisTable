@@ -91,7 +91,8 @@ Pre-release: the migration may be regenerated from scratch (delete `apps/api/dri
   joined, counted by delta, or referenced by a foreign key is a column or a table.
 - Values of ruleset-declared fields, resources and conditions are typed rows keyed by `actor_id` (`docs/design.md` §5.4).
 - Every query is scoped to `ctx.campaignId`. Never trust ids from the client.
-- Platform roles live in Clerk and are changed only in the Clerk Dashboard. The room owner is
+- Platform roles live in Clerk and are changed only in the Clerk Dashboard, except the operator accounts listed in
+  `PLATFORM_ADMINS` (api env, user ids), which are admins whatever Clerk says. The room owner is
   `campaign.owner_user_id`, not a role.
 
 ## Standards

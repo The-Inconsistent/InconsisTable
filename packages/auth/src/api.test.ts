@@ -4,6 +4,7 @@ import { createHmac } from "node:crypto";
 
 // api.ts reads CLERK_TEST_SECRET at load, so set it before the import.
 process.env.CLERK_TEST_SECRET = "s3cret";
+process.env.PLATFORM_ADMINS = " owner-1 , ";
 const { bearerOf, pemBody, readUserWebhook, testSessionToken, verifySession } = await import("./api.ts");
 
 test("bearerOf takes only a Bearer header", () => {
@@ -28,6 +29,13 @@ test("test tokens need the right secret", async () => {
   const mod = await verifySession(testSessionToken({ secret: "s3cret", userId: "mo", role: "moderator" }));
   assert.deepEqual([mod?.creator, mod?.moderator, mod?.admin], [false, true, false]);
   assert.equal(await verifySession(testSessionToken({ secret: "wrong", userId: "gm", role: "creator" })), null);
+});
+
+test("a user listed in PLATFORM_ADMINS is an admin and a creator whatever their role", async () => {
+  const listed = await verifySession(testSessionToken({ secret: "s3cret", userId: "owner-1" }));
+  assert.deepEqual([listed?.admin, listed?.creator], [true, true]);
+  const other = await verifySession(testSessionToken({ secret: "s3cret", userId: "owner-2" }));
+  assert.deepEqual([other?.admin, other?.creator], [false, false]);
 });
 
 test("empty or malformed tokens are signed out", async () => {

@@ -31,6 +31,26 @@
     "signIn": "Sign in",
     "guestHint": "Joining as a guest? Scan the QR code on the GM's tablet."
   },
+  "admin": {
+    "title": "Admin",
+    "back": "Campaigns",
+    "filter": "Filter by name or owner",
+    "name": "Name",
+    "owner": "Owner",
+    "ruleset": "Ruleset",
+    "lastPlayed": "Last played",
+    "actions": "Actions",
+    "open": "Open as admin",
+    "archived": "archived",
+    "noOwner": "No owner",
+    "noRuleset": "None",
+    "never": "Never",
+    "empty": "No campaign matches.",
+    "confirmTitle": "Open {name} as admin?",
+    "confirmLogged": "This opening is logged with your name and the time. You will see the table the way its GM does.",
+    "confirmOpen": "Open as admin",
+    "cancel": "Cancel"
+  },
   "lobby": {
     "yourCampaign": "Your campaign",
     "owner": "Owner: {name}",

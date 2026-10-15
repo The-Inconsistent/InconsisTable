@@ -2213,3 +2213,23 @@ test("seat views: a combat-only co-GM runs the hidden creature, and reads no cod
   assert.equal(codexCo.codex()?.entries.find((e) => e.id === secret)?.gmNotes, "", "but not the notes on it");
   for (const c of [owner, ana, co, codexCo]) c.socket.close();
 });
+
+test("a non-admin and a signed-out caller are refused the campaign list and OPEN AS ADMIN", async () => {
+  const { owner, campaignId } = await newRoom("AdminGuard");
+  const plain = bearer(clerk("not-admin"));
+  assert.equal((await get("/admin/campaigns", plain)).status, 403);
+  assert.equal((await get("/admin/campaigns")).status, 401);
+  const open = (headers: Record<string, string>) =>
+    post(`/admin/campaigns/${campaignId}/action`, { type: "member.seat", userId: uid("x") }, headers);
+  assert.equal((await open(plain)).status, 403);
+  assert.equal((await open({})).status, 401);
+  const rows = (await (await get("/admin/campaigns", bearer(clerk("guard-admin", "admin")))).json()) as {
+    id: string;
+    ownerName: string | null;
+  }[];
+  assert.ok(
+    rows.some((r) => r.id === campaignId && "ownerName" in r),
+    "an admin sees the room with its owner",
+  );
+  owner.socket.close();
+});

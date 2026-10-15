@@ -1927,7 +1927,7 @@ test("encounter: a full round of turns, seat views, undo of a turn, and the end 
   refused(await ana.c.send({ type: "encounter.add", actorIds: [pcA], side: "party" }), "noPermission");
   refused(
     await owner.send({ type: "encounter.add", actorIds: [crypto.randomUUID()], side: "party" }),
-    "sessionNotFound",
+    "characterNotFound",
   );
   ok(await owner.send({ type: "encounter.add", actorIds: [pcA, pcB, pcC], side: "party", visibility: "full" }));
   refused(await owner.send({ type: "encounter.add", actorIds: [pcA], side: "party" }), /already in the fight/);

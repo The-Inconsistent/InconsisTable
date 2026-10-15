@@ -14,6 +14,7 @@ import type {
   LiveState,
   Lobby,
 } from "@inconsistable/core-schema";
+import { MAX_NEW_CHARACTERS_PER_INVITE } from "../src/auth/invite.limits.ts";
 import { MAX_PACKS_PER_USER } from "../src/pack/pack.normalize.ts";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
@@ -278,6 +279,27 @@ test("a seated admin plays by their seat; OPEN AS ADMIN is logged", async () => 
   }[];
   assert.ok(events.some((e) => e.action === "room.open" && e.campaignId === campaignId));
   opened.socket.close();
+  owner.socket.close();
+});
+
+test("a room invite makes only so many characters, and the refusal says why", { timeout: 30_000 }, async () => {
+  const { owner } = await newRoom("InviteCap");
+  const code = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
+  const headers = { "cf-connecting-ip": nextSocketIp() }; // 51 accepts from one address would pass the door's window
+  const accept = (n: number) =>
+    post(`/invites/${code}/accept`, { newCharacterName: `Guest ${n}`, asGuest: true }, headers);
+  for (let n = 1; n <= MAX_NEW_CHARACTERS_PER_INVITE; n++) assert.equal((await accept(n)).status, 200, `guest ${n}`);
+  const over = await accept(MAX_NEW_CHARACTERS_PER_INVITE + 1);
+  assert.equal(over.status, 400);
+  assert.match(((await over.json()) as { message: string }).message, /limit/);
+  const s = await owner.until(
+    (st) => st.actors.filter((a) => a.kind === "pc").length === MAX_NEW_CHARACTERS_PER_INVITE,
+  );
+  assert.equal(
+    s.actors.filter((a) => a.kind === "pc").length,
+    MAX_NEW_CHARACTERS_PER_INVITE,
+    "the refused one left no character",
+  );
   owner.socket.close();
 });
 

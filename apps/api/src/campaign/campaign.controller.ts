@@ -17,6 +17,7 @@ import {
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { CreateGame } from "@inconsistable/core-schema";
+import { logAdminKey } from "../admin/admin.service.ts";
 import { COOKIE, readCookie, resolveCtx, resolveGuest, signedInUser } from "../auth/auth.service.ts";
 import { acceptInvite, previewInvite } from "../auth/invite.service.ts";
 import { db } from "../core/db.ts";
@@ -76,9 +77,11 @@ export class CampaignController {
   async create(@Headers("x-admin-key") key: string | undefined, @Req() req: Request, @Body() body: unknown) {
     if (isAdminKey(key)) {
       const { ownerUserId, ...rest } = parse(AdminCreate, body);
-      return refusing(() =>
+      const created = await refusing(() =>
         createCampaign({ ...rest, owner: ownerUserId ? { userId: ownerUserId, name: "GM" } : null }),
       );
+      await logAdminKey({ action: "campaign.create", campaignId: created.campaignId, detail: rest.name });
+      return created;
     }
     const user = await signedInUser(headersOf(req));
     if (!user) throw new UnauthorizedException();

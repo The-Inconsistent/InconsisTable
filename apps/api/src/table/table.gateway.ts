@@ -23,7 +23,7 @@ import {
   type BookSource,
   type Ctx,
 } from "@inconsistable/core-schema";
-import { logRoomOpen } from "../admin/admin.service.ts";
+import { logAdminKey, logRoomOpen } from "../admin/admin.service.ts";
 import { resolveSocketCtx } from "../auth/auth.service.ts";
 import { db } from "../core/db.ts";
 import { ActionError } from "../core/errors.ts";
@@ -76,6 +76,7 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         if (!r) return next(new Error("unauthorized"));
         socket.data = { ctx: r.ctx, script: r.script };
         if (r.openedAsAdmin && r.ctx.userId) await logRoomOpen({ userId: r.ctx.userId, campaignId: r.ctx.campaignId });
+        if (r.script) await logAdminKey({ action: "room.open", campaignId: r.ctx.campaignId });
       } catch (e) {
         // DB down: the client retries (use-table), unlike "unauthorized" which it treats as a dead token.
         this.log.error(e);
@@ -148,6 +149,14 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     if (!script && !allowAction(socket.id)) return { ok: false, error: "Too many actions. Slow down." };
     const parsed = Action.safeParse(body);
     if (!parsed.success) return { ok: false, error: z.prettifyError(parsed.error) };
+    if (script) {
+      try {
+        await logAdminKey({ action: "key.action", campaignId: ctx.campaignId, detail: parsed.data.type });
+      } catch (e) {
+        this.log.error(e);
+        return { ok: false, error: "Server error" }; // an admin-key action that can't be logged doesn't run
+      }
+    }
     const result = await this.run({ ctx, action: parsed.data });
     return result;
   }

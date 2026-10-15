@@ -281,6 +281,33 @@ test("a seated admin plays by their seat; OPEN AS ADMIN is logged", async () => 
   owner.socket.close();
 });
 
+test("the admin key: its room and socket actions are logged as admin-key, and its REST calls are rate limited", async () => {
+  const key = process.env.ADMIN_KEY ?? "";
+  const scriptIp = { "x-admin-key": key, "cf-connecting-ip": nextSocketIp() };
+  const res = await post("/campaigns", { name: "Scripted", ownerUserId: uid("script-owner") }, scriptIp);
+  assert.equal(res.status, 201);
+  const { campaignId } = (await res.json()) as { campaignId: string };
+  const script = connect({ auth: { campaignId, adminKey: key } });
+  await script.until(() => true);
+  ok(await script.send({ type: "session.start" }));
+  const events = (await (await get("/admin/events", bearer(clerk("adm-key", "admin")))).json()) as {
+    actorUserId: string;
+    action: string;
+    campaignId: string;
+    detail: string | null;
+  }[];
+  const mine = events.filter((e) => e.actorUserId === "admin-key" && e.campaignId === campaignId);
+  assert.deepEqual(mine.map((e) => e.action).sort(), ["campaign.create", "key.action", "room.open"]);
+  assert.equal(mine.find((e) => e.action === "key.action")?.detail, "session.start");
+  script.socket.close();
+
+  // Right key or wrong, the REST calls of one address share a window.
+  const guessIp = { "x-admin-key": "wrong", "cf-connecting-ip": nextSocketIp() };
+  const statuses: number[] = [];
+  for (let i = 0; i < 25; i++) statuses.push((await post("/campaigns", { name: "x" }, guessIp)).status);
+  assert.ok(statuses.includes(429), "a burst of admin-key calls from one address is refused");
+});
+
 test("a moderator locks an ordinary account but not an admin", async () => {
   const modClerk = clerk("mod", "moderator");
   const victimClerk = clerk("victim");

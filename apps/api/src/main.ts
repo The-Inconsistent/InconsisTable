@@ -4,8 +4,10 @@ import { json, type NextFunction, type Request, type Response } from "express";
 import { MAX_PACK_BYTES } from "@inconsistable/rules-engine";
 import { AppModule } from "./app.module.ts";
 import { runMigrations } from "./core/db.ts";
+import { assertAdminKey } from "./core/env.ts";
 import { clientIp, limiter } from "./core/rate-limit.ts";
 
+assertAdminKey(process.env.ADMIN_KEY);
 await runMigrations();
 // Body parsing is ours (not Nest's default 100 KB) so the importer routes can take a pack file.
 const app = await NestFactory.create(AppModule, { bodyParser: false });
@@ -30,6 +32,13 @@ app.use(
     res.status(429).json({ message: "Too many requests. Wait a minute." });
   },
 );
+
+// Admin-key REST calls (scripts), right or wrong key alike, so the key can't be guessed at speed.
+const allowAdminKey = limiter({ max: 20, windowMs: 60_000 });
+app.use("/api", (req: Request, res: Response, next: NextFunction) => {
+  if (!req.headers["x-admin-key"] || allowAdminKey(clientIp(req.headers, req.socket.remoteAddress))) return next();
+  res.status(429).json({ message: "Too many requests. Wait a minute." });
+});
 
 // The importer: a 5 MB file is parsed, validated and written row by row, so a POST gets a tighter window than a read.
 // ponytail: per-IP like the rest; per user once the limiter is keyed by Clerk id

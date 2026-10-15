@@ -1,6 +1,6 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import type { Action, ActionResult, Ctx } from "@inconsistable/core-schema";
+import type { Action, ActionResult, AdminEventAction, Ctx } from "@inconsistable/core-schema";
 import { appUser } from "../auth/auth.schema.ts";
 import { campaign } from "../campaign/campaign.schema.ts";
 import { db } from "../core/db.ts";
@@ -77,6 +77,21 @@ export async function logRoomOpen({ userId, campaignId }: { userId: string; camp
   await db
     .insert(adminEvent)
     .values({ actorUserId: userId, action: "room.open", campaignId, campaignName: c?.name ?? null });
+}
+
+// The admin key (scripts) has no Clerk user; its rows in the log carry this sentinel as the actor.
+export const ADMIN_KEY_ACTOR = "admin-key";
+
+export async function logAdminKey({
+  action,
+  campaignId,
+  detail,
+}: {
+  action: AdminEventAction;
+  campaignId?: string;
+  detail?: string;
+}) {
+  await db.insert(adminEvent).values({ actorUserId: ADMIN_KEY_ACTOR, action, campaignId, detail });
 }
 
 // One housekeeping action at one room, as OPEN AS ADMIN, through the socket's own path (queue, transaction,

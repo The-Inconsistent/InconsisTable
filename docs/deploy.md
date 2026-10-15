@@ -48,7 +48,7 @@ Next.js fixes these at build time, so changing them means rebuilding the web ima
 | Variable           | Production rule                                                                                                      |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | `DATABASE_URL`     | `postgres://<user>:<password>@postgres:5432/<db>`; must match `postgres.env`. Postgres 18 is required.              |
-| `ADMIN_KEY`        | Required. A long random secret (32+ characters, e.g. `openssl rand -hex 32`). Used by admin scripts.                |
+| `ADMIN_KEY`        | Required. A long random secret (32+ characters, e.g. `openssl rand -hex 32`); the api refuses to boot with a shorter one or `change-me`. Used by admin scripts, and its actions are logged as actor `admin-key`. |
 | `WEB_ORIGIN`       | The real public origin of the web, with scheme and no trailing slash (`https://table.example.com`). Comma separated for several. Sets CORS and the Clerk token's allowed origin, so a wrong value signs everyone out. |
 | `COOKIE_SECURE`    | `true`. Seat cookies are then sent over HTTPS only.                                                                  |
 | `PORT`             | `4000`. Keep it; the web image and the health check assume it.                                                       |

@@ -48,12 +48,12 @@ Next.js fixes these at build time, so changing them means rebuilding the web ima
 | Variable           | Production rule                                                                                                      |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | `DATABASE_URL`     | `postgres://<user>:<password>@postgres:5432/<db>`; must match `postgres.env`. Postgres 18 is required.              |
-| `ADMIN_KEY`        | Required. A long random secret (32+ characters, e.g. `openssl rand -hex 32`). Used by admin scripts.                |
+| `ADMIN_KEY`        | Required. A long random secret (32+ characters, e.g. `openssl rand -hex 32`); the api refuses to boot with a shorter one or `change-me`. Used by admin scripts, and its actions are logged as actor `admin-key`. |
 | `WEB_ORIGIN`       | The real public origin of the web, with scheme and no trailing slash (`https://table.example.com`). Comma separated for several. Sets CORS and the Clerk token's allowed origin, so a wrong value signs everyone out. |
-| `COOKIE_SECURE`    | `true`. Seat cookies are then sent over HTTPS only.                                                                  |
 | `PORT`             | `4000`. Keep it; the web image and the health check assume it.                                                       |
 | `CLERK_SECRET_KEY` | The production secret key (`sk_live_...`).                                                                           |
 | `CLERK_JWT_KEY`    | The instance's JWT public key (Clerk Dashboard, API keys). Lets the api verify sessions without a network call.     |
+| `CLERK_WEBHOOK_SECRET` | The signing secret (`whsec_...`) of the Clerk webhook endpoint `/api/webhooks/clerk` (see "Clerk production"). Requests without a valid Svix signature are refused. |
 | `TRUST_CF`         | `1` **only** if the web sits behind Cloudflare, so rate limits see the real client IP from `CF-Connecting-IP`. Leave empty otherwise: any client can forge that header when no Cloudflare is in front. |
 | `CLERK_TEST_SECRET`| **Never set in production.** The api refuses to start if it is set (the image runs with `NODE_ENV=production`).     |
 
@@ -79,6 +79,10 @@ Next.js fixes these at build time, so changing them means rebuilding the web ima
    deployment invite-only: only people you invite from the Dashboard can sign in.
 5. Make yourself admin: on your user in the Dashboard, set **public metadata** to `{ "role": "admin" }`. To let someone
    open rooms, give them `{ "role": "creator" }`. Roles change only in the Dashboard; the app never edits them.
+6. Add a webhook endpoint (Dashboard, Webhooks): URL `https://<your host>/api/webhooks/clerk`, events `user.updated` and
+   `user.deleted`. Copy its signing secret (`whsec_...`) into `CLERK_WEBHOOK_SECRET`. A user whose role or lock changes,
+   or who is deleted, then loses their open table connections at once instead of at their next reconnect. Without the
+   secret the endpoint answers 503 and changes wait for the reconnect.
 
 ## Health check
 

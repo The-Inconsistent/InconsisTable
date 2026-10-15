@@ -1,5 +1,6 @@
 // End-to-end check against a running api (bun run dev:api) + Postgres 18 (bun run dev:db). The api must run with
 // CLERK_TEST_SECRET set (apps/api/.env, dev only), so these tests can act as signed-in Clerk users.
+import { createHmac } from "node:crypto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Client } from "pg";
@@ -14,6 +15,7 @@ import type {
   LiveState,
   Lobby,
 } from "@inconsistable/core-schema";
+import { MAX_NEW_CHARACTERS_PER_INVITE } from "../src/auth/invite.limits.ts";
 import { MAX_PACKS_PER_USER } from "../src/pack/pack.normalize.ts";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
@@ -281,6 +283,110 @@ test("a seated admin plays by their seat; OPEN AS ADMIN is logged", async () => 
   owner.socket.close();
 });
 
+test("a room invite makes only so many characters, and the refusal says why", { timeout: 30_000 }, async () => {
+  const { owner } = await newRoom("InviteCap");
+  const code = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
+  const headers = { "cf-connecting-ip": nextSocketIp() }; // 51 accepts from one address would pass the door's window
+  const accept = (n: number) =>
+    post(`/invites/${code}/accept`, { newCharacterName: `Guest ${n}`, asGuest: true }, headers);
+  for (let n = 1; n <= MAX_NEW_CHARACTERS_PER_INVITE; n++) assert.equal((await accept(n)).status, 200, `guest ${n}`);
+  const over = await accept(MAX_NEW_CHARACTERS_PER_INVITE + 1);
+  assert.equal(over.status, 400);
+  assert.match(((await over.json()) as { message: string }).message, /limit/);
+  const s = await owner.until(
+    (st) => st.actors.filter((a) => a.kind === "pc").length === MAX_NEW_CHARACTERS_PER_INVITE,
+  );
+  assert.equal(
+    s.actors.filter((a) => a.kind === "pc").length,
+    MAX_NEW_CHARACTERS_PER_INVITE,
+    "the refused one left no character",
+  );
+  owner.socket.close();
+});
+
+// The Clerk webhook, signed the way Svix does it with the api's own CLERK_WEBHOOK_SECRET.
+const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+function clerkWebhook(event: unknown, secret = WEBHOOK_SECRET ?? "") {
+  const body = JSON.stringify(event);
+  const id = `msg_${run}`;
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const key = Buffer.from(secret.slice("whsec_".length), "base64");
+  const signature = createHmac("sha256", key).update(`${id}.${timestamp}.${body}`).digest("base64");
+  return fetch(`${API}/api/webhooks/clerk`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "cf-connecting-ip": nextSocketIp(),
+      "svix-id": id,
+      "svix-timestamp": timestamp,
+      "svix-signature": `v1,${signature}`,
+    },
+    body,
+  });
+}
+
+test("the Clerk webhook refuses unsigned requests, and a signed user.deleted drops that user's sockets", async () => {
+  const unsigned = await post("/webhooks/clerk", { type: "user.deleted", data: { id: "x" } });
+  assert.ok([400, 503].includes(unsigned.status), `unsigned: ${unsigned.status}`);
+  if (!WEBHOOK_SECRET) return; // the api has no CLERK_WEBHOOK_SECRET to verify against
+  const { owner, campaignId } = await newRoom("Webhook");
+  const anaClerk = await seatPlayer(owner, "ana-hook");
+  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  await ana.until(() => true);
+  const forged = await clerkWebhook({ type: "user.deleted", data: { id: uid("ana-hook") } }, `whsec_${btoa("forged")}`);
+  assert.equal(forged.status, 400);
+  assert.equal(ana.socket.connected, true, "a forged webhook kicks nobody");
+  const unrelated = await clerkWebhook({ type: "user.created", data: { id: uid("ana-hook") } });
+  assert.equal(unrelated.status, 200);
+  assert.equal(ana.socket.connected, true);
+  const signed = await clerkWebhook({ type: "user.deleted", data: { id: uid("ana-hook"), deleted: true } });
+  assert.equal(signed.status, 200);
+  await eventually(() => !ana.socket.connected, "the deleted user's socket is dropped");
+  owner.socket.close();
+});
+
+test("the admin key: its room and socket actions are logged as admin-key, and its REST calls are rate limited", async () => {
+  const key = process.env.ADMIN_KEY ?? "";
+  const scriptIp = { "x-admin-key": key, "cf-connecting-ip": nextSocketIp() };
+  const res = await post("/campaigns", { name: "Scripted", ownerUserId: uid("script-owner") }, scriptIp);
+  assert.equal(res.status, 201);
+  const { campaignId } = (await res.json()) as { campaignId: string };
+  const script = connect({ auth: { campaignId, adminKey: key } });
+  await script.until(() => true);
+  ok(await script.send({ type: "session.start" }));
+  const events = (await (await get("/admin/events", bearer(clerk("adm-key", "admin")))).json()) as {
+    actorUserId: string;
+    action: string;
+    campaignId: string;
+    detail: string | null;
+  }[];
+  const mine = events.filter((e) => e.actorUserId === "admin-key" && e.campaignId === campaignId);
+  assert.deepEqual(mine.map((e) => e.action).sort(), ["campaign.create", "key.action", "room.open"]);
+  assert.equal(mine.find((e) => e.action === "key.action")?.detail, "session.start");
+  script.socket.close();
+
+  // Right key or wrong, the REST calls of one address share a window.
+  const guessIp = { "x-admin-key": "wrong", "cf-connecting-ip": nextSocketIp() };
+  const statuses: number[] = [];
+  for (let i = 0; i < 25; i++) statuses.push((await post("/campaigns", { name: "x" }, guessIp)).status);
+  assert.ok(statuses.includes(429), "a burst of admin-key calls from one address is refused");
+});
+
+test("book pages are limited per seat: a second socket of the same seat shares the limit", async () => {
+  const { owner, campaignId } = await newRoom("PageLimit");
+  const anaClerk = await seatPlayer(owner, "ana-pages");
+  const first = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  const second = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  await Promise.all([first.until(() => true), second.until(() => true)]);
+  const ask = (c: typeof first) =>
+    c.socket.emitWithAck("book:request", { source: "sample", page: 1 }) as Promise<ActionResult>;
+  // Nobody serves "sample", so each answer is a quick refusal; the 31st request in the window is the limiter's.
+  for (let i = 0; i < 30; i++) refused(await ask(first), /isn't serving/);
+  refused(await ask(second), /Too many pages/);
+  refused(await ask(first), /Too many pages/);
+  for (const c of [owner, first, second]) c.socket.close();
+});
+
 test("a moderator locks an ordinary account but not an admin", async () => {
   const modClerk = clerk("mod", "moderator");
   const victimClerk = clerk("victim");
@@ -311,7 +417,9 @@ const dropped = (c: ReturnType<typeof connect>) => new Promise<void>((r) => c.so
 async function seatPlayer(owner: ReturnType<typeof connect>, name: string) {
   const code = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
   const token = clerk(name);
-  assert.equal((await post(`/invites/${code}/accept`, { newCharacterName: name }, bearer(token))).status, 200);
+  // An address of its own: the door's window (60 a minute) is shared by every accept of the suite otherwise.
+  const headers = { ...bearer(token), "cf-connecting-ip": nextSocketIp() };
+  assert.equal((await post(`/invites/${code}/accept`, { newCharacterName: name }, headers)).status, 200);
   await owner.until((s) => s.access.members.some((m) => m.userId === uid(name)));
   return token;
 }

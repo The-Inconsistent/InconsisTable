@@ -3,7 +3,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { verifyToken } from "@clerk/backend";
 import { TokenVerificationError, TokenVerificationErrorReason as Reason } from "@clerk/backend/errors";
-import type { PlatformRole } from "./role.ts";
+import { verifyWebhook } from "@clerk/backend/webhooks";
+import { PLATFORM_ROLES, type PlatformRole } from "./role.ts";
 
 export type { ClerkRole, PlatformRole } from "./role.ts";
 export { PLATFORM_ROLES } from "./role.ts";
@@ -88,6 +89,30 @@ export async function verifySession(token: string | undefined): Promise<AuthUser
     if (!(e instanceof TokenVerificationError && TOKEN_FAULTS.has(e.reason))) console.error(e);
     return null;
   }
+}
+
+// A Clerk user change worth acting on: the app keeps a seat open per socket, so the api drops the user's sockets when
+// their role or lock changes, or the account goes (docs/handoff.md).
+export type UserWebhook =
+  | { type: "user.updated"; userId: string; role: PlatformRole; locked: boolean }
+  | { type: "user.deleted"; userId: string };
+
+// Verifies a Clerk webhook (Svix signature, through @clerk/backend) and returns the user change it carries, or null for
+// any other event. Throws when the signature, the headers or the timestamp are not valid: the caller refuses the request.
+export async function readUserWebhook({
+  request,
+  signingSecret,
+}: {
+  request: Request;
+  signingSecret: string;
+}): Promise<UserWebhook | null> {
+  const event = await verifyWebhook(request, { signingSecret });
+  if (event.type === "user.updated") {
+    const role = PLATFORM_ROLES.find((r) => r === event.data.public_metadata?.role) ?? "user";
+    return { type: event.type, userId: event.data.id, role, locked: event.data.locked === true };
+  }
+  if (event.type === "user.deleted" && event.data.id) return { type: event.type, userId: event.data.id };
+  return null;
 }
 
 // The session token on a request: `Authorization: Bearer …` (server-side Next), else the `__session` cookie (browser).

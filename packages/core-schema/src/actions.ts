@@ -253,6 +253,8 @@ export const AdminEventAction = z.enum([
   "user.unlock",
   "pack.disable", // notice-and-takedown: the pack stops being served at once (docs/design.md §4.6)
   "pack.enable",
+  "campaign.create", // the admin-key script made a room (actor "admin-key")
+  "key.action", // the admin-key script sent a socket action; detail names it
 ]);
 export type AdminEventAction = z.infer<typeof AdminEventAction>;
 

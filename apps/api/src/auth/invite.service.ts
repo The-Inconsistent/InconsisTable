@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, gt, isNull, or, sql } from "drizzle-orm";
 import type { AuthUser } from "@inconsistable/auth/api";
 import { AcceptInvite, type ActorBrief, type InvitePreview } from "@inconsistable/core-schema";
 import { actor } from "../actor/actor.schema.ts";
@@ -8,6 +8,7 @@ import { db, type Db, type Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
 import { accessToken, invite, membership, membershipCharacter } from "./auth.schema.ts";
 import { hash, issueToken } from "./auth.service.ts";
+import { MAX_NEW_CHARACTERS_PER_CAMPAIGN, MAX_NEW_CHARACTERS_PER_INVITE } from "./invite.limits.ts";
 
 // A live invite by its code: not revoked, not expired, uses left.
 async function liveInvite(conn: Db, code: string) {
@@ -136,6 +137,14 @@ export async function acceptInvite(
     if (!open.some((r) => r.id === b.actorId)) fail("That character is already taken");
     actorId = b.actorId;
   } else if (b.newCharacterName) {
+    if (inv.uses >= MAX_NEW_CHARACTERS_PER_INVITE)
+      fail(`This invite has made ${MAX_NEW_CHARACTERS_PER_INVITE} characters, its limit. Ask your GM for a new one`);
+    const [pcs] = await tx
+      .select({ n: count() })
+      .from(actor)
+      .where(and(eq(actor.campaignId, campaignId), eq(actor.kind, "pc")));
+    if ((pcs?.n ?? 0) >= MAX_NEW_CHARACTERS_PER_CAMPAIGN)
+      fail(`This game already has ${MAX_NEW_CHARACTERS_PER_CAMPAIGN} characters, its limit. Ask your GM to make room`);
     actorId = await createActor(tx, {
       campaignId,
       kind: "pc",

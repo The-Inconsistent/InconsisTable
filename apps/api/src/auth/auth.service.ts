@@ -84,22 +84,40 @@ export async function heldCharacters(conn: Db, membershipId: string): Promise<st
   return rows.map((r) => r.actorId);
 }
 
-export async function resolveGuest(token: string | undefined): Promise<Ctx | null> {
+// A guest token's seat and its token's hash (what the rate limits key a token seat by).
+async function guestSeat(token: string | undefined): Promise<{ ctx: Ctx; tokenId: string } | null> {
   if (!token) return null;
   const [row] = await db
-    .select({ campaignId: accessToken.campaignId, role: accessToken.role, actorId: accessToken.actorId })
+    .select({
+      tokenHash: accessToken.tokenHash,
+      campaignId: accessToken.campaignId,
+      role: accessToken.role,
+      actorId: accessToken.actorId,
+    })
     .from(accessToken)
     .where(and(eq(accessToken.tokenHash, hash(token)), isNull(accessToken.revokedAt)));
   if (!row) return null;
   const c = await ownerOf(db, row.campaignId);
   if (!c) return null;
   return {
-    campaignId: row.campaignId,
-    userId: null,
-    campaignOwnerId: c.ownerUserId,
-    seat: { kind: "token", role: row.role, characterIds: row.actorId ? [row.actorId] : [] },
+    tokenId: row.tokenHash,
+    ctx: {
+      campaignId: row.campaignId,
+      userId: null,
+      campaignOwnerId: c.ownerUserId,
+      seat: { kind: "token", role: row.role, characterIds: row.actorId ? [row.actorId] : [] },
+    },
   };
 }
+
+export async function resolveGuest(token: string | undefined): Promise<Ctx | null> {
+  const guest = await guestSeat(token);
+  return guest?.ctx ?? null;
+}
+
+// One seat, however many sockets it opens: a signed-in user, else the guest token's row.
+const seatKey = ({ campaignId, userId, tokenId }: { campaignId: string; userId: string | null; tokenId?: string }) =>
+  `${campaignId}:${userId ?? tokenId}`;
 
 // The caller at `campaignId`: a signed-in member first, else an admin without a seat (OPEN AS ADMIN), else a token
 // for that same campaign. A seated admin gets their seat, never admin powers (docs/design.md §3.6).
@@ -109,7 +127,7 @@ export async function resolveCtx({
 }: {
   campaignId: string;
   headers: { authorization?: string; cookie?: string };
-}): Promise<{ ctx: Ctx; openedAsAdmin: boolean } | null> {
+}): Promise<{ ctx: Ctx; openedAsAdmin: boolean; seatKey: string } | null> {
   const user = await signedInUser(headers);
   if (user) {
     const c = await ownerOf(db, campaignId);
@@ -121,16 +139,23 @@ export async function resolveCtx({
     if (m) {
       const characterIds = await heldCharacters(db, m.id);
       const seat = { kind: "member" as const, role: m.role, scopes: m.scopes, characterIds };
-      return { ctx: { campaignId, userId: user.userId, campaignOwnerId: c.ownerUserId, seat }, openedAsAdmin: false };
+      return {
+        ctx: { campaignId, userId: user.userId, campaignOwnerId: c.ownerUserId, seat },
+        openedAsAdmin: false,
+        seatKey: seatKey({ campaignId, userId: user.userId }),
+      };
     }
     if (user.admin)
       return {
         ctx: { campaignId, userId: user.userId, campaignOwnerId: c.ownerUserId, seat: { kind: "admin" } },
         openedAsAdmin: true,
+        seatKey: seatKey({ campaignId, userId: user.userId }),
       };
   }
-  const guest = await resolveGuest(readCookie({ header: headers.cookie }));
-  return guest?.campaignId === campaignId ? { ctx: guest, openedAsAdmin: false } : null;
+  const guest = await guestSeat(readCookie({ header: headers.cookie }));
+  return guest?.ctx.campaignId === campaignId
+    ? { ctx: guest.ctx, openedAsAdmin: false, seatKey: seatKey({ campaignId, userId: null, tokenId: guest.tokenId }) }
+    : null;
 }
 
 // What a client puts in `io({ auth })`. Browsers send only campaignId; the Clerk `__session` or guest cookie proves who
@@ -143,14 +168,15 @@ const Handshake = z.object({
 });
 
 // The caller of a socket handshake, or null to refuse it. `script` marks the admin-key script (exempt from the action
-// limit); `openedAsAdmin` an admin at a table without a seat, which is logged (logRoomOpen).
+// limit); `openedAsAdmin` an admin at a table without a seat, which is logged (logRoomOpen); `seatKey` names the seat for
+// the rate limits, so a second socket of the same seat shares them.
 export async function resolveSocketCtx({
   auth,
   headers,
 }: {
   auth: unknown;
   headers: { cookie?: string };
-}): Promise<{ ctx: Ctx; script: boolean; openedAsAdmin: boolean } | null> {
+}): Promise<{ ctx: Ctx; script: boolean; openedAsAdmin: boolean; seatKey: string } | null> {
   const h = Handshake.safeParse(auth ?? {});
   if (!h.success) return null;
   const { campaignId, token, clerkToken, adminKey } = h.data;
@@ -159,12 +185,17 @@ export async function resolveSocketCtx({
     const c = await ownerOf(db, campaignId);
     if (!c) return null;
     const ctx: Ctx = { campaignId, userId: null, campaignOwnerId: c.ownerUserId, seat: { kind: "admin" } };
-    return { ctx, script: true, openedAsAdmin: false };
+    return { ctx, script: true, openedAsAdmin: false, seatKey: `${campaignId}:admin-key` };
   }
   if (token) {
-    const guest = await resolveGuest(token);
-    return guest && (!campaignId || guest.campaignId === campaignId)
-      ? { ctx: guest, script: false, openedAsAdmin: false }
+    const guest = await guestSeat(token);
+    return guest && (!campaignId || guest.ctx.campaignId === campaignId)
+      ? {
+          ctx: guest.ctx,
+          script: false,
+          openedAsAdmin: false,
+          seatKey: seatKey({ campaignId: guest.ctx.campaignId, userId: null, tokenId: guest.tokenId }),
+        }
       : null;
   }
   if (!campaignId) return null;

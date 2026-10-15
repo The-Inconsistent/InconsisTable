@@ -32,7 +32,7 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
 
   if (!state) return <StatusScreen text="Syncing…" />;
   return (
-    <>
+    <div className="surface-table">
       <header className="band">
         {!online && (
           <span className="badge-offline" role="status">
@@ -78,6 +78,6 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
           <p className="dim">{COMING[tab]}</p>
         )}
       </main>
-    </>
+    </div>
   );
 }

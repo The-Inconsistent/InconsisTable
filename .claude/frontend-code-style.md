@@ -1,8 +1,9 @@
 # Frontend (Next.js · React) Code Style Guidelines
 
 > Sibling to [backend-code-style.md](./backend-code-style.md). Stack: **Next.js 16** (App Router), **React 19**,
-> **socket.io-client**, plain CSS design tokens in `apps/web/app/globals.css` (a neutral base theme; each World can
-> re-map the tokens), and **zod** schemas from `@inconsistable/core-schema` and `@inconsistable/rules-engine`.
+> **socket.io-client**, plain CSS design tokens (the base Theme `lantern` in `apps/web/app/theme/lantern.css`, the skin
+> in `apps/web/app/globals.css`; each World can re-map the tokens, `felt.css` proves it), and **zod** schemas from
+> `@inconsistable/core-schema` and `@inconsistable/rules-engine`.
 > Architecture and the binding principles are in the root `CLAUDE.md`.
 
 ## General Principles
@@ -143,8 +144,8 @@ The tracker and codex lists are small (tens of rows), so no virtualisation is ne
 
 ## UI & Accessibility
 
-- **Focus is always visible.** Never remove an outline without a visible replacement (the border colour changes to
-  `--red`, or a `:focus-within` ring on a wrapper).
+- **Focus is always visible.** Never remove an outline without a visible replacement (a ring in `--focus` with its
+  `--focus-halo`, or a `:focus-within` ring on a wrapper). The pair holds 3:1 on wood and on parchment.
 - **Every control has an accessible name.** Icon-only buttons get an `aria-label` naming the action *and* its target
   (`Decrease HP`). Selects and inputs without a visible label get an `aria-label`.
 - **Labels are associated** (`<label htmlFor>`, or the input nested inside its `<label>`). A group of toggle chips gets
@@ -153,8 +154,17 @@ The tracker and codex lists are small (tens of rows), so no virtualisation is ne
   - The selected tab gets weight as well as colour (`aria-selected`).
   - A combatant's state is a word (ACTING, DONE, DOWN).
   - A marker colour square has an `aria-label` and the label text.
-- **Colour comes from the tokens.** No hex in TSX. Components use `var(--…)` from `globals.css`. Values that must be raw
-  (the QR code canvas) come from `lib/tokens/tokens.ts`, which mirrors the CSS variables.
+- **Colour comes from the tokens.** No hex in TSX, and none in `globals.css`. Components use `var(--…)`, declared by the
+  Theme. Values that must be raw (the QR code canvas) come from `lib/tokens/tokens.ts`, which mirrors the CSS
+  variables. `lib/tokens/tokens.test.ts` is the contract: every `var(--x)` is declared, `felt` re-maps every token, text
+  pairs hold 4.5:1.
+- **Surfaces.** Table screens (GM, phone, TV) sit in `.surface-table` and are always dark. The lobby, library and
+  builder use `.surface-app` (the body) and follow the system. A parchment card is any `.card`, `.combatant` or
+  `.sheet-card`; inside it `--paper` and `--ink` are ink on cream, so a component never asks which surface it is on.
+- **Density is tokens.** `--tap`, `--gap`, `--fs-*`: the phone is the base (44px or more), the tablet from 768px is
+  dense, the TV sets `data-density="tv"`.
+- **Hooks are structural classes** (`sheet-card`, `data-stat`, `data-state`, `seat-strip`, `keypad` ...), never a CSS
+  match on a label, an `aria-label` or a ruleset's wording.
 - **Smallest text is 12px.** Nothing smaller.
 - **Touch targets are at least 44px,** except dense secondary buttons (`.btn.sm`, 32px), and never below that.
 - **Phone first for players, tablet first for the GM.** Test both at about 390px and 1180px wide. Grid cells get

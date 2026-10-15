@@ -1,0 +1,166 @@
+/* The base Theme, "lantern": a candlelit tavern table. Wood plank, brass fittings, parchment cards lying on it.
+   This file is only tokens. The skin that reads them is globals.css, and a World re-maps a Theme by declaring the same
+   names under another root class (see felt.css). lib/tokens/tokens.test.ts holds the contract: every var(--x) the app
+   uses is declared here, felt re-maps all of these, and the text pairs keep their contrast.
+   Two surface families share the tokens:
+     table (GM, phone, TV): always dark, the .surface-table class sets color-scheme: dark
+     app (lobby, library, builder): follows the system, light is parchment and dark is the tavern
+   The semantic names (--paper, --ink ...) switch with light-dark(); a parchment card (.parchment, see globals.css)
+   re-declares them as ink on cream for everything inside it. Raw values used outside CSS are in lib/tokens/tokens.ts. */
+:root {
+  color-scheme: light dark;
+
+  /* palette */
+  --wood-0: #170d07;
+  --wood: #2a1a10;
+  --wood-2: #3b2517;
+  --wood-3: #52341f;
+  --brass: #c99a3e;
+  --brass-hi: #f0c870;
+  --brass-lo: #8a6322;
+  --brass-ink: #251509;
+  --candle: #ffb64f;
+  --wax: #9c2f23;
+  --cream: #fff6e2;
+  --leaf: #3e6a2a;
+  --moss: #a6d68e;
+  --parchment: #f2e5c6;
+  --parchment-hi: #f9f0da;
+  --parchment-2: #e7d5ad;
+  --parchment-ink: #2a1b10;
+  --parchment-ink-2: #5a4430;
+  --parchment-line: #b59a68;
+  --ink-blue: #123a8f;
+  --halo-light: #fff3cf;
+  --halo-dark: #120a05;
+  --shadow: rgb(8 3 0 / 0.55);
+
+  /* the names the components read: light-dark(system light, system dark) */
+  --paper: light-dark(var(--parchment), var(--wood));
+  --paper-2: light-dark(var(--parchment-2), var(--wood-2));
+  --ink: light-dark(var(--parchment-ink), #f4e8cd);
+  --ink-2: light-dark(var(--parchment-ink-2), #d2bf99);
+  --line: light-dark(var(--parchment-line), #7d5d34);
+  --band: var(--wood-0);
+  --band-ink: #f4e8cd;
+  --accent: light-dark(var(--wax), var(--brass));
+  --accent-ink: light-dark(var(--cream), var(--brass-ink));
+  --ok: light-dark(var(--leaf), var(--moss));
+  --link: light-dark(var(--wax), var(--brass-hi));
+  --focus: light-dark(var(--ink-blue), var(--brass-hi));
+  --focus-halo: light-dark(var(--halo-light), var(--halo-dark));
+
+  /* plates: the buttons. Wood plates on wood, light plates on parchment, brass for the main action */
+  --plate: linear-gradient(180deg, var(--wood-3), var(--wood-2));
+  --plate-line: var(--brass-lo);
+  --plate-shade: rgb(0 0 0 / 0.5);
+  --plate-lit: rgb(255 215 150 / 0.22);
+  --plate-main: linear-gradient(180deg, var(--brass-hi), var(--brass));
+  --plate-main-ink: var(--brass-ink);
+
+  /* shape */
+  --radius-btn: 7px;
+  --radius-card: 2px;
+  --edge: polygon(
+    0 3px,
+    9% 0,
+    21% 2px,
+    36% 0,
+    52% 2px,
+    68% 0,
+    83% 3px,
+    100% 1px,
+    calc(100% - 2px) 14%,
+    100% 31%,
+    calc(100% - 3px) 52%,
+    100% 74%,
+    calc(100% - 1px) 100%,
+    90% calc(100% - 2px),
+    74% 100%,
+    58% calc(100% - 3px),
+    41% 100%,
+    24% calc(100% - 1px),
+    8% 100%,
+    0 calc(100% - 2px),
+    2px 82%,
+    0 61%,
+    3px 40%,
+    0 19%
+  );
+  --edge-slip: polygon(
+    0 2px,
+    18% 0,
+    42% 2px,
+    70% 0,
+    100% 2px,
+    calc(100% - 2px) 50%,
+    100% calc(100% - 2px),
+    76% 100%,
+    48% calc(100% - 2px),
+    20% 100%,
+    0 calc(100% - 1px),
+    2px 55%
+  );
+
+  /* type */
+  --font-display: var(--font-display-face), "Iowan Old Style", Georgia, serif;
+  --display-axes: "SOFT" 100, "WONK" 1;
+
+  /* textures: hand-made gradients and inline SVG, no image files */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7 0.012' stitchTiles='stitch' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.04 0 0 0 0 0.015 0 0 0 0 0 1.9 0 0 0 -0.78'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  --grain-h: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.55' stitchTiles='stitch' numOctaves='3' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.03 0 0 0 0 0.012 0 0 0 0 0 1.9 0 0 0 -0.8'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  --fibre: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' stitchTiles='stitch' numOctaves='2' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.22 0 0 0 0 0.08 0 0 0 0.55 -0.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+  --planks: repeating-linear-gradient(
+    90deg,
+    transparent 0 150px,
+    rgb(0 0 0 / 0.6) 150px 152px,
+    rgb(255 200 120 / 0.07) 152px 154px,
+    transparent 154px 301px,
+    rgb(0 0 0 / 0.6) 301px 303px,
+    rgb(255 200 120 / 0.07) 303px 305px,
+    transparent 305px 420px,
+    rgb(0 0 0 / 0.6) 420px 422px,
+    rgb(255 200 120 / 0.07) 422px 424px
+  );
+  --candle-glow: radial-gradient(
+    ellipse 85% 420px at 50% -60px,
+    rgb(255 182 79 / 0.5),
+    rgb(255 150 50 / 0.16) 55%,
+    transparent 80%
+  );
+  --bg-wood: var(--grain), var(--planks), linear-gradient(180deg, var(--wood-2), var(--wood) 40%, var(--wood-0));
+  --bg-parchment: var(--fibre), radial-gradient(ellipse 120% 80% at 50% 0%, var(--parchment-hi), var(--parchment) 70%);
+  --bg-card: var(--fibre), radial-gradient(ellipse at 30% 0%, var(--parchment-hi), var(--parchment) 70%);
+
+  /* icons (24px viewBox; the shape is painted, the mask tints it with currentColor) */
+  --icon-die: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.8 21.2 7v10L12 22.2 2.8 17V7z' fill='none' stroke='black' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M12 7 7 15.5h10z' fill='none' stroke='black' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --icon-heart: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.5S2.8 15 2.8 8.7A5 5 0 0 1 12 6.1a5 5 0 0 1 9.2 2.6C21.2 15 12 21.5 12 21.5z' fill='black'/%3E%3C/svg%3E");
+  --icon-shield: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.8 20.4 5v6.6c0 5.2-3.6 8.8-8.4 10.6-4.8-1.8-8.4-5.4-8.4-10.6V5z' fill='black'/%3E%3C/svg%3E");
+  --icon-turn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 12a8 8 0 1 1-2.8-6.1' fill='none' stroke='black' stroke-width='2.8' stroke-linecap='round'/%3E%3Cpath d='M21.5 2.5v7h-7z' fill='black'/%3E%3C/svg%3E");
+  --icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.5 17.6 4.4 12.5l2-2 3.1 3.1 8.1-8.1 2 2z' fill='black'/%3E%3C/svg%3E");
+}
+
+/* A parchment card: dark ink on cream for everything inside, on any surface (also on the light app pages). The
+   components never know which surface they sit on; they read --paper and --ink. */
+.parchment,
+.card,
+.combatant,
+.bottom-sheet,
+.sheet-card {
+  color-scheme: light;
+  --paper: var(--parchment-hi);
+  --paper-2: var(--parchment-2);
+  --ink: var(--parchment-ink);
+  --ink-2: var(--parchment-ink-2);
+  --line: var(--parchment-line);
+  --accent: var(--wax);
+  --accent-ink: var(--cream);
+  --ok: var(--leaf);
+  --link: var(--wax);
+  --focus: var(--ink-blue);
+  --focus-halo: var(--halo-light);
+  --plate: linear-gradient(180deg, var(--parchment-hi), var(--parchment-2));
+  --plate-line: var(--parchment-line);
+  --plate-shade: rgb(90 60 20 / 0.35);
+  --plate-lit: #fffbe8;
+}

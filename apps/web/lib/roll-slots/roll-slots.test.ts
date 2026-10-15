@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { digitsOf, facesFrom, outcomeWord, rollSlots, signed } from "./roll-slots.ts";
+import { digitsOf, facesFrom, outcomeClass, outcomeWord, rollSlots, signed } from "./roll-slots.ts";
+
+test("an outcome has a Theme class only when it is the engine's", () => {
+  assert.equal(outcomeClass("critical"), "outcome-critical");
+  assert.equal(outcomeClass("failure"), "outcome-failure");
+  assert.equal(outcomeClass("nonsense"), "");
+  assert.equal(outcomeClass(null), "");
+});
 
 test("one die is read once, or twice with advantage; dice that aren't plain NdX aren't read", () => {
   assert.deepEqual(rollSlots({ dice: "1d20", advantage: "none" }), { count: 1, sides: 20 });

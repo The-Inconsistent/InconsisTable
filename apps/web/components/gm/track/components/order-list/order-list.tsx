@@ -32,7 +32,7 @@ export function OrderList({ encounter, actors, selectedId, onSelect, run }: Orde
   };
 
   return (
-    <ol className="order" aria-label="Turn order">
+    <ol className="order seat-strip" aria-label="Turn order">
       {encounter.combatants.map((c) => {
         const acting = c.id === encounter.currentId;
         const word = stateWord({ current: acting, healthState: actors.get(c.actorId)?.fields.healthState });
@@ -43,7 +43,11 @@ export function OrderList({ encounter, actors, selectedId, onSelect, run }: Orde
               <span className="row small dim">
                 <span className="chip">{SIDE_LABELS[c.side]}</span>
                 <span className="chip">{VISIBILITY_LABELS[c.visibility]}</span>
-                {word && <span className="state-word">{word}</span>}
+                {word && (
+                  <span className="state-word" data-state={word.toLowerCase()}>
+                    {word}
+                  </span>
+                )}
               </span>
               <HealthBar combatant={c} />
             </button>

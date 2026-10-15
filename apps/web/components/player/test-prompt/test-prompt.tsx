@@ -8,7 +8,7 @@ import { PoolOutcome } from "@/components/ui/pool-outcome/pool-outcome";
 import { PoolPad } from "@/components/ui/pool-pad/pool-pad";
 import { RollPad } from "@/components/ui/roll-pad/roll-pad";
 import type { Send } from "@/hooks/use-table/use-table";
-import { outcomeWord, signed } from "@/lib/roll-slots/roll-slots";
+import { outcomeClass, outcomeWord, signed } from "@/lib/roll-slots/roll-slots";
 
 type TestPromptProps = { state: LiveState; send: Send };
 
@@ -69,7 +69,7 @@ export function TestPrompt({ state, send }: TestPromptProps) {
                 Roll {call.pool ? `${t.pool ?? "your"} ${call.dice}` : call.dice} for {who}
               </h2>
               {t.report ? (
-                <p className="roll-result" role="status">
+                <p className={`roll-result ${outcomeClass(t.report.outcome)}`.trim()} role="status">
                   {call.pool ? <PoolOutcome report={t.report} /> : resultText({ call, target: t })}
                 </p>
               ) : call.pool ? (

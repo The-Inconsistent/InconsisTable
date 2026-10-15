@@ -80,10 +80,8 @@ export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet, o
   };
 
   return (
-    <section className="card" aria-label={`${c.name} controls`}>
-      <h2 className="title" style={{ fontSize: 24 }}>
-        {c.name}
-      </h2>
+    <section className="card combatant-panel" aria-label={`${c.name} controls`}>
+      <h2 className="title">{c.name}</h2>
       <HealthBar combatant={c} />
       {actor && actor.entity !== "" && (onSheet || onCallTest) && (
         <div className="row">
@@ -101,7 +99,7 @@ export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet, o
       )}
 
       {health && (
-        <div className="stack">
+        <div className="stack keypad">
           <output className="keypad-out" aria-label="Amount">
             {entry === "" ? "0" : entry}
           </output>

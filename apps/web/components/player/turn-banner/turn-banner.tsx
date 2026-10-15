@@ -28,6 +28,7 @@ export function TurnBanner({ encounter, held }: TurnBannerProps) {
   if (!mine) return null;
   return (
     <p key={turnKey} className="turn-banner" role="status">
+      <span className="turn-icon" aria-hidden="true" />
       Your turn, {acting.name}
     </p>
   );

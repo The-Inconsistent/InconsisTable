@@ -2,8 +2,6 @@
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
-import { UserButton } from "@inconsistable/auth/react";
-
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { formatBytes, type PackList as PackListData, type RulesetList } from "@/lib/library/library";
@@ -13,7 +11,7 @@ import { PackList } from "./components/pack-list/pack-list";
 
 type LibraryViewProps = { rulesets: RulesetList; packs: PackListData };
 
-// MY RULESETS & PACKS: everything the signed-in user imported. Nothing here is shared; a room can use what its owner
+// MY RULESETS & PACKS: everything the device's user imported. Nothing here is shared; a room can use what its owner
 // imported, and a private pack only in rooms its owner runs as GM.
 export function LibraryView({ rulesets, packs }: LibraryViewProps) {
   const t = useTranslations("library");
@@ -30,7 +28,6 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
         <span className="row">
           <LocaleSwitch />
           <ThemeSwitch />
-          <UserButton />
         </span>
       </header>
       <main className="page library">

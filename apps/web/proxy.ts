@@ -1,24 +1,26 @@
-import type { NextFetchEvent, NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-import { SESSION_COOKIE, authMiddleware } from "@inconsistable/auth/next";
+import { DEVICE_COOKIE, deviceSecret, isDeviceSecret } from "@inconsistable/auth/api";
 
-import { TOKEN_COOKIE } from "@/app/constants";
+const YEAR_S = 365 * 24 * 3600;
 
-const clerk = authMiddleware();
-
-// Clerk session handling on every page. Nothing is blocked here: each page decides whether it needs a signed-in user,
-// because guest players join by QR without an account. /api and /socket.io are proxied to the Nest api, which checks
-// the Clerk token itself (packages/auth/src/api.ts).
-//
-// A guest is skipped entirely. Clerk has no account to resolve for them, so on a development instance it keeps
-// redirecting to finish its browser handshake — which on iOS can never complete, because the cookie that handshake
-// needs is third-party and WebKit blocks it. The table page then reloads in a loop and the socket never lives long
-// enough to take its first snapshot, so the player sits on SYNCING forever. Skipping is safe precisely because this
-// proxy protects nothing: a guest gets an empty Clerk context, which is exactly what they are. A signed-in user still
-// carries `__session`, so the GM keeps full Clerk handling even on a device that once held a QR seat.
-export default function proxy(req: NextRequest, event: NextFetchEvent) {
-  const guest = req.cookies.has(TOKEN_COOKIE) && !req.cookies.has(SESSION_COOKIE);
-  return guest ? undefined : clerk(req, event);
+// Gives every device its identity: no `it_device` cookie (or a malformed one) gets a fresh secret. It is also put on
+// this very request, so the server components that render next read it. The api trusts a well-formed secret and makes
+// the user on first sight. Nothing is blocked here.
+// ponytail: a lost cookie is a lost identity, swap in a provider's session here
+export default function proxy(req: NextRequest) {
+  if (isDeviceSecret(req.cookies.get(DEVICE_COOKIE)?.value)) return NextResponse.next();
+  const secret = deviceSecret();
+  const kept = (req.headers.get("cookie") ?? "")
+    .split(";")
+    .filter((c) => c.trim() && !c.trim().startsWith(`${DEVICE_COOKIE}=`));
+  const headers = new Headers(req.headers);
+  headers.set("cookie", [...kept, `${DEVICE_COOKIE}=${secret}`].join(";"));
+  const res = NextResponse.next({ request: { headers } });
+  // Secure only over https (behind a TLS proxy, the forwarded protocol): a LAN address is plain http.
+  const https = req.nextUrl.protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
+  res.cookies.set(DEVICE_COOKIE, secret, { httpOnly: true, sameSite: "lax", secure: https, maxAge: YEAR_S, path: "/" });
+  return res;
 }
 
 export const config = {

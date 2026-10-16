@@ -11,6 +11,7 @@ import { ChooseStep } from "@/components/builder/components/choose-step/choose-s
 import { FieldsStep } from "@/components/builder/components/fields-step/fields-step";
 import { DRAFT_DELAY_MS } from "@/components/builder/constants";
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
+import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { type Send, useTable } from "@/hooks/use-table/use-table";
 import {
@@ -161,6 +162,7 @@ function BuilderForm({ campaignId, actorId, ruleset, entries, entity, name, init
         <a href={`/c/${campaignId}`}>{t("backLink")}</a>
         <strong>{t("buildTitle", { name })}</strong>
         <LocaleSwitch />
+        <ThemeSwitch />
       </header>
       <main className="page build">
         {steps.map((step) => {

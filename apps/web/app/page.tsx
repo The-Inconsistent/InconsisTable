@@ -8,6 +8,7 @@ import { JOIN_ERRORS, type JoinError } from "@/app/constants";
 import { apiGet } from "@/app/server-api";
 import { LobbyView } from "@/components/lobby/lobby-view/lobby-view";
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
+import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { CampaignRef } from "@/lib/api-reply/api-reply";
 import { RulesetList } from "@/lib/library/library";
@@ -59,6 +60,7 @@ export default async function Home({ searchParams }: HomeProps) {
           </a>
           <p className="dim small">{t("home.guestHint")}</p>
           <LocaleSwitch />
+          <ThemeSwitch />
         </div>
       </main>
     );

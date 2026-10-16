@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { UserButton } from "@inconsistable/auth/react";
 
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
+import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { formatBytes, type PackList as PackListData, type RulesetList } from "@/lib/library/library";
 
 import { ImportPanel } from "./components/import-panel/import-panel";
@@ -28,6 +29,7 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
         <strong>{t("title")}</strong>
         <span className="row">
           <LocaleSwitch />
+          <ThemeSwitch />
           <UserButton />
         </span>
       </header>

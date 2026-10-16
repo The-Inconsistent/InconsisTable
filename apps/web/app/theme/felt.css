@@ -1,7 +1,7 @@
 /* The second Theme, "felt": a card table. Bottle-green baize, brass thread, ivory playing cards lying flat on it.
    It exists to prove the contract: it re-maps every token lantern.css declares and changes the look of the same markup
-   without a component knowing. It is selected by the root class .theme-felt, which the layout sets only outside
-   production (INCONSISTABLE_THEME=felt); it is not in the product UI. A World's Theme is built the same way (P2).
+   without a component knowing. It is selected by the root class .theme-felt, which the layout sets from the
+   device's Theme cookie (the Theme switch). A World's Theme is built the same way (P2).
    Beyond the tokens it carries the few rules a token cannot express: the dashed ring on a plate, the seat strip. */
 :root.theme-felt {
   /* palette: the "wood" names hold the baize here */

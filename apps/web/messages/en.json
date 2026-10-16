@@ -21,6 +21,13 @@
       "vi": "Tiếng Việt"
     }
   },
+  "themeSwitch": {
+    "label": "Theme",
+    "name": {
+      "lantern": "Lantern",
+      "felt": "Felt"
+    }
+  },
   "roles": {
     "gm": "GM",
     "cogm": "Co-GM",

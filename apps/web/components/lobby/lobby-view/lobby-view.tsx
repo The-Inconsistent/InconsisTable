@@ -7,6 +7,7 @@ import { UserButton } from "@inconsistable/auth/react";
 import { CreateGame, type Lobby, type LobbyGame } from "@inconsistable/core-schema";
 
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
+import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, CampaignRef, readJson } from "@/lib/api-reply/api-reply";
 import type { RulesetList } from "@/lib/library/library";
@@ -95,6 +96,7 @@ export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
           <a href="/library">{t("libraryLink")}</a>
           {lobby.admin && <a href="/admin">{t("admin")}</a>}
           <LocaleSwitch />
+          <ThemeSwitch />
           <UserButton />
         </span>
       </header>

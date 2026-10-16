@@ -8,6 +8,7 @@ import {
   HttpCode,
   Inject,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -16,9 +17,9 @@ import {
 } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { CreateGame, refusalBody } from "@inconsistable/core-schema";
+import { CreateGame, Rename, refusalBody } from "@inconsistable/core-schema";
 import { logAdminKey } from "../admin/admin.service.ts";
-import { COOKIE, readCookie, resolveCtx, resolveGuest, signedInUser } from "../auth/auth.service.ts";
+import { COOKIE, readCookie, resolveCtx, resolveGuest, deviceUser, renameUser } from "../auth/auth.service.ts";
 import { acceptInvite, previewInvite } from "../auth/invite.service.ts";
 import { db } from "../core/db.ts";
 import { cookieSecure } from "../core/env.ts";
@@ -28,7 +29,7 @@ import { createCampaign, isAdminKey, lobby } from "./campaign.service.ts";
 import { DEFAULT_RULES_PAGE, MAX_RULES_PAGE, readRules } from "./rules.read.ts";
 
 const Join = z.object({ token: z.string().min(1).max(200) });
-// Scripts (admin key) name the Clerk user who will own the new room.
+// Scripts (admin key) name the device user who will own the new room.
 const AdminCreate = CreateGame.extend({ ownerUserId: z.string().min(1).max(100).optional() });
 const CampaignId = z.uuid();
 const InviteCode = z.string().min(1).max(200);
@@ -56,7 +57,7 @@ async function refusing<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-const headersOf = (req: Request) => ({ authorization: req.headers.authorization, cookie: req.headers.cookie });
+const headersOf = (req: Request) => ({ cookie: req.headers.cookie });
 
 // A year-long httpOnly cookie holding a guest's player token.
 function setGuestCookie(res: Response, token: string) {
@@ -73,7 +74,7 @@ function setGuestCookie(res: Response, token: string) {
 export class CampaignController {
   constructor(@Inject(TableGateway) private readonly table: TableGateway) {}
 
-  // Creators (Clerk `publicMetadata.role = "creator"`) start rooms in the lobby, and own them; scripts use the admin key.
+  // Creators (app_user.role) start rooms in the lobby, and own them; scripts use the admin key.
   @Post("campaigns")
   async create(@Headers("x-admin-key") key: string | undefined, @Req() req: Request, @Body() body: unknown) {
     if (isAdminKey(key)) {
@@ -84,7 +85,7 @@ export class CampaignController {
       await logAdminKey({ action: "campaign.create", campaignId: created.campaignId, detail: rest.name });
       return created;
     }
-    const user = await signedInUser(headersOf(req));
+    const user = await deviceUser(headersOf(req));
     if (!user) throw new UnauthorizedException(refusalBody("unauthorized"));
     if (!user.creator) throw new ForbiddenException(refusalBody("creatorsOnly"));
     return refusing(() => createCampaign({ ...parse(CreateGame, body), owner: user }));
@@ -92,9 +93,19 @@ export class CampaignController {
 
   @Get("lobby")
   async lobby(@Req() req: Request) {
-    const user = await signedInUser(headersOf(req));
+    const user = await deviceUser(headersOf(req));
     if (!user) throw new UnauthorizedException(refusalBody("unauthorized"));
     return lobby(user);
+  }
+
+  // The name this device's user goes by at every table.
+  @Patch("me")
+  async rename(@Req() req: Request, @Body() body: unknown) {
+    const user = await deviceUser(headersOf(req));
+    if (!user) throw new UnauthorizedException(refusalBody("unauthorized"));
+    const { name } = parse(Rename, body);
+    await renameUser(user.userId, name);
+    return { name };
   }
 
   // Who the caller is at this table: their seat, or an admin who opened it without one.
@@ -134,7 +145,7 @@ export class CampaignController {
 
   @Get("invites/:code")
   async invite(@Param("code") code: string, @Req() req: Request) {
-    const user = await signedInUser(headersOf(req));
+    const user = await deviceUser(headersOf(req));
     return refusing(() => previewInvite({ code: parse(InviteCode, code), user }));
   }
 
@@ -147,7 +158,7 @@ export class CampaignController {
     @Body() body: unknown,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = await signedInUser(headersOf(req));
+    const user = await deviceUser(headersOf(req));
     const c = parse(InviteCode, code);
     const preview = await refusing(() => previewInvite({ code: c, user }));
     const result = await refusing(() =>

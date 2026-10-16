@@ -13,7 +13,7 @@ export const REFUSALS = {
   tooManyActions: "Too many actions. Slow down.",
   tooManyPages: "Too many pages. Slow down.",
   importRefused: "Import refused",
-  webhookInvalid: "Invalid webhook",
+  adminKeyWrong: "Wrong admin key",
   // Seats and permissions
   screenReadOnly: "The table screen is read-only",
   notYourCharacter: "Not your character",

@@ -1,16 +1,16 @@
 // End-to-end check against a running api (bun run dev:api) + Postgres 18 (bun run dev:db). The api must run with
-// CLERK_TEST_SECRET set (apps/api/.env, dev only), so these tests can act as signed-in Clerk users.
-import { createHmac } from "node:crypto";
+// ADMIN_KEY set (32+ characters) and the suite with the same value: admin calls use it. Every simulated person is a
+// device: a random `it_device` cookie, so the api makes the user on first sight.
+import { createHash } from "node:crypto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Client } from "pg";
 import { io } from "socket.io-client";
-import { testSessionToken, type PlatformRole } from "@inconsistable/auth/api";
+import { DEVICE_COOKIE, deviceSecret } from "@inconsistable/auth/api";
 import type {
   ActionInput,
   ActionResult,
   Codex,
-  Ctx,
   InvitePreview,
   LiveState,
   Lobby,
@@ -26,10 +26,34 @@ import { FIXTURE_RULESET } from "./fixture.ts";
 const API = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 4000}`;
 const run = Date.now().toString(36); // test users are fresh per run, so reruns never collide
 
-const clerk = (userId: string, role: PlatformRole = "user") =>
-  testSessionToken({ secret: process.env.CLERK_TEST_SECRET ?? "", userId: `${userId}-${run}`, role });
-const uid = (userId: string) => `${userId}-${run}`;
-const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
+const ADMIN = { "x-admin-key": process.env.ADMIN_KEY ?? "" };
+
+// One simulated person: a random `it_device` cookie, remembered by name so the same name is the same person. The first
+// request makes the user; its id is read back from the database so `uid(name)` can name them in assertions.
+// Returns the Cookie header value.
+const people = new Map<string, Promise<{ cookie: string; userId: string }>>();
+const device = (name: string) => {
+  let p = people.get(name);
+  if (!p) {
+    p = (async () => {
+      const secret = deviceSecret();
+      const cookie = `${DEVICE_COOKIE}=${secret}`;
+      assert.equal((await get("/lobby", { cookie, "cf-connecting-ip": nextSocketIp() })).status, 200);
+      const tokenHash = createHash("sha256").update(secret).digest("hex");
+      const [row] = await withDb(
+        async (c) => (await c.query("select user_id from device where token_hash = $1", [tokenHash])).rows,
+      );
+      known.set(name, row.user_id as string);
+      return { cookie, userId: row.user_id as string };
+    })();
+    people.set(name, p);
+  }
+  return p.then((x) => x.cookie);
+};
+// The user id of a person made with device(name); a stranger's name gives an id nobody has.
+const known = new Map<string, string>();
+const uid = (name: string) => known.get(name) ?? `nobody-${name}-${run}`;
+const cookieOf = (cookie: string) => ({ cookie });
 const get = (path: string, headers: Record<string, string> = {}) => fetch(`${API}/api${path}`, { headers });
 const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
   fetch(`${API}/api${path}`, {
@@ -44,12 +68,13 @@ let sockets = 0;
 const nextSocketIp = () =>
   `172.${16 + (Math.floor(++sockets / 250) % 16)}.${sockets % 250}.${1 + Math.floor(Math.random() * 250)}`;
 
-// A socket at one table: `auth` carries campaignId plus a Clerk test token, a guest token or the admin key; `headers`
+// A socket at one table: `auth` carries campaignId plus a device `cookie`, a guest token or the admin key; `headers`
 // can carry a guest cookie instead.
-function connect({ auth, headers }: { auth: Record<string, string>; headers?: Record<string, string> }) {
+function connect({ auth: given, headers }: { auth: Record<string, string>; headers?: Record<string, string> }) {
+  const { cookie, ...auth } = given; // a device's cookie travels as the header a browser would send
   const socket = io(API, {
     auth,
-    extraHeaders: { "cf-connecting-ip": nextSocketIp(), ...headers },
+    extraHeaders: { "cf-connecting-ip": nextSocketIp(), ...(cookie ? { cookie } : {}), ...headers },
     transports: ["websocket"],
     reconnection: false,
   });
@@ -93,13 +118,13 @@ async function eventually(check: () => boolean, what: string) {
 
 // A new room created by a signed-in creator, who owns it, and that owner's socket.
 async function newRoom(name: string) {
-  const ownerClerk = clerk(`owner-${name}`, "creator");
-  const res = await post("/campaigns", { name }, bearer(ownerClerk));
+  const ownerDevice = await device(`owner-${name}`);
+  const res = await post("/campaigns", { name }, cookieOf(ownerDevice));
   assert.equal(res.status, 201);
   const { campaignId } = (await res.json()) as { campaignId: string };
-  const owner = connect({ auth: { campaignId, clerkToken: ownerClerk } });
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
   await owner.until((s) => s.campaign.name === name);
-  return { owner, campaignId, ownerClerk };
+  return { owner, campaignId, ownerDevice };
 }
 
 const ok = (r: ActionResult) => {
@@ -123,15 +148,17 @@ test("GET /api/health answers 200 without a sign-in", async () => {
 
 test("only creators open rooms, and the creator owns the room", async () => {
   assert.equal((await post("/campaigns", { name: "x" })).status, 401);
-  assert.equal((await post("/campaigns", { name: "x" }, bearer(clerk("plain")))).status, 403);
-  const { owner, ownerClerk, campaignId } = await newRoom("Owned");
+  const plain = await device("plain");
+  await withDb((c) => c.query("update app_user set role = 'user' where id = $1", [uid("plain")]));
+  assert.equal((await post("/campaigns", { name: "x" }, cookieOf(plain))).status, 403);
+  const { owner, ownerDevice, campaignId } = await newRoom("Owned");
   const s = await owner.until(() => true);
   assert.equal(s.campaign.ownerUserId, uid("owner-Owned"));
   assert.deepEqual(
     s.access.members.map((m) => [m.userId, m.role]),
     [[uid("owner-Owned"), "gm"]],
   );
-  const lobby = (await (await get("/lobby", bearer(ownerClerk))).json()) as Lobby;
+  const lobby = (await (await get("/lobby", cookieOf(ownerDevice))).json()) as Lobby;
   assert.ok(lobby.mine.some((g) => g.id === campaignId && g.isOwner));
   owner.socket.close();
 });
@@ -142,11 +169,11 @@ test("room QR: a signed-in player and a guest join, each holding their own chara
   const code = inv.token!;
 
   // A signed-in player starts a new character.
-  const anaClerk = clerk("ana");
-  const preview = (await (await get(`/invites/${code}`, bearer(anaClerk))).json()) as InvitePreview;
+  const anaDevice = await device("ana");
+  const preview = (await (await get(`/invites/${code}`, cookieOf(anaDevice))).json()) as InvitePreview;
   assert.equal(preview.mode, "room");
   assert.equal(preview.role, "player");
-  const acc = await post(`/invites/${code}/accept`, { newCharacterName: "Lyra" }, bearer(anaClerk));
+  const acc = await post(`/invites/${code}/accept`, { newCharacterName: "Lyra" }, cookieOf(anaDevice));
   assert.equal(acc.status, 200);
   const s1 = await owner.until((s) => s.actors.some((a) => a.name === "Lyra"));
   const lyra = s1.actors.find((a) => a.name === "Lyra")!;
@@ -164,7 +191,7 @@ test("room QR: a signed-in player and a guest join, each holding their own chara
   assert.deepEqual(gs.access.invites, [], "a guest never sees invites");
 
   // Players edit their own character only: by seat, never by account.
-  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
   await ana.until(() => true);
   ok(await ana.send({ type: "actor.rename", id: lyra.id, name: "Lyra the Bold" }));
   refused(await ana.send({ type: "actor.rename", id: bran.id, name: "Mine now" }), "notYourCharacter");
@@ -194,12 +221,12 @@ test("the table screen joins by token and only reads", async () => {
 });
 
 test("a GM can't remove the owner, and the owner hands the room on only when the recipient accepts", async () => {
-  const { owner, ownerClerk, campaignId } = await newRoom("Transfer");
+  const { owner, ownerDevice, campaignId } = await newRoom("Transfer");
   // Invite a second GM: only the owner may invite a GM.
   const gmInv = ok(await owner.send({ type: "invite.create", mode: "room", role: "gm", allowGuests: false })).token!;
-  const benClerk = clerk("ben");
-  assert.equal((await post(`/invites/${gmInv}/accept`, {}, bearer(benClerk))).status, 200);
-  const ben = connect({ auth: { campaignId, clerkToken: benClerk } });
+  const benDevice = await device("ben");
+  assert.equal((await post(`/invites/${gmInv}/accept`, {}, cookieOf(benDevice))).status, 200);
+  const ben = connect({ auth: { campaignId, cookie: benDevice } });
   await ben.until((s) => s.access.members.some((m) => m.userId === uid("ben") && m.role === "gm"));
 
   // The GM can't remove the owner, invite another GM, delete the room or hand it on.
@@ -226,10 +253,10 @@ test("a GM can't remove the owner, and the owner hands the room on only when the
   assert.equal(moved.access.transfer, null);
   // Then every seat is kicked and resolves again: Ben now holds the owner's powers, the old owner is a GM.
   await Promise.all(kicked);
-  const ben2 = connect({ auth: { campaignId, clerkToken: benClerk } });
+  const ben2 = connect({ auth: { campaignId, cookie: benDevice } });
   await ben2.until(() => true);
   ok(await ben2.send({ type: "member.appoint", userId: uid("owner-Transfer"), role: "cogm", scopes: ["combat"] }));
-  const old = connect({ auth: { campaignId, clerkToken: ownerClerk } });
+  const old = connect({ auth: { campaignId, cookie: ownerDevice } });
   await old.until(() => true);
   refused(await old.send({ type: "session.start" }), "noPermission"); // a combat-only co-GM
   ok(await ben2.send({ type: "member.remove", userId: uid("owner-Transfer") }));
@@ -240,8 +267,8 @@ test("a GM can't remove the owner, and the owner hands the room on only when the
 test("a private handout reaches only its listed reader, and hides when that reader goes", async () => {
   const { owner, campaignId } = await newRoom("Handouts");
   const inv = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
-  const anaClerk = clerk("ana-h");
-  await post(`/invites/${inv}/accept`, { newCharacterName: "Lyra" }, bearer(anaClerk));
+  const anaDevice = await device("ana-h");
+  await post(`/invites/${inv}/accept`, { newCharacterName: "Lyra" }, cookieOf(anaDevice));
   const s = await owner.until((st) => st.actors.length === 1);
   const lyra = s.actors[0]!;
   const h = ok(
@@ -250,7 +277,7 @@ test("a private handout reaches only its listed reader, and hides when that read
   ok(
     await owner.send({ type: "codex.reveal", id: h, visibility: "party", audienceMode: "listed", audience: [lyra.id] }),
   );
-  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
   await eventually(() => ana.codex()?.entries.some((e) => e.id === h) ?? false, "Lyra sees her letter");
   assert.equal(ana.codex()?.entries.find((e) => e.id === h)?.gmNotes, "", "never the GM notes");
   ok(await owner.send({ type: "actor.delete", id: lyra.id }));
@@ -260,32 +287,6 @@ test("a private handout reaches only its listed reader, and hides when that read
   );
   owner.socket.close();
   ana.socket.close();
-});
-
-test("a seated admin plays by their seat; OPEN AS ADMIN is logged", async () => {
-  const { owner, campaignId } = await newRoom("Admin");
-  const inv = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
-  const rootClerk = clerk("root", "admin");
-  await post(`/invites/${inv}/accept`, { newCharacterName: "Root's hero" }, bearer(rootClerk));
-  const me = (await (await get(`/campaigns/${campaignId}/me`, bearer(rootClerk))).json()) as Ctx;
-  assert.equal(me.seat.kind, "member", "a seated admin gets their seat");
-  const seated = connect({ auth: { campaignId, clerkToken: rootClerk } });
-  await seated.until(() => true);
-  refused(await seated.send({ type: "session.start" }), "noPermission");
-  seated.socket.close();
-
-  // Another admin without a seat opens the room as admin.
-  const otherClerk = clerk("root2", "admin");
-  const opened = connect({ auth: { campaignId, clerkToken: otherClerk } });
-  await opened.until(() => true);
-  ok(await opened.send({ type: "session.start" }));
-  const events = (await (await get("/admin/events", bearer(otherClerk))).json()) as {
-    action: string;
-    campaignId: string;
-  }[];
-  assert.ok(events.some((e) => e.action === "room.open" && e.campaignId === campaignId));
-  opened.socket.close();
-  owner.socket.close();
 });
 
 test("a room invite makes only so many characters, and the refusal says why", { timeout: 30_000 }, async () => {
@@ -312,50 +313,9 @@ test("a room invite makes only so many characters, and the refusal says why", { 
   owner.socket.close();
 });
 
-// The Clerk webhook, signed the way Svix does it with the api's own CLERK_WEBHOOK_SECRET.
-const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
-function clerkWebhook(event: unknown, secret = WEBHOOK_SECRET ?? "") {
-  const body = JSON.stringify(event);
-  const id = `msg_${run}`;
-  const timestamp = String(Math.floor(Date.now() / 1000));
-  const key = Buffer.from(secret.slice("whsec_".length), "base64");
-  const signature = createHmac("sha256", key).update(`${id}.${timestamp}.${body}`).digest("base64");
-  return fetch(`${API}/api/webhooks/clerk`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "cf-connecting-ip": nextSocketIp(),
-      "svix-id": id,
-      "svix-timestamp": timestamp,
-      "svix-signature": `v1,${signature}`,
-    },
-    body,
-  });
-}
-
-test("the Clerk webhook refuses unsigned requests, and a signed user.deleted drops that user's sockets", async () => {
-  const unsigned = await post("/webhooks/clerk", { type: "user.deleted", data: { id: "x" } });
-  assert.ok([400, 503].includes(unsigned.status), `unsigned: ${unsigned.status}`);
-  if (!WEBHOOK_SECRET) return; // the api has no CLERK_WEBHOOK_SECRET to verify against
-  const { owner, campaignId } = await newRoom("Webhook");
-  const anaClerk = await seatPlayer(owner, "ana-hook");
-  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
-  await ana.until(() => true);
-  const forged = await clerkWebhook({ type: "user.deleted", data: { id: uid("ana-hook") } }, `whsec_${btoa("forged")}`);
-  assert.equal(forged.status, 400);
-  assert.equal(ana.socket.connected, true, "a forged webhook kicks nobody");
-  const unrelated = await clerkWebhook({ type: "user.created", data: { id: uid("ana-hook") } });
-  assert.equal(unrelated.status, 200);
-  assert.equal(ana.socket.connected, true);
-  const signed = await clerkWebhook({ type: "user.deleted", data: { id: uid("ana-hook"), deleted: true } });
-  assert.equal(signed.status, 200);
-  await eventually(() => !ana.socket.connected, "the deleted user's socket is dropped");
-  owner.socket.close();
-});
-
 test("the admin key: its room and socket actions are logged as admin-key, and its REST calls are rate limited", async () => {
-  const key = process.env.ADMIN_KEY;
-  if (!key) return; // the admin-key path is off without ADMIN_KEY (it is optional)
+  const key = process.env.ADMIN_KEY ?? "";
+  assert.ok(key, "the suite needs ADMIN_KEY, the same value the api runs with");
   const scriptIp = { "x-admin-key": key, "cf-connecting-ip": nextSocketIp() };
   const res = await post("/campaigns", { name: "Scripted", ownerUserId: uid("script-owner") }, scriptIp);
   assert.equal(res.status, 201);
@@ -363,7 +323,7 @@ test("the admin key: its room and socket actions are logged as admin-key, and it
   const script = connect({ auth: { campaignId, adminKey: key } });
   await script.until(() => true);
   ok(await script.send({ type: "session.start" }));
-  const events = (await (await get("/admin/events", bearer(clerk("adm-key", "admin")))).json()) as {
+  const events = (await (await get("/admin/events", ADMIN)).json()) as {
     actorUserId: string;
     action: string;
     campaignId: string;
@@ -383,9 +343,9 @@ test("the admin key: its room and socket actions are logged as admin-key, and it
 
 test("book pages are limited per seat: a second socket of the same seat shares the limit", async () => {
   const { owner, campaignId } = await newRoom("PageLimit");
-  const anaClerk = await seatPlayer(owner, "ana-pages");
-  const first = connect({ auth: { campaignId, clerkToken: anaClerk } });
-  const second = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  const anaDevice = await seatPlayer(owner, "ana-pages");
+  const first = connect({ auth: { campaignId, cookie: anaDevice } });
+  const second = connect({ auth: { campaignId, cookie: anaDevice } });
   await Promise.all([first.until(() => true), second.until(() => true)]);
   const ask = (c: typeof first) =>
     c.socket.emitWithAck("book:request", { source: "sample", page: 1 }) as Promise<ActionResult>;
@@ -396,18 +356,110 @@ test("book pages are limited per seat: a second socket of the same seat shares t
   for (const c of [owner, first, second]) c.socket.close();
 });
 
-test("a moderator locks an ordinary account but not an admin", async () => {
-  const modClerk = clerk("mod", "moderator");
-  const victimClerk = clerk("victim");
-  await get("/lobby", bearer(victimClerk)); // the app has now seen them
-  await get("/lobby", bearer(clerk("adm", "admin")));
-  const lock = (userId: string, locked: boolean) => post(`/admin/users/${userId}/lock`, { locked }, bearer(modClerk));
-  assert.equal((await lock(uid("victim"), true)).status, 200);
-  assert.equal((await get("/lobby", bearer(victimClerk))).status, 401, "a locked user is signed out");
-  assert.equal((await lock(uid("adm"), true)).status, 403);
-  assert.equal((await lock(uid("victim"), false)).status, 200);
-  assert.equal((await get("/lobby", bearer(victimClerk))).status, 200);
-  assert.equal((await get("/admin/events", bearer(modClerk))).status, 403, "moderators don't read the admin log");
+test("the admin endpoints need the key: none is 401, a wrong one 403", async () => {
+  const ip = () => ({ "cf-connecting-ip": nextSocketIp() });
+  for (const path of ["/admin/campaigns", "/admin/packs", "/admin/events"]) {
+    assert.equal((await get(path, ip())).status, 401, `${path} without a key`);
+    assert.equal((await get(path, { ...ip(), "x-admin-key": "x".repeat(40) })).status, 403, `${path} with a wrong key`);
+    assert.equal((await get(path, { ...ip(), ...ADMIN })).status, 200, `${path} with the key`);
+  }
+  const action = { type: "campaign.archive" };
+  const any = "00000000-0000-4000-8000-000000000000";
+  assert.equal((await post(`/admin/campaigns/${any}/action`, action, ip())).status, 401);
+  assert.equal((await post(`/admin/campaigns/${any}/action`, action, { ...ip(), "x-admin-key": "nope" })).status, 403);
+  assert.equal((await post(`/admin/packs/${any}/disable`, { disabled: true }, ip())).status, 401);
+  // A device is not an admin, whatever it is.
+  const cookie = await device("not-admin");
+  assert.equal((await get("/admin/campaigns", { ...ip(), cookie })).status, 401);
+});
+
+test("the admin key runs housekeeping at a room over REST", async () => {
+  const { owner, campaignId } = await newRoom("AdminRest");
+  const res = await post(`/admin/campaigns/${campaignId}/action`, { type: "campaign.archive" }, ADMIN);
+  ok((await res.json()) as ActionResult);
+  const rows = (await (await get("/admin/campaigns", ADMIN)).json()) as { id: string; archived: boolean }[];
+  assert.equal(rows.find((r) => r.id === campaignId)?.archived, true);
+  assert.ok(
+    rows.some((r) => r.id === campaignId && "ownerName" in r),
+    "the list shows the room with its owner",
+  );
+  const events = (await (await get("/admin/events", ADMIN)).json()) as { action: string; campaignId: string }[];
+  assert.ok(events.some((e) => e.action === "key.action" && e.campaignId === campaignId));
+  owner.socket.close();
+});
+
+test("a missing, short or garbage it_device is no user, never an error; a fresh one is a new user", async () => {
+  const ip = () => ({ "cf-connecting-ip": nextSocketIp() });
+  assert.equal((await get("/lobby", ip())).status, 401);
+  for (const bad of ["short", "x".repeat(31), `${"a".repeat(31)}=`, "%", "a b".repeat(20), "x".repeat(201)])
+    assert.equal(
+      (await get("/lobby", { ...ip(), cookie: `${DEVICE_COOKIE}=${bad}` })).status,
+      401,
+      `it_device=${bad.slice(0, 12)}`,
+    );
+  const first = `${DEVICE_COOKIE}=${deviceSecret()}`;
+  const seen = async () => {
+    const res = await get("/lobby", { ...ip(), cookie: first });
+    assert.equal(res.status, 200);
+    return (await res.json()) as Lobby;
+  };
+  assert.equal((await seen()).name, "Player");
+  await seen();
+  const rows = await withDb(
+    async (c) =>
+      (
+        await c.query("select count(*)::int as n from device where token_hash = $1", [
+          createHash("sha256").update(first.split("=")[1]!).digest("hex"),
+        ])
+      ).rows,
+  );
+  assert.equal(rows[0].n, 1, "the same secret is still one device");
+  // Two first requests at once make one user.
+  const racer = `${DEVICE_COOKIE}=${deviceSecret()}`;
+  const both = await Promise.all([
+    get("/lobby", { ...ip(), cookie: racer }),
+    get("/lobby", { ...ip(), cookie: racer }),
+  ]);
+  assert.deepEqual(
+    both.map((r) => r.status),
+    [200, 200],
+  );
+  const users = await withDb(
+    async (c) =>
+      (
+        await c.query("select count(*)::int as n from device where token_hash = $1", [
+          createHash("sha256").update(racer.split("=")[1]!).digest("hex"),
+        ])
+      ).rows,
+  );
+  assert.equal(users[0].n, 1);
+});
+
+test("PATCH /me renames the device's user, and the new name shows at the table", async () => {
+  const patch = (body: unknown, headers: Record<string, string>) =>
+    fetch(`${API}/api/me`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", "cf-connecting-ip": nextSocketIp(), ...headers },
+      body: JSON.stringify(body),
+    });
+  assert.equal((await patch({ name: "Ana" }, {})).status, 401);
+  const cookie = await device("renamer");
+  assert.equal((await patch({ name: "" }, cookieOf(cookie))).status, 400);
+  assert.equal((await patch({ name: "   " }, cookieOf(cookie))).status, 400);
+  assert.equal((await patch({ name: "x".repeat(41) }, cookieOf(cookie))).status, 400);
+  assert.equal((await patch({}, cookieOf(cookie))).status, 400);
+  const res = await patch({ name: "  Ana the Bold  " }, cookieOf(cookie));
+  assert.equal(res.status, 200);
+  const lobby = (await (
+    await get("/lobby", { ...cookieOf(cookie), "cf-connecting-ip": nextSocketIp() })
+  ).json()) as Lobby;
+  assert.equal(lobby.name, "Ana the Bold");
+  const made = await post("/campaigns", { name: "Named" }, cookieOf(cookie));
+  const { campaignId } = (await made.json()) as { campaignId: string };
+  const socket = connect({ auth: { campaignId, cookie } });
+  const s = await socket.until(() => true);
+  assert.equal(s.access.members.find((m) => m.userId === uid("renamer"))?.name, "Ana the Bold");
+  socket.socket.close();
 });
 
 test("state versions only go up", async () => {
@@ -422,12 +474,12 @@ test("state versions only go up", async () => {
 // Resolves when the socket drops (a kick).
 const dropped = (c: ReturnType<typeof connect>) => new Promise<void>((r) => c.socket.once("disconnect", () => r()));
 
-// A signed-in player seated through a room invite with a new character of their name; returns their Clerk token.
+// A signed-in player seated through a room invite with a new character of their name; returns their device cookie.
 async function seatPlayer(owner: ReturnType<typeof connect>, name: string) {
   const code = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
-  const token = clerk(name);
+  const token = await device(name);
   // An address of its own: the door's window (60 a minute) is shared by every accept of the suite otherwise.
-  const headers = { ...bearer(token), "cf-connecting-ip": nextSocketIp() };
+  const headers = { ...cookieOf(token), "cf-connecting-ip": nextSocketIp() };
   assert.equal((await post(`/invites/${code}/accept`, { newCharacterName: name }, headers)).status, 200);
   await owner.until((s) => s.access.members.some((m) => m.userId === uid(name)));
   return token;
@@ -435,8 +487,8 @@ async function seatPlayer(owner: ReturnType<typeof connect>, name: string) {
 
 test("the room's settings and its sessions: update, start, edit, end", async () => {
   const { owner, campaignId } = await newRoom("Settings");
-  const anaClerk = await seatPlayer(owner, "ana-set");
-  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  const anaDevice = await seatPlayer(owner, "ana-set");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
   await ana.until(() => true);
 
   ok(await owner.send({ type: "campaign.update", name: "Settings 2", nextSessionPlace: "Ana's" }));
@@ -453,10 +505,10 @@ test("the room's settings and its sessions: update, start, edit, end", async () 
   const cogmInv = ok(
     await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false }),
   ).token!;
-  const coClerk = clerk("co-set");
-  assert.equal((await post(`/invites/${cogmInv}/accept`, {}, bearer(coClerk))).status, 200);
+  const coDevice = await device("co-set");
+  assert.equal((await post(`/invites/${cogmInv}/accept`, {}, cookieOf(coDevice))).status, 200);
   ok(await owner.send({ type: "member.appoint", userId: uid("co-set"), role: "cogm", scopes: ["session"] }));
-  const co = connect({ auth: { campaignId, clerkToken: coClerk } });
+  const co = connect({ auth: { campaignId, cookie: coDevice } });
   assert.equal((await co.until(() => true)).session?.notes, "the twist", "the session scope reads the notes");
   ok(await co.send({ type: "session.edit", sessionId, notes: "the co-GM's twist" }));
   const codexCo = await coGm({ owner, campaignId, name: "co-codex-set", scopes: ["codex"] });
@@ -474,8 +526,8 @@ test("the room's settings and its sessions: update, start, edit, end", async () 
 
 test("invites and guest tokens: revoke, issue, and revoking drops the guest", async () => {
   const { owner, campaignId } = await newRoom("Tokens");
-  const anaClerk = await seatPlayer(owner, "ana-tok");
-  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  const anaDevice = await seatPlayer(owner, "ana-tok");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
   await ana.until(() => true);
 
   const inv = ok(await owner.send({ type: "invite.create", mode: "room" })).id!;
@@ -505,9 +557,9 @@ test("leaving drops every socket of that seat, and an offer to the leaver goes w
   refused(await owner.send({ type: "seat.leave" }), "handOnFirst");
 
   // A member with two tabs open leaves from one: the other goes too, and the room offer to them is withdrawn.
-  const anaClerk = await seatPlayer(owner, "ana-leave");
-  const tab1 = connect({ auth: { campaignId, clerkToken: anaClerk } });
-  const tab2 = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  const anaDevice = await seatPlayer(owner, "ana-leave");
+  const tab1 = connect({ auth: { campaignId, cookie: anaDevice } });
+  const tab2 = connect({ auth: { campaignId, cookie: anaDevice } });
   await Promise.all([tab1.until(() => true), tab2.until(() => true)]);
   ok(await owner.send({ type: "campaign.transfer", toUserId: uid("ana-leave") }));
   await owner.until((s) => s.access.transfer?.toUserId === uid("ana-leave"));
@@ -539,12 +591,12 @@ test("leaving drops every socket of that seat, and an offer to the leaver goes w
 test("a GM removes players only; a removed player's character stays, retired", async () => {
   const { owner, campaignId } = await newRoom("Remove");
   const gmInv = ok(await owner.send({ type: "invite.create", mode: "room", role: "gm", allowGuests: false })).token!;
-  const benClerk = clerk("ben-rm");
-  assert.equal((await post(`/invites/${gmInv}/accept`, {}, bearer(benClerk))).status, 200);
+  const benDevice = await device("ben-rm");
+  assert.equal((await post(`/invites/${gmInv}/accept`, {}, cookieOf(benDevice))).status, 200);
   const coInv = ok(await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false })).token!;
-  assert.equal((await post(`/invites/${coInv}/accept`, {}, bearer(clerk("co-rm")))).status, 200);
+  assert.equal((await post(`/invites/${coInv}/accept`, {}, cookieOf(await device("co-rm")))).status, 200);
   await seatPlayer(owner, "ana-rm");
-  const ben = connect({ auth: { campaignId, clerkToken: benClerk } });
+  const ben = connect({ auth: { campaignId, cookie: benDevice } });
   await ben.until(() => true);
 
   // Only the owner removes a GM or co-GM (docs/design.md §3.6).
@@ -559,9 +611,9 @@ test("a GM removes players only; a removed player's character stays, retired", a
 test("a room offer: cancelled by the owner, and withdrawn when the recipient is removed", async () => {
   const { owner, campaignId } = await newRoom("Offer");
   const gmInv = ok(await owner.send({ type: "invite.create", mode: "room", role: "gm", allowGuests: false })).token!;
-  const benClerk = clerk("ben-offer");
-  assert.equal((await post(`/invites/${gmInv}/accept`, {}, bearer(benClerk))).status, 200);
-  const ben = connect({ auth: { campaignId, clerkToken: benClerk } });
+  const benDevice = await device("ben-offer");
+  assert.equal((await post(`/invites/${gmInv}/accept`, {}, cookieOf(benDevice))).status, 200);
+  const ben = connect({ auth: { campaignId, cookie: benDevice } });
   await ben.until(() => true);
 
   ok(await owner.send({ type: "campaign.transfer", toUserId: uid("ben-offer") }));
@@ -605,12 +657,11 @@ test("codex: a reader listed twice is one reader, and an entry deletes once", as
 
 test("the admin action route seats a known user and refuses anything but housekeeping", async () => {
   const { owner, campaignId } = await newRoom("Seat");
-  const rootClerk = clerk("root-seat", "admin");
-  const act = (body: unknown) => post(`/admin/campaigns/${campaignId}/action`, body, bearer(rootClerk));
+  const act = (body: unknown) => post(`/admin/campaigns/${campaignId}/action`, body, ADMIN);
   assert.equal((await act({ type: "session.start" })).status, 400, "not an admin action");
   assert.equal((await post(`/admin/campaigns/${campaignId}/action`, { type: "member.seat", userId: "x" })).status, 401);
   refused((await (await act({ type: "member.seat", userId: uid("nobody") })).json()) as ActionResult, "userNotFound");
-  await get("/lobby", bearer(clerk("dana-seat"))); // the app has now seen them
+  await get("/lobby", cookieOf(await device("dana-seat"))); // the app has now seen them
   ok((await (await act({ type: "member.seat", userId: uid("dana-seat") })).json()) as ActionResult);
   await owner.until((s) => s.access.members.some((m) => m.userId === uid("dana-seat") && m.role === "gm"));
   refused(await owner.send({ type: "member.seat", userId: uid("dana-seat") }), "noPermission");
@@ -621,8 +672,8 @@ test("accepting an invite moves the state version", async () => {
   const { owner } = await newRoom("InviteVersion");
   const code = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
   const v0 = (await owner.until((s) => s.access.invites.length === 1)).stateVersion;
-  const token = clerk("ana-ver");
-  assert.equal((await post(`/invites/${code}/accept`, { newCharacterName: "Ana" }, bearer(token))).status, 200);
+  const token = await device("ana-ver");
+  assert.equal((await post(`/invites/${code}/accept`, { newCharacterName: "Ana" }, cookieOf(token))).status, 200);
   const s = await owner.until((st) => st.access.members.some((m) => m.userId === uid("ana-ver")));
   assert.ok(s.stateVersion > v0, "the accept bumps it, so a client keeps the new snapshot");
   owner.socket.close();
@@ -660,7 +711,7 @@ interface RulesReply {
 let ips = 0;
 const ipBlock = 20 + Math.floor(Math.random() * 200); // per run: the api's windows outlive a test run
 function caller(token: string) {
-  const headers = { ...bearer(token), "cf-connecting-ip": `10.${ipBlock}.${Math.floor(++ips / 250)}.${ips % 250}` };
+  const headers = { ...cookieOf(token), "cf-connecting-ip": `10.${ipBlock}.${Math.floor(++ips / 250)}.${ips % 250}` };
   const read = async <T>(res: Response) => ({ status: res.status, body: (await res.json()) as T });
   return {
     post: async <T>(path: string, body: unknown) => read<T>(await post(path, body, headers)),
@@ -673,7 +724,7 @@ const SAMPLE_KEYS = ["coil-rope", "ember-wisp", "reedfolk", "wayfinder"];
 test("importer: a ruleset and a pack are stored once, a re-import reports its diff, bad files are refused by path", async () => {
   assert.equal((await post("/rulesets", SAMPLE_D20)).status, 401);
   assert.equal((await post("/packs", SAMPLE_PACK)).status, 401);
-  const me = caller(clerk("imp"));
+  const me = caller(await device("imp"));
 
   // A pack needs the ruleset it is written for, imported first.
   const early = await me.post<PackReply>("/packs", SAMPLE_PACK);
@@ -743,7 +794,7 @@ test("importer: a ruleset and a pack are stored once, a re-import reports its di
   const huge = await post(
     "/packs",
     { pad: "x".repeat(5.5 * 1024 * 1024) },
-    { ...bearer(clerk("imp")), "cf-connecting-ip": `10.${ipBlock}.250.1` },
+    { ...cookieOf(await device("imp")), "cf-connecting-ip": `10.${ipBlock}.250.1` },
   );
   assert.equal(huge.status, 413);
 
@@ -765,7 +816,7 @@ test("importer: a ruleset and a pack are stored once, a re-import reports its di
   assert.deepEqual(exported.body.entries.map((e) => e.key).sort(), ["ember-wisp", "lantern", "reedfolk", "wayfinder"]);
   const again = await me.post<PackReply>("/packs", exported.body);
   assert.equal(again.body.unchanged, true, "the export is a file the importer takes back as it is");
-  assert.equal((await caller(clerk("snoop")).get(`/packs/${first.body.packId}/export`)).status, 404);
+  assert.equal((await caller(await device("snoop")).get(`/packs/${first.body.packId}/export`)).status, 404);
   assert.equal((await get(`/packs/${first.body.packId}/export`)).status, 401);
 
   // Deleting a pack no room uses removes it for real.
@@ -777,39 +828,39 @@ test("importer: a ruleset and a pack are stored once, a re-import reports its di
 
 // 51 imports are slow on a CI runner: its own timeout.
 test("importer: the 51st pack is over the quota, and imports are rate limited", { timeout: 30_000 }, async () => {
-  const me = caller(clerk("quota"));
+  const me = caller(await device("quota"));
   assert.equal((await me.post("/rulesets", SAMPLE_D20)).status, 201);
   for (let i = 0; i < MAX_PACKS_PER_USER; i++)
-    assert.equal((await caller(clerk("quota")).post("/packs", { ...SAMPLE_PACK, id: `pack-${i}` })).status, 201);
-  const over = await caller(clerk("quota")).post<PackReply>("/packs", { ...SAMPLE_PACK, id: "one-too-many" });
+    assert.equal((await caller(await device("quota")).post("/packs", { ...SAMPLE_PACK, id: `pack-${i}` })).status, 201);
+  const over = await caller(await device("quota")).post<PackReply>("/packs", { ...SAMPLE_PACK, id: "one-too-many" });
   assert.equal(over.status, 422);
   assert.equal(over.body.problems?.[0]?.path, "(quota)");
 
-  const flood = caller(clerk("flood"));
+  const flood = caller(await device("flood"));
   const statuses: number[] = [];
   for (let i = 0; i < 25; i++) statuses.push((await flood.post("/packs", {})).status);
   assert.ok(statuses.includes(429), "a burst of imports from one address is refused");
 }); // imports 51 packs
 
 test("packs in a room: the pin, the seat-scoped read, and a private pack that stays with its GM", async () => {
-  const ownerClerk = clerk("pk-owner", "creator");
-  const me = caller(ownerClerk);
+  const ownerDevice = await device("pk-owner");
+  const me = caller(ownerDevice);
   const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
   const pk = await me.post<PackReply>("/packs", SAMPLE_PACK);
   assert.deepEqual([rs.status, pk.status], [201, 201]);
 
   // The room is made with a ruleset the owner imported, not someone else's.
-  const rival = caller(clerk("pk-rival", "creator"));
+  const rival = caller(await device("pk-rival"));
   assert.equal((await rival.post("/campaigns", { name: "Steal", rulesetVersionId: rs.body.versionId })).status, 400);
   const made = await me.post<{ campaignId: string }>("/campaigns", { name: "Pk", rulesetVersionId: rs.body.versionId });
   assert.equal(made.status, 201);
   const { campaignId } = made.body;
-  const owner = connect({ auth: { campaignId, clerkToken: ownerClerk } });
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
   await owner.until(() => true);
 
   // Attach the pack; a player can't, and a pack that isn't the caller's is simply not found.
-  const anaClerk = await seatPlayer(owner, "ana-pk");
-  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  const anaDevice = await seatPlayer(owner, "ana-pk");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
   await ana.until(() => true);
   refused(await ana.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), "noPermission");
   refused(await ana.send({ type: "campaign.setRuleset", rulesetVersionId: rs.body.versionId }), "noPermission");
@@ -830,13 +881,13 @@ test("packs in a room: the pin, the seat-scoped read, and a private pack that st
   assert.equal((await me.get(`/campaigns/${campaignId}/rules?limit=100000`)).status, 400);
 
   // A player never gets a `gm` entry or a `gm` definition; nobody without a seat gets anything.
-  const seen = await caller(anaClerk).get<RulesReply>(`/campaigns/${campaignId}/rules`);
+  const seen = await caller(anaDevice).get<RulesReply>(`/campaigns/${campaignId}/rules`);
   assert.deepEqual(keysOf(seen.body), ["coil-rope", "reedfolk", "wayfinder"]);
   assert.ok(seen.body.entries.every((e) => e.visibility !== "gm"));
   assert.ok(seen.body.ruleset?.manifest.entities.every((e) => !("gmNote" in e.fields)));
   assert.ok(seen.body.ruleset?.manifest.entities.some((e) => "level" in e.fields));
   assert.equal((await get(`/campaigns/${campaignId}/rules`)).status, 401);
-  assert.equal((await caller(clerk("pk-outsider")).get(`/campaigns/${campaignId}/rules`)).status, 401);
+  assert.equal((await caller(await device("pk-outsider")).get(`/campaigns/${campaignId}/rules`)).status, 401);
 
   // A private pack is served only while its owner is a GM here.
   await query("UPDATE membership SET role = 'cogm' WHERE campaign_id = $1 AND user_id = $2", [
@@ -851,26 +902,24 @@ test("packs in a room: the pin, the seat-scoped read, and a private pack that st
   ]);
 
   // Another room, someone else's: the owner's pack can't be attached by a rival, nor by an admin who is no GM there.
-  const rivalClerk = clerk("pk-rival", "creator");
+  const rivalDevice = await device("pk-rival");
   const rivalRoom = await rival.post<{ campaignId: string }>("/campaigns", { name: "Rival" });
-  const rivalSocket = connect({ auth: { campaignId: rivalRoom.body.campaignId, clerkToken: rivalClerk } });
+  const rivalSocket = connect({ auth: { campaignId: rivalRoom.body.campaignId, cookie: rivalDevice } });
   await rivalSocket.until(() => true);
   refused(await rivalSocket.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), "packNotFound");
   refused(
     await rivalSocket.send({ type: "campaign.setRuleset", rulesetVersionId: rs.body.versionId }),
     /Ruleset not found/,
   );
-  const adminClerk = clerk("pk-admin", "admin");
-  const adm = caller(adminClerk);
-  const adminRs = await adm.post<RulesetReply>("/rulesets", SAMPLE_D20);
-  const adminPack = await adm.post<PackReply>("/packs", SAMPLE_PACK);
-  const adminSocket = connect({ auth: { campaignId: rivalRoom.body.campaignId, clerkToken: adminClerk } });
+  // A second device user can't read the owner's private pack, nor export it.
+  const stranger = caller(await device("pk-stranger"));
+  const strangerPacks = await stranger.get<{ packs: unknown[] }>("/packs");
+  assert.deepEqual(strangerPacks.body.packs, [], "the library lists only my own packs");
+  assert.equal((await stranger.get(`/packs/${pk.body.packId}/export`)).status, 404);
+  // The admin key at someone else's room (no user, no seat) can't attach the owner's private pack there either.
+  const adminSocket = connect({ auth: { campaignId: rivalRoom.body.campaignId, adminKey: ADMIN["x-admin-key"] } });
   await adminSocket.until(() => true);
-  ok(await adminSocket.send({ type: "campaign.setRuleset", rulesetVersionId: adminRs.body.versionId }));
-  refused(
-    await adminSocket.send({ type: "campaign.attachPack", packVersionId: adminPack.body.versionId }),
-    /private pack can only be used in a room you run as GM/,
-  );
+  assert.equal((await adminSocket.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId })).ok, false);
   assert.deepEqual(
     (await query("SELECT 1 FROM campaign_pack WHERE campaign_id = $1", [rivalRoom.body.campaignId])).length,
     0,
@@ -878,7 +927,7 @@ test("packs in a room: the pin, the seat-scoped read, and a private pack that st
 
   // A room with no ruleset has nothing to attach a pack to.
   const bare = await me.post<{ campaignId: string }>("/campaigns", { name: "Bare" });
-  const bareSocket = connect({ auth: { campaignId: bare.body.campaignId, clerkToken: ownerClerk } });
+  const bareSocket = connect({ auth: { campaignId: bare.body.campaignId, cookie: ownerDevice } });
   await bareSocket.until(() => true);
   refused(await bareSocket.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }), "pickRulesetFirst");
   bareSocket.socket.close();
@@ -895,24 +944,23 @@ test("packs in a room: the pin, the seat-scoped read, and a private pack that st
 });
 
 test("takedown: an admin disables a pack in every room at once, and it is logged", async () => {
-  const ownerClerk = clerk("td-owner", "creator");
-  const me = caller(ownerClerk);
+  const ownerDevice = await device("td-owner");
+  const me = caller(ownerDevice);
   const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
   const pk = await me.post<PackReply>("/packs", SAMPLE_PACK);
   const { campaignId } = (
     await me.post<{ campaignId: string }>("/campaigns", { name: "Takedown", rulesetVersionId: rs.body.versionId })
   ).body;
-  const owner = connect({ auth: { campaignId, clerkToken: ownerClerk } });
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
   await owner.until(() => true);
   ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
   assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.entries.length, 4);
 
   const disable = (token: string | null, disabled: boolean) =>
-    post(`/admin/packs/${pk.body.packId}/disable`, { disabled }, token ? bearer(token) : {});
-  assert.equal((await disable(null, true)).status, 401);
-  assert.equal((await disable(ownerClerk, true)).status, 403, "the owner can't undo their own takedown");
-  const adminClerk = clerk("td-admin", "admin");
-  assert.equal((await disable(adminClerk, true)).status, 200);
+    post(`/admin/packs/${pk.body.packId}/disable`, { disabled }, token ? { cookie: token } : ADMIN);
+  assert.equal((await post(`/admin/packs/${pk.body.packId}/disable`, { disabled: true })).status, 401);
+  assert.equal((await disable(ownerDevice, true)).status, 401, "the owner can't undo their own takedown");
+  assert.equal((await disable(null, true)).status, 200);
 
   const served = await me.get<RulesReply>(`/campaigns/${campaignId}/rules`);
   assert.deepEqual([served.body.packs.length, served.body.entries.length], [0, 0], "no longer served to anyone");
@@ -924,15 +972,15 @@ test("takedown: an admin disables a pack in every room at once, and it is logged
   const mine = await me.get<{ packs: { disabled: boolean }[] }>("/packs");
   assert.equal(mine.body.packs[0]?.disabled, true);
 
-  const events = (await (await get("/admin/events", bearer(adminClerk))).json()) as {
+  const events = (await (await get("/admin/events", ADMIN)).json()) as {
     action: string;
     targetUserId: string | null;
   }[];
   assert.ok(events.some((e) => e.action === "pack.disable" && e.targetUserId === uid("td-owner")));
-  assert.equal((await get("/admin/packs", bearer(adminClerk))).status, 200);
+  assert.equal((await get("/admin/packs", ADMIN)).status, 200);
 
   // Put back, it serves again.
-  assert.equal((await disable(adminClerk, false)).status, 200);
+  assert.equal((await disable(null, false)).status, 200);
   assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.entries.length, 4);
   owner.socket.close();
 });
@@ -952,8 +1000,8 @@ const withDb = async <T>(fn: (c: Client) => Promise<T>) => {
 };
 
 // Imports the fixture ruleset as the room owner and pins it, the way a GM does: the importer, then campaign.setRuleset.
-async function pinFixture({ owner, ownerClerk }: { owner: ReturnType<typeof connect>; ownerClerk: string }) {
-  const res = await caller(ownerClerk).post<RulesetReply>("/rulesets", FIXTURE_RULESET);
+async function pinFixture({ owner, ownerDevice }: { owner: ReturnType<typeof connect>; ownerDevice: string }) {
+  const res = await caller(ownerDevice).post<RulesetReply>("/rulesets", FIXTURE_RULESET);
   assert.equal(res.status, 201);
   ok(await owner.send({ type: "campaign.setRuleset", rulesetVersionId: res.body.versionId }));
 }
@@ -982,15 +1030,15 @@ const query = <R extends object = Record<string, unknown>>(sql: string, params: 
 // A room with the fixture ruleset, a player (Ana) holding a character, and a creature the GM runs. The character has
 // level 3 and Grit 14, so 14 Vigour at most; the creature has 10.
 async function rulesRoom(name: string) {
-  const { owner, ownerClerk, campaignId } = await newRoom(name);
-  const anaClerk = await seatPlayer(owner, `ana-${name}`);
-  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  const { owner, ownerDevice, campaignId } = await newRoom(name);
+  const anaDevice = await seatPlayer(owner, `ana-${name}`);
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
   await ana.until(() => true);
   const hero = (await owner.until((s) => s.actors.some((a) => a.kind === "pc"))).actors.find(
     (a) => a.kind === "pc",
   )!.id;
   const ogre = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Ogre" })).id!;
-  await pinFixture({ owner, ownerClerk });
+  await pinFixture({ owner, ownerDevice });
   await equip(hero, "character", {
     fields: { level: 3, "attr.con": 14, "attr.dex": 12, diary: "" },
     resources: { hp: 14, focus: 1 },
@@ -1000,7 +1048,7 @@ async function rulesRoom(name: string) {
   ok(await owner.send({ type: "actor.rename", id: hero, name: "Lyra" }));
   await owner.until((s) => s.actors.find((a) => a.id === hero)?.entity === "character");
   await ana.until((s) => s.actors.find((a) => a.id === hero)?.entity === "character");
-  return { owner, ownerClerk, ana, campaignId, hero, ogre };
+  return { owner, ownerDevice, ana, campaignId, hero, ogre };
 }
 
 const adjust = (actorId: string, resource: string, delta: number) =>
@@ -1025,8 +1073,8 @@ const resourceOf = (c: ReturnType<typeof connect>, id: string, resource: string,
 const actorIn = (s: LiveState, id: string) => s.actors.find((a) => a.id === id);
 
 test("campaign.setRuleset: a room whose characters use a version can't move to another", async () => {
-  const { owner, ana, ownerClerk } = await rulesRoom("Pin");
-  const next = await caller(ownerClerk).post<RulesetReply>("/rulesets", { ...FIXTURE_RULESET, version: "0.2.0" });
+  const { owner, ana, ownerDevice } = await rulesRoom("Pin");
+  const next = await caller(ownerDevice).post<RulesetReply>("/rulesets", { ...FIXTURE_RULESET, version: "0.2.0" });
   assert.equal(next.status, 201);
   refused(
     await owner.send({ type: "campaign.setRuleset", rulesetVersionId: next.body.versionId }),
@@ -1072,7 +1120,7 @@ test("rule.op: the server clamps, and each seat writes only what its `editableBy
 
 test("field.set: type and range are checked, `editableBy` decides who writes, hidden fields stay hidden", async () => {
   const { owner, ana, campaignId, hero, ogre } = await rulesRoom("Fields");
-  const ben = connect({ auth: { campaignId, clerkToken: await seatPlayer(owner, "ben-Fields") } });
+  const ben = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ben-Fields") } });
   await ben.until(() => true);
   const set = (actorId: string, field: string, value: number | string | string[] | null) =>
     ({ type: "field.set", actorId, field, value }) as const;
@@ -1266,10 +1314,10 @@ test("event.undo: newest first, deltas stay, a deleted actor is skipped, only th
   refused(await ana.send({ type: "event.undo" }), "noPermission");
   const cogm = async (name: string, scopes: ("combat" | "session")[]) => {
     const code = ok(await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false })).token!;
-    const token = clerk(name);
-    assert.equal((await post(`/invites/${code}/accept`, {}, bearer(token))).status, 200);
+    const token = await device(name);
+    assert.equal((await post(`/invites/${code}/accept`, {}, cookieOf(token))).status, 200);
     ok(await owner.send({ type: "member.appoint", userId: uid(name), role: "cogm", scopes }));
-    const c = connect({ auth: { campaignId, clerkToken: token } });
+    const c = connect({ auth: { campaignId, cookie: token } });
     await c.until(() => true);
     return c;
   };
@@ -1349,7 +1397,7 @@ const report = (callId: string, actorId: string, faces: number[], advantage = "n
 // the api's connect limit (60 a minute per IP), so a test opens only the ones it reads.
 async function testRoom(name: string) {
   const { owner, ana, campaignId, hero, ogre } = await rulesRoom(name);
-  const ben = connect({ auth: { campaignId, clerkToken: await seatPlayer(owner, `ben-${name}`) } });
+  const ben = connect({ auth: { campaignId, cookie: await seatPlayer(owner, `ben-${name}`) } });
   const members = (await owner.until((s) => s.access.members.some((m) => m.userId === uid(`ben-${name}`)))).access;
   const bram = members.members.find((m) => m.userId === uid(`ben-${name}`))!.characterIds[0]!;
   await equip(bram, "character", {
@@ -1384,10 +1432,10 @@ async function coGm({
   scopes: ("combat" | "session" | "codex")[];
 }) {
   const code = ok(await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false })).token!;
-  const token = clerk(name);
-  assert.equal((await post(`/invites/${code}/accept`, {}, bearer(token))).status, 200);
+  const token = await device(name);
+  assert.equal((await post(`/invites/${code}/accept`, {}, cookieOf(token))).status, 200);
   ok(await owner.send({ type: "member.appoint", userId: uid(name), role: "cogm", scopes }));
-  const c = connect({ auth: { campaignId, clerkToken: token } });
+  const c = connect({ auth: { campaignId, cookie: token } });
   await c.until(() => true);
   return c;
 }
@@ -1715,19 +1763,19 @@ const GOOD_ANSWERS = {
 };
 
 async function buildRoom(name: string) {
-  const ownerClerk = clerk(`owner-${name}`, "creator");
-  const me = caller(ownerClerk);
+  const ownerDevice = await device(`owner-${name}`);
+  const me = caller(ownerDevice);
   const rs = await me.post<RulesetReply>("/rulesets", BUILD_RULESET);
   const pk = await me.post<PackReply>("/packs", BUILD_PACK);
   const other = await me.post<PackReply>("/packs", { ...BUILD_PACK, id: "sample-other" });
   assert.deepEqual([rs.status, pk.status, other.status], [201, 201, 201]);
   const made = await me.post<{ campaignId: string }>("/campaigns", { name, rulesetVersionId: rs.body.versionId });
   const { campaignId } = made.body;
-  const owner = connect({ auth: { campaignId, clerkToken: ownerClerk } });
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
   await owner.until(() => true);
   ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
   const player = async (who: string) => {
-    const c = connect({ auth: { campaignId, clerkToken: await seatPlayer(owner, `${who}-${name}`) } });
+    const c = connect({ auth: { campaignId, cookie: await seatPlayer(owner, `${who}-${name}`) } });
     const s = await owner.until((x) => x.access.members.some((m) => m.userId === uid(`${who}-${name}`)));
     const held = s.access.members.find((m) => m.userId === uid(`${who}-${name}`))!.characterIds[0]!;
     await c.until((x) => x.actors.some((a) => a.id === held));
@@ -2155,8 +2203,8 @@ test("encounter: only the combat side runs it, undo moves past a combatant who l
 });
 
 test("encounter: a full combatant's health stays home where the viewer view hides it", async () => {
-  const ownerClerk = clerk("owner-HpHide", "creator");
-  const me = caller(ownerClerk);
+  const ownerDevice = await device("owner-HpHide");
+  const me = caller(ownerDevice);
   const hidden = {
     ...BUILD_RULESET,
     resources: BUILD_RULESET.resources?.map((r) => (r.id === "hp" ? { ...r, visibility: "owner" as const } : r)),
@@ -2165,12 +2213,12 @@ test("encounter: a full combatant's health stays home where the viewer view hide
   const { campaignId } = (
     await me.post<{ campaignId: string }>("/campaigns", { name: "HpHide", rulesetVersionId: rs.body.versionId })
   ).body;
-  const owner = connect({ auth: { campaignId, clerkToken: ownerClerk } });
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
   await owner.until(() => true);
   const pk = await me.post<PackReply>("/packs", BUILD_PACK);
   ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
-  const anaClerk = await seatPlayer(owner, "ana-HpHide");
-  const ana = connect({ auth: { campaignId, clerkToken: anaClerk } });
+  const anaDevice = await seatPlayer(owner, "ana-HpHide");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
   await ana.until(() => true);
   const state = await owner.until((s) => s.access.members.some((m) => m.userId === uid("ana-HpHide")));
   const held = state.access.members.find((m) => m.userId === uid("ana-HpHide"))!.characterIds[0]!;
@@ -2224,24 +2272,4 @@ test("seat views: a combat-only co-GM runs the hidden creature, and reads no cod
   await eventually(() => codexCo.codex()?.entries.some((e) => e.id === secret) ?? false, "and reads every entry");
   assert.equal(codexCo.codex()?.entries.find((e) => e.id === secret)?.gmNotes, "", "but not the notes on it");
   for (const c of [owner, ana, co, codexCo]) c.socket.close();
-});
-
-test("a non-admin and a signed-out caller are refused the campaign list and OPEN AS ADMIN", async () => {
-  const { owner, campaignId } = await newRoom("AdminGuard");
-  const plain = bearer(clerk("not-admin"));
-  assert.equal((await get("/admin/campaigns", plain)).status, 403);
-  assert.equal((await get("/admin/campaigns")).status, 401);
-  const open = (headers: Record<string, string>) =>
-    post(`/admin/campaigns/${campaignId}/action`, { type: "member.seat", userId: uid("x") }, headers);
-  assert.equal((await open(plain)).status, 403);
-  assert.equal((await open({})).status, 401);
-  const rows = (await (await get("/admin/campaigns", bearer(clerk("guard-admin", "admin")))).json()) as {
-    id: string;
-    ownerName: string | null;
-  }[];
-  assert.ok(
-    rows.some((r) => r.id === campaignId && "ownerName" in r),
-    "an admin sees the room with its owner",
-  );
-  owner.socket.close();
 });

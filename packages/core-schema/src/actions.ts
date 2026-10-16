@@ -246,12 +246,10 @@ export const AdminAction = z.enum([
 export type AdminAction = z.infer<typeof AdminAction>;
 export const ADMIN_ACTIONS: ReadonlySet<ActionType> = new Set(AdminAction.options);
 
-// What an admin_event row records: that housekeeping, an admin opening a room without a seat, a moderator's lock.
+// What an admin_event row records: that housekeeping, an admin opening a room without a seat.
 export const AdminEventAction = z.enum([
   ...AdminAction.options,
   "room.open",
-  "user.lock",
-  "user.unlock",
   "pack.disable", // notice-and-takedown: the pack stops being served at once (docs/design.md §4.6)
   "pack.enable",
   "campaign.create", // the admin-key script made a room (actor "admin-key")

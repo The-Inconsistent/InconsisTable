@@ -1,14 +1,6 @@
 import { eq, sql } from "drizzle-orm";
-import {
-  ACTION_PERMS,
-  ARCHIVED_OPEN,
-  AdminAction,
-  type Action,
-  type ActionResult,
-  type Ctx,
-} from "@inconsistable/core-schema";
+import { ACTION_PERMS, ARCHIVED_OPEN, type Action, type ActionResult, type Ctx } from "@inconsistable/core-schema";
 import { applyActorAction } from "../actor/actor.actions.ts";
-import { adminEvent } from "../admin/admin.schema.ts";
 import { applyAccessAction } from "../auth/access.actions.ts";
 import { applyCampaignAction } from "../campaign/campaign.actions.ts";
 import { campaign } from "../campaign/campaign.schema.ts";
@@ -82,12 +74,12 @@ export async function applyAction(
   { ctx: seated, action }: { ctx: Ctx; action: Action },
 ): Promise<ActionResult> {
   // Every action bumps the state version in its own transaction (docs/design.md §5.6), and an archived game is
-  // read-only except for the way out of it. The name goes to the admin log, copied since campaign.delete removes it.
+  // read-only except for the way out of it.
   const [c] = await tx
     .update(campaign)
     .set({ stateVersion: sql`${campaign.stateVersion} + 1` })
     .where(eq(campaign.id, seated.campaignId))
-    .returning({ name: campaign.name, archivedAt: campaign.archivedAt, ownerUserId: campaign.ownerUserId });
+    .returning({ archivedAt: campaign.archivedAt, ownerUserId: campaign.ownerUserId });
   if (!c) fail("gameNotFound");
   // The owner comes from this row, not the handshake: a socket opened before a transfer must not keep its powers.
   const ctx: Ctx = { ...seated, campaignOwnerId: c.ownerUserId };
@@ -95,16 +87,6 @@ export async function applyAction(
   if (c.archivedAt && !ARCHIVED_OPEN.has(action.type)) fail("gameArchived");
   authorize(ctx, action);
   const result = await dispatch(tx, { ctx, action });
-  // Only the housekeeping is logged: an admin running a table would otherwise bury it under every tap.
-  const logged = AdminAction.safeParse(action.type);
-  if (ctx.seat.kind === "admin" && ctx.userId && result.ok && logged.success)
-    await tx.insert(adminEvent).values({
-      actorUserId: ctx.userId,
-      action: logged.data,
-      campaignId: ctx.campaignId,
-      campaignName: c.name,
-      targetUserId: "userId" in action ? action.userId : "toUserId" in action ? action.toUserId : null,
-    });
   return result;
 }
 

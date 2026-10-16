@@ -18,16 +18,23 @@ export const accessToken = pgTable("access_token", {
   createdAt: createdAt(),
 });
 
-// Clerk users we've seen. The name is refreshed from the session token; `role` is a display copy of the Clerk role
-// (Clerk stays the only source, and the app never writes it there); `lockedAt` is the moderators' lock, checked on
-// every connect and REST call.
+// Every device is a user (docs/house-decisions.md, "No accounts until a provider is chosen"). `role` gates only who may
+// start rooms; everyone is a creator until a provider decides otherwise.
 export const appUser = pgTable("app_user", {
   id: text().primaryKey(),
   name: text().notNull(),
-  role: text().$type<PlatformRole>(),
-  lockedAt: timestamp({ withTimezone: true }),
+  role: text().$type<PlatformRole>().notNull().default("creator"),
   lastSeenAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
+// A browser's `it_device` cookie names its user. Like tokens, only the secret's hash is stored.
+export const device = pgTable("device", {
+  tokenHash: text().primaryKey(),
+  userId: text()
+    .notNull()
+    .references(() => appUser.id, { onDelete: "cascade" }),
+  createdAt: createdAt(),
 });
 
 // A signed-in user's seat at one table. The owner is campaign.owner_user_id and also holds a `gm` membership.

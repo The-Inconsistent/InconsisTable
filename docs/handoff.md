@@ -1,7 +1,7 @@
 # Handoff: from the cloud session to a local one
 
 The cloud session designed InconsisTable and built P0. It could not run Aspire or open the web in a browser, because
-the org proxy blocks `aspire.dev` and the CLI downloads, and the web needs real Clerk keys. Those steps are left for a
+the org proxy blocks `aspire.dev` and the CLI downloads. Those steps are left for a
 local machine. Read `CLAUDE.md` first: its eight principles are binding. Then read this file.
 
 ## Decisions already made
@@ -20,8 +20,7 @@ Do not reopen these.
   - Content reaches seats only, and a `private` pack never leaves its owner's rooms.
   - The dice stay physical, the server decides, and shortcuts are marked `// ponytail:`.
 - **Roles:**
-  - Platform roles live in Clerk `publicMetadata.role` (`user | creator | moderator | admin`) and change only in the
-    Dashboard.
+  - There are no accounts: each device is an anonymous user, every one a `creator`, and admin is the `ADMIN_KEY`.
   - The room owner is `campaign.owner_user_id`, not a role.
   - Seats are `gm | cogm | player`. Co-GM scopes are `combat`, `codex`, `codex.secrets`, `party` and `session`.
   - Token seats are `player` (guest QR) and `screen` (the TV, read-only).
@@ -35,7 +34,7 @@ Do not reopen these.
 - **Maps:** there will be maps, but only as a memory aid for physical play. This is not an online VTT.
 - **Legal note:** hosting what users import is generally covered by safe harbours (DMCA §512, EU DSA art. 6) when there
   is notice-and-takedown, no public spread, and no knowing facilitation. Ask a lawyer before going public. Until pack
-  grants and per-route gates exist, keep Clerk **Invite-only**.
+  grants and per-route gates exist, keep it off the public internet (LAN only, no accounts).
 
 ## Where things are
 
@@ -59,37 +58,25 @@ Do not reopen these.
 
 - `bun run typecheck`, `bun run lint` and `bun run format:check` were clean.
 - `bun run test`: 96 unit tests passed.
-- `bun run test:smoke`: 8/8 against Postgres 18, with `CLERK_TEST_SECRET`.
-- `next build` passed, with placeholder Clerk keys.
+- `bun run test:smoke`: 8/8 against Postgres 18.
 - `db:generate` reported no drift.
 
 ## Steps for the local session, in order
 
 1. **Check out the branch.** Run `git fetch origin claude/p0-skeleton && git checkout claude/p0-skeleton`, then
    `bun install`.
-2. **Clerk.** The user has already set Clerk up, so do not re-run `clerk init`. Just check that it fits the repo:
-   - Apps never list `@clerk/*` as a dependency; only `packages/auth` does. If `clerk init` added `@clerk/nextjs` to
-     `apps/web/package.json`, remove it, along with any `ClerkProvider` it generated (`packages/auth/src/react.tsx`
-     already wraps it).
-   - The env files follow `apps/api/.env.example` and `apps/web/.env.example`. Don't print or commit them.
-     - api: `CLERK_SECRET_KEY`, plus `CLERK_JWT_KEY` (PEM).
-     - web: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, plus `CLERK_SECRET_KEY`.
-   - **Session token claims** (Dashboard → Sessions): `packages/auth/src/api.ts` reads these:
-     `{ "metadata": "{{user.public_metadata}}", "name": "{{user.full_name}}", "username": "{{user.username}}" }`
-   - Access mode is **Invite-only**.
-   - To start rooms, your user needs public metadata `{ "role": "creator" }`, or `{ "role": "admin" }` to also reach the
-     admin page.
-   - `apps/web/proxy.ts` already lets `/__clerk/*` through: only `_next`, `api/`, `socket.io` and static files are
-     excluded.
+2. **Identity.** There is no auth provider: the web proxy gives each browser an `it_device` cookie and the api makes the
+   user on first sight (`docs/house-decisions.md`, "No accounts until a provider is chosen"). Nothing to set up. For the
+   admin page, set `ADMIN_KEY` (32+ characters) in `apps/api/.env`. Don't print or commit env files.
 3. **Aspire.** Stop the compose Postgres first, since both use port 5435. Then run `aspire run`.
    - The AppHost has never run, so fix whatever breaks in `aspire-apphost/` and commit the fix.
    - The fallback without Aspire is `bun run dev:db`, `bun run dev:api` and `bun run dev:web`.
    - Note that `apps/api/.env` in the cloud used `PORT=4100`, while the web proxies to `:4000`. Keep them in step.
-4. **Smoke test.** Run `bun run test:smoke` against the running api; it needs `CLERK_TEST_SECRET` in `apps/api/.env`.
+4. **Smoke test.** Run `bun run test:smoke` against the running api; it needs `ADMIN_KEY` set for the api and the suite.
 5. **Browser test** (tablet as GM, phone as player):
-   1. Sign in, then CREATE a room.
+   1. Open the app, then CREATE a room.
    2. In PARTY, add a character and show the Room QR.
-   3. On the phone, scan it and claim the character, signed in or as a guest.
+   3. On the phone, scan it and claim the character, as a device user or as a guest.
    4. Show a Guest QR and join with it.
    5. Show a Screen QR and open it on a third tab; it should be read-only.
    6. Start and end a session.
@@ -106,7 +93,6 @@ Do not reopen these.
 
 ## Not done yet
 
-- The Clerk `user.updated` webhook, to kick a user whose role or lock changed. `TableGateway.kickUser` is ready for it.
 - The co-GM and multi-character UI beyond PARTY's basics is planned for P2.
 - Nothing writes the `session_event` table yet. P1 undo will write each action's deltas to it.
 - **Open product question:** should the GM see an "Admin accessed" line? It would reverse Auspex's #178.

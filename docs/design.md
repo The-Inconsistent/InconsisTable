@@ -15,7 +15,7 @@ ruleset và World Warhammer 40k: Wrath & Glory bên trong platform.
 **Đã chốt (2026-10-11):**
 - Tên InconsisTable.
 - Có chủ phòng (`campaign.owner_user_id`, §3.6).
-- Platform role ở Clerk và chỉ đổi trong Clerk Dashboard (giữ #178).
+- Chưa có tài khoản: mỗi thiết bị là một user ẩn danh (cookie `it_device`), admin là `ADMIN_KEY`, chỉ chạy LAN cho tới khi chọn được nhà cung cấp auth (house-decisions #32).
 - Postgres 18.
 - **Repo mới** `The-Inconsistent/InconsisTable`, private. Scope package npm phải viết thường: `@inconsistable/*`. Chép những phần lõi trung lập từ auspex_gm sang, không chuyển dữ liệu (chưa có
   dữ liệu cần giữ). auspex_gm vẫn chạy cho bàn W&G cho tới khi W&G được port sang.
@@ -70,7 +70,7 @@ của repo mới và trong review checklist.
 | D6 | **Quyền xem hai tầng:** visibility khai báo trên field (`public / party / owner / gm`, mặc định `gm`) cộng hàm view của ruleset cho những biến đổi mà visibility không diễn tả được (W&G: Corruption, mutation "Unseen", threat ẩn). | Hệ luật đơn giản chỉ cần khai báo; W&G port nguyên bộ lọc hiện có (§5.5). |
 | D7 | **Ưu tiên chơi trực tiếp (in-person first):** xúc xắc thật là mặc định. App chỉ ghi kết quả, chỉ tự gieo bảng ngẫu nhiên; gieo hộ Test là tuỳ chọn theo ruleset, `wng` không bật (§4.3). Bản đồ/VTT là phần mở rộng sau. | Đó là điểm khác biệt so với Roll20 hay Foundry (§1.6). |
 | D8 | **Bản quyền theo lớp nội dung:** SRD 5.1/5.2 (CC-BY-4.0), ORC, CC-BY được chia sẻ công khai. Sách có bản quyền chỉ là **nội dung riêng** của người dùng, gói trong campaign của họ. | Mở rộng nguyên tắc copyright đang có trong `CLAUDE.md`. |
-| D9 | **Phân quyền 3 lớp:** platform role trong Clerk (`user / creator / moderator / admin`), ghế theo từng phòng (`gm / cogm / player`, token `player / screen`), và sở hữu theo tài nguyên (chủ phòng là `campaign.owner_user_id`). Admin toàn quyền khi mở phòng với quyền admin. | Một người vừa chơi ở phòng người khác vừa quản lý phòng và nhân vật của mình (§3.6). |
+| D9 | **Phân quyền 3 lớp:** platform role (`user / creator`; chưa có nhà cung cấp auth nên mọi thiết bị là `creator`, admin là `ADMIN_KEY`), ghế theo từng phòng (`gm / cogm / player`, token `player / screen`), và sở hữu theo tài nguyên (chủ phòng là `campaign.owner_user_id`). Admin toàn quyền khi mở phòng với quyền admin. | Một người vừa chơi ở phòng người khác vừa quản lý phòng và nhân vật của mình (§3.6). |
 | D10 | **Postgres 18 (ghim theo minor); JSONB chỉ cho tài liệu lưu nguyên khối.** Giá trị field, resource, condition do ruleset khai báo được lưu thành hàng có kiểu. | Delta là một câu `UPDATE` nguyên tử, có khoá ngoại và ràng buộc; thêm hệ luật mới không cần migration (§5.4). |
 
 ---
@@ -158,7 +158,7 @@ travel (supplies, kiệt sức), clock tiến độ kiểu Blades.
   accept: hàng đợi và broadcast state, không có `Action`).
 - **Hai snapshot** `LiveState` / `Codex`, room `c:<id>:gm` và `c:<id>:players`, view lọc theo từng `characterId`.
 - **Access:** `membership`, guest `access_token` (SHA-256), `invite` (room / character, hết hạn, `maxUses`),
-  `Ctx { campaignId, role, characterId, userId, admin }`, Clerk cô lập trong `packages/auth`.
+  `Ctx { campaignId, role, characterId, userId, admin }`, danh tính thiết bị cô lập trong `packages/auth`.
 - **Codex:** adventure → beat/scene, location (cây, chống vòng lặp), NPC, faction, handout (audience, style), item, ảnh,
   `@mention`, session (recap / GM notes).
 - **Character library** (nhân vật ngoài campaign), **content pack** (key, cha trước con), export/import có remap id.
@@ -279,7 +279,7 @@ Mỗi bước đều bỏ qua được. **"Quick game":** chọn ruleset → QR 
 **Ba lớp:**
 
 ```
-1. Platform role (toàn hệ thống)  Clerk publicMetadata.role: user | creator | moderator | admin
+1. Platform role (toàn hệ thống)  app_user.role: user | creator (mặc định creator); admin = ADMIN_KEY
 2. Ghế trong phòng (theo campaign) membership.role: gm | cogm | player   hoặc   access_token.role: player | screen
 3. Sở hữu (theo tài nguyên)       campaign.owner_user_id; owner_user_id trên library_character, world, ruleset, pack
 ```
@@ -287,14 +287,13 @@ Mỗi bước đều bỏ qua được. **"Quick game":** chọn ruleset → QR 
 Vì ghế nằm trên `membership` chứ không nằm trên tài khoản, cùng một người có thể là chủ phòng ở phòng A, `player` ở
 phòng B và `cogm` ở phòng C. `Ctx` được resolve theo `campaignId` của socket, như `resolveCtx` đang làm.
 
-**Platform role: Clerk vẫn là nguồn sự thật.** Issue #178 và PR #222 đã quyết "roles stay in Clerk", và
-`docs/architecture.md` ghi "roles are only ever changed in Clerk". Thiết kế giữ quyết định đó:
-- `app_user.role` vẫn chỉ là bản hiển thị. Api chỉ đọc role từ session token đã verify, không bao giờ từ client.
-- Thêm giá trị `moderator` vào `publicMetadata.role`.
-- **Đã chốt:** role chỉ đổi trong Clerk Dashboard. Admin Console chỉ hiển thị role, không có nút đổi.
-- Webhook `user.updated` của Clerk ngắt mọi socket của user đó trên mọi node (room `user:<id>` qua Redis adapter).
-  Socket kết nối lại với role mới, không phải chờ token làm mới (~60 s).
-- Khoá tài khoản là cột `app_user.status`, đọc ở mỗi lần connect socket và mỗi request REST.
+**Hiện tại: chưa có tài khoản.** Chưa chọn nhà cung cấp auth (`docs/house-decisions.md` #32), nên mỗi thiết bị là một user ẩn danh:
+- Cookie `it_device` (bí mật ngẫu nhiên, `proxy.ts` của web cấp; bảng `device` chỉ lưu SHA-256) trỏ tới một `app_user` do api tạo ở lần thấy đầu tiên.
+- `app_user.role` mặc định `creator`; cột này chỉ quyết định ai được tạo phòng. Role không bao giờ đọc từ client.
+- Không có khoá tài khoản, moderator hay webhook. Chỉ chạy trên máy này hoặc LAN tin cậy.
+- Admin không phải user: là `ADMIN_KEY` dùng chung (header `x-admin-key`, hoặc `adminKey` ở handshake socket).
+- Khi có nhà cung cấp, thay `deviceUser` và khoá chung trong `packages/auth`; luật ghế giữ nguyên. Các role `moderator` và `admin` bên dưới là thiết kế cho lúc đó.
+
 
 | Role | Quyền |
 |---|---|
@@ -693,7 +692,7 @@ Mọi entry luật (resource, condition, test, initiative, effect, option) có `
   |---|---|
   | `/api/campaigns/:id/threats`, `/wargear`, `/scene-presets`, `/flavour`… | Ghế GM của campaign (như nay) |
   | `/api/campaigns/:id/rules`, `/creation` | Ghế trong campaign; entry `gm` chỉ tới ghế GM (như nay) |
-  | `/api/rules`, `/api/creation` (library, không ghế) | User có `pack_grant` cho pack đó, hoặc pack công khai. Thay cho Clerk Invite-only (`ponytail:` ở `library.controller.ts`) |
+  | `/api/rules`, `/api/creation` (library, không ghế) | User có `pack_grant` cho pack đó, hoặc pack công khai. Thay cho việc chỉ chạy LAN (`ponytail:` ở `library.controller.ts`) |
   | `/api/frameworks` (NEW CAMPAIGN) | User trong quota; chỉ nội dung từ pack mà user có grant |
 
 - **Repo:** repo này giữ private (CLAUDE.md). Lịch sử git của nó đã chứa nội dung `packages/data` và ảnh portrait có
@@ -735,7 +734,7 @@ flowchart TB
   API1 & API2 --- REDIS[(Redis: socket.io adapter, rate limit, presence)]
   API1 & API2 --- PG[(Postgres 18: state, advisory locks)]
   API1 & API2 --- S3[(Object storage: ảnh, export, pack)]
-  AUTH[Clerk] -. verify JWT local .- API1
+  AUTH[Nhà cung cấp auth, chưa chọn] -. verify JWT local .- API1
 ```
 
 ### 5.2 Package trong monorepo
@@ -917,7 +916,7 @@ RETURNING OLD.value AS before, NEW.value AS after;                     -- Postgr
 
 | Bảng | Cột chính | Ghi chú |
 |---|---|---|
-| `app_user` | id (Clerk), name, role (bản hiển thị từ Clerk), status, plan, last_seen_at | [Có] + status, plan. Role đọc từ token Clerk (§3.6); `status` đọc ở mỗi lần connect và REST |
+| `app_user` | id (uuidv7 text), name, role (mặc định `creator`), last_seen_at; bảng `device` (token_hash → user_id) | [Có] Chưa có `status`, `plan` cho tới khi có nhà cung cấp auth (§3.6) |
 | `world` | id, owner_user_id, name, visibility, theme jsonb | `world_term(world_id, term_id, label)` cho từ vựng |
 | `ruleset` / `ruleset_version` | slug, owner_user_id, visibility, license / version, hash, extends_version_id, manifest jsonb | Bất biến |
 | `pack` / `pack_version` / `pack_entry` | entry: key, type, name, level int, tags text[], visibility, content_hash, body jsonb | Index `(pack_version_id, type)`, `pg_trgm` trên `name`; không index GIN trên `body` |
@@ -996,7 +995,7 @@ tenant cần thay:
 | `loadCodex` 9 query mỗi lần | Chỉ nạp lại phần `touches` chỉ định (theo loại entry) + cache theo version |
 | Ảnh `bytea` | S3/R2, URL ký có hạn (≤ 5 phút, cấp lại theo snapshot), vẫn gate theo ghế |
 | Một node nên broadcast đúng thứ tự | `campaign.state_version` tăng trong transaction và đi kèm mọi broadcast; client bỏ snapshot cũ hơn bản đang có. Advisory lock nhả lúc commit, nên hai node có thể gửi lệch thứ tự |
-| Clerk Invite-only để gate `/rules`, `/creation` | Giữ Invite-only cho tới khi có `pack_grant` và cổng theo route (§4.6). Chỉ sau đó mới mở đăng ký |
+| Chỉ chạy LAN để gate `/rules`, `/creation` | Giữ LAN-only cho tới khi có `pack_grant` và cổng theo route (§4.6). Chỉ sau đó mới mở đăng ký |
 
 ### 5.7 Bảo mật và vận hành
 
@@ -1070,10 +1069,10 @@ Wizard: điểm danh → thưởng XP/milestone (`progression`) → chia loot �
 
 | Giai đoạn | Mục tiêu | Tiêu chí xong |
 |---|---|---|
-| **P0: Khung repo mới** | Repo `InconsisTable`: chép pipeline action, `@inconsistable/auth` (Clerk), access và invite, codex, lobby từ auspex_gm; Postgres 18; `rules-engine` với các primitive 5e cần (`dice.sumVsTarget`, `initiative.ranked`, `health.tracks` + death save, slot); phân quyền §3.6 | Test của pipeline, `can()` và engine xanh; một phòng trống mời được người chơi qua QR |
+| **P0: Khung repo mới** | Repo `InconsisTable`: chép pipeline action, `@inconsistable/auth` (danh tính thiết bị), access và invite, codex, lobby từ auspex_gm; Postgres 18; `rules-engine` với các primitive 5e cần (`dice.sumVsTarget`, `initiative.ranked`, `health.tracks` + death save, slot); phân quyền §3.6 | Test của pipeline, `can()` và engine xanh; một phòng trống mời được người chơi qua QR |
 | **P1: 5e SRD chơi được** | Công cụ nhập ruleset và pack (file, JSON, form) có kiểm tra, mặc định riêng tư; nhập manifest `dnd5e-srd` + pack SRD 5.2 qua chính công cụ đó; actor và các bảng giá trị; builder; sheet render từ `layout`; combat tracker; gọi Test; undo phía server | Một bàn chơi one-shot SRD từ tạo nhân vật tới hết buổi |
 | **P2: Workspace, wizard, World, bản đồ** | Hub người dùng, wizard 8 bước, theme và từ vựng theo World, house rules, safety tools, bản đồ §3.8, nhiều nhân vật và co-GM §3.7 | Người mới tạo game và mời bàn trong dưới 5 phút |
-| **P3: Platform** | Admin console (moderation, quota, chuyển chủ phòng), Redis adapter, advisory lock, `state_version`, S3, `pack_grant`, export/xoá dữ liệu; chỉ sau đó mới mở đăng ký Clerk | Chạy 2+ instance api; load test 100 bàn |
+| **P3: Platform** | Admin console (moderation, quota, chuyển chủ phòng), Redis adapter, advisory lock, `state_version`, S3, `pack_grant`, export/xoá dữ liệu; chỉ sau đó mới chọn nhà cung cấp auth và mở đăng ký | Chạy 2+ instance api; load test 100 bàn |
 | **P4: Port W&G (Auspex)** | Manifest `wng` + pack riêng tư, `view.wng`, `health.hit` kiểu W&G, `initiative.alternatingSides`; test của auspex_gm là chuẩn đối chiếu | Mọi test luật của auspex_gm có bản tương ứng xanh; bàn W&G chuyển sang |
 | **P5: Hệ sinh thái** | Editor homebrew, kho cộng đồng, script sandbox, PF2e ORC, PbtA, CoC-lite, Freeform | Một GM tự viết homebrew mà không cần deploy |
 
@@ -1092,7 +1091,7 @@ chỉ chứa ruleset tự viết và SRD/ORC (§4.6). Nội dung W&G tiếp tụ
 3. **Hiệu năng:** full snapshot với campaign lớn. Patch broadcast ở P4; đo trước khi làm.
 4. **Pháp lý:** chính sách fan content của GW/Cubicle 7/WotC thường cấm tool thu phí tái hiện nội dung luật. Nếu
    thương mại hoá, chỉ dùng SRD/ORC hoặc xin license. *Cần hỏi ý kiến pháp lý trước khi mở công khai.*
-5. **Clerk ở chế độ Open:** chỉ bật sau khi có `pack_grant`, cổng theo route (§4.6) và export/xoá dữ liệu.
+5. **Mở đăng ký công khai:** chỉ bật sau khi có `pack_grant`, cổng theo route (§4.6) và export/xoá dữ liệu.
 6. **Câu hỏi cho chủ sản phẩm:**
    - Co-GM và nhiều nhân vật mỗi người chơi (§3.7): làm ở P2 hay sớm hơn?
    - GM có được thấy dòng "Admin đã truy cập" không? Việc này đảo quyết định đã ghim ở #178 (admin vô hình).

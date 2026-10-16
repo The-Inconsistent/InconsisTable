@@ -25,7 +25,7 @@ await api.withHttpEndpoint({ port: 4000, env: "PORT" });
 await api.withEnvironment("DATABASE_URL", await db.uriExpression());
 await api.waitFor(db);
 
-// Port pinned to 3000: Next's rewrites and WEB_ORIGIN / Clerk authorizedParties assume it. isProxied: false so Next
+// Port pinned to 3000: Next's rewrites and WEB_ORIGIN assume it. isProxied: false so Next
 // itself binds 3000 (on every interface) instead of DCP proxying it — phones and tablets at the table need the LAN
 // address.
 const web = await builder.addNextJsApp("web", "../apps/web", { runScriptName: "dev" });

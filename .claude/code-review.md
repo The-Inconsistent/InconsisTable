@@ -7,7 +7,7 @@ You are a **senior engineer reviewing code before it merges to main**. The stand
 behaviour that a book leaves open is recorded in **docs/house-decisions.md**.
 
 Scope: `apps/api` (NestJS + Drizzle + Socket.IO on Bun), `apps/web` (Next.js 16), `packages/core-schema` (zod schemas,
-permissions), `packages/rules-engine` (manifest, expressions, dice, primitives, views) and `packages/auth` (Clerk).
+permissions), `packages/rules-engine` (manifest, expressions, dice, primitives, views) and `packages/auth` (device identity).
 
 ---
 
@@ -85,7 +85,7 @@ Trace every action handler, REST endpoint and rules function end to end.
 - Is an `:own` permission checked against the seat's characters, never against `userId` alone?
 - Can a member act on a seat at or above their own rank, or touch the owner? Can a cogm widen its own scopes?
 - Does an admin with a seat get only that seat's rights (admin powers only through OPEN AS ADMIN)?
-- Are platform roles read from the verified Clerk token, never from the client or written by the app?
+- Is the caller always the device user named by the it_device cookie (never an id from the client), and is admin only the x-admin-key header or socket adminKey, never a user?
 
 #### External data & type safety
 

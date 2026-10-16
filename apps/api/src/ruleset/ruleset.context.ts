@@ -1,5 +1,6 @@
 import type { Ctx } from "@inconsistable/core-schema";
 import type { CompiledRuleset, Delta, RuleState, TurnState } from "@inconsistable/rules-engine";
+import type { DeltaInput } from "../actor/actor.delta.ts";
 import { applyDeltas } from "../actor/actor.pipeline.ts";
 import { type BuiltActor, loadBuilt } from "../actor/actor.values.ts";
 import { runningSessionId } from "../campaign/event.log.ts";
@@ -74,7 +75,7 @@ export interface RulesetContext {
   /** A state for callers that plan their own deltas (the tracker's next/prev). */
   state(args: { exclude?: ReadonlySet<string>; turn: TurnState | null }): RuleState;
   /** The only write of a context: every delta through the pipeline. Returns the logged action id. */
-  apply(deltas: Delta[]): Promise<string | null>;
+  apply(deltas: readonly DeltaInput[]): Promise<string | null>;
 }
 
 /** The pinned ruleset and every actor built, or null when the campaign has no ruleset. */

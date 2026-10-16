@@ -2035,8 +2035,22 @@ test("encounter: a full round of turns, seat views, undo of a turn, and the end 
 
   // The end: players can't; expiry and rest run for those who stay; non-kept temporary creatures go, the kept one stays.
   refused(await ana.c.send({ type: "encounter.end" }), "noPermission");
-  ok(await owner.send({ type: "encounter.end" }));
+  const endId = ok(await owner.send({ type: "encounter.end" })).id!;
   const ended = await owner.until((s) => s.encounter === null);
+  // House decision #15: expiry, then rest, all under the one returned action id, and nothing for the deleted creatures.
+  const endRows = await query<{ payload: { target: Record<string, unknown>; kind: string } }>(
+    "SELECT payload FROM session_event WHERE campaign_id = $1 AND action_id = $2 ORDER BY id",
+    [campaignId, endId],
+  );
+  assert.deepEqual(
+    endRows.map((r) => r.payload.target),
+    [
+      { actorId: pcB, condition: endRows[0]!.payload.target.condition },
+      { actorId: pcA, resource: "tempHp" },
+    ],
+    "the expiry's write comes before the rest's, and only those who stay are touched",
+  );
+  assert.ok(endRows[0]!.payload.target.condition, "the condition delta targets the expired Braced row");
   assert.deepEqual(
     ended.actors.filter((a) => a.kind === "creature").map((a) => a.id),
     [w2],
@@ -2243,5 +2257,59 @@ test("a non-admin and a signed-out caller are refused the campaign list and OPEN
     rows.some((r) => r.id === campaignId && "ownerName" in r),
     "an admin sees the room with its owner",
   );
+  owner.socket.close();
+});
+
+// ---- Characterization pins for the rule-engine handlers (house decision #28 and the no-ruleset case) ----------------
+
+test("pins: an open encounter between sessions refuses the tracker and the turn primitives, and keeps the rest loose", async () => {
+  const { owner, ana, hero, ogre } = await rulesRoom("Pins");
+  const turnOp = (primitive: string, op: string) => ({ type: "rule.op", primitive, op, input: {} }) as const;
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: [hero, ogre], side: "party" }));
+  const added = await owner.until((s) => s.encounter?.combatants.length === 2);
+  assert.equal(added.encounter?.paused, false);
+  const [c1, c2] = added.encounter!.combatants.map((c) => c.id) as [string, string];
+  ok(await owner.send({ type: "encounter.setInitiative", combatantId: c1, score: 9 }));
+  ok(await owner.send({ type: "encounter.setInitiative", combatantId: c2, score: 4 }));
+  ok(await owner.send({ type: "turn.next" }));
+  ok(await owner.send(turnOp("conditions.expire", "roundEnd")));
+  ok(await owner.send(turnOp("initiative.ranked", "next")));
+
+  // No session: every tracker action but start, and the two turn primitives, answer sessionPaused.
+  ok(await owner.send({ type: "session.end" }));
+  await ana.until((s) => s.encounter?.paused === true);
+  const paused = "sessionPaused";
+  for (const action of [
+    { type: "turn.next" },
+    { type: "encounter.add", actorIds: [hero], side: "party" },
+    { type: "encounter.setInitiative", combatantId: c1, score: 5 },
+    turnOp("conditions.expire", "roundEnd"),
+    turnOp("conditions.expire", "encounterEnd"),
+    turnOp("initiative.ranked", "next"),
+  ] satisfies ActionInput[])
+    refused(await owner.send(action), paused);
+
+  // The looseness that stays: other primitives, field and condition writes, and a rest all still run.
+  ok(await owner.send(hpStep(hero, "hp", -4)));
+  ok(await owner.send(adjust(hero, "focus", -1)));
+  ok(await owner.send({ type: "field.set", actorId: hero, field: "level", value: 4 }));
+  ok(await owner.send({ type: "condition.add", actorId: hero, condition: "marked" }));
+  ok(await owner.send({ type: "condition.remove", actorId: hero, condition: "marked" }));
+  ok(await owner.send({ type: "actor.rest", event: "longRest", actorId: hero }));
+  await resourceOf(owner, hero, "hp", 16); // the level-4 max, restored from 10
+  assert.equal((await owner.until(() => true)).encounter?.paused, true);
+  for (const c of [owner, ana]) c.socket.close();
+});
+
+test("pins: with no ruleset a rule action is refused, and sessions still start and end", async () => {
+  const { owner } = await newRoom("PinsBare");
+  const pc = crypto.randomUUID();
+  refused(await owner.send(adjust(pc, "hp", 1)), "noRuleset");
+  refused(await owner.send({ type: "field.set", actorId: pc, field: "level", value: 1 }), "noRuleset");
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "session.end" }));
+  refused(await owner.send({ type: "actor.rest", event: "longRest" }), "noRuleset");
   owner.socket.close();
 });

@@ -1,7 +1,7 @@
 # InconsisTable P2: nhiều họ luật, bàn không GM, nhớ giữa các buổi
 
 > **Nháp.** Chốt sau buổi chơi thật của P1 (`docs/p1-plan.md`, "Đến buổi chơi thật"). Chưa phải kế hoạch đã duyệt:
-> thứ tự, phạm vi và các câu hỏi mở dưới đây đều còn đổi. Đọc `CLAUDE.md` trước: 8 nguyên tắc là bắt buộc.
+> thứ tự và phạm vi còn đổi; 4 điểm ở "Đã chốt" đã quyết. Đọc `CLAUDE.md` trước: 8 nguyên tắc là bắt buộc.
 
 ## Mục tiêu (nháp)
 
@@ -67,7 +67,7 @@ failure` (`primitives/dice-sum-vs-target.ts`).
 
 - **Cột `campaign.table_mode`** (`gm | gmless | solo`). Là cột chứ không để trong JSONB vì lobby cần lọc. Chọn lúc
   tạo phòng, trong số `modes` mà ruleset cho phép; chỉ đổi được giữa các buổi.
-- **Phòng không GM** (đề xuất, cần ADR):
+- **Phòng không GM** (đã chốt, ghi thành ADR khi làm):
 
   | Việc | Phòng có GM | Phòng không GM |
   |---|---|---|
@@ -91,8 +91,8 @@ failure` (`primitives/dice-sum-vs-target.ts`).
   Lọc theo số người, kiểu ngồi, thể loại. Thẻ phòng ở lobby hiện "chơi gì · có GM hay không".
 - **Ruleset "Freeform":** chỉ ghi chú và một track máu, cho game tự chế và game một trang (design §3.3).
 - **"Quick game":** chọn ruleset → QR → chơi trong dưới 2 phút (design §3.3).
-- **Mẫu ruleset theo họ luật:** khung có sẵn cấu trúc d20, PbtA, FitD, YZE, d100; số và cite do người dùng điền. Cần
-  quyết trước xem khung chỉ có cấu trúc có tính là "game content" hay không (câu hỏi mở 4).
+- **Mẫu ruleset theo họ luật:** khung có sẵn cấu trúc d20, PbtA, FitD, YZE, d100; số và cite do người dùng điền. Khung
+  chỉ có cấu trúc của engine, không số hay dải kết quả của game nào (điểm chốt 4).
 - **Form nhập ruleset và pack** (hẹn từ P1).
 - **Session Zero và safety:** Lines & Veils, bật X-Card (người chơi chạm trên điện thoại, chỉ GM nhận, ẩn danh; phòng
   không GM thì mọi người cùng nhận, vẫn ẩn danh). Design §1.4 và §3.3 bước 4; code chưa có.
@@ -112,21 +112,24 @@ failure` (`primitives/dice-sum-vs-target.ts`).
 - **Quan hệ giữa các nhân vật** (bond, Hx kiểu PbtA).
 - **Secret riêng từng nhân vật, reveal một phần** (biết tên, chưa biết chỉ số) (design §3.4 "Sau").
 
-## Câu hỏi mở
+## Đã chốt (chủ sản phẩm, 2026-10-16)
 
-1. **Nguyên tắc 4 trong phòng không GM:** pack `private` hiện chỉ dùng được ở phòng chủ pack làm GM. Phòng không GM
-   không ai làm GM, nên pack riêng bị khoá. Có coi chủ phòng là "người chạy phòng" không?
-2. **Phòng không GM:** mọi ghế quyền ngang nhau (đề xuất), hay có ghế người dẫn ngay từ P2?
-3. **Ngưỡng Test ẩn trong phòng không GM:** đề xuất cấm hẳn, vì không ai giữ bí mật.
-4. **Mẫu ruleset theo họ luật:** một khung chỉ có cấu trúc, không số, không cite, có vi phạm "ships no game content"
-   không? Nếu có, chỉ ship mẫu cho ruleset homebrew bịa.
+1. **Nguyên tắc 4 trong phòng không GM:** chủ phòng (`owner_user_id`) được coi là người chạy phòng. Pack `private` của
+   họ dùng được trong phòng không GM do chính họ làm chủ; vẫn không cấp được cho người khác. Ghi vào ADR của B và
+   sửa câu nguyên tắc 4 trong `CLAUDE.md` khi làm.
+2. **Ghế trong phòng không GM:** mọi ghế quyền ngang nhau ở P2. Ghế người dẫn xoay vòng để sau.
+3. **Ngưỡng Test ẩn trong phòng không GM:** cấm hẳn; server từ chối Test có ngưỡng ẩn khi `table_mode` khác `gm`.
+4. **Mẫu ruleset theo họ luật:** mẫu chỉ chứa cấu trúc của engine (có loại Test nào, resource nào, clock nào), không
+   có số, dải kết quả hay tên mục của game nào; người dùng tự điền số và cite. Ghi thành house decision trong
+   `docs/house-decisions.md` trước khi làm mẫu. Nếu một mẫu không tách được khỏi cơ chế của sách, chỉ ship mẫu
+   homebrew bịa như `sample-d20`.
 
 ## Thứ tự đề xuất
 
 1. A: kết quả nhiều mức cho `sumVsTarget` (mở PF2e, PbtA, CoC với một thay đổi nhỏ).
 2. D: clock và pool chung (FitD, 2d20, Daggerheart, W&G).
-3. A + B + C: khối `game`, `table_mode`, bước Chọn game, Freeform. ADR và câu hỏi 1–3 chốt trước.
-4. C: mẫu ruleset theo họ luật, sau khi chốt câu hỏi 4.
+3. A + B + C: khối `game`, `table_mode`, bước Chọn game, Freeform. ADR ghi lại các điểm chốt 1–3 trước khi code.
+4. C: mẫu ruleset theo họ luật, sau house decision của điểm chốt 4.
 5. A: cách xếp lượt luân phiên phe và popcorn; các cách gieo còn lại theo nhu cầu bàn thật.
 6. E: quest, "lần trước…", nháp recap.
 

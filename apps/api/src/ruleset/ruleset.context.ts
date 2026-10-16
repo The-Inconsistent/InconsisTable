@@ -9,10 +9,6 @@ import { activeEncounter, loadTurn } from "../encounter/encounter.turn.ts";
 import { loadCompiled } from "./ruleset.compiled.ts";
 import { runPrimitive, ruleState } from "./ruleset.run.ts";
 
-// ponytail: refusal texts copied from today's callers (this base has no refusal codes), switch to the codes when they land
-export const NO_RULESET = "This game has no ruleset yet";
-export const PAUSED = "Start a session to continue";
-
 /** Primitives that read the turn: they wait for a session (house decision #28). */
 const TURN_PRIMITIVES = new Set(["initiative.ranked", "conditions.expire"]);
 
@@ -55,7 +51,7 @@ export function decideRun({
   exclude?: ReadonlySet<string>;
   sessionRunning: boolean;
 }): Delta[] {
-  if (turn && TURN_PRIMITIVES.has(primitive) && !sessionRunning) fail(PAUSED);
+  if (turn && TURN_PRIMITIVES.has(primitive) && !sessionRunning) fail("sessionPaused");
   return runPrimitive({ ruleset, state: stateOf({ built, turn, exclude }), primitive, op, input });
 }
 
@@ -105,5 +101,5 @@ export async function openRulesetIfPinned(tx: Tx, ctx: Ctx): Promise<RulesetCont
 
 /** As `openRulesetIfPinned`, refusing when the campaign has no ruleset. */
 export async function openRuleset(tx: Tx, ctx: Ctx): Promise<RulesetContext> {
-  return (await openRulesetIfPinned(tx, ctx)) ?? fail(NO_RULESET);
+  return (await openRulesetIfPinned(tx, ctx)) ?? fail("noRuleset");
 }

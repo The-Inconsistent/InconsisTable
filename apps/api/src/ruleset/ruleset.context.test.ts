@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { Ruleset, type TurnState } from "@inconsistable/rules-engine";
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import type { BuiltActor } from "../actor/actor.values.ts";
-import { decideRun, PAUSED } from "./ruleset.context.ts";
+import { decideRun } from "./ruleset.context.ts";
 
 const ruleset = Ruleset.parse(SAMPLE_D20);
 const res = { value: 9, min: 0, max: 14 };
@@ -14,12 +14,12 @@ const turn: TurnState = { round: 1, currentId: "a1", order: ["a1", "a2"] };
 const expire = { ruleset, built, primitive: "conditions.expire", op: "encounterEnd", input: {} };
 
 test("conditions.expire with a turn and no session is paused", () => {
-  assert.throws(() => decideRun({ ...expire, turn, sessionRunning: false }), new RegExp(PAUSED));
+  assert.throws(() => decideRun({ ...expire, turn, sessionRunning: false }), /Start a session/);
 });
 
 test("initiative.ranked with a turn and no session is paused", () => {
   const next = { ...expire, primitive: "initiative.ranked", op: "next" };
-  assert.throws(() => decideRun({ ...next, turn, sessionRunning: false }), new RegExp(PAUSED));
+  assert.throws(() => decideRun({ ...next, turn, sessionRunning: false }), /Start a session/);
 });
 
 test("with a session running the op runs", () => {

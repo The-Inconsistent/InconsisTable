@@ -125,7 +125,7 @@ export async function applyAccessAction(
     }
 
     case "member.seat": {
-      // Admin only. Only a user the app has seen: the id is a Clerk user id, and a typo mustn't seat nobody.
+      // Admin only. Only a user the app has seen: the id is a user id, and a typo mustn't seat nobody.
       const [u] = await tx.select({ id: appUser.id }).from(appUser).where(eq(appUser.id, a.userId));
       if (!u) fail("userNotFound");
       await tx

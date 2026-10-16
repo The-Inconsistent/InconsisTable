@@ -4,6 +4,7 @@ import { Me } from "@inconsistable/core-schema";
 import { Ruleset } from "@inconsistable/rules-engine";
 
 import { apiGet } from "@/app/server-api";
+import { ADMIN_PARAM } from "@/lib/admin/admin";
 import { asGmTab, TAB_PARAM } from "@/components/gm/gm-app/constants";
 import { GmApp } from "@/components/gm/gm-app/gm-app";
 import { PlayerApp } from "@/components/player/player-app/player-app";
@@ -64,6 +65,13 @@ export default async function Table({ params, searchParams }: TableProps) {
   const [p, query, t] = await Promise.all([params, searchParams, getTranslations("status")]);
   const campaignId = encodeURIComponent(p.campaignId);
   let me: Me;
+  if (query[ADMIN_PARAM] !== undefined) {
+    // OPEN AS ADMIN: the key never reaches this server (it lives in the admin's tab), so the page only draws the GM shell.
+    // The socket proves the key; without it nothing loads. The rules tabs need a seat's cookie, so they stay empty.
+    // ponytail: no rules tabs as admin, pass the key through a server-readable cookie if admins need them
+    me = { campaignId: p.campaignId, userId: null, campaignOwnerId: null, seat: { kind: "admin" } };
+    return <GmApp me={me} initialTab={asGmTab(query[TAB_PARAM])} rules={null} view={null} />;
+  }
   try {
     const res = await apiGet(`/api/campaigns/${campaignId}/me`);
     if (res.status === 400 || res.status === 401) return <StatusScreen text={t("noAccess")} />;

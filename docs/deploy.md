@@ -1,21 +1,25 @@
 # Deploying InconsisTable
 
-This guide is for whoever hosts a private InconsisTable. The repo gives you two container images, a compose file with
-Postgres 18, and a health check. It does not choose a host: TLS, DNS, the domain and any CI/CD are yours.
+This guide is for whoever hosts a private InconsisTable on a machine at the table or on a home network. The repo gives
+you two container images, a compose file with Postgres 18, and a health check. It does not choose a host.
 
-> **Do not expose this deployment publicly until issues #15 to #19 (the security fixes) are merged.** Until then, run
-> it only on a private network.
+> **There are no accounts, so there is no public deployment.** Every browser is an anonymous user named by a cookie
+> (`it_device`), and anyone who can reach the web can make rooms and import rulesets into their own anonymous user. Run
+> it only on this machine or on a LAN you trust, never behind a public address, a tunnel or a port forward. Public
+> hosting waits for an auth provider (`docs/house-decisions.md`, "No accounts until a provider is chosen"), and for
+> issues #15 to #19 (the security fixes).
 
 ## What runs
 
-| Service    | Image                       | Public?                              |
-| ---------- | --------------------------- | ------------------------------------ |
-| `web`      | `deploy/web.Containerfile`  | Yes: the only service to publish     |
+| Service    | Image                       | Reachable from                          |
+| ---------- | --------------------------- | --------------------------------------- |
+| `web`      | `deploy/web.Containerfile`  | This machine, or the LAN interface only |
 | `api`      | `deploy/api.Containerfile`  | No: reached by the web over the network |
-| `postgres` | `postgres:18`               | No                                   |
+| `postgres` | `postgres:18`               | No                                      |
 
-The web proxies `/api` and `/socket.io` to the api, so the browser sees one origin and **only the web needs to be
-reachable from outside**. Put your TLS terminator or reverse proxy in front of the web (port 3000 in the container).
+The web proxies `/api` and `/socket.io` to the api, so the browser sees one origin and **only the web publishes a
+port**. The compose file binds it to `127.0.0.1` by default. To let phones and a TV at the table reach it, set
+`BIND_ADDR` to this machine's LAN address (for example `192.168.1.10`). Never `0.0.0.0`, never a public interface.
 
 ## Quick start (compose)
 
@@ -24,19 +28,23 @@ From the repo root:
 ```bash
 cp deploy/postgres.env.example deploy/postgres.env
 cp deploy/api.env.example deploy/api.env
-cp deploy/web.env.example deploy/web.env      # edit all three; none of them is committed
-export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_...   # build arg, see below
+cp deploy/web.env.example deploy/web.env      # edit them; none of them is committed
+export BIND_ADDR=192.168.1.10                  # optional: the LAN address phones use (default 127.0.0.1)
 docker compose -f deploy/compose.yaml up -d --build    # podman compose works too
 ```
 
 `WEB_PORT` (default 3000) sets the host port of the web. The api waits for Postgres to be healthy, and the web waits for
 the api's health check. Secrets come only from the `*.env` files; no image contains one.
 
+The guest QR cookie (`it_token`) is set by the api with `Secure` when it runs with `NODE_ENV=production`, which a
+browser drops on plain http. On a LAN without TLS, guest QR joins therefore need a TLS terminator in front of the web,
+or an api started with `NODE_ENV=development`. The device cookie is not affected: the web sets `Secure` only when the
+request is https.
+
 ## Build arguments (web image)
 
 Next.js fixes these at build time, so changing them means rebuilding the web image:
 
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: the Clerk **production** publishable key (`pk_live_...`). Required.
 - `API_ORIGIN`: where the web proxies `/api` and `/socket.io`. Defaults to `http://api:4000` (the compose service). Change
   it only if the api lives elsewhere.
 - `NEXT_PUBLIC_DEV_HOST` must stay unset (see below).
@@ -45,45 +53,32 @@ Next.js fixes these at build time, so changing them means rebuilding the web ima
 
 ### Api (`deploy/api.env`)
 
-| Variable           | Production rule                                                                                                      |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`     | `postgres://<user>:<password>@postgres:5432/<db>`; must match `postgres.env`. Postgres 18 is required.              |
-| `ADMIN_KEY`        | Optional. Leave unset unless admin scripts need it: unset turns the admin-key path off, and admins work through their platform role. If set, a long random secret (32+ characters, e.g. `openssl rand -hex 32`); the api refuses to boot with a shorter one or `change-me`. Its actions are logged as actor `admin-key`. |
-| `PLATFORM_ADMINS`  | Optional. User ids (comma separated) that are platform admins whatever their Clerk role is: they see the admin page and can open any campaign as admin. Keep it to the operators. |
-| `WEB_ORIGIN`       | The real public origin of the web, with scheme and no trailing slash (`https://table.example.com`). Comma separated for several. Sets CORS and the Clerk token's allowed origin, so a wrong value signs everyone out. |
-| `PORT`             | `4000`. Keep it; the web image and the health check assume it.                                                       |
-| `CLERK_SECRET_KEY` | The production secret key (`sk_live_...`).                                                                           |
-| `CLERK_JWT_KEY`    | The instance's JWT public key (Clerk Dashboard, API keys). Lets the api verify sessions without a network call.     |
-| `CLERK_WEBHOOK_SECRET` | The signing secret (`whsec_...`) of the Clerk webhook endpoint `/api/webhooks/clerk` (see "Clerk production"). Requests without a valid Svix signature are refused. |
-| `TRUST_CF`         | `1` **only** if the web sits behind Cloudflare, so rate limits see the real client IP from `CF-Connecting-IP`. Leave empty otherwise: any client can forge that header when no Cloudflare is in front. |
-| `CLERK_TEST_SECRET`| **Never set in production.** The api refuses to start if it is set (the image runs with `NODE_ENV=production`).     |
+| Variable       | Rule                                                                                                                                                                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL` | `postgres://<user>:<password>@postgres:5432/<db>`; must match `postgres.env`. Postgres 18 is required.                                                                                                                                                                              |
+| `ADMIN_KEY`    | Optional. The only admin there is: the `/admin` page asks for it, scripts send it as `x-admin-key`, and the socket takes it as `adminKey`. Unset turns the admin page off. If set, a long random secret (32+ characters, e.g. `openssl rand -hex 32`); the api refuses to boot with a shorter one or `change-me`. Its actions are logged as actor `admin-key`. |
+| `WEB_ORIGIN`   | The address the web is opened at, with scheme and no trailing slash (`http://192.168.1.10:3000`). Comma separated for several. Sets the socket's CORS.                                                                                                                              |
+| `PORT`         | `4000`. Keep it; the web image and the health check assume it.                                                                                                                                                                                                                       |
+| `TRUST_CF`     | `1` **only** if the web sits behind Cloudflare, so rate limits see the real client IP from `CF-Connecting-IP`. Leave empty otherwise: any client can forge that header when no Cloudflare is in front.                                                                              |
 
 ### Web (`deploy/web.env`)
 
-| Variable                | Production rule                                                  |
-| ----------------------- | ---------------------------------------------------------------- |
-| `CLERK_SECRET_KEY`      | The same production secret key (`sk_live_...`).                  |
-| `DEV_ORIGINS`           | **Never set in production.** Dev server only.                    |
-| `NEXT_PUBLIC_DEV_HOST`  | **Never set in production** (and never pass it as a build arg). It rewrites QR codes and invite links to a LAN address; in production they must carry the real hostname, which they do when it is unset. |
+The web needs no secret yet.
+
+| Variable               | Rule                                                                                                                                                                                                  |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEV_ORIGINS`          | **Never set** in a deployment. Dev server only.                                                                                                                                                       |
+| `NEXT_PUBLIC_DEV_HOST` | **Never set** in a deployment (and never pass it as a build arg). It rewrites QR codes and invite links to a LAN address; in a deployment they must carry the real hostname, which they do when it is unset. |
 
 ### Postgres (`deploy/postgres.env`)
 
 `POSTGRES_USER`, `POSTGRES_PASSWORD` (long and random), `POSTGRES_DB`.
 
-## Clerk production
+## Identity
 
-1. In the Clerk Dashboard, create a **production** instance (a development instance is not for real players).
-2. Set the instance's domain to your real domain and add the DNS records Clerk lists.
-3. Copy the keys: the publishable key goes into the web build arg, the secret key into `api.env` and `web.env`, and the
-   JWT public key into `CLERK_JWT_KEY`.
-4. Keep sign-up **restricted** (Dashboard, User & authentication, Restrictions: sign-up mode "Restricted"). This keeps the
-   deployment invite-only: only people you invite from the Dashboard can sign in.
-5. Make yourself admin: on your user in the Dashboard, set **public metadata** to `{ "role": "admin" }`. To let someone
-   open rooms, give them `{ "role": "creator" }`. Roles change only in the Dashboard; the app never edits them.
-6. Add a webhook endpoint (Dashboard, Webhooks): URL `https://<your host>/api/webhooks/clerk`, events `user.updated` and
-   `user.deleted`. Copy its signing secret (`whsec_...`) into `CLERK_WEBHOOK_SECRET`. A user whose role or lock changes,
-   or who is deleted, then loses their open table connections at once instead of at their next reconnect. Without the
-   secret the endpoint answers 503 and changes wait for the reconnect.
+Each browser gets an `it_device` cookie from the web (httpOnly, one year). Clearing it, or opening the app in another
+browser, makes a new anonymous user with no rooms. A GM who loses the cookie loses the rooms they own; keep the
+database backed up and, until a provider exists, treat a GM's device as their account.
 
 ## Health check
 

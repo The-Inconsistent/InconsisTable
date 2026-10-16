@@ -1,8 +1,10 @@
 # Run from the repo root:
 #   cp deploy/api.env.example deploy/api.env; cp deploy/web.env.example deploy/web.env   (then fill them in)
-#   export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_...
 #   docker compose -f deploy/compose.yaml up -d --build        (or: podman compose ...)
 # Only the web publishes a port. The api and Postgres stay on the compose network.
+# There are no accounts yet: whoever reaches the port can make rooms and import into their own device user. So the port
+# binds to this machine only; set BIND_ADDR to the LAN interface address (never 0.0.0.0, never a public one) to let
+# phones at the table reach it. See docs/deploy.md.
 services:
   postgres:
     image: postgres:18
@@ -31,11 +33,9 @@ services:
     build:
       context: ..
       dockerfile: deploy/web.Containerfile
-      args:
-        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:?set the Clerk publishable key}
     restart: unless-stopped
     env_file: web.env
-    ports: ["${WEB_PORT:-3000}:3000"]
+    ports: ["${BIND_ADDR:-127.0.0.1}:${WEB_PORT:-3000}:3000"]
     depends_on:
       api: { condition: service_healthy }
 

@@ -24,7 +24,6 @@ export function InviteAccept({ code, preview: p }: InviteAcceptProps) {
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const here = `/invite/${encodeURIComponent(code)}`;
   const canClaim = p.signedIn || p.allowGuests;
 
   // Any claim button: POSTs the choice, then opens the table.
@@ -64,14 +63,7 @@ export function InviteAccept({ code, preview: p }: InviteAcceptProps) {
           </a>
         )}
 
-        {!p.member && !p.signedIn && (
-          <div className="stack">
-            <a className="btn primary" href={`/sign-in?redirect_url=${encodeURIComponent(here)}`}>
-              {t("signInToJoin")}
-            </a>
-            <p className="dim small">{p.allowGuests ? t("guestOrSignIn") : t("needsAccount")}</p>
-          </div>
-        )}
+        {!p.member && !p.signedIn && !p.allowGuests && <p className="dim small">{t("reloadToJoin")}</p>}
 
         {!p.member && p.signedIn && p.role !== "player" && (
           <button className="btn primary" disabled={busy} onClick={() => accept({})}>

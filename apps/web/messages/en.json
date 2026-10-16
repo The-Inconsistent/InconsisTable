@@ -33,13 +33,13 @@
     "cogm": "Co-GM",
     "player": "Player"
   },
-  "home": {
-    "tagline": "A table companion for in-person tabletop RPGs.",
-    "signIn": "Sign in",
-    "guestHint": "Joining as a guest? Scan the QR code on the GM's tablet."
-  },
   "admin": {
     "title": "Admin",
+    "keyLabel": "Admin key",
+    "keyHint": "The key the server was started with. This tab keeps it until you close the tab.",
+    "unlock": "Unlock",
+    "wrongKey": "That key is wrong.",
+    "forgetKey": "Forget key",
     "back": "Campaigns",
     "filter": "Filter by name or owner",
     "name": "Name",
@@ -54,12 +54,17 @@
     "never": "Never",
     "empty": "No campaign matches.",
     "confirmTitle": "Open {name} as admin?",
-    "confirmLogged": "This opening is logged with your name and the time. You will see the table the way its GM does.",
+    "confirmLogged": "This opening is logged with the time. You will see the table the way its GM does.",
     "confirmOpen": "Open as admin",
     "cancel": "Cancel"
   },
   "lobby": {
     "yourCampaign": "Your campaign",
+    "yourName": "Your name",
+    "nameHint": "Other players see this at the table.",
+    "nameSaved": "Name saved.",
+    "nameEmpty": "Give yourself a name.",
+    "nameFailed": "Couldn't save the name.",
     "owner": "Owner: {name}",
     "characters": "{count, plural, one {# character} other {# characters}}",
     "sessionRunning": "Session {number} running",
@@ -91,7 +96,7 @@
     "tooBig": "That file is over 5 MB. Split the pack into two.",
     "notJson": "That isn't a JSON document.",
     "unknownShape": "Not a ruleset (it needs entities) or a pack (it needs entries).",
-    "signedOut": "You're signed out. Sign in again and retry.",
+    "signedOut": "This device lost its identity. Reload the page and retry.",
     "failed": "Couldn't import. Check the connection and retry.",
     "readFailed": "Couldn't read that file.",
     "added": "{count} added",
@@ -134,9 +139,7 @@
     "title": "Join {name}",
     "invited": "You're invited to a {role} seat.",
     "seatedOpen": "You're seated · open the table",
-    "signInToJoin": "Sign in to join",
-    "guestOrSignIn": "Or join as a guest below: no account, this device only.",
-    "needsAccount": "This table needs an account.",
+    "reloadToJoin": "Reload the page to join this table.",
     "takeSeat": "Take the seat",
     "playAs": "Play {name}",
     "playAsGuest": "Play {name} as a guest",
@@ -168,7 +171,7 @@
     "buildButton": "Build character",
     "startOver": "Start over",
     "draftSaved": "Draft saved",
-    "draftOff": "Draft not kept: sign in to keep one"
+    "draftOff": "Draft not kept"
   },
   "assignStep": {
     "leftToHandOut": "Left to hand out: {list}",
@@ -624,7 +627,7 @@
     "tooManyActions": "Too many actions. Slow down.",
     "tooManyPages": "Too many pages. Slow down.",
     "importRefused": "Import refused",
-    "webhookInvalid": "Invalid webhook",
+    "adminKeyWrong": "Wrong admin key",
     "screenReadOnly": "The table screen is read-only",
     "notYourCharacter": "Not your character",
     "noPermission": "You don't have permission to do that",

@@ -35,7 +35,7 @@ stat blocks, art or PDFs to this repo.
 
 Bun (package manager, runtime, test runner; never npm or pnpm), Turborepo, TypeScript 5.9 (do not upgrade: TS 7 breaks
 the Next and Nest toolchains), Next.js 16 + React 19, NestJS on Bun, Socket.IO, Drizzle ORM, **Postgres 18**, zod 4,
-Clerk (only through `@inconsistable/auth`).
+Auth: device identity (an `it_device` cookie per browser) through `@inconsistable/auth`, until a provider is chosen.
 
 ## Layout
 
@@ -49,14 +49,14 @@ apps/api/src/        NestJS on Bun, run from source. One folder per feature, eac
   codex/             codex entries and their listed readers
   ruleset/           imported rulesets (owner-scoped REST import), versions, pools
   pack/              imported content packs: immutable versions, one row per entry, quota, export, takedown
-  admin/             OPEN AS ADMIN housekeeping, moderator lock, the admin event log
+  admin/             OPEN AS ADMIN housekeeping (admin key), the admin event log
   table/             the socket: gateway (queue, per-seat views, book relay, kicks), dispatch (authorize), loaders
   test-call/         Tests the GM calls: calls, called characters, reported rolls (physical dice, the server resolves)
 apps/api/test/       smoke.test.ts: end-to-end against a running api and Postgres 18
 apps/web/            Next.js 16: lobby, invite, join, the table page (GM app, player app, table screen)
 packages/core-schema seats, permissions (canInCampaign), the core Action union, snapshots, per-seat views, book relay
 packages/rules-engine manifests, expressions, dice, primitives, viewer views (no game content)
-packages/auth        the only Clerk dependency
+packages/auth        device identity (cookie name, secret, AuthUser); the seam for a future provider
 ```
 
 ## Commands
@@ -69,7 +69,7 @@ bun run dev:db              # Postgres 18 in Docker on localhost:5435
                             #   -p 127.0.0.1:5435:5432 -v inconsistable_pgdata:/var/lib/postgresql
                             #   docker.io/library/postgres:18
 bun run dev:api             # api on :4000 (apps/api/.env, see .env.example)
-bun run dev:web             # web on :3000 (apps/web/.env.local needs the Clerk keys)
+bun run dev:web             # web on :3000 (apps/web/.env.local is optional)
 aspire run                  # optional: Postgres 18 → api → web with a dashboard; TypeScript AppHost
                             # (aspire-apphost/apphost.mts), no .NET SDK. Stop the compose Postgres first: same port
                             # With Podman: ASPIRE_CONTAINER_RUNTIME=podman aspire run
@@ -77,7 +77,7 @@ bun run typecheck           # packages + api + web (with test, the Husky pre-com
 bun run lint
 bun run format              # Prettier, width 120; skips *.md
 bun run test                # unit tests
-bun run test:smoke          # end-to-end; needs dev:db and dev:api with CLERK_TEST_SECRET
+bun run test:smoke          # end-to-end; needs dev:db and dev:api with ADMIN_KEY set (the suite gets the same value)
 cd apps/api && bun run db:generate   # after editing any src/**/*.schema.ts
 ```
 
@@ -91,9 +91,10 @@ Pre-release: the migration may be regenerated from scratch (delete `apps/api/dri
   joined, counted by delta, or referenced by a foreign key is a column or a table.
 - Values of ruleset-declared fields, resources and conditions are typed rows keyed by `actor_id` (`docs/design.md` §5.4).
 - Every query is scoped to `ctx.campaignId`. Never trust ids from the client.
-- Platform roles live in Clerk and are changed only in the Clerk Dashboard, except the operator accounts listed in
-  `PLATFORM_ADMINS` (api env, user ids), which are admins whatever Clerk says. The room owner is
-  `campaign.owner_user_id`, not a role.
+- There are no accounts yet: every device is an anonymous user (`it_device` cookie, table `device`), and `app_user.role`
+  is `creator` by default. Admin is the shared `ADMIN_KEY` (header `x-admin-key`, or the socket `adminKey`), never a
+  user. The room owner is `campaign.owner_user_id`, not a role. Deploy is local/LAN only until a provider exists
+  (`docs/house-decisions.md`).
 
 ## Standards
 

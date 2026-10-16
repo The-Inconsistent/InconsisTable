@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
-import { json, text, type NextFunction, type Request, type Response } from "express";
+import { json, type NextFunction, type Request, type Response } from "express";
 import { MAX_PACK_BYTES } from "@inconsistable/rules-engine";
 import { AppModule } from "./app.module.ts";
 import { runMigrations } from "./core/db.ts";
@@ -22,11 +22,11 @@ app.use(["/api/join", "/api/guest", "/api/invites"], (req: Request, res: Respons
   res.status(429).json({ message: "Too many requests. Wait a minute." });
 });
 
-// Signed-in routes outside a table, per IP for now.
-// ponytail: per-IP window; key it by the Clerk user id (as Auspex's library does) once imports and the library land
+// Routes outside a table, per IP for now.
+// ponytail: per-IP window; key it by the device user (as Auspex's library does) once imports and the library land
 const allowSignedIn = limiter({ max: 120, windowMs: 60_000 });
 app.use(
-  ["/api/lobby", "/api/admin", "/api/rulesets", "/api/packs", /^\/api\/campaigns\/[^/]+\/rules/],
+  ["/api/lobby", "/api/me", "/api/admin", "/api/rulesets", "/api/packs", /^\/api\/campaigns\/[^/]+\/rules/],
   (req: Request, res: Response, next: NextFunction) => {
     if (allowSignedIn(clientIp(req.headers, req.socket.remoteAddress))) return next();
     res.status(429).json({ message: "Too many requests. Wait a minute." });
@@ -41,7 +41,7 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
 });
 
 // The importer: a 5 MB file is parsed, validated and written row by row, so a POST gets a tighter window than a read.
-// ponytail: per-IP like the rest; per user once the limiter is keyed by Clerk id
+// ponytail: per-IP like the rest; per user once the limiter is keyed by device user
 const allowImport = limiter({ max: 20, windowMs: 60_000 });
 const IMPORT_ROUTES = ["/api/rulesets", "/api/packs"];
 app.use(IMPORT_ROUTES, (req: Request, res: Response, next: NextFunction) => {
@@ -49,17 +49,8 @@ app.use(IMPORT_ROUTES, (req: Request, res: Response, next: NextFunction) => {
   res.status(429).json({ message: "Too many imports. Wait a minute." });
 });
 
-// Clerk's webhooks: refused unsigned in the controller, limited here per address (Svix retries are few), and read as the
-// raw text the signature covers.
-const allowWebhook = limiter({ max: 60, windowMs: 60_000 });
-app.use("/api/webhooks", (req: Request, res: Response, next: NextFunction) => {
-  if (allowWebhook(clientIp(req.headers, req.socket.remoteAddress))) return next();
-  res.status(429).json({ message: "Too many requests. Wait a minute." });
-});
-
 // The body parsers, after the limiters so a flood is refused before its body is read. Only the importer takes a big
 // body (MAX_PACK_BYTES); everything else keeps express' 100 KB.
-app.use("/api/webhooks", text({ type: "*/*" }));
 app.use(IMPORT_ROUTES, json({ limit: MAX_PACK_BYTES }));
 app.use(json());
 

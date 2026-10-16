@@ -4,8 +4,6 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 
-import { AuthProvider } from "@inconsistable/auth/react";
-
 import { THEME_COOKIE, resolveTheme, themeClass } from "@/lib/theme/theme";
 import { TOKENS } from "@/lib/tokens/tokens";
 
@@ -56,9 +54,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang={locale} className={`${text.variable} ${display.variable} ${feltDisplay.variable} ${theme}`.trim()}>
       <body className="surface-app">
-        <NextIntlClientProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </NextIntlClientProvider>
+        <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>
     </html>
   );

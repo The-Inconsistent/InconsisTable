@@ -19,13 +19,13 @@ export type SeatRole = z.infer<typeof SeatRole>;
 export const CogmScope = z.enum(["combat", "codex", "codex.secrets", "party", "session"]);
 export type CogmScope = z.infer<typeof CogmScope>;
 
-// Platform roles (decided 2026-10-11, keeps #178 of Auspex) are defined once, next to Clerk: `PlatformRole` in
-// @inconsistable/auth.
+// Platform roles (decided 2026-10-11, keeps #178 of Auspex) are defined once: `PlatformRole` in
+// @inconsistable/auth. OPEN AS ADMIN is the socket's admin-key handshake.
 
 export type Seat =
   | { kind: "member"; role: MemberRole; scopes: CogmScope[]; characterIds: string[] }
   | { kind: "token"; role: TokenRole; characterIds: string[] }
-  // OPEN AS ADMIN: an admin at a table where they hold no seat. A seated admin gets their seat instead.
+  // OPEN AS ADMIN: the admin key at a table, with no user and no seat.
   | { kind: "admin" };
 
 export type Ctx = {

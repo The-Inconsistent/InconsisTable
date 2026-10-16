@@ -15,7 +15,7 @@ import {
 import type { Request } from "express";
 import { refusalBody } from "@inconsistable/core-schema";
 import { z } from "zod";
-import { signedInUser } from "../auth/auth.service.ts";
+import { deviceUser } from "../auth/auth.service.ts";
 import { ImportRefused } from "../core/errors.ts";
 import { importRuleset, listRulesets } from "../ruleset/ruleset.import.ts";
 import { exportPack, hidePack, importPack, listMyPacks } from "./pack.import.ts";
@@ -23,11 +23,11 @@ import { exportPack, hidePack, importPack, listMyPacks } from "./pack.import.ts"
 const PackId = z.uuid();
 
 // The owner's library, outside any table (docs/design.md §5.3): what they import is theirs alone until sharing exists.
-// Every route is for a signed-in user and touches only that user's rows. The body limit (5 MB) is set in main.ts.
+// Every route is for a device user and touches only that user's rows. The body limit (5 MB) is set in main.ts.
 @Controller()
 export class PackController {
   private async caller(req: Request) {
-    const user = await signedInUser({ authorization: req.headers.authorization, cookie: req.headers.cookie });
+    const user = await deviceUser({ cookie: req.headers.cookie });
     if (!user) throw new UnauthorizedException(refusalBody("unauthorized"));
     return user;
   }

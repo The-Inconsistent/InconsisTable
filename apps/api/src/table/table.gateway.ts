@@ -24,7 +24,7 @@ import {
   type BookSource,
   type Ctx,
 } from "@inconsistable/core-schema";
-import { logAdminKey, logRoomOpen } from "../admin/admin.service.ts";
+import { logAdminKey } from "../admin/admin.service.ts";
 import { resolveSocketCtx } from "../auth/auth.service.ts";
 import { db } from "../core/db.ts";
 import { ActionError } from "../core/errors.ts";
@@ -34,7 +34,6 @@ import { seatView } from "../view/view.ts";
 import { loadSnapshot } from "./table.state.ts";
 
 const room = (campaignId: string) => `c:${campaignId}`;
-export const userRoom = (userId: string) => `u:${userId}`;
 
 // Per IP for connects (a whole table shares one NAT, and all of it reconnects after an api restart), per seat for
 // actions (reconnecting or opening more sockets doesn't reset it): a GM tapping fast stays far below 2/s over a minute.
@@ -81,7 +80,6 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         const r = await resolveSocketCtx({ auth: socket.handshake.auth, headers: socket.handshake.headers });
         if (!r) return next(new Error("unauthorized"));
         socket.data = { ctx: r.ctx, seatKey: r.seatKey, script: r.script };
-        if (r.openedAsAdmin && r.ctx.userId) await logRoomOpen({ userId: r.ctx.userId, campaignId: r.ctx.campaignId });
         if (r.script) await logAdminKey({ action: "room.open", campaignId: r.ctx.campaignId });
       } catch (e) {
         // DB down: the client retries (use-table), unlike "unauthorized" which it treats as a dead token.
@@ -96,7 +94,6 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     const { ctx } = socket.data;
     try {
       await socket.join(room(ctx.campaignId));
-      if (ctx.userId) await socket.join(userRoom(ctx.userId));
       // In the campaign's queue, so this first snapshot can't land after (and overwrite) a newer broadcast.
       await this.serial(ctx.campaignId, async () => {
         const loaded = await loadSnapshot(ctx.campaignId);
@@ -209,12 +206,6 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
       this.log.error(e);
     }
     return result;
-  }
-
-  // A platform role or lock changed in Clerk (webhook) or by a moderator: every socket of that user reconnects and
-  // resolves its seat again. ponytail: local sockets only; the Redis adapter carries it across nodes (§5.6)
-  async kickUser(userId: string) {
-    this.server.in(userRoom(userId)).disconnectSockets(true);
   }
 
   // Runs fn after every earlier call for the same key has settled; a failure doesn't break the chain.

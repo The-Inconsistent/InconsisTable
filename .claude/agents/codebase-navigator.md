@@ -42,7 +42,7 @@ You are a read-and-explain agent. You investigate; you do not modify. You return
   - `apps/web`: Next.js 16 App Router.
   - `packages/core-schema`: zod schemas, the `Action` union, permissions (`canInCampaign`).
   - `packages/rules-engine`: ruleset manifests, expressions, dice, primitives, viewer views.
-  - `packages/auth`: the only Clerk dependency.
+  - `packages/auth`: device identity (cookie name, secret generator, `AuthUser`); the seam for a future auth provider.
   Start with the root `CLAUDE.md` (its eight principles) and `docs/design.md`.
 - **Mutations:** every game change is a socket `action`, handled as validate → authorize (guard, `canInCampaign`,
   validator) → transaction → rebroadcast. When tracing a mutation, start from the `Action` union in

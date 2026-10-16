@@ -18,7 +18,7 @@ export type LobbyGame = z.infer<typeof LobbyGame>;
 
 export const Lobby = z.object({
   canCreate: z.boolean(),
-  admin: z.boolean(),
+  name: z.string(), // the caller's display name
   mine: z.array(LobbyGame), // rooms the caller owns
   seated: z.array(LobbyGame), // rooms where the caller holds another seat
   archived: z.array(LobbyGame),
@@ -51,3 +51,8 @@ export const AcceptInvite = z.object({
   asGuest: z.boolean().default(false),
 });
 export type AcceptInvite = z.input<typeof AcceptInvite>;
+
+// PATCH /api/me: the name a device's user goes by at every table.
+export const DISPLAY_NAME_MAX = 40;
+export const Rename = z.object({ name: z.string().trim().min(1).max(DISPLAY_NAME_MAX) });
+export type Rename = z.infer<typeof Rename>;

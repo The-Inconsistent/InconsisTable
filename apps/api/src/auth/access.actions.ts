@@ -71,13 +71,13 @@ export async function applyAccessAction(
   const cid = ctx.campaignId;
   switch (a.type) {
     case "invite.create": {
-      if (!canGrantRole({ ctx, role: a.role })) fail("You can only invite players");
+      if (!canGrantRole({ ctx, role: a.role })) fail("onlyInvitePlayers");
       // A character invite is one seat, used once. A room invite is the table QR: anyone with it claims or starts a
       // character until it expires.
       if (a.mode === "character")
-        await ownActor(tx, { campaignId: cid, id: a.actorId ?? fail("Pick a character to invite") });
-      else if (a.actorId) fail("A room invite isn't for one character");
-      if (a.role !== "player" && a.allowGuests) fail("A GM seat needs an account");
+        await ownActor(tx, { campaignId: cid, id: a.actorId ?? fail("pickCharacterToInvite") });
+      else if (a.actorId) fail("roomInviteNoCharacter");
+      if (a.role !== "player" && a.allowGuests) fail("gmSeatNeedsAccount");
       const code = newSecret();
       const [row] = await tx
         .insert(invite)
@@ -101,26 +101,22 @@ export async function applyAccessAction(
         .set({ revokedAt: new Date() })
         .where(and(eq(invite.id, a.id), eq(invite.campaignId, cid), isNull(invite.revokedAt)))
         .returning({ id: invite.id });
-      return r.length ? { ok: true } : fail("Invite not found");
+      return r.length ? { ok: true } : fail("inviteNotFound");
     }
 
     case "member.remove": {
-      if (a.userId === ctx.userId) fail("Leave the room instead of removing yourself");
-      const m = (await memberOf(tx, { campaignId: cid, userId: a.userId })) ?? fail("Member not found");
+      if (a.userId === ctx.userId) fail("leaveInstead");
+      const m = (await memberOf(tx, { campaignId: cid, userId: a.userId })) ?? fail("memberNotFound");
       if (!canActOnMember({ ctx, target: { userId: a.userId, role: m.role } }))
-        fail(
-          a.userId === ctx.campaignOwnerId
-            ? "The owner can't be removed; they can hand the room on"
-            : "Only the owner removes a GM or co-GM",
-        );
+        fail(a.userId === ctx.campaignOwnerId ? "ownerNotRemovable" : "onlyOwnerRemovesGm");
       await unseat(tx, { campaignId: cid, userId: a.userId, id: m.id });
       return { ok: true };
     }
 
     case "member.appoint": {
       // Owner only (OWNER_ONLY): appoint a GM or co-GM, demote one, or set a co-GM's scopes.
-      if (a.userId === ctx.campaignOwnerId) fail("The owner is always a GM");
-      const m = (await memberOf(tx, { campaignId: cid, userId: a.userId })) ?? fail("Member not found");
+      if (a.userId === ctx.campaignOwnerId) fail("ownerIsGm");
+      const m = (await memberOf(tx, { campaignId: cid, userId: a.userId })) ?? fail("memberNotFound");
       await tx
         .update(membership)
         .set({ role: a.role, scopes: a.role === "cogm" ? a.scopes : [] })
@@ -131,7 +127,7 @@ export async function applyAccessAction(
     case "member.seat": {
       // Admin only. Only a user the app has seen: the id is a Clerk user id, and a typo mustn't seat nobody.
       const [u] = await tx.select({ id: appUser.id }).from(appUser).where(eq(appUser.id, a.userId));
-      if (!u) fail("User not found");
+      if (!u) fail("userNotFound");
       await tx
         .insert(membership)
         .values({ campaignId: cid, userId: a.userId, role: "gm" })
@@ -141,8 +137,8 @@ export async function applyAccessAction(
 
     case "seat.leave": {
       // The leaver's sockets are kicked a moment after the ack (kicks), so this phone gets its answer first.
-      if (ctx.seat.kind === "admin") fail("You hold no seat here");
-      if (ctx.userId && ctx.userId === ctx.campaignOwnerId) fail("Hand the room on before you leave it");
+      if (ctx.seat.kind === "admin") fail("noSeatHere");
+      if (ctx.userId && ctx.userId === ctx.campaignOwnerId) fail("handOnFirst");
       if (ctx.seat.kind === "member" && ctx.userId) {
         const m = await memberOf(tx, { campaignId: cid, userId: ctx.userId });
         if (m) await unseat(tx, { campaignId: cid, userId: ctx.userId, id: m.id });
@@ -186,8 +182,8 @@ export async function applyAccessAction(
 
     case "campaign.transfer": {
       // To a signed-in member of this room only: they must already know the table.
-      if (a.toUserId === ctx.campaignOwnerId) fail("They already own this room");
-      if (!(await memberOf(tx, { campaignId: cid, userId: a.toUserId }))) fail("Only a member can take over the room");
+      if (a.toUserId === ctx.campaignOwnerId) fail("alreadyOwner");
+      if (!(await memberOf(tx, { campaignId: cid, userId: a.toUserId }))) fail("onlyMemberTakesOver");
       const expiresAt = new Date(Date.now() + TRANSFER_HOURS * 3600_000);
       await tx
         .insert(ownershipTransfer)
@@ -203,7 +199,7 @@ export async function applyAccessAction(
 
     case "campaign.transferAccept": {
       // No permission gates this (ACTION_PERMS null): the offer itself names who may accept.
-      if (!ctx.userId) fail("Sign in to take over a room");
+      if (!ctx.userId) fail("signInToTakeOver");
       const [offer] = await tx
         .delete(ownershipTransfer)
         .where(
@@ -214,10 +210,9 @@ export async function applyAccessAction(
           ),
         )
         .returning({ toUserId: ownershipTransfer.toUserId });
-      if (!offer) fail("There is no offer for you to accept");
+      if (!offer) fail("noOffer");
       // Only a member takes over (campaign.transfer): one who has left since can't come back through the offer.
-      const m =
-        (await memberOf(tx, { campaignId: cid, userId: ctx.userId })) ?? fail("Only a member can take over the room");
+      const m = (await memberOf(tx, { campaignId: cid, userId: ctx.userId })) ?? fail("onlyMemberTakesOver");
       // The new owner always sits as a GM; the old owner keeps their GM seat until the new owner decides.
       await tx.update(membership).set({ role: "gm", scopes: [] }).where(eq(membership.id, m.id));
       await tx.update(campaign).set({ ownerUserId: ctx.userId }).where(eq(campaign.id, cid));

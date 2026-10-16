@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import type { AcceptInvite, InvitePreview } from "@inconsistable/core-schema";
 
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
+import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, CampaignRef, readJson } from "@/lib/api-reply/api-reply";
 
 type InviteAcceptProps = { code: string; preview: InvitePreview };
@@ -17,6 +18,7 @@ export function InviteAccept({ code, preview: p }: InviteAcceptProps) {
   const t = useTranslations("invite");
   const tRoles = useTranslations("roles");
   const tStatus = useTranslations("status");
+  const tr = useRefusal();
   const router = useRouter();
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +39,7 @@ export function InviteAccept({ code, preview: p }: InviteAcceptProps) {
       const seat = CampaignRef.safeParse(body);
       if (res.ok && seat.success) return router.push(`/c/${seat.data.campaignId}`);
       const refusal = ApiMessage.safeParse(body);
-      setError(refusal.success ? refusal.data.message : t("takeFailed"));
+      setError(refusal.success ? tr(refusal.data) : t("takeFailed"));
     } catch {
       setError(tStatus("nosignal"));
     }

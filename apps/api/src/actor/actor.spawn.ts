@@ -31,14 +31,13 @@ export async function spawnActors(
   { ctx, action: a }: { ctx: Ctx; action: SpawnAction },
 ): Promise<ActionResult> {
   const cid = ctx.campaignId;
-  const compiled = (await loadCompiled(tx, cid)) ?? fail("This game has no ruleset yet");
+  const compiled = (await loadCompiled(tx, cid)) ?? fail("noRuleset");
   const entries = await loadServedEntries(tx, { campaignId: cid, packVersionId: a.packVersionId });
-  const stored = entries.find((e) => e.key === a.key) ?? fail("That entry isn't in a pack attached to this game");
+  const stored = entries.find((e) => e.key === a.key) ?? fail("entryNotInPack");
   const entry =
-    entryLookup({ entries: [stored], gm: true })({ type: stored.type, key: stored.key }) ??
-    fail("That entry can't be read");
+    entryLookup({ entries: [stored], gm: true })({ type: stored.type, key: stored.key }) ?? fail("entryUnreadable");
   const ce = Object.hasOwn(compiled.entities, entry.type) ? compiled.entities[entry.type] : undefined;
-  if (!ce || ce.def.base !== "actor") fail(`${entry.name} isn't something that takes a place at the table`);
+  if (!ce || ce.def.base !== "actor") fail("notPlaceable", { name: entry.name });
 
   const [taken, [room]] = await Promise.all([
     tx

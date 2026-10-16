@@ -6,7 +6,6 @@ import { applyDeltas, fieldDef } from "../actor/actor.pipeline.ts";
 import { type BuiltActor, loadBuilt } from "../actor/actor.values.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
-import { PAUSED } from "../encounter/encounter.actions.ts";
 import { loadTurn } from "../encounter/encounter.turn.ts";
 import { requirePerm } from "../table/table.authorize.ts";
 import { loadCompiled } from "./ruleset.compiled.ts";
@@ -29,14 +28,14 @@ const find = <T>(rec: Readonly<Record<string, T>>, key: string): T | undefined =
   Object.hasOwn(rec, key) ? rec[key] : undefined;
 
 async function load(tx: Tx, campaignId: string) {
-  const compiled = (await loadCompiled(tx, campaignId)) ?? fail("This game has no ruleset yet");
+  const compiled = (await loadCompiled(tx, campaignId)) ?? fail("noRuleset");
   return { compiled, built: await loadBuilt(tx, { campaignId, compiled }), turn: await loadTurn(tx, campaignId) };
 }
 
 /** The actor and its entity, or a refusal: values are only written to an actor the ruleset has a type for. */
 function entityActor({ built, actorId }: { built: Record<string, BuiltActor>; actorId: string }) {
-  const actor = find(built, actorId) ?? fail("Character not found");
-  if (actor.entity === "") fail(`${actor.row.name} isn't built for this ruleset yet`);
+  const actor = find(built, actorId) ?? fail("characterNotFound");
+  if (actor.entity === "") fail("notBuilt", { name: actor.row.name });
   return actor;
 }
 
@@ -70,15 +69,15 @@ export async function applyRuleAction(
   switch (a.type) {
     case "rule.op": {
       // Steps 3-7 of docs/design.md §5.3: the op's own permission, the op, then every delta through the pipeline.
-      const op = primitiveOp(a.primitive, a.op) ?? fail(`No operation "${a.primitive}.${a.op}"`);
+      const op = primitiveOp(a.primitive, a.op) ?? fail("noOperation", { primitive: a.primitive, op: a.op });
       const perm = Permission.safeParse(op.perm);
-      if (!perm.success) fail(`"${a.primitive}.${a.op}" declares no permission`);
+      if (!perm.success) fail("opNoPermission", { primitive: a.primitive, op: a.op });
       const actorId = a.input.actorId;
       requirePerm({ ctx, perm: perm.data, target: typeof actorId === "string" ? { actorId } : undefined });
       const { compiled, built, turn } = await load(tx, ctx.campaignId);
       // Turn-driven ops wait for a session (house decision #28); the same refusal as the tracker's actions.
       if (turn && TURN_PRIMITIVES.has(a.primitive) && (await runningSessionId(tx, ctx.campaignId)) === null)
-        fail(PAUSED);
+        fail("sessionPaused");
       const deltas = runPrimitive({
         ruleset: compiled.ruleset,
         state: ruleState({ built, turn }),
@@ -93,7 +92,7 @@ export async function applyRuleAction(
     case "field.set": {
       const { compiled, built } = await load(tx, ctx.campaignId);
       const actor = entityActor({ built, actorId: a.actorId });
-      if (!fieldDef({ compiled, actor, field: a.field })) fail(`${actor.row.name} has no field "${a.field}"`);
+      if (!fieldDef({ compiled, actor, field: a.field })) fail("noField", { name: actor.row.name, field: a.field });
       const id = await applyDeltas(tx, {
         ctx,
         compiled,
@@ -106,7 +105,7 @@ export async function applyRuleAction(
     case "condition.add": {
       const { compiled, built } = await load(tx, ctx.campaignId);
       const actor = entityActor({ built, actorId: a.actorId });
-      const def = find(compiled.conditions, a.condition) ?? fail(`No condition "${a.condition}" in this ruleset`);
+      const def = find(compiled.conditions, a.condition) ?? fail("noCondition", { condition: a.condition });
       // One row per condition: applying it again stacks or refreshes that row, as the manifest says.
       const had = Object.entries(actor.conditions).find(([, c]) => c.conditionId === a.condition);
       let rowId: string = crypto.randomUUID();
@@ -138,7 +137,7 @@ export async function applyRuleAction(
       const { compiled, built } = await load(tx, ctx.campaignId);
       const actor = entityActor({ built, actorId: a.actorId });
       const rows = Object.entries(actor.conditions).filter(([, c]) => c.conditionId === a.condition);
-      if (rows.length === 0) fail(`${actor.row.name} doesn't have that condition`);
+      if (rows.length === 0) fail("lacksCondition", { name: actor.row.name });
       const id = await applyDeltas(tx, {
         ctx,
         compiled,
@@ -154,9 +153,9 @@ export async function applyRuleAction(
 
     case "actor.rest": {
       const event = ResetEvent.safeParse(a.event);
-      if (!event.success) fail(`No rest called "${a.event}"`);
+      if (!event.success) fail("noRest", { event: a.event });
       const rest = await restActors(tx, { ctx, event: event.data, actorId: a.actorId });
-      if (!rest.pinned) fail("This game has no ruleset yet");
+      if (!rest.pinned) fail("noRuleset");
       return { ok: true, id: rest.actionId ?? undefined };
     }
   }

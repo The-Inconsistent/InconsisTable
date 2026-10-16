@@ -44,11 +44,11 @@ export async function addCombatants(
   const found = await tx.execute<{ id: string; name: string }>(sql`
     SELECT a.id, a.name FROM actor a
     WHERE a.campaign_id = ${campaignId}::uuid AND a.id IN (SELECT jsonb_array_elements_text(${JSON.stringify(wanted)}::jsonb)::uuid)`);
-  if (found.rows.length !== wanted.length) fail("Character not found");
+  if (found.rows.length !== wanted.length) fail("characterNotFound");
   const rows = await orderedCombatants(tx, encounterId);
   const present = new Set(rows.map((c) => c.actorId));
   const dupe = found.rows.find((a) => present.has(a.id));
-  if (dupe) fail(`${dupe.name} is already in the fight`);
+  if (dupe) fail("alreadyInFight", { name: dupe.name });
   const next = rows.reduce((n, c) => Math.max(n, c.ord + 1), 0);
   await tx
     .insert(combatant)
@@ -61,6 +61,6 @@ export async function ownCombatant(tx: Tx, { campaignId, id }: { campaignId: str
   const res = await tx.execute<{ id: string; encounter_id: string }>(sql`
     SELECT c.id, c.encounter_id FROM combatant c JOIN encounter e ON e.id = c.encounter_id
     WHERE c.id = ${id}::uuid AND e.campaign_id = ${campaignId}::uuid AND e.active`);
-  const row = res.rows[0] ?? fail("That isn't in the fight");
+  const row = res.rows[0] ?? fail("notInFight");
   return { id: row.id, encounterId: row.encounter_id };
 }

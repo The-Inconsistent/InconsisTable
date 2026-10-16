@@ -37,7 +37,7 @@ export function createCampaign({
         .from(rulesetVersion)
         .innerJoin(ruleset, eq(ruleset.id, rulesetVersion.rulesetId))
         .where(and(eq(rulesetVersion.id, rulesetVersionId), eq(ruleset.ownerUserId, owner?.userId ?? "")));
-      if (!mine) fail("Ruleset not found");
+      if (!mine) fail("rulesetNotFound");
     }
     const [c] = await tx
       .insert(campaign)

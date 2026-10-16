@@ -1,10 +1,11 @@
+import type { RefusalKey, RefusalParams } from "@inconsistable/core-schema";
 import { sameValue, type DeltaInput, type LogTarget, type LogValue } from "../actor/actor.delta.ts";
 import type { LoggedDelta } from "./event.log.ts";
 
 // Undo of one logged delta (docs/design.md §5.4, docs/p1-plan.md "Quyết định đã chốt" 2-3). Pure, so the rules are unit
 // tested without a database.
 
-export type Inverse = { ok: true; delta: DeltaInput | null } | { ok: false; message: string };
+export type Inverse = { ok: true; delta: DeltaInput | null } | { ok: false; code: RefusalKey; params: RefusalParams };
 
 /** A target in words, for a refusal the GM reads. */
 export function describeTarget(t: LogTarget): string {
@@ -34,13 +35,15 @@ export function invertDelta({ logged, current }: { logged: LoggedDelta; current:
     const left = (v: LogValue) =>
       v !== null && typeof v === "object" && !Array.isArray(v) ? (v.expiresAfter ?? 1) : null;
     const [was, now] = [left(before), left(after)];
-    if (was === null || now === null) return { ok: false, message: `Can't undo: ${describeTarget(target)} is gone.` };
+    if (was === null || now === null)
+      return { ok: false, code: "undoGone", params: { target: describeTarget(target) } };
     return { ok: true, delta: was === now ? null : { target, kind: "add", value: was - now } };
   }
   if (!sameValue({ a: current, b: after })) {
     return {
       ok: false,
-      message: `Can't undo: ${describeTarget(target)} changed after this step (now ${JSON.stringify(current)}, the step left ${JSON.stringify(after)}). Undo the later steps first.`,
+      code: "undoChanged",
+      params: { target: describeTarget(target), now: JSON.stringify(current), left: JSON.stringify(after) },
     };
   }
   return { ok: true, delta: { target, kind: "set", value: before } };

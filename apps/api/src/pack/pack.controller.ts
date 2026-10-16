@@ -13,6 +13,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import type { Request } from "express";
+import { refusalBody } from "@inconsistable/core-schema";
 import { z } from "zod";
 import { signedInUser } from "../auth/auth.service.ts";
 import { ImportRefused } from "../core/errors.ts";
@@ -27,7 +28,7 @@ const PackId = z.uuid();
 export class PackController {
   private async caller(req: Request) {
     const user = await signedInUser({ authorization: req.headers.authorization, cookie: req.headers.cookie });
-    if (!user) throw new UnauthorizedException();
+    if (!user) throw new UnauthorizedException(refusalBody("unauthorized"));
     return user;
   }
 
@@ -38,14 +39,19 @@ export class PackController {
       return result;
     } catch (e) {
       if (e instanceof ImportRefused)
-        throw new UnprocessableEntityException({ ok: false, problems: e.problems, warnings: e.warnings });
+        throw new UnprocessableEntityException({
+          ok: false,
+          ...refusalBody("importRefused"),
+          problems: e.problems,
+          warnings: e.warnings,
+        });
       throw e;
     }
   }
 
   private packId(id: string) {
     const parsed = PackId.safeParse(id);
-    if (!parsed.success) throw new BadRequestException("Not a pack id");
+    if (!parsed.success) throw new BadRequestException(refusalBody("notAPackId"));
     return parsed.data;
   }
 
@@ -78,8 +84,8 @@ export class PackController {
   async export(@Param("id") id: string, @Req() req: Request) {
     const user = await this.caller(req);
     const out = await exportPack({ userId: user.userId, packId: this.packId(id) });
-    if (out === null) throw new NotFoundException("Pack not found");
-    if (out === "disabled") throw new ForbiddenException("This pack was taken down by an admin");
+    if (out === null) throw new NotFoundException(refusalBody("packNotFound"));
+    if (out === "disabled") throw new ForbiddenException(refusalBody("packTakenDown"));
     return out;
   }
 
@@ -88,7 +94,7 @@ export class PackController {
   async hide(@Param("id") id: string, @Req() req: Request) {
     const user = await this.caller(req);
     const out = await hidePack({ userId: user.userId, packId: this.packId(id) });
-    if (!out) throw new NotFoundException("Pack not found");
+    if (!out) throw new NotFoundException(refusalBody("packNotFound"));
     return out;
   }
 }

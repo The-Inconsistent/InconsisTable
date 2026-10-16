@@ -23,7 +23,7 @@ async function liveInvite(conn: Db, code: string) {
         or(isNull(invite.maxUses), sql`${invite.uses} < ${invite.maxUses}`),
       ),
     );
-  return row ?? fail("This invite has expired or was already used. Ask your GM for a new one");
+  return row ?? fail("inviteExpired");
 }
 
 // Characters someone plays: a seat holds them or a live guest token points at them.
@@ -92,7 +92,7 @@ export async function acceptInvite(
   { code, user, body }: { code: string; user: AuthUser | null; body: unknown },
 ): Promise<{ campaignId: string; guestToken?: string }> {
   const parsed = AcceptInvite.safeParse(body);
-  if (!parsed.success) fail("Pick a character, or name a new one");
+  if (!parsed.success) fail("pickOrNameCharacter");
   const b = parsed.data;
   const inv = await liveInvite(tx, code);
   const campaignId = inv.campaignId;
@@ -102,9 +102,9 @@ export async function acceptInvite(
     .set({ stateVersion: sql`${campaign.stateVersion} + 1` })
     .where(eq(campaign.id, campaignId))
     .returning({ archivedAt: campaign.archivedAt });
-  if (c?.archivedAt) fail("This game is archived");
-  if (b.asGuest && !inv.allowGuests) fail("This invite needs an account. Sign in first");
-  if (!b.asGuest && !user) fail("Sign in first, or join as a guest");
+  if (c?.archivedAt) fail("gameArchived");
+  if (b.asGuest && !inv.allowGuests) fail("inviteNeedsAccount");
+  if (!b.asGuest && !user) fail("signInFirstOrGuest");
   if (!b.asGuest && user) {
     const [m] = await tx
       .select({ id: membership.id })
@@ -131,27 +131,27 @@ export async function acceptInvite(
   const open = (await playerCharacters(tx, campaignId)).filter((r) => !claimed.has(r.id));
   let actorId: string;
   if (inv.mode === "character") {
-    actorId = inv.actorId ?? fail("Invite has no character");
-    if (!open.some((r) => r.id === actorId)) fail("That character is already taken");
+    actorId = inv.actorId ?? fail("inviteNoCharacter");
+    if (!open.some((r) => r.id === actorId)) fail("characterTaken");
   } else if (b.actorId) {
-    if (!open.some((r) => r.id === b.actorId)) fail("That character is already taken");
+    if (!open.some((r) => r.id === b.actorId)) fail("characterTaken");
     actorId = b.actorId;
   } else if (b.newCharacterName) {
     if (inv.uses >= MAX_NEW_CHARACTERS_PER_INVITE)
-      fail(`This invite has made ${MAX_NEW_CHARACTERS_PER_INVITE} characters, its limit. Ask your GM for a new one`);
+      fail("inviteCharacterLimit", { limit: MAX_NEW_CHARACTERS_PER_INVITE });
     const [pcs] = await tx
       .select({ n: count() })
       .from(actor)
       .where(and(eq(actor.campaignId, campaignId), eq(actor.kind, "pc")));
     if ((pcs?.n ?? 0) >= MAX_NEW_CHARACTERS_PER_CAMPAIGN)
-      fail(`This game already has ${MAX_NEW_CHARACTERS_PER_CAMPAIGN} characters, its limit. Ask your GM to make room`);
+      fail("gameCharacterLimit", { limit: MAX_NEW_CHARACTERS_PER_CAMPAIGN });
     actorId = await createActor(tx, {
       campaignId,
       kind: "pc",
       name: b.newCharacterName,
       ownerUserId: b.asGuest ? null : user!.userId, // !: checked above
     });
-  } else fail("Pick a character, or name a new one");
+  } else fail("pickOrNameCharacter");
 
   await useUp();
   if (b.asGuest) return { campaignId, guestToken: await issueToken(tx, { campaignId, actorId }) };

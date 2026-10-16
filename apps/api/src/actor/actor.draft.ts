@@ -10,7 +10,7 @@ export type DraftAction = Extract<Action, { type: "draft.save" | "draft.discard"
 
 // A draft belongs to a signed-in member: a guest has no account to keep it under.
 const owner = (ctx: Ctx) =>
-  ctx.userId !== null && ctx.seat.kind === "member" ? ctx.userId : fail("Sign in to keep a draft");
+  ctx.userId !== null && ctx.seat.kind === "member" ? ctx.userId : fail("signInToKeepDraft");
 
 export async function applyDraftAction(
   tx: Tx,
@@ -28,9 +28,9 @@ export async function applyDraftAction(
     .select({ id: actor.id })
     .from(actor)
     .where(and(eq(actor.id, a.body.actorId), eq(actor.campaignId, cid)));
-  if (!found) fail("Character not found");
+  if (!found) fail("characterNotFound");
   const [room] = await tx.select({ version: campaign.rulesetVersionId }).from(campaign).where(eq(campaign.id, cid));
-  if (!room?.version) fail("This game has no ruleset yet");
+  if (!room?.version) fail("noRuleset");
   await tx
     .insert(builderDraft)
     .values({ userId, campaignId: cid, rulesetVersionId: room.version, body: a.body })

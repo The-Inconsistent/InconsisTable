@@ -30,17 +30,14 @@ export type EncounterRunAction = Extract<
   }
 >;
 
-/** Refusal for anything that would move an encounter left open between sessions. */
-export const PAUSED = "Start a session to continue";
-
 const running = async (tx: Tx, campaignId: string) =>
-  (await activeEncounter(tx, campaignId)) ?? fail("No encounter is running");
+  (await activeEncounter(tx, campaignId)) ?? fail("noEncounterRunning");
 
 /** The ruleset, every actor and the turn, for the actions that run the engine. */
 async function loadForTurn(tx: Tx, campaignId: string) {
-  const compiled = (await loadCompiled(tx, campaignId)) ?? fail("This game has no ruleset yet");
+  const compiled = (await loadCompiled(tx, campaignId)) ?? fail("noRuleset");
   const built = await loadBuilt(tx, { campaignId, compiled });
-  const turn = (await loadTurn(tx, campaignId)) ?? fail("No encounter is running");
+  const turn = (await loadTurn(tx, campaignId)) ?? fail("noEncounterRunning");
   return { compiled, built, state: ruleState({ built, turn }), turn };
 }
 
@@ -53,11 +50,11 @@ export async function applyEncounterAction(
   const cid = ctx.campaignId;
   // House decision #28: an encounter may stay open across sessions, but nothing moves until the next one starts.
   if (a.type !== "encounter.start" && (await runningSessionId(tx, cid)) === null && (await activeEncounter(tx, cid)))
-    fail(PAUSED);
+    fail("sessionPaused");
   switch (a.type) {
     case "encounter.start": {
-      const sessionId = (await runningSessionId(tx, cid)) ?? fail("Start a session first");
-      if (await activeEncounter(tx, cid)) fail("An encounter is already running");
+      const sessionId = (await runningSessionId(tx, cid)) ?? fail("startSessionFirst");
+      if (await activeEncounter(tx, cid)) fail("encounterRunning");
       const [row] = await tx.insert(encounter).values({ campaignId: cid, sessionId }).returning({ id: encounter.id });
       return { ok: true, id: row!.id }; // the row was just inserted
     }

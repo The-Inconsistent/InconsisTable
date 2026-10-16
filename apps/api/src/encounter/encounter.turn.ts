@@ -58,20 +58,20 @@ export async function writeTurn(
   tx: Tx,
   { campaignId, key, value }: { campaignId: string; key: "round" | "currentId" | "order"; value: unknown },
 ): Promise<{ before: TurnValue; after: TurnValue }> {
-  const e = (await activeEncounter(tx, campaignId)) ?? fail("No encounter is running");
+  const e = (await activeEncounter(tx, campaignId)) ?? fail("noEncounterRunning");
   if (key === "round") {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) fail("The round is a whole number");
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) fail("roundWholeNumber");
     await tx.update(encounter).set({ round: value }).where(eq(encounter.id, e.id));
     return { before: e.round, after: value };
   }
-  if (key === "order") return fail("The order is set from the initiative scores in the tracker");
+  if (key === "order") return fail("orderFromInitiative");
   const rows = await orderedCombatants(tx, e.id);
   const before = rows.find((c) => c.id === e.currentCombatantId)?.actorId ?? null;
   if (value === null) {
     await tx.update(encounter).set({ currentCombatantId: null }).where(eq(encounter.id, e.id));
     return { before, after: null };
   }
-  const next = rows.find((c) => c.actorId === value) ?? fail("That isn't in the fight");
+  const next = rows.find((c) => c.actorId === value) ?? fail("notInFight");
   await tx.update(encounter).set({ currentCombatantId: next.id }).where(eq(encounter.id, e.id));
   return { before, after: next.actorId };
 }

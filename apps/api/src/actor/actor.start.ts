@@ -85,7 +85,7 @@ export async function writeStart(
   const deltas: DeltaInput[] = [];
   for (const t of targets) {
     const actor = Object.hasOwn(built, t.actorId) ? built[t.actorId] : undefined;
-    if (!actor || actor.entity === "") fail("Character not found");
+    if (!actor || actor.entity === "") fail("characterNotFound");
     for (const [field, value] of Object.entries(t.fields)) {
       if (value !== null && fieldDef({ compiled, actor, field }))
         deltas.push({ target: { actorId: t.actorId, field }, kind: "set", value: value as DeltaInput["value"] });

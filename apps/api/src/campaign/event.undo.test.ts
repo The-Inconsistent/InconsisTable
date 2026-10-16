@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { refusalMessage } from "@inconsistable/core-schema";
 import type { LogValue } from "../actor/actor.delta.ts";
 import { invertDelta } from "./event.undo.ts";
 import type { LoggedDelta } from "./event.log.ts";
@@ -56,8 +57,8 @@ test("a set is undone only while the value is still what the step left", () => {
   const refused = invertDelta({ logged: step, current: "newer" });
   assert.equal(refused.ok, false);
   if (!refused.ok) {
-    assert.match(refused.message, /field "diary" changed after this step/);
-    assert.match(refused.message, /Undo the later steps first/);
+    assert.match(refusalMessage(refused.code, refused.params), /field "diary" changed after this step/);
+    assert.match(refusalMessage(refused.code, refused.params), /Undo the later steps first/);
   }
 });
 

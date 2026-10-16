@@ -21,6 +21,13 @@
       "vi": "Tiếng Việt"
     }
   },
+  "themeSwitch": {
+    "label": "Giao diện",
+    "name": {
+      "lantern": "Đèn lồng",
+      "felt": "Nỉ xanh"
+    }
+  },
   "roles": {
     "gm": "GM",
     "cogm": "Co-GM",

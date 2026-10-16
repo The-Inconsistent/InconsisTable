@@ -463,9 +463,10 @@ fieldset {
 }
 .seg .btn {
   flex: 1;
+  white-space: nowrap; /* the pressed check would push a two-word label onto a second line */
 }
 
-/* Settings in the header band: a single small button that unfolds a card under it (the language today). */
+/* Settings in the header band: a single small button that unfolds a card under it (the language and the Theme). */
 .menu {
   position: relative;
 }

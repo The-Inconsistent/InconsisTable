@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import { UserButton } from "@inconsistable/auth/react";
 
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
+import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { filterCampaigns, sortByLastPlayed, type AdminCampaign } from "@/lib/admin/admin";
 
 type AdminViewProps = { campaigns: AdminCampaign[] };
@@ -34,6 +35,7 @@ export function AdminView({ campaigns }: AdminViewProps) {
         <strong>{t("title")}</strong>
         <span className="row">
           <LocaleSwitch />
+          <ThemeSwitch />
           <UserButton />
         </span>
       </header>

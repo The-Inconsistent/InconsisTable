@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
 
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
+import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 
 // The table's settings, one tap away in the header band and folded away otherwise, so it takes the room of a single
 // button. Today it holds the language of this device; it closes on Escape or a tap anywhere else.
@@ -33,6 +34,7 @@ export function SettingsMenu() {
       <div className="menu-pop card">
         <span className="small dim">{t("language")}</span>
         <LocaleSwitch />
+        <ThemeSwitch />
       </div>
     </details>
   );

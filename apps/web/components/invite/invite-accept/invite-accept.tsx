@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import type { AcceptInvite, InvitePreview } from "@inconsistable/core-schema";
 
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
+import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, CampaignRef, readJson } from "@/lib/api-reply/api-reply";
 
@@ -121,6 +122,7 @@ export function InviteAccept({ code, preview: p }: InviteAcceptProps) {
         )}
 
         <LocaleSwitch />
+        <ThemeSwitch />
         {error && (
           <p className="error" role="alert">
             {error}

@@ -2,9 +2,11 @@ import type { Viewport } from "next";
 import { Be_Vietnam_Pro, Fraunces, Literata } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
+import { cookies } from "next/headers";
 
 import { AuthProvider } from "@inconsistable/auth/react";
 
+import { THEME_COOKIE, resolveTheme, themeClass } from "@/lib/theme/theme";
 import { TOKENS } from "@/lib/tokens/tokens";
 
 import "./theme/lantern.css";
@@ -33,11 +35,6 @@ const feltDisplay = Literata({
   preload: false,
 });
 
-// felt is a second Theme that proves a World can re-map the tokens. It is chosen by the environment in dev and test
-// only, never in production and never from the UI.
-// ponytail: one Theme per deployment, upgrade: the World a room belongs to picks its Theme (P2).
-const theme = process.env.NODE_ENV !== "production" && process.env.INCONSISTABLE_THEME === "felt" ? "theme-felt" : "";
-
 export async function generateMetadata() {
   const t = await getTranslations("meta");
   return { title: t("title"), description: t("description") };
@@ -53,6 +50,9 @@ type RootLayoutProps = { children: React.ReactNode };
 
 export default async function RootLayout({ children }: RootLayoutProps) {
   const locale = await getLocale();
+  // Each device picks its Theme (the switch beside the language one); felt proves a World can re-map the tokens.
+  // ponytail: a device-wide pick, upgrade: the World a room belongs to picks its Theme (P2).
+  const theme = themeClass(resolveTheme((await cookies()).get(THEME_COOKIE)?.value));
   return (
     <html lang={locale} className={`${text.variable} ${display.variable} ${feltDisplay.variable} ${theme}`.trim()}>
       <body className="surface-app">

@@ -1,17 +1,14 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Action, ActionResult, Ctx } from "@inconsistable/core-schema";
-import { applyDeltas } from "../actor/actor.pipeline.ts";
 import { actor } from "../actor/actor.schema.ts";
-import { loadBuilt } from "../actor/actor.values.ts";
 import { runningSessionId } from "../campaign/event.log.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
-import { loadCompiled } from "../ruleset/ruleset.compiled.ts";
-import { runPrimitive, ruleState } from "../ruleset/ruleset.run.ts";
+import { isPaused, openRuleset, openRulesetIfPinned } from "../ruleset/ruleset.context.ts";
 import { addCombatants, ownCombatant, renumber, rerank } from "./encounter.combatants.ts";
 import { movedIds, planNext, planPrev } from "./encounter.plan.ts";
 import { combatant, encounter } from "./encounter.schema.ts";
-import { activeEncounter, loadTurn, orderedCombatants } from "./encounter.turn.ts";
+import { activeEncounter, orderedCombatants } from "./encounter.turn.ts";
 
 export type EncounterRunAction = Extract<
   Action,
@@ -33,14 +30,6 @@ export type EncounterRunAction = Extract<
 const running = async (tx: Tx, campaignId: string) =>
   (await activeEncounter(tx, campaignId)) ?? fail("noEncounterRunning");
 
-/** The ruleset, every actor and the turn, for the actions that run the engine. */
-async function loadForTurn(tx: Tx, campaignId: string) {
-  const compiled = (await loadCompiled(tx, campaignId)) ?? fail("noRuleset");
-  const built = await loadBuilt(tx, { campaignId, compiled });
-  const turn = (await loadTurn(tx, campaignId)) ?? fail("noEncounterRunning");
-  return { compiled, built, state: ruleState({ built, turn }), turn };
-}
-
 // The combat tracker (docs/p1-plan.md, F). Every action here is the combat side's (`encounter:run`). A turn change runs
 // the engine and writes its deltas through the same pipeline as any rule, so the log and Undo cover it.
 export async function applyEncounterAction(
@@ -49,8 +38,7 @@ export async function applyEncounterAction(
 ): Promise<ActionResult> {
   const cid = ctx.campaignId;
   // House decision #28: an encounter may stay open across sessions, but nothing moves until the next one starts.
-  if (a.type !== "encounter.start" && (await runningSessionId(tx, cid)) === null && (await activeEncounter(tx, cid)))
-    fail("sessionPaused");
+  if (a.type !== "encounter.start" && (await isPaused(tx, cid))) fail("sessionPaused");
   switch (a.type) {
     case "encounter.start": {
       const sessionId = (await runningSessionId(tx, cid)) ?? fail("startSessionFirst");
@@ -71,19 +59,15 @@ export async function applyEncounterAction(
       // Expiry, then the rest, as one logged action (house decision #15) for everyone who stays; the creatures about to
       // be deleted have nothing to restore.
       let actionId: string | null = null;
-      const compiled = await loadCompiled(tx, cid);
-      if (compiled) {
-        const built = await loadBuilt(tx, { campaignId: cid, compiled });
-        const staying = Object.fromEntries(Object.entries(built).filter(([id]) => !doomed.has(id)));
-        const state = ruleState({ built: staying, turn: await loadTurn(tx, cid) });
-        const run = (primitive: string, op: string, input: unknown) =>
-          runPrimitive({ ruleset: compiled.ruleset, state, primitive, op, input });
-        actionId = await applyDeltas(tx, {
-          ctx,
-          compiled,
-          built,
-          deltas: [...run("conditions.expire", "encounterEnd", {}), ...run("rest", "apply", { event: "encounterEnd" })],
-        });
+      // The top guard refused a paused tracker, so a session runs here and `conditions.expire` may run.
+      const rc = await openRulesetIfPinned(tx, ctx);
+      if (rc) {
+        const exclude = doomed;
+        const deltas = [
+          ...(await rc.run({ primitive: "conditions.expire", op: "encounterEnd", input: {}, exclude })),
+          ...(await rc.run({ primitive: "rest", op: "apply", input: { event: "encounterEnd" }, exclude })),
+        ];
+        actionId = await rc.apply(deltas);
       }
       await tx.update(encounter).set({ active: false, currentCombatantId: null }).where(eq(encounter.id, e.id));
       // ponytail: these deletes can't be undone (house decision #26); undo skips their steps like any deleted actor
@@ -151,9 +135,11 @@ export async function applyEncounterAction(
 
     case "turn.next":
     case "turn.prev": {
-      const { compiled, built, state } = await loadForTurn(tx, cid);
-      const deltas = a.type === "turn.next" ? planNext({ ruleset: compiled.ruleset, state }) : planPrev({ state });
-      const id = await applyDeltas(tx, { ctx, compiled, built, deltas });
+      const rc = await openRuleset(tx, ctx);
+      const turn = (await rc.turn()) ?? fail("noEncounterRunning");
+      const state = rc.state({ turn });
+      const deltas = a.type === "turn.next" ? planNext({ ruleset: rc.compiled.ruleset, state }) : planPrev({ state });
+      const id = await rc.apply(deltas);
       return { ok: true, id: id ?? undefined };
     }
   }

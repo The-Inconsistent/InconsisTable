@@ -1,6 +1,5 @@
 # Build from the repo root:
-#   podman build -f deploy/web.Containerfile -t inconsistable-web \
-#     --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_... .
+#   podman build -f deploy/web.Containerfile -t inconsistable-web .
 # NEXT_PUBLIC_* values are baked into the client bundle at build time. Never pass NEXT_PUBLIC_DEV_HOST.
 FROM oven/bun:1.3.14-slim AS build
 WORKDIR /app
@@ -9,8 +8,6 @@ RUN bun install --frozen-lockfile
 # Rewrites are fixed at build time, so API_ORIGIN is a build arg too (the compose service name by default).
 ARG API_ORIGIN=http://api:4000
 ENV API_ORIGIN=$API_ORIGIN
-ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN bun --filter @inconsistable/web build
 

@@ -3,9 +3,9 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
-import { UserButton } from "@inconsistable/auth/react";
 import { CreateGame, type Lobby, type LobbyGame } from "@inconsistable/core-schema";
 
+import { NameForm } from "@/components/lobby/name-form/name-form";
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
@@ -94,13 +94,13 @@ export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
         <strong>{tCommon("brand")}</strong>
         <span className="row">
           <a href="/library">{t("libraryLink")}</a>
-          {lobby.admin && <a href="/admin">{t("admin")}</a>}
+          <a href="/admin">{t("admin")}</a>
           <LocaleSwitch />
           <ThemeSwitch />
-          <UserButton />
         </span>
       </header>
       <main className="page">
+        <NameForm initial={lobby.name} />
         {lobby.canCreate && (
           <form className="card" onSubmit={handleCreate}>
             <h2 className="head">{t("newCampaign")}</h2>

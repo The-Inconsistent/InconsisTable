@@ -31,9 +31,7 @@ jobs:
       # End-to-end against the postgres service above. The secrets are made per run, so no repo secret is needed.
       - name: Generate test-only secrets
         run: |
-          echo "CLERK_TEST_SECRET=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
           echo "ADMIN_KEY=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
-          echo "CLERK_WEBHOOK_SECRET=whsec_$(openssl rand -base64 24)" >> "$GITHUB_ENV"
       - name: Start the api
         working-directory: apps/api
         env:

@@ -19,6 +19,7 @@ import {
 } from "@inconsistable/core-schema";
 
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
+import { ADMIN_PARAM, ADMIN_PATH, storedAdminKey } from "@/lib/admin/admin";
 
 // What a refusal adds to `error`: the code and params to translate by (an unknown code is dropped, the text stays).
 const Refusal = {
@@ -50,7 +51,9 @@ export type Send = (a: ActionInput) => Promise<ActionResult>;
 export type RequestPage = (p: BookPage) => Promise<BookReply>;
 export type RenderPage = (p: BookPage) => Promise<BookReply>;
 
-// One socket per tab, for one table. The browser's cookies authenticate it (Clerk's `__session`, or a guest's QR
+const isAdminTab = () => new URLSearchParams(location.search).has(ADMIN_PARAM);
+
+// One socket per tab, for one table. The browser's cookies authenticate it (the `it_device` cookie, or a guest's QR
 // cookie); the server sends a full snapshot on connect and after every change, so reconnecting needs no extra logic.
 export function useTable(campaignId: string) {
   const t = useTranslations("socket");
@@ -68,7 +71,9 @@ export function useTable(campaignId: string) {
 
   // External system: the Socket.IO connection to the api.
   useEffect(() => {
-    const s = io({ withCredentials: true, auth: { campaignId } });
+    // OPEN AS ADMIN (/admin sends `?admin=1`): the admin key, kept in this tab, is the seat. Everyone else: the cookies.
+    const adminKey = isAdminTab() ? storedAdminKey() : null;
+    const s = io({ withCredentials: true, auth: adminKey ? { campaignId, adminKey } : { campaignId } });
     socket.current = s;
     let retry: ReturnType<typeof setTimeout> | undefined;
     s.on("connect", () => {
@@ -80,7 +85,7 @@ export function useTable(campaignId: string) {
       setBooks([]);
       // Our own close (unmount, campaign change): stay closed.
       if (reason === "io client disconnect") return;
-      // A kicked seat (removed, re-appointed, a platform role changed, a held character gone): the page's `me` is
+      // A kicked seat (removed, re-appointed, a held character gone): the page's `me` is
       // stale, so reload it from the server; a dead seat lands on the NO ACCESS screen.
       if (reason === "io server disconnect") return location.reload();
       if (!s.active) retry = setTimeout(() => s.connect(), REFUSED_RETRY_MS);
@@ -89,7 +94,7 @@ export function useTable(campaignId: string) {
     // screen; anything else (DB blip) retries.
     s.on("connect_error", (err) => {
       if (s.active) return; // transport error: socket.io is already reconnecting
-      if (err.message === "unauthorized") location.reload();
+      if (err.message === "unauthorized") return isAdminTab() ? location.assign(ADMIN_PATH) : location.reload();
       else retry = setTimeout(() => s.connect(), REFUSED_RETRY_MS);
     });
     // Two api nodes may deliver broadcasts out of order: never step back to an older snapshot.

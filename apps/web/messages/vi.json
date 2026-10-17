@@ -33,13 +33,13 @@
     "cogm": "Co-GM",
     "player": "Người chơi"
   },
-  "home": {
-    "tagline": "Trợ thủ cho bàn chơi RPG ngoài đời thật.",
-    "signIn": "Đăng nhập",
-    "guestHint": "Vào với tư cách khách? Quét mã QR trên máy tính bảng của GM."
-  },
   "admin": {
     "title": "Admin",
+    "keyLabel": "Khóa quản trị",
+    "keyHint": "Khóa mà máy chủ được khởi động cùng. Thẻ này giữ khóa cho đến khi bạn đóng thẻ.",
+    "unlock": "Mở khóa",
+    "wrongKey": "Khóa không đúng.",
+    "forgetKey": "Quên khóa",
     "back": "Campaign",
     "filter": "Lọc theo tên hoặc chủ phòng",
     "name": "Tên",
@@ -54,12 +54,17 @@
     "never": "Chưa chơi",
     "empty": "Không có campaign nào khớp.",
     "confirmTitle": "Mở {name} với tư cách admin?",
-    "confirmLogged": "Lần mở này được ghi lại cùng tên và thời gian của bạn. Bạn sẽ thấy bàn chơi như GM của nó thấy.",
+    "confirmLogged": "Lần mở này được ghi lại cùng thời gian. Bạn sẽ thấy bàn chơi như GM của nó thấy.",
     "confirmOpen": "Mở với tư cách admin",
     "cancel": "Hủy"
   },
   "lobby": {
     "yourCampaign": "Campaign của bạn",
+    "yourName": "Tên của bạn",
+    "nameHint": "Người chơi khác thấy tên này tại bàn.",
+    "nameSaved": "Đã lưu tên.",
+    "nameEmpty": "Hãy đặt một cái tên.",
+    "nameFailed": "Không lưu được tên.",
     "owner": "Chủ campaign: {name}",
     "characters": "{count, plural, other {# nhân vật}}",
     "sessionRunning": "Buổi {number} đang chạy",
@@ -91,7 +96,7 @@
     "tooBig": "Tệp này lớn hơn 5 MB. Hãy tách pack làm hai.",
     "notJson": "Đây không phải tài liệu JSON.",
     "unknownShape": "Không phải bộ luật (cần entities) cũng không phải pack (cần entries).",
-    "signedOut": "Bạn đã đăng xuất. Hãy đăng nhập lại rồi thử lại.",
+    "signedOut": "Thiết bị này mất danh tính. Hãy tải lại trang rồi thử lại.",
     "failed": "Không nhập được. Kiểm tra kết nối rồi thử lại.",
     "readFailed": "Không đọc được tệp này.",
     "added": "{count} thêm mới",
@@ -134,9 +139,7 @@
     "title": "Vào {name}",
     "invited": "Bạn được mời vào ghế {role}.",
     "seatedOpen": "Bạn đã có ghế · mở bàn",
-    "signInToJoin": "Đăng nhập để vào",
-    "guestOrSignIn": "Hoặc vào với tư cách khách bên dưới: không cần tài khoản, chỉ dùng trên thiết bị này.",
-    "needsAccount": "Bàn này cần có tài khoản.",
+    "reloadToJoin": "Hãy tải lại trang để vào bàn này.",
     "takeSeat": "Nhận ghế",
     "playAs": "Chơi {name}",
     "playAsGuest": "Chơi {name} với tư cách khách",
@@ -168,7 +171,7 @@
     "buildButton": "Tạo nhân vật",
     "startOver": "Làm lại",
     "draftSaved": "Đã lưu nháp",
-    "draftOff": "Chưa giữ nháp: đăng nhập để giữ"
+    "draftOff": "Chưa giữ nháp"
   },
   "assignStep": {
     "leftToHandOut": "Còn lại để chia: {list}",
@@ -624,7 +627,7 @@
     "tooManyActions": "Bạn thao tác quá nhanh. Hãy chậm lại.",
     "tooManyPages": "Bạn xin trang quá nhanh. Hãy chậm lại.",
     "importRefused": "Không nhập được",
-    "webhookInvalid": "Webhook không hợp lệ",
+    "adminKeyWrong": "Sai khóa quản trị",
     "screenReadOnly": "Màn hình bàn chỉ để xem",
     "notYourCharacter": "Đây không phải nhân vật của bạn",
     "noPermission": "Bạn không có quyền làm việc này",

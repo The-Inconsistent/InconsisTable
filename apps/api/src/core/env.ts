@@ -3,7 +3,7 @@ export const MIN_ADMIN_KEY_LENGTH = 32;
 const PLACEHOLDER_ADMIN_KEY = "change-me";
 
 // Refuses to boot on a short or placeholder admin key: it grants full admin over every campaign. Unset is fine: the
-// admin-key path is then off (isAdminKey refuses every key) and admins work through their platform role.
+// admin-key path is then off: isAdminKey refuses every key, so the admin console and scripts are closed.
 export function assertAdminKey(key: string | undefined) {
   if (!key) return;
   if (key.length < MIN_ADMIN_KEY_LENGTH || key === PLACEHOLDER_ADMIN_KEY)

@@ -1,14 +1,14 @@
 import { createHash, randomBytes } from "node:crypto";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
-import { SESSION_COOKIE, bearerOf, verifySession, type AuthUser, type PlatformRole } from "@inconsistable/auth/api";
+import { DEVICE_COOKIE, isDeviceSecret, type AuthUser } from "@inconsistable/auth/api";
 import type { Ctx } from "@inconsistable/core-schema";
 import { campaign } from "../campaign/campaign.schema.ts";
 import { isAdminKey } from "../campaign/campaign.service.ts";
 import { db, type Db, type Tx } from "../core/db.ts";
-import { accessToken, appUser, membership, membershipCharacter } from "./auth.schema.ts";
+import { accessToken, appUser, device, membership, membershipCharacter } from "./auth.schema.ts";
 
-// Guest login cookie (a player QR token). Signed-in users use Clerk's `__session` instead.
+// Guest login cookie (a player QR token). Every device also has `it_device` (deviceUser).
 export const COOKIE = "it_token";
 
 export const hash = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -43,34 +43,43 @@ export function readCookie({ header, name = COOKIE }: { header: string | undefin
   }
 }
 
-const platformRoleOf = (user: AuthUser): PlatformRole =>
-  user.admin ? "admin" : user.moderator ? "moderator" : user.creator ? "creator" : "user";
-
-// The signed-in Clerk user on a request, if any, and not locked by a moderator. Their display name and a display copy
-// of their Clerk role are kept fresh for member lists and the admin page; the app never writes the role to Clerk.
-export async function signedInUser(headers: { authorization?: string; cookie?: string }): Promise<AuthUser | null> {
-  const user = await verifySession(
-    bearerOf(headers.authorization) ?? readCookie({ header: headers.cookie, name: SESSION_COOKIE }),
-  );
-  if (!user) return null;
-  const role = platformRoleOf(user);
-  const [row] = await db
-    .insert(appUser)
-    .values({ id: user.userId, name: user.name, role })
-    // Only when something changed or the last-seen stamp has gone stale: rewriting the same values on every request
-    // would churn a row version per call for nothing.
-    .onConflictDoUpdate({
-      target: appUser.id,
-      set: { name: user.name, role, lastSeenAt: new Date(), updatedAt: new Date() },
-      setWhere: sql`${appUser.name} is distinct from ${user.name} or ${appUser.role} is distinct from ${role} or ${appUser.lastSeenAt} < now() - interval '1 hour'`,
-    })
-    .returning({ lockedAt: appUser.lockedAt });
-  // No row back means nothing changed: read the lock separately.
-  const lockedAt =
-    row?.lockedAt ??
-    (await db.select({ lockedAt: appUser.lockedAt }).from(appUser).where(eq(appUser.id, user.userId)))[0]?.lockedAt;
-  return lockedAt ? null : user;
+// The device's user, made on first sight of a well-formed `it_device` secret. Null for a missing or malformed secret
+// (the web proxy mints a fresh one). Two first requests at once make one user: the loser of the device insert undoes
+// the user it just made and reads the winner's.
+export async function deviceUser(headers: { cookie?: string }): Promise<AuthUser | null> {
+  const secret = readCookie({ header: headers.cookie, name: DEVICE_COOKIE });
+  if (!isDeviceSecret(secret)) return null;
+  const tokenHash = hash(secret);
+  const find = async () => {
+    const [row] = await db
+      .select({ userId: appUser.id, name: appUser.name, role: appUser.role })
+      .from(device)
+      .innerJoin(appUser, eq(appUser.id, device.userId))
+      .where(eq(device.tokenHash, tokenHash));
+    return row && { userId: row.userId, name: row.name, creator: row.role === "creator" };
+  };
+  const known = await find();
+  if (known) return known;
+  await db.transaction(async (tx) => {
+    const [u] = await tx
+      .insert(appUser)
+      .values({ id: sql`uuidv7()::text`, name: DEFAULT_NAME })
+      .returning({ id: appUser.id });
+    const [d] = await tx
+      .insert(device)
+      .values({ tokenHash, userId: u!.id }) // !: the insert returned its row
+      .onConflictDoNothing()
+      .returning({ tokenHash: device.tokenHash });
+    if (!d) await tx.delete(appUser).where(eq(appUser.id, u!.id));
+  });
+  return (await find()) ?? null;
 }
+
+export const DEFAULT_NAME = "Player";
+
+// The name other seats see. Trimmed and bounded by the caller's schema (campaign.controller).
+export const renameUser = (userId: string, name: string) =>
+  db.update(appUser).set({ name, updatedAt: new Date() }).where(eq(appUser.id, userId));
 
 const ownerOf = async (conn: Db, campaignId: string) =>
   (await conn.select({ ownerUserId: campaign.ownerUserId }).from(campaign).where(eq(campaign.id, campaignId)))[0];
@@ -119,16 +128,16 @@ export async function resolveGuest(token: string | undefined): Promise<Ctx | nul
 const seatKey = ({ campaignId, userId, tokenId }: { campaignId: string; userId: string | null; tokenId?: string }) =>
   `${campaignId}:${userId ?? tokenId}`;
 
-// The caller at `campaignId`: a signed-in member first, else an admin without a seat (OPEN AS ADMIN), else a token
-// for that same campaign. A seated admin gets their seat, never admin powers (docs/design.md §3.6).
+// The caller at `campaignId`: a member (by device) first, else a token for that same campaign. OPEN AS ADMIN is not
+// here: it is the socket's `adminKey` handshake (resolveSocketCtx).
 export async function resolveCtx({
   campaignId,
   headers,
 }: {
   campaignId: string;
-  headers: { authorization?: string; cookie?: string };
-}): Promise<{ ctx: Ctx; openedAsAdmin: boolean; seatKey: string } | null> {
-  const user = await signedInUser(headers);
+  headers: { cookie?: string };
+}): Promise<{ ctx: Ctx; seatKey: string } | null> {
+  const user = await deviceUser(headers);
   if (user) {
     const c = await ownerOf(db, campaignId);
     if (!c) return null;
@@ -141,51 +150,42 @@ export async function resolveCtx({
       const seat = { kind: "member" as const, role: m.role, scopes: m.scopes, characterIds };
       return {
         ctx: { campaignId, userId: user.userId, campaignOwnerId: c.ownerUserId, seat },
-        openedAsAdmin: false,
         seatKey: seatKey({ campaignId, userId: user.userId }),
       };
     }
-    if (user.admin)
-      return {
-        ctx: { campaignId, userId: user.userId, campaignOwnerId: c.ownerUserId, seat: { kind: "admin" } },
-        openedAsAdmin: true,
-        seatKey: seatKey({ campaignId, userId: user.userId }),
-      };
   }
   const guest = await guestSeat(readCookie({ header: headers.cookie }));
   return guest?.ctx.campaignId === campaignId
-    ? { ctx: guest.ctx, openedAsAdmin: false, seatKey: seatKey({ campaignId, userId: null, tokenId: guest.tokenId }) }
+    ? { ctx: guest.ctx, seatKey: seatKey({ campaignId, userId: null, tokenId: guest.tokenId }) }
     : null;
 }
 
-// What a client puts in `io({ auth })`. Browsers send only campaignId; the Clerk `__session` or guest cookie proves who
-// they are. Scripts and tests pass a token instead: a guest `token`, a Clerk `clerkToken`, or the server's `adminKey`.
+// What a client puts in `io({ auth })`. Browsers send only campaignId; the `it_device` or guest cookie proves who they
+// are. Scripts, tests and the admin page pass a token instead: a guest `token`, or the server's `adminKey`.
 const Handshake = z.object({
   campaignId: z.uuid().optional(),
   token: z.string().max(200).optional(),
-  clerkToken: z.string().max(5000).optional(),
   adminKey: z.string().max(500).optional(),
 });
 
-// The caller of a socket handshake, or null to refuse it. `script` marks the admin-key script (exempt from the action
-// limit); `openedAsAdmin` an admin at a table without a seat, which is logged (logRoomOpen); `seatKey` names the seat for
-// the rate limits, so a second socket of the same seat shares them.
+// The caller of a socket handshake, or null to refuse it. `script` marks the admin key (exempt from the action limit,
+// logged as key.action); `seatKey` names the seat for the rate limits, so a second socket of the same seat shares them.
 export async function resolveSocketCtx({
   auth,
   headers,
 }: {
   auth: unknown;
   headers: { cookie?: string };
-}): Promise<{ ctx: Ctx; script: boolean; openedAsAdmin: boolean; seatKey: string } | null> {
+}): Promise<{ ctx: Ctx; script: boolean; seatKey: string } | null> {
   const h = Handshake.safeParse(auth ?? {});
   if (!h.success) return null;
-  const { campaignId, token, clerkToken, adminKey } = h.data;
+  const { campaignId, token, adminKey } = h.data;
   if (adminKey && campaignId) {
     if (!isAdminKey(adminKey)) return null;
     const c = await ownerOf(db, campaignId);
     if (!c) return null;
     const ctx: Ctx = { campaignId, userId: null, campaignOwnerId: c.ownerUserId, seat: { kind: "admin" } };
-    return { ctx, script: true, openedAsAdmin: false, seatKey: `${campaignId}:admin-key` };
+    return { ctx, script: true, seatKey: `${campaignId}:admin-key` };
   }
   if (token) {
     const guest = await guestSeat(token);
@@ -193,15 +193,11 @@ export async function resolveSocketCtx({
       ? {
           ctx: guest.ctx,
           script: false,
-          openedAsAdmin: false,
           seatKey: seatKey({ campaignId: guest.ctx.campaignId, userId: null, tokenId: guest.tokenId }),
         }
       : null;
   }
   if (!campaignId) return null;
-  const r = await resolveCtx({
-    campaignId,
-    headers: { cookie: headers.cookie, authorization: clerkToken ? `Bearer ${clerkToken}` : undefined },
-  });
+  const r = await resolveCtx({ campaignId, headers });
   return r && { ...r, script: false };
 }

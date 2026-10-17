@@ -56,7 +56,7 @@ export async function lobby(user: AuthUser): Promise<Lobby> {
     .from(membership)
     .where(eq(membership.userId, user.userId));
   const ids = seats.map((s) => s.campaignId);
-  const empty = { canCreate: user.creator, admin: user.admin, mine: [], seated: [], archived: [] };
+  const empty = { canCreate: user.creator, name: user.name, mine: [], seated: [], archived: [] };
   if (!ids.length) return empty;
   const [camps, owners, players, running] = await Promise.all([
     db.select().from(campaign).where(inArray(campaign.id, ids)),

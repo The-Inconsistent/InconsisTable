@@ -1,15 +1,12 @@
 import { Permission, type Action, type ActionResult, type Ctx } from "@inconsistable/core-schema";
 import { PRIMITIVES, ResetEvent, type PrimitiveOp } from "@inconsistable/rules-engine";
-import { runningSessionId } from "../campaign/event.log.ts";
 import type { ConditionRow } from "../actor/actor.delta.ts";
-import { applyDeltas, fieldDef } from "../actor/actor.pipeline.ts";
-import { type BuiltActor, loadBuilt } from "../actor/actor.values.ts";
+import { fieldDef } from "../actor/actor.pipeline.ts";
+import type { BuiltActor } from "../actor/actor.values.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
-import { loadTurn } from "../encounter/encounter.turn.ts";
 import { requirePerm } from "../table/table.authorize.ts";
-import { loadCompiled } from "./ruleset.compiled.ts";
-import { runPrimitive, ruleState } from "./ruleset.run.ts";
+import { openRuleset, openRulesetIfPinned } from "./ruleset.context.ts";
 
 export type RuleAction = Extract<
   Action,
@@ -22,15 +19,8 @@ export function primitiveOp(primitive: string, op: string): PrimitiveOp<unknown,
   return prim && Object.hasOwn(prim.ops, op) ? prim.ops[op] : undefined;
 }
 
-const TURN_PRIMITIVES = new Set(["initiative.ranked", "conditions.expire"]);
-
 const find = <T>(rec: Readonly<Record<string, T>>, key: string): T | undefined =>
   Object.hasOwn(rec, key) ? rec[key] : undefined;
-
-async function load(tx: Tx, campaignId: string) {
-  const compiled = (await loadCompiled(tx, campaignId)) ?? fail("noRuleset");
-  return { compiled, built: await loadBuilt(tx, { campaignId, compiled }), turn: await loadTurn(tx, campaignId) };
-}
 
 /** The actor and its entity, or a refusal: values are only written to an actor the ruleset has a type for. */
 function entityActor({ built, actorId }: { built: Record<string, BuiltActor>; actorId: string }) {
@@ -48,18 +38,11 @@ export async function restActors(
   tx: Tx,
   { ctx, event, actorId }: { ctx: Ctx; event: ResetEvent; actorId?: string },
 ): Promise<{ pinned: boolean; actionId: string | null }> {
-  const compiled = await loadCompiled(tx, ctx.campaignId);
-  if (!compiled) return { pinned: false, actionId: null };
-  const built = await loadBuilt(tx, { campaignId: ctx.campaignId, compiled });
+  const rc = await openRulesetIfPinned(tx, ctx);
+  if (!rc) return { pinned: false, actionId: null };
   const input = { event, actorIds: actorId === undefined ? undefined : [actorId] };
-  const deltas = runPrimitive({
-    ruleset: compiled.ruleset,
-    state: ruleState({ built, turn: null }),
-    primitive: "rest",
-    op: "apply",
-    input,
-  });
-  return { pinned: true, actionId: await applyDeltas(tx, { ctx, compiled, built, deltas }) };
+  const deltas = await rc.run({ primitive: "rest", op: "apply", input, turn: null });
+  return { pinned: true, actionId: await rc.apply(deltas) };
 }
 
 export async function applyRuleAction(
@@ -74,38 +57,26 @@ export async function applyRuleAction(
       if (!perm.success) fail("opNoPermission", { primitive: a.primitive, op: a.op });
       const actorId = a.input.actorId;
       requirePerm({ ctx, perm: perm.data, target: typeof actorId === "string" ? { actorId } : undefined });
-      const { compiled, built, turn } = await load(tx, ctx.campaignId);
-      // Turn-driven ops wait for a session (house decision #28); the same refusal as the tracker's actions.
-      if (turn && TURN_PRIMITIVES.has(a.primitive) && (await runningSessionId(tx, ctx.campaignId)) === null)
-        fail("sessionPaused");
-      const deltas = runPrimitive({
-        ruleset: compiled.ruleset,
-        state: ruleState({ built, turn }),
-        primitive: a.primitive,
-        op: a.op,
-        input: a.input,
-      });
-      const id = await applyDeltas(tx, { ctx, compiled, built, deltas });
+      const rc = await openRuleset(tx, ctx);
+      // The context refuses turn-driven ops while the session is paused (house decision #28).
+      const deltas = await rc.run({ primitive: a.primitive, op: a.op, input: a.input });
+      const id = await rc.apply(deltas);
       return { ok: true, id: id ?? undefined };
     }
 
     case "field.set": {
-      const { compiled, built } = await load(tx, ctx.campaignId);
-      const actor = entityActor({ built, actorId: a.actorId });
-      if (!fieldDef({ compiled, actor, field: a.field })) fail("noField", { name: actor.row.name, field: a.field });
-      const id = await applyDeltas(tx, {
-        ctx,
-        compiled,
-        built,
-        deltas: [{ target: { actorId: a.actorId, field: a.field }, kind: "set", value: a.value }],
-      });
+      const rc = await openRuleset(tx, ctx);
+      const actor = entityActor({ built: rc.built, actorId: a.actorId });
+      if (!fieldDef({ compiled: rc.compiled, actor, field: a.field }))
+        fail("noField", { name: actor.row.name, field: a.field });
+      const id = await rc.apply([{ target: { actorId: a.actorId, field: a.field }, kind: "set", value: a.value }]);
       return { ok: true, id: id ?? undefined };
     }
 
     case "condition.add": {
-      const { compiled, built } = await load(tx, ctx.campaignId);
-      const actor = entityActor({ built, actorId: a.actorId });
-      const def = find(compiled.conditions, a.condition) ?? fail("noCondition", { condition: a.condition });
+      const rc = await openRuleset(tx, ctx);
+      const actor = entityActor({ built: rc.built, actorId: a.actorId });
+      const def = find(rc.compiled.conditions, a.condition) ?? fail("noCondition", { condition: a.condition });
       // One row per condition: applying it again stacks or refreshes that row, as the manifest says.
       const had = Object.entries(actor.conditions).find(([, c]) => c.conditionId === a.condition);
       let rowId: string = crypto.randomUUID();
@@ -124,30 +95,22 @@ export async function applyRuleAction(
             ? { ...had[1], stacks: Math.min(had[1].stacks + 1, def.maxStacks ?? 100) }
             : { ...had[1], source: a.source || had[1].source, expiresAfter: a.expiresAfter ?? null };
       }
-      const id = await applyDeltas(tx, {
-        ctx,
-        compiled,
-        built,
-        deltas: [{ target: { actorId: a.actorId, condition: rowId }, kind: "set", value: row }],
-      });
+      const id = await rc.apply([{ target: { actorId: a.actorId, condition: rowId }, kind: "set", value: row }]);
       return { ok: true, id: id ?? undefined };
     }
 
     case "condition.remove": {
-      const { compiled, built } = await load(tx, ctx.campaignId);
-      const actor = entityActor({ built, actorId: a.actorId });
+      const rc = await openRuleset(tx, ctx);
+      const actor = entityActor({ built: rc.built, actorId: a.actorId });
       const rows = Object.entries(actor.conditions).filter(([, c]) => c.conditionId === a.condition);
       if (rows.length === 0) fail("lacksCondition", { name: actor.row.name });
-      const id = await applyDeltas(tx, {
-        ctx,
-        compiled,
-        built,
-        deltas: rows.map(([rowId]) => ({
+      const id = await rc.apply(
+        rows.map(([rowId]) => ({
           target: { actorId: a.actorId, condition: rowId },
           kind: "set" as const,
           value: null,
         })),
-      });
+      );
       return { ok: true, id: id ?? undefined };
     }
 

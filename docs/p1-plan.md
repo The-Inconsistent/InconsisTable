@@ -181,10 +181,12 @@ Một bàn chơi one-shot với một ruleset homebrew từ lúc tạo nhân v�
 
 ## P1 xong khi
 
-- PR #13 đã merge; Clerk có role và chế độ invite-only xong.
+- PR #13 đã merge. Clerk (role, invite-only) đã bỏ ở #46: không có tài khoản, mỗi thiết bị là một user ẩn danh,
+  admin bằng `ADMIN_KEY` (house decision #32).
 - Ruleset homebrew và pack đã nhập qua `/library`.
 - Chơi thử trong LAN: 9 bước trình duyệt của `docs/handoff.md`, cộng dựng một nhân vật, một trận và một Test.
-- Một buổi chơi thật với nhóm, chơi Wrath & Glory trên bản deploy riêng tư (invite-only). Xem "Đến buổi chơi thật".
+- Một buổi chơi thật với nhóm, chơi Wrath & Glory trên máy này hoặc LAN tin cậy (`docs/deploy.md`); không có
+  host công khai cho tới khi có provider (house decision #32). Xem "Đến buổi chơi thật".
 
 ### Đến buổi chơi thật (chốt 2026-10-14)
 
@@ -203,7 +205,7 @@ Luồng code, theo thứ tự, mỗi mục một PR:
 3. **Module Seat view** (#23), gồm cả view của Test pool.
 4. **Bảo mật** #15–#19, gộp một PR.
 5. **Bàn giao deploy** cho devops: Containerfile api và web, compose có Postgres 18, `docs/deploy.md` (env, health
-   check, `TRUST_CF`, Clerk production). Host do devops chọn.
+   check, `TRUST_CF`). Xong ở #32; từ #46 chỉ chạy local hoặc LAN, chưa có host công khai.
 
 Luồng nội dung, song song: Claude dựng khung manifest W&G trong `inconsistable-content` theo tên mục chủ sản phẩm
 đưa; chủ sản phẩm điền số, cite trang và tóm tắt bằng lời mình (nguyên tắc 1, 2); chỗ sách mơ hồ ghi vào
@@ -269,7 +271,7 @@ Mỗi workstream song song chạy ở session/agent riêng, trên nhánh riêng,
 
 - Nâng phiên bản ruleset có migration và dry-run diff: P1 chỉ pin một lần (`ponytail:` ở `campaign.setRuleset`).
 - `request.*` (xin tiêu resource), library nhân vật, World/theme, house rule có patch, encounter budget: P2.
-- `pack_grant`, danh mục công khai, `pack:approve`: P3. Clerk giữ **Invite-only**.
+- `pack_grant`, danh mục công khai, `pack:approve`: P3. Chưa có tài khoản cho tới khi chọn provider (house decision #32).
 - Script sandbox, patch broadcast, Redis.
 
 ## Cần làm trước khi bắt đầu

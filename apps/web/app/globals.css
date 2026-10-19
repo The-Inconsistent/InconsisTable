@@ -1738,6 +1738,67 @@ fieldset:disabled select {
 .chip[data-status] {
   border-style: dashed;
 }
+/* An empty page says what is missing and offers the way to it. */
+.ws-empty {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+/* A folded section (the archived rooms): the heading is the toggle, its marker says which way it is. */
+.ws-fold > summary {
+  cursor: pointer;
+  list-style-position: inside;
+}
+.ws-fold > summary::marker {
+  color: var(--accent);
+}
+/* Phone: the pages sit at the bottom, under the thumb, icon over word, like the table's own bottom tabs. */
+@media (max-width: 899px) {
+  .ws {
+    grid-template-areas: "brand" "main" "foot" "nav";
+    grid-template-rows: auto 1fr auto auto;
+  }
+  .ws-brand {
+    border-bottom: 3px solid var(--brass);
+    box-shadow: 0 2px 0 var(--brass-lo);
+  }
+  .ws-nav {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    overflow: visible;
+    padding: 6px 8px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+    border-bottom: 0;
+    border-top: 3px solid var(--brass);
+    box-shadow: 0 -2px 0 var(--brass-lo);
+  }
+  .ws-link {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-height: 56px;
+    padding: 4px 6px;
+    font-size: var(--fs-small);
+    text-align: center;
+    white-space: normal;
+    line-height: 1.15;
+  }
+  .ws-count {
+    position: absolute;
+    top: 2px;
+    left: calc(50% + 8px);
+    min-width: 22px;
+    padding: 0 6px;
+    font-size: 12px;
+  }
+  .ws-foot {
+    border-top-width: 3px;
+  }
+}
 
 @media (min-width: 900px) {
   .ws {

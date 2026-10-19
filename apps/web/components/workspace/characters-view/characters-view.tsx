@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 
 import type { LobbyCharacter } from "@inconsistable/core-schema";
 
@@ -16,7 +17,14 @@ export function CharactersView({ characters }: CharactersViewProps) {
   return (
     <main className="page">
       <PageHead title={t("page.characters")} lede={t("lede.characters")} />
-      {rooms.size === 0 && <p className="dim">{t("noCharacters")}</p>}
+      {rooms.size === 0 && (
+        <div className="ws-empty">
+          <p className="dim">{t("noCharacters")}</p>
+          <Link className="btn" href="/">
+            {t("toRooms")}
+          </Link>
+        </div>
+      )}
       {[...rooms].map(([campaignId, held]) => (
         <section key={campaignId} className="stack">
           <h2 className="head">

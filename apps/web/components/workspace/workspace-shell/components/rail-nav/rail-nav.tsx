@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { RAIL_LINKS, type RailCount } from "../../constants";
@@ -7,7 +8,7 @@ import { RAIL_LINKS, type RailCount } from "../../constants";
 type RailNavProps = { counts: Record<RailCount, number> | null };
 
 // The workspace pages. The current one is a lit brass plate, marked aria-current; a count says how many rooms and
-// characters wait behind a link.
+// characters wait behind a link. Links move on the client, so the rail (and the name being typed in it) stays put.
 export function RailNav({ counts }: RailNavProps) {
   const t = useTranslations("workspace");
   const path = usePathname();
@@ -17,7 +18,7 @@ export function RailNav({ counts }: RailNavProps) {
       {RAIL_LINKS.map((link) => {
         const count = link.count && counts?.[link.count];
         return (
-          <a
+          <Link
             key={link.key}
             className="ws-link"
             data-icon={link.key}
@@ -26,7 +27,7 @@ export function RailNav({ counts }: RailNavProps) {
           >
             <span>{t(`page.${link.key}`)}</span>
             {typeof count === "number" && <span className="ws-count">{count}</span>}
-          </a>
+          </Link>
         );
       })}
     </nav>

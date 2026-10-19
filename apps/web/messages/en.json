@@ -80,7 +80,9 @@
     "wherePlay": "Where you play",
     "archived": "Archived",
     "emptyMine": "You don't own a campaign yet.",
-    "emptySeated": "Nobody has invited you to a table yet."
+    "emptySeated": "Nobody has invited you to a table yet.",
+    "nextSession": "Next session {when}",
+    "creating": "Creating…"
   },
   "library": {
     "title": "Rulesets & packs",
@@ -789,6 +791,8 @@
       "dead": "Dead",
       "dismissed": "Dismissed"
     },
-    "importToggle": "Import a ruleset or pack"
+    "importToggle": "Import a ruleset or pack",
+    "toRooms": "Go to your rooms",
+    "loading": "Opening…"
   }
 }

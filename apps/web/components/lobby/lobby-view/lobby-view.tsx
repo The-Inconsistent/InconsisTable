@@ -1,5 +1,6 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
@@ -17,6 +18,7 @@ const NO_RULESET = "";
 function GameCard({ game }: { game: LobbyGame }) {
   const t = useTranslations("lobby");
   const tRoles = useTranslations("roles");
+  const format = useFormatter();
   return (
     <a className="card ws-tile" href={`/c/${game.id}`}>
       <strong className="card-name">{game.name}</strong>
@@ -29,8 +31,25 @@ function GameCard({ game }: { game: LobbyGame }) {
             {t("sessionRunning", { number: game.session })}
           </span>
         )}
+        {game.session === null && game.nextSessionAt && (
+          <span className="chip">
+            {t("nextSession", {
+              when: format.dateTime(new Date(game.nextSessionAt), { dateStyle: "medium", timeStyle: "short" }),
+            })}
+          </span>
+        )}
       </span>
     </a>
+  );
+}
+
+function Cards({ games }: { games: LobbyGame[] }) {
+  return (
+    <div className="grid">
+      {games.map((g) => (
+        <GameCard key={g.id} game={g} />
+      ))}
+    </div>
   );
 }
 
@@ -40,15 +59,7 @@ function Section({ title, games, empty }: { title: string; games: LobbyGame[]; e
       <h2 className="head">
         {title} <span className="ws-tally">{games.length}</span>
       </h2>
-      {games.length ? (
-        <div className="grid">
-          {games.map((g) => (
-            <GameCard key={g.id} game={g} />
-          ))}
-        </div>
-      ) : (
-        <p className="dim">{empty}</p>
-      )}
+      {games.length ? <Cards games={games} /> : <p className="dim">{empty}</p>}
     </section>
   );
 }
@@ -145,19 +156,28 @@ export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
                 ))}
               </select>
             </label>
-            <button className="btn primary" type="submit" disabled={busy} style={{ alignSelf: "end" }}>
-              {t("create")}
+            <button className="btn primary" type="submit" disabled={busy} aria-busy={busy} style={{ alignSelf: "end" }}>
+              {busy ? t("creating") : t("create")}
             </button>
           </div>
           {rulesets.length === 0 && (
-            <p className="small dim">{t.rich("importHint", { link: (chunks) => <a href="/library">{chunks}</a> })}</p>
+            <p className="small dim">
+              {t.rich("importHint", { link: (chunks) => <Link href="/library">{chunks}</Link> })}
+            </p>
           )}
           {error && <p className="error">{error}</p>}
         </form>
       )}
       <Section title={t("yourCampaigns")} games={lobby.mine} empty={t("emptyMine")} />
       <Section title={t("wherePlay")} games={lobby.seated} empty={t("emptySeated")} />
-      {lobby.archived.length > 0 && <Section title={t("archived")} games={lobby.archived} empty="" />}
+      {lobby.archived.length > 0 && (
+        <details className="stack ws-fold">
+          <summary className="head">
+            {t("archived")} <span className="ws-tally">{lobby.archived.length}</span>
+          </summary>
+          <Cards games={lobby.archived} />
+        </details>
+      )}
     </main>
   );
 }

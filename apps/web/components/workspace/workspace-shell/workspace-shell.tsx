@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 
 import type { Lobby } from "@inconsistable/core-schema";
 
@@ -26,10 +27,10 @@ export function WorkspaceShell({ lobby, children }: WorkspaceShellProps) {
         {t("skip")}
       </a>
       <aside className="ws-rail" aria-label={t("rail")}>
-        <a className="ws-brand" href="/">
+        <Link className="ws-brand" href="/">
           <span className="ws-mark" aria-hidden="true" />
           <strong>{tCommon("brand")}</strong>
-        </a>
+        </Link>
         <RailNav counts={counts} />
         <div className="ws-foot">
           {lobby && <NameForm initial={lobby.name} />}

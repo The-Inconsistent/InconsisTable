@@ -20,6 +20,13 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
   const router = useRouter();
   const { usage } = packs;
   const [importing, setImporting] = useState(rulesets.length === 0);
+  const [toggled, setToggled] = useState(false);
+
+  // IMPORT in the head: shows or folds the importer, and moves the cursor into it when it opens.
+  const handleToggle = () => {
+    setImporting(!importing);
+    setToggled(true);
+  };
   const handleChanged = () => router.refresh();
 
   return (
@@ -30,12 +37,12 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
           className="btn primary"
           aria-expanded={importing}
           aria-controls="import-panel"
-          onClick={() => setImporting(!importing)}
+          onClick={handleToggle}
         >
           {tWs("importToggle")}
         </button>
       </PageHead>
-      {importing && <ImportPanel onSaved={handleChanged} />}
+      {importing && <ImportPanel onSaved={handleChanged} autoFocus={toggled} />}
 
       <section className="stack">
         <h2 className="head">

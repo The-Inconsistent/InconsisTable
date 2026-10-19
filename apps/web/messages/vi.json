@@ -80,7 +80,9 @@
     "wherePlay": "Nơi bạn chơi",
     "archived": "Đã lưu trữ",
     "emptyMine": "Bạn chưa có campaign nào.",
-    "emptySeated": "Chưa ai mời bạn vào bàn nào."
+    "emptySeated": "Chưa ai mời bạn vào bàn nào.",
+    "nextSession": "Buổi tới {when}",
+    "creating": "Đang tạo…"
   },
   "library": {
     "title": "Bộ luật & pack",
@@ -789,6 +791,8 @@
       "dead": "Đã chết",
       "dismissed": "Đã rời"
     },
-    "importToggle": "Nhập bộ luật hoặc pack"
+    "importToggle": "Nhập bộ luật hoặc pack",
+    "toRooms": "Tới phòng chơi",
+    "loading": "Đang mở…"
   }
 }

@@ -1,10 +1,8 @@
 import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 
-import { Lobby } from "@inconsistable/core-schema";
-
 import { JOIN_ERRORS, type JoinError } from "@/app/constants";
-import { apiGet } from "@/app/server-api";
+import { apiGet, readLobby } from "@/app/server-api";
 import { LobbyView } from "@/components/lobby/lobby-view/lobby-view";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { CampaignRef } from "@/lib/api-reply/api-reply";
@@ -43,15 +41,8 @@ export default async function Home({ searchParams }: HomeProps) {
   const { join } = await searchParams;
   if (isJoinError(join)) return <StatusScreen text={t(`status.${join}`)} />;
 
-  let lobby: Lobby;
-  try {
-    const res = await apiGet("/api/lobby");
-    const parsed = Lobby.safeParse(res.ok ? await res.json() : null);
-    if (!parsed.success) return <StatusScreen text={t("status.nosignal")} />;
-    lobby = parsed.data;
-  } catch {
-    return <StatusScreen text={t("status.nosignal")} />;
-  }
+  const lobby = await readLobby();
+  if (!lobby) return <StatusScreen text={t("status.nosignal")} />;
   if (!lobby.mine.length && !lobby.seated.length && !lobby.archived.length) {
     const table = await guestTable();
     if (table) redirect(`/c/${table}`);

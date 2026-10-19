@@ -1,9 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
-import { and, count, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import type { AuthUser } from "@inconsistable/auth/api";
 import type { Lobby, LobbyGame } from "@inconsistable/core-schema";
 import { actor } from "../actor/actor.schema.ts";
-import { appUser, membership } from "../auth/auth.schema.ts";
+import { appUser, membership, membershipCharacter } from "../auth/auth.schema.ts";
 import { db } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
 import { ruleset, rulesetVersion } from "../ruleset/ruleset.schema.ts";
@@ -49,16 +49,17 @@ export function createCampaign({
   });
 }
 
-// The caller's rooms: the ones they own, the ones where they hold another seat, and the archived ones.
+// The caller's rooms: the ones they own, the ones where they hold another seat, and the archived ones; plus the
+// characters their seats hold.
 export async function lobby(user: AuthUser): Promise<Lobby> {
   const seats = await db
     .select({ campaignId: membership.campaignId, role: membership.role })
     .from(membership)
     .where(eq(membership.userId, user.userId));
   const ids = seats.map((s) => s.campaignId);
-  const empty = { canCreate: user.creator, name: user.name, mine: [], seated: [], archived: [] };
+  const empty = { canCreate: user.creator, name: user.name, mine: [], seated: [], archived: [], characters: [] };
   if (!ids.length) return empty;
-  const [camps, owners, players, running] = await Promise.all([
+  const [camps, owners, players, running, held] = await Promise.all([
     db.select().from(campaign).where(inArray(campaign.id, ids)),
     db
       .select({ id: appUser.id, name: appUser.name })
@@ -74,6 +75,13 @@ export async function lobby(user: AuthUser): Promise<Lobby> {
       .select({ campaignId: session.campaignId, number: session.number })
       .from(session)
       .where(and(inArray(session.campaignId, ids), isNull(session.endedAt))),
+    db
+      .select({ id: actor.id, kind: actor.kind, name: actor.name, status: actor.status, campaignId: actor.campaignId })
+      .from(membershipCharacter)
+      .innerJoin(membership, eq(membership.id, membershipCharacter.membershipId))
+      .innerJoin(actor, eq(actor.id, membershipCharacter.actorId))
+      .where(eq(membership.userId, user.userId))
+      .orderBy(asc(actor.name)),
   ]);
   const games = camps.map((c): LobbyGame & { archived: boolean } => ({
     id: c.id,
@@ -92,5 +100,6 @@ export async function lobby(user: AuthUser): Promise<Lobby> {
     mine: games.filter((g) => g.isOwner && !g.archived).map(strip),
     seated: games.filter((g) => !g.isOwner && !g.archived).map(strip),
     archived: games.filter((g) => g.archived).map(strip),
+    characters: held.map((a) => ({ ...a, campaignName: camps.find((c) => c.id === a.campaignId)?.name ?? "—" })),
   };
 }

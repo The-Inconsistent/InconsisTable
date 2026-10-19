@@ -16,12 +16,20 @@ export const LobbyGame = z.object({
 });
 export type LobbyGame = z.infer<typeof LobbyGame>;
 
+// A character a seat of the caller holds, in any of their rooms ("My characters", docs/design.md §3.2).
+export const LobbyCharacter = ActorBrief.pick({ id: true, kind: true, name: true, status: true }).extend({
+  campaignId: z.string(),
+  campaignName: z.string(),
+});
+export type LobbyCharacter = z.infer<typeof LobbyCharacter>;
+
 export const Lobby = z.object({
   canCreate: z.boolean(),
   name: z.string(), // the caller's display name
   mine: z.array(LobbyGame), // rooms the caller owns
   seated: z.array(LobbyGame), // rooms where the caller holds another seat
   archived: z.array(LobbyGame),
+  characters: z.array(LobbyCharacter),
 });
 export type Lobby = z.infer<typeof Lobby>;
 

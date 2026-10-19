@@ -67,7 +67,7 @@ export function PackList({ packs, onChanged }: PackListProps) {
           return (
             <li key={p.id} className="card">
               <div className="row between">
-                <strong>{p.slug}</strong>
+                <strong className="card-name">{p.slug}</strong>
                 <span className="row">
                   <span className="chip">{p.license}</span>
                   <span className="chip">{t("forRuleset", { slug: p.rulesetSlug })}</span>

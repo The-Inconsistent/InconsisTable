@@ -179,6 +179,11 @@ test("room QR: a signed-in player and a guest join, each holding their own chara
   const lyra = s1.actors.find((a) => a.name === "Lyra")!;
   assert.equal(lyra.ownerUserId, uid("ana"));
   assert.deepEqual(s1.access.members.find((m) => m.userId === uid("ana"))?.characterIds, [lyra.id]);
+  const anaLobby = (await (await get("/lobby", cookieOf(anaDevice))).json()) as Lobby;
+  assert.deepEqual(
+    anaLobby.characters.map((c) => [c.id, c.campaignId]),
+    [[lyra.id, campaignId]],
+  );
 
   // A guest takes a seat without an account and gets a cookie.
   const g = await post(`/invites/${code}/accept`, { newCharacterName: "Bran", asGuest: true });

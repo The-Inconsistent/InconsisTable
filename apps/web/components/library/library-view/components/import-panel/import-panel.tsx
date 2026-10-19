@@ -144,7 +144,7 @@ export function ImportPanel({ onSaved }: ImportPanelProps) {
     outcome?.kind === "pack" ? outcome.saved.warnings : outcome?.kind === "problems" ? outcome.warnings : [];
 
   return (
-    <section className="card import">
+    <section id="import-panel" className="card import">
       <h2 className="head">{t("title")}</h2>
       <p className="reminder" id="import-reminder">
         {t("reminder")}

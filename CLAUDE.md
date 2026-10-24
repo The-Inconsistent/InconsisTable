@@ -23,7 +23,8 @@ These rules decide reviews. Breaking one blocks a merge.
    per-ruleset option that needs a house decision.
 6. **The server decides.** One mutation path. Counters take deltas and are clamped on the server. Players see only what
    the table's view lets them see. The only writes outside it are owner-scoped REST: a user importing their own
-   rulesets and packs (`/api/rulesets`, `/api/packs`, the pack library), creating a room, and the admin console.
+   rulesets and packs (`/api/rulesets`, `/api/packs`, the pack library), creating a room, the admin console, and
+   a user's own sign-in, sign-out and sign-in methods (house decision #35).
 7. **Shortcuts are marked:** `// ponytail: <ceiling>, <upgrade path>`.
 8. **It serves a real table.** Readable at arm's length, no chat, phones never pull players away from the table. Each
    World gets a look made with care.

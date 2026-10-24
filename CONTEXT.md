@@ -23,14 +23,37 @@ _Avoid_: Campaign, room
 A fight with a turn order inside a campaign; it may stay open across sessions and continue at the next one.
 _Avoid_: Combat, battle, scene
 
+### Identity
+
+**User**:
+One person known to InconsisTable, anonymous or not; it owns campaigns, holds seats and characters, and keeps them when
+it becomes an account.
+_Avoid_: Member, identity, player (for this concept)
+
+**Account**:
+A user with at least one sign-in method, so it can come back on any device.
+_Avoid_: Profile, login
+
+**Device**:
+One browser that holds a user's session; a user may sit on several devices, and losing one loses no campaign.
+_Avoid_: Client, phone (for this concept)
+
+**Sign-in method**:
+A way an account proves it is that user, such as a passkey or a recovery code.
+_Avoid_: Credential, login
+
+**Admin**:
+A platform role on an account that runs the console for the whole install; it is not tied to any campaign.
+_Avoid_: Owner, GM, superuser
+
 ### People and seats
 
 **Owner**:
-The person a campaign belongs to; ownership can be handed to another member. It is not a role and not a seat.
+The user a campaign belongs to; ownership can be handed to another user. It is not a role and not a seat.
 _Avoid_: Admin, creator (that is a platform role)
 
 **Seat**:
-The way a person or device sits in a campaign: a member seat (GM, co-GM or player, with an account) or a token seat (a
+The way a person or device sits in a campaign: a member seat (GM, co-GM or player, held by a user) or a token seat (a
 guest player from a QR code, or the screen). Everything a device is shown is filtered by its seat.
 _Avoid_: Membership (that is only the account kind), user, role
 

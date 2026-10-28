@@ -161,8 +161,8 @@ visibility `owner`, encounter có vòng, undo, tạm dừng giữa buổi (#28),
 - **Bảng xếp hạng campaign:** cộng dồn `session_result` qua các buổi, cho giải đấu và game legacy.
 - **Thiết lập ngẫu nhiên:** chia không hoàn lại từ bảng ngẫu nhiên cho từng ghế (kịch bản, vai ẩn), kết quả
   visibility `owner`. Nguyên tắc 5 đã cho gieo bảng ngẫu nhiên; chia không hoàn lại cần một house decision.
-- **House decision trước khi code:** thời điểm kết thúc (ngay hay hết vòng), cùng hạng sau mọi tiebreak, người đi
-  đầu khi một ghế rời bàn, pha cùng lúc khi một ghế vắng.
+- **House decision:** #36 thứ tự theo ghế, #37 pha, #38 kết thúc ván, #39 xếp hạng và game coop, #40 điểm ẩn. Chia
+  không hoàn lại cần thêm một mục khi có bảng ngẫu nhiên. Kế hoạch làm: `docs/p2-board-game-plan.md`.
 - **Mẫu ruleset board game** theo điểm chốt 4: chỉ cấu trúc engine, game bịa như `sample-d20`.
 - **Chỗ phải đổi:** `Initiative` union và khối gốc mới (`packages/rules-engine/src/manifest.ts`), encounter
   (`apps/api/src/encounter/`), seat view cho điểm ẩn (`apps/api/src/view/`), `CONTEXT.md` (Phase, Score khi làm).

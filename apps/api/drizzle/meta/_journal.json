@@ -8,6 +8,13 @@
       "when": 1792136267466,
       "tag": "0000_serious_maddog",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793197049082,
+      "tag": "0001_heavy_jimmy_woo",
+      "breakpoints": true
     }
   ]
 }

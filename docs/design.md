@@ -753,10 +753,12 @@ const Phase = z.object({
 });
 
 const Scoring = z.object({
+  mode: z.enum(["compete", "coop"]).default("compete"), // coop: cả bàn cùng thắng hoặc cùng thua, không xếp hạng
   score: Expr,                                        // theo từng actor: "res.vp + derived.endBonus"
   order: z.enum(["high", "low"]).default("high"),
   tiebreaks: z.array(z.object({ expr: Expr, order: z.enum(["high", "low"]) })).default([]),
-  endWhen: z.array(z.object({ when: Expr, cite: Cite })).default([]), // "round >= 8", "max(res.vp) >= 10"
+  endWhen: z.array(z.object({ when: Expr, outcome: z.enum(["win", "lose"]).optional(), cite: Cite })).default([]),
+                                                      // "round >= 8", "max(res.vp) >= 10"; outcome chỉ cho coop
   cite: Cite,
 });
 ```

@@ -1,6 +1,4 @@
 import { and, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
-// ponytail: the SDK is a tarball packed from InconsisID PR #11 (apps/api/vendor), until @the-inconsistent/client 0.1.0
-// is on GitHub Packages; then depend on "0.1.0" (the .npmrc is ready) and delete the tarball
 import { createIdpClient, IdpError, type IdpClient, type IdpErrorCode, type SignIn } from "@the-inconsistent/client";
 import { isDeviceSecret, type PlatformRole } from "@inconsistable/auth/api";
 import { db, type Tx } from "../core/db.ts";

@@ -37,7 +37,8 @@ You are a read-and-explain agent. You investigate; you do not modify. You return
 
 ## Project-Specific Awareness
 
-- **What this is:** InconsisTable, an in-person table companion for any tabletop RPG. It's a **Bun** monorepo:
+- **What this is:** InconsisTable, an in-person table companion for any tabletop RPG or board game. It's a **Bun**
+  monorepo:
   - `apps/api`: NestJS on Bun, run from source, with Drizzle, Postgres 18 and a Socket.IO gateway.
   - `apps/web`: Next.js 16 App Router.
   - `packages/core-schema`: zod schemas, the `Action` union, permissions (`canInCampaign`).

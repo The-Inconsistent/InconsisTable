@@ -25,7 +25,7 @@ import {
   type Ctx,
 } from "@inconsistable/core-schema";
 import { logAdminKey } from "../admin/admin.service.ts";
-import { resolveSocketCtx } from "../auth/auth.service.ts";
+import { resolveSocketCtx, sessionOf } from "../auth/auth.service.ts";
 import { db } from "../core/db.ts";
 import { ActionError } from "../core/errors.ts";
 import { clientIp, limiter } from "../core/rate-limit.ts";
@@ -34,6 +34,8 @@ import { seatView } from "../view/view.ts";
 import { loadSnapshot } from "./table.state.ts";
 
 const room = (campaignId: string) => `c:${campaignId}`;
+// One room per signed-in session, so ending a session disconnects exactly its sockets (§7.7).
+const sessionRoom = (tokenHash: string) => `s:${tokenHash}`;
 
 // Per IP for connects (a whole table shares one NAT, and all of it reconnects after an api restart), per seat for
 // actions (reconnecting or opening more sockets doesn't reset it): a GM tapping fast stays far below 2/s over a minute.
@@ -48,9 +50,15 @@ const MAX_PAGES_IN_FLIGHT = 8;
 const KICK_GRACE_MS = 200;
 
 // What a socket carries: who it is, the key of its seat (the rate limits' key), whether it's the admin-key script
-// (exempt from the action limit), and the book sources a GM tablet serves from its own PDFs (presence only, so it dies
-// with the socket).
-type SocketData = { ctx: Ctx; seatKey: string; script: boolean; books?: BookSource[] };
+// (exempt from the action limit), the signed-in session it came through (its room, and when it ends), and the book
+// sources a GM tablet serves from its own PDFs (presence only, so it dies with the socket).
+type SocketData = {
+  ctx: Ctx;
+  seatKey: string;
+  script: boolean;
+  session?: { tokenHash: string; endsAt: number };
+  books?: BookSource[];
+};
 type TableServer = Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 type TableSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 type Loaded = NonNullable<Awaited<ReturnType<typeof loadSnapshot>>>;
@@ -80,6 +88,11 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         const r = await resolveSocketCtx({ auth: socket.handshake.auth, headers: socket.handshake.headers });
         if (!r) return next(new Error("unauthorized"));
         socket.data = { ctx: r.ctx, seatKey: r.seatKey, script: r.script };
+        // The seat came through the session cookie only if its user is the session's (not a guest token or the key).
+        const session = r.script ? null : await sessionOf(socket.handshake.headers);
+        if (session && session.user.userId === r.ctx.userId) {
+          socket.data.session = { tokenHash: session.tokenHash, endsAt: session.endsAt.getTime() };
+        }
         if (r.script) await logAdminKey({ action: "room.open", campaignId: r.ctx.campaignId });
       } catch (e) {
         // DB down: the client retries (use-table), unlike "unauthorized" which it treats as a dead token.
@@ -91,9 +104,9 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   }
 
   async handleConnection(socket: TableSocket) {
-    const { ctx } = socket.data;
+    const { ctx, session } = socket.data;
     try {
-      await socket.join(room(ctx.campaignId));
+      await socket.join(session ? [room(ctx.campaignId), sessionRoom(session.tokenHash)] : room(ctx.campaignId));
       // In the campaign's queue, so this first snapshot can't land after (and overwrite) a newer broadcast.
       await this.serial(ctx.campaignId, async () => {
         const loaded = await loadSnapshot(ctx.campaignId);
@@ -116,6 +129,7 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   @SubscribeMessage("book:serving")
   onBookServing(@ConnectedSocket() socket: TableSocket, @MessageBody() body: unknown) {
     const data = socket.data;
+    if (this.sessionEnded(socket)) return;
     const parsed = BookServing.safeParse(body);
     if (!canInCampaign({ ctx: data.ctx, perm: "codex:write" }) || !parsed.success) return;
     data.books = parsed.data.sources;
@@ -128,6 +142,7 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   @SubscribeMessage("book:request")
   async onBookRequest(@ConnectedSocket() socket: TableSocket, @MessageBody() body: unknown) {
     const { ctx, seatKey } = socket.data;
+    if (this.sessionEnded(socket)) return refused("unauthorized");
     if (ctx.seat.kind === "token" && ctx.seat.role === "screen") return refused("bookScreenNone");
     if (!allowPage(seatKey)) return refused("tooManyPages");
     const parsed = BookPage.safeParse(body);
@@ -154,6 +169,7 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   @SubscribeMessage("action")
   async onAction(@ConnectedSocket() socket: TableSocket, @MessageBody() body: unknown): Promise<ActionResult> {
     const { ctx, seatKey, script } = socket.data;
+    if (this.sessionEnded(socket)) return refused("unauthorized");
     if (!script && !allowAction(seatKey)) return refused("tooManyActions");
     const parsed = Action.safeParse(body);
     if (!parsed.success) return refused("badRequest", { detail: z.prettifyError(parsed.error) });
@@ -259,6 +275,20 @@ export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     if (!loaded) return;
     // ponytail: payload computed per socket, fine at table size (one GM, a few phones, one Screen); cache by a seat-kind key if rooms grow
     for (const s of await this.server.in(room(campaignId)).fetchSockets()) this.emitView(s, loaded, what);
+  }
+
+  // Sign-out and back-channel logout: the sessions' sockets go now. They reconnect as whoever the cookies still name.
+  endSessions(tokenHashes: string[]) {
+    if (tokenHashes.length) this.server.in(tokenHashes.map(sessionRoom)).disconnectSockets(true);
+  }
+
+  // The handshake runs once per connection, so each event checks the session it came through is still within its
+  // limits (§7.7). A dead one is refused and the socket dropped a moment later, after the refusal reaches it.
+  private sessionEnded(socket: TableSocket): boolean {
+    const session = socket.data.session;
+    if (!session || Date.now() < session.endsAt) return false;
+    setTimeout(() => socket.disconnect(true), KICK_GRACE_MS);
+    return true;
   }
 
   // Disconnects the sockets whose seat just changed or went: they reconnect and resolve their seat again.

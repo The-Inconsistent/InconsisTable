@@ -81,6 +81,8 @@ bun run lint
 bun run format              # Prettier, width 120; skips *.md
 bun run test                # unit tests
 bun run test:smoke          # end-to-end; needs dev:db and dev:api with ADMIN_KEY set (the suite gets the same value)
+bun run seed                # sample data through the running api (idempotent); keep it in the local database, rerun
+                            #   after a reset. Then open localhost:3000/dev/seed to become the sample GM
 cd apps/api && bun run db:generate   # after editing any src/**/*.schema.ts
 ```
 

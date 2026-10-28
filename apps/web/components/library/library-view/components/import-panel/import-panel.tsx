@@ -33,7 +33,7 @@ function savedOutcome({ kind, body }: { kind: "pack" | "ruleset"; body: unknown 
   return r.success ? { kind, saved: r.data } : null;
 }
 
-type ImportPanelProps = { onSaved: () => void };
+type ImportPanelProps = { onSaved: () => void; autoFocus?: boolean };
 
 function KeyList({ kind, keys }: { kind: "added" | "changed" | "removed"; keys: string[] }) {
   const t = useTranslations("importPanel");
@@ -51,7 +51,7 @@ function KeyList({ kind, keys }: { kind: "added" | "changed" | "removed"; keys: 
 
 // Paste a ruleset or a pack, or choose its file. The problems come back by path and each one selects its spot in the
 // text; nothing is kept of the file but the rows the api writes.
-export function ImportPanel({ onSaved }: ImportPanelProps) {
+export function ImportPanel({ onSaved, autoFocus }: ImportPanelProps) {
   const t = useTranslations("importPanel");
   const tr = useRefusal();
   const [text, setText] = useState("");
@@ -144,7 +144,7 @@ export function ImportPanel({ onSaved }: ImportPanelProps) {
     outcome?.kind === "pack" ? outcome.saved.warnings : outcome?.kind === "problems" ? outcome.warnings : [];
 
   return (
-    <section className="card import">
+    <section id="import-panel" className="card import">
       <h2 className="head">{t("title")}</h2>
       <p className="reminder" id="import-reminder">
         {t("reminder")}
@@ -160,6 +160,7 @@ export function ImportPanel({ onSaved }: ImportPanelProps) {
           spellCheck={false}
           aria-describedby="import-reminder"
           placeholder={t("placeholder")}
+          autoFocus={autoFocus}
         />
       </label>
       <div className="row">

@@ -162,7 +162,9 @@ fieldset {
 /* ---------- Type ---------- */
 .title,
 .head,
+.card-name,
 .band strong,
+.ws-brand strong,
 .roll-title,
 .step-title,
 .fightbar .round,
@@ -1511,4 +1513,344 @@ fieldset:disabled select {
 }
 .ledger-confirm .row {
   margin-top: 12px;
+}
+
+/* ---------- The workspace: rooms, characters, rulesets and packs ----------
+   A wooden rail on the left with brass trim, the candle lit at its head; the page beside it on parchment. The current
+   page is a lit brass plate, like the selected tab. Under 900px the rail opens up (display: contents): brand and pages
+   become the band on top, the name and the device's settings close the page. */
+.skip {
+  position: absolute;
+  left: 8px;
+  top: -100px;
+  z-index: 10;
+  padding: 8px 14px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.skip:focus-visible {
+  top: 8px;
+}
+.ws {
+  display: grid;
+  grid-template-areas: "brand" "nav" "main" "foot";
+  grid-template-rows: auto auto 1fr auto;
+  min-height: 100dvh;
+}
+.ws-rail {
+  display: contents;
+}
+.ws-brand {
+  grid-area: brand;
+}
+.ws-nav {
+  grid-area: nav;
+}
+.ws-main {
+  grid-area: main;
+  min-width: 0;
+}
+.ws-foot {
+  grid-area: foot;
+}
+/* The rail is wood on every system theme: inside it the tokens are the band's, as a parchment card re-declares its own. */
+.ws-rail,
+.ws-brand,
+.ws-nav,
+.ws-foot {
+  color-scheme: dark;
+  --paper: var(--wood);
+  --ink: var(--band-ink);
+  --ink-2: var(--band-ink);
+  --line: var(--brass-lo);
+  --focus: var(--brass-hi);
+  --focus-halo: var(--halo-dark);
+}
+.ws-brand,
+.ws-nav,
+.ws-foot {
+  background: var(--grain-h), linear-gradient(180deg, var(--wood-2), var(--wood-0));
+  background-size:
+    360px 120px,
+    auto;
+  color: var(--band-ink);
+}
+.ws-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 16px;
+  padding-top: max(8px, env(safe-area-inset-top));
+  color: var(--band-ink);
+  text-decoration: none;
+}
+.ws-brand strong {
+  font-size: 23px;
+  font-weight: 650;
+}
+.ws-mark {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  background: var(--brass-hi);
+  mask: var(--icon-die) center / contain no-repeat;
+}
+.ws-nav {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 6px 12px 10px;
+  border-bottom: 3px solid var(--brass);
+  box-shadow: 0 2px 0 var(--brass-lo);
+}
+.ws-link {
+  flex: 1 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-btn);
+  color: var(--band-ink);
+  font-size: 16px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ws-link::before {
+  content: "";
+  flex: none;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  mask: var(--ws-icon) center / contain no-repeat;
+}
+.ws-link[data-icon="rooms"] {
+  --ws-icon: var(--icon-door);
+}
+.ws-link[data-icon="characters"] {
+  --ws-icon: var(--icon-meeple);
+}
+.ws-link[data-icon="library"] {
+  --ws-icon: var(--icon-book);
+}
+.ws-link:hover {
+  border-color: var(--brass-lo);
+  background: rgb(255 215 150 / 0.08);
+}
+.ws-link[aria-current="page"] {
+  font-weight: 800;
+  color: var(--plate-main-ink);
+  background: var(--plate-main);
+  border-color: var(--brass-hi);
+  box-shadow:
+    inset 0 1px 0 rgb(255 240 191 / 0.8),
+    0 2px 0 var(--brass-lo),
+    0 0 18px rgb(255 182 79 / 0.3);
+}
+.ws-link:focus-visible {
+  outline-offset: -4px;
+  box-shadow: inset 0 0 0 6px var(--focus-halo);
+}
+.ws-count {
+  margin-left: auto;
+  min-width: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--brass-lo);
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.25);
+  font-size: var(--fs-small);
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.ws-link[aria-current="page"] .ws-count {
+  border-color: var(--brass-ink);
+  background: rgb(255 240 191 / 0.45);
+}
+.ws-foot {
+  display: grid;
+  gap: 14px;
+  padding: 18px 16px;
+  padding-bottom: max(18px, env(safe-area-inset-bottom));
+  border-top: 3px solid var(--brass);
+}
+.ws-admin {
+  color: var(--band-ink);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+}
+/* The page head: the name of the page and one line on it, the main action at the right. */
+.ws-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--line);
+}
+.ws-head > div {
+  flex: 1 1 24ch;
+  min-width: 0;
+}
+.ws-head p {
+  margin: 6px 0 0;
+  max-width: 60ch;
+}
+.ws-tally {
+  font-family: var(--font-body);
+  font-size: var(--fs-small);
+  font-weight: 700;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.card-name {
+  font-size: var(--fs-name);
+  font-weight: 650;
+  line-height: 1.2;
+}
+.ws-tile {
+  align-content: start;
+  color: var(--ink);
+  text-decoration: none;
+}
+.ws-tile:hover::before {
+  box-shadow:
+    inset 0 0 0 2px var(--brass),
+    inset 0 0 34px rgb(150 100 40 / 0.3);
+}
+/* A session running: a lit dot before the words, so the state never rests on the dot alone. */
+.chip[data-live="true"]::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 2px rgb(62 106 42 / 0.25);
+}
+.chip[data-status] {
+  border-style: dashed;
+}
+/* An empty page says what is missing and offers the way to it. */
+.ws-empty {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+/* A folded section (the archived rooms): the heading is the toggle, its marker says which way it is. */
+.ws-fold > summary {
+  cursor: pointer;
+  list-style-position: inside;
+}
+.ws-fold > summary::marker {
+  color: var(--accent);
+}
+/* Phone: the pages sit at the bottom, under the thumb, icon over word, like the table's own bottom tabs. */
+@media (max-width: 899px) {
+  .ws {
+    grid-template-areas: "brand" "main" "foot" "nav";
+    grid-template-rows: auto 1fr auto auto;
+  }
+  .ws-brand {
+    border-bottom: 3px solid var(--brass);
+    box-shadow: 0 2px 0 var(--brass-lo);
+  }
+  .ws-nav {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    overflow: visible;
+    padding: 6px 8px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+    border-bottom: 0;
+    border-top: 3px solid var(--brass);
+    box-shadow: 0 -2px 0 var(--brass-lo);
+  }
+  .ws-link {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-height: 56px;
+    padding: 4px 6px;
+    font-size: var(--fs-small);
+    text-align: center;
+    white-space: normal;
+    line-height: 1.15;
+  }
+  .ws-count {
+    position: absolute;
+    top: 2px;
+    left: calc(50% + 8px);
+    min-width: 22px;
+    padding: 0 6px;
+    font-size: 12px;
+  }
+  .ws-foot {
+    border-top-width: 3px;
+  }
+}
+
+@media (min-width: 900px) {
+  .ws {
+    grid-template-areas: "rail main";
+    grid-template-columns: 272px minmax(0, 1fr);
+    grid-template-rows: auto;
+  }
+  .ws-rail {
+    grid-area: rail;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow-y: auto;
+    background: var(--candle-glow), var(--grain), linear-gradient(90deg, var(--wood-0), var(--wood-2) 70%, var(--wood));
+    color: var(--band-ink);
+    border-right: 3px solid var(--brass);
+    box-shadow:
+      2px 0 0 var(--brass-lo),
+      8px 0 18px rgb(0 0 0 / 0.5);
+  }
+  .ws-brand,
+  .ws-nav,
+  .ws-foot {
+    background: none;
+  }
+  .ws-brand {
+    margin: 0 16px;
+    padding: 24px 4px 18px;
+    border-bottom: 1px solid var(--brass-lo);
+  }
+  .ws-brand strong {
+    font-size: 26px;
+  }
+  .ws-nav {
+    flex-direction: column;
+    overflow: visible;
+    padding: 18px 14px;
+    border: 0;
+    box-shadow: none;
+  }
+  .ws-link {
+    flex: none;
+  }
+  .ws-foot {
+    margin-top: auto;
+    border-top: 0;
+    padding-top: 12px;
+  }
+  .ws-main .page {
+    padding-top: 32px;
+  }
 }

@@ -1,6 +1,8 @@
 import { cookies, headers as requestHeaders } from "next/headers";
+import { cache } from "react";
 
 import { DEVICE_COOKIE, SESSION_COOKIE } from "@inconsistable/auth/api";
+import { Lobby } from "@inconsistable/core-schema";
 
 import { API_ORIGIN, TOKEN_COOKIE } from "@/app/constants";
 
@@ -19,3 +21,15 @@ export async function apiGet(path: string) {
   const res = await fetch(`${API_ORIGIN}${path}`, { headers, cache: "no-store" });
   return res;
 }
+
+// The caller's lobby (their rooms, name and characters), or null when the api can't be read. Cached per request: the
+// workspace rail and the page under it read the same reply.
+export const readLobby = cache(async (): Promise<Lobby | null> => {
+  try {
+    const res = await apiGet("/api/lobby");
+    const parsed = Lobby.safeParse(res.ok ? await res.json() : null);
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+});

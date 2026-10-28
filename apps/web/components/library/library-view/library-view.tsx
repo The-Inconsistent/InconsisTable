@@ -1,9 +1,9 @@
 "use client";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
-import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
+import { PageHead } from "@/components/ui/page-head/page-head";
 import { formatBytes, type PackList as PackListData, type RulesetList } from "@/lib/library/library";
 
 import { ImportPanel } from "./components/import-panel/import-panel";
@@ -15,59 +15,73 @@ type LibraryViewProps = { rulesets: RulesetList; packs: PackListData };
 // imported, and a private pack only in rooms its owner runs as GM.
 export function LibraryView({ rulesets, packs }: LibraryViewProps) {
   const t = useTranslations("library");
+  const tWs = useTranslations("workspace");
   const locale = useLocale();
   const router = useRouter();
   const { usage } = packs;
+  const [importing, setImporting] = useState(rulesets.length === 0);
+  const [toggled, setToggled] = useState(false);
+
+  // IMPORT in the head: shows or folds the importer, and moves the cursor into it when it opens.
+  const handleToggle = () => {
+    setImporting(!importing);
+    setToggled(true);
+  };
   const handleChanged = () => router.refresh();
 
   return (
-    <>
-      <header className="band">
-        <a href="/">{t("campaigns")}</a>
-        <strong>{t("title")}</strong>
-        <span className="row">
-          <LocaleSwitch />
-          <ThemeSwitch />
-        </span>
-      </header>
-      <main className="page library">
-        <ImportPanel onSaved={handleChanged} />
+    <main className="page library">
+      <PageHead title={t("title")} lede={tWs("lede.library")}>
+        <button
+          type="button"
+          className="btn primary"
+          aria-expanded={importing}
+          aria-controls="import-panel"
+          onClick={handleToggle}
+        >
+          {tWs("importToggle")}
+        </button>
+      </PageHead>
+      {importing && <ImportPanel onSaved={handleChanged} autoFocus={toggled} />}
 
-        <section className="stack">
-          <h2 className="head">{t("rulesets")}</h2>
-          {rulesets.length === 0 ? (
-            <p className="dim">{t("noRulesets")}</p>
-          ) : (
-            <ul className="stack library-list">
-              {rulesets.map((r) => (
-                <li key={r.id} className="card">
-                  <strong>{r.slug}</strong>
-                  <p className="row small">
-                    {r.versions.map((v) => (
-                      <span key={v.id} className="chip">
-                        {v.version}
-                      </span>
-                    ))}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+      <section className="stack">
+        <h2 className="head">
+          {t("rulesets")} <span className="ws-tally">{rulesets.length}</span>
+        </h2>
+        {rulesets.length === 0 ? (
+          <p className="dim">{t("noRulesets")}</p>
+        ) : (
+          <ul className="grid library-list">
+            {rulesets.map((r) => (
+              <li key={r.id} className="card">
+                <strong className="card-name">{r.slug}</strong>
+                <p className="row small">
+                  {r.versions.map((v) => (
+                    <span key={v.id} className="chip">
+                      {v.version}
+                    </span>
+                  ))}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-        <section className="stack">
-          <h2 className="head">{t("packs")}</h2>
-          <p className="small dim">
-            {t("usage", {
-              packs: usage.packs,
-              maxPacks: usage.maxPacks,
-              bytes: formatBytes(usage.bytes, locale),
-              maxBytes: formatBytes(usage.maxBytes, locale),
-            })}
-          </p>
-          <PackList packs={packs.packs} onChanged={handleChanged} />
-        </section>
-      </main>
-    </>
+      <section className="stack">
+        <h2 className="head">
+          {t("packs")} <span className="ws-tally">{packs.packs.length}</span>
+        </h2>
+        <p className="small dim">
+          {t("usage", {
+            packs: usage.packs,
+            maxPacks: usage.maxPacks,
+            bytes: formatBytes(usage.bytes, locale),
+            maxBytes: formatBytes(usage.maxBytes, locale),
+          })}
+        </p>
+        <PackList packs={packs.packs} onChanged={handleChanged} />
+      </section>
+    </main>
   );
 }

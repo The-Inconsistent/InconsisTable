@@ -104,8 +104,8 @@ and asks InconsisID to end its own.
   send it), or an `Origin` listed in `WEB_ORIGIN`; only the back-channel logout is exempt. A script calling the api
   sends one of the two.
 - **Roles** come from the ID token at each sign-in: `creator` lets the account start rooms; `admin` grants nothing yet.
-  A new InconsisID account has no role, so it cannot start rooms until an InconsisID admin grants `creator`
-  (`bun run admin grant <sub> creator` on the InconsisID host). Signing in on a device leaves that device's anonymous
+  InconsisID makes every new account a `creator`; an account whose `creator` is revoked there (`bun run admin revoke
+  <sub> creator` on the InconsisID host) cannot start rooms from its next sign-in. Signing in on a device leaves that device's anonymous
   user and its rooms untouched; signing out returns the device to it.
 
 **Locally:** run InconsisID (`bun run dev:db`, `bun run keys:dev`, `bun run dev` in its checkout; it registers the

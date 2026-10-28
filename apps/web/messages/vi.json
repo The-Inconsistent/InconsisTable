@@ -84,6 +84,18 @@
     "emptyMine": "Bạn chưa có campaign nào.",
     "emptySeated": "Chưa ai mời bạn vào bàn nào."
   },
+  "account": {
+    "signIn": "Đăng nhập",
+    "signOut": "Đăng xuất",
+    "signedInAs": "Đã đăng nhập: {name}",
+    "anonymous": "Đang chơi trên thiết bị này, không có tài khoản.",
+    "signInFailed": "Đăng nhập không thành công. Hãy thử lại từ đầu."
+  },
+  "platformRoles": {
+    "user": "Người dùng",
+    "creator": "Người tạo",
+    "admin": "Quản trị"
+  },
   "library": {
     "campaigns": "Campaign",
     "title": "Bộ luật & pack",

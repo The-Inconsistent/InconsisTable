@@ -5,6 +5,7 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import * as actorSchema from "../actor/actor.schema.ts";
 import * as adminSchema from "../admin/admin.schema.ts";
 import * as authSchema from "../auth/auth.schema.ts";
+import * as sessionSchema from "../auth/session.schema.ts";
 import * as campaignSchema from "../campaign/campaign.schema.ts";
 import * as codexSchema from "../codex/codex.schema.ts";
 import * as encounterSchema from "../encounter/encounter.schema.ts";
@@ -22,6 +23,7 @@ const schema = {
   ...encounterSchema,
   ...packSchema,
   ...rulesetSchema,
+  ...sessionSchema,
 };
 
 // Postgres 18 (uuidv7, RETURNING OLD/NEW). Dev runs it in Docker (docker-compose.yml).

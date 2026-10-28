@@ -1,8 +1,11 @@
 import "reflect-metadata";
+import { Logger } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import { json, type NextFunction, type Request, type Response } from "express";
+import { json, urlencoded, type NextFunction, type Request, type Response } from "express";
 import { MAX_PACK_BYTES } from "@inconsistable/rules-engine";
 import { AppModule } from "./app.module.ts";
+import { signIn } from "./auth/sign-in.controller.ts";
+import { crossSiteWrite, webOrigins } from "./core/csrf.ts";
 import { runMigrations } from "./core/db.ts";
 import { assertAdminKey } from "./core/env.ts";
 import { clientIp, limiter } from "./core/rate-limit.ts";
@@ -19,6 +22,13 @@ app.enableShutdownHooks();
 const allowDoor = limiter({ max: 60, windowMs: 60_000 });
 app.use(["/api/join", "/api/guest", "/api/invites"], (req: Request, res: Response, next: NextFunction) => {
   if (allowDoor(clientIp(req.headers, req.socket.remoteAddress))) return next();
+  res.status(429).json({ message: "Too many requests. Wait a minute." });
+});
+
+// Signing in and out, /api/auth/me and the provider's back-channel logout, per IP like the door.
+const allowAuth = limiter({ max: 60, windowMs: 60_000 });
+app.use("/api/auth", (req: Request, res: Response, next: NextFunction) => {
+  if (allowAuth(clientIp(req.headers, req.socket.remoteAddress))) return next();
   res.status(429).json({ message: "Too many requests. Wait a minute." });
 });
 
@@ -49,9 +59,21 @@ app.use(IMPORT_ROUTES, (req: Request, res: Response, next: NextFunction) => {
   res.status(429).json({ message: "Too many imports. Wait a minute." });
 });
 
+// Every write comes from the web's own pages (core/csrf.ts); the back-channel logout is the one exception.
+const WEB_ORIGINS = webOrigins(process.env.WEB_ORIGIN);
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (!crossSiteWrite({ method: req.method, path: req.path, headers: req.headers, webOrigins: WEB_ORIGINS })) {
+    return next();
+  }
+  res.status(403).json({ message: "Cross-site request refused." });
+});
+
 // The body parsers, after the limiters so a flood is refused before its body is read. Only the importer takes a big
-// body (MAX_PACK_BYTES); everything else keeps express' 100 KB.
+// body (MAX_PACK_BYTES); the sign-in form and the logout token are form-encoded; everything else keeps express' 100 KB.
 app.use(IMPORT_ROUTES, json({ limit: MAX_PACK_BYTES }));
+app.use(["/api/auth/login", "/api/auth/backchannel-logout"], urlencoded({ extended: false, limit: "16kb" }));
 app.use(json());
 
+// Discovery now, so a misconfigured provider shows in the boot log; sign-in retries it on first use either way.
+if (signIn) await signIn.warm().catch((e: unknown) => new Logger("SignIn").error(e));
 await app.listen(Number(process.env.PORT ?? 4000));

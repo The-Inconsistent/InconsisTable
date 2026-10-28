@@ -57,9 +57,15 @@ Next.js fixes these at build time, so changing them means rebuilding the web ima
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DATABASE_URL` | `postgres://<user>:<password>@postgres:5432/<db>`; must match `postgres.env`. Postgres 18 is required.                                                                                                                                                                              |
 | `ADMIN_KEY`    | Optional. The only admin there is: the `/admin` page asks for it, scripts send it as `x-admin-key`, and the socket takes it as `adminKey`. Unset turns the admin page off. If set, a long random secret (32+ characters, e.g. `openssl rand -hex 32`); the api refuses to boot with a shorter one or `change-me`. Its actions are logged as actor `admin-key`. |
-| `WEB_ORIGIN`   | The address the web is opened at, with scheme and no trailing slash (`http://192.168.1.10:3000`). Comma separated for several. Sets the socket's CORS.                                                                                                                              |
+| `WEB_ORIGIN`   | The address the web is opened at, with scheme and no trailing slash (`http://192.168.1.10:3000`). Comma separated for several. Sets the socket's CORS, and which `Origin` a write may carry when the client sends no `Sec-Fetch-Site` (browsers do; see Sign-in). |
 | `PORT`         | `4000`. Keep it; the web image and the health check assume it.                                                                                                                                                                                                                       |
 | `TRUST_CF`     | `1` **only** if the web sits behind Cloudflare, so rate limits see the real client IP from `CF-Connecting-IP`. Leave empty otherwise: any client can forge that header when no Cloudflare is in front.                                                                              |
+| `IDP_SIGN_IN` | Optional. `1` turns sign-in through InconsisID on (see Sign-in below); unset or `0` keeps every browser anonymous and ignores the other `IDP_` variables. Once on, a missing or unsafe value refuses to boot. |
+| `IDP_ISSUER` | The identity provider's issuer, exactly as its discovery says (`https://auth.example`, no trailing slash). https only. |
+| `IDP_CLIENT_ID` | This deployment's client id, as registered in InconsisID's `clients/`. |
+| `IDP_REDIRECT_URI` | `<web origin>/api/auth/callback`, exactly as registered. https only. Its origin is where sign-in works: the sign-in form must be posted from it, and the post-logout redirect is its `/`. |
+| `IDP_CLIENT_JWK_FILE` | Path to this client's private ES256 JWK (`kty` `EC`, `crv` `P-256`, `kid`, `x`, `y`, `d`), mounted as a secret file; never an environment variable. Its public half is in the client registration. |
+| `IDP_DEV_HTTP` | **Never set** in a deployment. Development only: allows `http://localhost` for the issuer and the redirect URI, and is refused when `NODE_ENV=production`. |
 
 ### Web (`deploy/web.env`)
 
@@ -79,6 +85,36 @@ The web needs no secret yet.
 Each browser gets an `it_device` cookie from the web (httpOnly, one year). Clearing it, or opening the app in another
 browser, makes a new anonymous user with no rooms. A GM who loses the cookie loses the rooms they own; keep the
 database backed up and, until a provider exists, treat a GM's device as their account.
+
+## Sign-in
+
+Accounts come from InconsisID, our OpenID Provider (ADR 0005, house decision #33), and exist only on HTTPS deployments.
+With `IDP_SIGN_IN` unset nothing changes: every browser is anonymous. With it on, the lobby shows **Sign in**, which
+goes to InconsisID (a passkey, or a recovery code) and back to the lobby signed in; **Sign out** ends the session here
+and asks InconsisID to end its own.
+
+- **Register the client first.** A PR on InconsisID adds `clients/<name>.ts` with the public half of the key, the redirect
+  URI, `<web origin>/` as the post-logout redirect, and `<web origin>/api/auth/backchannel-logout` as the back-channel
+  URI.
+- **Expose the back-channel URI publicly.** InconsisID refuses to deliver logout tokens to loopback or private addresses.
+  Without delivery, an account disabled or demoted at InconsisID stays signed in here until its session ends.
+- **Sessions** are the api's own: an httpOnly `__Host-it_session` cookie, 30 days idle and 90 days at most. Signing out,
+  or a logout token from InconsisID, deletes the session and disconnects its table sockets at once.
+- **Writes need the web's own origin.** Every POST, PATCH and DELETE must carry `Sec-Fetch-Site: same-origin` (browsers
+  send it), or an `Origin` listed in `WEB_ORIGIN`; only the back-channel logout is exempt. A script calling the api
+  sends one of the two.
+- **Roles** come from the ID token at each sign-in: `creator` lets the account start rooms; `admin` grants nothing yet.
+  InconsisID makes every new account a `creator`; an account whose `creator` is revoked there (`bun run admin revoke
+  <sub> creator` on the InconsisID host) cannot start rooms from its next sign-in. Signing in on a device leaves that device's anonymous
+  user and its rooms untouched; signing out returns the device to it.
+
+**Locally:** run InconsisID (`bun run dev:db`, `bun run keys:dev`, `bun run dev` in its checkout; it registers the
+`inconsistable-dev` client in development) and set in `apps/api/.env`: `IDP_SIGN_IN=1`, `IDP_DEV_HTTP=1`,
+`IDP_ISSUER=http://localhost:4100`, `IDP_CLIENT_ID=inconsistable-dev`,
+`IDP_REDIRECT_URI=http://localhost:3000/api/auth/callback` and `IDP_CLIENT_JWK_FILE=<InconsisID checkout>/.secrets/inconsistable_dev_client_jwk.json`.
+Open the web at `http://localhost:3000` (Chromium keeps the `Secure` cookies on localhost); at a LAN address over http
+sign-in is refused. Logout tokens are never delivered to localhost; `bun run logout-token inconsistable-dev <sub> <sid>`
+in the InconsisID checkout prints one to POST to `/api/auth/backchannel-logout` by hand.
 
 ## Health check
 

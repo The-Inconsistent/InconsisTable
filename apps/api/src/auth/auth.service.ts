@@ -1,12 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
-import { DEVICE_COOKIE, isDeviceSecret, type AuthUser } from "@inconsistable/auth/api";
+import { DEVICE_COOKIE, SESSION_COOKIE, isDeviceSecret, type AuthUser } from "@inconsistable/auth/api";
 import type { Ctx } from "@inconsistable/core-schema";
 import { campaign } from "../campaign/campaign.schema.ts";
 import { isAdminKey } from "../campaign/campaign.service.ts";
 import { db, type Db, type Tx } from "../core/db.ts";
 import { accessToken, appUser, device, membership, membershipCharacter } from "./auth.schema.ts";
+import { SESSION_IDLE_MS, apiSession } from "./session.schema.ts";
 
 // Guest login cookie (a player QR token). Every device also has `it_device` (deviceUser).
 export const COOKIE = "it_token";
@@ -43,10 +44,44 @@ export function readCookie({ header, name = COOKIE }: { header: string | undefin
   }
 }
 
-// The device's user, made on first sight of a well-formed `it_device` secret. Null for a missing or malformed secret
-// (the web proxy mints a fresh one). Two first requests at once make one user: the loser of the device insert undoes
-// the user it just made and reads the winner's.
+// A live session: its user, the hash that names its sockets' room, and when it ends unless it is used again.
+export type Session = { tokenHash: string; user: AuthUser; endsAt: Date };
+
+// The caller's session from the `__Host-it_session` cookie. One statement checks both limits and touches
+// last_seen_at, so an expired session never reads as live. Null for no cookie or a dead session.
+export async function sessionOf(headers: { cookie?: string }): Promise<Session | null> {
+  const token = readCookie({ header: headers.cookie, name: SESSION_COOKIE });
+  if (!isDeviceSecret(token)) return null;
+  const tokenHash = hash(token);
+  const now = new Date();
+  const [s] = await db
+    .update(apiSession)
+    .set({ lastSeenAt: now })
+    .where(
+      and(
+        eq(apiSession.tokenHash, tokenHash),
+        gt(apiSession.expiresAt, now),
+        gt(apiSession.lastSeenAt, new Date(now.getTime() - SESSION_IDLE_MS)),
+      ),
+    )
+    .returning({ userId: apiSession.userId, roles: apiSession.roles, expiresAt: apiSession.expiresAt });
+  if (!s) return null;
+  const [u] = await db.select({ name: appUser.name, role: appUser.role }).from(appUser).where(eq(appUser.id, s.userId));
+  if (!u) return null;
+  const idleEnd = new Date(now.getTime() + SESSION_IDLE_MS);
+  return {
+    tokenHash,
+    user: { userId: s.userId, name: u.name, creator: u.role === "creator", account: { roles: s.roles } },
+    endsAt: s.expiresAt < idleEnd ? s.expiresAt : idleEnd,
+  };
+}
+
+// The caller: a signed-in session first, else the device's user. The device user is made on first sight of a
+// well-formed `it_device` secret; null for a missing or malformed secret (the web proxy mints a fresh one). Two first
+// requests at once make one user: the loser of the device insert undoes the user it just made and reads the winner's.
 export async function deviceUser(headers: { cookie?: string }): Promise<AuthUser | null> {
+  const session = await sessionOf(headers);
+  if (session) return session.user;
   const secret = readCookie({ header: headers.cookie, name: DEVICE_COOKIE });
   if (!isDeviceSecret(secret)) return null;
   const tokenHash = hash(secret);

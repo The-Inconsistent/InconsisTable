@@ -84,6 +84,19 @@
     "nextSession": "Buổi tới {when}",
     "creating": "Đang tạo…"
   },
+  "account": {
+    "label": "Tài khoản",
+    "signIn": "Đăng nhập",
+    "signOut": "Đăng xuất",
+    "signedInAs": "Đã đăng nhập: {name}",
+    "anonymous": "Đang chơi trên thiết bị này, không có tài khoản.",
+    "signInFailed": "Đăng nhập không thành công. Hãy thử lại từ đầu."
+  },
+  "platformRoles": {
+    "user": "Người dùng",
+    "creator": "Người tạo",
+    "admin": "Quản trị"
+  },
   "library": {
     "title": "Bộ luật & pack",
     "rulesets": "Bộ luật",

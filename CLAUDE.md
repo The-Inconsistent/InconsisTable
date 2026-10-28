@@ -23,7 +23,8 @@ These rules decide reviews. Breaking one blocks a merge.
    per-ruleset option that needs a house decision.
 6. **The server decides.** One mutation path. Counters take deltas and are clamped on the server. Players see only what
    the table's view lets them see. The only writes outside it are owner-scoped REST: a user importing their own
-   rulesets and packs (`/api/rulesets`, `/api/packs`, the pack library), creating a room, and the admin console.
+   rulesets and packs (`/api/rulesets`, `/api/packs`, the pack library), creating a room, the admin console, and
+   a user's own sign-in, sign-out and sign-in methods (house decision #35).
 7. **Shortcuts are marked:** `// ponytail: <ceiling>, <upgrade path>`.
 8. **It serves a real table.** Readable at arm's length, no chat, phones never pull players away from the table. Each
    World gets a look made with care.
@@ -35,14 +36,16 @@ stat blocks, art or PDFs to this repo.
 
 Bun (package manager, runtime, test runner; never npm or pnpm), Turborepo, TypeScript 5.9 (do not upgrade: TS 7 breaks
 the Next and Nest toolchains), Next.js 16 + React 19, NestJS on Bun, Socket.IO, Drizzle ORM, **Postgres 18**, zod 4,
-Auth: device identity (an `it_device` cookie per browser) through `@inconsistable/auth`, until a provider is chosen.
+Auth: device identity (an `it_device` cookie per browser) through `@inconsistable/auth`; on HTTPS deployments, accounts
+through InconsisID with `@the-inconsistent/client` (ADR 0005, `docs/deploy.md` Sign-in).
 
 ## Layout
 
 ```
 apps/api/src/        NestJS on Bun, run from source. One folder per feature, each owning its `*.schema.ts`:
   core/              db (Postgres 18, migrations at boot), errors, sql helpers (uuidv7 ids), rate limits
-  auth/              seats: membership (+ held characters), tokens (guest, screen), invites, ownership transfer
+  auth/              seats: membership (+ held characters), tokens (guest, screen), invites, ownership transfer;
+                     sign-in through InconsisID (sign-in.*), the api's own sessions and the identity links
   campaign/          rooms and sessions, lobby, create (REST), the session event log, the room's ruleset and packs
                      (`campaign.setRuleset/attachPack`, the seat-scoped `GET /api/campaigns/:id/rules`)
   actor/             actors and their typed value rows
@@ -56,7 +59,7 @@ apps/api/test/       smoke.test.ts: end-to-end against a running api and Postgre
 apps/web/            Next.js 16: lobby, invite, join, the table page (GM app, player app, table screen)
 packages/core-schema seats, permissions (canInCampaign), the core Action union, snapshots, per-seat views, book relay
 packages/rules-engine manifests, expressions, dice, primitives, viewer views (no game content)
-packages/auth        device identity (cookie name, secret, AuthUser); the seam for a future provider
+packages/auth        device identity and sign-in constants (cookie names, secret, AuthUser, platform roles)
 ```
 
 ## Commands
@@ -93,10 +96,14 @@ Pre-release: the migration may be regenerated from scratch (delete `apps/api/dri
   joined, counted by delta, or referenced by a foreign key is a column or a table.
 - Values of ruleset-declared fields, resources and conditions are typed rows keyed by `actor_id` (`docs/design.md` §5.4).
 - Every query is scoped to `ctx.campaignId`. Never trust ids from the client.
-- There are no accounts yet: every device is an anonymous user (`it_device` cookie, table `device`), and `app_user.role`
-  is `creator` by default. Admin is the shared `ADMIN_KEY` (header `x-admin-key`, or the socket `adminKey`), never a
-  user. The room owner is `campaign.owner_user_id`, not a role. Deploy is local/LAN only until a provider exists
-  (`docs/house-decisions.md`).
+- Every device is an anonymous user (`it_device` cookie, table `device`), and its `app_user.role` is `creator` by
+  default. With sign-in on (`IDP_SIGN_IN`), a signed-in browser is the account's user instead (`__Host-it_session`,
+  `deviceUser` reads it first), and that user's role is `creator` only when the ID token says so. Admin is the shared
+  `ADMIN_KEY` (header `x-admin-key`, or the socket `adminKey`), never a user; the token's `admin` role grants nothing
+  yet. The room owner is `campaign.owner_user_id`, not a role. Deploy is local/LAN only until the security fixes land
+  (`docs/house-decisions.md`, `docs/deploy.md`).
+- Every write (POST, PATCH, DELETE) carries `Sec-Fetch-Site: same-origin` or an `Origin` in `WEB_ORIGIN`
+  (`core/csrf.ts`); the back-channel logout is the only exception.
 
 ## Standards
 

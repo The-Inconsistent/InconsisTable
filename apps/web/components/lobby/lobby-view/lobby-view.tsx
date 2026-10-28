@@ -6,12 +6,13 @@ import { useState, type FormEvent } from "react";
 
 import { CreateGame, type Lobby, type LobbyGame } from "@inconsistable/core-schema";
 
+import { AccountBar } from "@/components/lobby/account-bar/account-bar";
 import { PageHead } from "@/components/ui/page-head/page-head";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
-import { ApiMessage, CampaignRef, readJson } from "@/lib/api-reply/api-reply";
+import { ApiMessage, CampaignRef, readJson, type AuthMe } from "@/lib/api-reply/api-reply";
 import type { RulesetList } from "@/lib/library/library";
 
-type LobbyViewProps = { lobby: Lobby; rulesets: RulesetList };
+type LobbyViewProps = { lobby: Lobby; rulesets: RulesetList; me: AuthMe; signInFailed: boolean };
 
 const NO_RULESET = "";
 
@@ -65,8 +66,8 @@ function Section({ title, games, empty }: { title: string; games: LobbyGame[]; e
 }
 
 // ROOMS: the ones you own, the ones where you play or co-GM, and the archived ones; plus NEW ROOM for creators, open
-// at once when there is nothing else to show.
-export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
+// at once when there is nothing else to show, and the account bar on deployments that sign in.
+export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps) {
   const t = useTranslations("lobby");
   const tWs = useTranslations("workspace");
   const tStatus = useTranslations("status");
@@ -127,6 +128,7 @@ export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
           </button>
         )}
       </PageHead>
+      <AccountBar me={me} signInFailed={signInFailed} />
       {lobby.canCreate && creating && (
         <form id="new-room" className="card" onSubmit={handleCreate}>
           <h2 className="head">{t("newCampaign")}</h2>

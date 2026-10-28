@@ -84,6 +84,19 @@
     "nextSession": "Next session {when}",
     "creating": "Creating…"
   },
+  "account": {
+    "label": "Account",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "signedInAs": "Signed in as {name}",
+    "anonymous": "Playing on this device without an account.",
+    "signInFailed": "Sign-in failed. Start again."
+  },
+  "platformRoles": {
+    "user": "User",
+    "creator": "Creator",
+    "admin": "Admin"
+  },
   "library": {
     "title": "Rulesets & packs",
     "rulesets": "Rulesets",

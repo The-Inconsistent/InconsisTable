@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Client } from "pg";
 import { io } from "socket.io-client";
-import { DEVICE_COOKIE, deviceSecret } from "@inconsistable/auth/api";
+import { DEVICE_COOKIE, SESSION_COOKIE, deviceSecret } from "@inconsistable/auth/api";
 import type {
   ActionInput,
   ActionResult,
@@ -55,10 +55,12 @@ const known = new Map<string, string>();
 const uid = (name: string) => known.get(name) ?? `nobody-${name}-${run}`;
 const cookieOf = (cookie: string) => ({ cookie });
 const get = (path: string, headers: Record<string, string> = {}) => fetch(`${API}/api${path}`, { headers });
+// Writes carry the Fetch Metadata a browser sends from the web's own pages (the api's CSRF check, core/csrf.ts).
+const SAME_ORIGIN = { "sec-fetch-site": "same-origin" };
 const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
   fetch(`${API}/api${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json", ...headers },
+    headers: { "content-type": "application/json", ...SAME_ORIGIN, ...headers },
     body: JSON.stringify(body),
   });
 
@@ -439,7 +441,7 @@ test("PATCH /me renames the device's user, and the new name shows at the table",
   const patch = (body: unknown, headers: Record<string, string>) =>
     fetch(`${API}/api/me`, {
       method: "PATCH",
-      headers: { "content-type": "application/json", "cf-connecting-ip": nextSocketIp(), ...headers },
+      headers: { "content-type": "application/json", "cf-connecting-ip": nextSocketIp(), ...SAME_ORIGIN, ...headers },
       body: JSON.stringify(body),
     });
   assert.equal((await patch({ name: "Ana" }, {})).status, 401);
@@ -2340,4 +2342,82 @@ test("pins: with no ruleset a rule action is refused, and sessions still start a
   ok(await owner.send({ type: "session.end" }));
   refused(await owner.send({ type: "actor.rest", event: "longRest" }), "noRuleset");
   owner.socket.close();
+});
+
+// Signing in (docs/research/auth-service-security.md §7.4 to §7.7). The api's sessions work whether or not a provider
+// is configured, so the suite makes the row a callback would make, for a device user it already has.
+async function sessionFor(userId: string, { endsInS }: { endsInS: number }) {
+  const token = deviceSecret();
+  await withDb((c) =>
+    c.query(
+      `insert into api_session (token_hash, user_id, op_sid, roles, expires_at)
+       values ($1, $2, $3, $4, now() + make_interval(secs => $5))`,
+      [createHash("sha256").update(token).digest("hex"), userId, `sid-${run}-${token}`, ["creator"], endsInS],
+    ),
+  );
+  return `${SESSION_COOKIE}=${token}`;
+}
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+test("a write without the web's origin is refused; the back-channel logout is the one exception", async () => {
+  const bare = (path: string, headers: Record<string, string> = {}) =>
+    fetch(`${API}/api${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "cf-connecting-ip": nextSocketIp(), ...headers },
+      body: "{}",
+    });
+  const cookie = await device("csrf");
+  assert.equal((await bare("/campaigns", { cookie })).status, 403);
+  assert.equal((await bare("/campaigns", { cookie, "sec-fetch-site": "cross-site" })).status, 403);
+  assert.equal((await bare("/campaigns", { cookie, "sec-fetch-site": "same-site" })).status, 403);
+  assert.equal((await bare("/campaigns", { cookie, origin: "https://evil.example" })).status, 403);
+  assert.notEqual((await bare("/auth/backchannel-logout")).status, 403, "400 with sign-in on, 404 with it off");
+});
+
+test("a session is its user over a device cookie; past its end, REST falls back to the device and the socket is dropped", async () => {
+  const { campaignId } = await newRoom("Session");
+  const stranger = await device("session-stranger");
+  const cookie = `${stranger}; ${await sessionFor(uid("owner-Session"), { endsInS: 3 })}`;
+  const me = (await (await get("/auth/me", { cookie })).json()) as { account: { roles: string[] } | null };
+  assert.deepEqual(me.account, { roles: ["creator"] });
+  const lobby = (await (await get("/lobby", { cookie })).json()) as Lobby;
+  assert.ok(
+    lobby.mine.some((g) => g.id === campaignId),
+    "the owner's lobby, not the stranger's",
+  );
+
+  const s = connect({ auth: { campaignId, cookie } });
+  await s.until((st) => st.campaign.name === "Session");
+  await sleep(3200);
+  const dropped = new Promise((r) => s.socket.once("disconnect", r));
+  const reply = (await s.socket.emitWithAck("action", {})) as ActionResult;
+  refused(reply, "unauthorized");
+  assert.equal(await dropped, "io server disconnect");
+  const after = (await (await get("/auth/me", { cookie })).json()) as { account: unknown };
+  assert.equal(after.account, null, "back to the stranger's anonymous device user");
+});
+
+test("signing out deletes the session and disconnects its sockets at once", async () => {
+  const { campaignId } = await newRoom("Signout");
+  const session = await sessionFor(uid("owner-Signout"), { endsInS: 3600 });
+  const s = connect({ auth: { campaignId, cookie: session } });
+  await s.until((st) => st.campaign.name === "Signout");
+  const dropped = new Promise((r) => s.socket.once("disconnect", r));
+  const out = await fetch(`${API}/api/auth/logout`, {
+    method: "POST",
+    headers: { ...SAME_ORIGIN, cookie: session, "cf-connecting-ip": nextSocketIp() },
+    redirect: "manual",
+  });
+  assert.equal(out.status, 303);
+  assert.match(out.headers.get("set-cookie") ?? "", /__Host-it_session=;.*Secure/);
+  assert.equal(await dropped, "io server disconnect");
+  const left = await withDb(
+    async (c) =>
+      (
+        await c.query("select count(*)::int as n from api_session where token_hash = $1", [
+          createHash("sha256").update(session.split("=")[1]!).digest("hex"),
+        ])
+      ).rows,
+  );
+  assert.equal(left[0].n, 0);
 });

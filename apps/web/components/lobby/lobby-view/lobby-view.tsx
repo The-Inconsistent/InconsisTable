@@ -5,14 +5,15 @@ import { useState, type FormEvent } from "react";
 
 import { CreateGame, type Lobby, type LobbyGame } from "@inconsistable/core-schema";
 
+import { AccountBar } from "@/components/lobby/account-bar/account-bar";
 import { NameForm } from "@/components/lobby/name-form/name-form";
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
-import { ApiMessage, CampaignRef, readJson } from "@/lib/api-reply/api-reply";
+import { ApiMessage, CampaignRef, readJson, type AuthMe } from "@/lib/api-reply/api-reply";
 import type { RulesetList } from "@/lib/library/library";
 
-type LobbyViewProps = { lobby: Lobby; rulesets: RulesetList };
+type LobbyViewProps = { lobby: Lobby; rulesets: RulesetList; me: AuthMe; signInFailed: boolean };
 
 const NO_RULESET = "";
 
@@ -50,7 +51,7 @@ function Section({ title, games, empty }: { title: string; games: LobbyGame[]; e
 }
 
 // The signed-in home: rooms you own, rooms where you play or co-GM, and the archived ones; plus NEW ROOM for creators.
-export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
+export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps) {
   const t = useTranslations("lobby");
   const tStatus = useTranslations("status");
   const tr = useRefusal();
@@ -100,6 +101,7 @@ export function LobbyView({ lobby, rulesets }: LobbyViewProps) {
         </span>
       </header>
       <main className="page">
+        <AccountBar me={me} signInFailed={signInFailed} />
         <NameForm initial={lobby.name} />
         {lobby.canCreate && (
           <form className="card" onSubmit={handleCreate}>

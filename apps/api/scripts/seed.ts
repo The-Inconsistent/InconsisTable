@@ -20,7 +20,8 @@ const DAY_MS = 24 * 3600 * 1000;
 async function call({ method, path, body, cookie }: { method: string; path: string; body?: unknown; cookie: string }) {
   const res = await fetch(`${API}/api${path}`, {
     method,
-    headers: { "content-type": "application/json", cookie },
+    // the api refuses a write without Fetch Metadata (core/csrf.ts); this script is the same-origin client it trusts
+    headers: { "content-type": "application/json", "sec-fetch-site": "same-origin", cookie },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const json: unknown = await res.json().catch(() => null);

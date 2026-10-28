@@ -1,6 +1,6 @@
 # Accounts come from our own OIDC identity provider, built on `oidc-provider`
 
-Status: accepted
+Status: accepted; its UI is amended by ADR 0006
 
 ## Context
 

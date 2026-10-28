@@ -55,10 +55,12 @@ const known = new Map<string, string>();
 const uid = (name: string) => known.get(name) ?? `nobody-${name}-${run}`;
 const cookieOf = (cookie: string) => ({ cookie });
 const get = (path: string, headers: Record<string, string> = {}) => fetch(`${API}/api${path}`, { headers });
+// Writes carry the Fetch Metadata a browser sends from the web's own pages (the api's CSRF check, core/csrf.ts).
+const SAME_ORIGIN = { "sec-fetch-site": "same-origin" };
 const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
   fetch(`${API}/api${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json", ...headers },
+    headers: { "content-type": "application/json", ...SAME_ORIGIN, ...headers },
     body: JSON.stringify(body),
   });
 
@@ -439,7 +441,7 @@ test("PATCH /me renames the device's user, and the new name shows at the table",
   const patch = (body: unknown, headers: Record<string, string>) =>
     fetch(`${API}/api/me`, {
       method: "PATCH",
-      headers: { "content-type": "application/json", "cf-connecting-ip": nextSocketIp(), ...headers },
+      headers: { "content-type": "application/json", "cf-connecting-ip": nextSocketIp(), ...SAME_ORIGIN, ...headers },
       body: JSON.stringify(body),
     });
   assert.equal((await patch({ name: "Ana" }, {})).status, 401);

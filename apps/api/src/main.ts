@@ -3,6 +3,7 @@ import { NestFactory } from "@nestjs/core";
 import { json, type NextFunction, type Request, type Response } from "express";
 import { MAX_PACK_BYTES } from "@inconsistable/rules-engine";
 import { AppModule } from "./app.module.ts";
+import { crossSiteWrite, webOrigins } from "./core/csrf.ts";
 import { runMigrations } from "./core/db.ts";
 import { assertAdminKey } from "./core/env.ts";
 import { clientIp, limiter } from "./core/rate-limit.ts";
@@ -47,6 +48,15 @@ const IMPORT_ROUTES = ["/api/rulesets", "/api/packs"];
 app.use(IMPORT_ROUTES, (req: Request, res: Response, next: NextFunction) => {
   if (req.method !== "POST" || allowImport(clientIp(req.headers, req.socket.remoteAddress))) return next();
   res.status(429).json({ message: "Too many imports. Wait a minute." });
+});
+
+// Every write comes from the web's own pages (core/csrf.ts); the back-channel logout is the one exception.
+const WEB_ORIGINS = webOrigins(process.env.WEB_ORIGIN);
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (!crossSiteWrite({ method: req.method, path: req.path, headers: req.headers, webOrigins: WEB_ORIGINS })) {
+    return next();
+  }
+  res.status(403).json({ message: "Cross-site request refused." });
 });
 
 // The body parsers, after the limiters so a flood is refused before its body is read. Only the importer takes a big

@@ -22,6 +22,7 @@ const nextConfig: NextConfig = {
   ...(devOrigins?.length ? { allowedDevOrigins: devOrigins } : {}),
   output: "standalone",
   skipTrailingSlashRedirect: true, // socket.io's path is "/socket.io/"; Next's slash-stripping 308 would break it
+  experimental: { agentUpgrade: "security" },
   async rewrites() {
     return [
       { source: "/api/:path*", destination: `${api}/api/:path*` },

@@ -1,8 +1,9 @@
-# InconsisTable: in-person table companion for any RPG
+# InconsisTable: in-person table companion for any RPG or board game
 
-The GM runs the table from a tablet, players use their phones, a TV can show the shared view. Real dice, miniatures and
-terrain stay on the table; the app keeps the bookkeeping. The design is `docs/design.md` (Vietnamese); the current
-milestone is `docs/p1-plan.md`.
+The GM runs the table from a tablet (or, in a game without one, every player runs it together), players use their
+phones, a TV can show the shared view. Real dice, cards, miniatures and terrain stay on the table; the app keeps the
+bookkeeping. Board games are rulesets on the same engine (`docs/adr/0007-board-games-are-rulesets.md`). The design is
+`docs/design.md` (Vietnamese); the current milestone is `docs/p1-plan.md`.
 
 ## Principles (binding, carried over from Auspex)
 
@@ -19,8 +20,9 @@ These rules decide reviews. Breaking one blocks a merge.
    built in the GM's browser from what it already holds; nothing is uploaded.
 4. **Content reaches seats only.** Nothing from a pack is served to anyone without a seat. A `gm` entry reaches GM seats
    only. A `private` pack never leaves the rooms its owner runs as GM, and cannot be granted to another user.
-5. **The dice stay physical.** The app records results and only rolls on random tables. Rolling Tests for players is a
-   per-ruleset option that needs a house decision.
+5. **The dice and components stay physical.** The app records results and only rolls or deals on random tables. Rolling
+   Tests for players is a per-ruleset option that needs a house decision. Cards, tokens and boards stay on the table:
+   the app keeps their counts and secrets, never simulates them.
 6. **The server decides.** One mutation path. Counters take deltas and are clamped on the server. Players see only what
    the table's view lets them see. The only writes outside it are owner-scoped REST: a user importing their own
    rulesets and packs (`/api/rulesets`, `/api/packs`, the pack library), creating a room, the admin console, and

@@ -8,8 +8,8 @@ local machine. Read `CLAUDE.md` first: its eight principles are binding. Then re
 
 Do not reopen these.
 
-- **Name:** InconsisTable, repo `The-Inconsistent/InconsisTable`. It is an in-person table companion for any RPG,
-  carried over from Auspex (`The-Inconsistent/auspex_gm`, Wrath & Glory).
+- **Name:** InconsisTable, repo `The-Inconsistent/InconsisTable`. It is an in-person table companion for any RPG or board
+  game, carried over from Auspex (`The-Inconsistent/auspex_gm`, Wrath & Glory).
 - **Content:**
   - The platform ships no game content. Every ruleset and pack is imported by its users.
   - The first ruleset to support is the 5e SRD (P1).

@@ -1,4 +1,4 @@
-# InconsisTable P2: nhớ giữa các buổi, nhiều họ luật, bàn không GM
+# InconsisTable P2: nhớ giữa các buổi, nhiều họ luật, bàn không GM, board game
 
 > **Nháp.** Chốt sau buổi chơi thật của P1 (`docs/p1-plan.md`, "Đến buổi chơi thật"). Chưa phải kế hoạch đã duyệt:
 > thứ tự và phạm vi còn đổi; các điểm ở "Đã chốt" đã quyết. Đọc `CLAUDE.md` trước: 8 nguyên tắc là bắt buộc.
@@ -11,6 +11,7 @@ P1 chơi được một ruleset kiểu d20 và một trận. P2 làm cho app có
 3. **Tài nguyên chung và clock** cho các game kể chuyện.
 4. **Một phòng biết nó chơi game gì và ngồi kiểu nào:** có GM, không GM, hay một mình.
 5. **Dựng phòng nhanh,** kể cả khi người dùng chưa có manifest viết sẵn.
+6. **Board game chơi được** trên cùng engine: lượt theo ghế, pha, tính điểm và xếp hạng (design §4.8, ADR 0007).
 
 Thêm chiều sâu cho combat hoãn lại (xem "Không làm ở P2").
 
@@ -77,6 +78,7 @@ Api đã có: các kind `adventure`, `scene`, `npc`, `location`, `faction`, `ite
 - **Recap cuối buổi:** ô recap ở bước kết thúc buổi, thay cho `session.end` gửi rỗng; sửa lại sau qua `session.edit`.
 - **"Lần trước…" trên TV và điện thoại đầu buổi,** lấy từ recap buổi trước.
 - **Quest và mục tiêu** của party hoặc của từng nhân vật: open / done / failed / secret (kind `quest` đã có).
+  Tham chiếu auspex_gm: mục tiêu của buổi gắn với mission, và import adventure từ file campaign (2026-10-28).
 - **Sổ của người chơi trên điện thoại:** entry đã reveal xếp theo kind, quest đang mở, recap các buổi.
 - **Nháp recap từ `session_event`:** gom delta, Test, reveal của buổi thành nháp để GM sửa (design §3.4 "Sau").
 - **Sau trong P2:** quan hệ giữa các nhân vật (bond, Hx kiểu PbtA); secret riêng từng nhân vật và reveal một phần
@@ -144,6 +146,27 @@ Hiện có: `dice.sumVsTarget`, `dice.poolSuccesses`. Một Test chỉ ra `criti
 - **Session Zero và safety:** Lines & Veils, bật X-Card (người chơi chạm trên điện thoại, chỉ GM nhận, ẩn danh; phòng
   không GM thì mọi người cùng nhận, vẫn ẩn danh). Design §1.4 và §3.3 bước 4; code chưa có.
 
+### F. Board game (`packages/rules-engine`, `encounter`, `campaign`, web; dựa trên B, D)
+
+Board game là ruleset trên cùng engine (ADR 0007, design §4.8). Phần lớn đã có: ghế, view theo ghế, resource,
+visibility `owner`, encounter có vòng, undo, tạm dừng giữa buổi (#28), phòng không GM (D).
+
+- **`initiative.seated`:** thứ tự theo ghế chọn lúc thiết lập; người đi đầu cố định, xoay vòng hoặc đặt tay. Cả ván
+  là một encounter. Cần `initiative` tuỳ chọn (B) để game không lượt vẫn nhập được.
+- **`phases`:** pha trong một vòng, theo lượt hoặc cùng lúc (mọi ghế đánh dấu xong thì sang pha kế). TV và điện
+  thoại hiện vòng, pha, lượt của ai.
+- **`scoring`:** biểu thức điểm, tiebreak, `endWhen` có cite. Server báo "đủ điều kiện kết thúc", không tự kết
+  thúc; ghế chạy bàn kết thúc ván, server xếp hạng và ghi bảng `session_result` (cột, không JSONB).
+- **Màn kết thúc ván:** bảng điểm từng người với phần cộng từ đâu (Breakdown như #25), điểm ẩn hiện ra lúc này.
+- **Bảng xếp hạng campaign:** cộng dồn `session_result` qua các buổi, cho giải đấu và game legacy.
+- **Thiết lập ngẫu nhiên:** chia không hoàn lại từ bảng ngẫu nhiên cho từng ghế (kịch bản, vai ẩn), kết quả
+  visibility `owner`. Nguyên tắc 5 đã cho gieo bảng ngẫu nhiên; chia không hoàn lại cần một house decision.
+- **House decision trước khi code:** thời điểm kết thúc (ngay hay hết vòng), cùng hạng sau mọi tiebreak, người đi
+  đầu khi một ghế rời bàn, pha cùng lúc khi một ghế vắng.
+- **Mẫu ruleset board game** theo điểm chốt 4: chỉ cấu trúc engine, game bịa như `sample-d20`.
+- **Chỗ phải đổi:** `Initiative` union và khối gốc mới (`packages/rules-engine/src/manifest.ts`), encounter
+  (`apps/api/src/encounter/`), seat view cho điểm ẩn (`apps/api/src/view/`), `CONTEXT.md` (Phase, Score khi làm).
+
 ## Đã chốt (chủ sản phẩm)
 
 2026-10-16:
@@ -164,6 +187,11 @@ Hiện có: `dice.sumVsTarget`, `dice.poolSuccesses`. Một Test chỉ ra `criti
 6. **Test chỉ báo kết quả** là đường mặc định cho họ luật mới; primitive có tính toán chỉ thêm khi bàn thật cần.
 7. **Hoãn thêm chiều sâu combat** (xem "Không làm ở P2").
 
+2026-10-29:
+
+8. **Board game nằm trong phạm vi** (đảo dòng "ngoài phạm vi TTRPG" cũ): app phục vụ RPG tuỳ biến và board game nói
+   chung. Board game là ruleset, không phải app riêng; linh kiện nằm trên bàn thật (ADR 0007).
+
 ## Thứ tự đề xuất
 
 1. A: tab CODEX, recap cuối buổi, "lần trước…", quest, sổ người chơi. Rồi PREP, rồi nháp recap.
@@ -171,6 +199,7 @@ Hiện có: `dice.sumVsTarget`, `dice.poolSuccesses`. Một Test chỉ ra `criti
 3. C: pool chung, clock, `request.*`.
 4. D + E: khối `game`, `table_mode`, bước Chọn game, Freeform. ADR ghi lại các điểm chốt 1–3 trước khi code.
 5. E: mẫu ruleset theo họ luật (sau house decision của điểm chốt 4), Quick game, safety.
+6. F: `seated` và `phases`, rồi `scoring` và màn kết thúc ván, rồi bảng xếp hạng campaign, rồi thiết lập ngẫu nhiên.
 
 Các mục hẹn từ P1 xếp vào sau khi buổi chơi thật cho thấy cái nào cần trước.
 
@@ -181,7 +210,8 @@ Các mục hẹn từ P1 xếp vào sau khi buổi chơi thật cho thấy cái 
   thiếu gì; chỉ sửa những gì bàn thật vấp phải.
 - Các cách gieo có tính toán ngoài `sumVsTarget` và `poolSuccesses`, trừ khi một bàn thật cần (xem B).
 - MAP.
-- Board game dungeon crawler (Gloomhaven, HeroQuest): ngoài phạm vi TTRPG của app.
+- Mô phỏng linh kiện board game (bộ bài, túi, bàn cờ, bài trên tay, kiểm nước đi): linh kiện nằm trên bàn thật.
+- Đồng hồ cờ theo lượt, trừ khi một bàn thật cần.
 - Ghế người dẫn xoay vòng.
 - Danh mục công khai, `pack_grant`, `pack:approve`: vẫn P3.
 - Script sandbox, Redis.

@@ -4,8 +4,8 @@ Status: accepted
 
 ## Context
 
-An RPG table companion is tempting to ship with a ready ruleset and sample content. Almost all of that content is
-copyrighted (CLAUDE.md principle 2), and a hosted platform that redistributes it becomes a distributor.
+A table companion for RPGs and board games is tempting to ship with a ready ruleset and sample content. Almost all of
+that content is copyrighted (CLAUDE.md principle 2), and a hosted platform that redistributes it becomes a distributor.
 
 ## Decision
 

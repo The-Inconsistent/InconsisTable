@@ -1,13 +1,14 @@
 # InconsisTable
 
-A table companion for **in-person** tabletop RPGs, for any system. The GM runs the table from a tablet, players follow
-along on their phones, and a TV can show the shared view. Everything syncs live.
+A table companion for **in-person** tabletop games: RPGs of any system and board games, each with the rules its group
+imports. The GM (or, in a game without one, the whole table) runs it from a tablet, players follow along on their
+phones, and a TV can show the shared view. Everything syncs live.
 
-The group plays with real dice, miniatures and terrain. InconsisTable keeps the bookkeeping: whose turn it is, hit
-points and resources, conditions, what each player is allowed to see, the codex of NPCs and places, and maps that help
-everyone remember where they have been.
+The group plays with real dice, cards, miniatures and terrain. InconsisTable keeps the bookkeeping: whose turn and
+which phase it is, hit points, resources and scores, conditions, what each player is allowed to see, who won, the codex
+of NPCs and places, and maps that help everyone remember where they have been.
 
-InconsisTable ships **no game content**. Every ruleset and every content pack (monsters, items, spells, rules) is
+InconsisTable ships **no game content**. Every ruleset and every content pack (monsters, items, spells, expansions) is
 imported by the people who use it. The first ruleset it is built and tested against is the D&D 5e System Reference
 Document (SRD 5.2, CC-BY-4.0), imported like any other pack.
 

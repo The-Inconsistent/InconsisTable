@@ -1,9 +1,9 @@
-# InconsisTable: thiết kế lõi cho mọi hệ RPG
+# InconsisTable: thiết kế lõi cho mọi game bàn, RPG và board game
 
 > **Trạng thái:** đề xuất (spike), chưa có code. Tài liệu này dựng trên kiến trúc hiện tại của auspex_gm
 > (`docs/architecture.md`) và mở rộng nó từ một app cho *Wrath & Glory* thành nền tảng cho **mọi** RPG bàn:
 > D&D 5e/2024, Pathfinder 2e, Call of Cthulhu, Blades in the Dark, PbtA, Wrath & Glory, game chiến tranh lịch sử,
-> homebrew...
+> homebrew... và từ 2026-10-29 cho cả **board game** người dùng tự nhập luật (§4.8, ADR 0007).
 >
 > Thuật ngữ kỹ thuật giữ nguyên tiếng Anh. "GM" dùng chung cho GM / DM / Keeper / MC.
 
@@ -25,6 +25,10 @@ ruleset và World Warhammer 40k: Wrath & Glory bên trong platform.
 - **Platform không cung cấp nội dung có bản quyền.** Mọi ruleset và nội dung (quái, đồ, phép, luật) do người dùng tự
   nhập. Platform chỉ cung cấp engine, công cụ nhập và kiểm tra. Chính sách lưu trữ ở §4.6.
 - **Có bản đồ**, nhưng là bản đồ hỗ trợ trí nhớ cho bàn thật (§3.8), không phải bàn ảo để chơi từ xa.
+
+**Đã chốt (2026-10-29):**
+- **Board game nằm trong phạm vi.** Board game là một ruleset như mọi ruleset khác, chạy trên cùng engine (§4.8,
+  ADR 0007). Linh kiện (bài, token, bàn cờ) nằm trên bàn thật như xúc xắc.
 
 ## Tinh thần mang từ Auspex (bắt buộc)
 
@@ -48,8 +52,9 @@ của repo mới và trong review checklist.
    - Không có gì từ pack được phục vụ cho người không có ghế.
    - Entry `gm` chỉ đến ghế GM.
    - Pack `private` không chia sẻ được ra ngoài phòng của chủ pack.
-5. **Xúc xắc là xúc xắc thật.** App ghi kết quả và chỉ tự gieo bảng ngẫu nhiên. Gieo hộ Test là tuỳ chọn theo ruleset
-   và cần một house decision.
+5. **Xúc xắc và linh kiện là đồ thật.** App ghi kết quả và chỉ tự gieo (hoặc chia) trên bảng ngẫu nhiên. Gieo hộ
+   Test là tuỳ chọn theo ruleset và cần một house decision. Bài, token, bàn cờ của board game nằm trên bàn thật; app
+   không mô phỏng chúng.
 6. **Server quyết định.**
    - Một đường mutation duy nhất.
    - Counter nhận delta và được clamp ở server.
@@ -72,10 +77,13 @@ của repo mới và trong review checklist.
 | D8 | **Bản quyền theo lớp nội dung:** SRD 5.1/5.2 (CC-BY-4.0), ORC, CC-BY được chia sẻ công khai. Sách có bản quyền chỉ là **nội dung riêng** của người dùng, gói trong campaign của họ. | Mở rộng nguyên tắc copyright đang có trong `CLAUDE.md`. |
 | D9 | **Phân quyền 3 lớp:** platform role (`user / creator`; chưa có nhà cung cấp auth nên mọi thiết bị là `creator`, admin là `ADMIN_KEY`), ghế theo từng phòng (`gm / cogm / player`, token `player / screen`), và sở hữu theo tài nguyên (chủ phòng là `campaign.owner_user_id`). Admin toàn quyền khi mở phòng với quyền admin. | Một người vừa chơi ở phòng người khác vừa quản lý phòng và nhân vật của mình (§3.6). |
 | D10 | **Postgres 18 (ghim theo minor); JSONB chỉ cho tài liệu lưu nguyên khối.** Giá trị field, resource, condition do ruleset khai báo được lưu thành hàng có kiểu. | Delta là một câu `UPDATE` nguyên tử, có khoá ngoại và ràng buộc; thêm hệ luật mới không cần migration (§5.4). |
+| D11 | **Board game là ruleset, không phải một loại app riêng.** Mỗi người chơi giữ một nhân vật (phe, màu, bảng người chơi); cả ván là một encounter; manifest thêm ba khối tuỳ chọn `seated`, `phases`, `scoring` (§4.8). Không có cờ "board game": game cần gì do khối nó khai báo. | Ghế, view theo ghế, resource, condition, lượt, undo và tạm dừng giữa buổi đã có sẵn; bàn chơi trực tiếp thường chơi cả hai loại trong một tối (ADR 0007). |
 
 ---
 
 ## 1. Phân tích nghiệp vụ: một phòng chơi RPG gồm những gì
+
+Phần này phân tích bàn RPG. Bàn board game dùng cùng tác nhân và hộp chứa; những gì nó cần thêm ở §4.8.
 
 ### 1.1 Tác nhân (actors)
 
@@ -512,6 +520,7 @@ flowchart LR
     P1[dice.sumVsTarget] --- P2[dice.poolSuccesses] --- P3[dice.rollUnder] --- P4[dice.bands]
     P5[initiative.ranked] --- P6[initiative.alternatingSides] --- P7[initiative.popcorn] --- P8[initiative.cardDraw]
     P9[health.tracks] --- P10[build.ledger] --- P11[clock]
+    P12[initiative.seated] --- P13[round.phases] --- P14[score.final]
   end
   subgraph Hooks["Tầng 3: Script sandbox (QuickJS-WASM, khi thật cần)"]
     S1["hook(input) → patch"]
@@ -708,6 +717,81 @@ World là lớp **trình bày và lore**, tách khỏi luật:
 - **Từ vựng:** ghi đè `terms` của ruleset (ví dụ "Squad" thay "Party", "Casualties" thay "HP").
 - **Kiểu handout:** thư tay, điện tín, lệnh quân sự, vox, decree, terminal. Nâng 5 style hiện có thành registry.
 - **Lore chung:** location, faction, NPC ở cấp World được nhiều campaign kế thừa (West Marches).
+
+### 4.8 Board game: cùng engine, ba khối tuỳ chọn
+
+Board game là một ruleset như mọi ruleset khác (ADR 0007): người dùng tự nhập, mọi entry luật có cite trang sách luật,
+chạy qua cùng pipeline action. Không có cờ "đây là board game"; game cần gì do các khối nó khai báo.
+
+**Ánh xạ sang mô hình hiện có:**
+
+| Board game cần | Dùng cái đã có | Thêm |
+|---|---|---|
+| Người chơi và phe/màu | ghế `player` giữ một character (bảng người chơi); `terms` của World đổi tên | không |
+| Có hay không có người dẫn | `campaign.table_mode` (`gm`, `gmless`, `solo`, P2 plan D): game một-chọi-nhiều, ẩn vai, có người quản trò thì `gm` | không |
+| Tiền, tài nguyên, điểm | `resources[]` scope `entity`; kho chung scope `campaign` | không |
+| Thông tin ẩn (số bài trên tay, mục tiêu bí mật, vai ẩn) | visibility `owner` trên field/resource; phòng không GM thì `gm` là không ai thấy | không |
+| Thứ tự lượt, vòng | encounter: cả ván là một encounter, tạm dừng giữa các buổi như #28 | strategy `seated` |
+| Pha trong một vòng | | khối `phases` |
+| Tính điểm, kết thúc, thứ hạng | `derived` (biểu thức) | khối `scoring`, bảng `session_result` |
+| Thiết lập ngẫu nhiên (kịch bản, chia vai ẩn) | bảng ngẫu nhiên (nguyên tắc 5) | chia không hoàn lại cho từng ghế |
+| Bản mở rộng | pack | không |
+| Legacy, giải đấu nhiều ván | campaign nhiều session | bảng xếp hạng cộng dồn |
+
+**Phác thảo manifest (nháp, chốt khi làm P2 F):**
+
+```ts
+const SeatedInitiative = z.object({
+  strategy: z.literal("seated"),                      // thứ tự ghế chọn lúc thiết lập
+  firstPlayer: z.enum(["fixed", "rotate", "manual"]), // rotate: sang ghế kế mỗi đầu vòng
+  cite: Cite,
+});
+
+const Phase = z.object({
+  id: Id, label: z.string(), cite: Cite,
+  mode: z.enum(["turns", "simultaneous"]),            // simultaneous: mọi ghế đánh dấu xong thì sang pha kế
+});
+
+const Scoring = z.object({
+  score: Expr,                                        // theo từng actor: "res.vp + derived.endBonus"
+  order: z.enum(["high", "low"]).default("high"),
+  tiebreaks: z.array(z.object({ expr: Expr, order: z.enum(["high", "low"]) })).default([]),
+  endWhen: z.array(z.object({ when: Expr, cite: Cite })).default([]), // "round >= 8", "max(res.vp) >= 10"
+  cite: Cite,
+});
+```
+
+`initiative` thêm strategy `seated`; `phases` và `scoring` là khối gốc tuỳ chọn của manifest. Ví dụ dùng game bịa,
+như fixture `sample-d20`:
+
+```jsonc
+// "Sample Harvest", homebrew: 4 vòng, mỗi vòng một pha cùng lúc rồi một pha theo lượt
+{ "initiative": { "strategy": "seated", "firstPlayer": "rotate", "cite": "Sample p.3" },
+  "phases": [{ "id": "plan", "label": "Plan", "mode": "simultaneous", "cite": "Sample p.4" },
+             { "id": "act", "label": "Act", "mode": "turns", "cite": "Sample p.5" }],
+  "resources": [{ "id": "coin", "scope": "entity", "min": "0", "visibility": "owner", "editableBy": "owner" },
+                { "id": "vp", "scope": "entity", "min": "0", "visibility": "public" }],
+  "scoring": { "score": "res.vp + res.coin / 3", "tiebreaks": [{ "expr": "res.coin", "order": "high" }],
+               "endWhen": [{ "when": "round > 4", "cite": "Sample p.8" }], "cite": "Sample p.8" } }
+```
+
+**Dữ liệu:** thứ hạng cuối ván là bảng `session_result` (`session_id`, `actor_id`, `score`, `place`), không phải
+JSONB, vì bảng xếp hạng của campaign cộng dồn và lọc qua nhiều buổi.
+
+**Server quyết định, bàn xác nhận:**
+- Sau mỗi action, server kiểm `endWhen`; khi một điều kiện đúng, mọi ghế thấy "đủ điều kiện kết thúc". Server không
+  tự kết thúc ván: thời điểm kết thúc trong sách luật hay khác nhau ("hết vòng đó", "ngay lập tức").
+- Ghế được chạy bàn (GM, hoặc mọi ghế khi không GM) kết thúc ván; server tính `score`, xếp hạng theo `tiebreaks`, ghi
+  `session_result`. Hoà sau mọi tiebreak thì cùng hạng.
+- Điểm đang ẩn (visibility `owner`) chỉ hiện cho mọi ghế khi kết thúc ván.
+
+**Không làm:**
+- Mô phỏng bộ bài, túi, bàn cờ, bài trên tay hay nước đi. Linh kiện nằm trên bàn thật (nguyên tắc 5, 8); app giữ con
+  số bàn báo, không kiểm nước đi có hợp lệ không.
+- Đồng hồ cờ theo lượt: chỉ thêm khi một bàn thật cần.
+
+Mỗi chỗ sách luật bỏ ngỏ (khi nào kết thúc, cùng hạng, người đi đầu khi một ghế rời bàn, pha cùng lúc khi một ghế
+vắng) được ghi thành house decision trước khi code.
 
 ---
 
@@ -1071,7 +1155,7 @@ Wizard: điểm danh → thưởng XP/milestone (`progression`) → chia loot �
 |---|---|---|
 | **P0: Khung repo mới** | Repo `InconsisTable`: chép pipeline action, `@inconsistable/auth` (danh tính thiết bị), access và invite, codex, lobby từ auspex_gm; Postgres 18; `rules-engine` với các primitive 5e cần (`dice.sumVsTarget`, `initiative.ranked`, `health.tracks` + death save, slot); phân quyền §3.6 | Test của pipeline, `can()` và engine xanh; một phòng trống mời được người chơi qua QR |
 | **P1: 5e SRD chơi được** | Công cụ nhập ruleset và pack (file, JSON, form) có kiểm tra, mặc định riêng tư; nhập manifest `dnd5e-srd` + pack SRD 5.2 qua chính công cụ đó; actor và các bảng giá trị; builder; sheet render từ `layout`; combat tracker; gọi Test; undo phía server | Một bàn chơi one-shot SRD từ tạo nhân vật tới hết buổi |
-| **P2: Workspace, wizard, World, bản đồ** | Hub người dùng, wizard 8 bước, theme và từ vựng theo World, house rules, safety tools, bản đồ §3.8, nhiều nhân vật và co-GM §3.7 | Người mới tạo game và mời bàn trong dưới 5 phút |
+| **P2: Workspace, wizard, World, bản đồ** | Hub người dùng, wizard 8 bước, theme và từ vựng theo World, house rules, safety tools, bản đồ §3.8, nhiều nhân vật và co-GM §3.7; bàn không GM và board game §4.8 (chi tiết và thứ tự ở `docs/p2-plan.md`) | Người mới tạo game và mời bàn trong dưới 5 phút; một ván board game homebrew chơi được từ thiết lập tới bảng xếp hạng |
 | **P3: Platform** | Admin console (moderation, quota, chuyển chủ phòng), Redis adapter, advisory lock, `state_version`, S3, `pack_grant`, export/xoá dữ liệu; chỉ sau đó mới chọn nhà cung cấp auth và mở đăng ký | Chạy 2+ instance api; load test 100 bàn |
 | **P4: Port W&G (Auspex)** | Manifest `wng` + pack riêng tư, `view.wng`, `health.hit` kiểu W&G, `initiative.alternatingSides`; test của auspex_gm là chuẩn đối chiếu | Mọi test luật của auspex_gm có bản tương ứng xanh; bàn W&G chuyển sang |
 | **P5: Hệ sinh thái** | Editor homebrew, kho cộng đồng, script sandbox, PF2e ORC, PbtA, CoC-lite, Freeform | Một GM tự viết homebrew mà không cần deploy |
@@ -1095,3 +1179,5 @@ chỉ chứa ruleset tự viết và SRD/ORC (§4.6). Nội dung W&G tiếp tụ
 6. **Câu hỏi cho chủ sản phẩm:**
    - Co-GM và nhiều nhân vật mỗi người chơi (§3.7): làm ở P2 hay sớm hơn?
    - GM có được thấy dòng "Admin đã truy cập" không? Việc này đảo quyết định đã ghim ở #178 (admin vô hình).
+7. **Board game nặng luật kéo app thành engine mô phỏng.** Giảm thiểu: app chỉ giữ con số, lượt, pha và điểm; không
+   kiểm nước đi, không mô phỏng linh kiện (§4.8). Game nặng được phục vụ tới đâu bộ đếm và cách tính điểm của nó tới đó.

@@ -1,14 +1,16 @@
 # InconsisTable
 
-An in-person companion for any tabletop RPG: the GM runs the game from a tablet, players use their phones, a TV shows
-the shared view, and real dice and miniatures stay on the physical table.
+An in-person companion for any tabletop RPG or board game: the GM (or, without one, the whole table) runs the game
+from a tablet, players use their phones, a TV shows the shared view, and real dice, cards and miniatures stay on the
+physical table.
 
 ## Language
 
 ### Play
 
 **Campaign**:
-A game that runs over many sessions, with an owner, a pinned ruleset and the seats of the people who play it.
+A game that runs over one or many sessions (a board game's one-off play, a league or a legacy game included), with an
+owner, a pinned ruleset and the seats of the people who play it.
 _Avoid_: Room, game, table (for this concept)
 
 **Session**:
@@ -20,7 +22,8 @@ The physical table the group sits around, with its dice, miniatures and terrain.
 _Avoid_: Campaign, room
 
 **Encounter**:
-A fight with a turn order inside a campaign; it may stay open across sessions and continue at the next one.
+A stretch of play with a turn order inside a campaign: a fight in an RPG, the whole play of a board game; it may stay
+open across sessions and continue at the next one.
 _Avoid_: Combat, battle, scene
 
 ### Identity
@@ -58,7 +61,8 @@ guest player from a QR code, or the screen). Everything a device is shown is fil
 _Avoid_: Membership (that is only the account kind), user, role
 
 **GM**:
-The seat that runs the campaign at the table, sees everything and decides; a co-GM holds a GM seat limited to scopes.
+The seat that runs the campaign at the table, sees everything and decides; a co-GM holds a GM seat limited to scopes. A
+campaign played without a GM (most board games) has none, and what only a GM would see is seen by nobody.
 _Avoid_: DM, owner
 
 **Seat view**:
@@ -91,8 +95,8 @@ _Avoid_: House decision, homebrew
 ### Game content
 
 **Ruleset**:
-The mechanics of a game system as imported by a user: values, resources, conditions, tests, initiative and character
-creation, each citing the printed page it comes from.
+The mechanics of a game system or a board game as imported by a user: values, resources, conditions, tests, initiative
+and character creation, each citing the printed page it comes from.
 _Avoid_: System, rules engine (that is the code), game
 
 **Homebrew**:
@@ -100,7 +104,8 @@ A ruleset or pack the user wrote themselves rather than took from a book; it nee
 _Avoid_: Custom, house rules (see House rule)
 
 **Pack**:
-A user-imported set of entries (creatures, gear, options) for one ruleset, with a license that decides who may see it.
+A user-imported set of entries (creatures, gear, options, a board game's expansion) for one ruleset, with a license that
+decides who may see it.
 _Avoid_: Module, sourcebook, expansion
 
 **Entry**:
@@ -136,7 +141,8 @@ or a hazard.
 _Avoid_: Entity, token, unit
 
 **Character**:
-An actor of kind `pc` or `companion` that a seat can hold and play from a phone.
+An actor of kind `pc` or `companion` that a seat can hold and play from a phone; in a board game, a player's faction,
+colour or player board.
 _Avoid_: PC (for companions), hero, player
 
 **Creature**:

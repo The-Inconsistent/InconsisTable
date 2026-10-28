@@ -85,6 +85,7 @@
     "emptySeated": "Chưa ai mời bạn vào bàn nào."
   },
   "account": {
+    "label": "Tài khoản",
     "signIn": "Đăng nhập",
     "signOut": "Đăng xuất",
     "signedInAs": "Đã đăng nhập: {name}",

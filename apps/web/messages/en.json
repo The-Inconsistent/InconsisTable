@@ -85,6 +85,7 @@
     "emptySeated": "Nobody has invited you to a table yet."
   },
   "account": {
+    "label": "Account",
     "signIn": "Sign in",
     "signOut": "Sign out",
     "signedInAs": "Signed in as {name}",

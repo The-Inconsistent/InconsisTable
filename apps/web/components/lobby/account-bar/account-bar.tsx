@@ -11,7 +11,7 @@ export function AccountBar({ me, signInFailed }: AccountBarProps) {
   const tRoles = useTranslations("platformRoles");
   if (!me.signInEnabled) return null;
   return (
-    <section className="card" aria-label={t("signIn")}>
+    <section className="card" aria-label={t("label")}>
       {me.account ? (
         <form className="row" method="post" action="/api/auth/logout">
           <strong style={{ flex: 1 }}>{t("signedInAs", { name: me.name ?? "" })}</strong>

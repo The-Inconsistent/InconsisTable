@@ -6,6 +6,11 @@ import type { PlatformRole } from "@inconsistable/auth/api";
 // The pure rules of signing in, with no database: the boot config, where a sign-in may return to, and what the ID
 // token's roles make of an app_user.
 
+// What the api refuses on its own, beside the SDK's IdpErrorCode: a callback without a live transaction, and a logout
+// token already acted on. Logged, never shown.
+export const LocalRefusal = z.enum(["no_transaction", "replayed"]);
+export type LocalRefusal = z.infer<typeof LocalRefusal>;
+
 // The callback route (sign-in.controller.ts); the registered redirect URI must end in it.
 export const CALLBACK_PATH = "/api/auth/callback";
 

@@ -7,7 +7,7 @@ import { db, type Tx } from "../core/db.ts";
 import { appUser } from "./auth.schema.ts";
 import { DEFAULT_NAME, hash, newSecret } from "./auth.service.ts";
 import { SESSION_IDLE_MS, SESSION_MAX_MS, apiSession, identityLink, logoutJti, oidcTx } from "./session.schema.ts";
-import { userRoleOf, type SignInConfig } from "./sign-in.rules.ts";
+import { userRoleOf, type LocalRefusal, type SignInConfig } from "./sign-in.rules.ts";
 
 // Signing in through InconsisID with its SDK (docs/research/auth-service-security.md §7). The SDK checks the protocol;
 // this module keeps what the SDK leaves to its caller: the single-use transaction, the identity link, the api's own
@@ -19,10 +19,10 @@ const TX_TTL = sql`interval '10 minutes'`;
 // tolerance still finds its row.
 const JTI_KEEP_MS = 60_000;
 
-export type SignInRefusal = "no_transaction" | IdpErrorCode;
+export type Refusal = LocalRefusal | IdpErrorCode;
 export type Finished =
-  { ok: true; token: string; returnTo: string; userId: string; ended: string[] } | { ok: false; reason: SignInRefusal };
-export type LogoutReceived = { ok: true; ended: string[] } | { ok: false; reason: "replayed" | IdpErrorCode };
+  { ok: true; token: string; returnTo: string; userId: string; ended: string[] } | { ok: false; reason: Refusal };
+export type LogoutReceived = { ok: true; ended: string[] } | { ok: false; reason: Refusal };
 
 const ENDED = { tokenHash: apiSession.tokenHash };
 const hashes = (rows: { tokenHash: string }[]) => rows.map((r) => r.tokenHash);

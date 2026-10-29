@@ -11,7 +11,7 @@ import { loadCompiled } from "./ruleset.compiled.ts";
 import { runPrimitive, ruleState } from "./ruleset.run.ts";
 
 /** Primitives that read the turn: they wait for a session (house decision #28). */
-const TURN_PRIMITIVES = new Set(["initiative.ranked", "conditions.expire"]);
+const TURN_PRIMITIVES = new Set(["initiative.ranked", "initiative.seated", "conditions.expire"]);
 
 /** House decision #28: an encounter may stay open across sessions, but nothing moves until the next one starts. */
 export async function isPaused(conn: Db, campaignId: string): Promise<boolean> {

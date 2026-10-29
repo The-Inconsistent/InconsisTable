@@ -60,7 +60,11 @@ export async function applyEventAction(tx: Tx, { ctx }: { ctx: Ctx; action: Even
       if (!turnInverse.ok) fail(turnInverse.code, turnInverse.params);
       // The holder it would hand the turn back to has left the fight since: nothing to put back, the rest still reverts.
       const back = turnInverse.delta?.value;
-      if (target.turn === "currentId" && typeof back === "string" && !(await loadTurn(tx, cid))?.order.includes(back)) {
+      if (
+        (target.turn === "currentId" || target.turn === "firstId") &&
+        typeof back === "string" &&
+        !(await loadTurn(tx, cid))?.order.includes(back)
+      ) {
         skipped.push({ turn: target.turn, reason: "gone" });
         continue;
       }

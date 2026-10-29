@@ -50,6 +50,8 @@ export async function loadEncounter(
     id: e.id,
     round: e.round,
     currentId: e.currentCombatantId,
+    firstId: e.firstCombatantId,
+    firstPlayer: compiled?.ruleset.initiative.strategy === "seated" ? compiled.ruleset.initiative.firstPlayer : null,
     paused: await isPaused(conn, campaignId),
     health:
       resource === undefined

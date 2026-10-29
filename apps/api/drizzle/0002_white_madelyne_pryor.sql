@@ -1,0 +1,2 @@
+ALTER TABLE "encounter" ADD COLUMN "first_combatant_id" uuid;--> statement-breakpoint
+ALTER TABLE "encounter" ADD CONSTRAINT "encounter_first_combatant_id_combatant_id_fk" FOREIGN KEY ("first_combatant_id") REFERENCES "public"."combatant"("id") ON DELETE set null ON UPDATE no action;

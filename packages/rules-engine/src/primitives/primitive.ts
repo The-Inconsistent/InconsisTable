@@ -70,6 +70,8 @@ export interface TurnState {
   round: number;
   currentId: string | null;
   order: readonly string[];
+  /** The first player of the round (`initiative.seated`); ranked ignores it. Absent reads as null. */
+  firstId?: string | null;
 }
 
 /** The slice of live state an op reads. Loaded by the caller, scoped to one campaign. */

@@ -217,7 +217,8 @@
   "orderView": {
     "label": "Thứ tự lượt",
     "round": "Vòng {round}",
-    "paused": "Tạm dừng"
+    "paused": "Tạm dừng",
+    "first": "Người đi đầu"
   },
   "combatState": {
     "acting": "ĐẾN LƯỢT",
@@ -536,6 +537,10 @@
     "label": "Thứ tự lượt",
     "initiative": "Initiative của {name}",
     "moveUp": "Đẩy {name} lên trong các initiative bằng nhau",
+    "moveUpSeat": "Dời {name} lên một ghế",
+    "moveDownSeat": "Dời {name} xuống một ghế",
+    "first": "Người đi đầu",
+    "makeFirst": "Cho {name} đi đầu",
     "moveDown": "Đẩy {name} xuống trong các initiative bằng nhau"
   },
   "combatSide": {
@@ -752,6 +757,8 @@
     "firstTurn": "Đây là lượt đầu tiên của trận",
     "alreadyFirst": "Đã ở đầu",
     "alreadyLast": "Đã ở cuối",
+    "notSeated": "Bộ luật này không có người đi đầu để đặt",
+    "noSeatedScores": "Xếp theo ghế nên không có điểm initiative",
     "sameInitiativeOnly": "Chỉ những người có cùng initiative mới đổi chỗ được",
     "roundWholeNumber": "Vòng là một số nguyên",
     "turnSetNotAdjusted": "{turn} được đặt giá trị, không cộng trừ",

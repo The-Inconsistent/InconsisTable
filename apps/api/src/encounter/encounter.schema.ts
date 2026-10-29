@@ -15,6 +15,8 @@ export const encounter = pgTable(
     round: integer().notNull().default(1),
     active: boolean().notNull().default(true),
     currentCombatantId: uuid().references((): AnyPgColumn => combatant.id, { onDelete: "set null" }),
+    // The first player of the round in a seated order (house decision #36); null for a ranked one.
+    firstCombatantId: uuid().references((): AnyPgColumn => combatant.id, { onDelete: "set null" }),
   },
   (t) => [
     // At most one running encounter per campaign; ended ones stay as history.

@@ -20,11 +20,17 @@ export function OrderView({ encounter }: OrderViewProps) {
       <ol className="order seat-strip">
         {encounter.combatants.map((c) => {
           const acting = c.id === encounter.currentId;
+          const first = c.id === encounter.firstId;
           const word = stateKey({ current: acting, healthState: undefined });
           return (
             <li key={c.id} className="combatant" data-acting={acting}>
               <span className="who" style={{ cursor: "default" }}>
                 <span className="name">{c.name}</span>
+                {first && (
+                  <span className="chip" data-first="true">
+                    {t("first")}
+                  </span>
+                )}
                 <HealthBar combatant={c} />
               </span>
               {word && (

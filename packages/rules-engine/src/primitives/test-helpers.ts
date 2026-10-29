@@ -66,6 +66,7 @@ export function applyDeltas(state: RuleState, list: readonly Delta[]): RuleState
       turn ??= { round: 0, currentId: null, order: [] };
       if (t.turn === "round" && typeof d.value === "number") turn.round = d.value;
       if (t.turn === "currentId" && (typeof d.value === "string" || d.value === null)) turn.currentId = d.value;
+      if (t.turn === "firstId" && (typeof d.value === "string" || d.value === null)) turn.firstId = d.value;
       if (t.turn === "order" && Array.isArray(d.value)) turn.order = d.value;
       continue;
     }

@@ -40,6 +40,9 @@ export const Encounter = z.object({
   id: z.string(),
   round: z.number().int(),
   currentId: z.string().nullable(), // the combatant whose turn it is
+  firstId: z.string().nullable(), // the first player of the round (seated order); null for a ranked order
+  /** How a seated order picks the first player; null when the order is ranked by initiative. */
+  firstPlayer: z.enum(["fixed", "rotate", "manual"]).nullable(),
   /** Open with no session running: the order shows, nothing moves (house decision #28). */
   paused: z.boolean(),
   /** The ruleset's first health track: which resources the tracker's keypad changes. Null when it declares none. */
@@ -74,4 +77,6 @@ export const ENCOUNTER_ACTIONS = [
   z.object({ type: z.literal("encounter.keep"), combatantId: id, keep: z.boolean() }),
   z.object({ type: z.literal("turn.next") }),
   z.object({ type: z.literal("turn.prev") }),
+  // Sets the first player of the round, for a seated ruleset whose first player is set by hand (house decision #36).
+  z.object({ type: z.literal("turn.first"), combatantId: id }),
 ] as const;

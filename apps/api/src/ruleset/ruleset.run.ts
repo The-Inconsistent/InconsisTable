@@ -12,6 +12,7 @@ import { fail } from "../core/errors.ts";
 // params live.
 const PRIMITIVE_PARAMS: Readonly<Record<string, (r: Ruleset) => unknown>> = {
   "initiative.ranked": (r) => r.initiative,
+  "initiative.seated": (r) => r.initiative,
   "health.tracks": (r) => r.health,
   "resource.capped": () => ({}),
   "conditions.expire": () => ({}),

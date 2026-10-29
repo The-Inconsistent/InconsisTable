@@ -34,6 +34,7 @@ export async function loadTurn(conn: Db, campaignId: string): Promise<TurnState 
     round: e.round,
     currentId: rows.find((c) => c.id === e.currentCombatantId)?.actorId ?? null,
     order: rows.map((c) => c.actorId),
+    firstId: rows.find((c) => c.id === e.firstCombatantId)?.actorId ?? null,
   };
 }
 
@@ -42,21 +43,22 @@ export type TurnValue = number | string | null;
 /** A turn value now, for undo to compare with what a step left. The order is never logged, so it isn't read. */
 export async function readTurn(
   conn: Db,
-  { campaignId, key }: { campaignId: string; key: "round" | "currentId" | "order" },
+  { campaignId, key }: { campaignId: string; key: "round" | "currentId" | "order" | "firstId" },
 ) {
   const turn = await loadTurn(conn, campaignId);
   if (!turn) return null;
   if (key === "order") return [...turn.order];
+  if (key === "firstId") return turn.firstId ?? null;
   return turn[key];
 }
 
 /**
- * Writes `round` or `currentId` of the running encounter and says what it held before. `currentId` is an actor id (or
+ * Writes `round`, `currentId` or `firstId` of the running encounter and says what it held before. `currentId` is an actor id (or
  * null before anyone has acted). The order belongs to the tracker: initiative scores and the GM's tie moves set it.
  */
 export async function writeTurn(
   tx: Tx,
-  { campaignId, key, value }: { campaignId: string; key: "round" | "currentId" | "order"; value: unknown },
+  { campaignId, key, value }: { campaignId: string; key: "round" | "currentId" | "order" | "firstId"; value: unknown },
 ): Promise<{ before: TurnValue; after: TurnValue }> {
   const e = (await activeEncounter(tx, campaignId)) ?? fail("noEncounterRunning");
   if (key === "round") {
@@ -66,12 +68,20 @@ export async function writeTurn(
   }
   if (key === "order") return fail("orderFromInitiative");
   const rows = await orderedCombatants(tx, e.id);
-  const before = rows.find((c) => c.id === e.currentCombatantId)?.actorId ?? null;
+  // `firstId` is held exactly like `currentId`: an actor id of the fight, or null.
+  const column = key === "firstId" ? "firstCombatantId" : "currentCombatantId";
+  const before = rows.find((c) => c.id === e[column])?.actorId ?? null;
   if (value === null) {
-    await tx.update(encounter).set({ currentCombatantId: null }).where(eq(encounter.id, e.id));
+    await tx
+      .update(encounter)
+      .set({ [column]: null })
+      .where(eq(encounter.id, e.id));
     return { before, after: null };
   }
   const next = rows.find((c) => c.actorId === value) ?? fail("notInFight");
-  await tx.update(encounter).set({ currentCombatantId: next.id }).where(eq(encounter.id, e.id));
+  await tx
+    .update(encounter)
+    .set({ [column]: next.id })
+    .where(eq(encounter.id, e.id));
   return { before, after: next.actorId };
 }

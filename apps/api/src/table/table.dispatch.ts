@@ -152,6 +152,7 @@ function dispatch(tx: Tx, { ctx, action }: { ctx: Ctx; action: Action }): Promis
     case "encounter.keep":
     case "turn.next":
     case "turn.prev":
+    case "turn.first":
       return applyEncounterAction(tx, { ctx, action });
 
     case "event.undo":

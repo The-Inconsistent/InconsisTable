@@ -21,6 +21,7 @@ import { MAX_PACKS_PER_USER } from "../src/pack/pack.normalize.ts";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_PACK } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
+import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
 
 const API = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 4000}`;
@@ -2425,4 +2426,50 @@ test("signing out deletes the session and disconnects its sockets at once", asyn
       ).rows,
   );
   assert.equal(left[0].n, 0);
+});
+
+test("encounter: a seated order rotates its first player, Undo of the wrap puts it back, and scores are refused", async () => {
+  const { owner, ownerDevice } = await newRoom("Seated");
+  const res = await caller(ownerDevice).post<RulesetReply>("/rulesets", SAMPLE_HARVEST);
+  assert.equal(res.status, 201);
+  ok(await owner.send({ type: "campaign.setRuleset", rulesetVersionId: res.body.versionId }));
+  const seats: string[] = [];
+  for (const name of ["Ana", "Ben", "Cy"])
+    seats.push(ok(await owner.send({ type: "actor.create", kind: "pc", name, entityType: "player" })).id!);
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: seats, side: "party", visibility: "full" }));
+  const seated = await owner.until((s) => s.encounter?.combatants.length === 3 && s.encounter.firstId !== null);
+  const [a, b, c] = seated.encounter!.combatants.map((x) => x.id) as [string, string, string];
+  assert.deepEqual(
+    seated.encounter!.combatants.map((x) => x.actorId),
+    seats,
+    "the seat order is the order they were added in",
+  );
+  assert.equal(seated.encounter!.firstId, a);
+  assert.equal(seated.encounter!.firstPlayer, "rotate");
+
+  // Nothing is scored; a seat moves one place without a tie.
+  refused(await owner.send({ type: "encounter.setInitiative", combatantId: a, score: 5 }), "noSeatedScores");
+  refused(await owner.send({ type: "turn.first", combatantId: b }), /by hand/);
+
+  // A round: first player, then round the table; the wrap moves the first player one place.
+  const state = (s: LiveState) => [s.encounter?.round, s.encounter?.currentId, s.encounter?.firstId];
+  const step = async (want: unknown[]) => {
+    ok(await owner.send({ type: "turn.next" }));
+    await owner.until((s) => state(s).join() === want.join());
+  };
+  await step([1, a, a]);
+  await step([1, b, a]);
+  await step([1, c, a]);
+  const wrap = ok(await owner.send({ type: "turn.next" })).id!;
+  await owner.until((s) => state(s).join() === [2, b, b].join());
+
+  // One Undo takes the wrap back: the round, whose turn it is, and the first player.
+  assert.equal(ok(await owner.send({ type: "event.undo" })).id, wrap);
+  await owner.until((s) => state(s).join() === [1, c, a].join());
+  await step([2, b, b]);
+  await step([2, c, b]);
+  await step([2, a, b]);
+  await step([3, c, c]);
 });

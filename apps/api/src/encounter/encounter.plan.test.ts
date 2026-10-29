@@ -80,3 +80,50 @@ test("a tie is settled by moving one place, never past a different initiative", 
   assert.throws(() => movedIds({ rows, id: "z", direction: "up" }), /Already first/);
   assert.throws(() => movedIds({ rows, id: "x", direction: "down" }), /Already last/);
 });
+
+// Seated order (house decision #36): the sequence runs from the first player, and `rotate` moves it each round.
+const seated = (firstPlayer: "fixed" | "rotate" | "manual") =>
+  ({ initiative: { strategy: "seated", firstPlayer } }) as unknown as Ruleset;
+const seatedState = ({ currentId, round, firstId }: { currentId: string | null; round: number; firstId: string }) =>
+  ({
+    actors: { a: actor("a"), b: actor("b"), c: actor("c") },
+    turn: { round, currentId, order: ["a", "b", "c"], firstId },
+  }) as RuleState;
+
+test("seated turn.next walks the rotated sequence and wraps with the first player moved", () => {
+  const rotate = seated("rotate");
+  assert.deepEqual(planNext({ ruleset: rotate, state: seatedState({ currentId: "a", round: 2, firstId: "b" }) }), [
+    turnSet("round", 3),
+    turnSet("firstId", "c"),
+    turnSet("currentId", "c"),
+  ]);
+  assert.deepEqual(planNext({ ruleset: rotate, state: seatedState({ currentId: "c", round: 2, firstId: "b" }) }), [
+    turnSet("currentId", "a"),
+  ]);
+  const fixed = seated("fixed");
+  assert.deepEqual(planNext({ ruleset: fixed, state: seatedState({ currentId: "c", round: 1, firstId: "a" }) }), [
+    turnSet("round", 2),
+    turnSet("firstId", "a"),
+    turnSet("currentId", "a"),
+  ]);
+});
+
+test("seated turn.prev steps back, and across a rotated round boundary restores the first player", () => {
+  const rotate = seated("rotate");
+  assert.deepEqual(planPrev({ ruleset: rotate, state: seatedState({ currentId: "c", round: 2, firstId: "b" }) }), [
+    turnSet("currentId", "b"),
+  ]);
+  // Round 3 began with c; round 2 began with b, so it ended with a.
+  assert.deepEqual(planPrev({ ruleset: rotate, state: seatedState({ currentId: "c", round: 3, firstId: "c" }) }), [
+    turnSet("round", 2),
+    turnSet("firstId", "b"),
+    turnSet("currentId", "a"),
+  ]);
+  const fixed = seated("fixed");
+  assert.deepEqual(planPrev({ ruleset: fixed, state: seatedState({ currentId: "a", round: 2, firstId: "a" }) }), [
+    turnSet("round", 1),
+    turnSet("currentId", "c"),
+  ]);
+  const top = seatedState({ currentId: "a", round: 1, firstId: "a" });
+  assert.throws(() => planPrev({ ruleset: rotate, state: top }), /first turn/);
+});

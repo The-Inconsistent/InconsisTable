@@ -193,6 +193,7 @@ test("expressions in resources, tests, initiative and health are checked at load
   const check = m.tests?.check;
   assert.ok(check !== undefined);
   check.target = "ctx.difficulty";
+  assert.ok(m.initiative.strategy === "ranked");
   m.initiative.score = "attr.dex > 1";
   m.health = { ...m.health, states: [{ id: "low", when: "res.hp" }] };
   const list = problemsOf(m);

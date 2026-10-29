@@ -14,6 +14,7 @@ import {
   type EntityType,
   type FieldDef,
   type RankedInitiative,
+  type SeatedInitiative,
   type Resource,
   type Ruleset,
   type DiceMechanic,
@@ -74,11 +75,9 @@ export interface CompiledTest {
   targetVisibility: Record<string, Visibility>;
 }
 
-export interface CompiledInitiative {
-  def: RankedInitiative;
-  score: CompiledExpr;
-  tiebreak: CompiledExpr[];
-}
+export type CompiledInitiative =
+  | { def: RankedInitiative; score: CompiledExpr; tiebreak: CompiledExpr[] }
+  | { def: SeatedInitiative; score: null; tiebreak: [] };
 
 export interface CompiledRuleset {
   ruleset: Ruleset;
@@ -448,8 +447,12 @@ class Compiler {
     }
 
     const init = this.r.initiative;
-    const score = this.expr({ source: init.score, scopes: actorScopes, expect: "int", path: "initiative.score" });
-    const tiebreak = init.tiebreak.map((src, j) =>
+    const ranked = init.strategy === "ranked" ? init : null;
+    const score =
+      ranked === null
+        ? null
+        : this.expr({ source: ranked.score, scopes: actorScopes, expect: "int", path: "initiative.score" });
+    const tiebreak = (ranked?.tiebreak ?? []).map((src, j) =>
       this.expr({ source: src, scopes: actorScopes, expect: "int", path: `initiative.tiebreak[${j}]` }),
     );
 
@@ -470,14 +473,17 @@ class Compiler {
       if (expr !== null) instantDeath[t.resource] = expr;
     });
 
-    if (this.problems.length > 0 || score === null) return null;
+    if (this.problems.length > 0 || (ranked !== null && score === null)) return null;
     return {
       ruleset: this.r,
       entities,
       resources,
       conditions: Object.fromEntries(this.r.conditions.map((c) => [c.id, c])),
       tests,
-      initiative: { def: init, score, tiebreak: tiebreak.filter((t): t is CompiledExpr => t !== null) },
+      initiative:
+        ranked !== null && score !== null
+          ? { def: ranked, score, tiebreak: tiebreak.filter((t): t is CompiledExpr => t !== null) }
+          : { def: init as SeatedInitiative, score: null, tiebreak: [] },
       healthStates,
       instantDeath,
     };

@@ -62,6 +62,11 @@ export function Party({ me, state, send, sheet }: PartyProps) {
     state.access.members.find((m) => m.characterIds.includes(actorId))?.name ??
     (state.access.guests.some((g) => g.actorId === actorId) ? t("guest") : null);
   const actorNames = useMemo(() => new Map(state.actors.map((a) => [a.id, a.name])), [state.actors]);
+  // A ruleset with no creation steps (a board game) has nothing to build: a new character takes its only actor type
+  // at once, so the server gives it its starting resources (house decision #23), and its sheet is open from the start.
+  const builds = (sheet.ruleset?.creation.length ?? 0) > 0;
+  const actorTypes = sheet.ruleset?.entities.filter((e) => e.base === "actor") ?? [];
+  const typeOnCreate = !builds && actorTypes.length === 1 ? actorTypes[0]?.id : undefined;
 
   // Sends an action and shows its refusal, if any.
   const act = async (a: ActionInput) => {
@@ -108,7 +113,7 @@ export function Party({ me, state, send, sheet }: PartyProps) {
   const handleNewCharacter = async (e: FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    const r = await act({ type: "actor.create", kind: "pc", name: newName.trim() });
+    const r = await act({ type: "actor.create", kind: "pc", name: newName.trim(), entityType: typeOnCreate });
     if (r.ok) setNewName("");
   };
 
@@ -215,7 +220,7 @@ export function Party({ me, state, send, sheet }: PartyProps) {
                     <strong>{a.name}</strong> <span className="dim small">{holder ?? t("open")}</span>
                   </span>
                   <span className="row">
-                    {sheet.ruleset && !needsBuild(a) && (
+                    {sheet.ruleset && (!builds || !needsBuild(a)) && (
                       <button
                         className="btn sm"
                         aria-label={
@@ -227,7 +232,7 @@ export function Party({ me, state, send, sheet }: PartyProps) {
                         {t("sheet")}
                       </button>
                     )}
-                    {needsBuild(a) && can("character:edit:any") && (
+                    {builds && needsBuild(a) && can("character:edit:any") && (
                       <a
                         className="btn sm"
                         aria-label={t("buildLabel", { name: a.name })}

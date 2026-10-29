@@ -2546,5 +2546,12 @@ test("encounter: phases run a simultaneous plan phase on the phones, then act in
   await want(`2/plan//${b}/${b}`);
   ok(await owner.send({ type: "turn.next" }));
   await want(`2/act/${b}/${b}/`);
+
+  // The last of the round's sequence (a) leaves while acting: the round wraps into plan, as the end of their turn would.
+  ok(await owner.send({ type: "turn.next" }));
+  ok(await owner.send({ type: "turn.next" }));
+  await want(`2/act/${a}/${b}/`);
+  ok(await owner.send({ type: "encounter.remove", combatantId: a }));
+  await want(`3/plan//${c}/`);
   for (const s of [owner, ...phones]) s.socket.close();
 });

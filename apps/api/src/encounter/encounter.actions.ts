@@ -118,8 +118,14 @@ export async function applyEncounterAction(
       if (rc) {
         // Seated: the engine moves the first player and the turn (#36, #3); the order itself is the tracker's.
         const actorId = rows.find((r) => r.id === c.id)?.actorId ?? fail("notInFight");
-        const deltas = await rc.run({ primitive: "initiative.seated", op: "remove", input: { id: actorId } });
-        // ponytail: a seated removal that wraps the round skips the phase change, upgrade: plan it as turn.next does
+        // With phases, the one acting leaves as if their turn ended, so the phase or round moves on as #37 says.
+        let after = rc;
+        if (rc.compiled.ruleset.phases && e.currentCombatantId === c.id && rows.length > 1) {
+          const turn = (await rc.turn()) ?? fail("noEncounterRunning");
+          await rc.apply(planNext({ ruleset: rc.compiled.ruleset, state: rc.state({ turn }) }));
+          after = await openRuleset(tx, ctx); // the context holds the turn it first read
+        }
+        const deltas = await after.run({ primitive: "initiative.seated", op: "remove", input: { id: actorId } });
         for (const d of deltas) {
           if ("turn" in d.target && d.target.turn !== "order") {
             await writeTurn(tx, { campaignId: cid, key: d.target.turn, value: d.value });

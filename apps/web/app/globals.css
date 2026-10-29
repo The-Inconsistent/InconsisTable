@@ -1861,3 +1861,15 @@ fieldset:disabled select {
     padding-top: 32px;
   }
 }
+
+/* ---------- Phases: one big tap per held character on the phone, the round's place on the GM's tablet ---------- */
+.done-button {
+  width: 100%;
+  min-height: 96px;
+  font-size: var(--fs-banner);
+  font-weight: 800;
+}
+.phase-bar {
+  align-items: center;
+  gap: 12px;
+}

@@ -56,7 +56,14 @@ export async function applyEventAction(tx: Tx, { ctx }: { ctx: Ctx; action: Even
         skipped.push({ turn: target.turn, reason: "ended" });
         continue;
       }
-      const turnInverse = invertDelta({ logged, current: await readTarget(tx, { campaignId: cid, target }) });
+      // Someone who left the fight since has no flag to compare: the list is read without them.
+      const here = target.turn === "done" ? ((await loadTurn(tx, cid))?.order ?? []) : [];
+      const present = (v: typeof logged.after) =>
+        Array.isArray(v) && target.turn === "done" ? v.filter((id) => here.includes(id)) : v;
+      const turnInverse = invertDelta({
+        logged: { ...logged, before: present(logged.before), after: present(logged.after) },
+        current: await readTarget(tx, { campaignId: cid, target }),
+      });
       if (!turnInverse.ok) fail(turnInverse.code, turnInverse.params);
       // The holder it would hand the turn back to has left the fight since: nothing to put back, the rest still reverts.
       const back = turnInverse.delta?.value;

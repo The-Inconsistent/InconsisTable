@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import type { Encounter } from "@inconsistable/core-schema";
 
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
-import { stateKey } from "@/lib/track/track";
+import { phaseOf, stateKey } from "@/lib/track/track";
 
 type OrderViewProps = { encounter: Encounter };
 
@@ -12,15 +12,20 @@ type OrderViewProps = { encounter: Encounter };
 export function OrderView({ encounter }: OrderViewProps) {
   const t = useTranslations("orderView");
   const tState = useTranslations("combatState");
+  const phase = phaseOf(encounter);
   return (
     <section className="stack order-view" aria-label={t("label")}>
       <h2 className="title">
-        {t("round", { round: encounter.round })} {encounter.paused && <span className="chip">{t("paused")}</span>}
+        {phase
+          ? t("roundPhase", { round: encounter.round, phase: phase.label })
+          : t("round", { round: encounter.round })}{" "}
+        {encounter.paused && <span className="chip">{t("paused")}</span>}
       </h2>
       <ol className="order seat-strip">
         {encounter.combatants.map((c) => {
           const acting = c.id === encounter.currentId;
           const first = c.id === encounter.firstId;
+          const done = phase?.mode === "simultaneous" && encounter.done.includes(c.id);
           const word = stateKey({ current: acting, healthState: undefined });
           return (
             <li key={c.id} className="combatant" data-acting={acting}>
@@ -33,6 +38,7 @@ export function OrderView({ encounter }: OrderViewProps) {
                 )}
                 <HealthBar combatant={c} />
               </span>
+              {done && <span className="chip">{t("done")}</span>}
               {word && (
                 <span className="state-word" data-state={word}>
                   {tState(word)}

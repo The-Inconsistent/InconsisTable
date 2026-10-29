@@ -1,4 +1,4 @@
-import type { Combatant } from "@inconsistable/core-schema";
+import type { Combatant, Encounter } from "@inconsistable/core-schema";
 
 export const MAX_KEYS = 4; // 9999 is more than any one hit
 
@@ -48,3 +48,6 @@ export const barPercent = (c: Pick<Combatant, "bar">) => (c.bar === null ? null 
 /** Whose turn it is among the combatants, if any. */
 export const currentOf = ({ combatants, currentId }: { combatants: readonly Combatant[]; currentId: string | null }) =>
   combatants.find((c) => c.id === currentId);
+
+/** The phase the round is in, or undefined when the ruleset has none. */
+export const phaseOf = (encounter: Encounter) => encounter.phases.find((p) => p.id === encounter.phaseId);

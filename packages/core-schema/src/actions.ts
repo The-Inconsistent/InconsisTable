@@ -200,6 +200,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "turn.next": "encounter:run",
   "turn.prev": "encounter:run",
   "turn.first": "encounter:run",
+  "phase.done": "phase:done:own", // the player of that character; the GM side through OWN_FALLBACK
   "test.call": "test:call",
   "test.report": "test:report:own", // the player of that character; the GM side through OWN_FALLBACK
   "test.close": "test:call",
@@ -222,6 +223,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
 export const OWN_FALLBACK: Partial<Record<Permission, Permission>> = {
   "character:edit:own": "character:edit:any",
   "test:report:own": "test:call",
+  "phase:done:own": "encounter:run",
 };
 
 // Actions an archived room still takes: unarchive, delete, leaving, and revoking access (kept from Auspex).

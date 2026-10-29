@@ -41,6 +41,12 @@ export const Encounter = z.object({
   round: z.number().int(),
   currentId: z.string().nullable(), // the combatant whose turn it is
   firstId: z.string().nullable(), // the first player of the round (seated order); null for a ranked order
+  /** The phase of the round, an id of the ruleset's `phases`; null when it has none. */
+  phaseId: z.string().nullable(),
+  /** The ruleset's phases in order, for the banner; empty when it has none. */
+  phases: z.array(z.object({ id: z.string(), label: z.string(), mode: z.enum(["turns", "simultaneous"]) })),
+  /** Combatants that marked the simultaneous phase done. */
+  done: z.array(z.string()),
   /** How a seated order picks the first player; null when the order is ranked by initiative. */
   firstPlayer: z.enum(["fixed", "rotate", "manual"]).nullable(),
   /** Open with no session running: the order shows, nothing moves (house decision #28). */
@@ -79,4 +85,6 @@ export const ENCOUNTER_ACTIONS = [
   z.object({ type: z.literal("turn.prev") }),
   // Sets the first player of the round, for a seated ruleset whose first player is set by hand (house decision #36).
   z.object({ type: z.literal("turn.first"), combatantId: id }),
+  // A seat marks a character done in a simultaneous phase (house decision #37); the last one moves the phase on.
+  z.object({ type: z.literal("phase.done"), actorId: id }),
 ] as const;

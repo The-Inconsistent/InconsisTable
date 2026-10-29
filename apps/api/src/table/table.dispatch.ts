@@ -57,7 +57,7 @@ export const kicksSender = (a: Action) =>
 const targetOf = (a: Action) =>
   a.type === "actor.rename"
     ? { actorId: a.id }
-    : a.type === "field.set" || a.type === "test.report" || a.type === "actor.build"
+    : a.type === "field.set" || a.type === "test.report" || a.type === "actor.build" || a.type === "phase.done"
       ? { actorId: a.actorId }
       : undefined;
 
@@ -153,6 +153,7 @@ function dispatch(tx: Tx, { ctx, action }: { ctx: Ctx; action: Action }): Promis
     case "turn.next":
     case "turn.prev":
     case "turn.first":
+    case "phase.done":
       return applyEncounterAction(tx, { ctx, action });
 
     case "event.undo":

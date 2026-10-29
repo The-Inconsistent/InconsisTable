@@ -248,6 +248,15 @@ export const SeatedInitiative = z.object({
 });
 export type SeatedInitiative = z.infer<typeof SeatedInitiative>;
 
+/** One step of a round, played in turn or by everyone at once (house decision #37). */
+export const Phase = z.object({
+  id: Id,
+  label: z.string().min(1).max(40),
+  mode: z.enum(["turns", "simultaneous"]),
+  cite: Cite.optional(),
+});
+export type Phase = z.infer<typeof Phase>;
+
 export const Initiative = z.discriminatedUnion("strategy", [RankedInitiative, SeatedInitiative]);
 export type Initiative = z.infer<typeof Initiative>;
 
@@ -368,6 +377,8 @@ export const Ruleset = z.object({
   conditions: z.array(Condition).max(500).default([]),
   tests: z.record(Id, DiceMechanic).default({}),
   initiative: Initiative,
+  /** The steps a round runs in order. Absent: a round is one pass of the initiative order. */
+  phases: z.array(Phase).min(1).max(12).optional(),
   health: Health.default({ tracks: [], states: [] }),
   /** Steps of the character builder, in order. Empty: the ruleset has no builder and actors are filled by hand. */
   creation: z.array(CreationStep).max(50).default([]),
@@ -510,6 +521,7 @@ function semanticProblems(r: Ruleset): Problem[] {
   });
   for (const [id, t] of Object.entries(r.tests)) needCite(t.cite, `tests.${id}`);
   needCite(r.initiative.cite, "initiative");
+  r.phases?.forEach((x, i) => needCite(x.cite, `phases[${i}]`));
   // Death saves and damage order are rules too.
   if (r.health.tracks.length > 0) needCite(r.health.cite, "health");
   r.creation.forEach((x, i) => needCite(x.cite, `creation[${i}]`));
@@ -523,6 +535,7 @@ function semanticProblems(r: Ruleset): Problem[] {
   duplicates({ ids: r.entities.map((e) => e.id), path: "entities", out });
   duplicates({ ids: r.resources.map((x) => x.id), path: "resources", out });
   duplicates({ ids: r.conditions.map((x) => x.id), path: "conditions", out });
+  duplicates({ ids: (r.phases ?? []).map((x) => x.id), path: "phases", out });
   duplicates({ ids: r.options.map((x) => x.id), path: "options", out });
   duplicates({ ids: r.creation.map((x) => x.id), path: "creation", out });
   duplicates({ ids: r.decisions.map((x) => x.id), path: "decisions", out });

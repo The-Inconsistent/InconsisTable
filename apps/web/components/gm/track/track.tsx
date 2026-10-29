@@ -17,6 +17,7 @@ import { Creatures } from "@/components/gm/creatures/creatures";
 import { AddCombatants } from "@/components/gm/track/components/add-combatants/add-combatants";
 import { CombatantPanel } from "@/components/gm/track/components/combatant-panel/combatant-panel";
 import { FightBar } from "@/components/gm/track/components/fight-bar/fight-bar";
+import { PhaseBar } from "@/components/gm/track/components/phase-bar/phase-bar";
 import { OrderList } from "@/components/gm/track/components/order-list/order-list";
 import { CallForm } from "@/components/gm/tests/components/call-form/call-form";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
@@ -58,6 +59,7 @@ export function Track({ me, state, send, sheet }: TrackProps) {
   return (
     <>
       <FightBar encounter={encounter} sessionRunning={state.session !== null} run={run} />
+      {encounter && <PhaseBar encounter={encounter} run={run} />}
       {error && (
         <p className="error" role="alert">
           {error}

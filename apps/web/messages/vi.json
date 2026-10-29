@@ -214,9 +214,18 @@
   "healthBar": {
     "label": "HP của {name}: {percent} phần trăm"
   },
+  "doneButton": {
+    "label": "Xong: {name}"
+  },
+  "phaseBar": {
+    "waiting": "Chưa xong: {names}",
+    "moveOn": "Sang pha kế"
+  },
   "orderView": {
     "label": "Thứ tự lượt",
     "round": "Vòng {round}",
+    "roundPhase": "Vòng {round} · {phase}",
+    "done": "Xong",
     "paused": "Tạm dừng",
     "first": "Người đi đầu"
   },
@@ -758,6 +767,10 @@
     "alreadyFirst": "Đã ở đầu",
     "alreadyLast": "Đã ở cuối",
     "notSeated": "Bộ luật này không có người đi đầu để đặt",
+    "phaseStart": "Dùng Hoàn tác để lùi một pha",
+    "noSuchPhase": "Bộ luật này không có pha đó",
+    "notSimultaneous": "Chỉ dùng trong pha chơi cùng lúc",
+    "alreadyDone": "Đã xong rồi",
     "noSeatedScores": "Xếp theo ghế nên không có điểm initiative",
     "sameInitiativeOnly": "Chỉ những người có cùng initiative mới đổi chỗ được",
     "roundWholeNumber": "Vòng là một số nguyên",

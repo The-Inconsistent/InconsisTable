@@ -129,6 +129,9 @@ const state: LiveState = {
     round: 1,
     currentId: "c-wisp", // the turn is a hidden Combatant's
     firstId: null,
+    phaseId: null,
+    phases: [],
+    done: [],
     firstPlayer: null,
     paused: false,
     health: { resource: "hp", temp: null, deathSaves: false },

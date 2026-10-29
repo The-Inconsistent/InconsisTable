@@ -17,6 +17,7 @@ import {
   type SeatedInitiative,
   type Resource,
   type Ruleset,
+  type Scoring,
   type DiceMechanic,
 } from "./manifest.ts";
 import { own } from "./own.ts";
@@ -79,6 +80,13 @@ export type CompiledInitiative =
   | { def: RankedInitiative; score: CompiledExpr; tiebreak: CompiledExpr[] }
   | { def: SeatedInitiative; score: null; tiebreak: [] };
 
+export interface CompiledScoring {
+  def: Scoring;
+  score: CompiledExpr;
+  tiebreaks: CompiledExpr[];
+  endWhen: CompiledExpr[];
+}
+
 export interface CompiledRuleset {
   ruleset: Ruleset;
   entities: Record<string, CompiledEntity>;
@@ -86,6 +94,8 @@ export interface CompiledRuleset {
   conditions: Record<string, Condition>;
   tests: Record<string, CompiledTest>;
   initiative: CompiledInitiative;
+  /** The game's scoring, or null when the manifest has none. */
+  scoring: CompiledScoring | null;
   healthStates: { id: string; label: string | undefined; when: CompiledExpr }[];
   /** `health.tracks[].instantDeathOverflow`, by the track's resource id. */
   instantDeath: Record<string, CompiledExpr>;
@@ -397,6 +407,19 @@ class Compiler {
     return { def: x, min, max, resetOn: okResets };
   }
 
+  /** null: no scoring block; undefined: it did not compile (the problems are recorded). */
+  private scoring(scopes: readonly ExprScope[]): CompiledScoring | null | undefined {
+    const def = this.r.scoring;
+    if (def === undefined) return null;
+    const one = (source: string, path: string, expect: ExprType, extra: ExprScope = {}) =>
+      this.expr({ source, scopes: scopes.map((s) => ({ ...s, ...extra })), expect, path });
+    const score = one(def.score, "scoring.score", "int");
+    const tiebreaks = def.tiebreaks.map((t, i) => one(t.expr, `scoring.tiebreaks[${i}].expr`, "int"));
+    const endWhen = def.endWhen.map((t, i) => one(t.when, `scoring.endWhen[${i}].when`, "bool", { round: "int" }));
+    const ok = <T>(xs: (T | null)[]): xs is T[] => xs.every((x) => x !== null);
+    return score !== null && ok(tiebreaks) && ok(endWhen) ? { def, score, tiebreaks, endWhen } : undefined;
+  }
+
   run(): CompiledRuleset | null {
     const entities: Record<string, CompiledEntity> = {};
     this.r.entities.forEach((e, i) => {
@@ -456,6 +479,7 @@ class Compiler {
       this.expr({ source: src, scopes: actorScopes, expect: "int", path: `initiative.tiebreak[${j}]` }),
     );
 
+    const scoring = this.scoring(actorScopes);
     const healthStates = this.r.health.states.flatMap((s, j) => {
       const when = this.expr({ source: s.when, scopes: actorScopes, expect: "bool", path: `health.states[${j}].when` });
       return when === null ? [] : [{ id: s.id, label: s.label, when }];
@@ -473,13 +497,14 @@ class Compiler {
       if (expr !== null) instantDeath[t.resource] = expr;
     });
 
-    if (this.problems.length > 0 || (ranked !== null && score === null)) return null;
+    if (this.problems.length > 0 || scoring === undefined || (ranked !== null && score === null)) return null;
     return {
       ruleset: this.r,
       entities,
       resources,
       conditions: Object.fromEntries(this.r.conditions.map((c) => [c.id, c])),
       tests,
+      scoring,
       initiative:
         ranked !== null && score !== null
           ? { def: ranked, score, tiebreak: tiebreak.filter((t): t is CompiledExpr => t !== null) }

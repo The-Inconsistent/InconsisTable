@@ -257,6 +257,31 @@ export const Phase = z.object({
 });
 export type Phase = z.infer<typeof Phase>;
 
+export const ScoreOrder = z.enum(["high", "low"]);
+export const GameOutcome = z.enum(["win", "lose"]);
+export type GameOutcome = z.infer<typeof GameOutcome>;
+
+/**
+ * How a game is scored and when it may end (design §4.8, house decisions #38-#40). `score`, tiebreaks and `when` read
+ * one actor's scope; `endWhen` also reads `round`. A trigger is met when it holds for any combatant.
+ */
+export const Scoring = z.object({
+  /** coop: the whole table wins or loses together and nobody is ranked. */
+  mode: z.enum(["compete", "coop"]).default("compete"),
+  score: ExprSource,
+  order: ScoreOrder.default("high"),
+  tiebreaks: z
+    .array(z.object({ expr: ExprSource, order: ScoreOrder }))
+    .max(5)
+    .default([]),
+  endWhen: z
+    .array(z.object({ when: ExprSource, outcome: GameOutcome.optional(), cite: Cite.optional() }))
+    .max(10)
+    .default([]),
+  cite: Cite.optional(),
+});
+export type Scoring = z.infer<typeof Scoring>;
+
 export const Initiative = z.discriminatedUnion("strategy", [RankedInitiative, SeatedInitiative]);
 export type Initiative = z.infer<typeof Initiative>;
 
@@ -379,6 +404,8 @@ export const Ruleset = z.object({
   initiative: Initiative,
   /** The steps a round runs in order. Absent: a round is one pass of the initiative order. */
   phases: z.array(Phase).min(1).max(12).optional(),
+  /** Final scores, ranking and the end of the game. Absent: the game has no score to rank. */
+  scoring: Scoring.optional(),
   health: Health.default({ tracks: [], states: [] }),
   /** Steps of the character builder, in order. Empty: the ruleset has no builder and actors are filled by hand. */
   creation: z.array(CreationStep).max(50).default([]),
@@ -522,6 +549,19 @@ function semanticProblems(r: Ruleset): Problem[] {
   for (const [id, t] of Object.entries(r.tests)) needCite(t.cite, `tests.${id}`);
   needCite(r.initiative.cite, "initiative");
   r.phases?.forEach((x, i) => needCite(x.cite, `phases[${i}]`));
+  if (r.scoring) {
+    needCite(r.scoring.cite, "scoring");
+    r.scoring.endWhen.forEach((x, i) => needCite(x.cite, `scoring.endWhen[${i}]`));
+    const { mode, endWhen } = r.scoring;
+    endWhen.forEach((x, i) => {
+      if (mode === "compete" && x.outcome !== undefined)
+        out.push({ path: `scoring.endWhen[${i}].outcome`, message: "only a cooperative game has an outcome" });
+      if (mode === "coop" && x.outcome === undefined)
+        out.push({ path: `scoring.endWhen[${i}].outcome`, message: "a cooperative trigger names its outcome" });
+    });
+    if (mode === "coop" && !endWhen.some((x) => x.outcome === "win"))
+      out.push({ path: "scoring.endWhen", message: "a cooperative game needs a trigger that wins" });
+  }
   // Death saves and damage order are rules too.
   if (r.health.tracks.length > 0) needCite(r.health.cite, "health");
   r.creation.forEach((x, i) => needCite(x.cite, `creation[${i}]`));

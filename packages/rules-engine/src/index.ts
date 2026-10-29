@@ -18,6 +18,7 @@ export {
   type CompiledEntity,
   type CompiledInitiative,
   type CompiledResource,
+  type CompiledScoring,
   type CompiledRuleset,
   type CompiledTest,
   type CompileResult,
@@ -70,5 +71,6 @@ export * from "./primitives/resource-capped.ts";
 export * from "./primitives/conditions-expire.ts";
 export * from "./primitives/rest.ts";
 export { PRIMITIVES, runOp, type RunOpResult } from "./primitives/registry.ts";
+export * from "./scoring.ts";
 export * from "./view.ts";
 export * from "./breakdown.ts";

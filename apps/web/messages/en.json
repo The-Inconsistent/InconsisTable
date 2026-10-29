@@ -214,9 +214,18 @@
   "healthBar": {
     "label": "{name} health {percent} percent"
   },
+  "doneButton": {
+    "label": "Done: {name}"
+  },
+  "phaseBar": {
+    "waiting": "Not done yet: {names}",
+    "moveOn": "Move on"
+  },
   "orderView": {
     "label": "Turn order",
     "round": "Round {round}",
+    "roundPhase": "Round {round} · {phase}",
+    "done": "Done",
     "paused": "Paused",
     "first": "First player"
   },

@@ -130,6 +130,7 @@ const state: LiveState = {
     currentId: "c-wisp", // the turn is a hidden Combatant's
     firstId: null,
     phaseId: null,
+    phases: [],
     done: [],
     firstPlayer: null,
     paused: false,

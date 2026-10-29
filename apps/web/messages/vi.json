@@ -214,9 +214,18 @@
   "healthBar": {
     "label": "HP của {name}: {percent} phần trăm"
   },
+  "doneButton": {
+    "label": "Xong: {name}"
+  },
+  "phaseBar": {
+    "waiting": "Chưa xong: {names}",
+    "moveOn": "Sang pha kế"
+  },
   "orderView": {
     "label": "Thứ tự lượt",
     "round": "Vòng {round}",
+    "roundPhase": "Vòng {round} · {phase}",
+    "done": "Xong",
     "paused": "Tạm dừng",
     "first": "Người đi đầu"
   },

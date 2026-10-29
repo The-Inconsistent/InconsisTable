@@ -43,6 +43,8 @@ export const Encounter = z.object({
   firstId: z.string().nullable(), // the first player of the round (seated order); null for a ranked order
   /** The phase of the round, an id of the ruleset's `phases`; null when it has none. */
   phaseId: z.string().nullable(),
+  /** The ruleset's phases in order, for the banner; empty when it has none. */
+  phases: z.array(z.object({ id: z.string(), label: z.string(), mode: z.enum(["turns", "simultaneous"]) })),
   /** Combatants that marked the simultaneous phase done. */
   done: z.array(z.string()),
   /** How a seated order picks the first player; null when the order is ranked by initiative. */

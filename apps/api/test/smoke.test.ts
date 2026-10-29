@@ -2430,7 +2430,7 @@ test("signing out deletes the session and disconnects its sockets at once", asyn
 
 test("encounter: a seated order rotates its first player, Undo of the wrap puts it back, and scores are refused", async () => {
   const { owner, ownerDevice } = await newRoom("Seated");
-  const res = await caller(ownerDevice).post<RulesetReply>("/rulesets", SAMPLE_HARVEST);
+  const res = await caller(ownerDevice).post<RulesetReply>("/rulesets", { ...SAMPLE_HARVEST, phases: undefined });
   assert.equal(res.status, 201);
   ok(await owner.send({ type: "campaign.setRuleset", rulesetVersionId: res.body.versionId }));
   const seats: string[] = [];
@@ -2472,4 +2472,79 @@ test("encounter: a seated order rotates its first player, Undo of the wrap puts 
   await step([2, c, b]);
   await step([2, a, b]);
   await step([3, c, c]);
+});
+
+test("encounter: phases run a simultaneous plan phase on the phones, then act in turn; the GM moves on without waiting", async () => {
+  const { owner, ownerDevice, campaignId } = await newRoom("Phases");
+  const res = await caller(ownerDevice).post<RulesetReply>("/rulesets", SAMPLE_HARVEST);
+  assert.equal(res.status, 201);
+  ok(await owner.send({ type: "campaign.setRuleset", rulesetVersionId: res.body.versionId }));
+  const actors: string[] = [];
+  for (const name of ["Ana", "Ben", "Cy"])
+    actors.push(ok(await owner.send({ type: "actor.create", kind: "pc", name, entityType: "player" })).id!);
+  // Three phones, one character each.
+  const phones = [];
+  for (const actorId of actors) {
+    const token = ok(await owner.send({ type: "token.issue", actorId })).token!;
+    const phone = connect({ auth: { campaignId, token } });
+    await phone.until((s) => s.actors.some((x) => x.id === actorId));
+    phones.push(phone);
+  }
+  const [p1, p2, p3] = phones as [(typeof phones)[0], (typeof phones)[0], (typeof phones)[0]];
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: actors, side: "party", visibility: "full" }));
+  const seated = await owner.until((s) => s.encounter?.combatants.length === 3 && s.encounter.firstId !== null);
+  const [a, b, c] = seated.encounter!.combatants.map((x) => x.id) as [string, string, string];
+  const at = (s: LiveState) =>
+    [
+      s.encounter?.round,
+      s.encounter?.phaseId,
+      s.encounter?.currentId,
+      s.encounter?.firstId,
+      s.encounter?.done.join(""),
+    ].join("/");
+  const want = (value: string) => owner.until((s) => at(s) === value);
+  assert.equal(at(seated), `1/plan//${a}/`);
+
+  // Plan: each phone marks its own character; another's is refused, and so is marking twice.
+  refused(await p1.send({ type: "phase.done", actorId: actors[1]! }), "notYourCharacter");
+  ok(await p1.send({ type: "phase.done", actorId: actors[0]! }));
+  refused(await p1.send({ type: "phase.done", actorId: actors[0]! }), "alreadyDone");
+  await want(`1/plan//${a}/${a}`);
+  ok(await p2.send({ type: "phase.done", actorId: actors[1]! }));
+  await want(`1/plan//${a}/${a}${b}`);
+  // Back is refused in a phase played at once.
+  refused(await owner.send({ type: "turn.prev" }), "phaseStart");
+
+  // The last one done moves the phase on in the same step; act starts from the first player.
+  const auto = ok(await p3.send({ type: "phase.done", actorId: actors[2]! })).id!;
+  await want(`1/act/${a}/${a}/`);
+  refused(await p3.send({ type: "phase.done", actorId: actors[2]! }), "notSimultaneous");
+
+  // One Undo takes the automatic phase change back, `done` included.
+  assert.equal(ok(await owner.send({ type: "event.undo" })).id, auto);
+  await want(`1/plan//${a}/${a}${b}`);
+  ok(await p3.send({ type: "phase.done", actorId: actors[2]! }));
+  await want(`1/act/${a}/${a}/`);
+
+  // Act in turn; the end of the last turn of the last phase wraps the round and opens plan, first player moved on.
+  refused(await owner.send({ type: "turn.prev" }), "phaseStart");
+  for (const [who, next] of [
+    [a, b],
+    [b, c],
+  ] as const) {
+    ok(await owner.send({ type: "turn.next" }));
+    await want(`1/act/${next}/${a}/`);
+    assert.ok(who);
+  }
+  ok(await owner.send({ type: "turn.next" }));
+  await want(`2/plan//${b}/`);
+
+  // Round 2: one seat never marks; the GM moves on without waiting, and act starts from the new first player.
+  ok(await p2.send({ type: "phase.done", actorId: actors[1]! }));
+  await want(`2/plan//${b}/${b}`);
+  ok(await owner.send({ type: "turn.next" }));
+  await want(`2/act/${b}/${b}/`);
+  for (const s of [owner, ...phones]) s.socket.close();
 });

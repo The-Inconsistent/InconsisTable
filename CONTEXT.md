@@ -34,6 +34,10 @@ _Avoid_: Step, stage
 One character's score and place, or the table's win or loss, at the end of a game.
 _Avoid_: Outcome (that is a Test's), score
 
+**Standings**:
+A campaign's tally of wins and places over its recent games.
+_Avoid_: Leaderboard, ranking (that is one game's)
+
 ### Identity
 
 **User**:

@@ -10,6 +10,7 @@ import { RulesPanel } from "@/components/gm/rules/rules-panel";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { Track } from "@/components/gm/track/track";
 import { Tests } from "@/components/gm/tests/tests";
+import { Standings } from "@/components/ui/standings/standings";
 import { SettingsMenu } from "@/components/ui/settings-menu/settings-menu";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
@@ -25,7 +26,9 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
   const { state, online, send, books, requestPage } = useTable(me.campaignId);
-  const tabs = (Object.keys(GM_TABS) as GmTab[]).filter((k) => canInCampaign({ ctx: me, perm: GM_TABS[k].perm }));
+  const tabs = (Object.keys(GM_TABS) as GmTab[]).filter(
+    (k) => canInCampaign({ ctx: me, perm: GM_TABS[k].perm }) && (k !== "standings" || (state?.games.length ?? 0) > 0),
+  );
   const [tab, setTab] = useState<GmTab>(tabs.includes(initialTab) ? initialTab : (tabs[0] ?? "rules"));
 
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
@@ -57,6 +60,8 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
           <Party me={me} state={state} send={send} sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }} />
         ) : tab === "track" ? (
           <Track me={me} state={state} send={send} sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }} />
+        ) : tab === "standings" ? (
+          <Standings games={state.games} />
         ) : tab === "tests" ? (
           <Tests state={state} send={send} />
         ) : tab === "rules" ? (

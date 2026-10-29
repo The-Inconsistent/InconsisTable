@@ -232,6 +232,17 @@
   "endNotice": {
     "reached": "Ván có thể kết thúc"
   },
+  "standings": {
+    "label": "Bảng xếp hạng campaign",
+    "title": "Bảng xếp hạng",
+    "window": "{count} ván gần nhất",
+    "coopWon": "Thắng {won} trong {played} ván",
+    "line": "{played} ván, hạng trung bình {avg}, điểm cao nhất {best}",
+    "wins": "{count} thắng",
+    "games": "Các ván gần đây",
+    "win": "Thắng",
+    "lose": "Thua"
+  },
   "gameResult": {
     "label": "Kết quả ván",
     "ended": "Hết ván",
@@ -331,6 +342,7 @@
       "rules": "Luật",
       "fight": "Trận",
       "map": "Bản đồ",
+      "standings": "Xếp hạng",
       "intel": "Tin"
     }
   },
@@ -373,6 +385,7 @@
       "codex": "Sổ tay",
       "party": "Party",
       "tests": "Test",
+      "standings": "Xếp hạng",
       "map": "Bản đồ",
       "rules": "Luật"
     },

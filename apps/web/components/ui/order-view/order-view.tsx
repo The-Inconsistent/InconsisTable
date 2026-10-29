@@ -2,6 +2,7 @@ import { useTranslations } from "next-intl";
 
 import type { Encounter } from "@inconsistable/core-schema";
 
+import { EndNotice } from "@/components/ui/end-notice/end-notice";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
 import { phaseOf, stateKey } from "@/lib/track/track";
 
@@ -21,6 +22,7 @@ export function OrderView({ encounter }: OrderViewProps) {
           : t("round", { round: encounter.round })}{" "}
         {encounter.paused && <span className="chip">{t("paused")}</span>}
       </h2>
+      <EndNotice encounter={encounter} />
       <ol className="order seat-strip">
         {encounter.combatants.map((c) => {
           const acting = c.id === encounter.currentId;

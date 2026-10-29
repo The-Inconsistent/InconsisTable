@@ -13,12 +13,20 @@ type FightBarProps = { encounter: Encounter | null; sessionRunning: boolean; run
 export function FightBar({ encounter, sessionRunning, run }: FightBarProps) {
   const t = useTranslations("fightBar");
   const [ending, setEnding] = useState(false);
+  const [endingGame, setEndingGame] = useState(false);
 
   // END: the first tap asks, the second ends and clears the temporary creatures nobody marked Keep.
   const handleEnd = async () => {
     if (!ending) return setEnding(true);
     setEnding(false);
     await run({ type: "encounter.end" });
+  };
+
+  // END GAME: the first tap asks (it cannot be undone), the second scores everyone, saves the results and ends the fight.
+  const handleEndGame = async () => {
+    if (!endingGame) return setEndingGame(true);
+    setEndingGame(false);
+    await run({ type: "game.end" });
   };
 
   return (
@@ -54,6 +62,17 @@ export function FightBar({ encounter, sessionRunning, run }: FightBarProps) {
       <button className="btn" onClick={() => run({ type: "event.undo" })} disabled={!sessionRunning}>
         {t("undo")}
       </button>
+      {encounter?.scoring && (
+        <button
+          className="btn"
+          data-attention={encounter.endMet.length > 0}
+          disabled={encounter.paused}
+          onClick={handleEndGame}
+          onBlur={() => setEndingGame(false)}
+        >
+          {endingGame ? t("endGameConfirm") : t("endGame")}
+        </button>
+      )}
       {encounter && (
         <button className="btn" disabled={encounter.paused} onClick={handleEnd} onBlur={() => setEnding(false)}>
           {ending ? t("endConfirm") : t("end")}

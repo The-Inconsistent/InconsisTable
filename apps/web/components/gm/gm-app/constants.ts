@@ -8,7 +8,7 @@ export const GM_TABS = {
   codex: { perm: "codex:read" },
   party: { perm: "member:invite" },
   tests: { perm: "test:call" },
-  standings: { perm: "encounter:run" }, // listed only once the campaign has a game
+  standings: { perm: "codex:read" }, // every GM seat; listed only once the campaign has a game
   map: { perm: "codex:read" },
   rules: { perm: "codex:read" },
 } as const satisfies Record<string, { perm: Permission }>;

@@ -532,6 +532,13 @@ label {
   border-color: var(--parchment-line);
   background: rgb(120 80 30 / 0.1);
 }
+/* The first player of a seated order: a heavier, filled chip so it reads at arm's length, with the words as well. */
+.combatant .chip[data-first="true"] {
+  border: 2px solid var(--brass);
+  background: rgb(201 154 62 / 0.5);
+  font-size: 1.1em;
+  font-weight: 800;
+}
 .error {
   color: var(--accent);
   font-weight: 700;

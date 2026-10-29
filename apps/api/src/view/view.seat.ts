@@ -153,6 +153,7 @@ function seatEncounter({
     ...encounter,
     conditionDefs: [],
     currentId: seen.some((c) => c.id === encounter.currentId) ? encounter.currentId : null,
+    firstId: seen.some((c) => c.id === encounter.firstId) ? encounter.firstId : null,
     combatants: seen.map((c, i) => ({
       ...c,
       ord: i, // renumbered over what the seat sees, so a gap never shows where a hidden one sits

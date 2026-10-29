@@ -136,6 +136,8 @@ export const REFUSALS = {
   firstTurn: "This is the first turn of the fight",
   alreadyFirst: "Already first",
   alreadyLast: "Already last",
+  notSeated: "This ruleset has no first player to set",
+  noSeatedScores: "No initiative scores in seat order",
   sameInitiativeOnly: "Only combatants with the same initiative swap places",
   roundWholeNumber: "The round is a whole number",
   turnSetNotAdjusted: "The {turn} is set, not adjusted",

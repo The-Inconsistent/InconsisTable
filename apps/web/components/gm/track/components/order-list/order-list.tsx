@@ -36,16 +36,24 @@ export function OrderList({ encounter, actors, selectedId, onSelect, run }: Orde
     if (e.key === "Enter") e.currentTarget.blur();
   };
 
+  // A seated order has no scores: the seats go round the table from the first player.
+  const seated = encounter.firstPlayer !== null;
   return (
     <ol className="order seat-strip" aria-label={t("label")}>
       {encounter.combatants.map((c) => {
         const acting = c.id === encounter.currentId;
+        const first = c.id === encounter.firstId;
         const word = stateKey({ current: acting, healthState: actors.get(c.actorId)?.fields.healthState });
         return (
           <li key={c.id} className="combatant" data-acting={acting} data-selected={c.id === selectedId}>
             <button className="who" aria-pressed={c.id === selectedId} onClick={() => onSelect(c.id)}>
               <span className="name">{c.name}</span>
               <span className="row small dim">
+                {first && (
+                  <span className="chip" data-first="true">
+                    {t("first")}
+                  </span>
+                )}
                 <span className="chip">{tSide(c.side)}</span>
                 <span className="chip">{tVisibility(c.visibility)}</span>
                 {word && (
@@ -57,26 +65,37 @@ export function OrderList({ encounter, actors, selectedId, onSelect, run }: Orde
               <HealthBar combatant={c} />
             </button>
             <span className="row" style={{ flexWrap: "nowrap" }}>
-              <input
-                key={`${c.id}-${c.initiative ?? ""}`}
-                className="score"
-                type="number"
-                inputMode="numeric"
-                aria-label={t("initiative", { name: c.name })}
-                defaultValue={c.initiative ?? ""}
-                onBlur={handleScore(c)}
-                onKeyDown={handleEnter}
-              />
+              {!seated && (
+                <input
+                  key={`${c.id}-${c.initiative ?? ""}`}
+                  className="score"
+                  type="number"
+                  inputMode="numeric"
+                  aria-label={t("initiative", { name: c.name })}
+                  defaultValue={c.initiative ?? ""}
+                  onBlur={handleScore(c)}
+                  onKeyDown={handleEnter}
+                />
+              )}
+              {encounter.firstPlayer === "manual" && !first && (
+                <button
+                  className="btn"
+                  aria-label={t("makeFirst", { name: c.name })}
+                  onClick={() => run({ type: "turn.first", combatantId: c.id })}
+                >
+                  {t("first")}
+                </button>
+              )}
               <button
                 className="btn"
-                aria-label={t("moveUp", { name: c.name })}
+                aria-label={t(seated ? "moveUpSeat" : "moveUp", { name: c.name })}
                 onClick={() => run({ type: "encounter.move", combatantId: c.id, direction: "up" })}
               >
                 ↑
               </button>
               <button
                 className="btn"
-                aria-label={t("moveDown", { name: c.name })}
+                aria-label={t(seated ? "moveDownSeat" : "moveDown", { name: c.name })}
                 onClick={() => run({ type: "encounter.move", combatantId: c.id, direction: "down" })}
               >
                 ↓

@@ -128,6 +128,8 @@ const state: LiveState = {
     id: "e",
     round: 1,
     currentId: "c-wisp", // the turn is a hidden Combatant's
+    firstId: null,
+    firstPlayer: null,
     paused: false,
     health: { resource: "hp", temp: null, deathSaves: false },
     conditionDefs: [{ id: "marked", label: "Marked", duration: "manual" }],

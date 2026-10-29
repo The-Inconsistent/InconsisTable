@@ -239,7 +239,16 @@ export const RankedInitiative = z.object({
 });
 export type RankedInitiative = z.infer<typeof RankedInitiative>;
 
-export const Initiative = z.discriminatedUnion("strategy", [RankedInitiative]);
+/** Play goes round the table from the first player; nothing is scored. Also the params of `initiative.seated`. */
+export const SeatedInitiative = z.object({
+  strategy: z.literal("seated"),
+  /** fixed: always the first seat. rotate: one place along the order each round. manual: a seat sets it. */
+  firstPlayer: z.enum(["fixed", "rotate", "manual"]),
+  cite: Cite.optional(),
+});
+export type SeatedInitiative = z.infer<typeof SeatedInitiative>;
+
+export const Initiative = z.discriminatedUnion("strategy", [RankedInitiative, SeatedInitiative]);
 export type Initiative = z.infer<typeof Initiative>;
 
 export const DeathSaves = z.object({

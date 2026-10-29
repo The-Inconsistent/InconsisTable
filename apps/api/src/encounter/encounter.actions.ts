@@ -4,11 +4,12 @@ import { actor } from "../actor/actor.schema.ts";
 import { runningSessionId } from "../campaign/event.log.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
+import { loadCompiled } from "../ruleset/ruleset.compiled.ts";
 import { isPaused, openRuleset, openRulesetIfPinned } from "../ruleset/ruleset.context.ts";
 import { addCombatants, ownCombatant, renumber, rerank } from "./encounter.combatants.ts";
 import { movedIds, planNext, planPrev } from "./encounter.plan.ts";
 import { combatant, encounter } from "./encounter.schema.ts";
-import { activeEncounter, orderedCombatants } from "./encounter.turn.ts";
+import { activeEncounter, orderedCombatants, writeTurn } from "./encounter.turn.ts";
 
 export type EncounterRunAction = Extract<
   Action,
@@ -23,12 +24,17 @@ export type EncounterRunAction = Extract<
       | "encounter.setVisibility"
       | "encounter.keep"
       | "turn.next"
-      | "turn.prev";
+      | "turn.prev"
+      | "turn.first";
   }
 >;
 
 const running = async (tx: Tx, campaignId: string) =>
   (await activeEncounter(tx, campaignId)) ?? fail("noEncounterRunning");
+
+/** The room's ruleset runs a seated order (house decision #36): no scores, a first player. */
+const isSeated = async (tx: Tx, campaignId: string) =>
+  (await loadCompiled(tx, campaignId))?.ruleset.initiative.strategy === "seated";
 
 // The combat tracker (docs/p1-plan.md, F). Every action here is the combat side's (`encounter:run`). A turn change runs
 // the engine and writes its deltas through the same pipeline as any rule, so the log and Undo cover it.
@@ -69,7 +75,10 @@ export async function applyEncounterAction(
         ];
         actionId = await rc.apply(deltas);
       }
-      await tx.update(encounter).set({ active: false, currentCombatantId: null }).where(eq(encounter.id, e.id));
+      await tx
+        .update(encounter)
+        .set({ active: false, currentCombatantId: null, firstCombatantId: null })
+        .where(eq(encounter.id, e.id));
       // ponytail: these deletes can't be undone (house decision #26); undo skips their steps like any deleted actor
       if (doomed.size > 0) await tx.delete(actor).where(and(eq(actor.campaignId, cid), inArray(actor.id, [...doomed])));
       return { ok: true, id: actionId ?? undefined };
@@ -84,6 +93,14 @@ export async function applyEncounterAction(
         side: a.side,
         visibility: a.visibility,
       });
+      // A seated game has a first player from the first seat on; the table's seat order is `ord`.
+      if (e.firstCombatantId === null && (await isSeated(tx, cid))) {
+        const [top] = await orderedCombatants(tx, e.id);
+        await tx
+          .update(encounter)
+          .set({ firstCombatantId: top?.id ?? null })
+          .where(eq(encounter.id, e.id));
+      }
       return { ok: true };
     }
 
@@ -91,8 +108,18 @@ export async function applyEncounterAction(
       const c = await ownCombatant(tx, { campaignId: cid, id: a.combatantId });
       const e = await running(tx, cid);
       const rows = await orderedCombatants(tx, c.encounterId);
-      // The one whose turn it is leaves: the turn passes to whoever follows, or to nobody when they were last.
-      if (e.currentCombatantId === c.id) {
+      const rc = (await isSeated(tx, cid)) ? await openRuleset(tx, ctx) : null;
+      if (rc) {
+        // Seated: the engine moves the first player and the turn (#36, #3); the order itself is the tracker's.
+        const actorId = rows.find((r) => r.id === c.id)?.actorId ?? fail("notInFight");
+        const deltas = await rc.run({ primitive: "initiative.seated", op: "remove", input: { id: actorId } });
+        for (const d of deltas) {
+          if ("turn" in d.target && d.target.turn !== "order") {
+            await writeTurn(tx, { campaignId: cid, key: d.target.turn, value: d.value });
+          }
+        }
+      } else if (e.currentCombatantId === c.id) {
+        // The one whose turn it is leaves: the turn passes to whoever follows, or to nobody when they were last.
         const following = rows[rows.findIndex((r) => r.id === c.id) + 1];
         await tx
           .update(encounter)
@@ -108,6 +135,7 @@ export async function applyEncounterAction(
     }
 
     case "encounter.setInitiative": {
+      if (await isSeated(tx, cid)) fail("noSeatedScores");
       const c = await ownCombatant(tx, { campaignId: cid, id: a.combatantId });
       await tx.update(combatant).set({ initiativeScore: a.score }).where(eq(combatant.id, c.id));
       await rerank(tx, c.encounterId);
@@ -138,8 +166,19 @@ export async function applyEncounterAction(
       const rc = await openRuleset(tx, ctx);
       const turn = (await rc.turn()) ?? fail("noEncounterRunning");
       const state = rc.state({ turn });
-      const deltas = a.type === "turn.next" ? planNext({ ruleset: rc.compiled.ruleset, state }) : planPrev({ state });
+      const { ruleset } = rc.compiled;
+      const deltas = a.type === "turn.next" ? planNext({ ruleset, state }) : planPrev({ ruleset, state });
       const id = await rc.apply(deltas);
+      return { ok: true, id: id ?? undefined };
+    }
+
+    case "turn.first": {
+      const c = await ownCombatant(tx, { campaignId: cid, id: a.combatantId });
+      if (!(await isSeated(tx, cid))) fail("notSeated");
+      const rc = await openRuleset(tx, ctx);
+      const actorId =
+        (await orderedCombatants(tx, c.encounterId)).find((r) => r.id === c.id)?.actorId ?? fail("notInFight");
+      const id = await rc.apply(await rc.run({ primitive: "initiative.seated", op: "first", input: { id: actorId } }));
       return { ok: true, id: id ?? undefined };
     }
   }

@@ -44,8 +44,17 @@ export const session = pgTable("session", {
 });
 
 // What a session_event row is: a `delta` is one write, an `undo` takes one action back, the `test.*` rows tell a called
-// Test (never undoable: undo reads only `delta` rows).
-export const SessionEventType = z.enum(["delta", "undo", "test.call", "test.report", "test.close"]);
+// Test, `game.end` and `result.set` tell a game's end and a corrected score (never undoable: undo reads only `delta`
+// rows).
+export const SessionEventType = z.enum([
+  "delta",
+  "undo",
+  "test.call",
+  "test.report",
+  "test.close",
+  "game.end",
+  "result.set",
+]);
 export type SessionEventType = z.infer<typeof SessionEventType>;
 
 // The session log: deltas with their before and after values (Postgres 18 RETURNING OLD/NEW), rolls, reveals. It is

@@ -30,6 +30,10 @@ _Avoid_: Combat, battle, scene
 One step of a round that the ruleset names, played in turn or by everyone at once; a round runs its phases in order.
 _Avoid_: Step, stage
 
+**Result**:
+One character's score and place, or the table's win or loss, at the end of a game.
+_Avoid_: Outcome (that is a Test's), score
+
 ### Identity
 
 **User**:

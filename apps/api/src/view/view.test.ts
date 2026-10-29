@@ -134,6 +134,8 @@ const state: LiveState = {
     done: [],
     firstPlayer: null,
     paused: false,
+    endMet: [],
+    scoring: null,
     health: { resource: "hp", temp: null, deathSaves: false },
     conditionDefs: [{ id: "marked", label: "Marked", duration: "manual" }],
     combatants: [
@@ -142,6 +144,7 @@ const state: LiveState = {
       combatant("imp", "bar", 12, { ord: 2 }),
     ],
   },
+  games: [],
   access: {
     members: [],
     invites: [

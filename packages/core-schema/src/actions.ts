@@ -201,6 +201,8 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "turn.prev": "encounter:run",
   "turn.first": "encounter:run",
   "phase.done": "phase:done:own", // the player of that character; the GM side through OWN_FALLBACK
+  "game.end": "encounter:run",
+  "result.set": "encounter:run",
   "test.call": "test:call",
   "test.report": "test:report:own", // the player of that character; the GM side through OWN_FALLBACK
   "test.close": "test:call",

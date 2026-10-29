@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Encounter } from "./encounter.ts";
+import { Encounter, Game } from "./encounter.ts";
 import { CogmScope, MemberRole } from "./seat.ts";
 import { TestCall, TestDef } from "./test-call.ts";
 
@@ -129,6 +129,8 @@ export const LiveState = z.object({
   testDefs: z.array(TestDef),
   // The combat tracker: the active encounter, if any. Each seat gets its own filter (encounter.ts).
   encounter: Encounter.nullable(),
+  // The campaign's 20 most recent ended games, newest first; every seat gets all of them (house decision #40).
+  games: z.array(Game),
   access: z.object({
     members: z.array(Member),
     invites: z.array(Invite), // GM seats only

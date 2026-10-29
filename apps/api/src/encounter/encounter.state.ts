@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { Combatant, Encounter } from "@inconsistable/core-schema";
-import type { CompiledRuleset } from "@inconsistable/rules-engine";
+import { endMet, type CompiledRuleset } from "@inconsistable/rules-engine";
 import { actor } from "../actor/actor.schema.ts";
 import type { BuiltActor } from "../actor/actor.values.ts";
 import type { Db } from "../core/db.ts";
@@ -64,6 +64,11 @@ export async function loadEncounter(
             temp: compiled?.ruleset.health.tracks[0]?.temp ?? null,
             deathSaves: compiled?.ruleset.health.tracks[0]?.deathSaves !== undefined,
           },
+    // Told to every seat, even when a trigger reads a hidden value (house decision #38).
+    endMet: compiled
+      ? endMet({ ruleset: compiled, actors: built, order: rows.map(({ c }) => c.actorId), round: e.round })
+      : [],
+    scoring: compiled?.scoring ? { mode: compiled.scoring.def.mode } : null,
     conditionDefs: Object.entries(compiled?.conditions ?? {}).map(([id, c]) => ({
       id,
       label: c.label,

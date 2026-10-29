@@ -229,6 +229,21 @@
     "paused": "Paused",
     "first": "First player"
   },
+  "endNotice": {
+    "reached": "The game can end now"
+  },
+  "gameResult": {
+    "label": "Game result",
+    "ended": "Game over",
+    "endedEarly": "Game over, ended early",
+    "win": "WIN",
+    "lose": "LOSS",
+    "place": "{place, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} place",
+    "score": "{score, plural, one {# point} other {# points}}",
+    "tiebreaks": "Tiebreak {values}",
+    "scoreOf": "Score of {name}",
+    "save": "Save"
+  },
   "combatState": {
     "acting": "ACTING",
     "dead": "DEAD",
@@ -540,7 +555,9 @@
     "start": "Start fight",
     "undo": "Undo",
     "endConfirm": "End fight and clear temporary creatures",
-    "end": "End fight"
+    "end": "End fight",
+    "endGameConfirm": "End game and save results (cannot be undone)",
+    "endGame": "End game"
   },
   "orderList": {
     "label": "Turn order",
@@ -771,6 +788,9 @@
     "noSuchPhase": "That phase is not in this ruleset",
     "notSimultaneous": "Only in a phase played at once",
     "alreadyDone": "Already done",
+    "noScoring": "This game has no scoring",
+    "coopNoScore": "A cooperative game has no scores to correct",
+    "resultNotFound": "Result not found",
     "noSeatedScores": "No initiative scores in seat order",
     "sameInitiativeOnly": "Only combatants with the same initiative swap places",
     "roundWholeNumber": "The round is a whole number",

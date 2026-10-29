@@ -15,6 +15,7 @@ import { campaign, session } from "../campaign/campaign.schema.ts";
 import { codexEntry, codexReveal } from "../codex/codex.schema.ts";
 import { loadEncounter } from "../encounter/encounter.state.ts";
 import { db } from "../core/db.ts";
+import { loadGames } from "../game/game.state.ts";
 import { loadCompiled } from "../ruleset/ruleset.compiled.ts";
 import { loadTests, testDefsOf } from "../test-call/test-call.state.ts";
 import type { Snapshot } from "../view/view.ts";
@@ -109,6 +110,7 @@ export async function loadLive(campaignId: string): Promise<Live | null> {
     tests,
     testDefs: testDefsOf(compiled),
     encounter: await loadEncounter(db, { campaignId, compiled, built }),
+    games: await loadGames(db, campaignId),
     access: {
       members: members.map((m) => ({
         userId: m.userId,

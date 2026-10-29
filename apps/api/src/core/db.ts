@@ -9,6 +9,7 @@ import * as sessionSchema from "../auth/session.schema.ts";
 import * as campaignSchema from "../campaign/campaign.schema.ts";
 import * as codexSchema from "../codex/codex.schema.ts";
 import * as encounterSchema from "../encounter/encounter.schema.ts";
+import * as gameSchema from "../game/game.schema.ts";
 import * as packSchema from "../pack/pack.schema.ts";
 import * as rulesetSchema from "../ruleset/ruleset.schema.ts";
 
@@ -21,6 +22,7 @@ const schema = {
   ...campaignSchema,
   ...codexSchema,
   ...encounterSchema,
+  ...gameSchema,
   ...packSchema,
   ...rulesetSchema,
   ...sessionSchema,

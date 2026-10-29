@@ -10,6 +10,7 @@ import { applyCodexAction } from "../codex/codex.actions.ts";
 import { applyEncounterAction } from "../encounter/encounter.actions.ts";
 import type { Tx } from "../core/db.ts";
 import { fail } from "../core/errors.ts";
+import { applyGameAction } from "../game/game.actions.ts";
 import { applyRuleAction, primitiveOp } from "../ruleset/ruleset.actions.ts";
 import { applyTestCallAction } from "../test-call/test-call.actions.ts";
 import { requirePerm } from "./table.authorize.ts";
@@ -155,6 +156,10 @@ function dispatch(tx: Tx, { ctx, action }: { ctx: Ctx; action: Action }): Promis
     case "turn.first":
     case "phase.done":
       return applyEncounterAction(tx, { ctx, action });
+
+    case "game.end":
+    case "result.set":
+      return applyGameAction(tx, { ctx, action });
 
     case "event.undo":
       return applyEventAction(tx, { ctx, action });

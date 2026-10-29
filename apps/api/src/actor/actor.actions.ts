@@ -9,6 +9,7 @@ import { buildActor } from "./actor.build.ts";
 import { applyDraftAction } from "./actor.draft.ts";
 import { actor } from "./actor.schema.ts";
 import { spawnActors } from "./actor.spawn.ts";
+import { writeStart } from "./actor.start.ts";
 
 export type ActorAction = Extract<
   Action,
@@ -85,6 +86,8 @@ export async function applyActorAction(
         .update(actor)
         .set({ entityType: a.entityType, rulesetVersionId: room?.v ?? null })
         .where(eq(actor.id, id));
+      // House decision #23: a typed actor starts with its resources, so a game with no creation steps can score them.
+      await writeStart(tx, { ctx, compiled, targets: [{ actorId: id, fields: {} }] });
       return { ok: true, id };
     }
     case "actor.build":

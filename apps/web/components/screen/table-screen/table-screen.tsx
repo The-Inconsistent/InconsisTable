@@ -1,6 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
+import { GameResult } from "@/components/ui/game-result/game-result";
 import { OrderView } from "@/components/ui/order-view/order-view";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { useTable } from "@/hooks/use-table/use-table";
@@ -34,6 +35,8 @@ export function TableScreen({ campaignId }: TableScreenProps) {
             .join(" · ")}
         </p>
         {state.encounter && <OrderView encounter={state.encounter} />}
+        {/* The newest ended game stays up until the next one starts. */}
+        {!state.encounter && state.games[0] && <GameResult game={state.games[0]} />}
         {/* A Test in progress: that it is, and how far along. Never who, or any number (the state carries none). */}
         {state.tests
           .filter((c) => c.status === "open")

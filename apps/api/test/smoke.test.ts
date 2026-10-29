@@ -2555,3 +2555,116 @@ test("encounter: phases run a simultaneous plan phase on the phones, then act in
   await want(`3/plan//${c}/`);
   for (const s of [owner, ...phones]) s.socket.close();
 });
+
+test("game end: endMet reaches every seat, game.end ranks and closes, result.set re-ranks, one room's results are its own", async () => {
+  const { owner, ownerDevice, campaignId } = await newRoom("Scoring");
+  const res = await caller(ownerDevice).post<RulesetReply>("/rulesets", SAMPLE_HARVEST);
+  assert.equal(res.status, 201);
+  ok(await owner.send({ type: "campaign.setRuleset", rulesetVersionId: res.body.versionId }));
+  const actors: string[] = [];
+  for (const name of ["Ana", "Ben", "Cy"])
+    actors.push(ok(await owner.send({ type: "actor.create", kind: "pc", name, entityType: "player" })).id!);
+  const [ana, ben, cy] = actors as [string, string, string];
+  // A typed actor starts with its resources (#23); only the name field is seeded here.
+  for (const id of actors) await equip(id, "player", { fields: { name: "x" } });
+  const phoneToken = ok(await owner.send({ type: "token.issue", actorId: ana })).token!;
+  const phone = connect({ auth: { campaignId, token: phoneToken } });
+  const tv = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  await phone.until((s) => s.actors.some((x) => x.id === ana));
+  await tv.until(() => true);
+  const give = async (who: string, resource: string, delta: number) => {
+    if (delta !== 0) ok(await owner.send(adjust(who, resource, delta)));
+  };
+  const startGame = async () => {
+    ok(await owner.send({ type: "encounter.start" }));
+    ok(await owner.send({ type: "encounter.add", actorIds: actors, side: "party", visibility: "full" }));
+    await owner.until((s) => s.encounter?.combatants.length === 3);
+  };
+
+  ok(await owner.send({ type: "session.start" }));
+  // No encounter: nothing to end. A player cannot end a game.
+  refused(await owner.send({ type: "game.end" }), "noEncounterRunning");
+  await startGame();
+  refused(await phone.send({ type: "game.end" }), "noPermission");
+
+  // Game 1: Ana and Ben tie on 5 points, and the coin tiebreak puts Ben first.
+  await give(ana, "vp", 5);
+  await give(ben, "vp", 4);
+  await give(ben, "coin", 3);
+  await give(cy, "vp", 1);
+  // Four rounds of plan (moved on without waiting) and act (three turns).
+  for (let i = 0; i < 16; i++) ok(await owner.send({ type: "turn.next" }));
+  const round = (r: number) => (s: LiveState) => s.encounter?.round === r;
+  assert.deepEqual((await owner.until(round(5))).encounter!.endMet, [0]);
+  assert.deepEqual((await phone.until(round(5))).encounter!.endMet, [0]);
+  const five = await tv.until(round(5));
+  assert.deepEqual(five.encounter!.endMet, [0]);
+  // Nothing is ended for them: no result is sent while the game runs.
+  assert.deepEqual(five.games, []);
+
+  ok(await owner.send({ type: "game.end" }));
+  const after = await tv.until((s) => s.encounter === null && s.games.length === 1);
+  const rows = (s: LiveState) => s.games[0]!.rows.map((r) => [r.name, r.score, r.tiebreaks.join(), r.place, r.outcome]);
+  assert.deepEqual(rows(after), [
+    ["Ben", 5, "3", 1, null],
+    ["Ana", 5, "0", 2, null],
+    ["Cy", 1, "0", 3, null],
+  ]);
+  assert.equal(after.games[0]!.endedEarly, false);
+  assert.equal(after.games[0]!.mode, "compete");
+  assert.deepEqual(rows(await phone.until((s) => s.games.length === 1)), rows(after), "a phone is sent the same");
+  const stored = await query<{ n: number }>("SELECT count(*)::int AS n FROM session_result WHERE campaign_id = $1", [
+    campaignId,
+  ]);
+  assert.equal(stored[0]!.n, 3);
+  refused(await owner.send({ type: "game.end" }), "noEncounterRunning");
+
+  // Another room cannot touch this room's result, and a player cannot correct one.
+  const benResult = after.games[0]!.rows[0]!.resultId;
+  const cyResult = after.games[0]!.rows[2]!.resultId;
+  const other = await newRoom("ScoringOther");
+  refused(await other.owner.send({ type: "result.set", resultId: benResult, score: 99 }), "resultNotFound");
+  refused(await phone.send({ type: "result.set", resultId: benResult, score: 99 }), "noPermission");
+
+  // The table corrects Cy's score; the whole game ranks again.
+  ok(await owner.send({ type: "result.set", resultId: cyResult, score: 9 }));
+  const fixed = await tv.until((s) => s.games[0]?.rows.some((r) => r.name === "Cy" && r.score === 9) === true);
+  assert.deepEqual(rows(fixed), [
+    ["Cy", 9, "0", 1, null],
+    ["Ben", 5, "3", 2, null],
+    ["Ana", 5, "0", 3, null],
+  ]);
+
+  // Game 2 ends at once, with no trigger met; Ana and Ben tie on every value and share first place (1, 1, 3).
+  await startGame();
+  await give(ana, "coin", 3);
+  await give(ben, "vp", 1);
+  ok(await owner.send({ type: "game.end" }));
+  const two = await tv.until((s) => s.encounter === null && s.games.length === 2);
+  assert.equal(two.games[0]!.endedEarly, true);
+  assert.deepEqual(
+    two.games[0]!.rows.map((r) => [r.name, r.place]),
+    [
+      ["Ana", 1],
+      ["Ben", 1],
+      ["Cy", 3],
+    ],
+  );
+  assert.equal(two.games[1]!.rows.length, 3, "the first game is kept");
+
+  // A ruleset with no scoring cannot end a game.
+  const bare = await newRoom("Unscored");
+  const noScore = await caller(bare.ownerDevice).post<RulesetReply>("/rulesets", {
+    ...SAMPLE_HARVEST,
+    scoring: undefined,
+    phases: undefined,
+  });
+  assert.equal(noScore.status, 201);
+  ok(await bare.owner.send({ type: "campaign.setRuleset", rulesetVersionId: noScore.body.versionId }));
+  const solo = ok(await bare.owner.send({ type: "actor.create", kind: "pc", name: "Dee", entityType: "player" })).id!;
+  ok(await bare.owner.send({ type: "session.start" }));
+  ok(await bare.owner.send({ type: "encounter.start" }));
+  ok(await bare.owner.send({ type: "encounter.add", actorIds: [solo], side: "party", visibility: "full" }));
+  refused(await bare.owner.send({ type: "game.end" }), "noScoring");
+  for (const s of [owner, phone, tv, other.owner, bare.owner]) s.socket.close();
+});

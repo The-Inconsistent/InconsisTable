@@ -758,7 +758,7 @@ const Scoring = z.object({
   order: z.enum(["high", "low"]).default("high"),
   tiebreaks: z.array(z.object({ expr: Expr, order: z.enum(["high", "low"]) })).default([]),
   endWhen: z.array(z.object({ when: Expr, outcome: z.enum(["win", "lose"]).optional(), cite: Cite })).default([]),
-                                                      // "round >= 8", "max(res.vp) >= 10"; outcome chỉ cho coop
+                                                      // "round >= 8", "res.vp >= 10" (đúng với bất kỳ người chơi nào); outcome chỉ cho coop
   cite: Cite,
 });
 ```

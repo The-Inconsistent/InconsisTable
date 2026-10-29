@@ -55,9 +55,38 @@ export const Encounter = z.object({
   health: z.object({ resource: z.string(), temp: z.string().nullable(), deathSaves: z.boolean() }).nullable(),
   /** The ruleset's conditions, for the GM's picker. GM side only. */
   conditionDefs: z.array(z.object({ id: z.string(), label: z.string(), duration: z.string() })),
+  /** Indexes of the ruleset's `endWhen` triggers that hold now (house decision #38); empty without a scoring block. */
+  endMet: z.array(z.number().int()),
+  /** How the ruleset scores the game; null when it has no scoring block, so the game cannot be ended with a result. */
+  scoring: z.object({ mode: z.enum(["compete", "coop"]) }).nullable(),
   combatants: z.array(Combatant), // in turn order
 });
 export type Encounter = z.infer<typeof Encounter>;
+
+/** One line of an ended game's result. `actorId` is null once the character is gone; `name` is kept as it was. */
+export const GameResult = z.object({
+  resultId: z.string(),
+  actorId: z.string().nullable(),
+  name: z.string(),
+  score: z.number().int(),
+  tiebreaks: z.array(z.number().int()),
+  /** Null for a cooperative game. */
+  place: z.number().int().nullable(),
+  /** `win` or `lose` for a cooperative game, null otherwise. */
+  outcome: z.enum(["win", "lose"]).nullable(),
+});
+export type GameResult = z.infer<typeof GameResult>;
+
+/** An ended game of the campaign (house decisions #38-#39), the 20 most recent first in the snapshot. */
+export const Game = z.object({
+  encounterId: z.string(),
+  endedAt: z.string(),
+  /** The table ended it with no `endWhen` trigger met. */
+  endedEarly: z.boolean(),
+  mode: z.enum(["compete", "coop"]),
+  rows: z.array(GameResult),
+});
+export type Game = z.infer<typeof Game>;
 
 const id = z.uuid();
 
@@ -87,4 +116,8 @@ export const ENCOUNTER_ACTIONS = [
   z.object({ type: z.literal("turn.first"), combatantId: id }),
   // A seat marks a character done in a simultaneous phase (house decision #37); the last one moves the phase on.
   z.object({ type: z.literal("phase.done"), actorId: id }),
+  // Scores every combatant, ranks them, writes the results and closes the encounter like encounter.end. Not undoable.
+  z.object({ type: z.literal("game.end") }),
+  // Corrects one result's score and ranks the whole game again (house decision #38).
+  z.object({ type: z.literal("result.set"), resultId: id, score: z.number().int().min(-1_000_000).max(1_000_000) }),
 ] as const;

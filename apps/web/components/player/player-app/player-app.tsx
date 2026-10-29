@@ -9,6 +9,7 @@ import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { DoneButton } from "@/components/player/done-button/done-button";
 import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
+import { GameResult } from "@/components/ui/game-result/game-result";
 import { OrderView } from "@/components/ui/order-view/order-view";
 import { TestPrompt } from "@/components/player/test-prompt/test-prompt";
 import { SettingsMenu } from "@/components/ui/settings-menu/settings-menu";
@@ -90,6 +91,7 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
           </a>
         )}
         {state.encounter && <OrderView encounter={state.encounter} />}
+        {!state.encounter && state.games[0] && <GameResult game={state.games[0]} held={held} />}
         {tab === "intel" ? (
           <ul className="list">
             {(codex?.entries ?? []).map((e) => (

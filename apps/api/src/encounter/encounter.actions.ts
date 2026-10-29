@@ -37,6 +37,43 @@ const running = async (tx: Tx, campaignId: string) =>
 const isSeated = async (tx: Tx, campaignId: string) =>
   (await loadCompiled(tx, campaignId))?.ruleset.initiative.strategy === "seated";
 
+/**
+ * Ends an encounter (house decision #26), as `encounter.end` and `game.end` both do: expiry, then the rest, as one logged
+ * action (#15) for everyone who stays; then each temporary creature not marked `keep` is deleted. Returns the logged
+ * action id. The caller has checked that a session runs.
+ */
+export async function closeEncounter(
+  tx: Tx,
+  { ctx, encounterId }: { ctx: Ctx; encounterId: string },
+): Promise<string | null> {
+  const rows = await tx
+    .select({ id: combatant.id, actorId: combatant.actorId, keep: combatant.keep, temporary: actor.temporary })
+    .from(combatant)
+    .innerJoin(actor, eq(actor.id, combatant.actorId))
+    .where(and(eq(combatant.encounterId, encounterId), eq(actor.kind, "creature")));
+  const doomed = new Set(rows.filter((r) => r.temporary && !r.keep).map((r) => r.actorId));
+
+  // The creatures about to be deleted have nothing to restore.
+  let actionId: string | null = null;
+  const rc = await openRulesetIfPinned(tx, ctx);
+  if (rc) {
+    const exclude = doomed;
+    const deltas = [
+      ...(await rc.run({ primitive: "conditions.expire", op: "encounterEnd", input: {}, exclude })),
+      ...(await rc.run({ primitive: "rest", op: "apply", input: { event: "encounterEnd" }, exclude })),
+    ];
+    actionId = await rc.apply(deltas);
+  }
+  await tx
+    .update(encounter)
+    .set({ active: false, currentCombatantId: null, firstCombatantId: null })
+    .where(eq(encounter.id, encounterId));
+  // ponytail: these deletes can't be undone (house decision #26); undo skips their steps like any deleted actor
+  if (doomed.size > 0)
+    await tx.delete(actor).where(and(eq(actor.campaignId, ctx.campaignId), inArray(actor.id, [...doomed])));
+  return actionId;
+}
+
 // The combat tracker (docs/p1-plan.md, F). Every action here is the combat side's (`encounter:run`). A turn change runs
 // the engine and writes its deltas through the same pipeline as any rule, so the log and Undo cover it.
 export async function applyEncounterAction(
@@ -61,33 +98,7 @@ export async function applyEncounterAction(
 
     case "encounter.end": {
       const e = await running(tx, cid);
-      const rows = await tx
-        .select({ id: combatant.id, actorId: combatant.actorId, keep: combatant.keep, temporary: actor.temporary })
-        .from(combatant)
-        .innerJoin(actor, eq(actor.id, combatant.actorId))
-        .where(and(eq(combatant.encounterId, e.id), eq(actor.kind, "creature")));
-      const doomed = new Set(rows.filter((r) => r.temporary && !r.keep).map((r) => r.actorId));
-
-      // Expiry, then the rest, as one logged action (house decision #15) for everyone who stays; the creatures about to
-      // be deleted have nothing to restore.
-      let actionId: string | null = null;
-      // The top guard refused a paused tracker, so a session runs here and `conditions.expire` may run.
-      const rc = await openRulesetIfPinned(tx, ctx);
-      if (rc) {
-        const exclude = doomed;
-        const deltas = [
-          ...(await rc.run({ primitive: "conditions.expire", op: "encounterEnd", input: {}, exclude })),
-          ...(await rc.run({ primitive: "rest", op: "apply", input: { event: "encounterEnd" }, exclude })),
-        ];
-        actionId = await rc.apply(deltas);
-      }
-      await tx
-        .update(encounter)
-        .set({ active: false, currentCombatantId: null, firstCombatantId: null })
-        .where(eq(encounter.id, e.id));
-      // ponytail: these deletes can't be undone (house decision #26); undo skips their steps like any deleted actor
-      if (doomed.size > 0) await tx.delete(actor).where(and(eq(actor.campaignId, cid), inArray(actor.id, [...doomed])));
-      return { ok: true, id: actionId ?? undefined };
+      return { ok: true, id: (await closeEncounter(tx, { ctx, encounterId: e.id })) ?? undefined };
     }
 
     case "encounter.add": {

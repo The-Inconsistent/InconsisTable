@@ -229,6 +229,21 @@
     "paused": "Tạm dừng",
     "first": "Người đi đầu"
   },
+  "endNotice": {
+    "reached": "Ván có thể kết thúc"
+  },
+  "gameResult": {
+    "label": "Kết quả ván",
+    "ended": "Hết ván",
+    "endedEarly": "Hết ván, dừng sớm",
+    "win": "THẮNG",
+    "lose": "THUA",
+    "place": "Hạng {place}",
+    "score": "{score} điểm",
+    "tiebreaks": "Phân hạng {values}",
+    "scoreOf": "Điểm của {name}",
+    "save": "Lưu"
+  },
   "combatState": {
     "acting": "ĐẾN LƯỢT",
     "dead": "CHẾT",
@@ -540,7 +555,9 @@
     "start": "Bắt đầu trận",
     "undo": "Hoàn tác",
     "endConfirm": "Kết thúc trận và xóa quái tạm thời",
-    "end": "Kết thúc trận"
+    "end": "Kết thúc trận",
+    "endGameConfirm": "Kết thúc ván và lưu kết quả (không hoàn tác được)",
+    "endGame": "Kết thúc ván"
   },
   "orderList": {
     "label": "Thứ tự lượt",
@@ -771,6 +788,9 @@
     "noSuchPhase": "Bộ luật này không có pha đó",
     "notSimultaneous": "Chỉ dùng trong pha chơi cùng lúc",
     "alreadyDone": "Đã xong rồi",
+    "noScoring": "Ván này không có cách tính điểm",
+    "coopNoScore": "Ván hợp tác không có điểm để sửa",
+    "resultNotFound": "Không tìm thấy kết quả",
     "noSeatedScores": "Xếp theo ghế nên không có điểm initiative",
     "sameInitiativeOnly": "Chỉ những người có cùng initiative mới đổi chỗ được",
     "roundWholeNumber": "Vòng là một số nguyên",

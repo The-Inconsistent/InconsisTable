@@ -2,8 +2,8 @@ import type { RulesetInput } from "../manifest.ts";
 
 /**
  * A placeholder board game written for tests (design §4.8). Every name, number and cite is our own invention
- * ("Sample p.N" points at no real book). It has the seated order, two phases and two resources; the `scoring` block
- * of the same example arrives with P2 F3.
+ * ("Sample p.N" points at no real book). It has the seated order, two phases and two resources and the scoring
+ * block of the same example.
  */
 export const SAMPLE_HARVEST: RulesetInput = {
   id: "sample-harvest",
@@ -35,4 +35,10 @@ export const SAMPLE_HARVEST: RulesetInput = {
     { id: "plan", label: "Plan", mode: "simultaneous", cite: "Sample p.4" },
     { id: "act", label: "Act", mode: "turns", cite: "Sample p.5" },
   ],
+  scoring: {
+    score: "res.vp + res.coin / 3",
+    tiebreaks: [{ expr: "res.coin", order: "high" }],
+    endWhen: [{ when: "round > 4", cite: "Sample p.8" }],
+    cite: "Sample p.8",
+  },
 };

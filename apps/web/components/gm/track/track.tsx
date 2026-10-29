@@ -21,6 +21,8 @@ import { PhaseBar } from "@/components/gm/track/components/phase-bar/phase-bar";
 import { OrderList } from "@/components/gm/track/components/order-list/order-list";
 import { CallForm } from "@/components/gm/tests/components/call-form/call-form";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
+import { EndNotice } from "@/components/ui/end-notice/end-notice";
+import { GameResult } from "@/components/ui/game-result/game-result";
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { currentOf } from "@/lib/track/track";
@@ -51,6 +53,9 @@ export function Track({ me, state, send, sheet }: TrackProps) {
     return r.ok;
   };
 
+  // CORRECT: the GM fixes one score of the newest game; the server ranks the game again.
+  const handleCorrect = (resultId: string, score: number) => run({ type: "result.set", resultId, score });
+
   const sheetActor = sheetOf ? actors.get(sheetOf) : undefined;
   const selected =
     encounter?.combatants.find((c) => c.id === selectedId) ??
@@ -59,6 +64,7 @@ export function Track({ me, state, send, sheet }: TrackProps) {
   return (
     <>
       <FightBar encounter={encounter} sessionRunning={state.session !== null} run={run} />
+      {encounter && <EndNotice encounter={encounter} />}
       {encounter && <PhaseBar encounter={encounter} run={run} />}
       {error && (
         <p className="error" role="alert">
@@ -100,6 +106,7 @@ export function Track({ me, state, send, sheet }: TrackProps) {
       ) : (
         <p className="dim">{state.session ? t("noFight") : t("startSession")}</p>
       )}
+      {!encounter && state.games[0] && <GameResult game={state.games[0]} onCorrect={handleCorrect} />}
       {sheet.ruleset && sheetActor && (
         <BottomSheet title={t("sheetOf", { name: sheetActor.name })} onClose={() => setSheetOf(null)}>
           <SheetView

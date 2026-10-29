@@ -2565,8 +2565,8 @@ test("game end: endMet reaches every seat, game.end ranks and closes, result.set
   for (const name of ["Ana", "Ben", "Cy"])
     actors.push(ok(await owner.send({ type: "actor.create", kind: "pc", name, entityType: "player" })).id!);
   const [ana, ben, cy] = actors as [string, string, string];
-  // The rows a builder would write: the name field and both resources at zero.
-  for (const id of actors) await equip(id, "player", { fields: { name: "x" }, resources: { coin: 0, vp: 0 } });
+  // A typed actor starts with its resources (#23); only the name field is seeded here.
+  for (const id of actors) await equip(id, "player", { fields: { name: "x" } });
   const phoneToken = ok(await owner.send({ type: "token.issue", actorId: ana })).token!;
   const phone = connect({ auth: { campaignId, token: phoneToken } });
   const tv = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });

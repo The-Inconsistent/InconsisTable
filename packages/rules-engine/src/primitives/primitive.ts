@@ -72,6 +72,10 @@ export interface TurnState {
   order: readonly string[];
   /** The first player of the round (`initiative.seated`); ranked ignores it. Absent reads as null. */
   firstId?: string | null;
+  /** The phase of the round (`phases`); absent or null when the ruleset has none. */
+  phaseId?: string | null;
+  /** Actor ids that marked a simultaneous phase done. Absent reads as none. */
+  done?: readonly string[];
 }
 
 /** The slice of live state an op reads. Loaded by the caller, scoped to one campaign. */

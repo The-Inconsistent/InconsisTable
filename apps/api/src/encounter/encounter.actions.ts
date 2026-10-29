@@ -7,7 +7,7 @@ import { fail } from "../core/errors.ts";
 import { loadCompiled } from "../ruleset/ruleset.compiled.ts";
 import { isPaused, openRuleset, openRulesetIfPinned } from "../ruleset/ruleset.context.ts";
 import { addCombatants, ownCombatant, renumber, rerank } from "./encounter.combatants.ts";
-import { movedIds, planNext, planPrev } from "./encounter.plan.ts";
+import { movedIds, planDone, planNext, planPrev } from "./encounter.plan.ts";
 import { combatant, encounter } from "./encounter.schema.ts";
 import { activeEncounter, orderedCombatants, writeTurn } from "./encounter.turn.ts";
 
@@ -25,7 +25,8 @@ export type EncounterRunAction = Extract<
       | "encounter.keep"
       | "turn.next"
       | "turn.prev"
-      | "turn.first";
+      | "turn.first"
+      | "phase.done";
   }
 >;
 
@@ -49,7 +50,12 @@ export async function applyEncounterAction(
     case "encounter.start": {
       const sessionId = (await runningSessionId(tx, cid)) ?? fail("startSessionFirst");
       if (await activeEncounter(tx, cid)) fail("encounterRunning");
-      const [row] = await tx.insert(encounter).values({ campaignId: cid, sessionId }).returning({ id: encounter.id });
+      // A ruleset with phases opens the game in its first one (house decision #37).
+      const phaseId = (await loadCompiled(tx, cid))?.ruleset.phases?.[0]?.id ?? null;
+      const [row] = await tx
+        .insert(encounter)
+        .values({ campaignId: cid, sessionId, phaseId })
+        .returning({ id: encounter.id });
       return { ok: true, id: row!.id }; // the row was just inserted
     }
 
@@ -113,6 +119,7 @@ export async function applyEncounterAction(
         // Seated: the engine moves the first player and the turn (#36, #3); the order itself is the tracker's.
         const actorId = rows.find((r) => r.id === c.id)?.actorId ?? fail("notInFight");
         const deltas = await rc.run({ primitive: "initiative.seated", op: "remove", input: { id: actorId } });
+        // ponytail: a seated removal that wraps the round skips the phase change, upgrade: plan it as turn.next does
         for (const d of deltas) {
           if ("turn" in d.target && d.target.turn !== "order") {
             await writeTurn(tx, { campaignId: cid, key: d.target.turn, value: d.value });
@@ -168,6 +175,14 @@ export async function applyEncounterAction(
       const state = rc.state({ turn });
       const { ruleset } = rc.compiled;
       const deltas = a.type === "turn.next" ? planNext({ ruleset, state }) : planPrev({ ruleset, state });
+      const id = await rc.apply(deltas);
+      return { ok: true, id: id ?? undefined };
+    }
+
+    case "phase.done": {
+      const rc = await openRuleset(tx, ctx);
+      const turn = (await rc.turn()) ?? fail("noEncounterRunning");
+      const deltas = planDone({ ruleset: rc.compiled.ruleset, state: rc.state({ turn }), actorId: a.actorId });
       const id = await rc.apply(deltas);
       return { ok: true, id: id ?? undefined };
     }

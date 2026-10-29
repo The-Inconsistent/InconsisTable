@@ -1,4 +1,12 @@
-import { firstOf, sequence, type Delta, type Ruleset, type RuleState } from "@inconsistable/rules-engine";
+import {
+  firstOf,
+  nextFirst,
+  sequence,
+  type Delta,
+  type Phase,
+  type Ruleset,
+  type RuleState,
+} from "@inconsistable/rules-engine";
 import { fail } from "../core/errors.ts";
 import { runPrimitive } from "../ruleset/ruleset.run.ts";
 
@@ -22,13 +30,100 @@ export function planNext({ ruleset, state }: { ruleset: Ruleset; state: RuleStat
   if (init.strategy === "ranked" && init.rerollEachRound) fail("rerollUnsupported");
   const ended = state.turn.currentId;
   const run = (primitive: string, op: string, input: unknown) => runPrimitive({ ruleset, state, primitive, op, input });
+  const phases = ruleset.phases;
+  const at = Math.max(phases?.findIndex((p) => p.id === state.turn?.phaseId) ?? -1, 0);
+  const phase = phases?.[at];
+  const roundEnd = () => run("conditions.expire", "roundEnd", {});
+  const { turn } = state;
+
+  // House decision #37: a simultaneous phase has no turn to end, so `next` moves on at once, without a turnEnd.
+  if (phases && phase?.mode === "simultaneous") {
+    const following = phases[at + 1];
+    if (following) return enter({ phase: following, lead: sequenceOf({ ruleset, turn })[0] ?? null });
+    const wrap = roundWrap({ ruleset, turn });
+    return [...wrap.deltas, ...enter({ phase: phases[0] ?? phase, lead: wrap.lead }), ...roundEnd()];
+  }
+
   const next = run(`initiative.${init.strategy}`, "next", {});
   const wrapped = next.some((d) => "turn" in d.target && d.target.turn === "round");
+  const turnEnd = ended === null ? [] : run("conditions.expire", "turnEnd", { actorId: ended });
+  if (!phases || !phase || !wrapped) return [...next, ...turnEnd, ...(wrapped ? roundEnd() : [])];
+  const following = phases[at + 1];
+  // The phase ran out of turns but the round did not: the next phase starts again from the first player.
+  if (following) return [...enter({ phase: following, lead: sequenceOf({ ruleset, turn })[0] ?? null }), ...turnEnd];
+  // The last phase wrapped: keep the initiative's round deltas, but the new round opens in the first phase.
+  const isCurrent = (d: Delta) => "turn" in d.target && d.target.turn === "currentId";
+  const lead = next.find(isCurrent)?.value;
   return [
-    ...next,
-    ...(ended === null ? [] : run("conditions.expire", "turnEnd", { actorId: ended })),
-    ...(wrapped ? run("conditions.expire", "roundEnd", {}) : []),
+    ...next.filter((d) => !isCurrent(d)),
+    ...enter({ phase: phases[0] ?? phase, lead: typeof lead === "string" ? lead : null }),
+    ...turnEnd,
+    ...roundEnd(),
   ];
+}
+
+const phaseDelta = (turn: "phaseId" | "done" | "currentId", value: string | string[] | null): Delta => ({
+  target: { turn },
+  kind: "set",
+  value,
+});
+
+/** The deltas that open `phase`: its id, nobody done, and the first player up unless everyone plays at once. */
+function enter({ phase, lead }: { phase: Pick<Phase, "id" | "mode">; lead: string | null }): Delta[] {
+  return [
+    phaseDelta("phaseId", phase.id),
+    phaseDelta("done", []),
+    phaseDelta("currentId", phase.mode === "turns" ? lead : null),
+  ];
+}
+
+type Turn = NonNullable<RuleState["turn"]>;
+
+/** The round's sequence: from the first player for a seated order, the order as ranked otherwise. */
+function sequenceOf({ ruleset, turn }: { ruleset: Ruleset; turn: Turn }): string[] {
+  return ruleset.initiative.strategy === "seated"
+    ? sequence({ order: turn.order, firstId: turn.firstId ?? null })
+    : [...turn.order];
+}
+
+/**
+ * The deltas that begin the next round from a simultaneous last phase, where no initiative `next` ran, and who leads
+ * it: the round counts up, and a seated order moves its first player as `initiative.seated` does (`nextFirst`).
+ */
+function roundWrap({ ruleset, turn }: { ruleset: Ruleset; turn: Turn }): { deltas: Delta[]; lead: string | null } {
+  const round = turnDelta("round", turn.round + 1);
+  if (ruleset.initiative.strategy !== "seated") return { deltas: [round], lead: turn.order[0] ?? null };
+  const { order } = turn;
+  const lead = nextFirst({
+    params: ruleset.initiative,
+    order,
+    first: firstOf({ order, firstId: turn.firstId ?? null }),
+  });
+  return { deltas: [round, turnDelta("firstId", lead)], lead };
+}
+
+/**
+ * The deltas of `phase.done`: the actor joins `done`; when every combatant of the order is done the phase moves on in
+ * the same step, as `turn.next` would.
+ */
+export function planDone({
+  ruleset,
+  state,
+  actorId,
+}: {
+  ruleset: Ruleset;
+  state: RuleState;
+  actorId: string;
+}): Delta[] {
+  const turn = state.turn ?? fail("noEncounterRunning");
+  const phase = ruleset.phases?.find((p) => p.id === turn.phaseId);
+  if (phase?.mode !== "simultaneous") fail("notSimultaneous");
+  if (!turn.order.includes(actorId)) fail("notInFight");
+  if (turn.done?.includes(actorId)) fail("alreadyDone");
+  const done = [...(turn.done ?? []), actorId];
+  const mark = phaseDelta("done", done);
+  if (!turn.order.every((id) => done.includes(id))) return [mark];
+  return [mark, ...planNext({ ruleset, state: { ...state, turn: { ...turn, done } } })];
 }
 
 /**
@@ -38,6 +133,11 @@ export function planNext({ ruleset, state }: { ruleset: Ruleset; state: RuleStat
 export function planPrev({ ruleset, state }: { ruleset?: Ruleset; state: RuleState }): Delta[] {
   const turn = state.turn ?? fail("noEncounterRunning");
   const { order, currentId, round } = turn;
+  // House decision #37: a phase is entered by Undo-able steps only; back stops at its first turn.
+  const phase = ruleset?.phases?.find((p) => p.id === turn.phaseId);
+  if (ruleset && phase) {
+    if (phase.mode === "simultaneous" || currentId === sequenceOf({ ruleset, turn })[0]) fail("phaseStart");
+  }
   if (ruleset?.initiative.strategy === "seated") {
     return planPrevSeated({
       order,

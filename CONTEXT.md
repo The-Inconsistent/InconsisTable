@@ -26,6 +26,10 @@ A stretch of play with a turn order inside a campaign: a fight in an RPG, the wh
 open across sessions and continue at the next one.
 _Avoid_: Combat, battle, scene
 
+**Phase**:
+One step of a round that the ruleset names, played in turn or by everyone at once; a round runs its phases in order.
+_Avoid_: Step, stage
+
 ### Identity
 
 **User**:

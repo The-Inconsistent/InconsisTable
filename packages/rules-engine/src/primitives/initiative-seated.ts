@@ -47,6 +47,17 @@ export function sequence({ order, firstId }: { order: readonly string[]; firstId
 const after = ({ order, id }: { order: readonly string[]; id: string }) =>
   order[(order.indexOf(id) + 1) % order.length] ?? null;
 
+/** Who leads the round after `first` under `params`: `rotate` moves one place along the order. */
+export const nextFirst = ({
+  params,
+  order,
+  first,
+}: {
+  params: SeatedInitiative;
+  order: readonly string[];
+  first: string | null;
+}) => (params.firstPlayer === "rotate" && first !== null ? after({ order, id: first }) : first);
+
 /** The deltas that begin the next round from `order`/`first`; `rotate` moves the first player one place. */
 function wrap({
   params,
@@ -59,8 +70,8 @@ function wrap({
   order: readonly string[];
   first: string | null;
 }): Delta[] {
-  const nextFirst = params.firstPlayer === "rotate" && first !== null ? after({ order, id: first }) : first;
-  return [set("round", round + 1), set("firstId", nextFirst), set("currentId", nextFirst)];
+  const lead = nextFirst({ params, order, first });
+  return [set("round", round + 1), set("firstId", lead), set("currentId", lead)];
 }
 
 function needTurn(state: RuleState) {

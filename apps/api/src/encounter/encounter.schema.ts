@@ -17,6 +17,8 @@ export const encounter = pgTable(
     currentCombatantId: uuid().references((): AnyPgColumn => combatant.id, { onDelete: "set null" }),
     // The first player of the round in a seated order (house decision #36); null for a ranked one.
     firstCombatantId: uuid().references((): AnyPgColumn => combatant.id, { onDelete: "set null" }),
+    // The phase of the round, an id of the ruleset's `phases` (house decision #37); null for a ruleset without any.
+    phaseId: text(),
   },
   (t) => [
     // At most one running encounter per campaign; ended ones stay as history.
@@ -42,6 +44,7 @@ export const combatant = pgTable(
     initiativeScore: integer(),
     visibility: text().$type<CombatVisibility>().notNull().default("bar"),
     keep: boolean().notNull().default(false), // a temporary creature kept at encounter end
+    done: boolean().notNull().default(false), // marked done in the current simultaneous phase
   },
   (t) => [uniqueIndex().on(t.encounterId, t.actorId), index().on(t.encounterId, t.ord)],
 );

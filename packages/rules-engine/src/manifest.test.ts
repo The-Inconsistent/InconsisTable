@@ -157,3 +157,18 @@ test("non-JSON input is refused", () => {
   hasProblem(problems(cyclic), "(root)", /not a JSON document/);
   hasProblem(problems(undefined), "(root)", /not a JSON document/);
 });
+
+test("phases: a duplicate id is refused, and each needs a cite outside homebrew", () => {
+  const m = sample();
+  m.phases = [
+    { id: "plan", label: "Plan", mode: "simultaneous", cite: "Sample p.4" },
+    { id: "plan", label: "Act", mode: "turns" },
+  ];
+  const list = problems(m);
+  hasProblem(list, "phases[1].id", /duplicate id "plan"/);
+  hasProblem(list, "phases[1].cite", /needs a cite/);
+  // Homebrew needs none.
+  m.sources = [{ id: "ours", title: "Our table", license: "homebrew" }];
+  m.phases[1]!.id = "act";
+  assert.deepEqual(problems(m), []);
+});

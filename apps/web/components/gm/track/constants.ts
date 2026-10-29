@@ -3,6 +3,9 @@ import type { ActionInput, CombatSide, CombatVisibility } from "@inconsistable/c
 // Sends one action and says whether it went through; the tracker shows the refusal itself.
 export type Run = (a: ActionInput) => Promise<boolean>;
 
+// How the tracker words itself: a board game (a seated order or phases) is a game, anything else a fight.
+export type TrackMode = "game" | "fight";
+
 // The keypad's keys in the order they are laid out; "clear" and "back" are the two non-digit keys. A digit is its own
 // label and name; the other two are worded by the `track.keys` messages.
 export const KEYPAD_KEYS = ["7", "8", "9", "4", "5", "6", "1", "2", "3", "clear", "0", "back"] as const;

@@ -4,7 +4,14 @@ import { useState, type ChangeEvent } from "react";
 
 import { CombatVisibility, type Actor, type Combatant, type Encounter } from "@inconsistable/core-schema";
 
-import { DEATH_SAVE_KEYS, KEYPAD_KEYS, KEY_LABELS, type DeathSaveKey, type Run } from "@/components/gm/track/constants";
+import {
+  DEATH_SAVE_KEYS,
+  KEYPAD_KEYS,
+  KEY_LABELS,
+  type DeathSaveKey,
+  type Run,
+  type TrackMode,
+} from "@/components/gm/track/constants";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
 import { amountOf, leftOf, pressKey } from "@/lib/track/track";
 
@@ -13,6 +20,7 @@ type CombatantPanelProps = {
   combatant: Combatant;
   actor: Actor | undefined;
   run: Run;
+  mode: TrackMode;
   /** Opens this actor's sheet (GM only; absent when there is no ruleset to read it by). */
   onSheet?: (actorId: string) => void;
   /** Opens the Tests call form for this actor (GM only; absent when the ruleset has no Tests). */
@@ -21,7 +29,15 @@ type CombatantPanelProps = {
 
 // The selected combatant: a keypad for damage, healing and temporary points, death saves, what the table sees, the
 // conditions it carries with their time left, and the way out of the fight.
-export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet, onCallTest }: CombatantPanelProps) {
+export function CombatantPanel({
+  encounter,
+  combatant: c,
+  actor,
+  run,
+  mode,
+  onSheet,
+  onCallTest,
+}: CombatantPanelProps) {
   const t = useTranslations("combatantPanel");
   const tSave = useTranslations("deathSave");
   const tVisibility = useTranslations("combatVisibility");
@@ -171,7 +187,7 @@ export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet, o
         {c.side !== "party" && (
           <label className="row" style={{ display: "flex", minHeight: 44 }}>
             <input type="checkbox" checked={c.keep} onChange={handleKeep} style={{ minHeight: 24 }} />
-            {t("keep")}
+            {t("keep", { mode })}
           </label>
         )}
       </div>
@@ -226,7 +242,7 @@ export function CombatantPanel({ encounter, combatant: c, actor, run, onSheet, o
         style={{ justifySelf: "start" }}
         onClick={() => run({ type: "encounter.remove", combatantId: c.id })}
       >
-        {t("removeFromFight")}
+        {t("removeFromFight", { mode })}
       </button>
     </section>
   );

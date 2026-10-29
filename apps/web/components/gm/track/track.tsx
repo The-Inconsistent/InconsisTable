@@ -26,6 +26,7 @@ import { GameResult } from "@/components/ui/game-result/game-result";
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { currentOf } from "@/lib/track/track";
+import type { TrackMode } from "@/components/gm/track/constants";
 
 type TrackProps = {
   me: Me;
@@ -45,6 +46,8 @@ export function Track({ me, state, send, sheet }: TrackProps) {
   const [error, setError] = useState<string | null>(null);
   const encounter = state.encounter;
   const actors = useMemo(() => new Map(state.actors.map((a) => [a.id, a])), [state.actors]);
+  const rules = sheet.ruleset;
+  const mode: TrackMode = rules?.initiative.strategy === "seated" || rules?.phases ? "game" : "fight";
 
   // RUN: sends one action, shows the api's refusal, and says whether it went through.
   const run = async (action: ActionInput) => {
@@ -63,7 +66,7 @@ export function Track({ me, state, send, sheet }: TrackProps) {
 
   return (
     <>
-      <FightBar encounter={encounter} sessionRunning={state.session !== null} run={run} />
+      <FightBar encounter={encounter} sessionRunning={state.session !== null} run={run} mode={mode} />
       {encounter && <EndNotice encounter={encounter} />}
       {encounter && <PhaseBar encounter={encounter} run={run} />}
       {error && (
@@ -80,7 +83,7 @@ export function Track({ me, state, send, sheet }: TrackProps) {
         <fieldset disabled={encounter.paused} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
           <div className="track">
             <div className="stack">
-              {encounter.combatants.length === 0 && <p className="dim">{t("nobody")}</p>}
+              {encounter.combatants.length === 0 && <p className="dim">{t("nobody", { mode })}</p>}
               <OrderList
                 encounter={encounter}
                 actors={actors}
@@ -96,15 +99,16 @@ export function Track({ me, state, send, sheet }: TrackProps) {
                 combatant={selected}
                 actor={actors.get(selected.actorId)}
                 run={run}
+                mode={mode}
                 onSheet={sheet.ruleset ? setSheetOf : undefined}
                 onCallTest={state.testDefs.length > 0 ? setTestFor : undefined}
               />
             )}
           </div>
-          {encounter && <AddCombatants encounter={encounter} actors={state.actors} run={run} />}
+          {encounter && <AddCombatants encounter={encounter} actors={state.actors} run={run} mode={mode} />}
         </fieldset>
       ) : (
-        <p className="dim">{state.session ? t("noFight") : t("startSession")}</p>
+        <p className="dim">{state.session ? t("noFight", { mode }) : t("startSession", { mode })}</p>
       )}
       {!encounter && state.games[0] && <GameResult game={state.games[0]} onCorrect={handleCorrect} />}
       {sheet.ruleset && sheetActor && (
@@ -135,7 +139,8 @@ export function Track({ me, state, send, sheet }: TrackProps) {
           />
         </BottomSheet>
       )}
-      <Creatures campaignId={state.campaign.id} send={send} />
+      {/* A board game's players, automa included, are characters: there are no creatures to spawn. */}
+      {mode === "fight" && <Creatures campaignId={state.campaign.id} send={send} />}
     </>
   );
 }

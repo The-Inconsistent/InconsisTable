@@ -4,13 +4,13 @@ import { useState } from "react";
 
 import type { Encounter } from "@inconsistable/core-schema";
 
-import type { Run } from "@/components/gm/track/constants";
+import type { Run, TrackMode } from "@/components/gm/track/constants";
 
-type FightBarProps = { encounter: Encounter | null; sessionRunning: boolean; run: Run };
+type FightBarProps = { encounter: Encounter | null; sessionRunning: boolean; run: Run; mode: TrackMode };
 
 // The bar that stays under the thumb: the round, Prev and Next, and Undo (always, even between fights: it takes back the
 // newest step of the session). Ending the fight asks twice, because temporary creatures go with it and that stays.
-export function FightBar({ encounter, sessionRunning, run }: FightBarProps) {
+export function FightBar({ encounter, sessionRunning, run, mode }: FightBarProps) {
   const t = useTranslations("fightBar");
   const [ending, setEnding] = useState(false);
   const [endingGame, setEndingGame] = useState(false);
@@ -30,7 +30,7 @@ export function FightBar({ encounter, sessionRunning, run }: FightBarProps) {
   };
 
   return (
-    <div className="fightbar" role="toolbar" aria-label={t("label")}>
+    <div className="fightbar" role="toolbar" aria-label={t("label", { mode })}>
       {encounter ? (
         <>
           <span className="round">{t("round", { round: encounter.round })}</span>
@@ -48,14 +48,14 @@ export function FightBar({ encounter, sessionRunning, run }: FightBarProps) {
         </>
       ) : (
         <>
-          <span className="round">{t("noFight")}</span>
+          <span className="round">{t("noFight", { mode })}</span>
           <button
             className="btn primary"
             disabled={!sessionRunning}
             onClick={() => run({ type: "encounter.start" })}
             title={sessionRunning ? undefined : t("startSessionFirst")}
           >
-            {t("start")}
+            {t("start", { mode })}
           </button>
         </>
       )}
@@ -75,7 +75,7 @@ export function FightBar({ encounter, sessionRunning, run }: FightBarProps) {
       )}
       {encounter && (
         <button className="btn" disabled={encounter.paused} onClick={handleEnd} onBlur={() => setEnding(false)}>
-          {ending ? t("endConfirm") : t("end")}
+          {ending ? t("endConfirm", { mode }) : t("end", { mode })}
         </button>
       )}
     </div>

@@ -544,31 +544,31 @@
   },
   "track": {
     "paused": "Paused — start a session to continue",
-    "nobody": "Nobody is in the fight yet. Add the party below.",
-    "noFight": "No fight is running. Start one to add the party and the creatures.",
-    "startSession": "Start a session in the Party tab, then start a fight here.",
+    "nobody": "{mode, select, game {Nobody is in the game yet. Add the players below.} other {Nobody is in the fight yet. Add the party below.}}",
+    "noFight": "{mode, select, game {No game is running. Start one to add the players.} other {No fight is running. Start one to add the party and the creatures.}}",
+    "startSession": "{mode, select, game {Start a session in the Party tab, then start a game here.} other {Start a session in the Party tab, then start a fight here.}}",
     "sheetOf": "Sheet of {name}",
     "callTestFor": "Call a Test for {name}",
     "aCharacter": "a character"
   },
   "addCombatants": {
-    "everyone": "Everyone at the table is in the fight.",
-    "title": "Add to the fight",
+    "everyone": "{mode, select, game {Everyone at the table is in the game.} other {Everyone at the table is in the fight.}}",
+    "title": "{mode, select, game {Add to the game} other {Add to the fight}}",
     "addParty": "Add the party ({count})",
-    "addLabel": "Add {name} to the fight",
+    "addLabel": "{mode, select, game {Add {name} to the game} other {Add {name} to the fight}}",
     "add": "Add"
   },
   "fightBar": {
-    "label": "Fight controls",
+    "label": "{mode, select, game {Game controls} other {Fight controls}}",
     "round": "Round {round}",
     "prev": "Prev",
     "next": "Next turn",
-    "noFight": "No fight",
+    "noFight": "{mode, select, game {No game} other {No fight}}",
     "startSessionFirst": "Start a session first",
-    "start": "Start fight",
+    "start": "{mode, select, game {Start game} other {Start fight}}",
     "undo": "Undo",
-    "endConfirm": "End fight and clear temporary creatures",
-    "end": "End fight",
+    "endConfirm": "{mode, select, game {Stop the game without saving results} other {End fight and clear temporary creatures}}",
+    "end": "{mode, select, game {Stop game} other {End fight}}",
     "endGameConfirm": "End game and save results (cannot be undone)",
     "endGame": "End game"
   },
@@ -614,7 +614,7 @@
     "deathSave": "Death save",
     "deathSaves": "Death saves: {passed} passed, {failed} failed",
     "tableSees": "The table sees",
-    "keep": "Keep when the fight ends",
+    "keep": "{mode, select, game {Keep when the game ends} other {Keep when the fight ends}}",
     "conditions": "Conditions",
     "none": "None.",
     "removeCondition": "Remove {condition} from {name}",
@@ -624,7 +624,7 @@
     "lastsLabel": "Turns or rounds it lasts",
     "lasts": "Lasts",
     "add": "Add",
-    "removeFromFight": "Remove from fight"
+    "removeFromFight": "{mode, select, game {Remove from game} other {Remove from fight}}"
   },
   "tests": {
     "open": "Open",

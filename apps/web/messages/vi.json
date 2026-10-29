@@ -544,31 +544,31 @@
   },
   "track": {
     "paused": "Tạm dừng — hãy bắt đầu buổi chơi để tiếp tục",
-    "nobody": "Chưa có ai trong trận. Hãy thêm party ở bên dưới.",
-    "noFight": "Chưa có trận nào đang chạy. Hãy bắt đầu một trận để thêm party và quái.",
-    "startSession": "Hãy bắt đầu buổi chơi ở tab Party, rồi bắt đầu trận ở đây.",
+    "nobody": "{mode, select, game {Chưa có ai trong ván. Hãy thêm người chơi ở bên dưới.} other {Chưa có ai trong trận. Hãy thêm party ở bên dưới.}}",
+    "noFight": "{mode, select, game {Chưa có ván nào đang chạy. Hãy bắt đầu một ván để thêm người chơi.} other {Chưa có trận nào đang chạy. Hãy bắt đầu một trận để thêm party và quái.}}",
+    "startSession": "{mode, select, game {Hãy bắt đầu buổi chơi ở tab Party, rồi bắt đầu ván ở đây.} other {Hãy bắt đầu buổi chơi ở tab Party, rồi bắt đầu trận ở đây.}}",
     "sheetOf": "Sheet của {name}",
     "callTestFor": "Gọi Test cho {name}",
     "aCharacter": "một nhân vật"
   },
   "addCombatants": {
-    "everyone": "Mọi người ở bàn đều đã vào trận.",
-    "title": "Thêm vào trận",
+    "everyone": "{mode, select, game {Mọi người ở bàn đều đã vào ván.} other {Mọi người ở bàn đều đã vào trận.}}",
+    "title": "{mode, select, game {Thêm vào ván} other {Thêm vào trận}}",
     "addParty": "Thêm party ({count})",
-    "addLabel": "Thêm {name} vào trận",
+    "addLabel": "{mode, select, game {Thêm {name} vào ván} other {Thêm {name} vào trận}}",
     "add": "Thêm"
   },
   "fightBar": {
-    "label": "Điều khiển trận",
+    "label": "{mode, select, game {Điều khiển ván} other {Điều khiển trận}}",
     "round": "Vòng {round}",
     "prev": "Trước",
     "next": "Lượt sau",
-    "noFight": "Không có trận nào",
+    "noFight": "{mode, select, game {Không có ván nào} other {Không có trận nào}}",
     "startSessionFirst": "Hãy bắt đầu buổi chơi trước",
-    "start": "Bắt đầu trận",
+    "start": "{mode, select, game {Bắt đầu ván} other {Bắt đầu trận}}",
     "undo": "Hoàn tác",
-    "endConfirm": "Kết thúc trận và xóa quái tạm thời",
-    "end": "Kết thúc trận",
+    "endConfirm": "{mode, select, game {Dừng ván, không lưu kết quả} other {Kết thúc trận và xóa quái tạm thời}}",
+    "end": "{mode, select, game {Dừng ván} other {Kết thúc trận}}",
     "endGameConfirm": "Kết thúc ván và lưu kết quả (không hoàn tác được)",
     "endGame": "Kết thúc ván"
   },
@@ -614,7 +614,7 @@
     "deathSave": "Death save",
     "deathSaves": "Death save: {passed} đạt, {failed} trượt",
     "tableSees": "Cả bàn thấy",
-    "keep": "Giữ lại khi trận kết thúc",
+    "keep": "{mode, select, game {Giữ lại khi ván kết thúc} other {Giữ lại khi trận kết thúc}}",
     "conditions": "Trạng thái",
     "none": "Không có.",
     "removeCondition": "Gỡ {condition} khỏi {name}",
@@ -624,7 +624,7 @@
     "lastsLabel": "Kéo dài bao nhiêu lượt hoặc vòng",
     "lasts": "Kéo dài",
     "add": "Thêm",
-    "removeFromFight": "Gỡ khỏi trận"
+    "removeFromFight": "{mode, select, game {Gỡ khỏi ván} other {Gỡ khỏi trận}}"
   },
   "tests": {
     "open": "Đang mở",

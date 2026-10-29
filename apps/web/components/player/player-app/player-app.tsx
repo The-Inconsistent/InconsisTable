@@ -10,6 +10,7 @@ import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { DoneButton } from "@/components/player/done-button/done-button";
 import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
 import { GameResult } from "@/components/ui/game-result/game-result";
+import { Standings } from "@/components/ui/standings/standings";
 import { OrderView } from "@/components/ui/order-view/order-view";
 import { TestPrompt } from "@/components/player/test-prompt/test-prompt";
 import { SettingsMenu } from "@/components/ui/settings-menu/settings-menu";
@@ -105,6 +106,8 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
             ))}
             {!codex?.entries.length && <li className="dim">{t("nothingRevealed")}</li>}
           </ul>
+        ) : tab === "standings" ? (
+          <Standings games={state.games} />
         ) : tab === "rules" ? (
           view ? (
             <RulesReader
@@ -143,7 +146,7 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
         </button>
       </main>
       <nav className="tabs tabs-bottom safe-bottom" role="tablist" aria-label={t("tabsLabel")}>
-        {PLAYER_TABS.map((name) => (
+        {PLAYER_TABS.filter((name) => name !== "standings" || state.games.length > 0).map((name) => (
           <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => setTab(name)}>
             {t(`tabs.${name}`)}
           </button>

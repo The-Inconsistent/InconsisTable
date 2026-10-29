@@ -232,6 +232,17 @@
   "endNotice": {
     "reached": "The game can end now"
   },
+  "standings": {
+    "label": "Standings",
+    "title": "Standings",
+    "window": "Last {count} games",
+    "coopWon": "Won {won} of {played}",
+    "line": "{played, plural, one {# game} other {# games}}, average place {avg}, best score {best}",
+    "wins": "{count, plural, one {# win} other {# wins}}",
+    "games": "Recent games",
+    "win": "Won",
+    "lose": "Lost"
+  },
   "gameResult": {
     "label": "Game result",
     "ended": "Game over",
@@ -331,7 +342,8 @@
       "rules": "Rules",
       "fight": "Fight",
       "map": "Map",
-      "intel": "Intel"
+      "intel": "Intel",
+      "standings": "Standings"
     }
   },
   "turnBanner": {
@@ -373,6 +385,7 @@
       "codex": "Codex",
       "party": "Party",
       "tests": "Tests",
+      "standings": "Standings",
       "map": "Map",
       "rules": "Rules"
     },

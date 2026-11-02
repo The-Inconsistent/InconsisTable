@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs";
 import { z } from "zod";
-import type { IdpClientOptions } from "@the-inconsistent/client";
+import type { InconsisIdClientOptions } from "@the-inconsistent/inconsisid";
 import type { PlatformRole } from "@inconsistable/auth/api";
 
 // The pure rules of signing in, with no database: the boot config, where a sign-in may return to, and what the ID
 // token's roles make of an app_user.
 
-// What the api refuses on its own, beside the SDK's IdpErrorCode: a callback without a live transaction, and a logout
-// token already acted on. Logged, never shown.
+// What the api refuses on its own, beside the SDK's InconsisIdErrorCode: a callback without a live transaction, and a
+// logout token already acted on. Logged, never shown.
 export const LocalRefusal = z.enum(["no_transaction", "replayed"]);
 export type LocalRefusal = z.infer<typeof LocalRefusal>;
 
@@ -24,7 +24,7 @@ export const safeReturnTo = (value: unknown): string =>
 export const userRoleOf = (roles: readonly PlatformRole[]): PlatformRole =>
   roles.includes("creator") ? "creator" : "user";
 
-export type SignInConfig = Omit<IdpClientOptions, "privateJwk"> & {
+export type SignInConfig = Omit<InconsisIdClientOptions, "privateJwk"> & {
   privateJwk: PrivateJwk;
   // The web origin the callback lands on; the login POST must come from it (its cookies are set for that origin).
   webOrigin: string;

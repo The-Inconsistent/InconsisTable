@@ -5,7 +5,7 @@ import { ACCOUNT_PATH, type AccountProblem } from "../../constants";
 type AccountGateProps = { problem: AccountProblem };
 
 // The account page without an account to show: a signed-out caller is offered sign-in, which lands back here; a refusal
-// says what went wrong and offers a fresh read.
+// says what went wrong, and an unreachable InconsisID offers a fresh read (no account for this sign-in won't change).
 export function AccountGate({ problem }: AccountGateProps) {
   const t = useTranslations("accountPage");
   const tAccount = useTranslations("account");
@@ -27,9 +27,11 @@ export function AccountGate({ problem }: AccountGateProps) {
       <p className="error" role="alert">
         {tErrors(problem)}
       </p>
-      <a className="btn" href={ACCOUNT_PATH}>
-        {t("retry")}
-      </a>
+      {problem === "accountUnavailable" && (
+        <a className="btn" href={ACCOUNT_PATH}>
+          {t("retry")}
+        </a>
+      )}
     </div>
   );
 }

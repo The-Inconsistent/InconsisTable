@@ -66,8 +66,8 @@ export class AccountController {
     } catch (error) {
       if (!(error instanceof IdpError)) throw error;
       this.log.warn(`account API refused: ${error.code}`);
-      const { status, key, params } = accountRefusal(error.code);
-      throw new HttpException(refusalBody(key, params), status);
+      const { status, key } = accountRefusal(error.code);
+      throw new HttpException(refusalBody(key), status);
     }
   }
 }

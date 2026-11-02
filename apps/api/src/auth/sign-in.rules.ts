@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { z } from "zod";
 import type { IdpClientOptions, IdpErrorCode } from "@the-inconsistent/client";
 import type { PlatformRole } from "@inconsistable/auth/api";
-import type { RefusalKey, RefusalParams } from "@inconsistable/core-schema";
+import type { RefusalKey } from "@inconsistable/core-schema";
 
 // The pure rules of signing in, with no database: the boot config, where a sign-in may return to, what the ID token's
 // roles make of an app_user, and the provider's account pages.
@@ -38,10 +38,9 @@ export function idpAccountUrl({
 export function accountRefusal(code: IdpErrorCode): {
   status: 400 | 404 | 502;
   key: RefusalKey;
-  params?: RefusalParams;
 } {
   if (code === "account_not_found") return { status: 404, key: "accountNotFound" };
-  if (code === "display_name_invalid") return { status: 400, key: "badRequest", params: { detail: "Invalid name" } };
+  if (code === "display_name_invalid") return { status: 400, key: "displayNameInvalid" };
   return { status: 502, key: "accountUnavailable" };
 }
 

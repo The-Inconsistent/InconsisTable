@@ -34,7 +34,7 @@ test("the provider's account page link names this client and returns to the web'
 
 test("an SDK refusal becomes a status and a code, never its detail", () => {
   assert.deepEqual(accountRefusal("account_not_found"), { status: 404, key: "accountNotFound" });
-  assert.equal(accountRefusal("display_name_invalid").status, 400);
+  assert.deepEqual(accountRefusal("display_name_invalid"), { status: 400, key: "displayNameInvalid" });
   for (const code of ["account_api_failed", "discovery_failed"] as const) {
     assert.deepEqual(accountRefusal(code), { status: 502, key: "accountUnavailable" });
   }

@@ -25,6 +25,7 @@ export const REFUSALS = {
   // Accounts at the identity provider
   accountNotFound: "InconsisID has no account for this sign-in",
   accountUnavailable: "InconsisID can't be reached. Try again in a moment.",
+  displayNameInvalid: "Type a name of 1 to 40 characters.",
   // Games, sessions
   gameNotFound: "Game not found",
   gameArchived: "This game is archived",

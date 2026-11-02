@@ -105,7 +105,7 @@
   },
   "accountPage": {
     "title": "Your account",
-    "lede": "Your InconsisID account. The buttons below open InconsisID, which brings you back here.",
+    "lede": "The InconsisID account you sign in with, here and in every Inconsistent app. Changes to how you sign in happen on InconsisID, which brings you back here.",
     "displayName": "Display name",
     "nameHint": "InconsisID and every table you sit at show this name.",
     "saveName": "Save name",
@@ -734,6 +734,7 @@
     "linkInvalid": "Invalid or revoked link",
     "accountNotFound": "InconsisID has no account for this sign-in",
     "accountUnavailable": "InconsisID can't be reached. Try again in a moment.",
+    "displayNameInvalid": "Type a name of 1 to 40 characters.",
     "gameNotFound": "Game not found",
     "gameArchived": "This game is archived",
     "archiveFirst": "Archive the game before deleting it",

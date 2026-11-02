@@ -105,7 +105,7 @@
   },
   "accountPage": {
     "title": "Tài khoản của bạn",
-    "lede": "Tài khoản InconsisID của bạn. Các nút bên dưới mở InconsisID, rồi đưa bạn trở lại đây.",
+    "lede": "Tài khoản InconsisID bạn dùng để đăng nhập, ở đây và trong mọi ứng dụng Inconsistent. Thay đổi cách đăng nhập được thực hiện trên InconsisID, rồi bạn được đưa trở lại đây.",
     "displayName": "Tên hiển thị",
     "nameHint": "InconsisID và mọi bàn bạn ngồi đều hiện tên này.",
     "saveName": "Lưu tên",
@@ -734,6 +734,7 @@
     "linkInvalid": "Liên kết không hợp lệ hoặc đã bị thu hồi",
     "accountNotFound": "InconsisID không có tài khoản cho lần đăng nhập này",
     "accountUnavailable": "Không kết nối được InconsisID. Hãy thử lại sau giây lát.",
+    "displayNameInvalid": "Hãy nhập tên dài từ 1 đến 40 ký tự.",
     "gameNotFound": "Không tìm thấy campaign",
     "gameArchived": "Campaign này đã được lưu trữ",
     "archiveFirst": "Hãy lưu trữ campaign trước khi xóa",

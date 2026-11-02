@@ -324,7 +324,13 @@
   },
   "settingsMenu": {
     "label": "Cài đặt",
-    "language": "Ngôn ngữ"
+    "language": "Ngôn ngữ",
+    "turnAlerts": "Rung và nháy khi tới lượt tôi"
+  },
+  "alertsSwitch": {
+    "label": "Báo lượt",
+    "on": "Bật",
+    "off": "Tắt"
   },
   "playerApp": {
     "charactersLabel": "Nhân vật của bạn",
@@ -511,6 +517,7 @@
     "myRulesets": "Bộ luật của tôi",
     "switchTo": "Chuyển sang bộ này",
     "pin": "Ghim bộ luật này",
+    "unpin": "Bỏ ghim",
     "packs": "Pack",
     "pinFirst": "Hãy ghim bộ luật trước: pack được viết cho một bộ luật.",
     "noneAttached": "Chưa gắn pack nào.",
@@ -730,6 +737,7 @@
     "rulesetNotFound": "Không tìm thấy bộ luật",
     "charactersUseOtherVersion": "Các nhân vật ở đây đang dùng một phiên bản khác của bộ luật",
     "detachPacksFirst": "Hãy gỡ các pack viết cho bộ luật kia trước",
+    "charactersBuilt": "Các nhân vật ở đây đã dựng theo bộ luật này nên nó phải giữ nguyên",
     "pickRulesetFirst": "Hãy chọn bộ luật của campaign trước",
     "packNotFound": "Không tìm thấy pack",
     "notAPackId": "Đây không phải mã pack",
@@ -748,6 +756,7 @@
     "alreadyBuilt": "Đã dựng xong. Hãy nhờ GM sửa giá trị",
     "buildProblems": "Các câu trả lời này chưa dựng được nhân vật\n{detail}",
     "notBuilt": "{name} chưa được dựng theo bộ luật này",
+    "incomplete": "Phiếu của {name} còn thiếu thứ luật cần ({detail}). Điền nó trên phiếu.",
     "wholeNumber": "{what} chỉ nhận số nguyên",
     "countWholeNumber": "Số đếm chỉ nhận số nguyên",
     "setNotAdjusted": "{what} được đặt giá trị, không cộng trừ",

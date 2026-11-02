@@ -4,6 +4,8 @@ import { useEffect } from "react";
 
 import type { Encounter } from "@inconsistable/core-schema";
 
+import { turnAlertsOn } from "@/components/ui/alerts-switch/alerts-switch";
+
 type TurnBannerProps = { encounter: Encounter | null; held: readonly string[] };
 
 // "Your turn" when the acting combatant is a character this seat holds. The banner pulses once in the accent as the turn
@@ -22,7 +24,8 @@ export function TurnBanner({ encounter, held }: TurnBannerProps) {
       turnKey !== null &&
       typeof navigator !== "undefined" &&
       "vibrate" in navigator &&
-      navigator.userActivation?.hasBeenActive
+      navigator.userActivation?.hasBeenActive &&
+      turnAlertsOn()
     )
       navigator.vibrate(200);
   }, [turnKey]);

@@ -208,7 +208,14 @@ export const SAMPLE_D20: RulesetInput = {
       fields: ["attr.str", "attr.dex", "attr.con"],
       method: { kind: "table", values: [15, 12, 9] },
     },
-    { kind: "fields", id: "identity", actor: "character", label: "Name", cite: "Sample p.13", fields: ["name"] },
+    {
+      kind: "fields",
+      id: "identity",
+      actor: "character",
+      label: "Name",
+      cite: "Sample p.13",
+      fields: ["name", "level"],
+    },
   ],
   decisions: [
     {

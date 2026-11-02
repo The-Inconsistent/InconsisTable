@@ -22,6 +22,7 @@ function problemsOf(input: RulesetInput): Problem[] {
 /** The sample with extra derived values first on the character (so their indices are 0, 1, …). */
 function withDerived(extra: NonNullable<RulesetInput["entities"][number]["derived"]>): RulesetInput {
   const m = structuredClone(SAMPLE_D20);
+  m.creation = []; // these tests read fields the builder never sets (the creation check has its own tests)
   const character = m.entities[0];
   assert.ok(character !== undefined);
   const ids = new Set(extra.map((d) => d.id));
@@ -97,6 +98,22 @@ test("a derived cycle is a load error", () => {
   assert.deepEqual(list, [{ path: "entities[0].derived", message: "derived values form a cycle: a, b, c" }]);
   const self = problemsOf(withDerived([{ id: "a", label: "A", expr: "derived.a" }]));
   assert.match(self[0]?.message ?? "", /cycle: a/);
+});
+
+test("a derived value may not read a field creation never sets; without creation steps it is fine", () => {
+  const m = structuredClone(SAMPLE_D20);
+  const character = m.entities[0];
+  assert.ok(character !== undefined);
+  const j = character.derived?.length ?? 0;
+  character.derived = [...(character.derived ?? []), { id: "lucky", label: "Lucky", expr: 'diary == "" ? 1 : 0' }];
+  assert.deepEqual(problemsOf(m), [
+    {
+      path: `entities[0].derived[${j}].expr`,
+      message: 'creation never sets "diary", which this reads; add it to a creation step',
+    },
+  ]);
+  m.creation = [];
+  assert.deepEqual(problemsOf(m), []);
 });
 
 test("topoSort keeps declaration order among independent nodes", () => {

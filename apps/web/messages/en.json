@@ -324,7 +324,13 @@
   },
   "settingsMenu": {
     "label": "Settings",
-    "language": "Language"
+    "language": "Language",
+    "turnAlerts": "Buzz and flash on my turn"
+  },
+  "alertsSwitch": {
+    "label": "Turn alerts",
+    "on": "On",
+    "off": "Off"
   },
   "playerApp": {
     "charactersLabel": "Your characters",
@@ -511,6 +517,7 @@
     "myRulesets": "My rulesets",
     "switchTo": "Switch to this",
     "pin": "Pin this ruleset",
+    "unpin": "Unpin",
     "packs": "Packs",
     "pinFirst": "Pin a ruleset first: a pack is written for one.",
     "noneAttached": "No pack is attached.",
@@ -730,6 +737,7 @@
     "rulesetNotFound": "Ruleset not found",
     "charactersUseOtherVersion": "Characters here already use another version of the ruleset",
     "detachPacksFirst": "Detach the packs written for the other ruleset first",
+    "charactersBuilt": "Characters here are built with this ruleset, so it stays pinned",
     "pickRulesetFirst": "Pick the room's ruleset first",
     "packNotFound": "Pack not found",
     "notAPackId": "Not a pack id",
@@ -748,6 +756,7 @@
     "alreadyBuilt": "Already built. Ask the GM to correct a value",
     "buildProblems": "Those answers don't build a character\n{detail}",
     "notBuilt": "{name} isn't built for this ruleset yet",
+    "incomplete": "{name}'s sheet is missing something the rules need ({detail}). Fill it in on the sheet.",
     "wholeNumber": "{what} takes a whole number",
     "countWholeNumber": "A count takes a whole number",
     "setNotAdjusted": "{what} is set, not adjusted",

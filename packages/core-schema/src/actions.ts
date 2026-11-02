@@ -45,6 +45,7 @@ export const Action = z.discriminatedUnion("type", [
   // The room's ruleset and packs: versions the owner imported (docs/design.md §4.6). Never taken from the client's word
   // for who owns them; the handler looks them up as the caller's.
   z.object({ type: z.literal("campaign.setRuleset"), rulesetVersionId: id }),
+  z.object({ type: z.literal("campaign.unpinRuleset") }),
   z.object({ type: z.literal("campaign.attachPack"), packVersionId: id }),
   z.object({ type: z.literal("campaign.detachPack"), packVersionId: id }),
 
@@ -171,6 +172,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "campaign.transferCancel": "campaign:transfer",
   "campaign.transferAccept": null,
   "campaign.setRuleset": "campaign:ruleset",
+  "campaign.unpinRuleset": "campaign:ruleset",
   "campaign.attachPack": "campaign:ruleset",
   "campaign.detachPack": "campaign:ruleset",
   "session.start": "session:run",

@@ -135,7 +135,7 @@ Hiện có: `dice.sumVsTarget`, `dice.poolSuccesses`. Một Test chỉ ra `criti
 
 ### E. Thiết lập (web; dựa trên B, D)
 
-- **Bước "Chọn game" ở wizard tạo phòng:** danh sách từ ruleset người dùng đã import (danh mục công khai vẫn là P3).
+- **Bước "Chọn game" ở wizard tạo phòng:** danh sách từ ruleset người dùng đã import (danh mục công khai vẫn là P4).
   Lọc theo số người, kiểu ngồi, thể loại. Thẻ phòng ở lobby hiện "chơi gì · có GM hay không".
 - **Ruleset "Freeform":** ghi chú, một track máu và một Test chỉ báo kết quả, cho game tự chế và game một trang
   (design §3.3).
@@ -213,5 +213,5 @@ Các mục hẹn từ P1 xếp vào sau khi buổi chơi thật cho thấy cái 
 - Mô phỏng linh kiện board game (bộ bài, túi, bàn cờ, bài trên tay, kiểm nước đi): linh kiện nằm trên bàn thật.
 - Đồng hồ cờ theo lượt, trừ khi một bàn thật cần.
 - Ghế người dẫn xoay vòng.
-- Danh mục công khai, `pack_grant`, `pack:approve`: vẫn P3.
+- Danh mục công khai, `pack_grant`, `pack:approve`: vẫn P4.
 - Script sandbox, Redis.

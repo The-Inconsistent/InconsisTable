@@ -109,7 +109,7 @@ Một bàn chơi one-shot với một ruleset homebrew từ lúc tạo nhân v�
 - **Quota và gỡ:** quota theo user (số pack, tổng dung lượng). Admin đặt `disabled_at` để gỡ ngay khi có yêu cầu
   (notice-and-takedown), ghi `admin_event`. Chủ pack tải lại JSON của mình (`GET /api/packs/:id/export`).
 - **License:** `srd|cc-by|orc` bắt buộc `attribution` và hiện trên UI; không tự lên danh mục công khai (cần
-  `pack:approve`, P3).
+  `pack:approve`, P4).
 - **Đường đi:** REST cho ghi thuộc chủ sở hữu ngoài campaign (§5.3): `POST /api/rulesets`, `POST /api/packs`,
   `GET` danh sách của tôi. Gắn vào phòng là socket action: `campaign.setRuleset` (`campaign:ruleset`, từ chối khi đã
   có actor dùng phiên bản khác), `campaign.attachPack` (pack `private` chỉ gắn được vào phòng mà người gọi là chủ pack
@@ -272,7 +272,7 @@ Mỗi workstream song song chạy ở session/agent riêng, trên nhánh riêng,
 
 - Nâng phiên bản ruleset có migration và dry-run diff: P1 chỉ pin một lần (`ponytail:` ở `campaign.setRuleset`).
 - `request.*` (xin tiêu resource), library nhân vật, World/theme, house rule có patch, encounter budget: P2.
-- `pack_grant`, danh mục công khai, `pack:approve`: P3. Tài khoản đi qua InconsisID (house decision #33, ADR 0005),
+- `pack_grant`, danh mục công khai, `pack:approve`: P4. Tài khoản đi qua InconsisID (house decision #33, ADR 0005),
   có từ PR #52 nhưng tuỳ chọn.
 - Script sandbox, patch broadcast, Redis.
 

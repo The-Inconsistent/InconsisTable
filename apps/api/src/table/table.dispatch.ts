@@ -103,6 +103,7 @@ function dispatch(tx: Tx, { ctx, action }: { ctx: Ctx; action: Action }): Promis
       return applyCampaignAction(tx, { ctx, action });
 
     case "campaign.setRuleset":
+    case "campaign.unpinRuleset":
     case "campaign.attachPack":
     case "campaign.detachPack":
       return applyRulesAction(tx, { ctx, action });

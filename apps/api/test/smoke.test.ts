@@ -1088,7 +1088,17 @@ test("campaign.setRuleset: a room whose characters use a version can't move to a
     await owner.send({ type: "campaign.setRuleset", rulesetVersionId: next.body.versionId }),
     /already use another version/,
   );
+  refused(await owner.send({ type: "campaign.unpinRuleset" }), "charactersBuilt");
   for (const c of [owner, ana]) c.socket.close();
+});
+
+test("campaign.unpinRuleset: a room with no built character goes back to no ruleset", async () => {
+  const { owner, ownerDevice } = await newRoom("Unpin");
+  await pinFixture({ owner, ownerDevice });
+  await owner.until((s) => s.testDefs.length > 0);
+  ok(await owner.send({ type: "campaign.unpinRuleset" }));
+  await owner.until((s) => s.testDefs.length === 0);
+  owner.socket.close();
 });
 
 test("rule.op: the server clamps, and each seat writes only what its `editableBy` allows", async () => {

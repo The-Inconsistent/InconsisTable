@@ -64,6 +64,7 @@ export const REFUSALS = {
   rulesetNotFound: "Ruleset not found",
   charactersUseOtherVersion: "Characters here already use another version of the ruleset",
   detachPacksFirst: "Detach the packs written for the other ruleset first",
+  charactersBuilt: "Characters here are built with this ruleset, so it stays pinned",
   pickRulesetFirst: "Pick the room's ruleset first",
   packNotFound: "Pack not found",
   notAPackId: "Not a pack id",

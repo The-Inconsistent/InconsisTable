@@ -10,7 +10,7 @@ import { campaign } from "./campaign.schema.ts";
 
 export type RulesAction = Extract<
   Action,
-  { type: "campaign.setRuleset" | "campaign.attachPack" | "campaign.detachPack" }
+  { type: "campaign.setRuleset" | "campaign.unpinRuleset" | "campaign.attachPack" | "campaign.detachPack" }
 >;
 
 // The caller's own pack version with the pack's state, or a refusal. A pack that is someone else's reads as missing.
@@ -66,6 +66,20 @@ export async function applyRulesAction(
       if (attached.length) fail("detachPacksFirst");
 
       await tx.update(campaign).set({ rulesetVersionId: version.id }).where(eq(campaign.id, cid));
+      return { ok: true };
+    }
+
+    case "campaign.unpinRuleset": {
+      // A built character's values belong to the pinned version; unpinning would orphan them.
+      const built = await tx
+        .select({ id: actor.id })
+        .from(actor)
+        .where(and(eq(actor.campaignId, cid), or(isNotNull(actor.rulesetVersionId), ne(actor.entityType, ""))))
+        .limit(1);
+      if (built.length) fail("charactersBuilt");
+      // Packs are written for the ruleset that is leaving, so they leave with it.
+      await tx.delete(campaignPack).where(eq(campaignPack.campaignId, cid));
+      await tx.update(campaign).set({ rulesetVersionId: null }).where(eq(campaign.id, cid));
       return { ok: true };
     }
 

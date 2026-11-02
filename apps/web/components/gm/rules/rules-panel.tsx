@@ -73,6 +73,15 @@ export function RulesPanel({ me, send, data }: RulesPanelProps) {
               >
                 {pinned ? t("switchTo") : t("pin")}
               </button>
+              {pinned && (
+                <button
+                  className="btn"
+                  disabled={busy === "pin"}
+                  onClick={() => act({ key: "pin", action: { type: "campaign.unpinRuleset" } })}
+                >
+                  {t("unpin")}
+                </button>
+              )}
             </div>
           ))}
         {errors.pin && (

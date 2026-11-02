@@ -1298,6 +1298,10 @@ summary {
     }
   }
 }
+/* Turn alerts off on this device (Settings): the banner shows, still. */
+.quiet .turn-banner {
+  animation: none;
+}
 
 /* ---------- Test calls ---------- */
 .call-head strong {

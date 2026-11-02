@@ -1,12 +1,13 @@
 import { readFileSync } from "node:fs";
 import { z } from "zod";
-import type { IdpClientOptions } from "@the-inconsistent/client";
+import type { InconsisIdClientOptions, InconsisIdErrorCode } from "@the-inconsistent/inconsisid";
 import type { PlatformRole } from "@inconsistable/auth/api";
+import type { RefusalKey } from "@inconsistable/core-schema";
 
-// The pure rules of signing in, with no database: the boot config, where a sign-in may return to, and what the ID
-// token's roles make of an app_user.
+// The pure rules of signing in, with no database: the boot config, where a sign-in may return to, what the ID token's
+// roles make of an app_user, and the provider's account pages.
 
-// What the api refuses on its own, beside the SDK's IdpErrorCode: a callback without a live transaction, and a logout
+// What the api refuses on its own, beside the SDK's InconsisIdErrorCode: a callback without a live transaction, and a logout
 // token already acted on. Logged, never shown.
 export const LocalRefusal = z.enum(["no_transaction", "replayed"]);
 export type LocalRefusal = z.infer<typeof LocalRefusal>;
@@ -15,16 +16,40 @@ export type LocalRefusal = z.infer<typeof LocalRefusal>;
 export const CALLBACK_PATH = "/api/auth/callback";
 
 // The web routes a sign-in may land back on (RFC 9700 §4.11.1: the client is no open redirector). Anything else is "/".
-const RETURN_TO = /^\/(?:library|admin|c\/[0-9a-f-]{36})?$/;
+const RETURN_TO = /^\/(?:library|admin|account|c\/[0-9a-f-]{36})?$/;
 export const safeReturnTo = (value: unknown): string =>
   typeof value === "string" && RETURN_TO.test(value) ? value : "/";
+
+// The web's account page, and the identity provider's own account pages that send the user back to it. The provider
+// themes them for this client and accepts a return_to only on an origin of the client's registered redirect URIs.
+export const ACCOUNT_PAGE = "/account";
+export function idpAccountUrl({
+  issuer,
+  clientId,
+  webOrigin,
+}: Pick<SignInConfig, "issuer" | "clientId" | "webOrigin">) {
+  const url = new URL(`${issuer.replace(/\/$/, "")}/account`);
+  url.searchParams.set("client", clientId);
+  url.searchParams.set("return_to", `${webOrigin}${ACCOUNT_PAGE}`);
+  return url.href;
+}
+
+// How an account API refusal reaches the browser: a status and a refusal code, never the SDK's detail.
+export function accountRefusal(code: InconsisIdErrorCode): {
+  status: 400 | 404 | 502;
+  key: RefusalKey;
+} {
+  if (code === "account_not_found") return { status: 404, key: "accountNotFound" };
+  if (code === "display_name_invalid") return { status: 400, key: "displayNameInvalid" };
+  return { status: 502, key: "accountUnavailable" };
+}
 
 // `app_user.role` gates starting rooms, so it is `creator` exactly when the token says so (§8). `admin` grants nothing
 // in this slice; it travels on the session's roles only.
 export const userRoleOf = (roles: readonly PlatformRole[]): PlatformRole =>
   roles.includes("creator") ? "creator" : "user";
 
-export type SignInConfig = Omit<IdpClientOptions, "privateJwk"> & {
+export type SignInConfig = Omit<InconsisIdClientOptions, "privateJwk"> & {
   privateJwk: PrivateJwk;
   // The web origin the callback lands on; the login POST must come from it (its cookies are set for that origin).
   webOrigin: string;

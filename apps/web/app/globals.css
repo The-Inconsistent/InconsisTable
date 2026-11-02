@@ -1755,6 +1755,72 @@ fieldset:disabled select {
   gap: 12px;
   justify-items: start;
 }
+
+/* ---------- The account page: the name the tables see, the ways in, and the way out ---------- */
+.account-top {
+  display: grid;
+  gap: calc(var(--gap) * 1.6);
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 768px) {
+  .account-top {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+/* The name is written as large as a card's title: it is what every seat reads. */
+.account-name-input {
+  font-family: var(--font-display);
+  font-variation-settings: var(--display-axes);
+  font-size: var(--fs-name);
+  font-weight: 650;
+}
+.account-name .row p {
+  flex: 1 1 20ch;
+  margin: 0;
+}
+.account-facts {
+  margin: 0;
+  align-content: start;
+}
+.account-facts dd {
+  margin: 4px 0 0;
+}
+.account-method {
+  align-content: start;
+  grid-template-rows: auto 1fr auto;
+}
+.account-method-body p {
+  margin: 0;
+}
+.account-method .btn {
+  justify-self: start;
+}
+.account-key {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--line);
+}
+.account-key:last-child {
+  border-bottom: 0;
+}
+.account-count {
+  font-family: var(--font-display);
+  font-variation-settings: var(--display-axes);
+  font-size: var(--fs-name);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+/* Leaving is kept apart from the rest, behind a dashed rule in the warning colour. */
+.account-delete {
+  justify-items: start;
+  padding-top: var(--gap);
+  border-top: 2px dashed var(--accent);
+}
+.account-delete p {
+  margin: 0;
+  max-width: 60ch;
+}
 /* A folded section (the archived rooms): the heading is the toggle, its marker says which way it is. */
 .ws-fold > summary {
   cursor: pointer;

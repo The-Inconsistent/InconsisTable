@@ -1,5 +1,7 @@
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 
+import { ACCOUNT_PATH } from "@/components/account/account-panel/constants";
 import type { AuthMe } from "@/lib/api-reply/api-reply";
 
 type AccountBarProps = { me: AuthMe; signInFailed: boolean };
@@ -20,6 +22,9 @@ export function AccountBar({ me, signInFailed }: AccountBarProps) {
               {tRoles(role)}
             </span>
           ))}
+          <Link className="btn" href={ACCOUNT_PATH}>
+            {t("open")}
+          </Link>
           <button className="btn" type="submit">
             {t("signOut")}
           </button>

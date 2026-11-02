@@ -64,3 +64,8 @@ export type AcceptInvite = z.input<typeof AcceptInvite>;
 export const DISPLAY_NAME_MAX = 40;
 export const Rename = z.object({ name: z.string().trim().min(1).max(DISPLAY_NAME_MAX) });
 export type Rename = z.infer<typeof Rename>;
+
+// PATCH /api/account: a signed-in account's name at the identity provider. It is also the name tables see, so it keeps
+// the same bound.
+export const RenameAccount = z.object({ displayName: z.string().trim().min(1).max(DISPLAY_NAME_MAX) });
+export type RenameAccount = z.infer<typeof RenameAccount>;

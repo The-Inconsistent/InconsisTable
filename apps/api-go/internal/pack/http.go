@@ -32,6 +32,20 @@ func (s *Service) caller(r *http.Request) (*auth.User, error) {
 	return user, nil
 }
 
+// importer is the caller of an import. Importing stores content on the server, so it takes a creator, as starting a
+// room does: with sign-in on, an anonymous device never is one (auth.DeviceCreates). Reading, exporting and hiding
+// one's own stay open to every caller.
+func (s *Service) importer(r *http.Request) (*auth.User, error) {
+	user, err := s.caller(r)
+	if err != nil {
+		return nil, err
+	}
+	if !user.Creator {
+		return nil, core.Refuse(http.StatusForbidden, "importCreatorsOnly")
+	}
+	return user, nil
+}
+
 // A refused import answers 422 with its problems by path, so the importer can show them next to the field.
 func refusing(err error) error {
 	var refused *ruleset.Refused
@@ -55,7 +69,7 @@ func packID(r *http.Request) (string, error) {
 
 // ImportRuleset is POST /api/rulesets.
 func (s *Service) ImportRuleset(w http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.importer(r)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +116,7 @@ func (s *Service) ExportRuleset(_ http.ResponseWriter, r *http.Request) (any, er
 
 // ImportPack is POST /api/packs.
 func (s *Service) ImportPack(w http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.importer(r)
 	if err != nil {
 		return nil, err
 	}

@@ -833,6 +833,7 @@
     "gmOnly": "Chỉ GM mới đổi được giá trị này",
     "onlySpend": "Bạn chỉ có thể tiêu {what}",
     "creatorsOnly": "Chỉ người tạo mới bắt đầu được campaign",
+    "importCreatorsOnly": "Chỉ người tạo mới nhập được bộ luật và pack",
     "linkInvalid": "Liên kết không hợp lệ hoặc đã bị thu hồi",
     "accountNotFound": "InconsisID không có tài khoản cho lần đăng nhập này",
     "accountUnavailable": "Không kết nối được InconsisID. Hãy thử lại sau giây lát.",

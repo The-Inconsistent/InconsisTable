@@ -151,6 +151,18 @@ func TestAppUserRoleIsCreatorExactlyWhenTheTokenSaysCreator(t *testing.T) {
 	}
 }
 
+func TestAnAnonymousDeviceCreatesOnlyWhileSignInIsOff(t *testing.T) {
+	for _, c := range []struct {
+		role   string
+		signIn bool
+		want   bool
+	}{{"creator", false, true}, {"user", false, false}, {"creator", true, false}, {"user", true, false}} {
+		if got := DeviceCreates(c.role, c.signIn); got != c.want {
+			t.Errorf("%s, sign-in %v: want %v, got %v", c.role, c.signIn, c.want, got)
+		}
+	}
+}
+
 func TestTheProvidersAccountPageNamesThisClientAndReturnsToAccount(t *testing.T) {
 	u, err := url.Parse(IdpAccountURL("https://auth.example.test/", "inconsistable", "https://app.example.test"))
 	if err != nil {

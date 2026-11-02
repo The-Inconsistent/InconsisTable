@@ -16,6 +16,7 @@ var refusals = map[string]string{
 	"gmOnly":                    "Only the GM can change that",
 	"onlySpend":                 "You can only spend {what}",
 	"creatorsOnly":              "Only creators can start a game",
+	"importCreatorsOnly":        "Only creators can import rulesets and packs",
 	"linkInvalid":               "Invalid or revoked link",
 	"accountNotFound":           "InconsisID has no account for this sign-in",
 	"accountUnavailable":        "InconsisID can't be reached. Try again in a moment.",

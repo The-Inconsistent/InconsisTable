@@ -25,7 +25,7 @@ const iso = (d: Date | null) => d?.toISOString() ?? null;
 // The live snapshot with the ruleset it was built under, read after the action's transaction commits (CLAUDE.md, "The
 // server decides"). It is whole: what a seat receives of it is the Seat view module's call (../view/view.seat.ts).
 // ponytail: whole snapshot per action, fine at table scale; versioned per-seat patches once a snapshot passes ~256 KB
-// or its build passes ~50 ms at p95 in the P3 load test (docs/design.md §5.6)
+// or its build passes ~50 ms at p95 in the P4 load test (docs/design.md §5.6)
 export interface Live {
   state: LiveState;
   compiled: CompiledRuleset | null;

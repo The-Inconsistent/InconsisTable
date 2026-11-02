@@ -17,7 +17,7 @@ fixtures use invented content ("Sample p.N"). Even SRD material is imported like
 
 - Bundle SRD/ORC/CC-BY content: permitted by those licenses, but it blurs the rule, needs attribution upkeep, and
   invites "just add one more book".
-- A curated public catalog: needs moderation and takedown handling (`pack:approve`, deferred to P3).
+- A curated public catalog: needs moderation and takedown handling (`pack:approve`, deferred to P4).
 
 ## Consequences
 

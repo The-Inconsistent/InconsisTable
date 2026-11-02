@@ -6,7 +6,7 @@ import { createdAt, pk } from "../core/sql.ts";
 import { rulesetVersion, ruleset } from "../ruleset/ruleset.schema.ts";
 
 // Imported content packs (docs/design.md §4.6). InconsisTable ships none: every pack is imported by its owner, who is the
-// only one who can read or attach it (grants for sharing are P3). The uploaded file is not kept; the normalized rows are.
+// only one who can read or attach it (grants for sharing are P4). The uploaded file is not kept; the normalized rows are.
 export const pack = pgTable(
   "pack",
   {

@@ -19,8 +19,11 @@ ruleset và World Warhammer 40k: Wrath & Glory bên trong platform.
 - Postgres 18.
 - **Repo mới** `The-Inconsistent/InconsisTable`, private. Scope package npm phải viết thường: `@inconsistable/*`. Chép những phần lõi trung lập từ auspex_gm sang, không chuyển dữ liệu (chưa có
   dữ liệu cần giữ). auspex_gm vẫn chạy cho bàn W&G cho tới khi W&G được port sang.
-- **5e SRD** (SRD 5.2, CC-BY-4.0) là hệ luật **đầu tiên** của InconsisTable. W&G (Auspex) port sau thành pack riêng tư,
-  dùng bộ test của auspex_gm làm chuẩn đối chiếu.
+- **W&G (Auspex)** là hệ luật thật **đầu tiên** được port (P3), thành pack riêng tư, dùng bộ test của auspex_gm làm chuẩn
+  đối chiếu. Đổi ngày 2026-11-02: auspex_gm đã có sẵn đáp án (test, pregen), dữ liệu đã chép và một bàn chơi thật, và W&G
+  là hệ khó nhất nên engine bị thử sớm. 5e SRD từng đứng đầu vì được phát hành kèm (CC-BY-4.0), nhưng ADR 0001 đã bỏ lợi
+  thế đó: SRD cũng do người dùng tự nhập. 5e SRD vẫn là phép thử trên giấy cho từng primitive mới, để W&G không ngấm vào
+  platform.
 - **Chưa thu phí.**
 - **Platform không cung cấp nội dung có bản quyền.** Mọi ruleset và nội dung (quái, đồ, phép, luật) do người dùng tự
   nhập. Platform chỉ cung cấp engine, công cụ nhập và kiểm tra. Chính sách lưu trữ ở §4.6.
@@ -1158,9 +1161,9 @@ Wizard: điểm danh → thưởng XP/milestone (`progression`) → chia loot �
 | **P0: Khung repo mới** | Repo `InconsisTable`: chép pipeline action, `@inconsistable/auth` (danh tính thiết bị), access và invite, codex, lobby từ auspex_gm; Postgres 18; `rules-engine` với các primitive 5e cần (`dice.sumVsTarget`, `initiative.ranked`, `health.tracks` + death save, slot); phân quyền §3.6 | Test của pipeline, `can()` và engine xanh; một phòng trống mời được người chơi qua QR |
 | **P1: 5e SRD chơi được** | Công cụ nhập ruleset và pack (file, JSON, form) có kiểm tra, mặc định riêng tư; nhập manifest `dnd5e-srd` + pack SRD 5.2 qua chính công cụ đó; actor và các bảng giá trị; builder; sheet render từ `layout`; combat tracker; gọi Test; undo phía server | Một bàn chơi one-shot SRD từ tạo nhân vật tới hết buổi |
 | **P2: Workspace, wizard, World, bản đồ** | Hub người dùng, wizard 8 bước, theme và từ vựng theo World, house rules, safety tools, bản đồ §3.8, nhiều nhân vật và co-GM §3.7; bàn không GM và board game §4.8 (chi tiết và thứ tự ở `docs/p2-plan.md`) | Người mới tạo game và mời bàn trong dưới 5 phút; một ván board game homebrew chơi được từ thiết lập tới bảng xếp hạng |
-| **P3: Platform** | Admin console (moderation, quota, chuyển chủ phòng), Redis adapter, advisory lock, `state_version`, S3, `pack_grant`, export/xoá dữ liệu; chỉ sau đó mới chọn nhà cung cấp auth và mở đăng ký | Chạy 2+ instance api; load test 100 bàn |
-| **P4: Port W&G (Auspex)** | Manifest `wng` + pack riêng tư, `view.wng`, `health.hit` kiểu W&G, `initiative.alternatingSides`; test của auspex_gm là chuẩn đối chiếu | Mọi test luật của auspex_gm có bản tương ứng xanh; bàn W&G chuyển sang |
-| **P5: Hệ sinh thái** | Editor homebrew, kho cộng đồng, script sandbox, PF2e ORC, PbtA, CoC-lite, Freeform | Một GM tự viết homebrew mà không cần deploy |
+| **P3: Port W&G (Auspex)** | Manifest `wng` + pack riêng tư (chuyển từ `packages/data` của auspex_gm bằng script), `view.wng`, `health.hit` kiểu W&G, `initiative.alternatingSides`; test của auspex_gm là chuẩn đối chiếu. Làm theo bậc: luật trước (sheet, tracker, Test, pool Glory/Ruin, Seize), lọc theo người xem, rồi builder. Mỗi primitive mới phải tổng quát và được thử trên giấy với 5e SRD trước khi merge | Mọi test luật của auspex_gm có bản tương ứng xanh; bàn W&G chuyển sang khi đủ những tính năng bàn đang dùng |
+| **P4: Platform** | Admin console (moderation, quota, chuyển chủ phòng), Redis adapter, advisory lock, `state_version`, S3, `pack_grant`, export/xoá dữ liệu; chỉ sau đó mới chọn nhà cung cấp auth và mở đăng ký | Chạy 2+ instance api; load test 100 bàn |
+| **P5: Hệ sinh thái** | Editor homebrew, kho cộng đồng, script sandbox; Warhammer Quest, Cyberpunk RED, 5e SRD, PF2e ORC, PbtA, CoC-lite, Freeform | Một GM tự viết homebrew mà không cần deploy |
 
 **Chiến lược bản quyền khi phát triển:** repo này giữ private. Repo công khai (nếu có) là repo mới hoặc lịch sử đã lọc,
 chỉ chứa ruleset tự viết và SRD/ORC (§4.6). Nội dung W&G tiếp tục là pack private của deployment hiện tại.
@@ -1171,15 +1174,19 @@ chỉ chứa ruleset tự viết và SRD/ORC (§4.6). Nội dung W&G tiếp tụ
 
 1. **Manifest phình thành ngôn ngữ dở (inner-platform).** Giảm thiểu: mọi cơ chế mới đi qua primitive registry có
    test và zod params, không chấp nhận "magic string".
-2. **Port W&G tốn công (P4):** `build.ts` dài ~2500 dòng. Phương án: `build.ledger` là primitive TS riêng cho hệ mua bằng
-   XP; manifest chỉ khai báo catalogue và chi phí. Engine nên được thiết kế với cả 5e lẫn W&G trong đầu ngay từ P0, dù
-   W&G port sau, để không phải đập lại primitive.
-3. **Hiệu năng:** full snapshot với campaign lớn. Patch broadcast ở P4; đo trước khi làm.
-4. **Pháp lý:** chính sách fan content của GW/Cubicle 7/WotC thường cấm tool thu phí tái hiện nội dung luật. Nếu
+2. **Port W&G tốn công (P3):** `build.ts` dài ~2500 dòng. Phương án: `build.ledger` là primitive TS riêng cho hệ mua bằng
+   XP; manifest chỉ khai báo catalogue và chi phí. W&G port trước, nên rủi ro ngược lại là W&G ngấm vào platform (như
+   auspex_gm). Giảm thiểu: mỗi primitive mới phải dùng được cho hệ khác, thử trên giấy với 5e SRD; phần lọc kiểu W&G
+   (Corruption, mutation "Unseen") nên thành luật "hiển thị như" tổng quát thay vì code riêng của W&G.
+3. **Hiệu năng:** full snapshot với campaign lớn. Patch broadcast ở P3 (campaign W&G thật là campaign lớn đầu tiên); đo
+   trước khi làm.
+4. **Chuyển bàn W&G:** auspex_gm đang chạy công khai trên VPS, còn InconsisTable chỉ chạy LAN (`docs/deploy.md`). Bàn
+   chuyển sang thì hoặc chơi qua LAN, hoặc phải xử lý xong các lỗi bảo mật (#15–#19) trước.
+5. **Pháp lý:** chính sách fan content của GW/Cubicle 7/WotC thường cấm tool thu phí tái hiện nội dung luật. Nếu
    thương mại hoá, chỉ dùng SRD/ORC hoặc xin license. *Cần hỏi ý kiến pháp lý trước khi mở công khai.*
-5. **Mở đăng ký công khai:** chỉ bật sau khi có `pack_grant`, cổng theo route (§4.6) và export/xoá dữ liệu.
-6. **Câu hỏi cho chủ sản phẩm:**
+6. **Mở đăng ký công khai:** chỉ bật sau khi có `pack_grant`, cổng theo route (§4.6) và export/xoá dữ liệu.
+7. **Câu hỏi cho chủ sản phẩm:**
    - Co-GM và nhiều nhân vật mỗi người chơi (§3.7): làm ở P2 hay sớm hơn?
    - GM có được thấy dòng "Admin đã truy cập" không? Việc này đảo quyết định đã ghim ở #178 (admin vô hình).
-7. **Board game nặng luật kéo app thành engine mô phỏng.** Giảm thiểu: app chỉ giữ con số, lượt, pha và điểm; không
+8. **Board game nặng luật kéo app thành engine mô phỏng.** Giảm thiểu: app chỉ giữ con số, lượt, pha và điểm; không
    kiểm nước đi, không mô phỏng linh kiện (§4.8). Game nặng được phục vụ tới đâu bộ đếm và cách tính điểm của nó tới đó.

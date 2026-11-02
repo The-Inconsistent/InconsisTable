@@ -195,8 +195,8 @@ idpTest(
 const logoutToken = (clientId: string, sub: string, sid: string) => {
   const run = spawnSync("node", ["scripts/logout-token.ts", clientId, sub, sid], {
     cwd: INCONSISID_DIR,
-    // The provider takes its issuer from PORT; without this it inherits the api's own PORT from apps/api/.env.
-    env: { ...process.env, PORT: new URL(ISSUER).port },
+    // Without ISSUER the provider derives it from PORT, which it would inherit from the api's apps/api/.env.
+    env: { ...process.env, ISSUER },
     encoding: "utf8",
   });
   assert.equal(run.status, 0, run.stderr);

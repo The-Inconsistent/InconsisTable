@@ -253,6 +253,17 @@ class Compiler {
     return scope;
   }
 
+  /**
+   * Refs that are fields of `e` no creation step writes, when the ruleset builds `e` at all. A ref only read inside
+   * `has(...)` is flagged too (ponytail: refs do not tell it apart, split them in the checker if a ruleset needs it).
+   */
+  private unsetByCreation(e: EntityType, refs: readonly string[]): string[] {
+    const steps = this.r.creation.filter((s) => s.actor === e.id);
+    if (steps.length === 0) return [];
+    const written = new Set(steps.flatMap((s) => (s.kind === "choose" ? s.copy.map((c) => c.to) : s.fields)));
+    return refs.filter((ref) => Object.hasOwn(e.fields, ref) && !written.has(ref));
+  }
+
   private entity(e: EntityType, index: number): CompiledEntity | null {
     const scope = this.entityScope(e, { derived: true, res: true });
     const before = this.problems.length;
@@ -265,6 +276,12 @@ class Compiler {
         path: `entities[${index}].derived[${j}].expr`,
       });
       if (expr === null) return;
+      for (const ref of this.unsetByCreation(e, expr.refs)) {
+        this.problems.push({
+          path: `entities[${index}].derived[${j}].expr`,
+          message: `creation never sets "${ref}", which this reads; add it to a creation step`,
+        });
+      }
       const deps = expr.refs.flatMap((ref) => {
         if (ref === "derived.*" || ref === "derived") return e.derived.map((x) => x.id);
         return ref.startsWith("derived.") ? [ref.slice("derived.".length).split(".")[0] ?? ""] : [];

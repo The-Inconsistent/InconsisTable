@@ -95,6 +95,8 @@ export interface BuiltActor {
   bounds: Record<string, Bounds>;
   /** The expression scope (effects applied), or null when it can't be evaluated. */
   scope: ExprRecord | null;
+  /** Why `scope` is null for an actor that has an entity: the expression error. Null when it derived fine. */
+  problem: string | null;
 }
 
 export function buildActors({
@@ -142,11 +144,13 @@ export function buildActors({
       state: { id: r.actor.id, fields, resources: {}, conditions: conditionStates(conditions) },
       bounds: {},
       scope: null,
+      problem: null,
     };
     out[r.actor.id] = built;
     if (!compiled || !ce) continue;
-    // ponytail: a half-built actor (a field an expression needs is not set yet) shows no derived values and none of its
-    // resources are writable until it is complete; the builder (P1 D) writes every field before the sheet opens.
+    // A half-built actor (a field an expression needs is not set yet) shows no derived values and none of its
+    // resources are writable until it is complete; `problem` says what is missing (the validator keeps new
+    // rulesets from building such an actor, older ones can still hold one).
     try {
       const values = { fields, resources, conditions: activeIds(conditions), party };
       built.derived = deriveValues({ compiled, entity, values });
@@ -158,6 +162,7 @@ export function buildActors({
       });
     } catch (e) {
       if (!(e instanceof ExprError)) throw e;
+      built.problem = e.message;
       continue;
     }
     const stateResources: Record<string, ResourceState> = {};

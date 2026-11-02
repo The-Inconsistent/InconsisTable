@@ -53,13 +53,13 @@ test("the preview runs the creation and derives the numbers; incomplete answers 
     lineage: ["reedfolk"],
     calling: ["wayfinder"],
     scores: { "attr.str": 12, "attr.dex": 9, "attr.con": 15 },
-    identity: { name: "Lyra" },
+    identity: { name: "Lyra", level: 2 },
   };
   const made = previewBuild({ ruleset, entity: "character", answers: done, entries });
   assert.deepEqual(made.problems, []);
   assert.equal(made.fields?.guard, 3);
-  // `level` isn't set by the sample's creation, so the formulas can't run yet.
-  assert.deepEqual(made.derived, []);
+  // level 2 is asked by the identity step, so the formulas run.
+  assert.ok(made.derived.length > 0);
 
   const partial = previewBuild({ ruleset, entity: "character", answers: { lineage: ["reedfolk"] }, entries });
   assert.equal(partial.fields, null);

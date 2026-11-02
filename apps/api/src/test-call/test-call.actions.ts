@@ -127,7 +127,8 @@ export async function applyTestCallAction(
       // Computed now, for each character, and kept: what the phone shows must not move under a player's hand.
       const targets = actorIds.map((actorId) => {
         const actor = find(built, actorId) ?? fail("characterNotFound");
-        if (actor.entity === "" || actor.scope === null) fail("notBuilt", { name: actor.row.name });
+        if (actor.entity === "") fail("notBuilt", { name: actor.row.name });
+        if (actor.scope === null) fail("incomplete", { name: actor.row.name, detail: actor.problem ?? "" });
         const r = evaluateCall({ test, scope: actor.scope, inputs: a.inputs });
         if (!r.ok) fail("callProblem", { name: actor.row.name, detail: r.message });
         return { actorId, modifier: r.modifier, target: r.target, pool: r.pool };

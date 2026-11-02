@@ -756,6 +756,7 @@
     "alreadyBuilt": "Đã dựng xong. Hãy nhờ GM sửa giá trị",
     "buildProblems": "Các câu trả lời này chưa dựng được nhân vật\n{detail}",
     "notBuilt": "{name} chưa được dựng theo bộ luật này",
+    "incomplete": "Phiếu của {name} còn thiếu thứ luật cần ({detail}). Điền nó trên phiếu.",
     "wholeNumber": "{what} chỉ nhận số nguyên",
     "countWholeNumber": "Số đếm chỉ nhận số nguyên",
     "setNotAdjusted": "{what} được đặt giá trị, không cộng trừ",

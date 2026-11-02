@@ -43,7 +43,7 @@ const GOOD: CreationAnswers = {
   lineage: ["reedfolk"],
   calling: ["wayfinder"],
   scores: { "attr.str": 15, "attr.dex": 12, "attr.con": 9 },
-  identity: { name: "Wren" },
+  identity: { name: "Wren", level: 1 },
 };
 
 function run(answers: CreationAnswers, ruleset: Ruleset = RULESET) {
@@ -155,6 +155,7 @@ test("a valid build copies the pick's values, assigns the scores and stores the 
     "attr.dex": 12,
     "attr.con": 9,
     name: "Wren",
+    level: 1,
   });
   assert.deepEqual(r.choices, [
     { stepId: "lineage", ordinal: 0, optionKey: "reedfolk" },
@@ -213,7 +214,7 @@ test("an assign step on a point buy holds to the range and the budget", () => {
 test("values that land on the actor are checked against its FieldDef", () => {
   has(failures({ ...GOOD, identity: { name: 7 } }), "identity.name", /expected text/);
   has(failures({ ...GOOD, identity: {} }), "identity.name", /needs a value/);
-  has(failures({ ...GOOD, identity: { name: "A", level: 3 } }), "identity.level", /not a field of this step/);
+  has(failures({ ...GOOD, identity: { name: "A", gmNote: "x" } }), "identity.gmNote", /not a field of this step/);
   // The pick's value must still fit the actor's field: a calling that grants a guard over the field's range.
   const odd = (key: string) => ({ ...PACK.entries[1], key, body: { guardBase: 3 } }) as PackEntry;
   const strict = build({

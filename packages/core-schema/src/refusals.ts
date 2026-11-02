@@ -84,6 +84,7 @@ export const REFUSALS = {
   alreadyBuilt: "Already built. Ask the GM to correct a value",
   buildProblems: "Those answers don't build a character\n{detail}",
   notBuilt: "{name} isn't built for this ruleset yet",
+  incomplete: "{name}'s sheet is missing something the rules need ({detail}). Fill it in on the sheet.",
   wholeNumber: "{what} takes a whole number",
   countWholeNumber: "A count takes a whole number",
   setNotAdjusted: "{what} is set, not adjusted",

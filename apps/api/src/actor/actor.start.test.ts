@@ -35,7 +35,7 @@ test("answers become fields and choices, and the resources start full (or at the
       lineage: ["reedfolk"],
       calling: ["wayfinder"],
       scores: { "attr.str": 12, "attr.dex": 9, "attr.con": 15 },
-      identity: { name: "Lyra" },
+      identity: { name: "Lyra", level: 2 },
     },
   });
   assert.ok(built.ok);
@@ -45,10 +45,7 @@ test("answers become fields and choices, and the resources start full (or at the
   );
   assert.equal(built.fields.guard, 3); // copied from the calling
 
-  // `level` is not a creation step of the sample, so the vigour ceiling can't be known yet: nothing starts.
-  assert.deepEqual(startingResources({ compiled, entity: "character", fields: built.fields, party }), []);
-
-  const start = startingResources({ compiled, entity: "character", fields: { ...built.fields, level: 2 }, party });
+  const start = startingResources({ compiled, entity: "character", fields: built.fields, party });
   const by = Object.fromEntries(start.map((r) => [r.resource, r.value]));
   assert.equal(by.hp, 6 + 2 + 4); // base 6 + mod(15) + (level 2 - 1) * 4
   assert.equal(by.tempHp, 0); // no ceiling: its floor

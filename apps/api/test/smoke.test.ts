@@ -1477,6 +1477,10 @@ test("test.call / test.report / test.close: a hidden target stays on the GM side
   refused(await owner.send(call({ actorIds: [] })), /too small|at least|Invalid/i);
   const bare = ok(await owner.send({ type: "actor.create", kind: "npc", name: "Bare" })).id!;
   refused(await owner.send(call({ actorIds: [bare] })), /isn't built/);
+  // Half built (no level, which the vigour formula reads): the refusal names what is missing, not "isn't built".
+  const half = ok(await owner.send({ type: "actor.create", kind: "npc", name: "Half" })).id!;
+  await equip(half, "character", { fields: { "attr.con": 10, "attr.dex": 14, diary: "" } });
+  refused(await owner.send(call({ actorIds: [half] })), /Half's sheet is missing something.*level/);
   const session = await coGm({ owner, campaignId, name: "co-session-TestReport", scopes: ["session"] });
   ok(await session.send({ type: "test.close", callId: ok(await session.send(call({ actorIds: [hero] }))).id! }));
   session.socket.close();
@@ -1758,12 +1762,10 @@ test("a Dice pool Test: the pool is set at the call, the server counts the repor
 });
 
 // ---- The builder, creatures from packs and builder drafts (docs/p1-plan.md workstream D) ---------------------------
-// The sample ruleset, with the level asked in the last creation step so derived values can be computed, and the sample
+// The sample ruleset (its identity step asks the level, so derived values can be computed), and the sample
 // pack with one lineage that only the GM side may pick.
 
 const BUILD_RULESET = structuredClone(SAMPLE_D20);
-const identity = BUILD_RULESET.creation?.find((s) => s.id === "identity");
-if (identity?.kind === "fields") identity.fields = ["name", "level"];
 const BUILD_PACK = structuredClone(SAMPLE_PACK);
 BUILD_PACK.entries.push({
   key: "hidden-kin",

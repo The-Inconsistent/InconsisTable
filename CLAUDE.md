@@ -102,8 +102,9 @@ Pre-release: the migration may be regenerated from scratch (delete `apps/api/dri
   default. With sign-in on (`IDP_SIGN_IN`), a signed-in browser is the account's user instead (`__Host-it_session`,
   `deviceUser` reads it first), and that user's role is `creator` only when the ID token says so. Admin is the shared
   `ADMIN_KEY` (header `x-admin-key`, or the socket `adminKey`), never a user; the token's `admin` role grants nothing
-  yet. The room owner is `campaign.owner_user_id`, not a role. Deploy is local/LAN only until the security fixes land
-  (`docs/house-decisions.md`, `docs/deploy.md`).
+  yet. The room owner is `campaign.owner_user_id`, not a role. The LAN stack (`deploy/compose.yaml`) is never
+  public. The VPS stack (`deploy/vps/`) stays unpublished until anonymous devices can no longer start rooms or import
+  (`docs/deploy.md`).
 - Every write (POST, PATCH, DELETE) carries `Sec-Fetch-Site: same-origin` or an `Origin` in `WEB_ORIGIN`
   (`core/csrf.ts`); the back-channel logout is the only exception.
 

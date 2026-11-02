@@ -1,13 +1,19 @@
 # Deploying InconsisTable
 
-This guide is for whoever hosts a private InconsisTable on a machine at the table or on a home network. The repo gives
-you two container images, a compose file with Postgres 18, and a health check. It does not choose a host.
+This guide covers two ways to host InconsisTable:
 
-> **There are no accounts, so there is no public deployment.** Every browser is an anonymous user named by a cookie
+- **On a LAN** (the quick start below): a machine at the table or on a home network, with `deploy/compose.yaml`.
+- **On a public VPS** (the VPS section): Caddy, InconsisID and the app from prebuilt images, with
+  `deploy/vps/compose.yaml`.
+
+> **The LAN stack is never public.** Without sign-in, every browser is an anonymous user named by a cookie
 > (`it_device`), and anyone who can reach the web can make rooms and import rulesets into their own anonymous user. Run
-> it only on this machine or on a LAN you trust, never behind a public address, a tunnel or a port forward. Public
-> hosting waits for an auth provider (`docs/house-decisions.md`, "No accounts until a provider is chosen"), and for
-> issues #15 to #19 (the security fixes).
+> `deploy/compose.yaml` only on this machine or on a LAN you trust, never behind a public address, a tunnel or a port
+> forward.
+>
+> **The VPS stack waits on one fix.** The security fixes (#15 to #19) have landed, and InconsisID provides accounts
+> (ADR 0005). But with `IDP_SIGN_IN=1`, an anonymous device is still a `creator`, and pack and ruleset imports check no
+> role. Until anonymous users can no longer start rooms or import, keep the VPS's DNS records unpublished.
 
 ## What runs
 
@@ -30,8 +36,11 @@ cp deploy/postgres.env.example deploy/postgres.env
 cp deploy/api.env.example deploy/api.env
 cp deploy/web.env.example deploy/web.env      # edit them; none of them is committed
 export BIND_ADDR=192.168.1.10                  # optional: the LAN address phones use (default 127.0.0.1)
+export NODE_AUTH_TOKEN=$(gh auth token)        # needs read:packages: the api uses @the-inconsistent/inconsisid
 docker compose -f deploy/compose.yaml up -d --build    # podman compose works too
 ```
+
+The token reaches `bun install` as a build secret (`npm_token`), so no image layer keeps it.
 
 `WEB_PORT` (default 3000) sets the host port of the web. The api waits for Postgres to be healthy, and the web waits for
 the api's health check. Secrets come only from the `*.env` files; no image contains one.
@@ -126,6 +135,78 @@ healthcheck; point your platform's liveness probe at it.
 
 They run at api boot, before it starts listening. Do not run them by hand. A failed migration stops the api, and the
 health check never turns green.
+
+## VPS (Dockhand + Caddy)
+
+The public stack is `deploy/vps/compose.yaml`: Caddy, web, api, InconsisID and Postgres 18 on one host. The images are
+built by `.github/workflows/publish-images.yml` on every merge to `main` (`ghcr.io/the-inconsistent/inconsistable-api`
+and `-web`, tagged `sha-<short>` and `main`). InconsisID's image comes from its own repo. The VPS never builds anything.
+
+```
+Internet ─▶ :80/:443 Caddy ─┬─▶ web:3000 ── /api, /socket.io ──▶ api:4000 ─▶ postgres (it)
+                            └─▶ idp:4100 ──────────────────────────────────▶ postgres (it_auth)
+SSH :22 ─▶ host;  Dockhand on 127.0.0.1:4444 only, through an SSH tunnel
+```
+
+**Size:** 2 vCPU, 4 GB RAM, 40 GB NVMe, x86_64 (the images are amd64), plus a 2 GB swap file. Steady use is about
+1.6 to 2.3 GB of RAM:
+
+| Part | RAM steady | `mem_limit` |
+| --- | --- | --- |
+| OS + Docker | ~500 MB | |
+| Postgres 18 | ~400–600 MB | 1 GB |
+| api | ~200–350 MB | 768 MB |
+| web | ~150–250 MB | 512 MB |
+| InconsisID | ≤ 256 MB | 256 MB |
+| Caddy | ~40 MB | 128 MB |
+| Dockhand | ~150 MB | |
+
+Pick the region nearest the table: every phone holds a live socket. 8 GB only pays if images are built on the host or
+another app moves in.
+
+### One-time host setup
+
+1. **Access.** Create a sudo user with an SSH key, then set `PermitRootLogin no` and `PasswordAuthentication no`. Run
+   `ufw allow 22,80,443/tcp && ufw allow 443/udp && ufw enable`, turn on `unattended-upgrades`, and add a 2 GB swap
+   file.
+2. **Docker and Dockhand.** Install Docker Engine with the compose plugin (2.23.1 or later, for inline `configs`).
+   Run Dockhand with its port bound to `127.0.0.1:4444`, and reach it with `ssh -L 4444:localhost:4444 <host>`.
+3. **Registry.** In Dockhand, add `ghcr.io` with a token that has `read:packages` and nothing else.
+4. **Secrets.** Make them on your own machine, then copy them into `/srv/inconsis/secrets` (the directory `0700`
+   root, the files `0444`; each container mounts only its own):
+
+   | File | What |
+   | --- | --- |
+   | `postgres_password` | the `it` superuser's password (`openssl rand -hex 32`) |
+   | `idp_db_password` | the `it_idp` role's password (`openssl rand -hex 32`) |
+   | `op_jwks.json`, `op_cookie_keys.json` | InconsisID's signing and cookie keys (InconsisID `deploy/README.md`) |
+   | `idp_client_jwk.json` | this app's private client JWK; its public half goes in InconsisID's `clients/inconsistable.ts` |
+
+5. **InconsisID client.** Open a PR on InconsisID that registers `inconsistable` with:
+   - the redirect URI `https://<TABLE_HOST>/api/auth/callback`;
+   - the post-logout redirect `https://<TABLE_HOST>/`;
+   - the back-channel URI `https://<TABLE_HOST>/api/auth/backchannel-logout`.
+6. **DNS.** Add two A records, `TABLE_HOST` and `AUTH_HOST`, pointing at the VPS. In Cloudflare, use DNS only (grey
+   cloud). Caddy gets the certificates, and with no proxy in front, leave `TRUST_CF` unset.
+7. **Stack.** In Dockhand, add a git stack for this repo at `deploy/vps/compose.yaml` with the env named at the top of
+   that file:
+   - `TABLE_HOST`, `AUTH_HOST`, `APP_TAG`, `IDP_TAG`;
+   - `DATABASE_URL`, with the `postgres_password` value in it (hex is safe in a URL);
+   - `ADMIN_KEY`.
+
+   Then deploy. The first boot of the empty volume creates the `it_auth` database and its role.
+8. **Cron** (root):
+   ```
+   0 3 * * *  /srv/inconsis/backup.sh
+   0 4 * * 0  docker image prune -af --filter until=168h
+   ```
+   `backup.sh` is `deploy/vps/backup.sh`, copied to the host. It keeps 7 days of `pg_dump -Fc` files for `it` and
+   `it_auth` in `/srv/inconsis/backups`.
+9. **Off-host copy.** Your own machine pulls it, so the VPS holds no credential to anything else, for example nightly
+   `rsync -a <host>:/srv/inconsis/backups/ ~/backups/inconsis/`. Restore one into a scratch database now and then.
+
+**Upgrading:** set `APP_TAG` or `IDP_TAG` to the new tag in Dockhand, then "Pull & redeploy". Migrations run at the
+api's boot (see Migrations), so back up first.
 
 ## Data and backups
 

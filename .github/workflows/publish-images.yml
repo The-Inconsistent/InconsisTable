@@ -1,0 +1,50 @@
+name: Publish images
+
+# Builds the api and web images for the VPS stack (deploy/vps) and pushes them to GHCR. Dockhand pulls them; deploying
+# is a manual "Pull & redeploy" there. Pin the stack to a sha-<short> tag, never to main.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-images
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        image: [api, web]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/the-inconsistent/inconsistable-${{ matrix.image }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=main
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/${{ matrix.image }}.Containerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Reads @the-inconsistent packages during bun install (.npmrc); a build secret never lands in a layer.
+          secrets: npm_token=${{ secrets.GITHUB_TOKEN }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}

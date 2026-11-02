@@ -1,5 +1,11 @@
 import { and, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
-import { createIdpClient, IdpError, type IdpClient, type IdpErrorCode, type SignIn } from "@the-inconsistent/client";
+import {
+  createInconsisIdClient,
+  InconsisIdError,
+  type InconsisIdClient,
+  type InconsisIdErrorCode,
+  type SignIn,
+} from "@the-inconsistent/inconsisid";
 import { isDeviceSecret, type PlatformRole } from "@inconsistable/auth/api";
 import { db, type Tx } from "../core/db.ts";
 import { appUser } from "./auth.schema.ts";
@@ -17,7 +23,7 @@ const TX_TTL = sql`interval '10 minutes'`;
 // tolerance still finds its row.
 const JTI_KEEP_MS = 60_000;
 
-export type Refusal = LocalRefusal | IdpErrorCode;
+export type Refusal = LocalRefusal | InconsisIdErrorCode;
 export type Finished =
   { ok: true; token: string; returnTo: string; userId: string; ended: string[] } | { ok: false; reason: Refusal };
 export type LogoutReceived = { ok: true; ended: string[] } | { ok: false; reason: Refusal };
@@ -94,9 +100,9 @@ export type SignInFlows = ReturnType<typeof signInFlows>;
 // The flows for one configured identity provider. The SDK client is made on first use and remade after a failure,
 // so an api that boots while the provider is down still serves anonymous tables and signs in once it is back.
 export function signInFlows(config: SignInConfig) {
-  let client: Promise<IdpClient> | undefined;
+  let client: Promise<InconsisIdClient> | undefined;
   const idp = () =>
-    (client ??= createIdpClient(config).catch((error: unknown) => {
+    (client ??= createInconsisIdClient(config).catch((error: unknown) => {
       client = undefined;
       throw error;
     }));
@@ -131,7 +137,7 @@ export function signInFlows(config: SignInConfig) {
     try {
       signIn = await (await idp()).finishSignIn(callbackUrl, row.transaction);
     } catch (error) {
-      if (error instanceof IdpError) return { ok: false, reason: error.code };
+      if (error instanceof InconsisIdError) return { ok: false, reason: error.code };
       throw error;
     }
     const ended = await endSessionByToken(previousSession);
@@ -150,7 +156,7 @@ export function signInFlows(config: SignInConfig) {
     try {
       return { ended, redirect: (await idp()).logoutUrl().href };
     } catch (error) {
-      if (error instanceof IdpError) return { ended, redirect: "/" };
+      if (error instanceof InconsisIdError) return { ended, redirect: "/" };
       throw error;
     }
   }
@@ -158,11 +164,11 @@ export function signInFlows(config: SignInConfig) {
   // POST /api/auth/backchannel-logout (§7.6): the SDK verifies the token; a jti seen before is a replay. A `sid` ends
   // that provider session; a token with only `sub` ends every session of the linked user.
   async function receiveLogout(logoutToken: string): Promise<LogoutReceived> {
-    let claims: Awaited<ReturnType<IdpClient["verifyLogoutToken"]>>;
+    let claims: Awaited<ReturnType<InconsisIdClient["verifyLogoutToken"]>>;
     try {
       claims = await (await idp()).verifyLogoutToken(logoutToken);
     } catch (error) {
-      if (error instanceof IdpError) return { ok: false, reason: error.code };
+      if (error instanceof InconsisIdError) return { ok: false, reason: error.code };
       throw error;
     }
     const { sub, sid, jti, exp } = claims;

@@ -13,7 +13,7 @@ import {
 } from "@nestjs/common";
 import type { Request } from "express";
 import { z } from "zod";
-import { IdpError } from "@the-inconsistent/client";
+import { InconsisIdError } from "@the-inconsistent/inconsisid";
 import { RenameAccount, refusalBody } from "@inconsistable/core-schema";
 import { readAccount, renameAccount, type AccountIdp, type AccountView } from "./account.service.ts";
 import { deviceUser } from "./auth.service.ts";
@@ -64,7 +64,7 @@ export class AccountController {
       if (!view) throw new NotFoundException(refusalBody("accountNotFound"));
       return view;
     } catch (error) {
-      if (!(error instanceof IdpError)) throw error;
+      if (!(error instanceof InconsisIdError)) throw error;
       this.log.warn(`account API refused: ${error.code}`);
       const { status, key } = accountRefusal(error.code);
       throw new HttpException(refusalBody(key), status);

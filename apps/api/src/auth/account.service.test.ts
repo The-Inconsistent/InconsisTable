@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { IdpError, type Account } from "@the-inconsistent/client";
+import { InconsisIdError, type Account } from "@the-inconsistent/inconsisid";
 import { deviceSecret } from "@inconsistable/auth/api";
 import { accountRefusal, idpAccountUrl, safeReturnTo } from "./sign-in.rules.ts";
 
@@ -66,11 +66,11 @@ const load = async () => {
 };
 
 // A stub client recording the sub it was asked for; `fail` makes every call refuse with that code.
-const stubIdp = (fail?: ConstructorParameters<typeof IdpError>[0]) => {
+const stubIdp = (fail?: ConstructorParameters<typeof InconsisIdError>[0]) => {
   const asked: string[] = [];
   const answer = (sub: string, displayName = ACCOUNT.displayName) => {
     asked.push(sub);
-    if (fail) throw new IdpError(fail);
+    if (fail) throw new InconsisIdError(fail);
     return Promise.resolve({ ...ACCOUNT, sub, displayName });
   };
   return {
@@ -118,7 +118,7 @@ dbTest("a rename the provider accepts becomes the name tables see; a refused one
 
     await assert.rejects(
       t.renameAccount(stubIdp("account_api_failed").idp, { userId, displayName: "Nope" }),
-      (e: unknown) => e instanceof IdpError && e.code === "account_api_failed",
+      (e: unknown) => e instanceof InconsisIdError && e.code === "account_api_failed",
     );
     assert.equal(await t.nameOf(userId), "Mira", "the local name did not move");
   } finally {

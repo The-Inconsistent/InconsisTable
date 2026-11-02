@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs";
 import { z } from "zod";
-import type { IdpClientOptions, IdpErrorCode } from "@the-inconsistent/client";
+import type { InconsisIdClientOptions, InconsisIdErrorCode } from "@the-inconsistent/inconsisid";
 import type { PlatformRole } from "@inconsistable/auth/api";
 import type { RefusalKey } from "@inconsistable/core-schema";
 
 // The pure rules of signing in, with no database: the boot config, where a sign-in may return to, what the ID token's
 // roles make of an app_user, and the provider's account pages.
 
-// What the api refuses on its own, beside the SDK's IdpErrorCode: a callback without a live transaction, and a logout
+// What the api refuses on its own, beside the SDK's InconsisIdErrorCode: a callback without a live transaction, and a logout
 // token already acted on. Logged, never shown.
 export const LocalRefusal = z.enum(["no_transaction", "replayed"]);
 export type LocalRefusal = z.infer<typeof LocalRefusal>;
@@ -35,7 +35,7 @@ export function idpAccountUrl({
 }
 
 // How an account API refusal reaches the browser: a status and a refusal code, never the SDK's detail.
-export function accountRefusal(code: IdpErrorCode): {
+export function accountRefusal(code: InconsisIdErrorCode): {
   status: 400 | 404 | 502;
   key: RefusalKey;
 } {
@@ -49,7 +49,7 @@ export function accountRefusal(code: IdpErrorCode): {
 export const userRoleOf = (roles: readonly PlatformRole[]): PlatformRole =>
   roles.includes("creator") ? "creator" : "user";
 
-export type SignInConfig = Omit<IdpClientOptions, "privateJwk"> & {
+export type SignInConfig = Omit<InconsisIdClientOptions, "privateJwk"> & {
   privateJwk: PrivateJwk;
   // The web origin the callback lands on; the login POST must come from it (its cookies are set for that origin).
   webOrigin: string;

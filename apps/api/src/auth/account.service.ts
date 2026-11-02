@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import type { Account, IdpClient } from "@the-inconsistent/client";
+import type { Account, InconsisIdClient } from "@the-inconsistent/inconsisid";
 import { db } from "../core/db.ts";
 import { renameUser } from "./auth.service.ts";
 import { identityLink } from "./session.schema.ts";
@@ -11,7 +11,7 @@ import { identityLink } from "./session.schema.ts";
 export type AccountIdp = {
   issuer: string;
   manageUrl: string;
-  client: () => Promise<Pick<IdpClient, "account" | "renameAccount">>;
+  client: () => Promise<Pick<InconsisIdClient, "account" | "renameAccount">>;
 };
 
 const subOf = async (idp: AccountIdp, userId: string) =>
@@ -41,7 +41,7 @@ export const accountView = (account: Account, manageUrl: string) => ({
 });
 export type AccountView = ReturnType<typeof accountView>;
 
-// Null when the user has no account at this issuer. An IdpError passes through for the caller to map.
+// Null when the user has no account at this issuer. An InconsisIdError passes through for the caller to map.
 export async function readAccount(idp: AccountIdp, userId: string): Promise<AccountView | null> {
   const sub = await subOf(idp, userId);
   if (!sub) return null;

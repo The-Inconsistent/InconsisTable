@@ -1,7 +1,7 @@
 import type { PlatformRole } from "./role.ts";
 
-export type { PlatformRole } from "./role.ts";
-export { PLATFORM_ROLES } from "./role.ts";
+export type { PlatformRole, SignInProvider } from "./role.ts";
+export { PLATFORM_ROLES, SIGN_IN_PROVIDERS } from "./role.ts";
 
 // Identity without an account: each device is an anonymous user, named by a random secret in the `it_device` cookie.
 // The web proxy mints it, the api trusts a well-formed one and creates the user on first sight (auth.service.ts).

@@ -22,6 +22,9 @@ export const REFUSALS = {
   onlySpend: "You can only spend {what}",
   creatorsOnly: "Only creators can start a game",
   linkInvalid: "Invalid or revoked link",
+  // Accounts at the identity provider
+  accountNotFound: "InconsisID has no account for this sign-in",
+  accountUnavailable: "InconsisID can't be reached. Try again in a moment.",
   // Games, sessions
   gameNotFound: "Game not found",
   gameArchived: "This game is archived",

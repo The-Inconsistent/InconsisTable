@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { PLATFORM_ROLES } from "@inconsistable/auth/api";
+import { PLATFORM_ROLES, SIGN_IN_PROVIDERS } from "@inconsistable/auth/api";
 
 // The api's replies that carry a seat's table (create room, accept invite, guest join, /api/guest). The id goes into a
 // URL path, so only id characters pass.
@@ -14,6 +14,24 @@ export const AuthMe = z.object({
   account: z.object({ roles: z.array(z.enum(PLATFORM_ROLES)) }).nullable(),
 });
 export type AuthMe = z.infer<typeof AuthMe>;
+
+// /api/account: the signed-in account at InconsisID (accountView in apps/api/src/auth/account.service.ts). `manageUrl`
+// opens InconsisID's own account pages, which come back to /account; only http(s) passes, since it becomes a link.
+export const AccountView = z.object({
+  displayName: z.string(),
+  roles: z.array(z.enum(PLATFORM_ROLES)),
+  createdAt: z.iso.datetime(),
+  signInMethods: z.object({
+    passkeys: z.array(
+      z.object({ name: z.string(), createdAt: z.iso.datetime(), lastUsedAt: z.iso.datetime().nullable() }),
+    ),
+    password: z.object({ username: z.string() }).nullable(),
+    providers: z.array(z.enum(SIGN_IN_PROVIDERS)),
+  }),
+  recoveryCodesLeft: z.number().int().nonnegative(),
+  manageUrl: z.url({ protocol: /^https?$/ }),
+});
+export type AccountView = z.infer<typeof AccountView>;
 
 // The api's refusal body (code, English message, params); any other shape falls back to the caller's own text.
 export const ApiMessage = z.object({

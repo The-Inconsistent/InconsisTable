@@ -94,7 +94,16 @@ test("motion.css declares the duration and easing tokens; felt and the TV re-map
   const motionTv = motion.find((r) => r.selector === '[data-density="tv"]');
   assert.ok(motionRoot && motionFelt && motionTv, "motion :root, felt and tv rules exist");
   const declared = customProps([motionRoot]);
-  for (const t of ["dur-tap", "dur-quick", "dur-move", "dur-scene", "ease-out", "ease-in", "ease-spring"]) {
+  for (const t of [
+    "dur-tap",
+    "dur-quick",
+    "dur-move",
+    "dur-scene",
+    "ease-out",
+    "ease-in",
+    "ease-glide",
+    "ease-spring",
+  ]) {
     assert.ok(declared.has(`--${t}`), `--${t} is declared in motion.css`);
   }
   for (const rule of [motionFelt, motionTv]) {
@@ -103,6 +112,16 @@ test("motion.css declares the duration and easing tokens; felt and the TV re-map
       [],
     );
   }
+});
+
+test("rules read durations and easings from the tokens: no literal time or cubic-bezier outside a keyframe", () => {
+  const literal = /(?<![\w.-])\d*\.?\d+m?s\b|cubic-bezier/;
+  const found = [...lantern, ...felt, ...globals, ...motion].flatMap((r) =>
+    [...r.decls]
+      .filter(([prop, value]) => !prop.startsWith("--") && literal.test(value))
+      .map(([prop, value]) => `${r.selector} { ${prop}: ${value} }`),
+  );
+  assert.deepEqual(found, []);
 });
 
 // ---------- contrast ----------

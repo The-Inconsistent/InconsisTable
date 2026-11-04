@@ -1444,7 +1444,7 @@ summary {
 }
 @media (prefers-reduced-motion: reduce) {
   .turn-banner {
-    animation: turn-flash 1200ms ease-out 1;
+    animation: turn-flash var(--dur-flash) var(--ease-out) 1;
   }
   .roll-key:active,
   .btn:is(:hover, :active):not(:disabled),
@@ -1596,7 +1596,7 @@ summary {
 }
 .pool-faces-grid .btn {
   animation: deal var(--dur-move) var(--ease-out) backwards;
-  animation-delay: min(calc(var(--i, 0) * 30ms), 400ms);
+  animation-delay: calc(min(var(--i, 0), 11) * var(--stagger));
 }
 /* A Dice pool's outcome on the GM's tablet: score and margin large, flags as filled badges that name themselves. */
 .pool-result {

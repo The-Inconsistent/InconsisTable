@@ -9,8 +9,17 @@
   --dur-scene: 420ms;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  /* the place in a staggered run (30ms each); a component sets it inline on each item */
+  /* a shared element travelling between pages (the rail's marker): overshoots a hair and settles */
+  --ease-glide: cubic-bezier(0.3, 1.25, 0.4, 1);
+  /* the place in a staggered run; a component sets it inline on each item, and the run stops growing at the twelfth */
   --i: 0;
+  --stagger: 30ms;
+  /* arriving content waits this long after the old content starts to leave */
+  --delay-arrive: 40ms;
+  /* a value a change just updated flashes once for this long */
+  --dur-flash: 1.2s;
+  /* a page change's direction: 1 going on, -1 going back (set during the transition) */
+  --dir: 1;
   /* an overshoot spring: settles past 1 and back */
   --ease-spring: linear(0, 0.18, 0.56, 0.9, 1.06, 1.08, 1.04, 1.01, 1, 0.995, 1);
 }
@@ -78,6 +87,32 @@
     transform: scale(0.92);
   }
 }
+/* A list a page opens with, or a block an action brings: it rises into place. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+/* A page change: the old content leaves toward the inline start, the new arrives from the inline end. --dir is -1 when
+   going back, which mirrors both. */
+@keyframes leave {
+  to {
+    opacity: 0;
+    translate: calc(var(--dir) * -12px) 0;
+  }
+}
+@keyframes arrive {
+  from {
+    opacity: 0;
+    translate: calc(var(--dir) * 16px) 0;
+  }
+}
+@keyframes spin {
+  to {
+    rotate: 1turn;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   :root,
@@ -86,6 +121,8 @@
   :root.theme-felt [data-density="tv"] {
     --dur-move: 1ms;
     --dur-scene: 1ms;
+    --stagger: 0ms;
+    --delay-arrive: 0ms;
     --ease-spring: var(--ease-out);
   }
   /* The same moments as opacity-only fades. */
@@ -111,6 +148,16 @@
   }
   @keyframes lantern-rise {
     from {
+      opacity: 1;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes spin {
+    to {
       opacity: 1;
     }
   }

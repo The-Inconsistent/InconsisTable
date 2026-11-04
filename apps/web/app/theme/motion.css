@@ -46,6 +46,13 @@
     transform: translateX(4px);
   }
 }
+/* A checkbox or radio is stamped: it lands slightly large and presses in. */
+@keyframes stamp {
+  from {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+}
 /* A counter ticks over: the new number drops in from above. */
 @keyframes tick {
   from {
@@ -91,6 +98,11 @@
   @keyframes shake {
     from {
       opacity: 1;
+    }
+  }
+  @keyframes stamp {
+    from {
+      opacity: 0;
     }
   }
   @keyframes tick {

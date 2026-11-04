@@ -6,7 +6,7 @@ import type { RulesetInput } from "../manifest.ts";
  */
 export const SAMPLE_D20: RulesetInput = {
   id: "sample-d20",
-  version: "0.1.0",
+  version: "0.1.1",
   core: "^0.1.0",
   sources: [{ id: "sample", title: "Sample d20 Rules", license: "private", pageOffset: 0 }],
   terms: { party: "Crew", foe: "Opposition", hp: "Vigour" },

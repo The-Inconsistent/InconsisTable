@@ -105,10 +105,21 @@ console.log(
 );
 
 const lobby = Lobby.parse(await call({ method: "GET", path: "/lobby", cookie: gm }));
-const have = new Set([...lobby.mine, ...lobby.seated, ...lobby.archived].map((g) => g.name));
-const missing = (name: string) => !have.has(name);
+const have = [...lobby.mine, ...lobby.seated, ...lobby.archived];
+// A room counts only while it runs the version just imported: one left on an older sample (the api serves no ruleset
+// for a version that no longer compiles) is replaced by a fresh room beside it.
+async function missing(name: string, versionId?: unknown) {
+  for (const g of have.filter((g) => g.name === name)) {
+    if (versionId === undefined) return false;
+    const rules = (await call({ method: "GET", path: `/campaigns/${g.id}/rules`, cookie: gm })) as {
+      ruleset: { versionId: string } | null;
+    };
+    if (rules.ruleset?.versionId === versionId) return false;
+  }
+  return true;
+}
 
-if (missing("Crypt of Ash"))
+if (await missing("Crypt of Ash", d20.versionId))
   await room({
     owner: gm,
     name: "Crypt of Ash",
@@ -124,7 +135,7 @@ if (missing("Crypt of Ash"))
       await send({ type: "session.start", title: "The sealed door" });
     },
   });
-if (missing("Sunday table"))
+if (await missing("Sunday table", pool.versionId))
   await room({
     owner: gm,
     name: "Sunday table",
@@ -134,7 +145,7 @@ if (missing("Sunday table"))
       await send({ type: "campaign.update", nextSessionAt: new Date(Date.now() + 6 * DAY_MS).toISOString() });
     },
   });
-if (missing("Old one-shot"))
+if (await missing("Old one-shot", d20.versionId))
   await room({
     owner: gm,
     name: "Old one-shot",
@@ -144,7 +155,7 @@ if (missing("Old one-shot"))
     },
   });
 // A table someone else runs, where the sample GM plays: fills "Where you play" and the Characters page.
-if (missing("Lantern Keep"))
+if (await missing("Lantern Keep"))
   await room({
     owner: await person({ name: "Rook" }),
     name: "Lantern Keep",

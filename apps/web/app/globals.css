@@ -306,7 +306,6 @@ fieldset {
   box-shadow: inset 0 1px 0 rgb(255 215 150 / 0.2);
   cursor: pointer;
   transition:
-    color var(--dur-quick) var(--ease-out),
     box-shadow var(--dur-quick) var(--ease-out),
     outline-offset var(--dur-quick) var(--ease-out);
 }
@@ -431,8 +430,6 @@ fieldset {
     transform var(--dur-tap) var(--ease-out),
     box-shadow var(--dur-quick) var(--ease-out),
     filter var(--dur-quick) var(--ease-out),
-    background-color var(--dur-quick) var(--ease-out),
-    color var(--dur-quick) var(--ease-out),
     outline-offset var(--dur-quick) var(--ease-out);
 }
 /* The plate lifts a hair under a pointer and sinks into the wood when pressed. */
@@ -627,21 +624,30 @@ input[type="radio"]:checked {
   background: var(--accent);
   border-color: var(--accent);
 }
-input[type="checkbox"]:checked::before {
+/* The mark is always there, scaled to nothing; checking it springs it in, so a box that loads checked does not stamp. */
+input[type="checkbox"]::before,
+input[type="radio"]::before {
   content: "";
+  background: currentColor;
+  opacity: 0;
+  transform: scale(0);
+  transition:
+    transform var(--dur-move) var(--ease-spring),
+    opacity var(--dur-quick) var(--ease-out);
+}
+input[type="checkbox"]::before {
   width: 18px;
   height: 18px;
-  background: currentColor;
   mask: var(--icon-check) center / contain no-repeat;
-  animation: stamp var(--dur-move) var(--ease-spring);
 }
-input[type="radio"]:checked::before {
-  content: "";
+input[type="radio"]::before {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: currentColor;
-  animation: stamp var(--dur-move) var(--ease-spring);
+}
+input:is([type="checkbox"], [type="radio"]):checked::before {
+  opacity: 1;
+  transform: none;
 }
 label {
   display: grid;

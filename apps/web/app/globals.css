@@ -1446,8 +1446,15 @@ summary {
   .turn-banner {
     animation: turn-flash 1200ms ease-out 1;
   }
-  .roll-key:active {
+  .roll-key:active,
+  .btn:is(:hover, :active):not(:disabled),
+  .chip:is([aria-pressed], [data-status]):active {
     transform: none;
+  }
+  .tab[aria-selected="true"]::before {
+    @starting-style {
+      transform: rotate(45deg);
+    }
   }
   @keyframes turn-flash {
     from {
@@ -1637,6 +1644,26 @@ fieldset:disabled select {
   box-shadow: none;
   border-style: dashed;
   background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgb(128 128 128 / 0.3) 6px 8px);
+  background-size: auto;
+  background-position: 0 0;
+  background-repeat: repeat;
+}
+/* A disabled select keeps its caret over the hatch. */
+select:disabled,
+fieldset:disabled select {
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%),
+    repeating-linear-gradient(135deg, transparent 0 6px, rgb(128 128 128 / 0.3) 6px 8px);
+  background-size:
+    6px 6px,
+    6px 6px,
+    auto;
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 14px) 50%,
+    0 0;
+  background-repeat: no-repeat, no-repeat, repeat;
 }
 
 /* ---------- Admin ledger: dense rows, no ornament ---------- */

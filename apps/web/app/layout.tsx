@@ -10,6 +10,7 @@ import { TOKENS } from "@/lib/tokens/tokens";
 import "./theme/lantern.css";
 import "./globals.css";
 import "./theme/felt.css";
+import "./theme/velvet.css";
 
 // Be Vietnam Pro: one body face for both languages, with a Vietnamese subset. (Atkinson Hyperlegible Next, which reads
 // well at a distance, has no Vietnamese subset on Google Fonts, so a Vietnamese mark would fall to the system face.)
@@ -48,7 +49,7 @@ type RootLayoutProps = { children: React.ReactNode };
 
 export default async function RootLayout({ children }: RootLayoutProps) {
   const locale = await getLocale();
-  // Each device picks its Theme (the switch beside the language one); felt proves a World can re-map the tokens.
+  // Each device picks its Theme (the switch beside the language one); felt and velvet prove a World can re-map the tokens.
   // ponytail: a device-wide pick, upgrade: the World a room belongs to picks its Theme (P2).
   const theme = themeClass(resolveTheme((await cookies()).get(THEME_COOKIE)?.value));
   return (

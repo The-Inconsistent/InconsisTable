@@ -25,7 +25,8 @@
     "label": "Theme",
     "name": {
       "lantern": "Lantern",
-      "felt": "Felt"
+      "felt": "Felt",
+      "velvet": "Velvet"
     }
   },
   "roles": {

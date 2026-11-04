@@ -2,7 +2,7 @@
 
 > Sibling to [backend-code-style.md](./backend-code-style.md). Stack: **Next.js 16** (App Router), **React 19**,
 > **socket.io-client**, plain CSS design tokens (the base Theme `lantern` in `apps/web/app/theme/lantern.css`, the skin
-> in `apps/web/app/globals.css`; each World can re-map the tokens, `felt.css` proves it), and **zod** schemas from
+> in `apps/web/app/globals.css`; each World can re-map the tokens, `felt.css` and `velvet.css` prove it; motion tokens and the motion section are in `globals.css`), and **zod** schemas from
 > `@inconsistable/core-schema` and `@inconsistable/rules-engine`.
 > Architecture and the binding principles are in the root `CLAUDE.md`.
 
@@ -185,3 +185,13 @@ The tracker and codex lists are small (tens of rows), so no virtualisation is ne
   server. The client's evaluation is a preview; the server's is the answer.
 - **Book text never appears in the UI by default.** Rules show the importer's summary and the page cite; the page itself
   comes only through the GM's `book:*` relay.
+
+## Motion
+
+- **Motion is tokens.** Durations and easings are `--dur-fast`, `--dur`, `--dur-slow`, `--ease-out`, `--ease-spring`,
+  `--ease-in-out` (`globals.css`). Never write a raw duration in a component.
+- **Movement only under `prefers-reduced-motion: no-preference`.** Every `transform`, `translate`, `scale` and keyframe
+  that moves something lives in the Motion section at the end of `globals.css`. Colour transitions may stay outside it.
+- **Things arrive, they don't perform.** A card rises once when dealt, a sheet slides up, a menu unfolds from its
+  button, a press gives under the finger. No loops beyond the live dot, nothing that moves while the table plays.
+- **Animate with `translate` and `scale`,** not `transform`, so an entrance never fights a card's own tilt.

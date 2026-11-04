@@ -18,6 +18,16 @@
   --fs-title: 32px;
   --fs-name: 21px;
   --fs-banner: 28px;
+
+  /* motion: one vocabulary for the whole app. Short and calm: a table glances at the screen, it never watches it.
+     Movement is only switched on under prefers-reduced-motion: no-preference (the motion section near the end). */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 140ms;
+  --dur: 220ms;
+  --dur-slow: 420ms;
+  --radius-field: clamp(10px, var(--radius-btn), 14px);
 }
 /* Tablet: dense, a tap still at least 44px. */
 @media (min-width: 768px) {
@@ -67,9 +77,24 @@ body {
   font-family: var(--font-body);
   font-size: var(--fs-body);
   line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
 }
 a {
   color: var(--link);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: from-font;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+::selection {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+}
+/* Scroll strips (the tabs, the rail, the seat strip) carry a thin brass thumb instead of the system's grey bar. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--brass) 55%, transparent) transparent;
 }
 :focus-visible {
   outline: 3px solid var(--focus);
@@ -216,11 +241,12 @@ fieldset {
     360px 120px,
     auto;
   color: var(--band-ink);
-  border-bottom: 3px solid var(--brass);
+  border-bottom: 2px solid var(--brass);
   box-shadow:
     inset 0 1px 0 rgb(255 215 150 / 0.16),
-    0 2px 0 var(--brass-lo),
-    0 8px 18px rgb(0 0 0 / 0.6);
+    inset 0 -1px 0 color-mix(in srgb, var(--brass-hi) 60%, transparent),
+    0 1px 0 var(--brass-lo),
+    0 10px 28px rgb(0 0 0 / 0.45);
 }
 .band strong {
   font-size: 22px;
@@ -240,7 +266,7 @@ fieldset {
   color: var(--accent-ink);
   border: 2px solid var(--brass-ink);
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-field);
   font-size: var(--fs-small);
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -275,13 +301,27 @@ fieldset {
     auto;
   border-bottom: 2px solid var(--brass-lo);
 }
-/* The phone's bottom bar: stays under the thumb and clear of the home indicator. */
+/* The phone's bottom bar: stays under the thumb and clear of the home indicator. Frosted, so the page reads as
+   sliding under it. */
 .tabs-bottom {
   position: sticky;
   bottom: 0;
   z-index: 5;
   border-bottom: 0;
   border-top: 2px solid var(--brass-lo);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .tabs-bottom,
+  .fightbar {
+    background:
+      var(--grain-h),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--wood) 82%, transparent),
+        color-mix(in srgb, var(--wood-0) 90%, transparent)
+      );
+    backdrop-filter: blur(14px) saturate(1.3);
+  }
 }
 .safe-bottom {
   padding-bottom: max(8px, env(safe-area-inset-bottom));
@@ -298,9 +338,17 @@ fieldset {
   background: linear-gradient(180deg, var(--wood-3), var(--wood-2));
   border: 1px solid var(--brass-lo);
   border-bottom: 0;
-  border-radius: 7px 7px 0 0;
+  border-radius: var(--radius-field) var(--radius-field) 0 0;
   box-shadow: inset 0 1px 0 rgb(255 215 150 / 0.2);
   cursor: pointer;
+  transition:
+    background var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    filter var(--dur-fast) var(--ease-out);
+}
+.tab:hover:not([aria-selected="true"]) {
+  filter: brightness(1.15);
 }
 .tab[aria-selected="true"] {
   font-weight: 800;
@@ -409,17 +457,43 @@ fieldset {
   align-items: center;
   justify-content: center;
   text-decoration: none;
+  user-select: none;
   box-shadow:
     inset 0 1px 0 var(--plate-lit),
-    0 2px 0 var(--plate-shade);
+    0 2px 0 var(--plate-shade),
+    0 4px 12px rgb(0 0 0 / 0.12);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background-color var(--dur) var(--ease-out),
+    background-position 700ms var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out),
+    filter var(--dur-fast) var(--ease-out);
 }
+.btn:hover:not(:disabled, [aria-pressed="true"]) {
+  filter: brightness(1.07);
+}
+/* The main action: a brass plate with a sheen that sweeps across it under the pointer, and a warm glow. */
 .btn.primary {
-  background: var(--plate-main);
+  background:
+    linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.45) 50%, transparent 70%) -160% 0 / 60% 100% no-repeat,
+    var(--plate-main);
   border-color: var(--brass-lo);
   color: var(--plate-main-ink);
   box-shadow:
     inset 0 1px 0 rgb(255 240 191 / 0.8),
-    0 2px 0 var(--brass-lo);
+    0 2px 0 var(--brass-lo),
+    0 6px 18px color-mix(in srgb, var(--brass) 22%, transparent);
+}
+.btn.primary:hover:not(:disabled) {
+  background-position:
+    260% 0,
+    0 0;
+  box-shadow:
+    inset 0 1px 0 rgb(255 240 191 / 0.8),
+    0 2px 0 var(--brass-lo),
+    0 8px 26px color-mix(in srgb, var(--brass) 40%, transparent);
 }
 .btn.sm {
   min-height: 32px;
@@ -459,13 +533,36 @@ fieldset {
   background: currentColor;
   mask: var(--icon-check) center / contain no-repeat;
 }
+/* A segmented control: the choices sit in one recessed track, the picked one is the raised, inverted plate. */
 .seg {
   display: flex;
   gap: 4px;
+  padding: 3px;
+  border-radius: calc(var(--radius-btn) + 3px);
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.22);
 }
 .seg .btn {
   flex: 1;
   white-space: nowrap; /* the pressed check would push a two-word label onto a second line */
+}
+.seg .btn:not([aria-pressed="true"]) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.seg .btn:not([aria-pressed="true"]):hover {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.seg .btn[aria-pressed="true"] {
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.3);
+}
+.seg .btn.sm {
+  padding: 0 8px;
+}
+/* A long set of choices (the Themes) wraps onto a second line before it would overflow a narrow rail. */
+.seg-wrap {
+  flex-wrap: wrap;
 }
 
 /* Settings in the header band: a single small button that unfolds a card under it (the language and the Theme). */
@@ -474,6 +571,12 @@ fieldset {
 }
 .menu > summary {
   list-style: none;
+  font-size: 22px;
+  letter-spacing: 0.05em;
+}
+.menu[open] > summary {
+  background: color-mix(in srgb, var(--brass) 28%, transparent);
+  border-color: var(--brass);
 }
 .menu > summary::-webkit-details-marker {
   display: none;
@@ -485,34 +588,73 @@ fieldset {
   z-index: 6;
   display: grid;
   gap: 8px;
-  min-width: 168px;
+  min-width: 280px;
+  transform-origin: top right;
 }
 
+/* Fields: a recessed well that lifts its rim on hover and lights it on focus. The focus ring itself is the global
+   :focus-visible one (outline and halo), so it holds the same 3:1 everywhere. */
+input,
+select,
+textarea {
+  border-radius: var(--radius-field);
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  min-width: 0;
+  box-shadow:
+    inset 0 2px 4px rgb(0 0 0 / 0.18),
+    0 1px 0 rgb(255 255 255 / 0.05);
+  transition:
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background-color var(--dur) var(--ease-out);
+}
 input,
 select {
   min-height: var(--tap);
-  padding: 0 10px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: var(--paper);
-  color: var(--ink);
-  font: inherit;
-  min-width: 0;
-  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.25);
+  padding: 0 12px;
+}
+textarea {
+  padding: 10px 12px;
+}
+:is(input, select, textarea):hover:not(:disabled, :focus) {
+  border-color: color-mix(in srgb, var(--line), var(--ink) 40%);
+}
+:is(input, select, textarea):focus {
+  border-color: var(--focus);
+}
+::placeholder {
+  color: var(--ink-2);
+  opacity: 0.75;
+}
+/* A select draws its own chevron in the ink, so it matches the Theme on every system. */
+select {
+  appearance: none;
+  padding-right: 38px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink-2) 50%),
+    linear-gradient(135deg, var(--ink-2) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 52%,
+    calc(100% - 14px) 52%;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+  cursor: pointer;
 }
 input[type="checkbox"],
 input[type="radio"] {
+  min-height: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  box-shadow: none;
   accent-color: var(--accent);
+  cursor: pointer;
 }
-textarea {
-  padding: 8px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: var(--paper);
-  color: var(--ink);
-  font: inherit;
-  min-width: 0;
-  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.25);
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
 }
 label {
   display: grid;
@@ -526,6 +668,9 @@ label {
   padding: 2px 11px;
   font-size: var(--fs-small);
   font-weight: 600;
+  transition:
+    background-color var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out);
 }
 .card .chip,
 .combatant .chip {
@@ -548,7 +693,7 @@ label {
 .qr {
   width: min(100%, 320px);
   height: auto;
-  border-radius: 8px;
+  border-radius: 14px;
   background: var(--paper);
 }
 .list {
@@ -635,8 +780,14 @@ textarea.json {
   background: var(--paper);
   border: 1px solid var(--line);
   border-left-width: 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-field);
   cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.problem:hover {
+  background: var(--paper-2);
 }
 .problem[data-tone="error"] {
   border-left-color: var(--accent);
@@ -721,7 +872,7 @@ summary {
   min-width: 0;
   min-height: 92px;
   border: 2px solid var(--line);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--paper);
   color: var(--ink);
   font-size: 56px;
@@ -729,6 +880,10 @@ summary {
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   box-shadow: inset 0 3px 8px rgb(110 70 20 / 0.35);
+  transition:
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    transform var(--dur) var(--ease-spring);
 }
 .roll-slot[aria-pressed="true"] {
   border-color: var(--accent);
@@ -744,16 +899,23 @@ summary {
 .roll-key {
   min-height: var(--tap-key);
   border: 1px solid var(--plate-line);
-  border-radius: 10px;
+  border-radius: var(--radius-field);
   background: var(--plate);
   color: var(--ink);
   font: inherit;
   font-size: 28px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
   box-shadow:
     inset 0 1px 0 var(--plate-lit),
     0 3px 0 var(--plate-shade);
+  transition:
+    transform 90ms var(--ease-out),
+    box-shadow 90ms var(--ease-out),
+    filter var(--dur-fast) var(--ease-out);
 }
 .roll-key:active {
   transform: translateY(2px);
@@ -808,9 +970,16 @@ summary {
   min-height: 56px;
   padding: 10px 12px;
   border: 2px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: var(--paper);
   cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background-color var(--dur) var(--ease-out);
+}
+.pick:hover {
+  background: var(--paper-2);
 }
 .pick:has(input:checked) {
   border-color: var(--accent);
@@ -868,7 +1037,7 @@ summary {
 }
 .derived-list div {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   padding: 8px 12px;
   background: var(--paper);
 }
@@ -892,8 +1061,14 @@ summary {
   padding: 10px 16px;
   padding-bottom: max(10px, env(safe-area-inset-bottom));
   background: var(--paper);
-  border-top: 3px solid var(--brass);
-  box-shadow: 0 -6px 14px rgb(0 0 0 / 0.2);
+  border-top: 2px solid var(--brass);
+  box-shadow: 0 -10px 30px rgb(0 0 0 / 0.22);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .build-bar {
+    background: color-mix(in srgb, var(--paper) 86%, transparent);
+    backdrop-filter: blur(14px) saturate(1.2);
+  }
 }
 .problem-lines {
   margin: 0;
@@ -909,11 +1084,18 @@ summary {
   min-height: 56px;
   padding: 8px 12px;
   border: 2px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: var(--paper);
   color: var(--ink);
   font: inherit;
   cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background-color var(--dur) var(--ease-out);
+}
+.found:hover {
+  background: var(--paper-2);
 }
 .found[aria-pressed="true"] {
   border-color: var(--accent);
@@ -1035,11 +1217,12 @@ summary {
   padding-bottom: max(16px, env(safe-area-inset-bottom));
   color: var(--ink);
   background: var(--bg-card);
-  border-top: 4px solid var(--brass);
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  border-top: 3px solid var(--brass);
+  border-radius: max(var(--radius-card), 18px) max(var(--radius-card), 18px) 0 0;
   box-shadow:
     inset 0 0 34px rgb(150 100 40 / 0.3),
-    0 -8px 18px rgb(0 0 0 / 0.5);
+    0 -12px 40px rgb(0 0 0 / 0.5);
+  overscroll-behavior: contain;
 }
 .bottom-sheet .bottom-sheet {
   z-index: 11;
@@ -1146,7 +1329,7 @@ summary {
 .bar {
   height: 14px;
   min-width: 90px;
-  border-radius: 6px;
+  border-radius: 999px;
   border: 1px solid var(--wood-2);
   background: var(--wood-2);
   overflow: hidden;
@@ -1155,7 +1338,10 @@ summary {
 .bar > span {
   display: block;
   height: 100%;
+  border-radius: inherit;
   background: linear-gradient(180deg, var(--moss), var(--ok));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35);
+  transition: width var(--dur-slow) var(--ease-out);
 }
 /* Low health is a different fill pattern as well as a different colour. */
 .bar[data-low="true"] > span {
@@ -1229,7 +1415,7 @@ summary {
   margin: 0;
   min-height: 52px;
   padding: 2px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: rgb(110 70 20 / 0.14);
   box-shadow: inset 0 3px 6px rgb(110 70 20 / 0.3);
   font-size: 48px;
@@ -1517,10 +1703,18 @@ fieldset:disabled select {
   background: var(--paper);
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: var(--radius-btn);
+  border-radius: max(var(--radius-card), 16px);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.45);
 }
 .ledger-confirm::backdrop {
   background: rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(4px);
+}
+.ledger tbody tr {
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.ledger tbody tr:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
 }
 .ledger-confirm .row {
   margin-top: 12px;
@@ -1629,6 +1823,11 @@ fieldset:disabled select {
   font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
+  transition:
+    background-color var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out);
 }
 .ws-link::before {
   content: "";
@@ -1703,7 +1902,8 @@ fieldset:disabled select {
   align-items: flex-end;
   justify-content: space-between;
   padding-bottom: 14px;
-  border-bottom: 2px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(90deg, var(--accent), transparent 40%) bottom / 100% 2px no-repeat;
 }
 .ws-head > div {
   flex: 1 1 24ch;
@@ -1729,6 +1929,9 @@ fieldset:disabled select {
   align-content: start;
   color: var(--ink);
   text-decoration: none;
+  transition:
+    translate var(--dur) var(--ease-out),
+    filter var(--dur) var(--ease-out);
 }
 .ws-tile:hover::before {
   box-shadow:
@@ -1744,7 +1947,7 @@ fieldset:disabled select {
   margin-right: 6px;
   border-radius: 50%;
   background: var(--ok);
-  box-shadow: 0 0 0 2px rgb(62 106 42 / 0.25);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ok) 25%, transparent);
 }
 .chip[data-status] {
   border-style: dashed;
@@ -2006,4 +2209,174 @@ fieldset:disabled select {
   color: var(--ink);
   border: 2px solid var(--brass);
   border-radius: 12px;
+}
+
+/* ---------- Motion ----------
+   Everything that moves lives here, and only moves when the device allows it. The rules: things arrive (a card rises,
+   a sheet slides up, a menu unfolds from its button), a press gives under the finger, the acting slip glides into
+   place. Nothing loops except the live dot, nothing moves on its own while a table is playing. Under reduced motion the
+   colour changes stay and every movement is gone. */
+@media (prefers-reduced-motion: no-preference) {
+  :focus-visible {
+    animation: focus-in var(--dur) var(--ease-out);
+  }
+  @keyframes focus-in {
+    from {
+      outline-offset: 7px;
+      outline-color: transparent;
+    }
+  }
+
+  /* A press gives under the finger; a hover lifts the plate a hair. */
+  .btn:hover:not(:disabled, [aria-pressed="true"], .seg .btn) {
+    transform: translateY(-1px);
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(1px) scale(0.98);
+    transition-duration: 60ms;
+  }
+  .roll-key:active:not(:disabled) {
+    transform: translateY(2px) scale(0.97);
+  }
+  .roll-slot[aria-pressed="true"] {
+    transform: translateY(-2px);
+  }
+  .tab[aria-selected="true"]::before {
+    animation: pop var(--dur-slow) var(--ease-spring);
+  }
+  .btn[aria-pressed="true"]::before {
+    animation: pop var(--dur) var(--ease-spring);
+  }
+  @keyframes pop {
+    from {
+      scale: 0;
+    }
+  }
+
+  /* Cards are dealt onto the table: each rises in turn. `translate` and `scale` leave each card's own tilt alone. */
+  .grid > .card,
+  .order > .combatant,
+  .sheet > .sheet-card,
+  .stack > .card {
+    animation: deal var(--dur-slow) var(--ease-out) backwards;
+  }
+  :is(.grid, .order, .sheet, .stack) > :nth-child(2) {
+    animation-delay: 40ms;
+  }
+  :is(.grid, .order, .sheet, .stack) > :nth-child(3) {
+    animation-delay: 80ms;
+  }
+  :is(.grid, .order, .sheet, .stack) > :nth-child(4) {
+    animation-delay: 120ms;
+  }
+  :is(.grid, .order, .sheet, .stack) > :nth-child(5) {
+    animation-delay: 160ms;
+  }
+  :is(.grid, .order, .sheet, .stack) > :nth-child(n + 6) {
+    animation-delay: 200ms;
+  }
+  @keyframes deal {
+    from {
+      opacity: 0;
+      translate: 0 10px;
+      scale: 0.985;
+    }
+  }
+
+  /* A tile you can open lifts toward the hand. */
+  .ws-tile:hover {
+    translate: 0 -3px;
+    filter: drop-shadow(0 8px 6px var(--shadow)) drop-shadow(0 20px 24px rgb(0 0 0 / 0.3));
+  }
+
+  /* The acting slip glides out of line instead of jumping. */
+  .combatant {
+    transition:
+      transform var(--dur-slow) var(--ease-spring),
+      filter var(--dur-slow) var(--ease-out),
+      outline-offset var(--dur) var(--ease-out);
+  }
+
+  /* A page of the workspace fades up as it opens. */
+  .ws-main > * {
+    animation: page-in var(--dur-slow) var(--ease-out) backwards;
+  }
+  @keyframes page-in {
+    from {
+      opacity: 0;
+      translate: 0 6px;
+    }
+  }
+
+  /* Panels arrive from where they belong: the sheet from the bottom edge, the menu out of its button, the dialog from
+     the middle of the screen. */
+  .bottom-sheet {
+    animation: rise var(--dur-slow) var(--ease-out);
+  }
+  @keyframes rise {
+    from {
+      translate: 0 100%;
+    }
+  }
+  .menu[open] > .menu-pop {
+    animation: unfold var(--dur) var(--ease-spring);
+  }
+  @keyframes unfold {
+    from {
+      opacity: 0;
+      scale: 0.94;
+      translate: 0 -6px;
+    }
+  }
+  .ledger-confirm[open] {
+    animation: unfold var(--dur) var(--ease-out);
+  }
+  .ledger-confirm[open]::backdrop {
+    animation: fade var(--dur) var(--ease-out);
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+  }
+
+  /* A message the api sends back (saved, refused, a reminder, the offer) slides in beside its control. */
+  .error,
+  .saved,
+  .reminder,
+  .offer,
+  .end-notice,
+  .badge-offline {
+    animation: note-in var(--dur) var(--ease-out);
+  }
+  @keyframes note-in {
+    from {
+      opacity: 0;
+      translate: -6px 0;
+    }
+  }
+
+  /* A die marked as read lands with a small bounce. */
+  .pool-die[data-set="true"] {
+    animation: land var(--dur) var(--ease-spring);
+  }
+  @keyframes land {
+    from {
+      scale: 0.7;
+    }
+  }
+
+  /* The live dot breathes: the one loop in the app, so a running session reads from across the room. */
+  .chip[data-live="true"]::before {
+    animation: live 2.4s var(--ease-in-out) infinite;
+  }
+  @keyframes live {
+    50% {
+      box-shadow: 0 0 0 5px color-mix(in srgb, var(--ok) 0%, transparent);
+    }
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 45%, transparent);
+    }
+  }
 }

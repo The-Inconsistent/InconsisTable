@@ -25,7 +25,8 @@
     "label": "Giao diện",
     "name": {
       "lantern": "Đèn lồng",
-      "felt": "Nỉ xanh"
+      "felt": "Nỉ xanh",
+      "velvet": "Nhung"
     }
   },
   "roles": {

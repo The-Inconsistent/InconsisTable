@@ -50,11 +50,16 @@ const merge = (...rules: Rule[]) => new Map(rules.flatMap((r) => [...r.decls]));
 
 const lantern = rulesOf(read("app/theme/lantern.css"));
 const felt = rulesOf(read("app/theme/felt.css"));
+const velvet = rulesOf(read("app/theme/velvet.css"));
 const globals = rulesOf(read("app/globals.css"));
 const lanternRoot = lantern.find((r) => r.selector === ":root");
 const feltRoot = felt.find((r) => r.selector === ":root.theme-felt");
+const velvetRoot = velvet.find((r) => r.selector === ":root.theme-velvet");
 const cardScope = lantern.find((r) => r.selector.split(",").some((s) => s.trim() === ".parchment"));
-assert.ok(lanternRoot && feltRoot && cardScope, "lantern :root, felt :root.theme-felt and the .parchment scope exist");
+assert.ok(
+  lanternRoot && feltRoot && velvetRoot && cardScope,
+  "lantern :root, felt :root.theme-felt, velvet :root.theme-velvet and the .parchment scope exist",
+);
 
 // Properties next/font injects on <html>; they are not the Theme's to declare.
 const FONT_VARS = new Set(["--font-text", "--font-display-face", "--font-display-felt"]);
@@ -77,15 +82,20 @@ test("every var(--x) the app uses is declared by the base Theme", () => {
   assert.deepEqual(missing, []);
 });
 
-test("felt re-maps every token the base Theme declares", () => {
-  const base = customProps([lanternRoot!]);
-  const remapped = customProps([feltRoot!]);
-  assert.deepEqual(
-    [...base].filter((t) => !remapped.has(t)),
-    [],
-  );
-  assert.ok(base.size > 40, "the base Theme declares its tokens on :root");
-});
+for (const [theme, root] of [
+  ["felt", feltRoot!],
+  ["velvet", velvetRoot!],
+] as const) {
+  test(`${theme} re-maps every token the base Theme declares`, () => {
+    const base = customProps([lanternRoot!]);
+    const remapped = customProps([root]);
+    assert.deepEqual(
+      [...base].filter((t) => !remapped.has(t)),
+      [],
+    );
+    assert.ok(base.size > 40, "the base Theme declares its tokens on :root");
+  });
+}
 
 // ---------- contrast ----------
 
@@ -160,6 +170,7 @@ const FOCUS_PAIRS: [string, string][] = [
 for (const [theme, rules] of [
   ["lantern", [lanternRoot!]],
   ["felt", [lanternRoot!, feltRoot!]],
+  ["velvet", [lanternRoot!, velvetRoot!]],
 ] as const) {
   const root = merge(...rules);
   const contexts = [

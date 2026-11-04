@@ -467,6 +467,19 @@ fieldset {
 .btn[aria-busy="true"] {
   opacity: 0.7;
 }
+/* Busy: a small ring turns after the label, inside the padding, so the button keeps its size. */
+.btn[aria-busy="true"]::before {
+  content: "";
+  position: absolute;
+  inset-inline-end: 3px;
+  top: calc(50% - 5px);
+  width: 10px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: spin var(--dur-spin) linear infinite;
+}
 .btn[data-sent="ok"] {
   outline: 3px solid var(--ok);
   outline-offset: 2px;
@@ -518,6 +531,13 @@ fieldset {
   display: grid;
   gap: 8px;
   min-width: 168px;
+  transition:
+    opacity var(--dur-quick) var(--ease-out),
+    translate var(--dur-move) var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    translate: 0 -6px;
+  }
 }
 
 /* Fields are wells cut into the material: recessed, with a brass underline that grows from the middle on focus. */
@@ -1444,7 +1464,7 @@ summary {
 }
 @media (prefers-reduced-motion: reduce) {
   .turn-banner {
-    animation: turn-flash 1200ms ease-out 1;
+    animation: turn-flash var(--dur-flash) var(--ease-out) 1;
   }
   .roll-key:active,
   .btn:is(:hover, :active):not(:disabled),
@@ -1596,7 +1616,7 @@ summary {
 }
 .pool-faces-grid .btn {
   animation: deal var(--dur-move) var(--ease-out) backwards;
-  animation-delay: min(calc(var(--i, 0) * 30ms), 400ms);
+  animation-delay: calc(min(var(--i, 0), 11) * var(--stagger));
 }
 /* A Dice pool's outcome on the GM's tablet: score and margin large, flags as filled badges that name themselves. */
 .pool-result {
@@ -1715,6 +1735,37 @@ fieldset:disabled select {
 }
 .ledger-confirm::backdrop {
   background: rgb(0 0 0 / 0.55);
+}
+/* The dialog rises out of the top layer and sinks back into it; overlay and display hold it there while it leaves. */
+.ledger-confirm,
+.ledger-confirm::backdrop {
+  transition-property: opacity, translate, scale, background-color, overlay, display;
+  transition-duration: var(--dur-quick);
+  transition-timing-function: var(--ease-in);
+  transition-behavior: allow-discrete;
+}
+.ledger-confirm[open],
+.ledger-confirm[open]::backdrop {
+  transition-duration: var(--dur-scene);
+  transition-timing-function: var(--ease-out);
+}
+.ledger-confirm:not([open]) {
+  opacity: 0;
+  translate: 0 10px;
+  scale: 0.97;
+}
+.ledger-confirm:not([open])::backdrop {
+  background-color: transparent;
+}
+@starting-style {
+  .ledger-confirm[open] {
+    opacity: 0;
+    translate: 0 10px;
+    scale: 0.97;
+  }
+  .ledger-confirm[open]::backdrop {
+    background-color: transparent;
+  }
 }
 .ledger-confirm .row {
   margin-top: 12px;
@@ -1845,6 +1896,7 @@ fieldset:disabled select {
   border-color: var(--brass-lo);
   background: rgb(255 215 150 / 0.08);
 }
+/* The lit plate, with its label, glides from the old page's link to the new one's on a page change. */
 .ws-link[aria-current="page"] {
   font-weight: 800;
   color: var(--plate-main-ink);
@@ -1854,6 +1906,7 @@ fieldset:disabled select {
     inset 0 1px 0 rgb(255 240 191 / 0.8),
     0 2px 0 var(--brass-lo),
     0 0 18px rgb(255 182 79 / 0.3);
+  view-transition-name: nav-mark;
 }
 .ws-link:focus-visible {
   outline-offset: -4px;
@@ -2200,4 +2253,91 @@ fieldset:disabled select {
   color: var(--ink);
   border: 2px solid var(--brass);
   border-radius: 12px;
+}
+
+/* ---------- Page change ----------
+   In the workspace the rail stays and the page beside it changes on the client: the template's <ViewTransition> marks
+   the old page "leave" and the new one "arrive", and the rail's plate (nav-mark) glides between links. A full load (a
+   room, the admin page, back to the rooms) is a cross-document transition of type "page": the whole page leaves and
+   arrives, and a header band on both pages holds. Going back (a rail link above the current page, the browser's back)
+   mirrors both. Reduced motion cuts them. Each selector stands alone, so a browser without transition types still
+   runs the rest. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+    types: page;
+  }
+}
+.band {
+  view-transition-name: band;
+}
+::view-transition {
+  pointer-events: none;
+}
+:root:active-view-transition-type(back) {
+  --dir: -1;
+}
+:root[data-back] {
+  --dir: -1;
+}
+::view-transition-old(.leave) {
+  animation: leave var(--dur-quick) var(--ease-in) both;
+}
+::view-transition-new(.arrive) {
+  animation: arrive var(--dur-move) var(--ease-out) var(--delay-arrive) both;
+}
+:root:active-view-transition-type(page)::view-transition-old(root) {
+  animation: leave var(--dur-quick) var(--ease-in) both;
+}
+:root:active-view-transition-type(page)::view-transition-new(root) {
+  animation: arrive var(--dur-move) var(--ease-out) var(--delay-arrive) both;
+}
+::view-transition-group(nav-mark) {
+  animation-duration: var(--dur-scene);
+  animation-timing-function: var(--ease-glide);
+}
+::view-transition-group(band) {
+  animation-duration: var(--dur-quick);
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* ---------- Entrances ----------
+   A list a page opens with rises in a run (each item sets --i; the run stops growing at the twelfth), and a block an
+   action brings rises alone. Only under html.motion, which the layout's script adds at the first frame, so a page whose
+   frames never run still shows everything. */
+.motion .rise-list > * {
+  animation: rise var(--dur-move) var(--ease-out) backwards;
+  animation-delay: calc(min(var(--i), 11) * var(--stagger));
+}
+.motion :is(.saved, #new-room, #import-panel) {
+  animation: rise var(--dur-move) var(--ease-out) backwards;
+}
+/* The admin ledger's filter: rows travel to their new places, a row that comes back rises, one that goes fades. */
+::view-transition-group(.row) {
+  animation-duration: var(--dur-move);
+  animation-timing-function: var(--ease-out);
+}
+::view-transition-new(.rise) {
+  animation: rise var(--dur-move) var(--ease-out) both;
+}
+::view-transition-old(.fade) {
+  animation: fade var(--dur-quick) var(--ease-in) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn[aria-busy="true"]::before {
+    animation: none;
+  }
+  .ledger-confirm,
+  .ledger-confirm::backdrop {
+    transition-property: opacity, background-color, overlay, display;
+  }
+  .menu-pop {
+    transition-property: opacity;
+  }
 }

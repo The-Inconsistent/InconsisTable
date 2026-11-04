@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 import Link from "next/link";
+import type { CSSProperties } from "react";
 
 import type { LobbyCharacter } from "@inconsistable/core-schema";
 
@@ -30,9 +31,9 @@ export function CharactersView({ characters }: CharactersViewProps) {
           <h2 className="head">
             {held[0]?.campaignName} <span className="ws-tally">{held.length}</span>
           </h2>
-          <div className="grid">
-            {held.map((c) => (
-              <a key={c.id} className="card ws-tile" href={`/c/${campaignId}`}>
+          <div className="grid rise-list">
+            {held.map((c, i) => (
+              <a key={c.id} className="card ws-tile" href={`/c/${campaignId}`} style={{ "--i": i } as CSSProperties}>
                 <strong className="card-name">{c.name}</strong>
                 <span className="row small">
                   <span className="chip">{t(`kind.${c.kind}`)}</span>

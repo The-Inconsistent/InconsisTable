@@ -1,6 +1,6 @@
 "use client";
 import { useLocale, useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
@@ -61,11 +61,11 @@ export function PackList({ packs, onChanged }: PackListProps) {
   if (packs.length === 0) return <p className="dim">{t("empty")}</p>;
   return (
     <>
-      <ul className="stack library-list">
-        {packs.map((p) => {
+      <ul className="stack library-list rise-list">
+        {packs.map((p, i) => {
           const latest = p.versions[0];
           return (
-            <li key={p.id} className="card">
+            <li key={p.id} className="card" style={{ "--i": i } as CSSProperties}>
               <div className="row between">
                 <strong className="card-name">{p.slug}</strong>
                 <span className="row">

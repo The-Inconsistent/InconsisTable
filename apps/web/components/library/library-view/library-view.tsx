@@ -1,7 +1,7 @@
 "use client";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 
 import { PageHead } from "@/components/ui/page-head/page-head";
 import { formatBytes, type PackList as PackListData, type RulesetList } from "@/lib/library/library";
@@ -51,9 +51,9 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
         {rulesets.length === 0 ? (
           <p className="dim">{t("noRulesets")}</p>
         ) : (
-          <ul className="grid library-list">
-            {rulesets.map((r) => (
-              <li key={r.id} className="card">
+          <ul className="grid library-list rise-list">
+            {rulesets.map((r, i) => (
+              <li key={r.id} className="card" style={{ "--i": i } as CSSProperties}>
                 <strong className="card-name">{r.slug}</strong>
                 <p className="row small">
                   {r.versions.map((v) => (

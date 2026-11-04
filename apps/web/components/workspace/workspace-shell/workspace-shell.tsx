@@ -27,7 +27,7 @@ export function WorkspaceShell({ lobby, children }: WorkspaceShellProps) {
         {t("skip")}
       </a>
       <aside className="ws-rail" aria-label={t("rail")}>
-        <Link className="ws-brand" href="/">
+        <Link className="ws-brand" href="/" transitionTypes={["back"]}>
           <span className="ws-mark" aria-hidden="true" />
           <strong>{tCommon("brand")}</strong>
         </Link>

@@ -1,6 +1,16 @@
 "use client";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  ViewTransition,
+  type ChangeEvent,
+  type CSSProperties,
+  type FormEvent,
+} from "react";
 
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
@@ -22,9 +32,15 @@ function Ledger({ campaigns, onForget }: LedgerProps) {
   const t = useTranslations("admin");
   const locale = useLocale();
   const [query, setQuery] = useState("");
+  // The rows follow the filter a beat behind the field, inside a transition, so they travel to their new places.
+  const shown = useDeferredValue(query);
+  const [filtered, setFiltered] = useState(false);
   const [target, setTarget] = useState<AdminCampaign | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
-  const rows = useMemo(() => filterCampaigns({ campaigns: sortByLastPlayed(campaigns), query }), [campaigns, query]);
+  const rows = useMemo(
+    () => filterCampaigns({ campaigns: sortByLastPlayed(campaigns), query: shown }),
+    [campaigns, shown],
+  );
   const date = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "medium" }), [locale]);
 
   // Asks first: the dialog says the opening is logged.
@@ -33,6 +49,11 @@ function Ledger({ campaigns, onForget }: LedgerProps) {
     dialog.current?.showModal();
   };
   const handleCancel = () => dialog.current?.close();
+  // The filter field: from the first keystroke on, rows move with the filter instead of rising as a run.
+  const handleFilter = (e: ChangeEvent<HTMLInputElement>) => {
+    setQuery(e.target.value);
+    setFiltered(true);
+  };
 
   return (
     <>
@@ -50,7 +71,7 @@ function Ledger({ campaigns, onForget }: LedgerProps) {
       <main className="page">
         <label className="stack ledger-search">
           {t("filter")}
-          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} maxLength={100} />
+          <input type="search" value={query} onChange={handleFilter} maxLength={100} />
         </label>
         {rows.length === 0 ? (
           <p className="dim">{t("empty")}</p>
@@ -68,23 +89,26 @@ function Ledger({ campaigns, onForget }: LedgerProps) {
                   </th>
                 </tr>
               </thead>
-              <tbody>
-                {rows.map((c) => (
-                  <tr key={c.id}>
-                    <th scope="row">
-                      {c.name}
-                      {c.archived && <span className="dim"> ({t("archived")})</span>}
-                    </th>
-                    <td>{c.ownerName ?? t("noOwner")}</td>
-                    <td>{c.ruleset ? `${c.ruleset} ${c.rulesetVersion}` : t("noRuleset")}</td>
-                    <td>{c.lastPlayedAt ? date.format(new Date(c.lastPlayedAt)) : t("never")}</td>
-                    <td>
-                      <button type="button" className="btn sm" onClick={() => handleAsk(c)}>
-                        {t("open")}
-                        <span className="sr-only"> {c.name}</span>
-                      </button>
-                    </td>
-                  </tr>
+              {/* the rows rise as a run when the ledger opens; once filtered, a row that comes back rises alone */}
+              <tbody className={filtered ? undefined : "rise-list"}>
+                {rows.map((c, i) => (
+                  <ViewTransition key={c.id} enter="rise" exit="fade" update="row">
+                    <tr style={{ "--i": i } as CSSProperties}>
+                      <th scope="row">
+                        {c.name}
+                        {c.archived && <span className="dim"> ({t("archived")})</span>}
+                      </th>
+                      <td>{c.ownerName ?? t("noOwner")}</td>
+                      <td>{c.ruleset ? `${c.ruleset} ${c.rulesetVersion}` : t("noRuleset")}</td>
+                      <td>{c.lastPlayedAt ? date.format(new Date(c.lastPlayedAt)) : t("never")}</td>
+                      <td>
+                        <button type="button" className="btn sm" onClick={() => handleAsk(c)}>
+                          {t("open")}
+                          <span className="sr-only"> {c.name}</span>
+                        </button>
+                      </td>
+                    </tr>
+                  </ViewTransition>
                 ))}
               </tbody>
             </table>

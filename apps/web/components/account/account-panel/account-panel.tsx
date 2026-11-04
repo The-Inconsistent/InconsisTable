@@ -1,4 +1,5 @@
 import { useFormatter, useTranslations } from "next-intl";
+import type { CSSProperties } from "react";
 
 import { PageHead } from "@/components/ui/page-head/page-head";
 import type { AccountView } from "@/lib/api-reply/api-reply";
@@ -9,12 +10,12 @@ import type { AccountState } from "./constants";
 
 type AccountPanelProps = { state: AccountState };
 
-type MethodProps = { title: string; manage: string; href: string; children: React.ReactNode };
+type MethodProps = { title: string; manage: string; href: string; i: number; children: React.ReactNode };
 
 // One way to sign in: what InconsisID holds for it, and the link that changes it there.
-function Method({ title, manage, href, children }: MethodProps) {
+function Method({ title, manage, href, i, children }: MethodProps) {
   return (
-    <section className="card account-method" aria-label={title}>
+    <section className="card account-method" aria-label={title} style={{ "--i": i } as CSSProperties}>
       <h3 className="card-name">{title}</h3>
       <div className="account-method-body">{children}</div>
       <a className="btn sm" href={href}>
@@ -61,8 +62,8 @@ function AccountDetails({ account }: { account: AccountView }) {
         <h2 id="account-ways" className="head">
           {t("waysIn")}
         </h2>
-        <div className="grid">
-          <Method title={t("passkeys")} manage={t("managePasskeys")} href={href}>
+        <div className="grid rise-list">
+          <Method title={t("passkeys")} manage={t("managePasskeys")} href={href} i={0}>
             {passkeys.length ? (
               <ul className="list">
                 {passkeys.map((p, i) => (
@@ -80,12 +81,12 @@ function AccountDetails({ account }: { account: AccountView }) {
               <p className="dim">{t("noPasskeys")}</p>
             )}
           </Method>
-          <Method title={t("password")} manage={t("managePassword")} href={href}>
+          <Method title={t("password")} manage={t("managePassword")} href={href} i={1}>
             <p className={password ? undefined : "dim"}>
               {password ? t("passwordUsername", { username: password.username }) : t("passwordNotSet")}
             </p>
           </Method>
-          <Method title={t("providers")} manage={t("manageProviders")} href={href}>
+          <Method title={t("providers")} manage={t("manageProviders")} href={href} i={2}>
             {providers.length ? (
               <p className="row">
                 {providers.map((p) => (
@@ -98,7 +99,7 @@ function AccountDetails({ account }: { account: AccountView }) {
               <p className="dim">{t("noProviders")}</p>
             )}
           </Method>
-          <Method title={t("recoveryCodes")} manage={t("manageCodes")} href={href}>
+          <Method title={t("recoveryCodes")} manage={t("manageCodes")} href={href} i={3}>
             <p className="account-count">{t("codesLeft", { count: account.recoveryCodesLeft })}</p>
             {account.recoveryCodesLeft === 0 && <p className="error">{t("codesOut")}</p>}
           </Method>

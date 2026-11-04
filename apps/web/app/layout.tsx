@@ -3,6 +3,7 @@ import { Be_Vietnam_Pro, Fraunces, Literata } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
+import Script from "next/script";
 
 import { THEME_COOKIE, resolveTheme, themeClass } from "@/lib/theme/theme";
 import { TOKENS } from "@/lib/tokens/tokens";
@@ -45,6 +46,22 @@ export const viewport: Viewport = {
   themeColor: TOKENS.band,
 };
 
+// Runs before the first frame. html.motion turns on the entrances that start at opacity 0, so a page whose frames never
+// run (frozen, scriptless) shows everything. A step back through history mirrors the page change: a cross-document one
+// gets the "back" type at pagereveal, a client one (the Navigation API sees it first) the data-back attribute.
+const MOTION_SCRIPT = `requestAnimationFrame(() => document.documentElement.classList.add("motion"));
+if (window.navigation) {
+  const back = (to, from) => !!from && to.index < from.index;
+  addEventListener("pagereveal", (e) => {
+    const a = navigation.activation;
+    if (e.viewTransition && a?.navigationType === "traverse" && back(a.entry, a.from)) e.viewTransition.types.add("back");
+  });
+  navigation.addEventListener("navigate", (e) => {
+    const traverseBack = e.navigationType === "traverse" && back(e.destination, navigation.currentEntry);
+    document.documentElement.toggleAttribute("data-back", traverseBack);
+  });
+}`;
+
 type RootLayoutProps = { children: React.ReactNode };
 
 export default async function RootLayout({ children }: RootLayoutProps) {
@@ -53,8 +70,17 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   // ponytail: a device-wide pick, upgrade: the World a room belongs to picks its Theme (P2).
   const theme = themeClass(resolveTheme((await cookies()).get(THEME_COOKIE)?.value));
   return (
-    <html lang={locale} className={`${text.variable} ${display.variable} ${feltDisplay.variable} ${theme}`.trim()}>
+    // suppressHydrationWarning: the motion script adds its class before React hydrates
+    // ponytail: a Theme switch rewrites the class and drops "motion" until the next full load, entrances then just show
+    <html
+      lang={locale}
+      className={`${text.variable} ${display.variable} ${feltDisplay.variable} ${theme}`.trim()}
+      suppressHydrationWarning
+    >
       <body className="surface-app">
+        <Script id="motion" strategy="beforeInteractive">
+          {MOTION_SCRIPT}
+        </Script>
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>
     </html>

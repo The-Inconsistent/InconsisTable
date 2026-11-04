@@ -1845,6 +1845,7 @@ fieldset:disabled select {
   border-color: var(--brass-lo);
   background: rgb(255 215 150 / 0.08);
 }
+/* The lit plate, with its label, glides from the old page's link to the new one's on a page change. */
 .ws-link[aria-current="page"] {
   font-weight: 800;
   color: var(--plate-main-ink);
@@ -1854,6 +1855,7 @@ fieldset:disabled select {
     inset 0 1px 0 rgb(255 240 191 / 0.8),
     0 2px 0 var(--brass-lo),
     0 0 18px rgb(255 182 79 / 0.3);
+  view-transition-name: nav-mark;
 }
 .ws-link:focus-visible {
   outline-offset: -4px;
@@ -2200,4 +2202,56 @@ fieldset:disabled select {
   color: var(--ink);
   border: 2px solid var(--brass);
   border-radius: 12px;
+}
+
+/* ---------- Page change ----------
+   In the workspace the rail stays and the page beside it changes on the client: the template's <ViewTransition> marks
+   the old page "leave" and the new one "arrive", and the rail's plate (nav-mark) glides between links. A full load (a
+   room, the admin page, back to the rooms) is a cross-document transition of type "page": the whole page leaves and
+   arrives, and a header band on both pages holds. Going back (a rail link above the current page, the browser's back)
+   mirrors both. Reduced motion cuts them. Each selector stands alone, so a browser without transition types still
+   runs the rest. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+    types: page;
+  }
+}
+.band {
+  view-transition-name: band;
+}
+::view-transition {
+  pointer-events: none;
+}
+:root:active-view-transition-type(back) {
+  --dir: -1;
+}
+:root[data-back] {
+  --dir: -1;
+}
+::view-transition-old(.leave) {
+  animation: leave var(--dur-quick) var(--ease-in) both;
+}
+::view-transition-new(.arrive) {
+  animation: arrive var(--dur-move) var(--ease-out) var(--delay-arrive) both;
+}
+:root:active-view-transition-type(page)::view-transition-old(root) {
+  animation: leave var(--dur-quick) var(--ease-in) both;
+}
+:root:active-view-transition-type(page)::view-transition-new(root) {
+  animation: arrive var(--dur-move) var(--ease-out) var(--delay-arrive) both;
+}
+::view-transition-group(nav-mark) {
+  animation-duration: var(--dur-scene);
+  animation-timing-function: var(--ease-glide);
+}
+::view-transition-group(band) {
+  animation-duration: var(--dur-quick);
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }

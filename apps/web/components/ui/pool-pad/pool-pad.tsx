@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 
 import type { PoolSpec } from "@inconsistable/core-schema";
 
@@ -117,6 +117,7 @@ export function PoolPad({ spec, pool, who, onReport }: PoolPadProps) {
               <button
                 key={f}
                 className="btn"
+                style={{ "--i": f } as CSSProperties}
                 aria-pressed={special[i] === f + 1}
                 aria-label={t("face", { face: f + 1 })}
                 onClick={() => handleFace(i, f + 1)}

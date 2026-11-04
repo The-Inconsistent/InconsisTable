@@ -177,7 +177,8 @@ another app moves in.
 
    | File | What |
    | --- | --- |
-   | `postgres_password` | the `it` superuser's password (`openssl rand -hex 32`) |
+   | `postgres_password` | the `postgres` superuser's password, for the entrypoint and backups (`openssl rand -hex 32`) |
+   | `it_db_password` | the api's `it` role, which owns database `it` and is not a superuser (`openssl rand -hex 32`) |
    | `idp_db_password` | the `it_idp` role's password (`openssl rand -hex 32`) |
    | `op_jwks.json`, `op_cookie_keys.json` | InconsisID's signing and cookie keys (InconsisID `deploy/README.md`) |
    | `idp_client_jwk.json` | this app's private client JWK; its public half goes in InconsisID's `clients/inconsistable.ts` |
@@ -187,14 +188,16 @@ another app moves in.
    - the post-logout redirect `https://<TABLE_HOST>/`;
    - the back-channel URI `https://<TABLE_HOST>/api/auth/backchannel-logout`.
 6. **DNS.** Add two A records, `TABLE_HOST` and `AUTH_HOST`, pointing at the VPS. In Cloudflare, use DNS only (grey
-   cloud). Caddy gets the certificates, and with no proxy in front, leave `TRUST_CF` unset.
+   cloud). Caddy gets the certificates. Keep it grey: the stack sets `TRUST_CF=1` because Caddy writes
+   `CF-Connecting-IP` from the address that reaches it, and behind an orange cloud that address is Cloudflare's, so
+   every client would share one rate-limit bucket.
 7. **Stack.** In Dockhand, add a git stack for this repo at `deploy/vps/compose.yaml` with the env named at the top of
    that file:
    - `TABLE_HOST`, `AUTH_HOST`, `APP_TAG`, `IDP_TAG`;
-   - `DATABASE_URL`, with the `postgres_password` value in it (hex is safe in a URL);
+   - `DATABASE_URL`, `postgres://it:<it_db_password>@postgres:5432/it` (hex is safe in a URL);
    - `ADMIN_KEY`.
 
-   Then deploy. The first boot of the empty volume creates the `it_auth` database and its role.
+   Then deploy. The first boot of the empty volume creates the `it` and `it_auth` databases and their roles.
 8. **Cron** (root):
    ```
    0 3 * * *  /srv/inconsis/backup.sh

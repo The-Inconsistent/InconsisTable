@@ -18,7 +18,7 @@ for db in it it_auth; do
   out="$dir/$db-$stamp.dump"
   # Custom format: compressed, and pg_restore can restore one table. Written to .part first, so a failed dump never
   # looks like a good one.
-  docker exec "$pg" pg_dump -U it -Fc "$db" > "$out.part"
+  docker exec "$pg" pg_dump -U postgres -Fc "$db" > "$out.part"
   mv "$out.part" "$out"
 done
 

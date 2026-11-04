@@ -6,7 +6,7 @@
 #   TABLE_HOST, AUTH_HOST       the two public host names, e.g. table.example.com, auth.example.com
 #   APP_TAG                     inconsistable-api/-web tag, sha-<short> from the publish-images workflow
 #   IDP_TAG                     inconsisid image version
-#   DATABASE_URL                postgres://it:<hex password>@postgres:5432/it (hex: a URL-safe password)
+#   DATABASE_URL                postgres://it:<it_db_password>@postgres:5432/it (hex: a URL-safe password)
 #   ADMIN_KEY                   optional; 32+ characters (openssl rand -hex 32)
 #
 # Secret files live on the host in /srv/inconsis/secrets (dir 0700 root, files 0444), bind-mounted one by one, so each
@@ -30,8 +30,8 @@ services:
     restart: unless-stopped
     mem_limit: 1g
     environment:
-      POSTGRES_USER: it
-      POSTGRES_DB: it
+      # The superuser is only for the entrypoint and backups; the api connects as `it`, which is not one.
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     volumes:
       - pgdata:/var/lib/postgresql
@@ -42,7 +42,14 @@ services:
           read_only: true,
           bind: { create_host_path: false },
         }
-      # InconsisID's role and database (its db/roles.sql), made on the first boot of an empty volume only.
+      # The app roles and their databases, made on the first boot of an empty volume only (init_roles).
+      - {
+          type: bind,
+          source: /srv/inconsis/secrets/it_db_password,
+          target: /run/secrets/it_db_password,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
       - {
           type: bind,
           source: /srv/inconsis/secrets/idp_db_password,
@@ -51,9 +58,9 @@ services:
           bind: { create_host_path: false },
         }
     # Executable, so the entrypoint runs it rather than sourcing it into its own shell.
-    configs: [{ source: init_it_auth, target: /docker-entrypoint-initdb.d/10-it-auth.sh, mode: 0555 }]
+    configs: [{ source: init_roles, target: /docker-entrypoint-initdb.d/10-roles.sh, mode: 0555 }]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U it -d it"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d it"]
       interval: 3s
       retries: 20
     networks: [data]
@@ -72,6 +79,9 @@ services:
       IDP_CLIENT_ID: inconsistable
       IDP_REDIRECT_URI: https://${TABLE_HOST}/api/auth/callback
       IDP_CLIENT_JWK_FILE: /run/secrets/idp_client_jwk.json
+      # The api's peer is always the web container, so the rate limits read the client from CF-Connecting-IP, which
+      # Caddy overwrites on every request (the table site below) and the web passes on. Nothing else reaches the api.
+      TRUST_CF: "1"
     volumes:
       - {
           type: bind,
@@ -97,7 +107,8 @@ services:
     mem_limit: 512m
     depends_on:
       api: { condition: service_healthy }
-    networks: [edge, data]
+    # edge only: it talks to the api, never to Postgres.
+    networks: [edge]
 
   idp:
     image: ghcr.io/the-inconsistent/inconsisid:${IDP_TAG:?set IDP_TAG}
@@ -193,17 +204,36 @@ configs:
       		-X-Powered-By
       	}
       	# The web proxies /api and /socket.io (websockets pass through reverse_proxy as they are) to the api.
+      	# CF-Connecting-IP is the api's client address for rate limits (TRUST_CF): set here, so a client's own is
+      	# replaced. Behind an orange-cloud Cloudflare this would be Cloudflare's address instead: keep DNS only.
       	reverse_proxy web:3000 {
       		header_up X-Forwarded-For {remote_host}
+      		header_up CF-Connecting-IP {remote_host}
       	}
       }
 
-  init_it_auth:
+  init_roles:
     content: |
       #!/bin/sh
-      # InconsisID's db/roles.sql, run once by the Postgres entrypoint on an empty volume.
+      # Run once by the Postgres entrypoint on an empty volume. `it` owns its database, so the api's boot can migrate
+      # and enable pg_trgm (a trusted extension) without being a superuser. it_idp is InconsisID's db/roles.sql.
       set -eu
-      psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d postgres -v idp_password="$$(cat /run/secrets/idp_db_password)" <<'SQL'
+      psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d postgres \
+        -v it_password="$$(cat /run/secrets/it_db_password)" \
+        -v idp_password="$$(cat /run/secrets/idp_db_password)" <<'SQL'
+      SELECT format(
+        'CREATE ROLE it LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',
+        :'it_password'
+      )
+      WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'it')
+      \gexec
+
+      SELECT 'CREATE DATABASE it OWNER it'
+      WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'it')
+      \gexec
+
+      REVOKE CONNECT, TEMPORARY ON DATABASE it FROM PUBLIC;
+
       SELECT format(
         'CREATE ROLE it_idp LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',
         :'idp_password'

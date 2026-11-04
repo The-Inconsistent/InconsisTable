@@ -18,6 +18,8 @@
   --delay-arrive: 40ms;
   /* a value a change just updated flashes once for this long */
   --dur-flash: 1.2s;
+  /* one turn of a busy ring */
+  --dur-spin: 700ms;
   /* a page change's direction: 1 going on, -1 going back (set during the transition) */
   --dir: 1;
   /* an overshoot spring: settles past 1 and back */

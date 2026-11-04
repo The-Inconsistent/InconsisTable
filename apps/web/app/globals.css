@@ -478,7 +478,7 @@ fieldset {
   border: 2px solid currentColor;
   border-inline-end-color: transparent;
   border-radius: 50%;
-  animation: spin calc(var(--dur-scene) * 2) linear infinite;
+  animation: spin var(--dur-spin) linear infinite;
 }
 .btn[data-sent="ok"] {
   outline: 3px solid var(--ok);

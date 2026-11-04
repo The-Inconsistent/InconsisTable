@@ -22,6 +22,10 @@ Every duration and easing is a token. A literal `ms` or `cubic-bezier` in a rule
 | `--ease-in` | `cubic-bezier(0.4, 0, 1, 1)` | everything that leaves |
 | `--ease-glide` | `cubic-bezier(0.3, 1.25, 0.4, 1)` | a shared element travelling (a nav marker, a title) |
 | `--ease-spring` | `linear(0, 0.18, 0.56, 0.9, 1.06, 1.08, 1.04, 1.01, 1, 0.995, 1)` | a mark that pops in on toggle |
+| `--stagger` | 30ms | the step between items of an entrance |
+| `--delay-arrive` | 40ms | how long arriving content waits for the leaving content |
+| `--dur-flash` | 1.2s | the accent flash on an updated value |
+| `--dur-spin` | 700ms | one turn of a busy ring |
 
 A surface may scale the durations as a group (InconsisTable's felt theme is snappier, its TV density about 1.5x slower).
 It never changes the easings.

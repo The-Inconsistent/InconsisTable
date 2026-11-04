@@ -51,6 +51,7 @@ const merge = (...rules: Rule[]) => new Map(rules.flatMap((r) => [...r.decls]));
 const lantern = rulesOf(read("app/theme/lantern.css"));
 const felt = rulesOf(read("app/theme/felt.css"));
 const globals = rulesOf(read("app/globals.css"));
+const motion = rulesOf(read("app/theme/motion.css"));
 const lanternRoot = lantern.find((r) => r.selector === ":root");
 const feltRoot = felt.find((r) => r.selector === ":root.theme-felt");
 const cardScope = lantern.find((r) => r.selector.split(",").some((s) => s.trim() === ".parchment"));
@@ -66,7 +67,7 @@ function sourceFiles(dir: string): string[] {
 }
 
 test("every var(--x) the app uses is declared by the base Theme", () => {
-  const declared = new Set([...customProps(lantern), ...customProps(globals), ...FONT_VARS]);
+  const declared = new Set([...customProps(lantern), ...customProps(motion), ...customProps(globals), ...FONT_VARS]);
   const missing: string[] = [];
   for (const file of [...sourceFiles("app/"), ...sourceFiles("components/")]) {
     const text = file.endsWith(".css") ? strip(read(file)) : read(file);
@@ -85,6 +86,23 @@ test("felt re-maps every token the base Theme declares", () => {
     [],
   );
   assert.ok(base.size > 40, "the base Theme declares its tokens on :root");
+});
+
+test("motion.css declares the duration and easing tokens; felt and the TV re-map durations only", () => {
+  const motionRoot = motion.find((r) => r.selector === ":root");
+  const motionFelt = motion.find((r) => r.selector === ":root.theme-felt");
+  const motionTv = motion.find((r) => r.selector === '[data-density="tv"]');
+  assert.ok(motionRoot && motionFelt && motionTv, "motion :root, felt and tv rules exist");
+  const declared = customProps([motionRoot]);
+  for (const t of ["dur-tap", "dur-quick", "dur-move", "dur-scene", "ease-out", "ease-in", "ease-spring"]) {
+    assert.ok(declared.has(`--${t}`), `--${t} is declared in motion.css`);
+  }
+  for (const rule of [motionFelt, motionTv]) {
+    assert.deepEqual(
+      [...customProps([rule])].filter((t) => !declared.has(t) || t.startsWith("--ease")),
+      [],
+    );
+  }
 });
 
 // ---------- contrast ----------

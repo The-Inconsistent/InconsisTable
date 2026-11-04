@@ -113,6 +113,11 @@
     rotate: 1turn;
   }
 }
+@keyframes fade {
+  to {
+    opacity: 0;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   :root,
@@ -154,11 +159,6 @@
   @keyframes rise {
     from {
       opacity: 0;
-    }
-  }
-  @keyframes spin {
-    to {
-      opacity: 1;
     }
   }
 }

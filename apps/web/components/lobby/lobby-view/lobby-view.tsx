@@ -2,7 +2,7 @@
 import { useFormatter, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type CSSProperties, type FormEvent } from "react";
 
 import { CreateGame, type Lobby, type LobbyGame } from "@inconsistable/core-schema";
 
@@ -16,12 +16,12 @@ type LobbyViewProps = { lobby: Lobby; rulesets: RulesetList; me: AuthMe; signInF
 
 const NO_RULESET = "";
 
-function GameCard({ game }: { game: LobbyGame }) {
+function GameCard({ game, i }: { game: LobbyGame; i: number }) {
   const t = useTranslations("lobby");
   const tRoles = useTranslations("roles");
   const format = useFormatter();
   return (
-    <a className="card ws-tile" href={`/c/${game.id}`}>
+    <a className="card ws-tile" href={`/c/${game.id}`} style={{ "--i": i } as CSSProperties}>
       <strong className="card-name">{game.name}</strong>
       <span className="small dim">{game.isOwner ? t("yourCampaign") : t("owner", { name: game.owner })}</span>
       <span className="row small">
@@ -46,9 +46,9 @@ function GameCard({ game }: { game: LobbyGame }) {
 
 function Cards({ games }: { games: LobbyGame[] }) {
   return (
-    <div className="grid">
-      {games.map((g) => (
-        <GameCard key={g.id} game={g} />
+    <div className="grid rise-list">
+      {games.map((g, i) => (
+        <GameCard key={g.id} game={g} i={i} />
       ))}
     </div>
   );

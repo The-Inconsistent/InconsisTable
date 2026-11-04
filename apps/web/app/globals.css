@@ -467,6 +467,19 @@ fieldset {
 .btn[aria-busy="true"] {
   opacity: 0.7;
 }
+/* Busy: a small ring turns after the label, inside the padding, so the button keeps its size. */
+.btn[aria-busy="true"]::before {
+  content: "";
+  position: absolute;
+  inset-inline-end: 3px;
+  top: calc(50% - 5px);
+  width: 10px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: spin calc(var(--dur-scene) * 2) linear infinite;
+}
 .btn[data-sent="ok"] {
   outline: 3px solid var(--ok);
   outline-offset: 2px;
@@ -518,6 +531,13 @@ fieldset {
   display: grid;
   gap: 8px;
   min-width: 168px;
+  transition:
+    opacity var(--dur-quick) var(--ease-out),
+    translate var(--dur-move) var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    translate: 0 -6px;
+  }
 }
 
 /* Fields are wells cut into the material: recessed, with a brass underline that grows from the middle on focus. */
@@ -1716,6 +1736,37 @@ fieldset:disabled select {
 .ledger-confirm::backdrop {
   background: rgb(0 0 0 / 0.55);
 }
+/* The dialog rises out of the top layer and sinks back into it; overlay and display hold it there while it leaves. */
+.ledger-confirm,
+.ledger-confirm::backdrop {
+  transition-property: opacity, translate, scale, background-color, overlay, display;
+  transition-duration: var(--dur-quick);
+  transition-timing-function: var(--ease-in);
+  transition-behavior: allow-discrete;
+}
+.ledger-confirm[open],
+.ledger-confirm[open]::backdrop {
+  transition-duration: var(--dur-scene);
+  transition-timing-function: var(--ease-out);
+}
+.ledger-confirm:not([open]) {
+  opacity: 0;
+  translate: 0 10px;
+  scale: 0.97;
+}
+.ledger-confirm:not([open])::backdrop {
+  background-color: transparent;
+}
+@starting-style {
+  .ledger-confirm[open] {
+    opacity: 0;
+    translate: 0 10px;
+    scale: 0.97;
+  }
+  .ledger-confirm[open]::backdrop {
+    background-color: transparent;
+  }
+}
 .ledger-confirm .row {
   margin-top: 12px;
 }
@@ -2253,5 +2304,40 @@ fieldset:disabled select {
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+}
+
+/* ---------- Entrances ----------
+   A list a page opens with rises in a run (each item sets --i; the run stops growing at the twelfth), and a block an
+   action brings rises alone. Only under html.motion, which the layout's script adds at the first frame, so a page whose
+   frames never run still shows everything. */
+.motion .rise-list > * {
+  animation: rise var(--dur-move) var(--ease-out) backwards;
+  animation-delay: calc(min(var(--i), 11) * var(--stagger));
+}
+.motion :is(.saved, #new-room, #import-panel) {
+  animation: rise var(--dur-move) var(--ease-out) backwards;
+}
+/* The admin ledger's filter: rows travel to their new places, a row that comes back rises, one that goes fades. */
+::view-transition-group(.row) {
+  animation-duration: var(--dur-move);
+  animation-timing-function: var(--ease-out);
+}
+::view-transition-new(.rise) {
+  animation: rise var(--dur-move) var(--ease-out) both;
+}
+::view-transition-old(.fade) {
+  animation: fade var(--dur-quick) var(--ease-in) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn[aria-busy="true"]::before {
+    animation: none;
+  }
+  .ledger-confirm,
+  .ledger-confirm::backdrop {
+    transition-property: opacity, background-color, overlay, display;
+  }
+  .menu-pop {
+    transition-property: opacity;
   }
 }

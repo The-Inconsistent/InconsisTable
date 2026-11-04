@@ -351,7 +351,7 @@ fieldset {
   background: transparent;
   color: var(--ink);
   border-radius: var(--radius-card);
-  filter: drop-shadow(0 5px 3px var(--shadow)) drop-shadow(0 14px 14px rgb(8 3 0 / 0.35));
+  filter: drop-shadow(var(--lift-2)) drop-shadow(var(--lift-3));
 }
 .card::before,
 .combatant::before,
@@ -1174,9 +1174,19 @@ summary {
   background: var(--bg-card);
   border-top: 4px solid var(--brass);
   border-radius: var(--radius-card) var(--radius-card) 0 0;
+  /* the last layer is parchment under the sheet's edge: the spring overshoots upward and must not show the page */
   box-shadow:
     inset 0 0 34px rgb(150 100 40 / 0.3),
-    0 -8px 18px rgb(0 0 0 / 0.5);
+    0 -8px 18px rgb(0 0 0 / 0.5),
+    0 60px 0 var(--parchment-hi);
+  /* it rises from the bottom edge when it mounts; there is no exit */
+  transition:
+    transform var(--dur-scene) var(--ease-spring),
+    opacity var(--dur-quick) var(--ease-out);
+  @starting-style {
+    transform: translateY(100%);
+    opacity: 0;
+  }
 }
 .bottom-sheet .bottom-sheet {
   z-index: 11;
@@ -1206,7 +1216,7 @@ summary {
   gap: 4px 12px;
   align-items: center;
   padding: 10px 14px 10px 18px;
-  filter: drop-shadow(0 3px 2px var(--shadow));
+  filter: drop-shadow(var(--lift-1));
   transform: rotate(-0.3deg);
 }
 .combatant:nth-child(even) {
@@ -1220,7 +1230,7 @@ summary {
 }
 .combatant[data-acting="true"] {
   transform: translateX(8px) rotate(0deg);
-  filter: drop-shadow(0 0 16px rgb(255 182 79 / 0.85)) drop-shadow(0 8px 6px var(--shadow));
+  filter: drop-shadow(0 0 16px rgb(255 182 79 / 0.85)) drop-shadow(var(--lift-2));
 }
 .combatant[data-acting="true"]::before {
   background: radial-gradient(ellipse at 20% 0%, var(--cream), var(--parchment) 80%);

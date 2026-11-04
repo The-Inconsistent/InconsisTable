@@ -28,6 +28,10 @@
   --halo-light: #fff7dc;
   --halo-dark: #04150f;
   --shadow: rgb(0 0 0 / 0.45);
+  /* felt cards lie flat: lower and tighter */
+  --lift-1: 0 1px 1px var(--shadow);
+  --lift-2: 0 2px 2px var(--shadow);
+  --lift-3: 0 6px 8px rgb(0 0 0 / 0.25);
 
   --paper: light-dark(var(--parchment), var(--wood));
   --paper-2: light-dark(var(--parchment-2), var(--wood-0));

@@ -33,7 +33,9 @@ export function FightBar({ encounter, sessionRunning, run, mode }: FightBarProps
     <div className="fightbar" role="toolbar" aria-label={t("label", { mode })}>
       {encounter ? (
         <>
-          <span className="round">{t("round", { round: encounter.round })}</span>
+          <span key={encounter.round} className="round">
+            {t("round", { round: encounter.round })}
+          </span>
           <button className="btn" disabled={encounter.paused} onClick={() => run({ type: "turn.prev" })}>
             {t("prev")}
           </button>

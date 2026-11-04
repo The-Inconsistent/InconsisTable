@@ -1,0 +1,117 @@
+/* Motion: how things move. Durations and easings are tokens like the colours are, and the keyframes that more than one
+   rule uses live here with their reduced-motion fallbacks beside them. The skin that reads them is globals.css.
+   Felt is snappier, the TV is about 1.5x slower, and reduced motion removes movement (opacity fades stay).
+   Animate transform, opacity, box-shadow and filter only; nothing that matters may wait for animationend. */
+:root {
+  --dur-tap: 90ms;
+  --dur-quick: 160ms;
+  --dur-move: 260ms;
+  --dur-scene: 420ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  /* the place in a staggered run (30ms each); a component sets it inline on each item */
+  --i: 0;
+  /* an overshoot spring: settles past 1 and back */
+  --ease-spring: linear(0, 0.18, 0.56, 0.9, 1.06, 1.08, 1.04, 1.01, 1, 0.995, 1);
+}
+:root.theme-felt {
+  --dur-move: 220ms;
+  --dur-scene: 360ms;
+}
+/* TV: seen from the sofa, so everything takes about half as long again to read. */
+[data-density="tv"] {
+  --dur-tap: 135ms;
+  --dur-quick: 240ms;
+  --dur-move: 390ms;
+  --dur-scene: 630ms;
+}
+:root.theme-felt [data-density="tv"] {
+  --dur-move: 330ms;
+  --dur-scene: 540ms;
+}
+
+/* A card dealt onto the table: a short drop with a slight tilt. */
+@keyframes deal {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) rotate(-2deg);
+  }
+}
+/* A refused field: a short sideways shake. */
+@keyframes shake {
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+/* A counter ticks over: the new number drops in from above. */
+@keyframes tick {
+  from {
+    opacity: 0;
+    transform: translateY(-40%);
+  }
+}
+/* Your turn: the lantern lights. The plate swells from small and dim, the glow blooms out once, then it settles. */
+@keyframes lantern-lights {
+  from {
+    opacity: 0.4;
+    box-shadow:
+      inset 0 0 0 4px var(--wood-0),
+      inset 0 0 0 5px var(--brass-lo),
+      0 0 0 0 rgb(255 182 79 / 0),
+      0 8px 14px var(--shadow);
+  }
+  60% {
+    box-shadow:
+      inset 0 0 0 4px var(--wood-0),
+      inset 0 0 0 5px var(--brass-lo),
+      0 0 64px 8px rgb(255 182 79 / 0.8),
+      0 8px 14px var(--shadow);
+  }
+}
+@keyframes lantern-rise {
+  from {
+    transform: scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  :root.theme-felt,
+  [data-density="tv"],
+  :root.theme-felt [data-density="tv"] {
+    --dur-move: 1ms;
+    --dur-scene: 1ms;
+    --ease-spring: var(--ease-out);
+  }
+  /* The same moments as opacity-only fades. */
+  @keyframes deal {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes shake {
+    from {
+      opacity: 1;
+    }
+  }
+  @keyframes tick {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes lantern-lights {
+    from {
+      opacity: 0.4;
+    }
+  }
+  @keyframes lantern-rise {
+    from {
+      opacity: 1;
+    }
+  }
+}

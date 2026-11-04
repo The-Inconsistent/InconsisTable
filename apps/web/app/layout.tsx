@@ -8,6 +8,7 @@ import { THEME_COOKIE, resolveTheme, themeClass } from "@/lib/theme/theme";
 import { TOKENS } from "@/lib/tokens/tokens";
 
 import "./theme/lantern.css";
+import "./theme/motion.css";
 import "./globals.css";
 import "./theme/felt.css";
 

@@ -21,7 +21,7 @@ export function HealthBar({ combatant: c }: HealthBarProps) {
         data-low={percent <= 25}
         style={{ flex: 1 }}
       >
-        <span style={{ width: `${percent}%` }} />
+        <span style={{ transform: `scaleX(${percent / 100})` }} />
       </span>
       {c.hp && (
         <span className="small" style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>

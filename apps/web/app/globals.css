@@ -75,6 +75,10 @@ a {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
   box-shadow: 0 0 0 6px var(--focus-halo);
+  /* the ring settles in; controls with their own transition list repeat these two */
+  transition:
+    outline-offset var(--dur-quick) var(--ease-out),
+    box-shadow var(--dur-quick) var(--ease-out);
 }
 
 /* ---------- Surfaces ---------- */
@@ -301,6 +305,9 @@ fieldset {
   border-radius: 7px 7px 0 0;
   box-shadow: inset 0 1px 0 rgb(255 215 150 / 0.2);
   cursor: pointer;
+  transition:
+    box-shadow var(--dur-quick) var(--ease-out),
+    outline-offset var(--dur-quick) var(--ease-out);
 }
 .tab[aria-selected="true"] {
   font-weight: 800;
@@ -320,6 +327,13 @@ fieldset {
   vertical-align: 1px;
   background: currentColor;
   transform: rotate(45deg);
+  transition:
+    transform var(--dur-quick) var(--ease-out),
+    opacity var(--dur-quick) var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: rotate(45deg) scale(0);
+  }
 }
 .tab:focus-visible {
   outline-offset: -4px;
@@ -336,7 +350,7 @@ fieldset {
   background: transparent;
   color: var(--ink);
   border-radius: var(--radius-card);
-  filter: drop-shadow(0 5px 3px var(--shadow)) drop-shadow(0 14px 14px rgb(8 3 0 / 0.35));
+  filter: drop-shadow(var(--lift-2)) drop-shadow(var(--lift-3));
 }
 .card::before,
 .combatant::before,
@@ -412,6 +426,24 @@ fieldset {
   box-shadow:
     inset 0 1px 0 var(--plate-lit),
     0 2px 0 var(--plate-shade);
+  transition:
+    transform var(--dur-tap) var(--ease-out),
+    box-shadow var(--dur-quick) var(--ease-out),
+    filter var(--dur-quick) var(--ease-out),
+    outline-offset var(--dur-quick) var(--ease-out);
+}
+/* The plate lifts a hair under a pointer and sinks into the wood when pressed. */
+@media (hover: hover) {
+  .btn:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+  }
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.97);
+  box-shadow:
+    inset 0 2px 3px var(--plate-shade),
+    0 0 0 var(--plate-shade);
 }
 .btn.primary {
   background: var(--plate-main);
@@ -488,31 +520,134 @@ fieldset {
   min-width: 168px;
 }
 
-input,
-select {
+/* Fields are wells cut into the material: recessed, with a brass underline that grows from the middle on focus. */
+input:not([type="checkbox"], [type="radio"]),
+select,
+textarea {
   min-height: var(--tap);
   padding: 0 10px;
-  border-radius: 6px;
+  border-radius: min(var(--radius-btn), 10px);
   border: 1px solid var(--line);
-  background: var(--paper);
+  background-color: var(--paper-2);
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: 0 2px;
   color: var(--ink);
   font: inherit;
   min-width: 0;
   box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.25);
-}
-input[type="checkbox"],
-input[type="radio"] {
-  accent-color: var(--accent);
+  transition:
+    border-color var(--dur-quick) var(--ease-out),
+    background-size var(--dur-move) var(--ease-out),
+    box-shadow var(--dur-quick) var(--ease-out),
+    outline-offset var(--dur-quick) var(--ease-out);
 }
 textarea {
+  min-height: 0;
   padding: 8px 10px;
+}
+input:not([type="checkbox"], [type="radio"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--focus);
+  background-size: 100% 2px;
+  box-shadow:
+    inset 0 2px 4px rgb(0 0 0 / 0.25),
+    0 0 0 6px var(--focus-halo);
+}
+:is(input, select, textarea)[aria-invalid="true"] {
+  border-color: var(--accent);
+  animation: shake var(--dur-move) var(--ease-out) 1;
+}
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+/* A select drops its native look for a caret painted in the text colour, with room so the text never runs under it. */
+select {
+  appearance: none;
+  padding-right: 38px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%), linear-gradient(var(--accent), var(--accent));
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 14px) 50%,
+    center bottom;
+  background-size:
+    6px 6px,
+    6px 6px,
+    0 2px;
+}
+select:focus-visible {
+  background-size:
+    6px 6px,
+    6px 6px,
+    100% 2px;
+}
+/* Checkbox and radio: a 24px stamp in a 44px tap area. Checked is the accent filled, with a check or a dot stamped in. */
+input[type="checkbox"],
+input[type="radio"] {
+  appearance: none;
+  position: relative;
+  flex: none;
+  display: inline-grid;
+  place-content: center;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid var(--line);
   border-radius: 6px;
-  border: 1px solid var(--line);
-  background: var(--paper);
-  color: var(--ink);
-  font: inherit;
-  min-width: 0;
-  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.25);
+  background: var(--paper-2);
+  color: var(--accent-ink);
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / 0.25);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-quick) var(--ease-out),
+    border-color var(--dur-quick) var(--ease-out),
+    outline-offset var(--dur-quick) var(--ease-out),
+    box-shadow var(--dur-quick) var(--ease-out);
+}
+input[type="checkbox"]::after,
+input[type="radio"]::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
+input[type="radio"] {
+  border-radius: 50%;
+}
+input[type="checkbox"]:checked,
+input[type="radio"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+/* The mark is always there, scaled to nothing; checking it springs it in, so a box that loads checked does not stamp. */
+input[type="checkbox"]::before,
+input[type="radio"]::before {
+  content: "";
+  background: currentColor;
+  opacity: 0;
+  transform: scale(0);
+  transition:
+    transform var(--dur-move) var(--ease-spring),
+    opacity var(--dur-quick) var(--ease-out);
+}
+input[type="checkbox"]::before {
+  width: 18px;
+  height: 18px;
+  mask: var(--icon-check) center / contain no-repeat;
+}
+input[type="radio"]::before {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+input:is([type="checkbox"], [type="radio"]):checked::before {
+  opacity: 1;
+  transform: none;
 }
 label {
   display: grid;
@@ -526,6 +661,14 @@ label {
   padding: 2px 11px;
   font-size: var(--fs-small);
   font-weight: 600;
+  transition:
+    background-color var(--dur-quick) var(--ease-out),
+    color var(--dur-quick) var(--ease-out),
+    border-color var(--dur-quick) var(--ease-out),
+    transform var(--dur-tap) var(--ease-out);
+}
+.chip:is([aria-pressed], [data-status]):active {
+  transform: scale(0.96);
 }
 .card .chip,
 .combatant .chip {
@@ -1037,9 +1180,19 @@ summary {
   background: var(--bg-card);
   border-top: 4px solid var(--brass);
   border-radius: var(--radius-card) var(--radius-card) 0 0;
+  /* the last layer is parchment under the sheet's edge: the spring overshoots upward and must not show the page */
   box-shadow:
     inset 0 0 34px rgb(150 100 40 / 0.3),
-    0 -8px 18px rgb(0 0 0 / 0.5);
+    0 -8px 18px rgb(0 0 0 / 0.5),
+    0 60px 0 var(--parchment-hi);
+  /* it rises from the bottom edge when it mounts; there is no exit */
+  transition:
+    transform var(--dur-scene) var(--ease-spring),
+    opacity var(--dur-quick) var(--ease-out);
+  @starting-style {
+    transform: translateY(100%);
+    opacity: 0;
+  }
 }
 .bottom-sheet .bottom-sheet {
   z-index: 11;
@@ -1069,8 +1222,12 @@ summary {
   gap: 4px 12px;
   align-items: center;
   padding: 10px 14px 10px 18px;
-  filter: drop-shadow(0 3px 2px var(--shadow));
+  /* the same filter functions as the acting slip, so the candle glow fades up instead of snapping */
+  filter: drop-shadow(0 0 16px rgb(255 182 79 / 0)) drop-shadow(var(--lift-1));
   transform: rotate(-0.3deg);
+  transition:
+    transform var(--dur-move) var(--ease-spring),
+    filter var(--dur-move) var(--ease-out);
 }
 .combatant:nth-child(even) {
   transform: rotate(0.45deg);
@@ -1083,7 +1240,7 @@ summary {
 }
 .combatant[data-acting="true"] {
   transform: translateX(8px) rotate(0deg);
-  filter: drop-shadow(0 0 16px rgb(255 182 79 / 0.85)) drop-shadow(0 8px 6px var(--shadow));
+  filter: drop-shadow(0 0 16px rgb(255 182 79 / 0.85)) drop-shadow(var(--lift-2));
 }
 .combatant[data-acting="true"]::before {
   background: radial-gradient(ellipse at 20% 0%, var(--cream), var(--parchment) 80%);
@@ -1154,7 +1311,11 @@ summary {
 }
 .bar > span {
   display: block;
+  width: 100%;
   height: 100%;
+  /* the fill is scaled from the left by the component, so damage visibly drains */
+  transform-origin: left;
+  transition: transform var(--dur-move) var(--ease-out);
   background: linear-gradient(180deg, var(--moss), var(--ok));
 }
 /* Low health is a different fill pattern as well as a different colour. */
@@ -1186,6 +1347,7 @@ summary {
   font-size: 30px;
   font-weight: 700;
   margin-right: auto;
+  animation: tick var(--dur-quick) var(--ease-out); /* remounted by key on a new round */
   color: var(--candle);
   text-shadow: 0 0 14px rgb(255 182 79 / 0.6);
 }
@@ -1273,23 +1435,26 @@ summary {
   background: currentColor;
   mask: var(--icon-turn) center / contain no-repeat;
 }
-/* The turn starts: three pulses of the accent, then it stays steady. Reduced motion: one colour change, no movement. */
+/* The turn starts: the lantern lights once (the plate swells on the spring, the glow blooms and settles to its steady
+   shine). Reduced motion: one colour change, no movement. */
 .turn-banner {
-  animation: turn-pulse 400ms ease-in-out 3;
-}
-@keyframes turn-pulse {
-  50% {
-    background: var(--accent);
-    color: var(--accent-ink);
-    transform: scale(1.04);
-  }
+  animation:
+    lantern-lights calc(var(--dur-scene) * 2) var(--ease-out),
+    lantern-rise var(--dur-scene) var(--ease-spring);
 }
 @media (prefers-reduced-motion: reduce) {
   .turn-banner {
     animation: turn-flash 1200ms ease-out 1;
   }
-  .roll-key:active {
+  .roll-key:active,
+  .btn:is(:hover, :active):not(:disabled),
+  .chip:is([aria-pressed], [data-status]):active {
     transform: none;
+  }
+  .tab[aria-selected="true"]::before {
+    @starting-style {
+      transform: rotate(45deg);
+    }
   }
   @keyframes turn-flash {
     from {
@@ -1424,6 +1589,15 @@ summary {
   justify-content: center;
   font-size: 20px;
 }
+/* Cards and faces are dealt onto the table when they appear; the faces one after another. */
+.roll-card,
+.call-card {
+  animation: deal var(--dur-move) var(--ease-out);
+}
+.pool-faces-grid .btn {
+  animation: deal var(--dur-move) var(--ease-out) backwards;
+  animation-delay: min(calc(var(--i, 0) * 30ms), 400ms);
+}
 /* A Dice pool's outcome on the GM's tablet: score and margin large, flags as filled badges that name themselves. */
 .pool-result {
   display: flex;
@@ -1470,6 +1644,26 @@ fieldset:disabled select {
   box-shadow: none;
   border-style: dashed;
   background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgb(128 128 128 / 0.3) 6px 8px);
+  background-size: auto;
+  background-position: 0 0;
+  background-repeat: repeat;
+}
+/* A disabled select keeps its caret over the hatch. */
+select:disabled,
+fieldset:disabled select {
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%),
+    repeating-linear-gradient(135deg, transparent 0 6px, rgb(128 128 128 / 0.3) 6px 8px);
+  background-size:
+    6px 6px,
+    6px 6px,
+    auto;
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 14px) 50%,
+    0 0;
+  background-repeat: no-repeat, no-repeat, repeat;
 }
 
 /* ---------- Admin ledger: dense rows, no ornament ---------- */

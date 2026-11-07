@@ -238,7 +238,7 @@ function sumVsTargetVectors() {
                   const params = { dice, ties, critOn, advantage: allowed };
                   const input = ResolveInput.parse({ target, modifier, advantage, roll });
                   const ctx = { ctx: { params }, input } as never;
-                  const refusal = op.validate(ctx);
+                  const refusal = op.validate?.(ctx);
                   out.push({ params, input, refusal: refusal ?? null, deltas: refusal ? null : op.apply(ctx) });
                 }
   return out;

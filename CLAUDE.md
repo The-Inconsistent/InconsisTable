@@ -39,7 +39,8 @@ stat blocks, art or PDFs to this repo.
 Bun (package manager, runtime, test runner; never npm or pnpm), Turborepo, TypeScript 5.9 (do not upgrade: TS 7 breaks
 the Next and Nest toolchains), Next.js 16 + React 19, NestJS on Bun, Socket.IO, Drizzle ORM, **Postgres 18**, zod 4,
 Auth: device identity (an `it_device` cookie per browser) through `@inconsistable/auth`; on HTTPS deployments, accounts
-through InconsisID with `@the-inconsistent/inconsisid` (ADR 0005, `docs/deploy.md` Sign-in).
+through InconsisID with `@the-inconsistent/inconsisid` (ADR 0005, `docs/deploy.md` Sign-in). The api is moving to Go, and
+the web stays on Next.js (`docs/adr/0008-go-api.md`).
 
 ## Layout
 

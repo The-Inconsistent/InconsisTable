@@ -331,5 +331,10 @@ func (e *evaluator) call(n CallNode) any {
 // a division by zero.
 func Evaluate(node Node, scope *Record) (value any, err error) {
 	defer recoverExprError(&err)
-	return (&evaluator{scope}).eval(node), nil
+	value = (&evaluator{scope}).eval(node)
+	// JSON.stringify prints negative zero as 0, and Go's encoder prints -0.
+	if value == 0.0 {
+		value = 0.0
+	}
+	return value, nil
 }

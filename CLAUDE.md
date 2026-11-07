@@ -58,6 +58,8 @@ apps/api/src/        NestJS on Bun, run from source. One folder per feature, eac
   table/             the socket: gateway (queue, per-seat views, book relay, kicks), dispatch (authorize), loaders
   test-call/         Tests the GM calls: calls, called characters, reported rolls (physical dice, the server resolves)
 apps/api/test/       smoke.test.ts: end-to-end against a running api and Postgres 18
+apps/api-go/         the Go api in progress, not deployed yet (docs/adr/0008-go-api.md). internal/engine is the Go twin of
+                     packages/rules-engine: change both together, vectors/generate.ts and `bun run test:go` hold them equal
 apps/web/            Next.js 16: lobby, invite, join, the table page (GM app, player app, table screen)
 packages/core-schema seats, permissions (canInCampaign), the core Action union, snapshots, per-seat views, book relay
 packages/rules-engine manifests, expressions, dice, primitives, viewer views (no game content)
@@ -82,6 +84,7 @@ bun run typecheck           # packages + api + web (with test, the Husky pre-com
 bun run lint
 bun run format              # Prettier, width 120; skips *.md
 bun run test                # unit tests
+bun run test:go             # the Go engine against vectors from the TypeScript engine; needs Go on PATH
 bun run test:smoke          # end-to-end; needs dev:db and dev:api with ADMIN_KEY set (the suite gets the same value)
 bun run seed                # sample data through the running api (idempotent); keep it in the local database, rerun
                             #   after a reset. Then open localhost:3000/dev/seed to become the sample GM

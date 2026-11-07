@@ -16,13 +16,15 @@ import type {
   Lobby,
   RefusalKey,
 } from "@inconsistable/core-schema";
-import { MAX_NEW_CHARACTERS_PER_INVITE } from "../src/auth/invite.limits.ts";
-import { MAX_PACKS_PER_USER } from "../src/pack/pack.normalize.ts";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_PACK } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
+
+// Spelled out, not imported from the api: this suite is the black-box spec any api implementation has to pass.
+const MAX_NEW_CHARACTERS_PER_INVITE = 50;
+const MAX_PACKS_PER_USER = 50;
 
 const API = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 4000}`;
 const run = Date.now().toString(36); // test users are fresh per run, so reruns never collide

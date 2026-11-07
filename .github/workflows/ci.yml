@@ -33,6 +33,15 @@ jobs:
       - run: bun run lint
       - run: bun run format:check
       - run: bun run test
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api-go/go.mod
+          cache: false
+      - name: Go engine matches the TypeScript engine
+        run: |
+          test -z "$(gofmt -l apps/api-go)" || { gofmt -l apps/api-go; exit 1; }
+          (cd apps/api-go && go vet ./...)
+          bun run test:go
       # End-to-end against the postgres service above. The secrets are made per run, so no repo secret is needed.
       - name: Generate test-only secrets
         run: |

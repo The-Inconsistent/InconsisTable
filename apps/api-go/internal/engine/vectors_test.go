@@ -70,8 +70,14 @@ func loadVectors(t *testing.T) vectorFile {
 	if err := json.Unmarshal(raw, &v); err != nil {
 		t.Fatal(err)
 	}
-	if len(v.Expr) == 0 || len(v.Dice.Roll) == 0 || len(v.SumVsTarget) == 0 {
-		t.Fatal("vectors are empty, so this test would prove nothing")
+	for name, size := range map[string]int{
+		"expr": len(v.Expr), "canonical": len(v.Canonical), "sha": len(v.Sha), "entries": len(v.Entries),
+		"dice.parse": len(v.Dice.Parse), "dice.plain": len(v.Dice.Plain), "dice.roll": len(v.Dice.Roll),
+		"sumVsTarget": len(v.SumVsTarget),
+	} {
+		if size == 0 {
+			t.Fatalf("no %s vectors, so this test would prove nothing", name)
+		}
 	}
 	return v
 }
@@ -188,6 +194,24 @@ func TestPackHashMatchesTypeScript(t *testing.T) {
 		if got := ContentHash(x.Entry); got != x.Hash {
 			t.Errorf("content hash of %v: want %s, got %s", x.Entry["key"], x.Hash, got)
 		}
+	}
+}
+
+func TestContentHashRefusesAnUnparsedEntry(t *testing.T) {
+	for name, tags := range map[string]any{
+		"missing":    nil,
+		"not a list": "xy",
+		"not []any":  []string{"x"},
+		"a number":   []any{1.0},
+	} {
+		t.Run(name, func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Error("hashed an entry that was never parsed, so a retag could keep its old hash")
+				}
+			}()
+			ContentHash(map[string]any{"key": "a", "tags": tags})
+		})
 	}
 }
 

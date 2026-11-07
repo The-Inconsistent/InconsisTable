@@ -6,6 +6,9 @@ import (
 )
 
 // SumVsTarget holds the params of the dice.sumVsTarget primitive that resolving reads.
+//
+// ponytail: this file trusts input already parsed the way zod's SumVsTarget and ResolveInput parse it, and Go has no such
+// parser yet, so a raw decode resolves bad rolls; add one with refusal vectors before a handler decodes into these structs.
 type SumVsTarget struct {
 	Dice      string `json:"dice"`
 	Ties      string `json:"ties"`

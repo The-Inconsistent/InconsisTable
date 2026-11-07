@@ -37,9 +37,9 @@ harness can see drift. The Go engine has to reproduce JavaScript in these places
 - Canonical JSON prints numbers the ES way (`1e+21`), sorts keys by UTF-16 units, and escapes nothing beyond
   `JSON.stringify`.
 
-**Lone surrogates are refused.** Those 2 failures are strings holding a lone surrogate: `encoding/json` replaces it with
-U+FFFD, so the content hash changes. The Go api refuses such strings at the boundary rather than store altered text.
-Before cutover, check that no stored row holds one.
+**Lone surrogates will be refused.** Those 2 failures are strings holding a lone surrogate: `encoding/json` replaces it
+with U+FFFD, so the content hash changes. The Go api must refuse such strings at the boundary rather than store altered
+text. That check is not built yet, and is marked in `pack_hash.go`. Before cutover, check that no stored row holds one.
 
 **The socket stays Socket.IO, through `zishang520/socket.io` v3.** The web's client and `use-table.ts` do not change. The
 same client script ran against socket.io on Bun and against the Go library under the race detector: refusal, handshake
@@ -51,11 +51,21 @@ matched, with no race reported. Three differences need handling:
   clean in 30 of 30. The Go api kicks with `false`, then closes the transport itself after a grace period, so a client
   cannot stay connected by ignoring the packet. That close is not yet tested.
 - **Oversized frames.** The Go library drops the frame but the client only leaves at the ping timeout, about 45 s later.
+  The Go api has to close such a connection itself, promptly, because the smoke suite will require it once
+  The-Inconsistent/InconsisTable#81 lands. How is not yet known or tested.
 - **Panics.** A panic in an event handler kills the process. Every handler runs behind a `recover`.
 
 **The cut is one flip, not a proxy.** `apps/api-go` grows beside `apps/api` against the same Postgres schema, and is not
 deployed until `apps/api/test/smoke.test.ts` passes against it. That suite is the spec, and it no longer imports api
-source. Then `apps/api` and its Nest and Drizzle dependencies are deleted. No traffic is split between two apis.
+source. It also reads and writes Postgres directly and runs with sign-in off, so it is not the whole gate: what only the
+unit tests in `apps/api/src` cover, sign-in above all, gets Go tests before the flip. No traffic is split between two apis.
+
+**What the flip keeps.** `apps/api` and its Nest and Drizzle code are deleted, but three things in that folder outlive it:
+
+- The smoke suite and the seed move to a package of their own, which keeps `pg` and `socket.io-client`.
+- The SQL migrations in `apps/api/drizzle` move to `apps/api-go`, which applies them at boot and treats the ones Drizzle
+  already recorded as applied.
+- From then on a schema change is a new SQL file written by hand, because `db:generate` goes with Drizzle.
 
 **Order.** Engine, then core and device auth and the gateway, then features folder by folder, then sign-in last with a
 security review against `docs/research/auth-service-security.md` and ASVS.

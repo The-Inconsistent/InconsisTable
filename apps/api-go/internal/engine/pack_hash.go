@@ -81,6 +81,9 @@ func esString(s string) string {
 func compareUnits(a, b string) int { return slices.Compare(stringToUnits(a), stringToUnits(b)) }
 
 // CanonicalJSON is JSON with object keys sorted at every depth, so equal content is equal text. It takes decoded JSON.
+//
+// ponytail: a lone surrogate hashes unlike TypeScript, because encoding/json has already replaced it with U+FFFD; refuse
+// such strings where the api decodes its input (ADR 0008), which does not exist yet.
 func CanonicalJSON(value any) string {
 	switch x := value.(type) {
 	case nil:
@@ -125,10 +128,15 @@ func ContentHash(entry map[string]any) string {
 	for k, v := range entry {
 		sorted[k] = v
 	}
-	tags, _ := entry["tags"].([]any)
+	tags, ok := entry["tags"].([]any)
+	if !ok {
+		panic(fmt.Sprintf("engine: ContentHash got tags of %T, which is not a parsed entry", entry["tags"]))
+	}
 	strs := make([]string, len(tags))
 	for i, t := range tags {
-		strs[i], _ = t.(string)
+		if strs[i], ok = t.(string); !ok {
+			panic(fmt.Sprintf("engine: ContentHash got a tag of %T, which is not a parsed entry", t))
+		}
 	}
 	slices.SortStableFunc(strs, compareUnits)
 	out := make([]any, len(strs))

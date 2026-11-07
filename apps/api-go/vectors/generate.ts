@@ -1,9 +1,12 @@
 // Writes what the TypeScript engine answers, for the Go engine's tests to match (docs/adr/0008-go-api.md).
-// The output is generated on every run and never committed, so a change to the TypeScript engine fails Go at once.
+// The output is generated on every run and never committed, so Go always faces the TypeScript of this commit. Only the
+// inputs written here are compared: a new dice suffix or primitive needs vectors added here too.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { parseDice, rollDice, seededRng } from "../../../packages/rules-engine/src/dice/dice.ts";
+import { AdvantageMode, TieRule } from "../../../packages/rules-engine/src/enums.ts";
+import { FnName } from "../../../packages/rules-engine/src/expr/expr.ast.ts";
 import { evaluate } from "../../../packages/rules-engine/src/expr/expr.eval.ts";
 import { parseExpr } from "../../../packages/rules-engine/src/expr/expr.parser.ts";
 import { SAMPLE_PACK } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
@@ -89,7 +92,7 @@ const LEAVES = [
   "tags[0]",
   "attr[0]",
 ];
-const FNS = ["min", "max", "floor", "ceil", "clamp", "abs", "mod", "count", "sum", "has"];
+const FNS = FnName.options;
 const BIN = ["+", "-", "*", "/", "%", "<", "<=", ">", ">=", "==", "!=", "&&", "||"];
 const ARITH = ["+", "-", "*", "/", "%"];
 const NUMERIC = ["attr.str", "attr.dex", "res.hp", "zero", "rolls[1]", "7", "-3", "2", "big", "frac"];
@@ -174,7 +177,7 @@ function exprVectors() {
   });
 }
 
-// No lone surrogates here: Go's JSON decoder replaces them, so the api refuses them at its boundary (ADR 0008).
+// No lone surrogates here: Go's JSON decoder replaces them, so the api must refuse them at its boundary (ADR 0008).
 // prettier-ignore
 const CANONICAL: unknown[] = [
   null, true, false, 0, 1, -1, 1.5, -1.5, 0.1, 1e21, 1e-7, 1e-6, 123456789012345680000, 1.7976931348623157e308, 5e-324,
@@ -225,10 +228,10 @@ function sumVsTargetVectors() {
   if (!op) throw new Error("dice.sumVsTarget has no resolve op");
   const out = [];
   for (const dice of ["1d20", "2d6", "1dF", "2d6+1"])
-    for (const ties of ["meetOrBeat", "beat"])
+    for (const ties of TieRule.options)
       for (const critOn of [undefined, [20], [1, 20], [12]])
         for (const allowed of [false, true])
-          for (const advantage of ["none", "advantage", "disadvantage"])
+          for (const advantage of AdvantageMode.options)
             for (const target of [10, 15, 12])
               for (const modifier of [0, 5, -3])
                 for (const roll of ROLLS) {

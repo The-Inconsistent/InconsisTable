@@ -59,7 +59,7 @@ apps/api/src/        NestJS on Bun, run from source. One folder per feature, eac
   test-call/         Tests the GM calls: calls, called characters, reported rolls (physical dice, the server resolves)
 apps/api/test/       smoke.test.ts: end-to-end against a running api and Postgres 18
 apps/api-go/         the Go api in progress, not deployed yet (docs/adr/0008-go-api.md). internal/engine is the Go twin of
-                     packages/rules-engine: change both together, vectors/generate.ts and `bun run test:go` hold them equal
+                     packages/rules-engine: change both together, and add inputs to vectors/generate.ts, which `bun run test:go` compares
 apps/web/            Next.js 16: lobby, invite, join, the table page (GM app, player app, table screen)
 packages/core-schema seats, permissions (canInCampaign), the core Action union, snapshots, per-seat views, book relay
 packages/rules-engine manifests, expressions, dice, primitives, viewer views (no game content)

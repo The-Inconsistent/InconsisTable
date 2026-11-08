@@ -27,16 +27,25 @@ function safe(n: number): number {
   return n;
 }
 
+// % on doubles is exact, and so is every step below on safe integers: a - r never grows past a, and r + b shrinks
+// toward zero. Adding b first, as ((a % b) + b) % b does, rounds once the sum passes 2^53.
+/** True when the truncated remainder r must move toward b's sign to make the remainder floored. */
+const crosses = (r: number, b: number) => r !== 0 && r < 0 !== b < 0;
+
 /** Floored modulo, the partner of floor division: a = b * floorDiv(a, b) + floorMod(a, b). */
 function floorMod(a: number, b: number): number {
   if (b === 0) throw new ExprError("modulo by zero");
-  return ((a % b) + b) % b;
+  const r = a % b;
+  if (r === 0) return 0;
+  return crosses(r, b) ? r + b : r;
 }
 
 /** Exact floor division on integers, without a float detour that rounds wrong near 2^53. */
 function floorDiv(a: number, b: number): number {
   if (b === 0) throw new ExprError("division by zero");
-  return safe((a - floorMod(a, b)) / b);
+  const r = a % b;
+  const truncated = (a - r) / b;
+  return safe(crosses(r, b) ? truncated - 1 : truncated);
 }
 
 function ceilDiv(a: number, b: number): number {

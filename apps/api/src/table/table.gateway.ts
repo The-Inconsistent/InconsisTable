@@ -32,6 +32,7 @@ import { clientIp, limiter } from "../core/rate-limit.ts";
 import { applyAction, kicks, kicksSender, touches, type Kick } from "./table.dispatch.ts";
 import { seatView } from "../view/view.ts";
 import { loadSnapshot } from "./table.state.ts";
+import { SizedWebSocketServer } from "./ws-engine.ts";
 
 const room = (campaignId: string) => `c:${campaignId}`;
 // One room per signed-in session, so ending a session disconnects exactly its sockets (§7.7).
@@ -68,6 +69,7 @@ type Touches = { state: boolean; codex: boolean };
 @WebSocketGateway({
   cors: { origin: process.env.WEB_ORIGIN?.split(",").map((o) => o.trim()) ?? false, credentials: true },
   maxHttpBufferSize: MAX_PAGE_BYTES + 100_000, // a relayed book page (book:request), plus the ack envelope
+  wsEngine: SizedWebSocketServer,
 })
 export class TableGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server!: TableServer;

@@ -16,6 +16,7 @@ import type {
   Lobby,
   RefusalKey,
 } from "@inconsistable/core-schema";
+import { MAX_PAGE_BYTES } from "@inconsistable/core-schema";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_PACK } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
@@ -75,12 +76,20 @@ const nextSocketIp = () =>
 
 // A socket at one table: `auth` carries campaignId plus a device `cookie`, a guest token or the admin key; `headers`
 // can carry a guest cookie instead.
-function connect({ auth: given, headers }: { auth: Record<string, string>; headers?: Record<string, string> }) {
+function connect({
+  auth: given,
+  headers,
+  transports = ["websocket"],
+}: {
+  auth: Record<string, string>;
+  headers?: Record<string, string>;
+  transports?: string[];
+}) {
   const { cookie, ...auth } = given; // a device's cookie travels as the header a browser would send
   const socket = io(API, {
     auth,
     extraHeaders: { "cf-connecting-ip": nextSocketIp(), ...(cookie ? { cookie } : {}), ...headers },
-    transports: ["websocket"],
+    transports,
     reconnection: false,
   });
   let latest: LiveState | null = null;
@@ -150,6 +159,26 @@ test("GET /api/health answers 200 without a sign-in", async () => {
   assert.equal(res.status, 200);
   assert.equal((await res.text()).length, 0);
 });
+
+for (const transport of ["websocket", "polling"]) {
+  test(`a ${transport} frame over the socket limit closes the socket and never reaches a handler`, async () => {
+    const { owner, campaignId, ownerDevice } = await newRoom(`Frame ${transport}`);
+    owner.socket.close();
+    const c = connect({ auth: { campaignId, cookie: ownerDevice }, transports: [transport] });
+    await c.connected();
+
+    // A page-sized frame still gets through: the handler answers it.
+    const fits = (await c.socket.emitWithAck("action", { type: "x", pad: "a".repeat(MAX_PAGE_BYTES) })) as ActionResult;
+    refused(fits, "badRequest");
+
+    const closed = new Promise<string>((resolve) => c.socket.once("disconnect", resolve));
+    let answered = false;
+    c.socket.emit("action", { type: "x", pad: "a".repeat(MAX_PAGE_BYTES + 200_000) }, () => (answered = true));
+    await closed;
+    await new Promise((r) => setTimeout(r, 100));
+    assert.equal(answered, false);
+  });
+}
 
 test("only creators open rooms, and the creator owns the room", async () => {
   assert.equal((await post("/campaigns", { name: "x" })).status, 401);

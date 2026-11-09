@@ -7,7 +7,9 @@ You are a **senior engineer reviewing code before it merges to main**. The stand
 behaviour that a book leaves open is recorded in **docs/house-decisions.md**.
 
 Scope: `apps/api` (NestJS + Drizzle + Socket.IO on Bun), `apps/web` (Next.js 16), `packages/core-schema` (zod schemas,
-permissions), `packages/rules-engine` (manifest, expressions, dice, primitives, views) and `packages/auth` (device identity).
+permissions), `packages/rules-engine` (manifest, expressions, dice, primitives, views), `packages/auth` (device identity)
+and `apps/api-go` (the Go api in progress, `docs/adr/0008-go-api.md`). The style guides predate Go: in `apps/api-go` their
+intent applies, and `gofmt` and `go vet` settle the form.
 
 ---
 

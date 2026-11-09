@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p apps/api/tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json",
     "test": "bun test packages apps/web apps/api/src",
     "test:smoke": "bun --filter @inconsistable/api test:smoke",
+    "test:go": "bun apps/api-go/vectors/generate.ts && cd apps/api-go && go test -count=1 ./...",
     "seed": "bun --filter @inconsistable/api seed",
     "lint": "eslint .",
     "format": "prettier --write .",

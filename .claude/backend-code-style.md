@@ -140,7 +140,8 @@ InconsisTable ships no rules: rules arrive in imported manifests, and every rule
 page (the validator refuses one without, except in homebrew). Engine primitives implement *mechanics*, never a specific
 book's numbers; where the engine has to choose a behaviour a book leaves open, the choice is written in
 `docs/house-decisions.md`, not made silently in code. Pure rules functions go in `packages/rules-engine`, where the web
-and the api share them and they're unit tested.
+and the api share them and they're unit tested. The Go api keeps a twin in `apps/api-go/internal/engine`, so a change goes
+in both (`docs/adr/0008-go-api.md`).
 
 ### Never leak hidden data
 
@@ -174,7 +175,9 @@ awaits in a loop only when order matters, as with writes in one transaction.
 - **End-to-end:** `apps/api/test/smoke.test.ts` drives a real GM and player over Socket.IO against a running api and
   Postgres. Every new action or rule gets an assertion there, including its refusal cases.
 - **Engine:** manifest fixtures in `packages/rules-engine` are written by us for tests and contain no book text.
-- Test values come from the same constants the code uses (e.g. `SEAT_GRANTS`), not copied numbers.
+- Test values come from the same constants the code uses (e.g. `SEAT_GRANTS`), not copied numbers. The exception is
+  `apps/api/test/smoke.test.ts`, the black-box spec any api has to pass (`docs/adr/0008-go-api.md`), which imports no api
+  source.
 
 ## Linting & Formatting
 

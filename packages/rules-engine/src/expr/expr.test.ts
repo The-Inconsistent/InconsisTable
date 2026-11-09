@@ -63,6 +63,33 @@ test("division floors and modulo is floored", () => {
   assert.throws(() => run("1 % 0"), /modulo by zero/);
 });
 
+test("division and modulo stay exact up to the largest safe integer", () => {
+  const MAX = 2 ** 53 - 1;
+  const magnitudes = [1, 2, 3, 7, 2 ** 52 - 1, 2 ** 52, 2 ** 52 + 1, MAX - 2, MAX - 1, MAX];
+  let seed = 53;
+  const next = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0);
+  for (let i = 0; i < 30; i++) magnitudes.push((next() % 2 ** 21) * 2 ** 32 + next(), next() % 1000);
+  const write = (n: number) => (n < 0 ? `-${-n}` : `${n}`);
+  for (const x of [0, ...magnitudes])
+    for (const y of magnitudes)
+      for (const a of [x, -x])
+        for (const b of [y, -y]) {
+          if (b === 0) continue;
+          const big = { a: BigInt(a), b: BigInt(b) };
+          let q = big.a / big.b;
+          if (big.a % big.b !== 0n && big.a < 0n !== big.b < 0n) q -= 1n;
+          const m = big.a - big.b * q;
+          const src = `${write(a)} / ${write(b)}`;
+          if (q > BigInt(MAX) || q < -BigInt(MAX)) assert.throws(() => run(src), /integer overflow/, src);
+          // + 0 folds negative zero, which JSON prints as 0 anyway.
+          else assert.equal((run(src) as number) + 0, Number(q), src);
+          assert.equal((run(`${write(a)} % ${write(b)}`) as number) + 0, Number(m), `${src} remainder`);
+        }
+  assert.equal(run("9007199254740990 % 9007199254740991"), 9007199254740990);
+  assert.equal(run("9007199254740990 / 9007199254740991"), 0);
+  assert.equal(run("ceil(9007199254740990, 9007199254740991)"), 1);
+});
+
 test("comparisons, logic and right-associative ternary", () => {
   assert.equal(run("attr.str >= 15 && !(attr.dex > 10)"), true);
   assert.equal(run('attr.str < 10 || name == "Ash"'), true);

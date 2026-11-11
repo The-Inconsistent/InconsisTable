@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/admin"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/auth"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign"
@@ -58,22 +60,25 @@ func run() error {
 	authService := &auth.Service{DB: db, SignIn: signInConfig != nil}
 	rooms := &campaign.Service{DB: db, Auth: authService}
 
-	mux := http.NewServeMux()
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.New()
+	// ServeMux answered /api/lobby/ with the 404 below; Gin would redirect it.
+	router.RedirectTrailingSlash = false
 	// For the platform's restart check. Unauthenticated; answers 200 or 503 and never says why.
-	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
+	route(router, "GET", "/api/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := db.Ping(r.Context()); err != nil {
 			core.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"statusCode": 503, "message": "Service Unavailable"})
 		}
-	})
-	mux.Handle("POST /api/campaigns", core.Serve(rooms.Create))
-	mux.Handle("GET /api/lobby", core.Serve(rooms.Lobby))
-	mux.Handle("PATCH /api/me", core.Serve(rooms.Rename))
-	mux.Handle("GET /api/campaigns/{id}/me", core.Serve(rooms.Me))
-	mux.Handle("POST /api/join", core.Serve(rooms.Join))
-	mux.Handle("GET /api/guest", core.Serve(rooms.Guest))
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		core.WriteJSON(w, http.StatusNotFound, map[string]any{
-			"statusCode": 404, "error": "Not Found", "message": "Cannot " + r.Method + " " + r.URL.Path,
+	}))
+	route(router, "POST", "/api/campaigns", core.Serve(rooms.Create))
+	route(router, "GET", "/api/lobby", core.Serve(rooms.Lobby))
+	route(router, "PATCH", "/api/me", core.Serve(rooms.Rename))
+	route(router, "GET", "/api/campaigns/:id/me", core.Serve(rooms.Me))
+	route(router, "POST", "/api/join", core.Serve(rooms.Join))
+	route(router, "GET", "/api/guest", core.Serve(rooms.Guest))
+	router.NoRoute(func(c *gin.Context) {
+		core.WriteJSON(c.Writer, http.StatusNotFound, map[string]any{
+			"statusCode": 404, "error": "Not Found", "message": "Cannot " + c.Request.Method + " " + c.Request.URL.Path,
 		})
 	})
 
@@ -87,24 +92,24 @@ func run() error {
 
 	// Invites: accepting one runs in the table's queue and rebroadcasts like an action.
 	rooms.Mutate = gateway.Mutate
-	mux.Handle("GET /api/invites/{code}", core.Serve(rooms.Invite))
-	mux.Handle("POST /api/invites/{code}/accept", core.Serve(rooms.Accept))
+	route(router, "GET", "/api/invites/:code", core.Serve(rooms.Invite))
+	route(router, "POST", "/api/invites/:code/accept", core.Serve(rooms.Accept))
 
 	// The owner-scoped library, the admin console, and the rules a seat reads.
 	library := &pack.Service{DB: db, Auth: authService}
 	console := &admin.Service{DB: db, Table: gateway}
-	mux.Handle("POST /api/rulesets", core.Serve(library.ImportRuleset))
-	mux.Handle("GET /api/rulesets", core.Serve(library.Rulesets))
-	mux.Handle("POST /api/packs", core.Serve(library.ImportPack))
-	mux.Handle("GET /api/packs", core.Serve(library.Packs))
-	mux.Handle("GET /api/packs/{id}/export", core.Serve(library.Export))
-	mux.Handle("POST /api/packs/{id}/hide", core.Serve(library.Hide))
-	mux.Handle("GET /api/admin/campaigns", core.Serve(console.Campaigns))
-	mux.Handle("POST /api/admin/campaigns/{id}/action", core.Serve(console.Action))
-	mux.Handle("GET /api/admin/packs", core.Serve(console.Packs))
-	mux.Handle("POST /api/admin/packs/{id}/disable", core.Serve(console.DisablePack))
-	mux.Handle("GET /api/admin/events", core.Serve(console.Events))
-	mux.Handle("GET /api/campaigns/{id}/rules", core.Serve(library.Rules))
+	route(router, "POST", "/api/rulesets", core.Serve(library.ImportRuleset))
+	route(router, "GET", "/api/rulesets", core.Serve(library.Rulesets))
+	route(router, "POST", "/api/packs", core.Serve(library.ImportPack))
+	route(router, "GET", "/api/packs", core.Serve(library.Packs))
+	route(router, "GET", "/api/packs/:id/export", core.Serve(library.Export))
+	route(router, "POST", "/api/packs/:id/hide", core.Serve(library.Hide))
+	route(router, "GET", "/api/admin/campaigns", core.Serve(console.Campaigns))
+	route(router, "POST", "/api/admin/campaigns/:id/action", core.Serve(console.Action))
+	route(router, "GET", "/api/admin/packs", core.Serve(console.Packs))
+	route(router, "POST", "/api/admin/packs/:id/disable", core.Serve(console.DisablePack))
+	route(router, "GET", "/api/admin/events", core.Serve(console.Events))
+	route(router, "GET", "/api/campaigns/:id/rules", core.Serve(library.Rules))
 
 	// Signing in through InconsisID, and the signed-in account's page.
 	signIn := &auth.SignInRoutes{Auth: authService, Sockets: gateway}
@@ -115,15 +120,15 @@ func run() error {
 			log.Printf("sign-in: %v (%v)", err, errors.Unwrap(err))
 		}
 	}
-	mux.Handle("GET /api/auth/me", core.Serve(signIn.Me))
-	mux.Handle("POST /api/auth/login", core.Serve(signIn.Login))
-	mux.Handle("GET /api/auth/callback", core.Serve(signIn.Callback))
-	mux.Handle("POST /api/auth/logout", core.Serve(signIn.Logout))
-	mux.Handle("POST /api/auth/backchannel-logout", core.Serve(signIn.BackchannelLogout))
-	mux.Handle("GET /api/account", core.Serve(signIn.Account))
-	mux.Handle("PATCH /api/account", core.Serve(signIn.RenameAccount))
+	route(router, "GET", "/api/auth/me", core.Serve(signIn.Me))
+	route(router, "POST", "/api/auth/login", core.Serve(signIn.Login))
+	route(router, "GET", "/api/auth/callback", core.Serve(signIn.Callback))
+	route(router, "POST", "/api/auth/logout", core.Serve(signIn.Logout))
+	route(router, "POST", "/api/auth/backchannel-logout", core.Serve(signIn.BackchannelLogout))
+	route(router, "GET", "/api/account", core.Serve(signIn.Account))
+	route(router, "PATCH", "/api/account", core.Serve(signIn.RenameAccount))
 
-	rest := guarded(mux, adminKey)
+	rest := guarded(router, adminKey)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if under(r.URL.Path, "/socket.io") {
 			gateway.ServeHTTP(w, r)
@@ -135,6 +140,21 @@ func run() error {
 	address := ":" + env("PORT", "4000")
 	log.Printf("listening on %s", address)
 	return http.ListenAndServe(address, handler)
+}
+
+// route mounts a net/http handler on Gin and copies Gin's params into r.PathValue, so the services never see Gin.
+func route(router *gin.Engine, method, path string, h http.Handler) {
+	serve := func(c *gin.Context) {
+		for _, p := range c.Params {
+			c.Request.SetPathValue(p.Key, p.Value)
+		}
+		h.ServeHTTP(c.Writer, c.Request)
+	}
+	router.Handle(method, path, serve)
+	// ServeMux answered HEAD on every GET route.
+	if method == http.MethodGet {
+		router.Handle(http.MethodHead, path, serve)
+	}
 }
 
 func under(path string, prefixes ...string) bool {

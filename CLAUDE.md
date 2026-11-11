@@ -38,7 +38,8 @@ stat blocks, art or PDFs to this repo.
 
 Bun (package manager, runtime, test runner; never npm or pnpm), Turborepo, TypeScript 5.9 (do not upgrade: TS 7 breaks
 the Next toolchain), Next.js 16 + React 19, Socket.IO, zod 4 on the web, **Postgres 18**. The api is **Go 1.27**
-(`apps/api-go`, ADR 0008): pgx with hand-written SQL, Socket.IO through `zishang520/socket.io`. Auth: device identity
+(`apps/api-go`, ADR 0008): pgx with hand-written SQL, Gin as the REST router only (handlers stay `net/http` through `core.Serve`; no Gin
+binding, `internal/schema` validates), Socket.IO through `zishang520/socket.io`. Auth: device identity
 (an `it_device` cookie per browser) through `@inconsistable/auth`; on HTTPS deployments, accounts through InconsisID with
 its Go SDK `inconsisid-go`, a private module (`GOPRIVATE=github.com/The-Inconsistent`; ADR 0005, `docs/deploy.md`
 Sign-in).

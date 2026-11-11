@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 )
 
@@ -52,17 +53,48 @@ type vectorFile struct {
 			Roll     any    `json:"roll"`
 		} `json:"roll"`
 	} `json:"dice"`
-	SumVsTarget []struct {
-		Params  SumVsTarget  `json:"params"`
-		Input   ResolveInput `json:"input"`
-		Refusal *Refusal     `json:"refusal"`
-		Deltas  any          `json:"deltas"`
-	} `json:"sumVsTarget"`
+	Ops struct {
+		States []RuleState `json:"states"`
+		Params []any       `json:"params"`
+		Cases  []struct {
+			Primitive string `json:"primitive"`
+			Op        string `json:"op"`
+			Params    int    `json:"params"`
+			State     int    `json:"state"`
+			Input     any    `json:"input"`
+			Ok        bool   `json:"ok"`
+			Deltas    any    `json:"deltas"`
+			Touches   string `json:"touches"`
+			Perm      string `json:"perm"`
+			Code      string `json:"code"`
+			Message   string `json:"message"`
+			// Zod worded this refusal, or two unknown bands made the named one depend on key order. Clients get the code.
+			CodeOnly bool `json:"codeOnly"`
+		} `json:"cases"`
+	} `json:"ops"`
+}
+
+var readVectors = sync.OnceValues(func() ([]byte, error) { return os.ReadFile("testdata/vectors.json") })
+
+func loadManifestVectors(t *testing.T) manifestVectorFile {
+	t.Helper()
+	raw, err := readVectors()
+	if err != nil {
+		t.Fatalf("no vectors, run `bun run test:go` from the repo root: %v", err)
+	}
+	var v manifestVectorFile
+	if err := json.Unmarshal(raw, &v); err != nil {
+		t.Fatal(err)
+	}
+	if len(v.Checks) == 0 || len(v.Cases) == 0 || len(v.Manifests) == 0 {
+		t.Fatal("no manifest vectors, so this test would prove nothing")
+	}
+	return v
 }
 
 func loadVectors(t *testing.T) vectorFile {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/vectors.json")
+	raw, err := readVectors()
 	if err != nil {
 		t.Fatalf("no vectors, run `bun run test:go` from the repo root: %v", err)
 	}
@@ -73,7 +105,7 @@ func loadVectors(t *testing.T) vectorFile {
 	for name, size := range map[string]int{
 		"expr": len(v.Expr), "canonical": len(v.Canonical), "sha": len(v.Sha), "entries": len(v.Entries),
 		"dice.parse": len(v.Dice.Parse), "dice.plain": len(v.Dice.Plain), "dice.roll": len(v.Dice.Roll),
-		"sumVsTarget": len(v.SumVsTarget),
+		"ops.states": len(v.Ops.States), "ops.params": len(v.Ops.Params), "ops.cases": len(v.Ops.Cases),
 	} {
 		if size == 0 {
 			t.Fatalf("no %s vectors, so this test would prove nothing", name)
@@ -316,19 +348,66 @@ func TestCryptoRngStaysInRange(t *testing.T) {
 	}
 }
 
-func TestSumVsTargetMatchesTypeScript(t *testing.T) {
+func TestOpsMatchTypeScript(t *testing.T) {
 	v := loadVectors(t)
-	for _, x := range v.SumVsTarget {
-		refusal := ValidateSumVsTarget(x.Params, x.Input)
-		if !reflect.DeepEqual(refusal, x.Refusal) {
-			t.Errorf("%+v %+v: want refusal %+v, got %+v", x.Params, x.Input, x.Refusal, refusal)
-			continue
+	failed := 0
+	for _, x := range v.Ops.Cases {
+		var params any
+		if x.Params >= 0 {
+			params = v.Ops.Params[x.Params]
 		}
-		if refusal != nil {
-			continue
+		got, refusal := RunOp(x.Primitive, x.Op, params, x.Input, &v.Ops.States[x.State])
+		problem := ""
+		switch {
+		case x.Ok && refusal != nil:
+			problem = fmt.Sprintf("want deltas %v, got refusal %+v", x.Deltas, *refusal)
+		case !x.Ok && refusal == nil:
+			problem = fmt.Sprintf("want refusal %s %q, got %+v", x.Code, x.Message, got)
+		case !x.Ok && refusal.Code != x.Code:
+			problem = fmt.Sprintf("want code %s %q, got %+v", x.Code, x.Message, *refusal)
+		case !x.Ok && !x.CodeOnly && refusal.Message != x.Message:
+			problem = fmt.Sprintf("want message %q, got %q", x.Message, refusal.Message)
+		case x.Ok && (got.Touches != x.Touches || got.Perm != x.Perm):
+			problem = fmt.Sprintf("want %s %s, got %s %s", x.Touches, x.Perm, got.Touches, got.Perm)
+		case x.Ok && !reflect.DeepEqual(viaJSON(t, got.Deltas), x.Deltas):
+			problem = fmt.Sprintf("want deltas %v, got %v", x.Deltas, viaJSON(t, got.Deltas))
 		}
-		if got := viaJSON(t, ApplySumVsTarget(x.Params, x.Input)); !reflect.DeepEqual(got, x.Deltas) {
-			t.Errorf("%+v %+v: want %v, got %v", x.Params, x.Input, x.Deltas, got)
+		if problem != "" {
+			failed++
+			if failed <= 25 {
+				t.Errorf("%s.%s params %d state %d input %v: %s", x.Primitive, x.Op, x.Params, x.State, x.Input, problem)
+			}
 		}
+	}
+	if failed > 0 {
+		t.Errorf("%d of %d op cases differ", failed, len(v.Ops.Cases))
+	}
+}
+
+func TestDeltasOutsideTheTargetsAreRefused(t *testing.T) {
+	refusal := checkDeltas(
+		[]Delta{addResource("a", "hp", 1)},
+		[]TargetPattern{{"resource", "mana"}, {"field", "*"}},
+	)
+	want := `delta writes {"actorId":"a","resource":"hp"}, outside the op's targets`
+	if refusal == nil || refusal.Code != "outOfTargets" || refusal.Message != want {
+		t.Errorf("got %+v", refusal)
+	}
+	if refusal := checkDeltas([]Delta{addResource("a", "hp", 1)}, []TargetPattern{{"resource", "*"}}); refusal != nil {
+		t.Errorf("a wildcard target refused: %+v", refusal)
+	}
+}
+
+func TestRunOpRefusesAnOpThatWritesOutsideItsTargets(t *testing.T) {
+	primitives["test.rogue"] = definePrimitive(parseEmpty("badParams"), map[string]primitiveOp{
+		"write": defineOp("test:call", parseEmpty("badInput"),
+			func(struct{}) []TargetPattern { return []TargetPattern{{"resource", "mana"}} },
+			nil,
+			func(struct{}, *RuleState, struct{}) []Delta { return []Delta{addResource("a", "hp", 1)} }),
+	})
+	defer delete(primitives, "test.rogue")
+	_, refusal := RunOp("test.rogue", "write", map[string]any{}, map[string]any{}, &RuleState{})
+	if refusal == nil || refusal.Code != "outOfTargets" {
+		t.Errorf("got %+v", refusal)
 	}
 }

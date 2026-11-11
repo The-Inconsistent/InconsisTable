@@ -9,7 +9,7 @@ import { SAMPLE_POOL } from "./sample-pool.ts";
 
 // An imported ruleset version is immutable: the api refuses the same version with a different normalized manifest, so
 // a sample (or an engine default) changed under the same version breaks `bun run seed` on every local database. Bump
-// the sample's version, then the hash here. The hash is the one the importer compares (apps/api ruleset.check.ts).
+// the sample's version, then the hash here. The hash is the one the importer compares (apps/api-go internal/ruleset/import.go).
 const PINNED: Record<string, string> = {
   "sample-d20@0.1.1": "97dcbec9f6dc1fdf79d5331a72529338092c0689f39652a7d32124df5d53c3e2",
   "sample-pool@0.1.1": "c290c0771da44ec15179be78fa851e70a8212d558c4447094280d740fe7a70eb",

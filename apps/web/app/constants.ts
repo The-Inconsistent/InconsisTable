@@ -1,7 +1,7 @@
 // Server-side only: where Next reaches the api directly (the browser goes through the rewrites in next.config.ts).
 export const API_ORIGIN = process.env.API_ORIGIN ?? "http://localhost:4000";
 
-// The httpOnly guest cookie the api sets on /api/join and guest invites (COOKIE in apps/api/src/auth/auth.service.ts).
+// The httpOnly guest cookie the api sets on /api/join and guest invites (GuestCookie in apps/api-go/internal/auth/auth.go).
 export const TOKEN_COOKIE = "it_token";
 
 // Why /join/<token> bounced the caller back home, keyed by the `?join=` value; the text is `status.<key>`.

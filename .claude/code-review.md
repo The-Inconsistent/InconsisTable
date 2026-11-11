@@ -6,10 +6,8 @@ You are a **senior engineer reviewing code before it merges to main**. The stand
 **CLAUDE.md** (above all its eight principles), **backend-code-style.md** and **frontend-code-style.md**. Engine
 behaviour that a book leaves open is recorded in **docs/house-decisions.md**.
 
-Scope: `apps/api` (NestJS + Drizzle + Socket.IO on Bun), `apps/web` (Next.js 16), `packages/core-schema` (zod schemas,
-permissions), `packages/rules-engine` (manifest, expressions, dice, primitives, views), `packages/auth` (device identity)
-and `apps/api-go` (the Go api in progress, `docs/adr/0008-go-api.md`). The style guides predate Go: in `apps/api-go` their
-intent applies, and `gofmt` and `go vet` settle the form.
+Scope: `apps/api-go` (Go + pgx + Socket.IO), `apps/smoke` (the end-to-end suite), `apps/web` (Next.js 16), `packages/core-schema` (zod schemas,
+permissions), `packages/rules-engine` (manifest, expressions, dice, primitives, views) and `packages/auth` (device identity).
 
 ---
 
@@ -53,7 +51,7 @@ Trace every action handler, REST endpoint and rules function end to end.
 
 #### Partial failure & side effects
 
-- Does the whole action run inside one `db.transaction`?
+- Does the whole action run inside one transaction (`core.InTx`, through `table.ApplyAction`)?
 - Is the broadcast sent only after the commit?
 - If the transaction fails, is the client's `ActionResult` accurate, with nothing broadcast?
 
@@ -162,24 +160,22 @@ Feedback is concise, actionable, and ranked by priority.
 - [ ] **No hidden data reaches a seat** (`toViewerView`, declared visibility, fail-closed default).
 - [ ] **`touches()` is updated** if the action changes the codex.
 
-### Backend (`apps/api`)
-- [ ] Feature folders (`core/`, `auth/`, `campaign/`, `actor/`, `encounter/`, `codex/`, `ruleset/`, `table/`). No global
-      `schema.ts` or layer folders.
-- [ ] Controllers and the gateway are thin. Logic lives in `*.actions.ts` or `*.service.ts`, with no Nest imports.
-- [ ] Closed sets are defined once (a `z.enum` in `core-schema` or `rules-engine`). No inline literal unions (including `.$type<"a" | "b">`).
-- [ ] No `any`. No `as` on untrusted data.
-- [ ] More than two parameters (or same-type neighbours) means an options object; `tx` may stay first.
-- [ ] Imports come from the defining module. No barrels inside apps.
-- [ ] `async`/`await`. No `return await`. `Promise.all` for independent reads.
-- [ ] Timestamps are timezone-aware, in UTC.
+### Backend (`apps/api-go`)
+- [ ] One package per feature under `internal/`. No layer packages.
+- [ ] The gateway and HTTP handlers are thin: parse, resolve `cs.Ctx`, call the feature's function.
+- [ ] Closed sets are defined once, in `coreschema` (or `engine`), held equal to the TypeScript enum by the vectors.
+- [ ] Untrusted input goes through `internal/schema` before use; no panicking type assertion on it.
+- [ ] A change to `engine`, `coreschema` or `view` is made on the TypeScript side too, with vector inputs added.
+- [ ] Refusals are `*coreschema.Error`; internal errors are logged and answered generically. Handlers run behind
+      `core.Serve` or `guard` (recover).
+- [ ] `gofmt` and `go vet` are clean. Timestamps are `timestamptz`, in UTC.
 - [ ] Every new action or rule has a smoke-test assertion, including its refusal cases.
-- [ ] A schema change has a regenerated migration. Pre-release, one migration is fine; after real data exists, add
-      migrations and don't rewrite them.
+- [ ] A schema change is a new SQL file in `apps/api-go/migrations`; no applied file is edited.
 
 ### Frontend (`apps/web`)
 - [ ] No `any`. Closed sets come from `@inconsistable/core-schema` or an `as const` object. No inline unions.
 - [ ] Mutations only through `send(action)`. No Server Actions or REST for game state (the exceptions: owner-scoped
-      work outside a table, and the admin page's allowlisted housekeeping through `TableGateway.run`; CLAUDE.md).
+      work outside a table, and the admin page's allowlisted housekeeping through `Gateway.Run`; CLAUDE.md).
 - [ ] `useEffect` only for external systems (socket, wake lock, device APIs), each with a comment.
 - [ ] Request-time or identity work happens on the server (Server Component or route handler); `params` are awaited.
 - [ ] Named handlers for anything beyond a one-statement setter.
@@ -220,11 +216,11 @@ Feedback is concise, actionable, and ranked by priority.
 - ❌ **Non-atomic multi-write,** or a read-modify-write on counters.
 - ❌ **An action path that skips validate → authorize → transaction → broadcast.**
 - ❌ **`any`,** or inline literal unions for closed sets.
-- ❌ **Logic in a controller or the gateway** instead of `*.actions.ts` / `*.service.ts`.
+- ❌ **Logic in a controller or the gateway** instead of the feature package.
 - ❌ **A layer-based backend structure.**
 - ❌ **New `useEffect` for data fetching,** or any `useEffect` without an external-system justification.
 - ❌ **Server Actions or REST for game mutations** (outside the exceptions in CLAUDE.md: owner-scoped work outside a
-  table, and `/api/admin` housekeeping, which must go through `TableGateway.run`).
+  table, and `/api/admin` housekeeping, which must go through `Gateway.Run`).
 - ❌ **A breaking snapshot or `Action` change** without updating both web and api and the smoke test.
 - ❌ **Unhandled promise rejections** or swallowed errors.
 - ❌ **A schema change without a migration.**

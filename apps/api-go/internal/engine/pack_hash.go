@@ -82,8 +82,8 @@ func compareUnits(a, b string) int { return slices.Compare(stringToUnits(a), str
 
 // CanonicalJSON is JSON with object keys sorted at every depth, so equal content is equal text. It takes decoded JSON.
 //
-// ponytail: a lone surrogate hashes unlike TypeScript, because encoding/json has already replaced it with U+FFFD; refuse
-// such strings where the api decodes its input (ADR 0008), which does not exist yet.
+// A lone surrogate never gets here: encoding/json would have replaced it with U+FFFD, so the importers refuse a body that
+// holds one before they decode it (pack.LoneSurrogate, ADR 0008).
 func CanonicalJSON(value any) string {
 	switch x := value.(type) {
 	case nil:

@@ -1,0 +1,12 @@
+{
+  "name": "@inconsistable/api-go",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --env-file=.env run serve",
+    "serve": "NODE_ENV=development go run ./cmd/api"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}

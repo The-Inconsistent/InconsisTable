@@ -76,8 +76,12 @@ type Session struct {
 	EndsAt    time.Time
 }
 
-// Service reads identities from the database.
-type Service struct{ DB *pgxpool.Pool }
+// Service reads identities from the database. SignIn is on when the sign-in config loaded (IDP_SIGN_IN): an HTTPS
+// deployment, whose socket refuses the adminKey handshake (auth-service-security.md §7.7).
+type Service struct {
+	DB     *pgxpool.Pool
+	SignIn bool
+}
 
 // SessionOf reads the caller's session from its cookie. One statement checks both limits and touches last_seen_at, so
 // an expired session never reads as live. It returns nil for no cookie or a dead session.

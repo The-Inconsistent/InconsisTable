@@ -38,6 +38,9 @@ func (s *Service) ResolveSocketCtx(ctx context.Context, auth map[string]any, coo
 	campaignID, _ := h["campaignId"].(string)
 	token, _ := h["token"].(string)
 	adminKey, _ := h["adminKey"].(string)
+	if adminKey != "" && s.SignIn {
+		return nil, nil
+	}
 	if adminKey != "" && campaignID != "" {
 		if !core.IsAdminKey(adminKey) {
 			return nil, nil

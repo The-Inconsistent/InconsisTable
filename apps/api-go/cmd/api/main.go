@@ -56,7 +56,7 @@ func run() error {
 		return err
 	}
 
-	authService := &auth.Service{DB: db}
+	authService := &auth.Service{DB: db, SignIn: signInConfig != nil}
 	rooms := &campaign.Service{DB: db, Auth: authService}
 
 	mux := http.NewServeMux()

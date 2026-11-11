@@ -395,7 +395,14 @@
   "turnBanner": {
     "yourTurn": "Đến lượt bạn, {name}"
   },
+  "outcomePad": {
+    "pickFor": "Kết quả của {who}",
+    "pickFirst": "Chọn kết quả",
+    "report": "Báo {label}"
+  },
   "testPrompt": {
+    "reportedResult": "Kết quả: {label}",
+    "pickResult": "{who} ra kết quả nào?",
     "waiting": "Đang chờ GM",
     "reportedWaiting": "Đã báo. Đang chờ GM",
     "closed": "Đã đóng",
@@ -703,7 +710,9 @@
     "change": "Sửa",
     "report": "Báo",
     "close": "Đóng",
-    "closeShow": "Đóng và hiện kết quả"
+    "closeShow": "Đóng và hiện kết quả",
+    "reportedTag": "Báo kết quả",
+    "reportedResult": "Kết quả: {label}"
   },
   "callForm": {
     "wholeNumber": "Hãy nhập số nguyên cho {id}",
@@ -717,7 +726,8 @@
     "noCharacter": "Chưa có nhân vật nào được tạo cho bộ luật này.",
     "hideTarget": "Giấu con số cần vượt khỏi cả bàn",
     "showOutcome": "Cho họ biết đạt hay trượt",
-    "callTest": "Gọi Test"
+    "callTest": "Gọi Test",
+    "reported": "báo kết quả"
   },
   "socket": {
     "noSignal": "Mất tín hiệu",
@@ -874,6 +884,9 @@
     "notCalled": "Nhân vật đó không được gọi",
     "alreadyReported": "Đã báo kết quả. Hãy nhờ GM nếu cần sửa",
     "badAdvantage": "\"{advantage}\" không phải advantage, disadvantage hay none",
+    "unknownOutcome": "Kết quả này không nằm trong danh sách của Test.",
+    "testTakesOutcome": "Test này nhận một kết quả, không nhận xúc xắc.",
+    "testTakesDice": "Test này nhận xúc xắc, không nhận một kết quả.",
     "bookScreenNone": "Màn hình bàn không hiện trang sách.",
     "bookNotServed": "GM không chia sẻ cuốn sách đó.",
     "bookBusy": "Máy tính bảng của GM đang bận. Hãy thử lại sau giây lát.",

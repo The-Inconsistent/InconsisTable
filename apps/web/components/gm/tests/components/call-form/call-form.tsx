@@ -81,8 +81,9 @@ export function CallForm({ state, send, initialTargets = [], onCalled }: CallFor
       testId: def.id,
       actorIds: targets,
       inputs: filled.inputs,
-      hideTarget,
-      showOutcome: hideTarget && showOutcome,
+      // A reported Test has no number to hide.
+      hideTarget: !def.outcomes && hideTarget,
+      showOutcome: !def.outcomes && hideTarget && showOutcome,
     });
     setError(r.ok ? null : r.error);
     if (r.ok) {
@@ -103,7 +104,7 @@ export function CallForm({ state, send, initialTargets = [], onCalled }: CallFor
           <select id="call-test" value={def.id} onChange={handleTest}>
             {state.testDefs.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.id} ({d.dice})
+                {d.id} ({d.outcomes ? t("reported") : d.dice})
               </option>
             ))}
           </select>
@@ -165,28 +166,30 @@ export function CallForm({ state, send, initialTargets = [], onCalled }: CallFor
           {roster.length === 0 && <span className="dim">{t("noCharacter")}</span>}
         </div>
       </div>
-      <div className="row">
-        <label className="row" style={{ minHeight: 44 }}>
-          <input
-            type="checkbox"
-            checked={hideTarget}
-            onChange={(e) => setHideTarget(e.target.checked)}
-            style={{ minHeight: 24 }}
-          />
-          {t("hideTarget")}
-        </label>
-        {hideTarget && (
+      {!def.outcomes && (
+        <div className="row">
           <label className="row" style={{ minHeight: 44 }}>
             <input
               type="checkbox"
-              checked={showOutcome}
-              onChange={(e) => setShowOutcome(e.target.checked)}
+              checked={hideTarget}
+              onChange={(e) => setHideTarget(e.target.checked)}
               style={{ minHeight: 24 }}
             />
-            {t("showOutcome")}
+            {t("hideTarget")}
           </label>
-        )}
-      </div>
+          {hideTarget && (
+            <label className="row" style={{ minHeight: 44 }}>
+              <input
+                type="checkbox"
+                checked={showOutcome}
+                onChange={(e) => setShowOutcome(e.target.checked)}
+                style={{ minHeight: 24 }}
+              />
+              {t("showOutcome")}
+            </label>
+          )}
+        </div>
+      )}
       {error && (
         <p className="error" role="alert">
           {error}

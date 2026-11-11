@@ -395,7 +395,14 @@
   "turnBanner": {
     "yourTurn": "Your turn, {name}"
   },
+  "outcomePad": {
+    "pickFor": "Result for {who}",
+    "pickFirst": "Pick the result",
+    "report": "Report {label}"
+  },
   "testPrompt": {
+    "reportedResult": "Result: {label}",
+    "pickResult": "What came up for {who}?",
     "waiting": "Waiting for the GM",
     "reportedWaiting": "Reported. Waiting for the GM",
     "closed": "Closed",
@@ -703,7 +710,9 @@
     "change": "Change",
     "report": "Report",
     "close": "Close",
-    "closeShow": "Close and show results"
+    "closeShow": "Close and show results",
+    "reportedTag": "Reported",
+    "reportedResult": "Result: {label}"
   },
   "callForm": {
     "wholeNumber": "Fill in {id} with a whole number",
@@ -717,7 +726,8 @@
     "noCharacter": "No character is built for this ruleset yet.",
     "hideTarget": "Hide the number to beat from the table",
     "showOutcome": "Tell them success or failure",
-    "callTest": "Call Test"
+    "callTest": "Call Test",
+    "reported": "reported"
   },
   "socket": {
     "noSignal": "No signal",
@@ -874,6 +884,9 @@
     "notCalled": "That character wasn't called",
     "alreadyReported": "Already reported. Ask the GM if it needs to change",
     "badAdvantage": "\"{advantage}\" isn't advantage, disadvantage or none",
+    "unknownOutcome": "That outcome is not one this Test lists.",
+    "testTakesOutcome": "This Test takes an outcome, not dice.",
+    "testTakesDice": "This Test takes dice, not an outcome.",
     "bookScreenNone": "The table screen shows no book pages.",
     "bookNotServed": "The GM isn't serving that book.",
     "bookBusy": "The GM's tablet is busy. Try again in a moment.",

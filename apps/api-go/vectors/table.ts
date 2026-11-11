@@ -272,6 +272,55 @@ const SNAPSHOTS: { name: string; state: unknown; codex: unknown; drafts: Record<
       drafts: {},
       ruleset: true,
     },
+    {
+      // An ended game beside a scored, phased fight, and an open Dice pool Test whose number stays hidden.
+      name: "ended game",
+      state: {
+        ...STATE,
+        tests: [
+          call(U(205), {
+            dice: "d6 pool",
+            advantage: false,
+            pool: { die: 6, bands: [{ id: "hit", from: 4, to: 6, worth: 1 }], special: null, shift: null },
+            targets: [{ actorId: PC1, modifier: 1, target: 3, pool: 5, report: null }],
+            called: 1,
+            reported: 0,
+          }),
+        ],
+        encounter: {
+          ...STATE.encounter,
+          phaseId: "plan",
+          phases: [
+            { id: "plan", label: "Plan", mode: "simultaneous" },
+            { id: "act", label: "Act", mode: "turns" },
+          ],
+          endMet: [0],
+          scoring: { mode: "compete" },
+        },
+        games: [
+          {
+            encounterId: U(301),
+            endedAt: "2026-11-01T11:00:00.000Z",
+            endedEarly: false,
+            mode: "compete",
+            rows: [
+              { resultId: U(600), actorId: PC1, name: "One", score: 9, tiebreaks: [2], place: 1, outcome: null },
+              { resultId: U(601), actorId: null, name: "Gone", score: 4, tiebreaks: [1], place: 2, outcome: null },
+            ],
+          },
+          {
+            encounterId: U(302),
+            endedAt: "2026-11-01T10:30:00.000Z",
+            endedEarly: true,
+            mode: "coop",
+            rows: [{ resultId: U(602), actorId: PC2, name: "Two", score: 0, tiebreaks: [], place: null, outcome: "lose" }],
+          },
+        ],
+      },
+      codex: CODEX,
+      drafts: {},
+      ruleset: true,
+    },
   ];
 
 const views = SNAPSHOTS.flatMap((snap) =>

@@ -438,7 +438,6 @@
     },
     "coming": {
       "prep": "Cuộc phiêu lưu và cảnh sẽ có ở P1.",
-      "codex": "NPC, địa điểm, phe phái và tài liệu phát tay sẽ có ở P1.",
       "map": "Bản đồ giúp cả bàn nhớ sẽ có ở P2."
     }
   },
@@ -548,7 +547,11 @@
     "unarchive": "Bỏ lưu trữ",
     "archive": "Lưu trữ",
     "deleteLabel": "Gõ tên campaign để xóa",
-    "deleteForGood": "Xóa vĩnh viễn"
+    "deleteForGood": "Xóa vĩnh viễn",
+    "recap": "Tóm tắt buổi chơi",
+    "recapHint": "Buổi này đã xảy ra chuyện gì? Để trống nếu không cần.",
+    "endSessionConfirm": "Kết thúc buổi {number}",
+    "cancel": "Hủy"
   },
   "rulesPanel": {
     "readFailed": "Không đọc được luật. Kiểm tra kết nối rồi tải lại.",
@@ -913,5 +916,49 @@
     "importToggle": "Nhập bộ luật hoặc pack",
     "toRooms": "Tới phòng chơi",
     "loading": "Đang mở…"
+  },
+  "codex": {
+    "search": "Tìm trong tên và nội dung",
+    "newEntry": "Mục mới",
+    "kindLabel": "Loại",
+    "titleLabel": "Tên",
+    "create": "Tạo",
+    "cancel": "Hủy",
+    "filter": "Lọc theo loại",
+    "all": "Tất cả",
+    "empty": "Chưa có mục nào. Hãy bắt đầu với một NPC, một địa điểm hoặc một tài liệu phát tay.",
+    "noMatch": "Không có mục nào khớp.",
+    "body": "Nội dung cả bàn thấy khi được tiết lộ",
+    "gmNotes": "Ghi chú GM (người chơi không bao giờ thấy)",
+    "save": "Lưu",
+    "delete": "Xóa",
+    "confirmDelete": "Xóa hẳn \"{title}\"",
+    "reveal": "Ai được xem",
+    "visibilityLabel": "Mức hiển thị",
+    "audienceLabel": "Đối tượng",
+    "readers": "Nhân vật được xem",
+    "noCharacters": "Phòng này chưa có nhân vật nào.",
+    "revealButton": "Áp dụng",
+    "listed": "{count} nhân vật",
+    "kind": {
+      "adventure": "Cuộc phiêu lưu",
+      "scene": "Cảnh",
+      "npc": "NPC",
+      "location": "Địa điểm",
+      "faction": "Phe phái",
+      "item": "Vật phẩm",
+      "handout": "Tài liệu phát tay",
+      "quest": "Nhiệm vụ",
+      "lore": "Truyền thuyết"
+    },
+    "visibility": {
+      "gm": "Chỉ GM",
+      "party": "Cả đoàn",
+      "public": "Công khai"
+    },
+    "audience": {
+      "all": "Mọi người",
+      "listed": "Nhân vật được chọn"
+    }
   }
 }

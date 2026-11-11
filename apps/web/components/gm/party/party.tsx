@@ -15,9 +15,11 @@ import {
   type LiveState,
   type Me,
   type Member,
+  type SessionRecap,
 } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
+import { Recaps } from "@/components/gm/party/recaps";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
@@ -30,6 +32,8 @@ type PartyProps = {
   me: Me;
   state: LiveState;
   send: Send;
+  /** Past recaps, from the codex snapshot. */
+  recaps: readonly SessionRecap[];
   /** What a character sheet needs: the ruleset as the GM reads it, the served books and the page relay. */
   sheet: { ruleset: Ruleset | null; books: readonly BookSource[]; requestPage: RequestPage };
 };
@@ -46,7 +50,7 @@ const SCOPE_KEY = {
 type Shown = { title: string; url: string; qr: string };
 
 // PARTY: who sits at this table, how others join, and the room's owner controls (docs/design.md §3.6, §3.7).
-export function Party({ me, state, send, sheet }: PartyProps) {
+export function Party({ me, state, send, recaps, sheet }: PartyProps) {
   const t = useTranslations("party");
   const tRoles = useTranslations("roles");
   const tRest = useTranslations("rest");
@@ -194,6 +198,8 @@ export function Party({ me, state, send, sheet }: PartyProps) {
           )}
         </section>
       )}
+
+      {can("session:run") && <Recaps recaps={recaps} send={send} onError={setError} />}
 
       <section className="stack">
         <h2 className="head">{t("invite")}</h2>

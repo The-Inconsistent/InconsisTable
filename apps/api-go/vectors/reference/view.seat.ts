@@ -211,6 +211,7 @@ function seatState({
 function seatCodex({ codex, ctx, sight }: { codex: Codex; ctx: Ctx; sight: Sight }): Codex {
   const held = heldBy(ctx);
   return {
+    recaps: codex.recaps,
     entries: codex.entries
       .filter(
         (e) =>

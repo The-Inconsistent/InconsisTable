@@ -389,7 +389,7 @@
       "rules": "Rules",
       "fight": "Fight",
       "map": "Map",
-      "intel": "Intel",
+      "notebook": "Notebook",
       "standings": "Standings"
     }
   },
@@ -960,5 +960,22 @@
       "all": "Everyone",
       "listed": "Chosen characters"
     }
+  },
+  "recaps": {
+    "lastTime": "Last time",
+    "session": "Session {number}",
+    "dismiss": "Got it",
+    "heading": "Recaps",
+    "empty": "No recaps yet. They appear here when a session ends with one.",
+    "edit": "Edit",
+    "editLabel": "Edit the recap of session {number}",
+    "text": "Recap",
+    "save": "Save recap",
+    "cancel": "Cancel"
+  },
+  "notebook": {
+    "entries": "Revealed",
+    "recaps": "Recaps",
+    "nothing": "Nothing in your notebook yet."
   }
 }

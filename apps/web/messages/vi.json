@@ -390,7 +390,7 @@
       "fight": "Trận",
       "map": "Bản đồ",
       "standings": "Xếp hạng",
-      "intel": "Tin"
+      "notebook": "Sổ tay"
     }
   },
   "turnBanner": {
@@ -960,5 +960,22 @@
       "all": "Mọi người",
       "listed": "Nhân vật được chọn"
     }
+  },
+  "recaps": {
+    "lastTime": "Lần trước",
+    "session": "Buổi {number}",
+    "dismiss": "Đã rõ",
+    "heading": "Tóm tắt các buổi",
+    "empty": "Chưa có tóm tắt nào. Chúng hiện ở đây khi một buổi kết thúc có tóm tắt.",
+    "edit": "Sửa",
+    "editLabel": "Sửa tóm tắt buổi {number}",
+    "text": "Tóm tắt",
+    "save": "Lưu tóm tắt",
+    "cancel": "Hủy"
+  },
+  "notebook": {
+    "entries": "Đã tiết lộ",
+    "recaps": "Tóm tắt các buổi",
+    "nothing": "Sổ tay chưa có gì."
   }
 }

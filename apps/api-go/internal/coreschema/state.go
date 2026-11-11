@@ -261,6 +261,15 @@ type (
 	}
 	// Codex is the `codex` event.
 	Codex struct {
-		Entries []CodexEntry `json:"entries"`
+		Entries []CodexEntry   `json:"entries"`
+		Recaps  []SessionRecap `json:"recaps"`
+	}
+	// SessionRecap is an ended session's recap, newest first, at most 50, never empty. Never the session's notes.
+	SessionRecap struct {
+		SessionID string `json:"sessionId"`
+		Number    int    `json:"number"`
+		Title     string `json:"title"`
+		EndedAt   string `json:"endedAt"`
+		Recap     string `json:"recap"`
 	}
 )

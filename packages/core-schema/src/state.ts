@@ -178,5 +178,17 @@ export const CodexEntry = z.object({
 });
 export type CodexEntry = z.infer<typeof CodexEntry>;
 
-export const Codex = z.object({ entries: z.array(CodexEntry) });
+// An ended session's recap, for "Last time..." and the notebook. Newest first, at most 50, empty recaps left out; the
+// session's `notes` never come here.
+export const MAX_RECAPS = 50;
+export const SessionRecap = z.object({
+  sessionId: z.string(),
+  number: z.number().int(),
+  title: z.string(),
+  endedAt: z.string(),
+  recap: z.string(),
+});
+export type SessionRecap = z.infer<typeof SessionRecap>;
+
+export const Codex = z.object({ entries: z.array(CodexEntry), recaps: z.array(SessionRecap) });
 export type Codex = z.infer<typeof Codex>;

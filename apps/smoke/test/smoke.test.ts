@@ -563,6 +563,44 @@ test("the room's settings and its sessions: update, start, edit, end", async () 
   for (const s of [owner, ana, co]) s.socket.close();
 });
 
+test("recaps: an ended session's recap reaches every seat, the GM corrects it, notes never travel", async () => {
+  const { owner, campaignId } = await newRoom("Recaps");
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-rec") } });
+  await ana.until(() => true);
+  const screen = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  await screen.until(() => true);
+
+  const one = ok(await owner.send({ type: "session.start", title: "One" })).id!;
+  ok(await owner.send({ type: "session.edit", sessionId: one, notes: "the twist" }));
+  ok(await owner.send({ type: "session.end", recap: "We met." }));
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "session.end" })); // no recap: left out
+  const three = ok(await owner.send({ type: "session.start", title: "Three" })).id!;
+  ok(await owner.send({ type: "session.end", recap: "We fled." }));
+
+  for (const c of [owner, ana, screen]) {
+    await eventually(() => c.codex()?.recaps.length === 2, "the recaps reach the seat");
+    assert.deepEqual(
+      c.codex()?.recaps.map((r) => [r.sessionId, r.number, r.recap]),
+      [
+        [three, 3, "We fled."],
+        [one, 1, "We met."],
+      ],
+      "newest first, the empty one left out",
+    );
+    assert.ok(!JSON.stringify(c.codex()).includes("the twist"), "the session notes never enter the codex");
+  }
+
+  refused(await ana.send({ type: "session.edit", sessionId: one, recap: "Mine" }), "noPermission");
+  ok(await owner.send({ type: "session.edit", sessionId: one, recap: "We met in a tavern." }));
+  for (const c of [owner, ana, screen])
+    await eventually(
+      () => c.codex()?.recaps.find((r) => r.sessionId === one)?.recap === "We met in a tavern.",
+      "edited",
+    );
+  for (const c of [owner, ana, screen]) c.socket.close();
+});
+
 test("invites and guest tokens: revoke, issue, and revoking drops the guest", async () => {
   const { owner, campaignId } = await newRoom("Tokens");
   const anaDevice = await seatPlayer(owner, "ana-tok");

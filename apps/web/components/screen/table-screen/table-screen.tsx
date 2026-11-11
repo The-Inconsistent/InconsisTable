@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 
 import { GameResult } from "@/components/ui/game-result/game-result";
 import { OrderView } from "@/components/ui/order-view/order-view";
+import { RecapCard } from "@/components/ui/recap-card/recap-card";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { useTable } from "@/hooks/use-table/use-table";
 
@@ -34,6 +35,8 @@ export function TableScreen({ campaignId }: TableScreenProps) {
             .map((a) => a.name)
             .join(" · ")}
         </p>
+        {/* "Last time...": while a session runs and no fight has started. */}
+        {state.session && !state.encounter && codex?.recaps[0] && <RecapCard recap={codex.recaps[0]} />}
         {state.encounter && <OrderView encounter={state.encounter} />}
         {/* The newest ended game stays up until the next one starts. */}
         {!state.encounter && state.games[0] && <GameResult game={state.games[0]} />}

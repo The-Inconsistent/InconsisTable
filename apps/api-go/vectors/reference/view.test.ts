@@ -181,6 +181,7 @@ const codex: Codex = {
     entry("open"),
     entry("for-lyra", { audienceMode: "listed", audience: ["lyra", "kael"] }),
   ],
+  recaps: [{ sessionId: "s2", number: 2, title: "", endedAt: "2026-02-01T10:00:00.000Z", recap: "They crossed." }],
 };
 const draft: BuilderDraftBody = { actorId: "lyra", answers: { lineage: "reedfolk" } };
 const snapshot: Snapshot = { state, codex, drafts: new Map([["u-lyra", draft]]) };
@@ -340,6 +341,11 @@ test("codex opens every entry and its whole audience, never the notes on them", 
   const seen = seatView({ snapshot, compiled, ctx: ctx(member("cogm", ["codex"]), "u-co") }).codex.entries;
   assert.deepEqual(seen.find((e) => e.id === "for-lyra")?.audience, ["lyra", "kael"]);
   assert.ok(seen.every((e) => e.gmNotes === ""));
+});
+
+test("every seat receives the recaps, whole", () => {
+  for (const c of [ctx(member("player"), "u-x"), ctx(member("cogm"), "u-co"), ctx(member("gm"), "u-gm")])
+    assert.deepEqual(seatView({ snapshot, compiled, ctx: c }).codex.recaps, codex.recaps);
 });
 
 test("a co-GM keeps their own characters", () => {

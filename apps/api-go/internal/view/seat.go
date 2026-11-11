@@ -220,7 +220,7 @@ func seatCodex(codex cs.Codex, c cs.Ctx, sight Sight) cs.Codex {
 		}
 		entries = append(entries, e)
 	}
-	return cs.Codex{Entries: entries}
+	return cs.Codex{Entries: entries, Recaps: codex.Recaps}
 }
 
 // seatTests is the calls one seat receives. The session side sees them whole. The table screen sees that a Test is open

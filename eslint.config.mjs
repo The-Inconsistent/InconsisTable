@@ -9,7 +9,6 @@ export default defineConfig([
   globalIgnores([
     "**/.next/**",
     "**/.turbo/**",
-    "apps/api/drizzle/**",
     "**/next-env.d.ts",
     // A subagent's git worktree is a second copy of the repo under this one: linting it reports the same files twice.
     ".claude/worktrees/**",

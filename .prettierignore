@@ -1,5 +1,4 @@
 bun.lock
 # Docs: Prettier pads every table to its widest cell and rewraps lists.
 *.md
-apps/api/drizzle/
 .claude/worktrees/

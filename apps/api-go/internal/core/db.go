@@ -4,17 +4,17 @@ package core
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
+	"slices"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/migrations"
 )
 
 // Open connects to Postgres 18 (uuidv7, RETURNING OLD/NEW).
@@ -44,61 +44,71 @@ func InTx(ctx context.Context, db *pgxpool.Pool, fn func(pgx.Tx) error) error {
 	return pgx.BeginFunc(ctx, db, fn)
 }
 
-type migrationEntry struct {
-	When int64  `json:"when"`
-	Tag  string `json:"tag"`
-}
-
-// RunMigrations applies the SQL files Drizzle generated, in the journal's order, and records them the way Drizzle's
-// migrator does, so the TypeScript api and this one read the same record while both exist.
-//
-// ponytail: reads the folder at boot from apps/api/drizzle; embed the files once they move to apps/api-go at the flip.
-func RunMigrations(ctx context.Context, db *pgxpool.Pool, folder string) error {
-	// pack_entry's name index uses pg_trgm. Enabled here, not in a migration file, so regenerating the migration from
-	// scratch can't lose it. A trusted extension: the database owner may create it.
+// RunMigrations applies the files of the migrations package that this database has not recorded, in name order, in
+// one transaction, and records each in schema_migration. A database Drizzle migrated (the TypeScript api's) counts the
+// files Drizzle recorded as applied, so it boots without running them again.
+func RunMigrations(ctx context.Context, db *pgxpool.Pool) error {
+	// pack_entry's name index uses pg_trgm. Enabled here, not in a migration file, so no migration can lose it. A trusted
+	// extension: the database owner may create it.
 	if _, err := db.Exec(ctx, `CREATE EXTENSION IF NOT EXISTS pg_trgm`); err != nil {
 		return err
 	}
-	raw, err := os.ReadFile(filepath.Join(folder, "meta", "_journal.json"))
+	files, err := fs.Glob(migrations.FS, "*.sql") // sorted by name
 	if err != nil {
-		return err
-	}
-	var journal struct {
-		Entries []migrationEntry `json:"entries"`
-	}
-	if err := json.Unmarshal(raw, &journal); err != nil {
 		return err
 	}
 	return InTx(ctx, db, func(tx pgx.Tx) error {
 		for _, statement := range []string{
-			`CREATE SCHEMA IF NOT EXISTS "drizzle"`,
-			`CREATE TABLE IF NOT EXISTS "drizzle"."__drizzle_migrations" (id SERIAL PRIMARY KEY, hash text NOT NULL, created_at bigint)`,
+			// Two apis booting at once against one database: the second waits, then finds nothing left to run.
+			`SELECT pg_advisory_xact_lock(hashtext('inconsistable.migrations'))`,
+			`CREATE TABLE IF NOT EXISTS schema_migration (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`,
 		} {
 			if _, err := tx.Exec(ctx, statement); err != nil {
 				return err
 			}
 		}
-		var last int64
-		err := tx.QueryRow(ctx, `SELECT coalesce(max(created_at), 0) FROM "drizzle"."__drizzle_migrations"`).Scan(&last)
+		// Postgres resolves every table a statement names before it runs, so the record's existence is its own query.
+		var drizzled int64
+		var hasRecord bool
+		if err := tx.QueryRow(ctx, `SELECT to_regclass('drizzle.__drizzle_migrations') IS NOT NULL`).Scan(&hasRecord); err != nil {
+			return err
+		}
+		if hasRecord {
+			err := tx.QueryRow(ctx, `SELECT coalesce(max(created_at), 0) FROM drizzle.__drizzle_migrations`).Scan(&drizzled)
+			if err != nil {
+				return err
+			}
+		}
+		for name, when := range migrations.Drizzle {
+			// Drizzle's migrator runs a file only when its journal time is past the last one recorded.
+			if when <= drizzled {
+				if _, err := tx.Exec(ctx, `INSERT INTO schema_migration (name) VALUES ($1) ON CONFLICT DO NOTHING`, name); err != nil {
+					return err
+				}
+			}
+		}
+		rows, err := tx.Query(ctx, `SELECT name FROM schema_migration`)
 		if err != nil {
 			return err
 		}
-		for _, entry := range journal.Entries {
-			if entry.When <= last {
+		applied, err := pgx.CollectRows(rows, pgx.RowTo[string])
+		if err != nil {
+			return err
+		}
+		for _, name := range files {
+			if slices.Contains(applied, name) {
 				continue
 			}
-			file, err := os.ReadFile(filepath.Join(folder, entry.Tag+".sql"))
+			file, err := migrations.FS.ReadFile(name)
 			if err != nil {
 				return err
 			}
 			for _, statement := range strings.Split(string(file), "--> statement-breakpoint") {
 				if _, err := tx.Exec(ctx, statement); err != nil {
-					return fmt.Errorf("migration %s: %w", entry.Tag, err)
+					return fmt.Errorf("migration %s: %w", name, err)
 				}
 			}
-			sum := sha256.Sum256(file)
-			if _, err := tx.Exec(ctx, `INSERT INTO "drizzle"."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
-				hex.EncodeToString(sum[:]), entry.When); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO schema_migration (name) VALUES ($1)`, name); err != nil {
 				return err
 			}
 		}

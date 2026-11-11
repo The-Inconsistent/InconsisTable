@@ -1,4 +1,4 @@
-// Command api is the Go api, not deployed yet (docs/adr/0008-go-api.md).
+// Command api is the InconsisTable api (docs/adr/0008-go-api.md). It applies the embedded migrations at boot.
 package main
 
 import (
@@ -45,7 +45,7 @@ func run() error {
 		return err
 	}
 	defer db.Close()
-	if err := core.RunMigrations(ctx, db, env("MIGRATIONS_DIR", "../api/drizzle")); err != nil {
+	if err := core.RunMigrations(ctx, db); err != nil {
 		return err
 	}
 
@@ -85,7 +85,7 @@ func run() error {
 	gateway := table.NewGateway(db, authService, core.WebOrigins(os.Getenv("WEB_ORIGIN")), adminKey)
 	defer gateway.Close()
 
-	// Invites (campaign.controller.ts): accepting one runs in the table's queue and rebroadcasts like an action.
+	// Invites: accepting one runs in the table's queue and rebroadcasts like an action.
 	rooms.Mutate = gateway.Mutate
 	mux.Handle("GET /api/invites/{code}", core.Serve(rooms.Invite))
 	mux.Handle("POST /api/invites/{code}/accept", core.Serve(rooms.Accept))
@@ -147,7 +147,7 @@ func under(path string, prefixes ...string) bool {
 }
 
 // guarded puts the limits and the CSRF check in front of every route, before any body is read, so a flood is refused
-// cheaply. The order and numbers are apps/api/src/main.ts's.
+// cheaply. The order and numbers are those the NestJS api had (docs/adr/0008-go-api.md).
 func guarded(next http.Handler, adminKey *core.Limiter) http.Handler {
 	// The unauthenticated door: 60/min leaves room for a whole table of phones behind one NAT.
 	door := core.NewLimiter(60, time.Minute)

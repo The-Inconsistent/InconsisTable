@@ -15,7 +15,7 @@ export const AuthMe = z.object({
 });
 export type AuthMe = z.infer<typeof AuthMe>;
 
-// /api/account: the signed-in account at InconsisID (accountView in apps/api/src/auth/account.service.ts). `manageUrl`
+// /api/account: the signed-in account at InconsisID (accountView in apps/api-go/internal/auth/account.go). `manageUrl`
 // opens InconsisID's own account pages, which come back to /account; only http(s) passes, since it becomes a link.
 export const AccountView = z.object({
   displayName: z.string(),

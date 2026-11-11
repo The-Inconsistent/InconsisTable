@@ -6,8 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -31,8 +29,7 @@ func Open(t *testing.T) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	t.Cleanup(db.Close)
-	_, here, _, _ := runtime.Caller(0)
-	if err := core.RunMigrations(ctx, db, filepath.Join(filepath.Dir(here), "..", "..", "..", "..", "api", "drizzle")); err != nil {
+	if err := core.RunMigrations(ctx, db); err != nil {
 		t.Fatal(err)
 	}
 	return db

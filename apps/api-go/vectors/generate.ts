@@ -4,7 +4,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { FIXTURE_RULESET } from "../../api/test/fixture.ts";
+import { FIXTURE_RULESET } from "../../smoke/test/fixture.ts";
 import { compileRuleset, type CompiledRuleset } from "../../../packages/rules-engine/src/compile.ts";
 import {
   applyBaseEffects,

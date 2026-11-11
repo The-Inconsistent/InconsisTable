@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// The importer's replies (apps/api/src/pack/pack.controller.ts). Parsed on arrival like every other reply.
+// The importer's replies (apps/api-go/internal/pack/http.go). Parsed on arrival like every other reply.
 
 export const Problem = z.object({ path: z.string(), message: z.string() });
 export type Problem = z.infer<typeof Problem>;

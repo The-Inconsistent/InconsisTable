@@ -5,8 +5,8 @@ import { createBuilder } from "./.aspire/modules/aspire.mjs";
 
 const builder = await createBuilder();
 
-// Credentials, database and port match docker-compose.yml, so apps/api/.env and drizzle-kit keep working against
-// this container without a second DATABASE_URL.
+// Credentials, database and port match docker-compose.yml, so apps/api-go/.env keeps working against this container
+// without a second DATABASE_URL.
 const userName = await builder.addParameter("pg-user", { value: "it" });
 const password = await builder.addParameter("pg-password", { value: "it", secret: true });
 
@@ -17,12 +17,13 @@ await postgres.withImageTag("18");
 await postgres.withDataVolume();
 const db = await postgres.addDatabase("it");
 
-// install: false — this is a Bun workspace; `workspace:*` deps only resolve from a root `bun install`, so a per-app
-// install hangs. The root install already populates node_modules.
-const api = await builder.addJavaScriptApp("api", "../apps/api", { runScriptName: "dev" });
-await api.withBun({ install: false });
+// The Go api (apps/api-go), from source. Its first run downloads the private sign-in SDK: GOPRIVATE and a git that can
+// read The-Inconsistent/InconsisID (docs/deploy.md). NODE_ENV=development keeps the guest cookie off Secure on http.
+const api = await builder.addExecutable("api", "go", "../apps/api-go", ["run", "./cmd/api"]);
+await api.withRequiredCommand("go");
 await api.withHttpEndpoint({ port: 4000, env: "PORT" });
 await api.withEnvironment("DATABASE_URL", await db.uriExpression());
+await api.withEnvironment("NODE_ENV", "development");
 await api.waitFor(db);
 
 // Port pinned to 3000: Next's rewrites and WEB_ORIGIN assume it. isProxied: false so Next

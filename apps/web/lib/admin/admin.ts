@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// GET /api/admin/campaigns: every room on the platform (apps/api/src/admin/admin.service.ts, listCampaigns).
+// GET /api/admin/campaigns: every room on the platform (Campaigns in apps/api-go/internal/admin/http.go).
 export const AdminCampaign = z.object({
   id: z.uuid(),
   name: z.string(),

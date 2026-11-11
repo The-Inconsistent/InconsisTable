@@ -1,12 +1,12 @@
-// Writes what the TypeScript api answers for the table socket, for the Go tests to match (docs/adr/0008-go-api.md):
-// the Seat view (apps/api/src/view) over synthetic snapshots and every kind of seat, and the core Action union and the
-// book schemas on valid and broken input. Generated on every run and never committed. Every snapshot here is made up.
+// Writes what the TypeScript side answers for the table socket, for the Go tests to match (docs/adr/0008-go-api.md):
+// the Seat view (reference/, the TypeScript view the Go one is held to) over synthetic snapshots and every kind of
+// seat, and the core Action union and the book schemas on valid and broken input. Generated on every run and never committed. Every snapshot here is made up.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { z } from "zod";
 
-import { seatView, type Snapshot } from "../../api/src/view/view.ts";
+import { seatView, type Snapshot } from "./reference/view.ts";
 import {
   Action,
   BookAck,

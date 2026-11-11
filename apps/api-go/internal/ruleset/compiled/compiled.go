@@ -1,5 +1,7 @@
-// Package ruleset holds imported rulesets. This phase ports only the read the table needs: a room's compiled ruleset.
-package ruleset
+// Package compiled is a room's compiled ruleset (apps/api/src/ruleset/ruleset.compiled.ts). It sits below the ruleset
+// package: actors, turns and the ruleset actions all read it, and the ruleset actions build on actors, so the loader can't
+// share their package without an import cycle.
+package compiled
 
 import (
 	"context"
@@ -25,8 +27,8 @@ var cache = struct {
 	order  []string
 }{byHash: map[string]*engine.CompiledRuleset{}}
 
-// LoadCompiled is the compiled ruleset a campaign has pinned, or nil before one is.
-func LoadCompiled(ctx context.Context, conn core.Conn, campaignID string) (*engine.CompiledRuleset, error) {
+// Load is the compiled ruleset a campaign has pinned, or nil before one is.
+func Load(ctx context.Context, conn core.Conn, campaignID string) (*engine.CompiledRuleset, error) {
 	var versionID, hash string
 	err := conn.QueryRow(ctx, `SELECT ruleset_version.id::text, ruleset_version.hash FROM campaign
 		JOIN ruleset_version ON ruleset_version.id = campaign.ruleset_version_id WHERE campaign.id = $1`, campaignID).

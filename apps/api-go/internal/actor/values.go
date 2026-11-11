@@ -142,8 +142,6 @@ type Bounds struct {
 }
 
 // Built is one actor as the engine and the snapshot read it.
-//
-// ponytail: no op state (ActorState with resets and instant death) yet; the ruleset phase adds it with the ops.
 type Built struct {
 	Row Row
 	// Entity is the ruleset's entity type, or "" when the actor has none (or none the pinned ruleset knows).
@@ -155,6 +153,9 @@ type Built struct {
 	Conditions []ConditionRow
 	// Bounds holds the resources whose bounds evaluate now.
 	Bounds map[string]Bounds
+	// State is the actor as the ops read it: values with the bounds evaluated now. A resource whose bounds can't be
+	// evaluated yet is left out.
+	State *engine.ActorState
 	// Scope is the expression scope (effects applied), or nil when it can't be evaluated.
 	Scope *engine.Record
 	// Problem is why Scope is nil for an actor that has an entity: the expression error.
@@ -243,6 +244,7 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows) (map[string]*Built, er
 			Conditions: []ConditionRow{}, Bounds: map[string]Bounds{},
 		}
 		out[r.Actor.ID] = b
+		b.State = &engine.ActorState{ID: r.Actor.ID, Fields: b.Fields, Resources: []engine.NamedResource{}, Conditions: []engine.ConditionState{}}
 		if ce == nil {
 			continue
 		}
@@ -262,6 +264,14 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows) (map[string]*Built, er
 			b.Resources[x.ResourceID] = float64(x.Value)
 		}
 		b.Conditions = append(b.Conditions, r.Conditions...)
+		for _, c := range b.Conditions {
+			var after *float64
+			if c.ExpiresAfter != nil {
+				n := float64(*c.ExpiresAfter)
+				after = &n
+			}
+			b.State.Conditions = append(b.State.Conditions, engine.ConditionState{ID: c.ID, ExpiresOn: c.ExpiresOn, ExpiresAfter: after})
+		}
 		values := engine.ActorValues{
 			Fields: b.Fields, Resources: b.Resources, Conditions: activeIDs(b.Conditions), Characters: characters,
 		}
@@ -305,6 +315,23 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows) (map[string]*Built, er
 				max = &m
 			}
 			b.Bounds[x.ResourceID] = Bounds{bounds.Min, max}
+			reset, err := compiled.ResetValues(x.ResourceID, b.Scope)
+			if errors.As(err, &exprErr) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			death, err := compiled.InstantDeathAt(x.ResourceID, b.Scope)
+			if errors.As(err, &exprErr) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			b.State.Resources = append(b.State.Resources, engine.NamedResource{Name: x.ResourceID, State: engine.ResourceState{
+				Value: float64(x.Value), Min: bounds.Min, Max: max, Reset: reset, InstantDeathAt: death,
+			}})
 		}
 	}
 	return out, nil

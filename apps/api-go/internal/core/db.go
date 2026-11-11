@@ -3,6 +3,7 @@ package core
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -19,6 +20,16 @@ import (
 // Open connects to Postgres 18 (uuidv7, RETURNING OLD/NEW).
 func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return pgxpool.New(ctx, url)
+}
+
+// NewUUID is a random (version 4) UUID, for ids the api makes before a row exists: crypto.randomUUID in TypeScript.
+func NewUUID() string {
+	var b [16]byte
+	_, _ = rand.Read(b[:]) // never fails (crypto/rand)
+	b[6] = b[6]&0x0f | 0x40
+	b[8] = b[8]&0x3f | 0x80
+	h := hex.EncodeToString(b[:])
+	return h[0:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:]
 }
 
 // Conn is what reads and writes need of a pool or a transaction, so one loader serves both.

@@ -46,6 +46,8 @@ type (
 	// FieldDef is one declared field.
 	FieldDef struct {
 		Type       string   `json:"type"`
+		Label      string   `json:"label"`
+		EditableBy string   `json:"editableBy"`
 		Visibility string   `json:"visibility"`
 		Min        *float64 `json:"min"`
 		Max        *float64 `json:"max"`
@@ -76,6 +78,8 @@ type (
 	// Resource is one declared resource.
 	Resource struct {
 		ID         string      `json:"id"`
+		Label      string      `json:"label"`
+		EditableBy string      `json:"editableBy"`
 		Cite       *string     `json:"cite"`
 		Scope      string      `json:"scope"`
 		Entities   *[]string   `json:"entities"`
@@ -100,6 +104,8 @@ type (
 		ID         string   `json:"id"`
 		Label      string   `json:"label"`
 		Duration   string   `json:"duration"`
+		Stacking   string   `json:"stacking"`
+		MaxStacks  *float64 `json:"maxStacks"`
 		Cite       *string  `json:"cite"`
 		Effects    []Effect `json:"effects"`
 		Visibility string   `json:"visibility"`

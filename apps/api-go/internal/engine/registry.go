@@ -1,5 +1,7 @@
 package engine
 
+import "slices"
+
 // One operation of a primitive. run does steps the TypeScript runOp spreads over the op's fields, in the same order:
 // parse the input, validate, apply.
 type primitiveOp struct {
@@ -100,4 +102,21 @@ func OpTouches(primitiveID, opID string) string {
 		return op.touches
 	}
 	return "state"
+}
+
+// OpPerm is the permission an op declares, and whether the registry knows the op.
+func OpPerm(primitiveID, opID string) (string, bool) {
+	op, ok := primitives[primitiveID].ops[opID]
+	return op.perm, ok
+}
+
+// IsResetEvent says whether a rest or boundary event is one a resource can reset on (ResetEvent).
+func IsResetEvent(event string) bool { return slices.Contains(resetEvents, event) }
+
+// StepsFor is which way a seat may move a value declared editableBy: the GM side both ways, a holder by editableBy.
+func StepsFor(editableBy string, gmSide bool) (dec, inc bool) {
+	if gmSide || editableBy == "owner" {
+		return true, true
+	}
+	return editableBy == "ownerSpendOnly", false
 }

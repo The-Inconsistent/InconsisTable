@@ -1,4 +1,5 @@
-// Package game holds ended games and their results (house decisions #38-#40). This phase ports the snapshot's read.
+// Package game holds ended games and their results (house decisions #38-#40): the snapshot's read and the game.end and
+// result.set actions.
 package game
 
 import (

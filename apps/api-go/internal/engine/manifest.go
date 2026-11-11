@@ -143,11 +143,12 @@ type (
 	}
 	// Initiative is a ranked or seated declaration.
 	Initiative struct {
-		Strategy    string   `json:"strategy"`
-		FirstPlayer string   `json:"firstPlayer"`
-		Score       string   `json:"score"`
-		Tiebreak    []string `json:"tiebreak"`
-		Cite        *string  `json:"cite"`
+		Strategy        string   `json:"strategy"`
+		FirstPlayer     string   `json:"firstPlayer"`
+		RerollEachRound bool     `json:"rerollEachRound"`
+		Score           string   `json:"score"`
+		Tiebreak        []string `json:"tiebreak"`
+		Cite            *string  `json:"cite"`
 	}
 	// Scoring is a game's scoring declaration.
 	Scoring struct {

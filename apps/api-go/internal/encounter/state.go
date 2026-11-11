@@ -1,4 +1,4 @@
-// Package encounter holds the combat tracker. This phase ports the snapshot's read; the actions move in their phase.
+// Package encounter holds the combat tracker: the snapshot's read and the encounter, turn and phase actions.
 package encounter
 
 import (

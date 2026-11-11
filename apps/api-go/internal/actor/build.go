@@ -21,25 +21,6 @@ import (
 // pack/pack.lookup.ts's entryLookup over loadServedEntries.
 type Lookups func(ctx context.Context, conn core.Conn, campaignID string, types []string, gm bool) (engine.EntryLookup, error)
 
-// UnattachedLookup is the lookup of a room with no pack attached: it finds nothing, so a `choose` step reports its
-// problem, as the served entries of such a room would.
-//
-// ponytail: refuses a room with packs attached until internal/pack ports pack.lookup.ts; pass its lookup instead then.
-func UnattachedLookup(ctx context.Context, conn core.Conn, campaignID string, types []string, _ bool) (engine.EntryLookup, error) {
-	none := func(string, string) *engine.PackEntry { return nil }
-	if len(types) == 0 {
-		return none, nil
-	}
-	var attached bool
-	if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM campaign_pack WHERE campaign_id = $1)`, campaignID).Scan(&attached); err != nil {
-		return nil, err
-	}
-	if attached {
-		return nil, errors.New("actor.build: a choose step over attached packs needs internal/pack's lookup")
-	}
-	return none, nil
-}
-
 // ProblemLines is the detail of a build refusal: one `path: message` line per problem.
 func ProblemLines(problems []engine.Problem) string {
 	lines := make([]string, len(problems))

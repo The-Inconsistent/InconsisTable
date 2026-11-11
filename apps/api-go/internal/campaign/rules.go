@@ -8,9 +8,10 @@ import (
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
 
-// The room's ruleset (apps/api/src/campaign/rules.actions.ts). attachPack and detachPack wait for internal/pack.
+// The room's ruleset and packs (apps/api/src/campaign/rules.actions.ts).
 //
 // ponytail: a room pins its ruleset version once. Moving a room that already has characters to another version needs
 // the migration with a dry-run diff (docs/p1-plan.md "Không làm ở P1"); until then it is refused.
@@ -82,6 +83,67 @@ func UnpinRuleset(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.
 		if _, err := tx.Exec(ctx, statement, c.CampaignID); err != nil {
 			return cs.Result{}, err
 		}
+	}
+	return cs.Done(""), nil
+}
+
+// AttachPack is campaign.attachPack: one of the caller's own pack versions, for this room's ruleset. A pack that is
+// someone else's reads as missing.
+func AttachPack(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
+	cid, owner, versionID := c.CampaignID, "", a.Str("packVersionId")
+	if c.UserID != nil {
+		owner = *c.UserID
+	}
+	var packID, rulesetID, license string
+	var disabled, hidden bool
+	err := tx.QueryRow(ctx, `SELECT p.id::text, p.ruleset_id::text, p.license, p.disabled_at IS NOT NULL, p.hidden_at IS NOT NULL
+		FROM pack_version v JOIN pack p ON p.id = v.pack_id WHERE v.id = $1 AND p.owner_user_id = $2`, versionID, owner).
+		Scan(&packID, &rulesetID, &license, &disabled, &hidden)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return cs.Result{}, cs.Fail("packNotFound")
+	case err != nil:
+		return cs.Result{}, err
+	case disabled:
+		return cs.Result{}, cs.Fail("packTakenDown")
+	case hidden:
+		return cs.Result{}, cs.Fail("packDeleted")
+	case license == "private" && !view.RunsAsGm(c):
+		// A `private` pack (copied from a book) never leaves the rooms its owner runs as GM (CLAUDE.md, principle 4).
+		return cs.Result{}, cs.Fail("privatePackGmOnly")
+	}
+	var roomRuleset string
+	err = tx.QueryRow(ctx, `SELECT v.ruleset_id::text FROM campaign JOIN ruleset_version v ON v.id = campaign.ruleset_version_id
+		WHERE campaign.id = $1`, cid).Scan(&roomRuleset)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return cs.Result{}, cs.Fail("pickRulesetFirst")
+	}
+	if err != nil {
+		return cs.Result{}, err
+	}
+	if roomRuleset != rulesetID {
+		return cs.Result{}, cs.Fail("packWrongRuleset")
+	}
+	// One version of a pack at a time: attaching a newer one replaces the older.
+	if _, err := tx.Exec(ctx, `DELETE FROM campaign_pack WHERE campaign_id = $1 AND pack_version_id IN (
+		SELECT id FROM pack_version WHERE pack_id = $2 AND id <> $3)`, cid, packID, versionID); err != nil {
+		return cs.Result{}, err
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO campaign_pack (campaign_id, pack_version_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+		cid, versionID)
+	return cs.Done(""), err
+}
+
+// DetachPack is campaign.detachPack, scoped to this room's own rows, so another room's pin is never touched by an id
+// from the client.
+func DetachPack(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
+	gone, err := tx.Exec(ctx, `DELETE FROM campaign_pack WHERE campaign_id = $1 AND pack_version_id = $2`,
+		c.CampaignID, a.Str("packVersionId"))
+	if err != nil {
+		return cs.Result{}, err
+	}
+	if gone.RowsAffected() == 0 {
+		return cs.Result{}, cs.Fail("packNotAttached")
 	}
 	return cs.Done(""), nil
 }

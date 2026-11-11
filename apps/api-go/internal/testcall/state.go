@@ -1,4 +1,4 @@
-// Package testcall holds the Tests a GM calls (docs/design.md §6.3). This phase ports the snapshot's read.
+// Package testcall holds the Tests a GM calls (docs/design.md §6.3). The snapshot's read and the test.* actions.
 package testcall
 
 import (
@@ -182,7 +182,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 		return nil, err
 	}
 	reports := map[string]*cs.TestResult{}
-	rows, err = conn.Query(ctx, `SELECT call_id::text, actor_id::text, natural, total, outcome, margin, shifts, flags
+	rows, err = conn.Query(ctx, `SELECT call_id::text, actor_id::text, "natural", total, outcome, margin, shifts, flags
 		FROM test_report WHERE call_id = ANY($1::uuid[])`, ids)
 	if err != nil {
 		return nil, err

@@ -25,6 +25,10 @@ type poolParams struct {
 
 var poolFlags = []string{"critical", "complication"}
 
+// PoolSize is the dice a pool Test rolls: its pool plus the modifier, never below zero nor above MaxDice
+// (dice-pool-successes.ts poolSize).
+func PoolSize(pool, modifier float64) float64 { return min(MaxDice, max(0, pool+modifier)) }
+
 func parseFaceRange(raw any) (faceRange, bool) {
 	r, ok := readObject(raw)
 	if !ok {

@@ -14,8 +14,12 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/codex"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/game"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/pack"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/testcall"
 )
 
 // Result is an accepted action's ack (coreschema.Result), what every feature's handler returns.
@@ -169,19 +173,12 @@ func ApplyAction(ctx context.Context, tx pgx.Tx, seated cs.Ctx, a cs.Action) (Re
 	return dispatch(ctx, tx, c, a)
 }
 
-func notPorted(t string) (Result, error) {
-	log.Printf("not ported: %s", t)
-	return Result{}, cs.Fail("serverError")
-}
-
 // A feature's handler for one action type. A refusal is a *coreschema.Error, which rolls the transaction back.
 type handler func(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (Result, error)
 
-// actor.build picks from the room's packs through this lookup.
-//
-// ponytail: actor.UnattachedLookup until internal/pack ports pack.lookup.ts; swap in its lookup then.
+// actor.build picks from the room's served packs, as this seat may see them (a player never picks a `gm` entry).
 func buildActor(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (Result, error) {
-	return actor.BuildAction(ctx, tx, c, a, actor.UnattachedLookup)
+	return actor.BuildAction(ctx, tx, c, a, pack.ServedLookup)
 }
 
 // handlers is each ported action's handler, by type.
@@ -197,6 +194,8 @@ var handlers = map[string]handler{
 	// campaign/rules.actions.ts
 	"campaign.setRuleset":   campaign.SetRuleset,
 	"campaign.unpinRuleset": campaign.UnpinRuleset,
+	"campaign.attachPack":   campaign.AttachPack,
+	"campaign.detachPack":   campaign.DetachPack,
 	// campaign/event.actions.ts
 	"event.undo": campaign.Undo,
 	// actor/actor.actions.ts
@@ -206,6 +205,28 @@ var handlers = map[string]handler{
 	"actor.build":   buildActor,
 	"draft.save":    actor.Draft,
 	"draft.discard": actor.Draft,
+	// actor/actor.spawn.ts
+	"actor.spawn": pack.Spawn,
+	// encounter/encounter.actions.ts
+	"encounter.start":         encounter.Action,
+	"encounter.end":           encounter.Action,
+	"encounter.add":           encounter.Action,
+	"encounter.remove":        encounter.Action,
+	"encounter.setInitiative": encounter.Action,
+	"encounter.move":          encounter.Action,
+	"encounter.setVisibility": encounter.Action,
+	"encounter.keep":          encounter.Action,
+	"turn.next":               encounter.Action,
+	"turn.prev":               encounter.Action,
+	"turn.first":              encounter.Action,
+	"phase.done":              encounter.Action,
+	// test-call/test-call.actions.ts
+	"test.call":   testcall.Action,
+	"test.report": testcall.Action,
+	"test.close":  testcall.Action,
+	// game/game.actions.ts
+	"game.end":   game.End,
+	"result.set": game.SetResult,
 	// auth/access.actions.ts
 	"invite.create":           auth.InviteCreate,
 	"invite.revoke":           auth.InviteRevoke,
@@ -232,13 +253,12 @@ var handlers = map[string]handler{
 	"codex.delete": codex.Delete,
 }
 
-// dispatch sends an authorized action to its feature's handler.
-//
-// ponytail: unported action types refuse serverError: actor.spawn and campaign.attachPack/detachPack (they need
-// internal/pack), test.* (test-call), encounter.*, turn.*, phase.done (encounter), game.end and result.set (game).
+// dispatch sends an authorized action to its feature's handler. Every action type has one (dispatch_test.go); a type
+// without one is a bug, refused as serverError.
 func dispatch(ctx context.Context, tx pgx.Tx, c cs.Ctx, a cs.Action) (Result, error) {
-	if h, ported := handlers[a.Type()]; ported {
+	if h, known := handlers[a.Type()]; known {
 		return h(ctx, tx, c, a)
 	}
-	return notPorted(a.Type())
+	log.Printf("no handler for %s", a.Type())
+	return Result{}, cs.Fail("serverError")
 }

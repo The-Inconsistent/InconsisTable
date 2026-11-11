@@ -63,6 +63,16 @@ func EntryLookup(entries []StoredEntry, gm bool) engine.EntryLookup {
 	}
 }
 
+// ServedLookup is what actor.build's `choose` steps pick from at this table: the served entries of these types, as gm
+// or not (house decisions #18, #31). It is an actor.Lookups.
+func ServedLookup(ctx context.Context, conn core.Conn, campaignID string, types []string, gm bool) (engine.EntryLookup, error) {
+	if types == nil {
+		types = []string{}
+	}
+	entries, err := LoadServedEntries(ctx, conn, campaignID, ServedOptions{Types: types})
+	return EntryLookup(entries, gm), err
+}
+
 // ServedOptions narrows LoadServedEntries.
 type ServedOptions struct {
 	// Types limits the entries to these types. Nil means any type; an empty, non-nil list means none.

@@ -55,6 +55,8 @@ import type {
   ResourceState,
 } from "../../../packages/rules-engine/src/primitives/primitive.ts";
 import { PRIMITIVES, runOp } from "../../../packages/rules-engine/src/primitives/registry.ts";
+import { firstOf, nextFirst, sequence } from "../../../packages/rules-engine/src/primitives/initiative-seated.ts";
+import { poolSize } from "../../../packages/rules-engine/src/primitives/dice-pool-successes.ts";
 
 const OUT = join(import.meta.dirname, "../internal/engine/testdata/vectors.json");
 
@@ -1704,6 +1706,32 @@ function diffVectors() {
   });
 }
 
+// The seat helpers the api's turn plan reads (encounter.plan.ts), over every small order and first player.
+function seatVectors() {
+  const orders = [[], ["a"], ["a", "b"], ["a", "b", "c"], ["c", "a", "é", "b"]];
+  return orders.flatMap((order) =>
+    [null, "x", ...order].flatMap((firstId) =>
+      (["fixed", "rotate", "manual"] as const).map((firstPlayer) => {
+        const first = firstOf({ order, firstId });
+        return {
+          order,
+          firstId,
+          firstPlayer,
+          sequence: sequence({ order, firstId }),
+          firstOf: first,
+          nextFirst: nextFirst({ params: { strategy: "seated", firstPlayer } as never, order, first }),
+        };
+      }),
+    ),
+  );
+}
+
+function poolSizeVectors() {
+  return [-120, -5, 0, 3, 99, 100, 150].flatMap((pool) =>
+    [-200, -10, -1, 0, 2, 50].map((modifier) => ({ pool, modifier, size: poolSize({ pool, modifier }) })),
+  );
+}
+
 const vectors = {
   scope: SCOPE,
   expr: exprVectors(),
@@ -1735,6 +1763,8 @@ const vectors = {
   creation: creationVectors(),
   packs: packVectors(),
   diffs: diffVectors(),
+  seats: seatVectors(),
+  poolSizes: poolSizeVectors(),
 };
 
 mkdirSync(dirname(OUT), { recursive: true });

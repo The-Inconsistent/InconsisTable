@@ -92,20 +92,29 @@ func (c *creationRun) choose(step *CreationStep, answer any, lookup EntryLookup)
 	return choices
 }
 
-// Scores are read in sorted field order, because decoded JSON has lost the order they were sent in. With a repeated
-// score in a table, that can blame a different field than TypeScript does, on an answer refused either way.
+// Scores are read in the step's field order, then any other key sorted, because decoded JSON has lost the order they
+// were sent in. TypeScript reads them as sent, which is the same for a client that sends them in the step's order (the
+// builder does). Otherwise, with a repeated score in a table, it can blame a different field, on an answer refused
+// either way.
 func (c *creationRun) assign(step *CreationStep, answer any) {
 	scores, ok := parsedObject(creationScores, answer)
 	if !ok {
 		c.problems.add(step.ID, "expected a score for each field")
 		return
 	}
+	names := []string{}
 	for _, f := range step.Fields {
 		if _, has := scores[f]; !has {
 			c.problems.add(step.ID+"."+f, "needs a score")
+		} else if !slices.Contains(names, f) {
+			names = append(names, f)
 		}
 	}
-	names := sortedKeys(scores)
+	for _, f := range sortedKeys(scores) {
+		if !slices.Contains(names, f) {
+			names = append(names, f)
+		}
+	}
 	for _, f := range names {
 		if !slices.Contains(step.Fields, f) {
 			c.problems.add(step.ID+"."+f, "not a field of this step")

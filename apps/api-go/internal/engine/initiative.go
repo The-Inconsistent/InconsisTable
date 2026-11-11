@@ -238,18 +238,18 @@ func seatedTargets(seatedParams) []TargetPattern {
 
 const noSeatOrder = "no seat order is running"
 
-// Where the round starts: firstId if it sits in the order, else the top seat.
-func firstOf(order []string, first *string) *string {
+// FirstOf is where the round starts: firstId if it sits in the order, else the top seat (initiative-seated.ts firstOf).
+func FirstOf(order []string, first *string) *string {
 	if first != nil && slices.Contains(order, *first) {
 		return first
 	}
 	return firstID(order)
 }
 
-// The order read round the table from the first player.
-func seatSequence(order []string, first *string) []string {
+// Sequence is the order read round the table from the first player (initiative-seated.ts sequence).
+func Sequence(order []string, first *string) []string {
 	at := -1
-	if lead := firstOf(order, first); lead != nil {
+	if lead := FirstOf(order, first); lead != nil {
 		at = slices.Index(order, *lead)
 	}
 	if at <= 0 {
@@ -266,11 +266,17 @@ func seatAfter(order []string, id string) *string {
 	return &order[(slices.Index(order, id)+1)%len(order)]
 }
 
-func seatedWrap(p seatedParams, round float64, order []string, first *string) []Delta {
-	lead := first
-	if p.firstPlayer == "rotate" && first != nil {
-		lead = seatAfter(order, *first)
+// NextFirst is who leads the round after first: `rotate` moves one place along the order (initiative-seated.ts
+// nextFirst).
+func NextFirst(firstPlayer string, order []string, first *string) *string {
+	if firstPlayer == "rotate" && first != nil {
+		return seatAfter(order, *first)
 	}
+	return first
+}
+
+func seatedWrap(p seatedParams, round float64, order []string, first *string) []Delta {
+	lead := NextFirst(p.firstPlayer, order, first)
 	return []Delta{setTurn("round", round+1), setTurn("firstId", optional(lead)), setTurn("currentId", optional(lead))}
 }
 
@@ -303,7 +309,7 @@ var initiativeSeated = definePrimitive(parseSeatedParams, map[string]primitiveOp
 		},
 		func(p seatedParams, state *RuleState, _ struct{}) []Delta {
 			t := state.Turn
-			seq := seatSequence(t.Order, t.FirstID)
+			seq := Sequence(t.Order, t.FirstID)
 			at := -1
 			if t.CurrentID != nil {
 				at = slices.Index(seq, *t.CurrentID)
@@ -319,7 +325,7 @@ var initiativeSeated = definePrimitive(parseSeatedParams, map[string]primitiveOp
 			if at+1 < len(seq) {
 				return []Delta{setTurn("currentId", seq[at+1])}
 			}
-			return seatedWrap(p, t.Round, t.Order, firstOf(t.Order, t.FirstID))
+			return seatedWrap(p, t.Round, t.Order, FirstOf(t.Order, t.FirstID))
 		}),
 	"remove": defineOp("encounter:run", parseOrderID, seatedTargets,
 		func(_ seatedParams, state *RuleState, id string) *Refusal {
@@ -327,14 +333,14 @@ var initiativeSeated = definePrimitive(parseSeatedParams, map[string]primitiveOp
 		},
 		func(p seatedParams, state *RuleState, id string) []Delta {
 			t := state.Turn
-			seq := seatSequence(t.Order, t.FirstID)
+			seq := Sequence(t.Order, t.FirstID)
 			left := without(t.Order, id)
 			order := setTurn("order", left)
 			if len(left) == 0 {
 				return []Delta{order, setTurn("firstId", nil), setTurn("currentId", nil)}
 			}
 			// The first player left: first passes to the one after them in the order.
-			first := firstOf(t.Order, t.FirstID)
+			first := FirstOf(t.Order, t.FirstID)
 			newFirst := first
 			if *first == id {
 				newFirst = seatAfter(t.Order, id)

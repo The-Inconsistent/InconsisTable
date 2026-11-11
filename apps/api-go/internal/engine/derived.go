@@ -66,6 +66,9 @@ func ActorScope(fields map[string]any, derived *Record, resources map[string]flo
 	return scope
 }
 
+// EvaluateInt runs an expression that must give a number (expr.ts evaluateInt); anything else is an ExprError.
+func EvaluateInt(expr *CompiledExpr, scope *Record) (float64, error) { return evaluateInt(expr, scope) }
+
 func evaluateInt(expr *CompiledExpr, scope *Record) (float64, error) {
 	v, err := Evaluate(expr.AST, scope)
 	if err != nil {

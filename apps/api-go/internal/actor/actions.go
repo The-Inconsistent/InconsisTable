@@ -12,7 +12,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
 )
 
-// The actor actions (apps/api/src/actor/actor.actions.ts and actor.draft.ts). actor.spawn waits for internal/pack.
+// The actor actions (apps/api/src/actor/actor.actions.ts and actor.draft.ts). actor.spawn is internal/pack's.
 
 // Own is an actor of this campaign, as far as the access rules read it.
 type Own struct {

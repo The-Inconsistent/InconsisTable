@@ -86,7 +86,10 @@ security review against `docs/research/auth-service-security.md` and ASVS.
   the api sends clients the code and the message only as detail (`ruleset.run.ts`). Socket actions and the book events
   are ported the same way (`coreschema/actions.go`): vectors match accept or refuse, and the parsed output with its
   defaults, but not the refusal text, which travels as `detail` only.
-- `@the-inconsistent/inconsisid` has no Go client that this work has found, so sign-in needs one.
+- Sign-in uses the Go twin of `@the-inconsistent/inconsisid`, `github.com/The-Inconsistent/InconsisID/packages/inconsisid-go`
+  v0.2.2. Both SDKs store the same transaction JSON, so a sign-in started on one api finishes on the other. InconsisID
+  is a private repository: CI needs `GOPRIVATE=github.com/The-Inconsistent` and a token that can read it (the
+  workflow's own token reads only this repository), as the SDK's README shows.
 - `zishang520/socket.io` becomes a dependency the table cannot run without. It is a small project (last release
   2026-09-22). If it stalls, the fallback is plain WebSocket and a change to `use-table.ts`.
 - Bun remains for the web, the seed and the smoke suite. CI needs a Go toolchain.

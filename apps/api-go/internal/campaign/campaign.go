@@ -22,6 +22,8 @@ const adminKeyActor = "admin-key"
 type Service struct {
 	DB   *pgxpool.Pool
 	Auth *auth.Service
+	// Mutate runs a REST change to a table in that table's action queue and rebroadcasts it (Gateway.Mutate).
+	Mutate func(campaignID string, fn func() error) error
 }
 
 type owner struct{ userID, name string }

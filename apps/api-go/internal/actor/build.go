@@ -67,16 +67,13 @@ func BuildEntity(compiled *engine.CompiledRuleset, entityType string) (string, *
 	return types[0], nil
 }
 
-var trimmed = schema.String().Trim()
-
 // The name a creation wrote, trimmed and cut to 100 UTF-16 units, or "".
 func builtName(fields map[string]any) string {
 	name, isText := fields["name"].(string)
 	if !isText {
 		return ""
 	}
-	out, _ := schema.Parse(trimmed, name)
-	units := utf16.Encode([]rune(out.(string)))
+	units := utf16.Encode([]rune(schema.TrimJS(name)))
 	if len(units) > 100 {
 		units = units[:100]
 	}

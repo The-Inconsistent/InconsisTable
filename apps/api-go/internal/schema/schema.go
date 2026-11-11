@@ -130,6 +130,9 @@ func isJSSpace(r rune) bool {
 	return r >= 0x2000 && r <= 0x200a
 }
 
+// TrimJS is JavaScript's String.prototype.trim.
+func TrimJS(text string) string { return strings.TrimFunc(text, isJSSpace) }
+
 // Trim is .trim(), which runs before the checks, as every schema here writes it.
 func (s *StringSchema) Trim() *StringSchema { return &StringSchema{s.checks, true} }
 

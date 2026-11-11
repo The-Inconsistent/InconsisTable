@@ -79,6 +79,24 @@ func CanInCampaign(c Ctx, perm, targetActorID string) bool {
 	return slices.ContainsFunc(scopes, func(s string) bool { return slices.Contains(c.Seat.Scopes, s) })
 }
 
+// RequirePerm is can(perm) for an action or an op (docs/design.md §5.3, step 3): the permission itself, or the GM-side
+// one an :own permission falls back to. It returns the refusal the sender reads, or nil.
+func RequirePerm(c Ctx, perm, targetActorID string) *Error {
+	if CanInCampaign(c, perm, targetActorID) {
+		return nil
+	}
+	if fallback, ok := OwnFallback[perm]; ok && CanInCampaign(c, fallback, targetActorID) {
+		return nil
+	}
+	if c.Seat.Kind == SeatToken && c.Seat.Role == "screen" {
+		return Fail("screenReadOnly")
+	}
+	if strings.HasSuffix(perm, ":own") {
+		return Fail("notYourCharacter")
+	}
+	return Fail("noPermission")
+}
+
 // CanActOnMember says whether the seat may act on another member's seat. A GM or co-GM acts on players only; only the
 // owner acts on a GM or co-GM, and nobody on the owner, who hands the room on instead.
 func CanActOnMember(c Ctx, targetUserID, targetRole string) bool {

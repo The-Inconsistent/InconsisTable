@@ -74,6 +74,12 @@ func run() error {
 	// the seat).
 	gateway := table.NewGateway(db, authService, core.WebOrigins(os.Getenv("WEB_ORIGIN")))
 	defer gateway.Close()
+
+	// Invites (campaign.controller.ts): accepting one runs in the table's queue and rebroadcasts like an action.
+	rooms.Mutate = gateway.Mutate
+	mux.Handle("GET /api/invites/{code}", core.Serve(rooms.Invite))
+	mux.Handle("POST /api/invites/{code}/accept", core.Serve(rooms.Accept))
+
 	rest := guarded(mux)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if under(r.URL.Path, "/socket.io") {

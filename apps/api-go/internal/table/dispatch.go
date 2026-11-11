@@ -8,16 +8,18 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/auth"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/codex"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 )
 
-// Result is an accepted action's ack: {ok: true}, with the id it made or the token it issued when it has one.
-type Result struct {
-	OK    bool   `json:"ok"`
-	ID    string `json:"id,omitempty"`
-	Token string `json:"token,omitempty"`
-}
+// Result is an accepted action's ack (coreschema.Result), what every feature's handler returns.
+type Result = cs.Result
 
 // Refused is a refusal's ack: the refusal body plus `error`, the same text for older web builds.
 func Refused(code string, params cs.Params) map[string]any {
@@ -130,31 +132,13 @@ func targetOf(a cs.Action) string {
 	return ""
 }
 
-// RequirePerm is can(perm) for an action or an op (docs/design.md §5.3, step 3): the permission itself, or the GM-side
-// one an :own permission falls back to. It returns the refusal the sender reads, or nil.
-func RequirePerm(c cs.Ctx, perm, targetActorID string) *cs.Error {
-	if cs.CanInCampaign(c, perm, targetActorID) {
-		return nil
-	}
-	if fallback, ok := cs.OwnFallback[perm]; ok && cs.CanInCampaign(c, fallback, targetActorID) {
-		return nil
-	}
-	if c.Seat.Kind == cs.SeatToken && c.Seat.Role == "screen" {
-		return cs.Fail("screenReadOnly")
-	}
-	if strings.HasSuffix(perm, ":own") {
-		return cs.Fail("notYourCharacter")
-	}
-	return cs.Fail("noPermission")
-}
-
 // Authorize checks the permission the action declares. An action without one checks its caller itself.
 func Authorize(c cs.Ctx, a cs.Action) *cs.Error {
 	perm := cs.ActionPerms[a.Type()]
 	if perm == "" {
 		return nil
 	}
-	return RequirePerm(c, perm, targetOf(a))
+	return cs.RequirePerm(c, perm, targetOf(a))
 }
 
 // ApplyAction runs one action in its transaction: the state version bump, the owner read from that row, the archived
@@ -190,47 +174,71 @@ func notPorted(t string) (Result, error) {
 	return Result{}, cs.Fail("serverError")
 }
 
+// A feature's handler for one action type. A refusal is a *coreschema.Error, which rolls the transaction back.
+type handler func(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (Result, error)
+
+// actor.build picks from the room's packs through this lookup.
+//
+// ponytail: actor.UnattachedLookup until internal/pack ports pack.lookup.ts; swap in its lookup then.
+func buildActor(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (Result, error) {
+	return actor.BuildAction(ctx, tx, c, a, actor.UnattachedLookup)
+}
+
+// handlers is each ported action's handler, by type.
+var handlers = map[string]handler{
+	// campaign/campaign.actions.ts
+	"campaign.update":    campaign.Update,
+	"campaign.archive":   campaign.Archive,
+	"campaign.unarchive": campaign.Unarchive,
+	"campaign.delete":    campaign.Delete,
+	"session.start":      campaign.SessionStart,
+	"session.end":        campaign.SessionEnd,
+	"session.edit":       campaign.SessionEdit,
+	// campaign/rules.actions.ts
+	"campaign.setRuleset":   campaign.SetRuleset,
+	"campaign.unpinRuleset": campaign.UnpinRuleset,
+	// campaign/event.actions.ts
+	"event.undo": campaign.Undo,
+	// actor/actor.actions.ts
+	"actor.create":  actor.Create,
+	"actor.rename":  actor.Rename,
+	"actor.delete":  actor.Delete,
+	"actor.build":   buildActor,
+	"draft.save":    actor.Draft,
+	"draft.discard": actor.Draft,
+	// auth/access.actions.ts
+	"invite.create":           auth.InviteCreate,
+	"invite.revoke":           auth.InviteRevoke,
+	"member.remove":           auth.MemberRemove,
+	"member.appoint":          auth.MemberAppoint,
+	"member.seat":             auth.MemberSeat,
+	"seat.leave":              auth.SeatLeave,
+	"token.issue":             auth.TokenIssue,
+	"token.revoke":            auth.TokenRevoke,
+	"screen.issue":            auth.ScreenIssue,
+	"screen.revoke":           auth.ScreenRevoke,
+	"campaign.transfer":       auth.Transfer,
+	"campaign.transferCancel": auth.TransferCancel,
+	"campaign.transferAccept": auth.TransferAccept,
+	// ruleset/ruleset.actions.ts
+	"rule.op":          ruleset.RuleOp,
+	"field.set":        ruleset.FieldSet,
+	"condition.add":    ruleset.ConditionAdd,
+	"condition.remove": ruleset.ConditionRemove,
+	"actor.rest":       ruleset.ActorRest,
+	// codex/codex.actions.ts
+	"codex.save":   codex.Save,
+	"codex.reveal": codex.Reveal,
+	"codex.delete": codex.Delete,
+}
+
 // dispatch sends an authorized action to its feature's handler.
 //
-// ponytail: unported action types refuse serverError, each feature phase replaces its cases.
-func dispatch(_ context.Context, _ pgx.Tx, _ cs.Ctx, a cs.Action) (Result, error) {
-	switch t := a.Type(); t {
-	case "campaign.update", "campaign.archive", "campaign.unarchive", "campaign.delete",
-		"session.start", "session.end", "session.edit":
-		return notPorted(t) // campaign/campaign.actions.ts
-
-	case "campaign.setRuleset", "campaign.unpinRuleset", "campaign.attachPack", "campaign.detachPack":
-		return notPorted(t) // campaign/rules.actions.ts
-
-	case "actor.create", "actor.rename", "actor.delete", "actor.build", "actor.spawn", "draft.save", "draft.discard":
-		return notPorted(t) // actor/actor.actions.ts
-
-	case "invite.create", "invite.revoke", "member.remove", "member.appoint", "member.seat", "seat.leave",
-		"token.issue", "token.revoke", "screen.issue", "screen.revoke",
-		"campaign.transfer", "campaign.transferCancel", "campaign.transferAccept":
-		return notPorted(t) // auth/access.actions.ts
-
-	case "rule.op", "field.set", "condition.add", "condition.remove", "actor.rest":
-		return notPorted(t) // ruleset/ruleset.actions.ts
-
-	case "test.call", "test.report", "test.close":
-		return notPorted(t) // test-call/test-call.actions.ts
-
-	case "encounter.start", "encounter.end", "encounter.add", "encounter.remove", "encounter.setInitiative",
-		"encounter.move", "encounter.setVisibility", "encounter.keep", "turn.next", "turn.prev", "turn.first",
-		"phase.done":
-		return notPorted(t) // encounter/encounter.actions.ts
-
-	case "game.end", "result.set":
-		return notPorted(t) // game/game.actions.ts
-
-	case "event.undo":
-		return notPorted(t) // campaign/event.actions.ts
-
-	case "codex.save", "codex.reveal", "codex.delete":
-		return notPorted(t) // codex/codex.actions.ts
-
-	default:
-		return notPorted(t) // ActionSchema let through a type this switch does not know
+// ponytail: unported action types refuse serverError: actor.spawn and campaign.attachPack/detachPack (they need
+// internal/pack), test.* (test-call), encounter.*, turn.*, phase.done (encounter), game.end and result.set (game).
+func dispatch(ctx context.Context, tx pgx.Tx, c cs.Ctx, a cs.Action) (Result, error) {
+	if h, ported := handlers[a.Type()]; ported {
+		return h(ctx, tx, c, a)
 	}
+	return notPorted(a.Type())
 }

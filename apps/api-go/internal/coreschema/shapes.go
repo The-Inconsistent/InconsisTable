@@ -26,4 +26,13 @@ var (
 	Rename = schema.Object(schema.Req("name", schema.String().Trim().Min(1).Max(DisplayNameMax)))
 	// Join is the body of POST /api/join.
 	Join = schema.Object(schema.Req("token", schema.String().Min(1).Max(200)))
+	// InviteCode is an invite's code in a route.
+	InviteCode = schema.String().Min(1).Max(200)
+	// AcceptInvite is the body of POST /api/invites/{code}/accept: a character to claim or one to start, as a guest or
+	// as the signed-in user.
+	AcceptInvite = schema.Object(
+		schema.Opt("actorId", schema.UUID()),
+		schema.Opt("newCharacterName", schema.String().Trim().Min(1).Max(100)),
+		schema.Def("asGuest", schema.Bool(), false),
+	)
 )

@@ -313,7 +313,9 @@ const SNAPSHOTS: { name: string; state: unknown; codex: unknown; drafts: Record<
             endedAt: "2026-11-01T10:30:00.000Z",
             endedEarly: true,
             mode: "coop",
-            rows: [{ resultId: U(602), actorId: PC2, name: "Two", score: 0, tiebreaks: [], place: null, outcome: "lose" }],
+            rows: [
+              { resultId: U(602), actorId: PC2, name: "Two", score: 0, tiebreaks: [], place: null, outcome: "lose" },
+            ],
           },
         ],
       },

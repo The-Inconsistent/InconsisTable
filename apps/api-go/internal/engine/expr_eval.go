@@ -83,12 +83,23 @@ func safe(f float64) float64 {
 	return f
 }
 
+// math.Mod is exact, and so is every step below on safe integers: a - r never grows past a, and r + b shrinks toward
+// zero. Adding b first rounds once the sum passes 2^53.
+func crosses(r, b float64) bool { return r != 0 && (r < 0) != (b < 0) }
+
 // Floored modulo, the partner of floor division: a = b * floorDiv(a, b) + floorMod(a, b).
 func floorMod(a, b float64) float64 {
 	if b == 0 {
 		exprFail("modulo by zero")
 	}
-	return math.Mod(math.Mod(a, b)+b, b)
+	r := math.Mod(a, b)
+	if r == 0 {
+		return 0
+	}
+	if crosses(r, b) {
+		return r + b
+	}
+	return r
 }
 
 // Exact floor division on integers, without a float detour that rounds wrong near 2^53.
@@ -96,7 +107,12 @@ func floorDiv(a, b float64) float64 {
 	if b == 0 {
 		exprFail("division by zero")
 	}
-	return safe((a - floorMod(a, b)) / b)
+	r := math.Mod(a, b)
+	truncated := (a - r) / b
+	if crosses(r, b) {
+		truncated--
+	}
+	return safe(truncated)
 }
 
 func ceilDiv(a, b float64) float64 { return -floorDiv(-a, b) }
@@ -331,5 +347,10 @@ func (e *evaluator) call(n CallNode) any {
 // a division by zero.
 func Evaluate(node Node, scope *Record) (value any, err error) {
 	defer recoverExprError(&err)
-	return (&evaluator{scope}).eval(node), nil
+	value = (&evaluator{scope}).eval(node)
+	// JSON.stringify prints negative zero as 0, and Go's encoder prints -0.
+	if value == 0.0 {
+		value = 0.0
+	}
+	return value, nil
 }

@@ -39,7 +39,7 @@ jobs:
       - run: bun run test
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.27"
+          go-version-file: apps/api-go/go.mod
           cache: false
       # The workflow's own token reads only this repository; this one can read InconsisID (its README, CI).
       - name: Let git read InconsisID

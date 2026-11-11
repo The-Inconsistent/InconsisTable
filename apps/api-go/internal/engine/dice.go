@@ -387,8 +387,11 @@ func rollTerm(t DiceTerm, rng Rng) TermRoll {
 	return TermRoll{Notation: formatTerm(t), Faces: faces, Kept: kept, Value: t.Sign * raw}
 }
 
-// RollDice rolls notation, and returns a DiceError on bad notation or a breached cap.
+// RollDice rolls notation, and returns a DiceError on bad notation or a breached cap. A nil rng means CryptoRng.
 func RollDice(notation string, rng Rng) (roll DiceRoll, err error) {
+	if rng == nil {
+		rng = CryptoRng
+	}
 	expr, err := ParseDice(notation)
 	if err != nil {
 		return DiceRoll{}, err

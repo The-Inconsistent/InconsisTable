@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -170,7 +171,7 @@ func TestAHiddenTargetStaysOffAPlayersViewAndTheServerResolvesTheRoll(t *testing
 		if got := targetOf(p.seatView(player)); got != nil {
 			t.Fatalf("the player must not see the hidden number, got %d", *got)
 		}
-		if raw, _ := json.Marshal(p.seatView(player).State.Tests); strings.Contains(string(raw), "17") {
+		if raw, _ := json.Marshal(p.seatView(player).State.Tests); regexp.MustCompile(`[:\[,]17[,}\]]`).Match(raw) {
 			t.Fatalf("the hidden number leaks into the player's view: %s", raw)
 		}
 

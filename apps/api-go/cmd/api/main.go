@@ -10,9 +10,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/admin"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/auth"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/pack"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/table"
 )
 
@@ -74,6 +76,23 @@ func run() error {
 	// the seat).
 	gateway := table.NewGateway(db, authService, core.WebOrigins(os.Getenv("WEB_ORIGIN")))
 	defer gateway.Close()
+
+	// The owner-scoped library, the admin console, and the rules a seat reads.
+	library := &pack.Service{DB: db, Auth: authService}
+	console := &admin.Service{DB: db, Table: gateway}
+	mux.Handle("POST /api/rulesets", core.Serve(library.ImportRuleset))
+	mux.Handle("GET /api/rulesets", core.Serve(library.Rulesets))
+	mux.Handle("POST /api/packs", core.Serve(library.ImportPack))
+	mux.Handle("GET /api/packs", core.Serve(library.Packs))
+	mux.Handle("GET /api/packs/{id}/export", core.Serve(library.Export))
+	mux.Handle("POST /api/packs/{id}/hide", core.Serve(library.Hide))
+	mux.Handle("GET /api/admin/campaigns", core.Serve(console.Campaigns))
+	mux.Handle("POST /api/admin/campaigns/{id}/action", core.Serve(console.Action))
+	mux.Handle("GET /api/admin/packs", core.Serve(console.Packs))
+	mux.Handle("POST /api/admin/packs/{id}/disable", core.Serve(console.DisablePack))
+	mux.Handle("GET /api/admin/events", core.Serve(console.Events))
+	mux.Handle("GET /api/campaigns/{id}/rules", core.Serve(library.Rules))
+
 	rest := guarded(mux)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if under(r.URL.Path, "/socket.io") {

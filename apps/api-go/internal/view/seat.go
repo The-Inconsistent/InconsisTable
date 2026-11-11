@@ -23,9 +23,7 @@ type Snapshot struct {
 }
 
 // SeatView is what one seat receives: the `state` and `codex` events.
-//
-// ponytail: the manifest part of the TypeScript SeatView (seatManifest) is not ported; the rules route that reads it
-// moves in the campaign phase and brings it along.
+// The manifest part of the TypeScript SeatView is SeatManifest, which the rules route reads.
 type SeatView struct {
 	State cs.LiveState
 	Codex cs.Codex

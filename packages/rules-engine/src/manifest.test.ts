@@ -172,3 +172,24 @@ test("phases: a duplicate id is refused, and each needs a cite outside homebrew"
   m.phases[1]!.id = "act";
   assert.deepEqual(problems(m), []);
 });
+
+test("a reported Test lists two to eight unique outcomes, each with a cite", () => {
+  const outcome = (id: string) => ({ id, label: id, cite: "Sample p.3" });
+  const reported = (ids: string[]) => ({ kind: "reported", outcomes: ids.map(outcome), cite: "Sample p.3" });
+  const ids = (n: number) => Array.from({ length: n }, (_, i) => `o${i}`);
+  const withTest = (t: unknown) => ({ ...sample(), tests: { t } });
+
+  assert.deepEqual(problems(withTest(reported(ids(2)))), []);
+  assert.deepEqual(problems(withTest(reported(ids(8)))), []);
+  assert.ok(problems(withTest(reported(ids(1)))).length > 0);
+  assert.ok(problems(withTest(reported(ids(9)))).length > 0);
+  hasProblem(problems(withTest(reported(["a", "b", "a"]))), "tests.t.outcomes[2].id", /duplicate outcome/);
+
+  const uncited = reported(ids(2));
+  delete (uncited.outcomes[1] as { cite?: string }).cite;
+  hasProblem(problems(withTest(uncited)), "tests.t.outcomes[1].cite", /needs a cite/);
+  // A homebrew ruleset needs none.
+  const homebrew = withTest(uncited);
+  homebrew.sources = [{ id: "ours", title: "Our table", license: "homebrew" }];
+  assert.deepEqual(problems(homebrew), []);
+});

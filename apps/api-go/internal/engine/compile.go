@@ -595,8 +595,13 @@ func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity,
 	}
 	scopes := withScope(actorScopes, "ctx", RecordType{inputs})
 	path := "tests." + id
-	modifier := c.expr(t.Modifier, scopes, intType, path+".modifier")
-	target := c.expr(t.Target, scopes, intType, path+".target")
+	// A reported Test has no numbers: the constant 0 keeps every reader of a compiled Test one shape.
+	modSource, targetSource := t.Modifier, t.Target
+	if t.Kind == "reported" {
+		modSource, targetSource = "0", "0"
+	}
+	modifier := c.expr(modSource, scopes, intType, path+".modifier")
+	target := c.expr(targetSource, scopes, intType, path+".target")
 	var pool *CompiledExpr
 	if t.Kind == "poolSuccesses" {
 		pool = c.expr(t.Pool, scopes, intType, path+".pool")

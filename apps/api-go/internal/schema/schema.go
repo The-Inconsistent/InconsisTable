@@ -401,10 +401,19 @@ func Def(key string, s Schema, fallback any) Field {
 }
 
 // ObjectSchema is z.object(fields). Unknown keys drop.
-type ObjectSchema struct{ fields []Field }
+type ObjectSchema struct {
+	fields  []Field
+	check   func(map[string]any) bool
+	message string
+}
 
 // Object is z.object(fields).
-func Object(fields ...Field) *ObjectSchema { return &ObjectSchema{fields} }
+func Object(fields ...Field) *ObjectSchema { return &ObjectSchema{fields: fields} }
+
+// Refine is .refine(check, message) on the whole object: the check runs only when every field was accepted.
+func (s *ObjectSchema) Refine(check func(map[string]any) bool, message string) *ObjectSchema {
+	return &ObjectSchema{s.fields, check, message}
+}
 
 func (s *ObjectSchema) parse(value any, c *context) any {
 	input, ok := value.(map[string]any)
@@ -412,6 +421,7 @@ func (s *ObjectSchema) parse(value any, c *context) any {
 		c.wrongType("object", value)
 		return nil
 	}
+	before := len(c.issues)
 	out := make(map[string]any, len(s.fields))
 	for _, f := range s.fields {
 		v, present := input[f.key]
@@ -423,6 +433,9 @@ func (s *ObjectSchema) parse(value any, c *context) any {
 		case f.presence == required:
 			c.at(f.key, func() { f.schema.parse(Undefined, c) })
 		}
+	}
+	if s.check != nil && len(c.issues) == before && !s.check(out) {
+		c.fail("%s", s.message)
 	}
 	return out
 }

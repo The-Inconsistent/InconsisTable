@@ -461,8 +461,19 @@ class Compiler {
     for (const [id, t] of Object.entries(this.r.tests)) {
       const ctx: ExprType = { record: { ...t.inputs } };
       const scopes = actorScopes.map((s) => ({ ...s, ctx }));
-      const modifier = this.expr({ source: t.modifier, scopes, expect: "int", path: `tests.${id}.modifier` });
-      const target = this.expr({ source: t.target, scopes, expect: "int", path: `tests.${id}.target` });
+      // A reported Test has no numbers: the constant 0 keeps every reader of a compiled Test one shape.
+      const modifier = this.expr({
+        source: t.kind === "reported" ? "0" : t.modifier,
+        scopes,
+        expect: "int",
+        path: `tests.${id}.modifier`,
+      });
+      const target = this.expr({
+        source: t.kind === "reported" ? "0" : t.target,
+        scopes,
+        expect: "int",
+        path: `tests.${id}.target`,
+      });
       const pool =
         t.kind === "poolSuccesses"
           ? this.expr({ source: t.pool, scopes, expect: "int", path: `tests.${id}.pool` })

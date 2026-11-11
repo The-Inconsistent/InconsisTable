@@ -24,8 +24,11 @@ const maxCalls = 50
 
 // What the Test rolls, as the table reads it: the dice of a sum Test, the die of a Dice pool.
 func diceOf(t *engine.Test) string {
-	if t.Kind == "sumVsTarget" {
+	switch t.Kind {
+	case "sumVsTarget":
 		return t.Dice
+	case "reported":
+		return "reported"
 	}
 	return "d" + strconv.Itoa(int(t.Die)) + " pool"
 }
@@ -43,6 +46,18 @@ func poolSpecOf(t *engine.Test) *cs.PoolSpec {
 		spec.Special = &cs.PoolSpecial{Label: t.Special.Label, Count: int(t.Special.Count)}
 	}
 	return spec
+}
+
+// The results a reported Test lists, best first. Nil for every other kind.
+func outcomesOf(t *engine.Test) []cs.OutcomeSpec {
+	if t.Kind != "reported" {
+		return nil
+	}
+	out := make([]cs.OutcomeSpec, len(t.Outcomes))
+	for i, o := range t.Outcomes {
+		out[i] = cs.OutcomeSpec{ID: o.ID, Label: o.Label}
+	}
+	return out
 }
 
 // jsonbOrder is the order TypeScript's Object.entries reads a stored manifest's record in: Postgres jsonb keeps object
@@ -71,7 +86,7 @@ func DefsOf(compiled *engine.CompiledRuleset) []cs.TestDef {
 		t := compiled.Tests[id].Def
 		def := cs.TestDef{
 			ID: id, Dice: diceOf(t), Advantage: t.Kind == "sumVsTarget" && t.Advantage, Pool: poolSpecOf(t),
-			Inputs: []cs.TestDefInput{},
+			Outcomes: outcomesOf(t), Inputs: []cs.TestDefInput{},
 		}
 		for _, inputID := range jsonbOrder(t.Inputs) {
 			input := cs.TestDefInput{ID: inputID, Type: t.Inputs[inputID]}
@@ -228,7 +243,9 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 				reported++
 			}
 		}
-		showTarget := !c.hideTarget && everyoneMay(test.TargetVisibility, actorIDs, built)
+		// A reported Test has no target or modifier to show or hide; its results follow the same rules (house decision #41).
+		isReported := test.Def.Kind == "reported"
+		showTarget := !isReported && !c.hideTarget && everyoneMay(test.TargetVisibility, actorIDs, built)
 		secret := []string{}
 		if !showTarget {
 			secret = TargetInputs(test)
@@ -239,9 +256,10 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 		}
 		out = append(out, cs.TestCall{
 			ID: c.id, TestID: c.testID, Dice: diceOf(test.Def), Advantage: test.Def.Kind == "sumVsTarget" && test.Def.Advantage,
-			Pool: poolSpecOf(test.Def), Status: c.status, CreatedAt: core.ISOTime(c.createdAt), Inputs: inputs,
-			SecretInputs: secret, ShowTarget: showTarget, ShowModifier: everyoneMay(test.ModifierVisibility, actorIDs, built),
-			ShowOutcome: c.showOutcome || showTarget, Revealed: c.revealed, Called: len(mine), Reported: reported,
+			Pool: poolSpecOf(test.Def), Outcomes: outcomesOf(test.Def), Status: c.status, CreatedAt: core.ISOTime(c.createdAt),
+			Inputs: inputs, SecretInputs: secret, ShowTarget: showTarget,
+			ShowModifier: !isReported && everyoneMay(test.ModifierVisibility, actorIDs, built),
+			ShowOutcome:  c.showOutcome || showTarget || isReported, Revealed: c.revealed, Called: len(mine), Reported: reported,
 			Targets: mine,
 		})
 	}

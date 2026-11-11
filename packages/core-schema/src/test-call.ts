@@ -27,12 +27,18 @@ export const PoolSpec = z.object({
 });
 export type PoolSpec = z.infer<typeof PoolSpec>;
 
+/** A result a reported Test lists, best first. The cite stays in the ruleset. */
+export const OutcomeSpec = z.object({ id: z.string(), label: z.string() });
+export type OutcomeSpec = z.infer<typeof OutcomeSpec>;
+
 /** A Test of the pinned ruleset the GM can call: what the call form asks for. GM seats only. */
 export const TestDef = z.object({
   id: z.string(),
   dice: z.string(),
   advantage: z.boolean(),
   pool: PoolSpec.nullable(),
+  /** Set on a reported Test: it has no dice, target or modifier, and the reporter picks one of these. */
+  outcomes: z.array(OutcomeSpec).nullable(),
   inputs: z.array(z.object({ id: z.string(), type: z.string(), options: z.array(z.string()).optional() })),
 });
 export type TestDef = z.infer<typeof TestDef>;
@@ -71,6 +77,8 @@ export const TestCall = z.object({
   advantage: z.boolean(),
   /** Set on a Dice pool Test: the phone reports counts per band instead of faces. */
   pool: PoolSpec.nullable(),
+  /** Set on a reported Test: the phone shows these as buttons and the report's `outcome` is one of their ids. */
+  outcomes: z.array(OutcomeSpec).nullable(),
   status: TestCallStatus,
   createdAt: z.string(),
   /** What the GM supplied when calling. Inputs the hidden target reads are removed for seats without GM rights. */
@@ -99,13 +107,27 @@ export const TestCallAction = z.object({
   // With a hidden target: whether the called players are told success or failure.
   showOutcome: z.boolean().default(false),
 });
-export const TestReportAction = z.object({
-  type: z.literal("test.report"),
-  callId: z.uuid(),
-  actorId: z.uuid(),
-  advantage: z.string().max(20).default("none"),
-  roll: z.record(z.string().max(20), z.unknown()),
-});
+// A report is either dice (`roll`, with an optional `advantage` that the api reads as "none") for a sum or Dice pool
+// Test, or the id of an `outcome` for a reported Test (house decision #41). The union of the two shapes is
+// `TestReport`, which is what callers build; the action itself is one object so it can sit in the action union, and
+// refuses a report that carries both or neither.
+export type TestReport =
+  | { callId: string; actorId: string; advantage?: string; roll: Record<string, unknown>; outcome?: never }
+  | { callId: string; actorId: string; outcome: string; roll?: never; advantage?: never };
+export const TestReportAction = z
+  .object({
+    type: z.literal("test.report"),
+    callId: z.uuid(),
+    actorId: z.uuid(),
+    advantage: z.string().max(20).optional(),
+    roll: z.record(z.string().max(20), z.unknown()).optional(),
+    outcome: z.string().min(1).max(64).optional(),
+  })
+  .refine(
+    (a) =>
+      (a.roll === undefined) !== (a.outcome === undefined) && (a.outcome === undefined || a.advantage === undefined),
+    "Report either a roll or an outcome",
+  );
 export const TestCloseAction = z.object({
   type: z.literal("test.close"),
   callId: z.uuid(),

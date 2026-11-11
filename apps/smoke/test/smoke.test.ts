@@ -1562,7 +1562,7 @@ test("test.call / test.report / test.close: a hidden target stays on the GM side
   assert.deepEqual([byActor(gm)[hero]?.modifier, byActor(gm)[hero]?.target], [1, DN]);
   assert.deepEqual([byActor(gm)[bram]?.modifier, byActor(gm)[bram]?.target], [2, DN]);
   assert.deepEqual(gm.secretInputs, ["dc"]);
-  assert.deepEqual((await owner.until(() => true)).testDefs.map((d) => d.id).toSorted(), ["check", "skill"]);
+  assert.deepEqual((await owner.until(() => true)).testDefs.map((d) => d.id).toSorted(), ["check", "gambit", "skill"]);
 
   // Each seat gets its own copy: a player only their own character, never the target number or the dc input.
   const anaState = await ana.until((s) => callIn(s, id) !== undefined);
@@ -1726,7 +1726,7 @@ test("a Dice pool Test: the pool is set at the call, the server counts the repor
 
   // The ruleset's Tests as the GM's form reads them: the Dice pool carries what the phone needs.
   const defs = (await owner.until(() => true)).testDefs;
-  assert.deepEqual(defs.map((d) => d.id).toSorted(), ["check", "skill"]);
+  assert.deepEqual(defs.map((d) => d.id).toSorted(), ["check", "gambit", "skill"]);
   assert.equal(defs.find((d) => d.id === "skill")?.pool?.special?.count, 1);
   refused(await owner.send(poolCall({ inputs: { dn: DN_POOL } })), /bonus/);
 
@@ -1827,6 +1827,71 @@ test("a Dice pool Test: the pool is set at the call, the server counts the repor
     null,
     "another character's score stays",
   );
+  for (const c of [owner, ana, ben, screen]) c.socket.close();
+});
+
+test("a reported Test: the table works it out, the phone picks a listed outcome, the server only records it", async () => {
+  const { owner, ana, ben, campaignId, hero, bram, call } = await testRoom("TestReported");
+  const screen = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  const outcome = (callId: string, actorId: string, id: string) =>
+    ({ type: "test.report", callId, actorId, outcome: id }) as ActionInput;
+  const reportedCall = (over: Record<string, unknown> = {}) =>
+    call({ testId: "gambit", inputs: {}, hideTarget: false, ...over });
+
+  // The form reads the list; the call carries no number.
+  const def = (await owner.until(() => true)).testDefs.find((d) => d.id === "gambit")!;
+  assert.deepEqual(
+    def.outcomes?.map((o) => o.label),
+    ["Clean", "Costly", "Missed"],
+  );
+  const id = ok(await owner.send(reportedCall())).id!;
+  const gm = callIn(await owner.until((s) => callIn(s, id) !== undefined), id)!;
+  assert.deepEqual(gm.targets.map((t) => [t.modifier, t.target]).flat(), [0, 0, 0, 0]);
+
+  // A phone gets the list, no number, and may report only its own character, once, with a listed id.
+  const anaCall = callIn(await ana.until((s) => callIn(s, id) !== undefined), id)!;
+  assert.equal(anaCall.showTarget, false);
+  assert.deepEqual(
+    anaCall.outcomes?.map((o) => o.id),
+    ["clean", "costly", "missed"],
+  );
+  refused(await ana.send(outcome(id, hero, "stellar")), "unknownOutcome");
+  refused(await ana.send(outcome(id, bram, "clean")), "notYourCharacter");
+  refused(await ana.send(report(id, hero, [12])), "testTakesOutcome");
+  refused(
+    await ana.send({ ...outcome(id, hero, "clean"), roll: { kind: "faces", faces: [1] } } as ActionInput),
+    /roll or an outcome/,
+  );
+  ok(await ana.send(outcome(id, hero, "costly")));
+  refused(await ana.send(outcome(id, hero, "clean")), "alreadyReported");
+
+  // Ana sees her own label's id; Ben sees nothing of Ana's until the GM reveals.
+  const own = callIn(await ana.until((s) => callIn(s, id)?.reported === 1), id)!;
+  assert.equal(own.targets[0]?.report?.outcome, "costly");
+  assert.deepEqual(
+    callIn(await ben.until((s) => callIn(s, id) !== undefined), id)!.targets.map((t) => t.report),
+    [null],
+  );
+  // The GM corrects it; the table screen only counts.
+  ok(await owner.send(outcome(id, hero, "clean")));
+  ok(await ben.send(outcome(id, bram, "missed")));
+  const screenCall = callIn(await screen.until((s) => callIn(s, id)?.reported === 2), id)!;
+  assert.deepEqual(screenCall.targets, []);
+  assert.deepEqual(
+    await query("SELECT actor_id, outcome, total FROM test_report WHERE call_id = $1 ORDER BY outcome", [id]),
+    [
+      { actor_id: hero, outcome: "clean", total: 0 },
+      { actor_id: bram, outcome: "missed", total: 0 },
+    ].toSorted((a, b) => a.outcome.localeCompare(b.outcome)),
+  );
+
+  // A dice Test takes no outcome.
+  const dice = ok(await owner.send(call({ actorIds: [hero] }))).id!;
+  refused(await owner.send(outcome(dice, hero, "clean")), "testTakesDice");
+
+  ok(await owner.send({ type: "test.close", callId: id, reveal: true }));
+  const shown = callIn(await ben.until((s) => callIn(s, id)?.revealed === true), id)!;
+  assert.deepEqual(shown.targets.map((t) => t.report?.outcome).toSorted(), ["clean", "missed"]);
   for (const c of [owner, ana, ben, screen]) c.socket.close();
 });
 

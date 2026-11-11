@@ -11,8 +11,8 @@ import { SAMPLE_POOL } from "./sample-pool.ts";
 // a sample (or an engine default) changed under the same version breaks `bun run seed` on every local database. Bump
 // the sample's version, then the hash here. The hash is the one the importer compares (apps/api-go internal/ruleset/import.go).
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.1": "97dcbec9f6dc1fdf79d5331a72529338092c0689f39652a7d32124df5d53c3e2",
-  "sample-pool@0.1.1": "c290c0771da44ec15179be78fa851e70a8212d558c4447094280d740fe7a70eb",
+  "sample-d20@0.1.2": "6e20d1e785dcfe5c6eae0d1bebf163bf41c00b438fea68b79453493244c0defa",
+  "sample-pool@0.1.2": "57e50c011a1f73ee5c2e78f0546956686f5fcec64ecda3dbdda16b71b4803b0c",
   "sample-harvest@0.1.0": "103fc1d2cb1020a6eb0005e7cee0bc95e259fa393b7f36804868a33658a125ca",
 };
 

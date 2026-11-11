@@ -150,6 +150,17 @@ var diceMechanicSchema = schema.Union("kind",
 		)),
 		schema.Opt("shift", idSchema),
 	),
+	schema.Variant{Tag: "reported", Schema: schema.Object(
+		schema.Req("kind", schema.Literal("reported")),
+		schema.Req("outcomes", schema.Array(schema.Object(
+			schema.Req("id", idSchema),
+			schema.Req("label", label(60)),
+			schema.Opt("cite", citeSchema),
+		)).Min(2).Max(8)),
+		schema.Def("inputs", schema.Record(idSchema, schema.Enum("int", "bool", "text")), map[string]any{}),
+		schema.Def("inputOptions", schema.Record(idSchema, schema.Array(label(60)).Min(1).Max(50)), map[string]any{}),
+		schema.Opt("cite", citeSchema),
+	)},
 )
 
 var initiativeSchema = schema.Union("strategy",

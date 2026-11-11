@@ -232,7 +232,19 @@ func report(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	if had && !cs.CanInCampaign(c, "test:call", "") {
 		return cs.Result{}, cs.Fail("alreadyReported")
 	}
+	// The schema allows a roll or an outcome; which one this Test takes is the ruleset's.
+	outcome, hasOutcome := a["outcome"].(string)
+	reported := test.Def.Kind == "reported"
+	switch {
+	case reported && !hasOutcome:
+		return cs.Result{}, cs.Fail("testTakesOutcome")
+	case !reported && hasOutcome:
+		return cs.Result{}, cs.Fail("testTakesDice")
+	}
 	advantage := a.Str("advantage")
+	if advantage == "" {
+		advantage = "none"
+	}
 	if !slices.Contains(advantageModes, advantage) {
 		return cs.Result{}, cs.Fail("badAdvantage", cs.Params{"advantage": a["advantage"]})
 	}
@@ -242,7 +254,13 @@ func report(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 		Flags: []string{},
 	}
 	params := paramsOf(rules, open.testID)
-	if test.Def.Kind == "poolSuccesses" {
+	if reported {
+		// The table rolled and worked it out; the server only checks the outcome is one the Test lists.
+		if !slices.ContainsFunc(test.Def.Outcomes, func(o engine.ReportedOutcome) bool { return o.ID == outcome }) {
+			return cs.Result{}, cs.Fail("unknownOutcome")
+		}
+		row.Outcome = outcome
+	} else if test.Def.Kind == "poolSuccesses" {
 		if advantage != "none" {
 			return cs.Result{}, cs.Fail("poolNoAdvantage")
 		}

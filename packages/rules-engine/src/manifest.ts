@@ -223,7 +223,25 @@ export const PoolSuccesses = z.object({
 });
 export type PoolSuccesses = z.infer<typeof PoolSuccesses>;
 
-export const DiceMechanic = z.discriminatedUnion("kind", [SumVsTarget, PoolSuccesses]);
+/** One result a reported Test can have. Listed best first. */
+export const ReportedOutcome = z.object({ id: Id, label: z.string().min(1).max(60), cite: Cite.optional() });
+export type ReportedOutcome = z.infer<typeof ReportedOutcome>;
+
+/**
+ * A Test the table rolls and works out itself (house decision #41): the manifest only names the outcomes, best first,
+ * and the reporter picks one. No target, no modifier, no maths; the server checks the id is listed and records it.
+ */
+export const ReportedTest = z.object({
+  kind: z.literal("reported"),
+  outcomes: z.array(ReportedOutcome).min(2).max(8),
+  /** Values the caller supplies when the Test is called (a name the GM wants on the card), as for the other kinds. */
+  inputs: z.record(Id, ScalarType).default({}),
+  inputOptions: z.record(Id, z.array(z.string().min(1).max(60)).min(1).max(50)).default({}),
+  cite: Cite.optional(),
+});
+export type ReportedTest = z.infer<typeof ReportedTest>;
+
+export const DiceMechanic = z.discriminatedUnion("kind", [SumVsTarget, PoolSuccesses, ReportedTest]);
 export type DiceMechanic = z.infer<typeof DiceMechanic>;
 
 /** Highest score acts first. Also the params of the `initiative.ranked` primitive. */
@@ -546,7 +564,10 @@ function semanticProblems(r: Ruleset): Problem[] {
     needCite(c.cite, `conditions[${i}]`);
     c.effects.forEach((e, j) => needCite(e.cite ?? c.cite, `conditions[${i}].effects[${j}]`));
   });
-  for (const [id, t] of Object.entries(r.tests)) needCite(t.cite, `tests.${id}`);
+  for (const [id, t] of Object.entries(r.tests)) {
+    needCite(t.cite, `tests.${id}`);
+    if (t.kind === "reported") t.outcomes.forEach((o, j) => needCite(o.cite, `tests.${id}.outcomes[${j}]`));
+  }
   needCite(r.initiative.cite, "initiative");
   r.phases?.forEach((x, i) => needCite(x.cite, `phases[${i}]`));
   if (r.scoring) {
@@ -633,6 +654,14 @@ function semanticProblems(r: Ruleset): Problem[] {
     }
     if (t.kind === "poolSuccesses") {
       poolProblems({ t, path: `tests.${id}`, out });
+      continue;
+    }
+    if (t.kind === "reported") {
+      const seen = new Set<string>();
+      t.outcomes.forEach((o, j) => {
+        if (seen.has(o.id)) out.push({ path: `tests.${id}.outcomes[${j}].id`, message: `duplicate outcome "${o.id}"` });
+        seen.add(o.id);
+      });
       continue;
     }
     const shape = plainDice(t.dice);

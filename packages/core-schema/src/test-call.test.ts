@@ -37,3 +37,15 @@ test("the call and report actions parse their payloads", () => {
   );
   assert.equal(Action.safeParse({ type: "test.close", callId: "nope" }).success, false);
 });
+
+test("a report carries dice or an outcome, never both and never neither", () => {
+  const id = "0191a2b4-7c3e-7a10-8b5d-0f1e2d3c4b5a";
+  const base = { type: "test.report", callId: id, actorId: id };
+  const roll = { kind: "faces", faces: [14] };
+  assert.equal(Action.safeParse({ ...base, outcome: "clean" }).success, true);
+  assert.equal(Action.safeParse({ ...base, roll }).success, true);
+  assert.equal(Action.safeParse({ ...base, outcome: "clean", roll }).success, false);
+  assert.equal(Action.safeParse({ ...base, outcome: "clean", advantage: "none" }).success, false);
+  assert.equal(Action.safeParse(base).success, false);
+  assert.equal(Action.safeParse({ ...base, outcome: "" }).success, false);
+});

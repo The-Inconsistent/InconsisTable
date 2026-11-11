@@ -438,7 +438,6 @@
     },
     "coming": {
       "prep": "Adventures and scenes arrive in P1.",
-      "codex": "NPCs, places, factions and handouts arrive in P1.",
       "map": "Maps that help the table remember arrive in P2."
     }
   },
@@ -548,7 +547,11 @@
     "unarchive": "Unarchive",
     "archive": "Archive",
     "deleteLabel": "Type the campaign's name to delete it",
-    "deleteForGood": "Delete for good"
+    "deleteForGood": "Delete for good",
+    "recap": "Recap",
+    "recapHint": "What happened this session? Leave empty to skip.",
+    "endSessionConfirm": "End session {number}",
+    "cancel": "Cancel"
   },
   "rulesPanel": {
     "readFailed": "Couldn't read the rules. Check the connection and reload.",
@@ -913,5 +916,49 @@
     "importToggle": "Import a ruleset or pack",
     "toRooms": "Go to your rooms",
     "loading": "Opening…"
+  },
+  "codex": {
+    "search": "Search title and text",
+    "newEntry": "New entry",
+    "kindLabel": "Kind",
+    "titleLabel": "Title",
+    "create": "Create",
+    "cancel": "Cancel",
+    "filter": "Filter by kind",
+    "all": "All",
+    "empty": "No entries yet. Start with an NPC, a place or a handout.",
+    "noMatch": "No entry matches.",
+    "body": "Text the table sees once revealed",
+    "gmNotes": "GM notes (never shown to players)",
+    "save": "Save",
+    "delete": "Delete",
+    "confirmDelete": "Delete \"{title}\" for good",
+    "reveal": "Who sees it",
+    "visibilityLabel": "Visibility",
+    "audienceLabel": "Audience",
+    "readers": "Characters who see it",
+    "noCharacters": "No characters in this room yet.",
+    "revealButton": "Apply",
+    "listed": "{count, plural, one {# character} other {# characters}}",
+    "kind": {
+      "adventure": "Adventure",
+      "scene": "Scene",
+      "npc": "NPC",
+      "location": "Location",
+      "faction": "Faction",
+      "item": "Item",
+      "handout": "Handout",
+      "quest": "Quest",
+      "lore": "Lore"
+    },
+    "visibility": {
+      "gm": "GM only",
+      "party": "Party",
+      "public": "Public"
+    },
+    "audience": {
+      "all": "Everyone",
+      "listed": "Chosen characters"
+    }
   }
 }

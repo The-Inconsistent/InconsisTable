@@ -5,6 +5,7 @@ import { useState } from "react";
 import { canInCampaign, type Me } from "@inconsistable/core-schema";
 
 import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
+import { Codex } from "@/components/gm/codex/codex";
 import { Party } from "@/components/gm/party/party";
 import { RulesPanel } from "@/components/gm/rules/rules-panel";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
@@ -25,7 +26,7 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
   const t = useTranslations("gmApp");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
-  const { state, online, send, books, requestPage } = useTable(me.campaignId);
+  const { state, codex, online, send, books, requestPage } = useTable(me.campaignId);
   const tabs = (Object.keys(GM_TABS) as GmTab[]).filter(
     (k) => canInCampaign({ ctx: me, perm: GM_TABS[k].perm }) && (k !== "standings" || (state?.games.length ?? 0) > 0),
   );
@@ -62,6 +63,8 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
           <Track me={me} state={state} send={send} sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }} />
         ) : tab === "standings" ? (
           <Standings games={state.games} />
+        ) : tab === "codex" ? (
+          <Codex me={me} state={state} codex={codex} send={send} />
         ) : tab === "tests" ? (
           <Tests state={state} send={send} />
         ) : tab === "rules" ? (

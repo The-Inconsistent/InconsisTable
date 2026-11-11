@@ -22,6 +22,7 @@ import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
 import { restsOf } from "@/lib/sheet/sheet";
+import { RECAP_MAX } from "@/lib/codex/codex";
 import { qrImage } from "@/lib/qr/qr";
 import { shareOrigin } from "@/lib/share-origin/share-origin";
 
@@ -55,6 +56,7 @@ export function Party({ me, state, send, sheet }: PartyProps) {
   const [newName, setNewName] = useState("");
   const [inviteRole, setInviteRole] = useState<MemberRole>("player");
   const [deleteName, setDeleteName] = useState("");
+  const [recap, setRecap] = useState<string | null>(null); // the end-of-session form, open while not null
   const [sheetOf, setSheetOf] = useState<string | null>(null);
   const isOwner = me.userId !== null && me.userId === state.campaign.ownerUserId;
   const can = (perm: Parameters<typeof canInCampaign>[0]["perm"]) => canInCampaign({ ctx: me, perm });
@@ -135,6 +137,12 @@ export function Party({ me, state, send, sheet }: PartyProps) {
     void act({ type: "member.appoint", userId: m.userId, role: "cogm", scopes });
   };
 
+  // END SESSION: sends the recap typed in the form (it may be empty), then closes the form.
+  const handleEndSession = async (e: FormEvent) => {
+    e.preventDefault();
+    if ((await act({ type: "session.end", recap: recap ?? "" })).ok) setRecap(null);
+  };
+
   // DELETE FOR GOOD: only an archived room, after typing its name; then back to the lobby.
   const handleDelete = async () => {
     if ((await act({ type: "campaign.delete", name: deleteName })).ok) router.push("/");
@@ -153,9 +161,32 @@ export function Party({ me, state, send, sheet }: PartyProps) {
       {can("session:run") && (
         <section className="row">
           {state.session ? (
-            <button className="btn" onClick={() => act({ type: "session.end" })}>
-              {t("endSession", { number: state.session.number })}
-            </button>
+            recap === null ? (
+              <button className="btn" onClick={() => setRecap("")}>
+                {t("endSession", { number: state.session.number })}
+              </button>
+            ) : (
+              <form className="card stack" onSubmit={handleEndSession} style={{ width: "100%" }}>
+                <label className="stack">
+                  {t("recap")}
+                  <textarea
+                    id="session-recap"
+                    rows={5}
+                    value={recap}
+                    onChange={(e) => setRecap(e.target.value)}
+                    maxLength={RECAP_MAX}
+                    placeholder={t("recapHint")}
+                    autoFocus
+                  />
+                </label>
+                <div className="row">
+                  <button className="btn primary">{t("endSessionConfirm", { number: state.session.number })}</button>
+                  <button type="button" className="btn" onClick={() => setRecap(null)}>
+                    {t("cancel")}
+                  </button>
+                </div>
+              </form>
+            )
           ) : (
             <button className="btn primary" onClick={() => act({ type: "session.start" })}>
               {t("startSession")}

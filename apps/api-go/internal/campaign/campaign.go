@@ -94,7 +94,7 @@ func (s *Service) Create(w http.ResponseWriter, r *http.Request) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]string{"campaignId": id}, nil
+		return core.Created{Body: map[string]string{"campaignId": id}}, nil
 	}
 	user, err := s.Auth.DeviceUser(ctx, r.Header.Get("Cookie"))
 	if err != nil {
@@ -114,7 +114,7 @@ func (s *Service) Create(w http.ResponseWriter, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return map[string]string{"campaignId": id}, nil
+	return core.Created{Body: map[string]string{"campaignId": id}}, nil
 }
 
 // LobbyGame is one room in the lobby.

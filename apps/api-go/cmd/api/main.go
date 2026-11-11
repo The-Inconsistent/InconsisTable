@@ -13,6 +13,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/auth"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/table"
 )
 
 func main() {
@@ -68,9 +69,23 @@ func run() error {
 		})
 	})
 
+	// The table socket. Like socket.io under Nest it sits beside the REST guards, not behind them: its polling POSTs
+	// carry no Fetch Metadata from scripts, and its own door is the handshake (CORS with WEB_ORIGIN, the connect limit,
+	// the seat).
+	gateway := table.NewGateway(db, authService, core.WebOrigins(os.Getenv("WEB_ORIGIN")))
+	defer gateway.Close()
+	rest := guarded(mux)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if under(r.URL.Path, "/socket.io") {
+			gateway.ServeHTTP(w, r)
+			return
+		}
+		rest.ServeHTTP(w, r)
+	})
+
 	address := ":" + env("PORT", "4000")
 	log.Printf("listening on %s", address)
-	return http.ListenAndServe(address, guarded(mux))
+	return http.ListenAndServe(address, handler)
 }
 
 func under(path string, prefixes ...string) bool {

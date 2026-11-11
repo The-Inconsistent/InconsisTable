@@ -22,7 +22,7 @@ export function EntryEditor({ entry, characters, can, act, onDeleted }: EntryEdi
   const [draft, setDraft] = useState({ title: entry.title, body: entry.body, gmNotes: entry.gmNotes });
   const [confirming, setConfirming] = useState(false);
   const patch = savePatch({ entry, draft, canSecrets: can.secrets });
-  const dirty = Object.keys(patch).length > 0;
+  const dirty = Object.keys(patch).length > 0 && draft.title.trim() !== "";
 
   // A text field of the draft.
   const handleField = (field: keyof typeof draft) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>

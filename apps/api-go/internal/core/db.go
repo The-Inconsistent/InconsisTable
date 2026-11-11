@@ -12,12 +12,20 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Open connects to Postgres 18 (uuidv7, RETURNING OLD/NEW).
 func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return pgxpool.New(ctx, url)
+}
+
+// Conn is what reads and writes need of a pool or a transaction, so one loader serves both.
+type Conn interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 // InTx runs fn in one transaction, committing when it returns nil.

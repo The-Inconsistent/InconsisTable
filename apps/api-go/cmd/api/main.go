@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -147,8 +146,6 @@ func under(path string, prefixes ...string) bool {
 	return false
 }
 
-var campaignRules = regexp.MustCompile(`^/api/campaigns/[^/]+/rules`)
-
 // guarded puts the limits and the CSRF check in front of every route, before any body is read, so a flood is refused
 // cheaply. The order and numbers are apps/api/src/main.ts's.
 func guarded(next http.Handler, adminKey *core.Limiter) http.Handler {
@@ -176,7 +173,7 @@ func guarded(next http.Handler, adminKey *core.Limiter) http.Handler {
 			tooMany(w, slowDown)
 			return
 		}
-		if (under(path, "/api/lobby", "/api/me", "/api/admin", "/api/rulesets", "/api/packs") || campaignRules.MatchString(path)) && !signedIn.Allow(ip) {
+		if under(path, "/api/lobby", "/api/me", "/api/account", "/api/campaigns", "/api/admin", "/api/rulesets", "/api/packs") && !signedIn.Allow(ip) {
 			tooMany(w, slowDown)
 			return
 		}

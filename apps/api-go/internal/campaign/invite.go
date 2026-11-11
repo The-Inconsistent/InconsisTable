@@ -13,7 +13,7 @@ import (
 // Invite is GET /api/invites/{code}: what the invite offers the caller, before they accept it.
 func (s *Service) Invite(_ http.ResponseWriter, r *http.Request) (any, error) {
 	ctx := r.Context()
-	user, err := s.Auth.DeviceUser(ctx, r.Header.Get("Cookie"))
+	user, err := s.Auth.DeviceUser(ctx, core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +28,7 @@ func (s *Service) Invite(_ http.ResponseWriter, r *http.Request) (any, error) {
 // queue and rebroadcasts like an action.
 func (s *Service) Accept(w http.ResponseWriter, r *http.Request) (any, error) {
 	ctx := r.Context()
-	user, err := s.Auth.DeviceUser(ctx, r.Header.Get("Cookie"))
+	user, err := s.Auth.DeviceUser(ctx, core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}

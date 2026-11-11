@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"runtime/debug"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -134,7 +133,7 @@ func NewGateway(db *pgxpool.Pool, authService *auth.Service, webOrigins []string
 // is logged before it is let in.
 func resolveSeat(ctx context.Context, authService *auth.Service, logKey func(context.Context, string, string, string) error,
 	r *http.Request, handshake map[string]any) (*seat, error) {
-	resolved, err := authService.ResolveSocketCtx(ctx, handshake, cookieOf(r))
+	resolved, err := authService.ResolveSocketCtx(ctx, handshake, core.CookieHeader(r))
 	if err != nil || resolved == nil {
 		return nil, err
 	}
@@ -143,7 +142,7 @@ func resolveSeat(ctx context.Context, authService *auth.Service, logKey func(con
 		return data, logKey(ctx, "room.open", resolved.Ctx.CampaignID, "")
 	}
 	// The seat came through the session cookie only if its user is the session's (not a guest token).
-	session, err := authService.SessionOf(ctx, cookieOf(r))
+	session, err := authService.SessionOf(ctx, core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}
@@ -234,8 +233,6 @@ func seatOf(s *socket.Socket) *seat {
 	d, _ := s.Data().(*seat)
 	return d
 }
-
-func cookieOf(r *http.Request) string { return strings.Join(r.Header.Values("Cookie"), "; ") }
 
 // Authenticate in middleware, before the connection is accepted, so no event can arrive without a seat. Anything but
 // "unauthorized" makes the client retry later (use-table), so a limited socket backs off.

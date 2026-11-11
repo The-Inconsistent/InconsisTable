@@ -83,6 +83,10 @@ func Serve(h Handler) http.HandlerFunc {
 	}
 }
 
+// CookieHeader is every Cookie header of the request as one: HTTP/2 and some proxies send one header per cookie, and
+// reading only the first would miss the rest.
+func CookieHeader(r *http.Request) string { return strings.Join(r.Header.Values("Cookie"), "; ") }
+
 // WriteJSON writes one JSON response.
 func WriteJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

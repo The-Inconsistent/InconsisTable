@@ -7,6 +7,15 @@ import (
 	"time"
 )
 
+func TestCookieHeaderJoinsEveryCookieHeader(t *testing.T) {
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Add("Cookie", "a=1")
+	r.Header.Add("Cookie", "it_device=2; b=3")
+	if got := CookieHeader(r); got != "a=1; it_device=2; b=3" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestLimiterWindowsAndKeyCap(t *testing.T) {
 	now := time.Unix(1000, 0)
 	l := NewLimiter(2, time.Minute)

@@ -126,7 +126,7 @@ type accountRole struct {
 // Me is GET /api/auth/me: whether this deployment signs in at all, the caller's name (null before the device has an
 // identity), and the signed-in account's roles (null for an anonymous device user).
 func (h *SignInRoutes) Me(_ http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := h.Auth.DeviceUser(r.Context(), r.Header.Get("Cookie"))
+	user, err := h.Auth.DeviceUser(r.Context(), core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func (h *SignInRoutes) Login(w http.ResponseWriter, r *http.Request) (any, error
 		return signInFailed(w, r)
 	}
 	ctx := r.Context()
-	user, err := h.Auth.DeviceUser(ctx, r.Header.Get("Cookie"))
+	user, err := h.Auth.DeviceUser(ctx, core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (h *SignInRoutes) Callback(w http.ResponseWriter, r *http.Request) (any, er
 	if h.Flows == nil {
 		return nil, notFound
 	}
-	cookies := r.Header.Get("Cookie")
+	cookies := core.CookieHeader(r)
 	clearCookie(w, OIDCTxCookie)
 	handle, _ := ReadCookie(cookies, OIDCTxCookie)
 	previous, _ := ReadCookie(cookies, SessionCookie)
@@ -203,7 +203,7 @@ func (h *SignInRoutes) Callback(w http.ResponseWriter, r *http.Request) (any, er
 // asks before ending its own.
 func (h *SignInRoutes) Logout(w http.ResponseWriter, r *http.Request) (any, error) {
 	ctx := r.Context()
-	token, _ := ReadCookie(r.Header.Get("Cookie"), SessionCookie)
+	token, _ := ReadCookie(core.CookieHeader(r), SessionCookie)
 	ended, err := EndSessionByToken(ctx, h.Auth.DB, token)
 	if err != nil {
 		return nil, err
@@ -257,7 +257,7 @@ func (h *SignInRoutes) accountCaller(w http.ResponseWriter, r *http.Request) (Ac
 	if h.Flows == nil {
 		return AccountIDP{}, "", notFound
 	}
-	user, err := h.Auth.DeviceUser(r.Context(), r.Header.Get("Cookie"))
+	user, err := h.Auth.DeviceUser(r.Context(), core.CookieHeader(r))
 	if err != nil {
 		return AccountIDP{}, "", err
 	}

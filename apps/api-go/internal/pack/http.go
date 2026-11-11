@@ -22,7 +22,7 @@ type Service struct {
 }
 
 func (s *Service) caller(r *http.Request) (*auth.User, error) {
-	user, err := s.Auth.DeviceUser(r.Context(), r.Header.Get("Cookie"))
+	user, err := s.Auth.DeviceUser(r.Context(), core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}

@@ -211,7 +211,7 @@ func (s *Service) Rules(_ http.ResponseWriter, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := s.Auth.ResolveCtx(r.Context(), id.(string), r.Header.Get("Cookie"))
+	resolved, err := s.Auth.ResolveCtx(r.Context(), id.(string), core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}

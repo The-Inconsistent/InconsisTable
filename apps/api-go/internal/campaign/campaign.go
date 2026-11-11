@@ -98,7 +98,7 @@ func (s *Service) Create(w http.ResponseWriter, r *http.Request) (any, error) {
 		}
 		return core.Created{Body: map[string]string{"campaignId": id}}, nil
 	}
-	user, err := s.Auth.DeviceUser(ctx, r.Header.Get("Cookie"))
+	user, err := s.Auth.DeviceUser(ctx, core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ ORDER BY a.name ASC`
 // characters their seats hold.
 func (s *Service) Lobby(_ http.ResponseWriter, r *http.Request) (any, error) {
 	ctx := r.Context()
-	user, err := s.Auth.DeviceUser(ctx, r.Header.Get("Cookie"))
+	user, err := s.Auth.DeviceUser(ctx, core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func (s *Service) Lobby(_ http.ResponseWriter, r *http.Request) (any, error) {
 // Rename is PATCH /api/me: the name this device's user goes by at every table.
 func (s *Service) Rename(w http.ResponseWriter, r *http.Request) (any, error) {
 	ctx := r.Context()
-	user, err := s.Auth.DeviceUser(ctx, r.Header.Get("Cookie"))
+	user, err := s.Auth.DeviceUser(ctx, core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +255,7 @@ func (s *Service) Me(_ http.ResponseWriter, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := s.Auth.ResolveCtx(r.Context(), id.(string), r.Header.Get("Cookie"))
+	resolved, err := s.Auth.ResolveCtx(r.Context(), id.(string), core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +298,7 @@ func (s *Service) Join(w http.ResponseWriter, r *http.Request) (any, error) {
 
 // Guest is GET /api/guest: the guest cookie's table, so a returning guest lands back at it.
 func (s *Service) Guest(_ http.ResponseWriter, r *http.Request) (any, error) {
-	token, _ := auth.ReadCookie(r.Header.Get("Cookie"), auth.GuestCookie)
+	token, _ := auth.ReadCookie(core.CookieHeader(r), auth.GuestCookie)
 	c, err := s.Auth.ResolveGuest(r.Context(), token)
 	if err != nil {
 		return nil, err

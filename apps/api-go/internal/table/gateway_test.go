@@ -15,6 +15,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
@@ -151,6 +152,19 @@ func TestAnUnknownSeatIsRefusedUnauthorized(t *testing.T) {
 	c := dial(t, server, map[string]any{"who": "nobody"})
 	if f := c.expect(t, "44"); !strings.Contains(f, `"unauthorized"`) {
 		t.Fatalf("want an unauthorized connect error, got %q", f)
+	}
+}
+
+func TestAnAdminKeyHandshakeCountsOnTheLimiterRestShares(t *testing.T) {
+	g, server := testGateway(t, nil)
+	g.allowAdminKey = core.NewLimiter(2, time.Minute)
+	g.allowAdminKey.Allow("127.0.0.1") // one REST call with x-admin-key
+	joined(t, server, "gm")            // no adminKey: not counted
+	first := dial(t, server, map[string]any{"who": "gm", "adminKey": "wrong"})
+	first.expect(t, "40{")
+	second := dial(t, server, map[string]any{"who": "gm", "adminKey": "wrong"})
+	if f := second.expect(t, "44"); !strings.Contains(f, `"rate limited"`) {
+		t.Fatalf("want rate limited, got %q", f)
 	}
 }
 

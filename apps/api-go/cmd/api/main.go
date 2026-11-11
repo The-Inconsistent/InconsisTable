@@ -81,7 +81,9 @@ func run() error {
 	// The table socket. Like socket.io under Nest it sits beside the REST guards, not behind them: its polling POSTs
 	// carry no Fetch Metadata from scripts, and its own door is the handshake (CORS with WEB_ORIGIN, the connect limit,
 	// the seat).
-	gateway := table.NewGateway(db, authService, core.WebOrigins(os.Getenv("WEB_ORIGIN")))
+	// Admin-key calls, right or wrong key alike, REST and socket handshakes together, so the key can't be guessed at speed.
+	adminKey := core.NewLimiter(20, time.Minute)
+	gateway := table.NewGateway(db, authService, core.WebOrigins(os.Getenv("WEB_ORIGIN")), adminKey)
 	defer gateway.Close()
 
 	// Invites (campaign.controller.ts): accepting one runs in the table's queue and rebroadcasts like an action.
@@ -122,7 +124,7 @@ func run() error {
 	mux.Handle("GET /api/account", core.Serve(signIn.Account))
 	mux.Handle("PATCH /api/account", core.Serve(signIn.RenameAccount))
 
-	rest := guarded(mux)
+	rest := guarded(mux, adminKey)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if under(r.URL.Path, "/socket.io") {
 			gateway.ServeHTTP(w, r)
@@ -149,15 +151,13 @@ var campaignRules = regexp.MustCompile(`^/api/campaigns/[^/]+/rules`)
 
 // guarded puts the limits and the CSRF check in front of every route, before any body is read, so a flood is refused
 // cheaply. The order and numbers are apps/api/src/main.ts's.
-func guarded(next http.Handler) http.Handler {
+func guarded(next http.Handler, adminKey *core.Limiter) http.Handler {
 	// The unauthenticated door: 60/min leaves room for a whole table of phones behind one NAT.
 	door := core.NewLimiter(60, time.Minute)
 	// Signing in and out, /api/auth/me and the provider's back-channel logout.
 	signIn := core.NewLimiter(60, time.Minute)
 	// ponytail: per-IP window; key it by the device user once imports and the library land.
 	signedIn := core.NewLimiter(120, time.Minute)
-	// Admin-key REST calls, right or wrong key alike, so the key can't be guessed at speed.
-	adminKey := core.NewLimiter(20, time.Minute)
 	// ponytail: per-IP like the rest; per user once the limiter is keyed by device user.
 	imports := core.NewLimiter(20, time.Minute)
 	webOrigins := core.WebOrigins(os.Getenv("WEB_ORIGIN"))

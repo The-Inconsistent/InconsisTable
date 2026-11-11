@@ -91,6 +91,8 @@ type Gateway struct {
 	// actions (reconnecting or opening more sockets doesn't reset it): a GM tapping fast stays far below 2/s.
 	allowConnect *core.Limiter
 	allowAction  *core.Limiter
+	// A handshake carrying an adminKey, right or wrong, counts on the limiter REST's x-admin-key calls share.
+	allowAdminKey *core.Limiter
 	// A player flipping through cited pages; each one costs the GM's tablet a render. Per seat, like actions.
 	allowPage *core.Limiter
 
@@ -99,11 +101,12 @@ type Gateway struct {
 }
 
 // NewGateway builds the socket server. webOrigins is WEB_ORIGIN split; no origin means no cross-origin browser.
-func NewGateway(db *pgxpool.Pool, authService *auth.Service, webOrigins []string) *Gateway {
+// adminKeyLimit is the limiter REST's admin-key calls count on, shared so the two doors are one.
+func NewGateway(db *pgxpool.Pool, authService *auth.Service, webOrigins []string, adminKeyLimit *core.Limiter) *Gateway {
 	logKey := func(ctx context.Context, action, campaignID, detail string) error {
 		return admin.LogAdminKey(ctx, db, action, campaignID, detail)
 	}
-	return newGateway(webOrigins, deps{
+	g := newGateway(webOrigins, deps{
 		resolve: func(ctx context.Context, r *http.Request, handshake map[string]any) (*seat, error) {
 			return resolveSeat(ctx, authService, logKey, r, handshake)
 		},
@@ -121,6 +124,8 @@ func NewGateway(db *pgxpool.Pool, authService *auth.Service, webOrigins []string
 		},
 		logKey: logKey,
 	})
+	g.allowAdminKey = adminKeyLimit
+	return g
 }
 
 // The handshake's seat: who the socket is, and the signed-in session it came through. The admin key's opening of a room
@@ -151,10 +156,11 @@ func newGateway(webOrigins []string, d deps) *Gateway {
 	g := &Gateway{
 		deps:  d,
 		queue: NewSerial(), pages: map[string]int{},
-		allowConnect: core.NewLimiter(60, time.Minute),
-		allowAction:  core.NewLimiter(120, time.Minute),
-		allowPage:    core.NewLimiter(30, time.Minute),
-		kickGrace:    KickGrace, pageTimeout: PageTimeout,
+		allowConnect:  core.NewLimiter(60, time.Minute),
+		allowAction:   core.NewLimiter(120, time.Minute),
+		allowPage:     core.NewLimiter(30, time.Minute),
+		allowAdminKey: core.NewLimiter(20, time.Minute),
+		kickGrace:     KickGrace, pageTimeout: PageTimeout,
 	}
 	opts := socket.DefaultServerOptions()
 	var origin any = false
@@ -235,7 +241,12 @@ func (g *Gateway) middleware(s *socket.Socket, next func(*socket.ExtendedError))
 	refuse := func(message string) { next(socket.NewExtendedError(message, nil)) }
 	guard("socket middleware", func() { refuse("unavailable") }, func() {
 		r := s.Request().Request()
-		if !g.allowConnect.Allow(core.ClientIP(r)) {
+		ip := core.ClientIP(r)
+		if !g.allowConnect.Allow(ip) {
+			refuse("rate limited")
+			return
+		}
+		if key, _ := s.Handshake().Auth["adminKey"].(string); key != "" && !g.allowAdminKey.Allow(ip) {
 			refuse("rate limited")
 			return
 		}

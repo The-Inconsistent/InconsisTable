@@ -119,6 +119,15 @@ func (s *Service) SessionOf(ctx context.Context, cookieHeader string) (*Session,
 	return &Session{tokenHash, User{userID, name, role == "creator", roles, true}, ends}, nil
 }
 
+// SessionLive says whether the session of this hash is still there and within both limits. It touches nothing.
+func (s *Service) SessionLive(ctx context.Context, tokenHash string) (bool, error) {
+	var live bool
+	now := time.Now()
+	err := s.DB.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM api_session
+		WHERE token_hash = $1 AND expires_at > $2 AND last_seen_at > $3)`, tokenHash, now, now.Add(-sessionIdle)).Scan(&live)
+	return live, err
+}
+
 // DeviceUser is the caller: a signed-in session first, else the device's user. The device user is made on first sight
 // of a well-formed secret; it is nil for a missing or malformed secret. Two first requests at once make one user: the
 // loser of the device insert undoes the user it just made and reads the winner's.

@@ -158,6 +158,9 @@ func TestASessionLivesUntilIdleOrOldAndADeadOneFallsBackToTheDevice(t *testing.T
 	if live, err := s.SessionOf(ctx, cookie); live == nil || err != nil {
 		t.Errorf("29 days 23 hours idle is still live: %v", err)
 	}
+	if live, err := s.SessionLive(ctx, tokenHash); !live || err != nil {
+		t.Errorf("SessionLive agrees it is live: %v", err)
+	}
 	var touched time.Time
 	if err := db.QueryRow(ctx, `SELECT last_seen_at FROM api_session WHERE token_hash = $1`, tokenHash).Scan(&touched); err != nil || !touched.After(almostIdle) {
 		t.Errorf("the read touched last_seen_at: %v %v", touched, err)
@@ -166,6 +169,9 @@ func TestASessionLivesUntilIdleOrOldAndADeadOneFallsBackToTheDevice(t *testing.T
 	set(`UPDATE api_session SET last_seen_at = $1 WHERE token_hash = $2`, time.Now().Add(-sessionIdle-time.Second))
 	if live, _ := s.SessionOf(ctx, cookie); live != nil {
 		t.Error("30 days idle")
+	}
+	if live, err := s.SessionLive(ctx, tokenHash); live || err != nil {
+		t.Errorf("SessionLive agrees on 30 days idle: %v", err)
 	}
 	set(`UPDATE api_session SET last_seen_at = now(), expires_at = $1 WHERE token_hash = $2`, time.Now().Add(-time.Second))
 	if live, _ := s.SessionOf(ctx, cookie); live != nil {

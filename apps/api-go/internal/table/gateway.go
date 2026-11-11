@@ -69,12 +69,13 @@ func (s *seat) servedBooks() []string {
 
 // What the gateway asks of the database, as functions so the socket's own behaviour is tested without one. resolve is
 // the handshake's seat (nil: unauthorized), load a campaign's snapshot, apply one action in its transaction, logKey an
-// admin-key event.
+// admin-key event, sessionLive whether a signed-in session is still there.
 type deps struct {
-	resolve func(ctx context.Context, r *http.Request, handshake map[string]any) (*seat, error)
-	load    func(ctx context.Context, campaignID string) (*Loaded, error)
-	apply   func(ctx context.Context, c cs.Ctx, a cs.Action) (Result, error)
-	logKey  func(ctx context.Context, action, campaignID, detail string) error
+	resolve     func(ctx context.Context, r *http.Request, handshake map[string]any) (*seat, error)
+	load        func(ctx context.Context, campaignID string) (*Loaded, error)
+	apply       func(ctx context.Context, c cs.Ctx, a cs.Action) (Result, error)
+	logKey      func(ctx context.Context, action, campaignID, detail string) error
+	sessionLive func(ctx context.Context, tokenHash string) (bool, error)
 }
 
 // Gateway is the table socket.
@@ -122,7 +123,8 @@ func NewGateway(db *pgxpool.Pool, authService *auth.Service, webOrigins []string
 			})
 			return result, err
 		},
-		logKey: logKey,
+		logKey:      logKey,
+		sessionLive: authService.SessionLive,
 	})
 	g.allowAdminKey = adminKeyLimit
 	return g
@@ -307,6 +309,14 @@ func (g *Gateway) onConnection(s *socket.Socket) {
 		}
 	})
 	go guard("connection", func() { s.Disconnect(true) }, func() {
+		// A sign-out between the middleware and the join above missed this socket in EndSessions: read the session again
+		// now it is in the room, and kick it the same way when it is gone (or the read fails).
+		if data.session != nil {
+			if live, err := g.sessionLive(context.Background(), data.session.tokenHash); err != nil || !live {
+				g.kickSocket(s)
+				return
+			}
+		}
 		// In the campaign's queue, so this first snapshot can't land after (and overwrite) a newer broadcast.
 		var loadErr error
 		g.queue.Do(campaignID, func() {

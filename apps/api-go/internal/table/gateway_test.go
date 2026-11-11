@@ -168,6 +168,34 @@ func TestAnAdminKeyHandshakeCountsOnTheLimiterRestShares(t *testing.T) {
 	}
 }
 
+// A sign-out that ends the session after the middleware read it but before the socket joined its session room.
+func TestASessionEndedBeforeTheJoinIsKicked(t *testing.T) {
+	g, server := testGateway(t, nil)
+	userID := "signed"
+	g.resolve = func(context.Context, *http.Request, map[string]any) (*seat, error) {
+		return &seat{ctx: cs.Ctx{CampaignID: testCampaign, UserID: &userID, Seat: seats()["player"]}, seatKey: "signed",
+			session: &seatSession{tokenHash: "hash", endsAt: time.Now().Add(time.Hour)}}, nil
+	}
+	var asked atomic.Value
+	g.sessionLive = func(_ context.Context, tokenHash string) (bool, error) {
+		asked.Store(tokenHash)
+		return false, nil // deleted by the sign-out
+	}
+	c := dial(t, server, map[string]any{})
+	c.expect(t, "40{")
+	if f := c.expect(t, "4"); f != "41" {
+		t.Fatalf("want the disconnect packet before any snapshot, got %q", f)
+	}
+	select {
+	case <-c.closed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the transport stayed open")
+	}
+	if asked.Load() != "hash" {
+		t.Fatalf("read the session %v", asked.Load())
+	}
+}
+
 func TestAKickSendsTheDisconnectPacketThenClosesTheTransportAfterTheGrace(t *testing.T) {
 	g, server := testGateway(t, nil)
 	c := joined(t, server, "player")

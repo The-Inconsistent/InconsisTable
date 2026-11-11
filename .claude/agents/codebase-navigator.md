@@ -39,7 +39,9 @@ You are a read-and-explain agent. You investigate; you do not modify. You return
 
 - **What this is:** InconsisTable, an in-person table companion for any tabletop RPG or board game. It's a **Bun**
   monorepo:
-  - `apps/api`: NestJS on Bun, run from source, with Drizzle, Postgres 18 and a Socket.IO gateway.
+  - `apps/api-go`: the api, in Go (pgx, Postgres 18, a Socket.IO gateway); `internal/engine`, `coreschema` and `view`
+    are Go twins of the TypeScript packages, held equal by `vectors/`.
+  - `apps/smoke`: the end-to-end smoke suite and the seed.
   - `apps/web`: Next.js 16 App Router.
   - `packages/core-schema`: zod schemas, the `Action` union, permissions (`canInCampaign`).
   - `packages/rules-engine`: ruleset manifests, expressions, dice, primitives, viewer views.

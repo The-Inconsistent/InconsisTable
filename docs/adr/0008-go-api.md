@@ -1,6 +1,7 @@
 # The api moves to Go, the web keeps a TypeScript engine
 
-Status: accepted
+Status: accepted. The flip is done (2026-11-11): the Go api in `apps/api-go` is the api, and `apps/api` is deleted. See
+"After the flip" at the end.
 
 ## Context
 
@@ -93,3 +94,22 @@ security review against `docs/research/auth-service-security.md` and ASVS.
 - `zishang520/socket.io` becomes a dependency the table cannot run without. It is a small project (last release
   2026-09-22). If it stalls, the fallback is plain WebSocket and a change to `use-table.ts`.
 - Bun remains for the web, the seed and the smoke suite. CI needs a Go toolchain.
+
+## After the flip
+
+The smoke suite passed 54 of 54 against the Go api, and `apps/api` went. What moved where:
+
+- The smoke suite, its fixture and the seed: `apps/smoke` (`@inconsistable/smoke`), with `pg` and `socket.io-client`.
+  `bun run test:smoke` and `bun run seed` run it against `API_URL` as before.
+- The SQL migrations: `apps/api-go/migrations`, embedded in the binary (`migrations.FS`). The api records each file by
+  name in `schema_migration`; a database the Nest api migrated counts the five files Drizzle recorded (by their journal
+  time, `migrations.Drizzle`) as applied. A schema change is a new hand-written SQL file there.
+- The TypeScript seat view (`apps/api/src/view`, with its test): `apps/api-go/vectors/reference`, the reference
+  `vectors/table.ts` runs and `internal/view` is held to. A change to what a seat sees is made in both.
+- The folder stays `apps/api-go`, not renamed to `apps/api`, to keep the churn down.
+- CI and the api image need a token that can read InconsisID: the secret `INCONSISID_READ_TOKEN` (CI) and the build
+  secret `inconsisid_token` (`deploy/compose.yaml`, `docs/deploy.md`).
+
+The Nest api's unit tests in `apps/api/src` went with it, the seat view's excepted. What only they covered was to get Go
+tests before the flip (above); the flip itself did not audit that again. Comments in the Go code that name a file under `apps/api/src` point at the Nest api as it was at
+commit `7970a32`, the last one that has it.

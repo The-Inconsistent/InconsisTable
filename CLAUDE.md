@@ -37,34 +37,41 @@ stat blocks, art or PDFs to this repo.
 ## Stack
 
 Bun (package manager, runtime, test runner; never npm or pnpm), Turborepo, TypeScript 5.9 (do not upgrade: TS 7 breaks
-the Next and Nest toolchains), Next.js 16 + React 19, NestJS on Bun, Socket.IO, Drizzle ORM, **Postgres 18**, zod 4,
-Auth: device identity (an `it_device` cookie per browser) through `@inconsistable/auth`; on HTTPS deployments, accounts
-through InconsisID with `@the-inconsistent/inconsisid` (ADR 0005, `docs/deploy.md` Sign-in).
+the Next toolchain), Next.js 16 + React 19, Socket.IO, zod 4 on the web, **Postgres 18**. The api is **Go 1.27**
+(`apps/api-go`, ADR 0008): pgx with hand-written SQL, Socket.IO through `zishang520/socket.io`. Auth: device identity
+(an `it_device` cookie per browser) through `@inconsistable/auth`; on HTTPS deployments, accounts through InconsisID with
+its Go SDK `inconsisid-go`, a private module (`GOPRIVATE=github.com/The-Inconsistent`; ADR 0005, `docs/deploy.md`
+Sign-in).
 
 ## Layout
 
 ```
-apps/api/src/        NestJS on Bun, run from source. One folder per feature, each owning its `*.schema.ts`:
-  core/              db (Postgres 18, migrations at boot), errors, sql helpers (uuidv7 ids), rate limits
+apps/api-go/         the api, in Go (docs/adr/0008-go-api.md). cmd/api is main (routes, REST limits); one package per
+                     feature under internal/:
+  core/              db (pgx, embedded migrations at boot), core.Serve, CSRF, rate limits, cookies
   auth/              seats: membership (+ held characters), tokens (guest, screen), invites, ownership transfer;
-                     sign-in through InconsisID (sign-in.*), the api's own sessions and the identity links
+                     sign-in through InconsisID (signin*), the api's own sessions and the identity links
   campaign/          rooms and sessions, lobby, create (REST), the session event log, the room's ruleset and packs
                      (`campaign.setRuleset/attachPack`, the seat-scoped `GET /api/campaigns/:id/rules`)
-  actor/             actors and their typed value rows
-  codex/             codex entries and their listed readers
-  ruleset/           imported rulesets (owner-scoped REST import), versions, pools
-  pack/              imported content packs: immutable versions, one row per entry, quota, export, takedown
+  actor/ codex/ encounter/ game/ testcall/   actors and value rows, codex entries, combat, ended games, called Tests
+  ruleset/ pack/     imported rulesets and packs (owner-scoped REST import), versions, quota, export, takedown
   admin/             OPEN AS ADMIN housekeeping (admin key), the admin event log
   table/             the socket: gateway (queue, per-seat views, book relay, kicks), dispatch (authorize), loaders
-  test-call/         Tests the GM calls: calls, called characters, reported rolls (physical dice, the server resolves)
-apps/api/test/       smoke.test.ts: end-to-end against a running api and Postgres 18
-apps/api-go/         the Go api in progress, not deployed yet (docs/adr/0008-go-api.md). internal/engine is the Go twin of
-                     packages/rules-engine: change both together, and add inputs to vectors/generate.ts, which `bun run test:go` compares
+  view/              the Seat view: what each seat receives
+  engine/ coreschema/ schema/   the Go twins of packages/rules-engine and core-schema, and of the zod behaviour they use
+  migrations/        the schema as SQL files, embedded in the binary
+  vectors/           TypeScript that writes what the TypeScript engine, schemas and the reference seat view
+                     (vectors/reference) answer; `bun run test:go` holds the Go code equal to it
+apps/smoke/          the smoke suite (test/smoke.test.ts, end-to-end against a running api and Postgres 18) and the seed
 apps/web/            Next.js 16: lobby, invite, join, the table page (GM app, player app, table screen)
 packages/core-schema seats, permissions (canInCampaign), the core Action union, snapshots, per-seat views, book relay
 packages/rules-engine manifests, expressions, dice, primitives, viewer views (no game content)
 packages/auth        device identity and sign-in constants (cookie names, secret, AuthUser, platform roles)
 ```
+
+**Two engines.** `internal/engine`, `internal/coreschema` and `internal/view` are the Go twins of `packages/rules-engine`,
+`packages/core-schema` and `vectors/reference/view.ts`. Change both sides together, and add inputs to `vectors/*.ts`,
+which `bun run test:go` compares.
 
 ## Commands
 
@@ -75,24 +82,29 @@ bun run dev:db              # Postgres 18 in Docker on localhost:5435
                             #   -e POSTGRES_PASSWORD=it -e POSTGRES_DB=it
                             #   -p 127.0.0.1:5435:5432 -v inconsistable_pgdata:/var/lib/postgresql
                             #   docker.io/library/postgres:18
-bun run dev:api             # api on :4000 (apps/api/.env, see .env.example)
+bun run dev:api             # the Go api on :4000 (go run; apps/api-go/.env, see .env.example). Needs Go 1.27 on PATH
+                            #   and, for the first module download, GOPRIVATE=github.com/The-Inconsistent and a git
+                            #   that can read The-Inconsistent/InconsisID (gh auth setup-git)
 bun run dev:web             # web on :3000 (apps/web/.env.local is optional)
 aspire run                  # optional: Postgres 18 → api → web with a dashboard; TypeScript AppHost
                             # (aspire-apphost/apphost.mts), no .NET SDK. Stop the compose Postgres first: same port
                             # With Podman: ASPIRE_CONTAINER_RUNTIME=podman aspire run
-bun run typecheck           # packages + api + web (with test, the Husky pre-commit hook)
+bun run typecheck           # packages + vectors + smoke + web (with test, the Husky pre-commit hook)
 bun run lint
 bun run format              # Prettier, width 120; skips *.md
 bun run test                # unit tests
-bun run test:go             # the Go engine against vectors from the TypeScript engine; needs Go on PATH
-bun run test:smoke          # end-to-end; needs dev:db and dev:api with ADMIN_KEY set (the suite gets the same value)
+bun run test:go             # the Go tests, and the Go twins against vectors from TypeScript; needs Go on PATH.
+                            #   Database tests run with TEST_DATABASE_URL (a database of their own), else skip
+cd apps/api-go && go vet ./... && gofmt -l .   # CI runs both
+bun run test:smoke          # end-to-end (apps/smoke) against API_URL (default :4000); needs dev:db and dev:api with
+                            #   ADMIN_KEY set (the suite gets the same value)
 bun run seed                # sample data through the running api (idempotent); keep it in the local database, rerun
                             #   after a reset. Then open localhost:3000/dev/seed to become the sample GM
-cd apps/api && bun run db:generate   # after editing any src/**/*.schema.ts
 ```
 
-Pre-release: the migration may be regenerated from scratch (delete `apps/api/drizzle/`, `db:generate`,
-`docker compose down -v`). Once there is real data, add migrations instead.
+**Schema changes** are a new SQL file written by hand in `apps/api-go/migrations/`, numbered after the last
+(`0005_what_it_does.sql`); `db:generate` went with Drizzle. The api applies it at boot and records it in
+`schema_migration`. Never edit a file that has been applied anywhere; write the next one.
 
 ## Data rules
 

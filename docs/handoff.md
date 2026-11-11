@@ -67,11 +67,11 @@ Do not reopen these.
    `bun install`.
 2. **Identity.** There is no auth provider: the web proxy gives each browser an `it_device` cookie and the api makes the
    user on first sight (`docs/house-decisions.md`, "No accounts until a provider is chosen"). Nothing to set up. For the
-   admin page, set `ADMIN_KEY` (32+ characters) in `apps/api/.env`. Don't print or commit env files.
+   admin page, set `ADMIN_KEY` (32+ characters) in `apps/api-go/.env`. Don't print or commit env files.
 3. **Aspire.** Stop the compose Postgres first, since both use port 5435. Then run `aspire run`.
    - The AppHost has never run, so fix whatever breaks in `aspire-apphost/` and commit the fix.
    - The fallback without Aspire is `bun run dev:db`, `bun run dev:api` and `bun run dev:web`.
-   - Note that `apps/api/.env` in the cloud used `PORT=4100`, while the web proxies to `:4000`. Keep them in step.
+   - Note that `apps/api-go/.env` in the cloud used `PORT=4100`, while the web proxies to `:4000`. Keep them in step.
 4. **Smoke test.** Run `bun run test:smoke` against the running api; it needs `ADMIN_KEY` set for the api and the suite.
 5. **Browser test** (tablet as GM, phone as player):
    1. Open the app, then CREATE a room.
@@ -108,5 +108,5 @@ Do not reopen these.
 - Never bypass the Husky pre-commit hook (typecheck and test). Never commit `.env`, keys, book text, stat blocks, art or
   PDFs.
 - Docker Postgres 18 listens on `127.0.0.1:5435`, with user, password and database all `it`.
-- The schema is pre-release: to change it, delete `apps/api/drizzle/`, run `db:generate` and `docker compose down -v`.
+- The schema: a change is a new hand-written SQL file in `apps/api-go/migrations/`, numbered after the last (CLAUDE.md).
 - `pkill -f "bun src/main.ts"` can kill your own shell, so stop the api by its PID instead.

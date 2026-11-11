@@ -27,8 +27,10 @@ silently.
 - Mark a shortcut with a known limit as `// ponytail: <ceiling>, <upgrade path>`.
 - Where a book or the design is ambiguous and the prompt didn't decide it, add a row to `docs/house-decisions.md`
   (same table format, next number) instead of deciding silently in code.
-- After editing any `apps/api/src/**/*.schema.ts`: pre-release, regenerate the migration from scratch (delete
-  `apps/api/drizzle/`, then `cd apps/api && bun run db:generate`).
+- A schema change is a new hand-written SQL file in `apps/api-go/migrations/`, numbered after the last; never edit an
+  applied one.
+- Go commands need Go 1.27 on PATH and `GOPRIVATE=github.com/The-Inconsistent` set on the command only (the private
+  sign-in SDK); no global git or go config changes.
 - **UI:** before writing or restyling any UI, invoke the `frontend-design:frontend-design` skill, then follow
   `.claude/frontend-code-style.md`.
 
@@ -40,8 +42,9 @@ password `it`. Run `podman start inconsistable-pg` if it is stopped.
 - Never touch the database `it` or another agent's database. Use only the name the prompt gives you (`<db>`):
   `podman exec inconsistable-pg psql -U it -c "CREATE DATABASE <db>"`.
 - Start your api on the prompt's port (`<port>`) without copying or printing the env file:
-  `set -a; . /d/Work/Repos/InconsisTable/apps/api/.env; set +a; export DATABASE_URL=postgres://it:it@localhost:5435/<db> PORT=<port>; cd apps/api && bun run dev`
-  (in the background).
+  `set -a; . /d/Work/Repos/InconsisTable/apps/api-go/.env; set +a; export DATABASE_URL=postgres://it:it@localhost:5435/<db> PORT=<port> NODE_ENV=test TRUST_CF=1; cd apps/api-go && go run ./cmd/api`
+  (in the background; `ADMIN_KEY` must be set for the smoke suite).
+- Go database tests: `TEST_DATABASE_URL=postgres://it:it@localhost:5435/<db>` with `bun run test:go`.
 - Smoke: same env plus `API_URL=http://localhost:<port>`, then `bun run test:smoke`.
 - Clean up: kill only your own api by PID (`netstat -ano | grep ':<port> .*LISTENING'`, then
   `taskkill //PID <pid> //T //F`; never `pkill -f`), then `DROP DATABASE <db> WITH (FORCE)`.

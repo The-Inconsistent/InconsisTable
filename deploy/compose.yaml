@@ -1,5 +1,6 @@
 # Run from the repo root:
 #   cp deploy/api.env.example deploy/api.env; cp deploy/web.env.example deploy/web.env   (then fill them in)
+#   export INCONSISID_READ_TOKEN=...   (a token that can read The-Inconsistent/InconsisID; the api build needs it)
 #   docker compose -f deploy/compose.yaml up -d --build        (or: podman compose ...)
 # Only the web publishes a port. The api and Postgres stay on the compose network.
 # There are no accounts yet: whoever reaches the port can make rooms and import into their own device user. So the port
@@ -17,14 +18,18 @@ services:
       retries: 20
 
   api:
-    build: { context: .., dockerfile: deploy/api.Containerfile }
+    # The Go api. Its build reads the private sign-in SDK with INCONSISID_READ_TOKEN from the shell, passed as a build
+    # secret, so the token never lands in a layer.
+    build:
+      context: ..
+      dockerfile: deploy/api.Containerfile
+      secrets: [inconsisid_token]
     restart: unless-stopped
     env_file: api.env
     depends_on:
       postgres: { condition: service_healthy }
     healthcheck:
-      test:
-        ["CMD", "bun", "-e", "const r = await fetch('http://localhost:4000/api/health'); process.exit(r.ok ? 0 : 1)"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:4000/api/health"]
       interval: 10s
       start_period: 20s
       retries: 3
@@ -38,6 +43,10 @@ services:
     ports: ["${BIND_ADDR:-127.0.0.1}:${WEB_PORT:-3000}:3000"]
     depends_on:
       api: { condition: service_healthy }
+
+secrets:
+  inconsisid_token:
+    environment: INCONSISID_READ_TOKEN
 
 volumes:
   pgdata:

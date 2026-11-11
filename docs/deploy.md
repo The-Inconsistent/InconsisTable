@@ -30,8 +30,16 @@ cp deploy/postgres.env.example deploy/postgres.env
 cp deploy/api.env.example deploy/api.env
 cp deploy/web.env.example deploy/web.env      # edit them; none of them is committed
 export BIND_ADDR=192.168.1.10                  # optional: the LAN address phones use (default 127.0.0.1)
+export INCONSISID_READ_TOKEN=...               # a token that can read The-Inconsistent/InconsisID (see below)
 docker compose -f deploy/compose.yaml up -d --build    # podman compose works too
 ```
+
+The api is the Go binary built from `apps/api-go` (`docs/adr/0008-go-api.md`). Its sign-in SDK,
+`github.com/The-Inconsistent/InconsisID/packages/inconsisid-go`, is a private Go module, so building the api image needs
+a GitHub token with read access to that repository in `INCONSISID_READ_TOKEN`. Compose hands it to the build as a
+BuildKit secret (`inconsisid_token`), mounted for the module download only: it is never written to a layer, and the
+image holds only the binary. Building by hand: `docker build --secret id=inconsisid_token,env=INCONSISID_READ_TOKEN -f
+deploy/api.Containerfile .` from the repo root.
 
 `WEB_PORT` (default 3000) sets the host port of the web. The api waits for Postgres to be healthy, and the web waits for
 the api's health check. Secrets come only from the `*.env` files; no image contains one.
@@ -109,7 +117,7 @@ and asks InconsisID to end its own.
   user and its rooms untouched; signing out returns the device to it.
 
 **Locally:** run InconsisID (`bun run dev:db`, `bun run keys:dev`, `bun run dev` in its checkout; it registers the
-`inconsistable-dev` client in development) and set in `apps/api/.env`: `IDP_SIGN_IN=1`, `IDP_DEV_HTTP=1`,
+`inconsistable-dev` client in development) and set in `apps/api-go/.env`: `IDP_SIGN_IN=1`, `IDP_DEV_HTTP=1`,
 `IDP_ISSUER=http://localhost:4100`, `IDP_CLIENT_ID=inconsistable-dev`,
 `IDP_REDIRECT_URI=http://localhost:3000/api/auth/callback` and `IDP_CLIENT_JWK_FILE=<InconsisID checkout>/.secrets/inconsistable_dev_client_jwk.json`.
 Open the web at `http://localhost:3000` (Chromium keeps the `Secure` cookies on localhost); at a LAN address over http
@@ -125,7 +133,9 @@ healthcheck; point your platform's liveness probe at it.
 ## Migrations
 
 They run at api boot, before it starts listening. Do not run them by hand. A failed migration stops the api, and the
-health check never turns green.
+health check never turns green. The SQL files (`apps/api-go/migrations`) are built into the binary and recorded by name
+in the table `schema_migration`. A database the NestJS api migrated keeps working: the files Drizzle recorded in
+`drizzle.__drizzle_migrations` count as applied and are not run again.
 
 ## Data and backups
 

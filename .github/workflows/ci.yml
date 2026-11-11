@@ -5,6 +5,10 @@ on:
   push:
     branches: [main]
 
+env:
+  # The api's sign-in SDK lives in the private InconsisID repository (apps/api-go/go.mod).
+  GOPRIVATE: github.com/The-Inconsistent
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -35,28 +39,37 @@ jobs:
       - run: bun run test
       - uses: actions/setup-go@v5
         with:
-          go-version-file: apps/api-go/go.mod
+          go-version: "1.27"
           cache: false
-      - name: Go engine matches the TypeScript engine
+      # The workflow's own token reads only this repository; this one can read InconsisID (its README, CI).
+      - name: Let git read InconsisID
+        run: git config --global url."https://x-access-token:${{ secrets.INCONSISID_READ_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      - name: Go engine matches the TypeScript engine, and the Go tests
+        env:
+          TEST_DATABASE_URL: postgres://it:it@localhost:5435/go_test
         run: |
+          PGPASSWORD=it psql -h localhost -p 5435 -U it -d it -c "CREATE DATABASE go_test"
           test -z "$(gofmt -l apps/api-go)" || { gofmt -l apps/api-go; exit 1; }
           (cd apps/api-go && go vet ./...)
           bun run test:go
-      # End-to-end against the postgres service above. The secrets are made per run, so no repo secret is needed.
+      # End-to-end against the postgres service above, on the database no test has touched. The secrets are made per
+      # run, so no repo secret is needed.
       - name: Generate test-only secrets
         run: |
           echo "ADMIN_KEY=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
       - name: Start the api
-        working-directory: apps/api
+        working-directory: apps/api-go
         env:
           NODE_ENV: test
           DATABASE_URL: postgres://it:it@localhost:5435/it
+          WEB_ORIGIN: http://localhost:3000
           PORT: "4000"
           TRUST_CF: "1" # the smoke suite gives each socket its own cf-connecting-ip
         run: |
-          nohup bun src/main.ts > "$RUNNER_TEMP/api.log" 2>&1 &
+          go build -o "$RUNNER_TEMP/api" ./cmd/api
+          nohup "$RUNNER_TEMP/api" > "$RUNNER_TEMP/api.log" 2>&1 &
           for i in $(seq 1 60); do
-            if curl -s -o /dev/null http://localhost:4000/api/lobby; then exit 0; fi
+            if curl -s -o /dev/null http://localhost:4000/api/health; then exit 0; fi
             sleep 1
           done
           echo "The api did not start"

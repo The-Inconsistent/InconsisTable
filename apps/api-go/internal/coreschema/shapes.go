@@ -24,6 +24,9 @@ var (
 	)
 	// Rename is the body of PATCH /api/me.
 	Rename = schema.Object(schema.Req("name", schema.String().Trim().Min(1).Max(DisplayNameMax)))
+	// RenameAccount is the body of PATCH /api/account: the account's name at the identity provider. It is also the name
+	// tables see, so it keeps the same bound.
+	RenameAccount = schema.Object(schema.Req("displayName", schema.String().Trim().Min(1).Max(DisplayNameMax)))
 	// Join is the body of POST /api/join.
 	Join = schema.Object(schema.Req("token", schema.String().Min(1).Max(200)))
 	// InviteCode is an invite's code in a route.

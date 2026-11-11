@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -46,6 +47,12 @@ func run() error {
 	}
 	defer db.Close()
 	if err := core.RunMigrations(ctx, db, env("MIGRATIONS_DIR", "../api/drizzle")); err != nil {
+		return err
+	}
+
+	// Read once at boot: a bad config refuses to boot; no config means sign-in is off.
+	signInConfig, err := auth.LoadSignInConfig(os.Getenv)
+	if err != nil {
 		return err
 	}
 
@@ -97,6 +104,23 @@ func run() error {
 	mux.Handle("POST /api/admin/packs/{id}/disable", core.Serve(console.DisablePack))
 	mux.Handle("GET /api/admin/events", core.Serve(console.Events))
 	mux.Handle("GET /api/campaigns/{id}/rules", core.Serve(library.Rules))
+
+	// Signing in through InconsisID, and the signed-in account's page.
+	signIn := &auth.SignInRoutes{Auth: authService, Sockets: gateway}
+	if signInConfig != nil {
+		signIn.Flows = &auth.Flows{Config: *signInConfig, DB: db}
+		// Discovery now, so a misconfigured provider shows in the boot log; sign-in retries it on first use either way.
+		if _, err := signIn.Flows.IDP(ctx); err != nil {
+			log.Printf("sign-in: %v (%v)", err, errors.Unwrap(err))
+		}
+	}
+	mux.Handle("GET /api/auth/me", core.Serve(signIn.Me))
+	mux.Handle("POST /api/auth/login", core.Serve(signIn.Login))
+	mux.Handle("GET /api/auth/callback", core.Serve(signIn.Callback))
+	mux.Handle("POST /api/auth/logout", core.Serve(signIn.Logout))
+	mux.Handle("POST /api/auth/backchannel-logout", core.Serve(signIn.BackchannelLogout))
+	mux.Handle("GET /api/account", core.Serve(signIn.Account))
+	mux.Handle("PATCH /api/account", core.Serve(signIn.RenameAccount))
 
 	rest := guarded(mux)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

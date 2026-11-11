@@ -14,6 +14,7 @@ import {
   refusalBody,
   REFUSALS,
   Rename,
+  RenameAccount,
   type Ctx,
   type Seat,
 } from "../../../packages/core-schema/src/index.ts";
@@ -67,6 +68,7 @@ const ZOD_SHAPES: Record<string, z.ZodType> = {
   CreateGame,
   AdminCreate: CreateGame.extend({ ownerUserId: z.string().min(1).max(100).optional() }),
   Rename,
+  RenameAccount,
   Join,
 };
 // prettier-ignore
@@ -88,12 +90,13 @@ for (const value of [...STRINGS, ...JUNK.filter((v) => v !== undefined)]) {
   record("CreateGame", { name: "x", rulesetVersionId: value });
   record("AdminCreate", { name: "x", ownerUserId: value, extra: 1 });
   record("Rename", { name: value });
+  record("RenameAccount", { displayName: value });
   record("Join", { token: value });
 }
 for (const junk of JUNK.filter((v) => v !== undefined)) {
-  for (const shape of ["CreateGame", "AdminCreate", "Rename", "Join"]) record(shape, junk);
+  for (const shape of ["CreateGame", "AdminCreate", "Rename", "RenameAccount", "Join"]) record(shape, junk);
 }
-for (const shape of ["CreateGame", "AdminCreate", "Rename", "Join"]) record(shape, {});
+for (const shape of ["CreateGame", "AdminCreate", "Rename", "RenameAccount", "Join"]) record(shape, {});
 record("AdminCreate", { name: "", rulesetVersionId: "x", ownerUserId: "" });
 
 mkdirSync(dirname(OUT), { recursive: true });

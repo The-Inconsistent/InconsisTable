@@ -48,6 +48,12 @@ func TestCrossSiteWrite(t *testing.T) {
 		{"POST", "/api/campaigns", "Origin", "https://evil.example", true},
 		{"DELETE", "/api/x", "", "", true},
 		{"POST", "/api/auth/backchannel-logout", "", "", false},
+		{"POST", "/api/auth/backchannel-logout", "Sec-Fetch-Site", "cross-site", false},
+		{"POST", "/api/auth/backchannel-logout/", "", "", true},
+		{"POST", "/api/auth/Backchannel-logout", "", "", true},
+		{"POST", "/api/auth/logout", "", "", true},
+		{"POST", "/api/auth/login", "Sec-Fetch-Site", "cross-site", true},
+		{"PATCH", "/api/account", "", "", true},
 	}
 	for _, c := range cases {
 		r := httptest.NewRequest(c.method, c.path, nil)

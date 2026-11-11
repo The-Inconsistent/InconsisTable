@@ -43,6 +43,9 @@ func Refuse(status int, code string, params ...coreschema.Params) *HTTPError {
 // Created is a result answered with 201, as Nest answers a POST unless the route says otherwise.
 type Created struct{ Body any }
 
+// Written is the result of a route that wrote its own response (a redirect, or a plain-text status).
+type Written struct{}
+
 // Handler is a route that returns its JSON result, or an error for the response. A nil result is an empty 200.
 type Handler func(w http.ResponseWriter, r *http.Request) (any, error)
 
@@ -60,7 +63,9 @@ func Serve(h Handler) http.HandlerFunc {
 		created, isCreated := result.(Created)
 		var httpErr *HTTPError
 		var refusal *coreschema.Error
+		_, written := result.(Written)
 		switch {
+		case err == nil && written:
 		case err == nil && result == nil:
 			w.WriteHeader(http.StatusOK)
 		case err == nil && isCreated:

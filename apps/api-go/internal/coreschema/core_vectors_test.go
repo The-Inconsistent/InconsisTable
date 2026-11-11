@@ -132,7 +132,7 @@ func TestPermissionsMatchTypeScript(t *testing.T) {
 func TestShapesMatchTypeScript(t *testing.T) {
 	v := load(t)
 	shapes := map[string]schema.Schema{
-		"CampaignID": CampaignID, "CreateGame": CreateGame, "AdminCreate": AdminCreate, "Rename": Rename, "Join": Join,
+		"CampaignID": CampaignID, "CreateGame": CreateGame, "AdminCreate": AdminCreate, "Rename": Rename, "RenameAccount": RenameAccount, "Join": Join,
 	}
 	for i, x := range v.Shapes {
 		out, issues := schema.Parse(shapes[x.Shape], x.Input)

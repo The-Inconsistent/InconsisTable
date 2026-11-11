@@ -3,6 +3,7 @@ module github.com/The-Inconsistent/InconsisTable/apps/api-go
 go 1.27
 
 require (
+	github.com/The-Inconsistent/InconsisID/packages/inconsisid-go v0.2.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/zishang520/socket.io/servers/socket/v3 v3.0.6
@@ -11,7 +12,9 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.2.4 // indirect
+	github.com/coreos/go-oidc/v3 v3.21.0 // indirect
 	github.com/dunglas/httpsfv v1.1.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.9 // indirect
 	github.com/gookit/color v1.6.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
@@ -28,6 +31,7 @@ require (
 	github.com/zishang520/socket.io/servers/engine/v3 v3.0.6 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect

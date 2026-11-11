@@ -1,0 +1,450 @@
+// Writes what the TypeScript api answers for the table socket, for the Go tests to match (docs/adr/0008-go-api.md):
+// the Seat view (apps/api/src/view) over synthetic snapshots and every kind of seat, and the core Action union and the
+// book schemas on valid and broken input. Generated on every run and never committed. Every snapshot here is made up.
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+import { z } from "zod";
+
+import { seatView, type Snapshot } from "../../api/src/view/view.ts";
+import {
+  Action,
+  BookAck,
+  BookPage,
+  BookServing,
+  type Ctx,
+  type Seat,
+} from "../../../packages/core-schema/src/index.ts";
+import { compileRuleset } from "../../../packages/rules-engine/src/compile.ts";
+import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+
+const VIEW_OUT = join(import.meta.dirname, "../internal/coreschema/testdata/views.json");
+const ACTION_OUT = join(import.meta.dirname, "../internal/coreschema/testdata/actions.json");
+
+// ---- Seat views ----
+
+const compiled = (() => {
+  const r = compileRuleset(SAMPLE_D20);
+  if (!r.ok) throw new Error("SAMPLE_D20 does not compile");
+  return r.compiled;
+})();
+
+const U = (n: number) => `0190a000-0000-7000-8000-${String(n).padStart(12, "0")}`;
+const [PC1, PC2, PAL, NPC, GOB, GHOST] = [1, 2, 3, 4, 5, 6].map(U) as [string, string, string, string, string, string];
+const [CB1, CB2, CB3, CB4, CB5] = [11, 12, 13, 14, 15].map(U) as [string, string, string, string, string];
+
+const values = (over: Record<string, unknown> = {}) => ({
+  entity: "character",
+  fields: {
+    name: "A",
+    level: 3,
+    "attr.str": 12,
+    "attr.dex": 14,
+    "attr.con": 10,
+    diary: "mine",
+    secret: "gm only",
+    tags: ["x", "y"],
+  },
+  resources: { hp: 7, tempHp: 0, focus: 1, menace: 2 },
+  derived: { maxHp: 20, baseHp: 6, initBonus: 2, defense: 12 },
+  conditions: ["dazed", "marked", "unknownCondition"],
+  conditionTimers: [
+    { id: "dazed", expiresOn: "roundEnd", expiresAfter: 2 },
+    { id: "marked", expiresOn: "manual", expiresAfter: null },
+    { id: "unknownCondition", expiresOn: "manual", expiresAfter: null },
+  ],
+  ...over,
+});
+
+const actor = (id: string, kind: string, name: string, owner: string | null, over: Record<string, unknown> = {}) => ({
+  id,
+  kind,
+  name,
+  status: "active",
+  ownerUserId: owner,
+  ...values(over),
+});
+
+const ACTORS = [
+  actor(PC1, "pc", "One", "player1"),
+  actor(PC2, "pc", "Two", null),
+  actor(PAL, "companion", "Pal", "player1", { conditions: ["staggered"], conditionTimers: [] }),
+  actor(NPC, "npc", "Keeper", null, { entity: "creature", fields: { name: "K", level: 2, "attr.con": 12 } }),
+  actor(GOB, "creature", "Goblin", null, {
+    entity: "creature",
+    fields: { name: "G", level: 1, healthState: "ok" },
+    resources: { hp: 4 },
+    derived: { maxHp: 7 },
+  }),
+  actor(GHOST, "creature", "Ghost", null, { entity: "noSuchEntity" }),
+];
+
+const combatant = (id: string, actorId: string, visibility: string, over: Record<string, unknown> = {}) => ({
+  id,
+  actorId,
+  name: actorId,
+  side: "foe",
+  ord: 0,
+  initiative: 12,
+  visibility,
+  keep: true,
+  hp: { value: 4, max: 7 },
+  bar: 0.5,
+  conditions: [
+    { id: "dazed", left: 1, expiresOn: "roundEnd" },
+    { id: "marked", left: null, expiresOn: "manual" },
+  ],
+  ...over,
+});
+
+const report = (natural: number) => ({
+  natural,
+  total: natural + 2,
+  outcome: "success",
+  margin: 3,
+  shifts: 1,
+  flags: ["wrath"],
+});
+
+const call = (id: string, over: Record<string, unknown>) => ({
+  id,
+  testId: "check",
+  dice: "1d20",
+  advantage: true,
+  pool: null,
+  status: "open",
+  createdAt: "2026-11-01T10:00:00.000Z",
+  inputs: { ability: "dex", dc: 15 },
+  secretInputs: ["dc"],
+  showTarget: false,
+  showModifier: true,
+  showOutcome: false,
+  revealed: false,
+  called: 2,
+  reported: 1,
+  targets: [
+    { actorId: PC1, modifier: 2, target: 15, pool: null, report: report(11) },
+    { actorId: PC2, modifier: 1, target: 15, pool: 3, report: null },
+  ],
+  ...over,
+});
+
+const STATE = {
+  campaign: {
+    id: U(100),
+    name: "Room",
+    ownerUserId: "owner",
+    archived: false,
+    nextSessionAt: null,
+    nextSessionPlace: "",
+  },
+  stateVersion: 9,
+  session: {
+    id: U(101),
+    number: 2,
+    title: "Two",
+    startedAt: "2026-11-01T09:00:00.000Z",
+    endedAt: null,
+    recap: "",
+    notes: "GM notes",
+  },
+  actors: ACTORS,
+  myDraft: null,
+  tests: [
+    call(U(200), {}),
+    call(U(201), { showTarget: true, secretInputs: [], showOutcome: true }),
+    call(U(202), { status: "closed", revealed: true, showModifier: false }),
+    call(U(203), { targets: [{ actorId: PC2, modifier: 1, target: 9, pool: null, report: report(4) }], called: 1 }),
+    call(U(204), { status: "closed", targets: [] }),
+  ],
+  testDefs: [
+    {
+      id: "check",
+      dice: "1d20",
+      advantage: true,
+      pool: null,
+      inputs: [
+        { id: "ability", type: "text", options: ["str", "dex"] },
+        { id: "dc", type: "int" },
+      ],
+    },
+  ],
+  encounter: {
+    id: U(300),
+    round: 2,
+    currentId: CB3,
+    firstId: CB1,
+    phaseId: null,
+    phases: [],
+    done: [CB1, CB3],
+    firstPlayer: null,
+    paused: false,
+    health: { resource: "hp", temp: "tempHp", deathSaves: true },
+    conditionDefs: [{ id: "dazed", label: "Dazed", duration: "roundEnd" }],
+    endMet: [],
+    scoring: null,
+    combatants: [
+      combatant(CB1, PC1, "full", { side: "party", ord: 0 }),
+      combatant(CB2, GOB, "full", { ord: 1 }),
+      combatant(CB3, GOB, "hidden", { ord: 2 }),
+      combatant(CB4, NPC, "bar", { ord: 3, hp: null, bar: null }),
+      combatant(CB5, GHOST, "full", { ord: 4 }),
+    ],
+  },
+  games: [],
+  access: {
+    members: [{ userId: "player1", name: "P", role: "player", scopes: [], characterIds: [PC1, PAL] }],
+    invites: [
+      {
+        id: U(400),
+        mode: "room",
+        role: "player",
+        actorId: null,
+        allowGuests: true,
+        expiresAt: "2026-11-02T00:00:00.000Z",
+        uses: 0,
+        maxUses: null,
+      },
+    ],
+    guests: [{ actorId: PC2 }],
+    screens: 1,
+    transfer: null,
+  },
+};
+
+const entry = (id: string, visibility: string, audienceMode: string, audience: string[]) => ({
+  id,
+  kind: "handout",
+  title: id,
+  body: "text",
+  gmNotes: "notes",
+  visibility,
+  audienceMode,
+  audience,
+});
+
+const CODEX = {
+  entries: [
+    entry(U(500), "gm", "all", []),
+    entry(U(501), "party", "all", []),
+    entry(U(502), "public", "listed", [PC1, PC2]),
+    entry(U(503), "party", "listed", [PC2]),
+    entry(U(504), "gm", "listed", [PC1]),
+  ],
+};
+
+const DRAFTS = { player1: { actorId: PC1, answers: { name: "One" } }, owner: { actorId: PC2, answers: {} } };
+
+const member = (role: "gm" | "cogm" | "player", scopes: string[], characterIds: string[]): Seat =>
+  ({ kind: "member", role, scopes, characterIds }) as Seat;
+const SEATS: { name: string; userId: string | null; seat: Seat }[] = [
+  { name: "owner as player", userId: "owner", seat: member("player", [], []) },
+  { name: "gm", userId: "gm1", seat: member("gm", [], []) },
+  { name: "cogm none", userId: "c0", seat: member("cogm", [], []) },
+  { name: "cogm combat", userId: "c1", seat: member("cogm", ["combat"], []) },
+  { name: "cogm codex", userId: "c2", seat: member("cogm", ["codex"], []) },
+  { name: "cogm secrets", userId: "c3", seat: member("cogm", ["codex.secrets"], []) },
+  { name: "cogm party", userId: "c4", seat: member("cogm", ["party"], []) },
+  { name: "cogm session", userId: "c5", seat: member("cogm", ["session"], []) },
+  { name: "cogm combat party", userId: "c6", seat: member("cogm", ["combat", "party"], [PC2]) },
+  { name: "player with characters", userId: "player1", seat: member("player", [], [PC1, PAL]) },
+  { name: "player without", userId: "player2", seat: member("player", [], []) },
+  { name: "guest", userId: null, seat: { kind: "token", role: "player", characterIds: [PC2] } },
+  { name: "screen", userId: null, seat: { kind: "token", role: "screen", characterIds: [] } },
+  { name: "admin", userId: null, seat: { kind: "admin" } },
+];
+
+const SNAPSHOTS: { name: string; state: unknown; codex: unknown; drafts: Record<string, unknown>; ruleset: boolean }[] =
+  [
+    { name: "full", state: STATE, codex: CODEX, drafts: DRAFTS, ruleset: true },
+    { name: "no ruleset", state: STATE, codex: CODEX, drafts: DRAFTS, ruleset: false },
+    {
+      name: "quiet",
+      state: { ...STATE, session: null, encounter: null, tests: [], actors: [] },
+      codex: { entries: [] },
+      drafts: {},
+      ruleset: true,
+    },
+    {
+      name: "no health track",
+      state: { ...STATE, encounter: { ...STATE.encounter, health: null, currentId: CB1, firstId: CB3 } },
+      codex: CODEX,
+      drafts: {},
+      ruleset: true,
+    },
+  ];
+
+const views = SNAPSHOTS.flatMap((snap) =>
+  SEATS.map(({ name, userId, seat }) => {
+    const ctx: Ctx = { campaignId: U(100), userId, campaignOwnerId: "owner", seat };
+    const snapshot = {
+      state: snap.state,
+      codex: snap.codex,
+      drafts: new Map(Object.entries(snap.drafts)),
+    } as unknown as Snapshot;
+    const v = seatView({ snapshot, compiled: snap.ruleset ? compiled : null, ctx });
+    return { snapshot: snap.name, seatName: name, ctx, state: v.state, codex: v.codex };
+  }),
+);
+
+mkdirSync(dirname(VIEW_OUT), { recursive: true });
+writeFileSync(
+  VIEW_OUT,
+  JSON.stringify({
+    manifest: SAMPLE_D20,
+    snapshots: Object.fromEntries(SNAPSHOTS.map((s) => [s.name, s])),
+    views,
+  }),
+);
+
+// ---- Actions and book schemas ----
+
+const ID = U(900);
+const VALID: Record<string, Record<string, unknown>> = {
+  "campaign.update": { name: " Room ", nextSessionAt: "2026-11-20T19:00:00+07:00", nextSessionPlace: " Here " },
+  "campaign.archive": {},
+  "campaign.unarchive": {},
+  "campaign.delete": { name: "Room" },
+  "campaign.transfer": { toUserId: "u2" },
+  "campaign.transferCancel": {},
+  "campaign.transferAccept": {},
+  "campaign.setRuleset": { rulesetVersionId: ID },
+  "campaign.unpinRuleset": {},
+  "campaign.attachPack": { packVersionId: ID },
+  "campaign.detachPack": { packVersionId: ID },
+  "session.start": { title: " Night " },
+  "session.end": { recap: "done" },
+  "session.edit": { sessionId: ID, title: "t", recap: "r", notes: "n" },
+  "actor.create": { kind: "npc", name: " Keeper ", entityType: "creature" },
+  "actor.build": { actorId: ID, answers: { name: "x", n: 1 } },
+  "actor.spawn": { packVersionId: ID, key: "goblin", count: 3, temporary: true },
+  "draft.save": { body: { actorId: ID, answers: { a: [1, 2] } } },
+  "draft.discard": {},
+  "actor.rename": { id: ID, name: "New" },
+  "actor.delete": { id: ID },
+  "rule.op": { primitive: "resource.capped", op: "adjust", input: { delta: -1 } },
+  "field.set": { actorId: ID, field: "level", value: 3 },
+  "condition.add": { actorId: ID, condition: "dazed", source: "x", expiresAfter: 2 },
+  "condition.remove": { actorId: ID, condition: "dazed" },
+  "actor.rest": { event: "longRest", actorId: ID },
+  "event.undo": {},
+  "encounter.start": {},
+  "encounter.end": {},
+  "encounter.add": { actorIds: [ID], side: "foe", visibility: "hidden" },
+  "encounter.remove": { combatantId: ID },
+  "encounter.setInitiative": { combatantId: ID, score: 12 },
+  "encounter.move": { combatantId: ID, direction: "up" },
+  "encounter.setVisibility": { combatantId: ID, visibility: "full" },
+  "encounter.keep": { combatantId: ID, keep: true },
+  "turn.next": {},
+  "turn.prev": {},
+  "turn.first": { combatantId: ID },
+  "phase.done": { actorId: ID },
+  "game.end": {},
+  "result.set": { resultId: ID, score: -5 },
+  "test.call": { testId: "check", actorIds: [ID], inputs: { dc: 15, ability: "dex", flag: true }, hideTarget: true },
+  "test.report": { callId: ID, actorId: ID, advantage: "advantage", roll: { faces: [12, 4] } },
+  "test.close": { callId: ID, reveal: true },
+  "invite.create": { mode: "character", role: "cogm", actorId: ID, allowGuests: false, hours: 24 },
+  "invite.revoke": { id: ID },
+  "member.remove": { userId: "u2" },
+  "member.appoint": { userId: "u2", role: "cogm", scopes: ["combat", "codex.secrets"] },
+  "member.seat": { userId: "u2" },
+  "seat.leave": {},
+  "token.issue": { actorId: ID },
+  "token.revoke": { actorId: ID },
+  "screen.issue": {},
+  "screen.revoke": {},
+  "codex.save": { id: ID, kind: "npc", title: " T ", body: "b", gmNotes: "g" },
+  "codex.reveal": { id: ID, visibility: "party", audienceMode: "listed", audience: [ID] },
+  "codex.delete": { id: ID },
+};
+
+const LONG_KEYS = new Set(["recap", "notes", "body", "gmNotes", "value"]);
+const lengths = (key: string) => [
+  0,
+  1,
+  ...[20, 40, 60, 64, 80, 100, 120, 200, 1000].flatMap((n) => [n, n + 1]),
+  ...(LONG_KEYS.has(key) ? [10_000, 10_001, 20_000, 20_001] : []),
+];
+const NUMBERS = [
+  -2147483649, -1000001, -1001, -1, 0, 1, 1.5, 12, 20, 21, 50, 720, 721, 1000, 1001, 5001, 2147483648, 1e300,
+];
+const JUNK: unknown[] = [null, true, 0, "", "not-a-uuid", [], {}, ["x"], { k: 1 }];
+
+const mutations = (key: string, sample: unknown): unknown[] => {
+  const out: unknown[] = [...JUNK];
+  if (typeof sample === "string") out.push(...lengths(key).map((n) => "x".repeat(n)), " ", ID.toUpperCase());
+  if (typeof sample === "number") out.push(...NUMBERS);
+  if (Array.isArray(sample)) {
+    out.push(
+      Array.from({ length: 51 }, () => sample[0]),
+      Array.from({ length: 6 }, () => sample[0]),
+      [1],
+      [null],
+    );
+  }
+  if (sample !== null && typeof sample === "object" && !Array.isArray(sample)) {
+    out.push({ ["k".repeat(121)]: 1 }, { ["k".repeat(64)]: "x".repeat(101) }, { k: [1, "a", true, null] });
+  }
+  return out;
+};
+
+const ACTION_SCHEMAS: Record<string, z.ZodType> = { Action, BookPage, BookServing, BookAck };
+const actions: unknown[] = [];
+const record = (schema: string, input: unknown) => {
+  const r = (ACTION_SCHEMAS[schema] as z.ZodType).safeParse(input);
+  actions.push({ schema, input, ok: r.success, ...(r.success ? { output: r.data } : {}) });
+};
+
+for (const [type, sample] of Object.entries(VALID)) {
+  record("Action", { type, ...sample });
+  record("Action", { type });
+  record("Action", { type, ...sample, extra: 1 });
+  for (const [key, value] of Object.entries(sample)) {
+    const { [key]: _gone, ...rest } = sample;
+    record("Action", { type, ...rest });
+    for (const m of mutations(key, value)) record("Action", { type, ...sample, [key]: m });
+  }
+}
+for (const junk of [null, 1, "x", [], {}, { type: "nope" }, { type: 1 }]) record("Action", junk);
+// A draft just under and just over 64 KB, serialized.
+const pad = (n: number) => ({ type: "draft.save", body: { actorId: ID, answers: { p: "é".repeat(n) } } });
+for (const n of [32_700, 32_730, 32_740, 32_760, 32_800, 40_000]) record("Action", pad(n));
+for (const nextSessionAt of [
+  "2026-11-20T19:00:00Z",
+  "2026-11-20T19:00Z",
+  "2026-11-20T19:00:00.123+07:00",
+  "2026-02-29T00:00:00Z",
+  "2024-02-29T00:00:00Z",
+  "2026-11-20 19:00:00Z",
+  null,
+]) {
+  record("Action", { type: "campaign.update", nextSessionAt });
+}
+
+for (const source of ["sample", "a-b-9", "-a", "A", "", "x".repeat(60), "x".repeat(61), 1, null]) {
+  for (const page of [1, 0, 5000, 5001, 1.5, "1", null]) record("BookPage", { source, page });
+  record("BookServing", { sources: [source] });
+}
+record("BookServing", { sources: [] });
+record("BookServing", { sources: Array.from({ length: 101 }, () => "a") });
+record("BookServing", {});
+for (const error of ["no", "x".repeat(250), 1]) {
+  for (const code of [undefined, "bookNoReply", "notAKey", 3]) {
+    for (const params of [undefined, { a: "b", n: 2 }, { a: "x".repeat(201) }, "bad"]) {
+      record("BookAck", {
+        ok: false,
+        error,
+        ...(code === undefined ? {} : { code }),
+        ...(params === undefined ? {} : { params }),
+      });
+    }
+  }
+}
+record("BookAck", { ok: "maybe" });
+record("BookAck", null);
+
+mkdirSync(dirname(ACTION_OUT), { recursive: true });
+writeFileSync(ACTION_OUT, JSON.stringify({ actions }));
+console.log(`table vectors: ${views.length} seat views, ${actions.length} action inputs`);

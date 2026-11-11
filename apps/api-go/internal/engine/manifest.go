@@ -98,14 +98,17 @@ type (
 	// Condition is one declared condition.
 	Condition struct {
 		ID         string   `json:"id"`
+		Label      string   `json:"label"`
+		Duration   string   `json:"duration"`
 		Cite       *string  `json:"cite"`
 		Effects    []Effect `json:"effects"`
 		Visibility string   `json:"visibility"`
 	}
 	poolBandDef struct {
-		ID   string  `json:"id"`
-		From float64 `json:"from"`
-		To   float64 `json:"to"`
+		ID    string  `json:"id"`
+		From  float64 `json:"from"`
+		To    float64 `json:"to"`
+		Worth float64 `json:"worth"`
 	}
 	faceRangeDef struct {
 		From float64 `json:"from"`
@@ -126,16 +129,19 @@ type (
 		Die          float64           `json:"die"`
 		Bands        []poolBandDef     `json:"bands"`
 		Special      *struct {
+			Label string                  `json:"label"`
+			Count float64                 `json:"count"`
 			Flags map[string]faceRangeDef `json:"flags"`
 		} `json:"special"`
 		Shift *string `json:"shift"`
 	}
 	// Initiative is a ranked or seated declaration.
 	Initiative struct {
-		Strategy string   `json:"strategy"`
-		Score    string   `json:"score"`
-		Tiebreak []string `json:"tiebreak"`
-		Cite     *string  `json:"cite"`
+		Strategy    string   `json:"strategy"`
+		FirstPlayer string   `json:"firstPlayer"`
+		Score       string   `json:"score"`
+		Tiebreak    []string `json:"tiebreak"`
+		Cite        *string  `json:"cite"`
 	}
 	// Scoring is a game's scoring declaration.
 	Scoring struct {
@@ -198,6 +204,12 @@ type (
 		ID   string  `json:"id"`
 		Cite *string `json:"cite"`
 	}
+	// Phase is one phase of a round.
+	Phase struct {
+		idAndCite
+		Label string `json:"label"`
+		Mode  string `json:"mode"`
+	}
 	// Ruleset is a parsed manifest. Normalized is the same document as decoded JSON, defaults applied: what gets stored
 	// and hashed.
 	Ruleset struct {
@@ -217,7 +229,7 @@ type (
 		Conditions []Condition     `json:"conditions"`
 		Tests      map[string]Test `json:"tests"`
 		Initiative Initiative      `json:"initiative"`
-		Phases     []idAndCite     `json:"phases"`
+		Phases     []Phase         `json:"phases"`
 		Scoring    *Scoring        `json:"scoring"`
 		Health     Health          `json:"health"`
 		Creation   []CreationStep  `json:"creation"`
@@ -468,7 +480,7 @@ func (r *Ruleset) semanticProblems() problems {
 	p.duplicates("entities", idsOf(r.Entities, func(e EntityType) string { return e.ID }))
 	p.duplicates("resources", idsOf(r.Resources, func(x Resource) string { return x.ID }))
 	p.duplicates("conditions", idsOf(r.Conditions, func(x Condition) string { return x.ID }))
-	p.duplicates("phases", idsOf(r.Phases, idOf))
+	p.duplicates("phases", idsOf(r.Phases, func(x Phase) string { return x.ID }))
 	p.duplicates("options", idsOf(r.Options, idOf))
 	p.duplicates("creation", idsOf(r.Creation, func(x CreationStep) string { return x.ID }))
 	p.duplicates("decisions", idsOf(r.Decisions, idOf))

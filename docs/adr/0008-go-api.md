@@ -49,10 +49,14 @@ matched, with no race reported. Three differences need handling:
 - **Kicks.** `disconnectSockets(true)` lost the disconnect packet: the client saw `transport close` on at least one socket
   in 25 of 30 rounds (Node 0 of 30), and `use-table` only reloads on `io server disconnect`. `disconnectSockets(false)` was
   clean in 30 of 30. The Go api kicks with `false`, then closes the transport itself after a grace period, so a client
-  cannot stay connected by ignoring the packet. That close is not yet tested.
+  cannot stay connected by ignoring the packet. A Go test sees the packet first and the close after the 200 ms grace
+  (`internal/table`).
 - **Oversized frames.** The Go library drops the frame but the client only leaves at the ping timeout, about 45 s later.
   The Go api has to close such a connection itself, promptly, because the smoke suite will require it once
-  The-Inconsistent/InconsisTable#81 lands. How is not yet known or tested.
+  The-Inconsistent/InconsisTable#81 lands. Over a websocket the library's read limit already closes with 1009, within
+  milliseconds. Over polling it answers 413 but keeps the session, and a body sent without a length is cut short and
+  dropped in silence; the gateway reads each polling POST first and closes the session when it is over the limit. Go
+  tests cover both transports, each closing within 2 s.
 - **Panics.** A panic in an event handler kills the process. Every handler runs behind a `recover`.
 
 **The cut is one flip, not a proxy.** `apps/api-go` grows beside `apps/api` against the same Postgres schema, and is not
@@ -79,8 +83,9 @@ security review against `docs/research/auth-service-security.md` and ASVS.
   wording, because importers read manifest refusals. Each schema is written out a second time in Go, and vectors check
   both on broken input. Problems about JSON object keys come back in sorted order, since decoded JSON has lost the order
   they were written in. Op input still uses the older readers in `op_input.go`, which match on refusal code only, since
-  the api sends clients the code and the message only as detail (`ruleset.run.ts`). Socket action validation is not
-  ported yet.
+  the api sends clients the code and the message only as detail (`ruleset.run.ts`). Socket actions and the book events
+  are ported the same way (`coreschema/actions.go`): vectors match accept or refuse, and the parsed output with its
+  defaults, but not the refusal text, which travels as `detail` only.
 - `@the-inconsistent/inconsisid` has no Go client that this work has found, so sign-in needs one.
 - `zishang520/socket.io` becomes a dependency the table cannot run without. It is a small project (last release
   2026-09-22). If it stalls, the fallback is plain WebSocket and a change to `use-table.ts`.

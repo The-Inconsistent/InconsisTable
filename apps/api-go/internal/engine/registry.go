@@ -92,3 +92,12 @@ func RunOp(primitiveID, opID string, params, input any, state *RuleState) (OpRes
 	}
 	return OpResult{deltas, op.touches, op.perm}, nil
 }
+
+// OpTouches says which snapshot an op changes: "state", "codex" or "both". An op the registry does not know is taken to
+// change the state, as the TypeScript dispatch does.
+func OpTouches(primitiveID, opID string) string {
+	if op, ok := primitives[primitiveID].ops[opID]; ok {
+		return op.touches
+	}
+	return "state"
+}

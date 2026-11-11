@@ -1,0 +1,369 @@
+package coreschema
+
+import (
+	"math"
+	"slices"
+	"unicode/utf16"
+
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/schema"
+)
+
+// Every mutation goes through one socket event, "action" (CLAUDE.md, "The server decides"). These are the core actions
+// of packages/core-schema/src/actions.ts, written out a second time; vectors/table.ts holds the two equal on accept and
+// refuse (docs/adr/0008-go-api.md).
+
+// Action is a parsed action: decoded JSON with the schema's defaults filled in. Handlers read its fields by key.
+type Action map[string]any
+
+// Type is the action's discriminator.
+func (a Action) Type() string {
+	t, _ := a["type"].(string)
+	return t
+}
+
+// Str reads a string field; "" when it is absent.
+func (a Action) Str(key string) string {
+	s, _ := a[key].(string)
+	return s
+}
+
+// The closed sets the actions use, from packages/core-schema/src/state.ts, seat.ts and encounter.ts.
+var (
+	actorKinds       = []string{"pc", "companion", "npc", "creature", "group", "vehicle", "hazard"}
+	memberRoles      = []string{"gm", "cogm", "player"}
+	cogmScopes       = []string{"combat", "codex", "codex.secrets", "party", "session"}
+	inviteModes      = []string{"room", "character"}
+	codexKinds       = []string{"adventure", "scene", "npc", "location", "faction", "item", "handout", "quest", "lore"}
+	codexVisibility  = []string{"gm", "party", "public"}
+	audienceModes    = []string{"all", "listed"}
+	combatSides      = []string{"party", "foe", "other"}
+	combatVisibility = []string{"hidden", "bar", "full"}
+)
+
+// MaxDraftBytes caps a builder draft, serialized.
+const MaxDraftBytes = 64 * 1024
+
+var (
+	id           = schema.UUID()
+	userID       = schema.String().Min(1).Max(100)
+	actorName    = schema.String().Trim().Min(1).Max(100)
+	sessionTitle = schema.String().Trim().Max(100)
+	recap        = schema.String().Max(10_000)
+	answers      = schema.Record(schema.String().Max(120), schema.Unknown())
+
+	// BuilderDraftBody is the character being built and the answers so far, read and written whole.
+	BuilderDraftBody = schema.Refined(
+		schema.Object(schema.Req("actorId", schema.UUID()), schema.Req("answers", answers)),
+		// JSON.stringify's UTF-8 length; key order does not change it, so canonical JSON measures the same.
+		func(v any) bool { return len(engine.CanonicalJSON(v)) <= MaxDraftBytes },
+		"The draft is over 64 KB",
+	)
+
+	fieldValue = schema.AnyOf(
+		schema.Int().Min(-2147483648).Max(2147483647),
+		schema.String().Max(10_000),
+		schema.Bool(),
+		schema.Array(schema.String().Max(1_000)).Max(500),
+		schema.Null(),
+	)
+	testInputs = schema.Record(schema.String().Max(64), schema.AnyOf(
+		schema.Number(-math.MaxFloat64, math.MaxFloat64),
+		schema.String().Max(100),
+		schema.Bool(),
+	))
+)
+
+func variant(tag string, fields ...schema.Field) schema.Variant {
+	return schema.Variant{Tag: tag, Schema: schema.Object(append([]schema.Field{schema.Req("type", schema.Literal(tag))}, fields...)...)}
+}
+
+// ActionSchema is the Action union.
+var ActionSchema = schema.Union("type",
+	variant("campaign.update",
+		schema.Opt("name", schema.String().Trim().Min(1).Max(100)),
+		schema.Opt("nextSessionAt", schema.Nullable(schema.DateTime())),
+		schema.Opt("nextSessionPlace", schema.String().Trim().Max(200)),
+	),
+	variant("campaign.archive"),
+	variant("campaign.unarchive"),
+	variant("campaign.delete", schema.Req("name", schema.String().Max(100))),
+	variant("campaign.transfer", schema.Req("toUserId", userID)),
+	variant("campaign.transferCancel"),
+	variant("campaign.transferAccept"),
+	variant("campaign.setRuleset", schema.Req("rulesetVersionId", id)),
+	variant("campaign.unpinRuleset"),
+	variant("campaign.attachPack", schema.Req("packVersionId", id)),
+	variant("campaign.detachPack", schema.Req("packVersionId", id)),
+
+	variant("session.start", schema.Def("title", sessionTitle, "")),
+	variant("session.end", schema.Def("recap", recap, "")),
+	variant("session.edit",
+		schema.Req("sessionId", id),
+		schema.Opt("title", sessionTitle),
+		schema.Opt("recap", recap),
+		schema.Opt("notes", schema.String().Max(10_000)),
+	),
+
+	variant("actor.create",
+		schema.Def("kind", schema.Enum(actorKinds...), "pc"),
+		schema.Req("name", actorName),
+		schema.Opt("entityType", schema.String().Min(1).Max(64)),
+	),
+	variant("actor.build", schema.Req("actorId", id), schema.Req("answers", answers)),
+	variant("actor.spawn",
+		schema.Req("packVersionId", id),
+		schema.Req("key", schema.String().Min(1).Max(80)),
+		schema.Req("count", schema.Int().Min(1).Max(20)),
+		schema.Def("temporary", schema.Bool(), false),
+	),
+	variant("draft.save", schema.Req("body", BuilderDraftBody)),
+	variant("draft.discard"),
+	variant("actor.rename", schema.Req("id", id), schema.Req("name", actorName)),
+	variant("actor.delete", schema.Req("id", id)),
+
+	variant("rule.op",
+		schema.Req("primitive", schema.String().Min(1).Max(64)),
+		schema.Req("op", schema.String().Min(1).Max(64)),
+		schema.Def("input", schema.Record(schema.String().Max(64), schema.Unknown()), map[string]any{}),
+	),
+	variant("field.set",
+		schema.Req("actorId", id),
+		schema.Req("field", schema.String().Min(1).Max(120)),
+		schema.Req("value", fieldValue),
+	),
+	variant("condition.add",
+		schema.Req("actorId", id),
+		schema.Req("condition", schema.String().Min(1).Max(64)),
+		schema.Def("source", schema.String().Max(100), ""),
+		schema.Opt("expiresAfter", schema.Int().Min(1).Max(1000)),
+	),
+	variant("condition.remove", schema.Req("actorId", id), schema.Req("condition", schema.String().Min(1).Max(64))),
+	variant("actor.rest", schema.Req("event", schema.String().Min(1).Max(40)), schema.Opt("actorId", id)),
+	variant("event.undo"),
+
+	variant("encounter.start"),
+	variant("encounter.end"),
+	variant("encounter.add",
+		schema.Req("actorIds", schema.Array(id).Min(1).Max(50)),
+		schema.Req("side", schema.Enum(combatSides...)),
+		schema.Def("visibility", schema.Enum(combatVisibility...), "bar"),
+	),
+	variant("encounter.remove", schema.Req("combatantId", id)),
+	variant("encounter.setInitiative",
+		schema.Req("combatantId", id),
+		schema.Req("score", schema.Nullable(schema.Int().Min(-1000).Max(1000))),
+	),
+	variant("encounter.move", schema.Req("combatantId", id), schema.Req("direction", schema.Enum("up", "down"))),
+	variant("encounter.setVisibility", schema.Req("combatantId", id), schema.Req("visibility", schema.Enum(combatVisibility...))),
+	variant("encounter.keep", schema.Req("combatantId", id), schema.Req("keep", schema.Bool())),
+	variant("turn.next"),
+	variant("turn.prev"),
+	variant("turn.first", schema.Req("combatantId", id)),
+	variant("phase.done", schema.Req("actorId", id)),
+	variant("game.end"),
+	variant("result.set", schema.Req("resultId", id), schema.Req("score", schema.Int().Min(-1_000_000).Max(1_000_000))),
+
+	variant("test.call",
+		schema.Req("testId", schema.String().Min(1).Max(64)),
+		schema.Req("actorIds", schema.Array(schema.UUID()).Min(1).Max(50)),
+		schema.Def("inputs", testInputs, map[string]any{}),
+		schema.Def("hideTarget", schema.Bool(), false),
+		schema.Def("showOutcome", schema.Bool(), false),
+	),
+	variant("test.report",
+		schema.Req("callId", schema.UUID()),
+		schema.Req("actorId", schema.UUID()),
+		schema.Def("advantage", schema.String().Max(20), "none"),
+		schema.Req("roll", schema.Record(schema.String().Max(20), schema.Unknown())),
+	),
+	variant("test.close", schema.Req("callId", schema.UUID()), schema.Def("reveal", schema.Bool(), false)),
+
+	variant("invite.create",
+		schema.Req("mode", schema.Enum(inviteModes...)),
+		schema.Def("role", schema.Enum(memberRoles...), "player"),
+		schema.Opt("actorId", id),
+		schema.Def("allowGuests", schema.Bool(), true),
+		schema.Def("hours", schema.Int().Min(1).Max(720), 12.0),
+	),
+	variant("invite.revoke", schema.Req("id", id)),
+	variant("member.remove", schema.Req("userId", userID)),
+	variant("member.appoint",
+		schema.Req("userId", userID),
+		schema.Req("role", schema.Enum(memberRoles...)),
+		schema.Def("scopes", schema.Array(schema.Enum(cogmScopes...)).Max(len(cogmScopes)), []any{}),
+	),
+	variant("member.seat", schema.Req("userId", userID)),
+	variant("seat.leave"),
+	variant("token.issue", schema.Req("actorId", id)),
+	variant("token.revoke", schema.Req("actorId", id)),
+	variant("screen.issue"),
+	variant("screen.revoke"),
+
+	variant("codex.save",
+		schema.Opt("id", id),
+		schema.Req("kind", schema.Enum(codexKinds...)),
+		schema.Opt("title", schema.String().Trim().Min(1).Max(200)),
+		schema.Opt("body", schema.String().Max(20_000)),
+		schema.Opt("gmNotes", schema.String().Max(20_000)),
+	),
+	variant("codex.reveal",
+		schema.Req("id", id),
+		schema.Req("visibility", schema.Enum(codexVisibility...)),
+		schema.Def("audienceMode", schema.Enum(audienceModes...), "all"),
+		schema.Def("audience", schema.Array(id).Max(50), []any{}),
+	),
+	variant("codex.delete", schema.Req("id", id)),
+)
+
+// ParseAction reads a socket payload as an Action, or the issues that refuse it.
+func ParseAction(payload any) (Action, []schema.Issue) {
+	out, issues := schema.Parse(ActionSchema, payload)
+	if len(issues) > 0 {
+		return nil, issues
+	}
+	return Action(out.(map[string]any)), nil
+}
+
+// ActionPerms is the permission each action needs. "" means the action checks its caller itself (the transfer's
+// recipient holds no permission yet; rule.op takes its op's; a draft is the signed-in member's own).
+var ActionPerms = map[string]string{
+	"campaign.update":         "campaign:update",
+	"campaign.archive":        "campaign:archive",
+	"campaign.unarchive":      "campaign:archive",
+	"campaign.delete":         "campaign:delete",
+	"campaign.transfer":       "campaign:transfer",
+	"campaign.transferCancel": "campaign:transfer",
+	"campaign.transferAccept": "",
+	"campaign.setRuleset":     "campaign:ruleset",
+	"campaign.unpinRuleset":   "campaign:ruleset",
+	"campaign.attachPack":     "campaign:ruleset",
+	"campaign.detachPack":     "campaign:ruleset",
+	"session.start":           "session:run",
+	"session.end":             "session:run",
+	"session.edit":            "session:run",
+	"actor.create":            "character:create",
+	"actor.build":             "character:edit:own",
+	"actor.spawn":             "encounter:run",
+	"draft.save":              "",
+	"draft.discard":           "",
+	"actor.rename":            "character:edit:own",
+	"actor.delete":            "character:edit:any",
+	"rule.op":                 "",
+	"field.set":               "character:edit:own",
+	"condition.add":           "encounter:run",
+	"condition.remove":        "encounter:run",
+	"actor.rest":              "session:run",
+	"event.undo":              "encounter:run",
+	"encounter.start":         "encounter:run",
+	"encounter.end":           "encounter:run",
+	"encounter.add":           "encounter:run",
+	"encounter.remove":        "encounter:run",
+	"encounter.setInitiative": "encounter:run",
+	"encounter.move":          "encounter:run",
+	"encounter.setVisibility": "encounter:run",
+	"encounter.keep":          "encounter:run",
+	"turn.next":               "encounter:run",
+	"turn.prev":               "encounter:run",
+	"turn.first":              "encounter:run",
+	"phase.done":              "phase:done:own",
+	"game.end":                "encounter:run",
+	"result.set":              "encounter:run",
+	"test.call":               "test:call",
+	"test.report":             "test:report:own",
+	"test.close":              "test:call",
+	"invite.create":           "member:invite",
+	"invite.revoke":           "member:invite",
+	"member.remove":           "member:remove",
+	"member.appoint":          "member:appoint",
+	"member.seat":             "member:seat",
+	"seat.leave":              "seat:leave",
+	"token.issue":             "token:issue",
+	"token.revoke":            "token:issue",
+	"screen.issue":            "token:issue",
+	"screen.revoke":           "token:issue",
+	"codex.save":              "codex:write",
+	"codex.reveal":            "codex:reveal",
+	"codex.delete":            "codex:write",
+}
+
+// OwnFallback is the GM-side permission that also satisfies an :own one: a GM renames any character.
+var OwnFallback = map[string]string{
+	"character:edit:own": "character:edit:any",
+	"test:report:own":    "test:call",
+	"phase:done:own":     "encounter:run",
+}
+
+// ArchivedOpen holds the actions an archived room still takes: unarchive, delete, leaving, and revoking access.
+var ArchivedOpen = []string{
+	"campaign.unarchive", "campaign.delete", "seat.leave", "token.revoke", "invite.revoke", "screen.revoke", "member.remove",
+}
+
+// IsArchivedOpen says whether an archived room still takes this action.
+func IsArchivedOpen(actionType string) bool { return slices.Contains(ArchivedOpen, actionType) }
+
+// Book pages (packages/core-schema/src/book.ts): a GM tablet renders one page and the api relays it, storing nothing.
+
+// MaxPageBytes caps one relayed page: a JPEG of about 150-400 KB at the width the GM renders.
+const MaxPageBytes = 1_500_000
+
+// MaxServedSources caps the sources one GM socket says it serves.
+const MaxServedSources = 100
+
+var bookSource = schema.String().Min(1).Max(60).Regex(`^[a-z0-9][a-z0-9-]*$`, "Invalid string: must match pattern /^[a-z0-9][a-z0-9-]*$/")
+
+var (
+	// BookPage is a seat's request for one page.
+	BookPage = schema.Object(schema.Req("source", bookSource), schema.Req("page", schema.Int().Min(1).Max(5000)))
+	// BookServing is what a GM socket serves; an empty list stops serving.
+	BookServing = schema.Object(schema.Req("sources", schema.Array(bookSource).Max(MaxServedSources)))
+	// refusalParams is RefusalParamsSchema: a relayed refusal is untrusted, so short values only.
+	refusalParams = schema.Record(schema.String().Max(40), schema.AnyOf(
+		schema.String().Max(200), schema.Number(-math.MaxFloat64, math.MaxFloat64),
+	))
+)
+
+// BookAck parses a GM tablet's reply. A page comes back as its bytes; a refusal keeps its text (cut to 200 UTF-16 units)
+// and drops a code this api does not know, or params it would not send itself. ok is false when the reply is neither.
+func BookAck(reply any) (out map[string]any, ok bool) {
+	m, isMap := reply.(map[string]any)
+	if !isMap {
+		return nil, false
+	}
+	switch m["ok"] {
+	case true:
+		// The socket hands a binary attachment over as a buffer; tests pass plain bytes.
+		var image []byte
+		switch b := m["image"].(type) {
+		case []byte:
+			image = b
+		case interface{ Bytes() []byte }:
+			image = b.Bytes()
+		}
+		if len(image) == 0 || len(image) > MaxPageBytes {
+			return nil, false
+		}
+		return map[string]any{"ok": true, "image": image}, true
+	case false:
+		text, isText := m["error"].(string)
+		if !isText {
+			return nil, false
+		}
+		if units := utf16.Encode([]rune(text)); len(units) > 200 {
+			text = string(utf16.Decode(units[:200]))
+		}
+		out := map[string]any{"ok": false, "error": text}
+		if code, isCode := m["code"].(string); isCode {
+			if _, known := refusals[code]; known {
+				out["code"] = code
+			}
+		}
+		if raw, present := m["params"]; present {
+			if params, issues := schema.Parse(refusalParams, raw); len(issues) == 0 {
+				out["params"] = params
+			}
+		}
+		return out, true
+	}
+	return nil, false
+}

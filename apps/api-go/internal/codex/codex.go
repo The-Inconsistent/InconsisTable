@@ -3,6 +3,7 @@ package codex
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -48,5 +49,32 @@ func Load(ctx context.Context, conn core.Conn, campaignID string) (cs.Codex, err
 	if entries == nil {
 		entries = []cs.CodexEntry{}
 	}
-	return cs.Codex{Entries: entries}, nil
+	recaps, err := loadRecaps(ctx, conn, campaignID)
+	if err != nil {
+		return cs.Codex{}, err
+	}
+	return cs.Codex{Entries: entries, Recaps: recaps}, nil
+}
+
+// maxRecaps is core-schema's MAX_RECAPS.
+const maxRecaps = 50
+
+// loadRecaps is the ended sessions that have a recap, newest first. The session's notes are never read.
+func loadRecaps(ctx context.Context, conn core.Conn, campaignID string) ([]cs.SessionRecap, error) {
+	rows, err := conn.Query(ctx, `SELECT id::text, number, title, ended_at, recap FROM session
+		WHERE campaign_id = $1 AND ended_at IS NOT NULL AND btrim(recap) <> '' ORDER BY number DESC LIMIT $2`, campaignID, maxRecaps)
+	if err != nil {
+		return nil, err
+	}
+	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (cs.SessionRecap, error) {
+		var s cs.SessionRecap
+		var endedAt time.Time
+		err := r.Scan(&s.SessionID, &s.Number, &s.Title, &endedAt, &s.Recap)
+		s.EndedAt = core.ISOTime(endedAt)
+		return s, err
+	})
+	if out == nil {
+		out = []cs.SessionRecap{}
+	}
+	return out, err
 }

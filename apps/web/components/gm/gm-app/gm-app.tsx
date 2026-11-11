@@ -58,7 +58,13 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
       </nav>
       <main className="page">
         {tab === "party" ? (
-          <Party me={me} state={state} send={send} sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }} />
+          <Party
+            me={me}
+            state={state}
+            send={send}
+            recaps={codex?.recaps ?? []}
+            sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
+          />
         ) : tab === "track" ? (
           <Track me={me} state={state} send={send} sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }} />
         ) : tab === "standings" ? (

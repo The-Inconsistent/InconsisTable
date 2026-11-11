@@ -46,6 +46,8 @@ func TouchesOf(a cs.Action) Touches {
 		return Touches{} // a deleted game has nothing left to broadcast; the gateway kicks the room instead
 	case strings.HasPrefix(t, "codex."):
 		return Touches{Codex: true}
+	case t == "session.end" || t == "session.edit":
+		return Touches{State: true, Codex: true} // the recaps ride the codex snapshot
 	case t == "actor.delete":
 		return Touches{State: true, Codex: true} // a deleted character can empty a private handout's audience
 	case t == "rule.op":

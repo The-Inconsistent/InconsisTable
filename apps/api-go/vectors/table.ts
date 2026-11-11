@@ -231,6 +231,10 @@ const CODEX = {
     entry(U(503), "party", "listed", [PC2]),
     entry(U(504), "gm", "listed", [PC1]),
   ],
+  recaps: [
+    { sessionId: U(600), number: 2, title: "The bridge", endedAt: "2026-02-01T10:00:00.000Z", recap: "They crossed." },
+    { sessionId: U(601), number: 1, title: "", endedAt: "2026-01-01T10:00:00.000Z", recap: "They met." },
+  ],
 };
 
 const DRAFTS = { player1: { actorId: PC1, answers: { name: "One" } }, owner: { actorId: PC2, answers: {} } };
@@ -261,7 +265,7 @@ const SNAPSHOTS: { name: string; state: unknown; codex: unknown; drafts: Record<
     {
       name: "quiet",
       state: { ...STATE, session: null, encounter: null, tests: [], actors: [] },
-      codex: { entries: [] },
+      codex: { entries: [], recaps: [] },
       drafts: {},
       ruleset: true,
     },

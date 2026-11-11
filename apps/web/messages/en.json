@@ -378,7 +378,6 @@
     "noCharacter": "No character",
     "continueBuilding": "Continue building",
     "build": "Build character",
-    "nothingRevealed": "Nothing revealed yet.",
     "rulesFailed": "Couldn't read the rules. Check the connection and reload.",
     "sheetPending": "This tab fills in when the table picks a ruleset.",
     "tabPending": "This tab fills in when the table plays on.",
@@ -389,7 +388,7 @@
       "rules": "Rules",
       "fight": "Fight",
       "map": "Map",
-      "intel": "Intel",
+      "notebook": "Notebook",
       "standings": "Standings"
     }
   },
@@ -960,5 +959,22 @@
       "all": "Everyone",
       "listed": "Chosen characters"
     }
+  },
+  "recaps": {
+    "lastTime": "Last time",
+    "session": "Session {number}",
+    "dismiss": "Got it",
+    "heading": "Recaps",
+    "empty": "No recaps yet. They appear here when a session ends with one.",
+    "edit": "Edit",
+    "editLabel": "Edit the recap of session {number}",
+    "text": "Recap",
+    "save": "Save recap",
+    "cancel": "Cancel"
+  },
+  "notebook": {
+    "entries": "Revealed",
+    "recaps": "Recaps",
+    "nothing": "Nothing in your notebook yet."
   }
 }

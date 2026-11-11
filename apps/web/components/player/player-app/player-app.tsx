@@ -5,6 +5,8 @@ import { useState } from "react";
 import type { Me } from "@inconsistable/core-schema";
 
 import { PLAYER_TABS, type PlayerTab } from "@/components/player/player-app/constants";
+import { Notebook } from "@/components/player/notebook/notebook";
+import { RecapCard } from "@/components/ui/recap-card/recap-card";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { DoneButton } from "@/components/player/done-button/done-button";
@@ -34,7 +36,27 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
   const [tab, setTab] = useState<PlayerTab>("sheet");
   const [error, setError] = useState<string | null>(null);
 
+  const [dismissedNow, setDismissedNow] = useState<string | null>(null);
+
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
+  const lastTime = state.session && codex?.recaps[0];
+  const lastTimeKey = state.session ? `it:last-time:${state.session.id}` : "";
+  const handleDismissLastTime = () => {
+    setDismissedNow(lastTimeKey);
+    try {
+      localStorage.setItem(lastTimeKey, "1");
+    } catch {
+      // No storage: the card stays dismissed until the page reloads.
+    }
+  };
+  const lastTimeDismissed = () => {
+    if (dismissedNow === lastTimeKey) return true;
+    try {
+      return localStorage.getItem(lastTimeKey) === "1";
+    } catch {
+      return false;
+    }
+  };
   const mine = state.actors.filter((a) => held.includes(a.id));
   const character = mine.find((a) => a.id === current) ?? mine[0];
 
@@ -78,6 +100,7 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
         </nav>
       )}
       <main className="page">
+        {lastTime && !lastTimeDismissed() && <RecapCard recap={lastTime} onDismiss={handleDismissLastTime} />}
         <TurnBanner encounter={state.encounter} held={held} />
         <DoneButton encounter={state.encounter} held={held} send={send} />
         <TestPrompt state={state} send={send} />
@@ -93,19 +116,8 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
         )}
         {state.encounter && <OrderView encounter={state.encounter} />}
         {!state.encounter && state.games[0] && <GameResult game={state.games[0]} held={held} />}
-        {tab === "intel" ? (
-          <ul className="list">
-            {(codex?.entries ?? []).map((e) => (
-              <li key={e.id}>
-                <span>
-                  <strong>{e.title}</strong>
-                  <br />
-                  <span className="dim">{e.body}</span>
-                </span>
-              </li>
-            ))}
-            {!codex?.entries.length && <li className="dim">{t("nothingRevealed")}</li>}
-          </ul>
+        {tab === "notebook" ? (
+          <Notebook codex={codex} />
         ) : tab === "standings" ? (
           <Standings games={state.games} />
         ) : tab === "rules" ? (

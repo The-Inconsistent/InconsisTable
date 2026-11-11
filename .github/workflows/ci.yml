@@ -41,9 +41,19 @@ jobs:
         with:
           go-version-file: apps/api-go/go.mod
           cache: false
-      # The workflow's own token reads only this repository; this one can read InconsisID (its README, CI).
+      # The workflow's own token reads only this repository. The InconsisID reader app mints one that reads InconsisID
+      # only, for an hour, and owes nothing to a person's account.
+      - name: Mint a token that reads InconsisID
+        id: inconsisid
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.INCONSISID_APP_ID }}
+          private-key: ${{ secrets.INCONSISID_APP_KEY }}
+          owner: The-Inconsistent
+          repositories: InconsisID
+          permission-contents: read
       - name: Let git read InconsisID
-        run: git config --global url."https://x-access-token:${{ secrets.INCONSISID_READ_TOKEN }}@github.com/".insteadOf "https://github.com/"
+        run: git config --global url."https://x-access-token:${{ steps.inconsisid.outputs.token }}@github.com/".insteadOf "https://github.com/"
       - name: Go engine matches the TypeScript engine, and the Go tests
         env:
           TEST_DATABASE_URL: postgres://it:it@localhost:5435/go_test

@@ -107,8 +107,10 @@ The smoke suite passed 54 of 54 against the Go api, and `apps/api` went. What mo
 - The TypeScript seat view (`apps/api/src/view`, with its test): `apps/api-go/vectors/reference`, the reference
   `vectors/table.ts` runs and `internal/view` is held to. A change to what a seat sees is made in both.
 - The folder stays `apps/api-go`, not renamed to `apps/api`, to keep the churn down.
-- CI and the api image need a token that can read InconsisID: the secret `INCONSISID_READ_TOKEN` (CI) and the build
-  secret `inconsisid_token` (`deploy/compose.yaml`, `docs/deploy.md`).
+- CI and the api image need a token that can read InconsisID. CI mints one per run from a GitHub App installed on
+  InconsisID only, with Contents read: its id in the repository variable `INCONSISID_APP_ID`, its private key in the
+  secret `INCONSISID_APP_KEY`. No person's token is involved, and none expires. The image build takes any such token
+  as the build secret `inconsisid_token` (`deploy/compose.yaml`, `docs/deploy.md`).
 
 The Nest api's unit tests in `apps/api/src` went with it, the seat view's excepted. What only they covered was to get Go
 tests before the flip (above); the flip itself did not audit that again. Comments in the Go code that name a file under `apps/api/src` point at the Nest api as it was at

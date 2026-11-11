@@ -378,7 +378,6 @@
     "noCharacter": "No character",
     "continueBuilding": "Continue building",
     "build": "Build character",
-    "nothingRevealed": "Nothing revealed yet.",
     "rulesFailed": "Couldn't read the rules. Check the connection and reload.",
     "sheetPending": "This tab fills in when the table picks a ruleset.",
     "tabPending": "This tab fills in when the table plays on.",

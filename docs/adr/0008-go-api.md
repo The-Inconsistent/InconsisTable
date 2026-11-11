@@ -75,8 +75,12 @@ security review against `docs/research/auth-service-security.md` and ASVS.
 - Every engine change is written twice from now on, including every primitive the Wrath & Glory port adds. That cost
   does not end. This is the main price of the decision.
 - Design D3 (`docs/design.md`) changes: api primitives are Go, and a QuickJS sandbox would need a Go host.
-- Zod stays the contract for the web. How Go validates the same shapes is still open: generating JSON Schema from
-  zod is the first candidate, and error messages that `refusal` copy depends on must match.
+- Zod stays the contract for the web. `internal/schema` reproduces the zod behaviour these schemas use, including its
+  wording, because importers read manifest refusals. Each schema is written out a second time in Go, and vectors check
+  both on broken input. Problems about JSON object keys come back in sorted order, since decoded JSON has lost the order
+  they were written in. Op input still uses the older readers in `op_input.go`, which match on refusal code only, since
+  the api sends clients the code and the message only as detail (`ruleset.run.ts`). Socket action validation is not
+  ported yet.
 - `@the-inconsistent/inconsisid` has no Go client that this work has found, so sign-in needs one.
 - `zishang520/socket.io` becomes a dependency the table cannot run without. It is a small project (last release
   2026-09-22). If it stalls, the fallback is plain WebSocket and a change to `use-table.ts`.

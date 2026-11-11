@@ -42,6 +42,12 @@
         "drizzle-kit": "^0.31.11",
       },
     },
+    "apps/api-go": {
+      "name": "@inconsistable/api-go-vectors",
+      "dependencies": {
+        "zod": "^4.6.5",
+      },
+    },
     "apps/web": {
       "name": "@inconsistable/web",
       "dependencies": {
@@ -274,6 +280,8 @@
     "@img/sharp-win32-x64": ["@img/sharp-win32-x64@0.35.5", "", { "os": "win32", "cpu": "x64" }, "sha512-x76eH0vEiHlcMQu8Y8IenntaACtddpT6W0wmXtWrnKcnKI7ME5DdgqhAD6SEWOEl1v2zDvkZDhFA9KnURwpfqg=="],
 
     "@inconsistable/api": ["@inconsistable/api@workspace:apps/api"],
+
+    "@inconsistable/api-go-vectors": ["@inconsistable/api-go-vectors@workspace:apps/api-go"],
 
     "@inconsistable/auth": ["@inconsistable/auth@workspace:packages/auth"],
 

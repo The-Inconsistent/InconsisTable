@@ -1,0 +1,8 @@
+{
+  "name": "@inconsistable/api-go-vectors",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}

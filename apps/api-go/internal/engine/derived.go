@@ -1,0 +1,315 @@
+package engine
+
+import (
+	"fmt"
+	"math"
+	"slices"
+	"strings"
+)
+
+// ActorValues is what DeriveValues reads for one actor. Fields hold decoded JSON values.
+type ActorValues struct {
+	Fields map[string]any
+	// Resources holds current values of the entity-scoped resources (res.hp).
+	Resources map[string]float64
+	// Conditions holds active condition ids; their effects apply in design order.
+	Conditions []string
+	// Characters is party.characters.
+	Characters float64
+}
+
+// NestFields turns {"attr.str": 14} into {attr: {str: 14}}, the shape expressions read.
+func NestFields(fields map[string]any) *Record {
+	out := &Record{map[string]any{}}
+	groups := map[string]map[string]any{}
+	for id, value := range fields {
+		head, rest, dotted := strings.Cut(id, ".")
+		if !dotted {
+			// An unset field stays absent, so has(x) is false and reading it is a missing-value error.
+			if value != nil {
+				out.Fields[id] = ValueFromJSON(value)
+			}
+			continue
+		}
+		if groups[head] == nil {
+			groups[head] = map[string]any{}
+		}
+		groups[head][rest] = value
+	}
+	for head, sub := range groups {
+		out.Fields[head] = NestFields(sub)
+	}
+	return out
+}
+
+func numbersRecord(values map[string]float64) *Record {
+	out := &Record{make(map[string]any, len(values))}
+	for k, v := range values {
+		out.Fields[k] = v
+	}
+	return out
+}
+
+// ActorScope is the runtime scope for an actor expression. The derived record is read live, so filling it in order is
+// enough. A nil ctx leaves ctx out of the scope.
+func ActorScope(fields map[string]any, derived *Record, resources map[string]float64, characters float64, ctx *Record) *Record {
+	scope := NestFields(fields)
+	if derived == nil {
+		derived = &Record{map[string]any{}}
+	}
+	scope.Fields["derived"] = derived
+	scope.Fields["res"] = numbersRecord(resources)
+	scope.Fields["party"] = &Record{map[string]any{"characters": characters}}
+	if ctx != nil {
+		scope.Fields["ctx"] = ctx
+	}
+	return scope
+}
+
+func evaluateInt(expr *CompiledExpr, scope *Record) (float64, error) {
+	v, err := Evaluate(expr.AST, scope)
+	if err != nil {
+		return 0, err
+	}
+	n, ok := v.(float64)
+	if !ok {
+		return 0, ExprError{fmt.Sprintf(`"%s" did not give an integer`, expr.Source)}
+	}
+	return n, nil
+}
+
+func evaluateBool(expr *CompiledExpr, scope *Record) (bool, error) {
+	v, err := Evaluate(expr.AST, scope)
+	if err != nil {
+		return false, err
+	}
+	b, ok := v.(bool)
+	if !ok {
+		return false, ExprError{fmt.Sprintf(`"%s" did not give a boolean`, expr.Source)}
+	}
+	return b, nil
+}
+
+func applyMode(mode string, current, value float64) float64 {
+	switch mode {
+	case "add":
+		return current + value
+	case "multiply":
+		return current * value
+	case "upgrade":
+		return math.Max(current, value)
+	case "downgrade":
+		return math.Min(current, value)
+	}
+	return value // override
+}
+
+// An effect applies once per active condition, whatever its stacks.
+//
+// ponytail: no per-stack scaling, add it when a ruleset declares one.
+func activeEffects(effects []CompiledEffect, conditions []string) []CompiledEffect {
+	var out []CompiledEffect
+	for _, e := range effects {
+		if slices.Contains(conditions, e.ConditionID) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// Applies one effect if its when holds, returning the new value.
+func applyEffect(e CompiledEffect, current float64, scope *Record) (float64, error) {
+	if e.When != nil {
+		holds, err := evaluateBool(e.When, scope)
+		if err != nil || !holds {
+			return current, err
+		}
+	}
+	value, err := evaluateInt(e.Value, scope)
+	if err != nil {
+		return current, err
+	}
+	return applyMode(e.Mode, current, value), nil
+}
+
+func (c *CompiledRuleset) entityOf(entity string) (*CompiledEntity, error) {
+	ce, ok := c.Entities[entity]
+	if !ok {
+		return nil, fmt.Errorf(`unknown entity type "%s"`, entity)
+	}
+	return ce, nil
+}
+
+// ApplyBaseEffects returns base fields with the base-phase effects of active conditions applied, then clamped to each
+// int field's range.
+func (c *CompiledRuleset) ApplyBaseEffects(entity string, values ActorValues) (map[string]any, error) {
+	ce, err := c.entityOf(entity)
+	if err != nil {
+		return nil, err
+	}
+	fields := make(map[string]any, len(values.Fields))
+	for k, v := range values.Fields {
+		fields[k] = v
+	}
+	for _, eff := range activeEffects(ce.Effects, values.Conditions) {
+		if eff.Phase != "base" {
+			continue
+		}
+		current, isNumber := fields[eff.Target].(float64)
+		if !isNumber {
+			continue // an unset field has nothing to modify
+		}
+		scope := ActorScope(fields, nil, values.Resources, values.Characters, nil)
+		next, err := applyEffect(eff, current, scope)
+		if err != nil {
+			return nil, err
+		}
+		fields[eff.Target] = next
+	}
+	for id, def := range ce.Def.Fields {
+		v, isNumber := fields[id].(float64)
+		if def.Type != "int" || !isNumber {
+			continue
+		}
+		if def.Min != nil {
+			v = math.Max(*def.Min, v)
+		}
+		if def.Max != nil {
+			v = math.Min(*def.Max, v)
+		}
+		fields[id] = v
+	}
+	return fields, nil
+}
+
+// DeriveValues returns every derived value of an actor, in design order: base fields, base effects, derived
+// (topological order), derived effects. It is pure, and returns an ExprError when a needed value is missing.
+func (c *CompiledRuleset) DeriveValues(entity string, values ActorValues) (map[string]float64, error) {
+	ce, err := c.entityOf(entity)
+	if err != nil {
+		return nil, err
+	}
+	fields, err := c.ApplyBaseEffects(entity, values)
+	if err != nil {
+		return nil, err
+	}
+	live := &Record{map[string]any{}}
+	scope := ActorScope(fields, live, values.Resources, values.Characters, nil)
+	out := map[string]float64{}
+	for _, d := range ce.Derived {
+		n, err := evaluateInt(d.Expr, scope)
+		if err != nil {
+			return nil, err
+		}
+		out[d.ID] = n
+		live.Fields[d.ID] = n
+	}
+	for _, eff := range activeEffects(ce.Effects, values.Conditions) {
+		current, known := out[eff.Target]
+		if eff.Phase != "derived" || !known {
+			continue
+		}
+		next, err := applyEffect(eff, current, scope)
+		if err != nil {
+			return nil, err
+		}
+		out[eff.Target] = next
+		live.Fields[eff.Target] = next
+	}
+	return out, nil
+}
+
+// Bounds are a resource's limits for one holder. Max is nil when there is no ceiling.
+type Bounds struct {
+	Min    float64
+	Max    *float64
+	Capped bool
+}
+
+// ResourceBounds evaluates a resource's bounds. A max below the min collapses to the min.
+func (c *CompiledRuleset) ResourceBounds(resource string, scope *Record) (Bounds, error) {
+	cr, ok := c.Resources[resource]
+	if !ok {
+		return Bounds{}, fmt.Errorf(`unknown resource "%s"`, resource)
+	}
+	lo, err := evaluateInt(cr.Min, scope)
+	if err != nil {
+		return Bounds{}, err
+	}
+	out := Bounds{lo, nil, cr.Def.Capped}
+	if cr.Max != nil {
+		hi, err := evaluateInt(cr.Max, scope)
+		if err != nil {
+			return Bounds{}, err
+		}
+		hi = math.Max(lo, hi)
+		out.Max = &hi
+	}
+	return out, nil
+}
+
+// ResetValues returns every event a resource resets on, with the value it resets to for one holder. Reset expressions
+// may read the resource's own min and max.
+func (c *CompiledRuleset) ResetValues(resource string, scope *Record) (map[string]float64, error) {
+	out := map[string]float64{}
+	cr, ok := c.Resources[resource]
+	if !ok {
+		return out, nil
+	}
+	for _, reset := range cr.ResetOn {
+		bounds, err := c.ResourceBounds(resource, scope)
+		if err != nil {
+			return nil, err
+		}
+		inner := &Record{make(map[string]any, len(scope.Fields)+2)}
+		for k, v := range scope.Fields {
+			inner.Fields[k] = v
+		}
+		inner.Fields["min"] = bounds.Min
+		if bounds.Max != nil {
+			inner.Fields["max"] = *bounds.Max
+		}
+		// The first rule for an event wins, so a repeat of an event gets the first rule's value.
+		rule := reset
+		for _, r := range cr.ResetOn {
+			if r.Event == reset.Event {
+				rule = r
+				break
+			}
+		}
+		n, err := evaluateInt(rule.To, inner)
+		if err != nil {
+			return nil, err
+		}
+		out[reset.Event] = n
+	}
+	return out, nil
+}
+
+// InstantDeathAt returns the overflow that kills outright for a health track's resource, or nil when there is none.
+func (c *CompiledRuleset) InstantDeathAt(resource string, scope *Record) (*float64, error) {
+	expr, ok := c.InstantDeath[resource]
+	if !ok {
+		return nil, nil
+	}
+	n, err := evaluateInt(expr, scope)
+	if err != nil {
+		return nil, err
+	}
+	return &n, nil
+}
+
+// HealthStatesOf returns the display health states whose condition holds for an actor.
+func (c *CompiledRuleset) HealthStatesOf(scope *Record) ([]string, error) {
+	out := []string{}
+	for _, s := range c.HealthStates {
+		holds, err := evaluateBool(s.When, scope)
+		if err != nil {
+			return nil, err
+		}
+		if holds {
+			out = append(out, s.ID)
+		}
+	}
+	return out, nil
+}

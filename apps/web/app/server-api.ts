@@ -10,9 +10,7 @@ import { API_ORIGIN, TOKEN_COOKIE } from "@/app/constants";
 // server can forward them). Plus the caller's IP, which the api rate-limits by.
 export async function apiGet(path: string) {
   const jar = await cookies();
-  const ip = (await requestHeaders()).get("cf-connecting-ip");
-  const headers: Record<string, string> = {};
-  if (ip) headers["cf-connecting-ip"] = ip;
+  const headers = forwardedIp(await requestHeaders());
   const sent = [SESSION_COOKIE, DEVICE_COOKIE, TOKEN_COOKIE]
     .map((name) => [name, jar.get(name)?.value] as const)
     .filter((c): c is readonly [string, string] => !!c[1])
@@ -20,6 +18,16 @@ export async function apiGet(path: string) {
   if (sent.length) headers.cookie = sent.join("; ");
   const res = await fetch(`${API_ORIGIN}${path}`, { headers, cache: "no-store" });
   return res;
+}
+
+// The headers that carry the caller's address (core/rate-limit.ts on the api), copied from the request this server got.
+export function forwardedIp(from: Headers): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const name of ["cf-connecting-ip", "x-forwarded-for"]) {
+    const value = from.get(name);
+    if (value) out[name] = value;
+  }
+  return out;
 }
 
 // The caller's lobby (their rooms, name and characters), or null when the api can't be read. Cached per request: the

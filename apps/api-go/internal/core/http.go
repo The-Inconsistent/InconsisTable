@@ -257,10 +257,22 @@ func (l *Limiter) Allow(key string) bool {
 // ClientIP is the caller's IP. CF-Connecting-IP is trusted only when TRUST_CF=1, because any client can send it.
 //
 // ponytail: forgeable by a client that bypasses Cloudflare to hit Pangolin directly; allow only Cloudflare IPs there.
+//
+// Behind Cloud Run, TRUST_XFF=1: its front end appends the address it saw to X-Forwarded-For, after anything the client
+// sent, and the web passes the header on as it is. So only the last entry is trusted, and only while the api is
+// reachable through the web alone (deploy/cloudrun: the api is the web's sidecar).
 func ClientIP(r *http.Request) string {
 	if os.Getenv("TRUST_CF") == "1" {
-		if cf := r.Header.Values("Cf-Connecting-Ip"); len(cf) > 0 {
+		if cf := r.Header.Values("Cf-Connecting-Ip"); len(cf) > 0 && cf[0] != "" {
 			return cf[0]
+		}
+	}
+	if os.Getenv("TRUST_XFF") == "1" {
+		if xff := r.Header.Values("X-Forwarded-For"); len(xff) > 0 {
+			hops := strings.Split(xff[len(xff)-1], ",")
+			if last := strings.TrimSpace(hops[len(hops)-1]); last != "" {
+				return last
+			}
 		}
 	}
 	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {

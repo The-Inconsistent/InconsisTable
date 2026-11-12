@@ -16,6 +16,28 @@ func TestCookieHeaderJoinsEveryCookieHeader(t *testing.T) {
 	}
 }
 
+func TestClientIPTrustsForwardedHeadersOnlyWhenTold(t *testing.T) {
+	r := httptest.NewRequest("GET", "/", nil)
+	r.RemoteAddr = "9.9.9.9:1234"
+	r.Header.Set("Cf-Connecting-Ip", "5.5.5.5")
+	r.Header.Set("X-Forwarded-For", "6.6.6.6, 1.2.3.4")
+	if got := ClientIP(r); got != "9.9.9.9" {
+		t.Errorf("nothing trusted: got %s", got)
+	}
+	t.Setenv("TRUST_XFF", "1")
+	if got := ClientIP(r); got != "1.2.3.4" {
+		t.Errorf("TRUST_XFF takes the last entry (what Cloud Run saw), not a forged first one: got %s", got)
+	}
+	r.Header.Set("X-Forwarded-For", "")
+	if got := ClientIP(r); got != "9.9.9.9" {
+		t.Errorf("an empty header falls back to the peer: got %s", got)
+	}
+	t.Setenv("TRUST_CF", "1")
+	if got := ClientIP(r); got != "5.5.5.5" {
+		t.Errorf("TRUST_CF: got %s", got)
+	}
+}
+
 func TestLimiterWindowsAndKeyCap(t *testing.T) {
 	now := time.Unix(1000, 0)
 	l := NewLimiter(2, time.Minute)

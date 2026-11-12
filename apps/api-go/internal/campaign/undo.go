@@ -10,6 +10,7 @@ import (
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign/eventlog"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/clock"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter/turn"
@@ -72,6 +73,19 @@ func Undo(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, 
 			return cs.Result{}, err
 		}
 		t := logged.Target
+		if t.Clock != "" {
+			w, skip, err := undoClock(ctx, tx, cid, logged)
+			if err != nil {
+				return cs.Result{}, err
+			}
+			if skip != nil {
+				passed = append(passed, *skip)
+			}
+			if w != nil {
+				written = append(written, *w)
+			}
+			continue
+		}
 		// Read again for every step: an inverse can move another actor's bounds (a level back down lowers the max).
 		actorRows, err := actor.LoadRows(ctx, tx, cid)
 		if err != nil {
@@ -143,6 +157,20 @@ func Undo(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, 
 	_, err = tx.Exec(ctx, `UPDATE session_event SET undone_by = $4 WHERE `+sessionDeltas+` AND action_id = $3`,
 		cid, *sessionID, actionID, eventID)
 	return cs.Done(actionID), err
+}
+
+// A clock tick is counted like a resource: undo ticks back the change that was made, and a deleted clock is passed over.
+func undoClock(ctx context.Context, tx core.Conn, cid string, logged eventlog.Written) (*eventlog.Written, *skipped, error) {
+	inverse, refused := eventlog.Invert(logged, nil)
+	if refused != nil || inverse == nil {
+		return nil, nil, nilIfNone(refused)
+	}
+	w, err := clock.TickBy(ctx, tx, cid, logged.Target.Clock, int(inverse.Value.(float64)))
+	var refusal *cs.Error
+	if errors.As(err, &refusal) && refusal.Code == "clockNotFound" {
+		return nil, &skipped{Reason: "deleted"}, nil
+	}
+	return &w, nil, err
 }
 
 // A refusal as an error, keeping a nil one nil (a nil *coreschema.Error is not a nil error).

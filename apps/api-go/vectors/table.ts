@@ -150,6 +150,13 @@ const STATE = {
     notes: "GM notes",
   },
   actors: ACTORS,
+  clocks: [
+    { id: U(700), name: "Ritual", segments: 6, filled: 2, visibility: "party", entryId: U(501), position: 1 },
+    { id: U(701), name: "Reinforcements", segments: 4, filled: 4, visibility: "gm", entryId: null, position: 2 },
+    { id: U(702), name: "Cult", segments: 8, filled: 0, visibility: "party", entryId: U(500), position: 3 },
+    { id: U(703), name: "Heist", segments: 12, filled: 7, visibility: "gm", entryId: U(503), position: 4 },
+    { id: U(704), name: "Storm", segments: 2, filled: 1, visibility: "party", entryId: U(503), position: 5 },
+  ],
   myDraft: null,
   tests: [
     call(U(200), {}),
@@ -450,6 +457,10 @@ const VALID: Record<string, Record<string, unknown>> = {
   "codex.unlink": { id: ID, targetId: ID },
   "codex.reveal": { id: ID, visibility: "party", audienceMode: "listed", audience: [ID] },
   "codex.delete": { id: ID },
+  "clock.create": { name: " Ritual ", segments: 6, visibility: "party", entryId: ID },
+  "clock.tick": { id: ID, delta: -3 },
+  "clock.update": { id: ID, name: " Cult ", segments: 8, visibility: "gm", entryId: ID },
+  "clock.delete": { id: ID },
 };
 
 const LONG_KEYS = new Set(["recap", "notes", "body", "gmNotes", "value"]);

@@ -21,6 +21,8 @@ type Sight struct {
 	Secrets bool
 	// Codex is every codex entry, gm ones and each entry's audience (not the notes: those are Secrets).
 	Codex bool
+	// Clocks is the `gm` clocks.
+	Clocks bool
 	// Party is the gm fields and resources of the party's Characters.
 	Party bool
 }
@@ -43,6 +45,7 @@ func SightOf(c cs.Ctx) Sight {
 		Secrets: can("codex:read_secret"),
 		Codex:   can("codex:write"),
 		Party:   can("character:edit:any"),
+		Clocks:  can("clock:run"),
 	}
 }
 

@@ -896,7 +896,9 @@
     "bookBusy": "Máy tính bảng của GM đang bận. Hãy thử lại sau giây lát.",
     "bookNoReply": "Máy tính bảng của GM không phản hồi.",
     "bookMalformed": "Yêu cầu trang không hợp lệ.",
-    "bookRenderFailed": "Máy tính bảng của GM không dựng được trang này."
+    "bookRenderFailed": "Máy tính bảng của GM không dựng được trang này.",
+    "clockNotFound": "Không tìm thấy đồng hồ",
+    "clockLimit": "Phòng này đã có số đồng hồ tối đa."
   },
   "workspace": {
     "skip": "Bỏ qua, tới nội dung trang",
@@ -1024,5 +1026,34 @@
     "recaps": "Tóm tắt các buổi",
     "nothing": "Sổ tay chưa có gì.",
     "openQuests": "Nhiệm vụ đang mở"
+  },
+  "clocks": {
+    "title": "Đồng hồ",
+    "empty": "Chưa có đồng hồ nào. Thêm một cái để đếm ngược mối đe dọa hoặc đếm tiến một kế hoạch.",
+    "label": "{name}: đã đầy {filled} trên {segments} phần",
+    "progress": "{filled}/{segments}",
+    "full": "Đầy",
+    "add": "Thêm đồng hồ",
+    "name": "Tên đồng hồ",
+    "segments": "Số phần",
+    "custom": "Khác",
+    "customLabel": "Số phần (2 đến 12)",
+    "visibility": "Ai nhìn thấy",
+    "gm": "Chỉ GM",
+    "party": "Cả bàn",
+    "create": "Tạo đồng hồ",
+    "cancel": "Hủy",
+    "plus": "Thêm một phần cho {name}",
+    "minus": "Bớt một phần của {name}",
+    "edit": "Sửa {name}",
+    "editButton": "Sửa",
+    "deleteButton": "Xóa",
+    "save": "Lưu",
+    "delete": "Xóa {name}",
+    "deleteConfirm": "Xóa {name}? Không thể hoàn tác.",
+    "deleteYes": "Xóa đồng hồ",
+    "about": "Về {title}",
+    "link": "Mục sổ tay liên kết",
+    "noLink": "Không có mục"
   }
 }

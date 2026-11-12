@@ -122,6 +122,7 @@ const state: LiveState = {
   stateVersion: 1,
   session: { id: "s", number: 1, title: "", startedAt: "", endedAt: null, recap: "", notes: "session notes" },
   actors,
+  clocks: [],
   myDraft: null,
   tests: [sum, pool],
   testDefs: [{ id: "check", dice: "1d20", advantage: true, pool: null, outcomes: null, inputs: [] }],
@@ -569,4 +570,23 @@ test("a codex reader is never told who else an entry was shown to", () => {
   assert.deepEqual(audience(ctx(member("cogm", ["codex.secrets"]), "u-co")), ["lyra", "kael"]);
   assert.deepEqual(audience(ctx(member("cogm", ["codex"]), "u-co")), ["lyra", "kael"]);
   assert.deepEqual(audience(ctx(member("gm"), "u-gm")), ["lyra", "kael"]);
+});
+
+test("clocks: the clock side sees every clock, anyone else the party ones, with no entry id they cannot read", () => {
+  const clock = (id: string, visibility: "gm" | "party", entryId: string | null) =>
+    ({ id, name: id, segments: 6, filled: 1, visibility, entryId, position: 1 }) as const;
+  const clocks = [
+    clock("a", "party", "open"),
+    clock("b", "gm", null),
+    clock("c", "party", "secret"),
+    clock("d", "gm", "open"),
+  ];
+  const withClocks: Snapshot = { ...snapshot, state: { ...state, clocks } };
+  const seen = (c: Ctx) =>
+    seatView({ snapshot: withClocks, compiled, ctx: c }).state.clocks.map((k) => `${k.id}:${k.entryId}`);
+  assert.deepEqual(seen(ctx(member("gm"), "u-gm")), ["a:open", "b:null", "c:secret", "d:open"]);
+  assert.deepEqual(seen(ctx(member("cogm", ["combat"]), "u-co")), ["a:open", "b:null", "c:null", "d:open"]);
+  assert.deepEqual(seen(ctx(member("cogm", ["party"]), "u-co")), ["a:open", "c:null"]);
+  assert.deepEqual(seen(ctx(member("player", [], ["lyra"]), "u-lyra")), ["a:open", "c:null"]);
+  assert.deepEqual(seen(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), ["a:open", "c:null"]);
 });

@@ -14,7 +14,7 @@ var (
 	adminOnly = []string{"member:seat"}
 	gmGrants  = []string{
 		"campaign:update", "campaign:archive", "member:invite", "member:remove", "seat:leave", "session:run", "encounter:run",
-		"test:call", "codex:read", "codex:write", "codex:read_secret", "codex:reveal", "character:create",
+		"clock:run", "test:call", "codex:read", "codex:write", "codex:read_secret", "codex:reveal", "character:create",
 		"character:edit:any", "token:issue", "request:resolve",
 	}
 	// What each seat may do anywhere in its room. :own permissions are in ownGrants: they need a target the seat holds.
@@ -39,6 +39,7 @@ var (
 		"test:call":          {"session"},
 		"request:resolve":    {"session"},
 		"encounter:run":      {"combat"},
+		"clock:run":          {"combat"},
 		"codex:write":        {"codex"},
 		"codex:reveal":       {"codex"},
 		"codex:read_secret":  {"codex.secrets"},

@@ -19,6 +19,8 @@ export interface Sight {
   codex: boolean;
   /** The `gm` fields and resources of the party's Characters. */
   party: boolean;
+  /** The `gm` clocks. */
+  clocks: boolean;
 }
 
 /** Whether the seat runs the room as its GM. An admin who opened it does not: they see all, but they run nothing. */
@@ -35,6 +37,7 @@ export function sightOf(ctx: Ctx): Sight {
     secrets: can("codex:read_secret"),
     codex: can("codex:write"),
     party: can("character:edit:any"),
+    clocks: can("clock:run"),
   };
 }
 

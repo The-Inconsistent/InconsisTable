@@ -12,6 +12,9 @@ import {
   QuestStatus,
   CodexText,
   CodexTitle,
+  ClockName,
+  ClockSegments,
+  ClockVisibility,
   CodexVisibility,
   FieldValue,
   InviteMode,
@@ -168,6 +171,25 @@ export const Action = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("codex.link"), id, targetId: id }),
   z.object({ type: z.literal("codex.unlink"), id, targetId: id }),
+
+  // Clocks (docs/p2-plan.md group C). A tick is a delta the server clamps into 0..segments, and it logs for undo.
+  z.object({
+    type: z.literal("clock.create"),
+    name: ClockName,
+    segments: ClockSegments.default(4),
+    visibility: ClockVisibility.default("gm"),
+    entryId: id.optional(),
+  }),
+  z.object({ type: z.literal("clock.tick"), id, delta: z.number().int().min(-12).max(12) }),
+  z.object({
+    type: z.literal("clock.update"),
+    id,
+    name: ClockName.optional(),
+    segments: ClockSegments.optional(),
+    visibility: ClockVisibility.optional(),
+    entryId: id.nullable().optional(),
+  }),
+  z.object({ type: z.literal("clock.delete"), id }),
 ]);
 export type Action = z.infer<typeof Action>;
 export type ActionInput = z.input<typeof Action>; // what clients send: defaulted fields optional
@@ -236,6 +258,10 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "codex.move": "codex:write",
   "codex.link": "codex:write",
   "codex.unlink": "codex:write",
+  "clock.create": "clock:run",
+  "clock.tick": "clock:run",
+  "clock.update": "clock:run",
+  "clock.delete": "clock:run",
 };
 
 // `:own` permissions that a GM-side permission also satisfies: a GM renames any character.

@@ -130,6 +130,9 @@ export const REFUSALS = {
   adventureHasScenes: "Move or delete its scenes first.",
   onlySceneTests: "Only a scene plans Tests.",
   cantLinkThat: "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
+  // Clocks
+  clockNotFound: "Clock not found",
+  clockLimit: "This room has as many clocks as it can hold.",
   // Undo
   nothingToUndo: "Nothing to undo",
   cantUndoKind: "Can't undo that kind of step yet",

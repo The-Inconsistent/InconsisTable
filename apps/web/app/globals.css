@@ -743,6 +743,101 @@ label {
   height: 20px;
 }
 
+/* ---------- Clocks: a brass-rimmed disc of wedges, the filled ones lit like a candle ----------
+   A lit wedge lies over a dark one: filling swells it in from a little smaller and unlit, emptying fades it out. Only
+   opacity and transform move, so a tick never shifts layout, and the TV's slower durations apply by themselves. */
+.clock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: var(--gap);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.clock-tile {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-width: 0;
+  text-align: center;
+}
+/* The seat's own copies (phone, TV) lie straight on the table: no card. */
+.clock-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.clock-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+.clock-face {
+  width: 112px;
+  height: 112px;
+  display: block;
+}
+[data-density="tv"] .clock-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+[data-density="tv"] .clock-face {
+  width: 224px;
+  height: 224px;
+}
+[data-density="tv"] .clock-name {
+  font-size: var(--fs-name);
+}
+.clock-rim {
+  fill: var(--wood-0);
+  stroke: var(--brass);
+  stroke-width: 3;
+}
+.clock-wedge {
+  fill: var(--wood-2);
+  stroke: var(--brass-lo);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+.clock-wedge.lit {
+  fill: var(--candle);
+  opacity: 0;
+  transform: scale(0.86);
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  transition:
+    opacity var(--dur-move) var(--ease-out),
+    transform var(--dur-move) var(--ease-out);
+}
+.clock-wedge.lit[data-lit="true"] {
+  opacity: 1;
+  transform: none;
+}
+/* A full clock is written in wax: the word "Full" says it too, the colour only agrees. */
+.clock-face[data-full="true"] .clock-wedge.lit {
+  fill: var(--wax);
+  stroke: var(--candle);
+}
+.clock-hub {
+  fill: var(--brass-lo);
+}
+.clock-step {
+  min-width: 72px;
+  min-height: 56px;
+  font-size: var(--fs-num, 28px);
+  font-weight: 700;
+}
+.clock-form {
+  width: 100%;
+  text-align: start;
+}
+.clocks-panel > .card {
+  padding: var(--pad-card);
+}
+@media (prefers-reduced-motion: reduce) {
+  .clock-wedge.lit {
+    transform: none;
+    transition-property: opacity;
+  }
+}
+
 /* RULESETS & PACKS: the importer is a paste box that talks back. Each problem the api finds is a row that selects its
    spot in the text, so the fix is one tap away on a tablet. */
 .between {

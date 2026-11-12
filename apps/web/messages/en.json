@@ -896,7 +896,9 @@
     "bookBusy": "The GM's tablet is busy. Try again in a moment.",
     "bookNoReply": "No reply from the GM's tablet.",
     "bookMalformed": "That page request is malformed.",
-    "bookRenderFailed": "The GM's tablet couldn't render it."
+    "bookRenderFailed": "The GM's tablet couldn't render it.",
+    "clockNotFound": "Clock not found",
+    "clockLimit": "This room has as many clocks as it can hold."
   },
   "workspace": {
     "skip": "Skip to the page",
@@ -1024,5 +1026,34 @@
     "recaps": "Recaps",
     "nothing": "Nothing in your notebook yet.",
     "openQuests": "Open quests"
+  },
+  "clocks": {
+    "title": "Clocks",
+    "empty": "No clocks yet. Add one to count down a threat or count up a plan.",
+    "label": "{name}: {filled} of {segments} filled",
+    "progress": "{filled}/{segments}",
+    "full": "Full",
+    "add": "Add a clock",
+    "name": "Clock name",
+    "segments": "Segments",
+    "custom": "Other",
+    "customLabel": "Segments (2 to 12)",
+    "visibility": "Who sees it",
+    "gm": "GM only",
+    "party": "The table",
+    "create": "Create clock",
+    "cancel": "Cancel",
+    "plus": "Fill one segment of {name}",
+    "minus": "Empty one segment of {name}",
+    "edit": "Edit {name}",
+    "editButton": "Edit",
+    "deleteButton": "Delete",
+    "save": "Save",
+    "delete": "Delete {name}",
+    "deleteConfirm": "Delete {name}? This cannot be undone.",
+    "deleteYes": "Delete clock",
+    "about": "About {title}",
+    "link": "Linked codex entry",
+    "noLink": "No entry"
   }
 }

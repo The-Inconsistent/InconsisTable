@@ -107,6 +107,24 @@ export const BuilderDraftBody = z
   .refine((b) => new TextEncoder().encode(JSON.stringify(b)).length <= MAX_DRAFT_BYTES, "The draft is over 64 KB");
 export type BuilderDraftBody = z.infer<typeof BuilderDraftBody>;
 
+// A progress clock the GM runs (docs/p2-plan.md group C): `filled` of `segments`, clamped by the server. A `gm` clock is
+// the clock side's only; `entryId` is the codex entry it is about, null for a seat that cannot read that entry.
+export const ClockName = z.string().trim().min(1).max(80);
+export const ClockVisibility = z.enum(["gm", "party"]);
+export type ClockVisibility = z.infer<typeof ClockVisibility>;
+export const MAX_CLOCKS = 30;
+export const ClockSegments = z.number().int().min(2).max(12);
+export const Clock = z.object({
+  id: z.string(),
+  name: ClockName,
+  segments: ClockSegments,
+  filled: z.number().int().min(0).max(12),
+  visibility: ClockVisibility,
+  entryId: z.string().nullable(),
+  position: z.number().int(),
+});
+export type Clock = z.infer<typeof Clock>;
+
 export const LiveState = z.object({
   campaign: z.object({
     id: z.string(),
@@ -127,6 +145,8 @@ export const LiveState = z.object({
   tests: z.array(TestCall),
   // The pinned ruleset's Tests, so the GM can call one. GM seats only.
   testDefs: z.array(TestDef),
+  // The room's clocks by position; a seat off the clock side gets the `party` ones (the api's Seat view module).
+  clocks: z.array(Clock),
   // The combat tracker: the active encounter, if any. Each seat gets its own filter (encounter.ts).
   encounter: Encounter.nullable(),
   // The campaign's 20 most recent ended games, newest first; every seat gets all of them (house decision #40).

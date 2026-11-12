@@ -12,6 +12,8 @@ import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { DoneButton } from "@/components/player/done-button/done-button";
 import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
 import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
+import { RequestNotices } from "@/components/ui/request-notices/request-notices";
+import { resourceLabels } from "@/lib/spend-request/spend-request";
 import { GameResult } from "@/components/ui/game-result/game-result";
 import { Standings } from "@/components/ui/standings/standings";
 import { OrderView } from "@/components/ui/order-view/order-view";
@@ -115,6 +117,11 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
             {state.myDraft?.actorId === character.id ? t("continueBuilding") : t("build")}
           </a>
         )}
+        <RequestNotices
+          answers={state.requestAnswers}
+          actors={state.actors}
+          labels={resourceLabels(view?.ruleset ?? null)}
+        />
         <ClocksView clocks={state.clocks} />
         {state.encounter && <OrderView encounter={state.encounter} />}
         {!state.encounter && state.games[0] && <GameResult game={state.games[0]} held={held} />}
@@ -142,6 +149,7 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
               ruleset={view.ruleset}
               characters={state.actors.filter((a) => a.kind === "pc").length}
               gm={false}
+              requests={state.requests}
               {...{ send, books, requestPage }}
             />
           ) : !character || !needsBuild(character) ? (

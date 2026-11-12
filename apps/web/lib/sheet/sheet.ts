@@ -105,6 +105,18 @@ export function stepsOf({ ruleset, resource, gm }: { ruleset: Ruleset; resource:
 }
 
 /**
+ * Whether a player may ask the GM to spend this resource (house decision #43): a visible, entity-scoped one they cannot
+ * change themselves, outside a health track.
+ */
+export function canAskToSpend({ ruleset, resource }: { ruleset: Ruleset; resource: string }): boolean {
+  const r = ruleset.resources.find((x) => x.id === resource);
+  if (!r || r.scope !== "entity" || r.visibility === "gm") return false;
+  if (ruleset.health.tracks.some((t) => t.resource === resource)) return false;
+  const { dec, inc } = stepsFor({ editableBy: r.editableBy, gmSide: false });
+  return !dec && !inc;
+}
+
+/**
  * The `rule.op` that moves one resource of one character by `delta`. A health track's resource goes through the track
  * (damage or heal, so dying and temporary points apply); any other resource is a clamped adjust the server applies.
  */

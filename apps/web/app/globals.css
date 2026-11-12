@@ -838,6 +838,47 @@ label {
   }
 }
 
+/* ---------- Spend requests: a slip pinned under the tabs while a player waits on the GM ----------
+   The GM's bar and the phone's notices are strips with a candle-lit edge; the bar rises in when the first slip arrives
+   and the notice when an answer lands. Layout never moves under a finger: they sit above the page, not inside it. */
+.request-bar,
+.spend-notice {
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--wood-0);
+  border-inline-start: 4px solid var(--candle);
+}
+.request-bar {
+  margin: 0;
+  border-bottom: 1px solid var(--brass-lo);
+}
+.request-line {
+  justify-content: space-between;
+  align-items: center;
+}
+.request-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.spend-notice {
+  justify-content: space-between;
+  align-items: center;
+}
+.spend-notice[data-status="denied"] {
+  border-inline-start-color: var(--wax);
+}
+.spend-ask {
+  padding-block: 4px 10px;
+  border-bottom: 1px dotted var(--line);
+}
+.spend-waiting {
+  justify-content: space-between;
+  align-items: center;
+}
+.motion :is(.request-bar, .spend-notice) {
+  animation: rise var(--dur-move) var(--ease-out) backwards;
+}
+
 /* RULESETS & PACKS: the importer is a paste box that talks back. Each problem the api finds is a row that selects its
    spot in the text, so the fix is one tap away on a tablet. */
 .between {

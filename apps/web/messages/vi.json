@@ -906,7 +906,13 @@
     "bookMalformed": "Yêu cầu trang không hợp lệ.",
     "bookRenderFailed": "Máy tính bảng của GM không dựng được trang này.",
     "clockNotFound": "Không tìm thấy đồng hồ",
-    "clockLimit": "Phòng này đã có số đồng hồ tối đa."
+    "clockLimit": "Phòng này đã có số đồng hồ tối đa.",
+    "requestNotFound": "Không tìm thấy yêu cầu",
+    "requestAnswered": "Yêu cầu này đã được trả lời.",
+    "requestLimit": "Bạn đang có quá nhiều yêu cầu chờ.",
+    "requestNotAllowed": "Người chơi không thể tiêu thứ này.",
+    "requestSpendYourself": "Bạn tự tiêu được thứ này.",
+    "requestNoPool": "Bàn này chưa có pool chung."
   },
   "workspace": {
     "skip": "Bỏ qua, tới nội dung trang",
@@ -1034,6 +1040,31 @@
     "recaps": "Tóm tắt các buổi",
     "nothing": "Sổ tay chưa có gì.",
     "openQuests": "Nhiệm vụ đang mở"
+  },
+  "spendRequest": {
+    "ask": "Xin tiêu",
+    "askAria": "Xin GM cho tiêu {label}",
+    "amount": "Số {label} muốn tiêu",
+    "less": "Xin bớt {label}",
+    "more": "Xin thêm {label}",
+    "note": "Ghi chú cho GM (không bắt buộc)",
+    "send": "Gửi yêu cầu",
+    "close": "Thôi",
+    "waiting": "Đang chờ GM: tiêu {amount} {label}",
+    "cancel": "Hủy",
+    "cancelAria": "Hủy yêu cầu tiêu {amount} {label}",
+    "dismiss": "Đóng",
+    "approved": "Đã duyệt: {name} tiêu {amount} {label}.",
+    "denied": "Bị từ chối: {amount} {label} của {name}.",
+    "deniedWhy": "Bị từ chối: {amount} {label} của {name}. {reason}",
+    "barTitle": "Yêu cầu tiêu",
+    "asks": "{name} xin tiêu {amount} {label}.",
+    "approve": "Duyệt",
+    "approveAria": "Duyệt cho {name} tiêu {amount} {label}",
+    "deny": "Từ chối",
+    "denyAria": "Từ chối {name} tiêu {amount} {label}",
+    "reason": "Lý do (không bắt buộc)",
+    "denySend": "Từ chối yêu cầu"
   },
   "clocks": {
     "title": "Đồng hồ",

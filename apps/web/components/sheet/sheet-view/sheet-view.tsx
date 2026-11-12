@@ -1,15 +1,18 @@
 "use client";
 import { useFormatter, useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
-import type { Actor, BookSource } from "@inconsistable/core-schema";
+import type { Actor, BookSource, SpendRequest } from "@inconsistable/core-schema";
 import { breakdownOf, compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { Breakdown } from "@/components/sheet/components/breakdown/breakdown";
+import { SpendAsk } from "@/components/sheet/components/spend-ask/spend-ask";
 import { Cite } from "@/components/ui/cite/cite";
 import { ResourceRow } from "@/components/ui/resource-row/resource-row";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
+import { pendingFor } from "@/lib/spend-request/spend-request";
 import {
+  canAskToSpend,
   stepAction,
   printValue,
   rangeOf,
@@ -28,6 +31,8 @@ type SheetViewProps = {
   characters: number;
   /** The GM's seat steps every resource and calls rests; a player's by the resource's `editableBy`. */
   gm: boolean;
+  /** This seat's pending spend requests (a player's phone); the GM's seat asks for nothing. */
+  requests?: readonly SpendRequest[];
   send: Send;
   books: readonly BookSource[];
   requestPage: RequestPage;
@@ -35,7 +40,7 @@ type SheetViewProps = {
 
 // SHEET: one character as the ruleset's layout lays it out. Every value is the server's, already cut down to what this
 // seat may see; the only thing worked out here is the Breakdown of a number, from the same manifest.
-export function SheetView({ actor, ruleset, characters, gm, send, books, requestPage }: SheetViewProps) {
+export function SheetView({ actor, ruleset, characters, gm, requests = [], send, books, requestPage }: SheetViewProps) {
   const t = useTranslations("sheet");
   const tDuration = useTranslations("duration");
   const tReset = useTranslations("resetEvent");
@@ -72,23 +77,36 @@ export function SheetView({ actor, ruleset, characters, gm, send, books, request
     const cite = row.cite && <Cite cite={row.cite} {...{ ruleset, books, requestPage }} />;
     if (row.kind === "resource") {
       const resets = resetsOn({ ruleset, resource: row.id });
+      const ask = !gm && canAskToSpend({ ruleset, resource: row.id });
       return (
-        <ResourceRow
-          stat={row.id}
-          key={`r-${row.id}`}
-          label={row.label}
-          value={actor.resources[row.id] ?? 0}
-          range={compiled ? rangeOf({ compiled, resource: row.id, actor, characters }) : null}
-          steps={stepsOf({ ruleset, resource: row.id, gm })}
-          holder={actor.name}
-          note={
-            <span className="row small dim" style={{ gap: 6 }}>
-              {resets.length > 0 && <span>{t("refills", { events: format.list(resets.map((e) => tReset(e))) })}</span>}
-              {cite}
-            </span>
-          }
-          onStep={(delta) => handleStep({ resource: row.id, delta })}
-        />
+        <Fragment key={`r-${row.id}`}>
+          <ResourceRow
+            stat={row.id}
+            label={row.label}
+            value={actor.resources[row.id] ?? 0}
+            range={compiled ? rangeOf({ compiled, resource: row.id, actor, characters }) : null}
+            steps={stepsOf({ ruleset, resource: row.id, gm })}
+            holder={actor.name}
+            note={
+              <span className="row small dim" style={{ gap: 6 }}>
+                {resets.length > 0 && (
+                  <span>{t("refills", { events: format.list(resets.map((e) => tReset(e))) })}</span>
+                )}
+                {cite}
+              </span>
+            }
+            onStep={(delta) => handleStep({ resource: row.id, delta })}
+          />
+          {ask && (
+            <SpendAsk
+              actorId={actor.id}
+              resourceId={row.id}
+              label={row.label}
+              pending={pendingFor({ requests, actorId: actor.id, resourceId: row.id })}
+              send={send}
+            />
+          )}
+        </Fragment>
       );
     }
     if (row.kind === "derived")

@@ -8,6 +8,7 @@ import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
 import { Codex } from "@/components/gm/codex/codex";
 import { Party } from "@/components/gm/party/party";
 import { Prep } from "@/components/gm/prep/prep";
+import { RequestBar } from "@/components/gm/request-bar/request-bar";
 import { RulesPanel } from "@/components/gm/rules/rules-panel";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { Track } from "@/components/gm/track/track";
@@ -19,6 +20,7 @@ import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useTable } from "@/hooks/use-table/use-table";
 import type { RulesTabData } from "@/lib/library/library";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
+import { resourceLabels } from "@/lib/spend-request/spend-request";
 
 type GmAppProps = { me: Me; initialTab: GmTab; rules: RulesTabData | null; view: RulesView | null };
 
@@ -72,6 +74,7 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
           </button>
         ))}
       </nav>
+      <RequestBar state={state} labels={resourceLabels(view?.ruleset ?? null)} send={send} />
       <main className="page">
         {tab === "party" ? (
           <Party

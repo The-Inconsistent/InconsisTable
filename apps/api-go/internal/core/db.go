@@ -48,11 +48,6 @@ func InTx(ctx context.Context, db *pgxpool.Pool, fn func(pgx.Tx) error) error {
 // one transaction, and records each in schema_migration. A database Drizzle migrated (the TypeScript api's) counts the
 // files Drizzle recorded as applied, so it boots without running them again.
 func RunMigrations(ctx context.Context, db *pgxpool.Pool) error {
-	// pack_entry's name index uses pg_trgm. Enabled here, not in a migration file, so no migration can lose it. A trusted
-	// extension: the database owner may create it.
-	if _, err := db.Exec(ctx, `CREATE EXTENSION IF NOT EXISTS pg_trgm`); err != nil {
-		return err
-	}
 	files, err := fs.Glob(migrations.FS, "*.sql") // sorted by name
 	if err != nil {
 		return err
@@ -61,6 +56,9 @@ func RunMigrations(ctx context.Context, db *pgxpool.Pool) error {
 		for _, statement := range []string{
 			// Two apis booting at once against one database: the second waits, then finds nothing left to run.
 			`SELECT pg_advisory_xact_lock(hashtext('inconsistable.migrations'))`,
+			// pack_entry's name index uses pg_trgm. Enabled here, not in a migration file, so no migration can lose it;
+			// under the lock, because two concurrent IF NOT EXISTS creates fail. A trusted extension: the owner may create it.
+			`CREATE EXTENSION IF NOT EXISTS pg_trgm`,
 			`CREATE TABLE IF NOT EXISTS schema_migration (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`,
 		} {
 			if _, err := tx.Exec(ctx, statement); err != nil {

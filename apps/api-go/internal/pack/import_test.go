@@ -10,24 +10,16 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core/dbtest"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 )
 
-// These tests need a Postgres 18 the api has already migrated (TEST_DATABASE_URL); without one they are skipped, so
+// These tests need a Postgres 18 (TEST_DATABASE_URL), migrated by dbtest.Open; without one they are skipped, so
 // `bun run test:go` stays free of a database. They use their own random users and remove what they wrote.
 func testDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	url := os.Getenv("TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("TEST_DATABASE_URL is not set")
-	}
-	db, err := pgxpool.New(context.Background(), url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(db.Close)
-	return db
+	return dbtest.Open(t)
 }
 
 func fixture(t *testing.T, name string) map[string]any {

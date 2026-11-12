@@ -853,7 +853,10 @@ test("prep: scenes under an adventure, reordered and linked; a player sees only 
   await save({ id: a, kind: "scene", plannedTests: ["check"] });
   for (const id of [adv, a, npc])
     ok(await owner.send({ type: "codex.reveal", id, visibility: "party", audienceMode: "all", audience: [] }));
-  await eventually(() => ana.codex()?.entries.some((e) => e.id === a) ?? false, "Lyra sees the scene");
+  await eventually(
+    () => [a, npc].every((id) => ana.codex()?.entries.some((e) => e.id === id)),
+    "Lyra sees the scene and the Ferryman",
+  );
 
   const gmScene = owner.codex()?.entries.find((e) => e.id === a);
   assert.deepEqual([...(gmScene?.links ?? [])].sort(), [npc, secret].sort(), "the GM sees both links, once each");

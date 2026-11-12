@@ -13,16 +13,24 @@ import (
 
 // Load is the campaign's codex, whole: every entry with its audience. The Seat view decides what each seat gets.
 func Load(ctx context.Context, conn core.Conn, campaignID string) (cs.Codex, error) {
-	rows, err := conn.Query(ctx, `SELECT id::text, kind, title, body, gm_notes, visibility, audience_mode FROM codex_entry
-		WHERE campaign_id = $1 ORDER BY created_at`, campaignID)
+	rows, err := conn.Query(ctx, `SELECT id::text, kind, title, body, gm_notes, visibility, audience_mode, status,
+		parent_id::text, position, planned_tests FROM codex_entry WHERE campaign_id = $1 ORDER BY created_at`, campaignID)
 	if err != nil {
 		return cs.Codex{}, err
 	}
 	entries, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (cs.CodexEntry, error) {
-		e := cs.CodexEntry{Audience: []string{}}
-		err := r.Scan(&e.ID, &e.Kind, &e.Title, &e.Body, &e.GMNotes, &e.Visibility, &e.AudienceMode)
+		e := cs.CodexEntry{Audience: []string{}, Links: []string{}}
+		err := r.Scan(&e.ID, &e.Kind, &e.Title, &e.Body, &e.GMNotes, &e.Visibility, &e.AudienceMode, &e.Status,
+			&e.ParentID, &e.Position, &e.PlannedTests)
+		if e.PlannedTests == nil {
+			e.PlannedTests = []string{}
+		}
 		return e, err
 	})
+	if err != nil {
+		return cs.Codex{}, err
+	}
+	links, err := loadLinks(ctx, conn, campaignID)
 	if err != nil {
 		return cs.Codex{}, err
 	}
@@ -45,6 +53,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string) (cs.Codex, err
 	}
 	for i := range entries {
 		entries[i].Audience = append(entries[i].Audience, audience[entries[i].ID]...)
+		entries[i].Links = append(entries[i].Links, links[entries[i].ID]...)
 	}
 	if entries == nil {
 		entries = []cs.CodexEntry{}
@@ -54,6 +63,25 @@ func Load(ctx context.Context, conn core.Conn, campaignID string) (cs.Codex, err
 		return cs.Codex{}, err
 	}
 	return cs.Codex{Entries: entries, Recaps: recaps}, nil
+}
+
+// loadLinks is each scene's linked entry ids, in the order they were made.
+func loadLinks(ctx context.Context, conn core.Conn, campaignID string) (map[string][]string, error) {
+	rows, err := conn.Query(ctx, `SELECT l.entry_id::text, l.target_id::text FROM codex_link l
+		JOIN codex_entry e ON e.id = l.entry_id WHERE e.campaign_id = $1 ORDER BY l.target_id`, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	links := map[string][]string{}
+	for rows.Next() {
+		var entryID, targetID string
+		if err := rows.Scan(&entryID, &targetID); err != nil {
+			return nil, err
+		}
+		links[entryID] = append(links[entryID], targetID)
+	}
+	return links, rows.Err()
 }
 
 // maxRecaps is core-schema's MAX_RECAPS.

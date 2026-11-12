@@ -443,7 +443,6 @@
       "rules": "Rules"
     },
     "coming": {
-      "prep": "Adventures and scenes arrive in P1.",
       "map": "Maps that help the table remember arrive in P2."
     }
   },
@@ -847,6 +846,11 @@
     "needSecretsScope": "GM notes need the secrets scope",
     "giveTitle": "Give the entry a title",
     "pickAudience": "Pick who sees it",
+    "onlyQuestStatus": "Only a quest has a status.",
+    "sceneNeedsAdventure": "A scene belongs to an adventure.",
+    "adventureHasScenes": "Move or delete its scenes first.",
+    "onlySceneTests": "Only a scene plans Tests.",
+    "cantLinkThat": "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
     "nothingToUndo": "Nothing to undo",
     "cantUndoKind": "Can't undo that kind of step yet",
     "undoGone": "Can't undo: {target} is gone.",
@@ -952,6 +956,8 @@
     "noCharacters": "No characters in this room yet.",
     "revealButton": "Apply",
     "listed": "{count, plural, one {# character} other {# characters}}",
+    "statusLabel": "Status",
+    "status": { "open": "Open", "done": "Done", "failed": "Failed" },
     "kind": {
       "adventure": "Adventure",
       "scene": "Scene",
@@ -985,9 +991,38 @@
     "save": "Save recap",
     "cancel": "Cancel"
   },
+  "prep": {
+    "adventureTitle": "Adventure title",
+    "newAdventure": "New adventure",
+    "sceneTitle": "Scene title",
+    "newScene": "New scene",
+    "create": "Create",
+    "cancel": "Cancel",
+    "empty": "No adventures yet. Name one, then add its scenes.",
+    "noScenes": "No scenes yet.",
+    "loose": "Scenes outside an adventure",
+    "pickScene": "Pick a scene to prepare it.",
+    "moveUp": "Move {title} up",
+    "moveDown": "Move {title} down",
+    "testsCount": "{count, plural, one {# Test} other {# Tests}}",
+    "links": "Linked entries",
+    "noLinks": "Nothing linked yet.",
+    "linkFilter": "Find an entry to link",
+    "noCandidates": "No entry to link.",
+    "openInCodex": "Open in CODEX",
+    "remove": "Remove",
+    "unlink": "Unlink {title}",
+    "plannedTests": "Planned Tests",
+    "noTests": "No Test planned.",
+    "planTest": "Plan a Test",
+    "unknownTest": "(not in this ruleset)",
+    "call": "Call",
+    "unplan": "Stop planning {id}"
+  },
   "notebook": {
     "entries": "Revealed",
     "recaps": "Recaps",
-    "nothing": "Nothing in your notebook yet."
+    "nothing": "Nothing in your notebook yet.",
+    "openQuests": "Open quests"
   }
 }

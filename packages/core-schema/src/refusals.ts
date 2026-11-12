@@ -125,6 +125,11 @@ export const REFUSALS = {
   needSecretsScope: "GM notes need the secrets scope",
   giveTitle: "Give the entry a title",
   pickAudience: "Pick who sees it",
+  onlyQuestStatus: "Only a quest has a status.",
+  sceneNeedsAdventure: "A scene belongs to an adventure.",
+  adventureHasScenes: "Move or delete its scenes first.",
+  onlySceneTests: "Only a scene plans Tests.",
+  cantLinkThat: "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
   // Undo
   nothingToUndo: "Nothing to undo",
   cantUndoKind: "Can't undo that kind of step yet",

@@ -8,18 +8,23 @@ import { CallCard } from "@/components/gm/tests/components/call-card/call-card";
 import { CallForm } from "@/components/gm/tests/components/call-form/call-form";
 import type { Send } from "@/hooks/use-table/use-table";
 
-type TestsProps = { state: LiveState; send: Send };
+type TestsProps = { state: LiveState; send: Send; /** A Test to preselect (PREP's Call button). */ testId?: string };
 
 // TESTS: the GM calls a Test of the ruleset on some characters, watches the rolls come in and closes it. The dice stay
 // on the table; this tablet only records what the players read off them (docs/design.md §6.3).
-export function Tests({ state, send }: TestsProps) {
+export function Tests({ state, send, testId }: TestsProps) {
   const t = useTranslations("tests");
   const names = useMemo(() => new Map(state.actors.map((a) => [a.id, a.name])), [state.actors]);
   const open = state.tests.filter((c) => c.status === "open");
   const closed = state.tests.filter((c) => c.status === "closed");
   return (
     <div className="stack" style={{ gap: 24 }}>
-      <CallForm key={state.testDefs.map((d) => d.id).join()} state={state} send={send} />
+      <CallForm
+        key={`${testId ?? ""}${state.testDefs.map((d) => d.id).join()}`}
+        state={state}
+        send={send}
+        initialTestId={testId}
+      />
       <section className="stack">
         <h2 className="head">{t("open")}</h2>
         {open.length === 0 && <p className="dim">{t("noneOpen")}</p>}

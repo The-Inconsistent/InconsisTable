@@ -14,6 +14,11 @@ const entry = (over: Partial<CodexEntry>): CodexEntry => ({
   visibility: "gm",
   audienceMode: "all",
   audience: [],
+  status: null,
+  parentId: null,
+  position: 0,
+  links: [],
+  plannedTests: [],
   ...over,
 });
 

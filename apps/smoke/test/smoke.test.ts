@@ -732,6 +732,66 @@ test("codex: a reader listed twice is one reader, and an entry deletes once", as
   owner.socket.close();
 });
 
+test("prep: scenes under an adventure, reordered and linked; a player sees only the visible ends", async () => {
+  const { owner, campaignId } = await newRoom("Prep");
+  const inv = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
+  const anaDevice = await device("ana-prep");
+  await post(`/invites/${inv}/accept`, { newCharacterName: "Lyra" }, cookieOf(anaDevice));
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  const save = async (a: Record<string, unknown>) => ok(await owner.send({ type: "codex.save", ...a } as never)).id!;
+  const adv = await save({ kind: "adventure", title: "The Drowned Road" });
+  const [a, b] = [await save({ kind: "scene", title: "Ferry" }), await save({ kind: "scene", title: "Shrine" })];
+  for (const [i, id] of [a, b].entries()) ok(await owner.send({ type: "codex.move", id, parentId: adv, position: i }));
+  ok(await owner.send({ type: "codex.move", id: b, parentId: adv, position: 0 }));
+  const pos = (id: string) => owner.codex()?.entries.find((e) => e.id === id)?.position;
+  await eventually(() => pos(b) === 0 && pos(a) === 1, "the scenes were reordered and renumbered");
+
+  const npc = await save({ kind: "npc", title: "Ferryman" });
+  const secret = await save({ kind: "handout", title: "Smuggler's note" });
+  ok(await owner.send({ type: "codex.link", id: a, targetId: npc }));
+  ok(await owner.send({ type: "codex.link", id: a, targetId: npc }));
+  ok(await owner.send({ type: "codex.link", id: a, targetId: secret }));
+  await save({ id: a, kind: "scene", plannedTests: ["check"] });
+  for (const id of [adv, a, npc])
+    ok(await owner.send({ type: "codex.reveal", id, visibility: "party", audienceMode: "all", audience: [] }));
+  await eventually(() => ana.codex()?.entries.some((e) => e.id === a) ?? false, "Lyra sees the scene");
+
+  const gmScene = owner.codex()?.entries.find((e) => e.id === a);
+  assert.deepEqual([...(gmScene?.links ?? [])].sort(), [npc, secret].sort(), "the GM sees both links, once each");
+  assert.deepEqual(gmScene?.plannedTests, ["check"]);
+  const seen = ana.codex()?.entries.find((e) => e.id === a);
+  assert.deepEqual(seen?.links, [npc], "the hidden handout's id never reaches the player");
+  assert.deepEqual(seen?.plannedTests, []);
+  assert.equal(seen?.parentId, adv);
+  assert.ok(!JSON.stringify(ana.codex()).includes(secret));
+
+  refused(await ana.send({ type: "codex.move", id: a, parentId: null, position: 0 }), "noPermission");
+  refused(await ana.send({ type: "codex.link", id: a, targetId: npc }), "noPermission");
+  refused(await owner.send({ type: "codex.delete", id: adv }), "adventureHasScenes");
+  refused(await owner.send({ type: "codex.move", id: npc, parentId: adv, position: 0 }), "sceneNeedsAdventure");
+  owner.socket.close();
+  ana.socket.close();
+});
+
+test("a quest has a status; only a quest", async () => {
+  const { owner, campaignId } = await newRoom("Quest");
+  const inv = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
+  const anaDevice = await device("ana-quest");
+  await post(`/invites/${inv}/accept`, { newCharacterName: "Lyra" }, cookieOf(anaDevice));
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  const q = ok(await owner.send({ type: "codex.save", kind: "quest", title: "Find the bell" })).id!;
+  const entry = () => owner.codex()?.entries.find((e) => e.id === q);
+  await eventually(() => entry()?.status === "open", "a new quest is open");
+  ok(await owner.send({ type: "codex.reveal", id: q, visibility: "party", audienceMode: "all", audience: [] }));
+  ok(await owner.send({ type: "codex.save", id: q, kind: "quest", status: "done" }));
+  await eventually(() => ana.codex()?.entries.find((e) => e.id === q)?.status === "done", "the player sees done");
+  const npc = ok(await owner.send({ type: "codex.save", kind: "npc", title: "Ferryman" })).id!;
+  refused(await owner.send({ type: "codex.save", id: npc, kind: "npc", status: "open" }), "onlyQuestStatus");
+  assert.equal(owner.codex()?.entries.find((e) => e.id === npc)?.status, null);
+  owner.socket.close();
+  ana.socket.close();
+});
+
 test("the admin action route seats a known user and refuses anything but housekeeping", async () => {
   const { owner, campaignId } = await newRoom("Seat");
   const act = (body: unknown) => post(`/admin/campaigns/${campaignId}/action`, body, ADMIN);

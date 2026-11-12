@@ -210,19 +210,23 @@ function seatState({
 // never learns who else an entry was shown to.
 function seatCodex({ codex, ctx, sight }: { codex: Codex; ctx: Ctx; sight: Sight }): Codex {
   const held = heldBy(ctx);
+  const seen = codex.entries.filter(
+    (e) =>
+      sight.secrets ||
+      sight.codex ||
+      (e.visibility !== "gm" && (e.audienceMode === "all" || e.audience.some((a) => held.includes(a)))),
+  );
+  // A link or a parent reaches a seat only when both its ends do: an id is never a way to learn a hidden entry exists.
+  const ids = new Set(seen.map((e) => e.id));
   return {
     recaps: codex.recaps,
-    entries: codex.entries
-      .filter(
-        (e) =>
-          sight.secrets ||
-          sight.codex ||
-          (e.visibility !== "gm" && (e.audienceMode === "all" || e.audience.some((a) => held.includes(a)))),
-      )
-      .map((e) => ({
-        ...e,
-        gmNotes: sight.secrets ? e.gmNotes : "",
-        audience: sight.secrets || sight.codex ? e.audience : e.audience.filter((a) => held.includes(a)),
-      })),
+    entries: seen.map((e) => ({
+      ...e,
+      gmNotes: sight.secrets ? e.gmNotes : "",
+      audience: sight.secrets || sight.codex ? e.audience : e.audience.filter((a) => held.includes(a)),
+      parentId: e.parentId !== null && ids.has(e.parentId) ? e.parentId : null,
+      links: e.links.filter((l) => ids.has(l)),
+      plannedTests: sight.secrets || sight.codex ? e.plannedTests : [],
+    })),
   };
 }

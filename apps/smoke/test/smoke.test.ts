@@ -709,6 +709,44 @@ test("a room offer: cancelled by the owner, and withdrawn when the recipient is 
   owner.socket.close();
 });
 
+test("clocks: the server clamps a tick, players and the screen see only the party's, undo takes a tick back", async () => {
+  const { owner, ana, campaignId } = await testRoom("Clocks");
+  const tv = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  const hidden = ok(await owner.send({ type: "clock.create", name: "Reinforcements", segments: 4 })).id!;
+  const ritual = ok(await owner.send({ type: "clock.create", name: "Ritual", segments: 6, visibility: "party" })).id!;
+
+  ok(await owner.send({ type: "clock.tick", id: ritual, delta: 4 }));
+  ok(await owner.send({ type: "clock.tick", id: ritual, delta: 12 }));
+  const gm = await owner.until((s) => s.clocks.find((c) => c.id === ritual)?.filled === 6);
+  assert.deepEqual(
+    gm.clocks.map((c) => c.id),
+    [hidden, ritual],
+    "the GM sees both, in the order made",
+  );
+  for (const seat of [ana, tv]) {
+    const seen = await seat.until((s) => s.clocks.some((c) => c.id === ritual && c.filled === 6));
+    assert.deepEqual(
+      seen.clocks.map((c) => c.id),
+      [ritual],
+      "a seat off the GM side sees the party clock only",
+    );
+  }
+
+  refused(await ana.send({ type: "clock.tick", id: ritual, delta: -1 }), "noPermission");
+  refused(await tv.send({ type: "clock.tick", id: ritual, delta: -1 }), "screenReadOnly");
+
+  ok(await owner.send({ type: "clock.tick", id: ritual, delta: -2 }));
+  await owner.until((s) => s.clocks.find((c) => c.id === ritual)?.filled === 4);
+  ok(await owner.send({ type: "event.undo" }));
+  await owner.until((s) => s.clocks.find((c) => c.id === ritual)?.filled === 6);
+  ok(await owner.send({ type: "clock.update", id: ritual, segments: 3 }));
+  const lowered = await owner.until((s) => s.clocks.find((c) => c.id === ritual)?.segments === 3);
+  assert.equal(lowered.clocks.find((c) => c.id === ritual)?.filled, 3, "fewer segments clamp what was filled");
+  ok(await owner.send({ type: "clock.delete", id: hidden }));
+  await owner.until((s) => s.clocks.length === 1);
+  tv.socket.close();
+});
+
 test("codex: a reader listed twice is one reader, and an entry deletes once", async () => {
   const { owner } = await newRoom("Codex");
   const hero = ok(await owner.send({ type: "actor.create", name: "Hero" })).id!;

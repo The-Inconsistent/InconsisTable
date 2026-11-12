@@ -82,7 +82,13 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
             sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
           />
         ) : tab === "track" ? (
-          <Track me={me} state={state} send={send} sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }} />
+          <Track
+            me={me}
+            state={state}
+            send={send}
+            sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
+            entries={codex?.entries ?? []}
+          />
         ) : tab === "standings" ? (
           <Standings games={state.games} />
         ) : tab === "prep" ? (

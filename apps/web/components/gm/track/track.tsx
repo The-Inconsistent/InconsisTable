@@ -15,6 +15,7 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { Creatures } from "@/components/gm/creatures/creatures";
 import { AddCombatants } from "@/components/gm/track/components/add-combatants/add-combatants";
+import { ClocksPanel } from "@/components/gm/track/components/clocks-panel/clocks-panel";
 import { CombatantPanel } from "@/components/gm/track/components/combatant-panel/combatant-panel";
 import { FightBar } from "@/components/gm/track/components/fight-bar/fight-bar";
 import { PhaseBar } from "@/components/gm/track/components/phase-bar/phase-bar";
@@ -34,11 +35,13 @@ type TrackProps = {
   send: Send;
   /** What a character sheet needs: the ruleset as the GM reads it, the served books and the page relay. */
   sheet: { ruleset: Ruleset | null; books: readonly BookSource[]; requestPage: RequestPage };
+  /** The codex entries a clock can be about (the ones this seat reads). */
+  entries: readonly { id: string; title: string }[];
 };
 
 // TRACK: the fight from the GM's tablet. Initiative is typed from the dice (the app never rolls), the order and whose
 // turn it is stay in view, and Undo is always under the thumb. Test calls live in their own tab.
-export function Track({ me, state, send, sheet }: TrackProps) {
+export function Track({ me, state, send, sheet, entries }: TrackProps) {
   const t = useTranslations("track");
   const [sheetOf, setSheetOf] = useState<string | null>(null);
   const [testFor, setTestFor] = useState<string | null>(null); // the actor a Test is being called for
@@ -139,6 +142,8 @@ export function Track({ me, state, send, sheet }: TrackProps) {
           />
         </BottomSheet>
       )}
+      {/* Clocks need no fight and no session: they sit under the order, always usable. */}
+      <ClocksPanel clocks={state.clocks} entries={entries} run={run} />
       {/* A board game's players, automa included, are characters: there are no creatures to spawn. */}
       {mode === "fight" && <Creatures campaignId={state.campaign.id} send={send} />}
     </>

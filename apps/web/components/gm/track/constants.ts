@@ -15,6 +15,13 @@ export const KEY_LABELS: Readonly<Record<string, string>> = { clear: "C", back: 
 export const DEATH_SAVE_KEYS = ["criticalSuccess", "success", "failure", "criticalFailure"] as const;
 export type DeathSaveKey = (typeof DEATH_SAVE_KEYS)[number];
 
+// The clock form: the quick picks for a clock's segments, the bounds of a custom count (core-schema's ClockSegments), and
+// what a new clock starts as.
+export const CLOCK_SEGMENT_PICKS = [4, 6, 8] as const;
+export const CLOCK_SEGMENTS_MIN = 2;
+export const CLOCK_SEGMENTS_MAX = 12;
+export const CLOCK_DEFAULTS = { name: "", segments: 4, visibility: "gm", entryId: null } as const;
+
 // The side and visibility a character of each kind joins a fight with.
 export const JOIN_AS = {
   party: { side: "party", visibility: "full" },

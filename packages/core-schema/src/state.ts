@@ -125,6 +125,30 @@ export const Clock = z.object({
 });
 export type Clock = z.infer<typeof Clock>;
 
+// A player's ask to spend from a resource (house decision #43). `note` is "" when none; `actorId` is null for a shared pool.
+export const RequestText = z.string().trim().max(140);
+export const SpendRequest = z.object({
+  id: z.string(),
+  userId: z.string(),
+  actorId: z.string().nullable(),
+  resourceId: z.string(),
+  amount: z.number().int().min(1).max(99),
+  note: z.string(),
+  createdAt: z.string(),
+});
+export type SpendRequest = z.infer<typeof SpendRequest>;
+// The GM side's answer to a request, sent to the player who asked so the phone can say so.
+export const RequestAnswer = z.object({
+  id: z.string(),
+  userId: z.string(),
+  actorId: z.string().nullable(),
+  resourceId: z.string(),
+  amount: z.number().int(),
+  status: z.enum(["approved", "denied"]),
+  reason: z.string(),
+});
+export type RequestAnswer = z.infer<typeof RequestAnswer>;
+
 export const LiveState = z.object({
   campaign: z.object({
     id: z.string(),
@@ -147,6 +171,10 @@ export const LiveState = z.object({
   testDefs: z.array(TestDef),
   // The room's clocks by position; a seat off the clock side gets the `party` ones (the api's Seat view module).
   clocks: z.array(Clock),
+  // Pending spend requests, oldest first: the GM side sees all, a player their own, a screen none. `requestAnswers` are
+  // the asker's own recent answers (approved or denied), newest first.
+  requests: z.array(SpendRequest),
+  requestAnswers: z.array(RequestAnswer),
   // The combat tracker: the active encounter, if any. Each seat gets its own filter (encounter.ts).
   encounter: Encounter.nullable(),
   // The campaign's 20 most recent ended games, newest first; every seat gets all of them (house decision #40).

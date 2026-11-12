@@ -157,6 +157,39 @@ const STATE = {
     { id: U(703), name: "Heist", segments: 12, filled: 7, visibility: "gm", entryId: U(503), position: 4 },
     { id: U(704), name: "Storm", segments: 2, filled: 1, visibility: "party", entryId: U(503), position: 5 },
   ],
+  requests: [
+    {
+      id: U(800),
+      userId: "player1",
+      actorId: PC1,
+      resourceId: "luck",
+      amount: 2,
+      note: "for the jump",
+      createdAt: "2026-11-01T09:05:00.000Z",
+    },
+    {
+      id: U(801),
+      userId: "player2",
+      actorId: PC2,
+      resourceId: "luck",
+      amount: 1,
+      note: "",
+      createdAt: "2026-11-01T09:06:00.000Z",
+    },
+    {
+      id: U(802),
+      userId: "owner",
+      actorId: null,
+      resourceId: "doom",
+      amount: 3,
+      note: "",
+      createdAt: "2026-11-01T09:07:00.000Z",
+    },
+  ],
+  requestAnswers: [
+    { id: U(810), userId: "player1", actorId: PC1, resourceId: "luck", amount: 1, status: "denied", reason: "not now" },
+    { id: U(811), userId: "player2", actorId: PC2, resourceId: "luck", amount: 1, status: "approved", reason: "" },
+  ],
   myDraft: null,
   tests: [
     call(U(200), {}),
@@ -461,6 +494,10 @@ const VALID: Record<string, Record<string, unknown>> = {
   "clock.tick": { id: ID, delta: -3 },
   "clock.update": { id: ID, name: " Cult ", segments: 8, visibility: "gm", entryId: ID },
   "clock.delete": { id: ID },
+  "request.send": { actorId: ID, resourceId: "luck", amount: 3, note: " please " },
+  "request.cancel": { id: ID },
+  "request.approve": { id: ID },
+  "request.deny": { id: ID, reason: " not now " },
 };
 
 const LONG_KEYS = new Set(["recap", "notes", "body", "gmNotes", "value"]);

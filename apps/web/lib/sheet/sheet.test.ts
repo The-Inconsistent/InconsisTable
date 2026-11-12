@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { compileRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
-import { pageOfCite, rangeOf, restsOf, sectionsOf, stepAction, stepsOf, timeLeft } from "./sheet.ts";
+import { canAskToSpend, pageOfCite, rangeOf, restsOf, sectionsOf, stepAction, stepsOf, timeLeft } from "./sheet.ts";
 
 const ruleset = Ruleset.parse(SAMPLE_D20);
 const actor = {
@@ -71,6 +71,19 @@ test("a player steps only what the resource lets its owner; the GM steps everyth
     inc: false,
   });
   assert.deepEqual(stepsOf({ ruleset: withEdit("owner", "hp"), resource: "hp", gm: true }), { dec: true, inc: true });
+});
+
+test("a player may ask the GM to spend only what they cannot change themselves, outside a health track", () => {
+  const withEdit = (editableBy: string, id = "focus") =>
+    Ruleset.parse({
+      ...SAMPLE_D20,
+      resources: SAMPLE_D20.resources?.map((r) => (r.id === id ? { ...r, editableBy } : r)),
+    });
+  assert.equal(canAskToSpend({ ruleset: withEdit("gm"), resource: "focus" }), true);
+  assert.equal(canAskToSpend({ ruleset: withEdit("ownerSpendOnly"), resource: "focus" }), false);
+  assert.equal(canAskToSpend({ ruleset: withEdit("owner"), resource: "focus" }), false);
+  assert.equal(canAskToSpend({ ruleset: withEdit("gm", "hp"), resource: "hp" }), false);
+  assert.equal(canAskToSpend({ ruleset, resource: "unknown" }), false);
 });
 
 test("a step on a health track's resource goes through the track: − is damage, + is heal", () => {

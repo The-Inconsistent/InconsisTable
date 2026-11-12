@@ -133,6 +133,13 @@ export const REFUSALS = {
   // Clocks
   clockNotFound: "Clock not found",
   clockLimit: "This room has as many clocks as it can hold.",
+  // Spend requests
+  requestNotFound: "Request not found",
+  requestAnswered: "That request was already answered.",
+  requestLimit: "You have too many requests waiting.",
+  requestNotAllowed: "Players can't spend from that.",
+  requestSpendYourself: "You can spend that yourself.",
+  requestNoPool: "Shared pools aren't at this table yet.",
   // Undo
   nothingToUndo: "Nothing to undo",
   cantUndoKind: "Can't undo that kind of step yet",

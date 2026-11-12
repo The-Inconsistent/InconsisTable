@@ -7,6 +7,8 @@ import {
   type Ctx,
   type Encounter,
   type LiveState,
+  type RequestAnswer,
+  type SpendRequest,
 } from "../../../../packages/core-schema/src/index.ts";
 import {
   toViewerView,
@@ -89,12 +91,37 @@ export function seatView({
   const codex = seatCodex({ codex: snapshot.codex, ctx, sight });
   const state = seatState({ state: snapshot.state, compiled, ctx, sight });
   return {
-    state: { ...state, myDraft, clocks: seatClocks({ clocks: state.clocks, codex, sight }) },
+    state: {
+      ...state,
+      myDraft,
+      clocks: seatClocks({ clocks: state.clocks, codex, sight }),
+      ...seatRequests({ requests: state.requests, answers: state.requestAnswers, ctx, sight }),
+    },
     codex,
     manifest,
     packVisibilities,
   };
 }
+
+// The spend requests a seat receives: the side that answers them sees every pending request, a player only their own
+// and their own answers (that side sees every answer), a screen and a guest token (no user) none.
+const seatRequests = ({
+  requests,
+  answers,
+  ctx,
+  sight,
+}: {
+  requests: readonly SpendRequest[];
+  answers: readonly RequestAnswer[];
+  ctx: Ctx;
+  sight: Sight;
+}): Pick<LiveState, "requests" | "requestAnswers"> =>
+  sight.requests
+    ? { requests: [...requests], requestAnswers: [...answers] }
+    : {
+        requests: requests.filter((q) => ctx.userId !== null && q.userId === ctx.userId),
+        requestAnswers: answers.filter((r) => ctx.userId !== null && r.userId === ctx.userId),
+      };
 
 // The clocks a seat receives: the clock side sees every clock, anyone else the `party` ones. A clock's entry id is sent
 // only when the seat can read that entry, so a hidden entry's id never leaks.

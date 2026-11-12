@@ -11,6 +11,7 @@ import (
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/request"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/schema"
 )
@@ -70,7 +71,7 @@ func Archive(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Resul
 			return cs.Result{}, err
 		}
 	}
-	return cs.Done(""), nil
+	return cs.Done(""), request.CancelPending(ctx, tx, c.CampaignID)
 }
 
 // Unarchive is campaign.unarchive.
@@ -137,7 +138,7 @@ func SessionEnd(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	if tag.RowsAffected() == 0 {
 		return cs.Result{}, cs.Fail("noSessionRunning")
 	}
-	return cs.Done(""), nil
+	return cs.Done(""), request.CancelPending(ctx, tx, c.CampaignID)
 }
 
 // SessionEdit is session.edit: a session's title, recap or notes, only those sent.

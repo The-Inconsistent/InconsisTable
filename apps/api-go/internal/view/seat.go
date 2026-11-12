@@ -49,7 +49,31 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 	state.MyDraft = myDraft
 	codex := seatCodex(snapshot.Codex, c, sight)
 	state.Clocks = seatClocks(state.Clocks, codex, sight)
+	state.Requests, state.RequestAnswers = seatRequests(state.Requests, state.RequestAnswers, c, sight)
 	return SeatView{state, codex}
+}
+
+// The spend requests a seat receives: the side that answers them sees every pending request, a player only their own
+// and their own answers (that side sees every answer), a screen and a guest token (no user) none.
+func seatRequests(requests []cs.SpendRequest, answers []cs.RequestAnswer, c cs.Ctx, sight Sight) ([]cs.SpendRequest, []cs.RequestAnswer) {
+	if sight.Requests {
+		return requests, answers
+	}
+	outRequests, outAnswers := []cs.SpendRequest{}, []cs.RequestAnswer{}
+	if c.UserID == nil {
+		return outRequests, outAnswers
+	}
+	for _, q := range requests {
+		if q.UserID == *c.UserID {
+			outRequests = append(outRequests, q)
+		}
+	}
+	for _, r := range answers {
+		if r.UserID == *c.UserID {
+			outAnswers = append(outAnswers, r)
+		}
+	}
+	return outRequests, outAnswers
 }
 
 // The clocks a seat receives: the clock side sees every clock, anyone else the `party` ones. A clock's entry id is sent

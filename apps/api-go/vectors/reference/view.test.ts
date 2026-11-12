@@ -123,6 +123,8 @@ const state: LiveState = {
   session: { id: "s", number: 1, title: "", startedAt: "", endedAt: null, recap: "", notes: "session notes" },
   actors,
   clocks: [],
+  requests: [],
+  requestAnswers: [],
   myDraft: null,
   tests: [sum, pool],
   testDefs: [{ id: "check", dice: "1d20", advantage: true, pool: null, outcomes: null, inputs: [] }],
@@ -589,4 +591,37 @@ test("clocks: the clock side sees every clock, anyone else the party ones, with 
   assert.deepEqual(seen(ctx(member("cogm", ["party"]), "u-co")), ["a:open", "c:null"]);
   assert.deepEqual(seen(ctx(member("player", [], ["lyra"]), "u-lyra")), ["a:open", "c:null"]);
   assert.deepEqual(seen(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), ["a:open", "c:null"]);
+});
+
+test("requests: the answering side sees every pending request, a player their own, a screen none", () => {
+  const request = (id: string, userId: string) =>
+    ({
+      id,
+      userId,
+      actorId: "lyra",
+      resourceId: "luck",
+      amount: 1,
+      note: "",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    }) as const;
+  const answer = (id: string, userId: string) =>
+    ({ id, userId, actorId: "lyra", resourceId: "luck", amount: 1, status: "denied", reason: "no" }) as const;
+  const withRequests: Snapshot = {
+    ...snapshot,
+    state: {
+      ...state,
+      requests: [request("a", "u-lyra"), request("b", "u-kael")],
+      requestAnswers: [answer("x", "u-kael"), answer("y", "u-lyra")],
+    },
+  };
+  const seen = (c: Ctx) => {
+    const s = seatView({ snapshot: withRequests, compiled, ctx: c }).state;
+    return [s.requests.map((q) => q.id).join(""), s.requestAnswers.map((r) => r.id).join("")];
+  };
+  assert.deepEqual(seen(ctx(member("gm"), "u-gm")), ["ab", "xy"]);
+  assert.deepEqual(seen(ctx(member("cogm", ["session"]), "u-co")), ["ab", "xy"]);
+  assert.deepEqual(seen(ctx(member("cogm", ["combat"]), "u-co")), ["", ""]);
+  assert.deepEqual(seen(ctx(member("player", [], ["lyra"]), "u-lyra")), ["a", "y"]);
+  assert.deepEqual(seen(ctx(member("player", [], ["kael"]), "u-kael")), ["b", "x"]);
+  assert.deepEqual(seen(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), ["", ""]);
 });

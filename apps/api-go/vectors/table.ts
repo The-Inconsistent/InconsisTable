@@ -214,7 +214,13 @@ const STATE = {
   },
 };
 
-const entry = (id: string, visibility: string, audienceMode: string, audience: string[]) => ({
+const entry = (
+  id: string,
+  visibility: string,
+  audienceMode: string,
+  audience: string[],
+  over: Record<string, unknown> = {},
+) => ({
   id,
   kind: "handout",
   title: id,
@@ -223,6 +229,12 @@ const entry = (id: string, visibility: string, audienceMode: string, audience: s
   visibility,
   audienceMode,
   audience,
+  status: null,
+  parentId: null,
+  position: 0,
+  links: [] as string[],
+  plannedTests: [] as string[],
+  ...over,
 });
 
 const CODEX = {
@@ -232,6 +244,18 @@ const CODEX = {
     entry(U(502), "public", "listed", [PC1, PC2]),
     entry(U(503), "party", "listed", [PC2]),
     entry(U(504), "gm", "listed", [PC1]),
+    // A hidden adventure with a shown scene, a shown adventure, and a quest: a link or a parent to a hidden entry must
+    // not reach a seat that can't see it, and planned Tests never reach one without the GM side.
+    entry(U(505), "gm", "all", [], { kind: "adventure" }),
+    entry(U(506), "party", "all", [], { kind: "adventure", position: 1 }),
+    entry(U(507), "party", "all", [], {
+      kind: "scene",
+      parentId: U(505),
+      links: [U(500), U(501), U(502), U(504)],
+      plannedTests: ["check", "gone"],
+    }),
+    entry(U(508), "party", "all", [], { kind: "scene", parentId: U(506), position: 1, links: [U(501)] }),
+    entry(U(509), "party", "all", [], { kind: "quest", status: "done" }),
   ],
   recaps: [
     { sessionId: U(600), number: 2, title: "The bridge", endedAt: "2026-02-01T10:00:00.000Z", recap: "They crossed." },
@@ -412,7 +436,18 @@ const VALID: Record<string, Record<string, unknown>> = {
   "token.revoke": { actorId: ID },
   "screen.issue": {},
   "screen.revoke": {},
-  "codex.save": { id: ID, kind: "npc", title: " T ", body: "b", gmNotes: "g" },
+  "codex.save": {
+    id: ID,
+    kind: "npc",
+    title: " T ",
+    body: "b",
+    gmNotes: "g",
+    status: "failed",
+    plannedTests: ["check", "x".repeat(100)],
+  },
+  "codex.move": { id: ID, parentId: null, position: 2 },
+  "codex.link": { id: ID, targetId: ID },
+  "codex.unlink": { id: ID, targetId: ID },
   "codex.reveal": { id: ID, visibility: "party", audienceMode: "listed", audience: [ID] },
   "codex.delete": { id: ID },
 };

@@ -9,6 +9,7 @@ import {
   BuilderDraftBody,
   CampaignName,
   CodexKind,
+  QuestStatus,
   CodexText,
   CodexTitle,
   CodexVisibility,
@@ -147,6 +148,8 @@ export const Action = z.discriminatedUnion("type", [
     title: CodexTitle.optional(),
     body: CodexText.optional(),
     gmNotes: CodexText.optional(),
+    status: QuestStatus.optional(), // a quest only
+    plannedTests: z.array(z.string().min(1).max(100)).max(10).optional(), // a scene only: ruleset Test ids
   }),
   z.object({
     type: z.literal("codex.reveal"),
@@ -156,6 +159,15 @@ export const Action = z.discriminatedUnion("type", [
     audience: z.array(id).max(50).default([]),
   }),
   z.object({ type: z.literal("codex.delete"), id }),
+  // Reorders or reparents; `position` only says where to insert: the server renumbers the siblings 0..n-1.
+  z.object({
+    type: z.literal("codex.move"),
+    id,
+    parentId: id.nullable(),
+    position: z.number().int().min(0).max(10_000),
+  }),
+  z.object({ type: z.literal("codex.link"), id, targetId: id }),
+  z.object({ type: z.literal("codex.unlink"), id, targetId: id }),
 ]);
 export type Action = z.infer<typeof Action>;
 export type ActionInput = z.input<typeof Action>; // what clients send: defaulted fields optional
@@ -221,6 +233,9 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "codex.save": "codex:write",
   "codex.reveal": "codex:reveal",
   "codex.delete": "codex:write",
+  "codex.move": "codex:write",
+  "codex.link": "codex:write",
+  "codex.unlink": "codex:write",
 };
 
 // `:own` permissions that a GM-side permission also satisfies: a GM renames any character.

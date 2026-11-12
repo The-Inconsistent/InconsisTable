@@ -166,6 +166,11 @@ export type AudienceMode = z.infer<typeof AudienceMode>;
 export const CodexTitle = z.string().trim().min(1).max(200);
 export const CodexText = z.string().max(20_000);
 
+export const QuestStatus = z.enum(["open", "done", "failed"]);
+export type QuestStatus = z.infer<typeof QuestStatus>;
+
+export const MAX_PLANNED_TESTS = 10;
+
 export const CodexEntry = z.object({
   id: z.string(),
   kind: CodexKind,
@@ -175,6 +180,11 @@ export const CodexEntry = z.object({
   visibility: CodexVisibility,
   audienceMode: AudienceMode,
   audience: z.array(z.string()), // actor ids, when audienceMode is "listed"
+  status: QuestStatus.nullable(), // a quest's; null on every other kind. Seen by whoever sees the entry
+  parentId: z.string().nullable(), // a scene's adventure; null for a seat that can't see the adventure
+  position: z.number().int(), // order among siblings (an adventure's scenes, the adventures)
+  links: z.array(z.string()), // entries a scene points at, only those the seat can also see
+  plannedTests: z.array(z.string()), // a scene's planned ruleset Test ids; GM side only
 });
 export type CodexEntry = z.infer<typeof CodexEntry>;
 

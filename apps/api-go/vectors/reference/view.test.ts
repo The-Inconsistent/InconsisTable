@@ -174,6 +174,11 @@ const entry = (id: string, over: Partial<CodexEntry> = {}): CodexEntry => ({
   visibility: "party",
   audienceMode: "all",
   audience: [],
+  status: null,
+  parentId: null,
+  position: 0,
+  links: [],
+  plannedTests: [],
   ...over,
 });
 const codex: Codex = {
@@ -342,6 +347,24 @@ test("codex opens every entry and its whole audience, never the notes on them", 
   const seen = seatView({ snapshot, compiled, ctx: ctx(member("cogm", ["codex"]), "u-co") }).codex.entries;
   assert.deepEqual(seen.find((e) => e.id === "for-lyra")?.audience, ["lyra", "kael"]);
   assert.ok(seen.every((e) => e.gmNotes === ""));
+});
+
+test("a link or a parent is kept only when the seat sees both ends; planned Tests are the GM side's", () => {
+  const scene = entry("plan", {
+    kind: "scene",
+    parentId: "secret",
+    links: ["secret", "open"],
+    plannedTests: ["check"],
+  });
+  const planned = { ...snapshot, codex: { ...codex, entries: [...codex.entries, scene] } };
+  const plan = (c: Ctx) => seatView({ snapshot: planned, compiled, ctx: c }).codex.entries.find((e) => e.id === "plan");
+  for (const c of [ctx(member("player"), "u-x"), ctx({ kind: "token", role: "screen", characterIds: [] }, null)]) {
+    assert.deepEqual([plan(c)?.links, plan(c)?.parentId, plan(c)?.plannedTests], [["open"], null, []]);
+  }
+  const gm = plan(ctx(member("gm"), "u-gm"));
+  assert.deepEqual([gm?.links, gm?.parentId, gm?.plannedTests], [["secret", "open"], "secret", ["check"]]);
+  const codexSide = plan(ctx(member("cogm", ["codex"]), "u-co"));
+  assert.deepEqual(codexSide?.plannedTests, ["check"]);
 });
 
 test("every seat receives the recaps, whole", () => {

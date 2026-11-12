@@ -200,14 +200,33 @@ func seatEncounter(e *cs.Encounter, views map[string]engine.ActorView, sight Sig
 // a reader never learns who else an entry was shown to.
 func seatCodex(codex cs.Codex, c cs.Ctx, sight Sight) cs.Codex {
 	held := HeldBy(c)
-	entries := []cs.CodexEntry{}
+	seen := []cs.CodexEntry{}
+	ids := map[string]bool{}
 	for _, e := range codex.Entries {
 		shown := e.Visibility != "gm" && (e.AudienceMode == "all" || slices.ContainsFunc(e.Audience, func(a string) bool { return holds(held, a) }))
-		if !sight.Secrets && !sight.Codex && !shown {
-			continue
+		if sight.Secrets || sight.Codex || shown {
+			seen = append(seen, e)
+			ids[e.ID] = true
 		}
+	}
+	entries := []cs.CodexEntry{}
+	for _, e := range seen {
 		if !sight.Secrets {
 			e.GMNotes = ""
+		}
+		// A link or a parent reaches a seat only when both its ends do: an id never reveals a hidden entry.
+		if e.ParentID != nil && !ids[*e.ParentID] {
+			e.ParentID = nil
+		}
+		links := []string{}
+		for _, l := range e.Links {
+			if ids[l] {
+				links = append(links, l)
+			}
+		}
+		e.Links = links
+		if !sight.Secrets && !sight.Codex {
+			e.PlannedTests = []string{}
 		}
 		if !sight.Secrets && !sight.Codex {
 			audience := []string{}

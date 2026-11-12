@@ -253,6 +253,9 @@ var handlers = map[string]handler{
 	"codex.save":   codex.Save,
 	"codex.reveal": codex.Reveal,
 	"codex.delete": codex.Delete,
+	"codex.move":   codex.Move,
+	"codex.link":   codex.Link,
+	"codex.unlink": codex.Unlink,
 }
 
 // dispatch sends an authorized action to its feature's handler. Every action type has one (dispatch_test.go); a type

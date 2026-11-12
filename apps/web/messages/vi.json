@@ -443,7 +443,6 @@
       "rules": "Luật"
     },
     "coming": {
-      "prep": "Cuộc phiêu lưu và cảnh sẽ có ở P1.",
       "map": "Bản đồ giúp cả bàn nhớ sẽ có ở P2."
     }
   },
@@ -847,6 +846,11 @@
     "needSecretsScope": "Ghi chú GM cần quyền bí mật (secrets)",
     "giveTitle": "Hãy đặt tiêu đề cho mục này",
     "pickAudience": "Hãy chọn ai được xem",
+    "onlyQuestStatus": "Chỉ nhiệm vụ mới có trạng thái.",
+    "sceneNeedsAdventure": "Một cảnh thuộc về một cuộc phiêu lưu.",
+    "adventureHasScenes": "Hãy chuyển hoặc xóa các cảnh của nó trước.",
+    "onlySceneTests": "Chỉ cảnh mới lên kế hoạch cho Test.",
+    "cantLinkThat": "Một cảnh liên kết NPC, địa điểm, phe phái, vật phẩm, tài liệu, tri thức và nhiệm vụ.",
     "nothingToUndo": "Không có gì để hoàn tác",
     "cantUndoKind": "Chưa hoàn tác được loại bước này",
     "undoGone": "Không hoàn tác được: {target} không còn nữa.",
@@ -952,6 +956,8 @@
     "noCharacters": "Phòng này chưa có nhân vật nào.",
     "revealButton": "Áp dụng",
     "listed": "{count} nhân vật",
+    "statusLabel": "Trạng thái",
+    "status": { "open": "Đang mở", "done": "Xong", "failed": "Thất bại" },
     "kind": {
       "adventure": "Cuộc phiêu lưu",
       "scene": "Cảnh",
@@ -985,9 +991,38 @@
     "save": "Lưu tóm tắt",
     "cancel": "Hủy"
   },
+  "prep": {
+    "adventureTitle": "Tên cuộc phiêu lưu",
+    "newAdventure": "Phiêu lưu mới",
+    "sceneTitle": "Tên cảnh",
+    "newScene": "Cảnh mới",
+    "create": "Tạo",
+    "cancel": "Hủy",
+    "empty": "Chưa có cuộc phiêu lưu nào. Đặt tên một cái rồi thêm các cảnh.",
+    "noScenes": "Chưa có cảnh.",
+    "loose": "Cảnh ngoài cuộc phiêu lưu",
+    "pickScene": "Chọn một cảnh để chuẩn bị.",
+    "moveUp": "Đưa {title} lên",
+    "moveDown": "Đưa {title} xuống",
+    "testsCount": "{count, plural, other {# Test}}",
+    "links": "Mục đã liên kết",
+    "noLinks": "Chưa liên kết gì.",
+    "linkFilter": "Tìm mục để liên kết",
+    "noCandidates": "Không có mục để liên kết.",
+    "openInCodex": "Mở trong CODEX",
+    "remove": "Gỡ",
+    "unlink": "Gỡ liên kết {title}",
+    "plannedTests": "Test dự kiến",
+    "noTests": "Chưa dự kiến Test nào.",
+    "planTest": "Dự kiến một Test",
+    "unknownTest": "(không có trong bộ luật này)",
+    "call": "Gọi",
+    "unplan": "Bỏ dự kiến {id}"
+  },
   "notebook": {
     "entries": "Đã tiết lộ",
     "recaps": "Tóm tắt các buổi",
-    "nothing": "Sổ tay chưa có gì."
+    "nothing": "Sổ tay chưa có gì.",
+    "openQuests": "Nhiệm vụ đang mở"
   }
 }

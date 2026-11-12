@@ -36,6 +36,7 @@ var (
 	inviteModes      = []string{"room", "character"}
 	codexKinds       = []string{"adventure", "scene", "npc", "location", "faction", "item", "handout", "quest", "lore"}
 	codexVisibility  = []string{"gm", "party", "public"}
+	questStatuses    = []string{"open", "done", "failed"}
 	audienceModes    = []string{"all", "listed"}
 	combatSides      = []string{"party", "foe", "other"}
 	combatVisibility = []string{"hidden", "bar", "full"}
@@ -214,7 +215,16 @@ var ActionSchema = schema.Union("type",
 		schema.Opt("title", schema.String().Trim().Min(1).Max(200)),
 		schema.Opt("body", schema.String().Max(20_000)),
 		schema.Opt("gmNotes", schema.String().Max(20_000)),
+		schema.Opt("status", schema.Enum(questStatuses...)),
+		schema.Opt("plannedTests", schema.Array(schema.String().Min(1).Max(100)).Max(10)),
 	),
+	variant("codex.move",
+		schema.Req("id", id),
+		schema.Req("parentId", schema.Nullable(id)),
+		schema.Req("position", schema.Int().Min(0).Max(10_000)),
+	),
+	variant("codex.link", schema.Req("id", id), schema.Req("targetId", id)),
+	variant("codex.unlink", schema.Req("id", id), schema.Req("targetId", id)),
 	variant("codex.reveal",
 		schema.Req("id", id),
 		schema.Req("visibility", schema.Enum(codexVisibility...)),
@@ -293,6 +303,9 @@ var ActionPerms = map[string]string{
 	"codex.save":              "codex:write",
 	"codex.reveal":            "codex:reveal",
 	"codex.delete":            "codex:write",
+	"codex.move":              "codex:write",
+	"codex.link":              "codex:write",
+	"codex.unlink":            "codex:write",
 }
 
 // OwnFallback is the GM-side permission that also satisfies an :own one: a GM renames any character.

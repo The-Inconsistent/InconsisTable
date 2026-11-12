@@ -748,6 +748,66 @@ test("clocks: the server clamps a tick, players and the screen see only the part
   tv.socket.close();
 });
 
+test("spend requests: a player asks, the GM approves or denies, nobody else sees or cancels it", async () => {
+  const { owner, ana, ben, hero, bram } = await testRoom("Requests");
+  const spare = (state: { actors: { id: string; resources: Record<string, number> }[] }, id: string) =>
+    state.actors.find((a) => a.id === id)?.resources.tempHp;
+  await query("INSERT INTO actor_resource (actor_id, resource_id, value) VALUES ($1, 'tempHp', 5)", [hero]);
+  ok(await owner.send({ type: "actor.rename", id: hero, name: "Lyra" })); // any action rebroadcasts the state
+  await ana.until((s) => spare(s, hero) === 5);
+
+  refused(
+    await ana.send({ type: "request.send", actorId: hero, resourceId: "focus", amount: 1 }),
+    "requestSpendYourself",
+  );
+  refused(await ana.send({ type: "request.send", actorId: bram, resourceId: "tempHp", amount: 1 }), "notYourCharacter");
+  refused(await ana.send({ type: "request.send", resourceId: "tempHp", amount: 1 }), "requestNoPool");
+  refused(await owner.send({ type: "request.send", actorId: hero, resourceId: "tempHp", amount: 1 }), "noPermission");
+
+  const first = ok(
+    await ana.send({ type: "request.send", actorId: hero, resourceId: "tempHp", amount: 2, note: "dodge" }),
+  ).id!;
+  const seen = await owner.until((s) => s.requests.some((q) => q.id === first));
+  assert.equal(seen.requests.find((q) => q.id === first)?.note, "dodge");
+  await ana.until((s) => s.requests.some((q) => q.id === first));
+  assert.deepEqual((await ben.until((s) => s.actors.length > 0)).requests, [], "another player sees none of it");
+  refused(await ben.send({ type: "request.cancel", id: first }), "requestNotFound");
+  refused(await ana.send({ type: "request.approve", id: first }), "noPermission");
+
+  ok(await owner.send({ type: "request.approve", id: first }));
+  await ana.until((s) => spare(s, hero) === 3 && s.requests.length === 0);
+  refused(await owner.send({ type: "request.approve", id: first }), "requestAnswered");
+
+  const second = ok(await ana.send({ type: "request.send", actorId: hero, resourceId: "tempHp", amount: 1 })).id!;
+  ok(await owner.send({ type: "request.deny", id: second, reason: "not this scene" }));
+  const answered = await ana.until((s) => s.requestAnswers.some((r) => r.id === second));
+  assert.deepEqual(
+    answered.requestAnswers.find((r) => r.id === second),
+    {
+      id: second,
+      userId: uid("ana-Requests"),
+      actorId: hero,
+      resourceId: "tempHp",
+      amount: 1,
+      status: "denied",
+      reason: "not this scene",
+    },
+  );
+  assert.equal(spare(answered, hero), 3, "a denial spends nothing");
+
+  // Undo takes the approved spend back (the denial wrote nothing).
+  ok(await owner.send({ type: "event.undo" }));
+  await ana.until((s) => spare(s, hero) === 5);
+
+  // Five waiting at most; a session end cancels what is left.
+  for (let i = 0; i < 5; i++)
+    ok(await ana.send({ type: "request.send", actorId: hero, resourceId: "tempHp", amount: 1 }));
+  refused(await ana.send({ type: "request.send", actorId: hero, resourceId: "tempHp", amount: 1 }), "requestLimit");
+  ok(await owner.send({ type: "session.end" }));
+  await owner.until((s) => s.requests.length === 0);
+  ben.socket.close();
+});
+
 test("codex: a reader listed twice is one reader, and an entry deletes once", async () => {
   const { owner } = await newRoom("Codex");
   const hero = ok(await owner.send({ type: "actor.create", name: "Hero" })).id!;

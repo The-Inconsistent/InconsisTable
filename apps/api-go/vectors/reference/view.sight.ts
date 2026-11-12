@@ -21,6 +21,8 @@ export interface Sight {
   party: boolean;
   /** The `gm` clocks. */
   clocks: boolean;
+  /** Every player's pending spend requests: the side that answers them. */
+  requests: boolean;
 }
 
 /** Whether the seat runs the room as its GM. An admin who opened it does not: they see all, but they run nothing. */
@@ -38,6 +40,7 @@ export function sightOf(ctx: Ctx): Sight {
     codex: can("codex:write"),
     party: can("character:edit:any"),
     clocks: can("clock:run"),
+    requests: can("request:resolve"),
   };
 }
 

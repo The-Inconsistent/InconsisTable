@@ -17,6 +17,7 @@ import {
   ClockVisibility,
   CodexVisibility,
   FieldValue,
+  RequestText,
   InviteMode,
 } from "./state.ts";
 import { ENCOUNTER_ACTIONS } from "./encounter.ts";
@@ -190,6 +191,19 @@ export const Action = z.discriminatedUnion("type", [
     entryId: id.nullable().optional(),
   }),
   z.object({ type: z.literal("clock.delete"), id }),
+
+  // Spend requests (house decision #43): a player asks, the GM side answers. Approval spends through the resource delta
+  // path, so it is clamped and logged for undo. `actorId` is absent for a shared pool (not at the table yet).
+  z.object({
+    type: z.literal("request.send"),
+    actorId: id.optional(),
+    resourceId: z.string().min(1).max(64),
+    amount: z.number().int().min(1).max(99),
+    note: RequestText.optional(),
+  }),
+  z.object({ type: z.literal("request.cancel"), id }),
+  z.object({ type: z.literal("request.approve"), id }),
+  z.object({ type: z.literal("request.deny"), id, reason: RequestText.optional() }),
 ]);
 export type Action = z.infer<typeof Action>;
 export type ActionInput = z.input<typeof Action>; // what clients send: defaulted fields optional
@@ -262,6 +276,10 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "clock.tick": "clock:run",
   "clock.update": "clock:run",
   "clock.delete": "clock:run",
+  "request.send": "request:send",
+  "request.cancel": "request:send",
+  "request.approve": "request:resolve",
+  "request.deny": "request:resolve",
 };
 
 // `:own` permissions that a GM-side permission also satisfies: a GM renames any character.

@@ -15,6 +15,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/game"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/request"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/testcall"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
@@ -98,6 +99,12 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 		return nil, nil, nil, err
 	}
 	if state.Clocks, err = clock.Load(ctx, conn, campaignID); err != nil {
+		return nil, nil, nil, err
+	}
+	if state.Requests, err = request.Load(ctx, conn, campaignID); err != nil {
+		return nil, nil, nil, err
+	}
+	if state.RequestAnswers, err = request.LoadAnswers(ctx, conn, campaignID); err != nil {
 		return nil, nil, nil, err
 	}
 	if state.Games, err = game.Load(ctx, conn, campaignID); err != nil {

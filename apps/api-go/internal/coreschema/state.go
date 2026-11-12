@@ -73,6 +73,26 @@ type (
 		EntryID    *string `json:"entryId"`
 		Position   int     `json:"position"`
 	}
+	// SpendRequest is a pending ask to spend from a resource (house decision #43). Note is "" when none.
+	SpendRequest struct {
+		ID         string  `json:"id"`
+		UserID     string  `json:"userId"`
+		ActorID    *string `json:"actorId"`
+		ResourceID string  `json:"resourceId"`
+		Amount     int     `json:"amount"`
+		Note       string  `json:"note"`
+		CreatedAt  string  `json:"createdAt"`
+	}
+	// RequestAnswer is the GM's answer to a request, sent to the player who asked.
+	RequestAnswer struct {
+		ID         string  `json:"id"`
+		UserID     string  `json:"userId"`
+		ActorID    *string `json:"actorId"`
+		ResourceID string  `json:"resourceId"`
+		Amount     int     `json:"amount"`
+		Status     string  `json:"status"`
+		Reason     string  `json:"reason"`
+	}
 	// Guest is a character with a live guest token.
 	Guest struct {
 		ActorID string `json:"actorId"`
@@ -100,11 +120,14 @@ type (
 		MyDraft any        `json:"myDraft"`
 		Tests   []TestCall `json:"tests"`
 		// Clocks are the room's progress clocks by position.
-		Clocks    []Clock    `json:"clocks"`
-		TestDefs  []TestDef  `json:"testDefs"`
-		Encounter *Encounter `json:"encounter"`
-		Games     []Game     `json:"games"`
-		Access    Access     `json:"access"`
+		Clocks []Clock `json:"clocks"`
+		// Requests are the pending spend requests, oldest first; RequestAnswers the asker's recent answers.
+		Requests       []SpendRequest  `json:"requests"`
+		RequestAnswers []RequestAnswer `json:"requestAnswers"`
+		TestDefs       []TestDef       `json:"testDefs"`
+		Encounter      *Encounter      `json:"encounter"`
+		Games          []Game          `json:"games"`
+		Access         Access          `json:"access"`
 	}
 
 	// CombatantCondition is a condition on a combatant, GM side only.

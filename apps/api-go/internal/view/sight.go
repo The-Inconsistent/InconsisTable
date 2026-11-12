@@ -23,6 +23,8 @@ type Sight struct {
 	Codex bool
 	// Clocks is the `gm` clocks.
 	Clocks bool
+	// Requests is every player's pending spend requests: the side that answers them.
+	Requests bool
 	// Party is the gm fields and resources of the party's Characters.
 	Party bool
 }
@@ -46,6 +48,8 @@ func SightOf(c cs.Ctx) Sight {
 		Codex:   can("codex:write"),
 		Party:   can("character:edit:any"),
 		Clocks:  can("clock:run"),
+
+		Requests: can("request:resolve"),
 	}
 }
 

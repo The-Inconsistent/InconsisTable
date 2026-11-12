@@ -57,6 +57,7 @@ var (
 	recap         = schema.String().Max(10_000)
 	clockName     = schema.String().Trim().Min(1).Max(80)
 	clockSegments = schema.Int().Min(2).Max(12)
+	requestText   = schema.String().Trim().Max(140)
 	answers       = schema.Record(schema.String().Max(120), schema.Unknown())
 
 	// BuilderDraftBody is the character being built and the answers so far, read and written whole.
@@ -254,6 +255,16 @@ var ActionSchema = schema.Union("type",
 		schema.Opt("entryId", schema.Nullable(id)),
 	),
 	variant("clock.delete", schema.Req("id", id)),
+
+	variant("request.send",
+		schema.Opt("actorId", id),
+		schema.Req("resourceId", schema.String().Min(1).Max(64)),
+		schema.Req("amount", schema.Int().Min(1).Max(99)),
+		schema.Opt("note", requestText),
+	),
+	variant("request.cancel", schema.Req("id", id)),
+	variant("request.approve", schema.Req("id", id)),
+	variant("request.deny", schema.Req("id", id), schema.Opt("reason", requestText)),
 )
 
 // ParseAction reads a socket payload as an Action, or the issues that refuse it.
@@ -332,6 +343,10 @@ var ActionPerms = map[string]string{
 	"clock.tick":              "clock:run",
 	"clock.update":            "clock:run",
 	"clock.delete":            "clock:run",
+	"request.send":            "request:send",
+	"request.cancel":          "request:send",
+	"request.approve":         "request:resolve",
+	"request.deny":            "request:resolve",
 }
 
 // OwnFallback is the GM-side permission that also satisfies an :own one: a GM renames any character.

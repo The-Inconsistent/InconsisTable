@@ -19,6 +19,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/game"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/pack"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/request"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/testcall"
 )
@@ -264,6 +265,11 @@ var handlers = map[string]handler{
 	"clock.tick":   clock.Tick,
 	"clock.update": clock.Update,
 	"clock.delete": clock.Delete,
+	// request/request.go
+	"request.send":    request.Send,
+	"request.cancel":  request.Cancel,
+	"request.approve": request.Approve,
+	"request.deny":    request.Deny,
 }
 
 // dispatch sends an authorized action to its feature's handler. Every action type has one (dispatch_test.go); a type

@@ -45,12 +45,12 @@ func (s *Service) ResolveSocketCtx(ctx context.Context, auth map[string]any, coo
 		if !core.IsAdminKey(adminKey) {
 			return nil, nil
 		}
-		owner, exists, err := s.owner(ctx, campaignID)
+		row, exists, err := s.room(ctx, campaignID)
 		if err != nil || !exists {
 			return nil, err
 		}
 		return &SocketSeat{
-			Ctx:     cs.Ctx{CampaignID: campaignID, CampaignOwnerID: owner, Seat: cs.Seat{Kind: cs.SeatAdmin}},
+			Ctx:     cs.Ctx{CampaignID: campaignID, CampaignOwnerID: row.owner, TableMode: row.mode, Seat: cs.Seat{Kind: cs.SeatAdmin}},
 			Script:  true,
 			SeatKey: campaignID + ":admin-key",
 		}, nil

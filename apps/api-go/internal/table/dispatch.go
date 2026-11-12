@@ -86,7 +86,7 @@ func KicksOf(c cs.Ctx, a cs.Action) []Kick {
 		return []Kick{{ActorID: a.Str("id")}}
 	case "screen.revoke":
 		return []Kick{{Screens: true}}
-	case "campaign.delete", "campaign.transferAccept":
+	case "campaign.delete", "campaign.transferAccept", "campaign.setTableMode":
 		// A new owner: every seat resolves again, so the old owner loses the owner's powers and the new one gains them.
 		return []Kick{{All: true}}
 	case "seat.leave":
@@ -107,7 +107,7 @@ func KicksOf(c cs.Ctx, a cs.Action) []Kick {
 // KicksSender says whether the action's kicks reach the sender, who then waits a moment so the ack gets there first.
 func KicksSender(a cs.Action) bool {
 	t := a.Type()
-	return t == "campaign.delete" || t == "campaign.transferAccept" || t == "seat.leave"
+	return t == "campaign.delete" || t == "campaign.transferAccept" || t == "campaign.setTableMode" || t == "seat.leave"
 }
 
 // Hits says whether a kick reaches a socket of this seat.
@@ -159,17 +159,20 @@ func ApplyAction(ctx context.Context, tx pgx.Tx, seated cs.Ctx, a cs.Action) (Re
 	// read-only except for the way out of it.
 	var archived bool
 	var owner *string
+	var mode string
 	err := tx.QueryRow(ctx, `UPDATE campaign SET state_version = state_version + 1 WHERE id = $1
-		RETURNING archived_at IS NOT NULL, owner_user_id`, seated.CampaignID).Scan(&archived, &owner)
+		RETURNING archived_at IS NOT NULL, owner_user_id, table_mode`, seated.CampaignID).Scan(&archived, &owner, &mode)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Result{}, cs.Fail("gameNotFound")
 	}
 	if err != nil {
 		return Result{}, err
 	}
-	// The owner comes from this row, not the handshake: a socket opened before a transfer must not keep its powers.
+	// The owner and the table mode come from this row, not the handshake: a socket opened before a transfer, or before the
+	// table changed how it sits, must not keep its powers.
 	c := seated
 	c.CampaignOwnerID = owner
+	c.TableMode = mode
 	if archived && !cs.IsArchivedOpen(a.Type()) {
 		return Result{}, cs.Fail("gameArchived")
 	}
@@ -200,6 +203,7 @@ var handlers = map[string]handler{
 	// campaign/rules.actions.ts
 	"campaign.setRuleset":   campaign.SetRuleset,
 	"campaign.unpinRuleset": campaign.UnpinRuleset,
+	"campaign.setTableMode": campaign.SetTableMode,
 	"campaign.attachPack":   campaign.AttachPack,
 	"campaign.detachPack":   campaign.DetachPack,
 	// campaign/event.actions.ts

@@ -13,6 +13,7 @@ type vectorCtx struct {
 	UserID          *string `json:"userId"`
 	CampaignOwnerID *string `json:"campaignOwnerId"`
 	CampaignID      string  `json:"campaignId"`
+	TableMode       string  `json:"tableMode"`
 	Seat            struct {
 		Kind         cs.SeatKind `json:"kind"`
 		Role         string      `json:"role"`
@@ -50,11 +51,12 @@ func TestSeatViewsMatchTypeScript(t *testing.T) {
 			Ruleset bool            `json:"ruleset"`
 		} `json:"snapshots"`
 		Views []struct {
-			Snapshot string    `json:"snapshot"`
-			SeatName string    `json:"seatName"`
-			Ctx      vectorCtx `json:"ctx"`
-			State    any       `json:"state"`
-			Codex    any       `json:"codex"`
+			Snapshot         string    `json:"snapshot"`
+			PackVisibilities []string  `json:"packVisibilities"`
+			SeatName         string    `json:"seatName"`
+			Ctx              vectorCtx `json:"ctx"`
+			State            any       `json:"state"`
+			Codex            any       `json:"codex"`
 		} `json:"views"`
 	}
 	if err := json.Unmarshal(raw, &v); err != nil {
@@ -86,7 +88,7 @@ func TestSeatViewsMatchTypeScript(t *testing.T) {
 			t.Fatalf("%s: the Go state shape drops something:\n want %s\n  got %s", c.Snapshot, want, got)
 		}
 		ctx := cs.Ctx{
-			CampaignID: c.Ctx.CampaignID, UserID: c.Ctx.UserID, CampaignOwnerID: c.Ctx.CampaignOwnerID,
+			CampaignID: c.Ctx.CampaignID, UserID: c.Ctx.UserID, CampaignOwnerID: c.Ctx.CampaignOwnerID, TableMode: c.Ctx.TableMode,
 			Seat: cs.Seat{Kind: c.Ctx.Seat.Kind, Role: c.Ctx.Seat.Role, Scopes: c.Ctx.Seat.Scopes, CharacterIDs: c.Ctx.Seat.CharacterIDs},
 		}
 		var ruleset *engine.CompiledRuleset
@@ -95,6 +97,13 @@ func TestSeatViewsMatchTypeScript(t *testing.T) {
 		}
 		before := canonical(t, s.State)
 		got := Of(s, ruleset, ctx)
+		// The pack route reads the mode from the room it loads, as Of reads it from the snapshot.
+		fresh := ctx
+		fresh.TableMode = s.State.Campaign.TableMode
+		if want, have := engine.CanonicalJSON(toAny(c.PackVisibilities)), engine.CanonicalJSON(toAny(ReadableEntryVisibilities(fresh))); want != have {
+			t.Errorf("%s, %s: pack visibilities want %s, got %s", c.Snapshot, c.SeatName, want, have)
+		}
+		assertNothingForTheGM(t, c.Snapshot+", "+c.SeatName, s.State.Campaign.TableMode, c.Ctx.Seat.Kind, got, ReadableEntryVisibilities(fresh))
 		if want, have := engine.CanonicalJSON(c.State), canonical(t, got.State); want != have {
 			t.Errorf("%s, %s: state\n want %s\n  got %s", c.Snapshot, c.SeatName, want, have)
 		}

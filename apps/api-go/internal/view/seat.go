@@ -35,6 +35,9 @@ var partyKinds = []string{"pc", "companion"}
 
 // Of is what one seat receives of a campaign. A nil compiled ruleset sends no value at all (fail-closed).
 func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView {
+	// The mode is the campaign row's, as loaded with this snapshot: a socket opened before the table changed mode must
+	// not keep the sight it was handed.
+	c.TableMode = snapshot.State.Campaign.TableMode
 	sight := SightOf(c)
 	var myDraft any
 	if c.UserID != nil {
@@ -159,11 +162,11 @@ func seatState(state cs.LiveState, compiled *engine.CompiledRuleset, c cs.Ctx, s
 		state.Session = &session
 	}
 	state.Tests = seatTests(state.Tests, c, sight)
-	if !sight.Session {
+	if !sight.Session && !sight.TableRun {
 		state.TestDefs = []cs.TestDef{}
 	}
 	state.Encounter = seatEncounter(state.Encounter, views, sight)
-	if !sight.Party {
+	if !sight.Party && !cs.CanInCampaign(c, "member:invite", "") {
 		state.Access.Invites = []cs.Invite{}
 	}
 	return state
@@ -293,6 +296,8 @@ func seatTests(tests []cs.TestCall, c cs.Ctx, sight Sight) []cs.TestCall {
 		return tests
 	}
 	held := HeldBy(c)
+	// Without a GM every call is the whole table's: the targets are public, so each character counts as the seat's own.
+	mineOf := func(id string) bool { return sight.TableRun || holds(held, id) }
 	out := []cs.TestCall{}
 	if isScreen(c) {
 		for _, call := range tests {
@@ -310,7 +315,7 @@ func seatTests(tests []cs.TestCall, c cs.Ctx, sight Sight) []cs.TestCall {
 	for _, call := range tests {
 		var mine []cs.TestTargetState
 		for _, t := range call.Targets {
-			if holds(held, t.ActorID) {
+			if mineOf(t.ActorID) {
 				mine = append(mine, t)
 			}
 		}
@@ -323,7 +328,7 @@ func seatTests(tests []cs.TestCall, c cs.Ctx, sight Sight) []cs.TestCall {
 		}
 		targets := make([]cs.TestTargetState, len(shown))
 		for i, t := range shown {
-			own := holds(held, t.ActorID)
+			own := mineOf(t.ActorID)
 			// A Dice pool's margin and shifts give the difficulty number away (score minus margin), so they follow the
 			// number itself, or the GM revealing it; the flags leak nothing (house decision #30).
 			knowsNumber := call.Revealed || (own && call.ShowTarget)

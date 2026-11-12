@@ -130,14 +130,15 @@ func (s *Service) Action(w http.ResponseWriter, r *http.Request) (any, error) {
 		return nil, err
 	}
 	var owner *string
-	err = s.DB.QueryRow(r.Context(), `SELECT owner_user_id FROM campaign WHERE id = $1`, campaignID).Scan(&owner)
+	var mode string
+	err = s.DB.QueryRow(r.Context(), `SELECT owner_user_id, table_mode FROM campaign WHERE id = $1`, campaignID).Scan(&owner, &mode)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, notFound("Game not found")
 	}
 	if err != nil {
 		return nil, err
 	}
-	return s.Table.Run(cs.Ctx{CampaignID: campaignID, CampaignOwnerID: owner, Seat: cs.Seat{Kind: cs.SeatAdmin}}, action), nil
+	return s.Table.Run(cs.Ctx{CampaignID: campaignID, CampaignOwnerID: owner, TableMode: mode, Seat: cs.Seat{Kind: cs.SeatAdmin}}, action), nil
 }
 
 type packRow struct {

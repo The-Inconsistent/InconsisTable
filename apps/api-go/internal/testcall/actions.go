@@ -134,6 +134,23 @@ func callTest(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 		}
 		targets = append(targets, target{actorID, r.Modifier, r.Target, r.Pool})
 	}
+	hideTarget, _ := a["hideTarget"].(bool)
+	if !c.HasGM() {
+		// Without a GM any seat calls a Test, for characters, and nothing in it is kept from the table
+		// (docs/adr/0009-table-modes.md, p2-plan decision 3).
+		for _, t := range targets {
+			if kind := built[t.ActorID].Row.Kind; kind != "pc" && kind != "companion" {
+				return cs.Result{}, cs.Fail("testCharactersOnly")
+			}
+		}
+		ids := make([]string, len(targets))
+		for i, t := range targets {
+			ids[i] = t.ActorID
+		}
+		if test.Def.Kind != "reported" && (hideTarget || !everyoneMay(test.TargetVisibility, ids, built)) {
+			return cs.Result{}, cs.Fail("testTargetShown")
+		}
+	}
 	sessionID, err := eventlog.RunningSessionID(ctx, tx, cid)
 	if err != nil {
 		return cs.Result{}, err
@@ -142,7 +159,6 @@ func callTest(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 	if err != nil {
 		return cs.Result{}, err
 	}
-	hideTarget, _ := a["hideTarget"].(bool)
 	showOutcome, _ := a["showOutcome"].(bool)
 	var callID string
 	if err := tx.QueryRow(ctx, `INSERT INTO test_call (campaign_id, session_id, test_id, inputs, hide_target, show_outcome, created_by_user_id)

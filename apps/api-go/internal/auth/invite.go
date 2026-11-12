@@ -92,6 +92,15 @@ func unclaimed(ctx context.Context, conn core.Conn, campaignID string) ([]ActorB
 	return slices.DeleteFunc(pcs, func(a ActorBrief) bool { return taken[a.ID] }), err
 }
 
+// PlayerSeats counts the seats a room without a GM seats: every member (each is a player there) and every guest's player
+// token. The table's TV is not a seat.
+func PlayerSeats(ctx context.Context, conn core.Conn, campaignID string) (int, error) {
+	var n int
+	err := conn.QueryRow(ctx, `SELECT (SELECT count(*) FROM membership WHERE campaign_id = $1)
+		+ (SELECT count(*) FROM access_token WHERE campaign_id = $1 AND role = 'player' AND revoked_at IS NULL)`, campaignID).Scan(&n)
+	return n, err
+}
+
 // InvitePreview is what an invite's page shows before it is accepted.
 type InvitePreview struct {
 	CampaignID   string       `json:"campaignId"`
@@ -157,12 +166,15 @@ func AcceptInvite(ctx context.Context, tx core.Conn, code string, user *User, bo
 	}
 	campaignID = inv.campaignID
 	var archived bool
-	err = tx.QueryRow(ctx, `UPDATE campaign SET state_version = state_version + 1 WHERE id = $1 RETURNING archived_at IS NOT NULL`,
-		campaignID).Scan(&archived)
+	var tableMode string
+	err = tx.QueryRow(ctx, `UPDATE campaign SET state_version = state_version + 1 WHERE id = $1
+		RETURNING archived_at IS NOT NULL, table_mode`, campaignID).Scan(&archived, &tableMode)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return "", "", err
 	}
 	switch {
+	case !archived && tableMode != cs.TableModeGM && inv.role != "player":
+		return "", "", cs.Fail("noGmSeats") // an invite made before the table changed mode
 	case archived:
 		return "", "", cs.Fail("gameArchived")
 	case asGuest && !inv.allowGuests:
@@ -174,6 +186,15 @@ func AcceptInvite(ctx context.Context, tx core.Conn, code string, user *User, bo
 		m, err := memberOf(ctx, tx, campaignID, user.UserID)
 		if err != nil || m != nil {
 			return campaignID, "", err // already seated: nothing to use up
+		}
+	}
+	if tableMode == cs.TableModeSolo {
+		seats, err := PlayerSeats(ctx, tx, campaignID)
+		if err != nil {
+			return "", "", err
+		}
+		if seats >= 1 {
+			return "", "", cs.Fail("soloOneSeat")
 		}
 	}
 	useUp := func() error {

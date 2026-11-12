@@ -76,6 +76,28 @@ test("a homebrew ruleset needs no cites", () => {
   hasProblem(problems(m), "resources[0].cite", /needs a cite/);
 });
 
+test("the game block: bounds, no repeated mode, and a cite for playing without a GM outside homebrew", () => {
+  const game = { title: "Table", players: { min: 1, max: 4 }, modes: ["gm", "gmless"] as ("gm" | "gmless")[] };
+  const m = { ...sample(), game };
+  hasProblem(problems(m), "game.cite", /needs a cite/);
+  assert.deepEqual(problems({ ...m, game: { ...game, cite: "Book p.3" } }), []);
+  // A game played with a GM only states no rule, and a homebrew one needs no cite.
+  assert.deepEqual(problems({ ...m, game: { ...game, modes: ["gm"] } }), []);
+  const ours: RulesetInput = { ...sample(), sources: [{ id: "ours", title: "Our table", license: "homebrew" }], game };
+  delete ours.resources?.[0]?.cite;
+  delete ours.initiative.cite;
+  delete ours.tests?.check?.cite;
+  assert.deepEqual(problems(ours), []);
+  hasProblem(problems({ ...m, game: { ...game, players: { min: 3, max: 2 } } }), "game.players", /max is below min/);
+  hasProblem(problems({ ...m, game: { ...game, modes: ["gm", "gm"] } }), "game.modes", /listed twice/);
+  hasProblem(problems({ ...m, game: { ...game, modes: [] } }), "game.modes", /Too small/);
+  hasProblem(problems({ ...m, game: { ...game, modes: ["party"] } }), "game.modes[0]", /.+/);
+  hasProblem(problems({ ...m, game: { ...game, title: "" } }), "game.title", /Too small/);
+  const r = validateRuleset({ ...m, game: { ...game, cite: "x" } });
+  assert.ok(r.ok);
+  if (r.ok) assert.deepEqual(r.ruleset.game?.genres, []);
+});
+
 test("schema errors come back with paths", () => {
   const m = sample();
   const bad = { ...m, version: "one", entities: [{ ...m.entities[0], base: "vehicle" }] };

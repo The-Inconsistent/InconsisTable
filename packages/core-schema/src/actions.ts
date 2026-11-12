@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { Permission } from "./permissions.ts";
 import type { RefusalBody } from "./refusals.ts";
-import { CogmScope, MemberRole } from "./seat.ts";
+import { CogmScope, MemberRole, TableMode } from "./seat.ts";
 import {
   ActorKind,
   ActorName,
@@ -51,6 +51,8 @@ export const Action = z.discriminatedUnion("type", [
   // for who owns them; the handler looks them up as the caller's.
   z.object({ type: z.literal("campaign.setRuleset"), rulesetVersionId: id }),
   z.object({ type: z.literal("campaign.unpinRuleset") }),
+  // How the room sits: owner only, between sessions, among the modes the ruleset allows (docs/adr/0009-table-modes.md).
+  z.object({ type: z.literal("campaign.setTableMode"), mode: TableMode }),
   z.object({ type: z.literal("campaign.attachPack"), packVersionId: id }),
   z.object({ type: z.literal("campaign.detachPack"), packVersionId: id }),
 
@@ -221,6 +223,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "campaign.transferAccept": null,
   "campaign.setRuleset": "campaign:ruleset",
   "campaign.unpinRuleset": "campaign:ruleset",
+  "campaign.setTableMode": "campaign:table_mode",
   "campaign.attachPack": "campaign:ruleset",
   "campaign.detachPack": "campaign:ruleset",
   "session.start": "session:run",

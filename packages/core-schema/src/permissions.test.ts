@@ -10,6 +10,7 @@ const ctxOf = ({ seat, userId = null }: { seat: Seat; userId?: string | null }):
   campaignId: "c1",
   userId,
   campaignOwnerId: OWNER,
+  tableMode: "gm",
   seat,
 });
 const owner = ctxOf({ userId: OWNER, seat: { kind: "member", role: "gm", scopes: [], characterIds: [] } });
@@ -118,15 +119,15 @@ test("GMs act on players only; the owner on every other seat", () => {
   assert.equal(canActOnMember({ ctx: owner, target: target("u-gm", "gm") }), true);
   assert.equal(canActOnMember({ ctx: owner, target: target("u-co", "cogm") }), true);
   // A GM removes players, not a co-GM or another GM, and never the owner (docs/design.md §3.6).
-  assert.equal(canActOnMember({ ctx: gm, target: target("u-pl", "player") }), true);
+  assert.equal(canActOnMember({ ctx: gm, target: { userId: "u-pl", role: "player" } }), true);
   assert.equal(canActOnMember({ ctx: gm, target: target("u-co", "cogm") }), false);
   assert.equal(canActOnMember({ ctx: gm, target: target("u-gm2", "gm") }), false);
   assert.equal(canActOnMember({ ctx: gm, target: target(OWNER, "gm") }), false);
   // A co-GM removes players only; a player nobody.
-  assert.equal(canActOnMember({ ctx: cogm(["party"]), target: target("u-pl", "player") }), true);
+  assert.equal(canActOnMember({ ctx: cogm(["party"]), target: { userId: "u-pl", role: "player" } }), true);
   assert.equal(canActOnMember({ ctx: cogm(["party"]), target: target("u-co2", "cogm") }), false);
   assert.equal(canActOnMember({ ctx: player, target: target("u-pl2", "player") }), false);
-  assert.equal(canActOnMember({ ctx: guest, target: target("u-pl", "player") }), false);
+  assert.equal(canActOnMember({ ctx: guest, target: { userId: "u-pl", role: "player" } }), false);
   // Not even an admin removes the owner: the room is transferred instead.
   assert.equal(canActOnMember({ ctx: admin, target: target(OWNER, "gm") }), false);
   assert.equal(canActOnMember({ ctx: admin, target: target("u-gm", "gm") }), true);
@@ -152,4 +153,88 @@ test("every action declares a known permission", () => {
 
 test("the GM grant set is a superset of what a co-GM can ever reach", () => {
   for (const perm of SEAT_GRANTS.cogm) assert.ok(SEAT_GRANTS.gm.has(perm), perm);
+});
+
+// Without a GM (docs/adr/0009-table-modes.md) every player seat runs the table; nobody reads what is kept for a GM.
+const inMode = (ctx: Ctx, tableMode: Ctx["tableMode"]): Ctx => ({ ...ctx, tableMode });
+const held = (ctx: Ctx) => Permission.options.filter((perm) => can(ctx, perm));
+const PLAYER_BASE = ["codex:read", "request:send", "safety:signal", "seat:leave"];
+const TABLE_RUN = ["session:run", "encounter:run", "clock:run", "test:call", "codex:write", "codex:reveal"];
+const OWNER_PLAYS = [
+  "campaign:update",
+  "campaign:archive",
+  "member:invite",
+  "member:remove",
+  "token:issue",
+  "character:create",
+];
+const OWNER_ONLY_PERMS = [
+  "campaign:delete",
+  "campaign:transfer",
+  "campaign:ruleset",
+  "campaign:table_mode",
+  "member:appoint",
+];
+const sorted = (xs: readonly string[]) => [...xs].sort();
+
+for (const mode of ["gmless", "solo"] as const) {
+  test(`${mode}: a player seat holds the table-running permissions, never the secrets`, () => {
+    for (const seat of [player, guest]) {
+      assert.deepEqual(sorted(held(inMode(seat, mode))), sorted([...PLAYER_BASE, ...TABLE_RUN]));
+    }
+    assert.equal(can(inMode(player, mode), "codex:read_secret"), false);
+    assert.equal(can(inMode(player, mode), "character:edit:any"), false);
+    assert.equal(can(inMode(player, mode), "request:resolve"), false);
+  });
+
+  test(`${mode}: the owner is a player seat that also keeps the room`, () => {
+    const ownerSeat = inMode(
+      { ...owner, seat: { kind: "member", role: "player", scopes: [], characterIds: [] } },
+      mode,
+    );
+    assert.deepEqual(
+      sorted(held(ownerSeat)),
+      sorted([...PLAYER_BASE, ...TABLE_RUN, ...OWNER_PLAYS, ...OWNER_ONLY_PERMS]),
+    );
+    // Still no secrets: the owner counts as running the room only for a private pack, not for what is kept for a GM.
+    assert.equal(can(ownerSeat, "codex:read_secret"), false);
+    assert.equal(can(ownerSeat, "character:edit:any"), false);
+  });
+
+  test(`${mode}: a GM or co-GM seat left over from before acts as a player`, () => {
+    const everything = cogm(["party", "session", "combat", "codex", "codex.secrets"]);
+    assert.deepEqual(
+      sorted(held(inMode(everything, mode))),
+      sorted(held(inMode({ ...player, seat: { ...player.seat } }, mode))),
+    );
+    assert.equal(can(inMode(gm, mode), "codex:read_secret"), false);
+    assert.equal(can(inMode(gm, mode), "campaign:update"), false);
+    assert.equal(can(inMode(everything, mode), "member:invite"), false);
+  });
+
+  test(`${mode}: the screen reads and nothing more; an admin still does everything`, () => {
+    assert.deepEqual(held(inMode(screen, mode)), ["codex:read"]);
+    assert.equal(can(inMode(admin, mode), "codex:read_secret"), true);
+  });
+
+  test(`${mode}: nobody grants a GM seat`, () => {
+    for (const ctx of [owner, gm, player]) {
+      assert.equal(canGrantRole({ ctx: inMode(ctx, mode), role: "gm" }), false);
+      assert.equal(canGrantRole({ ctx: inMode(ctx, mode), role: "cogm" }), false);
+    }
+    assert.equal(canGrantRole({ ctx: inMode(owner, mode), role: "player" }), true);
+    // A stale GM seat acts on no one.
+    assert.equal(canActOnMember({ ctx: inMode(gm, mode), target: { userId: "u-pl", role: "player" } }), false);
+  });
+
+  test(`${mode}: the :own permissions still need a character the seat holds`, () => {
+    const mine = { actorId: "a1" };
+    assert.equal(can(inMode(player, mode), "test:report:own", mine), true);
+    assert.equal(can(inMode(player, mode), "test:report:own", { actorId: "other" }), false);
+  });
+}
+
+test("a room with a GM keeps its permissions whatever the mode field says elsewhere", () => {
+  assert.deepEqual(sorted(held(inMode(player, "gm"))), sorted(PLAYER_BASE));
+  assert.equal(can(inMode(gm, "gm"), "codex:read_secret"), true);
 });

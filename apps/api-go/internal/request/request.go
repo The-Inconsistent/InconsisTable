@@ -70,7 +70,7 @@ func LoadAnswers(ctx context.Context, conn core.Conn, campaignID string) ([]cs.R
 // Send is request.send. Only a resource the seat may not change itself, on a character it holds, can be asked for.
 //
 // ponytail: shared pools have no storage yet, so a request with no actor is refused; the table already allows a NULL
-// actor_id for the day party-scope pools land, an upgrade that also makes a GM-less room apply a request directly.
+// actor_id for the day party-scope pools land. A room without a GM applies a request at once instead of queuing it.
 func Send(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	if c.UserID == nil {
 		return cs.Result{}, cs.Fail("noPermission")
@@ -115,6 +115,15 @@ func Send(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	if dec, _ := engine.StepsFor(res.Def.EditableBy, false); dec {
 		return cs.Result{}, cs.Fail("requestSpendYourself")
 	}
+	amount, _ := a["amount"].(float64)
+	if !c.HasGM() {
+		// Nobody answers a request without a GM, so the table does: the spend applies at once, through the same clamped,
+		// logged path an approval takes, under the asker's name. Everything above has been checked as for a request.
+		table := c
+		table.Seat = cs.Seat{Kind: cs.SeatAdmin}
+		actionID, err := spend(ctx, tx, table, actorID, resource, int(amount))
+		return cs.Done(actionID), err
+	}
 	var waiting int
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM spend_request WHERE campaign_id = $1 AND user_id = $2 AND status = 'pending'`,
 		c.CampaignID, *c.UserID).Scan(&waiting); err != nil {
@@ -123,7 +132,6 @@ func Send(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	if waiting >= MaxPending {
 		return cs.Result{}, cs.Fail("requestLimit")
 	}
-	amount, _ := a["amount"].(float64)
 	var id string
 	err = tx.QueryRow(ctx, `INSERT INTO spend_request (campaign_id, user_id, actor_id, resource_id, amount, note)
 		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id::text`,
@@ -191,21 +199,27 @@ func Approve(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resul
 	if err != nil {
 		return cs.Result{}, err
 	}
-	rc, err := ruleset.Open(ctx, tx, c)
-	if err != nil {
-		return cs.Result{}, err
-	}
-	deltas, err := rc.Run(ctx, ruleset.Run{Primitive: "resource.capped", Op: "adjust", NoTurn: true,
-		Input: map[string]any{"actorId": actorID, "resource": resource, "delta": float64(-amount)}})
-	if err != nil {
-		return cs.Result{}, err
-	}
-	actionID, err := rc.Apply(ctx, deltas)
+	actionID, err := spend(ctx, tx, c, actorID, resource, amount)
 	if err != nil {
 		return cs.Result{}, err
 	}
 	_, err = tx.Exec(ctx, `UPDATE spend_request SET status = 'approved', resolved_at = now() WHERE id = $1`, id)
 	return cs.Done(actionID), err
+}
+
+// spend takes amount off the resource: the resource.capped adjust op and the actor pipeline, as a GM's own delta. It
+// returns the logged action's id.
+func spend(ctx context.Context, tx core.Conn, c cs.Ctx, actorID, resource string, amount int) (string, error) {
+	rc, err := ruleset.Open(ctx, tx, c)
+	if err != nil {
+		return "", err
+	}
+	deltas, err := rc.Run(ctx, ruleset.Run{Primitive: "resource.capped", Op: "adjust", NoTurn: true,
+		Input: map[string]any{"actorId": actorID, "resource": resource, "delta": float64(-amount)}})
+	if err != nil {
+		return "", err
+	}
+	return rc.Apply(ctx, deltas)
 }
 
 // Deny is request.deny, with the GM's reason if they gave one.

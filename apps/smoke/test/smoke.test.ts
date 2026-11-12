@@ -3021,3 +3021,132 @@ test("game end: endMet reaches every seat, game.end ranks and closes, result.set
   refused(await bare.owner.send({ type: "game.end" }), "noScoring");
   for (const s of [owner, phone, tv, other.owner, bare.owner]) s.socket.close();
 });
+
+// The fixture, played with a GM, without one or alone (a cite for the rule, as outside homebrew the validator wants).
+const NO_GM_RULESET = {
+  ...FIXTURE_RULESET,
+  id: "api-fixture-nogm",
+  game: {
+    title: "Fixture Table",
+    players: { min: 1, max: 4 },
+    modes: ["gm", "gmless", "solo"],
+    cite: "Fixture p.9",
+  },
+} as typeof FIXTURE_RULESET;
+
+test("a room without a GM: players run the table, nothing is kept for a GM, undo is yours or the owner's", async () => {
+  const ownerDevice = await device("owner-NoGm");
+  const plain = await caller(ownerDevice).post<RulesetReply>("/rulesets", FIXTURE_RULESET);
+  const nogm = await caller(ownerDevice).post<RulesetReply>("/rulesets", NO_GM_RULESET);
+  assert.equal(nogm.status, 201);
+  // A game played with a GM only can't be run any other way, at creation or after.
+  const bad = await post(
+    "/campaigns",
+    { name: "NoGm", rulesetVersionId: plain.body.versionId, tableMode: "gmless" },
+    cookieOf(ownerDevice),
+  );
+  assert.equal(bad.status, 400);
+  assert.equal(((await bad.json()) as { code: string }).code, "modeNotPlayed");
+
+  const res = await post(
+    "/campaigns",
+    { name: "NoGm", rulesetVersionId: nogm.body.versionId, tableMode: "gmless" },
+    cookieOf(ownerDevice),
+  );
+  assert.equal(res.status, 201);
+  const { campaignId } = (await res.json()) as { campaignId: string };
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  assert.equal((await owner.until((s) => s.campaign.name === "NoGm")).campaign.tableMode, "gmless");
+  const me = (await (await get(`/campaigns/${campaignId}/me`, cookieOf(ownerDevice))).json()) as {
+    tableMode: string;
+    seat: { role: string };
+  };
+  assert.deepEqual([me.tableMode, me.seat.role], ["gmless", "player"], "the owner sits as a player");
+
+  const anaDevice = await seatPlayer(owner, "ana-NoGm");
+  const benDevice = await seatPlayer(owner, "ben-NoGm");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  const ben = connect({ auth: { campaignId, cookie: benDevice } });
+  const members = (await owner.until((s) => s.access.members.length === 3)).access.members;
+  const heroOf = (name: string) => members.find((m) => m.userId === uid(`${name}-NoGm`))!.characterIds[0]!;
+  const [lyra, bram] = [heroOf("ana"), heroOf("ben")];
+  for (const [id, level] of [
+    [lyra, 3],
+    [bram, 1],
+  ] as const) {
+    await equip(id, "character", {
+      fields: { level, "attr.con": 10, "attr.dex": 12, diary: "" },
+      resources: { hp: 8, tempHp: 5 },
+    });
+  }
+  ok(await ana.send({ type: "actor.rename", id: lyra, name: "Lyra" }));
+  await ben.until((s) => s.actors.find((a) => a.id === lyra)?.entity === "character");
+
+  // No GM seats: not by appointment, not by invite.
+  refused(await owner.send({ type: "member.appoint", userId: uid("ana-NoGm"), role: "gm" }), "noGmSeats");
+  refused(await owner.send({ type: "invite.create", mode: "room", role: "cogm", allowGuests: false }), "noGmSeats");
+
+  // Any seat starts the session; any seat calls a Test for a character, and its target is shown, never hidden.
+  ok(await ana.send({ type: "session.start" }));
+  const check = (over: Record<string, unknown> = {}) =>
+    ({
+      type: "test.call",
+      testId: "check",
+      actorIds: [bram],
+      inputs: { ability: "dex", dc: 12 },
+      ...over,
+    }) as ActionInput;
+  refused(await ana.send(check({ hideTarget: true })), "testTargetShown");
+  const id = ok(await ana.send(check())).id!;
+  const benCall = callIn(await ben.until((s) => callIn(s, id) !== undefined), id)!;
+  assert.deepEqual(
+    [benCall.showTarget, benCall.targets[0]?.target, benCall.secretInputs],
+    [true, 12, []],
+    "the called player sees the target",
+  );
+  const lyraSees = callIn(await ana.until((s) => callIn(s, id) !== undefined), id)!;
+  assert.equal(lyraSees.targets[0]?.target, 12, "and so does the caller, who holds another character");
+  // The permission to call is not the permission to report for someone else.
+  refused(
+    await ana.send({ type: "test.report", callId: id, actorId: bram, roll: { kind: "faces", faces: [11] } }),
+    "notYourCharacter",
+  );
+  ok(await ben.send({ type: "test.report", callId: id, actorId: bram, roll: { kind: "faces", faces: [11] } }));
+
+  // Nothing is GM-only: a new entry is the party's, and revealing one to the GM is refused.
+  const entry = ok(await ana.send({ type: "codex.save", kind: "npc", title: "The Warden" })).id!;
+  refused(await ana.send({ type: "codex.save", id: entry, kind: "npc", gmNotes: "x" }), "needSecretsScope");
+  await eventually(() => (ben.codex()?.entries.length ?? 0) > 0, "the entry to reach Ben");
+  assert.equal(ben.codex()!.entries[0]!.visibility, "party");
+  refused(await ana.send({ type: "codex.reveal", id: entry, visibility: "gm", audienceMode: "all" }), "noGmHere");
+  assert.equal(
+    ben.codex()!.entries.every((e) => e.visibility !== "gm" && e.gmNotes === ""),
+    true,
+  );
+
+  // Two steps, Ana's then Ben's: each undoes their own, the owner undoes anyone's.
+  ok(await ana.send({ type: "request.send", actorId: lyra, resourceId: "tempHp", amount: 2 }));
+  ok(await ben.send({ type: "request.send", actorId: bram, resourceId: "tempHp", amount: 1 }));
+  await owner.until((s) => s.actors.find((a) => a.id === bram)?.resources.tempHp === 4);
+  assert.equal((await ana.until((s) => s.requests.length === 0)).requests.length, 0, "nothing is queued: it applied");
+  refused(await ana.send({ type: "event.undo" }), "undoOthers");
+  ok(await owner.send({ type: "event.undo" }));
+  await owner.until((s) => s.actors.find((a) => a.id === bram)?.resources.tempHp === 5);
+  ok(await ana.send({ type: "event.undo" }));
+  await owner.until((s) => s.actors.find((a) => a.id === lyra)?.resources.tempHp === 5);
+  refused(await ben.send({ type: "event.undo" }), /Nothing to undo/);
+
+  // How the table sits changes between sessions, by the owner only; it kicks every seat so each resolves again.
+  refused(await owner.send({ type: "campaign.setTableMode", mode: "gm" }), "changeBetweenSessions");
+  ok(await ben.send({ type: "session.end" }));
+  refused(await ana.send({ type: "campaign.setTableMode", mode: "gm" }), "noPermission");
+  refused(await owner.send({ type: "campaign.setTableMode", mode: "solo" }), "soloOneSeat");
+  ok(await owner.send({ type: "campaign.setTableMode", mode: "gm" }));
+  await eventually(() => !owner.socket.connected, "the owner's socket to be dropped");
+  const back = (await (await get(`/campaigns/${campaignId}/me`, cookieOf(ownerDevice))).json()) as {
+    tableMode: string;
+    seat: { role: string };
+  };
+  assert.deepEqual([back.tableMode, back.seat.role], ["gm", "gm"], "back with a GM, the owner is the GM");
+  for (const c of [ana, ben]) c.socket.close();
+});

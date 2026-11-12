@@ -15,11 +15,13 @@ var (
 	CreateGame = schema.Object(
 		schema.Req("name", campaignName),
 		schema.Opt("rulesetVersionId", schema.UUID()),
+		schema.Opt("tableMode", schema.Enum("gm", "gmless", "solo")),
 	)
 	// AdminCreate is the same body from a script, naming the device user who will own the new room.
 	AdminCreate = schema.Object(
 		schema.Req("name", campaignName),
 		schema.Opt("rulesetVersionId", schema.UUID()),
+		schema.Opt("tableMode", schema.Enum("gm", "gmless", "solo")),
 		schema.Opt("ownerUserId", schema.String().Min(1).Max(100)),
 	)
 	// Rename is the body of PATCH /api/me.

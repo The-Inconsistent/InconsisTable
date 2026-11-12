@@ -76,10 +76,15 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 			status = &open
 		}
 		// A new entry goes last among its siblings (the other unparented entries of its kind).
-		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, position)
-			VALUES ($1, $2, $3, coalesce($4, ''), coalesce($5, ''), $6, coalesce($7::text[], '{}'),
+		// A new entry is GM-only; without a GM nothing can be, so it is the party's.
+		visibility := "gm"
+		if !c.HasGM() {
+			visibility = "party"
+		}
+		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, visibility, position)
+			VALUES ($1, $2, $3, coalesce($4, ''), coalesce($5, ''), $6, coalesce($7::text[], '{}'), $8,
 				(SELECT coalesce(max(position) + 1, 0) FROM codex_entry WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NULL))
-			RETURNING id::text`, cid, kind, *title, body, notes, status, planned).Scan(&id)
+			RETURNING id::text`, cid, kind, *title, body, notes, status, planned, visibility).Scan(&id)
 		return cs.Done(id), err
 	}
 	_, err := tx.Exec(ctx, `UPDATE codex_entry SET title = coalesce($2, title), body = coalesce($3, body),
@@ -188,6 +193,9 @@ func Reveal(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	cid, id := c.CampaignID, a.Str("id")
 	if err := ownEntry(ctx, tx, cid, id); err != nil {
 		return cs.Result{}, err
+	}
+	if !c.HasGM() && a.Str("visibility") == "gm" {
+		return cs.Result{}, cs.Fail("noGmHere")
 	}
 	listed := a.Str("audienceMode") == "listed"
 	audience := []string{}

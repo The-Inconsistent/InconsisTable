@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Encounter, Game } from "./encounter.ts";
-import { CogmScope, MemberRole } from "./seat.ts";
+import { CogmScope, MemberRole, TableMode } from "./seat.ts";
 import { TestCall, TestDef } from "./test-call.ts";
 
 // The two snapshots every seat receives (docs/design.md §5.5): `state` (the live table) and `codex` (the world).
@@ -157,6 +157,8 @@ export const LiveState = z.object({
     archived: z.boolean(),
     nextSessionAt: z.string().nullable(),
     nextSessionPlace: z.string(),
+    // How the table sits; the seat view reads it from here, never from the client.
+    tableMode: TableMode,
   }),
   // Increments inside every action's transaction; a client drops a snapshot older than the one it holds, since two
   // api nodes may deliver broadcasts out of order (docs/design.md §5.6).

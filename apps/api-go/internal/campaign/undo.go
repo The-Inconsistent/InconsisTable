@@ -15,6 +15,7 @@ import (
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter/turn"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
 
 // A step undo passed over: a deleted actor, or a turn of an encounter that has ended or a holder who left the fight.
@@ -40,13 +41,18 @@ func Undo(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, 
 		return cs.Result{}, cs.Fail("noSessionRunning")
 	}
 	var actionID string
-	err = tx.QueryRow(ctx, `SELECT action_id::text FROM session_event WHERE `+sessionDeltas+`
-		AND undone_by IS NULL AND action_id IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1`, cid, *sessionID).Scan(&actionID)
+	var author *string
+	err = tx.QueryRow(ctx, `SELECT action_id::text, seat_user_id FROM session_event WHERE `+sessionDeltas+`
+		AND undone_by IS NULL AND action_id IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1`, cid, *sessionID).Scan(&actionID, &author)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return cs.Result{}, cs.Fail("nothingToUndo")
 	}
 	if err != nil {
 		return cs.Result{}, err
+	}
+	// Without a GM every seat undoes its own steps and the owner any step. A guest has no user to match, so none.
+	if !c.HasGM() && c.Seat.Kind != cs.SeatAdmin && !view.IsOwner(c) && (c.UserID == nil || author == nil || *author != *c.UserID) {
+		return cs.Result{}, cs.Fail("undoOthers")
 	}
 	rules, err := compiled.Load(ctx, tx, cid)
 	if err != nil {

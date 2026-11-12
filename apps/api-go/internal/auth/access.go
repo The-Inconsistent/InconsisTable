@@ -115,6 +115,9 @@ func caller(c cs.Ctx) string {
 func InviteCreate(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	role, mode := a.Str("role"), a.Str("mode")
 	actorID, named := a["actorId"].(string)
+	if !c.HasGM() && role != "player" {
+		return cs.Result{}, cs.Fail("noGmSeats")
+	}
 	if !cs.CanGrantRole(c, role) {
 		return cs.Result{}, cs.Fail("onlyInvitePlayers")
 	}
@@ -190,6 +193,9 @@ func MemberRemove(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.
 // MemberAppoint is member.appoint, owner only: appoint a GM or co-GM, demote one, or set a co-GM's scopes.
 func MemberAppoint(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	userID, role := a.Str("userId"), a.Str("role")
+	if !c.HasGM() && role != "player" {
+		return cs.Result{}, cs.Fail("noGmSeats")
+	}
 	if userID == owner(c) {
 		return cs.Result{}, cs.Fail("ownerIsGm")
 	}
@@ -221,8 +227,12 @@ func MemberSeat(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	if err != nil {
 		return cs.Result{}, err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO membership (campaign_id, user_id, role) VALUES ($1, $2, 'gm')
-		ON CONFLICT (campaign_id, user_id) DO UPDATE SET role = 'gm', scopes = '{}'`, c.CampaignID, userID)
+	role := "gm"
+	if !c.HasGM() {
+		role = "player" // an admin's seat in a room without a GM
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO membership (campaign_id, user_id, role) VALUES ($1, $2, $3)
+		ON CONFLICT (campaign_id, user_id) DO UPDATE SET role = $3, scopes = '{}'`, c.CampaignID, userID, role)
 	return cs.Done(""), err
 }
 
@@ -338,7 +348,12 @@ func TransferAccept(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (c
 	if m == nil {
 		return cs.Result{}, cs.Fail("onlyMemberTakesOver")
 	}
-	if _, err := tx.Exec(ctx, `UPDATE membership SET role = 'gm', scopes = '{}' WHERE id = $1`, m.id); err != nil {
+	// The new owner sits as the GM, unless the room has none.
+	seat := "gm"
+	if !c.HasGM() {
+		seat = "player"
+	}
+	if _, err := tx.Exec(ctx, `UPDATE membership SET role = $2, scopes = '{}' WHERE id = $1`, m.id, seat); err != nil {
 		return cs.Result{}, err
 	}
 	_, err = tx.Exec(ctx, `UPDATE campaign SET owner_user_id = $1 WHERE id = $2`, userID, c.CampaignID)

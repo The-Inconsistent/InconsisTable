@@ -3,6 +3,7 @@ package campaign
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 
@@ -44,6 +45,14 @@ func SetRuleset(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	same, err := exists(ctx, tx, `SELECT 1 FROM campaign WHERE id = $1 AND ruleset_version_id = $2`, cid, versionID)
 	if err != nil || same {
 		return cs.Done(""), err
+	}
+	// The room keeps how it sits, so the new game has to be played that way.
+	modes, err := RulesetModes(ctx, tx, versionID)
+	if err != nil {
+		return cs.Result{}, err
+	}
+	if !slices.Contains(modes, c.Mode()) {
+		return cs.Result{}, cs.Fail("modeNotPlayed")
 	}
 	// Characters carry the version their values were built under; a different one would orphan them.
 	used, err := exists(ctx, tx, `SELECT 1 FROM actor WHERE `+builtActor+` AND ruleset_version_id IS DISTINCT FROM $2`, cid, versionID)
@@ -108,8 +117,9 @@ func AttachPack(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 		return cs.Result{}, cs.Fail("packTakenDown")
 	case hidden:
 		return cs.Result{}, cs.Fail("packDeleted")
-	case license == "private" && !view.RunsAsGm(c):
-		// A `private` pack (copied from a book) never leaves the rooms its owner runs as GM (CLAUDE.md, principle 4).
+	case license == "private" && !view.RunsAsGm(c) && !(!c.HasGM() && view.IsOwner(c)):
+		// A `private` pack (copied from a book) never leaves the rooms its owner runs: as GM, or, in a room without a GM,
+		// as the owner, who counts as the one running it (CLAUDE.md, principle 4; docs/adr/0009-table-modes.md).
 		return cs.Result{}, cs.Fail("privatePackGmOnly")
 	}
 	var roomRuleset string

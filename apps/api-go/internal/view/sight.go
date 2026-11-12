@@ -27,17 +27,32 @@ type Sight struct {
 	Requests bool
 	// Party is the gm fields and resources of the party's Characters.
 	Party bool
+	// TableRun is a player seat of a room without a GM: it sees the whole Encounter and every Test call, since nothing
+	// is hidden there (docs/adr/0009-table-modes.md). It sees none of the GM side: no `gm` entry, note, pack entry,
+	// field or hidden target, whatever it is allowed to run.
+	TableRun bool
 }
 
 // RunsAsGm says whether the seat runs the room as its GM. An admin who opened it does not: they see all, run nothing.
-func RunsAsGm(c cs.Ctx) bool { return c.Seat.Kind == cs.SeatMember && c.Seat.Role == "gm" }
+// Without a GM nobody does.
+func RunsAsGm(c cs.Ctx) bool { return c.HasGM() && c.Seat.Kind == cs.SeatMember && c.Seat.Role == "gm" }
 
 func isOwner(c cs.Ctx) bool {
 	return c.UserID != nil && c.CampaignOwnerID != nil && *c.UserID == *c.CampaignOwnerID
 }
 
+// IsOwner says whether the seat is the room's owner.
+func IsOwner(c cs.Ctx) bool { return isOwner(c) }
+
 // SightOf is the seat's sight. The co-GM scopes are asked of CanInCampaign, which also decides actions, not copied.
+//
+// Without a GM the table permissions (session:run, encounter:run, test:call, codex:write...) go to every player, so the
+// sight is NOT read from them: that would hand every player the GM side. Only an unseated admin sees all there.
 func SightOf(c cs.Ctx) Sight {
+	if !c.HasGM() && c.Seat.Kind != cs.SeatAdmin {
+		player := c.Role() == "player"
+		return Sight{TableRun: player, Combat: player}
+	}
 	all := c.Seat.Kind == cs.SeatAdmin || RunsAsGm(c) || isOwner(c)
 	can := func(perm string) bool { return all || cs.CanInCampaign(c, perm, "") }
 	return Sight{
@@ -64,6 +79,9 @@ func HeldBy(c cs.Ctx) []string {
 // ActorGmSide says whether the seat sees and writes every value of an actor of this kind: party covers the party,
 // combat the rest.
 func ActorGmSide(c cs.Ctx, kind string) bool {
+	if !c.HasGM() {
+		return SightOf(c).All // nobody is on the GM side of anything
+	}
 	return SightOf(c).All || cs.CanInCampaign(c, cs.GMPermOf(kind), "")
 }
 
@@ -71,15 +89,22 @@ func ActorGmSide(c cs.Ctx, kind string) bool {
 // editableBy. A co-GM outside the kind's GM side still writes what everyone sees.
 func ActorWriteSide(c cs.Ctx, kind, visibility string) bool {
 	return ActorGmSide(c, kind) ||
-		(c.Seat.Kind == cs.SeatMember && c.Seat.Role == "cogm" && (visibility == "public" || visibility == "party"))
+		(c.Seat.Kind == cs.SeatMember && c.Role() == "cogm" && (visibility == "public" || visibility == "party"))
 }
 
 // ReadableEntryVisibilities is the visibilities of pack entries the seat may read.
 func ReadableEntryVisibilities(c cs.Ctx) []string {
-	if SightOf(c).Combat {
+	if ReadsGM(c) {
 		return []string{"public", "party", "gm"}
 	}
 	return []string{"public", "party"}
+}
+
+// ReadsGM says whether the seat reads `gm` pack entries and the `gm` definitions of the manifest. Without a GM nobody
+// does, whatever the seat runs.
+func ReadsGM(c cs.Ctx) bool {
+	sight := SightOf(c)
+	return sight.All || (c.HasGM() && sight.Combat)
 }
 
 func isScreen(c cs.Ctx) bool { return c.Seat.Kind == cs.SeatToken && c.Seat.Role == "screen" }

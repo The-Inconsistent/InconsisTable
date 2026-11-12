@@ -1,4 +1,5 @@
 import {
+  canInCampaign,
   PARTY_KINDS,
   type Actor,
   type BuilderDraftBody,
@@ -57,7 +58,7 @@ const NO_VALUES = { entity: "", fields: {}, resources: {}, derived: {}, conditio
 export function seatManifest({ ruleset, ctx }: { ruleset: Ruleset; ctx: Ctx }): Ruleset {
   const sight = sightOf(ctx);
   // ponytail: the manifest is not split per entity kind; a co-GM with `party` or `combat` reads every definition
-  if (sight.combat || sight.party) return ruleset;
+  if (sight.all || (ctx.tableMode === "gm" && (sight.combat || sight.party))) return ruleset;
   return {
     ...ruleset,
     entities: ruleset.entities.map((e) => ({
@@ -77,12 +78,15 @@ export function seatManifest({ ruleset, ctx }: { ruleset: Ruleset; ctx: Ctx }): 
 export function seatView({
   snapshot,
   compiled,
-  ctx,
+  ctx: seated,
 }: {
   snapshot: Snapshot;
   compiled: CompiledRuleset | null;
   ctx: Ctx;
 }): SeatView {
+  // The mode is the campaign row's, as loaded with this snapshot: a socket opened before the table changed mode must
+  // not keep the sight it was handed.
+  const ctx: Ctx = { ...seated, tableMode: snapshot.state.campaign.tableMode };
   const sight = sightOf(ctx);
   const myDraft = (ctx.userId !== null && snapshot.drafts.get(ctx.userId)) || null;
   const manifest = compiled && seatManifest({ ruleset: compiled.ruleset, ctx });
@@ -233,12 +237,12 @@ function seatState({
       }),
     session: state.session && { ...state.session, notes: sight.session ? state.session.notes : "" },
     tests: seatTests({ tests: state.tests, ctx, sight }),
-    testDefs: sight.session ? state.testDefs : [],
+    testDefs: sight.session || sight.tableRun ? state.testDefs : [],
     encounter: seatEncounter({ encounter: state.encounter, views, sight }),
     access: {
       ...state.access,
       // Invite codes are never in the snapshot, but who was invited for what is the party side's business.
-      invites: sight.party ? state.access.invites : [],
+      invites: sight.party || canInCampaign({ ctx, perm: "member:invite" }) ? state.access.invites : [],
     },
   };
 }

@@ -13,6 +13,7 @@ type (
 		Archived         bool    `json:"archived"`
 		NextSessionAt    *string `json:"nextSessionAt"`
 		NextSessionPlace string  `json:"nextSessionPlace"`
+		TableMode        string  `json:"tableMode"`
 	}
 	// Session is the running session.
 	Session struct {

@@ -28,10 +28,17 @@ export type Seat =
   // OPEN AS ADMIN: the admin key at a table, with no user and no seat.
   | { kind: "admin" };
 
+// How a room sits (docs/adr/0009-table-modes.md): with a GM, without one (every player runs the table together), or one
+// player alone. A column of `campaign`, changed only between sessions.
+export const TableMode = z.enum(["gm", "gmless", "solo"]);
+export type TableMode = z.infer<typeof TableMode>;
+
 export type Ctx = {
   campaignId: string;
   userId: string | null; // null for token seats and the admin key
   campaignOwnerId: string | null; // null while an owner-less room waits for an admin (owner account deleted)
+  // Read from the campaign row by the server wherever it builds a Ctx; the web only ever receives it.
+  tableMode: TableMode;
   seat: Seat;
 };
 
@@ -43,6 +50,7 @@ export const Me = z.object({
   campaignId: z.string(),
   userId: z.string().nullable(),
   campaignOwnerId: z.string().nullable(),
+  tableMode: TableMode,
   seat: z.discriminatedUnion("kind", [
     z.object({
       kind: z.literal("member"),

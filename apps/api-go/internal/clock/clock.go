@@ -64,7 +64,7 @@ func Create(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	var id string
 	err := tx.QueryRow(ctx, `INSERT INTO clock (campaign_id, name, segments, visibility, entry_id, position)
 		VALUES ($1, $2, $3, $4, $5, (SELECT coalesce(max(position), 0) + 1 FROM clock WHERE campaign_id = $1))
-		RETURNING id::text`, cid, a.Str("name"), int(segments), a.Str("visibility"), entry).Scan(&id)
+		RETURNING id::text`, cid, a.Str("name"), int(segments), visibilityIn(c, a.Str("visibility")), entry).Scan(&id)
 	return cs.Done(id), err
 }
 
@@ -112,6 +112,7 @@ func Update(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 		name = &s
 	}
 	if s, sent := a["visibility"].(string); sent {
+		s = visibilityIn(c, s)
 		visibility = &s
 	}
 	var segments *int
@@ -132,6 +133,15 @@ func Update(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 		visibility = coalesce($4, visibility), entry_id = CASE WHEN $5 THEN $6::uuid ELSE entry_id END,
 		filled = LEAST(filled, coalesce($3, segments)) WHERE id = $1`, id, name, segments, visibility, entrySent, entryID)
 	return cs.Done(id), err
+}
+
+// A clock is the party's where nobody runs the room as GM: nothing can be kept from the table, so the default `gm` reads
+// as `party`.
+func visibilityIn(c cs.Ctx, visibility string) string {
+	if !c.HasGM() && visibility == "gm" {
+		return "party"
+	}
+	return visibility
 }
 
 // Delete is clock.delete.

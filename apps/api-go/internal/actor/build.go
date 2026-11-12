@@ -105,7 +105,7 @@ func BuildActor(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, lookup
 			types = append(types, s.Pick)
 		}
 	}
-	lookup, err := lookups(ctx, tx, cid, types, view.SightOf(c).Combat)
+	lookup, err := lookups(ctx, tx, cid, types, view.ReadsGM(c))
 	if err != nil {
 		return "", err
 	}

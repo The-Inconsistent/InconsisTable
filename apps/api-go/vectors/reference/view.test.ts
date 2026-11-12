@@ -118,7 +118,15 @@ const pool: TestCall = {
 };
 
 const state: LiveState = {
-  campaign: { id: "c1", name: "R", ownerUserId: "owner", archived: false, nextSessionAt: null, nextSessionPlace: "" },
+  campaign: {
+    id: "c1",
+    name: "R",
+    ownerUserId: "owner",
+    archived: false,
+    nextSessionAt: null,
+    nextSessionPlace: "",
+    tableMode: "gm",
+  },
   stateVersion: 1,
   session: { id: "s", number: 1, title: "", startedAt: "", endedAt: null, recap: "", notes: "session notes" },
   actors,
@@ -243,6 +251,7 @@ const ctx = (seat: Ctx["seat"], userId: string | null = "u-someone"): Ctx => ({
   campaignId: "c1",
   userId,
   campaignOwnerId: "owner",
+  tableMode: "gm",
   seat,
 });
 const member = (role: "gm" | "cogm" | "player", scopes: CogmScope[] = [], characterIds: string[] = []) =>
@@ -624,4 +633,54 @@ test("requests: the answering side sees every pending request, a player their ow
   assert.deepEqual(seen(ctx(member("player", [], ["lyra"]), "u-lyra")), ["a", "y"]);
   assert.deepEqual(seen(ctx(member("player", [], ["kael"]), "u-kael")), ["b", "x"]);
   assert.deepEqual(seen(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), ["", ""]);
+});
+
+// Without a GM nobody is on the GM side (docs/adr/0009-table-modes.md): no seat receives a `gm` entry, a note for the
+// GM, a `gm` pack entry, the session notes or a hidden Test target, whatever it may run. Asserted per kind of seat.
+describe("a room without a GM", () => {
+  const SEATS: [string, Ctx][] = [
+    ["owner", ctx(member("player"), "owner")],
+    ["owner still seated as gm (stale)", ctx(member("gm"), "owner")],
+    ["stale gm", ctx(member("gm"), "u-gm")],
+    [
+      "stale co-GM with every scope",
+      ctx(member("cogm", ["combat", "codex", "codex.secrets", "party", "session"]), "u-co"),
+    ],
+    ["player", ctx(member("player", [], ["lyra"]), "u-lyra")],
+    ["player holding nothing", ctx(member("player"), "u-none")],
+    ["guest", ctx({ kind: "token", role: "player", characterIds: ["lyra"] }, null)],
+    ["screen", ctx({ kind: "token", role: "screen", characterIds: [] }, null)],
+  ];
+  for (const tableMode of ["gmless", "solo"] as const) {
+    const room: Snapshot = { ...snapshot, state: { ...state, campaign: { ...state.campaign, tableMode } } };
+    for (const [name, seat] of SEATS) {
+      test(`${tableMode}: ${name} receives nothing for the GM`, () => {
+        // The Ctx still carries the mode it was handed (gm): the snapshot's wins.
+        const v = seatView({ snapshot: room, compiled, ctx: seat });
+        assert.deepEqual(
+          v.codex.entries.filter((e) => e.visibility === "gm" || e.gmNotes !== "" || e.plannedTests.length > 0),
+          [],
+        );
+        assert.equal(v.packVisibilities.includes("gm"), false);
+        assert.equal(v.state.session?.notes, "");
+        assert.deepEqual(
+          v.state.tests.filter(
+            (t) => t.secretInputs.length > 0 || t.targets.some((x) => x.target !== null && !t.showTarget),
+          ),
+          [],
+        );
+        assert.deepEqual(
+          v.state.clocks.filter((k) => k.visibility === "gm"),
+          [],
+        );
+        assert.equal(v.manifest?.entities.find((e) => e.id === "character")?.fields.gmNote, undefined);
+      });
+    }
+    test(`${tableMode}: a player running the table sees the whole fight and every call`, () => {
+      const v = seatView({ snapshot: room, compiled, ctx: ctx(member("player", [], ["kael"]), "u-kael") });
+      assert.deepEqual(v.state.encounter?.combatants.map((x) => x.actorId).sort(), ["imp", "ogre", "wisp"]);
+      assert.ok(v.state.tests.length > 0);
+      assert.equal(v.state.testDefs.length, 1);
+    });
+  }
 });

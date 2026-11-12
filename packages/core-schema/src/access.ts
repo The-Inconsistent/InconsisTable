@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MemberRole } from "./seat.ts";
+import { MemberRole, TableMode } from "./seat.ts";
 import { ActorBrief, CampaignName, InviteMode } from "./state.ts";
 
 // REST shapes for signed-in users outside a table: the lobby, creating a game, and invite links.
@@ -13,6 +13,8 @@ export const LobbyGame = z.object({
   role: MemberRole.nullable(), // the caller's seat there; null when they hold none
   isOwner: z.boolean(),
   nextSessionAt: z.string().nullable(), // members only
+  tableMode: TableMode,
+  plays: z.string().nullable(), // what it plays: the game block's title, else the ruleset's name; null before a ruleset
 });
 export type LobbyGame = z.infer<typeof LobbyGame>;
 
@@ -35,7 +37,12 @@ export type Lobby = z.infer<typeof Lobby>;
 
 // NEW CAMPAIGN asks for a name and, optionally, one of the owner's imported ruleset versions; the World step arrives in
 // P2 (docs/design.md §3.3).
-export const CreateGame = z.object({ name: CampaignName, rulesetVersionId: z.uuid().optional() });
+export const CreateGame = z.object({
+  name: CampaignName,
+  rulesetVersionId: z.uuid().optional(),
+  // How the table sits; one of the pinned ruleset's modes (default: with a GM).
+  tableMode: TableMode.optional(),
+});
 export type CreateGame = z.infer<typeof CreateGame>;
 
 // What /invite/<code> shows before accepting.

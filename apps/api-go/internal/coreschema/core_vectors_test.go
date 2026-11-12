@@ -20,6 +20,7 @@ type coreVectors struct {
 		Ctx struct {
 			UserID          *string `json:"userId"`
 			CampaignOwnerID *string `json:"campaignOwnerId"`
+			TableMode       string  `json:"tableMode"`
 			Seat            struct {
 				Kind         SeatKind `json:"kind"`
 				Role         string   `json:"role"`
@@ -96,7 +97,7 @@ func TestRefusalsMatchTypeScript(t *testing.T) {
 func TestPermissionsMatchTypeScript(t *testing.T) {
 	v := load(t)
 	for i, x := range v.Permissions {
-		c := Ctx{"c", x.Ctx.UserID, x.Ctx.CampaignOwnerID, Seat{x.Ctx.Seat.Kind, x.Ctx.Seat.Role, x.Ctx.Seat.Scopes, x.Ctx.Seat.CharacterIDs}}
+		c := Ctx{"c", x.Ctx.UserID, x.Ctx.CampaignOwnerID, x.Ctx.TableMode, Seat{x.Ctx.Seat.Kind, x.Ctx.Seat.Role, x.Ctx.Seat.Scopes, x.Ctx.Seat.CharacterIDs}}
 		for perm, want := range x.Can {
 			if got := CanInCampaign(c, perm, ""); got != want {
 				t.Errorf("case %d %s: want %v, got %v", i, perm, want, got)

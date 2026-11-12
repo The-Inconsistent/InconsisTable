@@ -46,7 +46,10 @@ func Create(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	entity, typed := a["entityType"].(string)
 	if !typed {
 		id, err := CreateActor(ctx, tx, cid, a.Str("kind"), a.Str("name"), nil)
-		return cs.Done(id), err
+		if err != nil {
+			return cs.Result{}, err
+		}
+		return cs.Done(id), holdForCreator(ctx, tx, c, id, a.Str("kind"))
 	}
 	rules, err := compiled.Load(ctx, tx, cid)
 	if err != nil {
@@ -70,7 +73,21 @@ func Create(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	if _, err := WriteStart(ctx, tx, c, rules, []StartTarget{{id, map[string]any{}}}); err != nil {
 		return cs.Result{}, err
 	}
-	return cs.Done(id), nil
+	return cs.Done(id), holdForCreator(ctx, tx, c, id, a.Str("kind"))
+}
+
+// holdForCreator seats a character a player makes with them. Without a GM there is no one to hand it out, so the owner
+// who creates a character plays it (docs/adr/0009-table-modes.md); with a GM the GM invites a seat to it.
+func holdForCreator(ctx context.Context, tx core.Conn, c cs.Ctx, actorID, kind string) error {
+	if c.HasGM() || kind != "pc" || c.Seat.Kind != cs.SeatMember || c.UserID == nil {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO membership_character (membership_id, actor_id)
+		SELECT id, $2 FROM membership WHERE campaign_id = $1 AND user_id = $3`, c.CampaignID, actorID, *c.UserID); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `UPDATE actor SET owner_user_id = $2 WHERE id = $1`, actorID, *c.UserID)
+	return err
 }
 
 // Rename is actor.rename.

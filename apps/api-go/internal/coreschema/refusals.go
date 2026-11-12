@@ -137,6 +137,7 @@ var refusals = map[string]string{
 	"noGmSeats":                 "This room has no GM seats.",
 	"testCharactersOnly":        "Without a GM, a Test is called for characters.",
 	"testTargetShown":           "Without a GM, a Test's target is shown to everyone.",
+	"testTableOnly":             "Without a GM a Test can only use what the whole table can see.",
 	"undoOthers":                "You can only undo your own steps.",
 	"noEncounterRunning":        "No encounter is running",
 	"encounterRunning":          "An encounter is already running",

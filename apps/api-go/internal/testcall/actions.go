@@ -15,6 +15,7 @@ import (
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
 
 // test.call and test.close are `test:call`, test.report is `test:report:own` (apps/api/src/test-call/test-call.actions.ts;
@@ -147,8 +148,14 @@ func callTest(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 		for i, t := range targets {
 			ids[i] = t.ActorID
 		}
-		if test.Def.Kind != "reported" && (hideTarget || !everyoneMay(test.TargetVisibility, ids, built)) {
-			return cs.Result{}, cs.Fail("testTargetShown")
+		// A number read from an owner or gm field is not the table's to see, so such a Test is not called without a GM.
+		if test.Def.Kind != "reported" {
+			if hideTarget {
+				return cs.Result{}, cs.Fail("testTargetShown")
+			}
+			if !everyoneMay(test.TargetVisibility, ids, built, true) || !everyoneMay(test.ModifierVisibility, ids, built, true) {
+				return cs.Result{}, cs.Fail("testTableOnly")
+			}
 		}
 	}
 	sessionID, err := eventlog.RunningSessionID(ctx, tx, cid)
@@ -244,8 +251,13 @@ func report(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 		Scan(&had); err != nil {
 		return cs.Result{}, err
 	}
-	// A player's first report stands, so a roll that failed can't be quietly retaken; the GM side corrects one.
-	if had && !cs.CanInCampaign(c, "test:call", "") {
+	// A player's first report stands, so a roll that failed can't be quietly retaken; the GM side corrects one, and without a
+	// GM the owner does (the other players are players there too).
+	corrects := cs.CanInCampaign(c, "test:call", "")
+	if !c.HasGM() {
+		corrects = c.Seat.Kind == cs.SeatMember && view.IsOwner(c)
+	}
+	if had && !corrects {
 		return cs.Result{}, cs.Fail("alreadyReported")
 	}
 	// The schema allows a roll or an outcome; which one this Test takes is the ruleset's.

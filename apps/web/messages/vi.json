@@ -400,7 +400,8 @@
   },
   "tableMode": {
     "title": "Bàn ngồi kiểu nào",
-    "betweenSessions": "Chỉ đổi giữa các buổi chơi."
+    "betweenSessions": "Chỉ đổi giữa các buổi chơi.",
+    "becomesVisible": "Chuyển sang bàn không có GM thì các sinh vật và NPC GM đã chuẩn bị sẽ hiện cho cả bàn (tên và giá trị công khai; giá trị chỉ GM vẫn ẩn)."
   },
   "playerApp": {
     "charactersLabel": "Nhân vật của bạn",
@@ -947,6 +948,7 @@
     "noGmSeats": "Phòng này không có ghế GM.",
     "testCharactersOnly": "Không có GM thì Test chỉ gọi cho nhân vật.",
     "testTargetShown": "Không có GM thì ngưỡng của Test luôn hiện cho mọi người.",
+    "testTableOnly": "Không có GM thì Test chỉ dùng được những gì cả bàn nhìn thấy.",
     "undoOthers": "Bạn chỉ hoàn tác được bước của mình.",
     "requestNoPool": "Bàn này chưa có pool chung."
   },

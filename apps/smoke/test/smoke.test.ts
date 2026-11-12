@@ -2248,6 +2248,31 @@ test("builder drafts: only their owner is sent one, a good build deletes it, and
   for (const c of [owner, ana.c, ben.c]) c.socket.close();
 });
 
+test("actor.spawn: without a GM nobody places a gm entry, and the refusal does not tell it exists", async () => {
+  const ownerDevice = await device("owner-SpawnNoGm");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", {
+    ...BUILD_RULESET,
+    game: { title: "Sample Table", players: { min: 1, max: 4 }, modes: ["gm", "gmless"], cite: "Sample p.1" },
+  });
+  const pk = await me.post<PackReply>("/packs", BUILD_PACK);
+  assert.deepEqual([rs.status, pk.status], [201, 201]);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "SpawnNoGm",
+    rulesetVersionId: rs.body.versionId,
+    tableMode: "gmless",
+  });
+  const owner = connect({ auth: { campaignId: made.body.campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const spawn = (key: string) =>
+    ({ type: "actor.spawn", packVersionId: pk.body.versionId, key, count: 1 }) as ActionInput;
+  // ember-wisp is a gm entry: refused exactly as a key the pack lacks.
+  refused(await owner.send(spawn("ember-wisp")), "entryNotInPack");
+  refused(await owner.send(spawn("no-such-key")), "entryNotInPack");
+  owner.socket.close();
+});
+
 test("actor.spawn: the GM places numbered creatures from an attached pack, as rows, and nobody else may", async () => {
   const { owner, ana, ben, campaignId, packVersionId, otherVersionId } = await buildRoom("Spawn");
   const spawn = (over: Record<string, unknown> = {}) =>

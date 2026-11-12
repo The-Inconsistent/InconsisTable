@@ -86,7 +86,7 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 	for _, r := range rows {
 		state.Actors = append(state.Actors, actor.ToLive(built[r.Actor.ID]))
 	}
-	if state.Tests, err = testcall.Load(ctx, conn, campaignID, sessionID, compiled, built); err != nil {
+	if state.Tests, err = testcall.Load(ctx, conn, campaignID, sessionID, state.Campaign.TableMode != cs.TableModeGM, compiled, built); err != nil {
 		return nil, nil, nil, err
 	}
 	state.TestDefs = testcall.DefsOf(compiled)

@@ -526,7 +526,7 @@ func (g *Gateway) onBookServing(s *socket.Socket, body any) {
 		return
 	}
 	parsed, issues := schema.Parse(cs.BookServing, body)
-	if !cs.CanInCampaign(data.ctx, "codex:write", "") || len(issues) > 0 {
+	if len(issues) > 0 || !g.mayServeBooks(data.ctx) {
 		return
 	}
 	var sources []string

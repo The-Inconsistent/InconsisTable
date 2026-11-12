@@ -272,6 +272,16 @@ func TokenIssue(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	if _, err := actor.OwnActor(ctx, tx, c.CampaignID, actorID); err != nil {
 		return cs.Result{}, err
 	}
+	// Alone, the owner's seat is the one: a guest QR would seat a second player (docs/adr/0009-table-modes.md).
+	if c.Mode() == cs.TableModeSolo {
+		seats, err := PlayerSeats(ctx, tx, c.CampaignID)
+		if err != nil {
+			return cs.Result{}, err
+		}
+		if seats >= 1 {
+			return cs.Result{}, cs.Fail("soloOneSeat")
+		}
+	}
 	token, err := IssueToken(ctx, tx, c.CampaignID, actorID)
 	return cs.Result{OK: true, Token: token}, err
 }

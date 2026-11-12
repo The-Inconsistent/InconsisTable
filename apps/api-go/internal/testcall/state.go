@@ -118,14 +118,15 @@ func TargetInputs(t *engine.CompiledTest) []string {
 }
 
 // Never "visible" for an actor the ruleset has no entry for: fail closed, like everything else.
-func everyoneMay(visibility map[string]string, targets []string, built map[string]*actor.Built) bool {
+func everyoneMay(visibility map[string]string, targets []string, built map[string]*actor.Built, noGM bool) bool {
 	for _, actorID := range targets {
 		b := built[actorID]
 		if b == nil {
 			return false
 		}
 		v, ok := visibility[b.Entity]
-		if !ok || v == "gm" {
+		// Without a GM the numbers go to every seat, so only what the whole table sees is told (docs/adr/0009-table-modes.md).
+		if !ok || v == "gm" || (noGM && v != "public" && v != "party") {
 			return false
 		}
 	}
@@ -143,7 +144,7 @@ func intPtr(n *int32) *int {
 // Load is the open calls and this session's closed ones, whole (every target number and result): the GM's copy. A
 // number the call computed is told to the table only if the GM didn't hide it and the ruleset lets every called
 // character's owner see what it was computed from.
-func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *string, compiled *engine.CompiledRuleset,
+func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *string, noGM bool, compiled *engine.CompiledRuleset,
 	built map[string]*actor.Built) ([]cs.TestCall, error) {
 	if compiled == nil {
 		return []cs.TestCall{}, nil
@@ -245,7 +246,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 		}
 		// A reported Test has no target or modifier to show or hide; its results follow the same rules (house decision #41).
 		isReported := test.Def.Kind == "reported"
-		showTarget := !isReported && !c.hideTarget && everyoneMay(test.TargetVisibility, actorIDs, built)
+		showTarget := !isReported && !c.hideTarget && everyoneMay(test.TargetVisibility, actorIDs, built, noGM)
 		secret := []string{}
 		if !showTarget {
 			secret = TargetInputs(test)
@@ -258,7 +259,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 			ID: c.id, TestID: c.testID, Dice: diceOf(test.Def), Advantage: test.Def.Kind == "sumVsTarget" && test.Def.Advantage,
 			Pool: poolSpecOf(test.Def), Outcomes: outcomesOf(test.Def), Status: c.status, CreatedAt: core.ISOTime(c.createdAt),
 			Inputs: inputs, SecretInputs: secret, ShowTarget: showTarget,
-			ShowModifier: !isReported && everyoneMay(test.ModifierVisibility, actorIDs, built),
+			ShowModifier: !isReported && everyoneMay(test.ModifierVisibility, actorIDs, built, noGM),
 			ShowOutcome:  c.showOutcome || showTarget || isReported, Revealed: c.revealed, Called: len(mine), Reported: reported,
 			Targets: mine,
 		})

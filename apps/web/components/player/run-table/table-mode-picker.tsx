@@ -35,6 +35,7 @@ export function TableModePicker({ me, state, ruleset, send }: TableModePickerPro
         ))}
       </div>
       {state.session !== null && <p className="small dim">{t("betweenSessions")}</p>}
+      {state.campaign.tableMode === "gm" && <p className="small dim">{t("becomesVisible")}</p>}
       {error && (
         <p className="error" role="alert">
           {error}

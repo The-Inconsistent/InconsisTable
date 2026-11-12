@@ -48,3 +48,18 @@ approval takes (house decision #43), under the asker's name, so they can undo it
 
 Rotating who narrates, and a hidden Test target for a table that wants one, are left for later (`docs/p2-plan.md`,
 "Đã chốt" 2 and 3). Every seat has equal powers for now.
+
+## Review fixes
+
+- **Prepared creatures become visible.** Creatures and NPCs prepared under a GM are visible to the table after the switch
+  to `gmless` or `solo`: their names and public fields. Their `gm` values stay hidden. The web says so where the owner
+  picks the mode.
+- **Spawn.** `actor.spawn` of a `gm` pack entry is refused without a GM as `entryNotInPack`, so the reply does not reveal
+  which `gm` keys exist.
+- **Test numbers.** Every seat gets the numbers of a call, so without a GM a Test can only use what the whole table can
+  see (`public` or `party` values): a call reading an `owner` or `gm` field is refused (`testTableOnly`), and a call
+  left open from a GM table tells no seat such a number.
+- **Seats and books.** A solo room issues no guest token. Only the owner announces a book source (`book:serving`) without
+  a GM, checked against the campaign row.
+- **First report stands.** Without a GM a player's first report of a character stands (`alreadyReported`); only the owner
+  corrects, for their own characters.

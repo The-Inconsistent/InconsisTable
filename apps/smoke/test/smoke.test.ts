@@ -21,6 +21,7 @@ import { MAX_PAGE_BYTES } from "@inconsistable/core-schema";
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_PACK } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
+import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
 
 // Spelled out, not imported from the api: this suite is the black-box spec any api implementation has to pass.
@@ -1991,6 +1992,51 @@ test("a reported Test: the table works it out, the phone picks a listed outcome,
   const shown = callIn(await ben.until((s) => callIn(s, id)?.revealed === true), id)!;
   assert.deepEqual(shown.targets.map((t) => t.report?.outcome).toSorted(), ["clean", "missed"]);
   for (const c of [owner, ana, ben, screen]) c.socket.close();
+});
+
+test("degrees of success: the server picks one of four levels; a ruleset with no turn order refuses encounter.start", async () => {
+  const { owner, ownerDevice } = await newRoom("Degrees");
+  const res = await caller(ownerDevice).post<RulesetReply>("/rulesets", SAMPLE_NO_ORDER);
+  assert.equal(res.status, 201);
+  ok(await owner.send({ type: "campaign.setRuleset", rulesetVersionId: res.body.versionId }));
+  const hero = ok(await owner.send({ type: "actor.create", kind: "pc", name: "Dara", entityType: "character" })).id!;
+  await equip(hero, "character", {
+    fields: { level: 1, "attr.con": 10, "attr.dex": 14, guard: 12, diary: "" },
+    resources: { hp: 8, focus: 1 },
+  });
+  ok(await owner.send({ type: "session.start" }));
+  refused(await owner.send({ type: "encounter.start" }), "noTurnOrder");
+
+  // Dexterity 14 is +2. Beating the DC by the step (5) is a level up, missing it by the step a level down.
+  const call = async (dc: number) =>
+    ok(
+      await owner.send({
+        type: "test.call",
+        testId: "ordeal",
+        actorIds: [hero],
+        inputs: { ability: "dex", dc },
+        hideTarget: false,
+      }),
+    ).id!;
+  const reported = async (id: string, faces: number[], want: string) => {
+    ok(await owner.send(report(id, hero, faces)));
+    await owner.until((s) => callIn(s, id)?.targets[0]?.report?.outcome === want);
+  };
+  const id = await call(15);
+  await reported(id, [18], "criticalSuccess"); // 20 against 15
+  await reported(id, [13], "success"); // 15 meets the DC
+  await reported(id, [12], "failure"); // 14
+  await reported(id, [8], "criticalFailure"); // 10, a step under
+  // A natural 20 lifts a failure to a success; a natural 1 drops a success to a failure.
+  await reported(id, [20], "criticalSuccess"); // 22 is already a level up; the top holds
+  const low = await call(2);
+  await reported(low, [1], "failure"); // 3 beats a DC of 2, the natural 1 takes a level
+  const high = await call(30);
+  await reported(high, [20], "failure"); // 22 is a step under 30, the natural 20 takes it back one level
+  assert.deepEqual(await query<{ outcome: string }>("SELECT outcome FROM test_report WHERE call_id = $1", [high]), [
+    { outcome: "failure" },
+  ]);
+  owner.socket.close();
 });
 
 // ---- The builder, creatures from packs and builder drafts (docs/p1-plan.md workstream D) ---------------------------

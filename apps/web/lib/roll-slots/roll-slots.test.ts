@@ -5,6 +5,8 @@ import { digitsOf, facesFrom, outcomeClass, outcomeKey, rollSlots, signed } from
 test("an outcome has a Theme class only when it is the engine's", () => {
   assert.equal(outcomeClass("critical"), "outcome-critical");
   assert.equal(outcomeClass("failure"), "outcome-failure");
+  assert.equal(outcomeClass("criticalSuccess"), "outcome-criticalSuccess");
+  assert.equal(outcomeKey("criticalFailure"), "criticalFailure");
   assert.equal(outcomeClass("nonsense"), "");
   assert.equal(outcomeClass(null), "");
 });

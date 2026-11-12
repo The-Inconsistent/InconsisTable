@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { compileRuleset } from "./compile.ts";
 import { SAMPLE_D20 } from "./fixtures/sample-d20.ts";
+import { SAMPLE_NO_ORDER } from "./fixtures/sample-no-order.ts";
 import { MAX_FIELDS, MAX_MANIFEST_BYTES, validateRuleset, type FieldDef, type RulesetInput } from "./manifest.ts";
 import type { Problem } from "./problem.ts";
 
@@ -42,7 +44,7 @@ test("a rule entry without a cite is refused, with its path", () => {
   delete m.conditions?.[2]?.cite;
   delete m.options?.[0]?.cite;
   delete m.tests?.check?.cite;
-  delete m.initiative.cite;
+  delete m.initiative?.cite;
   delete m.health?.cite;
   const list = problems(m);
   hasProblem(list, "resources[0].cite", /needs a cite/);
@@ -66,7 +68,7 @@ test("a homebrew ruleset needs no cites", () => {
   const m = sample();
   m.sources = [{ id: "ours", title: "Our table", license: "homebrew" }];
   delete m.resources?.[0]?.cite;
-  delete m.initiative.cite;
+  delete m.initiative?.cite;
   delete m.tests?.check?.cite;
   assert.deepEqual(problems(m), []);
   // One non-homebrew source brings the rule back.
@@ -192,4 +194,32 @@ test("a reported Test lists two to eight unique outcomes, each with a cite", () 
   const homebrew = withTest(uncited);
   homebrew.sources = [{ id: "ours", title: "Our table", license: "homebrew" }];
   assert.deepEqual(problems(homebrew), []);
+});
+
+test("degrees of success: a cite outside homebrew, one die for a natural shift, no critOn beside them", () => {
+  const m = sample();
+  const check = m.tests?.check;
+  assert.ok(check?.kind === "sumVsTarget");
+  delete check.critOn;
+  check.degrees = { step: 5, naturalShift: true };
+  hasProblem(problems(m), "tests.check.degrees.cite", /needs a cite/);
+  check.degrees.cite = "Sample p.2";
+  assert.deepEqual(problems(m), []);
+  check.critOn = [20];
+  hasProblem(problems(m), "tests.check.critOn", /replace critOn/);
+  delete check.critOn;
+  check.dice = "2d6";
+  check.advantage = false;
+  hasProblem(problems(m), "tests.check.degrees.naturalShift", /single die/);
+  check.degrees = { step: 0, naturalShift: false, cite: "Sample p.2" };
+  assert.ok(problems(m).length > 0, "step is 1..20");
+});
+
+test("a ruleset with no initiative compiles, with none to run", () => {
+  const r = compileRuleset(SAMPLE_NO_ORDER);
+  assert.ok(r.ok);
+  assert.equal(r.compiled.initiative, null);
+  const ordeal = r.compiled.tests.ordeal?.def;
+  assert.ok(ordeal?.kind === "sumVsTarget");
+  assert.equal(ordeal.degrees?.step, 5);
 });

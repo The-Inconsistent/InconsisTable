@@ -163,6 +163,10 @@ func compiledJSON(c *CompiledRuleset) any {
 			"modifierVisibility": x.ModifierVisibility, "targetVisibility": x.TargetVisibility,
 		}
 	}
+	var initiative any
+	if i := c.Initiative; i != nil {
+		initiative = map[string]any{"score": exprJSON(i.Score), "tiebreak": exprsJSON(i.Tiebreak)}
+	}
 	var scoring any
 	if s := c.Scoring; s != nil {
 		scoring = map[string]any{"score": exprJSON(s.Score), "tiebreaks": exprsJSON(s.Tiebreaks), "endWhen": exprsJSON(s.EndWhen)}
@@ -177,7 +181,7 @@ func compiledJSON(c *CompiledRuleset) any {
 	}
 	return map[string]any{
 		"ruleset": c.Ruleset.Normalized, "entities": entities, "resources": resources, "tests": tests,
-		"initiative": map[string]any{"score": exprJSON(c.Initiative.Score), "tiebreak": exprsJSON(c.Initiative.Tiebreak)},
+		"initiative": initiative,
 		"scoring":    scoring, "healthStates": states, "instantDeath": death, "conditions": sortedKeys(c.Conditions),
 	}
 }

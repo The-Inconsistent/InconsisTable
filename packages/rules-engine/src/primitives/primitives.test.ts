@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import { z } from "zod";
 
+import type { SumVsTarget } from "../manifest.ts";
 import { resolveSumVsTarget } from "./dice-sum-vs-target.ts";
 import { rankOrder } from "./initiative-ranked.ts";
 import { checkDeltas, defineOp, type Primitive, type RuleState } from "./primitive.ts";
@@ -11,6 +12,38 @@ import { clampResource } from "./resource-capped.ts";
 import { actor, applyDeltas, C, CHECK, deltas, HEALTH, INIT, refusal } from "./test-helpers.ts";
 
 // dice.sumVsTarget
+
+// Degrees of success (house decision #42).
+test("sumVsTarget degrees: each boundary, the natural shift and the clamp at both ends", () => {
+  const params: SumVsTarget = { ...CHECK, advantage: false, degrees: { step: 5, naturalShift: true } };
+  delete params.critOn;
+  const out = (total: number, natural?: number, p: SumVsTarget = params) =>
+    resolveSumVsTarget({
+      params: p,
+      input: { target: 15, modifier: 0, advantage: "none", roll: { kind: "total", total, natural } },
+    }).outcome;
+  assert.equal(out(20, 10), "criticalSuccess");
+  assert.equal(out(19, 10), "success");
+  assert.equal(out(15, 10), "success");
+  assert.equal(out(14, 10), "failure");
+  assert.equal(out(11, 10), "failure");
+  assert.equal(out(10, 10), "criticalFailure");
+  // A natural top face moves one level up, a natural 1 one down; the ends hold.
+  assert.equal(out(16, 20), "criticalSuccess");
+  assert.equal(out(12, 20), "success");
+  assert.equal(out(16, 1), "failure");
+  assert.equal(out(12, 1), "criticalFailure");
+  assert.equal(out(30, 20), "criticalSuccess");
+  assert.equal(out(2, 1), "criticalFailure");
+  assert.equal(out(16), "success", "no natural reported: no shift");
+  assert.equal(out(16, 20, { ...params, degrees: { step: 5, naturalShift: false } }), "success");
+  // Ties follow the Test's rule at the success line.
+  assert.equal(out(15, 10, { ...params, ties: "beat" }), "failure");
+  assert.equal(out(20, 10, { ...params, ties: "beat" }), "criticalSuccess");
+  // Without degrees nothing changes.
+  assert.equal(out(20, 20, { ...CHECK, degrees: undefined, critOn: undefined }), "success");
+  assert.equal(out(20, 20, { ...CHECK, degrees: undefined, critOn: [20] }), "critical");
+});
 
 test("sumVsTarget: faces plus modifier against the target", () => {
   assert.ok(CHECK !== undefined);

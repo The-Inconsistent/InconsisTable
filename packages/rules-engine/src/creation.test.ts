@@ -88,7 +88,7 @@ test("a creation step without a cite is refused, and a homebrew ruleset is excus
   delete m.creation?.[1]?.cite;
   has(problems(m), "creation[1].cite", /needs a cite/);
   m.sources = [{ id: "table", title: "Our table", license: "homebrew" }];
-  delete m.initiative.cite;
+  delete m.initiative?.cite;
   assert.deepEqual(
     problems(m).filter((p) => p.path.startsWith("creation")),
     [],

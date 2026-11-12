@@ -143,7 +143,7 @@ test("sample-harvest validates; a seated order without a cite is refused outside
   assert.ok(ok.ok, JSON.stringify(!ok.ok && ok.problems));
   const m = structuredClone(SAMPLE_HARVEST);
   m.sources = [{ id: "sample", title: "Sample", license: "private", pageOffset: 0 }];
-  delete m.initiative.cite;
+  delete m.initiative?.cite;
   const r = validateRuleset(m);
   assert.ok(!r.ok && r.problems.some((p) => p.path === "initiative.cite"));
 });

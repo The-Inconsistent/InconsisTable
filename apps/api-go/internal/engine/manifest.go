@@ -138,10 +138,15 @@ type (
 		Dice         string            `json:"dice"`
 		Advantage    bool              `json:"advantage"`
 		CritOn       []float64         `json:"critOn"`
-		Pool         string            `json:"pool"`
-		Die          float64           `json:"die"`
-		Bands        []poolBandDef     `json:"bands"`
-		Special      *struct {
+		Degrees      *struct {
+			Step         float64 `json:"step"`
+			NaturalShift bool    `json:"naturalShift"`
+			Cite         *string `json:"cite"`
+		} `json:"degrees"`
+		Pool    string        `json:"pool"`
+		Die     float64       `json:"die"`
+		Bands   []poolBandDef `json:"bands"`
+		Special *struct {
 			Label string                  `json:"label"`
 			Count float64                 `json:"count"`
 			Flags map[string]faceRangeDef `json:"flags"`
@@ -242,7 +247,7 @@ type (
 		Resources  []Resource      `json:"resources"`
 		Conditions []Condition     `json:"conditions"`
 		Tests      map[string]Test `json:"tests"`
-		Initiative Initiative      `json:"initiative"`
+		Initiative *Initiative     `json:"initiative"`
 		Phases     []Phase         `json:"phases"`
 		Scoring    *Scoring        `json:"scoring"`
 		Health     Health          `json:"health"`
@@ -440,11 +445,16 @@ func (r *Ruleset) semanticProblems() problems {
 	for _, id := range sortedKeys(r.Tests) {
 		t := r.Tests[id]
 		needCite(t.Cite, "tests."+id)
+		if t.Degrees != nil {
+			needCite(t.Degrees.Cite, "tests."+id+".degrees")
+		}
 		for j, o := range t.Outcomes {
 			needCite(o.Cite, fmt.Sprintf("tests.%s.outcomes[%d]", id, j))
 		}
 	}
-	needCite(r.Initiative.Cite, "initiative")
+	if r.Initiative != nil {
+		needCite(r.Initiative.Cite, "initiative")
+	}
 	for i, x := range r.Phases {
 		needCite(x.Cite, fmt.Sprintf("phases[%d]", i))
 	}
@@ -601,6 +611,14 @@ func (r *Ruleset) semanticProblems() problems {
 		for j, n := range t.CritOn {
 			if n > float64(count*sides) {
 				p.add(fmt.Sprintf("%s.critOn[%d]", path, j), "%s cannot be rolled", esNumber(n))
+			}
+		}
+		if t.Degrees != nil {
+			if t.CritOn != nil {
+				p.add(path+".critOn", "degrees replace critOn")
+			}
+			if t.Degrees.NaturalShift && count != 1 {
+				p.add(path+".degrees.naturalShift", "a natural shift needs a single die (1dX)")
 			}
 		}
 	}

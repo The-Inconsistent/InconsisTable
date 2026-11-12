@@ -90,7 +90,7 @@ export type TestKey = z.infer<typeof TestKey>;
 export const ViewerRole = z.enum(["gm", "player", "screen", "public"]);
 export type ViewerRole = z.infer<typeof ViewerRole>;
 
-export const TestOutcome = z.enum(["success", "failure", "critical"]);
+export const TestOutcome = z.enum(["success", "failure", "critical", "criticalSuccess", "criticalFailure"]);
 export type TestOutcome = z.infer<typeof TestOutcome>;
 
 /** What the special dice of a Dice pool can flag on a roll, beside its outcome. */

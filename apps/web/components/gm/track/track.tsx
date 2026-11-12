@@ -50,7 +50,9 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
   const encounter = state.encounter;
   const actors = useMemo(() => new Map(state.actors.map((a) => [a.id, a])), [state.actors]);
   const rules = sheet.ruleset;
-  const mode: TrackMode = rules?.initiative.strategy === "seated" || rules?.phases ? "game" : "fight";
+  const mode: TrackMode = rules?.initiative?.strategy === "seated" || rules?.phases ? "game" : "fight";
+
+  const noTurnOrder = rules != null && rules.initiative === undefined; // a game without a turn order has no fight to run
 
   // RUN: sends one action, shows the api's refusal, and says whether it went through.
   const run = async (action: ActionInput) => {
@@ -69,7 +71,13 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
 
   return (
     <>
-      <FightBar encounter={encounter} sessionRunning={state.session !== null} run={run} mode={mode} />
+      {noTurnOrder ? (
+        <p className="dim" role="status">
+          {t("noTurnOrder")}
+        </p>
+      ) : (
+        <FightBar encounter={encounter} sessionRunning={state.session !== null} run={run} mode={mode} />
+      )}
       {encounter && <EndNotice encounter={encounter} />}
       {encounter && <PhaseBar encounter={encounter} run={run} />}
       {error && (
@@ -111,7 +119,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
           {encounter && <AddCombatants encounter={encounter} actors={state.actors} run={run} mode={mode} />}
         </fieldset>
       ) : (
-        <p className="dim">{state.session ? t("noFight", { mode }) : t("startSession", { mode })}</p>
+        !noTurnOrder && <p className="dim">{state.session ? t("noFight", { mode }) : t("startSession", { mode })}</p>
       )}
       {!encounter && state.games[0] && <GameResult game={state.games[0]} onCorrect={handleCorrect} />}
       {sheet.ruleset && sheetActor && (

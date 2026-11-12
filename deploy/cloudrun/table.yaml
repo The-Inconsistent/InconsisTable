@@ -1,0 +1,60 @@
+# The table service: the web takes every request, and the api runs beside it as a sidecar on localhost:4000, so the api
+# has no public address (rate limits trust X-Forwarded-For only because of that: TRUST_XFF). Apply with
+# deploy/cloudrun/deploy.sh table; ${...} come from the shell (docs/deploy.md, "Cloud Run").
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: table
+  annotations:
+    run.googleapis.com/ingress: all
+    # Service-level, so a rollout never runs two revisions' worth: the table queue, rate limits and book relay live in
+    # the api process (#84). Never deploy while a session is open: the old revision keeps its sockets.
+    run.googleapis.com/maxScale: "1"
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0" # scale to zero: $0 while nobody plays
+        run.googleapis.com/container-dependencies: '{"web":["api"]}'
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      serviceAccountName: table@${PROJECT}.iam.gserviceaccount.com
+      # A socket is an open request: the longest Cloud Run allows, then Socket.IO reconnects and gets a fresh snapshot.
+      timeoutSeconds: 3600
+      containerConcurrency: 200
+      containers:
+        - name: web
+          image: ${REGION}-docker.pkg.dev/${PROJECT}/inconsis/inconsistable-web:${APP_TAG}
+          ports: [{ containerPort: 3000 }]
+          resources: { limits: { cpu: "1", memory: 512Mi } }
+          env:
+            - { name: API_ORIGIN, value: "http://localhost:4000" }
+        - name: api
+          image: ${REGION}-docker.pkg.dev/${PROJECT}/inconsis/inconsistable-api:${APP_TAG}
+          resources: { limits: { cpu: "1", memory: 512Mi } }
+          env:
+            # No PORT: Cloud Run gives it to the ingress container only, and the api defaults to 4000.
+            - { name: WEB_ORIGIN, value: "https://${TABLE_HOST}" }
+            - { name: TRUST_XFF, value: "1" }
+            - { name: IDP_SIGN_IN, value: "1" }
+            - { name: IDP_ISSUER, value: "https://${AUTH_HOST}" }
+            - { name: IDP_CLIENT_ID, value: inconsistable }
+            - { name: IDP_REDIRECT_URI, value: "https://${TABLE_HOST}/api/auth/callback" }
+            - { name: IDP_CLIENT_JWK_FILE, value: /secrets/idp-client/idp_client_jwk.json }
+            # Neon's direct endpoint (not -pooler: migrations run at boot), ?sslmode=require.
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: table-database-url, key: latest } }
+            - name: ADMIN_KEY
+              valueFrom: { secretKeyRef: { name: table-admin-key, key: latest } }
+          volumeMounts:
+            - { name: idp-client, mountPath: /secrets/idp-client }
+          # Waking Neon and migrating can take a while; the web starts only once this passes.
+          startupProbe:
+            httpGet: { path: /api/health, port: 4000 }
+            periodSeconds: 2
+            failureThreshold: 45
+      volumes:
+        - name: idp-client
+          secret:
+            secretName: table-idp-client-jwk
+            items: [{ key: latest, path: idp_client_jwk.json }]

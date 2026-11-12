@@ -1,0 +1,47 @@
+# Nightly pg_dump of both Neon databases into a Cloud Storage bucket (Neon Free restores only hours back). Runs in
+# ${BACKUP_REGION}, a US region where 5 GB of Cloud Storage is free; the bucket deletes dumps after 8 days
+# (backup-lifecycle.json). Apply with deploy/cloudrun/deploy.sh backup; Cloud Scheduler starts it (docs/deploy.md).
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: backup
+spec:
+  template:
+    spec:
+      taskCount: 1
+      template:
+        spec:
+          serviceAccountName: backup@${PROJECT}.iam.gserviceaccount.com
+          maxRetries: 1
+          timeoutSeconds: 600
+          containers:
+            - name: dump
+              image: postgres:18 # pg_dump must be at least the server's version
+              resources: { limits: { cpu: "1", memory: 512Mi } }
+              env:
+                - name: IT_URL
+                  valueFrom: { secretKeyRef: { name: table-database-url, key: latest } }
+                - { name: AUTH_URL, value: "${AUTH_DATABASE_URL}" }
+              volumeMounts:
+                - { name: backups, mountPath: /backups }
+                - { name: idp-db, mountPath: /run/secrets }
+              command: [sh, -c]
+              # Custom format: compressed, and pg_restore can restore one table. Written as .part first, so a failed
+              # dump never looks like a good one.
+              args:
+                - |
+                  set -eu
+                  stamp=$(date -u +%Y%m%dT%H%M%SZ)
+                  pg_dump -Fc "$IT_URL" > "/backups/it-$stamp.dump.part"
+                  mv "/backups/it-$stamp.dump.part" "/backups/it-$stamp.dump"
+                  PGPASSWORD="$(cat /run/secrets/db_password)" pg_dump -Fc "$AUTH_URL" > "/backups/it_auth-$stamp.dump.part"
+                  mv "/backups/it_auth-$stamp.dump.part" "/backups/it_auth-$stamp.dump"
+          volumes:
+            - name: backups
+              csi:
+                driver: gcsfuse.run.googleapis.com
+                volumeAttributes: { bucketName: "${BACKUP_BUCKET}" }
+            - name: idp-db
+              secret:
+                secretName: inconsisid-files
+                items: [{ key: "3", path: db_password }]

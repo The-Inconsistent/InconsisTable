@@ -145,6 +145,7 @@ export const REFUSALS = {
   alreadyInFight: "{name} is already in the fight",
   notInFight: "That isn't in the fight",
   combatantNotInFight: "That combatant isn't in the fight",
+  noTurnOrder: "This ruleset has no turn order.",
   rerollUnsupported: "This ruleset re-rolls initiative every round, which the tracker doesn't run yet",
   nobodyActed: "Nobody has acted yet",
   firstTurn: "This is the first turn of the fight",

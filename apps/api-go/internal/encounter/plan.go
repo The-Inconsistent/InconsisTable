@@ -73,6 +73,9 @@ func phaseAt(r *engine.Ruleset, t *turn.Turn) int {
 // PlanNext is the deltas of `turn.next`, in the order house decision #15 fixes: `initiative.<strategy>.next`, then
 // `conditions.expire.turnEnd` for the actor whose turn just ended, then `roundEnd` when the round wrapped.
 func PlanNext(r *engine.Ruleset, state *engine.RuleState, t *turn.Turn) ([]engine.Delta, error) {
+	if r.Initiative == nil {
+		return nil, cs.Fail("noTurnOrder")
+	}
 	if t == nil {
 		return nil, cs.Fail("noEncounterRunning")
 	}
@@ -177,6 +180,9 @@ func PlanDone(r *engine.Ruleset, state *engine.RuleState, t *turn.Turn, actorID 
 // PlanPrev is the deltas of `turn.prev`: the marker steps back one place, and back into the previous round from the top
 // of the order. It only moves the marker; expiries already ticked come back by Undo, which takes the whole step back.
 func PlanPrev(r *engine.Ruleset, t *turn.Turn) ([]engine.Delta, error) {
+	if r.Initiative == nil {
+		return nil, cs.Fail("noTurnOrder")
+	}
 	if t == nil {
 		return nil, cs.Fail("noEncounterRunning")
 	}

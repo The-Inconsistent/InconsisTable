@@ -107,7 +107,7 @@ func setByKey(deltas []engine.Delta) map[string]any {
 	return out
 }
 
-var outcomes = []string{"success", "failure", "critical"}
+var outcomes = []string{"success", "failure", "critical", "criticalSuccess", "criticalFailure"}
 
 const unresolved = "The roll couldn't be resolved"
 

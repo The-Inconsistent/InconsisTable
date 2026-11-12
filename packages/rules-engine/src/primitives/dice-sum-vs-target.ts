@@ -46,11 +46,41 @@ export function resolveSumVsTarget({ params, input }: { params: SumVsTarget; inp
     natural = input.roll.natural ?? null;
     total = input.roll.total;
   }
+  const beats = params.ties === "meetOrBeat" ? total >= input.target : total > input.target;
   let outcome: TestOutcome;
-  if (natural !== null && params.critOn?.includes(natural) === true) outcome = "critical";
-  else if (params.ties === "meetOrBeat" ? total >= input.target : total > input.target) outcome = "success";
-  else outcome = "failure";
+  if (params.degrees !== undefined) outcome = degreeOf({ params, input, natural, total, beats });
+  else if (natural !== null && params.critOn?.includes(natural) === true) outcome = "critical";
+  else outcome = beats ? "success" : "failure";
   return { natural, total, outcome };
+}
+
+const DEGREES: TestOutcome[] = ["criticalFailure", "failure", "success", "criticalSuccess"];
+
+// House decision #42: a step past the target is a level up, a step short a level down; a natural top or bottom face of
+// the single die then moves one more, never past the ends.
+function degreeOf({
+  params,
+  input,
+  natural,
+  total,
+  beats,
+}: {
+  params: SumVsTarget;
+  input: ResolveInput;
+  natural: number | null;
+  total: number;
+  beats: boolean;
+}): TestOutcome {
+  const { step, naturalShift } = params.degrees ?? { step: 1, naturalShift: false };
+  let level = beats ? 2 : 1;
+  if (total >= input.target + step) level = 3;
+  else if (total <= input.target - step) level = 0;
+  const sides = plainDice(params.dice)?.sides;
+  if (naturalShift && natural !== null) {
+    if (natural === sides) level += 1;
+    else if (natural === 1) level -= 1;
+  }
+  return DEGREES[Math.min(3, Math.max(0, level))] ?? "failure";
 }
 
 export const diceSumVsTarget: Primitive<SumVsTarget> = {

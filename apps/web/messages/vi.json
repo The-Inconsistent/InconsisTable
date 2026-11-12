@@ -309,7 +309,9 @@
     "outcome": {
       "success": "Đạt",
       "failure": "Trượt",
-      "critical": "Crit"
+      "critical": "Crit",
+      "criticalSuccess": "Thành công lớn",
+      "criticalFailure": "Thất bại lớn"
     },
     "flag": {
       "critical": "Crit",
@@ -411,7 +413,9 @@
     "outcome": {
       "success": "Đạt",
       "failure": "Trượt",
-      "critical": "Crit"
+      "critical": "Crit",
+      "criticalSuccess": "Thành công lớn",
+      "criticalFailure": "Thất bại lớn"
     },
     "label": "Test GM đã gọi",
     "yourCharacter": "nhân vật của bạn",
@@ -599,6 +603,7 @@
     "spawn": "Thêm {count} × {name}"
   },
   "track": {
+    "noTurnOrder": "Bộ luật này không có thứ tự lượt.",
     "paused": "Tạm dừng — hãy bắt đầu buổi chơi để tiếp tục",
     "nobody": "{mode, select, game {Chưa có ai trong ván. Hãy thêm người chơi ở bên dưới.} other {Chưa có ai trong trận. Hãy thêm party ở bên dưới.}}",
     "noFight": "{mode, select, game {Chưa có ván nào đang chạy. Hãy bắt đầu một ván để thêm người chơi.} other {Chưa có trận nào đang chạy. Hãy bắt đầu một trận để thêm party và quái.}}",
@@ -693,7 +698,9 @@
     "outcome": {
       "success": "Đạt",
       "failure": "Trượt",
-      "critical": "Crit"
+      "critical": "Crit",
+      "criticalSuccess": "Thành công lớn",
+      "criticalFailure": "Thất bại lớn"
     },
     "label": "Test {id}",
     "statusOpen": "Đang mở",
@@ -860,6 +867,7 @@
     "alreadyInFight": "{name} đã ở trong trận",
     "notInFight": "Mục đó không ở trong trận",
     "combatantNotInFight": "Người đó không ở trong trận",
+    "noTurnOrder": "Bộ luật này không có thứ tự lượt.",
     "rerollUnsupported": "Bộ luật này tung lại initiative mỗi lượt, bộ theo dõi chưa chạy được kiểu đó",
     "nobodyActed": "Chưa ai hành động",
     "firstTurn": "Đây là lượt đầu tiên của trận",

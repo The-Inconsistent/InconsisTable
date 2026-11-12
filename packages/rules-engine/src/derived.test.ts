@@ -211,7 +211,7 @@ test("expressions in resources, tests, initiative and health are checked at load
   assert.ok(check !== undefined);
   assert.ok(check.kind === "sumVsTarget");
   check.target = "ctx.difficulty";
-  assert.ok(m.initiative.strategy === "ranked");
+  assert.ok(m.initiative?.strategy === "ranked");
   m.initiative.score = "attr.dex > 1";
   m.health = { ...m.health, states: [{ id: "low", when: "res.hp" }] };
   const list = problemsOf(m);

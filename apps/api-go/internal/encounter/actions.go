@@ -31,7 +31,7 @@ func running(ctx context.Context, conn core.Conn, campaignID string) (*turn.Enco
 // The room's ruleset runs a seated order (house decision #36): no scores, a first player.
 func isSeated(ctx context.Context, conn core.Conn, campaignID string) (bool, error) {
 	rules, err := compiled.Load(ctx, conn, campaignID)
-	return rules != nil && rules.Ruleset.Initiative.Strategy == "seated", err
+	return rules != nil && rules.Ruleset.Initiative != nil && rules.Ruleset.Initiative.Strategy == "seated", err
 }
 
 // CloseEncounter ends an encounter (house decision #26), as `encounter.end` and `game.end` both do: expiry, then the
@@ -168,6 +168,9 @@ func start(ctx context.Context, tx core.Conn, cid string) (cs.Result, error) {
 	rules, err := compiled.Load(ctx, tx, cid)
 	if err != nil {
 		return cs.Result{}, err
+	}
+	if rules != nil && rules.Ruleset.Initiative == nil {
+		return cs.Result{}, cs.Fail("noTurnOrder")
 	}
 	var phaseID *string
 	if rules != nil && len(rules.Ruleset.Phases) > 0 {

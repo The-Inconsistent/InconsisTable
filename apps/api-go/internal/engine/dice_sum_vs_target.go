@@ -12,6 +12,12 @@ type sumVsTargetParams struct {
 	ties      string
 	critOn    []float64
 	advantage bool
+	degrees   *degreesParams
+}
+
+type degreesParams struct {
+	step         float64
+	naturalShift bool
 }
 
 func parseSumVsTargetParams(raw any) (sumVsTargetParams, *Refusal) {
@@ -26,6 +32,11 @@ func parseSumVsTargetParams(raw any) (sumVsTargetParams, *Refusal) {
 	}
 	if r.has("critOn") {
 		p.critOn = r.intList("critOn", 0, 20, 1, maxSafeInteger)
+	}
+	if r.has("degrees") {
+		d := r.nested("degrees")
+		p.degrees = &degreesParams{step: d.intIn("step", 1, 20), naturalShift: d.boolOr("naturalShift", false)}
+		r.absorb("degrees", d)
 	}
 	return p, r.refusal("badParams")
 }
@@ -127,7 +138,9 @@ func applySumVsTarget(p sumVsTargetParams, _ *RuleState, in sumVsTargetInput) []
 		beats = total >= in.target
 	}
 	outcome := "failure"
-	if natural != nil && slices.Contains(p.critOn, *natural) {
+	if p.degrees != nil {
+		outcome = degreeOf(p, in.target, natural, total, beats)
+	} else if natural != nil && slices.Contains(p.critOn, *natural) {
 		outcome = "critical"
 	} else if beats {
 		outcome = "success"
@@ -137,6 +150,30 @@ func applySumVsTarget(p sumVsTargetParams, _ *RuleState, in sumVsTargetInput) []
 		deltas = append(deltas, setTest("natural", *natural))
 	}
 	return deltas
+}
+
+var degreeLevels = []string{"criticalFailure", "failure", "success", "criticalSuccess"}
+
+// degreeOf is house decision #42 (dice-sum-vs-target.ts degreeOf): a step past the target is a level up, a step short a
+// level down; a natural top or bottom face of the single die then moves one more, never past the ends.
+func degreeOf(p sumVsTargetParams, target float64, natural *float64, total float64, beats bool) string {
+	level := 1
+	if beats {
+		level = 2
+	}
+	if total >= target+p.degrees.step {
+		level = 3
+	} else if total <= target-p.degrees.step {
+		level = 0
+	}
+	if _, sides, _ := PlainDice(p.dice); p.degrees.naturalShift && natural != nil {
+		if *natural == float64(sides) {
+			level++
+		} else if *natural == 1 {
+			level--
+		}
+	}
+	return degreeLevels[min(3, max(0, level))]
 }
 
 var diceSumVsTarget = definePrimitive(parseSumVsTargetParams, map[string]primitiveOp{

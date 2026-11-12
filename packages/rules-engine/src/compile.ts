@@ -93,7 +93,8 @@ export interface CompiledRuleset {
   resources: Record<string, CompiledResource>;
   conditions: Record<string, Condition>;
   tests: Record<string, CompiledTest>;
-  initiative: CompiledInitiative;
+  /** Null when the manifest has no turn order. */
+  initiative: CompiledInitiative | null;
   /** The game's scoring, or null when the manifest has none. */
   scoring: CompiledScoring | null;
   healthStates: { id: string; label: string | undefined; when: CompiledExpr }[];
@@ -498,7 +499,7 @@ class Compiler {
     }
 
     const init = this.r.initiative;
-    const ranked = init.strategy === "ranked" ? init : null;
+    const ranked = init?.strategy === "ranked" ? init : null;
     const score =
       ranked === null
         ? null
@@ -536,7 +537,9 @@ class Compiler {
       initiative:
         ranked !== null && score !== null
           ? { def: ranked, score, tiebreak: tiebreak.filter((t): t is CompiledExpr => t !== null) }
-          : { def: init as SeatedInitiative, score: null, tiebreak: [] },
+          : init === undefined
+            ? null
+            : { def: init as SeatedInitiative, score: null, tiebreak: [] },
       healthStates,
       instantDeath,
     };

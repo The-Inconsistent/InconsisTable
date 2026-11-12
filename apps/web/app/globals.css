@@ -1032,8 +1032,12 @@ summary {
 .outcome-failure {
   border-bottom: 3px dashed var(--accent);
 }
-.outcome-critical {
+.outcome-critical,
+.outcome-criticalSuccess {
   border-bottom: 4px double var(--brass-lo);
+}
+.outcome-criticalFailure {
+  border-bottom: 4px dotted var(--accent);
 }
 
 /* ---------- The builder: one card per creation step on a single column, so a thumb walks down the page ---------- */

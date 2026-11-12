@@ -127,7 +127,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 	for _, p := range r.Phases {
 		out.Phases = append(out.Phases, cs.EncounterPhase{ID: p.ID, Label: p.Label, Mode: p.Mode})
 	}
-	if r.Initiative.Strategy == "seated" {
+	if r.Initiative != nil && r.Initiative.Strategy == "seated" {
 		out.FirstPlayer = &r.Initiative.FirstPlayer
 	}
 	if hasHealth {

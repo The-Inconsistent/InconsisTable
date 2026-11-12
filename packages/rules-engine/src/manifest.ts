@@ -174,6 +174,17 @@ const testBase = {
   cite: Cite.optional(),
 };
 
+/**
+ * Degrees of success (house decision #42): beat the target by `step` for one level up, miss it by `step` for one level
+ * down. `naturalShift`: a natural highest face of the single die moves the result one level up, the lowest one down.
+ */
+export const Degrees = z.object({
+  step: z.int().min(1).max(20),
+  naturalShift: z.boolean().default(false),
+  cite: Cite.optional(),
+});
+export type Degrees = z.infer<typeof Degrees>;
+
 /** Roll dice, add a modifier, compare with a target. Also the params of the `dice.sumVsTarget` primitive. */
 export const SumVsTarget = z.object({
   ...testBase,
@@ -185,6 +196,8 @@ export const SumVsTarget = z.object({
   advantage: z.boolean().default(false),
   /** Natural results that make the outcome `critical`. */
   critOn: z.array(z.int().min(1)).max(20).optional(),
+  /** Four outcomes instead of two (`criticalSuccess | success | failure | criticalFailure`). Excludes `critOn`. */
+  degrees: Degrees.optional(),
 });
 export type SumVsTarget = z.infer<typeof SumVsTarget>;
 
@@ -419,7 +432,8 @@ export const Ruleset = z.object({
   resources: z.array(Resource).max(200).default([]),
   conditions: z.array(Condition).max(500).default([]),
   tests: z.record(Id, DiceMechanic).default({}),
-  initiative: Initiative,
+  /** Absent: the game has no turn order, and `encounter.start` is refused. */
+  initiative: Initiative.optional(),
   /** The steps a round runs in order. Absent: a round is one pass of the initiative order. */
   phases: z.array(Phase).min(1).max(12).optional(),
   /** Final scores, ranking and the end of the game. Absent: the game has no score to rank. */
@@ -566,9 +580,10 @@ function semanticProblems(r: Ruleset): Problem[] {
   });
   for (const [id, t] of Object.entries(r.tests)) {
     needCite(t.cite, `tests.${id}`);
+    if (t.kind === "sumVsTarget" && t.degrees) needCite(t.degrees.cite, `tests.${id}.degrees`);
     if (t.kind === "reported") t.outcomes.forEach((o, j) => needCite(o.cite, `tests.${id}.outcomes[${j}]`));
   }
-  needCite(r.initiative.cite, "initiative");
+  if (r.initiative) needCite(r.initiative.cite, "initiative");
   r.phases?.forEach((x, i) => needCite(x.cite, `phases[${i}]`));
   if (r.scoring) {
     needCite(r.scoring.cite, "scoring");
@@ -676,6 +691,12 @@ function semanticProblems(r: Ruleset): Problem[] {
       if (n > shape.count * shape.sides)
         out.push({ path: `tests.${id}.critOn[${j}]`, message: `${n} cannot be rolled` });
     });
+    if (t.degrees !== undefined) {
+      if (t.critOn !== undefined) out.push({ path: `tests.${id}.critOn`, message: "degrees replace critOn" });
+      if (t.degrees.naturalShift && shape.count !== 1) {
+        out.push({ path: `tests.${id}.degrees.naturalShift`, message: "a natural shift needs a single die (1dX)" });
+      }
+    }
   }
   return out;
 }

@@ -309,7 +309,9 @@
     "outcome": {
       "success": "Success",
       "failure": "Failure",
-      "critical": "Critical"
+      "critical": "Critical",
+      "criticalSuccess": "Critical success",
+      "criticalFailure": "Critical failure"
     },
     "flag": {
       "critical": "Critical",
@@ -411,7 +413,9 @@
     "outcome": {
       "success": "Success",
       "failure": "Failure",
-      "critical": "Critical"
+      "critical": "Critical",
+      "criticalSuccess": "Critical success",
+      "criticalFailure": "Critical failure"
     },
     "label": "Tests called by the GM",
     "yourCharacter": "your character",
@@ -599,6 +603,7 @@
     "spawn": "Spawn {count} × {name}"
   },
   "track": {
+    "noTurnOrder": "This ruleset has no turn order.",
     "paused": "Paused — start a session to continue",
     "nobody": "{mode, select, game {Nobody is in the game yet. Add the players below.} other {Nobody is in the fight yet. Add the party below.}}",
     "noFight": "{mode, select, game {No game is running. Start one to add the players.} other {No fight is running. Start one to add the party and the creatures.}}",
@@ -693,7 +698,9 @@
     "outcome": {
       "success": "Success",
       "failure": "Failure",
-      "critical": "Critical"
+      "critical": "Critical",
+      "criticalSuccess": "Critical success",
+      "criticalFailure": "Critical failure"
     },
     "label": "Test {id}",
     "statusOpen": "Open",
@@ -860,6 +867,7 @@
     "alreadyInFight": "{name} is already in the fight",
     "notInFight": "That isn't in the fight",
     "combatantNotInFight": "That combatant isn't in the fight",
+    "noTurnOrder": "This ruleset has no turn order.",
     "rerollUnsupported": "This ruleset re-rolls initiative every round, which the tracker doesn't run yet",
     "nobodyActed": "Nobody has acted yet",
     "firstTurn": "This is the first turn of the fight",

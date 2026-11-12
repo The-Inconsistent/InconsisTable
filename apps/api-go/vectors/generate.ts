@@ -21,6 +21,7 @@ import { compileExpr, type CompiledExpr } from "../../../packages/rules-engine/s
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
+import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
 import type { FieldDef, Ruleset } from "../../../packages/rules-engine/src/manifest.ts";
 import { runCreation, type EntryLookup } from "../../../packages/rules-engine/src/creation.ts";
 import { checkFieldValue } from "../../../packages/rules-engine/src/field-value.ts";
@@ -278,6 +279,9 @@ const OP_PARAMS: Record<string, unknown[]> = {
     { kind: "sumVsTarget", target: "10", dice: "2d6", ties: "meetOrBeat", critOn: [12] },
     { kind: "sumVsTarget", target: "10", dice: "2d6+1" },
     { kind: "sumVsTarget", target: "10", dice: "1dF", advantage: true },
+    { kind: "sumVsTarget", target: "10", dice: "1d20", degrees: { step: 5, naturalShift: true } },
+    { kind: "sumVsTarget", target: "10", dice: "1d20", ties: "beat", advantage: true, degrees: { step: 1 } },
+    { kind: "sumVsTarget", target: "10", dice: "2d6", degrees: { step: 3, naturalShift: false } },
   ],
   "dice.poolSuccesses": [
     { kind: "poolSuccesses", target: "3", pool: "5", die: 6, bands: [{ id: "hit", from: 4, to: 6, worth: 1 }] },
@@ -607,6 +611,20 @@ function opVectors() {
             const input = { target, modifier, advantage, roll };
             run({ primitive: "dice.sumVsTarget", op: "resolve", p, state: 0, input });
           }
+  // Degrees of success (house decision #42): every boundary of the step, with the natural die at its top, bottom and middle.
+  for (const p of (OP_PARAMS["dice.sumVsTarget"] ?? []).filter(
+    (x) => (x as { degrees?: unknown }).degrees !== undefined,
+  ))
+    for (const target of [10, 15])
+      for (let total = target - 7; total <= target + 7; total++)
+        for (const natural of [undefined, 1, 2, 10, 19, 20, 6, 12])
+          run({
+            primitive: "dice.sumVsTarget",
+            op: "resolve",
+            p,
+            state: 0,
+            input: { target, roll: { kind: "total", total, ...(natural === undefined ? {} : { natural }) } },
+          });
   return {
     // Arrays, because the order of actors and resources decides the order of deltas and decoded JSON would lose it.
     states: STATES.map((s) => ({
@@ -662,7 +680,7 @@ function checkVectors(sources: readonly string[]) {
   });
 }
 
-const MANIFESTS: unknown[] = [SAMPLE_D20, SAMPLE_HARVEST, SAMPLE_POOL, FIXTURE_RULESET];
+const MANIFESTS: unknown[] = [SAMPLE_D20, SAMPLE_HARVEST, SAMPLE_POOL, SAMPLE_NO_ORDER, FIXTURE_RULESET];
 
 function allStrings(value: unknown, out: string[]): string[] {
   if (typeof value === "string") out.push(value);
@@ -752,7 +770,10 @@ function compiledView(c: CompiledRuleset) {
       modifierVisibility: t.modifierVisibility,
       targetVisibility: t.targetVisibility,
     })),
-    initiative: { score: exprView(c.initiative.score), tiebreak: c.initiative.tiebreak.map(exprView) },
+    initiative:
+      c.initiative === null
+        ? null
+        : { score: exprView(c.initiative.score), tiebreak: c.initiative.tiebreak.map(exprView) },
     scoring:
       c.scoring === null
         ? null
@@ -1049,6 +1070,16 @@ const CRAFTED: object[] = [
   { tests: { t: { ...poolTest, bands: [] } } },
   { tests: { t: reportedTest(["a", "b"]) } },
   { tests: { t: { ...reportedTest(["a", "b", "c"]), inputs: { who: "text" }, inputOptions: { who: ["x"] } } } },
+  { tests: { t: { ...sumTest, degrees: { step: 5, naturalShift: true, cite: "p.1" } } } },
+  { tests: { t: { ...sumTest, degrees: { step: 5 } } } },
+  { tests: { t: { ...sumTest, degrees: { step: 0 } } } },
+  { tests: { t: { ...sumTest, degrees: { step: 21, cite: 3 } } } },
+  { tests: { t: { ...sumTest, critOn: [20], degrees: { step: 2 } } } },
+  { tests: { t: { ...sumTest, dice: "2d6", degrees: { step: 2, naturalShift: true } } } },
+  {
+    sources: [{ id: "s", title: "T", license: "private" }],
+    tests: { t: { ...sumTest, cite: "p.1", degrees: { step: 2 } } },
+  },
   { tests: { t: reportedTest(["a"]) } },
   { tests: { t: reportedTest(["a", "b", "c", "d", "e", "f", "g", "h", "i"]) } },
   { tests: { t: reportedTest(["a", "b", "a"]) } },

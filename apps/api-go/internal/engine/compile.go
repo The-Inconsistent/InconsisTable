@@ -89,7 +89,7 @@ type (
 		Resources    map[string]*CompiledResource
 		Conditions   map[string]*Condition
 		Tests        map[string]*CompiledTest
-		Initiative   CompiledInitiative
+		Initiative   *CompiledInitiative // nil when the manifest has no turn order
 		Scoring      *CompiledScoring
 		HealthStates []CompiledHealthState
 		// InstantDeath goes by the track's resource id.
@@ -673,12 +673,15 @@ func (c *compiler) run() *CompiledRuleset {
 		}
 	}
 
-	init := CompiledInitiative{Def: &c.r.Initiative}
-	if c.r.Initiative.Strategy == "ranked" {
-		init.Score = c.expr(c.r.Initiative.Score, actorScopes, intType, "initiative.score")
-		for j, src := range c.r.Initiative.Tiebreak {
-			if e := c.expr(src, actorScopes, intType, fmt.Sprintf("initiative.tiebreak[%d]", j)); e != nil {
-				init.Tiebreak = append(init.Tiebreak, e)
+	var init *CompiledInitiative
+	if def := c.r.Initiative; def != nil {
+		init = &CompiledInitiative{Def: def}
+		if def.Strategy == "ranked" {
+			init.Score = c.expr(def.Score, actorScopes, intType, "initiative.score")
+			for j, src := range def.Tiebreak {
+				if e := c.expr(src, actorScopes, intType, fmt.Sprintf("initiative.tiebreak[%d]", j)); e != nil {
+					init.Tiebreak = append(init.Tiebreak, e)
+				}
 			}
 		}
 	}
@@ -701,7 +704,7 @@ func (c *compiler) run() *CompiledRuleset {
 		}
 	}
 
-	if len(c.problems) > 0 || !scoringOK || (c.r.Initiative.Strategy == "ranked" && init.Score == nil) {
+	if len(c.problems) > 0 || !scoringOK || (init != nil && init.Def.Strategy == "ranked" && init.Score == nil) {
 		return nil
 	}
 	conditions := map[string]*Condition{}

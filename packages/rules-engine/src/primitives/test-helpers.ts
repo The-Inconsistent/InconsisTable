@@ -18,6 +18,7 @@ export const C = compiled();
 const check = C.tests.check?.def;
 if (check?.kind !== "sumVsTarget") throw new Error("the sample ruleset has no check test");
 export const CHECK = check;
+if (C.initiative === null) throw new Error("the sample ruleset has no initiative");
 export const INIT = C.initiative.def;
 export const HEALTH = HealthTracksParams.parse(C.ruleset.health);
 

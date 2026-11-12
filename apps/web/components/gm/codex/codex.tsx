@@ -16,15 +16,22 @@ import { VisibilityBadge } from "@/components/gm/codex/components/visibility-bad
 import type { Send } from "@/hooks/use-table/use-table";
 import { filterEntries, type KindFilter } from "@/lib/codex/codex";
 
-type CodexProps = { me: Me; state: LiveState; codex: CodexSnapshot | null; send: Send };
+type CodexProps = {
+  me: Me;
+  state: LiveState;
+  codex: CodexSnapshot | null;
+  send: Send;
+  /** The entry open on arrival (PREP's "Open in CODEX"). */
+  initialOpenId?: string | null;
+};
 
 // CODEX: the world's NPCs, places, factions and handouts. The GM writes them, searches them and reveals one to the
 // table or to chosen characters; the server decides who then sees it (docs/design.md §1.3).
-export function Codex({ me, state, codex, send }: CodexProps) {
+export function Codex({ me, state, codex, send, initialOpenId = null }: CodexProps) {
   const t = useTranslations("codex");
   const [kind, setKind] = useState<KindFilter>("all");
   const [query, setQuery] = useState("");
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialOpenId);
   const [adding, setAdding] = useState(false);
   const [newKind, setNewKind] = useState<CodexKind>("npc");
   const [newTitle, setNewTitle] = useState("");
@@ -146,6 +153,7 @@ export function Codex({ me, state, codex, send }: CodexProps) {
                 <strong>{e.title}</strong>
                 <span className="row small">
                   <span>{t(`kind.${e.kind}`)}</span>
+                  {e.status && <span className="chip">{t(`status.${e.status}`)}</span>}
                   <VisibilityBadge entry={e} />
                 </span>
               </button>

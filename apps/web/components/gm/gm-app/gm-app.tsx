@@ -7,6 +7,7 @@ import { canInCampaign, type Me } from "@inconsistable/core-schema";
 import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
 import { Codex } from "@/components/gm/codex/codex";
 import { Party } from "@/components/gm/party/party";
+import { Prep } from "@/components/gm/prep/prep";
 import { RulesPanel } from "@/components/gm/rules/rules-panel";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { Track } from "@/components/gm/track/track";
@@ -31,6 +32,21 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
     (k) => canInCampaign({ ctx: me, perm: GM_TABS[k].perm }) && (k !== "standings" || (state?.games.length ?? 0) > 0),
   );
   const [tab, setTab] = useState<GmTab>(tabs.includes(initialTab) ? initialTab : (tabs[0] ?? "rules"));
+
+  const [callTestId, setCallTestId] = useState<string | null>(null);
+  const [openEntryId, setOpenEntryId] = useState<string | null>(null);
+
+  // PREP's CALL: opens TESTS with that Test selected (held in state, not the URL).
+  const handleCall = (testId: string) => {
+    setCallTestId(testId);
+    setTab("tests");
+  };
+
+  // PREP's "Open in CODEX": opens CODEX with that entry open.
+  const handleOpenCodex = (entryId: string) => {
+    setOpenEntryId(entryId);
+    setTab("codex");
+  };
 
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   return (
@@ -69,10 +85,12 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
           <Track me={me} state={state} send={send} sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }} />
         ) : tab === "standings" ? (
           <Standings games={state.games} />
+        ) : tab === "prep" ? (
+          <Prep me={me} state={state} codex={codex} send={send} onCall={handleCall} onOpenCodex={handleOpenCodex} />
         ) : tab === "codex" ? (
-          <Codex me={me} state={state} codex={codex} send={send} />
+          <Codex key={openEntryId ?? ""} me={me} state={state} codex={codex} send={send} initialOpenId={openEntryId} />
         ) : tab === "tests" ? (
-          <Tests state={state} send={send} />
+          <Tests state={state} send={send} testId={callTestId ?? undefined} />
         ) : tab === "rules" ? (
           <div className="stack" style={{ gap: 32 }}>
             <RulesPanel me={me} send={send} data={rules} />

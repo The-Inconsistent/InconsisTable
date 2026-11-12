@@ -12,6 +12,8 @@ type CallFormProps = {
   send: Send;
   /** Who rolls when the form opens (TRACK pre-selects the combatant it was opened from). */
   initialTargets?: string[];
+  /** The Test selected when the form opens (PREP's Call button); an id the ruleset lacks falls back to the first. */
+  initialTestId?: string;
   /** Runs once the call went through. */
   onCalled?: () => void;
 };
@@ -48,9 +50,9 @@ function toInputs({ def, draft }: { def: TestDef; draft: Draft }): Filled {
 
 // CALL A TEST: pick one of the ruleset's Tests, who rolls it and the number to beat. The target is hidden from the
 // table unless the GM unticks that (docs/house-decisions.md #21).
-export function CallForm({ state, send, initialTargets = [], onCalled }: CallFormProps) {
+export function CallForm({ state, send, initialTargets = [], initialTestId, onCalled }: CallFormProps) {
   const t = useTranslations("callForm");
-  const [testId, setTestId] = useState(state.testDefs[0]?.id ?? "");
+  const [testId, setTestId] = useState(initialTestId ?? state.testDefs[0]?.id ?? "");
   const [draft, setDraft] = useState<Draft>({});
   const [targets, setTargets] = useState<string[]>(initialTargets);
   const [hideTarget, setHideTarget] = useState(true);

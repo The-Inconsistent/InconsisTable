@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useState, type ChangeEvent } from "react";
 
-import type { ActionInput, Actor, CodexEntry } from "@inconsistable/core-schema";
+import { QuestStatus, type ActionInput, type Actor, type CodexEntry } from "@inconsistable/core-schema";
 
 import { RevealForm } from "@/components/gm/codex/components/reveal-form/reveal-form";
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
@@ -34,6 +34,12 @@ export function EntryEditor({ entry, characters, can, act, onDeleted }: EntryEdi
     await act({ type: "codex.save", id: entry.id, kind: entry.kind, ...patch });
   };
 
+  // A quest's status is saved as soon as it is picked.
+  const handleStatus = async (e: ChangeEvent<HTMLSelectElement>) => {
+    const status = QuestStatus.safeParse(e.target.value);
+    if (status.success) await act({ type: "codex.save", id: entry.id, kind: entry.kind, status: status.data });
+  };
+
   // DELETE, after the confirm step.
   const handleDelete = async () => {
     if ((await act({ type: "codex.delete", id: entry.id })).ok) onDeleted();
@@ -45,6 +51,18 @@ export function EntryEditor({ entry, characters, can, act, onDeleted }: EntryEdi
         <span className="dim small">{t(`kind.${entry.kind}`)}</span>
         <VisibilityBadge entry={entry} />
       </div>
+      {entry.status && (
+        <label className="stack">
+          {t("statusLabel")}
+          <select id="codex-status" value={entry.status} onChange={handleStatus} disabled={!can.write}>
+            {QuestStatus.options.map((s) => (
+              <option key={s} value={s}>
+                {t(`status.${s}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label className="stack">
         {t("titleLabel")}
         <input

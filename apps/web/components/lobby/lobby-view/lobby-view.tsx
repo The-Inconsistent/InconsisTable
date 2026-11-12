@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties, type FormEvent } from "react";
 
-import { CreateGame, type Lobby, type LobbyGame } from "@inconsistable/core-schema";
+import { CreateGame, type Lobby, type LobbyGame, type TableMode } from "@inconsistable/core-schema";
 
 import { AccountBar } from "@/components/lobby/account-bar/account-bar";
 import { PageHead } from "@/components/ui/page-head/page-head";
@@ -19,11 +19,13 @@ const NO_RULESET = "";
 function GameCard({ game, i }: { game: LobbyGame; i: number }) {
   const t = useTranslations("lobby");
   const tRoles = useTranslations("roles");
+  const tModes = useTranslations("tableModes");
   const format = useFormatter();
   return (
     <a className="card ws-tile" href={`/c/${game.id}`} style={{ "--i": i } as CSSProperties}>
       <strong className="card-name">{game.name}</strong>
       <span className="small dim">{game.isOwner ? t("yourCampaign") : t("owner", { name: game.owner })}</span>
+      {game.plays && <span className="small">{t("plays", { game: game.plays, mode: tModes(game.tableMode) })}</span>}
       <span className="row small">
         {game.role && <span className="chip">{tRoles(game.role)}</span>}
         <span className="chip">{t("characters", { count: game.players })}</span>
@@ -77,7 +79,12 @@ export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps)
   const [toggled, setToggled] = useState(false);
   const [name, setName] = useState("");
   const [rulesetVersionId, setRulesetVersionId] = useState(NO_RULESET);
+  const [picked, setPicked] = useState<TableMode>("gm");
   const [error, setError] = useState<string | null>(null);
+  // How the table can sit is the pinned ruleset's say; a game without a `game` block is played with a GM.
+  const modes = rulesets.flatMap((r) => r.versions).find((v) => v.id === rulesetVersionId)?.modes ?? ["gm"];
+  const tableMode = modes.includes(picked) ? picked : "gm";
+  const tModes = useTranslations("tableModes");
   const [busy, setBusy] = useState(false);
 
   // NEW ROOM in the head: shows or folds the form, and moves the cursor into it when it opens.
@@ -92,6 +99,7 @@ export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps)
     const parsed = CreateGame.safeParse({
       name,
       rulesetVersionId: rulesetVersionId === NO_RULESET ? undefined : rulesetVersionId,
+      tableMode: tableMode === "gm" ? undefined : tableMode,
     });
     if (!parsed.success) return setError(t("nameRequired"));
     setBusy(true);
@@ -162,6 +170,20 @@ export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps)
               {busy ? t("creating") : t("create")}
             </button>
           </div>
+          {modes.length > 1 && (
+            <fieldset className="stack" style={{ border: 0, margin: 0, padding: 0 }}>
+              <legend className="head">{t("sits")}</legend>
+              <div className="row">
+                {modes.map((m) => (
+                  <label key={m} className="row">
+                    <input type="radio" name="table-mode" checked={tableMode === m} onChange={() => setPicked(m)} />
+                    {tModes(m)}
+                  </label>
+                ))}
+              </div>
+              {tableMode !== "gm" && <p className="small dim">{t("sitsHint")}</p>}
+            </fieldset>
+          )}
           {rulesets.length === 0 && (
             <p className="small dim">
               {t.rich("importHint", { link: (chunks) => <Link href="/library">{chunks}</Link> })}

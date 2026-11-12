@@ -58,7 +58,15 @@
     "confirmOpen": "Mở với tư cách admin",
     "cancel": "Hủy"
   },
+  "tableModes": {
+    "gm": "có GM",
+    "gmless": "không GM",
+    "solo": "một mình"
+  },
   "lobby": {
+    "sits": "Bàn ngồi kiểu nào",
+    "sitsHint": "Mọi người cùng chạy bàn: không có GM, không có gì giấu ai.",
+    "plays": "{game} · {mode}",
     "yourCampaign": "Campaign của bạn",
     "yourName": "Tên của bạn",
     "nameHint": "Người chơi khác thấy tên này tại bàn.",
@@ -375,6 +383,25 @@
     "on": "Bật",
     "off": "Tắt"
   },
+  "runTable": {
+    "label": "Chạy bàn",
+    "start": "Bắt đầu buổi chơi",
+    "end": "Kết thúc buổi {number}",
+    "endConfirm": "Kết thúc buổi {number}",
+    "cancel": "Huỷ",
+    "recap": "Tóm tắt",
+    "recapHint": "Buổi này đã xảy ra gì? Để trống nếu bỏ qua.",
+    "tabs": {
+      "fight": "Giao tranh",
+      "tests": "Test",
+      "codex": "Codex",
+      "party": "Phòng"
+    }
+  },
+  "tableMode": {
+    "title": "Bàn ngồi kiểu nào",
+    "betweenSessions": "Chỉ đổi giữa các buổi chơi."
+  },
   "playerApp": {
     "charactersLabel": "Nhân vật của bạn",
     "noCharacter": "Chưa có nhân vật",
@@ -391,7 +418,8 @@
       "fight": "Trận",
       "map": "Bản đồ",
       "standings": "Xếp hạng",
-      "notebook": "Sổ tay"
+      "notebook": "Sổ tay",
+      "run": "Chạy bàn"
     }
   },
   "turnBanner": {
@@ -912,6 +940,14 @@
     "requestLimit": "Bạn đang có quá nhiều yêu cầu chờ.",
     "requestNotAllowed": "Người chơi không thể tiêu thứ này.",
     "requestSpendYourself": "Bạn tự tiêu được thứ này.",
+    "changeBetweenSessions": "Chỉ đổi kiểu ngồi giữa các buổi chơi.",
+    "modeNotPlayed": "Game này không chơi kiểu đó.",
+    "soloOneSeat": "Phòng chơi một mình chỉ có một ghế.",
+    "noGmHere": "Phòng này không có GM nên không có gì chỉ dành cho GM.",
+    "noGmSeats": "Phòng này không có ghế GM.",
+    "testCharactersOnly": "Không có GM thì Test chỉ gọi cho nhân vật.",
+    "testTargetShown": "Không có GM thì ngưỡng của Test luôn hiện cho mọi người.",
+    "undoOthers": "Bạn chỉ hoàn tác được bước của mình.",
     "requestNoPool": "Bàn này chưa có pool chung."
   },
   "workspace": {

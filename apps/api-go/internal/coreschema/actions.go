@@ -40,18 +40,24 @@ var (
 	audienceModes    = []string{"all", "listed"}
 	combatSides      = []string{"party", "foe", "other"}
 	combatVisibility = []string{"hidden", "bar", "full"}
+	clockVisibility  = []string{"gm", "party"}
 )
+
+// MaxClocks is core-schema's MAX_CLOCKS: the clocks one room holds.
+const MaxClocks = 30
 
 // MaxDraftBytes caps a builder draft, serialized.
 const MaxDraftBytes = 64 * 1024
 
 var (
-	id           = schema.UUID()
-	userID       = schema.String().Min(1).Max(100)
-	actorName    = schema.String().Trim().Min(1).Max(100)
-	sessionTitle = schema.String().Trim().Max(100)
-	recap        = schema.String().Max(10_000)
-	answers      = schema.Record(schema.String().Max(120), schema.Unknown())
+	id            = schema.UUID()
+	userID        = schema.String().Min(1).Max(100)
+	actorName     = schema.String().Trim().Min(1).Max(100)
+	sessionTitle  = schema.String().Trim().Max(100)
+	recap         = schema.String().Max(10_000)
+	clockName     = schema.String().Trim().Min(1).Max(80)
+	clockSegments = schema.Int().Min(2).Max(12)
+	answers       = schema.Record(schema.String().Max(120), schema.Unknown())
 
 	// BuilderDraftBody is the character being built and the answers so far, read and written whole.
 	BuilderDraftBody = schema.Refined(
@@ -232,6 +238,22 @@ var ActionSchema = schema.Union("type",
 		schema.Def("audience", schema.Array(id).Max(50), []any{}),
 	),
 	variant("codex.delete", schema.Req("id", id)),
+
+	variant("clock.create",
+		schema.Req("name", clockName),
+		schema.Def("segments", clockSegments, 4.0),
+		schema.Def("visibility", schema.Enum(clockVisibility...), "gm"),
+		schema.Opt("entryId", id),
+	),
+	variant("clock.tick", schema.Req("id", id), schema.Req("delta", schema.Int().Min(-12).Max(12))),
+	variant("clock.update",
+		schema.Req("id", id),
+		schema.Opt("name", clockName),
+		schema.Opt("segments", clockSegments),
+		schema.Opt("visibility", schema.Enum(clockVisibility...)),
+		schema.Opt("entryId", schema.Nullable(id)),
+	),
+	variant("clock.delete", schema.Req("id", id)),
 )
 
 // ParseAction reads a socket payload as an Action, or the issues that refuse it.
@@ -306,6 +328,10 @@ var ActionPerms = map[string]string{
 	"codex.move":              "codex:write",
 	"codex.link":              "codex:write",
 	"codex.unlink":            "codex:write",
+	"clock.create":            "clock:run",
+	"clock.tick":              "clock:run",
+	"clock.update":            "clock:run",
+	"clock.delete":            "clock:run",
 }
 
 // OwnFallback is the GM-side permission that also satisfies an :own one: a GM renames any character.

@@ -63,6 +63,16 @@ type (
 		Uses        int     `json:"uses"`
 		MaxUses     *int    `json:"maxUses"`
 	}
+	// Clock is a progress clock: filled of segments.
+	Clock struct {
+		ID         string  `json:"id"`
+		Name       string  `json:"name"`
+		Segments   int     `json:"segments"`
+		Filled     int     `json:"filled"`
+		Visibility string  `json:"visibility"`
+		EntryID    *string `json:"entryId"`
+		Position   int     `json:"position"`
+	}
 	// Guest is a character with a live guest token.
 	Guest struct {
 		ActorID string `json:"actorId"`
@@ -87,8 +97,10 @@ type (
 		Session      *Session     `json:"session"`
 		Actors       []Actor      `json:"actors"`
 		// MyDraft is the receiving user's builder draft, decoded JSON; nil for every other seat.
-		MyDraft   any        `json:"myDraft"`
-		Tests     []TestCall `json:"tests"`
+		MyDraft any        `json:"myDraft"`
+		Tests   []TestCall `json:"tests"`
+		// Clocks are the room's progress clocks by position.
+		Clocks    []Clock    `json:"clocks"`
 		TestDefs  []TestDef  `json:"testDefs"`
 		Encounter *Encounter `json:"encounter"`
 		Games     []Game     `json:"games"`

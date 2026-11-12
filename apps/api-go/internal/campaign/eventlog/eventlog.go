@@ -83,6 +83,8 @@ func Parse(payload []byte) (Written, error) {
 // DescribeTarget is a target in words, for a refusal the GM reads.
 func DescribeTarget(t engine.DeltaTarget) string {
 	switch {
+	case t.Clock != "":
+		return "that clock"
 	case t.Resource != "":
 		return `resource "` + t.Resource + `"`
 	case t.Field != "":
@@ -135,7 +137,7 @@ func left(v any) (float64, bool) {
 //     once a later step changed it, undoing this one would silently overwrite that step.
 func Invert(logged Written, current any) (*engine.Delta, *cs.Error) {
 	t := logged.Target
-	if t.Resource != "" {
+	if t.Resource != "" || t.Clock != "" {
 		change := number(logged.Before) - number(logged.After)
 		if change == 0 {
 			return nil, nil

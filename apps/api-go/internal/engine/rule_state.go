@@ -91,6 +91,9 @@ type DeltaTarget struct {
 	Condition string `json:"condition,omitempty"`
 	Turn      string `json:"turn,omitempty"`
 	Test      string `json:"test,omitempty"`
+	// Clock is a room clock's id: a counted target with no actor, written by internal/clock (not a ruleset primitive,
+	// so the TypeScript DeltaTarget has no twin of it).
+	Clock string `json:"clock,omitempty"`
 }
 
 // Delta is one proposed change. Value is a float64, string, bool, []string or nil.

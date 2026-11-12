@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/clock"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/codex"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
@@ -94,6 +95,9 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 		return nil, nil, nil, err
 	}
 	if state.Encounter, err = encounter.Load(ctx, conn, campaignID, compiled, built, !running); err != nil {
+		return nil, nil, nil, err
+	}
+	if state.Clocks, err = clock.Load(ctx, conn, campaignID); err != nil {
 		return nil, nil, nil, err
 	}
 	if state.Games, err = game.Load(ctx, conn, campaignID); err != nil {

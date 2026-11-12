@@ -118,6 +118,8 @@ var refusals = map[string]string{
 	"adventureHasScenes":        "Move or delete its scenes first.",
 	"onlySceneTests":            "Only a scene plans Tests.",
 	"cantLinkThat":              "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
+	"clockNotFound":             "Clock not found",
+	"clockLimit":                "This room has as many clocks as it can hold.",
 	"nothingToUndo":             "Nothing to undo",
 	"cantUndoKind":              "Can't undo that kind of step yet",
 	"undoGone":                  "Can't undo: {target} is gone.",

@@ -11,6 +11,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/auth"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/clock"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/codex"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
@@ -44,6 +45,8 @@ func TouchesOf(a cs.Action) Touches {
 	switch {
 	case t == "campaign.delete":
 		return Touches{} // a deleted game has nothing left to broadcast; the gateway kicks the room instead
+	case t == "codex.delete":
+		return Touches{State: true, Codex: true} // a clock about the deleted entry loses its link
 	case strings.HasPrefix(t, "codex."):
 		return Touches{Codex: true}
 	case t == "session.end" || t == "session.edit":
@@ -256,6 +259,11 @@ var handlers = map[string]handler{
 	"codex.move":   codex.Move,
 	"codex.link":   codex.Link,
 	"codex.unlink": codex.Unlink,
+	// clock/clock.go
+	"clock.create": clock.Create,
+	"clock.tick":   clock.Tick,
+	"clock.update": clock.Update,
+	"clock.delete": clock.Delete,
 }
 
 // dispatch sends an authorized action to its feature's handler. Every action type has one (dispatch_test.go); a type

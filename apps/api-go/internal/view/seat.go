@@ -47,7 +47,25 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 	}
 	state := seatState(snapshot.State, compiled, c, sight)
 	state.MyDraft = myDraft
-	return SeatView{state, seatCodex(snapshot.Codex, c, sight)}
+	codex := seatCodex(snapshot.Codex, c, sight)
+	state.Clocks = seatClocks(state.Clocks, codex, sight)
+	return SeatView{state, codex}
+}
+
+// The clocks a seat receives: the clock side sees every clock, anyone else the `party` ones. A clock's entry id is sent
+// only when the seat can read that entry, so a hidden entry's id never leaks.
+func seatClocks(clocks []cs.Clock, codex cs.Codex, sight Sight) []cs.Clock {
+	out := []cs.Clock{}
+	for _, k := range clocks {
+		if !sight.Clocks && k.Visibility != "party" {
+			continue
+		}
+		if k.EntryID != nil && !slices.ContainsFunc(codex.Entries, func(e cs.CodexEntry) bool { return e.ID == *k.EntryID }) {
+			k.EntryID = nil
+		}
+		out = append(out, k)
+	}
+	return out
 }
 
 func toEngineView(a cs.Actor) engine.ActorView {

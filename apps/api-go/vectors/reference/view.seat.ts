@@ -2,6 +2,7 @@ import {
   PARTY_KINDS,
   type Actor,
   type BuilderDraftBody,
+  type Clock,
   type Codex,
   type Ctx,
   type Encounter,
@@ -85,13 +86,22 @@ export function seatView({
   const manifest = compiled && seatManifest({ ruleset: compiled.ruleset, ctx });
   const packVisibilities = readableEntryVisibilities(ctx);
   if (sight.all) return { state: { ...snapshot.state, myDraft }, codex: snapshot.codex, manifest, packVisibilities };
+  const codex = seatCodex({ codex: snapshot.codex, ctx, sight });
+  const state = seatState({ state: snapshot.state, compiled, ctx, sight });
   return {
-    state: { ...seatState({ state: snapshot.state, compiled, ctx, sight }), myDraft },
-    codex: seatCodex({ codex: snapshot.codex, ctx, sight }),
+    state: { ...state, myDraft, clocks: seatClocks({ clocks: state.clocks, codex, sight }) },
+    codex,
     manifest,
     packVisibilities,
   };
 }
+
+// The clocks a seat receives: the clock side sees every clock, anyone else the `party` ones. A clock's entry id is sent
+// only when the seat can read that entry, so a hidden entry's id never leaks.
+const seatClocks = ({ clocks, codex, sight }: { clocks: readonly Clock[]; codex: Codex; sight: Sight }): Clock[] =>
+  clocks
+    .filter((k) => sight.clocks || k.visibility === "party")
+    .map((k) => ({ ...k, entryId: codex.entries.some((e) => e.id === k.entryId) ? k.entryId : null }));
 
 // The ruleset values of one actor as a seat may see them, in the snapshot's (mutable) shape.
 const copyValues = (v: ActorView): Pick<Actor, "entity" | "fields" | "resources" | "derived" | "conditions"> => ({

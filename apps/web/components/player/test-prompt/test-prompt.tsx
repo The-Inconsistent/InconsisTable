@@ -5,10 +5,12 @@ import { useMemo, useState } from "react";
 import type { LiveState, TestCall, TestTargetState } from "@inconsistable/core-schema";
 import type { AdvantageMode } from "@inconsistable/rules-engine";
 
+import { OutcomePad } from "@/components/ui/outcome-pad/outcome-pad";
 import { PoolOutcome } from "@/components/ui/pool-outcome/pool-outcome";
 import { PoolPad } from "@/components/ui/pool-pad/pool-pad";
 import { RollPad } from "@/components/ui/roll-pad/roll-pad";
 import type { Send } from "@/hooks/use-table/use-table";
+import { outcomeLabel } from "@/lib/outcome-label/outcome-label";
 import { outcomeClass, outcomeKey, signed } from "@/lib/roll-slots/roll-slots";
 
 type TestPromptProps = { state: LiveState; send: Send };
@@ -29,6 +31,11 @@ export function TestPrompt({ state, send }: TestPromptProps) {
   const resultText = ({ call, target }: { call: TestCall; target: TestTargetState }): string => {
     const report = target.report;
     if (!report) return t("waiting");
+    if (call.outcomes) {
+      const label = outcomeLabel({ outcomes: call.outcomes, id: report.outcome });
+      if (label !== null) return t("reportedResult", { label });
+      return call.status === "open" ? t("reportedWaiting") : t("closed");
+    }
     if (call.pool) return call.status === "open" ? t("reportedWaiting") : t("closed");
     const parts = [t("rolled", { value: report.natural ?? report.total ?? "?" })];
     if (report.total !== null && report.total !== report.natural) parts.push(t("total", { total: report.total }));
@@ -42,6 +49,14 @@ export function TestPrompt({ state, send }: TestPromptProps) {
     ({ callId, actorId }: { callId: string; actorId: string }) =>
     async (roll: { kind: "pool"; counts: Record<string, number>; special: number[] }): Promise<string | null> => {
       const r = await send({ type: "test.report", callId, actorId, advantage: "none", roll });
+      return r.ok ? null : r.error;
+    };
+
+  // REPORT OUTCOME: the result the table worked out for a reported Test; the server only checks it is listed.
+  const reportOutcome =
+    ({ callId, actorId }: { callId: string; actorId: string }) =>
+    async (outcome: string): Promise<string | null> => {
+      const r = await send({ type: "test.report", callId, actorId, outcome });
       return r.ok ? null : r.error;
     };
 
@@ -68,14 +83,25 @@ export function TestPrompt({ state, send }: TestPromptProps) {
           return (
             <div key={`${call.id}-${target.actorId}`} className="card roll-card">
               <h2 className="roll-title">
-                {call.pool
-                  ? t("rollPool", { pool: target.pool ?? t("your"), dice: call.dice, who })
-                  : t("roll", { dice: call.dice, who })}
+                {call.outcomes
+                  ? t("pickResult", { who })
+                  : call.pool
+                    ? t("rollPool", { pool: target.pool ?? t("your"), dice: call.dice, who })
+                    : t("roll", { dice: call.dice, who })}
               </h2>
               {target.report ? (
-                <p className={`roll-result ${outcomeClass(target.report.outcome)}`.trim()} role="status">
+                <p
+                  className={`roll-result ${call.outcomes ? "" : outcomeClass(target.report.outcome)}`.trim()}
+                  role="status"
+                >
                   {call.pool ? <PoolOutcome report={target.report} /> : resultText({ call, target })}
                 </p>
+              ) : call.outcomes ? (
+                <OutcomePad
+                  outcomes={call.outcomes}
+                  who={who}
+                  onReport={reportOutcome({ callId: call.id, actorId: target.actorId })}
+                />
               ) : call.pool ? (
                 <PoolPad
                   spec={call.pool}

@@ -166,6 +166,9 @@ export const REFUSALS = {
   notCalled: "That character wasn't called",
   alreadyReported: "Already reported. Ask the GM if it needs to change",
   badAdvantage: '"{advantage}" isn\'t advantage, disadvantage or none',
+  unknownOutcome: "That outcome is not one this Test lists.",
+  testTakesOutcome: "This Test takes an outcome, not dice.",
+  testTakesDice: "This Test takes dice, not an outcome.",
   // Books, relayed to the player who asked
   bookScreenNone: "The table screen shows no book pages.",
   bookNotServed: "The GM isn't serving that book.",

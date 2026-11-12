@@ -5,10 +5,12 @@ import { useState } from "react";
 import type { TestCall, TestTargetState } from "@inconsistable/core-schema";
 import type { AdvantageMode } from "@inconsistable/rules-engine";
 
+import { OutcomePad } from "@/components/ui/outcome-pad/outcome-pad";
 import { PoolOutcome } from "@/components/ui/pool-outcome/pool-outcome";
 import { PoolPad } from "@/components/ui/pool-pad/pool-pad";
 import { RollPad } from "@/components/ui/roll-pad/roll-pad";
 import type { Send } from "@/hooks/use-table/use-table";
+import { outcomeLabel } from "@/lib/outcome-label/outcome-label";
 import { outcomeClass, outcomeKey, signed } from "@/lib/roll-slots/roll-slots";
 
 type CallCardProps = { call: TestCall; names: ReadonlyMap<string, string>; send: Send };
@@ -27,6 +29,8 @@ export function CallCard({ call, names, send }: CallCardProps) {
   const resultText = (target: TestTargetState): string => {
     const r = target.report;
     if (!r) return t("waiting");
+    if (call.outcomes)
+      return t("reportedResult", { label: outcomeLabel({ outcomes: call.outcomes, id: r.outcome }) ?? "?" });
     const sum =
       r.natural !== null && target.modifier !== null
         ? `${r.natural} ${signed(target.modifier)} = ${r.total}`
@@ -50,6 +54,15 @@ export function CallCard({ call, names, send }: CallCardProps) {
       return r.ok ? null : r.error;
     };
 
+  // REPORT OUTCOME FOR: the GM picks the result the table worked out, or fixes a report.
+  const handleOutcomeReport =
+    (actorId: string) =>
+    async (outcome: string): Promise<string | null> => {
+      const r = await send({ type: "test.report", callId: call.id, actorId, outcome });
+      if (r.ok) setReporting(null);
+      return r.ok ? null : r.error;
+    };
+
   // REPORT POOL FOR: the GM counts the dice a player read out, or fixes a report.
   const handlePoolReport =
     (actorId: string) =>
@@ -69,7 +82,7 @@ export function CallCard({ call, names, send }: CallCardProps) {
     <article className="card call-card" aria-label={t("label", { id: call.testId })}>
       <div className="row between call-head">
         <strong>
-          {call.testId} <span className="dim">{call.dice}</span>
+          {call.testId} <span className="dim">{call.outcomes ? t("reportedTag") : call.dice}</span>
         </strong>
         <span className="row">
           <span className="chip">{open ? t("statusOpen") : call.revealed ? t("statusShown") : t("statusClosed")}</span>
@@ -88,17 +101,21 @@ export function CallCard({ call, names, send }: CallCardProps) {
             <span className="roll-line">
               <strong>{names.get(target.actorId) ?? "?"}</strong>{" "}
               <span className="dim">
-                {call.pool
-                  ? t("poolLine", {
-                      pool: target.pool ?? "?",
-                      modifier: target.modifier !== null ? signed(target.modifier) : "?",
-                      target: target.target ?? "?",
-                    })
-                  : target.modifier !== null &&
-                    t("plainLine", { modifier: signed(target.modifier), target: target.target ?? "?" })}
+                {call.outcomes
+                  ? null
+                  : call.pool
+                    ? t("poolLine", {
+                        pool: target.pool ?? "?",
+                        modifier: target.modifier !== null ? signed(target.modifier) : "?",
+                        target: target.target ?? "?",
+                      })
+                    : target.modifier !== null &&
+                      t("plainLine", { modifier: signed(target.modifier), target: target.target ?? "?" })}
               </span>
               <br />
-              <span className={`roll-result ${outcomeClass(target.report?.outcome ?? null)}`.trim()}>
+              <span
+                className={`roll-result ${call.outcomes ? "" : outcomeClass(target.report?.outcome ?? null)}`.trim()}
+              >
                 {call.pool && target.report ? <PoolOutcome report={target.report} /> : resultText(target)}
               </span>
             </span>
@@ -117,7 +134,13 @@ export function CallCard({ call, names, send }: CallCardProps) {
             )}
             {open && reporting === target.actorId && (
               <div style={{ flexBasis: "100%" }}>
-                {call.pool ? (
+                {call.outcomes ? (
+                  <OutcomePad
+                    outcomes={call.outcomes}
+                    who={names.get(target.actorId) ?? t("aCharacter")}
+                    onReport={handleOutcomeReport(target.actorId)}
+                  />
+                ) : call.pool ? (
                   <PoolPad
                     spec={call.pool}
                     pool={target.pool}

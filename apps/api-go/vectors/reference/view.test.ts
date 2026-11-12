@@ -77,6 +77,7 @@ const sum: TestCall = {
   dice: "1d20",
   advantage: true,
   pool: null,
+  outcomes: null,
   status: "open",
   createdAt: "",
   inputs: { ability: "dex", dc: 17 },
@@ -123,7 +124,7 @@ const state: LiveState = {
   actors,
   myDraft: null,
   tests: [sum, pool],
-  testDefs: [{ id: "check", dice: "1d20", advantage: true, pool: null, inputs: [] }],
+  testDefs: [{ id: "check", dice: "1d20", advantage: true, pool: null, outcomes: null, inputs: [] }],
   encounter: {
     id: "e",
     round: 1,

@@ -122,6 +122,16 @@ export const FIXTURE_RULESET: RulesetInput = {
       inputs: { dn: "int", bonus: "int" },
       cite: "Fixture p.7",
     },
+    // The table rolls and works it out; the phone picks what came up.
+    gambit: {
+      kind: "reported",
+      outcomes: [
+        { id: "clean", label: "Clean", cite: "Fixture p.8" },
+        { id: "costly", label: "Costly", cite: "Fixture p.8" },
+        { id: "missed", label: "Missed", cite: "Fixture p.8" },
+      ],
+      cite: "Fixture p.8",
+    },
   },
   initiative: { strategy: "ranked", score: "mod(attr.dex)", cite: "Fixture p.5" },
   health: {

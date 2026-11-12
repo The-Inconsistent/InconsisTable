@@ -798,6 +798,10 @@ const poolTest = {
   die: 6,
   bands: [{ id: "b", from: 1, to: 2, worth: 1 }],
 };
+const reportedTest = (ids: string[]) => ({
+  kind: "reported",
+  outcomes: ids.map((id) => ({ id, label: id.toUpperCase() })),
+});
 const withPc = (over: object) => ({ entities: [{ ...pcBase, ...over }] });
 const withFields = (fields: object) => withPc({ fields: { ...pcBase.fields, ...fields } });
 const withDerived = (...derived: object[]) => withPc({ derived });
@@ -1043,6 +1047,16 @@ const CRAFTED: object[] = [
   },
   { tests: { t: { ...poolTest, special: { label: "L", count: 1, flags: { critical: "x" } } } } },
   { tests: { t: { ...poolTest, bands: [] } } },
+  { tests: { t: reportedTest(["a", "b"]) } },
+  { tests: { t: { ...reportedTest(["a", "b", "c"]), inputs: { who: "text" }, inputOptions: { who: ["x"] } } } },
+  { tests: { t: reportedTest(["a"]) } },
+  { tests: { t: reportedTest(["a", "b", "c", "d", "e", "f", "g", "h", "i"]) } },
+  { tests: { t: reportedTest(["a", "b", "a"]) } },
+  { tests: { t: { ...reportedTest(["a", "b"]), inputOptions: { who: ["x"] } } } },
+  {
+    sources: [{ id: "s", title: "T", license: "private" }],
+    tests: { t: { ...reportedTest(["a", "b"]), cite: "p.1" } },
+  },
   {
     initiative: {
       strategy: "ranked",

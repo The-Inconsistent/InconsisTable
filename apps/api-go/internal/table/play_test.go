@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"regexp"
 	"strings"
 	"testing"
@@ -31,6 +32,10 @@ func playFixture(t *testing.T) string {
 			"inputs": map[string]any{"dc": "int"}, "cite": "Fixture p.5"},
 		"pool": map[string]any{"kind": "poolSuccesses", "pool": "level", "die": 6, "target": "2",
 			"bands": []any{map[string]any{"id": "hit", "from": 4, "to": 6, "worth": 1}}, "cite": "Fixture p.6"},
+		"gambit": map[string]any{"kind": "reported", "cite": "Fixture p.8", "outcomes": []any{
+			map[string]any{"id": "clean", "label": "Clean", "cite": "Fixture p.8"},
+			map[string]any{"id": "missed", "label": "Missed", "cite": "Fixture p.8"},
+		}},
 	}
 	m["scoring"] = map[string]any{"score": "level", "endWhen": []any{map[string]any{"when": "round > 3", "cite": "Fixture p.7"}},
 		"cite": "Fixture p.7"}
@@ -213,6 +218,47 @@ func TestAPoolTestCountsTheReportedDice(t *testing.T) {
 		if total != 3 || margin != 1 || outcome != "success" {
 			t.Fatalf("three hits against 2: total %d, margin %d, %s", total, margin, outcome)
 		}
+	})
+}
+
+func TestAReportedTestRecordsAListedOutcomeAndNothingElse(t *testing.T) {
+	db := dbtest.Open(t)
+	dbtest.Tx(t, db, func(tx pgx.Tx) {
+		p := newPlay(t, tx)
+		gm := p.room.GM()
+		ash, bo := p.character("Ash", 5), p.character("Bo", 2)
+		player := p.room.Seat(t, tx, dbtest.User(t, tx, "P"), ash)
+		other := p.room.Seat(t, tx, dbtest.User(t, tx, "Q"), bo)
+		callID := p.send(gm, map[string]any{"type": "test.call", "testId": "gambit", "actorIds": []any{ash, bo}}).ID
+
+		// What the phone is told: the outcomes to pick from, and no number.
+		for _, c := range p.seatView(player).State.Tests {
+			if c.ID != callID {
+				continue
+			}
+			if len(c.Outcomes) != 2 || c.Outcomes[0].ID != "clean" || c.Outcomes[0].Label != "Clean" || c.ShowTarget || c.ShowModifier {
+				t.Fatalf("the call as the player sees it: %+v", c)
+			}
+		}
+		report := func(actor string, extra map[string]any) map[string]any {
+			out := map[string]any{"type": "test.report", "callId": callID, "actorId": actor}
+			maps.Copy(out, extra)
+			return out
+		}
+		p.refused(player, report(ash, map[string]any{"outcome": "stellar"}), "unknownOutcome")
+		p.refused(player, report(ash, map[string]any{"roll": map[string]any{"kind": "faces", "faces": []any{20.0}}}), "testTakesOutcome")
+		p.refused(other, report(ash, map[string]any{"outcome": "clean"}), "notYourCharacter")
+		p.send(player, report(ash, map[string]any{"outcome": "clean"}))
+		if got := dbtest.Scalar[string](t, tx, `SELECT outcome FROM test_report WHERE call_id = $1`, callID); got != "clean" {
+			t.Fatalf("recorded %q", got)
+		}
+		p.refused(player, report(ash, map[string]any{"outcome": "missed"}), "alreadyReported")
+		p.send(gm, report(ash, map[string]any{"outcome": "missed"}))
+
+		// A dice Test takes no outcome.
+		check := p.send(gm, map[string]any{"type": "test.call", "testId": "check", "actorIds": []any{ash},
+			"inputs": map[string]any{"dc": 10.0}}).ID
+		p.refused(gm, map[string]any{"type": "test.report", "callId": check, "actorId": ash, "outcome": "clean"}, "testTakesDice")
 	})
 }
 

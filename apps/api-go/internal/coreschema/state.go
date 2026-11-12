@@ -197,6 +197,11 @@ type (
 		Special *PoolSpecial `json:"special"`
 		Shift   *string      `json:"shift"`
 	}
+	// OutcomeSpec is a result a reported Test lists.
+	OutcomeSpec struct {
+		ID    string `json:"id"`
+		Label string `json:"label"`
+	}
 	// TestDefInput is one input the call form asks for.
 	TestDefInput struct {
 		ID      string   `json:"id"`
@@ -209,6 +214,7 @@ type (
 		Dice      string         `json:"dice"`
 		Advantage bool           `json:"advantage"`
 		Pool      *PoolSpec      `json:"pool"`
+		Outcomes  []OutcomeSpec  `json:"outcomes"`
 		Inputs    []TestDefInput `json:"inputs"`
 	}
 	// TestResult is a reported roll; a field the seat may not see is nil.
@@ -235,6 +241,7 @@ type (
 		Dice         string            `json:"dice"`
 		Advantage    bool              `json:"advantage"`
 		Pool         *PoolSpec         `json:"pool"`
+		Outcomes     []OutcomeSpec     `json:"outcomes"`
 		Status       string            `json:"status"`
 		CreatedAt    string            `json:"createdAt"`
 		Inputs       map[string]any    `json:"inputs"`

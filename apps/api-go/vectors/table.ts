@@ -112,6 +112,7 @@ const call = (id: string, over: Record<string, unknown>) => ({
   dice: "1d20",
   advantage: true,
   pool: null,
+  outcomes: null,
   status: "open",
   createdAt: "2026-11-01T10:00:00.000Z",
   inputs: { ability: "dex", dc: 15 },
@@ -163,6 +164,7 @@ const STATE = {
       dice: "1d20",
       advantage: true,
       pool: null,
+      outcomes: null,
       inputs: [
         { id: "ability", type: "text", options: ["str", "dex"] },
         { id: "dc", type: "int" },
@@ -463,6 +465,22 @@ for (const [type, sample] of Object.entries(VALID)) {
   }
 }
 for (const junk of [null, 1, "x", [], {}, { type: "nope" }, { type: 1 }]) record("Action", junk);
+// A reported Test's report carries an outcome id and no dice (house decision #41).
+const reportBase = { type: "test.report", callId: ID, actorId: ID };
+for (const extra of [
+  { outcome: "clean" },
+  { outcome: "" },
+  { outcome: "x".repeat(64) },
+  { outcome: "x".repeat(65) },
+  { outcome: 1 },
+  { outcome: "clean", roll: { faces: [1] } },
+  { outcome: "clean", advantage: "none" },
+  { roll: { faces: [1] } },
+  { roll: { faces: [1] }, advantage: "advantage" },
+  {},
+]) {
+  record("Action", { ...reportBase, ...extra });
+}
 // A draft just under and just over 64 KB, serialized.
 const pad = (n: number) => ({ type: "draft.save", body: { actorId: ID, answers: { p: "é".repeat(n) } } });
 for (const n of [32_700, 32_730, 32_740, 32_760, 32_800, 40_000]) record("Action", pad(n));

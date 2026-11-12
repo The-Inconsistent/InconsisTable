@@ -171,12 +171,20 @@ var ActionSchema = schema.Union("type",
 		schema.Def("hideTarget", schema.Bool(), false),
 		schema.Def("showOutcome", schema.Bool(), false),
 	),
-	variant("test.report",
+	// Dice (`roll`, with an optional `advantage` the api reads as "none") or an `outcome` id, never both.
+	schema.Variant{Tag: "test.report", Schema: schema.Object(
+		schema.Req("type", schema.Literal("test.report")),
 		schema.Req("callId", schema.UUID()),
 		schema.Req("actorId", schema.UUID()),
-		schema.Def("advantage", schema.String().Max(20), "none"),
-		schema.Req("roll", schema.Record(schema.String().Max(20), schema.Unknown())),
-	),
+		schema.Opt("advantage", schema.String().Max(20)),
+		schema.Opt("roll", schema.Record(schema.String().Max(20), schema.Unknown())),
+		schema.Opt("outcome", schema.String().Min(1).Max(64)),
+	).Refine(func(a map[string]any) bool {
+		_, hasRoll := a["roll"]
+		_, hasOutcome := a["outcome"]
+		_, hasAdvantage := a["advantage"]
+		return hasRoll != hasOutcome && !(hasOutcome && hasAdvantage)
+	}, "Report either a roll or an outcome")},
 	variant("test.close", schema.Req("callId", schema.UUID()), schema.Def("reveal", schema.Bool(), false)),
 
 	variant("invite.create",

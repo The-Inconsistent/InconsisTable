@@ -209,6 +209,7 @@ test("expressions in resources, tests, initiative and health are checked at load
   m.resources?.push({ id: "bad", label: "Bad", scope: "entity", max: "res.hp", cite: "Sample p.1" });
   const check = m.tests?.check;
   assert.ok(check !== undefined);
+  assert.ok(check.kind === "sumVsTarget");
   check.target = "ctx.difficulty";
   assert.ok(m.initiative.strategy === "ranked");
   m.initiative.score = "attr.dex > 1";

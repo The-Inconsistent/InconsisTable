@@ -120,8 +120,15 @@ type (
 		From float64 `json:"from"`
 		To   float64 `json:"to"`
 	}
-	// Test is a sumVsTarget or poolSuccesses declaration.
+	// ReportedOutcome is one result of a reported Test, best first.
+	ReportedOutcome struct {
+		ID    string  `json:"id"`
+		Label string  `json:"label"`
+		Cite  *string `json:"cite"`
+	}
+	// Test is a sumVsTarget, poolSuccesses or reported declaration.
 	Test struct {
+		Outcomes     []ReportedOutcome `json:"outcomes"`
 		Kind         string            `json:"kind"`
 		Target       string            `json:"target"`
 		Inputs       map[string]string `json:"inputs"`
@@ -433,6 +440,9 @@ func (r *Ruleset) semanticProblems() problems {
 	for _, id := range sortedKeys(r.Tests) {
 		t := r.Tests[id]
 		needCite(t.Cite, "tests."+id)
+		for j, o := range t.Outcomes {
+			needCite(o.Cite, fmt.Sprintf("tests.%s.outcomes[%d]", id, j))
+		}
 	}
 	needCite(r.Initiative.Cite, "initiative")
 	for i, x := range r.Phases {
@@ -568,6 +578,16 @@ func (r *Ruleset) semanticProblems() problems {
 		}
 		if t.Kind == "poolSuccesses" {
 			p.pool(&t, path)
+			continue
+		}
+		if t.Kind == "reported" {
+			seen := map[string]bool{}
+			for j, o := range t.Outcomes {
+				if seen[o.ID] {
+					p.add(fmt.Sprintf("%s.outcomes[%d].id", path, j), `duplicate outcome "%s"`, o.ID)
+				}
+				seen[o.ID] = true
+			}
 			continue
 		}
 		count, sides, ok := PlainDice(t.Dice)

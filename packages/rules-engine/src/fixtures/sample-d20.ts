@@ -6,7 +6,7 @@ import type { RulesetInput } from "../manifest.ts";
  */
 export const SAMPLE_D20: RulesetInput = {
   id: "sample-d20",
-  version: "0.1.1",
+  version: "0.1.2",
   core: "^0.1.0",
   sources: [{ id: "sample", title: "Sample d20 Rules", license: "private", pageOffset: 0 }],
   terms: { party: "Crew", foe: "Opposition", hp: "Vigour" },
@@ -159,6 +159,16 @@ export const SAMPLE_D20: RulesetInput = {
       inputs: { ability: "text", dc: "int" },
       inputOptions: { ability: ["str", "dex", "con", "wis"] },
       cite: "Sample p.2",
+    },
+    // The table rolls and works it out; the phone only picks what came up.
+    gambit: {
+      kind: "reported",
+      outcomes: [
+        { id: "clean", label: "Clean", cite: "Sample p.3" },
+        { id: "costly", label: "Costly", cite: "Sample p.3" },
+        { id: "missed", label: "Missed", cite: "Sample p.3" },
+      ],
+      cite: "Sample p.3",
     },
   },
   initiative: {

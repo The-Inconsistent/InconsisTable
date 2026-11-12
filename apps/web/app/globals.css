@@ -1604,6 +1604,16 @@ summary {
   height: 0.8em;
   margin-right: 2px;
 }
+/* A reported Test: one broad button per outcome, best first, readable at arm's length. */
+.outcome-option {
+  min-height: 64px;
+  justify-content: flex-start;
+  padding: 0 20px;
+  font-size: 24px;
+  font-weight: 800;
+  animation: deal var(--dur-move) var(--ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 7) * var(--stagger));
+}
 .pool-report {
   min-height: 56px;
   justify-content: center;

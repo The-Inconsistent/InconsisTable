@@ -1,0 +1,44 @@
+name: Mirror InconsisID
+
+# Cloud Run pulls only from Google's registries, so a released InconsisID image (ghcr.io, from its own repo) is copied
+# into our Artifact Registry by hand: Actions → Mirror InconsisID → the version. Needs read access for this repo on the
+# inconsisid package (its Package settings, "Manage Actions access"), and the variables publish-images uses.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: InconsisID image version, e.g. 0.1.0
+        required: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      packages: read
+      id-token: write
+    steps:
+      - id: gcp
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_PUSHER }}
+          token_format: access_token
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ vars.GCP_REGION }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.gcp.outputs.access_token }}
+      # Copies the manifest list as it is (amd64 and arm64), without pulling it onto the runner.
+      - env:
+          VERSION: ${{ inputs.version }}
+          TARGET: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/inconsis/inconsisid
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a version: $VERSION" >&2; exit 1; }
+          docker buildx imagetools create --tag "$TARGET:$VERSION" "ghcr.io/the-inconsistent/inconsisid:$VERSION"

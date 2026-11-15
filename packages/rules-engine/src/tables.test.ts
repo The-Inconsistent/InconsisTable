@@ -116,7 +116,7 @@ test("a table without a die has weights and no ranges, and bounds hold", () => {
       JSON.stringify(bad),
     );
   }
-  assert.ok(problems(withTables(table(undefined, []))).length > 0, "a table needs an entry");
+  assert.deepEqual(keys(problems(withTables(table(undefined, [])))), ["tables.t.entries | a table needs an entry"]);
   const dup = table(undefined, [
     { id: "a", label: "A" },
     { id: "a", label: "B" },

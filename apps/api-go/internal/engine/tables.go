@@ -61,6 +61,10 @@ func TableDie(notation string) (TableOutcomes, bool) {
 // A die's ranges tile its outcomes exactly: no gap, no overlap, nothing outside; no die means weights, no ranges.
 func (p *problems) table(id string, t *RandomTable) {
 	path := "tables." + id
+	if len(t.Entries) == 0 {
+		p.add(path+".entries", "a table needs an entry")
+		return
+	}
 	p.duplicates(path+".entries", idsOf(t.Entries, func(e TableEntry) string { return e.ID }))
 	if t.Die == nil {
 		for i, e := range t.Entries {

@@ -15,7 +15,9 @@ import { compileRuleset } from "../../../../packages/rules-engine/src/index.ts";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_PACK } from "../../../../packages/rules-engine/src/fixtures/sample-pack.ts";
-import { seatView, type Snapshot } from "./view.ts";
+import { SAMPLE_HARVEST } from "../../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
+import { Ruleset } from "../../../../packages/rules-engine/src/manifest.ts";
+import { seatManifest, seatView, type Snapshot } from "./view.ts";
 
 // The matrix: one campaign, every kind of seat, and a digest of what each receives of the parts that can be hidden.
 
@@ -730,6 +732,25 @@ describe("random tables (house decision #49)", () => {
     assert.deepEqual(seen("gm", guest), ["party-roll", "branowner,lyraparty"]);
     assert.deepEqual(seen("gm", ctx(screen, null)), ["party-roll", "lyraparty"]);
     assert.deepEqual(seen("gm", ctx({ kind: "admin" }, null)), all);
+  });
+
+  test("a seat's manifest hides the entries of a secret table and still parses as a ruleset", () => {
+    const r = compileRuleset(SAMPLE_HARVEST);
+    if (!r.ok) throw new Error(JSON.stringify(r.problems));
+    const shown = (c: Ctx) => seatManifest({ ruleset: r.compiled.ruleset, ctx: c }).tables;
+    const parses = (c: Ctx) => Ruleset.safeParse(seatManifest({ ruleset: r.compiled.ruleset, ctx: c })).success;
+    const lyra = ctx(member("player", [], ["lyra"]), "u-lyra");
+    assert.deepEqual(
+      Object.entries(shown(lyra) ?? {}).map(([id, t]) => [id, t.entries.length]),
+      [
+        ["season", 3],
+        ["omen", 0],
+        ["role", 0],
+      ],
+    );
+    assert.equal(parses(lyra), true);
+    assert.equal(parses(ctx(member("gm"), "u-gm")), true);
+    assert.equal(shown(ctx(member("gm"), "u-gm"))?.role?.entries.length, 3);
   });
 
   test("without a GM: nobody sees a gm roll or another's owner card, whatever the seat may run", () => {

@@ -12,6 +12,7 @@ import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { DoneButton } from "@/components/player/done-button/done-button";
 import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
 import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
+import { YourCards } from "@/components/ui/your-cards/your-cards";
 import { RequestNotices } from "@/components/ui/request-notices/request-notices";
 import { resourceLabels } from "@/lib/spend-request/spend-request";
 import { GameResult } from "@/components/ui/game-result/game-result";
@@ -128,6 +129,12 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           labels={resourceLabels(view?.ruleset ?? null)}
         />
         <ClocksView clocks={state.clocks} />
+        <YourCards
+          dealt={state.dealt}
+          held={held}
+          actors={state.actors}
+          titles={Object.fromEntries(Object.entries(view?.ruleset?.tables ?? {}).map(([id, tb]) => [id, tb.title]))}
+        />
         {state.encounter && <OrderView encounter={state.encounter} />}
         {!state.encounter && state.games[0] && <GameResult game={state.games[0]} held={held} />}
         {tab === "notebook" ? (

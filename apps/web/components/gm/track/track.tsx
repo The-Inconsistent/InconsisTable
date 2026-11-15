@@ -18,6 +18,7 @@ import { AddCombatants } from "@/components/gm/track/components/add-combatants/a
 import { ClocksPanel } from "@/components/gm/track/components/clocks-panel/clocks-panel";
 import { CombatantPanel } from "@/components/gm/track/components/combatant-panel/combatant-panel";
 import { FightBar } from "@/components/gm/track/components/fight-bar/fight-bar";
+import { TablesPanel } from "@/components/gm/track/components/tables-panel/tables-panel";
 import { PhaseBar } from "@/components/gm/track/components/phase-bar/phase-bar";
 import { OrderList } from "@/components/gm/track/components/order-list/order-list";
 import { CallForm } from "@/components/gm/tests/components/call-form/call-form";
@@ -152,6 +153,14 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
       )}
       {/* Clocks need no fight and no session: they sit under the order, always usable. */}
       <ClocksPanel clocks={state.clocks} entries={entries} run={run} />
+      <TablesPanel
+        tables={rules?.tables ?? {}}
+        rolls={state.rolls}
+        dealt={state.dealt}
+        actors={state.actors}
+        hasGm={me.tableMode === "gm"}
+        run={run}
+      />
       {/* A board game's players, automa included, are characters: there are no creatures to spawn. */}
       {mode === "fight" && <Creatures campaignId={state.campaign.id} send={send} />}
     </>

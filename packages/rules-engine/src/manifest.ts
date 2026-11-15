@@ -313,7 +313,8 @@ export type TableEntry = z.infer<typeof TableEntry>;
 export const RandomTable = z.object({
   title: z.string().min(1).max(80),
   die: DiceNotation.optional(),
-  entries: z.array(TableEntry).min(1).max(200),
+  // Empty only in a seat's copy, which hides the entries of a table it may not read; a manifest needs at least one.
+  entries: z.array(TableEntry).max(200),
   visibility: TableVisibility,
   cite: Cite.optional(),
 });
@@ -573,6 +574,10 @@ export function tableDie(notation: string): { min: number; max: number; has: (v:
 /** A die's ranges tile its outcomes exactly: no gap, no overlap, nothing outside; no die means weights, no ranges. */
 function tableProblems({ id, t, out }: { id: string; t: RandomTable; out: Problem[] }): void {
   const path = `tables.${id}`;
+  if (t.entries.length === 0) {
+    out.push({ path: `${path}.entries`, message: "a table needs an entry" });
+    return;
+  }
   duplicates({ ids: t.entries.map((e) => e.id), path: `${path}.entries`, out });
   if (t.die === undefined) {
     t.entries.forEach((e, i) => {

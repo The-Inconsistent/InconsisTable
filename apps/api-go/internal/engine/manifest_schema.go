@@ -325,7 +325,7 @@ var tableSchema = schema.Object(
 		schema.Opt("range", schema.Array(schema.Int().Min(-100_000).Max(100_000)).Min(2).Max(2)),
 		schema.Opt("weight", schema.Int().Min(1).Max(100)),
 		schema.Opt("count", schema.Int().Min(1).Max(20)),
-	)).Min(1).Max(200)),
+	)).Max(200)),
 	schema.Req("visibility", schema.Enum("gm", "party", "owner")),
 	schema.Opt("cite", citeSchema),
 )

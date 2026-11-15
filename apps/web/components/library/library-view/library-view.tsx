@@ -6,7 +6,7 @@ import { useState, type CSSProperties } from "react";
 import { PageHead } from "@/components/ui/page-head/page-head";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
-import { formatBytes, type PackList as PackListData, type RulesetList } from "@/lib/library/library";
+import { exportUrl, formatBytes, type PackList as PackListData, type RulesetList } from "@/lib/library/library";
 import { newPack, newRuleset, stripNulls, type Doc, type FormKind } from "@/lib/manifest-form/manifest-form";
 
 import { ImportPanel } from "./components/import-panel/import-panel";
@@ -31,6 +31,7 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
   const [error, setError] = useState<string | null>(null);
   const tr = useRefusal();
   const rulesetIds = rulesets.map((r) => r.slug);
+  const ownRulesets = rulesets.map((r) => ({ id: r.id, slug: r.slug }));
 
   // IMPORT in the head: shows or folds the importer, and moves the cursor into it when it opens.
   const handleToggle = () => {
@@ -48,17 +49,18 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
   const handleNewPack = () => openForm({ kind: "pack", doc: newPack({ rulesetId: rulesetIds[0] }), editing: false });
   // The importer's document opens in the form as it is (a template, a pasted draft).
   const handleOpenDoc = ({ kind, doc }: { kind: FormKind; doc: Doc }) => openForm({ kind, doc, editing: false });
-  // EDIT a pack: its newest version comes back from the owner's export and opens in the form; saving adds a version.
-  const handleEditPack = async (id: string) => {
+  // EDIT a ruleset or pack: its newest version comes back from the owner's export and opens in the form; saving adds a
+  // version (the form's validator and the server both want the version raised).
+  const handleEdit = async (kind: FormKind, id: string) => {
     setError(null);
     try {
-      const res = await fetch(`/api/packs/${id}/export`);
+      const res = await fetch(exportUrl(kind, id));
       const body: unknown = await readJson(res);
       const refusal = ApiMessage.safeParse(body);
       if (!res.ok) return setError(refusal.success ? tr(refusal.data) : t("editFailed"));
       const doc = stripNulls(body);
       if (typeof doc !== "object" || doc === null || Array.isArray(doc)) return setError(t("editFailed"));
-      openForm({ kind: "pack", doc: doc as Doc, editing: true });
+      openForm({ kind, doc: doc as Doc, editing: true });
     } catch {
       setError(t("editFailed"));
     }
@@ -91,7 +93,7 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
           kind={form.kind}
           initial={form.doc}
           editing={form.editing}
-          rulesetIds={rulesetIds}
+          rulesets={ownRulesets}
           onClose={() => setForm(null)}
           onSaved={handleChanged}
         />
@@ -121,6 +123,16 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
                     </span>
                   ))}
                 </p>
+                <div className="row">
+                  <button
+                    type="button"
+                    className="btn sm"
+                    onClick={() => handleEdit("ruleset", r.id)}
+                    aria-label={t("editRulesetLabel", { slug: r.slug })}
+                  >
+                    {t("edit")}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -139,7 +151,7 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
             maxBytes: formatBytes(usage.maxBytes, locale),
           })}
         </p>
-        <PackList packs={packs.packs} onChanged={handleChanged} onEdit={handleEditPack} />
+        <PackList packs={packs.packs} onChanged={handleChanged} onEdit={(id) => handleEdit("pack", id)} />
       </section>
     </main>
   );

@@ -63,6 +63,7 @@ var refusals = map[string]string{
 	"pickRulesetFirst":          "Pick the room's ruleset first",
 	"packNotFound":              "Pack not found",
 	"notAPackId":                "Not a pack id",
+	"notARulesetId":             "Not a ruleset id",
 	"packNotAttached":           "That pack isn't attached",
 	"packTakenDown":             "This pack was taken down by an admin",
 	"packDeleted":               "This pack is deleted: import it again to use it",

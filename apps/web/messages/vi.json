@@ -178,7 +178,9 @@
     "usage": "{packs, plural, other {# / {maxPacks} pack}}, đã dùng {bytes} / {maxBytes}.",
     "newRuleset": "Bộ luật mới",
     "newPack": "Pack mới",
-    "editFailed": "Không mở được pack đó để sửa."
+    "editFailed": "Không mở được để sửa.",
+    "edit": "Sửa",
+    "editRulesetLabel": "Sửa ruleset {slug}"
   },
   "importPanel": {
     "template": "Bắt đầu từ một mẫu",
@@ -878,6 +880,7 @@
     "pickRulesetFirst": "Hãy chọn bộ luật của campaign trước",
     "packNotFound": "Không tìm thấy pack",
     "notAPackId": "Đây không phải mã pack",
+    "notARulesetId": "Đây không phải mã bộ luật",
     "packNotAttached": "Pack này chưa được gắn",
     "packTakenDown": "Pack này đã bị admin gỡ",
     "packDeleted": "Pack này đã bị xóa: hãy nhập lại để dùng",

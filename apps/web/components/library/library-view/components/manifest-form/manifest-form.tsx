@@ -29,15 +29,15 @@ import { ProblemList } from "../problem-list/problem-list";
 import { PackBody } from "./components/pack-sections/pack-sections";
 import { RulesetBody } from "./components/ruleset-sections/ruleset-sections";
 import { MAX_PROBLEMS_SHOWN, VALIDATE_DEBOUNCE_MS } from "./constants";
-import { FormProvider } from "./form-context";
+import { FormProvider, type OwnRuleset } from "./form-context";
 
 type ManifestFormProps = {
   kind: FormKind;
   initial: Doc;
   /** Opened on something that is already saved: saving adds a version. */
   editing: boolean;
-  /** The slugs of the rulesets this user has, offered as the target of a pack. */
-  rulesetIds: readonly string[];
+  /** The rulesets this user has, offered (and loaded) as the target of a pack. */
+  rulesets: readonly OwnRuleset[];
   onClose: () => void;
   onSaved: () => void;
 };
@@ -132,7 +132,7 @@ function JsonTab({
 
 // NEW / EDIT a ruleset or a pack: a view over its JSON. The document is the state; the validator the api shares runs
 // on it after each pause, and Save sends the document to the same endpoint the paste box uses.
-export function ManifestForm({ kind, initial, editing, rulesetIds, onClose, onSaved }: ManifestFormProps) {
+export function ManifestForm({ kind, initial, editing, rulesets, onClose, onSaved }: ManifestFormProps) {
   const t = useTranslations("manifestForm");
   const tImport = useTranslations("importPanel");
   const tr = useRefusal();
@@ -181,7 +181,7 @@ export function ManifestForm({ kind, initial, editing, rulesetIds, onClose, onSa
     citeOptional: kind === "pack" ? !packNeedsCite({ doc, target }) : isHomebrew(doc),
     priv: isPrivate({ kind, doc }),
     target,
-    rulesetIds,
+    rulesets,
     set: (path: Path, value: unknown) => edit((d) => setAt({ doc: d, path, value })),
     remove: (path: Path) => edit((d) => removeAt({ doc: d, path })),
     edit,

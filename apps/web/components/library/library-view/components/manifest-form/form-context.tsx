@@ -5,6 +5,8 @@ import type { Problem, Ruleset } from "@inconsistable/rules-engine";
 
 import type { FormKind, Path } from "@/lib/manifest-form/manifest-form";
 
+export type OwnRuleset = { id: string; slug: string };
+
 /** What every field of the form reads and writes: the document, and what the validator said about it. */
 export interface FormState {
   kind: FormKind;
@@ -17,8 +19,8 @@ export interface FormState {
   priv: boolean;
   /** The ruleset a pack form checks entries against, when one was loaded. */
   target: Ruleset | null;
-  /** A ruleset slug the user already has, offered when naming the target of a pack. */
-  rulesetIds: readonly string[];
+  /** The rulesets the user already has, offered when naming the target of a pack. */
+  rulesets: readonly OwnRuleset[];
   set: (path: Path, value: unknown) => void;
   remove: (path: Path) => void;
   /** A change that touches more than one place: the current document in, the next one out. */

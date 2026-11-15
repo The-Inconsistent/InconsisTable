@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ImportRefusal, PackImported, formatBytes, kindOf, parseErrorAt } from "./library.ts";
+import { ImportRefusal, PackImported, exportUrl, formatBytes, kindOf, parseErrorAt } from "./library.ts";
 
 test("a document is a pack or a ruleset by its shape", () => {
   assert.equal(kindOf({ id: "p", entries: [] }), "pack");
@@ -45,4 +45,9 @@ test("sizes read as people say them", () => {
   assert.equal(formatBytes(100), "1 KB");
   assert.equal(formatBytes(420 * 1024), "420 KB");
   assert.equal(formatBytes(3.14 * 1024 * 1024), "3.1 MB");
+});
+
+test("the edit flow reads the export route of its kind", () => {
+  assert.equal(exportUrl("ruleset", "abc"), "/api/rulesets/abc/export");
+  assert.equal(exportUrl("pack", "abc"), "/api/packs/abc/export");
 });

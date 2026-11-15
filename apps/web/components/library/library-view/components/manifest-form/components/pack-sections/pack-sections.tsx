@@ -1,9 +1,11 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 import { validateRuleset, type FieldDef, type Ruleset } from "@inconsistable/rules-engine";
 
+import { readJson } from "@/lib/api-reply/api-reply";
+import { exportUrl } from "@/lib/library/library";
 import { getAt, type PackSection } from "@/lib/manifest-form/manifest-form";
 
 import { MAX_UPLOAD_BYTES } from "../../../../constants";
@@ -14,13 +16,33 @@ import { Block, Fields, RawField, Rows, type Spec } from "../form-fields/form-fi
 type TargetProps = { target: Ruleset | null; onTarget: (r: Ruleset | null) => void };
 
 // The ruleset the pack is written for, loaded so entries are checked against its entity types and fields.
-// ponytail: no api route returns an owner's ruleset manifest outside a room, so the owner brings it (paste or file);
-// a read route for the owner's own ruleset version lets the form load it from the library by itself.
+// A ruleset the user owns loads by itself through the owner's export; the file and the paste box stay for the rest.
 function TargetLoader({ target, onTarget }: TargetProps) {
   const t = useTranslations("manifestForm");
   const form = useForm();
   const picker = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const named = getAt(form.doc, ["ruleset", "id"]);
+  const ownedId = form.rulesets.find((r) => r.slug === named)?.id;
+
+  useEffect(() => {
+    // Syncs with the api: a new target slug that is the user's own is fetched, once, not again after "stop checking".
+    if (!ownedId) return;
+    let live = true;
+    void (async () => {
+      try {
+        const res = await fetch(exportUrl("ruleset", ownedId));
+        const r = res.ok ? validateRuleset(await readJson(res)) : null;
+        if (live && r?.ok) onTarget(r.ruleset);
+      } catch {
+        // the manual loader below still works
+      }
+    })();
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onTarget is a state setter; only the named ruleset re-runs this
+  }, [ownedId]);
 
   const load = (text: string) => {
     let doc: unknown;
@@ -55,9 +77,9 @@ function TargetLoader({ target, onTarget }: TargetProps) {
       <p className="small dim">
         {target ? t("targetLoaded", { id: target.id, version: target.version }) : t("targetNone")}
       </p>
-      {form.rulesetIds.length > 0 && (
+      {form.rulesets.length > 0 && (
         <div className="row" role="group" aria-label={t("targetPickLabel")}>
-          {form.rulesetIds.map((id) => (
+          {form.rulesets.map(({ slug: id }) => (
             <button key={id} type="button" className="btn sm" onClick={() => form.set(["ruleset", "id"], id)}>
               {id}
             </button>

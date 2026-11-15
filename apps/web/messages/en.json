@@ -178,7 +178,9 @@
     "usage": "{packs, plural, one {# of {maxPacks} pack} other {# of {maxPacks} packs}}, {bytes} of {maxBytes} stored.",
     "newRuleset": "New ruleset",
     "newPack": "New pack",
-    "editFailed": "Couldn't open that pack for editing."
+    "editFailed": "Couldn't open that for editing.",
+    "edit": "Edit",
+    "editRulesetLabel": "Edit ruleset {slug}"
   },
   "importPanel": {
     "template": "Start from a template",
@@ -878,6 +880,7 @@
     "pickRulesetFirst": "Pick the room's ruleset first",
     "packNotFound": "Pack not found",
     "notAPackId": "Not a pack id",
+    "notARulesetId": "Not a ruleset id",
     "packNotAttached": "That pack isn't attached",
     "packTakenDown": "This pack was taken down by an admin",
     "packDeleted": "This pack is deleted: import it again to use it",

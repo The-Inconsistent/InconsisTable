@@ -221,3 +221,16 @@ func List(ctx context.Context, conn core.Conn, userID string) ([]Listed, error) 
 	}
 	return out, rows.Err()
 }
+
+// Export is the newest version's manifest of the owner's own ruleset, as stored (what Import took, normalized). Nil
+// when it isn't theirs, the same answer as a ruleset that doesn't exist.
+func Export(ctx context.Context, conn core.Conn, userID, rulesetID string) (json.RawMessage, error) {
+	var manifest []byte
+	err := conn.QueryRow(ctx, `SELECT ruleset_version.manifest FROM ruleset_version
+		JOIN ruleset ON ruleset.id = ruleset_version.ruleset_id WHERE ruleset.id = $1 AND ruleset.owner_user_id = $2
+		ORDER BY ruleset_version.created_at DESC, ruleset_version.id DESC LIMIT 1`, rulesetID, userID).Scan(&manifest)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	return manifest, err
+}

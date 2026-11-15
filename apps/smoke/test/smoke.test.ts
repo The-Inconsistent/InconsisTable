@@ -929,6 +929,7 @@ interface Problem {
 interface RulesetReply {
   ok: boolean;
   versionId: string;
+  rulesetId: string;
   unchanged: boolean;
 }
 interface PackReply {
@@ -984,6 +985,14 @@ test("importer: a ruleset and a pack are stored once, a re-import reports its di
   assert.equal(rs.body.unchanged, false);
   const same = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
   assert.deepEqual([same.body.unchanged, same.body.versionId], [true, rs.body.versionId], "the same file twice is one");
+  const exportedRs = await me.get<Record<string, unknown>>(`/rulesets/${rs.body.rulesetId}/export`);
+  assert.equal(exportedRs.status, 200);
+  assert.equal(
+    (await me.post<RulesetReply>("/rulesets", exportedRs.body)).body.unchanged,
+    true,
+    "the export re-imports unchanged",
+  );
+  assert.equal((await caller(await device("snoop-rs")).get(`/rulesets/${rs.body.rulesetId}/export`)).status, 404);
   const clash = await me.post<PackReply>("/rulesets", { ...SAMPLE_D20, terms: { party: "Band" } });
   assert.equal(clash.body.problems?.[0]?.path, "version", "a version is immutable: raise it to change it");
   const listed = await me.get<{ slug: string; versions: { id: string }[] }[]>("/rulesets");

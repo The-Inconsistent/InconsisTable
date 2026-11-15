@@ -157,3 +157,8 @@ export function formatBytes(bytes: number, locale = "en"): string {
   }
   return `${new Intl.NumberFormat(locale).format(Math.max(1, Math.round(bytes / 1024)))} KB`;
 }
+
+/** The owner's export route for a ruleset or a pack (newest version, as the importer takes it). */
+export function exportUrl(kind: "ruleset" | "pack", id: string): string {
+  return `/api/${kind}s/${encodeURIComponent(id)}/export`;
+}

@@ -6,10 +6,10 @@ import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
 import { HideReply, formatBytes, type PackList as PackListData } from "@/lib/library/library";
 
-type PackListProps = { packs: PackListData["packs"]; onChanged: () => void };
+type PackListProps = { packs: PackListData["packs"]; onChanged: () => void; onEdit: (id: string) => void };
 
 // The owner's packs: what each is, the credit its license asks for, and the two things they can do with it.
-export function PackList({ packs, onChanged }: PackListProps) {
+export function PackList({ packs, onChanged, onEdit }: PackListProps) {
   const t = useTranslations("packList");
   const tStatus = useTranslations("status");
   const tr = useRefusal();
@@ -89,6 +89,15 @@ export function PackList({ packs, onChanged }: PackListProps) {
                 </p>
               )}
               <div className="row">
+                <button
+                  type="button"
+                  className="btn sm"
+                  disabled={p.disabled}
+                  onClick={() => onEdit(p.id)}
+                  aria-label={t("editLabel", { slug: p.slug })}
+                >
+                  {t("edit")}
+                </button>
                 <button
                   type="button"
                   className="btn sm"

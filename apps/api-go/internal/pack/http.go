@@ -79,6 +79,27 @@ func (s *Service) Rulesets(_ http.ResponseWriter, r *http.Request) (any, error) 
 	return ruleset.List(r.Context(), s.DB, user.UserID)
 }
 
+// ExportRuleset is GET /api/rulesets/{id}/export: the owner's newest manifest, as ImportRuleset takes it. Anyone
+// else's ruleset answers like a missing one.
+func (s *Service) ExportRuleset(_ http.ResponseWriter, r *http.Request) (any, error) {
+	user, err := s.caller(r)
+	if err != nil {
+		return nil, err
+	}
+	id, issues := schema.Parse(schema.UUID(), r.PathValue("id"))
+	if len(issues) > 0 {
+		return nil, core.Refuse(http.StatusBadRequest, "notARulesetId")
+	}
+	out, err := ruleset.Export(r.Context(), s.DB, user.UserID, id.(string))
+	if err != nil {
+		return nil, err
+	}
+	if out == nil {
+		return nil, core.Refuse(http.StatusNotFound, "rulesetNotFound")
+	}
+	return out, nil
+}
+
 // ImportPack is POST /api/packs.
 func (s *Service) ImportPack(w http.ResponseWriter, r *http.Request) (any, error) {
 	user, err := s.caller(r)

@@ -2637,3 +2637,262 @@ button.chip {
   min-height: 44px;
   font-weight: 800;
 }
+
+/* GUIDED FORM for a ruleset or a pack: a ledger over the JSON. A rail of sections on a desk or tablet (a scrolling strip
+   when narrow), rows ruled in the margin, and what the validator says printed right under the row it is about. */
+.mf {
+  gap: 0;
+  padding: 0;
+  min-width: 0;
+}
+.mf-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.mf-head .head {
+  margin: 0;
+}
+.mf-status {
+  font-weight: 600;
+  font-size: var(--fs-small);
+  padding: 2px 10px;
+  border-left: 4px solid var(--ok);
+}
+.mf-status[data-state="bad"] {
+  border-left-color: var(--accent);
+  border-left-style: dashed;
+}
+.mf > .saved,
+.mf > .error,
+.mf > .stack {
+  margin: 10px 16px 0;
+}
+/* The summary at the top stays a strip, so a long list never pushes the form off the screen. */
+.mf > .stack .problems {
+  max-height: 10.5rem;
+  overflow-y: auto;
+}
+.mf-body {
+  display: grid;
+  gap: 12px;
+  padding: 12px 16px 16px;
+}
+.mf-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.mf-tab {
+  flex: 0 0 auto;
+  min-height: var(--tap);
+  padding: 0 12px;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font: inherit;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+}
+.mf-tab[aria-selected="true"] {
+  font-weight: 700;
+  border-bottom-color: var(--accent);
+}
+.mf-tab:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+.mf-count {
+  min-width: 22px;
+  padding: 0 6px;
+  text-align: center;
+  font-size: var(--fs-small);
+  font-weight: 700;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 999px;
+}
+.mf-panel {
+  min-width: 0;
+  gap: 14px;
+}
+@media (min-width: 768px) {
+  .mf-body {
+    grid-template-columns: 188px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .mf-tabs {
+    position: sticky;
+    top: 72px;
+    flex-direction: column;
+    overflow: visible;
+    padding: 0;
+    border-bottom: 0;
+    border-right: 1px solid var(--line);
+  }
+  .mf-tab {
+    justify-content: space-between;
+    padding: 0 12px 0 8px;
+    border-bottom: 0;
+    border-right: 4px solid transparent;
+    text-align: left;
+  }
+  .mf-tab[aria-selected="true"] {
+    border-right-color: var(--accent);
+  }
+}
+.mf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px 14px;
+  align-items: start;
+}
+.mf-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.mf-field > label,
+.mf-field > span,
+.mf-modes legend,
+.mf-key > span {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.mf-field[data-kind="summary"],
+.mf-raw,
+.mf-field[data-kind="cite"] {
+  grid-column: 1 / -1;
+}
+.mf-field[data-kind="cite"] input {
+  border-style: dashed;
+  max-width: 28ch;
+}
+.mf-expr {
+  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: var(--fs-small);
+}
+.mf-hint {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+}
+.mf-warn {
+  margin: 0;
+  padding-left: 8px;
+  border-left: 4px dashed var(--accent);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+.mf-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tap);
+}
+.mf-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+.mf-list {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.mf-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+.mf-row {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper-2);
+}
+.mf-row[data-invalid] {
+  border-left-color: var(--accent);
+}
+.mf-row-head {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+  justify-content: space-between;
+}
+.mf-row-name {
+  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+.mf-key {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+  max-width: 28ch;
+}
+.mf-problems {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: var(--fs-small);
+}
+.mf-problems li {
+  padding-left: 8px;
+  border-left: 4px solid var(--accent);
+}
+.mf-problems li[data-tone="warn"] {
+  border-left-style: dashed;
+}
+.mf-problems code {
+  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.mf-block {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 10px;
+  border-top: 1px dotted var(--line);
+}
+.mf-block-title {
+  margin: 0;
+  font-size: 16px;
+}
+.mf-raw-details > summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+textarea.mf-json {
+  min-height: 420px;
+}

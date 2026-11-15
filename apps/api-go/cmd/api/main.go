@@ -100,6 +100,7 @@ func run() error {
 	console := &admin.Service{DB: db, Table: gateway}
 	route(router, "POST", "/api/rulesets", core.Serve(library.ImportRuleset))
 	route(router, "GET", "/api/rulesets", core.Serve(library.Rulesets))
+	route(router, "GET", "/api/rulesets/:id/export", core.Serve(library.ExportRuleset))
 	route(router, "POST", "/api/packs", core.Serve(library.ImportPack))
 	route(router, "GET", "/api/packs", core.Serve(library.Packs))
 	route(router, "GET", "/api/packs/:id/export", core.Serve(library.Export))

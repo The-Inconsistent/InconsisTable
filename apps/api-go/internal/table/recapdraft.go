@@ -15,7 +15,7 @@ import (
 )
 
 // DraftRecap is the `session:draftRecap` request: a plain-text draft of the running session for the GM to edit
-// (house decision #45). A read, not an action: nothing is written and nothing is broadcast. The seat is checked against
+// (house decision #47). A read, not an action: nothing is written and nothing is broadcast. The seat is checked against
 // the room's row, as ApplyAction does, not the handshake.
 func DraftRecap(ctx context.Context, conn core.Conn, seated cs.Ctx) (string, error) {
 	c := seated

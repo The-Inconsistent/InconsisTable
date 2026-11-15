@@ -1,6 +1,6 @@
 // Package recap drafts a session's recap from its event log, for the GM to edit at the end of the session (docs/design.md
 // §3.4, "Sau"). It is a pure function over the logged rows and what the table already sees: it names only what the whole
-// table saw (house decision #45). It is a GM-side read of the table, never a seat view, so it has no TypeScript twin.
+// table saw (house decision #47). It is a GM-side read of the table, never a seat view, so it has no TypeScript twin.
 package recap
 
 import (

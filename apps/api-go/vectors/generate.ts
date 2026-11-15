@@ -840,7 +840,76 @@ const condition = (effect: object, over: object = {}) => ({
   ],
 });
 const step = (over: object) => ({ id: "st", actor: "pc", label: "L", kind: "fields", fields: ["hp"], ...over });
+// Random tables (house decision #49): ranges tile the die, or weights stand without one.
+const tbl = (die: string | undefined, entries: object[], over: object = {}) => ({
+  title: "T",
+  ...(die === undefined ? {} : { die }),
+  visibility: "party",
+  entries,
+  ...over,
+});
+const span = (id: string, lo: number, hi: number, over: object = {}) => ({ id, label: id, range: [lo, hi], ...over });
+const d66Rows = [1, 2, 3, 4, 5, 6].map((t) => span(`r${t}`, t * 10 + 1, t * 10 + 6));
+const TABLES_OK = {
+  d6: tbl("d6", [span("a", 1, 2), span("b", 3, 6)]),
+  two: tbl("2d6", [span("a", 2, 6), span("b", 7, 12)], { visibility: "gm" }),
+  d66: tbl("d66", d66Rows, { visibility: "owner" }),
+  d100: tbl("d100", [span("a", 1, 99), span("b", 100, 100)]),
+  weighted: tbl(undefined, [
+    { id: "a", label: "A", weight: 3 },
+    { id: "b", label: "B", count: 2 },
+    { id: "c", label: "C" },
+  ]),
+};
+MANIFESTS.push({ ...MINIMAL, tables: TABLES_OK });
+
 const CRAFTED: object[] = [
+  { tables: TABLES_OK },
+  { tables: { t: tbl("d6", [span("a", 1, 2), span("b", 4, 6)]) } },
+  { tables: { t: tbl("d6", [span("a", 1, 4), span("b", 4, 6)]) } },
+  { tables: { t: tbl("d6", [span("a", 0, 3), span("b", 4, 7)]) } },
+  { tables: { t: tbl("d6", [span("a", 6, 1)]) } },
+  { tables: { t: tbl("d6", [{ id: "a", label: "A" }]) } },
+  { tables: { t: tbl("d6", [span("a", 1, 6, { weight: 2 })]) } },
+  { tables: { t: tbl(undefined, [span("a", 1, 2)]) } },
+  {
+    tables: {
+      t: tbl(undefined, [
+        { id: "a", label: "A" },
+        { id: "a", label: "B" },
+      ]),
+    },
+  },
+  { tables: { t: tbl("d66", d66Rows.slice(0, 5)) } },
+  {
+    tables: {
+      t: tbl(
+        "d66",
+        d66Rows.map((r, i) => (i === 5 ? span("r6", 61, 70) : r)),
+      ),
+    },
+  },
+  { tables: { t: tbl("d66", [span("a", 11, 66)]) } },
+  { tables: { t: tbl("2d66", [span("a", 1, 2)]) } },
+  { tables: { t: tbl("d6!", [span("a", 1, 6)]) } },
+  { tables: { t: tbl("d6+1", [span("a", 2, 7)]) } },
+  { tables: { t: tbl("dF", [span("a", -1, 1)]) } },
+  { tables: { t: tbl("100d1000", [span("a", 100, 100000)]) } },
+  { tables: { t: tbl("d6", [span("a", 1, 6, { range: [1] })]) } },
+  { tables: { t: tbl("d6", [span("a", 1, 6, { range: [1, 2, 3] })]) } },
+  { tables: { t: tbl("d6", [span("a", 1.5, 6)]) } },
+  { tables: { t: tbl(undefined, [{ id: "a", label: "A", weight: 0 }]) } },
+  { tables: { t: tbl(undefined, [{ id: "a", label: "A", weight: 101 }]) } },
+  { tables: { t: tbl(undefined, [{ id: "a", label: "A", count: 21 }]) } },
+  { tables: { t: tbl(undefined, []) } },
+  { tables: { t: tbl(undefined, [{ id: "a", label: "A" }], { visibility: "public" }) } },
+  { tables: { t: tbl(undefined, [{ id: "a", label: "A" }], { cite: "x".repeat(41) }) } },
+  { tables: { Bad: tbl(undefined, [{ id: "a", label: "A" }]) } },
+  { sources: [{ id: "s", title: "T", license: "srd" }], tables: { t: tbl(undefined, [{ id: "a", label: "A" }]) } },
+  {
+    sources: [{ id: "s", title: "T", license: "srd" }],
+    tables: { t: tbl(undefined, [{ id: "a", label: "A" }], { cite: "p.1" }) },
+  },
   {},
   { sources: [{ id: "s", title: "T", license: "srd" }] },
   {

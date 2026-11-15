@@ -7,7 +7,7 @@ import type { RulesetInput } from "../manifest.ts";
  */
 export const SAMPLE_HARVEST: RulesetInput = {
   id: "sample-harvest",
-  version: "0.1.0",
+  version: "0.1.1",
   core: "^0.1.0",
   sources: [{ id: "sample", title: "Sample Harvest Rules", license: "homebrew", pageOffset: 0 }],
   entities: [
@@ -40,5 +40,36 @@ export const SAMPLE_HARVEST: RulesetInput = {
     tiebreaks: [{ expr: "res.coin", order: "high" }],
     endWhen: [{ when: "round > 4", cite: "Sample p.8" }],
     cite: "Sample p.8",
+  },
+  // Random tables (house decision #49): one rolled on a die for the whole table, one weighted and kept from the
+  // players, and a deck of secret roles dealt without replacement (six cards).
+  tables: {
+    season: {
+      title: "Season",
+      die: "d6",
+      visibility: "party",
+      entries: [
+        { id: "thaw", label: "Thaw", range: [1, 2] },
+        { id: "bloom", label: "Bloom", range: [3, 4] },
+        { id: "frost", label: "Frost", range: [5, 6] },
+      ],
+    },
+    omen: {
+      title: "Omen",
+      visibility: "gm",
+      entries: [
+        { id: "calm", label: "Calm", weight: 3 },
+        { id: "storm", label: "Storm", weight: 1 },
+      ],
+    },
+    role: {
+      title: "Role",
+      visibility: "owner",
+      entries: [
+        { id: "farmer", label: "Farmer", count: 3 },
+        { id: "miller", label: "Miller", count: 2 },
+        { id: "thief", label: "Thief" },
+      ],
+    },
   },
 };

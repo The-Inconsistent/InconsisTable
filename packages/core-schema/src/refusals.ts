@@ -141,6 +141,12 @@ export const REFUSALS = {
   requestNotAllowed: "Players can't spend from that.",
   requestSpendYourself: "You can spend that yourself.",
   requestNoPool: "Shared pools aren't at this table yet.",
+  // Random tables
+  tableNotFound: "Table not found",
+  tableDealOnly: "That table is dealt, not rolled.",
+  tableNoGm: "Nobody runs this room as GM, so nothing can be GM-only.",
+  tableShort: "Not enough left to deal.",
+  tableHeld: "Someone already holds a card from that table.",
   // Undo
   nothingToUndo: "Nothing to undo",
   cantUndoKind: "Can't undo that kind of step yet",

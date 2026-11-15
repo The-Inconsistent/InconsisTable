@@ -16,6 +16,15 @@ import (
 // ponytail: the manifest is not split per entity kind; a co-GM with `party` or `combat` reads every definition.
 func SeatManifest(manifest map[string]any, c cs.Ctx) map[string]any {
 	sight := SightOf(c)
+	out := seatDefinitions(manifest, sight, c)
+	if tables, has := manifest["tables"].(map[string]any); has && !sight.Tables {
+		out = maps.Clone(out)
+		out["tables"] = seatTableDefs(tables)
+	}
+	return out
+}
+
+func seatDefinitions(manifest map[string]any, sight Sight, c cs.Ctx) map[string]any {
 	if sight.All || (c.HasGM() && (sight.Combat || sight.Party)) {
 		return manifest
 	}
@@ -39,6 +48,22 @@ func SeatManifest(manifest map[string]any, c cs.Ctx) map[string]any {
 	out["entities"] = orEmpty(entities)
 	out["resources"] = shownOf(manifest["resources"])
 	out["conditions"] = shownOf(manifest["conditions"])
+	return out
+}
+
+// The table definitions a seat reads (house decision #49): the side that runs the table with a GM reads every entry, anyone else
+// only those of a `party` table. The entries of a `gm` or `owner` table are what a roll or a deal keeps secret, so a seat
+// that runs a deal without a GM still sees the table's title and no entry.
+func seatTableDefs(tables map[string]any) map[string]any {
+	out := make(map[string]any, len(tables))
+	for id, v := range tables {
+		t, _ := v.(map[string]any)
+		if visibility, _ := t["visibility"].(string); visibility != "party" {
+			t = maps.Clone(t)
+			t["entries"] = []any{}
+		}
+		out[id] = t
+	}
 	return out
 }
 

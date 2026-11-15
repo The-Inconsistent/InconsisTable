@@ -29,6 +29,8 @@ export interface Sight {
   clocks: boolean;
   /** Every player's pending spend requests: the side that answers them. */
   requests: boolean;
+  /** Every `gm` roll and every dealt card: the side that runs the table, with a GM. Never without one. */
+  tables: boolean;
   /**
    * A player seat of a room without a GM: it sees the whole Encounter and every Test call, since nothing is hidden
    * there. It sees none of the GM side (no `gm` entry, note, pack entry, field or hidden target), whatever it may run.
@@ -56,6 +58,7 @@ export function sightOf(ctx: Ctx): Sight {
       party: false,
       clocks: false,
       requests: false,
+      tables: false,
       tableRun: player,
     };
   }
@@ -71,6 +74,7 @@ export function sightOf(ctx: Ctx): Sight {
     party: can("character:edit:any"),
     clocks: can("clock:run"),
     requests: can("request:resolve"),
+    tables: can("session:run"),
     tableRun: false,
   };
 }

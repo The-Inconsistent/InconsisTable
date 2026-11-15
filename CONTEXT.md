@@ -149,6 +149,17 @@ A Test where a character rolls a number of dice set by their values and counts t
 difficulty number; a special die in the pool may flag a critical or a complication.
 _Avoid_: Pool (alone), success roll
 
+**Random table**:
+A ruleset's list of entries the server draws from (house decision #49): rolled on a die whose ranges tile it, or by
+weight, with the result shown to the GM side, the table or the card's holder as the table declares. The only thing the
+app rolls for the table besides a Test the ruleset opts into.
+_Avoid_: Oracle, generator
+
+**Deal**:
+Giving each chosen character one card from a Random table's deck without replacement, until the table reshuffles. A
+dealt card is seen by its holder (an `owner` table), the table, or the GM side. Never undone.
+_Avoid_: Draw, shuffle (a reshuffle returns every card)
+
 **Report**:
 A player's entry of what their physical dice showed for a Test Call; the server works out the outcome.
 _Avoid_: Result (that is the outcome), submission

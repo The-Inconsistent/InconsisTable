@@ -46,6 +46,53 @@ func TestSeatManifestHidesGmDefinitionsFromPlayers(t *testing.T) {
 	}
 }
 
+func withTables() map[string]any {
+	m := manifest()
+	entry := func(id string) any { return map[string]any{"id": id, "label": id} }
+	m["tables"] = map[string]any{
+		"season": map[string]any{"title": "Season", "visibility": "party", "entries": []any{entry("frost")}},
+		"role":   map[string]any{"title": "Role", "visibility": "owner", "entries": []any{entry("mole")}},
+		"omen":   map[string]any{"title": "Omen", "visibility": "gm", "entries": []any{entry("doom")}},
+	}
+	return m
+}
+
+// The entries of a gm or owner table are what a roll or a deal keeps secret: only the side that runs the table with a
+// GM reads them, and a seat that deals without one still sees the titles.
+func TestSeatManifestKeepsTheEntriesOfSecretTablesFromTheTable(t *testing.T) {
+	entries := func(m map[string]any, id string) int {
+		return len(m["tables"].(map[string]any)[id].(map[string]any)["entries"].([]any))
+	}
+	input := withTables()
+	for name, c := range map[string]cs.Ctx{
+		"player":         {Seat: cs.Seat{Kind: cs.SeatMember, Role: "player"}},
+		"co-GM combat":   {Seat: cs.Seat{Kind: cs.SeatMember, Role: "cogm", Scopes: []string{"combat", "party"}}},
+		"screen":         {Seat: cs.Seat{Kind: cs.SeatToken, Role: "screen"}},
+		"player no GM":   {TableMode: cs.TableModeGMLess, Seat: cs.Seat{Kind: cs.SeatMember, Role: "player"}},
+		"stale GM no GM": {TableMode: cs.TableModeGMLess, Seat: cs.Seat{Kind: cs.SeatMember, Role: "gm"}},
+	} {
+		got := SeatManifest(input, c)
+		if entries(got, "season") != 1 || entries(got, "role") != 0 || entries(got, "omen") != 0 {
+			t.Errorf("%s: got %v", name, got["tables"])
+		}
+		if got["tables"].(map[string]any)["role"].(map[string]any)["title"] != "Role" {
+			t.Errorf("%s: lost the title", name)
+		}
+	}
+	if !reflect.DeepEqual(input, withTables()) {
+		t.Error("the manifest the seat view was made from was written to")
+	}
+	for name, c := range map[string]cs.Ctx{
+		"gm":          {Seat: cs.Seat{Kind: cs.SeatMember, Role: "gm"}},
+		"co-GM":       {Seat: cs.Seat{Kind: cs.SeatMember, Role: "cogm", Scopes: []string{"session"}}},
+		"admin no GM": {TableMode: cs.TableModeGMLess, Seat: cs.Seat{Kind: cs.SeatAdmin}},
+	} {
+		if got := SeatManifest(input, c); entries(got, "role") != 1 || entries(got, "omen") != 1 {
+			t.Errorf("%s: should read every entry: %v", name, got["tables"])
+		}
+	}
+}
+
 func TestSeatManifestIsWholeOnTheGmSide(t *testing.T) {
 	gm := cs.Ctx{CampaignID: "c", Seat: cs.Seat{Kind: cs.SeatMember, Role: "gm"}}
 	if !reflect.DeepEqual(SeatManifest(manifest(), gm), manifest()) {

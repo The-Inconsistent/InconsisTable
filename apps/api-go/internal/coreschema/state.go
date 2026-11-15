@@ -91,6 +91,25 @@ type (
 		Note       string  `json:"note"`
 		CreatedAt  string  `json:"createdAt"`
 	}
+	// RollRow is one roll on a random table (house decision #49): what came up, as the seat that may see it reads it.
+	// Visibility is the table's, so the Seat view can cut it; Label is the entry's own short name.
+	RollRow struct {
+		ID         string `json:"id"`
+		TableID    string `json:"tableId"`
+		EntryID    string `json:"entryId"`
+		Label      string `json:"label"`
+		Value      int    `json:"value"`
+		Visibility string `json:"visibility"`
+		At         string `json:"at"`
+	}
+	// DealtRow is a card dealt to a character from a random table and not yet returned.
+	DealtRow struct {
+		TableID    string `json:"tableId"`
+		ActorID    string `json:"actorId"`
+		EntryID    string `json:"entryId"`
+		Label      string `json:"label"`
+		Visibility string `json:"visibility"`
+	}
 	// RequestAnswer is the GM's answer to a request, sent to the player who asked.
 	RequestAnswer struct {
 		ID         string  `json:"id"`
@@ -132,10 +151,14 @@ type (
 		// Requests are the pending spend requests, oldest first; RequestAnswers the asker's recent answers.
 		Requests       []SpendRequest  `json:"requests"`
 		RequestAnswers []RequestAnswer `json:"requestAnswers"`
-		TestDefs       []TestDef       `json:"testDefs"`
-		Encounter      *Encounter      `json:"encounter"`
-		Games          []Game          `json:"games"`
-		Access         Access          `json:"access"`
+		// Rolls are the last 10 rolls on random tables, newest first; Dealt the cards dealt and not yet returned (house
+		// decision #49). Each seat gets the ones its sight reads.
+		Rolls     []RollRow  `json:"rolls"`
+		Dealt     []DealtRow `json:"dealt"`
+		TestDefs  []TestDef  `json:"testDefs"`
+		Encounter *Encounter `json:"encounter"`
+		Games     []Game     `json:"games"`
+		Access    Access     `json:"access"`
 	}
 
 	// CombatantCondition is a condition on a combatant, GM side only.

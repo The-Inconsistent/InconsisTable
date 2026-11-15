@@ -242,18 +242,19 @@ type (
 			ID      string `json:"id"`
 			License string `json:"license"`
 		} `json:"sources"`
-		Options    []idAndCite     `json:"options"`
-		Entities   []EntityType    `json:"entities"`
-		Resources  []Resource      `json:"resources"`
-		Conditions []Condition     `json:"conditions"`
-		Tests      map[string]Test `json:"tests"`
-		Initiative *Initiative     `json:"initiative"`
-		Phases     []Phase         `json:"phases"`
-		Scoring    *Scoring        `json:"scoring"`
-		Health     Health          `json:"health"`
-		Creation   []CreationStep  `json:"creation"`
-		Decisions  []idAndCite     `json:"decisions"`
-		Game       *GameInfo       `json:"game"`
+		Options    []idAndCite            `json:"options"`
+		Entities   []EntityType           `json:"entities"`
+		Resources  []Resource             `json:"resources"`
+		Conditions []Condition            `json:"conditions"`
+		Tests      map[string]Test        `json:"tests"`
+		Initiative *Initiative            `json:"initiative"`
+		Phases     []Phase                `json:"phases"`
+		Scoring    *Scoring               `json:"scoring"`
+		Tables     map[string]RandomTable `json:"tables"`
+		Health     Health                 `json:"health"`
+		Creation   []CreationStep         `json:"creation"`
+		Decisions  []idAndCite            `json:"decisions"`
+		Game       *GameInfo              `json:"game"`
 	}
 	// GameInfo is the manifest's `game` block: what the game is and how a table can sit for it.
 	GameInfo struct {
@@ -474,6 +475,11 @@ func (r *Ruleset) semanticProblems() problems {
 	}
 	for i, x := range r.Phases {
 		needCite(x.Cite, fmt.Sprintf("phases[%d]", i))
+	}
+	for _, id := range sortedKeys(r.Tables) {
+		t := r.Tables[id]
+		needCite(t.Cite, "tables."+id)
+		p.table(id, &t)
 	}
 	if s := r.Scoring; s != nil {
 		needCite(s.Cite, "scoring")

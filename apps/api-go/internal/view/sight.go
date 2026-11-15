@@ -25,6 +25,8 @@ type Sight struct {
 	Clocks bool
 	// Requests is every player's pending spend requests: the side that answers them.
 	Requests bool
+	// Tables is every `gm` roll and every dealt card: the side that runs the table, with a GM. Never without one.
+	Tables bool
 	// Party is the gm fields and resources of the party's Characters.
 	Party bool
 	// TableRun is a player seat of a room without a GM: it sees the whole Encounter and every Test call, since nothing
@@ -65,6 +67,7 @@ func SightOf(c cs.Ctx) Sight {
 		Clocks:  can("clock:run"),
 
 		Requests: can("request:resolve"),
+		Tables:   can("session:run"),
 	}
 }
 

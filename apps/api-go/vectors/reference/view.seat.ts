@@ -7,7 +7,9 @@ import {
   type Clock,
   type Codex,
   type Ctx,
+  type DealtRow,
   type Encounter,
+  type RollRow,
   type LiveState,
   type RequestAnswer,
   type SpendRequest,
@@ -57,6 +59,19 @@ const NO_VALUES = { entity: "", fields: {}, resources: {}, derived: {}, conditio
  * redact them if a ruleset needs that secret kept
  */
 export function seatManifest({ ruleset, ctx }: { ruleset: Ruleset; ctx: Ctx }): Ruleset {
+  const shown = seatDefinitions({ ruleset, ctx });
+  // The entries of a `gm` or `owner` table are what a roll or a deal keeps secret: only the side that runs the table
+  // with a GM reads them. Anyone else still sees the table's title (a deal can be run without a GM).
+  if (shown.tables === undefined || sightOf(ctx).tables) return shown;
+  return {
+    ...shown,
+    tables: Object.fromEntries(
+      Object.entries(shown.tables).map(([id, t]) => [id, t.visibility === "party" ? t : { ...t, entries: [] }]),
+    ),
+  };
+}
+
+function seatDefinitions({ ruleset, ctx }: { ruleset: Ruleset; ctx: Ctx }): Ruleset {
   const sight = sightOf(ctx);
   // ponytail: the manifest is not split per entity kind; a co-GM with `party` or `combat` reads every definition
   if (sight.all || (ctx.tableMode === "gm" && (sight.combat || sight.party))) return ruleset;
@@ -101,12 +116,36 @@ export function seatView({
       myDraft,
       clocks: seatClocks({ clocks: state.clocks, codex, sight }),
       ...seatRequests({ requests: state.requests, answers: state.requestAnswers, ctx, sight }),
+      ...seatTables({ rolls: state.rolls, dealt: state.dealt, ctx, sight }),
     },
     codex,
     manifest,
     packVisibilities,
   };
 }
+
+// The rolls and dealt cards a seat receives (house decision #49): the side that runs the table with a GM sees them all.
+// Anyone else sees what the table's visibility shows: `party` to every seat, `owner` to the seat that holds the card's
+// character. A `gm` one, and every card without a GM, reaches nobody else.
+const seatTables = ({
+  rolls,
+  dealt,
+  ctx,
+  sight,
+}: {
+  rolls: readonly RollRow[];
+  dealt: readonly DealtRow[];
+  ctx: Ctx;
+  sight: Sight;
+}): Pick<LiveState, "rolls" | "dealt"> => {
+  const held = heldBy(ctx);
+  return {
+    rolls: rolls.filter((r) => sight.tables || r.visibility === "party"),
+    dealt: dealt.filter(
+      (d) => sight.tables || d.visibility === "party" || (d.visibility === "owner" && held.includes(d.actorId)),
+    ),
+  };
+};
 
 // The spend requests a seat receives: the side that answers them sees every pending request, a player only their own
 // and their own answers (that side sees every answer), a screen and a guest token (no user) none.

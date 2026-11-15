@@ -19,6 +19,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/game"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/pack"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/randomtable"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/request"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/safety"
@@ -279,6 +280,10 @@ var handlers = map[string]handler{
 	"campaign.setSafety": safety.Set,
 	"safety.suggest":     safety.Suggest,
 	"safety.xcard":       safety.XCard,
+	// randomtable/randomtable.go
+	"table.roll":      randomtable.Roll,
+	"table.deal":      randomtable.Deal,
+	"table.reshuffle": randomtable.Reshuffle,
 }
 
 // dispatch sends an authorized action to its feature's handler. Every action type has one (dispatch_test.go); a type

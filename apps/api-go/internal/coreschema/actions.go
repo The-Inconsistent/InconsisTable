@@ -66,6 +66,7 @@ var (
 	safetyList    = schema.Array(safetyLine).Max(MaxSafetyItems)
 	clockSegments = schema.Int().Min(2).Max(12)
 	requestText   = schema.String().Trim().Max(140)
+	tableID       = schema.String().Min(1).Max(64)
 	answers       = schema.Record(schema.String().Max(120), schema.Unknown())
 
 	// BuilderDraftBody is the character being built and the answers so far, read and written whole.
@@ -277,6 +278,13 @@ var ActionSchema = schema.Union("type",
 	variant("campaign.setSafety", schema.Req("lines", safetyList), schema.Req("veils", safetyList), schema.Req("xCard", schema.Bool())),
 	variant("safety.suggest", schema.Req("kind", schema.Enum("line", "veil")), schema.Req("text", safetyLine)),
 	variant("safety.xcard"),
+
+	variant("table.roll", schema.Req("tableId", tableID)),
+	variant("table.deal",
+		schema.Req("tableId", tableID),
+		schema.Req("actorIds", schema.UniqueList(id, 1, 20, "a character is listed twice")),
+	),
+	variant("table.reshuffle", schema.Req("tableId", tableID)),
 )
 
 // ParseAction reads a socket payload as an Action, or the issues that refuse it.
@@ -363,6 +371,9 @@ var ActionPerms = map[string]string{
 	"campaign.setSafety":      "session:run",
 	"safety.suggest":          "safety:signal",
 	"safety.xcard":            "safety:signal",
+	"table.roll":              "session:run",
+	"table.deal":              "session:run",
+	"table.reshuffle":         "session:run",
 }
 
 // OwnFallback is the GM-side permission that also satisfies an :own one: a GM renames any character.

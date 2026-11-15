@@ -13,8 +13,9 @@ import { Block, Fields, RawField, Rows, type Spec } from "../form-fields/form-fi
 
 type TargetProps = { target: Ruleset | null; onTarget: (r: Ruleset | null) => void };
 
-// The ruleset the pack is written for, loaded so entries are checked against its entity types and fields. The library
-// holds no manifest the form can read, so the owner brings it: paste it or choose its file.
+// The ruleset the pack is written for, loaded so entries are checked against its entity types and fields.
+// ponytail: no api route returns an owner's ruleset manifest outside a room, so the owner brings it (paste or file);
+// a read route for the owner's own ruleset version lets the form load it from the library by itself.
 function TargetLoader({ target, onTarget }: TargetProps) {
   const t = useTranslations("manifestForm");
   const form = useForm();

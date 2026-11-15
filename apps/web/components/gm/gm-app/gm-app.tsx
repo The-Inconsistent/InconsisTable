@@ -31,7 +31,7 @@ export function GmApp({ me, initialTab, rules, view, quick = false }: GmAppProps
   const t = useTranslations("gmApp");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
-  const { state, codex, online, send, books, requestPage, xcard } = useTable(me.campaignId);
+  const { state, codex, online, send, draftRecap, books, requestPage, xcard } = useTable(me.campaignId);
   const tabs = (Object.keys(GM_TABS) as GmTab[]).filter(
     (k) => canInCampaign({ ctx: me, perm: GM_TABS[k].perm }) && (k !== "standings" || (state?.games.length ?? 0) > 0),
   );
@@ -86,6 +86,7 @@ export function GmApp({ me, initialTab, rules, view, quick = false }: GmAppProps
               me={me}
               state={state}
               send={send}
+              draftRecap={draftRecap}
               recaps={codex?.recaps ?? []}
               autoQr={quick}
               sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}

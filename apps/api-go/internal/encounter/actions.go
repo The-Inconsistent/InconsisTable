@@ -70,8 +70,12 @@ func CloseEncounter(ctx context.Context, tx core.Conn, c cs.Ctx, encounterID str
 			return "", err
 		}
 	}
-	if _, err := tx.Exec(ctx, `UPDATE encounter SET active = false, current_combatant_id = NULL, first_combatant_id = NULL
-		WHERE id = $1`, encounterID); err != nil {
+	var round int
+	if err := tx.QueryRow(ctx, `UPDATE encounter SET active = false, current_combatant_id = NULL, first_combatant_id = NULL
+		WHERE id = $1 RETURNING round`, encounterID).Scan(&round); err != nil {
+		return "", err
+	}
+	if err := eventlog.LogEvent(ctx, tx, c, "encounter.end", map[string]any{"encounterId": encounterID, "round": round}); err != nil {
 		return "", err
 	}
 	// ponytail: these deletes can't be undone (house decision #26); undo skips their steps like any deleted actor
@@ -110,7 +114,7 @@ func Action(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	}
 	switch a.Type() {
 	case "encounter.start":
-		return start(ctx, tx, cid)
+		return start(ctx, tx, c)
 	case "encounter.end":
 		e, err := running(ctx, tx, cid)
 		if err != nil {
@@ -150,7 +154,8 @@ func Action(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	return cs.Result{}, cs.Fail("serverError")
 }
 
-func start(ctx context.Context, tx core.Conn, cid string) (cs.Result, error) {
+func start(ctx context.Context, tx core.Conn, c cs.Ctx) (cs.Result, error) {
+	cid := c.CampaignID
 	sessionID, err := eventlog.RunningSessionID(ctx, tx, cid)
 	if err != nil {
 		return cs.Result{}, err
@@ -179,7 +184,10 @@ func start(ctx context.Context, tx core.Conn, cid string) (cs.Result, error) {
 	var id string
 	err = tx.QueryRow(ctx, `INSERT INTO encounter (campaign_id, session_id, phase_id) VALUES ($1, $2, $3) RETURNING id::text`,
 		cid, *sessionID, phaseID).Scan(&id)
-	return cs.Done(id), err
+	if err != nil {
+		return cs.Result{}, err
+	}
+	return cs.Done(id), eventlog.LogEvent(ctx, tx, c, "encounter.start", map[string]any{"encounterId": id})
 }
 
 func add(ctx context.Context, tx core.Conn, cid string, a cs.Action) (cs.Result, error) {

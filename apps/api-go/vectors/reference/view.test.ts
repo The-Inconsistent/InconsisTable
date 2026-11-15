@@ -380,6 +380,17 @@ test("a link or a parent is kept only when the seat sees both ends; planned Test
   assert.deepEqual(codexSide?.plannedTests, ["check"]);
 });
 
+test("a mention of an entry the seat cannot see becomes the hidden form; the GM and the stored body are untouched", () => {
+  const body = "met @[Secret Name](secret), @[Open](open) and @[Gone](nope)";
+  const mentioning = { ...snapshot, codex: { ...codex, entries: [...codex.entries, entry("m", { body })] } };
+  const player = ctx(member("player"), "u-x");
+  const bodyFor = (c: Ctx) =>
+    seatView({ snapshot: mentioning, compiled, ctx: c }).codex.entries.find((e) => e.id === "m")?.body;
+  assert.equal(bodyFor(player), "met @[…](hidden), @[Open](open) and @[…](hidden)");
+  assert.ok(!JSON.stringify(seatView({ snapshot: mentioning, compiled, ctx: player })).includes("Secret Name"));
+  assert.equal(bodyFor(ctx(member("gm"), "u-gm")), body);
+});
+
 test("every seat receives the recaps, whole", () => {
   for (const c of [ctx(member("player"), "u-x"), ctx(member("cogm"), "u-co"), ctx(member("gm"), "u-gm")])
     assert.deepEqual(seatView({ snapshot, compiled, ctx: c }).codex.recaps, codex.recaps);

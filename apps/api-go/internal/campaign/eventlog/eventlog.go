@@ -167,3 +167,19 @@ func IsWhole(v any) bool {
 	n, isNumber := v.(float64)
 	return isNumber && n == math.Trunc(n) && math.Abs(n) <= 9007199254740991
 }
+
+// LogEvent writes an event of its own kind (not a delta, so Undo never takes it back) into the running session's log.
+// It is what the recap draft reads (internal/recap); a write outside a session is not logged.
+func LogEvent(ctx context.Context, tx core.Conn, c cs.Ctx, kind string, payload map[string]any) error {
+	sessionID, err := RunningSessionID(ctx, tx, c.CampaignID)
+	if err != nil || sessionID == nil {
+		return err
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO session_event (campaign_id, session_id, type, seat_user_id, payload) VALUES ($1, $2, $3, $4, $5)`,
+		c.CampaignID, *sessionID, kind, c.UserID, body)
+	return err
+}

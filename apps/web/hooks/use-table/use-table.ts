@@ -40,6 +40,11 @@ const PageReply = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(false), error: z.string(), ...Refusal }),
 ]) satisfies z.ZodType<BookReply>;
 
+const DraftReply = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), text: z.string() }),
+  z.object({ ok: z.literal(false), error: z.string(), ...Refusal }),
+]);
+
 const ACK_TIMEOUT_MS = 5000;
 const REFUSED_RETRY_MS = 3000;
 const TAP_WINDOW_MS = 1000;
@@ -48,6 +53,7 @@ const SENT_MS = 600;
 const PAGE_TIMEOUT_MS = 20_000;
 
 export type Send = (a: ActionInput) => Promise<ActionResult>;
+export type DraftRecap = () => Promise<{ ok: true; text: string } | Refused>;
 export type RequestPage = (p: BookPage) => Promise<BookReply>;
 export type RenderPage = (p: BookPage) => Promise<BookReply>;
 
@@ -205,13 +211,26 @@ export function useTable(campaignId: string) {
     [t, worded],
   );
 
+  // The running session as draft recap lines (needs session:run).
+  const draftRecap: DraftRecap = useCallback(async () => {
+    const s = socket.current;
+    if (!s?.connected) return { ok: false, error: t("noSignal") };
+    try {
+      const reply = DraftReply.safeParse(await s.timeout(ACK_TIMEOUT_MS).emitWithAck("session:draftRecap"));
+      if (!reply.success) return { ok: false, error: t("unreadable") };
+      return reply.data.ok ? reply.data : worded(reply.data);
+    } catch {
+      return { ok: false, error: t("noReply") };
+    }
+  }, [t, worded]);
+
   // GM: serve these sources with `render`, or stop (null or no sources).
   const serveBooks = useCallback((next: { sources: BookSource[]; render: RenderPage } | null) => {
     serving.current = next?.sources.length ? next : null;
     socket.current?.emit("book:serving", { sources: next?.sources ?? [] });
   }, []);
 
-  return { state, codex, online, send, books, requestPage, serveBooks, xcard };
+  return { state, codex, online, send, draftRecap, books, requestPage, serveBooks, xcard };
 }
 
 type EmitWords = { noSignal: string; unreadable: string; noReply: string };

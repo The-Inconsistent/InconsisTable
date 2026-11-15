@@ -36,7 +36,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   const t = useTranslations("playerApp");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
-  const { state, codex, online, send, books, requestPage, xcard } = useTable(me.campaignId);
+  const { state, codex, online, send, draftRecap, books, requestPage, xcard } = useTable(me.campaignId);
   const held = me.seat.kind === "admin" ? [] : me.seat.characterIds;
   const [current, setCurrent] = useState(held[0] ?? "");
   const [tab, setTab] = useState<PlayerTab>(quick ? "run" : "sheet");
@@ -152,6 +152,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
             state={state}
             codex={codex}
             send={send}
+            draftRecap={draftRecap}
             ruleset={view?.ruleset ?? null}
             books={books}
             requestPage={requestPage}

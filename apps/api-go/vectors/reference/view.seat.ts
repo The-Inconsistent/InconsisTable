@@ -1,5 +1,6 @@
 import {
   canInCampaign,
+  hideMentions,
   PARTY_KINDS,
   type Actor,
   type BuilderDraftBody,
@@ -263,6 +264,7 @@ function seatCodex({ codex, ctx, sight }: { codex: Codex; ctx: Ctx; sight: Sight
     recaps: codex.recaps,
     entries: seen.map((e) => ({
       ...e,
+      body: sight.secrets || sight.codex ? e.body : hideMentions({ body: e.body, canSee: (id) => ids.has(id) }),
       gmNotes: sight.secrets ? e.gmNotes : "",
       audience: sight.secrets || sight.codex ? e.audience : e.audience.filter((a) => held.includes(a)),
       parentId: e.parentId !== null && ids.has(e.parentId) ? e.parentId : null,

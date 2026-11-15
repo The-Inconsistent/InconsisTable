@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { CodexKind, type Codex, type CodexEntry, type Me, type Safety } from "@inconsistable/core-schema";
 
 import { SafetySection } from "@/components/player/notebook/safety-section";
+import { MentionText } from "@/components/ui/mention-text/mention-text";
 import type { Send } from "@/hooks/use-table/use-table";
 
 type NotebookProps = { codex: Codex | null; me: Me; safety: Safety; send: Send };
@@ -27,13 +28,22 @@ export function Notebook({ codex, me, safety, send }: NotebookProps) {
     );
   const openQuests = entries.filter((e) => e.kind === "quest" && e.status === "open");
   const rest = entries.filter((e) => !openQuests.includes(e));
+  // A mention opens the entry it names and scrolls to it.
+  const handleOpen = (id: string) => {
+    const el = document.getElementById(`entry-${id}`);
+    if (!(el instanceof HTMLDetailsElement)) return;
+    el.open = true;
+    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
   const card = (e: CodexEntry) => (
-    <details key={e.id} className="card">
+    <details key={e.id} id={`entry-${e.id}`} className="card">
       <summary>
         <strong>{e.title}</strong>
         {e.status && e.status !== "open" && <span className="chip">{tStatus(e.status)}</span>}
       </summary>
-      <p style={{ whiteSpace: "pre-wrap" }}>{e.body}</p>
+      <p style={{ whiteSpace: "pre-wrap" }}>
+        <MentionText body={e.body} entries={entries} onOpen={handleOpen} />
+      </p>
     </details>
   );
   return (

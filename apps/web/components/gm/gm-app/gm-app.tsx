@@ -15,6 +15,7 @@ import { Track } from "@/components/gm/track/track";
 import { TableModePicker } from "@/components/player/run-table/table-mode-picker";
 import { Tests } from "@/components/gm/tests/tests";
 import { Standings } from "@/components/ui/standings/standings";
+import { XCardOverlay } from "@/components/ui/xcard/xcard-overlay";
 import { SettingsMenu } from "@/components/ui/settings-menu/settings-menu";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
@@ -30,7 +31,7 @@ export function GmApp({ me, initialTab, rules, view, quick = false }: GmAppProps
   const t = useTranslations("gmApp");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
-  const { state, codex, online, send, books, requestPage } = useTable(me.campaignId);
+  const { state, codex, online, send, books, requestPage, xcard } = useTable(me.campaignId);
   const tabs = (Object.keys(GM_TABS) as GmTab[]).filter(
     (k) => canInCampaign({ ctx: me, perm: GM_TABS[k].perm }) && (k !== "standings" || (state?.games.length ?? 0) > 0),
   );
@@ -67,6 +68,7 @@ export function GmApp({ me, initialTab, rules, view, quick = false }: GmAppProps
           <SettingsMenu />
         </span>
       </header>
+      <XCardOverlay signal={xcard} />
       <TransferOffer me={me} state={state} send={send} />
       <nav className="tabs" role="tablist" aria-label={t("tabsLabel")}>
         {tabs.map((name) => (

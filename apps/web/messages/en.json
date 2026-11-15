@@ -178,6 +178,22 @@
     "usage": "{packs, plural, one {# of {maxPacks} pack} other {# of {maxPacks} packs}}, {bytes} of {maxBytes} stored."
   },
   "importPanel": {
+    "template": "Start from a template",
+    "templateNone": "Choose a family",
+    "templates": {
+      "d20": "d20 roll vs a number",
+      "bands": "2d6 bands",
+      "pool": "Dice pool counting hits",
+      "percentile": "Percentile",
+      "clocks": "Clocks and position"
+    },
+    "templateNotes": {
+      "d20": "One Test: dice plus a modifier against a number the GM names when calling it. Add degrees of success if your game has them.",
+      "bands": "One reported Test with three results. Rename them and cite the page.",
+      "pool": "One Test: roll a pool of dice and count the faces that score. Set the die, the scoring faces and the cite.",
+      "percentile": "Roll-under is not something the app works out: the table reads the dice and reports which result it was.",
+      "clocks": "One reported Test with three results. Run your story clocks from the room's clocks, not from the ruleset."
+    },
     "tooBig": "That file is over 5 MB. Split the pack into two.",
     "notJson": "That isn't a JSON document.",
     "unknownShape": "Not a ruleset (it needs entities) or a pack (it needs entries).",
@@ -968,6 +984,9 @@
     "changeBetweenSessions": "Change how the table sits between sessions.",
     "modeNotPlayed": "This game isn't played that way.",
     "soloOneSeat": "A solo room seats one player.",
+    "safetyListFull": "That list is full.",
+    "xcardOff": "The X-Card is off at this table.",
+    "xcardWait": "Wait a moment before touching it again.",
     "noGmHere": "Nobody runs this room as GM, so nothing can be GM-only.",
     "noGmSeats": "This room has no GM seats.",
     "testCharactersOnly": "Without a GM, a Test is called for characters.",
@@ -1096,6 +1115,37 @@
     "unknownTest": "(not in this ruleset)",
     "call": "Call",
     "unplan": "Stop planning {id}"
+  },
+  "safety": {
+    "card": {
+      "title": "X-Card",
+      "text": "Skip or change what just happened. No questions asked.",
+      "dismiss": "Back to the game",
+      "touchLabel": "Touch the X-Card. Nobody is told who touched it.",
+      "sent": "The table has been told."
+    },
+    "panel": {
+      "title": "Lines and veils",
+      "hint": "One per line, up to {items}, each up to {chars} characters. Players can suggest more from their phones, without a name.",
+      "lines": "Lines: never at this table",
+      "veils": "Veils: happen off the page",
+      "xCard": "Players can touch the X-Card",
+      "tooMany": "A list holds at most {items} entries.",
+      "tooLong": "Each entry is at most {chars} characters.",
+      "save": "Save"
+    },
+    "view": {
+      "title": "Lines and veils",
+      "lines": "Lines",
+      "veils": "Veils",
+      "none": "Nothing yet.",
+      "suggest": "Suggest one",
+      "anonymous": "Nobody is told who suggested it.",
+      "asLine": "A line",
+      "asVeil": "A veil",
+      "send": "Add to the list",
+      "sent": "Added."
+    }
   },
   "notebook": {
     "entries": "Revealed",

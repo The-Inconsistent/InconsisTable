@@ -5,6 +5,7 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
 import { locate } from "@/lib/json-locate/json-locate";
+import { TEMPLATE_IDS, templateText, type TemplateId } from "@/lib/templates/templates";
 import {
   ImportRefusal,
   PackImported,
@@ -57,6 +58,7 @@ export function ImportPanel({ onSaved, autoFocus }: ImportPanelProps) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [templateId, setTemplateId] = useState<TemplateId | null>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLInputElement>(null);
 
@@ -70,6 +72,15 @@ export function ImportPanel({ onSaved, autoFocus }: ImportPanelProps) {
     const line = text.slice(0, span.start).split("\n").length - 1;
     const lineHeight = Number.parseFloat(getComputedStyle(box).lineHeight) || 20;
     box.scrollTop = Math.max(0, (line - 3) * lineHeight);
+  };
+
+  // START FROM A TEMPLATE: fills the box with the family's skeleton; the check on import lists what is still missing.
+  const handleTemplate = (e: ChangeEvent<HTMLSelectElement>) => {
+    const id = TEMPLATE_IDS.find((x) => x === e.target.value);
+    if (!id) return;
+    setText(templateText(id));
+    setTemplateId(id);
+    setOutcome(null);
   };
 
   // FILE: reads the chosen file into the box, so it is checked and imported like pasted text.
@@ -149,6 +160,18 @@ export function ImportPanel({ onSaved, autoFocus }: ImportPanelProps) {
       <p className="reminder" id="import-reminder">
         {t("reminder")}
       </p>
+      <label>
+        {t("template")}
+        <select value="" onChange={handleTemplate} disabled={busy}>
+          <option value="">{t("templateNone")}</option>
+          {TEMPLATE_IDS.map((id) => (
+            <option key={id} value={id}>
+              {t(`templates.${id}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+      {templateId && <p className="small dim">{t(`templateNotes.${templateId}`)}</p>}
       <label>
         {t("fieldLabel")}
         <textarea

@@ -1,20 +1,30 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { CodexKind, type Codex, type CodexEntry } from "@inconsistable/core-schema";
+import { CodexKind, type Codex, type CodexEntry, type Me, type Safety } from "@inconsistable/core-schema";
 
-type NotebookProps = { codex: Codex | null };
+import { SafetySection } from "@/components/player/notebook/safety-section";
+import type { Send } from "@/hooks/use-table/use-table";
+
+type NotebookProps = { codex: Codex | null; me: Me; safety: Safety; send: Send };
 
 // The phone's notebook: open quests first, then what the GM revealed by kind and tapped open (closed quests with their
 // outcome under Quest), then the recaps, newest first.
-export function Notebook({ codex }: NotebookProps) {
+export function Notebook({ codex, me, safety, send }: NotebookProps) {
   const t = useTranslations("notebook");
   const tKind = useTranslations("codex.kind");
   const tStatus = useTranslations("codex.status");
   const tRecaps = useTranslations("recaps");
   const entries = codex?.entries ?? [];
   const recaps = codex?.recaps ?? [];
-  if (!entries.length && !recaps.length) return <p className="dim">{t("nothing")}</p>;
+  const safetySection = <SafetySection me={me} safety={safety} send={send} />;
+  if (!entries.length && !recaps.length)
+    return (
+      <div className="stack">
+        <p className="dim">{t("nothing")}</p>
+        {safetySection}
+      </div>
+    );
   const openQuests = entries.filter((e) => e.kind === "quest" && e.status === "open");
   const rest = entries.filter((e) => !openQuests.includes(e));
   const card = (e: CodexEntry) => (
@@ -58,6 +68,7 @@ export function Notebook({ codex }: NotebookProps) {
           ))}
         </section>
       )}
+      {safetySection}
     </div>
   );
 }

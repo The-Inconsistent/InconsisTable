@@ -2465,7 +2465,7 @@ fieldset:disabled select {
   animation: rise var(--dur-move) var(--ease-out) backwards;
   animation-delay: calc(min(var(--i), 11) * var(--stagger));
 }
-.motion :is(.saved, #new-room, #import-panel) {
+.motion :is(.saved, #new-room, #quick-game, #import-panel) {
   animation: rise var(--dur-move) var(--ease-out) backwards;
 }
 /* The admin ledger's filter: rows travel to their new places, a row that comes back rises, one that goes fades. */
@@ -2490,4 +2490,54 @@ fieldset:disabled select {
   .menu-pop {
     transition-property: opacity;
   }
+}
+
+/* ---------- Choose game ----------
+   A game is a card you press. The chosen one lights its frame and carries a check, so it never rests on colour; a lit
+   filter chip inverts the way a pressed button does. */
+.game-picker {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.game-card {
+  text-align: start;
+  cursor: pointer;
+  font: inherit;
+}
+.game-card[aria-pressed="true"] {
+  outline: 3px solid var(--brass);
+  outline-offset: 2px;
+}
+.game-card[aria-pressed="true"] .card-name::before {
+  content: "";
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 6px;
+  vertical-align: -0.12em;
+  background: currentColor;
+  mask: var(--icon-check) center / contain no-repeat;
+}
+button.chip {
+  font: inherit;
+  font-size: var(--fs-small);
+  color: var(--ink);
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.stepper output {
+  min-width: 8ch;
+  text-align: center;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
 }

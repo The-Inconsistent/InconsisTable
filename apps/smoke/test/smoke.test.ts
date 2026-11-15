@@ -23,6 +23,7 @@ import { SAMPLE_PACK } from "../../../packages/rules-engine/src/fixtures/sample-
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
+import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
 
 // Spelled out, not imported from the api: this suite is the black-box spec any api implementation has to pass.
 const MAX_NEW_CHARACTERS_PER_INVITE = 50;
@@ -3174,4 +3175,47 @@ test("a room without a GM: players run the table, nothing is kept for a GM, undo
   };
   assert.deepEqual([back.tableMode, back.seat.role], ["gm", "gm"], "back with a GM, the owner is the GM");
   for (const c of [ana, ben]) c.socket.close();
+});
+
+// Freeform comes from the web as a constant and is imported into the owner's own library; a GM-less room runs on it.
+test("Freeform: imported once into the library, listed with its game block, a GM-less room reports a Check as Partial", async () => {
+  const ownerDevice = await device("owner-Freeform");
+  const me = caller(ownerDevice);
+  const first = await me.post<RulesetReply>("/rulesets", FREEFORM);
+  assert.equal(first.status, 201);
+  const again = await me.post<RulesetReply>("/rulesets", FREEFORM);
+  assert.deepEqual([again.body.unchanged, again.body.versionId], [true, first.body.versionId], "once");
+  const listed =
+    await me.get<{ slug: string; versions: { id: string; modes: string[]; game: unknown }[] }[]>("/rulesets");
+  assert.deepEqual(
+    listed.body.map((r) => r.slug),
+    ["freeform"],
+  );
+  assert.deepEqual(listed.body[0]!.versions[0]!.modes, ["gm", "gmless", "solo"]);
+  assert.deepEqual(listed.body[0]!.versions[0]!.game, {
+    title: "Freeform",
+    genres: [],
+    players: { min: 1, max: 12 },
+  });
+
+  const res = await post(
+    "/campaigns",
+    { name: "Freeform", rulesetVersionId: first.body.versionId, tableMode: "gmless" },
+    cookieOf(ownerDevice),
+  );
+  assert.equal(res.status, 201);
+  const { campaignId } = (await res.json()) as { campaignId: string };
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  const anaDevice = await seatPlayer(owner, "ana-Freeform");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  const members = (await owner.until((s) => s.access.members.length === 2)).access.members;
+  const hero = members.find((m) => m.userId === uid("ana-Freeform"))!.characterIds[0]!;
+  await equip(hero, "character", { resources: { health: 10 } });
+  ok(await owner.send({ type: "session.start" }));
+  const id = ok(
+    await owner.send({ type: "test.call", testId: "check", actorIds: [hero], inputs: {}, hideTarget: false }),
+  ).id!;
+  ok(await ana.send({ type: "test.report", callId: id, actorId: hero, outcome: "partial" }));
+  assert.deepEqual(await query("SELECT outcome FROM test_report WHERE call_id = $1", [id]), [{ outcome: "partial" }]);
+  for (const c of [owner, ana]) c.socket.close();
 });

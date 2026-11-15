@@ -22,6 +22,7 @@ import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
+import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
 import type { FieldDef, Ruleset } from "../../../packages/rules-engine/src/manifest.ts";
 import { runCreation, type EntryLookup } from "../../../packages/rules-engine/src/creation.ts";
 import { checkFieldValue } from "../../../packages/rules-engine/src/field-value.ts";
@@ -680,7 +681,7 @@ function checkVectors(sources: readonly string[]) {
   });
 }
 
-const MANIFESTS: unknown[] = [SAMPLE_D20, SAMPLE_HARVEST, SAMPLE_POOL, SAMPLE_NO_ORDER, FIXTURE_RULESET];
+const MANIFESTS: unknown[] = [SAMPLE_D20, SAMPLE_HARVEST, SAMPLE_POOL, SAMPLE_NO_ORDER, FIXTURE_RULESET, FREEFORM];
 
 function allStrings(value: unknown, out: string[]): string[] {
   if (typeof value === "string") out.push(value);

@@ -26,18 +26,18 @@ import { useTable } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 
-type PlayerAppProps = { me: Me; view: RulesView | null };
+type PlayerAppProps = { me: Me; view: RulesView | null; quick?: boolean };
 
 // The phone: one seat, possibly several characters (a companion, a funnel, a friend's character). The strip at the
 // top switches between them (docs/design.md §3.7). Sheets, the fight and the map arrive with the first ruleset (P1).
-export function PlayerApp({ me, view }: PlayerAppProps) {
+export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   const t = useTranslations("playerApp");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
   const { state, codex, online, send, books, requestPage } = useTable(me.campaignId);
   const held = me.seat.kind === "admin" ? [] : me.seat.characterIds;
   const [current, setCurrent] = useState(held[0] ?? "");
-  const [tab, setTab] = useState<PlayerTab>("sheet");
+  const [tab, setTab] = useState<PlayerTab>(quick ? "run" : "sheet");
   const [error, setError] = useState<string | null>(null);
 
   const [dismissedNow, setDismissedNow] = useState<string | null>(null);
@@ -151,6 +151,7 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
             ruleset={view?.ruleset ?? null}
             books={books}
             requestPage={requestPage}
+            quick={quick}
           />
         ) : tab === "sheet" ? (
           character && view?.ruleset && !needsBuild(character) ? (

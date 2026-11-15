@@ -4,17 +4,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties, type FormEvent } from "react";
 
-import { CreateGame, type Lobby, type LobbyGame, type TableMode } from "@inconsistable/core-schema";
+import type { Lobby, LobbyGame, TableMode } from "@inconsistable/core-schema";
 
 import { AccountBar } from "@/components/lobby/account-bar/account-bar";
+import { GamePicker } from "@/components/lobby/game-picker/game-picker";
+import { QuickGame } from "@/components/lobby/quick-game/quick-game";
 import { PageHead } from "@/components/ui/page-head/page-head";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
-import { ApiMessage, CampaignRef, readJson, type AuthMe } from "@/lib/api-reply/api-reply";
+import type { AuthMe } from "@/lib/api-reply/api-reply";
+import { createRoom } from "@/lib/games/create-room";
+import { gameOptions, startMode, type GameOption } from "@/lib/games/games";
 import type { RulesetList } from "@/lib/library/library";
 
 type LobbyViewProps = { lobby: Lobby; rulesets: RulesetList; me: AuthMe; signInFailed: boolean };
-
-const NO_RULESET = "";
 
 function GameCard({ game, i }: { game: LobbyGame; i: number }) {
   const t = useTranslations("lobby");
@@ -78,43 +80,46 @@ export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps)
   const [creating, setCreating] = useState(!lobby.mine.length && !lobby.seated.length);
   const [toggled, setToggled] = useState(false);
   const [name, setName] = useState("");
-  const [rulesetVersionId, setRulesetVersionId] = useState(NO_RULESET);
+  const [quick, setQuick] = useState(false);
+  const [slug, setSlug] = useState<string | null>(null);
   const [picked, setPicked] = useState<TableMode>("gm");
   const [error, setError] = useState<string | null>(null);
-  // How the table can sit is the pinned ruleset's say; a game without a `game` block is played with a GM.
-  const modes = rulesets.flatMap((r) => r.versions).find((v) => v.id === rulesetVersionId)?.modes ?? ["gm"];
-  const tableMode = modes.includes(picked) ? picked : "gm";
+  // How the table can sit is the chosen game's say; a ruleset without a `game` block is played with a GM.
+  const games = gameOptions(rulesets);
+  const game = games.find((g) => g.slug === slug) ?? null;
+  const modes = game?.modes ?? ["gm"];
+  const tableMode = startMode(game ?? undefined, picked);
   const tModes = useTranslations("tableModes");
   const [busy, setBusy] = useState(false);
 
   // NEW ROOM in the head: shows or folds the form, and moves the cursor into it when it opens.
   const handleToggle = () => {
     setCreating(!creating);
+    setQuick(false);
     setToggled(true);
+  };
+  // QUICK GAME in the head: the one-screen path, in the place of the form.
+  const handleQuick = () => {
+    setQuick(!quick);
+    setCreating(false);
+  };
+  // A card tapped: it is the ruleset, and the way of sitting the filter asked for is kept when the game allows it.
+  const handleSelect = (g: GameOption | null, wanted: "any" | TableMode) => {
+    setSlug(g?.slug ?? null);
+    if (wanted !== "any") setPicked(wanted);
   };
 
   // NEW ROOM: the api creates it with the caller as owner and GM, then we open it.
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
-    const parsed = CreateGame.safeParse({
-      name,
-      rulesetVersionId: rulesetVersionId === NO_RULESET ? undefined : rulesetVersionId,
-      tableMode: tableMode === "gm" ? undefined : tableMode,
-    });
-    if (!parsed.success) return setError(t("nameRequired"));
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/campaigns", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(parsed.data),
-      });
-      const body = await readJson(res);
-      const room = CampaignRef.safeParse(body);
-      if (res.ok && room.success) return router.push(`/c/${room.data.campaignId}?tab=party`);
-      const refusal = ApiMessage.safeParse(body);
-      setError(refusal.success ? tr(refusal.data) : t("createFailed"));
+      const r = await createRoom({ name, game, mode: tableMode });
+      if (r.ok) return router.push(`/c/${r.campaignId}?tab=party`);
+      if (r.reason === "invalid") setError(t("nameRequired"));
+      else if (r.reason === "refused" && r.refusal) setError(tr(r.refusal));
+      else setError(t("createFailed"));
     } catch {
       setError(tStatus("nosignal"));
     }
@@ -135,7 +140,13 @@ export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps)
             {t("newCampaign")}
           </button>
         )}
+        {lobby.canCreate && (
+          <button type="button" className="btn" aria-expanded={quick} aria-controls="quick-game" onClick={handleQuick}>
+            {t("quickGame")}
+          </button>
+        )}
       </PageHead>
+      {lobby.canCreate && quick && <QuickGame rulesets={rulesets} />}
       <AccountBar me={me} signInFailed={signInFailed} />
       {lobby.canCreate && creating && (
         <form id="new-room" className="card" onSubmit={handleCreate}>
@@ -151,25 +162,11 @@ export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps)
                 autoFocus={toggled}
               />
             </label>
-            <label>
-              {t("ruleset")}
-              <select value={rulesetVersionId} onChange={(e) => setRulesetVersionId(e.target.value)}>
-                <option value={NO_RULESET}>{t("noneYet")}</option>
-                {rulesets.map((r) => (
-                  <optgroup key={r.id} label={r.slug}>
-                    {r.versions.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {r.slug} {v.version}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
             <button className="btn primary" type="submit" disabled={busy} aria-busy={busy} style={{ alignSelf: "end" }}>
               {busy ? t("creating") : t("create")}
             </button>
           </div>
+          <GamePicker games={games} selected={slug} onSelect={handleSelect} />
           {modes.length > 1 && (
             <fieldset className="stack" style={{ border: 0, margin: 0, padding: 0 }}>
               <legend className="head">{t("sits")}</legend>

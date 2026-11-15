@@ -23,10 +23,10 @@ import type { RulesTabData } from "@/lib/library/library";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 import { resourceLabels } from "@/lib/spend-request/spend-request";
 
-type GmAppProps = { me: Me; initialTab: GmTab; rules: RulesTabData | null; view: RulesView | null };
+type GmAppProps = { me: Me; initialTab: GmTab; rules: RulesTabData | null; view: RulesView | null; quick?: boolean };
 
 // The GM side of a table: the room's owner, its GMs, co-GMs (tabs filtered by scope), or an admin who opened it.
-export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
+export function GmApp({ me, initialTab, rules, view, quick = false }: GmAppProps) {
   const t = useTranslations("gmApp");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
@@ -85,6 +85,7 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
               state={state}
               send={send}
               recaps={codex?.recaps ?? []}
+              autoQr={quick}
               sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
             />
           </div>

@@ -699,7 +699,7 @@ const MANIFEST_STRINGS = [
   "public", "party", "owner", "gm", "int", "text", "enum", "bool", "ref", "list", "actor", "item", "entity", "campaign", "derived", "base", "add", "override", "homebrew", "srd", "ranked",
   "seated", "1 +", "nope", "1", "true", "res.hp", "derived.nope", "party.characters", "ctx.dc", "derived", "res", "max", "min", "ctx.nope", "1d20", "2d6", "1d20+1", "dF", "1.2.0", "^1.0.0",
   "1.x || >=2.0.0 <3", "1 || 2", "derived.ac", "attr", "attr.str", "a.b", "res", "x".repeat(70), "x".repeat(130), "é", "😀", "coop", "compete", "win", "lose", "choose", "assign",
-  "fields", "table", "pointBuy", "faces", "poolSuccesses", "sumVsTarget",
+  "fields", "table", "pointBuy", "faces", "poolSuccesses", "sumVsTarget", "gmless", "solo",
 ];
 
 /** One change somewhere inside: some break the schema, others only the rules or an expression. */
@@ -1212,6 +1212,13 @@ const CRAFTED: object[] = [
     { id: "d", label: "D", expr: "derived.c + derived.a" },
   ),
 ];
+
+// The `game` block: a homebrew ruleset needs no cite for gmless or solo, the others do (principle 1).
+// The mutations turn the license to `srd` and the modes around, which reach the cite rule.
+MANIFESTS.push({
+  ...MINIMAL,
+  game: { title: "Table", family: "Test", genres: ["a"], players: { min: 1, max: 4 }, modes: ["gm", "gmless", "solo"] },
+});
 
 // Every effect mode, effects that read each other, and a max that can fall below its min, for the derive vectors.
 MANIFESTS.push({

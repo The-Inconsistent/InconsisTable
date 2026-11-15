@@ -151,6 +151,8 @@ type VersionInfo struct {
 	ID        string `json:"id"`
 	Version   string `json:"version"`
 	CreatedAt string `json:"createdAt"`
+	// Modes are the ways a table can sit for it (the manifest's game block); a game with none is played with a GM.
+	Modes []string `json:"modes"`
 }
 
 // Listed is one of the owner's rulesets with its versions, newest first.
@@ -164,7 +166,8 @@ type Listed struct {
 // List is the owner's rulesets with their versions, newest first. Manifests stay out of the list.
 func List(ctx context.Context, conn core.Conn, userID string) ([]Listed, error) {
 	rows, err := conn.Query(ctx, `SELECT ruleset.id::text, ruleset.slug, ruleset.title, ruleset_version.id::text,
-			ruleset_version.version, ruleset_version.created_at
+			ruleset_version.version, ruleset_version.created_at,
+			coalesce(ruleset_version.manifest->'game'->'modes', '["gm"]'::jsonb)
 		FROM ruleset JOIN ruleset_version ON ruleset_version.ruleset_id = ruleset.id
 		WHERE ruleset.owner_user_id = $1 ORDER BY ruleset_version.created_at DESC, ruleset_version.id DESC`, userID)
 	if err != nil {
@@ -177,7 +180,11 @@ func List(ctx context.Context, conn core.Conn, userID string) ([]Listed, error) 
 		var id, slug, title string
 		var v VersionInfo
 		var createdAt time.Time
-		if err := rows.Scan(&id, &slug, &title, &v.ID, &v.Version, &createdAt); err != nil {
+		var modes []byte
+		if err := rows.Scan(&id, &slug, &title, &v.ID, &v.Version, &createdAt, &modes); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(modes, &v.Modes); err != nil {
 			return nil, err
 		}
 		v.CreatedAt = core.ISOTime(createdAt)

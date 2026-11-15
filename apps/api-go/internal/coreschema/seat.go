@@ -52,7 +52,40 @@ type Ctx struct {
 	UserID *string `json:"userId"`
 	// CampaignOwnerID is nil while an owner-less room waits for an admin.
 	CampaignOwnerID *string `json:"campaignOwnerId"`
-	Seat            Seat    `json:"seat"`
+	// TableMode is how the room sits: gm, gmless or solo (docs/adr/0009-table-modes.md). The server reads it from the
+	// campaign row wherever it builds a Ctx; the empty string is read as gm.
+	TableMode string `json:"tableMode"`
+	Seat      Seat   `json:"seat"`
+}
+
+// Mode is the table mode, gm when none was set.
+func (c Ctx) Mode() string {
+	if c.TableMode == "" {
+		return TableModeGM
+	}
+	return c.TableMode
+}
+
+// The table modes. A room without a GM is run by every player seat together.
+const (
+	TableModeGM     = "gm"
+	TableModeGMLess = "gmless"
+	TableModeSolo   = "solo"
+)
+
+// HasGM says whether the room has a GM seat.
+func (c Ctx) HasGM() bool { return c.Mode() == TableModeGM }
+
+// Role is the role the seat acts as. Without a GM there are no GM or co-GM seats: one left over from before the table
+// changed mode acts as a player until it reconnects. An admin acts as a GM.
+func (c Ctx) Role() string {
+	if c.Seat.Kind == SeatAdmin {
+		return "gm"
+	}
+	if !c.HasGM() && (c.Seat.Role == "gm" || c.Seat.Role == "cogm") {
+		return "player"
+	}
+	return c.Seat.Role
 }
 
 // SeatRole is the role a seat acts as; an admin acts as a GM.

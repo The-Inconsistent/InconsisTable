@@ -15,6 +15,7 @@ import {
   REFUSALS,
   Rename,
   RenameAccount,
+  TableMode,
   type Ctx,
   type Seat,
 } from "../../../packages/core-schema/src/index.ts";
@@ -42,23 +43,28 @@ const PEOPLE: [string | null, string | null][] = [
 ];
 const ROLES = ["gm", "cogm", "player"] as const;
 
-const permissions = SEATS.flatMap((seat) =>
-  PEOPLE.map(([userId, campaignOwnerId]) => {
-    const ctx: Ctx = { campaignId: "c", userId, campaignOwnerId, seat };
-    return {
-      ctx,
-      seatJson: seat,
-      can: Object.fromEntries(Permission.options.map((perm) => [perm, canInCampaign({ ctx, perm })])),
-      ownOk: Object.fromEntries(
-        Permission.options.map((perm) => [perm, canInCampaign({ ctx, perm, target: { actorId: "held" } })]),
-      ),
-      actOn: {
-        owner: canActOnMember({ ctx, target: { userId: "owner", role: "gm" } }),
-        ...Object.fromEntries(ROLES.map((role) => [role, canActOnMember({ ctx, target: { userId: "u9", role } })])),
-      },
-      grant: Object.fromEntries(ROLES.map((role) => [role, canGrantRole({ ctx, role })])),
-    };
-  }),
+const MODES = TableMode.options;
+
+// Every seat, person and table mode: with stale GM and co-GM seats in a room without a GM too, which act as players.
+const permissions = MODES.flatMap((tableMode) =>
+  SEATS.flatMap((seat) =>
+    PEOPLE.map(([userId, campaignOwnerId]) => {
+      const ctx: Ctx = { campaignId: "c", userId, campaignOwnerId, tableMode, seat };
+      return {
+        ctx,
+        seatJson: seat,
+        can: Object.fromEntries(Permission.options.map((perm) => [perm, canInCampaign({ ctx, perm })])),
+        ownOk: Object.fromEntries(
+          Permission.options.map((perm) => [perm, canInCampaign({ ctx, perm, target: { actorId: "held" } })]),
+        ),
+        actOn: {
+          owner: canActOnMember({ ctx, target: { userId: "owner", role: "gm" } }),
+          ...Object.fromEntries(ROLES.map((role) => [role, canActOnMember({ ctx, target: { userId: "u9", role } })])),
+        },
+        grant: Object.fromEntries(ROLES.map((role) => [role, canGrantRole({ ctx, role })])),
+      };
+    }),
+  ),
 );
 
 const Join = z.object({ token: z.string().min(1).max(200) });
@@ -88,6 +94,7 @@ for (const value of [...STRINGS, ...JUNK.filter((v) => v !== undefined)]) {
   record("CampaignID", value);
   record("CreateGame", { name: value });
   record("CreateGame", { name: "x", rulesetVersionId: value });
+  record("CreateGame", { name: "x", tableMode: value });
   record("AdminCreate", { name: "x", ownerUserId: value, extra: 1 });
   record("Rename", { name: value });
   record("RenameAccount", { displayName: value });
@@ -98,6 +105,7 @@ for (const junk of JUNK.filter((v) => v !== undefined)) {
 }
 for (const shape of ["CreateGame", "AdminCreate", "Rename", "RenameAccount", "Join"]) record(shape, {});
 record("AdminCreate", { name: "", rulesetVersionId: "x", ownerUserId: "" });
+for (const tableMode of ["gm", "gmless", "solo"]) record("CreateGame", { name: "x", tableMode });
 
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(

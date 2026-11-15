@@ -58,7 +58,15 @@
     "confirmOpen": "Open as admin",
     "cancel": "Cancel"
   },
+  "tableModes": {
+    "gm": "with a GM",
+    "gmless": "GM-less",
+    "solo": "solo"
+  },
   "lobby": {
+    "sits": "How the table sits",
+    "sitsHint": "Everyone runs the table together: no GM, nothing kept from anyone.",
+    "plays": "{game} · {mode}",
     "yourCampaign": "Your campaign",
     "yourName": "Your name",
     "nameHint": "Other players see this at the table.",
@@ -375,6 +383,26 @@
     "on": "On",
     "off": "Off"
   },
+  "runTable": {
+    "label": "Run the table",
+    "start": "Start a session",
+    "end": "End session {number}",
+    "endConfirm": "End session {number}",
+    "cancel": "Cancel",
+    "recap": "Recap",
+    "recapHint": "What happened this session? Leave empty to skip.",
+    "tabs": {
+      "fight": "Fight",
+      "tests": "Tests",
+      "codex": "Codex",
+      "party": "Room"
+    }
+  },
+  "tableMode": {
+    "title": "How the table sits",
+    "betweenSessions": "Change this between sessions.",
+    "becomesVisible": "Switching to a table without a GM makes the creatures and NPCs the GM prepared visible to the table (names and public values; GM-only values stay hidden)."
+  },
   "playerApp": {
     "charactersLabel": "Your characters",
     "noCharacter": "No character",
@@ -391,7 +419,8 @@
       "fight": "Fight",
       "map": "Map",
       "notebook": "Notebook",
-      "standings": "Standings"
+      "standings": "Standings",
+      "run": "Run the table"
     }
   },
   "turnBanner": {
@@ -806,7 +835,7 @@
     "packNotAttached": "That pack isn't attached",
     "packTakenDown": "This pack was taken down by an admin",
     "packDeleted": "This pack is deleted: import it again to use it",
-    "privatePackGmOnly": "A private pack can only be used in a room you run as GM",
+    "privatePackGmOnly": "A private pack can only be used in a room you run yourself",
     "packWrongRuleset": "This pack is written for another ruleset",
     "entryNotInPack": "That entry isn't in a pack attached to this game",
     "entryUnreadable": "That entry can't be read",
@@ -912,6 +941,15 @@
     "requestLimit": "You have too many requests waiting.",
     "requestNotAllowed": "Players can't spend from that.",
     "requestSpendYourself": "You can spend that yourself.",
+    "changeBetweenSessions": "Change how the table sits between sessions.",
+    "modeNotPlayed": "This game isn't played that way.",
+    "soloOneSeat": "A solo room seats one player.",
+    "noGmHere": "Nobody runs this room as GM, so nothing can be GM-only.",
+    "noGmSeats": "This room has no GM seats.",
+    "testCharactersOnly": "Without a GM, a Test is called for characters.",
+    "testTargetShown": "Without a GM, a Test's target is shown to everyone.",
+    "testTableOnly": "Without a GM a Test can only use what the whole table can see.",
+    "undoOthers": "You can only undo your own steps.",
     "requestNoPool": "Shared pools aren't at this table yet."
   },
   "workspace": {

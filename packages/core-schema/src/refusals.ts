@@ -75,7 +75,7 @@ export const REFUSALS = {
   packNotAttached: "That pack isn't attached",
   packTakenDown: "This pack was taken down by an admin",
   packDeleted: "This pack is deleted: import it again to use it",
-  privatePackGmOnly: "A private pack can only be used in a room you run as GM",
+  privatePackGmOnly: "A private pack can only be used in a room you run yourself",
   packWrongRuleset: "This pack is written for another ruleset",
   entryNotInPack: "That entry isn't in a pack attached to this game",
   entryUnreadable: "That entry can't be read",
@@ -146,6 +146,16 @@ export const REFUSALS = {
   undoGone: "Can't undo: {target} is gone.",
   undoChanged:
     "Can't undo: {target} changed after this step (now {now}, the step left {left}). Undo the later steps first.",
+  // How the table sits
+  changeBetweenSessions: "Change how the table sits between sessions.",
+  modeNotPlayed: "This game isn't played that way.",
+  soloOneSeat: "A solo room seats one player.",
+  noGmHere: "Nobody runs this room as GM, so nothing can be GM-only.",
+  noGmSeats: "This room has no GM seats.",
+  testCharactersOnly: "Without a GM, a Test is called for characters.",
+  testTargetShown: "Without a GM, a Test's target is shown to everyone.",
+  testTableOnly: "Without a GM a Test can only use what the whole table can see.",
+  undoOthers: "You can only undo your own steps.",
   // Encounters
   noEncounterRunning: "No encounter is running",
   encounterRunning: "An encounter is already running",

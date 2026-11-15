@@ -16,8 +16,12 @@ import (
 // place this is decided. It reads campaign_pack and pack, so the query must join both. campaignParam is the
 // placeholder holding the campaign id, such as "$1".
 func ServedPacks(campaignParam string) string {
+	// Without a GM the owner counts as the one running the room (docs/adr/0009-table-modes.md), and only the owner's own
+	// pack: a private pack is never served on another user's say-so.
 	return fmt.Sprintf(`campaign_pack.campaign_id = %[1]s AND pack.disabled_at IS NULL AND (pack.license <> 'private' OR EXISTS (
-		SELECT 1 FROM membership WHERE membership.campaign_id = %[1]s AND membership.user_id = pack.owner_user_id AND membership.role = 'gm'))`,
+		SELECT 1 FROM membership WHERE membership.campaign_id = %[1]s AND membership.user_id = pack.owner_user_id AND membership.role = 'gm'
+		) OR EXISTS (
+		SELECT 1 FROM campaign WHERE campaign.id = %[1]s AND campaign.table_mode <> 'gm' AND campaign.owner_user_id = pack.owner_user_id))`,
 		campaignParam)
 }
 

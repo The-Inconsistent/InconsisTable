@@ -138,6 +138,7 @@ const STATE = {
     archived: false,
     nextSessionAt: null,
     nextSessionPlace: "",
+    tableMode: "gm",
   },
   stateVersion: 9,
   session: {
@@ -324,88 +325,116 @@ const SEATS: { name: string; userId: string | null; seat: Seat }[] = [
   { name: "admin", userId: null, seat: { kind: "admin" } },
 ];
 
-const SNAPSHOTS: { name: string; state: unknown; codex: unknown; drafts: Record<string, unknown>; ruleset: boolean }[] =
-  [
-    { name: "full", state: STATE, codex: CODEX, drafts: DRAFTS, ruleset: true },
-    { name: "no ruleset", state: STATE, codex: CODEX, drafts: DRAFTS, ruleset: false },
-    {
-      name: "quiet",
-      state: { ...STATE, session: null, encounter: null, tests: [], actors: [] },
-      codex: { entries: [], recaps: [] },
-      drafts: {},
-      ruleset: true,
-    },
-    {
-      name: "no health track",
-      state: { ...STATE, encounter: { ...STATE.encounter, health: null, currentId: CB1, firstId: CB3 } },
-      codex: CODEX,
-      drafts: {},
-      ruleset: true,
-    },
-    {
-      // An ended game beside a scored, phased fight, and an open Dice pool Test whose number stays hidden.
-      name: "ended game",
-      state: {
-        ...STATE,
-        tests: [
-          call(U(205), {
-            dice: "d6 pool",
-            advantage: false,
-            pool: { die: 6, bands: [{ id: "hit", from: 4, to: 6, worth: 1 }], special: null, shift: null },
-            targets: [{ actorId: PC1, modifier: 1, target: 3, pool: 5, report: null }],
-            called: 1,
-            reported: 0,
-          }),
+const BASE_SNAPSHOTS: {
+  name: string;
+  state: unknown;
+  codex: unknown;
+  drafts: Record<string, unknown>;
+  ruleset: boolean;
+}[] = [
+  { name: "full", state: STATE, codex: CODEX, drafts: DRAFTS, ruleset: true },
+  { name: "no ruleset", state: STATE, codex: CODEX, drafts: DRAFTS, ruleset: false },
+  {
+    name: "quiet",
+    state: { ...STATE, session: null, encounter: null, tests: [], actors: [] },
+    codex: { entries: [], recaps: [] },
+    drafts: {},
+    ruleset: true,
+  },
+  {
+    name: "no health track",
+    state: { ...STATE, encounter: { ...STATE.encounter, health: null, currentId: CB1, firstId: CB3 } },
+    codex: CODEX,
+    drafts: {},
+    ruleset: true,
+  },
+  {
+    // An ended game beside a scored, phased fight, and an open Dice pool Test whose number stays hidden.
+    name: "ended game",
+    state: {
+      ...STATE,
+      tests: [
+        call(U(205), {
+          dice: "d6 pool",
+          advantage: false,
+          pool: { die: 6, bands: [{ id: "hit", from: 4, to: 6, worth: 1 }], special: null, shift: null },
+          targets: [{ actorId: PC1, modifier: 1, target: 3, pool: 5, report: null }],
+          called: 1,
+          reported: 0,
+        }),
+      ],
+      encounter: {
+        ...STATE.encounter,
+        phaseId: "plan",
+        phases: [
+          { id: "plan", label: "Plan", mode: "simultaneous" },
+          { id: "act", label: "Act", mode: "turns" },
         ],
-        encounter: {
-          ...STATE.encounter,
-          phaseId: "plan",
-          phases: [
-            { id: "plan", label: "Plan", mode: "simultaneous" },
-            { id: "act", label: "Act", mode: "turns" },
-          ],
-          endMet: [0],
-          scoring: { mode: "compete" },
-        },
-        games: [
-          {
-            encounterId: U(301),
-            endedAt: "2026-11-01T11:00:00.000Z",
-            endedEarly: false,
-            mode: "compete",
-            rows: [
-              { resultId: U(600), actorId: PC1, name: "One", score: 9, tiebreaks: [2], place: 1, outcome: null },
-              { resultId: U(601), actorId: null, name: "Gone", score: 4, tiebreaks: [1], place: 2, outcome: null },
-            ],
-          },
-          {
-            encounterId: U(302),
-            endedAt: "2026-11-01T10:30:00.000Z",
-            endedEarly: true,
-            mode: "coop",
-            rows: [
-              { resultId: U(602), actorId: PC2, name: "Two", score: 0, tiebreaks: [], place: null, outcome: "lose" },
-            ],
-          },
-        ],
+        endMet: [0],
+        scoring: { mode: "compete" },
       },
-      codex: CODEX,
-      drafts: {},
-      ruleset: true,
+      games: [
+        {
+          encounterId: U(301),
+          endedAt: "2026-11-01T11:00:00.000Z",
+          endedEarly: false,
+          mode: "compete",
+          rows: [
+            { resultId: U(600), actorId: PC1, name: "One", score: 9, tiebreaks: [2], place: 1, outcome: null },
+            { resultId: U(601), actorId: null, name: "Gone", score: 4, tiebreaks: [1], place: 2, outcome: null },
+          ],
+        },
+        {
+          encounterId: U(302),
+          endedAt: "2026-11-01T10:30:00.000Z",
+          endedEarly: true,
+          mode: "coop",
+          rows: [
+            { resultId: U(602), actorId: PC2, name: "Two", score: 0, tiebreaks: [], place: null, outcome: "lose" },
+          ],
+        },
+      ],
     },
-  ];
+    codex: CODEX,
+    drafts: {},
+    ruleset: true,
+  },
+];
 
+// Each snapshot once per table mode: the mode is the campaign row's, so it rides in the snapshot
+// (docs/adr/0009-table-modes.md).
+const MODES = ["gm", "gmless", "solo"] as const;
+const SNAPSHOTS = BASE_SNAPSHOTS.flatMap((s) =>
+  MODES.map((mode) => ({
+    ...s,
+    name: mode === "gm" ? s.name : `${s.name} (${mode})`,
+    state: { ...(s.state as typeof STATE), campaign: { ...(s.state as typeof STATE).campaign, tableMode: mode } },
+  })),
+);
+
+// Every seat reads every snapshot. A room not run by a GM is also read through a Ctx still holding the mode it was
+// handed before the table changed: the snapshot's mode wins, so the view comes out the same.
 const views = SNAPSHOTS.flatMap((snap) =>
-  SEATS.map(({ name, userId, seat }) => {
-    const ctx: Ctx = { campaignId: U(100), userId, campaignOwnerId: "owner", seat };
-    const snapshot = {
-      state: snap.state,
-      codex: snap.codex,
-      drafts: new Map(Object.entries(snap.drafts)),
-    } as unknown as Snapshot;
-    const v = seatView({ snapshot, compiled: snap.ruleset ? compiled : null, ctx });
-    return { snapshot: snap.name, seatName: name, ctx, state: v.state, codex: v.codex };
-  }),
+  SEATS.flatMap(({ name, userId, seat }) =>
+    (snap.state.campaign.tableMode === "gm" ? ["fresh"] : ["fresh", "stale"]).map((handed) => {
+      const tableMode = handed === "fresh" ? snap.state.campaign.tableMode : "gm";
+      const ctx: Ctx = { campaignId: U(100), userId, campaignOwnerId: "owner", tableMode, seat };
+      const snapshot = {
+        state: snap.state,
+        codex: snap.codex,
+        drafts: new Map(Object.entries(snap.drafts)),
+      } as unknown as Snapshot;
+      const v = seatView({ snapshot, compiled: snap.ruleset ? compiled : null, ctx });
+      return {
+        snapshot: snap.name,
+        seatName: handed === "fresh" ? name : `${name} (stale ctx)`,
+        ctx,
+        packVisibilities: v.packVisibilities,
+        state: v.state,
+        codex: v.codex,
+      };
+    }),
+  ),
 );
 
 mkdirSync(dirname(VIEW_OUT), { recursive: true });
@@ -431,6 +460,7 @@ const VALID: Record<string, Record<string, unknown>> = {
   "campaign.transferAccept": {},
   "campaign.setRuleset": { rulesetVersionId: ID },
   "campaign.unpinRuleset": {},
+  "campaign.setTableMode": { mode: "gmless" },
   "campaign.attachPack": { packVersionId: ID },
   "campaign.detachPack": { packVersionId: ID },
   "session.start": { title: " Night " },

@@ -253,8 +253,25 @@ type (
 		Health     Health          `json:"health"`
 		Creation   []CreationStep  `json:"creation"`
 		Decisions  []idAndCite     `json:"decisions"`
+		Game       *GameInfo       `json:"game"`
+	}
+	// GameInfo is the manifest's `game` block: what the game is and how a table can sit for it.
+	GameInfo struct {
+		Title  string   `json:"title"`
+		Family *string  `json:"family"`
+		Genres []string `json:"genres"`
+		Modes  []string `json:"modes"`
+		Cite   *string  `json:"cite"`
 	}
 )
+
+// TableModes are the modes the ruleset allows; one with no `game` block is played with a GM.
+func (r *Ruleset) TableModes() []string {
+	if r.Game == nil {
+		return []string{"gm"}
+	}
+	return r.Game.Modes
+}
 
 // Tests and fields are JSON objects, whose key order decoded JSON no longer knows, so problems about them come in
 // sorted order. Which problems come back does not change.
@@ -477,6 +494,10 @@ func (r *Ruleset) semanticProblems() problems {
 		if s.Mode == "coop" && !wins {
 			p.add("scoring.endWhen", "a cooperative game needs a trigger that wins")
 		}
+	}
+	// Playing without a GM or alone is a rule of the game, so it is cited (principle 1).
+	if r.Game != nil && slices.ContainsFunc(r.Game.Modes, func(m string) bool { return m != "gm" }) {
+		needCite(r.Game.Cite, "game")
 	}
 	// Death saves and damage order are rules too.
 	if len(r.Health.Tracks) > 0 {

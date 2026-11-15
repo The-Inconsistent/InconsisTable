@@ -15,6 +15,7 @@ import (
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
 
 // test.call and test.close are `test:call`, test.report is `test:report:own` (apps/api/src/test-call/test-call.actions.ts;
@@ -134,6 +135,29 @@ func callTest(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 		}
 		targets = append(targets, target{actorID, r.Modifier, r.Target, r.Pool})
 	}
+	hideTarget, _ := a["hideTarget"].(bool)
+	if !c.HasGM() {
+		// Without a GM any seat calls a Test, for characters, and nothing in it is kept from the table
+		// (docs/adr/0009-table-modes.md, p2-plan decision 3).
+		for _, t := range targets {
+			if kind := built[t.ActorID].Row.Kind; kind != "pc" && kind != "companion" {
+				return cs.Result{}, cs.Fail("testCharactersOnly")
+			}
+		}
+		ids := make([]string, len(targets))
+		for i, t := range targets {
+			ids[i] = t.ActorID
+		}
+		// A number read from an owner or gm field is not the table's to see, so such a Test is not called without a GM.
+		if test.Def.Kind != "reported" {
+			if hideTarget {
+				return cs.Result{}, cs.Fail("testTargetShown")
+			}
+			if !everyoneMay(test.TargetVisibility, ids, built, true) || !everyoneMay(test.ModifierVisibility, ids, built, true) {
+				return cs.Result{}, cs.Fail("testTableOnly")
+			}
+		}
+	}
 	sessionID, err := eventlog.RunningSessionID(ctx, tx, cid)
 	if err != nil {
 		return cs.Result{}, err
@@ -142,7 +166,6 @@ func callTest(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 	if err != nil {
 		return cs.Result{}, err
 	}
-	hideTarget, _ := a["hideTarget"].(bool)
 	showOutcome, _ := a["showOutcome"].(bool)
 	var callID string
 	if err := tx.QueryRow(ctx, `INSERT INTO test_call (campaign_id, session_id, test_id, inputs, hide_target, show_outcome, created_by_user_id)
@@ -228,8 +251,13 @@ func report(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 		Scan(&had); err != nil {
 		return cs.Result{}, err
 	}
-	// A player's first report stands, so a roll that failed can't be quietly retaken; the GM side corrects one.
-	if had && !cs.CanInCampaign(c, "test:call", "") {
+	// A player's first report stands, so a roll that failed can't be quietly retaken; the GM side corrects one, and without a
+	// GM the owner does (the other players are players there too).
+	corrects := cs.CanInCampaign(c, "test:call", "")
+	if !c.HasGM() {
+		corrects = c.Seat.Kind == cs.SeatMember && view.IsOwner(c)
+	}
+	if had && !corrects {
 		return cs.Result{}, cs.Fail("alreadyReported")
 	}
 	// The schema allows a roll or an outcome; which one this Test takes is the ruleset's.

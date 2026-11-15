@@ -10,6 +10,8 @@ import { heldBy, type Sight } from "./view.sight.ts";
 export function seatTests({ tests, ctx, sight }: { tests: readonly TestCall[]; ctx: Ctx; sight: Sight }): TestCall[] {
   if (sight.session) return [...tests];
   const held = heldBy(ctx);
+  // Without a GM every call is the whole table's: the targets are public, so each character counts as the seat's own.
+  const mineOf = (actorId: string) => sight.tableRun || held.includes(actorId);
   const stripped = { secretInputs: [] };
   if (ctx.seat.kind === "token" && ctx.seat.role === "screen") {
     return tests
@@ -26,10 +28,10 @@ export function seatTests({ tests, ctx, sight }: { tests: readonly TestCall[]; c
       }));
   }
   return tests.flatMap((c) => {
-    const mine = c.targets.filter((t) => held.includes(t.actorId));
+    const mine = c.targets.filter((t) => mineOf(t.actorId));
     if (mine.length === 0) return [];
     const targets = (c.revealed ? c.targets : mine).map((t): TestTargetState => {
-      const own = held.includes(t.actorId);
+      const own = mineOf(t.actorId);
       // A Dice pool's margin and shifts give the difficulty number away (score minus margin), so they follow the
       // number itself, or the GM revealing it; the flags come from the dice the seat read out, so they leak nothing
       // (house decision #30).

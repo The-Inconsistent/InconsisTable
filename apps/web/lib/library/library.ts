@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { TableMode } from "@inconsistable/core-schema";
+
 // The importer's replies (apps/api-go/internal/pack/http.go). Parsed on arrival like every other reply.
 
 export const Problem = z.object({ path: z.string(), message: z.string() });
@@ -41,7 +43,14 @@ export const RulesetList = z.array(
     id: z.string(),
     slug: z.string(),
     title: z.string(),
-    versions: z.array(z.object({ id: z.string(), version: z.string(), createdAt: z.string() })),
+    versions: z.array(
+      z.object({
+        id: z.string(),
+        version: z.string(),
+        createdAt: z.string(),
+        modes: z.array(TableMode).default(["gm"]),
+      }),
+    ),
   }),
 );
 export type RulesetList = z.infer<typeof RulesetList>;

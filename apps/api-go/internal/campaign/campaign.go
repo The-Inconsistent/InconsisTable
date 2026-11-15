@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -28,9 +29,9 @@ type Service struct {
 
 type owner struct{ userID, name string }
 
-// Create makes a new room with its creator as owner and GM. A ruleset version can be picked at creation, if the owner
+// Create makes a new room with its creator as owner and GM (a player, in a room without a GM). A ruleset version can be picked at creation, if the owner
 // imported it. owner.name is a placeholder until they next sign in.
-func (s *Service) create(ctx context.Context, name string, by *owner, rulesetVersionID *string) (string, error) {
+func (s *Service) create(ctx context.Context, name string, by *owner, rulesetVersionID, tableMode *string) (string, error) {
 	var campaignID string
 	err := core.InTx(ctx, s.DB, func(tx pgx.Tx) error {
 		ownerID := ""
@@ -54,13 +55,28 @@ func (s *Service) create(ctx context.Context, name string, by *owner, rulesetVer
 				return err
 			}
 		}
-		err := tx.QueryRow(ctx, `INSERT INTO campaign (name, owner_user_id, ruleset_version_id) VALUES ($1, $2, $3) RETURNING id::text`,
-			name, ownerParam, rulesetVersionID).Scan(&campaignID)
+		// How the table sits is one of the modes the ruleset allows; a room with no ruleset yet is played with a GM.
+		mode, seat := coreschema.TableModeGM, "gm"
+		if tableMode != nil && *tableMode != mode {
+			modes := []string{coreschema.TableModeGM}
+			if rulesetVersionID != nil {
+				var err error
+				if modes, err = RulesetModes(ctx, tx, *rulesetVersionID); err != nil {
+					return err
+				}
+			}
+			if !slices.Contains(modes, *tableMode) {
+				return coreschema.Fail("modeNotPlayed")
+			}
+			mode, seat = *tableMode, "player" // without a GM the owner sits as a player
+		}
+		err := tx.QueryRow(ctx, `INSERT INTO campaign (name, owner_user_id, ruleset_version_id, table_mode) VALUES ($1, $2, $3, $4)
+			RETURNING id::text`, name, ownerParam, rulesetVersionID, mode).Scan(&campaignID)
 		if err != nil {
 			return err
 		}
 		if by != nil {
-			_, err = tx.Exec(ctx, `INSERT INTO membership (campaign_id, user_id, role) VALUES ($1, $2, 'gm')`, campaignID, by.userID)
+			_, err = tx.Exec(ctx, `INSERT INTO membership (campaign_id, user_id, role) VALUES ($1, $2, $3)`, campaignID, by.userID, seat)
 		}
 		return err
 	})
@@ -87,7 +103,7 @@ func (s *Service) Create(w http.ResponseWriter, r *http.Request) (any, error) {
 		if id := optionalString(body, "ownerUserId"); id != nil {
 			by = &owner{*id, "GM"}
 		}
-		id, err := s.create(ctx, name, by, optionalString(body, "rulesetVersionId"))
+		id, err := s.create(ctx, name, by, optionalString(body, "rulesetVersionId"), optionalString(body, "tableMode"))
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +128,7 @@ func (s *Service) Create(w http.ResponseWriter, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	id, err := s.create(ctx, body["name"].(string), &owner{user.UserID, user.Name}, optionalString(body, "rulesetVersionId"))
+	id, err := s.create(ctx, body["name"].(string), &owner{user.UserID, user.Name}, optionalString(body, "rulesetVersionId"), optionalString(body, "tableMode"))
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +145,9 @@ type LobbyGame struct {
 	Role          *string `json:"role"`
 	IsOwner       bool    `json:"isOwner"`
 	NextSessionAt *string `json:"nextSessionAt"`
+	TableMode     string  `json:"tableMode"`
+	// Plays is what the room plays: the ruleset's game title, else the ruleset's own; nil before it has one.
+	Plays *string `json:"plays"`
 }
 
 // LobbyCharacter is a character a seat of the caller holds, in any of their rooms.
@@ -156,7 +175,9 @@ const lobbyGames = `
 SELECT c.id::text, c.name, coalesce(o.name, '—'),
 	(SELECT count(*) FROM actor a WHERE a.campaign_id = c.id AND a.kind = 'pc')::int,
 	(SELECT s.number FROM session s WHERE s.campaign_id = c.id AND s.ended_at IS NULL LIMIT 1),
-	m.role, c.owner_user_id IS NOT DISTINCT FROM m.user_id, c.next_session_at, c.archived_at IS NOT NULL
+	m.role, c.owner_user_id IS NOT DISTINCT FROM m.user_id, c.next_session_at, c.archived_at IS NOT NULL, c.table_mode,
+	(SELECT coalesce(v.manifest->'game'->>'title', r.title) FROM ruleset_version v JOIN ruleset r ON r.id = v.ruleset_id
+		WHERE v.id = c.ruleset_version_id)
 FROM membership m
 JOIN campaign c ON c.id = m.campaign_id
 LEFT JOIN app_user o ON o.id = c.owner_user_id
@@ -192,7 +213,7 @@ func (s *Service) Lobby(_ http.ResponseWriter, r *http.Request) (any, error) {
 		var g LobbyGame
 		var next *time.Time
 		var archived bool
-		if err := rows.Scan(&g.ID, &g.Name, &g.Owner, &g.Players, &g.Session, &g.Role, &g.IsOwner, &next, &archived); err != nil {
+		if err := rows.Scan(&g.ID, &g.Name, &g.Owner, &g.Players, &g.Session, &g.Role, &g.IsOwner, &next, &archived, &g.TableMode, &g.Plays); err != nil {
 			return nil, err
 		}
 		if next != nil {

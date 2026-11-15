@@ -44,9 +44,9 @@ func isoPtr(t *time.Time) *string {
 func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveState, *engine.CompiledRuleset, map[string]any, error) {
 	state := cs.LiveState{Actors: []cs.Actor{}}
 	var nextSessionAt *time.Time
-	err := conn.QueryRow(ctx, `SELECT id::text, name, owner_user_id, archived_at IS NOT NULL, next_session_at, next_session_place,
+	err := conn.QueryRow(ctx, `SELECT id::text, name, owner_user_id, archived_at IS NOT NULL, next_session_at, next_session_place, table_mode,
 		state_version FROM campaign WHERE id = $1`, campaignID).Scan(&state.Campaign.ID, &state.Campaign.Name,
-		&state.Campaign.OwnerUserID, &state.Campaign.Archived, &nextSessionAt, &state.Campaign.NextSessionPlace, &state.StateVersion)
+		&state.Campaign.OwnerUserID, &state.Campaign.Archived, &nextSessionAt, &state.Campaign.NextSessionPlace, &state.Campaign.TableMode, &state.StateVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil, nil, nil
 	}
@@ -86,7 +86,7 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 	for _, r := range rows {
 		state.Actors = append(state.Actors, actor.ToLive(built[r.Actor.ID]))
 	}
-	if state.Tests, err = testcall.Load(ctx, conn, campaignID, sessionID, compiled, built); err != nil {
+	if state.Tests, err = testcall.Load(ctx, conn, campaignID, sessionID, state.Campaign.TableMode != cs.TableModeGM, compiled, built); err != nil {
 		return nil, nil, nil, err
 	}
 	state.TestDefs = testcall.DefsOf(compiled)

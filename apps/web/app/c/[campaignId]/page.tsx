@@ -69,7 +69,7 @@ export default async function Table({ params, searchParams }: TableProps) {
     // OPEN AS ADMIN: the key never reaches this server (it lives in the admin's tab), so the page only draws the GM shell.
     // The socket proves the key; without it nothing loads. The rules tabs need a seat's cookie, so they stay empty.
     // ponytail: no rules tabs as admin, pass the key through a server-readable cookie if admins need them
-    me = { campaignId: p.campaignId, userId: null, campaignOwnerId: null, seat: { kind: "admin" } };
+    me = { campaignId: p.campaignId, userId: null, campaignOwnerId: null, tableMode: "gm", seat: { kind: "admin" } };
     return <GmApp me={me} initialTab={asGmTab(query[TAB_PARAM])} rules={null} view={null} />;
   }
   try {
@@ -93,6 +93,8 @@ export default async function Table({ params, searchParams }: TableProps) {
       />
     );
   if (seat.kind === "token" && seat.role === "screen") return <TableScreen campaignId={me.campaignId} />;
-  if (!seat.characterIds.length) return <StatusScreen text={t("noCharacter")} />;
+  // Without a GM the owner runs the table from their phone, with a character or not.
+  const runsTheRoom = me.tableMode !== "gm" && me.userId !== null && me.userId === me.campaignOwnerId;
+  if (!seat.characterIds.length && !runsTheRoom) return <StatusScreen text={t("noCharacter")} />;
   return <PlayerApp me={me} view={await rulesView(campaignId)} />;
 }

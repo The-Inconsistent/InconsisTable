@@ -14,6 +14,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter/turn"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
 
 // actor.spawn (apps/api/src/actor/actor.spawn.ts). It lives here, not in internal/actor, because it reads the served
@@ -73,9 +74,10 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	if stored == nil {
 		return cs.Result{}, cs.Fail("entryNotInPack")
 	}
-	entry := EntryLookup([]StoredEntry{*stored}, true)(stored.Type, stored.Key)
+	// A gm entry the seat cannot read is told as absent, so the reply does not reveal which gm keys exist.
+	entry := EntryLookup([]StoredEntry{*stored}, view.ReadsGM(c))(stored.Type, stored.Key)
 	if entry == nil {
-		return cs.Result{}, cs.Fail("entryUnreadable")
+		return cs.Result{}, cs.Fail("entryNotInPack")
 	}
 	if ce, ok := rules.Entities[entry.Type]; !ok || ce.Def.Base != "actor" {
 		return cs.Result{}, cs.Fail("notPlaceable", cs.Params{"name": entry.Name})

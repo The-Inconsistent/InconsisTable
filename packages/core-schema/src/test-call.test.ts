@@ -4,7 +4,13 @@ import { ACTION_PERMS, Action } from "./actions.ts";
 import { canInCampaign } from "./permissions.ts";
 import type { Ctx } from "./seat.ts";
 
-const ctx = (seat: Ctx["seat"]): Ctx => ({ campaignId: "c1", userId: "u", campaignOwnerId: "owner", seat });
+const ctx = (seat: Ctx["seat"]): Ctx => ({
+  campaignId: "c1",
+  userId: "u",
+  campaignOwnerId: "owner",
+  tableMode: "gm",
+  seat,
+});
 const coSession = ctx({ kind: "member", role: "cogm", scopes: ["session"], characterIds: [] });
 const coCombat = ctx({ kind: "member", role: "cogm", scopes: ["combat"], characterIds: [] });
 const lyra = ctx({ kind: "member", role: "player", scopes: [], characterIds: ["lyra"] });

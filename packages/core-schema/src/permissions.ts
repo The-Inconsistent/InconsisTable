@@ -10,6 +10,7 @@ export const Permission = z.enum([
   "campaign:delete",
   "campaign:transfer",
   "campaign:ruleset",
+  "campaign:table_mode",
   "member:invite",
   "member:remove",
   "member:appoint",
@@ -40,6 +41,7 @@ export const OWNER_ONLY: ReadonlySet<Permission> = new Set([
   "campaign:delete",
   "campaign:transfer",
   "campaign:ruleset",
+  "campaign:table_mode",
   "member:appoint",
 ]);
 
@@ -99,14 +101,48 @@ export const COGM_SCOPES_FOR: Partial<Record<Permission, readonly CogmScope[]>> 
   "codex:read_secret": ["codex.secrets"],
 };
 
+// Without a GM (docs/adr/0009-table-modes.md) every player seat runs the table together: sessions, fights, clocks, the
+// codex's writing and revealing, and Tests called for characters. Never `codex:read_secret`: nothing is kept from anyone,
+// so there is nothing to read. The seat's own steps it undoes itself (event.undo checks the step's author).
+export const TABLE_RUN_GRANTS: ReadonlySet<Permission> = new Set<Permission>([
+  "session:run",
+  "encounter:run",
+  "clock:run",
+  "test:call",
+  "codex:write",
+  "codex:reveal",
+]);
+
+// What the owner keeps without a GM seat to hold it: the room's settings, who sits at it, a character for themselves.
+export const OWNER_TABLE_GRANTS: ReadonlySet<Permission> = new Set<Permission>([
+  "campaign:update",
+  "campaign:archive",
+  "member:invite",
+  "member:remove",
+  "token:issue",
+  "character:create",
+]);
+
+// The role a seat acts as in this room. Without a GM there are no GM or co-GM seats: one left over from before the table
+// changed mode (a socket opened earlier) acts as a player until it reconnects.
+export function roleOf(ctx: Ctx): SeatRole {
+  if (ctx.seat.kind === "admin") return "gm";
+  if (ctx.tableMode !== "gm" && (ctx.seat.role === "gm" || ctx.seat.role === "cogm")) return "player";
+  return ctx.seat.role;
+}
+
 export type Target = { actorId?: string };
 
 // The seat's permission in its own room. Pure, so the web hides buttons with it; only the api's answer counts.
 export function canInCampaign({ ctx, perm, target }: { ctx: Ctx; perm: Permission; target?: Target }): boolean {
   if (ctx.seat.kind === "admin") return true; // OPEN AS ADMIN; logged as admin_event
   if (ADMIN_ONLY.has(perm)) return false;
-  if (OWNER_ONLY.has(perm)) return ctx.userId !== null && ctx.userId === ctx.campaignOwnerId;
-  const role = ctx.seat.role;
+  const isOwner = ctx.userId !== null && ctx.userId === ctx.campaignOwnerId;
+  if (OWNER_ONLY.has(perm)) return isOwner;
+  const role = roleOf(ctx);
+  if (ctx.tableMode !== "gm" && role === "player" && !perm.endsWith(":own")) {
+    if (TABLE_RUN_GRANTS.has(perm) || (isOwner && OWNER_TABLE_GRANTS.has(perm))) return true;
+  }
   if (perm.endsWith(":own")) {
     // "Mine" means a character this seat holds, never a match on userId: a guest has none, and someone who left the
     // room still owns the retired character but has no seat (docs/design.md §3.6).
@@ -129,12 +165,13 @@ export function canActOnMember({ ctx, target }: { ctx: Ctx; target: { userId: st
   if (ctx.seat.kind === "admin") return true;
   if (ctx.userId === ctx.campaignOwnerId && ctx.userId !== null) return true; // the owner acts on every other seat
   if (ctx.seat.kind !== "member") return false;
-  return ctx.seat.role !== "player" && target.role === "player";
+  return roleOf(ctx) !== "player" && target.role === "player";
 }
 
 // Whether the seat may hand out `role` (an invite, an appointment). Players only, unless you own the room.
 export function canGrantRole({ ctx, role }: { ctx: Ctx; role: MemberRole }): boolean {
   if (ctx.seat.kind === "admin") return true;
+  if (ctx.tableMode !== "gm" && role !== "player") return false; // no GM seats without a GM
   if (ctx.userId !== null && ctx.userId === ctx.campaignOwnerId) return true;
   return role === "player" && canInCampaign({ ctx, perm: "member:invite" });
 }

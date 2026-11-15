@@ -51,6 +51,79 @@ func Refined(inner Schema, check func(any) bool, message string) Schema {
 	return refinedSchema{inner, check, message}
 }
 
+type uniqueListSchema struct {
+	item     Schema
+	min, max int
+	message  string
+}
+
+// UniqueList is z.array(item).min(min).max(max).refine(no repeats, message). Zod measures the length first: a list too
+// long or too short is refused for that alone, with no look at its items.
+func UniqueList(item Schema, min, max int, message string) Schema {
+	return uniqueListSchema{item, min, max, message}
+}
+
+func (s uniqueListSchema) parse(value any, c *context) any {
+	items, ok := value.([]any)
+	if !ok {
+		c.wrongType("array", value)
+		// The same length checks, reading a string sent for an array, as ArraySchema does.
+		if text, isText := value.(string); isText {
+			tooShort("string", length(text), s.min, c)
+			tooLong("string", length(text), s.max, c)
+		}
+		return nil
+	}
+	if len(items) < s.min || len(items) > s.max {
+		tooShort("array", len(items), s.min, c)
+		tooLong("array", len(items), s.max, c)
+		return items
+	}
+	before := len(c.issues)
+	out := make([]any, len(items))
+	for i, it := range items {
+		c.at(i, func() { out[i] = s.item.parse(it, c) })
+	}
+	if len(c.issues) > before {
+		return out
+	}
+	seen := map[any]bool{}
+	for _, v := range out {
+		if seen[v] {
+			c.fail("%s", s.message)
+			break
+		}
+		seen[v] = true
+	}
+	return out
+}
+
+type softRefinedSchema struct {
+	inner   Schema
+	check   func(any) bool
+	message string
+}
+
+// RefinedSoft is .refine(check, message) the way zod runs it: skipped only when the inner value was the wrong kind, not
+// when it merely failed a bound (a number above its max is still a number to compare).
+func RefinedSoft(inner Schema, check func(any) bool, message string) Schema {
+	return softRefinedSchema{inner, check, message}
+}
+
+func (s softRefinedSchema) parse(value any, c *context) any {
+	before := len(c.issues)
+	out := s.inner.parse(value, c)
+	for _, issue := range c.issues[before:] {
+		if issue.hard {
+			return out
+		}
+	}
+	if !s.check(out) {
+		c.fail("%s", s.message)
+	}
+	return out
+}
+
 func (s refinedSchema) parse(value any, c *context) any {
 	before := len(c.issues)
 	out := s.inner.parse(value, c)

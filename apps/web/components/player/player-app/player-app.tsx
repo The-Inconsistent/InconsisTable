@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-import type { Me } from "@inconsistable/core-schema";
+import { canInCampaign, type Me } from "@inconsistable/core-schema";
 
 import { PLAYER_TABS, type PlayerTab } from "@/components/player/player-app/constants";
 import { Notebook } from "@/components/player/notebook/notebook";
@@ -21,6 +21,7 @@ import { TestPrompt } from "@/components/player/test-prompt/test-prompt";
 import { SettingsMenu } from "@/components/ui/settings-menu/settings-menu";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
+import { RunTable } from "@/components/player/run-table/run-table";
 import { useTable } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
@@ -141,6 +142,16 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
           ) : (
             <p className="error">{t("rulesFailed")}</p>
           )
+        ) : tab === "run" ? (
+          <RunTable
+            me={me}
+            state={state}
+            codex={codex}
+            send={send}
+            ruleset={view?.ruleset ?? null}
+            books={books}
+            requestPage={requestPage}
+          />
         ) : tab === "sheet" ? (
           character && view?.ruleset && !needsBuild(character) ? (
             <SheetView
@@ -168,7 +179,12 @@ export function PlayerApp({ me, view }: PlayerAppProps) {
         </button>
       </main>
       <nav className="tabs tabs-bottom safe-bottom" role="tablist" aria-label={t("tabsLabel")}>
-        {PLAYER_TABS.filter((name) => name !== "standings" || state.games.length > 0).map((name) => (
+        {PLAYER_TABS.filter(
+          (name) =>
+            (name !== "standings" || state.games.length > 0) &&
+            // Without a GM the phone also runs the table, from one tab of its own.
+            (name !== "run" || canInCampaign({ ctx: me, perm: "session:run" })),
+        ).map((name) => (
           <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => setTab(name)}>
             {t(`tabs.${name}`)}
           </button>

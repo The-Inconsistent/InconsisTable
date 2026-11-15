@@ -19,7 +19,8 @@ These rules decide reviews. Breaking one blocks a merge.
    renders the tapped page and the api relays it without storing anything (`book:*` socket events). Printed cards are
    built in the GM's browser from what it already holds; nothing is uploaded.
 4. **Content reaches seats only.** Nothing from a pack is served to anyone without a seat. A `gm` entry reaches GM seats
-   only. A `private` pack never leaves the rooms its owner runs as GM, and cannot be granted to another user.
+   only. A `private` pack never leaves the rooms its owner runs (as GM, or, in a room without a GM, as the owner, who counts
+   as the one running it), and cannot be granted to another user.
 5. **The dice and components stay physical.** The app records results and only rolls or deals on random tables. Rolling
    Tests for players is a per-ruleset option that needs a house decision. Cards, tokens and boards stay on the table:
    the app keeps their counts and secrets, never simulates them.

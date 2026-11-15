@@ -12,6 +12,7 @@ import { RequestBar } from "@/components/gm/request-bar/request-bar";
 import { RulesPanel } from "@/components/gm/rules/rules-panel";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { Track } from "@/components/gm/track/track";
+import { TableModePicker } from "@/components/player/run-table/table-mode-picker";
 import { Tests } from "@/components/gm/tests/tests";
 import { Standings } from "@/components/ui/standings/standings";
 import { SettingsMenu } from "@/components/ui/settings-menu/settings-menu";
@@ -77,13 +78,16 @@ export function GmApp({ me, initialTab, rules, view }: GmAppProps) {
       <RequestBar state={state} labels={resourceLabels(view?.ruleset ?? null)} send={send} />
       <main className="page">
         {tab === "party" ? (
-          <Party
-            me={me}
-            state={state}
-            send={send}
-            recaps={codex?.recaps ?? []}
-            sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
-          />
+          <div className="stack" style={{ gap: 24 }}>
+            <TableModePicker me={me} state={state} ruleset={view?.ruleset ?? null} send={send} />
+            <Party
+              me={me}
+              state={state}
+              send={send}
+              recaps={codex?.recaps ?? []}
+              sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
+            />
+          </div>
         ) : tab === "track" ? (
           <Track
             me={me}

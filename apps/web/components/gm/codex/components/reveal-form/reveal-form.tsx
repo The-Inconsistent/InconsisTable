@@ -11,6 +11,7 @@ import {
 } from "@inconsistable/core-schema";
 
 import { AUDIENCE_MAX } from "@/lib/codex/codex";
+import { useVisibilities } from "@/lib/table-mode/table-mode";
 
 type RevealFormProps = {
   entry: CodexEntry;
@@ -23,6 +24,7 @@ type RevealFormProps = {
 export function RevealForm({ entry, characters, act }: RevealFormProps) {
   const t = useTranslations("codex");
   const [visibility, setVisibility] = useState<CodexVisibility>(entry.visibility);
+  const visibilities = useVisibilities(CodexVisibility.options);
   const [mode, setMode] = useState<AudienceMode>(entry.audienceMode);
   const [audience, setAudience] = useState<string[]>(entry.audience);
   const listed = visibility !== "gm" && mode === "listed";
@@ -65,7 +67,7 @@ export function RevealForm({ entry, characters, act }: RevealFormProps) {
       <legend className="head">{t("reveal")}</legend>
       <div className="row">
         <select id="codex-visibility" aria-label={t("visibilityLabel")} value={visibility} onChange={handleVisibility}>
-          {CodexVisibility.options.map((v) => (
+          {visibilities.map((v) => (
             <option key={v} value={v}>
               {t(`visibility.${v}`)}
             </option>

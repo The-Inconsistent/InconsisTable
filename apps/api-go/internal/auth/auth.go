@@ -188,13 +188,19 @@ func (s *Service) RenameUser(ctx context.Context, userID, name string) error {
 	return err
 }
 
-// owner reads a campaign's owner. exists is false when there is no such campaign.
-func (s *Service) owner(ctx context.Context, campaignID string) (owner *string, exists bool, err error) {
-	err = s.DB.QueryRow(ctx, `SELECT owner_user_id FROM campaign WHERE id = $1`, campaignID).Scan(&owner)
+// roomRow is what a Ctx takes from the campaign row: the owner and how the table sits.
+type roomRow struct {
+	owner *string
+	mode  string
+}
+
+// room reads a campaign's owner and table mode. exists is false when there is no such campaign.
+func (s *Service) room(ctx context.Context, campaignID string) (row roomRow, exists bool, err error) {
+	err = s.DB.QueryRow(ctx, `SELECT owner_user_id, table_mode FROM campaign WHERE id = $1`, campaignID).Scan(&row.owner, &row.mode)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, false, nil
+		return roomRow{}, false, nil
 	}
-	return owner, err == nil, err
+	return row, err == nil, err
 }
 
 // guestSeat is a guest token's seat and its token's hash (what the rate limits key a token seat by).
@@ -212,7 +218,7 @@ func (s *Service) guestSeat(ctx context.Context, token string) (*coreschema.Ctx,
 	if err != nil {
 		return nil, "", err
 	}
-	owner, exists, err := s.owner(ctx, campaignID)
+	row, exists, err := s.room(ctx, campaignID)
 	if err != nil || !exists {
 		return nil, "", err
 	}
@@ -222,7 +228,8 @@ func (s *Service) guestSeat(ctx context.Context, token string) (*coreschema.Ctx,
 	}
 	return &coreschema.Ctx{
 		CampaignID:      campaignID,
-		CampaignOwnerID: owner,
+		CampaignOwnerID: row.owner,
+		TableMode:       row.mode,
 		Seat:            coreschema.Seat{Kind: coreschema.SeatToken, Role: role, CharacterIDs: characters},
 	}, tokenHash, nil
 }
@@ -247,7 +254,7 @@ func (s *Service) ResolveCtx(ctx context.Context, campaignID, cookieHeader strin
 		return nil, err
 	}
 	if user != nil {
-		owner, exists, err := s.owner(ctx, campaignID)
+		row, exists, err := s.room(ctx, campaignID)
 		if err != nil || !exists {
 			return nil, err
 		}
@@ -267,7 +274,8 @@ func (s *Service) ResolveCtx(ctx context.Context, campaignID, cookieHeader strin
 			return &Resolved{coreschema.Ctx{
 				CampaignID:      campaignID,
 				UserID:          &userID,
-				CampaignOwnerID: owner,
+				CampaignOwnerID: row.owner,
+				TableMode:       row.mode,
 				Seat:            coreschema.Seat{Kind: coreschema.SeatMember, Role: role, Scopes: scopes, CharacterIDs: characters},
 			}, campaignID + ":" + userID}, nil
 		}

@@ -311,4 +311,21 @@ var rulesetSchema = schema.Object(
 			schema.Req("show", schema.Array(schema.String().Max(130)).Max(100)),
 		)).Max(50)),
 	)), map[string]any{}),
+	schema.Opt("game", gameSchema),
+)
+
+// gameSchema is the manifest's `game` block: what the game is and how a table can sit for it.
+var gameSchema = schema.Object(
+	schema.Req("title", label(80)),
+	schema.Opt("family", label(40)),
+	schema.Def("genres", schema.Array(label(40)).Max(8), []any{}),
+	schema.Req("players", schema.RefinedSoft(schema.Object(
+		schema.Req("min", schema.Int().Min(1).Max(20)),
+		schema.Req("max", schema.Int().Min(1).Max(20)),
+	), func(v any) bool {
+		p := v.(map[string]any)
+		return p["max"].(float64) >= p["min"].(float64)
+	}, "max is below min")),
+	schema.Req("modes", schema.UniqueList(schema.Enum("gm", "gmless", "solo"), 1, 3, "a mode is listed twice")),
+	schema.Opt("cite", citeSchema),
 )

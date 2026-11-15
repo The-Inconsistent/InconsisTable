@@ -420,6 +420,31 @@ export const Layout = z.object({
 });
 export type Layout = z.infer<typeof Layout>;
 
+/** How a table can sit for a game (docs/adr/0009-table-modes.md): with a GM, without one, or one player alone. */
+export const GameMode = z.enum(["gm", "gmless", "solo"]);
+export type GameMode = z.infer<typeof GameMode>;
+
+/** What the game is, for the room and the lobby. Descriptive data, never book text. */
+export const GameInfo = z.object({
+  title: z.string().min(1).max(80),
+  family: z.string().min(1).max(40).optional(),
+  genres: z.array(z.string().min(1).max(40)).max(8).default([]),
+  players: z
+    .object({ min: z.int().min(1).max(20), max: z.int().min(1).max(20) })
+    .refine((p) => p.max >= p.min, "max is below min"),
+  modes: z
+    .array(GameMode)
+    .min(1)
+    .max(3)
+    .refine((m) => new Set(m).size === m.length, "a mode is listed twice"),
+  /** The printed page that says the game plays without a GM or alone; needed for `gmless` and `solo`. */
+  cite: Cite.optional(),
+});
+export type GameInfo = z.infer<typeof GameInfo>;
+
+/** The modes a ruleset allows; one with no `game` block is played with a GM. */
+export const modesOf = (r: { game?: { modes: readonly GameMode[] } }): readonly GameMode[] => r.game?.modes ?? ["gm"];
+
 export const Ruleset = z.object({
   id: RulesetId,
   version: SemVer,
@@ -443,6 +468,7 @@ export const Ruleset = z.object({
   creation: z.array(CreationStep).max(50).default([]),
   decisions: z.array(Decision).max(200).default([]),
   layout: z.record(Id, Layout).default({}),
+  game: GameInfo.optional(),
 });
 export type Ruleset = z.infer<typeof Ruleset>;
 export type RulesetInput = z.input<typeof Ruleset>;
@@ -598,6 +624,8 @@ function semanticProblems(r: Ruleset): Problem[] {
     if (mode === "coop" && !endWhen.some((x) => x.outcome === "win"))
       out.push({ path: "scoring.endWhen", message: "a cooperative game needs a trigger that wins" });
   }
+  // Playing without a GM or alone is a rule of the game, so it is cited (principle 1).
+  if (r.game?.modes.some((m) => m !== "gm")) needCite(r.game.cite, "game");
   // Death saves and damage order are rules too.
   if (r.health.tracks.length > 0) needCite(r.health.cite, "health");
   r.creation.forEach((x, i) => needCite(x.cite, `creation[${i}]`));

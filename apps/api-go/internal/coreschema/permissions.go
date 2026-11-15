@@ -9,7 +9,7 @@ import (
 // own validator runs.
 var (
 	// Only the room owner or an admin who opened the room as admin.
-	ownerOnly = []string{"campaign:delete", "campaign:transfer", "campaign:ruleset", "member:appoint"}
+	ownerOnly = []string{"campaign:delete", "campaign:transfer", "campaign:ruleset", "campaign:table_mode", "member:appoint"}
 	// Only an admin: giving a user a seat they weren't invited to.
 	adminOnly = []string{"member:seat"}
 	gmGrants  = []string{
@@ -46,6 +46,14 @@ var (
 	}
 )
 
+var (
+	// Without a GM every player seat runs the table together (docs/adr/0009-table-modes.md). Never codex:read_secret:
+	// nothing is kept from anyone, so there is nothing to read.
+	tableRunGrants = []string{"session:run", "encounter:run", "clock:run", "test:call", "codex:write", "codex:reveal"}
+	// What the owner keeps without a GM seat to hold it.
+	ownerTableGrants = []string{"campaign:update", "campaign:archive", "member:invite", "member:remove", "token:issue", "character:create"}
+)
+
 func (c Ctx) isOwner() bool {
 	return c.UserID != nil && c.CampaignOwnerID != nil && *c.UserID == *c.CampaignOwnerID
 }
@@ -61,7 +69,11 @@ func CanInCampaign(c Ctx, perm, targetActorID string) bool {
 	if slices.Contains(ownerOnly, perm) {
 		return c.isOwner()
 	}
-	role := c.Seat.Role
+	role := c.Role()
+	if !c.HasGM() && role == "player" && !strings.HasSuffix(perm, ":own") &&
+		(slices.Contains(tableRunGrants, perm) || (c.isOwner() && slices.Contains(ownerTableGrants, perm))) {
+		return true
+	}
 	if strings.HasSuffix(perm, ":own") {
 		// "Mine" means a character this seat holds, never a match on userId: a guest has none, and someone who left the
 		// room still owns the retired character but has no seat.
@@ -86,7 +98,10 @@ func RequirePerm(c Ctx, perm, targetActorID string) *Error {
 	if CanInCampaign(c, perm, targetActorID) {
 		return nil
 	}
-	if fallback, ok := OwnFallback[perm]; ok && CanInCampaign(c, fallback, targetActorID) {
+	// A GM-side permission also satisfies an :own one, but only for a seat that is on the GM side: without a GM every
+	// player holds the table permissions, and that must not reach a character they do not hold.
+	gmSide := c.HasGM() || c.Role() != "player"
+	if fallback, ok := OwnFallback[perm]; ok && gmSide && CanInCampaign(c, fallback, targetActorID) {
 		return nil
 	}
 	if c.Seat.Kind == SeatToken && c.Seat.Role == "screen" {
@@ -107,12 +122,18 @@ func CanActOnMember(c Ctx, targetUserID, targetRole string) bool {
 	if c.Seat.Kind == SeatAdmin || c.isOwner() {
 		return true
 	}
-	return c.Seat.Kind == SeatMember && c.Seat.Role != "player" && targetRole == "player"
+	return c.Seat.Kind == SeatMember && c.Role() != "player" && targetRole == "player"
 }
 
 // CanGrantRole says whether the seat may hand out role. Players only, unless you own the room.
 func CanGrantRole(c Ctx, role string) bool {
-	if c.Seat.Kind == SeatAdmin || c.isOwner() {
+	if c.Seat.Kind == SeatAdmin {
+		return true
+	}
+	if !c.HasGM() && role != "player" {
+		return false // no GM seats without a GM
+	}
+	if c.isOwner() {
 		return true
 	}
 	return role == "player" && CanInCampaign(c, "member:invite", "")

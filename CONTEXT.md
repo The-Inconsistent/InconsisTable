@@ -74,8 +74,16 @@ _Avoid_: Membership (that is only the account kind), user, role
 
 **GM**:
 The seat that runs the campaign at the table, sees everything and decides; a co-GM holds a GM seat limited to scopes. A
-campaign played without a GM (most board games) has none, and what only a GM would see is seen by nobody.
+campaign played without a GM (most board games, or a solo game) has none: its table mode is `gmless` or `solo`, every
+player seat runs the table together, and what only a GM would see is seen by nobody, the owner included.
 _Avoid_: DM, owner
+
+**Table mode**:
+How a campaign sits: `gm` (with a GM), `gmless` (every player runs the table) or `solo` (one player alone). The
+ruleset's `game` block says which modes the game is played in; the owner picks one at creation and may change it between
+sessions. Without a GM the owner is a player seat that also keeps the room, and counts as the one running it for their
+own `private` pack.
+_Avoid_: Game mode, play style
 
 **Seat view**:
 Everything one seat receives from a campaign, after every rule about what that seat may see has been applied; a

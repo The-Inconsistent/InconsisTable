@@ -5,6 +5,7 @@ import { useId, useState, type FormEvent } from "react";
 import { ClockVisibility, type Clock } from "@inconsistable/core-schema";
 
 import { CLOCK_SEGMENT_PICKS, CLOCK_SEGMENTS_MAX, CLOCK_SEGMENTS_MIN } from "@/components/gm/track/constants";
+import { useTableMode, useVisibilities } from "@/lib/table-mode/table-mode";
 
 export type ClockValues = Pick<Clock, "name" | "segments" | "visibility" | "entryId">;
 
@@ -22,7 +23,9 @@ export function ClockForm({ initial, entries, submitLabel, onSubmit, onCancel }:
   const id = useId();
   const [name, setName] = useState(initial.name);
   const [segments, setSegments] = useState(String(initial.segments));
-  const [visibility, setVisibility] = useState(initial.visibility);
+  const hasGm = useTableMode() === "gm";
+  const [visibility, setVisibility] = useState(!hasGm && initial.visibility === "gm" ? "party" : initial.visibility);
+  const visibilities = useVisibilities(ClockVisibility.options);
   const [entryId, setEntryId] = useState(initial.entryId ?? "");
   const count = Number(segments);
   const valid =
@@ -72,7 +75,7 @@ export function ClockForm({ initial, entries, submitLabel, onSubmit, onCancel }:
             value={visibility}
             onChange={(e) => setVisibility(ClockVisibility.parse(e.target.value))}
           >
-            {ClockVisibility.options.map((v) => (
+            {visibilities.map((v) => (
               <option key={v} value={v}>
                 {t(v)}
               </option>

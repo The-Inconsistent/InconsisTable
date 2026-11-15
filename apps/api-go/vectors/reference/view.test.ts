@@ -15,7 +15,9 @@ import { compileRuleset } from "../../../../packages/rules-engine/src/index.ts";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_PACK } from "../../../../packages/rules-engine/src/fixtures/sample-pack.ts";
-import { seatView, type Snapshot } from "./view.ts";
+import { SAMPLE_HARVEST } from "../../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
+import { Ruleset } from "../../../../packages/rules-engine/src/manifest.ts";
+import { seatManifest, seatView, type Snapshot } from "./view.ts";
 
 // The matrix: one campaign, every kind of seat, and a digest of what each receives of the parts that can be hidden.
 
@@ -134,6 +136,8 @@ const state: LiveState = {
   clocks: [],
   requests: [],
   requestAnswers: [],
+  rolls: [],
+  dealt: [],
   myDraft: null,
   tests: [sum, pool],
   testDefs: [{ id: "check", dice: "1d20", advantage: true, pool: null, outcomes: null, inputs: [] }],
@@ -695,4 +699,67 @@ describe("a room without a GM", () => {
       assert.equal(v.state.testDefs.length, 1);
     });
   }
+});
+
+describe("random tables (house decision #49)", () => {
+  const roll = (id: string, visibility: "gm" | "party" | "owner") =>
+    ({ id, tableId: "t", entryId: "e", label: id, value: 1, visibility, at: "2026-01-01T00:00:00.000Z" }) as const;
+  const card = (actorId: string, visibility: "gm" | "party" | "owner") =>
+    ({ tableId: "t", actorId, entryId: "e", label: actorId + visibility, visibility }) as const;
+  const inMode = (tableMode: "gm" | "gmless"): Snapshot => ({
+    ...snapshot,
+    state: {
+      ...state,
+      campaign: { ...state.campaign, tableMode },
+      rolls: [roll("gm-roll", "gm"), roll("party-roll", "party")],
+      dealt: [card("lyra", "owner"), card("bran", "owner"), card("lyra", "party"), card("bran", "gm")],
+    },
+  });
+  const seen = (mode: "gm" | "gmless", c: Ctx) => {
+    const s = seatView({ snapshot: inMode(mode), compiled, ctx: c }).state;
+    return [s.rolls.map((r) => r.id).join(","), s.dealt.map((d) => d.label).join(",")];
+  };
+  const screen: Ctx["seat"] = { kind: "token", role: "screen", characterIds: [] };
+
+  test("with a GM: the side that runs the table sees every roll and card, a holder their own owner card", () => {
+    const all = ["gm-roll,party-roll", "lyraowner,branowner,lyraparty,brangm"];
+    assert.deepEqual(seen("gm", ctx(member("gm"), "u-gm")), all);
+    assert.deepEqual(seen("gm", ctx(member("cogm", ["session"]), "u-co")), all);
+    assert.deepEqual(seen("gm", ctx(member("cogm", ["combat"]), "u-co")), ["party-roll", "lyraparty"]);
+    assert.deepEqual(seen("gm", ctx(member("player", [], ["lyra"]), "u-lyra")), ["party-roll", "lyraowner,lyraparty"]);
+    assert.deepEqual(seen("gm", ctx(member("player", [], ["bran"]), "u-bran")), ["party-roll", "branowner,lyraparty"]);
+    const guest = ctx({ kind: "token", role: "player", characterIds: ["bran"] }, null);
+    assert.deepEqual(seen("gm", guest), ["party-roll", "branowner,lyraparty"]);
+    assert.deepEqual(seen("gm", ctx(screen, null)), ["party-roll", "lyraparty"]);
+    assert.deepEqual(seen("gm", ctx({ kind: "admin" }, null)), all);
+  });
+
+  test("a seat's manifest hides the entries of a secret table and still parses as a ruleset", () => {
+    const r = compileRuleset(SAMPLE_HARVEST);
+    if (!r.ok) throw new Error(JSON.stringify(r.problems));
+    const shown = (c: Ctx) => seatManifest({ ruleset: r.compiled.ruleset, ctx: c }).tables;
+    const parses = (c: Ctx) => Ruleset.safeParse(seatManifest({ ruleset: r.compiled.ruleset, ctx: c })).success;
+    const lyra = ctx(member("player", [], ["lyra"]), "u-lyra");
+    assert.deepEqual(
+      Object.entries(shown(lyra) ?? {}).map(([id, t]) => [id, t.entries.length]),
+      [
+        ["season", 3],
+        ["omen", 0],
+        ["role", 0],
+      ],
+    );
+    assert.equal(parses(lyra), true);
+    assert.equal(parses(ctx(member("gm"), "u-gm")), true);
+    assert.equal(shown(ctx(member("gm"), "u-gm"))?.role?.entries.length, 3);
+  });
+
+  test("without a GM: nobody sees a gm roll or another's owner card, whatever the seat may run", () => {
+    const lyra = ctx(member("player", [], ["lyra"]), "u-lyra");
+    assert.deepEqual(seen("gmless", lyra), ["party-roll", "lyraowner,lyraparty"]);
+    // The room's owner runs the table but holds no character: nothing of the GM side.
+    assert.deepEqual(seen("gmless", ctx(member("player"), "owner")), ["party-roll", "lyraparty"]);
+    assert.deepEqual(seen("gmless", ctx(screen, null)), ["party-roll", "lyraparty"]);
+    // A GM seat left over from before the table changed mode reads as a player: the snapshot's mode wins.
+    assert.deepEqual(seen("gmless", ctx(member("gm"), "u-gm")), ["party-roll", "lyraparty"]);
+  });
 });

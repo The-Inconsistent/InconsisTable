@@ -1002,7 +1002,12 @@
     "testTargetShown": "Without a GM, a Test's target is shown to everyone.",
     "testTableOnly": "Without a GM a Test can only use what the whole table can see.",
     "undoOthers": "You can only undo your own steps.",
-    "requestNoPool": "Shared pools aren't at this table yet."
+    "requestNoPool": "Shared pools aren't at this table yet.",
+    "tableNotFound": "Table not found",
+    "tableDealOnly": "That table is dealt, not rolled.",
+    "tableNoGm": "Nobody runs this room as GM, so nothing can be GM-only.",
+    "tableShort": "Not enough left to deal.",
+    "tableHeld": "Someone already holds a card from that table."
   },
   "workspace": {
     "skip": "Skip to the page",
@@ -1392,5 +1397,27 @@
       "tags": "Tags (comma-separated)",
       "body": "Body"
     }
+  },
+  "tables": {
+    "title": "Tables",
+    "gm": "GM only",
+    "party": "The table",
+    "owner": "Dealt face down",
+    "noGm": "Nobody runs this room as GM, so nothing can be GM-only.",
+    "roll": "Roll",
+    "rolled": "rolled {value}",
+    "deal": "Deal",
+    "dealTo": "Deal to",
+    "dealCount": "{count, plural, one {Deal to # character} other {Deal to # characters}}",
+    "cancel": "Cancel",
+    "aCharacter": "A character",
+    "reshuffle": "Reshuffle",
+    "reshuffleConfirm": "Take every card of {title} back? Nobody can undo a deal.",
+    "reshuffleYes": "Reshuffle",
+    "yourCards": "Your cards",
+    "aCard": "A card",
+    "tapToLook": "Tap to look",
+    "tapToHide": "Tap to hide",
+    "recentRolls": "Recent rolls"
   }
 }

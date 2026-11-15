@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 
 import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
+import { RollsView } from "@/components/ui/rolls-view/rolls-view";
 import { GameResult } from "@/components/ui/game-result/game-result";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { OrderView } from "@/components/ui/order-view/order-view";
@@ -42,6 +43,7 @@ export function TableScreen({ campaignId }: TableScreenProps) {
         {/* "Last time...": while a session runs and no fight has started. */}
         {state.session && !state.encounter && codex?.recaps[0] && <RecapCard recap={codex.recaps[0]} />}
         <ClocksView clocks={state.clocks} />
+        <RollsView rolls={state.rolls} />
         {state.encounter && <OrderView encounter={state.encounter} />}
         {/* The newest ended game stays up until the next one starts. */}
         {!state.encounter && state.games[0] && <GameResult game={state.games[0]} />}

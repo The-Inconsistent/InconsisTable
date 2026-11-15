@@ -288,6 +288,38 @@ export const Phase = z.object({
 });
 export type Phase = z.infer<typeof Phase>;
 
+/** Who learns what a table rolled or dealt (house decision #49): the GM side, the whole table, or the card's holder. */
+export const TableVisibility = z.enum(["gm", "party", "owner"]);
+export type TableVisibility = z.infer<typeof TableVisibility>;
+
+/**
+ * One line of a random table. With a `die` it owns the outcomes in `range` (both ends inclusive); without one it has a
+ * `weight`. `count` is the copies it adds to a deck that is dealt.
+ */
+export const TableEntry = z.object({
+  id: Id,
+  label: z.string().min(1).max(80),
+  /** [from, to], both ends inclusive. */
+  range: z.array(z.int().min(-100_000).max(100_000)).min(2).max(2).optional(),
+  weight: z.int().min(1).max(100).optional(),
+  count: z.int().min(1).max(20).optional(),
+});
+export type TableEntry = z.infer<typeof TableEntry>;
+
+/**
+ * A random table (design §3.4): rolled on a `die` whose outcomes the ranges tile exactly, or by weight; or dealt
+ * without replacement to characters. Never book text: the labels are the importer's own short words.
+ */
+export const RandomTable = z.object({
+  title: z.string().min(1).max(80),
+  die: DiceNotation.optional(),
+  // Empty only in a seat's copy, which hides the entries of a table it may not read; a manifest needs at least one.
+  entries: z.array(TableEntry).max(200),
+  visibility: TableVisibility,
+  cite: Cite.optional(),
+});
+export type RandomTable = z.infer<typeof RandomTable>;
+
 export const ScoreOrder = z.enum(["high", "low"]);
 export const GameOutcome = z.enum(["win", "lose"]);
 export type GameOutcome = z.infer<typeof GameOutcome>;
@@ -463,6 +495,8 @@ export const Ruleset = z.object({
   phases: z.array(Phase).min(1).max(12).optional(),
   /** Final scores, ranking and the end of the game. Absent: the game has no score to rank. */
   scoring: Scoring.optional(),
+  /** Random tables the GM side rolls or deals from (house decision #49). Absent: the ruleset has none. */
+  tables: z.record(Id, RandomTable).optional(),
   health: Health.default({ tracks: [], states: [] }),
   /** Steps of the character builder, in order. Empty: the ruleset has no builder and actors are filled by hand. */
   creation: z.array(CreationStep).max(50).default([]),
@@ -512,6 +546,80 @@ export function plainDice(notation: string): { count: number; sides: number } | 
   if (t === undefined || t.kind !== "dice" || typeof t.die !== "number") return null;
   if (t.keep !== null || t.explode || t.successAt !== null || t.sign !== 1) return null;
   return { count: t.count, sides: t.die };
+}
+
+/** The most outcomes a table die may have: the tiling check walks each of them. */
+export const MAX_TABLE_OUTCOMES = 10_000;
+
+/**
+ * What a table die can roll: plain `NdX` (the sum, count..count*X) or a single `d66` (11-66, no digit above 6 or
+ * below 1). Null for anything else, or for a die with more than MAX_TABLE_OUTCOMES outcomes.
+ */
+export function tableDie(notation: string): { min: number; max: number; has: (v: number) => boolean } | null {
+  const parsed = parseDice(notation);
+  if (!parsed.ok || parsed.dice.terms.length !== 1) return null;
+  const [t] = parsed.dice.terms;
+  if (t === undefined || t.kind !== "dice" || t.die === "F") return null;
+  if (t.keep !== null || t.explode || t.successAt !== null || t.sign !== 1) return null;
+  if (t.die === "d66") {
+    if (t.count !== 1) return null;
+    return { min: 11, max: 66, has: (v) => v >= 11 && v <= 66 && v % 10 >= 1 && v % 10 <= 6 };
+  }
+  const min = t.count;
+  const max = t.count * t.die;
+  if (max - min + 1 > MAX_TABLE_OUTCOMES) return null;
+  return { min, max, has: (v) => v >= min && v <= max };
+}
+
+/** A die's ranges tile its outcomes exactly: no gap, no overlap, nothing outside; no die means weights, no ranges. */
+function tableProblems({ id, t, out }: { id: string; t: RandomTable; out: Problem[] }): void {
+  const path = `tables.${id}`;
+  if (t.entries.length === 0) {
+    out.push({ path: `${path}.entries`, message: "a table needs an entry" });
+    return;
+  }
+  duplicates({ ids: t.entries.map((e) => e.id), path: `${path}.entries`, out });
+  if (t.die === undefined) {
+    t.entries.forEach((e, i) => {
+      if (e.range !== undefined)
+        out.push({ path: `${path}.entries[${i}].range`, message: "a table without a die has no ranges" });
+    });
+    return;
+  }
+  const die = tableDie(t.die);
+  if (die === null) {
+    out.push({ path: `${path}.die`, message: "a table die is plain NdX or d66, with at most 10000 outcomes" });
+    return;
+  }
+  const owner = new Map<number, number>(); // outcome → the first entry that has it
+  t.entries.forEach((e, i) => {
+    const at = `${path}.entries[${i}]`;
+    if (e.weight !== undefined) out.push({ path: `${at}.weight`, message: "a table with a die has no weights" });
+    if (e.range === undefined) {
+      out.push({ path: `${at}.range`, message: "an entry of a table with a die needs a range" });
+      return;
+    }
+    const [lo = 0, hi = 0] = e.range; // the schema holds it to two numbers
+    if (hi < lo) {
+      out.push({ path: `${at}.range`, message: "to is below from" });
+    } else if (lo < die.min || hi > die.max) {
+      out.push({ path: `${at}.range`, message: `outside the die (${die.min} to ${die.max})` });
+    } else {
+      let clash = -1;
+      for (let v = lo; v <= hi; v++) {
+        if (!die.has(v)) continue;
+        const prev = owner.get(v);
+        if (prev === undefined) owner.set(v, i);
+        else if (clash < 0) clash = prev;
+      }
+      if (clash >= 0) out.push({ path: `${at}.range`, message: `overlaps entries[${clash}]` });
+    }
+  });
+  for (let v = die.min; v <= die.max; v++) {
+    if (!die.has(v) || owner.has(v)) continue;
+    out.push({ path: `${path}.entries`, message: `no entry for ${v}` });
+    break;
+  }
 }
 
 /** Steps name real actor entities, pack entity types and fields, and no field has two writers. */
@@ -611,6 +719,10 @@ function semanticProblems(r: Ruleset): Problem[] {
   }
   if (r.initiative) needCite(r.initiative.cite, "initiative");
   r.phases?.forEach((x, i) => needCite(x.cite, `phases[${i}]`));
+  for (const [id, t] of Object.entries(r.tables ?? {})) {
+    needCite(t.cite, `tables.${id}`);
+    tableProblems({ id, t, out });
+  }
   if (r.scoring) {
     needCite(r.scoring.cite, "scoring");
     r.scoring.endWhen.forEach((x, i) => needCite(x.cite, `scoring.endWhen[${i}]`));

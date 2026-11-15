@@ -53,7 +53,27 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 	codex := seatCodex(snapshot.Codex, c, sight)
 	state.Clocks = seatClocks(state.Clocks, codex, sight)
 	state.Requests, state.RequestAnswers = seatRequests(state.Requests, state.RequestAnswers, c, sight)
+	state.Rolls, state.Dealt = seatTables(state.Rolls, state.Dealt, c, sight)
 	return SeatView{state, codex}
+}
+
+// The rolls and dealt cards a seat receives (house decision #49): the side that runs the table with a GM sees them all.
+// Anyone else sees what the table's visibility shows: `party` to every seat, `owner` to the seat that holds the card's
+// character. A `gm` one, and every card without a GM, reaches nobody else.
+func seatTables(rolls []cs.RollRow, dealt []cs.DealtRow, c cs.Ctx, sight Sight) ([]cs.RollRow, []cs.DealtRow) {
+	held := HeldBy(c)
+	outRolls, outDealt := []cs.RollRow{}, []cs.DealtRow{}
+	for _, r := range rolls {
+		if sight.Tables || r.Visibility == "party" {
+			outRolls = append(outRolls, r)
+		}
+	}
+	for _, d := range dealt {
+		if sight.Tables || d.Visibility == "party" || (d.Visibility == "owner" && holds(held, d.ActorID)) {
+			outDealt = append(outDealt, d)
+		}
+	}
+	return outRolls, outDealt
 }
 
 // The spend requests a seat receives: the side that answers them sees every pending request, a player only their own

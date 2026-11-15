@@ -1002,7 +1002,12 @@
     "testTargetShown": "Không có GM thì ngưỡng của Test luôn hiện cho mọi người.",
     "testTableOnly": "Không có GM thì Test chỉ dùng được những gì cả bàn nhìn thấy.",
     "undoOthers": "Bạn chỉ hoàn tác được bước của mình.",
-    "requestNoPool": "Bàn này chưa có pool chung."
+    "requestNoPool": "Bàn này chưa có pool chung.",
+    "tableNotFound": "Không tìm thấy bảng",
+    "tableDealOnly": "Bảng này để chia, không để gieo.",
+    "tableNoGm": "Phòng này không có GM, nên không có gì chỉ dành cho GM.",
+    "tableShort": "Không còn đủ bài để chia.",
+    "tableHeld": "Đã có người cầm một lá của bảng này."
   },
   "workspace": {
     "skip": "Bỏ qua, tới nội dung trang",
@@ -1392,5 +1397,27 @@
       "tags": "Thẻ (cách nhau bằng dấu phẩy)",
       "body": "Nội dung"
     }
+  },
+  "tables": {
+    "title": "Bảng ngẫu nhiên",
+    "gm": "Chỉ GM",
+    "party": "Cả bàn",
+    "owner": "Chia úp",
+    "noGm": "Phòng này không có GM, nên không có gì chỉ dành cho GM.",
+    "roll": "Gieo",
+    "rolled": "ra {value}",
+    "deal": "Chia",
+    "dealTo": "Chia cho",
+    "dealCount": "Chia cho {count} nhân vật",
+    "cancel": "Huỷ",
+    "aCharacter": "Một nhân vật",
+    "reshuffle": "Xáo lại",
+    "reshuffleConfirm": "Thu hết bài của {title} về? Không ai hoàn tác được một lần chia.",
+    "reshuffleYes": "Xáo lại",
+    "yourCards": "Bài của bạn",
+    "aCard": "Một lá bài",
+    "tapToLook": "Chạm để xem",
+    "tapToHide": "Chạm để úp lại",
+    "recentRolls": "Các lần gieo gần đây"
   }
 }

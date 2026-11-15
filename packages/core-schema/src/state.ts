@@ -160,6 +160,29 @@ export const RequestAnswer = z.object({
 });
 export type RequestAnswer = z.infer<typeof RequestAnswer>;
 
+// A roll on a random table and a card dealt from one (house decision #49). Both carry the table's `visibility` so the
+// Seat view can cut them without the ruleset: gm → the GM side, party → every seat, owner → the card's holder (a roll
+// is never `owner`). `label` is the entry's own short name.
+export const TableId = z.string().min(1).max(64);
+export const RollRow = z.object({
+  id: z.string(),
+  tableId: z.string(),
+  entryId: z.string(),
+  label: z.string(),
+  value: z.number().int(),
+  visibility: z.enum(["gm", "party", "owner"]),
+  at: z.string(),
+});
+export type RollRow = z.infer<typeof RollRow>;
+export const DealtRow = z.object({
+  tableId: z.string(),
+  actorId: z.string(),
+  entryId: z.string(),
+  label: z.string(),
+  visibility: z.enum(["gm", "party", "owner"]),
+});
+export type DealtRow = z.infer<typeof DealtRow>;
+
 export const LiveState = z.object({
   campaign: z.object({
     id: z.string(),
@@ -190,6 +213,10 @@ export const LiveState = z.object({
   // the asker's own recent answers (approved or denied), newest first.
   requests: z.array(SpendRequest),
   requestAnswers: z.array(RequestAnswer),
+  // The last 10 rolls on random tables, newest first, and the cards dealt and not yet returned; each seat gets the ones
+  // its sight reads (the api's Seat view module).
+  rolls: z.array(RollRow),
+  dealt: z.array(DealtRow),
   // The combat tracker: the active encounter, if any. Each seat gets its own filter (encounter.ts).
   encounter: Encounter.nullable(),
   // The campaign's 20 most recent ended games, newest first; every seat gets all of them (house decision #40).

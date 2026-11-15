@@ -3370,3 +3370,131 @@ test("session:draftRecap: lines for a Test and a reveal; only the GM side may as
   owner.socket.close();
   ana.socket.close();
 });
+
+test("random tables: the server rolls and deals, the party sees a roll, a phone only its own card, nobody undoes a deal", async () => {
+  const { owner, ownerDevice, campaignId } = await newRoom("Tables");
+  const res = await caller(ownerDevice).post<RulesetReply>("/rulesets", SAMPLE_HARVEST);
+  assert.equal(res.status, 201);
+  ok(await owner.send({ type: "campaign.setRuleset", rulesetVersionId: res.body.versionId }));
+  const actors: string[] = [];
+  for (const name of ["Ana", "Ben", "Cy"])
+    actors.push(ok(await owner.send({ type: "actor.create", kind: "pc", name, entityType: "player" })).id!);
+  const phones: ReturnType<typeof connect>[] = [];
+  for (const actorId of actors) {
+    const token = ok(await owner.send({ type: "token.issue", actorId })).token!;
+    const phone = connect({ auth: { campaignId, token } });
+    await phone.until((s) => s.actors.some((x) => x.id === actorId));
+    phones.push(phone);
+  }
+  const tv = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  await tv.until(() => true);
+  const caught = (s: LiveState) => s.stateVersion;
+  const synced = async (version: number) => {
+    await Promise.all([...phones, tv].map((c) => c.until((s) => s.stateVersion >= version)));
+  };
+
+  // A player may not roll; the GM rolls the party's Season, and the table sees it.
+  refused(await phones[0]!.send({ type: "table.roll", tableId: "season" }), "noPermission");
+  refused(await owner.send({ type: "table.roll", tableId: "nope" }), "tableNotFound");
+  refused(await owner.send({ type: "table.roll", tableId: "role" }), "tableDealOnly");
+  ok(await owner.send({ type: "table.roll", tableId: "season" }));
+  const rolled = await owner.until((s) => s.rolls.length === 1);
+  assert.ok(["Thaw", "Bloom", "Frost"].includes(rolled.rolls[0]!.label));
+  assert.ok(rolled.rolls[0]!.value >= 1 && rolled.rolls[0]!.value <= 6);
+  assert.equal((await tv.until((s) => s.rolls.length === 1)).rolls[0]!.id, rolled.rolls[0]!.id);
+  await phones[1]!.until((s) => s.rolls.length === 1);
+
+  // The GM's Omen is the GM's alone: the TV and the phones never learn of it.
+  ok(await owner.send({ type: "table.roll", tableId: "omen" }));
+  const omened = await owner.until((s) => s.rolls.length === 2);
+  assert.equal(omened.rolls[0]!.visibility, "gm");
+  await synced(caught(omened));
+  for (const c of [tv, ...phones])
+    assert.deepEqual(
+      (await c.until(() => true)).rolls.map((r) => r.tableId),
+      ["season"],
+    );
+
+  // Deal the Role deck (six cards) to the three characters: each phone holds exactly its own card.
+  refused(await phones[0]!.send({ type: "table.deal", tableId: "role", actorIds: [actors[0]!] }), "noPermission");
+  refused(
+    await owner.send({ type: "table.deal", tableId: "role", actorIds: [actors[0]!, actors[0]!] }),
+    /listed twice/,
+  );
+  ok(await owner.send({ type: "table.deal", tableId: "role", actorIds: actors }));
+  const dealt = await owner.until((s) => s.dealt.length === 3);
+  const deck = ["Farmer", "Miller", "Thief"];
+  assert.ok(dealt.dealt.every((d) => d.visibility === "owner" && deck.includes(d.label)));
+  for (const [i, phone] of phones.entries()) {
+    const mine = await phone.until((s) => s.dealt.length === 1);
+    assert.deepEqual(
+      mine.dealt.map((d) => d.actorId),
+      [actors[i]],
+    );
+    assert.equal(mine.dealt[0]!.label, dealt.dealt.find((d) => d.actorId === actors[i])!.label);
+  }
+  await synced(caught(dealt));
+  assert.deepEqual((await tv.until(() => true)).dealt, []);
+  refused(await owner.send({ type: "table.deal", tableId: "role", actorIds: [actors[1]!] }), "tableHeld");
+
+  // A character of another room is not dealt to.
+  const other = await newRoom("Tables2");
+  const stranger = ok(await other.owner.send({ type: "actor.create", kind: "pc", name: "Zed" })).id!;
+  refused(await owner.send({ type: "table.deal", tableId: "role", actorIds: [stranger] }), "characterNotFound");
+
+  // Reshuffle takes every card back (the phones lose theirs), then the deck deals again. Undo has nothing to take back.
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "table.reshuffle", tableId: "role" }));
+  await owner.until((s) => s.dealt.length === 0);
+  for (const phone of phones) await phone.until((s) => s.dealt.length === 0);
+  ok(await owner.send({ type: "table.deal", tableId: "role", actorIds: actors }));
+  await owner.until((s) => s.dealt.length === 3);
+  refused(await owner.send({ type: "event.undo" }), "nothingToUndo");
+  assert.equal((await owner.until(() => true)).dealt.length, 3, "an undo does not take a deal back");
+  assert.deepEqual(
+    await query(
+      `SELECT type FROM session_event WHERE campaign_id = $1 AND type LIKE 'table.%' ORDER BY created_at, id`,
+      [campaignId],
+    ),
+    ["roll", "roll", "deal", "reshuffle", "deal"].map((k) => ({ type: `table.${k}` })),
+  );
+  for (const c of [owner, tv, other.owner, ...phones]) c.socket.close();
+});
+
+test("random tables without a GM: a GM-only table is refused, a deal stays with its holder, even from the owner", async () => {
+  const ownerDevice = await device("owner-TablesNoGm");
+  const ruleset = await caller(ownerDevice).post<RulesetReply>("/rulesets", {
+    ...SAMPLE_HARVEST,
+    id: "sample-harvest-nogm",
+    game: { title: "Sample Harvest", players: { min: 1, max: 4 }, modes: ["gm", "gmless"], cite: "Sample p.1" },
+  });
+  assert.equal(ruleset.status, 201);
+  const res = await post(
+    "/campaigns",
+    { name: "TablesNoGm", rulesetVersionId: ruleset.body.versionId, tableMode: "gmless" },
+    cookieOf(ownerDevice),
+  );
+  assert.equal(res.status, 201);
+  const { campaignId } = (await res.json()) as { campaignId: string };
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until((s) => s.campaign.name === "TablesNoGm");
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-TablesNoGm") } });
+  const ben = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ben-TablesNoGm") } });
+  const members = (await owner.until((s) => s.access.members.length === 3)).access.members;
+  const heroOf = (name: string) => members.find((m) => m.userId === uid(`${name}-TablesNoGm`))!.characterIds[0]!;
+  const [lyra, bram] = [heroOf("ana"), heroOf("ben")];
+  await Promise.all([ana, ben].map((c) => c.until((s) => s.actors.length >= 2)));
+
+  // Every seat runs the table, but nothing can be kept for a GM that is not there.
+  refused(await ana.send({ type: "table.roll", tableId: "omen" }), "tableNoGm");
+  ok(await ana.send({ type: "table.roll", tableId: "season" }));
+  await ben.until((s) => s.rolls.length === 1);
+  ok(await ben.send({ type: "table.deal", tableId: "role", actorIds: [lyra, bram] }));
+  const mine = await ana.until((s) => s.dealt.length === 1);
+  assert.equal(mine.dealt[0]!.actorId, lyra);
+  assert.equal((await ben.until((s) => s.dealt.length === 1)).dealt[0]!.actorId, bram);
+  // The owner runs the table and holds no character: they see neither card.
+  const version = Math.max(mine.stateVersion, (await ben.until(() => true)).stateVersion);
+  assert.deepEqual((await owner.until((s) => s.stateVersion >= version)).dealt, []);
+  for (const c of [owner, ana, ben]) c.socket.close();
+});

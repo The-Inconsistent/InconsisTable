@@ -192,6 +192,32 @@ const STATE = {
     { id: U(810), userId: "player1", actorId: PC1, resourceId: "luck", amount: 1, status: "denied", reason: "not now" },
     { id: U(811), userId: "player2", actorId: PC2, resourceId: "luck", amount: 1, status: "approved", reason: "" },
   ],
+  rolls: [
+    {
+      id: U(820),
+      tableId: "season",
+      entryId: "frost",
+      label: "Frost",
+      value: 5,
+      visibility: "party",
+      at: "2026-11-01T09:10:00.000Z",
+    },
+    {
+      id: U(821),
+      tableId: "omen",
+      entryId: "dread",
+      label: "Dread",
+      value: 2,
+      visibility: "gm",
+      at: "2026-11-01T09:11:00.000Z",
+    },
+  ],
+  dealt: [
+    { tableId: "role", actorId: PC1, entryId: "mole", label: "Mole", visibility: "owner" },
+    { tableId: "role", actorId: PC2, entryId: "host", label: "Host", visibility: "owner" },
+    { tableId: "scenario", actorId: PC1, entryId: "famine", label: "Famine", visibility: "party" },
+    { tableId: "fate", actorId: PAL, entryId: "doom", label: "Doom", visibility: "gm" },
+  ],
   myDraft: null,
   tests: [
     call(U(200), {}),
@@ -539,6 +565,9 @@ const VALID: Record<string, Record<string, unknown>> = {
   "campaign.setSafety": { lines: [" Line one ", "Line two"], veils: [], xCard: false },
   "safety.suggest": { kind: "veil", text: " Veil one " },
   "safety.xcard": {},
+  "table.roll": { tableId: "season" },
+  "table.deal": { tableId: "role", actorIds: [ID] },
+  "table.reshuffle": { tableId: "role" },
 };
 
 const LONG_KEYS = new Set(["recap", "notes", "body", "gmNotes", "value"]);

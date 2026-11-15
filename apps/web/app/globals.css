@@ -854,6 +854,100 @@ label {
   }
 }
 
+/* ---------- Random tables: a result called out on the GM's panel, cards face down in the hand, the TV's last roll ----------
+   A roll is a word set large and dealt onto the table (the existing `deal` drop); a card in the hand shows a patterned
+   back until it is tapped, then drops its face in. Only opacity and transform move. */
+.table-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--gap);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.table-head {
+  align-items: baseline;
+}
+.table-result {
+  display: grid;
+  gap: 2px;
+  animation: deal var(--dur-move) var(--ease-out) backwards;
+}
+.table-face {
+  font-size: var(--fs-title);
+  font-weight: 800;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+.table-pick {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.table-held {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.table-held-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rolls-before {
+  display: flex;
+  gap: var(--gap);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.table-result-tv .table-face {
+  font-size: calc(var(--fs-title) * 1.6);
+}
+.hand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.playing-card {
+  display: grid;
+  place-items: center;
+  width: 168px;
+  min-height: 224px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 2px solid var(--brass);
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  background: var(--paper);
+}
+.playing-card[data-up="false"] {
+  background: repeating-linear-gradient(45deg, transparent 0 9px, rgb(201 154 62 / 0.22) 9px 10px), var(--wood-2);
+  color: var(--band-ink, var(--ink));
+}
+.card-back,
+.card-front {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  animation: deal var(--dur-move) var(--ease-out) backwards;
+}
+.card-title {
+  font-weight: 700;
+}
+.card-label {
+  font-size: var(--fs-name);
+  overflow-wrap: anywhere;
+}
+
 /* ---------- Spend requests: a slip pinned under the tabs while a player waits on the GM ----------
    The GM's bar and the phone's notices are strips with a candle-lit edge; the bar rises in when the first slip arrives
    and the notice when an answer lands. Layout never moves under a finger: they sit above the page, not inside it. */

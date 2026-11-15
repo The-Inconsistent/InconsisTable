@@ -41,6 +41,16 @@ func assertNothingForTheGM(t *testing.T, name, mode string, seat cs.SeatKind, go
 	if got.State.Session != nil && got.State.Session.Notes != "" {
 		t.Errorf("%s: sent the session notes", name)
 	}
+	for _, r := range got.State.Rolls {
+		if r.Visibility != "party" {
+			t.Errorf("%s: sent the %s roll %s", name, r.Visibility, r.ID)
+		}
+	}
+	for _, d := range got.State.Dealt {
+		if d.Visibility == "gm" {
+			t.Errorf("%s: sent a gm card of %s", name, d.ActorID)
+		}
+	}
 	for _, call := range got.State.Tests {
 		if len(call.SecretInputs) > 0 {
 			t.Errorf("%s: call %s has secret inputs", name, call.ID)
@@ -67,7 +77,7 @@ func TestSightWithoutAGM(t *testing.T) {
 			for _, user := range []*string{&owner, nil} {
 				c := cs.Ctx{UserID: user, CampaignOwnerID: &owner, TableMode: mode, Seat: seat}
 				s := SightOf(c)
-				if s.All || s.Session || s.Secrets || s.Codex || s.Party || s.Clocks || s.Requests {
+				if s.All || s.Session || s.Secrets || s.Codex || s.Party || s.Clocks || s.Requests || s.Tables {
 					t.Errorf("%s %s: sees the GM side: %+v", mode, name, s)
 				}
 				if !s.TableRun || !s.Combat {

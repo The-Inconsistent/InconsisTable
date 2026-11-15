@@ -297,6 +297,7 @@ var rulesetSchema = schema.Object(
 		schema.Opt("cite", citeSchema),
 	)).Min(1).Max(12)),
 	schema.Opt("scoring", scoringSchema),
+	schema.Opt("tables", schema.Record(idSchema, tableSchema)),
 	schema.Def("health", healthSchema, map[string]any{"tracks": []any{}, "states": []any{}}),
 	schema.Def("creation", schema.Array(creationStepSchema).Max(50), []any{}),
 	schema.Def("decisions", schema.Array(schema.Object(
@@ -312,6 +313,21 @@ var rulesetSchema = schema.Object(
 		)).Max(50)),
 	)), map[string]any{}),
 	schema.Opt("game", gameSchema),
+)
+
+// tableSchema is one random table of the manifest (house decision #49).
+var tableSchema = schema.Object(
+	schema.Req("title", label(80)),
+	schema.Opt("die", diceNotation),
+	schema.Req("entries", schema.Array(schema.Object(
+		schema.Req("id", idSchema),
+		schema.Req("label", label(80)),
+		schema.Opt("range", schema.Array(schema.Int().Min(-100_000).Max(100_000)).Min(2).Max(2)),
+		schema.Opt("weight", schema.Int().Min(1).Max(100)),
+		schema.Opt("count", schema.Int().Min(1).Max(20)),
+	)).Max(200)),
+	schema.Req("visibility", schema.Enum("gm", "party", "owner")),
+	schema.Opt("cite", citeSchema),
 )
 
 // gameSchema is the manifest's `game` block: what the game is and how a table can sit for it.

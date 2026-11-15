@@ -153,6 +153,19 @@ type VersionInfo struct {
 	CreatedAt string `json:"createdAt"`
 	// Modes are the ways a table can sit for it (the manifest's game block); a game with none is played with a GM.
 	Modes []string `json:"modes"`
+	// Game is what the manifest says the game is, for the lobby's Choose game; null without a game block.
+	Game *GameInfo `json:"game"`
+}
+
+// GameInfo is the descriptive part of the manifest's game block (the cite stays in the manifest).
+type GameInfo struct {
+	Title   string   `json:"title"`
+	Family  *string  `json:"family,omitempty"`
+	Genres  []string `json:"genres"`
+	Players struct {
+		Min int `json:"min"`
+		Max int `json:"max"`
+	} `json:"players"`
 }
 
 // Listed is one of the owner's rulesets with its versions, newest first.
@@ -167,7 +180,8 @@ type Listed struct {
 func List(ctx context.Context, conn core.Conn, userID string) ([]Listed, error) {
 	rows, err := conn.Query(ctx, `SELECT ruleset.id::text, ruleset.slug, ruleset.title, ruleset_version.id::text,
 			ruleset_version.version, ruleset_version.created_at,
-			coalesce(ruleset_version.manifest->'game'->'modes', '["gm"]'::jsonb)
+			coalesce(ruleset_version.manifest->'game'->'modes', '["gm"]'::jsonb),
+			ruleset_version.manifest->'game'
 		FROM ruleset JOIN ruleset_version ON ruleset_version.ruleset_id = ruleset.id
 		WHERE ruleset.owner_user_id = $1 ORDER BY ruleset_version.created_at DESC, ruleset_version.id DESC`, userID)
 	if err != nil {
@@ -180,9 +194,18 @@ func List(ctx context.Context, conn core.Conn, userID string) ([]Listed, error) 
 		var id, slug, title string
 		var v VersionInfo
 		var createdAt time.Time
-		var modes []byte
-		if err := rows.Scan(&id, &slug, &title, &v.ID, &v.Version, &createdAt, &modes); err != nil {
+		var modes, game []byte
+		if err := rows.Scan(&id, &slug, &title, &v.ID, &v.Version, &createdAt, &modes, &game); err != nil {
 			return nil, err
+		}
+		if game != nil {
+			v.Game = &GameInfo{}
+			if err := json.Unmarshal(game, v.Game); err != nil {
+				return nil, err
+			}
+			if v.Game.Genres == nil {
+				v.Game.Genres = []string{}
+			}
 		}
 		if err := json.Unmarshal(modes, &v.Modes); err != nil {
 			return nil, err

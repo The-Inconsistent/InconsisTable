@@ -6,6 +6,7 @@ import { GameResult } from "@/components/ui/game-result/game-result";
 import { OrderView } from "@/components/ui/order-view/order-view";
 import { RecapCard } from "@/components/ui/recap-card/recap-card";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
+import { XCardOverlay } from "@/components/ui/xcard/xcard-overlay";
 import { useTable } from "@/hooks/use-table/use-table";
 
 type TableScreenProps = { campaignId: string };
@@ -16,11 +17,12 @@ export function TableScreen({ campaignId }: TableScreenProps) {
   const t = useTranslations("tableScreen");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
-  const { state, codex, online } = useTable(campaignId);
+  const { state, codex, online, xcard } = useTable(campaignId);
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   const revealed = (codex?.entries ?? []).filter((e) => e.audienceMode === "all");
   return (
     <div className="surface-table" data-density="tv">
+      <XCardOverlay signal={xcard} tv />
       <main className="screen stack">
         {/* The screen has no header band: the badge is its first row instead. */}
         {!online && (

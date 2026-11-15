@@ -18,6 +18,8 @@ import { GameResult } from "@/components/ui/game-result/game-result";
 import { Standings } from "@/components/ui/standings/standings";
 import { OrderView } from "@/components/ui/order-view/order-view";
 import { TestPrompt } from "@/components/player/test-prompt/test-prompt";
+import { XCardButton } from "@/components/ui/xcard/xcard-button";
+import { XCardOverlay } from "@/components/ui/xcard/xcard-overlay";
 import { SettingsMenu } from "@/components/ui/settings-menu/settings-menu";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
@@ -34,7 +36,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   const t = useTranslations("playerApp");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
-  const { state, codex, online, send, books, requestPage } = useTable(me.campaignId);
+  const { state, codex, online, send, books, requestPage, xcard } = useTable(me.campaignId);
   const held = me.seat.kind === "admin" ? [] : me.seat.characterIds;
   const [current, setCurrent] = useState(held[0] ?? "");
   const [tab, setTab] = useState<PlayerTab>(quick ? "run" : "sheet");
@@ -84,9 +86,11 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
         <strong>{state.campaign.name}</strong>
         <span className="row">
           {state.session && <span className="chip">{tTable("session", { number: state.session.number })}</span>}
+          <XCardButton me={me} state={state} send={send} />
           <SettingsMenu />
         </span>
       </header>
+      <XCardOverlay signal={xcard} />
       <TransferOffer me={me} state={state} send={send} />
       {mine.length > 1 && (
         <nav className="tabs" role="tablist" aria-label={t("charactersLabel")}>
@@ -127,7 +131,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
         {state.encounter && <OrderView encounter={state.encounter} />}
         {!state.encounter && state.games[0] && <GameResult game={state.games[0]} held={held} />}
         {tab === "notebook" ? (
-          <Notebook codex={codex} />
+          <Notebook codex={codex} me={me} safety={state.campaign.safety} send={send} />
         ) : tab === "standings" ? (
           <Standings games={state.games} />
         ) : tab === "rules" ? (

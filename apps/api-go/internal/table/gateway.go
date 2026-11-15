@@ -36,6 +36,8 @@ const (
 	// KickGrace is how long a kicked socket keeps its transport after the disconnect packet, and how long a kick that
 	// reaches the sender waits so the ack lands first.
 	KickGrace = 200 * time.Millisecond
+	// XCardEvery is how often one seat may touch the X-Card.
+	XCardEvery = 10 * time.Second
 )
 
 func room(campaignID string) socket.Room { return socket.Room("c:" + campaignID) }
@@ -95,6 +97,8 @@ type Gateway struct {
 	allowAdminKey *core.Limiter
 	// A player flipping through cited pages; each one costs the GM's tablet a render. Per seat, like actions.
 	allowPage *core.Limiter
+	// One X-Card touch per seat per XCardEvery (in memory, like the others).
+	allowXCard *core.Limiter
 
 	kickGrace   time.Duration
 	pageTimeout time.Duration
@@ -160,6 +164,7 @@ func newGateway(webOrigins []string, d deps) *Gateway {
 		allowConnect:  core.NewLimiter(60, time.Minute),
 		allowAction:   core.NewLimiter(120, time.Minute),
 		allowPage:     core.NewLimiter(30, time.Minute),
+		allowXCard:    core.NewLimiter(1, XCardEvery),
 		allowAdminKey: core.NewLimiter(20, time.Minute),
 		kickGrace:     KickGrace, pageTimeout: PageTimeout,
 	}
@@ -362,6 +367,10 @@ func (g *Gateway) onAction(s *socket.Socket, body any, ack func(any)) {
 		ack(Refused("badRequest", cs.Params{"detail": schema.Prettify(issues)}))
 		return
 	}
+	if action.Type() == "safety.xcard" && !g.allowXCard.Allow(data.seatKey) {
+		ack(Refused("xcardWait", nil))
+		return
+	}
 	if data.script {
 		if err := g.logKey(context.Background(), "key.action", data.ctx.CampaignID, action.Type()); err != nil {
 			log.Printf("table: %v", err)
@@ -427,9 +436,25 @@ func (g *Gateway) run(c cs.Ctx, a cs.Action, reply func(any)) {
 			if err := g.broadcast(c.CampaignID, TouchesOf(a)); err != nil {
 				log.Printf("table: broadcast: %v", err)
 			}
+			if result.XCardMode != "" {
+				g.xcard(c.CampaignID, result.XCardMode)
+			}
 		})
 		answer(result)
 	})
+}
+
+// xcard tells who hears a touched X-Card: the GM side and the screen at a table with a GM, every seat without one. The
+// event is `safety:xcard` with an empty payload: it names no one, and nothing about it is stored or logged.
+func (g *Gateway) xcard(campaignID, mode string) {
+	for _, s := range g.socketsIn(room(campaignID)) {
+		seat := seatOf(s).ctx.Seat
+		gmSide := seat.Kind == cs.SeatAdmin || (seat.Kind == cs.SeatMember && (seat.Role == "gm" || seat.Role == "cogm"))
+		screen := seat.Kind == cs.SeatToken && seat.Role == "screen"
+		if mode != cs.TableModeGM || gmSide || screen {
+			_ = s.Emit("safety:xcard", map[string]any{})
+		}
+	}
 }
 
 // Mutate is for REST changes to a table (accepting an invite): the same queue as socket actions, then the same

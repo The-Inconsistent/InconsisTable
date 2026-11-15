@@ -20,6 +20,7 @@ import {
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { Recaps } from "@/components/gm/party/recaps";
+import { SafetyPanel } from "@/components/gm/party/safety-panel";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
@@ -254,6 +255,8 @@ export function Party({ me, state, send, recaps, sheet, autoQr = false }: PartyP
           </div>
         )}
       </section>
+
+      {can("session:run") && <SafetyPanel safety={state.campaign.safety} send={send} />}
 
       <section className="stack">
         <h2 className="head">{t("characters")}</h2>

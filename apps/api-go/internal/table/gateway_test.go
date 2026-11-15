@@ -107,6 +107,7 @@ func seats() map[string]cs.Seat {
 	return map[string]cs.Seat{
 		"gm":     {Kind: cs.SeatMember, Role: "gm"},
 		"player": {Kind: cs.SeatMember, Role: "player"},
+		"screen": {Kind: cs.SeatToken, Role: "screen"},
 	}
 }
 

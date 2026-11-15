@@ -178,6 +178,22 @@
     "usage": "{packs, plural, other {# / {maxPacks} pack}}, đã dùng {bytes} / {maxBytes}."
   },
   "importPanel": {
+    "template": "Bắt đầu từ một mẫu",
+    "templateNone": "Chọn một họ luật",
+    "templates": {
+      "d20": "Gieo d20 so với một con số",
+      "bands": "Dải kết quả 2d6",
+      "pool": "Xúc xắc gộp, đếm mặt tính điểm",
+      "percentile": "Phần trăm",
+      "clocks": "Đồng hồ và thế cờ"
+    },
+    "templateNotes": {
+      "d20": "Một Test: xúc xắc cộng chỉnh sửa so với con số GM đặt khi gọi. Thêm bậc thành công nếu game của bạn có.",
+      "bands": "Một Test chỉ báo kết quả với ba kết quả. Đổi tên và ghi trang trích dẫn.",
+      "pool": "Một Test: gieo một nhúm xúc xắc và đếm các mặt tính điểm. Đặt loại xúc xắc, các mặt tính điểm và trích dẫn.",
+      "percentile": "Gieo dưới ngưỡng không do app tính: bàn đọc xúc xắc rồi báo đó là kết quả nào.",
+      "clocks": "Một Test chỉ báo kết quả với ba kết quả. Đồng hồ của câu chuyện chạy từ đồng hồ của phòng, không từ bộ luật."
+    },
     "tooBig": "Tệp này lớn hơn 5 MB. Hãy tách pack làm hai.",
     "notJson": "Đây không phải tài liệu JSON.",
     "unknownShape": "Không phải bộ luật (cần entities) cũng không phải pack (cần entries).",
@@ -968,6 +984,9 @@
     "changeBetweenSessions": "Chỉ đổi kiểu ngồi giữa các buổi chơi.",
     "modeNotPlayed": "Game này không chơi kiểu đó.",
     "soloOneSeat": "Phòng chơi một mình chỉ có một ghế.",
+    "safetyListFull": "Danh sách này đã đầy.",
+    "xcardOff": "Bàn này đã tắt X-Card.",
+    "xcardWait": "Chờ một chút rồi hãy chạm lại.",
     "noGmHere": "Phòng này không có GM nên không có gì chỉ dành cho GM.",
     "noGmSeats": "Phòng này không có ghế GM.",
     "testCharactersOnly": "Không có GM thì Test chỉ gọi cho nhân vật.",
@@ -1096,6 +1115,37 @@
     "unknownTest": "(không có trong bộ luật này)",
     "call": "Gọi",
     "unplan": "Bỏ dự kiến {id}"
+  },
+  "safety": {
+    "card": {
+      "title": "X-Card",
+      "text": "Bỏ qua hoặc đổi những gì vừa xảy ra. Không cần giải thích.",
+      "dismiss": "Quay lại ván chơi",
+      "touchLabel": "Chạm X-Card. Không ai biết ai đã chạm.",
+      "sent": "Cả bàn đã được báo."
+    },
+    "panel": {
+      "title": "Ranh giới và màn che",
+      "hint": "Mỗi dòng một mục, tối đa {items} mục, mỗi mục tối đa {chars} ký tự. Người chơi có thể gợi ý thêm từ điện thoại, không kèm tên.",
+      "lines": "Ranh giới: không bao giờ xuất hiện ở bàn này",
+      "veils": "Màn che: xảy ra ngoài trang",
+      "xCard": "Người chơi được chạm X-Card",
+      "tooMany": "Mỗi danh sách tối đa {items} mục.",
+      "tooLong": "Mỗi mục tối đa {chars} ký tự.",
+      "save": "Lưu"
+    },
+    "view": {
+      "title": "Ranh giới và màn che",
+      "lines": "Ranh giới",
+      "veils": "Màn che",
+      "none": "Chưa có gì.",
+      "suggest": "Gợi ý thêm một mục",
+      "anonymous": "Không ai biết ai đã gợi ý.",
+      "asLine": "Ranh giới",
+      "asVeil": "Màn che",
+      "send": "Thêm vào danh sách",
+      "sent": "Đã thêm."
+    }
   },
   "notebook": {
     "entries": "Đã tiết lộ",

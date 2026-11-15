@@ -64,6 +64,8 @@ export function useTable(campaignId: string) {
   const [state, setState] = useState<LiveState | null>(null);
   const [codex, setCodex] = useState<Codex | null>(null);
   const [online, setOnline] = useState(false);
+  // How many times someone touched the X-Card (safety:xcard carries no one: it is a count, never a name).
+  const [xcard, setXcard] = useState(0);
   // Sources a GM tablet is serving right now (book:available); a cite in one of them opens its page.
   const [books, setBooks] = useState<BookSource[]>([]);
   // GM only: what this tab serves, re-announced on every reconnect (the server forgets it with the old socket).
@@ -109,6 +111,7 @@ export function useTable(campaignId: string) {
       const parsed = Codex.safeParse(raw);
       if (parsed.success) setCodex(parsed.data);
     });
+    s.on("safety:xcard", () => setXcard((n) => n + 1));
     s.on("book:available", (raw: unknown) => {
       const parsed = BookAvailable.safeParse(raw);
       if (parsed.success) setBooks(parsed.data.sources);
@@ -208,7 +211,7 @@ export function useTable(campaignId: string) {
     socket.current?.emit("book:serving", { sources: next?.sources ?? [] });
   }, []);
 
-  return { state, codex, online, send, books, requestPage, serveBooks };
+  return { state, codex, online, send, books, requestPage, serveBooks, xcard };
 }
 
 type EmitWords = { noSignal: string; unreadable: string; noReply: string };

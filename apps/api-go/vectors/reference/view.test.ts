@@ -126,6 +126,7 @@ const state: LiveState = {
     nextSessionAt: null,
     nextSessionPlace: "",
     tableMode: "gm",
+    safety: { lines: [], veils: [], xCard: true },
   },
   stateVersion: 1,
   session: { id: "s", number: 1, title: "", startedAt: "", endedAt: null, recap: "", notes: "session notes" },

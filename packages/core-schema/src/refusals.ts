@@ -146,6 +146,10 @@ export const REFUSALS = {
   undoGone: "Can't undo: {target} is gone.",
   undoChanged:
     "Can't undo: {target} changed after this step (now {now}, the step left {left}). Undo the later steps first.",
+  // Session Zero
+  safetyListFull: "That list is full.",
+  xcardOff: "The X-Card is off at this table.",
+  xcardWait: "Wait a moment before touching it again.",
   // How the table sits
   changeBetweenSessions: "Change how the table sits between sessions.",
   modeNotPlayed: "This game isn't played that way.",

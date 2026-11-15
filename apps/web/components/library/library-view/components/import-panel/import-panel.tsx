@@ -5,6 +5,7 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
 import { locate } from "@/lib/json-locate/json-locate";
+import type { Doc } from "@/lib/manifest-form/manifest-form";
 import { TEMPLATE_IDS, templateText, type TemplateId } from "@/lib/templates/templates";
 import {
   ImportRefusal,
@@ -34,7 +35,12 @@ function savedOutcome({ kind, body }: { kind: "pack" | "ruleset"; body: unknown 
   return r.success ? { kind, saved: r.data } : null;
 }
 
-type ImportPanelProps = { onSaved: () => void; autoFocus?: boolean };
+type ImportPanelProps = {
+  onSaved: () => void;
+  autoFocus?: boolean;
+  /** Opens the text in the guided form instead of importing it. */
+  onOpenForm: (open: { kind: "ruleset" | "pack"; doc: Doc }) => void;
+};
 
 function KeyList({ kind, keys }: { kind: "added" | "changed" | "removed"; keys: string[] }) {
   const t = useTranslations("importPanel");
@@ -52,7 +58,7 @@ function KeyList({ kind, keys }: { kind: "added" | "changed" | "removed"; keys: 
 
 // Paste a ruleset or a pack, or choose its file. The problems come back by path and each one selects its spot in the
 // text; nothing is kept of the file but the rows the api writes.
-export function ImportPanel({ onSaved, autoFocus }: ImportPanelProps) {
+export function ImportPanel({ onSaved, autoFocus, onOpenForm }: ImportPanelProps) {
   const t = useTranslations("importPanel");
   const tr = useRefusal();
   const [text, setText] = useState("");
@@ -95,6 +101,26 @@ export function ImportPanel({ onSaved, autoFocus }: ImportPanelProps) {
     } catch {
       setOutcome({ kind: "error", message: t("readFailed") });
     }
+  };
+
+  // OPEN IN FORM: the text, a template or a draft, is filled in with the guided form instead of imported as it is.
+  const handleOpenForm = () => {
+    let doc: unknown;
+    try {
+      doc = JSON.parse(text);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "";
+      const at = parseErrorAt({ message, text }) ?? undefined;
+      return setOutcome({
+        kind: "problems",
+        problems: [{ path: "(root)", message: `${t("notJson")} ${message}`.trim(), at }],
+        warnings: [],
+      });
+    }
+    const kind = kindOf(doc);
+    if (!kind || typeof doc !== "object" || doc === null)
+      return setOutcome({ kind: "problems", problems: [{ path: "(root)", message: t("unknownShape") }], warnings: [] });
+    onOpenForm({ kind, doc: doc as Doc });
   };
 
   // IMPORT: the document goes to the api as it was typed; a refusal lists its problems, a save shows what changed.
@@ -189,6 +215,9 @@ export function ImportPanel({ onSaved, autoFocus }: ImportPanelProps) {
       <div className="row">
         <button type="button" className="btn primary" onClick={handleImport} disabled={busy || text.trim() === ""}>
           {busy ? t("importing") : t("import")}
+        </button>
+        <button type="button" className="btn" onClick={handleOpenForm} disabled={busy || text.trim() === ""}>
+          {t("openInForm")}
         </button>
         <button type="button" className="btn" onClick={() => picker.current?.click()} disabled={busy}>
           {t("chooseFile")}

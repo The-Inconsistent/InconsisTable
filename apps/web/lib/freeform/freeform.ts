@@ -45,7 +45,7 @@ export const FREEFORM: RulesetInput = {
       ],
     },
   },
-  // ponytail: a minimal seated initiative while this base still requires one, drop it once #93 makes it optional.
+  // Round the table, so a made-up game can still run a fight (house decision #45).
   initiative: { strategy: "seated", firstPlayer: "rotate" },
   health: { tracks: [{ resource: "health" }], states: [] },
   game: { title: "Freeform", players: { min: 1, max: 12 }, modes: ["gm", "gmless", "solo"], genres: [] },

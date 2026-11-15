@@ -127,6 +127,17 @@ export type Clock = z.infer<typeof Clock>;
 
 // A player's ask to spend from a resource (house decision #43). `note` is "" when none; `actorId` is null for a shared pool.
 export const RequestText = z.string().trim().max(140);
+
+// The table's Session Zero: lines (never at this table), veils (happen off the page), the X-Card's switch. A small
+// document read and written whole (`campaign.safety`); suggestions carry no author.
+export const MAX_SAFETY_ITEMS = 30;
+export const SAFETY_LINE_MAX = 80;
+export const SafetyLine = z.string().trim().min(1).max(SAFETY_LINE_MAX);
+export const SafetyList = z.array(SafetyLine).max(MAX_SAFETY_ITEMS);
+export const SafetyKind = z.enum(["line", "veil"]);
+export type SafetyKind = z.infer<typeof SafetyKind>;
+export const Safety = z.object({ lines: SafetyList, veils: SafetyList, xCard: z.boolean() });
+export type Safety = z.infer<typeof Safety>;
 export const SpendRequest = z.object({
   id: z.string(),
   userId: z.string(),
@@ -159,6 +170,8 @@ export const LiveState = z.object({
     nextSessionPlace: z.string(),
     // How the table sits; the seat view reads it from here, never from the client.
     tableMode: TableMode,
+    // Session Zero: every seat, the screen included, reads it (docs/p2-plan.md group E).
+    safety: Safety,
   }),
   // Increments inside every action's transaction; a client drops a snapshot older than the one it holds, since two
   // api nodes may deliver broadcasts out of order (docs/design.md §5.6).

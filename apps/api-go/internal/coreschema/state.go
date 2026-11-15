@@ -14,6 +14,13 @@ type (
 		NextSessionAt    *string `json:"nextSessionAt"`
 		NextSessionPlace string  `json:"nextSessionPlace"`
 		TableMode        string  `json:"tableMode"`
+		Safety           Safety  `json:"safety"`
+	}
+	// Safety is the table's Session Zero: what stays out (lines), what stays off the page (veils), the X-Card's switch.
+	Safety struct {
+		Lines []string `json:"lines"`
+		Veils []string `json:"veils"`
+		XCard bool     `json:"xCard"`
 	}
 	// Session is the running session.
 	Session struct {

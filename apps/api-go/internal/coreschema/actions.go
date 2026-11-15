@@ -46,6 +46,12 @@ var (
 // MaxClocks is core-schema's MAX_CLOCKS: the clocks one room holds.
 const MaxClocks = 30
 
+// The lines and veils of a table: core-schema's MAX_SAFETY_ITEMS and SAFETY_LINE_MAX.
+const (
+	MaxSafetyItems = 30
+	SafetyLineMax  = 80
+)
+
 // MaxDraftBytes caps a builder draft, serialized.
 const MaxDraftBytes = 64 * 1024
 
@@ -56,6 +62,8 @@ var (
 	sessionTitle  = schema.String().Trim().Max(100)
 	recap         = schema.String().Max(10_000)
 	clockName     = schema.String().Trim().Min(1).Max(80)
+	safetyLine    = schema.String().Trim().Min(1).Max(SafetyLineMax)
+	safetyList    = schema.Array(safetyLine).Max(MaxSafetyItems)
 	clockSegments = schema.Int().Min(2).Max(12)
 	requestText   = schema.String().Trim().Max(140)
 	answers       = schema.Record(schema.String().Max(120), schema.Unknown())
@@ -266,6 +274,9 @@ var ActionSchema = schema.Union("type",
 	variant("request.cancel", schema.Req("id", id)),
 	variant("request.approve", schema.Req("id", id)),
 	variant("request.deny", schema.Req("id", id), schema.Opt("reason", requestText)),
+	variant("campaign.setSafety", schema.Req("lines", safetyList), schema.Req("veils", safetyList), schema.Req("xCard", schema.Bool())),
+	variant("safety.suggest", schema.Req("kind", schema.Enum("line", "veil")), schema.Req("text", safetyLine)),
+	variant("safety.xcard"),
 )
 
 // ParseAction reads a socket payload as an Action, or the issues that refuse it.
@@ -349,6 +360,9 @@ var ActionPerms = map[string]string{
 	"request.cancel":          "request:send",
 	"request.approve":         "request:resolve",
 	"request.deny":            "request:resolve",
+	"campaign.setSafety":      "session:run",
+	"safety.suggest":          "safety:signal",
+	"safety.xcard":            "safety:signal",
 }
 
 // OwnFallback is the GM-side permission that also satisfies an :own one: a GM renames any character.

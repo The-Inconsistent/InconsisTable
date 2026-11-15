@@ -139,6 +139,7 @@ const STATE = {
     nextSessionAt: null,
     nextSessionPlace: "",
     tableMode: "gm",
+    safety: { lines: ["Line one"], veils: ["Veil one"], xCard: true },
   },
   stateVersion: 9,
   session: {
@@ -528,6 +529,9 @@ const VALID: Record<string, Record<string, unknown>> = {
   "request.cancel": { id: ID },
   "request.approve": { id: ID },
   "request.deny": { id: ID, reason: " not now " },
+  "campaign.setSafety": { lines: [" Line one ", "Line two"], veils: [], xCard: false },
+  "safety.suggest": { kind: "veil", text: " Veil one " },
+  "safety.xcard": {},
 };
 
 const LONG_KEYS = new Set(["recap", "notes", "body", "gmNotes", "value"]);
@@ -578,6 +582,15 @@ for (const [type, sample] of Object.entries(VALID)) {
   }
 }
 for (const junk of [null, 1, "x", [], {}, { type: "nope" }, { type: 1 }]) record("Action", junk);
+// The lines and veils stop at 30 items of 1 to 80 characters.
+for (const n of [29, 30, 31]) {
+  record("Action", { type: "campaign.setSafety", lines: Array.from({ length: n }, () => "a"), veils: [], xCard: true });
+}
+for (const text of ["", " ", "a".repeat(80), "a".repeat(81), ` ${"a".repeat(80)} `]) {
+  record("Action", { type: "safety.suggest", kind: "line", text });
+  record("Action", { type: "campaign.setSafety", lines: [text], veils: [text], xCard: true });
+}
+record("Action", { type: "safety.suggest", kind: "other", text: "a" });
 // A reported Test's report carries an outcome id and no dice (house decision #41).
 const reportBase = { type: "test.report", callId: ID, actorId: ID };
 for (const extra of [

@@ -3219,3 +3219,96 @@ test("Freeform: imported once into the library, listed with its game block, a GM
   assert.deepEqual(await query("SELECT outcome FROM test_report WHERE call_id = $1", [id]), [{ outcome: "partial" }]);
   for (const c of [owner, ana]) c.socket.close();
 });
+
+// Session Zero: lines and veils, and the anonymous X-Card.
+const hearXCard = (c: ReturnType<typeof connect>) => {
+  const payloads: unknown[] = [];
+  c.socket.on("safety:xcard", (p: unknown) => payloads.push(p));
+  return payloads;
+};
+const settle = () => new Promise((r) => setTimeout(r, 300));
+const countOf = async (sql: string, args: unknown[] = []) => (await query(sql, args))[0]!.n;
+
+test("lines and veils: the GM sets them, a player suggests one without a name, every seat reads them", async () => {
+  const { owner, campaignId } = await newRoom("Safety");
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-Safety") } });
+  const tv = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  await ana.until(() => true);
+  const fresh = (await owner.until(() => true)).campaign.safety;
+  assert.deepEqual(fresh, { lines: [], veils: [], xCard: true });
+
+  refused(await ana.send({ type: "campaign.setSafety", lines: ["x"], veils: [], xCard: true }), "noPermission");
+  ok(await owner.send({ type: "campaign.setSafety", lines: [" Line one "], veils: [], xCard: true }));
+  ok(await ana.send({ type: "safety.suggest", kind: "veil", text: "Veil one" }));
+  refused(await owner.send({ type: "safety.suggest", kind: "veil", text: "x" }), "noPermission");
+  refused(await tv.send({ type: "safety.suggest", kind: "veil", text: "x" }), "screenReadOnly");
+  for (const c of [owner, ana, tv]) {
+    const s = await c.until((x) => x.campaign.safety.veils.length === 1);
+    assert.deepEqual(s.campaign.safety, { lines: ["Line one"], veils: ["Veil one"], xCard: true });
+  }
+  // Nothing stored says who suggested it.
+  const [row] = await query("SELECT safety::text AS s FROM campaign WHERE id = $1", [campaignId]);
+  assert.ok(!(row!.s as string).includes(uid("ana-Safety")));
+  for (const c of [owner, ana, tv]) c.socket.close();
+});
+
+test("the X-Card reaches the GM and the screen, never the other player, and leaves no trace", async () => {
+  const { owner, campaignId } = await newRoom("XCard");
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-XCard") } });
+  const ben = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ben-XCard") } });
+  const tv = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  await Promise.all([ana.until(() => true), ben.until(() => true), tv.until(() => true)]);
+  const heard = { owner: hearXCard(owner), ana: hearXCard(ana), ben: hearXCard(ben), tv: hearXCard(tv) };
+  const traces = async () => [
+    await countOf("SELECT count(*)::int AS n FROM session_event WHERE campaign_id = $1", [campaignId]),
+    await countOf("SELECT count(*)::int AS n FROM admin_event"),
+  ];
+  const before = await traces();
+
+  ok(await ana.send({ type: "safety.xcard" }));
+  await eventually(() => heard.owner.length === 1 && heard.tv.length === 1, "the GM and the screen hear it");
+  await settle();
+  assert.deepEqual([heard.ana.length, heard.ben.length], [0, 0]);
+  assert.deepEqual([heard.owner[0], heard.tv[0]], [{}, {}], "the event names no one");
+  assert.deepEqual(await traces(), before, "nothing is logged");
+
+  // One touch per seat per ten seconds; another seat is its own.
+  refused(await ana.send({ type: "safety.xcard" }), "xcardWait");
+  ok(await ben.send({ type: "safety.xcard" }));
+  refused(await owner.send({ type: "safety.xcard" }), "noPermission");
+  // Switched off, it is refused.
+  ok(await owner.send({ type: "campaign.setSafety", lines: [], veils: [], xCard: false }));
+  const cy = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "cy-XCard") } });
+  await cy.until(() => true);
+  refused(await cy.send({ type: "safety.xcard" }), "xcardOff");
+  for (const c of [owner, ana, ben, cy, tv]) c.socket.close();
+});
+
+test("without a GM the X-Card reaches every seat, and any player edits the lists", async () => {
+  const ownerDevice = await device("owner-XCardNoGm");
+  const ruleset = await caller(ownerDevice).post<RulesetReply>("/rulesets", {
+    ...NO_GM_RULESET,
+    id: "api-fixture-nogm-safety",
+  });
+  const res = await post(
+    "/campaigns",
+    { name: "XCardNoGm", rulesetVersionId: ruleset.body.versionId, tableMode: "gmless" },
+    cookieOf(ownerDevice),
+  );
+  assert.equal(res.status, 201);
+  const { campaignId } = (await res.json()) as { campaignId: string };
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-XCardNoGm") } });
+  const tv = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  await Promise.all([owner.until(() => true), ana.until(() => true), tv.until(() => true)]);
+  const heard = [owner, ana, tv].map(hearXCard);
+
+  ok(await ana.send({ type: "campaign.setSafety", lines: ["Line one"], veils: [], xCard: true }));
+  ok(await ana.send({ type: "safety.xcard" }));
+  await eventually(() => heard.every((h) => h.length === 1), "every seat hears it");
+  assert.deepEqual(
+    heard.map((h) => h[0]),
+    [{}, {}, {}],
+  );
+  for (const c of [owner, ana, tv]) c.socket.close();
+});

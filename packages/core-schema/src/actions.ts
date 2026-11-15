@@ -19,6 +19,9 @@ import {
   FieldValue,
   RequestText,
   InviteMode,
+  SafetyKind,
+  SafetyLine,
+  SafetyList,
 } from "./state.ts";
 import { ENCOUNTER_ACTIONS } from "./encounter.ts";
 import { TestCallAction, TestCloseAction, TestReportAction } from "./test-call.ts";
@@ -206,6 +209,10 @@ export const Action = z.discriminatedUnion("type", [
   z.object({ type: z.literal("request.cancel"), id }),
   z.object({ type: z.literal("request.approve"), id }),
   z.object({ type: z.literal("request.deny"), id, reason: RequestText.optional() }),
+  // Session Zero (docs/p2-plan.md group E): the table's lines and veils, and the anonymous X-Card.
+  z.object({ type: z.literal("campaign.setSafety"), lines: SafetyList, veils: SafetyList, xCard: z.boolean() }),
+  z.object({ type: z.literal("safety.suggest"), kind: SafetyKind, text: SafetyLine }),
+  z.object({ type: z.literal("safety.xcard") }),
 ]);
 export type Action = z.infer<typeof Action>;
 export type ActionInput = z.input<typeof Action>; // what clients send: defaulted fields optional
@@ -283,6 +290,9 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "request.cancel": "request:send",
   "request.approve": "request:resolve",
   "request.deny": "request:resolve",
+  "campaign.setSafety": "session:run", // the GM side; without a GM every player seat holds it (TABLE_RUN_GRANTS)
+  "safety.suggest": "safety:signal",
+  "safety.xcard": "safety:signal",
 };
 
 // `:own` permissions that a GM-side permission also satisfies: a GM renames any character.

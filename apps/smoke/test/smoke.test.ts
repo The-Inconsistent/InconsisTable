@@ -3312,3 +3312,52 @@ test("without a GM the X-Card reaches every seat, and any player edits the lists
   );
   for (const c of [owner, ana, tv]) c.socket.close();
 });
+
+test("an @mention of a hidden entry reaches a player as the hidden form, never with its title", async () => {
+  const { owner, campaignId } = await newRoom("Mention");
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-mention") } });
+  await ana.until(() => true);
+  const save = async (a: Record<string, unknown>) => ok(await owner.send({ type: "codex.save", ...a } as never)).id!;
+  const secret = await save({ kind: "npc", title: "Veiled Duchess" });
+  const body = (id: string, title: string) => `She answers to @[${title}](${id}).`;
+  const ferry = await save({ kind: "handout", title: "Ferry", body: body(secret, "Veiled Duchess") });
+  ok(await owner.send({ type: "codex.reveal", id: ferry, visibility: "party", audienceMode: "all", audience: [] }));
+  await eventually(() => ana.codex()?.entries.some((e) => e.id === ferry) ?? false, "the player sees the Ferry");
+  assert.equal(ana.codex()?.entries.find((e) => e.id === ferry)?.body, "She answers to @[…](hidden).");
+  assert.ok(
+    !JSON.stringify(ana.codex()).includes("Veiled Duchess"),
+    "the hidden title is nowhere in the player's codex",
+  );
+  assert.equal(owner.codex()?.entries.find((e) => e.id === ferry)?.body, body(secret, "Veiled Duchess"));
+  // Revealed, the mention reaches the player whole.
+  ok(await owner.send({ type: "codex.reveal", id: secret, visibility: "party", audienceMode: "all", audience: [] }));
+  await eventually(
+    () => ana.codex()?.entries.find((e) => e.id === ferry)?.body === body(secret, "Veiled Duchess"),
+    "the mention is whole once the entry is revealed",
+  );
+  owner.socket.close();
+  ana.socket.close();
+});
+
+test("session:draftRecap: lines for a Test and a reveal; only the GM side may ask; nothing hidden is told", async () => {
+  const { owner, ana, hero, call } = await testRoom("Draft");
+  const draft = (s: { socket: { emitWithAck: (e: string) => Promise<unknown> } }) =>
+    s.socket.emitWithAck("session:draftRecap") as Promise<{ ok: boolean; text?: string; code?: string }>;
+  const save = async (a: Record<string, unknown>) => ok(await owner.send({ type: "codex.save", ...a } as never)).id!;
+  const shown = await save({ kind: "handout", title: "The Old Map" });
+  const hidden = await save({ kind: "handout", title: "The Betrayal" });
+  ok(await owner.send({ type: "codex.reveal", id: shown, visibility: "party", audienceMode: "all", audience: [] }));
+  ok(await owner.send({ type: "codex.reveal", id: hidden, visibility: "gm", audienceMode: "all", audience: [] }));
+  const id = ok(await owner.send(call({ actorIds: [hero] }))).id!;
+  ok(await ana.send(report(id, hero, [15])));
+  ok(await owner.send({ type: "test.close", callId: id }));
+  const reply = await draft(owner);
+  assert.equal(reply.ok, true);
+  assert.match(reply.text!, /^- Lyra's Check: /m);
+  assert.match(reply.text!, /^- Revealed: The Old Map$/m);
+  assert.ok(!reply.text!.includes("The Betrayal") && !reply.text!.includes(String(DN)), "nothing the table didn't see");
+  const refusal = await draft(ana);
+  assert.deepEqual([refusal.ok, refusal.code], [false, "noPermission"]);
+  owner.socket.close();
+  ana.socket.close();
+});

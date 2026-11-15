@@ -2,8 +2,10 @@
 import { useTranslations } from "next-intl";
 import { useState, type ChangeEvent } from "react";
 
-import type { ActionInput, CodexEntry } from "@inconsistable/core-schema";
+import { splitMentions, type ActionInput, type CodexEntry } from "@inconsistable/core-schema";
 
+import { MentionText } from "@/components/ui/mention-text/mention-text";
+import { MentionTextarea } from "@/components/ui/mention-textarea/mention-textarea";
 import { groupLinks, linkCandidates, PLANNED_TESTS_MAX } from "@/lib/prep/prep";
 import { savePatch } from "@/lib/codex/codex";
 
@@ -59,8 +61,21 @@ export function SceneEditor({ scene, entries, testIds, canSecrets, act, onCall, 
       </label>
       <label className="stack">
         {tCodex("body")}
-        <textarea id="scene-body" rows={5} value={draft.body} onChange={handleField("body")} maxLength={20_000} />
+        <MentionTextarea
+          id="scene-body"
+          rows={5}
+          value={draft.body}
+          onChange={(body) => setDraft({ ...draft, body })}
+          entries={entries}
+          selfId={scene.id}
+          maxLength={20_000}
+        />
       </label>
+      {splitMentions(draft.body).some((p) => "id" in p) && (
+        <p className="dim" style={{ whiteSpace: "pre-wrap" }}>
+          <MentionText body={draft.body} entries={entries} onOpen={onOpenCodex} />
+        </p>
+      )}
       {canSecrets && (
         <label className="stack">
           {tCodex("gmNotes")}

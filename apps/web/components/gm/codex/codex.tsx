@@ -165,6 +165,8 @@ export function Codex({ me, state, codex, send, initialOpenId = null }: CodexPro
             key={open.id}
             entry={open}
             characters={state.actors.filter((a) => a.kind === "pc")}
+            entries={entries}
+            onOpenEntry={setOpenId}
             can={{
               write: can("codex:write"),
               secrets: can("codex:read_secret"),

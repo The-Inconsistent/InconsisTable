@@ -153,6 +153,22 @@ a {
 .dim {
   color: var(--ink-2);
 }
+/* An @mention of a codex entry inside a body: a link on a seat that can read it, a mark on the TV. */
+.mention {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid var(--brass);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+span.mention {
+  cursor: default;
+}
 .small {
   font-size: var(--fs-small);
 }

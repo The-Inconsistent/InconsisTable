@@ -17,7 +17,8 @@ import { Tests } from "@/components/gm/tests/tests";
 import { Track } from "@/components/gm/track/track";
 import { RUN_TABS, type RunTab } from "@/components/player/run-table/constants";
 import { TableModePicker } from "@/components/player/run-table/table-mode-picker";
-import type { RequestPage, Send } from "@/hooks/use-table/use-table";
+import { DraftRecap as DraftRecapButton } from "@/components/ui/draft-recap/draft-recap";
+import type { DraftRecap, RequestPage, Send } from "@/hooks/use-table/use-table";
 import { RECAP_MAX } from "@/lib/codex/codex";
 import { TableModeProvider } from "@/lib/table-mode/table-mode";
 
@@ -26,6 +27,7 @@ type RunTableProps = {
   state: LiveState;
   codex: CodexSnapshot | null;
   send: Send;
+  draftRecap: DraftRecap;
   ruleset: Ruleset | null;
   books: readonly BookSource[];
   requestPage: RequestPage;
@@ -36,7 +38,17 @@ type RunTableProps = {
 // RUN THE TABLE: a room without a GM is run by every phone at once, so the table's controls live here, behind one tab,
 // and the sheet stays the sheet. It is the GM's own panels (TRACK, TESTS, CODEX, PARTY), unchanged: what the api would
 // refuse a seat is refused there too, and what is kept for a GM does not exist without one (docs/adr/0009-table-modes.md).
-export function RunTable({ me, state, codex, send, ruleset, books, requestPage, quick = false }: RunTableProps) {
+export function RunTable({
+  me,
+  state,
+  codex,
+  send,
+  draftRecap,
+  ruleset,
+  books,
+  requestPage,
+  quick = false,
+}: RunTableProps) {
   const t = useTranslations("runTable");
   const can = (perm: Parameters<typeof canInCampaign>[0]["perm"]) => canInCampaign({ ctx: me, perm });
   const tabs = RUN_TABS.filter((name) => can(name === "party" ? "member:invite" : "session:run"));
@@ -69,6 +81,7 @@ export function RunTable({ me, state, codex, send, ruleset, books, requestPage, 
                 </button>
               ) : (
                 <form className="card stack" onSubmit={handleEnd} style={{ width: "100%" }}>
+                  <DraftRecapButton draft={draftRecap} text={recap} onFill={setRecap} onError={setError} />
                   <label className="stack">
                     {t("recap")}
                     <textarea
@@ -116,7 +129,15 @@ export function RunTable({ me, state, codex, send, ruleset, books, requestPage, 
         ) : (
           <div className="stack" style={{ gap: 24 }}>
             <TableModePicker me={me} state={state} ruleset={ruleset} send={send} />
-            <Party me={me} state={state} send={send} recaps={codex?.recaps ?? []} sheet={sheet} autoQr={quick} />
+            <Party
+              me={me}
+              state={state}
+              send={send}
+              draftRecap={draftRecap}
+              recaps={codex?.recaps ?? []}
+              sheet={sheet}
+              autoQr={quick}
+            />
           </div>
         )}
       </div>

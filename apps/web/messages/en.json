@@ -1054,7 +1054,11 @@
     "revealButton": "Apply",
     "listed": "{count, plural, one {# character} other {# characters}}",
     "statusLabel": "Status",
-    "status": { "open": "Open", "done": "Done", "failed": "Failed" },
+    "status": {
+      "open": "Open",
+      "done": "Done",
+      "failed": "Failed"
+    },
     "kind": {
       "adventure": "Adventure",
       "scene": "Scene",
@@ -1206,5 +1210,16 @@
     "about": "About {title}",
     "link": "Linked codex entry",
     "noLink": "No entry"
+  },
+  "mention": {
+    "pick": "Link an entry",
+    "none": "No entry matches"
+  },
+  "recapDraft": {
+    "draft": "Draft from tonight",
+    "replaceAsk": "Replace what you wrote with the draft?",
+    "replace": "Replace",
+    "keep": "Keep mine",
+    "nothing": "Nothing to draft yet. Tests, reveals, encounters and clocks show up here."
   }
 }

@@ -2,26 +2,32 @@
 import { useTranslations } from "next-intl";
 import { useState, type ChangeEvent } from "react";
 
-import { QuestStatus, type ActionInput, type Actor, type CodexEntry } from "@inconsistable/core-schema";
+import { QuestStatus, splitMentions, type ActionInput, type Actor, type CodexEntry } from "@inconsistable/core-schema";
 
 import { RevealForm } from "@/components/gm/codex/components/reveal-form/reveal-form";
+import { MentionText } from "@/components/ui/mention-text/mention-text";
+import { MentionTextarea } from "@/components/ui/mention-textarea/mention-textarea";
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
 import { savePatch } from "@/lib/codex/codex";
 
 type EntryEditorProps = {
   entry: CodexEntry;
   characters: readonly Actor[];
+  /** Every entry this seat reads: the `@` picker lists them, a mention in the body opens one. */
+  entries: readonly CodexEntry[];
+  onOpenEntry: (entryId: string) => void;
   can: { write: boolean; secrets: boolean; reveal: boolean };
   act: (a: ActionInput) => Promise<{ ok: boolean }>;
   onDeleted: () => void;
 };
 
 // One entry open: its title, body and (for a seat that may read them) GM notes, who sees it, and delete.
-export function EntryEditor({ entry, characters, can, act, onDeleted }: EntryEditorProps) {
+export function EntryEditor({ entry, characters, entries, onOpenEntry, can, act, onDeleted }: EntryEditorProps) {
   const t = useTranslations("codex");
   const [draft, setDraft] = useState({ title: entry.title, body: entry.body, gmNotes: entry.gmNotes });
   const [confirming, setConfirming] = useState(false);
   const patch = savePatch({ entry, draft, canSecrets: can.secrets });
+  const hasMention = splitMentions(draft.body).some((p) => "id" in p);
   const dirty = Object.keys(patch).length > 0 && draft.title.trim() !== "";
 
   // A text field of the draft.
@@ -75,15 +81,22 @@ export function EntryEditor({ entry, characters, can, act, onDeleted }: EntryEdi
       </label>
       <label className="stack">
         {t("body")}
-        <textarea
+        <MentionTextarea
           id="codex-body"
           rows={6}
           value={draft.body}
-          onChange={handleField("body")}
+          onChange={(body) => setDraft({ ...draft, body })}
+          entries={entries}
+          selfId={entry.id}
           maxLength={20_000}
           disabled={!can.write}
         />
       </label>
+      {hasMention && (
+        <p className="dim" style={{ whiteSpace: "pre-wrap" }}>
+          <MentionText body={draft.body} entries={entries} onOpen={onOpenEntry} />
+        </p>
+      )}
       {can.secrets && (
         <label className="stack">
           {t("gmNotes")}

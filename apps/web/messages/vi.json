@@ -1054,7 +1054,11 @@
     "revealButton": "Áp dụng",
     "listed": "{count} nhân vật",
     "statusLabel": "Trạng thái",
-    "status": { "open": "Đang mở", "done": "Xong", "failed": "Thất bại" },
+    "status": {
+      "open": "Đang mở",
+      "done": "Xong",
+      "failed": "Thất bại"
+    },
     "kind": {
       "adventure": "Cuộc phiêu lưu",
       "scene": "Cảnh",
@@ -1206,5 +1210,16 @@
     "about": "Về {title}",
     "link": "Mục sổ tay liên kết",
     "noLink": "Không có mục"
+  },
+  "mention": {
+    "pick": "Gắn một mục",
+    "none": "Không có mục nào khớp"
+  },
+  "recapDraft": {
+    "draft": "Soạn nháp từ buổi tối nay",
+    "replaceAsk": "Thay phần bạn đã viết bằng bản nháp?",
+    "replace": "Thay",
+    "keep": "Giữ bản của tôi",
+    "nothing": "Chưa có gì để soạn. Bài kiểm tra, tiết lộ, cuộc chạm trán và đồng hồ sẽ hiện ở đây."
   }
 }

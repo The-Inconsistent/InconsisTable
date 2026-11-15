@@ -77,6 +77,8 @@ type deps struct {
 	apply       func(ctx context.Context, c cs.Ctx, a cs.Action) (Result, error)
 	logKey      func(ctx context.Context, action, campaignID, detail string) error
 	sessionLive func(ctx context.Context, tokenHash string) (bool, error)
+	// draftRecap is the `session:draftRecap` read; nil in a gateway built without a database.
+	draftRecap func(ctx context.Context, c cs.Ctx) (string, error)
 }
 
 // Gateway is the table socket.
@@ -128,6 +130,15 @@ func NewGateway(db *pgxpool.Pool, authService *auth.Service, webOrigins []string
 		},
 		logKey:      logKey,
 		sessionLive: authService.SessionLive,
+		draftRecap: func(ctx context.Context, c cs.Ctx) (string, error) {
+			var text string
+			err := core.InTx(ctx, db, func(tx pgx.Tx) error {
+				var err error
+				text, err = DraftRecap(ctx, tx, c)
+				return err
+			})
+			return text, err
+		},
 	})
 	g.allowAdminKey = adminKeyLimit
 	return g
@@ -299,6 +310,7 @@ func (g *Gateway) onConnection(s *socket.Socket) {
 		})
 	}
 	on("action", func(body any, ack func(any)) { g.onAction(s, body, ack) })
+	on("session:draftRecap", func(_ any, ack func(any)) { g.onDraftRecap(s, ack) })
 	on("book:serving", func(body any, _ func(any)) { g.onBookServing(s, body) })
 	on("book:request", func(body any, ack func(any)) {
 		// It waits on another socket for up to PageTimeout, so it must not hold this socket's events up.

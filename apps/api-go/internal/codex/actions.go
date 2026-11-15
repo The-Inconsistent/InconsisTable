@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign/eventlog"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 )
@@ -230,7 +231,9 @@ func Reveal(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 			return cs.Result{}, err
 		}
 	}
-	return cs.Done(""), nil
+	return cs.Done(""), eventlog.LogEvent(ctx, tx, c, "codex.reveal", map[string]any{
+		"entryId": id, "visibility": a.Str("visibility"), "audienceMode": a.Str("audienceMode"),
+	})
 }
 
 // Delete is codex.delete.

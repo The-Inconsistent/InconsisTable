@@ -259,6 +259,9 @@ func seatCodex(codex cs.Codex, c cs.Ctx, sight Sight) cs.Codex {
 		if !sight.Secrets {
 			e.GMNotes = ""
 		}
+		if !sight.Secrets && !sight.Codex {
+			e.Body = hideMentions(e.Body, func(id string) bool { return ids[id] })
+		}
 		// A link or a parent reaches a seat only when both its ends do: an id never reveals a hidden entry.
 		if e.ParentID != nil && !ids[*e.ParentID] {
 			e.ParentID = nil

@@ -296,7 +296,14 @@ const CODEX = {
       links: [U(500), U(501), U(502), U(504)],
       plannedTests: ["check", "gone"],
     }),
-    entry(U(508), "party", "all", [], { kind: "scene", parentId: U(506), position: 1, links: [U(501)] }),
+    // Mentions in a body: a hidden entry's title never reaches a seat that can't see it, nor does a deleted id's.
+    entry(U(508), "party", "all", [], {
+      kind: "scene",
+      parentId: U(506),
+      position: 1,
+      links: [U(501)],
+      body: `see @[Hidden one](${U(500)}), @[Shown](${U(501)}) and @[Gone](${U(999)})`,
+    }),
     entry(U(509), "party", "all", [], { kind: "quest", status: "done" }),
   ],
   recaps: [

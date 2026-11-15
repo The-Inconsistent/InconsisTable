@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 
 import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
 import { GameResult } from "@/components/ui/game-result/game-result";
+import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { OrderView } from "@/components/ui/order-view/order-view";
 import { RecapCard } from "@/components/ui/recap-card/recap-card";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
@@ -56,7 +57,9 @@ export function TableScreen({ campaignId }: TableScreenProps) {
         {revealed.map((e) => (
           <section key={e.id} className="card">
             <strong>{e.title}</strong>
-            <span>{e.body}</span>
+            <span>
+              <MentionText body={e.body} entries={revealed} />
+            </span>
           </section>
         ))}
       </main>

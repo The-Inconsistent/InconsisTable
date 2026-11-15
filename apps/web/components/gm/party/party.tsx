@@ -21,8 +21,9 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { Recaps } from "@/components/gm/party/recaps";
 import { SafetyPanel } from "@/components/gm/party/safety-panel";
+import { DraftRecap as DraftRecapButton } from "@/components/ui/draft-recap/draft-recap";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
-import type { RequestPage, Send } from "@/hooks/use-table/use-table";
+import type { DraftRecap, RequestPage, Send } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
 import { restsOf } from "@/lib/sheet/sheet";
 import { RECAP_MAX } from "@/lib/codex/codex";
@@ -33,6 +34,7 @@ type PartyProps = {
   me: Me;
   state: LiveState;
   send: Send;
+  draftRecap: DraftRecap;
   /** Past recaps, from the codex snapshot. */
   recaps: readonly SessionRecap[];
   /** What a character sheet needs: the ruleset as the GM reads it, the served books and the page relay. */
@@ -53,7 +55,7 @@ const SCOPE_KEY = {
 type Shown = { title: string; url: string; qr: string };
 
 // PARTY: who sits at this table, how others join, and the room's owner controls (docs/design.md §3.6, §3.7).
-export function Party({ me, state, send, recaps, sheet, autoQr = false }: PartyProps) {
+export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = false }: PartyProps) {
   const t = useTranslations("party");
   const tRoles = useTranslations("roles");
   const tRest = useTranslations("rest");
@@ -183,6 +185,7 @@ export function Party({ me, state, send, recaps, sheet, autoQr = false }: PartyP
               </button>
             ) : (
               <form className="card stack" onSubmit={handleEndSession} style={{ width: "100%" }}>
+                <DraftRecapButton draft={draftRecap} text={recap} onFill={setRecap} onError={setError} />
                 <label className="stack">
                   {t("recap")}
                   <textarea

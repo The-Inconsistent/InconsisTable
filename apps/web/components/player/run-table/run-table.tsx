@@ -29,16 +29,18 @@ type RunTableProps = {
   ruleset: Ruleset | null;
   books: readonly BookSource[];
   requestPage: RequestPage;
+  /** A quick game just made this room: open on PARTY with the invite QR up. */
+  quick?: boolean;
 };
 
 // RUN THE TABLE: a room without a GM is run by every phone at once, so the table's controls live here, behind one tab,
 // and the sheet stays the sheet. It is the GM's own panels (TRACK, TESTS, CODEX, PARTY), unchanged: what the api would
 // refuse a seat is refused there too, and what is kept for a GM does not exist without one (docs/adr/0009-table-modes.md).
-export function RunTable({ me, state, codex, send, ruleset, books, requestPage }: RunTableProps) {
+export function RunTable({ me, state, codex, send, ruleset, books, requestPage, quick = false }: RunTableProps) {
   const t = useTranslations("runTable");
   const can = (perm: Parameters<typeof canInCampaign>[0]["perm"]) => canInCampaign({ ctx: me, perm });
   const tabs = RUN_TABS.filter((name) => can(name === "party" ? "member:invite" : "session:run"));
-  const [tab, setTab] = useState<RunTab>("fight");
+  const [tab, setTab] = useState<RunTab>(quick ? "party" : "fight");
   const [recap, setRecap] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const shown = tabs.includes(tab) ? tab : (tabs[0] ?? "fight");
@@ -114,7 +116,7 @@ export function RunTable({ me, state, codex, send, ruleset, books, requestPage }
         ) : (
           <div className="stack" style={{ gap: 24 }}>
             <TableModePicker me={me} state={state} ruleset={ruleset} send={send} />
-            <Party me={me} state={state} send={send} recaps={codex?.recaps ?? []} sheet={sheet} />
+            <Party me={me} state={state} send={send} recaps={codex?.recaps ?? []} sheet={sheet} autoQr={quick} />
           </div>
         )}
       </div>

@@ -63,7 +63,31 @@
     "gmless": "GM-less",
     "solo": "solo"
   },
+  "chooseGame": {
+    "title": "Choose game",
+    "playersLabel": "Players at the table",
+    "players": "{count, plural, one {# player} other {# players}}",
+    "anyPlayers": "Any number",
+    "fewer": "One fewer player",
+    "more": "One more player",
+    "sits": "How the table sits",
+    "genres": "Genre",
+    "none": "No game suits this table. Loosen a filter, or import a ruleset in the library.",
+    "playersExact": "{count, plural, one {# player} other {# players}}",
+    "playersRange": "{min} to {max} players",
+    "playersUnknown": "Any number of players"
+  },
+  "quickGame": {
+    "title": "Quick game",
+    "name": "Name",
+    "sits": "How the table sits",
+    "create": "Start",
+    "creating": "Starting…",
+    "nameRequired": "Give the room a name",
+    "failed": "Couldn't start the game"
+  },
   "lobby": {
+    "quickGame": "Quick game",
     "sits": "How the table sits",
     "sitsHint": "Everyone runs the table together: no GM, nothing kept from anyone.",
     "plays": "{game} · {mode}",

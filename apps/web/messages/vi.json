@@ -63,7 +63,31 @@
     "gmless": "không GM",
     "solo": "một mình"
   },
+  "chooseGame": {
+    "title": "Chọn game",
+    "playersLabel": "Số người ở bàn",
+    "players": "{count} người",
+    "anyPlayers": "Bao nhiêu cũng được",
+    "fewer": "Bớt một người",
+    "more": "Thêm một người",
+    "sits": "Bàn ngồi kiểu nào",
+    "genres": "Thể loại",
+    "none": "Không game nào hợp bàn này. Nới bộ lọc, hoặc nhập một ruleset ở thư viện.",
+    "playersExact": "{count} người",
+    "playersRange": "{min} đến {max} người",
+    "playersUnknown": "Số người tuỳ ý"
+  },
+  "quickGame": {
+    "title": "Chơi nhanh",
+    "name": "Tên",
+    "sits": "Bàn ngồi kiểu nào",
+    "create": "Bắt đầu",
+    "creating": "Đang bắt đầu…",
+    "nameRequired": "Đặt tên cho phòng",
+    "failed": "Không bắt đầu được game"
+  },
   "lobby": {
+    "quickGame": "Chơi nhanh",
     "sits": "Bàn ngồi kiểu nào",
     "sitsHint": "Mọi người cùng chạy bàn: không có GM, không có gì giấu ai.",
     "plays": "{game} · {mode}",

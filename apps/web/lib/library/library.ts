@@ -49,6 +49,16 @@ export const RulesetList = z.array(
         version: z.string(),
         createdAt: z.string(),
         modes: z.array(TableMode).default(["gm"]),
+        /** The manifest's game block, for Choose game; null when the ruleset has none. */
+        game: z
+          .object({
+            title: z.string(),
+            family: z.string().optional(),
+            genres: z.array(z.string()).default([]),
+            players: z.object({ min: z.number(), max: z.number() }),
+          })
+          .nullable()
+          .default(null),
       }),
     ),
   }),

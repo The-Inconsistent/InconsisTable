@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 import {
   CogmScope,
@@ -36,6 +36,8 @@ type PartyProps = {
   recaps: readonly SessionRecap[];
   /** What a character sheet needs: the ruleset as the GM reads it, the served books and the page relay. */
   sheet: { ruleset: Ruleset | null; books: readonly BookSource[]; requestPage: RequestPage };
+  /** A quick game just made this room: the player invite QR is up on arrival. */
+  autoQr?: boolean;
 };
 
 const SCOPE_KEY = {
@@ -50,7 +52,7 @@ const SCOPE_KEY = {
 type Shown = { title: string; url: string; qr: string };
 
 // PARTY: who sits at this table, how others join, and the room's owner controls (docs/design.md §3.6, §3.7).
-export function Party({ me, state, send, recaps, sheet }: PartyProps) {
+export function Party({ me, state, send, recaps, sheet, autoQr = false }: PartyProps) {
   const t = useTranslations("party");
   const tRoles = useTranslations("roles");
   const tRest = useTranslations("rest");
@@ -102,6 +104,15 @@ export function Party({ me, state, send, recaps, sheet }: PartyProps) {
     if (r.ok && r.token)
       await show({ title: t("campaignInviteTitle", { role: tRoles(inviteRole) }), path: `/invite/${r.token}` });
   };
+
+  // QUICK GAME: syncs with the api, which issues the invite; asked once however often the effect runs (dev strict mode).
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!autoQr || asked.current || !can("member:invite")) return;
+    asked.current = true;
+    void handleInvite();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, []);
 
   // GUEST QR for one character: a phone without an account plays it.
   const handleGuest = async ({ actorId, name }: { actorId: string; name: string }) => {

@@ -38,7 +38,17 @@ type RunTableProps = {
 // RUN THE TABLE: a room without a GM is run by every phone at once, so the table's controls live here, behind one tab,
 // and the sheet stays the sheet. It is the GM's own panels (TRACK, TESTS, CODEX, PARTY), unchanged: what the api would
 // refuse a seat is refused there too, and what is kept for a GM does not exist without one (docs/adr/0009-table-modes.md).
-export function RunTable({ me, state, codex, send, draftRecap, ruleset, books, requestPage, quick = false }: RunTableProps) {
+export function RunTable({
+  me,
+  state,
+  codex,
+  send,
+  draftRecap,
+  ruleset,
+  books,
+  requestPage,
+  quick = false,
+}: RunTableProps) {
   const t = useTranslations("runTable");
   const can = (perm: Parameters<typeof canInCampaign>[0]["perm"]) => canInCampaign({ ctx: me, perm });
   const tabs = RUN_TABS.filter((name) => can(name === "party" ? "member:invite" : "session:run"));

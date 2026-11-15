@@ -67,6 +67,11 @@ func (s uniqueListSchema) parse(value any, c *context) any {
 	items, ok := value.([]any)
 	if !ok {
 		c.wrongType("array", value)
+		// The same length checks, reading a string sent for an array, as ArraySchema does.
+		if text, isText := value.(string); isText {
+			tooShort("string", length(text), s.min, c)
+			tooLong("string", length(text), s.max, c)
+		}
 		return nil
 	}
 	if len(items) < s.min || len(items) > s.max {

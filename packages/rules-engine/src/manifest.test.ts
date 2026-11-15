@@ -85,7 +85,7 @@ test("the game block: bounds, no repeated mode, and a cite for playing without a
   assert.deepEqual(problems({ ...m, game: { ...game, modes: ["gm"] } }), []);
   const ours: RulesetInput = { ...sample(), sources: [{ id: "ours", title: "Our table", license: "homebrew" }], game };
   delete ours.resources?.[0]?.cite;
-  delete ours.initiative.cite;
+  delete ours.initiative?.cite;
   delete ours.tests?.check?.cite;
   assert.deepEqual(problems(ours), []);
   hasProblem(problems({ ...m, game: { ...game, players: { min: 3, max: 2 } } }), "game.players", /max is below min/);

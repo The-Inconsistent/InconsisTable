@@ -1,0 +1,42 @@
+# The auth service: InconsisID, mirrored into Artifact Registry (.github/workflows/mirror-inconsisid.yml). Apply with
+# deploy/cloudrun/deploy.sh auth.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: auth
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/maxScale: "1"
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      serviceAccountName: auth@${PROJECT}.iam.gserviceaccount.com
+      containers:
+        - name: idp
+          image: ${REGION}-docker.pkg.dev/${PROJECT}/inconsis/inconsisid:${IDP_TAG}
+          ports: [{ containerPort: 4100 }]
+          resources: { limits: { cpu: "1", memory: 512Mi } }
+          env:
+            - { name: ISSUER, value: "https://${AUTH_HOST}" }
+            # No password in the URL (InconsisID refuses one in production): it reads /run/secrets/db_password.
+            - { name: DATABASE_URL, value: "${AUTH_DATABASE_URL}" }
+            # Only Cloud Run's front end reaches the container, and it appends the address it saw to X-Forwarded-For:
+            # the last hop, which InconsisID trusts (maxIpsCount 1).
+            - { name: BIND_PROXY_ONLY, value: "true" }
+          volumeMounts:
+            - { name: idp-files, mountPath: /run/secrets }
+      volumes:
+        # Cloud Run mounts one secret per folder, and InconsisID wants its three files in one (SECRETS_DIR). So they are
+        # three versions of one secret, in this order. Replacing one adds a version: update its key here, then destroy
+        # the old version (6 active versions are free; docs/deploy.md).
+        - name: idp-files
+          secret:
+            secretName: inconsisid-files
+            items:
+              - { key: "1", path: op_jwks.json }
+              - { key: "2", path: op_cookie_keys.json }
+              - { key: "3", path: db_password }

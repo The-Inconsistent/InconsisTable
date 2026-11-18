@@ -1,7 +1,7 @@
 # Deploying InconsisTable
 
-This guide is for whoever hosts a private InconsisTable on a machine at the table or on a home network. The repo gives
-you two container images, a compose file with Postgres 18, and a health check. It does not choose a host.
+This guide covers two ways to host InconsisTable: privately, with the compose file on a machine at the table or on a
+home network, and publicly, on Cloud Run's free tier (see Cloud Run).
 
 > **The compose stack is never public.** Without sign-in, every browser is an anonymous user named by a cookie
 > (`it_device`), and anyone who can reach the web can make rooms and import rulesets. Run `deploy/compose.yaml` only on
@@ -10,7 +10,7 @@ you two container images, a compose file with Postgres 18, and a health check. I
 > **A public deployment always runs with sign-in on.** InconsisID provides the accounts (ADR 0005), and the security
 > fixes (#15 to #19) have landed. With `IDP_SIGN_IN=1`, only an account with the `creator` role starts rooms or imports
 > rulesets and packs. Anonymous devices still join rooms through invites and QR (house decision #33). The public
-> setup is tracked in #84.
+> setup is Cloud Run (below).
 
 ## What runs
 
@@ -129,6 +129,127 @@ and asks InconsisID to end its own.
 Open the web at `http://localhost:3000` (Chromium keeps the `Secure` cookies on localhost); at a LAN address over http
 sign-in is refused. Logout tokens are never delivered to localhost; `bun run logout-token inconsistable-dev <sub> <sid>`
 in the InconsisID checkout prints one to POST to `/api/auth/backchannel-logout` by hand.
+
+## Cloud Run (the public deployment)
+
+The public setup runs on free tiers (#84): Cloud Run in `asia-southeast1` and two Neon Free projects in AWS Singapore.
+Nothing runs while nobody plays, so an idle month costs $0. The first open after a quiet spell waits 5 to 15 s while
+everything wakes.
+
+```
+Phones ─▶ table service (max 1 instance) ─────────────────────▶ Neon project "it"
+          ├ web   :3000  (takes every request)
+          └ api   :4000  (sidecar, on localhost only)
+Phones ─▶ auth service: InconsisID :4100 ─────────────────────▶ Neon project "it_auth"
+Cloud Scheduler, nightly ─▶ backup job: pg_dump both ─▶ Cloud Storage bucket (8 days)
+GitHub Actions ─▶ Artifact Registry ─▶ Cloud Run (images)
+```
+
+The files are in `deploy/cloudrun/`: `table.yaml` and `auth.yaml` (services), `backup.yaml` (job), and `deploy.sh`,
+which fills the `${NAME}`s from the shell and applies one of them.
+
+**Rules that keep it working and free:**
+
+- **One api instance.** The table queue, rate limits and book relay live in the api process, so `table.yaml` caps the
+  service at one instance (service-level `maxScale`). Never raise it.
+- **No deploys while a session is open.** The old revision keeps its sockets for up to 60 minutes beside the new one,
+  and the table splits in two.
+- **The api is never public.** It is the web's sidecar, so the only way in is through the web. That is what makes
+  `TRUST_XFF=1` safe: rate limits read the last `X-Forwarded-For` entry, the address Cloud Run's front end saw.
+- **Sockets close every 60 minutes** (the longest Cloud Run allows); Socket.IO reconnects and gets a fresh snapshot.
+- **A budget alert is not a cap.** The one-instance limit caps compute; requests and egress still bill, in cents.
+
+### One-time setup
+
+The values below are the shell variables `deploy.sh` reads; keep them in a local file that is never committed.
+
+| Variable | Example |
+| --- | --- |
+| `PROJECT` | `inconsis-table` (the Google Cloud project id) |
+| `REGION` | `asia-southeast1` |
+| `BACKUP_REGION` | `us-central1` (5 GB of Cloud Storage is free in US regions only) |
+| `BACKUP_BUCKET` | `inconsis-table-backups` |
+| `TABLE_HOST`, `AUTH_HOST` | the two host names: a custom domain, or the free `table-<project number>.$REGION.run.app` and `auth-…` |
+| `APP_TAG` | `sha-<short>`, from the publish-images workflow |
+| `IDP_TAG` | the InconsisID version mirrored into Artifact Registry |
+| `AUTH_DATABASE_URL` | `postgres://it_idp@<neon direct host>/it_auth?sslmode=require`, no password |
+
+1. **Project and billing.** Create the project and link one billing account (the free tier counts per billing
+   account; add the other developer as a project member, not a second account). Add a budget alert at $1:
+   `gcloud billing budgets create --billing-account=<id> --display-name=inconsis --budget-amount=1USD
+   --threshold-rule=percent=0.5 --threshold-rule=percent=1.0`. Enable the APIs:
+   `gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com
+   iamcredentials.googleapis.com cloudscheduler.googleapis.com storage.googleapis.com
+   billingbudgets.googleapis.com`.
+2. **Decide the host names first.** Passkeys are bound to InconsisID's host: moving from a `*.run.app` host to a
+   custom domain later means every account registers its passkey again.
+3. **Neon.** Two Free projects in AWS Singapore, Postgres 18: `it` (database `it`, role `it`) and `it_auth` (database
+   `it_auth`, role `it_idp`). Use each one's **direct** host, not `-pooler`: migrations run at boot.
+4. **Artifact Registry.** `gcloud artifacts repositories create inconsis --repository-format=docker
+   --location=$REGION`, then keep it under the free 0.5 GB:
+   `gcloud artifacts repositories set-cleanup-policies inconsis --location=$REGION
+   --policy=deploy/cloudrun/cleanup-policy.json`. Cloud Run keeps its own copy of a deployed image, so deleting old
+   ones is safe.
+5. **GitHub → Google, without a key.** A Workload Identity pool and provider limited to this repo, and a `pusher`
+   service account that may write to `inconsis` and be impersonated by the provider:
+   ```bash
+   gcloud iam workload-identity-pools create github --location=global
+   gcloud iam workload-identity-pools providers create-oidc github --location=global --workload-identity-pool=github \
+     --issuer-uri=https://token.actions.githubusercontent.com \
+     --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository \
+     --attribute-condition="assertion.repository=='The-Inconsistent/InconsisTable'"
+   gcloud iam service-accounts create pusher
+   gcloud artifacts repositories add-iam-policy-binding inconsis --location=$REGION \
+     --member=serviceAccount:pusher@$PROJECT.iam.gserviceaccount.com --role=roles/artifactregistry.writer
+   gcloud iam service-accounts add-iam-policy-binding pusher@$PROJECT.iam.gserviceaccount.com \
+     --role=roles/iam.workloadIdentityUser \
+     --member="principalSet://iam.googleapis.com/projects/<project number>/locations/global/workloadIdentityPools/github/attribute.repository/The-Inconsistent/InconsisTable"
+   ```
+   Then set the repository variables `GCP_PROJECT`, `GCP_REGION`, `GCP_WIF_PROVIDER`
+   (`projects/<number>/locations/global/workloadIdentityPools/github/providers/github`) and `GCP_PUSHER`. The next
+   merge to `main` publishes both images.
+6. **InconsisID's image.** In InconsisID's package settings, give this repo read access ("Manage Actions access"),
+   then run Actions → Mirror InconsisID with the version.
+7. **Secrets** (6 active versions are free; destroy a version once it is replaced):
+
+   | Secret | Versions |
+   | --- | --- |
+   | `table-database-url` | `postgres://it:<password>@<neon direct host>/it?sslmode=require` |
+   | `table-admin-key` | 32+ characters (`openssl rand -hex 32`) |
+   | `table-idp-client-jwk` | this app's private client JWK |
+   | `inconsisid-files` | **in this order:** 1 `op_jwks.json`, 2 `op_cookie_keys.json`, 3 `db_password` (InconsisID `deploy/README.md`) |
+
+   `gcloud secrets create <name> --data-file=<file>` makes version 1; `gcloud secrets versions add inconsisid-files
+   --data-file=<file>` makes 2 and 3. Cloud Run mounts one secret per folder, so InconsisID's three files are three
+   versions of one secret (`auth.yaml`).
+8. **Runtime accounts.** `table`, `auth` and `backup` service accounts, each with `roles/secretmanager.secretAccessor`
+   on only the secrets its file names (`gcloud secrets add-iam-policy-binding <secret>
+   --member=serviceAccount:<account>@$PROJECT.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor`).
+9. **Deploy.** `deploy/cloudrun/deploy.sh auth`, then `deploy/cloudrun/deploy.sh table`. Open both to the internet:
+   `gcloud run services add-iam-policy-binding <service> --region=$REGION --member=allUsers
+   --role=roles/run.invoker`. For custom domains, map them to the services (`gcloud beta run domain-mappings create`).
+10. **Register the client in InconsisID** with a PR adding `clients/inconsistable.ts`: redirect
+    `https://<TABLE_HOST>/api/auth/callback`, post-logout `https://<TABLE_HOST>/`, back-channel
+    `https://<TABLE_HOST>/api/auth/backchannel-logout`, and the public half of `table-idp-client-jwk`.
+11. **Backups.** A bucket that deletes dumps after 8 days, the job, and a nightly trigger (20:00 UTC is 03:00 in
+    Vietnam):
+    ```bash
+    gcloud storage buckets create gs://$BACKUP_BUCKET --location=$BACKUP_REGION --uniform-bucket-level-access
+    gcloud storage buckets update gs://$BACKUP_BUCKET --lifecycle-file=deploy/cloudrun/backup-lifecycle.json
+    gcloud storage buckets add-iam-policy-binding gs://$BACKUP_BUCKET \
+      --member=serviceAccount:backup@$PROJECT.iam.gserviceaccount.com --role=roles/storage.objectAdmin
+    deploy/cloudrun/deploy.sh backup
+    gcloud run jobs add-iam-policy-binding backup --region=$BACKUP_REGION \
+      --member=serviceAccount:backup@$PROJECT.iam.gserviceaccount.com --role=roles/run.invoker
+    gcloud scheduler jobs create http inconsis-backup --location=$BACKUP_REGION --schedule="0 20 * * *" \
+      --http-method=POST \
+      --uri=https://run.googleapis.com/v2/projects/$PROJECT/locations/$BACKUP_REGION/jobs/backup:run \
+      --oauth-service-account-email=backup@$PROJECT.iam.gserviceaccount.com
+    ```
+    Restore one into a scratch Neon branch now and then.
+
+**Upgrading:** outside any session, set `APP_TAG` (or `IDP_TAG`) and run `deploy.sh table` (or `auth`). Migrations run
+at the api's boot, so take a backup first (`gcloud run jobs execute backup --region=$BACKUP_REGION`).
 
 ## Health check
 

@@ -122,8 +122,8 @@ bun run seed                # sample data through the running api (idempotent); 
   anonymous device is never a `creator` (`auth.DeviceCreates`, house decision #33): it joins rooms through invites and QR
   but cannot start rooms or import. `creator` gates both. Admin is the shared `ADMIN_KEY` (header `x-admin-key`, or
   the socket `adminKey`), never a user; the token's `admin` role grants nothing yet. The room owner is
-  `campaign.owner_user_id`, not a role. The LAN stack (`deploy/compose.yaml`) is never public; a public deployment
-  always runs with sign-in on (`docs/deploy.md`).
+  `campaign.owner_user_id`, not a role. The LAN stack (`deploy/compose.yaml`) is never public; the public one is the VPS
+  stack (`deploy/vps/`), always with sign-in on (`docs/deploy.md`).
 - Every write (POST, PATCH, DELETE) carries `Sec-Fetch-Site: same-origin` or an `Origin` in `WEB_ORIGIN`
   (`core/csrf.ts`); the back-channel logout is the only exception.
 

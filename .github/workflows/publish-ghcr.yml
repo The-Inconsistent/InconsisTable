@@ -1,0 +1,64 @@
+name: Publish images (GHCR)
+
+# Builds the api and web images for the VPS stack (deploy/vps) on every merge to main and pushes them to GHCR. The VPS
+# pulls them; deploying is `docker compose pull && docker compose up -d` there. Pin the stack to a sha-<short> tag,
+# never to main.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-ghcr
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The job can push packages, so every action is pinned to a commit, not a movable tag.
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        image: [api, web]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # The api's build reads the private sign-in SDK (a Go module in InconsisID). The InconsisID reader app mints a
+      # token that reads InconsisID only, for an hour, as in ci.yml.
+      - id: inconsisid
+        if: matrix.image == 'api'
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ vars.INCONSISID_APP_ID }}
+          private-key: ${{ secrets.INCONSISID_APP_KEY }}
+          owner: The-Inconsistent
+          repositories: InconsisID
+          permission-contents: read
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ghcr.io/the-inconsistent/inconsistable-${{ matrix.image }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=main
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: deploy/${{ matrix.image }}.Containerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # A BuildKit secret never lands in a layer (deploy/api.Containerfile). The web keeps its default API_ORIGIN,
+          # http://api:4000, the compose service name.
+          secrets: ${{ matrix.image == 'api' && format('inconsisid_token={0}', steps.inconsisid.outputs.token) || '' }}
+          cache-from: type=gha,scope=ghcr-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=ghcr-${{ matrix.image }}

@@ -1,0 +1,265 @@
+# The public VPS stack: InconsisTable (web, api), InconsisID (idp), Postgres 18 and Caddy on one host. Every app is a
+# prebuilt image (never `build:`): the VPS builds nothing. docs/deploy.md, "VPS", has the one-time setup.
+#
+# On the host this file is /srv/inconsis/compose.yaml, next to /srv/inconsis/.env (0600, never committed):
+#   TABLE_HOST, AUTH_HOST       the two public host names, e.g. table.example.com, auth.example.com
+#   APP_TAG                     inconsistable-api/-web tag, sha-<short> from .github/workflows/publish-ghcr.yml
+#   IDP_TAG                     inconsisid image tag
+#   DATABASE_URL                postgres://it:<it_db_password>@postgres:5432/it (hex: a URL-safe password)
+#   ADMIN_KEY                   optional; 32+ characters (openssl rand -hex 32)
+# Then: docker compose pull && docker compose up -d
+#
+# Secret files live in /srv/inconsis/secrets (dir 0700 root, files 0444), bind-mounted one by one, so each container
+# sees only its own. create_host_path: false makes a missing file fail the start instead of becoming a directory.
+# Needs Docker Compose 2.23.1+ (inline configs).
+name: inconsis
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    mem_limit: 128m
+    ports: ["80:80", "443:443", "443:443/udp"]
+    configs: [{ source: caddyfile, target: /etc/caddy/Caddyfile }]
+    volumes: [caddy_data:/data, caddy_config:/config]
+    # No depends_on: Caddy and the idp come up before the api has its client key (docs/deploy.md, VPS, step 6).
+    networks: [edge]
+
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    mem_limit: 1g
+    environment:
+      # The superuser is only for the entrypoint and backups; the api connects as `it`, which is not one.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - {
+          type: bind,
+          source: /srv/inconsis/secrets/postgres_password,
+          target: /run/secrets/postgres_password,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      # The app roles and their databases, made on the first boot of an empty volume only (init_roles).
+      - {
+          type: bind,
+          source: /srv/inconsis/secrets/it_db_password,
+          target: /run/secrets/it_db_password,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - {
+          type: bind,
+          source: /srv/inconsis/secrets/idp_db_password,
+          target: /run/secrets/idp_db_password,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+    # Executable, so the entrypoint runs it rather than sourcing it into its own shell.
+    configs: [{ source: init_roles, target: /docker-entrypoint-initdb.d/10-roles.sh, mode: 0555 }]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d it"]
+      interval: 3s
+      retries: 20
+    networks: [data]
+
+  api:
+    image: ghcr.io/the-inconsistent/inconsistable-api:${APP_TAG:?set APP_TAG}
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      ADMIN_KEY: ${ADMIN_KEY:-}
+      WEB_ORIGIN: https://${TABLE_HOST:?set TABLE_HOST}
+      PORT: "4000"
+      IDP_SIGN_IN: "1"
+      IDP_ISSUER: https://${AUTH_HOST:?set AUTH_HOST}
+      IDP_CLIENT_ID: inconsistable
+      IDP_REDIRECT_URI: https://${TABLE_HOST}/api/auth/callback
+      IDP_CLIENT_JWK_FILE: /run/secrets/idp_client_jwk.json
+      # Rate limits take the client from the last X-Forwarded-For entry: Caddy sets it from the address it saw (the
+      # table site below) and the web passes it on. Safe only because nothing outside this stack reaches the api.
+      TRUST_XFF: "1"
+    volumes:
+      - {
+          type: bind,
+          source: /srv/inconsis/secrets/idp_client_jwk.json,
+          target: /run/secrets/idp_client_jwk.json,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:4000/api/health"]
+      interval: 10s
+      start_period: 20s
+      retries: 3
+    # data: Postgres. edge: the web reaches it there.
+    networks: [data, edge]
+
+  web:
+    # Built with the default API_ORIGIN, http://api:4000.
+    image: ghcr.io/the-inconsistent/inconsistable-web:${APP_TAG}
+    restart: unless-stopped
+    mem_limit: 512m
+    depends_on:
+      api: { condition: service_healthy }
+    # edge only: it talks to the api, never to Postgres.
+    networks: [edge]
+
+  idp:
+    image: ghcr.io/the-inconsistent/inconsisid:${IDP_TAG:?set IDP_TAG}
+    restart: unless-stopped
+    # Hardening from InconsisID's deploy/README.md. The image runs as uid 65532 and reads /run/secrets.
+    mem_limit: 256m
+    pids_limit: 100
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      ISSUER: https://${AUTH_HOST}
+      # No password in the URL (db_password_in_env): it reads /run/secrets/db_password.
+      DATABASE_URL: postgres://it_idp@postgres:5432/it_auth
+      # Only Caddy reaches port 4100: the IdP believes the last X-Forwarded-For hop, which Caddy sets.
+      BIND_PROXY_ONLY: "true"
+    volumes:
+      - {
+          type: bind,
+          source: /srv/inconsis/secrets/op_kek,
+          target: /run/secrets/op_kek,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      # Read on the first boot against an empty database only (sealed into it with op_kek); keep them mounted anyway.
+      - {
+          type: bind,
+          source: /srv/inconsis/secrets/op_jwks.json,
+          target: /run/secrets/op_jwks.json,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - {
+          type: bind,
+          source: /srv/inconsis/secrets/op_cookie_keys.json,
+          target: /run/secrets/op_cookie_keys.json,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - {
+          type: bind,
+          source: /srv/inconsis/secrets/idp_db_password,
+          target: /run/secrets/db_password,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [edge, data]
+
+configs:
+  # Mirrors InconsisID's deploy/Caddyfile.example for the IdP; the table site adds the same timeouts. `$$` is a literal
+  # `$` for compose.
+  caddyfile:
+    content: |
+      {
+      	servers {
+      		timeouts {
+      			read_header 10s
+      			read_body 30s
+      			write 60s
+      			idle 2m
+      		}
+      	}
+      }
+
+      ${AUTH_HOST} {
+      	encode zstd gzip
+      	request_body {
+      		max_size 64KB
+      	}
+      	header {
+      		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+      		X-Content-Type-Options "nosniff"
+      		Referrer-Policy "no-referrer"
+      		X-Frame-Options "DENY"
+      		Cross-Origin-Opener-Policy "same-origin"
+      		Permissions-Policy "publickey-credentials-get=(self), publickey-credentials-create=(self), camera=(), microphone=(), geolocation=()"
+      		-Server
+      		-X-Powered-By
+      	}
+      	reverse_proxy idp:4100 {
+      		header_up X-Forwarded-For {remote_host}
+      		header_up X-Forwarded-Proto {scheme}
+      		header_up X-Forwarded-Host {host}
+      		header_up -Forwarded
+      		transport http {
+      			dial_timeout 5s
+      			response_header_timeout 30s
+      		}
+      	}
+      }
+
+      ${TABLE_HOST} {
+      	encode zstd gzip
+      	header {
+      		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+      		X-Content-Type-Options "nosniff"
+      		-Server
+      		-X-Powered-By
+      	}
+      	# The web proxies /api and /socket.io (websockets pass through reverse_proxy as they are) to the api.
+      	# X-Forwarded-For is set to the address Caddy saw, replacing anything the client sent: the api's TRUST_XFF
+      	# reads it. Behind an orange-cloud Cloudflare that address is Cloudflare's: keep DNS only.
+      	reverse_proxy web:3000 {
+      		header_up X-Forwarded-For {remote_host}
+      	}
+      }
+
+  init_roles:
+    content: |
+      #!/bin/sh
+      # Run once by the Postgres entrypoint on an empty volume. `it` owns its database, so the api's boot can migrate
+      # and enable pg_trgm (a trusted extension) without being a superuser. it_idp is InconsisID's db/roles.sql.
+      set -eu
+      psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d postgres \
+        -v it_password="$$(cat /run/secrets/it_db_password)" \
+        -v idp_password="$$(cat /run/secrets/idp_db_password)" <<'SQL'
+      SELECT format(
+        'CREATE ROLE it LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',
+        :'it_password'
+      )
+      WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'it')
+      \gexec
+
+      SELECT 'CREATE DATABASE it OWNER it'
+      WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'it')
+      \gexec
+
+      REVOKE CONNECT, TEMPORARY ON DATABASE it FROM PUBLIC;
+
+      SELECT format(
+        'CREATE ROLE it_idp LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',
+        :'idp_password'
+      )
+      WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'it_idp')
+      \gexec
+
+      SELECT 'CREATE DATABASE it_auth OWNER it_idp'
+      WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'it_auth')
+      \gexec
+
+      REVOKE CONNECT, TEMPORARY ON DATABASE it_auth FROM PUBLIC;
+      SQL
+
+networks:
+  edge:
+  data:
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

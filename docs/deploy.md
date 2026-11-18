@@ -3,11 +3,14 @@
 This guide is for whoever hosts a private InconsisTable on a machine at the table or on a home network. The repo gives
 you two container images, a compose file with Postgres 18, and a health check. It does not choose a host.
 
-> **There are no accounts, so there is no public deployment.** Every browser is an anonymous user named by a cookie
-> (`it_device`), and anyone who can reach the web can make rooms and import rulesets into their own anonymous user. Run
-> it only on this machine or on a LAN you trust, never behind a public address, a tunnel or a port forward. Public
-> hosting waits for an auth provider (`docs/house-decisions.md`, "No accounts until a provider is chosen"), and for
-> issues #15 to #19 (the security fixes).
+> **The compose stack is never public.** Without sign-in, every browser is an anonymous user named by a cookie
+> (`it_device`), and anyone who can reach the web can make rooms and import rulesets. Run `deploy/compose.yaml` only on
+> this machine or on a LAN you trust, never behind a public address, a tunnel or a port forward.
+>
+> **A public deployment always runs with sign-in on.** InconsisID provides the accounts (ADR 0005), and the security
+> fixes (#15 to #19) have landed. With `IDP_SIGN_IN=1`, only an account with the `creator` role starts rooms or imports
+> rulesets and packs. Anonymous devices still join rooms through invites and QR (house decision #33). The public
+> setup is tracked in #84.
 
 ## What runs
 
@@ -111,10 +114,12 @@ and asks InconsisID to end its own.
 - **Writes need the web's own origin.** Every POST, PATCH and DELETE must carry `Sec-Fetch-Site: same-origin` (browsers
   send it), or an `Origin` listed in `WEB_ORIGIN`; only the back-channel logout is exempt. A script calling the api
   sends one of the two.
-- **Roles** come from the ID token at each sign-in: `creator` lets the account start rooms; `admin` grants nothing yet.
-  InconsisID makes every new account a `creator`; an account whose `creator` is revoked there (`bun run admin revoke
-  <sub> creator` on the InconsisID host) cannot start rooms from its next sign-in. Signing in on a device leaves that device's anonymous
-  user and its rooms untouched; signing out returns the device to it.
+- **Roles** come from the ID token at each sign-in. `creator` lets the account start rooms and import rulesets and
+  packs; `admin` grants nothing yet. InconsisID makes every new account a `creator`. An account whose `creator` is
+  revoked there (`bun run admin revoke <sub> creator` on the InconsisID host) can do neither from its next sign-in.
+- **Anonymous devices** never start rooms or import while sign-in is on. They join rooms through invites and QR, and
+  they keep reading, exporting and hiding what they imported before. Signing in on a device leaves that device's
+  anonymous user and its rooms untouched; signing out returns the device to it.
 
 **Locally:** run InconsisID (`bun run dev:db`, `bun run keys:dev`, `bun run dev` in its checkout; it registers the
 `inconsistable-dev` client in development) and set in `apps/api-go/.env`: `IDP_SIGN_IN=1`, `IDP_DEV_HTTP=1`,

@@ -21,6 +21,7 @@ export const REFUSALS = {
   gmOnly: "Only the GM can change that",
   onlySpend: "You can only spend {what}",
   creatorsOnly: "Only creators can start a game",
+  importCreatorsOnly: "Only creators can import rulesets and packs",
   linkInvalid: "Invalid or revoked link",
   // Accounts at the identity provider
   accountNotFound: "InconsisID has no account for this sign-in",

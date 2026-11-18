@@ -118,10 +118,12 @@ bun run seed                # sample data through the running api (idempotent); 
 - Every query is scoped to `ctx.campaignId`. Never trust ids from the client.
 - Every device is an anonymous user (`it_device` cookie, table `device`), and its `app_user.role` is `creator` by
   default. With sign-in on (`IDP_SIGN_IN`), a signed-in browser is the account's user instead (`__Host-it_session`,
-  `deviceUser` reads it first), and that user's role is `creator` only when the ID token says so. Admin is the shared
-  `ADMIN_KEY` (header `x-admin-key`, or the socket `adminKey`), never a user; the token's `admin` role grants nothing
-  yet. The room owner is `campaign.owner_user_id`, not a role. Deploy is local/LAN only until the security fixes land
-  (`docs/house-decisions.md`, `docs/deploy.md`).
+  `deviceUser` reads it first), and that user's role is `creator` only when the ID token says so. With sign-in on, an
+  anonymous device is never a `creator` (`auth.DeviceCreates`, house decision #33): it joins rooms through invites and QR
+  but cannot start rooms or import. `creator` gates both. Admin is the shared `ADMIN_KEY` (header `x-admin-key`, or
+  the socket `adminKey`), never a user; the token's `admin` role grants nothing yet. The room owner is
+  `campaign.owner_user_id`, not a role. The LAN stack (`deploy/compose.yaml`) is never public; a public deployment
+  always runs with sign-in on (`docs/deploy.md`).
 - Every write (POST, PATCH, DELETE) carries `Sec-Fetch-Site: same-origin` or an `Origin` in `WEB_ORIGIN`
   (`core/csrf.ts`); the back-channel logout is the only exception.
 

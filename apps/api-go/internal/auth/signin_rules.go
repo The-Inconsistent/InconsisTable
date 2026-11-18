@@ -40,6 +40,13 @@ func SafeReturnTo(value any) string {
 	return "/"
 }
 
+// DeviceCreates says whether an anonymous device user may start rooms and import. With sign-in on, never: only accounts
+// create (UserRoleOf), or anyone on a public deployment could, under a fresh cookie each time (house decision #33).
+// With it off, the stored role.
+func DeviceCreates(role string, signIn bool) bool {
+	return role == "creator" && !signIn
+}
+
 // UserRoleOf: app_user.role gates starting rooms, so it is creator exactly when the token says so (§8). admin grants
 // nothing in this slice; it travels on the session's roles only.
 func UserRoleOf(roles []inconsisid.Role) string {

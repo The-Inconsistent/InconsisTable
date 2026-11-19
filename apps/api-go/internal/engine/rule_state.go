@@ -62,6 +62,18 @@ type TurnState struct {
 type RuleState struct {
 	Actors []*ActorState `json:"actors"`
 	Turn   *TurnState    `json:"turn"`
+	// Pools are the shared pools (resources of scope party, gm or campaign), in the caller's order like an actor's
+	// resources. Empty or absent: none loaded.
+	Pools []NamedResource `json:"pools"`
+}
+
+func (s *RuleState) pool(name string) *ResourceState {
+	for i := range s.Pools {
+		if s.Pools[i].Name == name {
+			return &s.Pools[i].State
+		}
+	}
+	return nil
 }
 
 func (s *RuleState) actor(id string) *ActorState {
@@ -91,6 +103,8 @@ type DeltaTarget struct {
 	Condition string `json:"condition,omitempty"`
 	Turn      string `json:"turn,omitempty"`
 	Test      string `json:"test,omitempty"`
+	// Pool is a shared pool's resource id (scope party, gm or campaign), used with "add" only.
+	Pool string `json:"pool,omitempty"`
 	// Clock is a room clock's id: a counted target with no actor, written by internal/clock (not a ruleset primitive,
 	// so the TypeScript DeltaTarget has no twin of it).
 	Clock string `json:"clock,omitempty"`
@@ -109,6 +123,10 @@ func addResource(actorID, resource string, by float64) Delta {
 
 func setField(actorID, field string, value any) Delta {
 	return Delta{DeltaTarget{ActorID: actorID, Field: field}, "set", value}
+}
+
+func addPool(pool string, by float64) Delta {
+	return Delta{DeltaTarget{Pool: pool}, "add", by}
 }
 
 func setTurn(key string, value any) Delta {
@@ -158,6 +176,8 @@ func (p TargetPattern) matches(t DeltaTarget) bool {
 		return p.Kind == "condition"
 	case t.Turn != "":
 		return p.Kind == "turn" && p.Name == t.Turn
+	case t.Pool != "":
+		return p.Kind == "pool" && named(t.Pool)
 	}
 	return p.Kind == "test" && p.Name == t.Test
 }
@@ -175,6 +195,7 @@ func (t DeltaTarget) json() string {
 	add("condition", t.Condition)
 	add("turn", t.Turn)
 	add("test", t.Test)
+	add("pool", t.Pool)
 	return "{" + strings.Join(parts, ",") + "}"
 }
 

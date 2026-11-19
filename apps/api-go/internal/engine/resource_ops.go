@@ -40,7 +40,42 @@ func parseAdjustInput(raw any) (adjustInput, *Refusal) {
 	return in, r.refusal("badInput")
 }
 
-var anyResource = []TargetPattern{{"resource", "*"}}
+type adjustPoolInput struct {
+	resource string
+	delta    float64
+}
+
+func parseAdjustPoolInput(raw any) (adjustPoolInput, *Refusal) {
+	r, ok := readObject(raw)
+	if !ok {
+		return adjustPoolInput{}, refuse("badInput", "not an object")
+	}
+	in := adjustPoolInput{r.id("resource"), r.intIn("delta", -1_000_000, 1_000_000)}
+	return in, r.refusal("badInput")
+}
+
+func unknownPool(pool string) *Refusal { return refuse("unknownPool", `no pool "%s"`, pool) }
+
+// Charge pays amount (a positive whole number) from a pool: one add of minus the amount. It refuses rather than
+// clamps when the pool could not cover it, and the refusal never names the value, so a hidden pool does not leak.
+func Charge(state *RuleState, pool string, amount float64) (Delta, *Refusal) {
+	res := state.pool(pool)
+	if res == nil {
+		return Delta{}, unknownPool(pool)
+	}
+	if amount <= 0 || amount != math.Trunc(amount) {
+		return Delta{}, refuse("badInput", "amount must be a positive whole number")
+	}
+	if res.Value-amount < res.Min {
+		return Delta{}, refuse("cannotPay", `cannot pay from "%s"`, pool)
+	}
+	return addPool(pool, -amount), nil
+}
+
+var (
+	anyResource = []TargetPattern{{"resource", "*"}}
+	anyPool     = []TargetPattern{{"pool", "*"}}
+)
 
 var resourceCapped = definePrimitive(parseEmpty("badParams"), map[string]primitiveOp{
 	// A player spends their own; editableBy on the resource narrows it further.
@@ -58,6 +93,23 @@ var resourceCapped = definePrimitive(parseEmpty("badParams"), map[string]primiti
 			}
 			// An add, not a set: the server applies it as a clamped SQL delta, so concurrent taps never overwrite.
 			return []Delta{addResource(in.actorID, in.resource, change)}
+		}),
+	// A shared pool (scope party, gm or campaign): the same clamp, no holder.
+	"adjustPool": defineOp("pool:adjust", parseAdjustPoolInput,
+		func(struct{}) []TargetPattern { return anyPool },
+		func(_ struct{}, state *RuleState, in adjustPoolInput) *Refusal {
+			if state.pool(in.resource) == nil {
+				return unknownPool(in.resource)
+			}
+			return nil
+		},
+		func(_ struct{}, state *RuleState, in adjustPoolInput) []Delta {
+			res := state.pool(in.resource)
+			change := clampResource(res, in.delta) - res.Value
+			if change == 0 {
+				return nil
+			}
+			return []Delta{addPool(in.resource, change)}
 		}),
 })
 
@@ -91,7 +143,7 @@ func parseRestInput(raw any) (restInput, *Refusal) {
 // An event never implies another: a long rest does not run the short-rest resets (house decision #16).
 var rest = definePrimitive(parseEmpty("badParams"), map[string]primitiveOp{
 	"apply": defineOp("session:run", parseRestInput,
-		func(struct{}) []TargetPattern { return anyResource },
+		func(struct{}) []TargetPattern { return append(slices.Clone(anyResource), anyPool...) },
 		func(_ struct{}, state *RuleState, in restInput) *Refusal {
 			for _, id := range in.actorIDs {
 				if state.actor(id) == nil {
@@ -119,6 +171,20 @@ var rest = definePrimitive(parseEmpty("badParams"), map[string]primitiveOp{
 					change := clampResource(&named.State, to-named.State.Value) - named.State.Value
 					if change != 0 {
 						deltas = append(deltas, addResource(actor.ID, named.Name, change))
+					}
+				}
+			}
+			// Shared pools reset with the whole table, never with a named few.
+			if !in.listed {
+				for i := range state.Pools {
+					named := &state.Pools[i]
+					to, ok := named.State.Reset[in.event]
+					if !ok {
+						continue
+					}
+					change := clampResource(&named.State, to-named.State.Value) - named.State.Value
+					if change != 0 {
+						deltas = append(deltas, addPool(named.Name, change))
 					}
 				}
 			}

@@ -15,7 +15,7 @@ var (
 	gmGrants  = []string{
 		"campaign:update", "campaign:archive", "member:invite", "member:remove", "seat:leave", "session:run", "encounter:run",
 		"clock:run", "test:call", "codex:read", "codex:write", "codex:read_secret", "codex:reveal", "character:create",
-		"character:edit:any", "token:issue", "request:resolve",
+		"character:edit:any", "token:issue", "request:resolve", "pool:adjust",
 	}
 	// What each seat may do anywhere in its room. :own permissions are in ownGrants: they need a target the seat holds.
 	seatGrants = map[string][]string{
@@ -24,7 +24,7 @@ var (
 		"cogm": slices.DeleteFunc(slices.Clone(gmGrants), func(p string) bool {
 			return p == "campaign:update" || p == "campaign:archive"
 		}),
-		"player": {"codex:read", "request:send", "safety:signal", "seat:leave"},
+		"player": {"codex:read", "request:send", "safety:signal", "seat:leave", "pool:adjust"},
 		"screen": {"codex:read"},
 	}
 	ownGrants = map[string][]string{"player": {"character:edit:own", "test:report:own", "phase:done:own"}}
@@ -37,6 +37,7 @@ var (
 		"token:issue":        {"party"},
 		"session:run":        {"session"},
 		"test:call":          {"session"},
+		"pool:adjust":        {"session"},
 		"request:resolve":    {"session"},
 		"encounter:run":      {"combat"},
 		"clock:run":          {"combat"},

@@ -124,6 +124,8 @@ export const REFUSALS = {
   noEncounter: "{detail}",
   wrongState: "{detail}",
   outOfTargets: "{detail}",
+  unknownPool: "No such pool.",
+  cannotPay: "Not enough to pay for that.",
   // Codex
   entryNotFound: "Entry not found",
   needSecretsScope: "GM notes need the secrets scope",

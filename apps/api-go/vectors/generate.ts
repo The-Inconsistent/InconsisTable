@@ -58,6 +58,7 @@ import type {
   RuleState,
   ResourceState,
 } from "../../../packages/rules-engine/src/primitives/primitive.ts";
+import { charge } from "../../../packages/rules-engine/src/primitives/primitive.ts";
 import { PRIMITIVES, runOp } from "../../../packages/rules-engine/src/primitives/registry.ts";
 import { firstOf, nextFirst, sequence } from "../../../packages/rules-engine/src/primitives/initiative-seated.ts";
 import { poolSize } from "../../../packages/rules-engine/src/primitives/dice-pool-successes.ts";
@@ -441,7 +442,43 @@ const DYING: RuleState = {
   turn: null,
 };
 
-const STATES: RuleState[] = [{ actors: {}, turn: null }, UNSORTED, DYING, ...Array.from({ length: 60 }, genState)];
+// Shared pools: one with no max, one at its minimum, one capped, one with a max below its min. Their own generator, so
+// the random stream the other states and inputs draw from does not move.
+let poolSeed = 7;
+const prnd = (n: number) => (((poolSeed = (Math.imul(poolSeed, 1103515245) + 12345) >>> 0) / 2 ** 32) * n) | 0;
+const ppick = <T>(items: readonly T[]): T => items[prnd(items.length)] as T;
+const POOL_IDS = ["luck", "menace", "open", "floor"];
+function genPools(): Record<string, ResourceState> {
+  const reset = Object.fromEntries(ResetEvent.options.flatMap((e) => (prnd(3) === 0 ? [[e, prnd(12) - 2]] : [])));
+  return Object.fromEntries(
+    POOL_IDS.filter(() => prnd(4) !== 0).map((id) => [
+      id,
+      {
+        value: ppick([0, 0, 1, 3, 5, 9, 12, -2]),
+        min: ppick([0, 0, 0, -3]),
+        max: ppick([null, null, 5, 9, -1]),
+        ...(prnd(2) === 0 ? { reset } : {}),
+      },
+    ]),
+  );
+}
+const POOLS: RuleState = {
+  actors: { a1: { id: "a1", fields: {}, resources: { hp: { value: 3, min: 0, max: 10, reset: { longRest: 10 } } } } },
+  turn: null,
+  pools: {
+    luck: { value: 3, min: 0, max: 5, reset: { longRest: 5, sessionStart: 2 } },
+    menace: { value: 0, min: 0, max: null, reset: { sessionStart: 1 } },
+    open: { value: 7, min: 0, max: null },
+    spent: { value: 0, min: 0, max: 5, reset: { longRest: 0 } },
+  },
+};
+const STATES: RuleState[] = [
+  { actors: {}, turn: null },
+  UNSORTED,
+  DYING,
+  ...Array.from({ length: 60 }, genState).map((s) => (prnd(2) === 0 ? { ...s, pools: genPools() } : s)),
+  POOLS,
+];
 
 function genInput(primitive: string, op: string, state: RuleState): unknown {
   const ids = [...Object.keys(state.actors), ...(state.turn?.order ?? [])];
@@ -506,6 +543,8 @@ function genInput(primitive: string, op: string, state: RuleState): unknown {
       return { actorId: id(), resource: hp(), delta: rnd(61) - 30 };
     case "conditions.expire.turnEnd":
       return { actorId: id() };
+    case "resource.capped.adjustPool":
+      return { resource: pick([...POOL_IDS, "spent", "other"]), delta: rnd(61) - 30 };
     case "rest.apply":
       return {
         event: pick(ResetEvent.options),
@@ -575,11 +614,14 @@ function opVectors() {
       params.push(p);
     }
     for (const op of Object.keys(prim.ops)) {
+      // The pool op draws from a stream of its own: the manifest vectors that follow keep the corpus they had.
+      const saved = seed;
       for (let i = 0; i < (primitive === "health.tracks" ? 6000 : 1500); i++) {
         const state = rnd(STATES.length);
         const valid = genInput(primitive, op, STATES[state] as RuleState);
         run({ primitive, op, p: pick(list), state, input: rnd(4) === 0 ? breakInput(valid) : valid });
       }
+      if (op === "adjustPool") seed = saved;
     }
   }
   // Rules random inputs rarely reach: shifts stop at the dice of the band, and a critical hit on a dying actor.
@@ -632,6 +674,7 @@ function opVectors() {
     // Arrays, because the order of actors and resources decides the order of deltas and decoded JSON would lose it.
     states: STATES.map((s) => ({
       turn: s.turn,
+      pools: Object.entries(s.pools ?? {}).map(([name, state]) => ({ name, state })),
       actors: Object.values(s.actors).map((a) => ({
         ...a,
         resources: Object.entries(a.resources).map(([name, state]) => ({ name, state })),
@@ -640,6 +683,19 @@ function opVectors() {
     params,
     cases,
   };
+}
+
+// The `charge` helper has no op to run through, so it has a section of its own: every state, a pool or two, amounts
+// either side of what the pool holds.
+function chargeVectors() {
+  return STATES.flatMap((s, state) =>
+    [...POOL_IDS, "spent", "other"].flatMap((pool) =>
+      [0, 1, 2, 3, 5, 9, 13, -1, 1.5].map((amount) => {
+        const r = charge({ state: s, pool, amount });
+        return { state, pool, amount, ...("delta" in r ? { delta: r.delta } : { code: r.code, message: r.message }) };
+      }),
+    ),
+  );
 }
 
 const typeScope: ExprScope = {
@@ -1897,6 +1953,7 @@ const vectors = {
   }),
   dice: diceVectors(),
   ops: opVectors(),
+  charge: chargeVectors(),
   typeScope,
   checks: checkVectors(exprSources),
   manifests: MANIFESTS,

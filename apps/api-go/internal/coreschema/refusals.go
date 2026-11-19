@@ -113,6 +113,8 @@ var refusals = map[string]string{
 	"noEncounter":               "{detail}",
 	"wrongState":                "{detail}",
 	"outOfTargets":              "{detail}",
+	"unknownPool":               "No such pool.",
+	"cannotPay":                 "Not enough to pay for that.",
 	"entryNotFound":             "Entry not found",
 	"needSecretsScope":          "GM notes need the secrets scope",
 	"giveTitle":                 "Give the entry a title",

@@ -933,6 +933,8 @@
     "noEncounter": "Không có trận nào đang chạy: {detail}",
     "wrongState": "Không làm được lúc này: {detail}",
     "outOfTargets": "Không còn mục tiêu: {detail}",
+    "unknownPool": "Không có pool đó.",
+    "cannotPay": "Không đủ để trả.",
     "entryNotFound": "Không tìm thấy mục",
     "needSecretsScope": "Ghi chú GM cần quyền bí mật (secrets)",
     "giveTitle": "Hãy đặt tiêu đề cho mục này",

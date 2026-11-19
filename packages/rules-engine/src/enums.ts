@@ -122,6 +122,8 @@ export const RefusalCode = z.enum([
   "noEncounter",
   "wrongState",
   "outOfTargets",
+  "unknownPool",
+  "cannotPay",
 ]);
 export type RefusalCode = z.infer<typeof RefusalCode>;
 

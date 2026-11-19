@@ -33,6 +33,7 @@ export const Permission = z.enum([
   "request:send",
   "request:resolve",
   "safety:signal",
+  "pool:adjust",
 ]);
 export type Permission = z.infer<typeof Permission>;
 
@@ -66,6 +67,7 @@ const GM_GRANTS: Permission[] = [
   "character:edit:any",
   "token:issue",
   "request:resolve",
+  "pool:adjust",
 ];
 
 // What each seat may do anywhere in its room. `:own` permissions are in OWN_GRANTS: they need a target the seat holds.
@@ -73,7 +75,7 @@ export const SEAT_GRANTS: Record<SeatRole, ReadonlySet<Permission>> = {
   gm: new Set(GM_GRANTS),
   // A co-GM holds the GM's permissions that a scope covers (COGM_SCOPES_FOR), never campaign settings.
   cogm: new Set(GM_GRANTS.filter((p) => p !== "campaign:update" && p !== "campaign:archive")),
-  player: new Set<Permission>(["codex:read", "request:send", "safety:signal", "seat:leave"]),
+  player: new Set<Permission>(["codex:read", "request:send", "safety:signal", "seat:leave", "pool:adjust"]),
   screen: new Set<Permission>(["codex:read"]),
 };
 
@@ -93,6 +95,7 @@ export const COGM_SCOPES_FOR: Partial<Record<Permission, readonly CogmScope[]>> 
   "token:issue": ["party"],
   "session:run": ["session"],
   "test:call": ["session"],
+  "pool:adjust": ["session"],
   "request:resolve": ["session"],
   "encounter:run": ["combat"],
   "clock:run": ["combat"],

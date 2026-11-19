@@ -28,14 +28,24 @@ export const rest: Primitive<RestParams> = {
       input: ApplyRestInput,
       perm: "session:run",
       touches: "state",
-      targets: () => [{ resource: "*" }],
+      targets: () => [{ resource: "*" }, { pool: "*" }],
       validate: ({ ctx: { state }, input }) => {
         const unknown = input.actorIds?.find((id) => !Object.hasOwn(state.actors, id));
         return unknown === undefined ? null : refuse("unknownActor", `no actor "${unknown}"`);
       },
       apply: ({ ctx: { state }, input }) => {
         const ids = input.actorIds ?? Object.keys(state.actors);
-        return ids.flatMap((id): Delta[] => {
+        // Shared pools reset with the whole table, never with a named few.
+        const pools =
+          input.actorIds !== undefined
+            ? []
+            : Object.entries(state.pools ?? {}).flatMap(([pool, res]): Delta[] => {
+                const to = res.reset?.[input.event];
+                if (to === undefined) return [];
+                const change = clampResource({ res, delta: to - res.value }) - res.value;
+                return change === 0 ? [] : [{ target: { pool }, kind: "add", value: change }];
+              });
+        const actors = ids.flatMap((id): Delta[] => {
           const actor = Object.hasOwn(state.actors, id) ? state.actors[id] : undefined;
           if (actor === undefined) return [];
           return Object.entries(actor.resources).flatMap(([resource, res]): Delta[] => {
@@ -46,6 +56,7 @@ export const rest: Primitive<RestParams> = {
             return change === 0 ? [] : [{ target: { actorId: id, resource }, kind: "add", value: change }];
           });
         });
+        return [...actors, ...pools];
       },
     }),
   },

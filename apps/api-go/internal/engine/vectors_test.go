@@ -72,6 +72,14 @@ type vectorFile struct {
 			CodeOnly bool `json:"codeOnly"`
 		} `json:"cases"`
 	} `json:"ops"`
+	Charge []struct {
+		State   int     `json:"state"`
+		Pool    string  `json:"pool"`
+		Amount  float64 `json:"amount"`
+		Delta   any     `json:"delta"`
+		Code    string  `json:"code"`
+		Message string  `json:"message"`
+	} `json:"charge"`
 }
 
 var readVectors = sync.OnceValues(func() ([]byte, error) { return os.ReadFile("testdata/vectors.json") })
@@ -105,7 +113,7 @@ func loadVectors(t *testing.T) vectorFile {
 	for name, size := range map[string]int{
 		"expr": len(v.Expr), "canonical": len(v.Canonical), "sha": len(v.Sha), "entries": len(v.Entries),
 		"dice.parse": len(v.Dice.Parse), "dice.plain": len(v.Dice.Plain), "dice.roll": len(v.Dice.Roll),
-		"ops.states": len(v.Ops.States), "ops.params": len(v.Ops.Params), "ops.cases": len(v.Ops.Cases),
+		"charge": len(v.Charge), "ops.states": len(v.Ops.States), "ops.params": len(v.Ops.Params), "ops.cases": len(v.Ops.Cases),
 	} {
 		if size == 0 {
 			t.Fatalf("no %s vectors, so this test would prove nothing", name)
@@ -381,6 +389,34 @@ func TestOpsMatchTypeScript(t *testing.T) {
 	}
 	if failed > 0 {
 		t.Errorf("%d of %d op cases differ", failed, len(v.Ops.Cases))
+	}
+}
+
+func TestChargeMatchesTypeScript(t *testing.T) {
+	v := loadVectors(t)
+	failed := 0
+	for _, x := range v.Charge {
+		delta, refusal := Charge(&v.Ops.States[x.State], x.Pool, x.Amount)
+		problem := ""
+		switch {
+		case x.Delta != nil && refusal != nil:
+			problem = fmt.Sprintf("want delta %v, got refusal %+v", x.Delta, *refusal)
+		case x.Delta == nil && refusal == nil:
+			problem = fmt.Sprintf("want refusal %s %q, got %+v", x.Code, x.Message, delta)
+		case x.Delta == nil && (refusal.Code != x.Code || refusal.Message != x.Message):
+			problem = fmt.Sprintf("want %s %q, got %+v", x.Code, x.Message, *refusal)
+		case x.Delta != nil && !reflect.DeepEqual(viaJSON(t, delta), x.Delta):
+			problem = fmt.Sprintf("want delta %v, got %v", x.Delta, viaJSON(t, delta))
+		}
+		if problem != "" {
+			failed++
+			if failed <= 25 {
+				t.Errorf("state %d pool %s amount %v: %s", x.State, x.Pool, x.Amount, problem)
+			}
+		}
+	}
+	if failed > 0 {
+		t.Errorf("%d of %d charge cases differ", failed, len(v.Charge))
 	}
 }
 

@@ -12,7 +12,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN bun --filter @inconsistable/web build
 
 FROM node:22-slim
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+# The server components fetch the api at run time (app/constants.ts), so the runtime stage needs it too, not only the
+# build: without it they call localhost:4000 and every server-rendered page shows "No signal".
+ARG API_ORIGIN=http://api:4000
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 API_ORIGIN=$API_ORIGIN
 WORKDIR /app
 COPY --from=build --chown=node:node /app/apps/web/.next/standalone ./
 COPY --from=build --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static

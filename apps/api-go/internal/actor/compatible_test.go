@@ -54,3 +54,17 @@ func TestIncompatibleReadsStoredValuesUnderTheNewVersion(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+// A value the engine owned under the old version is checked once the new version declares its field.
+func TestIncompatibleChecksAFieldTheNewVersionStartsToDeclare(t *testing.T) {
+	hp := `[{"id": "hp", "label": "HP", "cite": "U p.1", "scope": "entity", "max": "9", "visibility": "party"}]`
+	level := `"level": {"type": "int", "label": "L", "min": 1, "max": 20, "visibility": "party"}`
+	old := compile(t, `{`+level+`}`, hp, `[]`)
+	declares := compile(t, `{`+level+`, "engineOwned": {"type": "int", "label": "E", "max": 3, "visibility": "party"}}`, hp, `[]`)
+	five := int32(5)
+	rows := []Rows{{Actor: Row{Name: "Ada", EntityType: "hero"}, Fields: []FieldRow{{FieldID: "engineOwned", Int: &five}}}}
+	want := []string{`Ada: field "engineOwned": above the maximum of 3`}
+	if got := Incompatible(old, declares, rows); !reflect.DeepEqual(got, want) {
+		t.Fatalf("want %v, got %v", want, got)
+	}
+}

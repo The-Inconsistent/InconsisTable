@@ -19,7 +19,8 @@ import (
 
 // The room's ruleset and packs (apps/api/src/campaign/rules.actions.ts).
 //
-// ponytail: only a version every stored value still fits; a version that renames or removes something in play needs the declared migrations of design §4.5.
+// ponytail: only a version every stored value still fits; a version that renames or removes something in play needs
+// the declared migrations of design §4.5.
 
 // A built character's values belong to the version they were built under.
 const builtActor = `campaign_id = $1 AND (ruleset_version_id IS NOT NULL OR entity_type <> '')`

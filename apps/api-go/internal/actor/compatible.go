@@ -36,10 +36,10 @@ func Incompatible(old, next *engine.CompiledRuleset, rows []Rows) []string {
 			}
 			newDef, inNew := ne.Def.Fields[id]
 			switch {
-			case oldDef == nil: // engine-owned in the old version: left alone
+			case oldDef == nil && !inNew: // engine-owned in both versions: left alone
 			case !inNew:
 				add(`field "%s" is gone`, id)
-			case oldDef.Type != newDef.Type:
+			case oldDef != nil && oldDef.Type != newDef.Type:
 				add(`field "%s" changed type`, id)
 			default:
 				if v := fieldValue(&newDef, fs); v != nil {

@@ -7,7 +7,7 @@
 #   IDP_TAG                     inconsisid image tag
 #   DATABASE_URL                postgres://it:<it_db_password>@postgres:5432/it (hex: a URL-safe password)
 #   ADMIN_KEY                   optional; 32+ characters (openssl rand -hex 32)
-# Then: docker compose pull && docker compose up -d
+# Then: docker compose pull && docker compose up -d, or "Pull & redeploy" once Dockhand has imported this stack.
 #
 # Secret files live in /srv/inconsis/secrets (dir 0700 root, files 0444), bind-mounted one by one, so each container
 # sees only its own. create_host_path: false makes a missing file fail the start instead of becoming a directory.

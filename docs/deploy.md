@@ -150,14 +150,14 @@ in the table `schema_migration`. A database the NestJS api migrated keeps workin
 ## VPS
 
 The public stack is `deploy/vps/compose.yaml`: Caddy, web, api, InconsisID and Postgres 18 on one host, run with plain
-`docker compose`. `.github/workflows/publish-ghcr.yml` builds the api and web on every merge to `main`
+`docker compose`, with Dockhand as the web UI for deploys and logs. `.github/workflows/publish-ghcr.yml` builds the api and web on every merge to `main`
 (`ghcr.io/the-inconsistent/inconsistable-api` and `-web`, tagged `sha-<short>` and `main`). InconsisID's image
 (`ghcr.io/the-inconsistent/inconsisid`) comes from its own repo. The VPS never builds anything.
 
 ```
 Internet ─▶ :80/:443 Caddy ─┬─▶ web:3000 ── /api, /socket.io ──▶ api:4000 ─▶ postgres (it)
                             └─▶ idp:4100 ──────────────────────────────────▶ postgres (it_auth)
-SSH :22 ─▶ host
+SSH :22 ─▶ host;  Dockhand on 127.0.0.1:4444 only, through an SSH tunnel
 ```
 
 **Size:** 2 vCPU, 4 GB RAM, 40 GB disk, x86_64 (the images are amd64), plus a 2 GB swap file.
@@ -170,6 +170,7 @@ SSH :22 ─▶ host
 | web | ~150–250 MB | 512 MB |
 | InconsisID (Go) | ~30–60 MB | 256 MB |
 | Caddy | ~40 MB | 128 MB |
+| Dockhand | ~150 MB | |
 
 ### One-time setup
 
@@ -207,16 +208,38 @@ SSH :22 ─▶ host
      `https://<TABLE_HOST>/api/auth/backchannel-logout`. Save the private key it offers as
      `/srv/inconsis/secrets/idp_client_jwk.json`.
 7. **Start.** `docker compose up -d`. Check `https://<TABLE_HOST>/api/health` answers `200`.
-8. **Cron** (root):
+8. **Dockhand.** Run it with its UI on the VPS's loopback only (its manual: "Do not expose Dockhand to the public
+   internet"), and `/srv/inconsis` mounted at the same path so it can run the stack where it lives:
+   ```bash
+   docker run -d --name dockhand --restart unless-stopped \
+     -p 127.0.0.1:4444:3000 \
+     -v /var/run/docker.sock:/var/run/docker.sock \
+     -v dockhand_data:/app/data \
+     -v /srv/inconsis:/srv/inconsis \
+     fnsys/dockhand:latest
+   ```
+   Open it from your own machine through `ssh -L 4444:localhost:4444 <host>` at `http://localhost:4444`, and make its
+   admin account. Then:
+   - **Registries** (Settings): add `ghcr.io` with your GitHub user and the `read:packages` token from step 2 as the
+     password. Dockhand pulls with its own credentials, not the host's `docker login`.
+   - **Stacks → Import**: browse to `/srv/inconsis` and import `compose.yaml`. The stack keeps its name, `inconsis`
+     (`backup.sh` finds Postgres by it), and its files stay in place: Dockhand reads and edits `/srv/inconsis/.env`.
+     Keep every value in that `.env`, not in Dockhand's own secrets, so a `docker compose` run from the shell still
+     has them.
+
+   Dockhand holds the Docker socket, which is root on the host: anyone who reaches its UI owns the VPS. It runs as root
+   (no `PUID`), so it can read the `0600` `.env`.
+9. **Cron** (root):
    ```
    0 3 * * *  /srv/inconsis/backup.sh
    0 4 * * 0  docker image prune -af --filter until=168h
    ```
    `backup.sh` keeps 7 days of `pg_dump -Fc` files for `it` and `it_auth` in `/srv/inconsis/backups`.
-9. **Off-host copy.** Your own machine pulls it, so the VPS holds no credential to anything else, for example nightly
-   `rsync -a <host>:/srv/inconsis/backups/ ~/backups/inconsis/`. Restore one into a scratch database now and then.
+10. **Off-host copy.** Your own machine pulls it, so the VPS holds no credential to anything else, for example nightly
+    `rsync -a <host>:/srv/inconsis/backups/ ~/backups/inconsis/`. Restore one into a scratch database now and then.
 
-**Upgrading:** back up, set `APP_TAG` or `IDP_TAG` in `.env`, then `docker compose pull && docker compose up -d`.
+**Upgrading:** back up, then in Dockhand open the `inconsis` stack, set `APP_TAG` or `IDP_TAG` in its `.env`, and
+"Pull & redeploy". From the shell, the same is `docker compose pull && docker compose up -d` in `/srv/inconsis`.
 Migrations run at the api's boot (see Migrations). Avoid it during a session: the restart drops every socket (they
 reconnect with a full snapshot).
 

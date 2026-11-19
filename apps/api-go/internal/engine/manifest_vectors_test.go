@@ -38,6 +38,7 @@ type manifestVectorFile struct {
 			Resource string    `json:"resource"`
 			Bounds   attempted `json:"bounds"`
 			Resets   attempted `json:"resets"`
+			Start    attempted `json:"start"`
 			Death    attempted `json:"death"`
 		} `json:"bounds"`
 		States attempted `json:"states"`
@@ -154,7 +155,7 @@ func compiledJSON(c *CompiledRuleset) any {
 		for i, x := range r.ResetOn {
 			resets[i] = map[string]any{"event": x.Event, "to": exprJSON(x.To)}
 		}
-		resources[id] = map[string]any{"min": exprJSON(r.Min), "max": exprJSON(r.Max), "resetOn": resets}
+		resources[id] = map[string]any{"min": exprJSON(r.Min), "max": exprJSON(r.Max), "resetOn": resets, "start": exprJSON(r.Start)}
 	}
 	tests := map[string]any{}
 	for id, x := range c.Tests {
@@ -310,6 +311,8 @@ func TestDerivedValuesMatchTypeScript(t *testing.T) {
 			compare(name+" bounds "+b.Resource, b.Bounds, map[string]any{"min": bounds.Min, "max": bounds.Max, "capped": bounds.Capped}, err)
 			resets, err := c.ResetValues(b.Resource, scope)
 			compare(name+" resets "+b.Resource, b.Resets, resets, err)
+			start, err := c.StartValue(b.Resource, scope)
+			compare(name+" start "+b.Resource, b.Start, start, err)
 			death, err := c.InstantDeathAt(b.Resource, scope)
 			compare(name+" death "+b.Resource, b.Death, death, err)
 		}

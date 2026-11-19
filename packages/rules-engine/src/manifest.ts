@@ -124,6 +124,8 @@ export const Resource = z.object({
   capped: z.boolean().default(true),
   /** `to` may name `max` and `min`, the resource's own bounds. */
   resetOn: z.array(z.object({ event: ResetEvent, to: ExprSource })).default([]),
+  /** The value a new holder starts with; may name `max` and `min`, the resource's own bounds, like `resetOn[].to`. Absent: house decision #23. */
+  start: ExprSource.optional(),
   visibility: Visibility.default("gm"),
   editableBy: EditableBy.default("gm"),
 });

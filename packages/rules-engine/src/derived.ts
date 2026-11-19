@@ -172,6 +172,26 @@ export function resetValue({
   return evaluateInt({ expr: reset.to, scope: { ...scope, min, ...(max === null ? {} : { max }) } });
 }
 
+/**
+ * The value a new holder starts with, held to the bounds (below `min` never; above `max` only when capped), or null
+ * when the resource declares no `start` (house decision #23 then decides).
+ */
+export function startValue({
+  compiled,
+  resource,
+  scope,
+}: {
+  compiled: CompiledRuleset;
+  resource: string;
+  scope: ExprRecord;
+}): number | null {
+  const start = own(compiled.resources, resource)?.start;
+  if (start === undefined || start === null) return null;
+  const { min, max, capped } = resourceBounds({ compiled, resource, scope });
+  const v = evaluateInt({ expr: start, scope: { ...scope, min, ...(max === null ? {} : { max }) } });
+  return Math.max(min, max !== null && capped ? Math.min(max, v) : v);
+}
+
 /** Every event a resource resets on, with the value it resets to for one holder. The caller hands this to the `rest` primitive. */
 export function resetValues({
   compiled,

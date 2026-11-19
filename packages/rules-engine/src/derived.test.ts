@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { compileRuleset, topoSort, type CompiledRuleset } from "./compile.ts";
-import { actorScope, applyBaseEffects, deriveValues, healthStatesOf, resetValue, resourceBounds } from "./derived.ts";
+import {
+  actorScope,
+  applyBaseEffects,
+  deriveValues,
+  healthStatesOf,
+  resetValue,
+  resourceBounds,
+  startValue,
+} from "./derived.ts";
 import { evaluateInt } from "./expr/expr.ts";
 import { SAMPLE_D20 } from "./fixtures/sample-d20.ts";
 import type { RulesetInput } from "./manifest.ts";
@@ -192,6 +200,23 @@ test("a max below the min collapses to the min", () => {
     max: 5,
     capped: true,
   });
+});
+
+test("a resource's start is held to its bounds; absent, startValue is null", () => {
+  const m = structuredClone(SAMPLE_D20);
+  const base = { scope: "gm", min: "2", max: "5", cite: "Sample p.1" } as const;
+  m.resources?.push(
+    { ...base, id: "a", label: "A", start: "min" },
+    { ...base, id: "b", label: "B", start: "max" },
+    { ...base, id: "c", label: "C", start: "9" },
+    { ...base, id: "d", label: "D", start: "9", capped: false },
+    { ...base, id: "e", label: "E", start: "0" },
+    { ...base, id: "f", label: "F" },
+  );
+  const c = compile(m);
+  const scope = actorScope({ fields: {} });
+  const start = (resource: string) => startValue({ compiled: c, resource, scope });
+  assert.deepEqual([start("a"), start("b"), start("c"), start("d"), start("e"), start("f")], [2, 5, 5, 9, 2, null]);
 });
 
 test("a test's expressions read call-time inputs as ctx", () => {

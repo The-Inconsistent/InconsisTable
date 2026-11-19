@@ -86,6 +86,7 @@ var resourceSchema = schema.Object(
 		schema.Req("event", resetEventEnum),
 		schema.Req("to", exprSource),
 	)), []any{}),
+	schema.Opt("start", exprSource),
 	schema.Def("visibility", visibilityEnum, "gm"),
 	schema.Def("editableBy", editableByEnum, "gm"),
 )

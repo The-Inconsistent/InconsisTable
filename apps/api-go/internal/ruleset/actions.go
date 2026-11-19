@@ -40,7 +40,7 @@ func RestActors(ctx context.Context, tx core.Conn, c cs.Ctx, event, actorID stri
 	if err != nil {
 		return true, "", err
 	}
-	actionID, err = rc.Apply(ctx, deltas)
+	actionID, err = rc.ApplyRuled(ctx, deltas)
 	return true, actionID, err
 }
 

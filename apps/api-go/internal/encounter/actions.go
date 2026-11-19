@@ -66,7 +66,7 @@ func CloseEncounter(ctx context.Context, tx core.Conn, c cs.Ctx, encounterID str
 		if err != nil {
 			return "", err
 		}
-		if actionID, err = rc.Apply(ctx, slices.Concat(expired, rested)); err != nil {
+		if actionID, err = rc.ApplyRuled(ctx, slices.Concat(expired, rested)); err != nil {
 			return "", err
 		}
 	}

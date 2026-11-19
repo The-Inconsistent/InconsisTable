@@ -77,7 +77,8 @@ func FieldTypeOf(compiled *engine.CompiledRuleset, b *Built, field string, sampl
 }
 
 // Apply is what ApplyDeltas writes: deltas against the actors as built. Trusted skips editableBy, for the values the
-// engine's own creation or a pack entry decided (the types still apply).
+// engine's own creation or a pack entry decided, and for what a table event's rules reset or expire (house decision
+// #53); the types still apply.
 type Apply struct {
 	Ctx      cs.Ctx
 	Compiled *engine.CompiledRuleset

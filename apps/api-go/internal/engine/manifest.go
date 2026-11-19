@@ -177,20 +177,22 @@ type (
 	}
 	// Side is one side of a sides initiative.
 	Side struct {
-		ID    string `json:"id"`
-		Label string `json:"label"`
+		ID       string    `json:"id"`
+		Label    string    `json:"label"`
+		Entities *[]string `json:"entities"`
 	}
 	// Initiative is a ranked, seated or sides declaration. Setup, OutOfTurn, Hold and Barred are nil when absent.
 	Initiative struct {
-		Strategy        string   `json:"strategy"`
-		FirstPlayer     string   `json:"firstPlayer"`
-		RerollEachRound bool     `json:"rerollEachRound"`
-		Score           string   `json:"score"`
-		Tiebreak        []string `json:"tiebreak"`
-		Cite            *string  `json:"cite"`
-		Sides           []Side   `json:"sides"`
-		FirstSide       string   `json:"firstSide"`
-		RoundEnd        string   `json:"roundEnd"`
+		Strategy        string    `json:"strategy"`
+		FirstPlayer     string    `json:"firstPlayer"`
+		RerollEachRound bool      `json:"rerollEachRound"`
+		Score           string    `json:"score"`
+		Tiebreak        []string  `json:"tiebreak"`
+		Cite            *string   `json:"cite"`
+		Sides           []Side    `json:"sides"`
+		UnableStates    *[]string `json:"unableStates"`
+		FirstSide       string    `json:"firstSide"`
+		RoundEnd        string    `json:"roundEnd"`
 		Setup           *struct {
 			Cite *string `json:"cite"`
 		} `json:"setup"`
@@ -806,6 +808,36 @@ func ValidateRuleset(input any) (*Ruleset, []Problem) {
 
 // sideCosts checks that every cost of a sides initiative names a declared side and a shared pool.
 func (p *problems) sideCosts(r *Ruleset, init *Initiative) {
+	listed := map[string]string{}
+	for i, side := range init.Sides {
+		if side.Entities == nil {
+			continue
+		}
+		for j, id := range *side.Entities {
+			path := fmt.Sprintf("initiative.sides[%d].entities[%d]", i, j)
+			if e := r.entity(id); e == nil {
+				p.add(path, `unknown entity "%s"`, id)
+			} else if e.Base != "actor" {
+				p.add(path, `"%s" is not an actor entity`, id)
+			}
+			if other, taken := listed[id]; taken {
+				p.add(path, `"%s" is already on side "%s"`, id, other)
+			} else {
+				listed[id] = side.ID
+			}
+		}
+	}
+	if init.UnableStates != nil {
+		for i, id := range *init.UnableStates {
+			declared := false
+			for _, st := range r.Health.States {
+				declared = declared || st.ID == id
+			}
+			if !declared {
+				p.add(fmt.Sprintf("initiative.unableStates[%d]", i), `unknown health state "%s"`, id)
+			}
+		}
+	}
 	declared := map[string]bool{}
 	for _, side := range init.Sides {
 		declared[side.ID] = true

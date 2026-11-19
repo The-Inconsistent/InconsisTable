@@ -14,12 +14,20 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
     { id: "momentum", label: "Momentum", cite: "Sample p.15", scope: "party", max: "6", visibility: "party" },
     { id: "pressure", label: "Pressure", cite: "Sample p.15", scope: "gm", max: "6" },
   ],
+  health: {
+    ...SAMPLE_D20.health,
+    states: [
+      ...(SAMPLE_D20.health?.states ?? []),
+      { id: "downed", label: "Downed", when: "res.hp <= 0" },
+    ],
+  },
   initiative: {
     strategy: "sides",
     sides: [
-      { id: "wardens", label: "Wardens" },
-      { id: "raiders", label: "Raiders" },
+      { id: "wardens", label: "Wardens", entities: ["character"] },
+      { id: "raiders", label: "Raiders", entities: ["creature"] },
     ],
+    unableStates: ["downed"],
     firstSide: "rotate",
     roundEnd: "manual",
     setup: { cite: "Sample p.16" },

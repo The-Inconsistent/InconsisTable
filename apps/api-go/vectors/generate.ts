@@ -1091,6 +1091,11 @@ function sidesCrafted(): object[] {
   const resources = [pool("hp", "entity", { max: "10" }), pool("gold", "party"), pool("tin", "gm")];
   const cost = (side: string, id: string, amount = 1) => ({ [side]: { pool: id, amount } });
   const block = (over: object = {}) => ({ initiative: { strategy: "sides", sides: two, ...over }, resources });
+  const withKinds = (r: object) => ({
+    ...r,
+    entities: [pcBase, { ...pcBase, id: "gear", base: "item" }],
+    health: { states: [{ id: "hurt", when: "true" }] },
+  });
   const cited = { sources: [{ id: "s", title: "T", license: "srd" }] };
   const citedPools = resources.map((r) => ({ ...r, cite: "p1" }));
   const bare = (over: object) => ({
@@ -1114,6 +1119,18 @@ function sidesCrafted(): object[] {
     block({ sides: sideList(4).concat([{ id: "fifth", label: "F" }]) }),
     block({ sides: [{ id: "Bad_Id", label: "B" }, two[1]] }),
     block({ sides: [{ id: "red", label: "" }, two[1]] }),
+    // Entities on a side and the states that leave a member unable (the ruleset below declares "pc", "gear" and "hurt").
+    withKinds(block({ sides: [{ ...two[0], entities: ["pc"] }, two[1]], unableStates: ["hurt"] })),
+    withKinds(block({ sides: [{ ...two[0], entities: ["pc"] }, { ...two[1], entities: ["gear"] }] })),
+    withKinds(block({ sides: [{ ...two[0], entities: ["pc"] }, { ...two[1], entities: ["pc"] }] })),
+    withKinds(block({ sides: [{ ...two[0], entities: ["pc", "pc"] }, two[1]] })),
+    withKinds(block({ sides: [{ ...two[0], entities: ["nope"] }, two[1]] })),
+    withKinds(block({ sides: [{ ...two[0], entities: [] }, two[1]], unableStates: [] })),
+    withKinds(block({ sides: [{ ...two[0], entities: "pc" }, two[1]] })),
+    withKinds(block({ unableStates: ["nope"] })),
+    withKinds(block({ unableStates: ["hurt", "hurt", "nope"] })),
+    withKinds(block({ unableStates: "hurt" })),
+    withKinds(block({ unableStates: ["Bad_Id"] })),
     block({ firstSide: "manual" }),
     block({ roundEnd: "never" }),
     block({ outOfTurn: { cost: cost("green", "gold") } }),

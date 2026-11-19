@@ -168,6 +168,14 @@ func (rc *Context) Apply(ctx context.Context, deltas []engine.Delta) (string, er
 	return actor.ApplyDeltas(ctx, rc.tx, actor.Apply{Ctx: rc.c, Compiled: rc.Compiled, Built: rc.Built, Deltas: deltas})
 }
 
+// ApplyRuled writes what a table event's own rules decided: the resets and expiries of a session start or end, an
+// encounter's end or a rest (house decision #53). The seat's permission to run the event is the authority, so
+// editableBy, which says who may edit a value by hand, is not asked. Never for a delta a seat chose.
+func (rc *Context) ApplyRuled(ctx context.Context, deltas []engine.Delta) (string, error) {
+	return actor.ApplyDeltas(ctx, rc.tx,
+		actor.Apply{Ctx: rc.c, Compiled: rc.Compiled, Built: rc.Built, Deltas: deltas, Trusted: true})
+}
+
 // CheckRuleset is a manifest as the owner pasted it: validated and every expression compiled, returned normalized
 // (defaults applied) with the hash of that document (apps/api/src/ruleset/ruleset.check.ts). The hash is the compiled
 // cache key and tells a repeat import from a changed one.

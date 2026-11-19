@@ -16,6 +16,7 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 import { Creatures } from "@/components/gm/creatures/creatures";
 import { AddCombatants } from "@/components/gm/track/components/add-combatants/add-combatants";
 import { ClocksPanel } from "@/components/gm/track/components/clocks-panel/clocks-panel";
+import { PoolsPanel } from "@/components/gm/track/components/pools-panel/pools-panel";
 import { CombatantPanel } from "@/components/gm/track/components/combatant-panel/combatant-panel";
 import { FightBar } from "@/components/gm/track/components/fight-bar/fight-bar";
 import { TablesPanel } from "@/components/gm/track/components/tables-panel/tables-panel";
@@ -154,6 +155,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
       )}
       {/* Clocks need no fight and no session: they sit under the order, always usable. */}
       <ClocksPanel clocks={state.clocks} entries={entries} run={run} />
+      <PoolsPanel pools={state.pools} me={me} send={send} />
       <TablesPanel
         tables={rules?.tables ?? {}}
         rolls={state.rolls}

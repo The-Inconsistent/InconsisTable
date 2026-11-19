@@ -12,6 +12,8 @@ import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { DoneButton } from "@/components/player/done-button/done-button";
 import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
 import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
+import { PoolsView } from "@/components/ui/pools-view/pools-view";
+import { poolSidesOf, poolSteps } from "@/lib/pools/pools";
 import { YourCards } from "@/components/ui/your-cards/your-cards";
 import { RequestNotices } from "@/components/ui/request-notices/request-notices";
 import { resourceLabels } from "@/lib/spend-request/spend-request";
@@ -128,6 +130,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           actors={state.actors}
           labels={resourceLabels(view?.ruleset ?? null)}
         />
+        <PoolsView pools={state.pools} steps={(pool) => poolSteps({ pool, ...poolSidesOf(me) })} send={send} />
         <ClocksView clocks={state.clocks} />
         <YourCards
           dealt={state.dealt}

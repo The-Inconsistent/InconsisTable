@@ -24,6 +24,7 @@ import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
 import { SAMPLE_SCOPED } from "../../../packages/rules-engine/src/fixtures/sample-scoped.ts";
+import { SAMPLE_SKIRMISH } from "../../../packages/rules-engine/src/fixtures/sample-skirmish.ts";
 import { SAMPLE_TIERED } from "../../../packages/rules-engine/src/fixtures/sample-tiered.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
 import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
@@ -59,6 +60,7 @@ import type {
   ConditionState,
   RuleState,
   ResourceState,
+  TurnState,
 } from "../../../packages/rules-engine/src/primitives/primitive.ts";
 import { charge } from "../../../packages/rules-engine/src/primitives/primitive.ts";
 import { PRIMITIVES, runOp } from "../../../packages/rules-engine/src/primitives/registry.ts";
@@ -282,6 +284,9 @@ const ROLLS = [
   { kind: "total", total: 15, natural: 21 }, { kind: "total", total: 12, natural: 12 }, { kind: "total", total: -3 },
 ];
 
+const sideList = (n: number) =>
+  ["red", "blue", "green", "gold"].slice(0, n).map((id) => ({ id, label: id.toUpperCase() }));
+
 // Plain fixtures of our own writing: valid params, some leaving defaults out, so Go has to apply them too.
 const OP_PARAMS: Record<string, unknown[]> = {
   "dice.sumVsTarget": [
@@ -354,6 +359,33 @@ const OP_PARAMS: Record<string, unknown[]> = {
   "resource.capped": [{}],
   "conditions.expire": [{}],
   rest: [{}],
+  "initiative.sides": [
+    { strategy: "sides", sides: sideList(2) },
+    {
+      strategy: "sides",
+      sides: sideList(2),
+      firstSide: "rotate",
+      roundEnd: "manual",
+      setup: {},
+      outOfTurn: { cost: { red: { pool: "gold", amount: 1 }, blue: { pool: "tin", amount: 2 } } },
+      hold: {},
+      barred: { throughRound: 2, liftCost: { red: { pool: "gold", amount: 1 }, blue: { pool: "tin", amount: 2 } } },
+    },
+    {
+      strategy: "sides",
+      sides: sideList(3),
+      outOfTurn: { cost: { green: { pool: "gold", amount: 3 }, red: { pool: "ghost", amount: 1 } } },
+      barred: { throughRound: 3, liftCost: { blue: { pool: "tin", amount: 1 } } },
+    },
+    {
+      strategy: "sides",
+      sides: [...sideList(3), { id: "gold", label: "Gold" }],
+      firstSide: "rotate",
+      setup: {},
+      hold: {},
+      barred: {},
+    },
+  ],
 };
 
 const ACTOR_IDS = ["a1", "a2", "b", "é"];
@@ -487,6 +519,39 @@ const STATES: RuleState[] = [
   POOLS,
 ];
 
+// `initiative.sides`: states of their own, from a stream of their own, appended after the ones every other primitive
+// draws from, so those corpora do not move. Members sit on three side ids; the params declare two to four of them.
+const BASE_STATES = STATES.length;
+let sideSeed = 11;
+const srnd = (n: number) => (((sideSeed = (Math.imul(sideSeed, 1103515245) + 12345) >>> 0) / 2 ** 32) * n) | 0;
+const spick = <T>(items: readonly T[]): T => items[srnd(items.length)] as T;
+const SIDE_IDS = ["red", "blue", "green"];
+function genSidesState(): RuleState {
+  const members = ["m0", "m1", "m2", "m3", "m4", "m5"].slice(0, 2 + srnd(5));
+  const order = [...members, ...(srnd(8) === 0 ? ["ghost"] : [])].sort(() => srnd(3) - 1);
+  const sideOf = Object.fromEntries(members.filter(() => srnd(30) !== 0).map((id) => [id, spick(SIDE_IDS)]));
+  const some = () => order.filter(() => srnd(4) === 0);
+  const maybeList = (): string[] | undefined => (srnd(2) === 0 ? some() : undefined);
+  const side = () => spick<string | null>([...SIDE_IDS, null, null, "stale"]);
+  const turn: TurnState = {
+    round: spick([0, 1, 1, 2, 2, 3, 4]),
+    currentId: spick<string | null>([...order, null, null, null, "stale"]),
+    order: srnd(10) === 0 ? [] : order,
+    ...(srnd(10) === 0 ? {} : { sideOf }),
+    ...(srnd(3) === 0 ? {} : { begun: srnd(3) !== 0 }),
+    ...(srnd(2) === 0 ? { lastSide: side() } : {}),
+    ...(srnd(3) === 0 ? { outOfTurnSide: side() } : {}),
+  };
+  for (const key of ["done", "held", "barred", "unable"] as const) {
+    const list = maybeList();
+    if (list !== undefined) turn[key] = list;
+  }
+  const pool = () => ({ value: spick([0, 1, 1, 2, 3, 5]), min: 0, max: spick([null, 9]) });
+  const pools = { ...(srnd(8) === 0 ? {} : { gold: pool() }), ...(srnd(8) === 0 ? {} : { tin: pool() }) };
+  return { actors: {}, turn, ...(srnd(10) === 0 ? {} : { pools }) };
+}
+STATES.push(...Array.from({ length: 150 }, genSidesState));
+
 function genInput(primitive: string, op: string, state: RuleState): unknown {
   const ids = [...Object.keys(state.actors), ...(state.turn?.order ?? [])];
   const id = () => (ids.length > 0 && rnd(6) !== 0 ? pick(ids) : "nobody");
@@ -534,7 +599,16 @@ function genInput(primitive: string, op: string, state: RuleState): unknown {
     case "initiative.ranked.remove":
     case "initiative.seated.remove":
     case "initiative.seated.first":
+    case "initiative.sides.seize":
+    case "initiative.sides.interrupt":
+    case "initiative.sides.lift":
       return { id: id() };
+    case "initiative.sides.pick":
+      return { id: id(), ...(rnd(3) === 0 ? { force: rnd(2) === 0 } : {}) };
+    case "initiative.sides.mark":
+      return { id: id(), done: rnd(2) === 0 };
+    case "initiative.sides.bar":
+      return { id: id(), barred: rnd(2) === 0 };
     case "health.tracks.damage":
       return {
         actorId: id(),
@@ -624,11 +698,12 @@ function opVectors() {
       // The pool op draws from a stream of its own: the manifest vectors that follow keep the corpus they had.
       const saved = seed;
       for (let i = 0; i < (primitive === "health.tracks" ? 6000 : 1500); i++) {
-        const state = rnd(STATES.length);
+        const state =
+          primitive === "initiative.sides" ? BASE_STATES + rnd(STATES.length - BASE_STATES) : rnd(BASE_STATES);
         const valid = genInput(primitive, op, STATES[state] as RuleState);
         run({ primitive, op, p: pick(list), state, input: rnd(4) === 0 ? breakInput(valid) : valid });
       }
-      if (op === "adjustPool") seed = saved;
+      if (op === "adjustPool" || primitive === "initiative.sides") seed = saved;
     }
   }
   // Rules random inputs rarely reach: shifts stop at the dice of the band, and a critical hit on a dying actor.
@@ -644,6 +719,50 @@ function opVectors() {
   for (const critical of [true, false]) {
     const input = { actorId: "pc", amount: 1, critical };
     run({ primitive: "health.tracks", op: "damage", p: OP_PARAMS["health.tracks"]?.[3], state: 2, input });
+  }
+  // Sides: the paths a random state seldom lines up for (a paid seize, an automatic wrap, a lifted bar).
+  const sideTurn = (over: Partial<TurnState>, gold = 3, tin = 3): number =>
+    STATES.push({
+      actors: {},
+      turn: {
+        round: 1,
+        currentId: null,
+        order: ["a1", "a2", "b1", "b2"],
+        sideOf: { a1: "red", a2: "red", b1: "blue", b2: "blue" },
+        ...over,
+      },
+      pools: { gold: { value: gold, min: 0, max: null }, tin: { value: tin, min: 0, max: null } },
+    }) - 1;
+  const sidesParams = OP_PARAMS["initiative.sides"] ?? [];
+  const sideRun = (index: number, op: string, state: number, input: unknown = {}) =>
+    run({ primitive: "initiative.sides", op, p: sidesParams[index], state, input });
+  const wrapping = { done: ["a1", "a2", "b1"], currentId: "b2", lastSide: "red" };
+  for (const index of [0, 1, 2, 3]) {
+    for (const over of [{}, { round: 2 }, { lastSide: "red" }, { lastSide: "blue", round: 3 }, { currentId: "a1" }]) {
+      const state = sideTurn(over);
+      for (const id of ["a1", "b1"]) {
+        sideRun(index, "seize", state, { id });
+        sideRun(index, "pick", state, { id });
+      }
+    }
+    for (const op of ["next", "hold", "newRound"]) {
+      sideRun(index, op, sideTurn(wrapping));
+      sideRun(index, op, sideTurn({ ...wrapping, round: 2, barred: ["a1"] }));
+      sideRun(index, op, sideTurn({ currentId: "a1", held: ["b1"], outOfTurnSide: "red" }));
+    }
+    sideRun(index, "begin", sideTurn({ begun: false, done: ["a1"], held: ["b1"], barred: ["a2"] }));
+    sideRun(index, "lift", sideTurn({ barred: ["a1", "b1"] }), { id: "a1" });
+    sideRun(index, "lift", sideTurn({ barred: ["a1", "b1"] }, 0, 0), { id: "b1" });
+    sideRun(index, "seize", sideTurn({ lastSide: "red", outOfTurnSide: "red" }), { id: "a2" });
+    sideRun(index, "seize", sideTurn({ lastSide: "red", outOfTurnSide: "blue" }), { id: "a2" });
+    sideRun(index, "seize", sideTurn({ lastSide: "red" }, 0, 0), { id: "a2" });
+    sideRun(index, "seize", sideTurn({ lastSide: "red" }, 3, 3), { id: "a2" });
+    sideRun(index, "seize", sideTurn({ currentId: "b1", lastSide: "red" }), { id: "a2" });
+    sideRun(index, "seize", sideTurn({ currentId: "a1", lastSide: "red", unable: ["b1"] }), { id: "b2" });
+    sideRun(index, "interrupt", sideTurn({ held: ["a1"], done: ["a1"] }), { id: "a1" });
+    sideRun(index, "mark", sideTurn({ held: ["a1"], done: ["a1"] }), { id: "a1", done: false });
+    sideRun(index, "bar", sideTurn({ round: 3 }), { id: "a1", barred: true });
+    sideRun(index, "bar", sideTurn({ round: 2 }), { id: "a1", barred: true });
   }
   const empty = OP_PARAMS.rest?.[0];
   for (const [primitive, op] of [
@@ -767,6 +886,7 @@ const MANIFESTS: unknown[] = [
   FREEFORM,
   SAMPLE_SCOPED,
   SAMPLE_TIERED,
+  SAMPLE_SKIRMISH,
 ];
 
 function allStrings(value: unknown, out: string[]): string[] {
@@ -963,6 +1083,82 @@ const withCampaign = (campaignFields: object) => ({ campaignFields });
 const withForm = (fields: object, expr: string) =>
   withPc({ fields: { ...pcBase.fields, ...fields }, derived: [{ id: "a", label: "A", expr }] });
 const intField = { label: "F", type: "int" };
+
+// `initiative.sides` (house decision #57): one valid block, then each refusal of the schema and of the semantic pass.
+function sidesCrafted(): object[] {
+  const two = sideList(2);
+  const pool = (id: string, scope: string, over: object = {}) => ({ id, label: id, scope, ...over });
+  const resources = [pool("hp", "entity", { max: "10" }), pool("gold", "party"), pool("tin", "gm")];
+  const cost = (side: string, id: string, amount = 1) => ({ [side]: { pool: id, amount } });
+  const block = (over: object = {}) => ({ initiative: { strategy: "sides", sides: two, ...over }, resources });
+  const cited = { sources: [{ id: "s", title: "T", license: "srd" }] };
+  const citedPools = resources.map((r) => ({ ...r, cite: "p1" }));
+  const bare = (over: object) => ({
+    ...cited,
+    resources: citedPools,
+    initiative: { strategy: "sides", sides: two, ...over },
+  });
+  return [
+    block(),
+    block({
+      firstSide: "rotate",
+      roundEnd: "manual",
+      setup: {},
+      outOfTurn: { cost: { ...cost("red", "gold"), ...cost("blue", "tin", 20) } },
+      hold: {},
+      barred: { throughRound: 10, liftCost: cost("blue", "tin", 2) },
+    }),
+    block({ sides: [two[0], two[0]] }),
+    block({ sides: [two[0], two[1], two[0], two[1]] }),
+    block({ sides: [two[0]] }),
+    block({ sides: sideList(4).concat([{ id: "fifth", label: "F" }]) }),
+    block({ sides: [{ id: "Bad_Id", label: "B" }, two[1]] }),
+    block({ sides: [{ id: "red", label: "" }, two[1]] }),
+    block({ firstSide: "manual" }),
+    block({ roundEnd: "never" }),
+    block({ outOfTurn: { cost: cost("green", "gold") } }),
+    block({ outOfTurn: { cost: { ...cost("green", "gold"), ...cost("amber", "tin") } } }),
+    block({ barred: { liftCost: cost("green", "gold") } }),
+    block({ outOfTurn: { cost: cost("red", "nope") } }),
+    block({ outOfTurn: { cost: cost("red", "hp") } }),
+    block({ barred: { liftCost: cost("red", "hp") } }),
+    block({ barred: { liftCost: { ...cost("red", "nope"), ...cost("green", "hp") } } }),
+    block({ outOfTurn: { cost: cost("red", "gold", 0) } }),
+    block({ outOfTurn: { cost: cost("red", "gold", 21) } }),
+    block({ outOfTurn: { cost: cost("red", "gold", 1.5) } }),
+    block({ outOfTurn: { cost: { Bad_Id: { pool: "gold", amount: 1 } } } }),
+    block({ outOfTurn: {} }),
+    block({ barred: { throughRound: 0 } }),
+    block({ barred: { throughRound: 11 } }),
+    block({ barred: { throughRound: 2.5 } }),
+    block({ barred: { liftCost: "x" } }),
+    block({ setup: "x" }),
+    block({ hold: [] }),
+    {
+      ...block(),
+      resources: [pool("gold", "entity"), pool("gold", "party"), pool("tin", "gm"), pool("hp", "entity")],
+      initiative: { strategy: "sides", sides: two, outOfTurn: { cost: cost("red", "gold") } },
+    },
+    {
+      ...block(),
+      resources: [pool("gold", "party"), pool("gold", "entity"), pool("tin", "gm"), pool("hp", "entity")],
+      initiative: { strategy: "sides", sides: two, outOfTurn: { cost: cost("red", "gold") } },
+    },
+    { ...block(), phases: [{ id: "a", label: "A", mode: "turns" }] },
+    { ...block({ sides: [two[0], two[0]] }), phases: [{ id: "a", label: "A", mode: "simultaneous" }] },
+    { ...block(), phases: [] },
+    bare({}),
+    bare({ cite: "p1" }),
+    bare({ cite: "p1", setup: {}, hold: {}, barred: {}, outOfTurn: { cost: cost("red", "gold") } }),
+    bare({
+      cite: "p1",
+      setup: { cite: "p2" },
+      hold: { cite: "p2" },
+      barred: { cite: "p2" },
+      outOfTurn: { cost: cost("red", "gold"), cite: "p2" },
+    }),
+  ];
+}
 
 const CRAFTED: object[] = [
   // An entity id declared twice: both engines check a creation step against the first definition.
@@ -1472,6 +1668,7 @@ const CRAFTED: object[] = [
     { id: "c", label: "C", expr: "3" },
     { id: "d", label: "D", expr: "derived.c + derived.a" },
   ),
+  ...sidesCrafted(),
 ];
 
 // The `game` block: a homebrew ruleset needs no cite for gmless or solo, the others do (principle 1).

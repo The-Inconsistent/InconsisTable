@@ -170,7 +170,17 @@ type (
 		} `json:"special"`
 		Shift *string `json:"shift"`
 	}
-	// Initiative is a ranked or seated declaration.
+	// SideCost is a shared pool paid for a side's action out of turn, or to lift a bar.
+	SideCost struct {
+		Pool   string  `json:"pool"`
+		Amount float64 `json:"amount"`
+	}
+	// Side is one side of a sides initiative.
+	Side struct {
+		ID    string `json:"id"`
+		Label string `json:"label"`
+	}
+	// Initiative is a ranked, seated or sides declaration. Setup, OutOfTurn, Hold and Barred are nil when absent.
 	Initiative struct {
 		Strategy        string   `json:"strategy"`
 		FirstPlayer     string   `json:"firstPlayer"`
@@ -178,6 +188,24 @@ type (
 		Score           string   `json:"score"`
 		Tiebreak        []string `json:"tiebreak"`
 		Cite            *string  `json:"cite"`
+		Sides           []Side   `json:"sides"`
+		FirstSide       string   `json:"firstSide"`
+		RoundEnd        string   `json:"roundEnd"`
+		Setup           *struct {
+			Cite *string `json:"cite"`
+		} `json:"setup"`
+		OutOfTurn *struct {
+			Cost map[string]SideCost `json:"cost"`
+			Cite *string             `json:"cite"`
+		} `json:"outOfTurn"`
+		Hold *struct {
+			Cite *string `json:"cite"`
+		} `json:"hold"`
+		Barred *struct {
+			ThroughRound float64             `json:"throughRound"`
+			LiftCost     map[string]SideCost `json:"liftCost"`
+			Cite         *string             `json:"cite"`
+		} `json:"barred"`
 	}
 	// Scoring is a game's scoring declaration.
 	Scoring struct {
@@ -528,6 +556,20 @@ func (r *Ruleset) semanticProblems() problems {
 	}
 	if r.Initiative != nil {
 		needCite(r.Initiative.Cite, "initiative")
+		if i := r.Initiative; i.Strategy == "sides" {
+			if i.Setup != nil {
+				needCite(i.Setup.Cite, "initiative.setup")
+			}
+			if i.OutOfTurn != nil {
+				needCite(i.OutOfTurn.Cite, "initiative.outOfTurn")
+			}
+			if i.Hold != nil {
+				needCite(i.Hold.Cite, "initiative.hold")
+			}
+			if i.Barred != nil {
+				needCite(i.Barred.Cite, "initiative.barred")
+			}
+		}
 	}
 	for i, x := range r.Phases {
 		needCite(x.Cite, fmt.Sprintf("phases[%d]", i))
@@ -591,6 +633,12 @@ func (r *Ruleset) semanticProblems() problems {
 	p.duplicates("resources", idsOf(r.Resources, func(x Resource) string { return x.ID }))
 	p.duplicates("conditions", idsOf(r.Conditions, func(x Condition) string { return x.ID }))
 	p.duplicates("phases", idsOf(r.Phases, func(x Phase) string { return x.ID }))
+	if i := r.Initiative; i != nil && i.Strategy == "sides" {
+		p.duplicates("initiative.sides", idsOf(i.Sides, func(x Side) string { return x.ID }))
+		if r.Phases != nil {
+			p.add("phases", "sides do not combine with phases yet")
+		}
+	}
 	p.duplicates("options", idsOf(r.Options, idOf))
 	p.duplicates("creation", idsOf(r.Creation, func(x CreationStep) string { return x.ID }))
 	p.duplicates("decisions", idsOf(r.Decisions, idOf))
@@ -630,6 +678,10 @@ func (r *Ruleset) semanticProblems() problems {
 				p.add(fmt.Sprintf("resources[%d].entities", i), "only an entity-scoped resource names entities")
 			}
 		}
+	}
+
+	if i := r.Initiative; i != nil && i.Strategy == "sides" {
+		p.sideCosts(r, i)
 	}
 
 	trackResource := func(id, path string) {
@@ -750,4 +802,38 @@ func ValidateRuleset(input any) (*Ruleset, []Problem) {
 		return nil, found
 	}
 	return r, nil
+}
+
+// sideCosts checks that every cost of a sides initiative names a declared side and a shared pool.
+func (p *problems) sideCosts(r *Ruleset, init *Initiative) {
+	declared := map[string]bool{}
+	for _, side := range init.Sides {
+		declared[side.ID] = true
+	}
+	costs := func(record map[string]SideCost, path string) {
+		for _, side := range sortedKeys(record) {
+			cost := record[side]
+			if !declared[side] {
+				p.add(path+"."+side, `unknown side "%s"`, side)
+			}
+			// The last declaration wins, as in TypeScript's Map built from the list.
+			var res *Resource
+			for i := range r.Resources {
+				if r.Resources[i].ID == cost.Pool {
+					res = &r.Resources[i]
+				}
+			}
+			if res == nil {
+				p.add(path+"."+side+".pool", `unknown resource "%s"`, cost.Pool)
+			} else if res.Scope == "entity" {
+				p.add(path+"."+side+".pool", `"%s" must be a shared pool`, cost.Pool)
+			}
+		}
+	}
+	if init.OutOfTurn != nil {
+		costs(init.OutOfTurn.Cost, "initiative.outOfTurn.cost")
+	}
+	if init.Barred != nil {
+		costs(init.Barred.LiftCost, "initiative.barred.liftCost")
+	}
 }

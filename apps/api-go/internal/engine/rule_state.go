@@ -55,6 +55,18 @@ type TurnState struct {
 	CurrentID *string  `json:"currentId"`
 	Order     []string `json:"order"`
 	FirstID   *string  `json:"firstId"`
+	// Done is the members that have acted this round. Absent reads as none.
+	Done []string `json:"done"`
+	// The rest is read by initiative.sides only: SideOf maps a combatant to its side, Begun is nil (true) unless a fight
+	// with a setup has not begun, LastSide and OutOfTurnSide are side ids, Held and Barred are lists of combatants and
+	// Unable is the combatants that cannot act (the caller computes it).
+	SideOf        map[string]string `json:"sideOf"`
+	Begun         *bool             `json:"begun"`
+	LastSide      *string           `json:"lastSide"`
+	OutOfTurnSide *string           `json:"outOfTurnSide"`
+	Held          []string          `json:"held"`
+	Barred        []string          `json:"barred"`
+	Unable        []string          `json:"unable"`
 }
 
 // RuleState is the slice of live state an op reads, loaded by the caller and scoped to one campaign. Actors stay in

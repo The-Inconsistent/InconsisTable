@@ -82,6 +82,18 @@ export interface TurnState {
   phaseId?: string | null;
   /** Actor ids that marked a simultaneous phase done. Absent reads as none. */
   done?: readonly string[];
+  /** `initiative.sides`: each combatant's side id. */
+  sideOf?: Readonly<Record<string, string>>;
+  /** `initiative.sides`: false while a fight with a setup has not begun. Absent reads as true. */
+  begun?: boolean;
+  /** `initiative.sides`: the side whose turn ended last this round, and the side that last acted out of turn. */
+  lastSide?: string | null;
+  outOfTurnSide?: string | null;
+  /** `initiative.sides`: members holding an action, and members taking no turn this round (`barred.throughRound`). */
+  held?: readonly string[];
+  barred?: readonly string[];
+  /** `initiative.sides`: members that cannot act (down, removed). The caller computes it; the primitive only reads it. */
+  unable?: readonly string[];
 }
 
 /** The slice of live state an op reads. Loaded by the caller, scoped to one campaign. */

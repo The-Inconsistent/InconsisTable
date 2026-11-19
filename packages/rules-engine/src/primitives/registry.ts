@@ -6,6 +6,7 @@ import { diceSumVsTarget } from "./dice-sum-vs-target.ts";
 import { healthTracks } from "./health-tracks.ts";
 import { initiativeRanked } from "./initiative-ranked.ts";
 import { initiativeSeated } from "./initiative-seated.ts";
+import { initiativeSides } from "./initiative-sides.ts";
 import { checkDeltas, refuse, type Delta, type Primitive, type Refusal, type RuleState } from "./primitive.ts";
 import { resourceCapped } from "./resource-capped.ts";
 import { rest } from "./rest.ts";
@@ -16,6 +17,7 @@ export const PRIMITIVES: Readonly<Record<string, Primitive<unknown>>> = {
   [dicePoolSuccesses.id]: dicePoolSuccesses,
   [initiativeRanked.id]: initiativeRanked,
   [initiativeSeated.id]: initiativeSeated,
+  [initiativeSides.id]: initiativeSides,
   [healthTracks.id]: healthTracks,
   [resourceCapped.id]: resourceCapped,
   [conditionsExpire.id]: conditionsExpire,

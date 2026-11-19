@@ -50,6 +50,7 @@ var primitives = map[string]primitive{
 	"dice.poolSuccesses": dicePoolSuccesses,
 	"initiative.ranked":  initiativeRanked,
 	"initiative.seated":  initiativeSeated,
+	"initiative.sides":   initiativeSides,
 	"health.tracks":      healthTracks,
 	"resource.capped":    resourceCapped,
 	"conditions.expire":  conditionsExpire,

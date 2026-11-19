@@ -80,7 +80,19 @@ export const DeltaKind = z.enum(["set", "add"]);
 export type DeltaKind = z.infer<typeof DeltaKind>;
 
 /** Encounter-level values the turn primitives write. */
-export const TurnKey = z.enum(["round", "currentId", "order", "firstId", "phaseId", "done"]);
+export const TurnKey = z.enum([
+  "round",
+  "currentId",
+  "order",
+  "firstId",
+  "phaseId",
+  "done",
+  "begun",
+  "lastSide",
+  "outOfTurnSide",
+  "held",
+  "barred",
+]);
 export type TurnKey = z.infer<typeof TurnKey>;
 
 /** Values of the open Test call that a test primitive writes. */

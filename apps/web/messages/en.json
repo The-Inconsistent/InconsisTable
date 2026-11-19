@@ -1435,5 +1435,12 @@
     "tapToLook": "Tap to look",
     "tapToHide": "Tap to hide",
     "recentRolls": "Recent rolls"
+  },
+  "pools": {
+    "title": "Pools",
+    "add": "Add 1 to {label}",
+    "take": "Take 1 from {label}",
+    "value": "{label}: {value}",
+    "valueOf": "{label}: {value} of {max}"
   }
 }

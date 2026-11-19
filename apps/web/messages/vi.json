@@ -1435,5 +1435,12 @@
     "tapToLook": "Chạm để xem",
     "tapToHide": "Chạm để úp lại",
     "recentRolls": "Các lần gieo gần đây"
+  },
+  "pools": {
+    "title": "Pool chung",
+    "add": "Thêm 1 vào {label}",
+    "take": "Bớt 1 khỏi {label}",
+    "value": "{label}: {value}",
+    "valueOf": "{label}: {value} trên {max}"
   }
 }

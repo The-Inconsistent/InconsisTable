@@ -165,6 +165,7 @@ export const REFUSALS = {
   noGmHere: "Nobody runs this room as GM, so nothing can be GM-only.",
   noGmSeats: "This room has no GM seats.",
   testCharactersOnly: "Without a GM, a Test is called for characters.",
+  testNotForType: "{name} does not take this Test.",
   testTargetShown: "Without a GM, a Test's target is shown to everyone.",
   testTableOnly: "Without a GM a Test can only use what the whole table can see.",
   undoOthers: "You can only undo your own steps.",

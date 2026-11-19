@@ -302,10 +302,13 @@ func (c *CompiledRuleset) InstantDeathAt(resource string, scope *Record) (*float
 	return &n, nil
 }
 
-// HealthStatesOf returns the display health states whose condition holds for an actor.
-func (c *CompiledRuleset) HealthStatesOf(scope *Record) ([]string, error) {
+// HealthStatesOf returns the display health states that apply to an actor of this type and whose condition holds for it.
+func (c *CompiledRuleset) HealthStatesOf(entity string, scope *Record) ([]string, error) {
 	out := []string{}
 	for _, s := range c.HealthStates {
+		if s.Entities != nil && !slices.Contains(*s.Entities, entity) {
+			continue
+		}
 		holds, err := evaluateBool(s.When, scope)
 		if err != nil {
 			return nil, err

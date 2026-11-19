@@ -173,7 +173,7 @@ func compiledJSON(c *CompiledRuleset) any {
 	}
 	states := make([]any, len(c.HealthStates))
 	for i, s := range c.HealthStates {
-		states[i] = map[string]any{"id": s.ID, "label": s.Label, "when": exprJSON(s.When)}
+		states[i] = map[string]any{"id": s.ID, "label": s.Label, "when": exprJSON(s.When), "entities": s.Entities}
 	}
 	death := map[string]any{}
 	for id, e := range c.InstantDeath {
@@ -313,7 +313,7 @@ func TestDerivedValuesMatchTypeScript(t *testing.T) {
 			death, err := c.InstantDeathAt(b.Resource, scope)
 			compare(name+" death "+b.Resource, b.Death, death, err)
 		}
-		states, err := c.HealthStatesOf(scope)
+		states, err := c.HealthStatesOf(x.Entity, scope)
 		compare(name+" states", x.States, states, err)
 	}
 	if failed > 0 {

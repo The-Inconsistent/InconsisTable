@@ -97,7 +97,8 @@ export interface CompiledRuleset {
   initiative: CompiledInitiative | null;
   /** The game's scoring, or null when the manifest has none. */
   scoring: CompiledScoring | null;
-  healthStates: { id: string; label: string | undefined; when: CompiledExpr }[];
+  /** `entities`: the actor types the state applies to; null for every actor type. */
+  healthStates: { id: string; label: string | undefined; when: CompiledExpr; entities: readonly string[] | null }[];
   /** `health.tracks[].instantDeathOverflow`, by the track's resource id. */
   instantDeath: Record<string, CompiledExpr>;
 }
@@ -458,10 +459,18 @@ class Compiler {
     });
     if (actorScopes.length === 0) this.problems.push({ path: "entities", message: "no actor entity type" });
 
+    // The compiled actor types a Test or a health state applies to: the ones it names, or all of them.
+    const actorsOf = (ids: readonly string[] | undefined) =>
+      this.actorEntities().flatMap((e) => {
+        const ce = own(entities, e.id);
+        return ce === undefined || (ids !== undefined && !ids.includes(e.id)) ? [] : [{ e, ce }];
+      });
+
     const tests: Record<string, CompiledTest> = {};
     for (const [id, t] of Object.entries(this.r.tests)) {
       const ctx: ExprType = { record: { ...t.inputs } };
-      const scopes = actorScopes.map((s) => ({ ...s, ctx }));
+      const takers = actorsOf(t.entities);
+      const scopes = takers.map(({ ce }) => ({ ...ce.scope, ctx }));
       // A reported Test has no numbers: the constant 0 keeps every reader of a compiled Test one shape.
       const modifier = this.expr({
         source: t.kind === "reported" ? "0" : t.modifier,
@@ -483,15 +492,13 @@ class Compiler {
       // A value the call computes for an actor is as hidden as its most hidden input, like a derived value.
       const seen = (...exprs: CompiledExpr[]) =>
         Object.fromEntries(
-          this.actorEntities().flatMap((e): [string, Visibility][] => {
-            const ce = own(entities, e.id);
-            if (ce === undefined) return [];
+          takers.map(({ e, ce }): [string, Visibility] => {
             const carried = new Map([...this.resources].filter(([, x]) => carries(x, e)));
             const derived = new Map(ce.derived.map((d) => [d.id, d.visibility]));
             const refs = exprs.flatMap((expr) =>
               expr.refs.map((ref) => pathVisibility({ ref, entity: e, resources: carried, derived })),
             );
-            return [[e.id, strictestVisibility(refs)]];
+            return [e.id, strictestVisibility(refs)];
           }),
         );
       const modifierVisibility = pool === null ? seen(modifier) : seen(modifier, pool);
@@ -510,8 +517,9 @@ class Compiler {
 
     const scoring = this.scoring(actorScopes);
     const healthStates = this.r.health.states.flatMap((s, j) => {
-      const when = this.expr({ source: s.when, scopes: actorScopes, expect: "bool", path: `health.states[${j}].when` });
-      return when === null ? [] : [{ id: s.id, label: s.label, when }];
+      const scopes = actorsOf(s.entities).map(({ ce }) => ce.scope);
+      const when = this.expr({ source: s.when, scopes, expect: "bool", path: `health.states[${j}].when` });
+      return when === null ? [] : [{ id: s.id, label: s.label, when, entities: s.entities ?? null }];
     });
 
     const instantDeath: Record<string, CompiledExpr> = {};

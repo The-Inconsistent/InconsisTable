@@ -125,6 +125,9 @@ func callTest(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 			return cs.Result{}, cs.Fail("notBuilt", cs.Params{"name": b.Row.Name})
 		case b.Scope == nil:
 			return cs.Result{}, cs.Fail("incomplete", cs.Params{"name": b.Row.Name, "detail": b.Problem})
+		case test.Def.Entities != nil && !slices.Contains(*test.Def.Entities, b.Entity):
+			// The Test names the actor types that take it (house decision #50).
+			return cs.Result{}, cs.Fail("testNotForType", cs.Params{"name": b.Row.Name})
 		}
 		r, problem, err := EvaluateCall(test, b.Scope, inputs)
 		if err != nil {

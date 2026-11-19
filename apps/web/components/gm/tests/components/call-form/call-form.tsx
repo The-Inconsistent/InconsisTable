@@ -59,6 +59,8 @@ export function CallForm({ state, send, initialTargets = [], initialTestId, onCa
   const [showOutcome, setShowOutcome] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const def = state.testDefs.find((d) => d.id === testId) ?? state.testDefs[0];
+  // ponytail: lists every built actor; a Test that names its actor types (house decision #50) is refused by the server
+  // for the others. Upgrade: carry `entities` on TestDef in the Seat view and filter here.
   const roster = useMemo(() => state.actors.filter((a) => a.entity !== ""), [state.actors]);
 
   // TEST: switching Test clears what was filled in for the old one.

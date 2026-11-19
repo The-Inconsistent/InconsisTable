@@ -155,6 +155,12 @@ export const Condition = z.object({
 });
 export type Condition = z.infer<typeof Condition>;
 
+/**
+ * The actor entity types a Test or a health state applies to (house decision #50). Absent: every actor type, and the
+ * expressions are then checked against each of them.
+ */
+const ActorTypes = z.array(Id).min(1).max(50).optional();
+
 export const RuleOption = z.object({
   id: Id,
   label: z.string().min(1).max(80),
@@ -171,6 +177,7 @@ const testBase = {
   inputs: z.record(Id, ScalarType).default({}),
   /** The allowed values of a text input; the call form shows a picker and the server refuses anything else. */
   inputOptions: z.record(Id, z.array(z.string().min(1).max(60)).min(1).max(50)).default({}),
+  entities: ActorTypes,
   cite: Cite.optional(),
 };
 
@@ -250,6 +257,7 @@ export const ReportedTest = z.object({
   /** Values the caller supplies when the Test is called (a name the GM wants on the card), as for the other kinds. */
   inputs: z.record(Id, ScalarType).default({}),
   inputOptions: z.record(Id, z.array(z.string().min(1).max(60)).min(1).max(50)).default({}),
+  entities: ActorTypes,
   cite: Cite.optional(),
 });
 export type ReportedTest = z.infer<typeof ReportedTest>;
@@ -381,7 +389,7 @@ export const Health = z.object({
   tracks: z.array(HealthTrack).max(10).default([]),
   /** Display states such as "bloodied": `when` is a boolean expression over the actor. */
   states: z
-    .array(z.object({ id: Id, label: z.string().min(1).max(80).optional(), when: ExprSource }))
+    .array(z.object({ id: Id, label: z.string().min(1).max(80).optional(), when: ExprSource, entities: ActorTypes }))
     .max(20)
     .default([]),
   cite: Cite.optional(),
@@ -802,7 +810,16 @@ function semanticProblems(r: Ruleset): Problem[] {
     out.push({ path: "health.tracks", message: "only one track may have deathSaves" });
   }
 
+  const actorTypes = (ids: readonly string[] | undefined, path: string) =>
+    ids?.forEach((id, j) => {
+      const e = r.entities.find((x) => x.id === id);
+      if (e === undefined) out.push({ path: `${path}[${j}]`, message: `unknown entity "${id}"` });
+      else if (e.base !== "actor") out.push({ path: `${path}[${j}]`, message: `"${id}" is not an actor entity` });
+    });
+  r.health.states.forEach((s, i) => actorTypes(s.entities, `health.states[${i}].entities`));
+
   for (const [id, t] of Object.entries(r.tests)) {
+    actorTypes(t.entities, `tests.${id}.entities`);
     for (const key of Object.keys(t.inputOptions)) {
       if (t.inputs[key] !== "text")
         out.push({ path: `tests.${id}.inputOptions.${key}`, message: "options are only for text inputs" });

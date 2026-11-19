@@ -49,7 +49,7 @@ Viết thử ruleset bậc 1 và chạy qua validator hiện tại, để danh s
 
 | # | Thiếu | Hiện phải làm gì | Hướng sửa |
 |---|---|---|---|
-| 1 | Test và trạng thái máu bị kiểm tra với **mọi** loại actor. Test chỉ Agent mới gieo (đọc `derived.conviction`) làm manifest bị từ chối ngay khi có loại actor thứ hai | Bỏ hẳn entity Threat khỏi bậc 1 | `tests.<id>.entities` và `health.states[].entities`, như `resources[].entities` đã có |
+| 1 | Test và trạng thái máu bị kiểm tra với **mọi** loại actor. Test chỉ Agent mới gieo (đọc `derived.conviction`) làm manifest bị từ chối ngay khi có loại actor thứ hai | Bỏ hẳn entity Threat khỏi bậc 1 | **Đã sửa** (house decision #50): `tests.<id>.entities` và `health.states[].entities`, như `resources[].entities` đã có |
 | 2 | Phòng có nhân vật đã dựng không đổi được sang phiên bản khác của ruleset (`charactersUseOtherVersion`) | Không sửa được ruleset khi bàn đã chơi | Nâng phiên bản có migration và dry-run diff (design §4.5, ADR 0010 mục 7). **Chặn cả P3** |
 | 3 | Không có field cấp campaign (Tier) | Mỗi sheet tự ghi Tier | `campaignFields` trong manifest + `campaign_option` (design §5.4) |
 | 4 | Effect chỉ gắn được vào Condition. Bonus từ Species, Talent, giáp, Mutation không có chỗ khai | GM gõ 11 ô `mod.*` | Entry của pack mang `effects`, áp theo thứ tự của design §4.4 |

@@ -195,6 +195,8 @@ export const LiveState = z.object({
     tableMode: TableMode,
     // Session Zero: every seat, the screen included, reads it (docs/p2-plan.md group E).
     safety: Safety,
+    // Each campaign field of the pinned ruleset at its value in play (house decision #58); {} without a ruleset or fields.
+    fields: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])),
   }),
   // Increments inside every action's transaction; a client drops a snapshot older than the one it holds, since two
   // api nodes may deliver broadcasts out of order (docs/design.md §5.6).

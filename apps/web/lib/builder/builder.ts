@@ -1,4 +1,5 @@
 import {
+  campaignValues,
   compileRuleset,
   deriveValues,
   PackEntry,
@@ -140,7 +141,14 @@ export function previewBuild({
     const values = deriveValues({
       compiled: compiled.compiled,
       entity,
-      values: { fields: made.fields, resources: {}, conditions: [], party: { characters: 1 } },
+      values: {
+        fields: made.fields,
+        resources: {},
+        conditions: [],
+        party: { characters: 1 },
+        // No room yet: the defaults.
+        campaign: campaignValues({ compiled: compiled.compiled, stored: {} }),
+      },
     });
     return {
       problems: [],

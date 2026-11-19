@@ -3,7 +3,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { Fragment, useMemo, useState } from "react";
 
 import type { Actor, BookSource, SpendRequest } from "@inconsistable/core-schema";
-import { breakdownOf, compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
+import { breakdownOf, campaignValues, compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { Breakdown } from "@/components/sheet/components/breakdown/breakdown";
 import { SpendAsk } from "@/components/sheet/components/spend-ask/spend-ask";
@@ -29,6 +29,8 @@ type SheetViewProps = {
   ruleset: Ruleset;
   /** Player characters at the table: the `party.characters` the formulas read. */
   characters: number;
+  /** The campaign's values in play (`state.campaign.fields`); without it the manifest's defaults are read. */
+  campaign?: Readonly<Record<string, number | string | boolean>>;
   /** The GM's seat steps every resource and calls rests; a player's by the resource's `editableBy`. */
   gm: boolean;
   /** This seat's pending spend requests (a player's phone); the GM's seat asks for nothing. */
@@ -40,7 +42,17 @@ type SheetViewProps = {
 
 // SHEET: one character as the ruleset's layout lays it out. Every value is the server's, already cut down to what this
 // seat may see; the only thing worked out here is the Breakdown of a number, from the same manifest.
-export function SheetView({ actor, ruleset, characters, gm, requests = [], send, books, requestPage }: SheetViewProps) {
+export function SheetView({
+  actor,
+  ruleset,
+  characters,
+  campaign,
+  gm,
+  requests = [],
+  send,
+  books,
+  requestPage,
+}: SheetViewProps) {
   const t = useTranslations("sheet");
   const tDuration = useTranslations("duration");
   const tReset = useTranslations("resetEvent");
@@ -52,6 +64,7 @@ export function SheetView({ actor, ruleset, characters, gm, requests = [], send,
     const c = compileRuleset(ruleset);
     return c.ok ? c.compiled : null;
   }, [ruleset]);
+  const inPlay = campaign ?? (compiled ? campaignValues({ compiled, stored: {} }) : undefined);
   const sections = sectionsOf({ ruleset, actor });
   const conditions = actor.conditions.flatMap((id) => ruleset.conditions.find((c) => c.id === id) ?? []);
   const rests = restsOf(ruleset);
@@ -84,7 +97,7 @@ export function SheetView({ actor, ruleset, characters, gm, requests = [], send,
             stat={row.id}
             label={row.label}
             value={actor.resources[row.id] ?? 0}
-            range={compiled ? rangeOf({ compiled, resource: row.id, actor, characters }) : null}
+            range={compiled ? rangeOf({ compiled, resource: row.id, actor, characters, campaign: inPlay }) : null}
             steps={stepsOf({ ruleset, resource: row.id, gm })}
             holder={actor.name}
             note={
@@ -147,6 +160,7 @@ export function SheetView({ actor, ruleset, characters, gm, requests = [], send,
             resources: actor.resources,
             conditions: actor.conditions,
             party: { characters },
+            campaign: inPlay,
           },
           total: actor.derived[opened.id] ?? 0,
           viewer: { role: gm ? "gm" : "player", characterIds: [actor.id] },

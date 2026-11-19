@@ -165,6 +165,8 @@ export const REFUSALS = {
   // How the table sits
   changeBetweenSessions: "Change how the table sits between sessions.",
   modeNotPlayed: "This game isn't played that way.",
+  unknownCampaignField: "This game has no such setting.",
+  campaignFieldValue: "That value does not fit: {detail}",
   soloOneSeat: "A solo room seats one player.",
   noGmHere: "Nobody runs this room as GM, so nothing can be GM-only.",
   noGmSeats: "This room has no GM seats.",

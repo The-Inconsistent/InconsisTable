@@ -57,6 +57,12 @@ export const Action = z.discriminatedUnion("type", [
   z.object({ type: z.literal("campaign.unpinRuleset") }),
   // How the room sits: owner only, between sessions, among the modes the ruleset allows (docs/adr/0009-table-modes.md).
   z.object({ type: z.literal("campaign.setTableMode"), mode: TableMode }),
+  // A campaign field of the pinned ruleset (house decision #58); the api checks the value against its definition.
+  z.object({
+    type: z.literal("campaign.setField"),
+    fieldId: z.string().min(1).max(64),
+    value: z.union([z.number().int().min(-2147483648).max(2147483647), z.string().max(100), z.boolean()]),
+  }),
   z.object({ type: z.literal("campaign.attachPack"), packVersionId: id }),
   z.object({ type: z.literal("campaign.detachPack"), packVersionId: id }),
 
@@ -245,6 +251,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "campaign.setRuleset": "campaign:ruleset",
   "campaign.unpinRuleset": "campaign:ruleset",
   "campaign.setTableMode": "campaign:table_mode",
+  "campaign.setField": "campaign:update",
   "campaign.attachPack": "campaign:ruleset",
   "campaign.detachPack": "campaign:ruleset",
   "session.start": "session:run",

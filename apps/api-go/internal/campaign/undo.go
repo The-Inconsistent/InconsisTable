@@ -98,7 +98,11 @@ func Undo(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, 
 		if err != nil {
 			return cs.Result{}, err
 		}
-		built, err := actor.Build(rules, actorRows)
+		campaign, err := actor.LoadCampaign(ctx, tx, cid, rules)
+		if err != nil {
+			return cs.Result{}, err
+		}
+		built, err := actor.Build(rules, actorRows, campaign)
 		if err != nil {
 			return cs.Result{}, err
 		}
@@ -127,7 +131,7 @@ func Undo(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, 
 				}
 				continue
 			}
-			pool, declared, err := actor.BuildPool(rules, t.Pool, nil, actor.CountCharacters(actorRows))
+			pool, declared, err := actor.BuildPool(rules, t.Pool, nil, actor.CountCharacters(actorRows), campaign)
 			if err != nil {
 				return cs.Result{}, err
 			}

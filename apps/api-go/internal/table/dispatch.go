@@ -206,6 +206,7 @@ var handlers = map[string]handler{
 	"campaign.setRuleset":   campaign.SetRuleset,
 	"campaign.unpinRuleset": campaign.UnpinRuleset,
 	"campaign.setTableMode": campaign.SetTableMode,
+	"campaign.setField":     campaign.SetField,
 	"campaign.attachPack":   campaign.AttachPack,
 	"campaign.detachPack":   campaign.DetachPack,
 	// campaign/event.actions.ts

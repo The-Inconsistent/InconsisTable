@@ -15,6 +15,8 @@ type (
 		NextSessionPlace string  `json:"nextSessionPlace"`
 		TableMode        string  `json:"tableMode"`
 		Safety           Safety  `json:"safety"`
+		// Fields is each campaign field of the pinned ruleset at its value in play; {} without a ruleset or fields.
+		Fields map[string]any `json:"fields"`
 	}
 	// Safety is the table's Session Zero: what stays out (lines), what stays off the page (veils), the X-Card's switch.
 	Safety struct {

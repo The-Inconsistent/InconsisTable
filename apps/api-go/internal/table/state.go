@@ -3,6 +3,7 @@ package table
 import (
 	"context"
 	"errors"
+	"maps"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -81,7 +82,13 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	built, err := actor.Build(compiled, rows)
+	campaign, err := actor.LoadCampaign(ctx, conn, campaignID, compiled)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	state.Campaign.Fields = map[string]any{}
+	maps.Copy(state.Campaign.Fields, campaign)
+	built, err := actor.Build(compiled, rows, campaign)
 	if err != nil {
 		return nil, nil, nil, err
 	}

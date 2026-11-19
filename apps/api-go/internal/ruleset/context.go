@@ -88,7 +88,11 @@ func OpenIfPinned(ctx context.Context, tx core.Conn, c cs.Ctx) (*Context, error)
 	if err != nil {
 		return nil, err
 	}
-	built, err := actor.Build(rules, rows)
+	campaign, err := actor.LoadCampaign(ctx, tx, c.CampaignID, rules)
+	if err != nil {
+		return nil, err
+	}
+	built, err := actor.Build(rules, rows, campaign)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +104,7 @@ func OpenIfPinned(ctx context.Context, tx core.Conn, c cs.Ctx) (*Context, error)
 	if err != nil {
 		return nil, err
 	}
-	pools, err := actor.BuildPools(rules, poolRows, actor.CountCharacters(rows))
+	pools, err := actor.BuildPools(rules, poolRows, actor.CountCharacters(rows), campaign)
 	if err != nil {
 		return nil, err
 	}

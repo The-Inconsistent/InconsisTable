@@ -78,8 +78,25 @@ func SetRuleset(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	if other {
 		return cs.Result{}, cs.Fail("detachPacksFirst")
 	}
+	// Read before the pin moves: the campaign values are judged against the version they were set under.
+	var old *engine.CompiledRuleset
+	if !used {
+		if old, err = compiled.Load(ctx, tx, cid); err != nil {
+			return cs.Result{}, err
+		}
+	}
 	if _, err = tx.Exec(ctx, `UPDATE campaign SET ruleset_version_id = $1 WHERE id = $2`, versionID, cid); err != nil {
 		return cs.Result{}, err
+	}
+	if !used && old != nil {
+		// No character to orphan, so the check above was skipped: a campaign value the new version cannot hold is dropped.
+		next, err := compiled.LoadVersion(ctx, tx, versionID)
+		if err != nil || next == nil {
+			return cs.Result{}, err
+		}
+		if err := dropCampaignFields(ctx, tx, cid, old, next); err != nil {
+			return cs.Result{}, err
+		}
 	}
 	if used {
 		// Every stored value fits (checkUpgrade), so the characters just follow the room.
@@ -149,8 +166,8 @@ func checkUpgrade(ctx context.Context, tx core.Conn, cid, rulesetID, versionID s
 	return cs.Fail("versionNotCompatible", cs.Params{"detail": detail})
 }
 
-// tableProblems are the lines for what the room holds apart from its actors' values: creation choices, pools and open
-// Test calls.
+// tableProblems are the lines for what the room holds apart from its actors' values: creation choices, pools, campaign
+// values and open Test calls.
 func tableProblems(ctx context.Context, tx core.Conn, cid string, old, next *engine.CompiledRuleset) ([]string, error) {
 	var out []string
 	hasStep := func(c *engine.CompiledRuleset, id string) bool {
@@ -186,7 +203,16 @@ func tableProblems(ctx context.Context, tx core.Conn, cid string, old, next *eng
 	}); err != nil {
 		return nil, err
 	}
-	err := each(`SELECT DISTINCT test_id, '' FROM test_call WHERE campaign_id = $1 AND status = 'open'`, func(id, _ string) {
+	fields, err := actor.LoadCampaignRows(ctx, tx, cid)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range fields {
+		if problem := fieldProblem(old, next, r); problem != "" {
+			out = append(out, "table: "+problem)
+		}
+	}
+	err = each(`SELECT DISTINCT test_id, '' FROM test_call WHERE campaign_id = $1 AND status = 'open'`, func(id, _ string) {
 		if next.Tests[id] == nil {
 			out = append(out, fmt.Sprintf(`table: an open Test call uses "%s"`, id))
 		}
@@ -206,6 +232,7 @@ func UnpinRuleset(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.
 	}
 	for _, statement := range []string{
 		`DELETE FROM campaign_pack WHERE campaign_id = $1`,
+		`DELETE FROM campaign_field WHERE campaign_id = $1`,
 		`UPDATE campaign SET ruleset_version_id = NULL WHERE id = $1`,
 	} {
 		if _, err := tx.Exec(ctx, statement, c.CampaignID); err != nil {

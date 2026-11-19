@@ -46,6 +46,39 @@ Không chép lịch sử git. Không chép `packages/data`, `books/`, ảnh port
 
 Theme "Imperial Manuscript" **không** chép làm mặc định. P0 dùng một theme trung tính; theme theo World làm ở P2.
 
+## auspex_gm sau khi chuyển
+
+Quyết định chuyển repo đã được trả lời và đóng ở auspex_gm#180 (2026-10-12). auspex_gm vẫn chạy bàn W&G cho tới khi
+P4 xong, có thể còn lâu.
+
+**Điểm chép:**
+- Lõi đã được chép trong PR #1 (`claude/p0-skeleton`, 2026-10-11), từ auspex_gm `main` quanh commit `27e4d936`. PR #1
+  không ghi SHA nguồn; nếu khác thì sửa dòng này.
+- Ba PR này của auspex_gm chưa merge lúc chép, nên lõi InconsisTable **chưa có** chúng. Chúng trùng với thiết kế:
+
+  | PR auspex_gm | Trùng với |
+  |---|---|
+  | #255 clock và đếm ngược | Clocks (§3.4) |
+  | #256 pause card, tín hiệu dừng ẩn danh | X-Card (§1.4, §3.4) |
+  | #173 action journal: UNDO, HISTORY, nháp recap | `session_event` và undo phía server (§3.4) |
+
+  Khi một PR merge ở auspex_gm: chép phần trung lập sang, hoặc ghi rõ là sẽ viết lại ở P1/P2.
+
+**Phần thiết kế ghi "[Có]" nhưng auspex_gm chưa có:** undo phía server, chỉ có trong #173, chưa merge. (Token
+`screen` đã có: `access_token.role = "screen"`, `screen.issue`/`screen.revoke`, PR #168.)
+
+**Sửa lõi sau điểm chép:**
+- Lõi là những phần ở bảng chép phía trên: `packages/auth`, `apps/api/src/{core,table,auth,campaign,codex,admin}`,
+  lobby, invite, `hooks/use-table`.
+- auspex_gm vào chế độ bảo trì cho lõi: chỉ làm tính năng W&G, thay đổi lõi giữ nhỏ.
+- PR nào ở auspex_gm sửa lõi (nhất là lỗi bảo mật ở auth, invite, gateway) thì mở kèm một issue ở InconsisTable trỏ tới
+  PR đó, để sửa ở cả hai repo.
+
+**Cần quyết:**
+- Việc đang mở ở auspex_gm (roadmap #202, epic bản đồ in #212) ở lại auspex_gm hay chuyển sang? Bản đồ in của #212
+  (lưới 1 inch, Core p.179) khác với bản đồ hỗ trợ trí nhớ ở §3.8.
+- Khi P4 xong và bàn W&G đã chuyển sang: archive auspex_gm (chỉ đọc, vẫn private)?
+
 ## Phần viết mới
 
 **`packages/core-schema`**

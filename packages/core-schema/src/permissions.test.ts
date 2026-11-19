@@ -65,6 +65,7 @@ test("a co-GM holds a GM permission only through its scope", () => {
     ["character:edit:any", "party"],
     ["session:run", "session"],
     ["test:call", "session"],
+    ["pool:adjust", "session"],
     ["encounter:run", "combat"],
     ["codex:write", "codex"],
     ["codex:reveal", "codex"],
@@ -158,7 +159,7 @@ test("the GM grant set is a superset of what a co-GM can ever reach", () => {
 // Without a GM (docs/adr/0009-table-modes.md) every player seat runs the table; nobody reads what is kept for a GM.
 const inMode = (ctx: Ctx, tableMode: Ctx["tableMode"]): Ctx => ({ ...ctx, tableMode });
 const held = (ctx: Ctx) => Permission.options.filter((perm) => can(ctx, perm));
-const PLAYER_BASE = ["codex:read", "request:send", "safety:signal", "seat:leave"];
+const PLAYER_BASE = ["codex:read", "request:send", "safety:signal", "seat:leave", "pool:adjust"];
 const TABLE_RUN = ["session:run", "encounter:run", "clock:run", "test:call", "codex:write", "codex:reveal"];
 const OWNER_PLAYS = [
   "campaign:update",

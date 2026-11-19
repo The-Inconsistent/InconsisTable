@@ -13,7 +13,7 @@ import {
 
 /**
  * Where a delta writes. An actor's resource, field or condition row, the encounter's turn state, or the open Test
- * call. A `condition` target names the row (`ConditionState.id`): `add` changes its `expiresAfter`, `set` with
+ * call, or a shared pool (`pool`: a resource of scope party, gm or campaign, used with `add` only). A `condition` target names the row (`ConditionState.id`): `add` changes its `expiresAfter`, `set` with
  * `null` removes the row.
  */
 export const DeltaTarget = z.union([
@@ -22,6 +22,7 @@ export const DeltaTarget = z.union([
   z.strictObject({ actorId: z.string().min(1), condition: z.string().min(1) }),
   z.strictObject({ turn: TurnKey }),
   z.strictObject({ test: TestKey }),
+  z.strictObject({ pool: z.string().min(1) }),
 ]);
 export type DeltaTarget = z.infer<typeof DeltaTarget>;
 
@@ -34,7 +35,12 @@ export type Delta = z.infer<typeof Delta>;
 
 /** What an op may write: a resource or field id (`*` for any), a turn key or a Test key. No actor: that is `perm`'s job. */
 export type TargetPattern =
-  { resource: string } | { field: string } | { condition: "*" } | { turn: TurnKey } | { test: TestKey };
+  | { resource: string }
+  | { field: string }
+  | { condition: "*" }
+  | { turn: TurnKey }
+  | { test: TestKey }
+  | { pool: string };
 
 /** A resource as the op sees it: its value and the bounds the caller evaluated (`resourceBounds`). */
 export interface ResourceState {
@@ -82,6 +88,8 @@ export interface TurnState {
 export interface RuleState {
   actors: Readonly<Record<string, ActorState>>;
   turn: TurnState | null;
+  /** Shared pools (resources of scope party, gm or campaign) by resource id. Absent or empty: none loaded. */
+  pools?: Readonly<Record<string, ResourceState>>;
 }
 
 export interface Refusal {
@@ -143,6 +151,32 @@ export function actorResource({
   return { actor, res };
 }
 
+/** Read a shared pool from the state, or say it is missing. */
+export function readPool({ state, pool }: { state: RuleState; pool: string }): ResourceState | Refusal {
+  const res = state.pools !== undefined && Object.hasOwn(state.pools, pool) ? state.pools[pool] : undefined;
+  return res === undefined ? refuse("unknownPool", `no pool "${pool}"`) : res;
+}
+
+/**
+ * Pays `amount` (a positive whole number) from a pool: one `add` of minus the amount. It refuses rather than clamps
+ * when the pool could not cover it, and the refusal never names the value, so a hidden pool does not leak.
+ */
+export function charge({
+  state,
+  pool,
+  amount,
+}: {
+  state: RuleState;
+  pool: string;
+  amount: number;
+}): { delta: Delta } | Refusal {
+  const res = readPool({ state, pool });
+  if (isRefusal(res)) return res;
+  if (!Number.isInteger(amount) || amount <= 0) return refuse("badInput", "amount must be a positive whole number");
+  if (res.value - amount < res.min) return refuse("cannotPay", `cannot pay from "${pool}"`);
+  return { delta: { target: { pool }, kind: "add", value: -amount } };
+}
+
 export function isRefusal(v: object): v is Refusal {
   return "code" in v && "message" in v;
 }
@@ -153,6 +187,7 @@ function matches(target: DeltaTarget, pattern: TargetPattern): boolean {
   if ("field" in target) return "field" in pattern && (pattern.field === "*" || pattern.field === target.field);
   if ("condition" in target) return "condition" in pattern;
   if ("turn" in target) return "turn" in pattern && pattern.turn === target.turn;
+  if ("pool" in target) return "pool" in pattern && (pattern.pool === "*" || pattern.pool === target.pool);
   return "test" in pattern && pattern.test === target.test;
 }
 

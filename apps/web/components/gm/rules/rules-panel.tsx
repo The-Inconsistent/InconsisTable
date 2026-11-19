@@ -3,17 +3,19 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type ChangeEvent } from "react";
 
-import { canInCampaign, type ActionInput, type Me } from "@inconsistable/core-schema";
+import { canInCampaign, type ActionInput, type LiveState, type Me } from "@inconsistable/core-schema";
+import type { Ruleset } from "@inconsistable/rules-engine";
 
+import { CampaignSettings } from "@/components/gm/rules/campaign-settings/campaign-settings";
 import type { Send } from "@/hooks/use-table/use-table";
 import type { RulesTabData } from "@/lib/library/library";
 
-type RulesPanelProps = { me: Me; send: Send; data: RulesTabData | null };
+type RulesPanelProps = { me: Me; send: Send; data: RulesTabData | null; state: LiveState; ruleset: Ruleset | null };
 
 // RULES: the ruleset this room plays and the packs attached to it. The owner pins a ruleset they imported and attaches
 // or detaches their packs; a refusal (characters already use another version, a private pack in the wrong room) shows
 // under the thing that was tapped. Everything imported lives in the library (/library).
-export function RulesPanel({ me, send, data }: RulesPanelProps) {
+export function RulesPanel({ me, send, data, state, ruleset }: RulesPanelProps) {
   const t = useTranslations("rulesPanel");
   const router = useRouter();
   const canEdit = canInCampaign({ ctx: me, perm: "campaign:ruleset" });
@@ -90,6 +92,13 @@ export function RulesPanel({ me, send, data }: RulesPanelProps) {
           </p>
         )}
       </section>
+
+      <CampaignSettings
+        ruleset={ruleset}
+        state={state}
+        send={send}
+        canEdit={canInCampaign({ ctx: me, perm: "campaign:update" })}
+      />
 
       <section className="stack">
         <h2 className="head">{t("packs")}</h2>

@@ -110,7 +110,7 @@ export function GmApp({ me, initialTab, rules, view, quick = false }: GmAppProps
           <Tests state={state} send={send} testId={callTestId ?? undefined} />
         ) : tab === "rules" ? (
           <div className="stack" style={{ gap: 32 }}>
-            <RulesPanel me={me} send={send} data={rules} />
+            <RulesPanel me={me} send={send} data={rules} state={state} ruleset={view?.ruleset ?? null} />
             {view && (
               <section className="stack">
                 <h2 className="title">{t("readRules")}</h2>

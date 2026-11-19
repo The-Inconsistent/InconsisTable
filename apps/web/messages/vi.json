@@ -663,7 +663,12 @@
     "attach": "Gắn",
     "detachLabel": "Gỡ {slug}",
     "detach": "Gỡ",
-    "libraryNote": "<link>Bộ luật & pack</link>: nhập, xuất hoặc xóa."
+    "libraryNote": "<link>Bộ luật & pack</link>: nhập, xuất hoặc xóa.",
+    "settings": "Thiết lập campaign",
+    "settingsHint": "Luật đọc những giá trị này. Đổi khi cả bàn đồng ý.",
+    "on": "Bật",
+    "off": "Tắt",
+    "save": "Lưu"
   },
   "creatures": {
     "readFailed": "Không đọc được luật. Hãy thử lại",

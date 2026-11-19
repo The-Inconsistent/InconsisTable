@@ -1,10 +1,23 @@
 name: CI
 
+# Actions minutes are scarce (a free plan, shared by the organisation's private repos), so a run happens only when it
+# can tell us something:
+# - not for a change that touches only documents;
+# - not for a draft pull request (a stack is opened as drafts and checked locally; marking one ready runs it);
+# - and a newer push to the same pull request, or to main, cancels the run of the older one, so merging a stack of
+#   pull requests checks and publishes its last commit once instead of every commit.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore: ["docs/**", "**/*.md", ".claude/**"]
   push:
     branches: [main]
+    paths-ignore: ["docs/**", "**/*.md", ".claude/**"]
   workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   # The api's sign-in SDK lives in the private InconsisID repository (apps/api-go/go.mod).
@@ -12,7 +25,9 @@ env:
 
 jobs:
   check:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: read
@@ -41,7 +56,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: apps/api-go/go.mod
-          cache: false
+          # The Go step is more than half of this job when it compiles from nothing; the module and build caches are
+          # kept per go.sum.
+          cache: true
+          cache-dependency-path: apps/api-go/go.sum
       # The workflow's own token reads only this repository. The InconsisID reader app mints one that reads InconsisID
       # only, for an hour, and owes nothing to a person's account.
       - name: Mint a token that reads InconsisID

@@ -143,6 +143,11 @@ These are binding: follow them when writing code and use them when reviewing.
 
 The trunk is `main`. Work happens on a branch and lands through a pull request.
 
+Actions minutes are scarce (a free plan, shared with the organisation's other private repos), so CI
+(`.github/workflows/ci.yml`) skips draft pull requests and changes that touch only documents, and a newer push cancels
+the older run. Open a pull request, or a stack of them, as drafts; run `bun run test:go` and `bun run test:smoke`
+locally; mark it ready when CI should run. Push once, not after every commit.
+
 ## Agent skills
 
 ### Issue tracker

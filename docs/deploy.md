@@ -151,9 +151,12 @@ in the table `schema_migration`. A database the NestJS api migrated keeps workin
 
 The public stack is `deploy/vps/compose.yaml`: Caddy, web, api, InconsisID and Postgres 18 on one host, run as a
 Dockhand stack. Every setting and secret lives in that stack's variables in Dockhand, so changing one is an edit and a
-redeploy there; none is a file you keep on the host. On every merge to `main`, the `publish` job in
+redeploy there; none is a file you keep on the host. On a merge to `main`, the `publish` job in
 `.github/workflows/ci.yml` builds the api and web once `check` has passed (`ghcr.io/the-inconsistent/inconsistable-api`
-and `-web`, tagged `sha-<short>` and `main`), so no image of a failing commit exists.
+and `-web`, tagged `sha-<short>` and `main`), so no image of a failing commit exists. To save Actions minutes, a merge
+that touches only documents builds nothing, and when several merges land together (a stack of pull requests) only the
+last commit is checked and built: deploy the newest `sha-<short>`. To build the commit `main` is on now, run the CI
+workflow by hand (Actions, CI, Run workflow).
 InconsisID's image (`ghcr.io/the-inconsistent/inconsisid`) comes from its own repo, on its `server-v*` tags. The VPS
 never builds anything.
 

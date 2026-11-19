@@ -125,7 +125,7 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 	if state.Games, err = game.Load(ctx, conn, campaignID); err != nil {
 		return nil, nil, nil, err
 	}
-	if state.Pools, err = loadPools(ctx, conn, campaignID, compiled, rows); err != nil {
+	if state.Pools, err = loadPools(ctx, conn, campaignID, compiled, rows, campaign); err != nil {
 		return nil, nil, nil, err
 	}
 	if state.Access, err = loadAccess(ctx, conn, campaignID); err != nil {
@@ -140,8 +140,9 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 }
 
 // loadPools is every pool the pinned ruleset declares, in manifest order, with its value (the minimum without a row).
+// A pool's bounds may read the campaign's values, so the record in play is passed in.
 // Empty without a ruleset; a pool whose bounds cannot be evaluated is left out.
-func loadPools(ctx context.Context, conn core.Conn, campaignID string, compiled *engine.CompiledRuleset, rows []actor.Rows) ([]cs.PoolState, error) {
+func loadPools(ctx context.Context, conn core.Conn, campaignID string, compiled *engine.CompiledRuleset, rows []actor.Rows, campaign map[string]any) ([]cs.PoolState, error) {
 	out := []cs.PoolState{}
 	if compiled == nil {
 		return out, nil
@@ -150,7 +151,7 @@ func loadPools(ctx context.Context, conn core.Conn, campaignID string, compiled 
 	if err != nil {
 		return nil, err
 	}
-	pools, err := actor.BuildPools(compiled, stored, actor.CountCharacters(rows))
+	pools, err := actor.BuildPools(compiled, stored, actor.CountCharacters(rows), campaign)
 	if err != nil {
 		return nil, err
 	}

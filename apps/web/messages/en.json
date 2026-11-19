@@ -663,7 +663,12 @@
     "attach": "Attach",
     "detachLabel": "Detach {slug}",
     "detach": "Detach",
-    "libraryNote": "<link>Rulesets & packs</link>: import, export or delete."
+    "libraryNote": "<link>Rulesets & packs</link>: import, export or delete.",
+    "settings": "Campaign settings",
+    "settingsHint": "Rules read these values. Change them when the table agrees.",
+    "on": "On",
+    "off": "Off",
+    "save": "Save"
   },
   "creatures": {
     "readFailed": "Couldn't read the rules. Try again",

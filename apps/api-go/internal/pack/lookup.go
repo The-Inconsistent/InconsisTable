@@ -41,6 +41,8 @@ type StoredEntry struct {
 	Cite          *string
 	Visibility    string
 	Body          map[string]any
+	// Effects is what an actor that chose the entry gets in its numbers, as stored JSON (house decision #61).
+	Effects json.RawMessage
 }
 
 // EntryLookup is the lookup RunCreation picks from, over entries already loaded: only what this seat may see (a player
@@ -102,7 +104,7 @@ func LoadServedEntries(ctx context.Context, conn core.Conn, campaignID string, o
 		fmt.Fprintf(&where, " AND pack_entry.pack_version_id = $%d", len(args))
 	}
 	rows, err := conn.Query(ctx, `SELECT pack_entry.pack_version_id::text, pack_entry.key, pack_entry.type, pack_entry.name,
-			pack_entry.level, pack_entry.tags, pack_entry.cite, pack_entry.visibility, pack_entry.body
+			pack_entry.level, pack_entry.tags, pack_entry.cite, pack_entry.visibility, pack_entry.body, pack_entry.effects
 		FROM pack_entry
 		JOIN campaign_pack ON campaign_pack.pack_version_id = pack_entry.pack_version_id
 		JOIN pack_version ON pack_version.id = pack_entry.pack_version_id
@@ -117,7 +119,7 @@ func LoadServedEntries(ctx context.Context, conn core.Conn, campaignID string, o
 		var e StoredEntry
 		var level *int32
 		var body []byte
-		if err := rows.Scan(&e.PackVersionID, &e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body); err != nil {
+		if err := rows.Scan(&e.PackVersionID, &e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body, &e.Effects); err != nil {
 			return nil, err
 		}
 		if level != nil {

@@ -30,7 +30,7 @@ func TestStartingResourcesHonourStart(t *testing.T) {
 	if compiled == nil {
 		t.Fatalf("does not compile: %v", problems)
 	}
-	got, err := StartingResources(compiled, "pc", map[string]any{}, 0, nil)
+	got, err := StartingResources(compiled, "pc", map[string]any{}, 0, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -19,7 +19,7 @@ import type {
 import { MAX_PAGE_BYTES } from "@inconsistable/core-schema";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
-import { SAMPLE_PACK } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
+import { SAMPLE_PACK, SAMPLE_PACK_EFFECTS } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
@@ -2241,6 +2241,30 @@ test("actor.build: the server runs the creation, writes the values, and refuses 
   assert.ok(logged.length >= 2); // written as deltas, in the log like any other
 
   refused(await ana.c.send(build(GOOD_ANSWERS)), /Already built/);
+  for (const c of [owner, ana.c, ben.c]) c.socket.close();
+});
+
+test("a chosen pack entry's effects raise the numbers of the actor that chose it, and only that actor", async () => {
+  const { owner, ana, ben, campaignId } = await buildRoom("Boons");
+  const me = caller(await device("owner-Boons"));
+  const boons = await me.post<PackReply>("/packs", SAMPLE_PACK_EFFECTS);
+  assert.equal(boons.status, 201);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: boons.body.versionId }));
+  const answers = (lineage: string, calling: string) => ({ ...GOOD_ANSWERS, lineage: [lineage], calling: [calling] });
+  // Swift Blood adds 2 Grace (a base effect) and Shield Arm adds 3 Defense (a derived one); Ben takes neither.
+  ok(await ana.c.send({ type: "actor.build", actorId: ana.held, answers: answers("swift-blood", "shield-arm") }));
+  ok(await ben.c.send({ type: "actor.build", actorId: ben.held, answers: answers("reedfolk", "wayfinder") }));
+  const defense = (id: string) => (s: LiveState) => actorIn(s, id)?.derived.defense !== undefined;
+  const view = await ben.c.until((s) => defense(ana.held)(s) && defense(ben.held)(s));
+  assert.equal(actorIn(view, ana.held)?.derived.defense, 3 + 0 + 3); // guard 3, Grace 11 (+0), Shield Arm 3
+  assert.equal(actorIn(view, ben.held)?.derived.defense, 3 - 1); // guard 3, Grace 9 (-1)
+  assert.equal(actorIn(view, ana.held)?.fields["attr.dex"], 9); // the stored field is the base; the effect is on top
+  assert.equal(actorIn(await ana.c.until(defense(ana.held)), ana.held)?.derived.defense, 6);
+  // The served entries carry their effects, for the builder's preview.
+  const rules = await get(`/campaigns/${campaignId}/rules`, { cookie: await device("owner-Boons") });
+  const served = (await rules.json()) as { entries: { key: string; effects: unknown[] }[] };
+  assert.equal(served.entries.find((e) => e.key === "shield-arm")?.effects.length, 1);
+  assert.equal(served.entries.find((e) => e.key === "reedfolk")?.effects.length, 0);
   for (const c of [owner, ana.c, ben.c]) c.socket.close();
 });
 

@@ -24,12 +24,12 @@ type StartingResource struct {
 // StartingResources is the entity's resources at the start: the resource's own `start` when it declares one, else full
 // when it has a ceiling, else at its floor (house decision #23). A resource whose bounds can't be evaluated yet (a field it reads is unset) is left out, as is
 // everything when the derived values can't be computed.
-func StartingResources(compiled *engine.CompiledRuleset, entity string, fields map[string]any, characters float64, campaign map[string]any) ([]StartingResource, error) {
+func StartingResources(compiled *engine.CompiledRuleset, entity string, fields map[string]any, characters float64, campaign map[string]any, entries []engine.ActiveEntry) ([]StartingResource, error) {
 	ce, ok := compiled.Entities[entity]
 	if !ok {
 		return nil, nil
 	}
-	values := engine.ActorValues{Fields: fields, Resources: map[string]float64{}, Conditions: []string{}, Characters: characters, Campaign: campaign}
+	values := engine.ActorValues{Fields: fields, Resources: map[string]float64{}, Conditions: []string{}, Characters: characters, Campaign: campaign, Entries: entries}
 	var exprErr engine.ExprError
 	derived, err := compiled.DeriveValues(entity, values)
 	if errors.As(err, &exprErr) {
@@ -121,7 +121,7 @@ func WriteStart(ctx context.Context, tx core.Conn, c cs.Ctx, compiled *engine.Co
 				deltas = append(deltas, engine.Delta{Target: engine.DeltaTarget{ActorID: t.ActorID, Field: field}, Kind: "set", Value: value})
 			}
 		}
-		start, err := StartingResources(compiled, b.Entity, t.Fields, characters, campaign)
+		start, err := StartingResources(compiled, b.Entity, t.Fields, characters, campaign, b.Entries)
 		if err != nil {
 			return "", err
 		}

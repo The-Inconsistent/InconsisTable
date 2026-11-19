@@ -91,6 +91,8 @@ type rulesEntry struct {
 	Cite       *string        `json:"cite"`
 	Visibility string         `json:"visibility"`
 	Body       map[string]any `json:"body"`
+	// Effects is what an actor that chose the entry gets in its numbers; [] when none.
+	Effects json.RawMessage `json:"effects"`
 }
 
 type rulesRuleset struct {
@@ -177,7 +179,7 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 		return nil, err
 	}
 	args = append(args, query.Limit, query.Offset)
-	entries, err := conn.Query(ctx, `SELECT pack_version_id::text, key, type, name, level, tags, cite, visibility, body FROM pack_entry
+	entries, err := conn.Query(ctx, `SELECT pack_version_id::text, key, type, name, level, tags, cite, visibility, body, effects FROM pack_entry
 		WHERE `+where+fmt.Sprintf(` ORDER BY type ASC, name ASC, key ASC LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, err
@@ -188,7 +190,7 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 		var packVersion string
 		var level *int32
 		var body []byte
-		if err := entries.Scan(&packVersion, &e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body); err != nil {
+		if err := entries.Scan(&packVersion, &e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body, &e.Effects); err != nil {
 			return nil, err
 		}
 		e.Pack = slugOf[packVersion]

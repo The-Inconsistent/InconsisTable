@@ -62,7 +62,7 @@ function FieldRow({ id, field, value, busy, canEdit, onSet }: FieldRowProps) {
             <button
               key={String(o)}
               type="button"
-              className="btn sm"
+              className="btn"
               aria-pressed={value === o}
               onClick={() => onSet(id, o)}
             >

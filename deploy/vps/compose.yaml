@@ -1,17 +1,22 @@
 # The public VPS stack: InconsisTable (web, api), InconsisID (idp), Postgres 18 and Caddy on one host. Every app is a
 # prebuilt image (never `build:`): the VPS builds nothing. docs/deploy.md, "VPS", has the one-time setup.
 #
-# On the host this file is /srv/inconsis/compose.yaml, next to /srv/inconsis/.env (0600, never committed):
-#   TABLE_HOST, AUTH_HOST       the two public host names, e.g. table.example.com, auth.example.com
+# A Dockhand stack named `inconsis` (backup.sh finds Postgres by that project name). Every value comes from the stack's
+# variables in Dockhand; none is committed and none lives in a file on the host:
+#   TABLE_HOST, AUTH_HOST       the two public host names, e.g. inconsistable.app, auth.inconsistable.app
 #   APP_TAG                     inconsistable-api/-web tag, sha-<short> from .github/workflows/publish-ghcr.yml
-#   IDP_TAG                     inconsisid image tag
-#   DATABASE_URL                postgres://it:<it_db_password>@postgres:5432/it (hex: a URL-safe password)
-#   ADMIN_KEY                   optional; 32+ characters (openssl rand -hex 32)
-# Then: docker compose pull && docker compose up -d, or "Pull & redeploy" once Dockhand has imported this stack.
-#
-# Secret files live in /srv/inconsis/secrets (dir 0700 root, files 0444), bind-mounted one by one, so each container
-# sees only its own. create_host_path: false makes a missing file fail the start instead of becoming a directory.
-# Needs Docker Compose 2.23.1+ (inline configs).
+#   IDP_TAG                     inconsisid image tag (InconsisID's server-v<version> release)
+# and, as Dockhand secrets:
+#   POSTGRES_PASSWORD           the superuser, for the entrypoint and backups
+#   IT_DB_PASSWORD              the api's role `it` (hex: URL-safe in DATABASE_URL)
+#   IDP_DB_PASSWORD             InconsisID's role `it_idp`
+#   OP_KEK, OP_JWKS, OP_COOKIE_KEYS   InconsisID's key-sealing key, first signing keys, cookie keys (JSON on one line)
+#   IDP_CLIENT_JWK              this app's private client key from InconsisID's admin console (JSON on one line);
+#                               empty until registered, and the api refuses to boot without it
+#   ADMIN_KEY                   optional; 32+ characters
+# The three passwords and the InconsisID keys are read on the first boot of an empty volume or database only: changing
+# them later in Dockhand alone breaks the stack (docs/deploy.md, "Changing a secret").
+# Deploy only from Dockhand: a `docker compose up` from a shell has none of these values.
 name: inconsis
 
 services:
@@ -32,31 +37,11 @@ services:
     environment:
       # The superuser is only for the entrypoint and backups; the api connects as `it`, which is not one.
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-    volumes:
-      - pgdata:/var/lib/postgresql
-      - {
-          type: bind,
-          source: /srv/inconsis/secrets/postgres_password,
-          target: /run/secrets/postgres_password,
-          read_only: true,
-          bind: { create_host_path: false },
-        }
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       # The app roles and their databases, made on the first boot of an empty volume only (init_roles).
-      - {
-          type: bind,
-          source: /srv/inconsis/secrets/it_db_password,
-          target: /run/secrets/it_db_password,
-          read_only: true,
-          bind: { create_host_path: false },
-        }
-      - {
-          type: bind,
-          source: /srv/inconsis/secrets/idp_db_password,
-          target: /run/secrets/idp_db_password,
-          read_only: true,
-          bind: { create_host_path: false },
-        }
+      IT_DB_PASSWORD: ${IT_DB_PASSWORD:?set IT_DB_PASSWORD}
+      IDP_DB_PASSWORD: ${IDP_DB_PASSWORD:?set IDP_DB_PASSWORD}
+    volumes: [pgdata:/var/lib/postgresql]
     # Executable, so the entrypoint runs it rather than sourcing it into its own shell.
     configs: [{ source: init_roles, target: /docker-entrypoint-initdb.d/10-roles.sh, mode: 0555 }]
     healthcheck:
@@ -70,7 +55,7 @@ services:
     restart: unless-stopped
     mem_limit: 256m
     environment:
-      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      DATABASE_URL: postgres://it:${IT_DB_PASSWORD}@postgres:5432/it
       ADMIN_KEY: ${ADMIN_KEY:-}
       WEB_ORIGIN: https://${TABLE_HOST:?set TABLE_HOST}
       PORT: "4000"
@@ -82,16 +67,10 @@ services:
       # Rate limits take the client from the last X-Forwarded-For entry: Caddy sets it from the address it saw (the
       # table site below) and the web passes it on. Safe only because nothing outside this stack reaches the api.
       TRUST_XFF: "1"
-    volumes:
-      - {
-          type: bind,
-          source: /srv/inconsis/secrets/idp_client_jwk.json,
-          target: /run/secrets/idp_client_jwk.json,
-          read_only: true,
-          bind: { create_host_path: false },
-        }
+    volumes: [api_secrets:/run/secrets:ro]
     depends_on:
       postgres: { condition: service_healthy }
+      secrets: { condition: service_completed_successfully, restart: true }
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:4000/api/health"]
       interval: 10s
@@ -126,39 +105,43 @@ services:
       DATABASE_URL: postgres://it_idp@postgres:5432/it_auth
       # Only Caddy reaches port 4100: the IdP believes the last X-Forwarded-For hop, which Caddy sets.
       BIND_PROXY_ONLY: "true"
-    volumes:
-      - {
-          type: bind,
-          source: /srv/inconsis/secrets/op_kek,
-          target: /run/secrets/op_kek,
-          read_only: true,
-          bind: { create_host_path: false },
-        }
-      # Read on the first boot against an empty database only (sealed into it with op_kek); keep them mounted anyway.
-      - {
-          type: bind,
-          source: /srv/inconsis/secrets/op_jwks.json,
-          target: /run/secrets/op_jwks.json,
-          read_only: true,
-          bind: { create_host_path: false },
-        }
-      - {
-          type: bind,
-          source: /srv/inconsis/secrets/op_cookie_keys.json,
-          target: /run/secrets/op_cookie_keys.json,
-          read_only: true,
-          bind: { create_host_path: false },
-        }
-      - {
-          type: bind,
-          source: /srv/inconsis/secrets/idp_db_password,
-          target: /run/secrets/db_password,
-          read_only: true,
-          bind: { create_host_path: false },
-        }
+    # Read only (InconsisID's README): op_jwks.json and op_cookie_keys.json matter on the first boot against an empty
+    # database only (sealed into it with op_kek); op_kek and db_password on every boot.
+    volumes: [idp_secrets:/run/secrets:ro]
     depends_on:
       postgres: { condition: service_healthy }
+      secrets: { condition: service_completed_successfully, restart: true }
     networks: [edge, data]
+
+  # Writes the Dockhand secrets the containers read as files into two volumes, then exits. Compose can't make a secret
+  # file from a variable inside a read_only container (the idp), so this one does it before the idp and the api start.
+  # Every deploy rewrites them, so a changed value reaches the files on the next "Pull & redeploy".
+  secrets:
+    image: busybox:1.37
+    restart: "no"
+    network_mode: none
+    environment:
+      OP_KEK: ${OP_KEK:?set OP_KEK}
+      OP_JWKS: ${OP_JWKS:?set OP_JWKS}
+      OP_COOKIE_KEYS: ${OP_COOKIE_KEYS:?set OP_COOKIE_KEYS}
+      IDP_DB_PASSWORD: ${IDP_DB_PASSWORD}
+      # Empty until the app is registered in InconsisID; the api refuses to boot without it.
+      IDP_CLIENT_JWK: ${IDP_CLIENT_JWK:-}
+    volumes: [idp_secrets:/idp, api_secrets:/api]
+    command:
+      - sh
+      - -euc
+      - |
+        umask 077
+        printf '%s' "$$OP_KEK" > /idp/op_kek
+        printf '%s' "$$OP_JWKS" > /idp/op_jwks.json
+        printf '%s' "$$OP_COOKIE_KEYS" > /idp/op_cookie_keys.json
+        printf '%s' "$$IDP_DB_PASSWORD" > /idp/db_password
+        printf '%s' "$$IDP_CLIENT_JWK" > /api/idp_client_jwk.json
+        # The idp runs as 65532 (distroless nonroot), the api as nobody.
+        chown -R 65532:65532 /idp
+        chown -R 65534:65534 /api
+        chmod 700 /idp /api
 
 configs:
   # Mirrors InconsisID's deploy/Caddyfile.example for the IdP; the table site adds the same timeouts. `$$` is a literal
@@ -226,8 +209,8 @@ configs:
       # and enable pg_trgm (a trusted extension) without being a superuser. it_idp is InconsisID's db/roles.sql.
       set -eu
       psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d postgres \
-        -v it_password="$$(cat /run/secrets/it_db_password)" \
-        -v idp_password="$$(cat /run/secrets/idp_db_password)" <<'SQL'
+        -v it_password="$$IT_DB_PASSWORD" \
+        -v idp_password="$$IDP_DB_PASSWORD" <<'SQL'
       SELECT format(
         'CREATE ROLE it LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',
         :'it_password'
@@ -261,5 +244,7 @@ networks:
 
 volumes:
   pgdata:
+  idp_secrets:
+  api_secrets:
   caddy_data:
   caddy_config:

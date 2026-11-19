@@ -800,6 +800,7 @@
     "reportedResult": "Result: {label}"
   },
   "callForm": {
+    "nobodyTakes": "No one here takes this Test.",
     "wholeNumber": "Fill in {id} with a whole number",
     "fillIn": "Fill in {id}",
     "pickWho": "Pick who rolls",

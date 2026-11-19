@@ -7,6 +7,8 @@ import { ScalarType } from "@inconsistable/rules-engine";
 
 import type { Send } from "@/hooks/use-table/use-table";
 
+import { keepTakers, takers } from "./takers";
+
 type CallFormProps = {
   state: LiveState;
   send: Send;
@@ -54,19 +56,26 @@ export function CallForm({ state, send, initialTargets = [], initialTestId, onCa
   const t = useTranslations("callForm");
   const [testId, setTestId] = useState(initialTestId ?? state.testDefs[0]?.id ?? "");
   const [draft, setDraft] = useState<Draft>({});
-  const [targets, setTargets] = useState<string[]>(initialTargets);
+  const [targets, setTargets] = useState<string[]>(() =>
+    keepTakers({
+      picked: initialTargets,
+      actors: state.actors,
+      def: state.testDefs.find((d) => d.id === testId) ?? state.testDefs[0],
+    }),
+  );
   const [hideTarget, setHideTarget] = useState(true);
   const [showOutcome, setShowOutcome] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const def = state.testDefs.find((d) => d.id === testId) ?? state.testDefs[0];
-  // ponytail: lists every built actor; a Test that names its actor types (house decision #50) is refused by the server
-  // for the others. Upgrade: carry `entities` on TestDef in the Seat view and filter here.
-  const roster = useMemo(() => state.actors.filter((a) => a.entity !== ""), [state.actors]);
+  const roster = useMemo(() => takers({ actors: state.actors, def }), [state.actors, def]);
 
-  // TEST: switching Test clears what was filled in for the old one.
+  // TEST: switching Test clears what was filled in for the old one, and who can't take the new one.
   const handleTest = (e: ChangeEvent<HTMLSelectElement>) => {
     setTestId(e.target.value);
     setDraft({});
+    setTargets((cur) =>
+      keepTakers({ picked: cur, actors: state.actors, def: state.testDefs.find((d) => d.id === e.target.value) }),
+    );
   };
 
   // WHO: adds or removes one character from the call.
@@ -167,7 +176,11 @@ export function CallForm({ state, send, initialTargets = [], initialTestId, onCa
               {a.name}
             </button>
           ))}
-          {roster.length === 0 && <span className="dim">{t("noCharacter")}</span>}
+          {roster.length === 0 && (
+            <span className="dim">
+              {state.actors.some((a) => a.entity !== "") ? t("nobodyTakes") : t("noCharacter")}
+            </span>
+          )}
         </div>
       </div>
       {!def.outcomes && (

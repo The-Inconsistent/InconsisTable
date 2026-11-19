@@ -800,6 +800,7 @@
     "reportedResult": "Kết quả: {label}"
   },
   "callForm": {
+    "nobodyTakes": "Ở đây không ai gieo Test này.",
     "wholeNumber": "Hãy nhập số nguyên cho {id}",
     "fillIn": "Hãy điền {id}",
     "pickWho": "Chọn người đổ",

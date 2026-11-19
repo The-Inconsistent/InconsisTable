@@ -276,12 +276,14 @@ type (
 	}
 	// TestDef is a Test the GM can call.
 	TestDef struct {
-		ID        string         `json:"id"`
-		Dice      string         `json:"dice"`
-		Advantage bool           `json:"advantage"`
-		Pool      *PoolSpec      `json:"pool"`
-		Outcomes  []OutcomeSpec  `json:"outcomes"`
-		Inputs    []TestDefInput `json:"inputs"`
+		ID        string        `json:"id"`
+		Dice      string        `json:"dice"`
+		Advantage bool          `json:"advantage"`
+		Pool      *PoolSpec     `json:"pool"`
+		Outcomes  []OutcomeSpec `json:"outcomes"`
+		// Entities is the actor entity types that take the Test; omitted when every type does.
+		Entities []string       `json:"entities,omitempty"`
+		Inputs   []TestDefInput `json:"inputs"`
 	}
 	// TestResult is a reported roll; a field the seat may not see is nil.
 	TestResult struct {

@@ -236,7 +236,7 @@ func undoTurn(ctx context.Context, tx core.Conn, cid string, logged eventlog.Wri
 		return t.Order, nil
 	}
 	// Someone who left the fight since has no flag to compare: the list is read without them.
-	if key == turn.Done {
+	if key == turn.Done || key == turn.Held || key == turn.Barred {
 		here, err := order()
 		if err != nil {
 			return nil, nil, err

@@ -255,7 +255,7 @@ var handlers = map[string]handler{
 	"campaign.transferCancel": auth.TransferCancel,
 	"campaign.transferAccept": auth.TransferAccept,
 	// ruleset/ruleset.actions.ts
-	"rule.op":          ruleset.RuleOp,
+	"rule.op":          encounter.RuleOp,
 	"field.set":        ruleset.FieldSet,
 	"condition.add":    ruleset.ConditionAdd,
 	"condition.remove": ruleset.ConditionRemove,

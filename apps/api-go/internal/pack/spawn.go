@@ -116,7 +116,12 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 		return cs.Result{}, err
 	}
 	if fight != nil {
-		if err := encounter.AddCombatants(ctx, tx, cid, fight.ID, made, "foe", "hidden"); err != nil {
+		// A sides order places a creature by its entity type (house decision #60); any other makes it a foe.
+		side := "foe"
+		if i := rules.Ruleset.Initiative; i != nil && i.Strategy == "sides" {
+			side = ""
+		}
+		if err := encounter.AddCombatants(ctx, tx, cid, fight.ID, made, side, "hidden"); err != nil {
 			return cs.Result{}, err
 		}
 	}

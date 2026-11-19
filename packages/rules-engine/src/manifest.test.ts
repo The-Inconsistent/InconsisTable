@@ -263,8 +263,14 @@ test("sides: entities and unableStates are checked", () => {
   assert.deepEqual(problems({ sides: [{ ...a, entities: ["lineage"] }, b] }), [
     'initiative.sides[0].entities[0]: "lineage" is not an actor entity',
   ]);
-  assert.deepEqual(problems({ sides: [{ ...a, entities: ["character"] }, { ...b, entities: ["character"] }] }), [
-    'initiative.sides[1].entities[0]: "character" is already on side "wardens"',
-  ]);
+  assert.deepEqual(
+    problems({
+      sides: [
+        { ...a, entities: ["character"] },
+        { ...b, entities: ["character"] },
+      ],
+    }),
+    ['initiative.sides[1].entities[0]: "character" is already on side "wardens"'],
+  );
   assert.deepEqual(problems({ unableStates: ["nope"] }), ['initiative.unableStates[0]: unknown health state "nope"']);
 });

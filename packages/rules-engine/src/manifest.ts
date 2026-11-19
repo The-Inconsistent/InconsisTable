@@ -970,7 +970,8 @@ function semanticProblems(r: Ruleset): Problem[] {
     }
   });
 
-  if (r.initiative?.strategy === "sides") sidesProblems({
+  if (r.initiative?.strategy === "sides")
+    sidesProblems({
       init: r.initiative,
       resources,
       entities: (id) => r.entities.find((e) => e.id === id),

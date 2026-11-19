@@ -1121,8 +1121,22 @@ function sidesCrafted(): object[] {
     block({ sides: [{ id: "red", label: "" }, two[1]] }),
     // Entities on a side and the states that leave a member unable (the ruleset below declares "pc", "gear" and "hurt").
     withKinds(block({ sides: [{ ...two[0], entities: ["pc"] }, two[1]], unableStates: ["hurt"] })),
-    withKinds(block({ sides: [{ ...two[0], entities: ["pc"] }, { ...two[1], entities: ["gear"] }] })),
-    withKinds(block({ sides: [{ ...two[0], entities: ["pc"] }, { ...two[1], entities: ["pc"] }] })),
+    withKinds(
+      block({
+        sides: [
+          { ...two[0], entities: ["pc"] },
+          { ...two[1], entities: ["gear"] },
+        ],
+      }),
+    ),
+    withKinds(
+      block({
+        sides: [
+          { ...two[0], entities: ["pc"] },
+          { ...two[1], entities: ["pc"] },
+        ],
+      }),
+    ),
     withKinds(block({ sides: [{ ...two[0], entities: ["pc", "pc"] }, two[1]] })),
     withKinds(block({ sides: [{ ...two[0], entities: ["nope"] }, two[1]] })),
     withKinds(block({ sides: [{ ...two[0], entities: [] }, two[1]], unableStates: [] })),

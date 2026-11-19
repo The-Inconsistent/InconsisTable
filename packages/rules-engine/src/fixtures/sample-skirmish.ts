@@ -16,10 +16,7 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
   ],
   health: {
     ...SAMPLE_D20.health,
-    states: [
-      ...(SAMPLE_D20.health?.states ?? []),
-      { id: "downed", label: "Downed", when: "res.hp <= 0" },
-    ],
+    states: [...(SAMPLE_D20.health?.states ?? []), { id: "downed", label: "Downed", when: "res.hp <= 0" }],
   },
   initiative: {
     strategy: "sides",

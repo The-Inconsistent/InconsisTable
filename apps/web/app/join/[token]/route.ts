@@ -1,4 +1,5 @@
 import { API_ORIGIN, type JoinError } from "@/app/constants";
+import { forwardedIp } from "@/app/server-api";
 import { CampaignRef, readJson } from "@/lib/api-reply/api-reply";
 
 type JoinContext = { params: Promise<{ token: string }> };
@@ -12,7 +13,6 @@ export async function GET(request: Request, { params }: JoinContext) {
   const { token } = await params;
   // The api rate-limits guest joins by the caller's IP (core/rate-limit.ts), not this server's. This server is the web
   // origin itself, so it says so to the api's CSRF check (core/csrf.ts), as the browser does for the lobby's writes.
-  const ip = request.headers.get("cf-connecting-ip");
   let res: Response;
   try {
     res = await fetch(`${API_ORIGIN}/api/join`, {
@@ -20,7 +20,7 @@ export async function GET(request: Request, { params }: JoinContext) {
       headers: {
         "content-type": "application/json",
         "sec-fetch-site": "same-origin",
-        ...(ip ? { "cf-connecting-ip": ip } : {}),
+        ...forwardedIp(request.headers),
       },
       body: JSON.stringify({ token }),
       cache: "no-store",

@@ -25,6 +25,9 @@ này không chứa một dòng nội dung nào của sách (ADR 0001).
   merge (ADR 0010, luật 5). Test và fixture của nó dùng game bịa (`sample-*`), không có tên hay số của Wrath & Glory.
 - Chỗ sách mơ hồ: lấy đúng quyết định đã ghi ở `docs/rules-flow.md` §11 của auspex_gm, chép thành `decisions[]` của
   ruleset bằng lời mình. Chỗ engine phải chọn: `docs/house-decisions.md`.
+- **Hành vi của game và của bàn đã chốt ở auspex_gm** (các mục §11, code, và những buổi chơi thử đã diễn ra ở đó). Gặp
+  câu hỏi "nên chạy thế nào", tra auspex_gm trước và làm theo; chỉ hỏi chủ sản phẩm khi auspex_gm không có câu trả lời
+  hoặc platform không làm giống được, và nói rõ khác ở đâu.
 - Trên GitHub viết đủ tên sách (Vow of Absolution, không viết tắt).
 
 ## Đã làm (bước 0, 2026-11-19)
@@ -149,27 +152,33 @@ bước 0 đã làm.
    chọn cột.
 6. **Mob:** chưa đưa nội dung Mob vào pack; chờ khối Mob của platform (thiếu 10).
 
+## Đã có câu trả lời ở auspex_gm (tra 2026-11-20)
+
+| Câu hỏi | auspex_gm làm gì | Nguồn |
+|---|---|---|
+| Ai đổi Glory và Ruin | Chỉ GM. Người chơi xin tiêu Glory từ điện thoại, GM bấm ACCEPT mới là tiêu. Ruin không xin được | `PLAYER_ACTIONS`, §11.122, §11.123 |
+| Ai thấy pool | Glory: cả bàn. Ruin: chỉ GM. Yêu cầu tiêu đang chờ: cả bàn thấy | §11.58, §11.123, `toPlayerView` |
+| Pool trước khi có ai ghi | 0 | cột `glory`, `ruin` mặc định 0 |
+| Không đủ để trả (Seize khi hết Glory) | Từ chối cả hành động, không trừ một phần | `encounter.actions.ts` "No Glory to spend"; `spend.actions.ts` |
+| Tier có thể trống không | Không: campaign nào cũng có Tier, chọn lúc tạo | `campaign.tier NOT NULL` |
+| Khi nào đổi Tier | GM đổi lúc nào cũng được (`campaign.update`), hoặc qua Ascension | `campaign.actions.ts` |
+| Ai thấy Tier | Mọi ghế | `toPlayerView` giữ `campaign.tier` |
+| Class của Threat theo Tier | Dưới Tier in đầu tiên thì lấy class của Tier đó; quá cột cuối thì lấy cột cuối. Class chốt lúc Threat vào trận | `threatClassAt`, `addThreat` |
+| Round 0 | Là một bước riêng: không Turn, không Seize, đánh dấu phục kích, AWARE, rồi BEGIN ROUND 1 | §3, §11.167, §11.177 |
+| TURN BACK | Lấy lại bước lượt gần nhất cùng sát thương từ bước đó, hoàn phí Seize và AWARE; pool, Wrath, XP khác không đụng. Giữ 30 bước. Đi cùng UNDO HIT | §11.170, §11.183 |
+
+Platform làm theo đúng các dòng trên. Hai chỗ platform làm khác cách nhưng cùng kết quả:
+
+- **Round 0** lưu là "chưa bắt đầu" của một khối `setup` khai trong manifest, không phải vòng số 0, để hai cách xếp lượt
+  kia không đổi. Ruleset gọi nó là Round 0.
+- **Class theo Tier:** pack ghi sẵn đủ năm cột bằng chính `threatClassAt`, nên không cột nào trống. Platform đọc cột
+  theo Tier của campaign. Khác auspex_gm một điểm: class đi theo Tier ngay cả khi Tier đổi giữa trận, còn auspex_gm chốt
+  lúc vào trận.
+
 ## Chờ chốt
 
-1. **Round 0 của trận.** Thiết kế xếp lượt theo phe từng đề nghị bỏ Round 0. Đối chiếu với luồng trận và phục kích của
-   Auspex (`docs/rules-flow.md` §3, §11.167, §11.177, chốt 2026-11-16) thì **không bỏ được**: Round 0 là bước riêng, ở
-   đó không Turn nào bắt đầu được, không Seize được, GM đánh dấu phục kích từng dòng hoặc cả phe, điện thoại của Agent
-   bị phục kích hiện AMBUSHED cùng nút xin AWARE, và BEGIN ROUND 1 xoá dấu đã đi / giữ lượt bấm nhầm nhưng giữ dấu phục
-   kích. Gộp nó vào Round 1 thì điện thoại báo "phe bạn tới lượt" khi GM còn đang xác định phục kích. **Đề nghị:** giữ
-   bước này thành một khối `setup` tuỳ chọn trong manifest, lưu là "chưa bắt đầu" chứ không phải vòng số 0 (để `ranked`,
-   `seated` và luật "vòng từ 1" không đổi), có op `begin`. Wrath & Glory gọi nó là Round 0 bằng từ vựng của mình.
-2. **TURN BACK.** Thiết kế từng đề nghị chỉ dùng undo từng bước. Auspex đã chốt hai lần (§11.170 ngày 2026-11-16,
-   §11.183 ngày 2026-11-18, PR auspex_gm #173) là giữ cả hai: UNDO HIT lấy lại một lần bấm, TURN BACK lấy lại bước lượt
-   cùng sát thương từ bước đó. Cần chốt TURN BACK ở đây làm bằng cách nào: undo ngược nhật ký tới bước lượt gần nhất
-   (lấy lại cả những lần tiêu pool trong khoảng đó, điều Auspex cố ý không làm), hay chụp lại trạng thái trận như
-   Auspex.
-3. **Pool chung** (thiếu 18) làm trước khối xếp lượt: Glory, Ruin, phí Seize và AWARE đều cần nó.
-4. **Phần còn lại của pack Threat**, đề nghị mặc định: mỗi bản in là một entry riêng (32 tên trùng ở 65 file, không bản
-   nào giống số); chuẩn hoá 7 cách viết sai tên Skill về đúng id; bỏ ghi chú chép tay (`note`); Determination chỉ cấu
-   trúc hoá 236 dòng dạng chuẩn; sách không có số trang in thì cite trang PDF.
-5. **ADR 0010** đã merge nhưng còn ghi "proposed": đổi thành "accepted"?
-6. **Chỗ để script và file sinh ra:** đang để trong auspex_gm (theo kiến trúc, game nằm ngoài repo này).
-7. **Bản đồ in có ô lưới** mà Auspex đã hứa: vẫn chưa quyết, ngoài phạm vi P3.
+1. **ADR 0010** đã merge nhưng còn ghi "proposed": đổi thành "accepted"?
+2. **Bản đồ in có ô lưới** mà Auspex đã hứa: vẫn chưa quyết, ngoài phạm vi P3.
 
 ## Không làm ở P3
 

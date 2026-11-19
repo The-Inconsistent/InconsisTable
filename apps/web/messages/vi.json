@@ -879,6 +879,8 @@
     "noOffer": "Không có lời nhượng nào để bạn nhận",
     "rulesetNotFound": "Không tìm thấy bộ luật",
     "charactersUseOtherVersion": "Các nhân vật ở đây đang dùng một phiên bản khác của bộ luật",
+    "endEncounterFirst": "Kết thúc trận trước khi đổi phiên bản bộ luật.",
+    "versionNotCompatible": "Phiên bản này không khớp với những gì đang chơi: {detail}",
     "detachPacksFirst": "Hãy gỡ các pack viết cho bộ luật kia trước",
     "charactersBuilt": "Các nhân vật ở đây đã dựng theo bộ luật này nên nó phải giữ nguyên",
     "pickRulesetFirst": "Hãy chọn bộ luật của campaign trước",

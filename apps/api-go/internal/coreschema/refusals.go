@@ -59,6 +59,8 @@ var refusals = map[string]string{
 	"noOffer":                   "There is no offer for you to accept",
 	"rulesetNotFound":           "Ruleset not found",
 	"charactersUseOtherVersion": "Characters here already use another version of the ruleset",
+	"endEncounterFirst":         "End the encounter before changing the ruleset version.",
+	"versionNotCompatible":      "This version does not fit what is in play: {detail}",
 	"detachPacksFirst":          "Detach the packs written for the other ruleset first",
 	"charactersBuilt":           "Characters here are built with this ruleset, so it stays pinned",
 	"pickRulesetFirst":          "Pick the room's ruleset first",

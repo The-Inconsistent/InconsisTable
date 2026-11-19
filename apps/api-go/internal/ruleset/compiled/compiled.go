@@ -29,10 +29,22 @@ var cache = struct {
 
 // Load is the compiled ruleset a campaign has pinned, or nil before one is.
 func Load(ctx context.Context, conn core.Conn, campaignID string) (*engine.CompiledRuleset, error) {
-	var versionID, hash string
-	err := conn.QueryRow(ctx, `SELECT ruleset_version.id::text, ruleset_version.hash FROM campaign
-		JOIN ruleset_version ON ruleset_version.id = campaign.ruleset_version_id WHERE campaign.id = $1`, campaignID).
-		Scan(&versionID, &hash)
+	var versionID string
+	err := conn.QueryRow(ctx, `SELECT ruleset_version_id::text FROM campaign WHERE id = $1 AND ruleset_version_id IS NOT NULL`,
+		campaignID).Scan(&versionID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return LoadVersion(ctx, conn, versionID)
+}
+
+// LoadVersion is the compiled form of one ruleset version, or nil when there is none.
+func LoadVersion(ctx context.Context, conn core.Conn, versionID string) (*engine.CompiledRuleset, error) {
+	var hash string
+	err := conn.QueryRow(ctx, `SELECT hash FROM ruleset_version WHERE id = $1`, versionID).Scan(&hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}

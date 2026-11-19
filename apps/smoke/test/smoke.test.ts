@@ -1321,14 +1321,29 @@ const resourceOf = (c: ReturnType<typeof connect>, id: string, resource: string,
   c.until((s) => s.actors.find((a) => a.id === id)?.resources[resource] === value);
 const actorIn = (s: LiveState, id: string) => s.actors.find((a) => a.id === id);
 
-test("campaign.setRuleset: a room whose characters use a version can't move to another", async () => {
-  const { owner, ana, ownerDevice } = await rulesRoom("Pin");
-  const next = await caller(ownerDevice).post<RulesetReply>("/rulesets", { ...FIXTURE_RULESET, version: "0.2.0" });
-  assert.equal(next.status, 201);
+// House decision #51: nothing stored is rewritten, so the room moves only to a version every stored value still fits.
+test("campaign.setRuleset: a room whose characters are built moves only to a version their values fit", async () => {
+  const { owner, ana, hero, ownerDevice } = await rulesRoom("Pin");
+  const post = (over: Partial<typeof FIXTURE_RULESET>) =>
+    caller(ownerDevice).post<RulesetReply>("/rulesets", { ...FIXTURE_RULESET, ...over });
+  const [character, ...others] = FIXTURE_RULESET.entities;
+  assert.ok(character);
+  // Lyra is level 3; this version stops at 2.
+  const level = { type: "int", label: "Level", min: 1, max: 2, visibility: "party" } as const;
+  const tight = await post({
+    version: "0.2.0",
+    entities: [{ ...character, fields: { ...character.fields, level } }, ...others],
+  });
+  assert.equal(tight.status, 201);
   refused(
-    await owner.send({ type: "campaign.setRuleset", rulesetVersionId: next.body.versionId }),
-    /already use another version/,
+    await owner.send({ type: "campaign.setRuleset", rulesetVersionId: tight.body.versionId }),
+    /does not fit what is in play: Lyra: field "level"/,
   );
+  // The same rules under a new number: every value fits, and the characters come along with what they had.
+  const same = await post({ version: "0.3.0" });
+  assert.equal(same.status, 201);
+  ok(await owner.send({ type: "campaign.setRuleset", rulesetVersionId: same.body.versionId }));
+  await resourceOf(owner, hero, "hp", 14);
   refused(await owner.send({ type: "campaign.unpinRuleset" }), "charactersBuilt");
   for (const c of [owner, ana]) c.socket.close();
 });

@@ -3,19 +3,24 @@ package campaign
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
 
 // The room's ruleset and packs (apps/api/src/campaign/rules.actions.ts).
 //
-// ponytail: a room pins its ruleset version once. Moving a room that already has characters to another version needs
-// the migration with a dry-run diff (docs/p1-plan.md "Không làm ở P1"); until then it is refused.
+// ponytail: only a version every stored value still fits; a version that renames or removes something in play needs
+// the declared migrations of design §4.5.
 
 // A built character's values belong to the version they were built under.
 const builtActor = `campaign_id = $1 AND (ruleset_version_id IS NOT NULL OR entity_type <> '')`
@@ -60,7 +65,9 @@ func SetRuleset(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 		return cs.Result{}, err
 	}
 	if used {
-		return cs.Result{}, cs.Fail("charactersUseOtherVersion")
+		if err := checkUpgrade(ctx, tx, cid, rulesetID, versionID); err != nil {
+			return cs.Result{}, err
+		}
 	}
 	// Packs are written for one ruleset; keep only ones that fit the new version's.
 	other, err := exists(ctx, tx, `SELECT 1 FROM campaign_pack cp JOIN pack_version pv ON pv.id = cp.pack_version_id
@@ -71,8 +78,120 @@ func SetRuleset(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	if other {
 		return cs.Result{}, cs.Fail("detachPacksFirst")
 	}
-	_, err = tx.Exec(ctx, `UPDATE campaign SET ruleset_version_id = $1 WHERE id = $2`, versionID, cid)
-	return cs.Done(""), err
+	if _, err = tx.Exec(ctx, `UPDATE campaign SET ruleset_version_id = $1 WHERE id = $2`, versionID, cid); err != nil {
+		return cs.Result{}, err
+	}
+	if used {
+		// Every stored value fits (checkUpgrade), so the characters just follow the room.
+		if _, err := tx.Exec(ctx, `UPDATE actor SET ruleset_version_id = $1 WHERE campaign_id = $2 AND ruleset_version_id IS NOT NULL`,
+			versionID, cid); err != nil {
+			return cs.Result{}, err
+		}
+		// A draft written under another version is never read again (actor.LoadDrafts filters by the pinned version).
+		if _, err := tx.Exec(ctx, `DELETE FROM builder_draft WHERE campaign_id = $1`, cid); err != nil {
+			return cs.Result{}, err
+		}
+	}
+	return cs.Done(""), nil
+}
+
+// checkUpgrade is the compatible upgrade (house decision #51): characters already built under the room's version move
+// to another version of the same ruleset when nothing stored would have to change.
+func checkUpgrade(ctx context.Context, tx core.Conn, cid, rulesetID, versionID string) error {
+	var pinned *string
+	if err := tx.QueryRow(ctx, `SELECT v.ruleset_id::text FROM campaign c LEFT JOIN ruleset_version v ON v.id = c.ruleset_version_id
+		WHERE c.id = $1`, cid).Scan(&pinned); err != nil {
+		return err
+	}
+	if pinned == nil || *pinned != rulesetID {
+		return cs.Fail("charactersUseOtherVersion")
+	}
+	running, err := exists(ctx, tx, `SELECT 1 FROM session WHERE campaign_id = $1 AND ended_at IS NULL`, cid)
+	if err != nil {
+		return err
+	}
+	if running {
+		return cs.Fail("changeBetweenSessions")
+	}
+	open, err := exists(ctx, tx, `SELECT 1 FROM encounter WHERE campaign_id = $1 AND active`, cid)
+	if err != nil {
+		return err
+	}
+	if open {
+		return cs.Fail("endEncounterFirst")
+	}
+	old, err := compiled.Load(ctx, tx, cid)
+	if err != nil || old == nil {
+		return err
+	}
+	next, err := compiled.LoadVersion(ctx, tx, versionID)
+	if err != nil || next == nil {
+		return err
+	}
+	rows, err := actor.LoadRows(ctx, tx, cid)
+	if err != nil {
+		return err
+	}
+	problems := actor.Incompatible(old, next, rows)
+	more, err := tableProblems(ctx, tx, cid, old, next)
+	if err != nil {
+		return err
+	}
+	problems = append(problems, more...)
+	if len(problems) == 0 {
+		return nil
+	}
+	slices.Sort(problems)
+	detail := strings.Join(problems[:min(5, len(problems))], "; ")
+	if len(problems) > 5 {
+		detail += fmt.Sprintf("; and %d more", len(problems)-5)
+	}
+	return cs.Fail("versionNotCompatible", cs.Params{"detail": detail})
+}
+
+// tableProblems are the lines for what the room holds apart from its actors' values: creation choices, pools and open
+// Test calls.
+func tableProblems(ctx context.Context, tx core.Conn, cid string, old, next *engine.CompiledRuleset) ([]string, error) {
+	var out []string
+	hasStep := func(c *engine.CompiledRuleset, id string) bool {
+		return slices.ContainsFunc(c.Ruleset.Creation, func(s engine.CreationStep) bool { return s.ID == id })
+	}
+	each := func(sql string, fn func(a, b string)) error {
+		rows, err := tx.Query(ctx, sql, cid)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var a, b string
+			if err := rows.Scan(&a, &b); err != nil {
+				return err
+			}
+			fn(a, b)
+		}
+		return rows.Err()
+	}
+	if err := each(`SELECT DISTINCT a.name, c.step_id FROM actor_choice c JOIN actor a ON a.id = c.actor_id
+		WHERE a.campaign_id = $1`, func(name, step string) {
+		if hasStep(old, step) && !hasStep(next, step) {
+			out = append(out, fmt.Sprintf(`%s: creation step "%s" is gone`, name, step))
+		}
+	}); err != nil {
+		return nil, err
+	}
+	if err := each(`SELECT scope, resource_id FROM resource_pool WHERE campaign_id = $1`, func(scope, id string) {
+		if o, n := old.Resources[id], next.Resources[id]; o != nil && (n == nil || n.Def.Scope != scope) {
+			out = append(out, fmt.Sprintf(`table: pool "%s" is gone`, id))
+		}
+	}); err != nil {
+		return nil, err
+	}
+	err := each(`SELECT DISTINCT test_id, '' FROM test_call WHERE campaign_id = $1 AND status = 'open'`, func(id, _ string) {
+		if next.Tests[id] == nil {
+			out = append(out, fmt.Sprintf(`table: an open Test call uses "%s"`, id))
+		}
+	})
+	return out, err
 }
 
 // UnpinRuleset is campaign.unpinRuleset. A built character's values belong to the pinned version, so unpinning would

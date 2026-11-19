@@ -125,6 +125,14 @@ func (r Room) Actor(t *testing.T, tx pgx.Tx, kind, name, entity string) string {
 // Pin imports a manifest as the owner's and pins it to the room. The manifest must compile.
 func (r Room) Pin(t *testing.T, tx pgx.Tx, manifest string) {
 	t.Helper()
+	version := r.AddVersion(t, tx, manifest, "0.1.0", "")
+	Exec(t, tx, `UPDATE campaign SET ruleset_version_id = $1 WHERE id = $2`, version, r.ID)
+}
+
+// AddVersion imports a manifest as the owner's without pinning it, and returns the version id: a new version of
+// rulesetID, or, with "", a ruleset of its own.
+func (r Room) AddVersion(t *testing.T, tx pgx.Tx, manifest, version, rulesetID string) string {
+	t.Helper()
 	var input any
 	if err := json.Unmarshal([]byte(manifest), &input); err != nil {
 		t.Fatal(err)
@@ -138,11 +146,12 @@ func (r Room) Pin(t *testing.T, tx pgx.Tx, manifest string) {
 		t.Fatal(err)
 	}
 	hash := engine.Sha256Hex(engine.CanonicalJSON(compiled.Ruleset.Normalized))
-	ruleset := Scalar[string](t, tx, `INSERT INTO ruleset (owner_user_id, slug, title) VALUES ($1, $2, 'Fixture') RETURNING id::text`,
-		r.Owner, compiled.Ruleset.ID)
-	version := Scalar[string](t, tx, `INSERT INTO ruleset_version (ruleset_id, version, hash, manifest) VALUES ($1, '0.1.0', $2, $3)
-		RETURNING id::text`, ruleset, hash, normalized)
-	Exec(t, tx, `UPDATE campaign SET ruleset_version_id = $1 WHERE id = $2`, version, r.ID)
+	if rulesetID == "" {
+		rulesetID = Scalar[string](t, tx, `INSERT INTO ruleset (owner_user_id, slug, title) VALUES ($1, $2, 'Fixture') RETURNING id::text`,
+			r.Owner, compiled.Ruleset.ID)
+	}
+	return Scalar[string](t, tx, `INSERT INTO ruleset_version (ruleset_id, version, hash, manifest) VALUES ($1, $2, $3, $4)
+		RETURNING id::text`, rulesetID, version, hash, normalized)
 }
 
 // Fixture is a small ruleset of our own invention ("Fixture p.N" points at no book; CLAUDE.md): a character with Grit,

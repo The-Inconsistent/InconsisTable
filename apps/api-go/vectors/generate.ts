@@ -956,7 +956,7 @@ function compiledView(c: CompiledRuleset) {
         expr: exprView(d.expr),
       })),
       effects: e.effects.map((x) => ({
-        conditionId: x.conditionId,
+        conditionId: x.sourceId, // the vectors keep the old key: a condition id is still a source id
         phase: x.phase,
         mode: x.mode,
         target: x.target,

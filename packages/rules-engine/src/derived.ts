@@ -1,4 +1,11 @@
-import type { CompiledEffect, CompiledRuleset } from "./compile.ts";
+import {
+  byOrder,
+  compileEntryEffects,
+  type ActiveEntry,
+  type CompiledEffect,
+  type CompiledEntity,
+  type CompiledRuleset,
+} from "./compile.ts";
 import type { EffectMode, ResetEvent } from "./enums.ts";
 import type { ExprRecord, ExprValue } from "./expr/expr.ast.ts";
 import { evaluateBool, evaluateInt } from "./expr/expr.ts";
@@ -15,6 +22,8 @@ export interface ActorValues {
   resources?: Readonly<Record<string, number>>;
   /** Active condition ids; their effects apply in §4.4 order. */
   conditions?: readonly string[];
+  /** The pack entries the actor chose (house decision #61); their effects apply with the conditions', in §4.4 order. */
+  entries?: readonly ActiveEntry[];
   party?: { characters: number };
   /** The campaign's field values (`campaign.danger`), as `campaignValues` gives them. */
   campaign?: Readonly<Record<string, number | string | boolean>>;
@@ -99,11 +108,24 @@ function applyMode({ mode, current, value }: { mode: EffectMode; current: number
   }
 }
 
-function activeEffects({ effects, conditions }: { effects: readonly CompiledEffect[]; conditions: readonly string[] }) {
+function activeEffects({
+  compiled,
+  entity,
+  ce,
+  values,
+}: {
+  compiled: CompiledRuleset;
+  entity: string;
+  ce: CompiledEntity;
+  values: ActorValues;
+}): CompiledEffect[] {
   // ponytail: an effect applies once per active condition, whatever its stacks; per-stack scaling when a ruleset
   // declares one.
-  const active = new Set(conditions);
-  return effects.filter((e) => active.has(e.conditionId));
+  const active = new Set(values.conditions ?? []);
+  const fromConditions = ce.effects.filter((e) => active.has(e.sourceId));
+  const fromEntries = compileEntryEffects({ compiled, entity, entries: values.entries ?? [] });
+  // ponytail: entry effects compile on every call; cache by entry when a profile shows it.
+  return fromEntries.length === 0 ? fromConditions : [...fromConditions, ...fromEntries].sort(byOrder);
 }
 
 function entityOf({ compiled, entity }: { compiled: CompiledRuleset; entity: string }) {
@@ -124,7 +146,7 @@ export function applyBaseEffects({
 }): Record<string, FieldValue> {
   const ce = entityOf({ compiled, entity });
   const fields: Record<string, FieldValue> = { ...values.fields };
-  for (const eff of activeEffects({ effects: ce.effects, conditions: values.conditions ?? [] })) {
+  for (const eff of activeEffects({ compiled, entity, ce, values })) {
     if (eff.phase !== "base") continue;
     const current = own(fields, eff.target);
     if (typeof current !== "number") continue; // an unset field has nothing to modify
@@ -164,7 +186,7 @@ export function deriveValues({
     campaign: values.campaign,
   });
   for (const d of ce.derived) derived[d.id] = evaluateInt({ expr: d.expr, scope });
-  for (const eff of activeEffects({ effects: ce.effects, conditions: values.conditions ?? [] })) {
+  for (const eff of activeEffects({ compiled, entity, ce, values })) {
     const current = own(derived, eff.target);
     if (eff.phase !== "derived" || current === undefined) continue;
     if (eff.when !== null && !evaluateBool({ expr: eff.when, scope })) continue;

@@ -1,4 +1,4 @@
-import type { CompiledRuleset } from "./compile.ts";
+import { entrySourceId, type CompiledRuleset } from "./compile.ts";
 import { deriveValues, type ActorValues } from "./derived.ts";
 import { own } from "./own.ts";
 import { canSee, type Viewer } from "./view.ts";
@@ -45,17 +45,37 @@ export function breakdownOf({
       (viewer === undefined || canSee({ visibility: cond.visibility, viewer, actorId: actorId ?? "" }))
     );
   });
-  const valueWith = (conditions: string[]) =>
-    deriveValues({ compiled, entity, values: { ...values, conditions } })[derivedId] ?? 0;
+  // Chosen entries are shown to every viewer: what they add is in the number whoever looks (house decision #61).
+  const entries = [...new Map((values.entries ?? []).map((e) => [entrySourceId(e), e])).values()];
+  const valueWith = (conditions: string[], held: typeof entries) =>
+    deriveValues({ compiled, entity, values: { ...values, conditions, entries: held } })[derivedId] ?? 0;
   try {
-    const all = valueWith(visible);
-    const lines = visible.flatMap((id): BreakdownLine[] => {
-      const cond = own(compiled.conditions, id);
-      const amount = all - valueWith(visible.filter((c) => c !== id));
-      return cond === undefined || amount === 0
-        ? []
-        : [{ source: cond.label, amount, cite: cond.effects.find((e) => e.cite)?.cite ?? cond.cite ?? null }];
-    });
+    const all = valueWith(visible, entries);
+    const lines = [
+      ...visible.flatMap((id): BreakdownLine[] => {
+        const cond = own(compiled.conditions, id);
+        const amount =
+          all -
+          valueWith(
+            visible.filter((c) => c !== id),
+            entries,
+          );
+        return cond === undefined || amount === 0
+          ? []
+          : [{ source: cond.label, amount, cite: cond.effects.find((e) => e.cite)?.cite ?? cond.cite ?? null }];
+      }),
+      ...entries.flatMap((entry): BreakdownLine[] => {
+        const amount =
+          all -
+          valueWith(
+            visible,
+            entries.filter((e) => e !== entry),
+          );
+        return amount === 0
+          ? []
+          : [{ source: entry.name, amount, cite: entry.effects.find((e) => e.cite)?.cite ?? null }];
+      }),
+    ];
     const base = total - lines.reduce((sum, l) => sum + l.amount, 0);
     return [{ source: def.label, amount: base, cite: def.cite ?? null }, ...lines];
   } catch {

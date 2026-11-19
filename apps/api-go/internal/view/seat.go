@@ -46,6 +46,7 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 	if sight.All {
 		state := snapshot.State
 		state.MyDraft = myDraft
+		state.Pools = seatPools(state.Pools, compiled, c)
 		return SeatView{state, snapshot.Codex}
 	}
 	state := seatState(snapshot.State, compiled, c, sight)
@@ -54,7 +55,27 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 	state.Clocks = seatClocks(state.Clocks, codex, sight)
 	state.Requests, state.RequestAnswers = seatRequests(state.Requests, state.RequestAnswers, c, sight)
 	state.Rolls, state.Dealt = seatTables(state.Rolls, state.Dealt, c, sight)
+	state.Pools = seatPools(state.Pools, compiled, c)
 	return SeatView{state, codex}
+}
+
+// The pools a seat receives (house decision #59). The GM side (a room with a GM, a seat that runs the table; the same
+// notion as CheckPoolEditable) gets every pool. Anyone else gets `public` ones, `party` ones, and `owner` ones only for a
+// `party`-scope pool and a seat holding a character (never the screen); `gm` and every other `owner` pool reach nobody.
+// A pool the seat may not see is dropped whole. Without a ruleset in the view, none.
+func seatPools(pools []cs.PoolState, compiled *engine.CompiledRuleset, c cs.Ctx) []cs.PoolState {
+	out := []cs.PoolState{}
+	if compiled == nil {
+		return out
+	}
+	gmSide := c.HasGM() && SightOf(c).Tables
+	holder := !isScreen(c) && len(HeldBy(c)) > 0
+	for _, p := range pools {
+		if gmSide || p.Visibility == "public" || p.Visibility == "party" || (p.Visibility == "owner" && p.Scope == "party" && holder) {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // The rolls and dealt cards a seat receives (house decision #49): the side that runs the table with a GM sees them all.

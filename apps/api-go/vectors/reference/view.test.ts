@@ -18,6 +18,7 @@ import { SAMPLE_PACK } from "../../../../packages/rules-engine/src/fixtures/samp
 import { SAMPLE_HARVEST } from "../../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { Ruleset } from "../../../../packages/rules-engine/src/manifest.ts";
 import { seatManifest, seatView, type Snapshot } from "./view.ts";
+import type { PoolState } from "../../../../packages/core-schema/src/index.ts";
 
 // The matrix: one campaign, every kind of seat, and a digest of what each receives of the parts that can be hidden.
 
@@ -139,6 +140,7 @@ const state: LiveState = {
   requestAnswers: [],
   rolls: [],
   dealt: [],
+  pools: [],
   myDraft: null,
   tests: [sum, pool],
   testDefs: [{ id: "check", dice: "1d20", advantage: true, pool: null, outcomes: null, inputs: [] }],
@@ -763,4 +765,99 @@ describe("random tables (house decision #49)", () => {
     // A GM seat left over from before the table changed mode reads as a player: the snapshot's mode wins.
     assert.deepEqual(seen("gmless", ctx(member("gm"), "u-gm")), ["party-roll", "lyraparty"]);
   });
+});
+
+// ---- shared pools (house decision #59) ----
+
+const mkPool = (id: string, scope: PoolState["scope"], visibility: PoolState["visibility"]): PoolState => ({
+  id,
+  label: id,
+  scope,
+  value: 1,
+  min: 0,
+  max: 5,
+  capped: true,
+  visibility,
+  editableBy: "gm",
+});
+const POOLS = [
+  mkPool("pub", "party", "public"),
+  mkPool("shared", "party", "party"),
+  mkPool("mine", "party", "owner"),
+  mkPool("secret", "party", "gm"),
+  mkPool("hoard", "gm", "gm"),
+  mkPool("gmOwn", "gm", "owner"),
+  mkPool("camp", "campaign", "owner"),
+  mkPool("campPub", "campaign", "public"),
+];
+const poolsFor = (c: Ctx, o: { mode?: "gm" | "gmless"; compiled?: boolean } = {}) => {
+  const room: Snapshot = {
+    ...snapshot,
+    state: { ...state, pools: POOLS, campaign: { ...state.campaign, tableMode: o.mode ?? "gm" } },
+  };
+  return seatView({ snapshot: room, compiled: o.compiled === false ? null : compiled, ctx: c }).state.pools.map(
+    (p) => p.id,
+  );
+};
+const EVERY = POOLS.map((p) => p.id);
+const PLAYER = ["pub", "shared", "campPub"];
+const HOLDER = ["pub", "shared", "mine", "campPub"];
+
+test("pools: the GM side receives every pool, in order", () => {
+  assert.deepEqual(poolsFor(ctx(member("gm"), "u-gm")), EVERY);
+  assert.deepEqual(poolsFor(ctx(member("gm"), "owner")), EVERY);
+  assert.deepEqual(poolsFor(ctx({ kind: "admin" }, "u-admin")), EVERY);
+  assert.deepEqual(poolsFor(ctx(member("cogm", ["session"]), "u-co")), EVERY);
+});
+
+test("pools: a player, a guest and the screen never receive a gm pool (rule 1)", () => {
+  for (const c of [
+    ctx(member("player", [], ["lyra"])),
+    ctx(member("player")),
+    ctx({ kind: "token", role: "player", characterIds: ["lyra"] }, null),
+    ctx({ kind: "token", role: "screen", characterIds: [] }, null),
+  ])
+    assert.equal(
+      poolsFor(c).some((id) => id === "secret" || id === "hoard"),
+      false,
+    );
+});
+
+test("pools: without a GM no seat receives a gm pool, the owner and an admin included (rule 2)", () => {
+  for (const c of [
+    ctx(member("player", [], ["lyra"]), "owner"),
+    ctx(member("player"), "owner"),
+    ctx({ kind: "admin" }, "u-admin"),
+    ctx(member("player", [], ["lyra"])),
+  ])
+    assert.deepEqual(
+      poolsFor(c, { mode: "gmless" }).filter((id) => ["secret", "hoard", "gmOwn", "camp"].includes(id)),
+      [],
+    );
+  assert.deepEqual(poolsFor(ctx(member("player", [], ["lyra"]), "owner"), { mode: "gmless" }), HOLDER);
+});
+
+test("pools: the screen never receives an owner pool (rule 3)", () => {
+  assert.deepEqual(poolsFor(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), PLAYER);
+});
+
+test("pools: a seat holding no character never receives an owner pool (rule 4)", () => {
+  assert.deepEqual(poolsFor(ctx(member("player"))), PLAYER);
+  assert.deepEqual(poolsFor(ctx(member("player", [], ["lyra"]))), HOLDER);
+  assert.deepEqual(poolsFor(ctx({ kind: "token", role: "player", characterIds: ["lyra"] }, null)), HOLDER);
+});
+
+test("pools: a gm or campaign pool with owner visibility never leaves the GM side (rule 5)", () => {
+  assert.equal(poolsFor(ctx(member("player", [], ["lyra"]))).includes("gmOwn"), false);
+  assert.equal(poolsFor(ctx(member("player", [], ["lyra"]))).includes("camp"), false);
+});
+
+test("pools: a co-GM whose scopes do not put it on the GM side never receives a gm pool (rule 6)", () => {
+  for (const scopes of [[], ["combat"], ["codex"], ["codex.secrets"], ["party"]] as CogmScope[][])
+    assert.deepEqual(poolsFor(ctx(member("cogm", scopes), "u-co")), PLAYER, scopes.join());
+});
+
+test("pools: a seat with no ruleset in its view receives none", () => {
+  assert.deepEqual(poolsFor(ctx(member("gm"), "u-gm"), { compiled: false }), []);
+  assert.deepEqual(poolsFor(ctx(member("player", [], ["lyra"])), { compiled: false }), []);
 });

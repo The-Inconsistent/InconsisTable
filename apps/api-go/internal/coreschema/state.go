@@ -161,6 +161,21 @@ type (
 		Encounter *Encounter `json:"encounter"`
 		Games     []Game     `json:"games"`
 		Access    Access     `json:"access"`
+		// Pools are the shared pools in manifest order, each seat the ones it may see (house decision #59).
+		Pools []PoolState `json:"pools"`
+	}
+	// PoolState is a shared pool as a seat sees it. Max is nil when the pool has none; Capped says whether the value
+	// stops there.
+	PoolState struct {
+		ID         string   `json:"id"`
+		Label      string   `json:"label"`
+		Scope      string   `json:"scope"`
+		Value      float64  `json:"value"`
+		Min        float64  `json:"min"`
+		Max        *float64 `json:"max"`
+		Capped     bool     `json:"capped"`
+		Visibility string   `json:"visibility"`
+		EditableBy string   `json:"editableBy"`
 	}
 
 	// CombatantCondition is a condition on a combatant, GM side only.

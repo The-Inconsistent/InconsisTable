@@ -1,6 +1,6 @@
 import { own } from "../own.ts";
 import { ExprError, type ExprNode, type ExprRecord, type ExprValue } from "./expr.ast.ts";
-import { pathOf } from "./expr.check.ts";
+import { pathOf, trailingNumber } from "./expr.check.ts";
 
 type Maybe = ExprValue | null | undefined;
 
@@ -174,6 +174,16 @@ class Evaluator {
         return safe(
           listInts(args[0] === undefined ? undefined : this.eval(args[0]), "sum()").reduce((s, n) => s + n, 0),
         );
+      case "at": {
+        const [group, nNode] = args;
+        const name = group === undefined ? "?" : (pathOf(group) ?? "?");
+        const g = group === undefined ? undefined : this.lookup(group);
+        const n = int(nNode === undefined ? undefined : this.eval(nNode), "at() argument 2");
+        const key = isRecord(g) ? Object.keys(g).find((k) => trailingNumber(k) === n) : undefined;
+        const v = key === undefined || !isRecord(g) ? undefined : own(g, key);
+        if (v === undefined || v === null) throw new ExprError(`missing value "${name}[${n}]"`);
+        return v;
+      }
       case "has": {
         const v = args[0] === undefined ? undefined : this.lookup(args[0]);
         return v !== undefined && v !== null;

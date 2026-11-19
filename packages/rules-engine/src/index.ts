@@ -26,6 +26,7 @@ export {
 export {
   actorScope,
   applyBaseEffects,
+  campaignValues,
   deriveValues,
   healthStatesOf,
   instantDeathAt,

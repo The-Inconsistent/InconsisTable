@@ -16,6 +16,9 @@ type ActorValues struct {
 	Conditions []string
 	// Characters is party.characters.
 	Characters float64
+	// Campaign holds the campaign's field values (campaign.danger) as CampaignValues gives them; nil leaves campaign
+	// out of the scope.
+	Campaign map[string]any
 }
 
 // NestFields turns {"attr.str": 14} into {attr: {str: 14}}, the shape expressions read.
@@ -53,6 +56,11 @@ func numbersRecord(values map[string]float64) *Record {
 // ActorScope is the runtime scope for an actor expression. The derived record is read live, so filling it in order is
 // enough. A nil ctx leaves ctx out of the scope.
 func ActorScope(fields map[string]any, derived *Record, resources map[string]float64, characters float64, ctx *Record) *Record {
+	return ActorScopeWith(fields, derived, resources, characters, nil, ctx)
+}
+
+// ActorScopeWith is ActorScope with the campaign's values; a nil campaign leaves the campaign root out of the scope.
+func ActorScopeWith(fields map[string]any, derived *Record, resources map[string]float64, characters float64, campaign map[string]any, ctx *Record) *Record {
 	scope := NestFields(fields)
 	if derived == nil {
 		derived = &Record{map[string]any{}}
@@ -60,10 +68,28 @@ func ActorScope(fields map[string]any, derived *Record, resources map[string]flo
 	scope.Fields["derived"] = derived
 	scope.Fields["res"] = numbersRecord(resources)
 	scope.Fields["party"] = &Record{map[string]any{"characters": characters}}
+	if campaign != nil {
+		scope.Fields["campaign"] = &Record{campaign}
+	}
 	if ctx != nil {
 		scope.Fields["ctx"] = ctx
 	}
 	return scope
+}
+
+// CampaignValues returns the campaign values to read: for each declared field the stored value when it fits, else the
+// field's default. Unknown stored ids are dropped. It is empty (not nil) when the manifest declares no fields.
+func CampaignValues(c *CompiledRuleset, stored map[string]any) map[string]any {
+	out := map[string]any{}
+	for id, def := range c.Ruleset.CampaignFields {
+		def := def
+		if v, ok := stored[id]; ok && CheckCampaignValue(&def, v) == "" {
+			out[id] = v
+		} else {
+			out[id] = def.Default
+		}
+	}
+	return out
 }
 
 // EvaluateInt runs an expression that must give a number (expr.ts evaluateInt); anything else is an ExprError.
@@ -162,7 +188,7 @@ func (c *CompiledRuleset) ApplyBaseEffects(entity string, values ActorValues) (m
 		if !isNumber {
 			continue // an unset field has nothing to modify
 		}
-		scope := ActorScope(fields, nil, values.Resources, values.Characters, nil)
+		scope := ActorScopeWith(fields, nil, values.Resources, values.Characters, values.Campaign, nil)
 		next, err := applyEffect(eff, current, scope)
 		if err != nil {
 			return nil, err
@@ -197,7 +223,7 @@ func (c *CompiledRuleset) DeriveValues(entity string, values ActorValues) (map[s
 		return nil, err
 	}
 	live := &Record{map[string]any{}}
-	scope := ActorScope(fields, live, values.Resources, values.Characters, nil)
+	scope := ActorScopeWith(fields, live, values.Resources, values.Characters, values.Campaign, nil)
 	out := map[string]float64{}
 	for _, d := range ce.Derived {
 		n, err := evaluateInt(d.Expr, scope)

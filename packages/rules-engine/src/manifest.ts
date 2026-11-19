@@ -93,6 +93,33 @@ export const FieldDef = z.discriminatedUnion("type", [
 ]);
 export type FieldDef = z.infer<typeof FieldDef>;
 
+const campaignFieldBase = { label: z.string().min(1).max(80), cite: Cite.optional() };
+const CAMPAIGN_INT = z.int().min(-1000).max(1000);
+
+/**
+ * A value that belongs to the whole campaign (a tier, a chapter) and that many formulas read as `campaign.<id>`.
+ * Only whole numbers, one of a few words, or a yes/no: no text, ref or list.
+ */
+export const CampaignField = z.discriminatedUnion("type", [
+  z.object({
+    ...campaignFieldBase,
+    type: z.literal("int"),
+    min: CAMPAIGN_INT,
+    max: CAMPAIGN_INT,
+    default: CAMPAIGN_INT,
+  }),
+  z.object({
+    ...campaignFieldBase,
+    type: z.literal("enum"),
+    values: z.array(Id).min(1).max(20),
+    default: Id,
+  }),
+  z.object({ ...campaignFieldBase, type: z.literal("bool"), default: z.boolean() }),
+]);
+export type CampaignField = z.infer<typeof CampaignField>;
+
+export const MAX_CAMPAIGN_FIELDS = 50;
+
 export const DerivedDef = z.object({
   id: Id,
   label: z.string().min(1).max(80),
@@ -497,6 +524,11 @@ export const Ruleset = z.object({
   options: z.array(RuleOption).max(200).default([]),
   entities: z.array(EntityType).min(1).max(50),
   resources: z.array(Resource).max(200).default([]),
+  /** Values of the whole campaign, read by expressions as `campaign.<id>`. Absent: the ruleset has none. */
+  campaignFields: z
+    .record(Id, CampaignField)
+    .refine((o) => Object.keys(o).length <= MAX_CAMPAIGN_FIELDS, `at most ${MAX_CAMPAIGN_FIELDS} campaign fields`)
+    .optional(),
   conditions: z.array(Condition).max(500).default([]),
   tests: z.record(Id, DiceMechanic).default({}),
   /** Absent: the game has no turn order, and `encounter.start` is refused. */
@@ -522,6 +554,7 @@ export const RESERVED_ROOTS: ReadonlySet<string> = new Set([
   "derived",
   "res",
   "party",
+  "campaign",
   "ctx",
   "max",
   "min",
@@ -709,6 +742,40 @@ function poolProblems({ t, path, out }: { t: PoolSuccesses; path: string; out: P
     out.push({ path: `${path}.shift`, message: `no band "${t.shift}"` });
 }
 
+/** Ids an expression reads as words, so a campaign field may not take them. */
+const EXPRESSION_WORDS: ReadonlySet<string> = new Set(["true", "false", "max", "min"]);
+
+function campaignFieldProblems({
+  r,
+  needCite,
+  out,
+}: {
+  r: Ruleset;
+  needCite: (cite: string | undefined, path: string) => void;
+  out: Problem[];
+}): void {
+  for (const id of Object.keys(r.campaignFields ?? {}).sort()) {
+    const def = r.campaignFields?.[id];
+    if (def === undefined) continue;
+    const path = `campaignFields.${id}`;
+    if (EXPRESSION_WORDS.has(id)) out.push({ path, message: `"${id}" is reserved for expressions` });
+    needCite(def.cite, path);
+    if (def.type === "int") {
+      if (def.max < def.min) out.push({ path: `${path}.max`, message: "max is below min" });
+      if (def.default < def.min || def.default > def.max)
+        out.push({ path: `${path}.default`, message: "the default is not allowed" });
+    } else if (def.type === "enum") {
+      const seen = new Set<string>();
+      def.values.forEach((v, i) => {
+        if (seen.has(v)) out.push({ path: `${path}.values[${i}]`, message: `duplicate id "${v}"` });
+        seen.add(v);
+      });
+      if (!def.values.includes(def.default))
+        out.push({ path: `${path}.default`, message: "the default is not allowed" });
+    }
+  }
+}
+
 function semanticProblems(r: Ruleset): Problem[] {
   const out: Problem[] = [];
   // CLAUDE.md principle 1: every rule entry cites its printed page, unless the whole ruleset is homebrew.
@@ -718,6 +785,7 @@ function semanticProblems(r: Ruleset): Problem[] {
   };
   r.resources.forEach((x, i) => needCite(x.cite, `resources[${i}]`));
   r.options.forEach((x, i) => needCite(x.cite, `options[${i}]`));
+  campaignFieldProblems({ r, needCite, out });
   r.conditions.forEach((c, i) => {
     needCite(c.cite, `conditions[${i}]`);
     c.effects.forEach((e, j) => needCite(e.cite ?? c.cite, `conditions[${i}].effects[${j}]`));

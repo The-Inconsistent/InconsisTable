@@ -105,3 +105,31 @@ func CheckFieldValue(def *FieldDef, value any) string {
 	}
 	return ""
 }
+
+// CheckCampaignValue says why value does not fit a campaign field, or returns "" when it does; worded like
+// CheckFieldValue.
+func CheckCampaignValue(def *CampaignFieldDef, value any) string {
+	switch def.Type {
+	case "int":
+		n, ok := value.(float64)
+		if !ok || n != math.Trunc(n) {
+			return "expected a whole number"
+		}
+		if n < def.Min {
+			return "below the minimum of " + esNumber(def.Min)
+		}
+		if n > def.Max {
+			return "above the maximum of " + esNumber(def.Max)
+		}
+	case "enum":
+		text, ok := value.(string)
+		if !ok || !slices.Contains(def.Values, text) {
+			return "expected one of " + strings.Join(def.Values, ", ")
+		}
+	case "bool":
+		if _, ok := value.(bool); !ok {
+			return "expected true or false"
+		}
+	}
+	return ""
+}

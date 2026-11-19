@@ -112,6 +112,13 @@ export const PARTY_SCOPE: ExprType = { record: { characters: "int" } };
 /** `party.*` reads only how many characters sit at the table, which every seat already sees. */
 const PARTY_VISIBILITY: Visibility = "party";
 
+/** The `campaign` root: one member per declared field, typed as the field reads. Null when the manifest declares none. */
+function campaignScope(r: Ruleset): ExprType | null {
+  if (r.campaignFields === undefined) return null;
+  const type = { int: "int", enum: "text", bool: "bool" } as const;
+  return { record: Object.fromEntries(Object.entries(r.campaignFields).map(([id, def]) => [id, type[def.type]])) };
+}
+
 function fieldType(def: FieldDef): ExprType {
   switch (def.type) {
     case "int":
@@ -167,7 +174,8 @@ function pathVisibility({
   // A computed index (`attr.*`) may reach anything under its prefix.
   const prefix = star < 0 ? ref : ref.slice(0, Math.max(0, star - 1));
   const [root, rest] = [prefix.split(".")[0] ?? "", prefix.split(".").slice(1).join(".")];
-  if (root === "party") return PARTY_VISIBILITY;
+  // `campaign.*` is a value of the whole table, shown to every seat like the party's size.
+  if (root === "party" || root === "campaign") return PARTY_VISIBILITY;
   if (root === "ctx") return "public"; // call-time inputs, supplied by whoever calls the Test
   if (root === "derived") {
     const ids = rest === "" ? [...derived.keys()] : [rest];
@@ -241,13 +249,19 @@ class Compiler {
     return kept;
   }
 
+  /** `{ campaign }` beside `party` in a scope, or nothing when the manifest declares no campaign fields. */
+  private campaignRoot(): Record<string, ExprType> {
+    const campaign = campaignScope(this.r);
+    return campaign === null ? {} : { campaign };
+  }
+
   private actorEntities(): EntityType[] {
     return this.r.entities.filter((e) => e.base === "actor");
   }
 
   /** Full scope for an entity: its fields, its derived values, its resources' current values, the party. */
   private entityScope(e: EntityType, opts: { derived: boolean; res: boolean }): Record<string, ExprType> {
-    const scope: Record<string, ExprType> = { ...fieldScope(e.fields), party: PARTY_SCOPE };
+    const scope: Record<string, ExprType> = { ...fieldScope(e.fields), party: PARTY_SCOPE, ...this.campaignRoot() };
     if (opts.derived) scope.derived = { record: Object.fromEntries(e.derived.map((d) => [d.id, "int"])) };
     if (opts.res) {
       const ids = this.r.resources.filter((x) => carries(x, e)).map((x) => x.id);
@@ -405,7 +419,7 @@ class Compiler {
     const scopes: ExprScope[] =
       x.scope === "entity"
         ? hosts.map((e) => this.entityScope(e, { derived: true, res: false }))
-        : [{ party: PARTY_SCOPE }];
+        : [{ party: PARTY_SCOPE, ...this.campaignRoot() }];
     if (scopes.length === 0) {
       this.problems.push({ path: `resources[${i}].entities`, message: "no entity carries this resource" });
       return null;

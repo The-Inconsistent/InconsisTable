@@ -31,6 +31,12 @@ function recordValueType(fields: Readonly<Record<string, ExprType>>): ExprType |
   return out;
 }
 
+/** The number a member id ends in (`f12` is 12), or null; at most 9 digits so the number is exact in both engines. */
+export function trailingNumber(id: string): number | null {
+  const m = /(\d{1,9})$/.exec(id);
+  return m?.[1] === undefined || /\d/.test(id.charAt(id.length - m[1].length - 1)) ? null : Number(m[1]);
+}
+
 /** `attr.str` for a pure path node, `attr.*` when an index is computed; null when the node is not a path. */
 export function pathOf(node: ExprNode): string | null {
   switch (node.k) {
@@ -211,6 +217,27 @@ class Checker {
         arity(1, 1);
         this.expect(first(), { list: "int" }, "sum() argument");
         return "int";
+      case "at": {
+        arity(2, 2);
+        const [group = first(), n = first()] = args;
+        const path = pathOf(group);
+        const t = this.check(group, true);
+        if (path === null || typeof t === "string" || !("record" in t))
+          throw new ExprError(`at() takes a group of fields, got ${typeName(t)}`);
+        // Like a computed index: the call may read any member, so every member is a reference.
+        this.refs.add(`${path}.*`);
+        const member = recordValueType(t.record);
+        if (member === null) throw new ExprError(`"${path}" mixes value types, so at() cannot pick from it`);
+        const seen = new Set<number>();
+        for (const key of Object.keys(t.record).sort()) {
+          const num = trailingNumber(key);
+          if (num === null) throw new ExprError(`"${path}.${key}" does not end in a number, so at() cannot pick it`);
+          if (seen.has(num)) throw new ExprError(`two members of "${path}" end in ${num}, so at() cannot pick one`);
+          seen.add(num);
+        }
+        this.expect(n, "int", "at() argument 2");
+        return member;
+      }
       case "has": {
         arity(1, 1);
         const arg = first();

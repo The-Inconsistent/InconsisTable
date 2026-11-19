@@ -11,8 +11,9 @@ export type UnaryOp = z.infer<typeof UnaryOp>;
  * The only functions an expression may call (design §4.3). `mod(score)` is named there; it is floor((score - 10) / 2).
  * `floor`/`ceil` take one integer (a no-op) or two, `floor(a, b)` = a / b rounded down, `ceil(a, b)` rounded up:
  * arithmetic is integer only, so rounding is chosen where the division happens.
+ * `at(group, n)` reads the member of a field group whose id ends in the number `n` (`at(form, 3)` is `form.f3`).
  */
-export const FnName = z.enum(["min", "max", "floor", "ceil", "clamp", "abs", "mod", "count", "sum", "has"]);
+export const FnName = z.enum(["min", "max", "floor", "ceil", "clamp", "abs", "mod", "count", "sum", "has", "at"]);
 export type FnName = z.infer<typeof FnName>;
 
 /** The JSON AST. Plain data, so a compiled manifest can be cached as JSONB and evaluated the same on web and api. */

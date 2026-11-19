@@ -725,6 +725,7 @@
   "fightBar": {
     "label": "{mode, select, game {Game controls} other {Fight controls}}",
     "round": "Round {round}",
+    "setup": "Setting up",
     "prev": "Prev",
     "next": "Next turn",
     "noFight": "{mode, select, game {No game} other {No fight}}",

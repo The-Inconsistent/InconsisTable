@@ -11,12 +11,13 @@ import { RecapCard } from "@/components/ui/recap-card/recap-card";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { XCardOverlay } from "@/components/ui/xcard/xcard-overlay";
 import { useTable } from "@/hooks/use-table/use-table";
+import type { RulesView } from "@/lib/rules-reader/rules-reader";
 
-type TableScreenProps = { campaignId: string };
+type TableScreenProps = { campaignId: string; view: RulesView | null };
 
 // The TV at the table (docs/design.md §1.1): read from across the room, no input. It joins by a screen token and sees
 // the party view; turn order, party bars and the revealed map join it with the first ruleset (P1) and maps (P2).
-export function TableScreen({ campaignId }: TableScreenProps) {
+export function TableScreen({ campaignId, view }: TableScreenProps) {
   const t = useTranslations("tableScreen");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
@@ -46,7 +47,12 @@ export function TableScreen({ campaignId }: TableScreenProps) {
         <PoolsView pools={state.pools} />
         <ClocksView clocks={state.clocks} />
         <RollsView rolls={state.rolls} />
-        {state.encounter && <OrderView encounter={state.encounter} />}
+        {state.encounter && (
+          <OrderView
+            encounter={state.encounter}
+            sides={view?.ruleset?.initiative?.strategy === "sides" ? view.ruleset.initiative : undefined}
+          />
+        )}
         {/* The newest ended game stays up until the next one starts. */}
         {!state.encounter && state.games[0] && <GameResult game={state.games[0]} />}
         {/* A Test in progress: that it is, and how far along. Never who, or any number (the state carries none). */}

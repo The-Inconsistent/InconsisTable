@@ -24,9 +24,12 @@ export function OrderView({ encounter, sides }: OrderViewProps) {
   return (
     <section className="stack order-view" aria-label={t("label")}>
       <h2 className="title">
-        {phase
-          ? t("roundPhase", { round: encounter.round, phase: phase.label })
-          : t("round", { round: encounter.round })}{" "}
+        {/* A sides fight that has not begun is still being set up: there is no round yet. */}
+        {encounter.begun === false
+          ? t("lineSetup")
+          : phase
+            ? t("roundPhase", { round: encounter.round, phase: phase.label })
+            : t("round", { round: encounter.round })}{" "}
         {encounter.paused && <span className="chip">{t("paused")}</span>}
       </h2>
       <EndNotice encounter={encounter} />

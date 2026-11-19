@@ -43,7 +43,8 @@ export function FightBar({ encounter, sessionRunning, run, mode, sides }: FightB
       {encounter ? (
         <>
           <span key={encounter.round} className="round">
-            {t("round", { round: encounter.round })}
+            {/* A sides fight that has not begun is still being set up: there is no round yet. */}
+            {encounter.begun === false ? t("setup") : t("round", { round: encounter.round })}
           </span>
           {sides ? (
             <SidesControls encounter={encounter} run={run} />

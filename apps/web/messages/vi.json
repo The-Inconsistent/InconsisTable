@@ -725,6 +725,7 @@
   "fightBar": {
     "label": "{mode, select, game {Điều khiển ván} other {Điều khiển trận}}",
     "round": "Vòng {round}",
+    "setup": "Đang dàn trận",
     "prev": "Trước",
     "next": "Lượt sau",
     "noFight": "{mode, select, game {Không có ván nào} other {Không có trận nào}}",

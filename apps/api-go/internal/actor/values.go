@@ -138,7 +138,18 @@ func LoadRows(ctx context.Context, conn core.Conn, campaignID string) ([]Rows, e
 // Bounds are a resource's evaluated limits for one actor. Max is nil when there is no ceiling.
 type Bounds struct {
 	Min float64
+	// Max is the resource's maximum as the table shows it, or nil when it has none.
 	Max *float64
+	// Uncapped is a resource declared `capped: false`: its value may run past Max, so nothing clamps it there.
+	Uncapped bool
+}
+
+// Ceiling is what a write clamps to: Max, or nil when the value may pass it or there is none.
+func (b Bounds) Ceiling() *float64 {
+	if b.Uncapped {
+		return nil
+	}
+	return b.Max
 }
 
 // Built is one actor as the engine and the snapshot read it.
@@ -314,7 +325,8 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows) (map[string]*Built, er
 				m := math.Max(bounds.Min, float64(*x.MaxOverride))
 				max = &m
 			}
-			b.Bounds[x.ResourceID] = Bounds{bounds.Min, max}
+			held := Bounds{bounds.Min, max, !bounds.Capped}
+			b.Bounds[x.ResourceID] = held
 			reset, err := compiled.ResetValues(x.ResourceID, b.Scope)
 			if errors.As(err, &exprErr) {
 				continue
@@ -330,7 +342,7 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows) (map[string]*Built, er
 				return nil, err
 			}
 			b.State.Resources = append(b.State.Resources, engine.NamedResource{Name: x.ResourceID, State: engine.ResourceState{
-				Value: float64(x.Value), Min: bounds.Min, Max: max, Reset: reset, InstantDeathAt: death,
+				Value: float64(x.Value), Min: bounds.Min, Max: held.Ceiling(), Reset: reset, InstantDeathAt: death,
 			}})
 		}
 	}

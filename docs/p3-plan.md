@@ -58,6 +58,8 @@ Viết thử ruleset bậc 1 và chạy qua validator hiện tại, để danh s
 | 7 | House decision #23: resource có trần khởi đầu ở trần | Wounds khởi đầu bằng Max Wounds, GM phải kéo về 0 | **Đã sửa** (house decision #52): resource khai giá trị khởi đầu (`start`) |
 | 8 | Sự kiện nghỉ mang tên của engine ("Long rest") | Respite khai là `longRest` | Từ vựng của World (ADR 0010 mục 2) |
 | 9 | `layout` chỉ vẽ sheet; `terms` không ai đọc; Theme theo thiết bị | Sheet là danh sách số | ADR 0010 mục 2 và 3 |
+| 17 | `capped: false` không được áp khi chơi: api vẫn chặn giá trị ở max (ruleset Freeform cũng dính) | Wounds không vượt được Max Wounds, nên không bao giờ Dying | **Đã sửa:** max vẫn hiện trên bàn, nhưng ghi và op không chặn ở đó nữa |
+| 18 | Resource `party`, `gm`, `campaign` không có chỗ lưu: bảng `resource_pool` không ai ghi, không action nào đổi được | Glory và Ruin khai được trong manifest nhưng bàn không dùng được | Lưu pool và delta nhắm vào pool. Xếp lượt theo phe cần nó để trả phí Seize, nên làm trước |
 
 **Từ khảo sát auspex_gm, chưa thử trên manifest:**
 

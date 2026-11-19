@@ -70,14 +70,10 @@ func StartingResources(compiled *engine.CompiledRuleset, entity string, fields m
 		if err != nil {
 			return nil, err
 		}
-		limits := Bounds{b.Min, b.Max}
 		if begin != nil {
 			value = *begin
-			if !b.Capped {
-				limits.Max = nil // an uncapped resource may start past its max; the write must not clamp it back
-			}
 		}
-		out = append(out, StartingResource{resource, value, limits})
+		out = append(out, StartingResource{resource, value, Bounds{b.Min, b.Max, !b.Capped}})
 	}
 	return out, nil
 }

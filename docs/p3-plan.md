@@ -130,15 +130,46 @@ Từ auspex_gm, theo bậc dùng tới:
 Mỗi bậc thêm test vào `packages/data/port/` của auspex_gm, so engine của InconsisTable với hàm luật của auspex_gm, như
 bước 0 đã làm.
 
-## Cần chủ sản phẩm chốt
+## Đã chốt (chủ sản phẩm)
 
-1. **ADR 0010:** phòng pin từng phần (ruleset, pack, World) hay pin một hash module như đề xuất 2026-11-02.
-2. **Chỗ để script và file sinh ra:** kế hoạch này đặt script trong auspex_gm. Phương án khác là repo
-   `inconsistable-content`, hiện ghi rõ "toàn bộ là tác phẩm tự viết".
-3. **Bậc 0 trước hay song song:** nâng phiên bản ruleset (thiếu 2) là việc nặng nhất của bậc 0. Làm trước thì bậc 1 chậm
-   một bước; làm sau thì mỗi lần sửa manifest phải dựng lại nhân vật thử.
-4. **Wounded cộng 1 DN** (Core p.193): Auspex để GM tự cộng khi gọi Test. Giữ như vậy, hay để ruleset tự cộng?
-5. **Bản đồ in có ô lưới** mà Auspex đã hứa: vẫn chưa quyết, ngoài phạm vi P3.
+2026-11-19:
+
+1. **Nâng phiên bản ruleset:** làm bản "tương thích" trước (phòng chuyển được khi mọi giá trị đang lưu vẫn hợp lệ, house
+   decision #51); migration có khai báo làm sau, trước khi bàn chuyển sang.
+2. **Wounded cộng 1 DN** (Core p.193): ruleset tự cộng vào mọi Test được gọi; lời gọi có ô `ignoreWounded` cho nhân vật
+   không chịu luật này. Khác `callDn` của Auspex một cách có chủ ý; `decisions[]` của ruleset ghi lại.
+
+2026-11-20, cho pack Threat (369 stat block), trước khi chuyển dữ liệu:
+
+3. **Chữ của Ability, Bonus, Option** (khoảng 1.650 đoạn văn in trong sách): pack chỉ mang loại, tên và cite trang.
+   Không chép chữ sách, không viết tóm tắt. Trang sách tới bàn qua book relay.
+4. **Vũ khí** (895 dòng): một loại entry `weapon` riêng với số thật (damage, ED, AP, tầm, salvo, trait); Threat giữ danh
+   sách khoá vũ khí. Không dùng dòng chữ tự đặt cú pháp.
+5. **Class theo Tier:** giữ đủ năm cột in trong sách (`class.t1` tới `class.t5`), chờ field cấp campaign (thiếu 3) để
+   chọn cột.
+6. **Mob:** chưa đưa nội dung Mob vào pack; chờ khối Mob của platform (thiếu 10).
+
+## Chờ chốt
+
+1. **Round 0 của trận.** Thiết kế xếp lượt theo phe từng đề nghị bỏ Round 0. Đối chiếu với luồng trận và phục kích của
+   Auspex (`docs/rules-flow.md` §3, §11.167, §11.177, chốt 2026-11-16) thì **không bỏ được**: Round 0 là bước riêng, ở
+   đó không Turn nào bắt đầu được, không Seize được, GM đánh dấu phục kích từng dòng hoặc cả phe, điện thoại của Agent
+   bị phục kích hiện AMBUSHED cùng nút xin AWARE, và BEGIN ROUND 1 xoá dấu đã đi / giữ lượt bấm nhầm nhưng giữ dấu phục
+   kích. Gộp nó vào Round 1 thì điện thoại báo "phe bạn tới lượt" khi GM còn đang xác định phục kích. **Đề nghị:** giữ
+   bước này thành một khối `setup` tuỳ chọn trong manifest, lưu là "chưa bắt đầu" chứ không phải vòng số 0 (để `ranked`,
+   `seated` và luật "vòng từ 1" không đổi), có op `begin`. Wrath & Glory gọi nó là Round 0 bằng từ vựng của mình.
+2. **TURN BACK.** Thiết kế từng đề nghị chỉ dùng undo từng bước. Auspex đã chốt hai lần (§11.170 ngày 2026-11-16,
+   §11.183 ngày 2026-11-18, PR auspex_gm #173) là giữ cả hai: UNDO HIT lấy lại một lần bấm, TURN BACK lấy lại bước lượt
+   cùng sát thương từ bước đó. Cần chốt TURN BACK ở đây làm bằng cách nào: undo ngược nhật ký tới bước lượt gần nhất
+   (lấy lại cả những lần tiêu pool trong khoảng đó, điều Auspex cố ý không làm), hay chụp lại trạng thái trận như
+   Auspex.
+3. **Pool chung** (thiếu 18) làm trước khối xếp lượt: Glory, Ruin, phí Seize và AWARE đều cần nó.
+4. **Phần còn lại của pack Threat**, đề nghị mặc định: mỗi bản in là một entry riêng (32 tên trùng ở 65 file, không bản
+   nào giống số); chuẩn hoá 7 cách viết sai tên Skill về đúng id; bỏ ghi chú chép tay (`note`); Determination chỉ cấu
+   trúc hoá 236 dòng dạng chuẩn; sách không có số trang in thì cite trang PDF.
+5. **ADR 0010** đã merge nhưng còn ghi "proposed": đổi thành "accepted"?
+6. **Chỗ để script và file sinh ra:** đang để trong auspex_gm (theo kiến trúc, game nằm ngoài repo này).
+7. **Bản đồ in có ô lưới** mà Auspex đã hứa: vẫn chưa quyết, ngoài phạm vi P3.
 
 ## Không làm ở P3
 

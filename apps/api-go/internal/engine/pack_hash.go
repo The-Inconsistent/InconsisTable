@@ -144,5 +144,9 @@ func ContentHash(entry map[string]any) string {
 		out[i] = s
 	}
 	sorted["tags"] = out
+	// An entry with no effects hashes as before effects existed, so a stored hash stays valid.
+	if effects, ok := entry["effects"].([]any); ok && len(effects) == 0 {
+		delete(sorted, "effects")
+	}
 	return Sha256Hex(CanonicalJSON(sorted))
 }

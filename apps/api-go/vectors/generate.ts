@@ -52,7 +52,7 @@ import {
 import { FnName } from "../../../packages/rules-engine/src/expr/expr.ast.ts";
 import { evaluate } from "../../../packages/rules-engine/src/expr/expr.eval.ts";
 import { parseExpr } from "../../../packages/rules-engine/src/expr/expr.parser.ts";
-import { SAMPLE_PACK } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
+import { SAMPLE_PACK, SAMPLE_PACK_EFFECTS } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { plainDice } from "../../../packages/rules-engine/src/manifest.ts";
 import { canonicalJson, contentHash, diffHashes, sha256Hex } from "../../../packages/rules-engine/src/pack-hash.ts";
 import type {
@@ -1912,6 +1912,99 @@ const sortDeep = (value: unknown): unknown => {
   );
 };
 
+/** Entries' effects against the sample, every case written out (no random stream, so the other vectors do not move). */
+function entryDeriveVectors() {
+  const manifest = 0;
+  const r = compileRuleset(SAMPLE_D20);
+  if (!r.ok) throw new Error("sample does not compile");
+  const attempt = <T>(run: () => T): { value: T } | { error: string } => {
+    try {
+      return { value: run() };
+    } catch (err) {
+      return { error: (err as Error).message };
+    }
+  };
+  type Eff = NonNullable<PackEntry["effects"]>[number];
+  const add = (path: string, value: string, over: Partial<Eff> = {}): Eff => ({
+    path,
+    mode: "add",
+    value,
+    phase: path.startsWith("derived.") ? "derived" : "base",
+    ...over,
+  });
+  const entry = (type: string, key: string, effects: Eff[]) => ({ type, key, name: `Entry ${key}`, effects });
+  const hero = { name: "Ash", level: 3, "attr.str": 14, "attr.dex": 16, "attr.con": 12, guard: 11 };
+  const swift = entry("lineage", "swift", [add("attr.dex", "2")]);
+  const shield = entry("calling", "shield", [add("derived.defense", "3")]);
+  const set = (type: string, key: string, over: Partial<Eff> = {}) =>
+    entry(type, key, [add("derived.defense", "20", { mode: "override", ...over })]);
+  const cases: { entity: string; fields: Record<string, FieldValue>; conditions: string[]; entries: unknown[] }[] = [
+    { entity: "character", fields: hero, conditions: [], entries: [] },
+    { entity: "character", fields: hero, conditions: [], entries: [swift] },
+    { entity: "character", fields: hero, conditions: [], entries: [shield] },
+    { entity: "character", fields: hero, conditions: ["dazed", "braced"], entries: [swift, shield] },
+    // Equal priority: source ids decide ("aaa/x" < "braced" < "zzz/x").
+    { entity: "character", fields: hero, conditions: ["braced"], entries: [set("aaa", "x")] },
+    { entity: "character", fields: hero, conditions: ["braced"], entries: [set("zzz", "x")] },
+    // Different priority beats source id.
+    { entity: "character", fields: hero, conditions: ["braced"], entries: [set("zzz", "x", { priority: -1 })] },
+    { entity: "character", fields: hero, conditions: ["braced"], entries: [set("aaa", "x", { priority: 1 })] },
+    { entity: "character", fields: hero, conditions: ["braced"], entries: [set("calling", "b"), set("calling", "a")] },
+    // A when that is false, then true.
+    {
+      entity: "character",
+      fields: hero,
+      conditions: [],
+      entries: [entry("calling", "w", [add("derived.defense", "3", { when: "level > 5" })])],
+    },
+    {
+      entity: "character",
+      fields: { ...hero, level: 6 },
+      conditions: [],
+      entries: [entry("calling", "w", [add("derived.defense", "3", { when: "level > 5" })])],
+    },
+    // An effect that does not fit the actor, one that reads a missing field, one with a multiply and a clamp.
+    { entity: "character", fields: hero, conditions: [], entries: [entry("calling", "n", [add("derived.nope", "3")])] },
+    { entity: "creature", fields: { name: "W", level: 1, "attr.con": 8 }, conditions: [], entries: [shield] },
+    {
+      entity: "character",
+      fields: hero,
+      conditions: [],
+      entries: [entry("calling", "m", [add("attr.dex", "-30"), add("derived.maxHp", "2", { mode: "multiply" })])],
+    },
+    { entity: "character", fields: { ...hero, "attr.dex": null }, conditions: [], entries: [swift] },
+    {
+      entity: "character",
+      fields: hero,
+      conditions: [],
+      entries: [entry("calling", "e", [add("derived.defense", "attr.nope")])],
+    },
+    {
+      entity: "creature",
+      fields: { name: "W", level: 1, "attr.con": 8 },
+      conditions: [],
+      entries: [entry("calling", "c", [add("derived.maxHp", "level", { mode: "upgrade" })])],
+    },
+  ];
+  return cases.map((x) => {
+    const values = {
+      fields: x.fields,
+      resources: { hp: 9 },
+      conditions: x.conditions,
+      party: { characters: 4 },
+      entries: x.entries as never,
+    };
+    return {
+      manifest,
+      ...x,
+      resources: values.resources,
+      characters: 4,
+      base: attempt(() => applyBaseEffects({ compiled: r.compiled, entity: x.entity, values })),
+      derived: attempt(() => deriveValues({ compiled: r.compiled, entity: x.entity, values })),
+    };
+  });
+}
+
 function fieldValueVectors() {
   const defs: FieldDef[] = [
     { label: "F", visibility: "gm", editableBy: "gm", type: "int" },
@@ -2298,6 +2391,35 @@ function packVectors() {
     one(1, { ...packBase, ...over });
     one(2, { ...packBase, ...over });
   }
+  // Entry effects (house decision #61), crafted so the random stream above stays as it was.
+  const calling = SAMPLE_PACK_EFFECTS.entries[1] as Record<string, unknown>;
+  const withEffects = (effects: unknown, over: Record<string, unknown> = {}) => ({
+    ...SAMPLE_PACK_EFFECTS,
+    entries: [{ ...calling, ...over, effects }],
+  });
+  const eff = { path: "derived.defense", mode: "add", value: "1", phase: "derived" };
+  one(0, SAMPLE_PACK_EFFECTS);
+  one(0, withEffects([]));
+  one(0, withEffects([eff, { ...eff, mode: "override", priority: -2, when: "level > 2", cite: "Sample p.1" }]));
+  one(0, withEffects([{ ...eff, path: "derived.nope" }]));
+  one(0, withEffects([{ ...eff, path: "defense" }]));
+  one(0, withEffects([{ path: "attr.dex", mode: "add", value: "derived.defense" }]));
+  one(0, withEffects([{ path: "attr.dex", mode: "add", value: "nope + 1" }]));
+  one(0, withEffects([{ ...eff, when: "level" }]));
+  one(0, withEffects([{ path: "name", mode: "add", value: "1" }]));
+  one(0, withEffects([eff], { type: "gear", body: { weight: 1 } }));
+  one(0, withEffects([eff], { type: "creature", body: {} }));
+  one(0, withEffects(Array.from({ length: 20 }, () => eff)));
+  one(0, withEffects(Array.from({ length: 21 }, () => eff)));
+  one(0, withEffects({}));
+  one(0, withEffects([{ mode: "add" }]));
+  one(0, {
+    ...SAMPLE_PACK_EFFECTS,
+    entries: [
+      ...SAMPLE_PACK_EFFECTS.entries,
+      { ...calling, key: "other", effects: [{ ...eff, path: "derived.nope" }] },
+    ],
+  });
   return { rulesets, cases: out };
 }
 
@@ -2348,8 +2470,8 @@ const vectors = {
     text,
     sha: sha256Hex(text),
   })),
-  entries: SAMPLE_PACK.entries.map((e) => {
-    const entry = { tags: [], ...e };
+  entries: [...SAMPLE_PACK.entries, ...SAMPLE_PACK_EFFECTS.entries].map((e) => {
+    const entry = { tags: [], effects: [], ...e };
     return { entry, hash: contentHash(entry as never) };
   }),
   dice: diceVectors(),
@@ -2360,6 +2482,7 @@ const vectors = {
   manifests: MANIFESTS,
   manifestCases: manifestVectors(),
   derive: deriveVectors(),
+  entryDerive: entryDeriveVectors(),
   fieldValues: fieldValueVectors(),
   campaignValueChecks: campaignValueVectors(),
   scoringManifests: SCORING_MANIFESTS,

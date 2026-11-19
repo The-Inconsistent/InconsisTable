@@ -109,19 +109,21 @@ var resourceSchema = schema.Object(
 	schema.Def("editableBy", editableByEnum, "gm"),
 )
 
+var effectSchema = schema.Object(
+	schema.Req("path", schema.String().Min(1).Max(130)),
+	schema.Req("mode", schema.Enum("add", "multiply", "override", "upgrade", "downgrade")),
+	schema.Req("value", exprSource),
+	schema.Def("phase", schema.Enum("base", "derived"), "base"),
+	schema.Opt("priority", schema.Int()),
+	schema.Opt("when", exprSource),
+	schema.Opt("cite", citeSchema),
+)
+
 var conditionSchema = schema.Object(
 	schema.Req("id", idSchema),
 	schema.Req("label", label(80)),
 	schema.Opt("cite", citeSchema),
-	schema.Def("effects", schema.Array(schema.Object(
-		schema.Req("path", schema.String().Min(1).Max(130)),
-		schema.Req("mode", schema.Enum("add", "multiply", "override", "upgrade", "downgrade")),
-		schema.Req("value", exprSource),
-		schema.Def("phase", schema.Enum("base", "derived"), "base"),
-		schema.Opt("priority", schema.Int()),
-		schema.Opt("when", exprSource),
-		schema.Opt("cite", citeSchema),
-	)).Max(50), []any{}),
+	schema.Def("effects", schema.Array(effectSchema).Max(50), []any{}),
 	schema.Def("stacking", schema.Enum("none", "stack", "refresh"), "none"),
 	schema.Opt("maxStacks", schema.Int().Min(1).Max(100)),
 	schema.Req("duration", schema.Enum("ownTurnEnd", "roundEnd", "encounterEnd", "manual")),

@@ -258,9 +258,9 @@ func (l *Limiter) Allow(key string) bool {
 //
 // ponytail: forgeable by a client that bypasses Cloudflare to hit Pangolin directly; allow only Cloudflare IPs there.
 //
-// Behind Cloud Run, TRUST_XFF=1: its front end appends the address it saw to X-Forwarded-For, after anything the client
-// sent, and the web passes the header on as it is. So only the last entry is trusted, and only while the api is
-// reachable through the web alone (deploy/cloudrun: the api is the web's sidecar).
+// TRUST_XFF=1 behind a proxy that writes the address it saw as the last X-Forwarded-For entry (Cloud Run's front end
+// appends it; the VPS stack's Caddy replaces the header with it), and the web passes the header on as it is. So only the
+// last entry is trusted, and only while the api is reachable through the web alone (deploy/vps, deploy/cloudrun).
 func ClientIP(r *http.Request) string {
 	if os.Getenv("TRUST_CF") == "1" {
 		if cf := r.Header.Values("Cf-Connecting-Ip"); len(cf) > 0 && cf[0] != "" {

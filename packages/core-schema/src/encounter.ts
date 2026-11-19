@@ -3,7 +3,8 @@ import { z } from "zod";
 // The combat tracker's wire shapes (docs/p1-plan.md, F): the encounter in the live snapshot and the actions that run it
 // (what each seat gets of it is decided by the api's Seat view module).
 
-export const CombatSide = z.enum(["party", "foe", "other"]);
+// `party`, `foe` or `other`, or, in a game whose turn order is `sides`, one of the ruleset's side ids; the api checks which.
+export const CombatSide = z.string().min(1).max(64);
 export type CombatSide = z.infer<typeof CombatSide>;
 
 // What a seat that is not running the fight sees of a combatant: nothing, a name with a health bar, or the numbers the
@@ -33,6 +34,10 @@ export const Combatant = z.object({
   /** The health track as 0..1, for the bar; null when the actor has no health to show. */
   bar: z.number().min(0).max(1).nullable(),
   conditions: z.array(CombatantCondition), // GM side only
+  /** Sides order only (house decision #60): holding an action, barred this round, unable to act. Absent otherwise. */
+  held: z.boolean().optional(),
+  barred: z.boolean().optional(),
+  unable: z.boolean().optional(),
 });
 export type Combatant = z.infer<typeof Combatant>;
 
@@ -60,6 +65,13 @@ export const Encounter = z.object({
   /** How the ruleset scores the game; null when it has no scoring block, so the game cannot be ended with a result. */
   scoring: z.object({ mode: z.enum(["compete", "coop"]) }).nullable(),
   combatants: z.array(Combatant), // in turn order
+  /** Sides order only (house decision #60), absent otherwise: whether the fight has begun (a setup opens it not begun). */
+  begun: z.boolean().optional(),
+  /** The side that acted last, and the side that acted out of turn this round; side ids, so public. */
+  lastSide: z.string().nullable().optional(),
+  outOfTurnSide: z.string().nullable().optional(),
+  /** The side whose pick it is now; null when no side has anyone pending. */
+  sideUp: z.string().nullable().optional(),
 });
 export type Encounter = z.infer<typeof Encounter>;
 
@@ -96,7 +108,8 @@ export const ENCOUNTER_ACTIONS = [
   z.object({
     type: z.literal("encounter.add"),
     actorIds: z.array(id).min(1).max(50),
-    side: CombatSide,
+    // Absent: a sides order places each actor by its entity type (house decision #60).
+    side: CombatSide.optional(),
     visibility: CombatVisibility.default("bar"),
   }),
   z.object({ type: z.literal("encounter.remove"), combatantId: id }),

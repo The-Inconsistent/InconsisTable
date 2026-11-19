@@ -9,6 +9,8 @@ import (
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
 )
 
 // The tracker's rows (apps/api/src/encounter/encounter.combatants.ts).
@@ -52,8 +54,37 @@ func rerank(ctx context.Context, tx core.Conn, encounterID string) error {
 	return renumber(ctx, tx, RankIDs(rows))
 }
 
+// sideFor is the side an actor joins (house decision #60). With a sides order a given side must be one of the manifest's;
+// none given, the actor joins the side that lists its entity type, and one on no side is refused by name. With any other
+// order the side must be party, foe or other.
+func sideFor(rules *engine.CompiledRuleset, given, entity, name string) (string, error) {
+	var init *engine.Initiative
+	if rules != nil {
+		init = rules.Ruleset.Initiative
+	}
+	if init == nil || init.Strategy != "sides" {
+		if !slices.Contains([]string{"party", "foe", "other"}, given) {
+			return "", cs.Fail("badInput", cs.Params{"detail": "side is party, foe or other"})
+		}
+		return given, nil
+	}
+	if given != "" {
+		if !slices.ContainsFunc(init.Sides, func(s engine.Side) bool { return s.ID == given }) {
+			return "", cs.Fail("badInput", cs.Params{"detail": `"` + given + `" is not a side of this game`})
+		}
+		return given, nil
+	}
+	for _, s := range init.Sides {
+		if s.Entities != nil && slices.Contains(*s.Entities, entity) {
+			return s.ID, nil
+		}
+	}
+	return "", cs.Fail("wrongState", cs.Params{"detail": name + " is on no side"})
+}
+
 // AddCombatants puts actors of this campaign into an encounter. The caller has checked the encounter is the campaign's;
-// the actors are looked up here against campaignID, never trusted from the client.
+// the actors are looked up here against campaignID, never trusted from the client. side is "" to let a sides order place
+// each actor by its entity type.
 func AddCombatants(ctx context.Context, tx core.Conn, campaignID, encounterID string, actorIDs []string, side, visibility string) error {
 	wanted := []string{}
 	for _, id := range actorIDs {
@@ -61,14 +92,14 @@ func AddCombatants(ctx context.Context, tx core.Conn, campaignID, encounterID st
 			wanted = append(wanted, id)
 		}
 	}
-	rows, err := tx.Query(ctx, `SELECT id::text, name FROM actor WHERE campaign_id = $1 AND id = ANY($2::uuid[])`, campaignID, wanted)
+	rows, err := tx.Query(ctx, `SELECT id::text, name, coalesce(entity_type, '') FROM actor WHERE campaign_id = $1 AND id = ANY($2::uuid[])`, campaignID, wanted)
 	if err != nil {
 		return err
 	}
-	type found struct{ id, name string }
+	type found struct{ id, name, entity string }
 	actors, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (found, error) {
 		var f found
-		return f, r.Scan(&f.id, &f.name)
+		return f, r.Scan(&f.id, &f.name, &f.entity)
 	})
 	if err != nil {
 		return err
@@ -89,9 +120,19 @@ func AddCombatants(ctx context.Context, tx core.Conn, campaignID, encounterID st
 			return cs.Fail("alreadyInFight", cs.Params{"name": a.name})
 		}
 	}
+	rules, err := compiled.Load(ctx, tx, campaignID)
+	if err != nil {
+		return err
+	}
+	sides := map[string]string{}
+	for _, a := range actors {
+		if sides[a.id], err = sideFor(rules, side, a.entity, a.name); err != nil {
+			return err
+		}
+	}
 	for i, actorID := range wanted {
 		if _, err := tx.Exec(ctx, `INSERT INTO combatant (encounter_id, actor_id, side, visibility, ord) VALUES ($1, $2, $3, $4, $5)`,
-			encounterID, actorID, side, visibility, next+i); err != nil {
+			encounterID, actorID, sides[actorID], visibility, next+i); err != nil {
 			return err
 		}
 	}

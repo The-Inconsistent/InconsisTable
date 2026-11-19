@@ -54,7 +54,9 @@ export function OrderList({ encounter, actors, selectedId, onSelect, run }: Orde
                     {t("first")}
                   </span>
                 )}
-                <span className="chip">{tSide(c.side)}</span>
+                <span className="chip">
+                  {c.side === "party" || c.side === "foe" || c.side === "other" ? tSide(c.side) : c.side}
+                </span>
                 <span className="chip">{tVisibility(c.visibility)}</span>
                 {word && (
                   <span className="state-word" data-state={word}>

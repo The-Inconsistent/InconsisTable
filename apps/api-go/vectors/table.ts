@@ -486,6 +486,59 @@ const BASE_SNAPSHOTS: {
     ruleset: true,
   },
   {
+    // A sides order (house decision #60) with a hidden combatant: the side ids are public and the flags travel with the
+    // combatant, so a seat that may not see the hidden one is told nothing of it.
+    name: "sides fight",
+    state: {
+      ...STATE,
+      encounter: {
+        ...STATE.encounter,
+        currentId: CB3,
+        done: [CB1],
+        combatants: STATE.encounter.combatants.map((c, i) => ({
+          ...c,
+          side: i < 2 ? "wardens" : "raiders",
+          held: i === 1,
+          barred: i === 2,
+          unable: i === 3,
+        })),
+        begun: true,
+        lastSide: "wardens",
+        outOfTurnSide: null,
+        sideUp: "raiders",
+      },
+    },
+    codex: CODEX,
+    drafts: {},
+    ruleset: true,
+  },
+  {
+    // A sides fight that has not begun, with nobody up yet.
+    name: "sides fight not begun",
+    state: {
+      ...STATE,
+      encounter: {
+        ...STATE.encounter,
+        currentId: null,
+        done: [],
+        combatants: STATE.encounter.combatants.map((c) => ({
+          ...c,
+          side: "wardens",
+          held: false,
+          barred: true,
+          unable: false,
+        })),
+        begun: false,
+        lastSide: null,
+        outOfTurnSide: "wardens",
+        sideUp: null,
+      },
+    },
+    codex: CODEX,
+    drafts: {},
+    ruleset: true,
+  },
+  {
     // An ended game beside a scored, phased fight, and an open Dice pool Test whose number stays hidden.
     name: "ended game",
     state: {

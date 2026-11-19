@@ -327,9 +327,18 @@ export const SidesInitiative = z.object({
   strategy: z.literal("sides"),
   /** Their order is the order they pick in at the start of a round. */
   sides: z
-    .array(z.object({ id: Id, label: z.string().min(1).max(40) }))
+    .array(
+      z.object({
+        id: Id,
+        label: z.string().min(1).max(40),
+        /** Actor entity types that join this side by default. */
+        entities: z.array(Id).max(20).optional(),
+      }),
+    )
     .min(2)
     .max(4),
+  /** Health states that leave a combatant unable to act while it has any. */
+  unableStates: z.array(Id).max(20).optional(),
   /** fixed: the first side picks first every round. rotate: that moves one place along the list each round. */
   firstSide: z.enum(["fixed", "rotate"]).default("fixed"),
   /** auto: the round wraps when no able member is left. manual: it waits for `newRound`. */
@@ -819,12 +828,31 @@ function campaignFieldProblems({
 function sidesProblems({
   init,
   resources,
+  entities,
+  states,
   out,
 }: {
   init: SidesInitiative;
   resources: ReadonlyMap<string, { scope: string }>;
+  entities: (id: string) => { base: string } | undefined;
+  states: ReadonlySet<string>;
   out: Problem[];
 }): void {
+  const listed = new Map<string, string>();
+  init.sides.forEach((side, i) =>
+    side.entities?.forEach((id, j) => {
+      const path = `initiative.sides[${i}].entities[${j}]`;
+      const e = entities(id);
+      if (e === undefined) out.push({ path, message: `unknown entity "${id}"` });
+      else if (e.base !== "actor") out.push({ path, message: `"${id}" is not an actor entity` });
+      const other = listed.get(id);
+      if (other !== undefined) out.push({ path, message: `"${id}" is already on side "${other}"` });
+      else listed.set(id, side.id);
+    }),
+  );
+  init.unableStates?.forEach((id, i) => {
+    if (!states.has(id)) out.push({ path: `initiative.unableStates[${i}]`, message: `unknown health state "${id}"` });
+  });
   const sides = new Set(init.sides.map((x) => x.id));
   const costs = (record: Readonly<Record<string, SideCost>> | undefined, path: string) => {
     for (const side of Object.keys(record ?? {}).sort()) {
@@ -942,7 +970,14 @@ function semanticProblems(r: Ruleset): Problem[] {
     }
   });
 
-  if (r.initiative?.strategy === "sides") sidesProblems({ init: r.initiative, resources, out });
+  if (r.initiative?.strategy === "sides")
+    sidesProblems({
+      init: r.initiative,
+      resources,
+      entities: (id) => r.entities.find((e) => e.id === id),
+      states: new Set(r.health.states.map((x) => x.id)),
+      out,
+    });
 
   const trackResource = (id: string, path: string) => {
     const res = resources.get(id);

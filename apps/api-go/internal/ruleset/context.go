@@ -2,6 +2,7 @@ package ruleset
 
 import (
 	"context"
+	"slices"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign/eventlog"
@@ -20,6 +21,7 @@ import (
 var primitiveParams = map[string]func(r *engine.Ruleset) any{
 	"initiative.ranked": func(r *engine.Ruleset) any { return r.Normalized["initiative"] },
 	"initiative.seated": func(r *engine.Ruleset) any { return r.Normalized["initiative"] },
+	"initiative.sides":  func(r *engine.Ruleset) any { return r.Normalized["initiative"] },
 	"health.tracks":     func(r *engine.Ruleset) any { return r.Normalized["health"] },
 	"resource.capped":   func(*engine.Ruleset) any { return map[string]any{} },
 	"conditions.expire": func(*engine.Ruleset) any { return map[string]any{} },
@@ -27,7 +29,7 @@ var primitiveParams = map[string]func(r *engine.Ruleset) any{
 }
 
 // Primitives that read the turn: they wait for a session (house decision #28).
-var turnPrimitives = map[string]bool{"initiative.ranked": true, "initiative.seated": true, "conditions.expire": true}
+var turnPrimitives = map[string]bool{"initiative.ranked": true, "initiative.seated": true, "initiative.sides": true, "conditions.expire": true}
 
 // RunPrimitive parses, validates and applies one op; its deltas are checked against the op's targets. It refuses with
 // the engine's words as the detail.
@@ -132,9 +134,34 @@ func (rc *Context) Turn(ctx context.Context) (*turn.Turn, error) {
 		if err != nil {
 			return nil, err
 		}
+		if t != nil {
+			t.Unable = Unable(rc.Compiled, rc.Built, t.Order)
+		}
 		rc.turn, rc.read = t, true
 	}
 	return rc.turn, nil
+}
+
+// Unable is the actors among ids that cannot act: those with any of a sides order's `unableStates` now (house decision
+// #60). A state whose condition cannot be evaluated does not count. nil for any other order. It takes the built actors,
+// so it lives here and not in the turn package, which the actor package sits above.
+func Unable(compiled *engine.CompiledRuleset, built map[string]*actor.Built, ids []string) []string {
+	out := []string{}
+	i := compiled.Ruleset.Initiative
+	if i == nil || i.Strategy != "sides" || i.UnableStates == nil {
+		return out
+	}
+	for _, id := range ids {
+		b := built[id]
+		if b == nil || b.Scope == nil {
+			continue
+		}
+		states, err := compiled.HealthStatesOf(b.Entity, b.Scope)
+		if err == nil && slices.ContainsFunc(*i.UnableStates, func(s string) bool { return slices.Contains(states, s) }) {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 // State is what the ops read: every actor as it is now, less exclude, the shared pools, and the turn (nil with none).

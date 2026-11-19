@@ -83,6 +83,11 @@ func PlanNext(r *engine.Ruleset, state *engine.RuleState, t *turn.Turn) ([]engin
 	if r.Initiative.Strategy == "ranked" && r.Initiative.RerollEachRound {
 		return nil, cs.Fail("rerollUnsupported")
 	}
+	if r.Initiative.Strategy == "sides" {
+		return PlanSides(func(primitive, op string, input any) ([]engine.Delta, error) {
+			return ruleset.RunPrimitive(r, state, primitive, op, input)
+		}, t, "next", map[string]any{})
+	}
 	ended := t.CurrentID
 	run := func(primitive, op string, input map[string]any) ([]engine.Delta, error) {
 		return ruleset.RunPrimitive(r, state, primitive, op, input)
@@ -150,6 +155,9 @@ func PlanDone(r *engine.Ruleset, state *engine.RuleState, t *turn.Turn, actorID 
 	if t == nil {
 		return nil, cs.Fail("noEncounterRunning")
 	}
+	if r.Initiative != nil && r.Initiative.Strategy == "sides" {
+		return nil, cs.Fail("wrongState", cs.Params{"detail": "this game has no phases"})
+	}
 	if at := phaseAt(r, t); at < 0 || r.Phases[at].Mode != "simultaneous" {
 		return nil, cs.Fail("notSimultaneous")
 	}
@@ -185,6 +193,9 @@ func PlanPrev(r *engine.Ruleset, t *turn.Turn) ([]engine.Delta, error) {
 	}
 	if t == nil {
 		return nil, cs.Fail("noEncounterRunning")
+	}
+	if r.Initiative.Strategy == "sides" {
+		return nil, cs.Fail("wrongState", cs.Params{"detail": "use Undo"})
 	}
 	// House decision #37: a phase is entered by Undo-able steps only; back stops at its first turn.
 	if at := phaseAt(r, t); at >= 0 {

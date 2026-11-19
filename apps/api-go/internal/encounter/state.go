@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 )
 
 // Active is the campaign's running encounter.
@@ -21,14 +23,17 @@ type Active struct {
 	CurrentCombatantID *string
 	FirstCombatantID   *string
 	PhaseID            *string
+	Begun              bool
+	LastSide           *string
+	OutOfTurnSide      *string
 }
 
 // LoadActive is the running encounter, or nil.
 func LoadActive(ctx context.Context, conn core.Conn, campaignID string) (*Active, error) {
 	var e Active
-	err := conn.QueryRow(ctx, `SELECT id::text, round, current_combatant_id::text, first_combatant_id::text, phase_id
-		FROM encounter WHERE campaign_id = $1 AND active`, campaignID).
-		Scan(&e.ID, &e.Round, &e.CurrentCombatantID, &e.FirstCombatantID, &e.PhaseID)
+	err := conn.QueryRow(ctx, `SELECT id::text, round, current_combatant_id::text, first_combatant_id::text, phase_id,
+		begun, last_side, out_of_turn_side FROM encounter WHERE campaign_id = $1 AND active`, campaignID).
+		Scan(&e.ID, &e.Round, &e.CurrentCombatantID, &e.FirstCombatantID, &e.PhaseID, &e.Begun, &e.LastSide, &e.OutOfTurnSide)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -73,7 +78,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 		return nil, err
 	}
 	rows, err := conn.Query(ctx, `SELECT c.id::text, c.actor_id::text, actor.name, c.side, c.ord, c.initiative_score,
-		c.visibility, c.keep, c.done FROM combatant c JOIN actor ON actor.id = c.actor_id
+		c.visibility, c.keep, c.done, c.held, c.barred FROM combatant c JOIN actor ON actor.id = c.actor_id
 		WHERE c.encounter_id = $1 AND actor.campaign_id = $2 ORDER BY c.ord, c.id`, e.ID, campaignID)
 	if err != nil {
 		return nil, err
@@ -81,11 +86,19 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 	resource, hasHealth := HealthResource(compiled)
 	done := []string{}
 	order := []string{}
+	sideOf, held, barred := map[string]string{}, []string{}, []string{}
 	combatants, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (cs.Combatant, error) {
 		var c cs.Combatant
-		var isDone bool
-		if err := r.Scan(&c.ID, &c.ActorID, &c.Name, &c.Side, &c.Ord, &c.Initiative, &c.Visibility, &c.Keep, &isDone); err != nil {
+		var isDone, isHeld, isBarred bool
+		if err := r.Scan(&c.ID, &c.ActorID, &c.Name, &c.Side, &c.Ord, &c.Initiative, &c.Visibility, &c.Keep, &isDone, &isHeld, &isBarred); err != nil {
 			return c, err
+		}
+		sideOf[c.ActorID] = c.Side
+		if isHeld {
+			held = append(held, c.ActorID)
+		}
+		if isBarred {
+			barred = append(barred, c.ActorID)
 		}
 		if isDone {
 			done = append(done, c.ID)
@@ -124,6 +137,9 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 		return out, nil
 	}
 	r := compiled.Ruleset
+	if r.Initiative != nil && r.Initiative.Strategy == "sides" {
+		sidesOf(out, e, compiled, built, sideOf, held, barred)
+	}
 	for _, p := range r.Phases {
 		out.Phases = append(out.Phases, cs.EncounterPhase{ID: p.ID, Label: p.Label, Mode: p.Mode})
 	}
@@ -148,4 +164,38 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 		out.ConditionDefs = append(out.ConditionDefs, cs.ConditionDef{ID: c.ID, Label: c.Label, Duration: c.Duration})
 	}
 	return out, nil
+}
+
+// sidesOf adds a sides order's part to the encounter and to each combatant (house decision #60). `sideUp` is the
+// primitive's own, read from the turn as it stands.
+func sidesOf(out *cs.Encounter, e *Active, rules *engine.CompiledRuleset, built map[string]*actor.Built, sideOf map[string]string, held, barred []string) {
+	order := make([]string, len(out.Combatants))
+	for i, c := range out.Combatants {
+		order[i] = c.ActorID
+	}
+	unable := ruleset.Unable(rules, built, order)
+	acting := (*string)(nil)
+	done := []string{}
+	for _, c := range out.Combatants {
+		if e.CurrentCombatantID != nil && c.ID == *e.CurrentCombatantID {
+			acting = &c.ActorID
+		}
+		if slices.Contains(out.Done, c.ID) {
+			done = append(done, c.ActorID)
+		}
+	}
+	t := &engine.TurnState{
+		Round: float64(e.Round), CurrentID: acting, Order: order, Done: done, SideOf: sideOf, Begun: &e.Begun,
+		LastSide: e.LastSide, OutOfTurnSide: e.OutOfTurnSide, Held: held, Barred: barred, Unable: unable,
+	}
+	up := (*string)(nil)
+	if side, ok := engine.SideUp(rules.Ruleset.Normalized["initiative"], t); ok {
+		up = &side
+	}
+	out.EncounterSides = &cs.EncounterSides{Begun: e.Begun, LastSide: e.LastSide, OutOfTurnSide: e.OutOfTurnSide, SideUp: up}
+	for i, c := range out.Combatants {
+		out.Combatants[i].CombatantSides = &cs.CombatantSides{
+			Held: slices.Contains(held, c.ActorID), Barred: slices.Contains(barred, c.ActorID), Unable: slices.Contains(unable, c.ActorID),
+		}
+	}
 }

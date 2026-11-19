@@ -202,6 +202,14 @@ type (
 		HP         *HP                  `json:"hp"`
 		Bar        *float64             `json:"bar"`
 		Conditions []CombatantCondition `json:"conditions"`
+		*CombatantSides
+	}
+	// CombatantSides is a combatant's part of a sides order (house decision #60); nil for any other order, so the keys
+	// are absent. It is embedded, which encoding/json flattens and leaves out while nil.
+	CombatantSides struct {
+		Held   bool `json:"held"`
+		Barred bool `json:"barred"`
+		Unable bool `json:"unable"`
 	}
 	// EncounterPhase is one phase of the round, for the banner.
 	EncounterPhase struct {
@@ -241,6 +249,14 @@ type (
 		EndMet        []int            `json:"endMet"`
 		Scoring       *ScoringMode     `json:"scoring"`
 		Combatants    []Combatant      `json:"combatants"`
+		*EncounterSides
+	}
+	// EncounterSides is the encounter's part of a sides order (house decision #60); nil for any other order.
+	EncounterSides struct {
+		Begun         bool    `json:"begun"`
+		LastSide      *string `json:"lastSide"`
+		OutOfTurnSide *string `json:"outOfTurnSide"`
+		SideUp        *string `json:"sideUp"`
 	}
 	// GameResult is one line of an ended game.
 	GameResult struct {

@@ -181,9 +181,11 @@ func start(ctx context.Context, tx core.Conn, c cs.Ctx) (cs.Result, error) {
 	if rules != nil && len(rules.Ruleset.Phases) > 0 {
 		phaseID = &rules.Ruleset.Phases[0].ID
 	}
+	// A sides order with a setup opens not begun (house decision #60); the round is still 1.
+	begun := !(rules != nil && rules.Ruleset.Initiative.Strategy == "sides" && rules.Ruleset.Initiative.Setup != nil)
 	var id string
-	err = tx.QueryRow(ctx, `INSERT INTO encounter (campaign_id, session_id, phase_id) VALUES ($1, $2, $3) RETURNING id::text`,
-		cid, *sessionID, phaseID).Scan(&id)
+	err = tx.QueryRow(ctx, `INSERT INTO encounter (campaign_id, session_id, phase_id, begun) VALUES ($1, $2, $3, $4) RETURNING id::text`,
+		cid, *sessionID, phaseID, begun).Scan(&id)
 	if err != nil {
 		return cs.Result{}, err
 	}
@@ -231,15 +233,20 @@ func remove(ctx context.Context, tx core.Conn, c cs.Ctx, combatantID string) (cs
 	}
 	at := slices.IndexFunc(rows, func(r Ranked) bool { return r.ID == combatantID })
 	acting := e.CurrentCombatantID != nil && *e.CurrentCombatantID == combatantID
-	seated, err := isSeated(ctx, tx, cid)
+	strategy, err := strategyOf(ctx, tx, cid)
 	if err != nil {
 		return cs.Result{}, err
 	}
-	if seated {
+	if strategy == "seated" {
 		if err := removeSeated(ctx, tx, c, rows, at, acting); err != nil {
 			return cs.Result{}, err
 		}
-	} else if acting {
+	} else if strategy == "sides" && acting {
+		// House decision #60: the turn ends with nobody acting; it does not pass to the next row.
+		if _, err := tx.Exec(ctx, `UPDATE encounter SET current_combatant_id = NULL WHERE id = $1`, e.ID); err != nil {
+			return cs.Result{}, err
+		}
+	} else if strategy != "sides" && acting {
 		// The one whose turn it is leaves: the turn passes to whoever follows, or to nobody when they were last.
 		var following *string
 		if at+1 < len(rows) {

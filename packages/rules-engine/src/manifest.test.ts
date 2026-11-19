@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { compileRuleset } from "./compile.ts";
 import { SAMPLE_D20 } from "./fixtures/sample-d20.ts";
 import { SAMPLE_NO_ORDER } from "./fixtures/sample-no-order.ts";
+import { SAMPLE_SKIRMISH } from "./fixtures/sample-skirmish.ts";
 import { MAX_FIELDS, MAX_MANIFEST_BYTES, validateRuleset, type FieldDef, type RulesetInput } from "./manifest.ts";
 import type { Problem } from "./problem.ts";
 
@@ -244,4 +245,32 @@ test("a ruleset with no initiative compiles, with none to run", () => {
   const ordeal = r.compiled.tests.ordeal?.def;
   assert.ok(ordeal?.kind === "sumVsTarget");
   assert.equal(ordeal.degrees?.step, 5);
+});
+
+// House decision #60: the sides of an `initiative.sides` order list their actor entity types, and some health states
+// leave a combatant unable.
+test("sides: entities and unableStates are checked", () => {
+  const init = SAMPLE_SKIRMISH.initiative as { sides: object[] };
+  const problems = (initiative: object) => {
+    const v = validateRuleset({ ...SAMPLE_SKIRMISH, initiative: { ...init, ...initiative } });
+    return v.ok ? [] : v.problems.map((p) => `${p.path}: ${p.message}`);
+  };
+  const [a, b] = init.sides;
+  assert.deepEqual(problems({}), []);
+  assert.deepEqual(problems({ sides: [{ ...a, entities: ["nope"] }, b] }), [
+    'initiative.sides[0].entities[0]: unknown entity "nope"',
+  ]);
+  assert.deepEqual(problems({ sides: [{ ...a, entities: ["lineage"] }, b] }), [
+    'initiative.sides[0].entities[0]: "lineage" is not an actor entity',
+  ]);
+  assert.deepEqual(
+    problems({
+      sides: [
+        { ...a, entities: ["character"] },
+        { ...b, entities: ["character"] },
+      ],
+    }),
+    ['initiative.sides[1].entities[0]: "character" is already on side "wardens"'],
+  );
+  assert.deepEqual(problems({ unableStates: ["nope"] }), ['initiative.unableStates[0]: unknown health state "nope"']);
 });

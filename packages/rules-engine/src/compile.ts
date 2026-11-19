@@ -15,6 +15,7 @@ import {
   type FieldDef,
   type RankedInitiative,
   type SeatedInitiative,
+  type SidesInitiative,
   type Resource,
   type Ruleset,
   type Scoring,
@@ -79,7 +80,7 @@ export interface CompiledTest {
 
 export type CompiledInitiative =
   | { def: RankedInitiative; score: CompiledExpr; tiebreak: CompiledExpr[] }
-  | { def: SeatedInitiative; score: null; tiebreak: [] };
+  | { def: SeatedInitiative | SidesInitiative; score: null; tiebreak: [] };
 
 export interface CompiledScoring {
   def: Scoring;
@@ -566,7 +567,7 @@ class Compiler {
           ? { def: ranked, score, tiebreak: tiebreak.filter((t): t is CompiledExpr => t !== null) }
           : init === undefined
             ? null
-            : { def: init as SeatedInitiative, score: null, tiebreak: [] },
+            : { def: init as SeatedInitiative | SidesInitiative, score: null, tiebreak: [] },
       healthStates,
       instantDeath,
     };

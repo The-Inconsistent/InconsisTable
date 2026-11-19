@@ -68,6 +68,7 @@ export * from "./primitives/dice-sum-vs-target.ts";
 export * from "./primitives/dice-pool-successes.ts";
 export * from "./primitives/initiative-ranked.ts";
 export { firstOf, initiativeSeated, nextFirst, sequence } from "./primitives/initiative-seated.ts";
+export { initiativeSides, sideUp } from "./primitives/initiative-sides.ts";
 export * from "./primitives/health-tracks.ts";
 export * from "./primitives/resource-capped.ts";
 export * from "./primitives/conditions-expire.ts";

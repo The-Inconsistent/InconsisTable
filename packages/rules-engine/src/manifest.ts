@@ -316,6 +316,42 @@ export const SeatedInitiative = z.object({
 });
 export type SeatedInitiative = z.infer<typeof SeatedInitiative>;
 
+const SideCost = z.object({ pool: Id, amount: z.int().min(1).max(20) });
+export type SideCost = z.infer<typeof SideCost>;
+
+/**
+ * Sides alternate and the side that is up chooses who acts (house decision #57). Also the params of
+ * `initiative.sides`. A cost names a shared pool by resource id; its side is a key of the record.
+ */
+export const SidesInitiative = z.object({
+  strategy: z.literal("sides"),
+  /** Their order is the order they pick in at the start of a round. */
+  sides: z
+    .array(z.object({ id: Id, label: z.string().min(1).max(40) }))
+    .min(2)
+    .max(4),
+  /** fixed: the first side picks first every round. rotate: that moves one place along the list each round. */
+  firstSide: z.enum(["fixed", "rotate"]).default("fixed"),
+  /** auto: the round wraps when no able member is left. manual: it waits for `newRound`. */
+  roundEnd: z.enum(["auto", "manual"]).default("auto"),
+  /** Present: the fight opens not begun, and no turn starts before `begin`. */
+  setup: z.object({ cite: Cite.optional() }).optional(),
+  /** A side with no cost cannot act out of turn. */
+  outOfTurn: z.object({ cost: z.record(Id, SideCost), cite: Cite.optional() }).optional(),
+  /** A member may end its turn holding an action. */
+  hold: z.object({ cite: Cite.optional() }).optional(),
+  /** A member can be marked as taking no turn through `throughRound`; a side may pay to lift it. */
+  barred: z
+    .object({
+      throughRound: z.int().min(1).max(10).default(1),
+      liftCost: z.record(Id, SideCost).default({}),
+      cite: Cite.optional(),
+    })
+    .optional(),
+  cite: Cite.optional(),
+});
+export type SidesInitiative = z.infer<typeof SidesInitiative>;
+
 /** One step of a round, played in turn or by everyone at once (house decision #37). */
 export const Phase = z.object({
   id: Id,
@@ -382,7 +418,7 @@ export const Scoring = z.object({
 });
 export type Scoring = z.infer<typeof Scoring>;
 
-export const Initiative = z.discriminatedUnion("strategy", [RankedInitiative, SeatedInitiative]);
+export const Initiative = z.discriminatedUnion("strategy", [RankedInitiative, SeatedInitiative, SidesInitiative]);
 export type Initiative = z.infer<typeof Initiative>;
 
 export const DeathSaves = z.object({
@@ -779,6 +815,32 @@ function campaignFieldProblems({
   }
 }
 
+/** Every cost names a declared side and a shared pool. */
+function sidesProblems({
+  init,
+  resources,
+  out,
+}: {
+  init: SidesInitiative;
+  resources: ReadonlyMap<string, { scope: string }>;
+  out: Problem[];
+}): void {
+  const sides = new Set(init.sides.map((x) => x.id));
+  const costs = (record: Readonly<Record<string, SideCost>> | undefined, path: string) => {
+    for (const side of Object.keys(record ?? {}).sort()) {
+      const cost = record?.[side];
+      if (cost === undefined) continue;
+      if (!sides.has(side)) out.push({ path: `${path}.${side}`, message: `unknown side "${side}"` });
+      const res = resources.get(cost.pool);
+      if (res === undefined) out.push({ path: `${path}.${side}.pool`, message: `unknown resource "${cost.pool}"` });
+      else if (res.scope === "entity")
+        out.push({ path: `${path}.${side}.pool`, message: `"${cost.pool}" must be a shared pool` });
+    }
+  };
+  costs(init.outOfTurn?.cost, "initiative.outOfTurn.cost");
+  costs(init.barred?.liftCost, "initiative.barred.liftCost");
+}
+
 function semanticProblems(r: Ruleset): Problem[] {
   const out: Problem[] = [];
   // CLAUDE.md principle 1: every rule entry cites its printed page, unless the whole ruleset is homebrew.
@@ -799,6 +861,13 @@ function semanticProblems(r: Ruleset): Problem[] {
     if (t.kind === "reported") t.outcomes.forEach((o, j) => needCite(o.cite, `tests.${id}.outcomes[${j}]`));
   }
   if (r.initiative) needCite(r.initiative.cite, "initiative");
+  if (r.initiative?.strategy === "sides") {
+    const { setup, outOfTurn, hold, barred } = r.initiative;
+    if (setup) needCite(setup.cite, "initiative.setup");
+    if (outOfTurn) needCite(outOfTurn.cite, "initiative.outOfTurn");
+    if (hold) needCite(hold.cite, "initiative.hold");
+    if (barred) needCite(barred.cite, "initiative.barred");
+  }
   r.phases?.forEach((x, i) => needCite(x.cite, `phases[${i}]`));
   for (const [id, t] of Object.entries(r.tables ?? {})) {
     needCite(t.cite, `tables.${id}`);
@@ -833,6 +902,10 @@ function semanticProblems(r: Ruleset): Problem[] {
   duplicates({ ids: r.resources.map((x) => x.id), path: "resources", out });
   duplicates({ ids: r.conditions.map((x) => x.id), path: "conditions", out });
   duplicates({ ids: (r.phases ?? []).map((x) => x.id), path: "phases", out });
+  if (r.initiative?.strategy === "sides") {
+    duplicates({ ids: r.initiative.sides.map((x) => x.id), path: "initiative.sides", out });
+    if (r.phases !== undefined) out.push({ path: "phases", message: "sides do not combine with phases yet" });
+  }
   duplicates({ ids: r.options.map((x) => x.id), path: "options", out });
   duplicates({ ids: r.creation.map((x) => x.id), path: "creation", out });
   duplicates({ ids: r.decisions.map((x) => x.id), path: "decisions", out });
@@ -868,6 +941,8 @@ function semanticProblems(r: Ruleset): Problem[] {
       out.push({ path: `resources[${i}].entities`, message: "only an entity-scoped resource names entities" });
     }
   });
+
+  if (r.initiative?.strategy === "sides") sidesProblems({ init: r.initiative, resources, out });
 
   const trackResource = (id: string, path: string) => {
     const res = resources.get(id);

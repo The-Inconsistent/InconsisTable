@@ -60,6 +60,7 @@ export function applyDeltas(state: RuleState, list: readonly Delta[]): RuleState
       conditions?: ConditionState[];
     }
   >;
+  const pools = state.pools === undefined ? undefined : (structuredClone(state.pools) as Record<string, ResourceState>);
   let turn: TurnState | null = state.turn === null ? null : { ...state.turn };
   for (const d of list) {
     const t = d.target;
@@ -71,6 +72,17 @@ export function applyDeltas(state: RuleState, list: readonly Delta[]): RuleState
       if (t.turn === "phaseId" && (typeof d.value === "string" || d.value === null)) turn.phaseId = d.value;
       if (t.turn === "done" && Array.isArray(d.value)) turn.done = d.value;
       if (t.turn === "order" && Array.isArray(d.value)) turn.order = d.value;
+      if (t.turn === "begun" && typeof d.value === "boolean") turn.begun = d.value;
+      if (t.turn === "lastSide" && (typeof d.value === "string" || d.value === null)) turn.lastSide = d.value;
+      if (t.turn === "outOfTurnSide" && (typeof d.value === "string" || d.value === null)) turn.outOfTurnSide = d.value;
+      if (t.turn === "held" && Array.isArray(d.value)) turn.held = d.value;
+      if (t.turn === "barred" && Array.isArray(d.value)) turn.barred = d.value;
+      continue;
+    }
+    if ("pool" in t) {
+      const pool = pools?.[t.pool];
+      assert.ok(pool !== undefined && d.kind === "add" && typeof d.value === "number");
+      pool.value += d.value;
       continue;
     }
     if (!("actorId" in t)) continue;
@@ -88,5 +100,5 @@ export function applyDeltas(state: RuleState, list: readonly Delta[]): RuleState
       else assert.fail("a condition delta is an add or a removal");
     } else a.fields[t.field] = d.value;
   }
-  return { actors, turn };
+  return { actors, turn, ...(pools === undefined ? {} : { pools }) };
 }

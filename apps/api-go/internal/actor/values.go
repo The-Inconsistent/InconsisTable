@@ -234,16 +234,22 @@ func activeIDs(conditions []ConditionRow) []string {
 	return out
 }
 
+// CountCharacters is `party.characters`: the active player characters at the table.
+func CountCharacters(rows []Rows) float64 {
+	n := 0.0
+	for _, r := range rows {
+		if r.Actor.Kind == "pc" && r.Actor.Status == "active" {
+			n++
+		}
+	}
+	return n
+}
+
 // Build reads each actor's rows into what the engine reads: fields, resources with their evaluated bounds, conditions,
 // derived values. A half-built actor (a field an expression needs is not set yet) shows no derived values and no
 // bounds; Problem says what is missing.
 func Build(compiled *engine.CompiledRuleset, rows []Rows) (map[string]*Built, error) {
-	characters := 0.0
-	for _, r := range rows {
-		if r.Actor.Kind == "pc" && r.Actor.Status == "active" {
-			characters++
-		}
-	}
+	characters := CountCharacters(rows)
 	out := make(map[string]*Built, len(rows))
 	for _, r := range rows {
 		var ce *engine.CompiledEntity

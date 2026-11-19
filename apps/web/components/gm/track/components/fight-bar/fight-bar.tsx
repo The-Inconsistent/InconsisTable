@@ -3,14 +3,23 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import type { Encounter } from "@inconsistable/core-schema";
+import type { SidesInitiative } from "@inconsistable/rules-engine";
 
+import { SidesControls } from "@/components/gm/track/components/sides-controls/sides-controls";
 import type { Run, TrackMode } from "@/components/gm/track/constants";
 
-type FightBarProps = { encounter: Encounter | null; sessionRunning: boolean; run: Run; mode: TrackMode };
+type FightBarProps = {
+  encounter: Encounter | null;
+  sessionRunning: boolean;
+  run: Run;
+  mode: TrackMode;
+  /** The pinned ruleset's sides order, when it has one: the turn buttons follow it. */
+  sides?: SidesInitiative;
+};
 
 // The bar that stays under the thumb: the round, Prev and Next, and Undo (always, even between fights: it takes back the
 // newest step of the session). Ending the fight asks twice, because temporary creatures go with it and that stays.
-export function FightBar({ encounter, sessionRunning, run, mode }: FightBarProps) {
+export function FightBar({ encounter, sessionRunning, run, mode, sides }: FightBarProps) {
   const t = useTranslations("fightBar");
   const [ending, setEnding] = useState(false);
   const [endingGame, setEndingGame] = useState(false);
@@ -34,19 +43,26 @@ export function FightBar({ encounter, sessionRunning, run, mode }: FightBarProps
       {encounter ? (
         <>
           <span key={encounter.round} className="round">
-            {t("round", { round: encounter.round })}
+            {/* A sides fight that has not begun is still being set up: there is no round yet. */}
+            {encounter.begun === false ? t("setup") : t("round", { round: encounter.round })}
           </span>
-          <button className="btn" disabled={encounter.paused} onClick={() => run({ type: "turn.prev" })}>
-            {t("prev")}
-          </button>
-          <button
-            className="btn primary"
-            disabled={encounter.paused}
-            onClick={() => run({ type: "turn.next" })}
-            style={{ minWidth: 120 }}
-          >
-            {t("next")}
-          </button>
+          {sides ? (
+            <SidesControls encounter={encounter} run={run} />
+          ) : (
+            <>
+              <button className="btn" disabled={encounter.paused} onClick={() => run({ type: "turn.prev" })}>
+                {t("prev")}
+              </button>
+              <button
+                className="btn primary"
+                disabled={encounter.paused}
+                onClick={() => run({ type: "turn.next" })}
+                style={{ minWidth: 120 }}
+              >
+                {t("next")}
+              </button>
+            </>
+          )}
         </>
       ) : (
         <>

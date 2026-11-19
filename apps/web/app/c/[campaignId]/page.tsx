@@ -93,7 +93,8 @@ export default async function Table({ params, searchParams }: TableProps) {
         quick={query.quick === "1"}
       />
     );
-  if (seat.kind === "token" && seat.role === "screen") return <TableScreen campaignId={me.campaignId} />;
+  if (seat.kind === "token" && seat.role === "screen")
+    return <TableScreen campaignId={me.campaignId} view={await rulesView(campaignId)} />;
   // Without a GM the owner runs the table from their phone, with a character or not.
   const runsTheRoom = me.tableMode !== "gm" && me.userId !== null && me.userId === me.campaignOwnerId;
   if (!seat.characterIds.length && !runsTheRoom) return <StatusScreen text={t("noCharacter")} />;

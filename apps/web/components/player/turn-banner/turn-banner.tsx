@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import type { Encounter } from "@inconsistable/core-schema";
 
 import { turnAlertsOn } from "@/components/ui/alerts-switch/alerts-switch";
+import { phoneLineOf } from "@/lib/sides/sides";
 
 type TurnBannerProps = { encounter: Encounter | null; held: readonly string[] };
 
@@ -30,6 +31,21 @@ export function TurnBanner({ encounter, held }: TurnBannerProps) {
       navigator.vibrate(200);
   }, [turnKey]);
 
+  // A sides fight (its snapshot carries `begun`): one quiet line for the seat's own character when it is not acting.
+  const sideLine =
+    encounter?.paused === false && encounter.begun !== undefined && !mine
+      ? encounter.combatants
+          .filter((c) => held.includes(c.actorId))
+          .map((c) => phoneLineOf({ encounter, combatant: c }))
+          .find((l) => l !== null)
+      : undefined;
+
+  if (sideLine)
+    return (
+      <p className="dim" role="status">
+        {t(`side.${sideLine}`)}
+      </p>
+    );
   if (!mine) return null;
   return (
     <p key={turnKey} className="turn-banner" role="status">

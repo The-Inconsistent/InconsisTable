@@ -326,7 +326,19 @@
     "roundPhase": "Round {round} · {phase}",
     "done": "Done",
     "paused": "Paused",
-    "first": "First player"
+    "first": "First player",
+    "lineSetup": "Setting up",
+    "linePick": "{side}: pick who acts",
+    "lineComplete": "Round {round} complete",
+    "lineActing": "{name} is acting",
+    "mark": {
+      "ready": "ready",
+      "acting": "acting",
+      "done": "done",
+      "holding": "holding",
+      "noTurn": "no turn this round",
+      "out": "out"
+    }
   },
   "endNotice": {
     "reached": "The game can end now"
@@ -474,7 +486,14 @@
     }
   },
   "turnBanner": {
-    "yourTurn": "Your turn, {name}"
+    "yourTurn": "Your turn, {name}",
+    "side": {
+      "noTurn": "You take no turn this round",
+      "setup": "The fight is being set up",
+      "sideUp": "Your side picks: you can act",
+      "done": "You have acted this round",
+      "holding": "You are holding an action"
+    }
   },
   "outcomePad": {
     "pickFor": "Result for {who}",
@@ -706,6 +725,7 @@
   "fightBar": {
     "label": "{mode, select, game {Game controls} other {Fight controls}}",
     "round": "Round {round}",
+    "setup": "Setting up",
     "prev": "Prev",
     "next": "Next turn",
     "noFight": "{mode, select, game {No game} other {No fight}}",
@@ -715,7 +735,10 @@
     "endConfirm": "{mode, select, game {Stop the game without saving results} other {End fight and clear temporary creatures}}",
     "end": "{mode, select, game {Stop game} other {End fight}}",
     "endGameConfirm": "End game and save results (cannot be undone)",
-    "endGame": "End game"
+    "endGame": "End game",
+    "begin": "Begin round 1",
+    "endTurn": "End {name}'s turn",
+    "newRound": "Begin round {round}"
   },
   "orderList": {
     "label": "Turn order",
@@ -769,7 +792,21 @@
     "lastsLabel": "Turns or rounds it lasts",
     "lasts": "Lasts",
     "add": "Add",
-    "removeFromFight": "{mode, select, game {Remove from game} other {Remove from fight}}"
+    "removeFromFight": "{mode, select, game {Remove from game} other {Remove from fight}}",
+    "turnActions": "Turn actions",
+    "side": {
+      "start": "Start turn",
+      "outOfTurn": "Act out of turn ({cost})",
+      "justGo": "Just go",
+      "endTurn": "End turn",
+      "hold": "Hold action",
+      "useHeld": "Use held action",
+      "notYet": "Not yet",
+      "markDone": "Mark done",
+      "noTurn": "No turn this round",
+      "takesTurn": "Takes its turn",
+      "lift": "Lift ({cost})"
+    }
   },
   "tests": {
     "open": "Open",

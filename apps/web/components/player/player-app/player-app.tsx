@@ -138,7 +138,12 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           actors={state.actors}
           titles={Object.fromEntries(Object.entries(view?.ruleset?.tables ?? {}).map(([id, tb]) => [id, tb.title]))}
         />
-        {state.encounter && <OrderView encounter={state.encounter} />}
+        {state.encounter && (
+          <OrderView
+            encounter={state.encounter}
+            sides={view?.ruleset?.initiative?.strategy === "sides" ? view.ruleset.initiative : undefined}
+          />
+        )}
         {!state.encounter && state.games[0] && <GameResult game={state.games[0]} held={held} />}
         {tab === "notebook" ? (
           <Notebook codex={codex} me={me} safety={state.campaign.safety} send={send} />

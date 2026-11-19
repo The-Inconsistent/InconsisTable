@@ -2,8 +2,16 @@
 import { useTranslations } from "next-intl";
 import { useState, type ChangeEvent } from "react";
 
-import { CombatVisibility, type Actor, type Combatant, type Encounter } from "@inconsistable/core-schema";
+import {
+  CombatVisibility,
+  type Actor,
+  type Combatant,
+  type Encounter,
+  type PoolState,
+} from "@inconsistable/core-schema";
+import type { SidesInitiative } from "@inconsistable/rules-engine";
 
+import { SideActions } from "@/components/gm/track/components/side-actions/side-actions";
 import {
   DEATH_SAVE_KEYS,
   KEYPAD_KEYS,
@@ -25,6 +33,10 @@ type CombatantPanelProps = {
   onSheet?: (actorId: string) => void;
   /** Opens the Tests call form for this actor (GM only; absent when the ruleset has no Tests). */
   onCallTest?: (actorId: string) => void;
+  /** The pinned ruleset's sides order, when it has one: the panel offers the turn actions. */
+  sides?: SidesInitiative;
+  /** The shared pools this seat received, to word a cost. */
+  pools?: readonly PoolState[];
 };
 
 // The selected combatant: a keypad for damage, healing and temporary points, death saves, what the table sees, the
@@ -37,6 +49,8 @@ export function CombatantPanel({
   mode,
   onSheet,
   onCallTest,
+  sides,
+  pools = [],
 }: CombatantPanelProps) {
   const t = useTranslations("combatantPanel");
   const tSave = useTranslations("deathSave");
@@ -117,6 +131,8 @@ export function CombatantPanel({
           )}
         </div>
       )}
+
+      {sides && <SideActions encounter={encounter} combatant={c} sides={sides} pools={pools} run={run} />}
 
       {health && (
         <div className="stack keypad">

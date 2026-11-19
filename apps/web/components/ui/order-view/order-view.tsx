@@ -1,19 +1,26 @@
 import { useTranslations } from "next-intl";
 
 import type { Encounter } from "@inconsistable/core-schema";
+import type { SidesInitiative } from "@inconsistable/rules-engine";
 
+import { SideLine } from "@/components/ui/order-view/components/side-line/side-line";
+import { TurnMark } from "@/components/ui/order-view/components/turn-mark/turn-mark";
 import { EndNotice } from "@/components/ui/end-notice/end-notice";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
+import { groupBySide, markOf } from "@/lib/sides/sides";
 import { phaseOf, stateKey } from "@/lib/track/track";
 
-type OrderViewProps = { encounter: Encounter };
+/** `sides`: the seat's manifest `initiative` for a sides fight; without it the side ids word themselves. */
+type OrderViewProps = { encounter: Encounter; sides?: SidesInitiative };
 
 // The turn order as a seat that doesn't run the fight sees it (the table screen, a phone): who acts, in order, with the
 // health the seat was sent. The acting row is marked by an edge and by the word ACTING, not by colour alone.
-export function OrderView({ encounter }: OrderViewProps) {
+// A sides fight (its snapshot carries `begun`) is grouped by side, each row marked with its turn.
+export function OrderView({ encounter, sides }: OrderViewProps) {
   const t = useTranslations("orderView");
   const tState = useTranslations("combatState");
   const phase = phaseOf(encounter);
+  const sided = encounter.begun !== undefined;
   return (
     <section className="stack order-view" aria-label={t("label")}>
       <h2 className="title">
@@ -23,33 +30,53 @@ export function OrderView({ encounter }: OrderViewProps) {
         {encounter.paused && <span className="chip">{t("paused")}</span>}
       </h2>
       <EndNotice encounter={encounter} />
-      <ol className="order seat-strip">
-        {encounter.combatants.map((c) => {
-          const acting = c.id === encounter.currentId;
-          const first = c.id === encounter.firstId;
-          const done = phase?.mode === "simultaneous" && encounter.done.includes(c.id);
-          const word = stateKey({ current: acting, healthState: undefined });
-          return (
-            <li key={c.id} className="combatant" data-acting={acting}>
-              <span className="who" style={{ cursor: "default" }}>
-                <span className="name">{c.name}</span>
-                {first && (
-                  <span className="chip" data-first="true">
-                    {t("first")}
+      {sided && <SideLine encounter={encounter} sides={sides} />}
+      {sided ? (
+        groupBySide({ combatants: encounter.combatants, sides }).map((g) => (
+          <section key={g.id} className="stack" aria-label={g.label}>
+            <h3 className="head">{g.label}</h3>
+            <ol className="order seat-strip">
+              {g.combatants.map((c) => (
+                <li key={c.id} className="combatant" data-acting={c.id === encounter.currentId}>
+                  <span className="who" style={{ cursor: "default" }}>
+                    <span className="name">{c.name}</span>
+                    <HealthBar combatant={c} />
+                  </span>
+                  <TurnMark mark={markOf({ encounter, combatant: c, sides })} />
+                </li>
+              ))}
+            </ol>
+          </section>
+        ))
+      ) : (
+        <ol className="order seat-strip">
+          {encounter.combatants.map((c) => {
+            const acting = c.id === encounter.currentId;
+            const first = c.id === encounter.firstId;
+            const done = phase?.mode === "simultaneous" && encounter.done.includes(c.id);
+            const word = stateKey({ current: acting, healthState: undefined });
+            return (
+              <li key={c.id} className="combatant" data-acting={acting}>
+                <span className="who" style={{ cursor: "default" }}>
+                  <span className="name">{c.name}</span>
+                  {first && (
+                    <span className="chip" data-first="true">
+                      {t("first")}
+                    </span>
+                  )}
+                  <HealthBar combatant={c} />
+                </span>
+                {done && <span className="chip">{t("done")}</span>}
+                {word && (
+                  <span className="state-word" data-state={word}>
+                    {tState(word)}
                   </span>
                 )}
-                <HealthBar combatant={c} />
-              </span>
-              {done && <span className="chip">{t("done")}</span>}
-              {word && (
-                <span className="state-word" data-state={word}>
-                  {tState(word)}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </section>
   );
 }

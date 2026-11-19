@@ -326,7 +326,19 @@
     "roundPhase": "Vòng {round} · {phase}",
     "done": "Xong",
     "paused": "Tạm dừng",
-    "first": "Người đi đầu"
+    "first": "Người đi đầu",
+    "lineSetup": "Đang dàn trận",
+    "linePick": "{side}: chọn người hành động",
+    "lineComplete": "Hết vòng {round}",
+    "lineActing": "{name} đang hành động",
+    "mark": {
+      "ready": "sẵn sàng",
+      "acting": "đang đi",
+      "done": "đã đi",
+      "holding": "đang giữ",
+      "noTurn": "không có lượt",
+      "out": "ngoài trận"
+    }
   },
   "endNotice": {
     "reached": "Ván có thể kết thúc"
@@ -474,7 +486,14 @@
     }
   },
   "turnBanner": {
-    "yourTurn": "Đến lượt bạn, {name}"
+    "yourTurn": "Đến lượt bạn, {name}",
+    "side": {
+      "noTurn": "Vòng này bạn không có lượt",
+      "setup": "Trận đang được dàn",
+      "sideUp": "Phe bạn chọn: bạn đi được",
+      "done": "Bạn đã đi vòng này",
+      "holding": "Bạn đang giữ một hành động"
+    }
   },
   "outcomePad": {
     "pickFor": "Kết quả của {who}",
@@ -715,7 +734,10 @@
     "endConfirm": "{mode, select, game {Dừng ván, không lưu kết quả} other {Kết thúc trận và xóa quái tạm thời}}",
     "end": "{mode, select, game {Dừng ván} other {Kết thúc trận}}",
     "endGameConfirm": "Kết thúc ván và lưu kết quả (không hoàn tác được)",
-    "endGame": "Kết thúc ván"
+    "endGame": "Kết thúc ván",
+    "begin": "Bắt đầu vòng 1",
+    "endTurn": "Kết thúc lượt của {name}",
+    "newRound": "Bắt đầu vòng {round}"
   },
   "orderList": {
     "label": "Thứ tự lượt",
@@ -769,7 +791,21 @@
     "lastsLabel": "Kéo dài bao nhiêu lượt hoặc vòng",
     "lasts": "Kéo dài",
     "add": "Thêm",
-    "removeFromFight": "{mode, select, game {Gỡ khỏi ván} other {Gỡ khỏi trận}}"
+    "removeFromFight": "{mode, select, game {Gỡ khỏi ván} other {Gỡ khỏi trận}}",
+    "turnActions": "Hành động lượt",
+    "side": {
+      "start": "Bắt đầu lượt",
+      "outOfTurn": "Chen lượt ({cost})",
+      "justGo": "Cứ đi",
+      "endTurn": "Kết thúc lượt",
+      "hold": "Giữ hành động",
+      "useHeld": "Dùng hành động đang giữ",
+      "notYet": "Chưa đi",
+      "markDone": "Đánh dấu đã đi",
+      "noTurn": "Không có lượt vòng này",
+      "takesTurn": "Có lượt",
+      "lift": "Gỡ ({cost})"
+    }
   },
   "tests": {
     "open": "Đang mở",

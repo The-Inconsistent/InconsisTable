@@ -2,30 +2,39 @@
 import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 
-import type { Actor, Encounter } from "@inconsistable/core-schema";
+import type { Actor, CombatVisibility, Encounter } from "@inconsistable/core-schema";
 
 import { JOIN_AS, type Run, type TrackMode } from "@/components/gm/track/constants";
 
-type AddCombatantsProps = { encounter: Encounter; actors: readonly Actor[]; run: Run; mode: TrackMode };
+type AddCombatantsProps = {
+  encounter: Encounter;
+  actors: readonly Actor[];
+  run: Run;
+  mode: TrackMode;
+  /** The ruleset's turn order is `sides`: the server picks each actor's side. */
+  sided?: boolean;
+};
 
 const joinAs = (a: Actor) =>
   a.kind === "pc" ? JOIN_AS.party : a.kind === "creature" ? JOIN_AS.creature : JOIN_AS.other;
 
 // Who is at the table but not in the fight: the party joins in one tap, anyone else one by one. A creature spawned
 // while the fight is on joins it by itself, hidden.
-export function AddCombatants({ encounter, actors, run, mode }: AddCombatantsProps) {
+export function AddCombatants({ encounter, actors, run, mode, sided = false }: AddCombatantsProps) {
   const t = useTranslations("addCombatants");
   const waiting = useMemo(() => {
     const inFight = new Set(encounter.combatants.map((c) => c.actorId));
     return actors.filter((a) => !inFight.has(a.id) && a.status === "active");
   }, [encounter.combatants, actors]);
   const party = waiting.filter((a) => a.kind === "pc");
+  // A sides order places each actor by its entity type: no side is sent, and the server refuses one that is on no side.
+  const joinFor = (j: { side: string; visibility: CombatVisibility }) => (sided ? { visibility: j.visibility } : j);
 
   // ADD PARTY: every character of the party not yet in the fight.
-  const handleParty = () => run({ type: "encounter.add", actorIds: party.map((a) => a.id), ...JOIN_AS.party });
+  const handleParty = () => run({ type: "encounter.add", actorIds: party.map((a) => a.id), ...joinFor(JOIN_AS.party) });
 
   // ADD ONE: this actor, on the side its kind usually fights on.
-  const handleOne = (a: Actor) => () => run({ type: "encounter.add", actorIds: [a.id], ...joinAs(a) });
+  const handleOne = (a: Actor) => () => run({ type: "encounter.add", actorIds: [a.id], ...joinFor(joinAs(a)) });
 
   if (waiting.length === 0) return <p className="dim">{t("everyone", { mode })}</p>;
   return (

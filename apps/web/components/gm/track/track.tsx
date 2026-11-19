@@ -19,6 +19,7 @@ import { ClocksPanel } from "@/components/gm/track/components/clocks-panel/clock
 import { PoolsPanel } from "@/components/gm/track/components/pools-panel/pools-panel";
 import { CombatantPanel } from "@/components/gm/track/components/combatant-panel/combatant-panel";
 import { FightBar } from "@/components/gm/track/components/fight-bar/fight-bar";
+import { SidesOrder } from "@/components/gm/track/components/sides-order/sides-order";
 import { TablesPanel } from "@/components/gm/track/components/tables-panel/tables-panel";
 import { PhaseBar } from "@/components/gm/track/components/phase-bar/phase-bar";
 import { OrderList } from "@/components/gm/track/components/order-list/order-list";
@@ -54,6 +55,9 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
   const rules = sheet.ruleset;
   const mode: TrackMode = rules?.initiative?.strategy === "seated" || rules?.phases ? "game" : "fight";
 
+  // The one place that branches on the turn order: the pinned ruleset's sides order, or null for the two older ones.
+  const sides = rules?.initiative?.strategy === "sides" ? rules.initiative : null;
+
   const noTurnOrder = rules != null && rules.initiative === undefined; // a game without a turn order has no fight to run
 
   // RUN: sends one action, shows the api's refusal, and says whether it went through.
@@ -78,7 +82,13 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
           {t("noTurnOrder")}
         </p>
       ) : (
-        <FightBar encounter={encounter} sessionRunning={state.session !== null} run={run} mode={mode} />
+        <FightBar
+          encounter={encounter}
+          sessionRunning={state.session !== null}
+          run={run}
+          mode={mode}
+          sides={sides ?? undefined}
+        />
       )}
       {encounter && <EndNotice encounter={encounter} />}
       {encounter && <PhaseBar encounter={encounter} run={run} />}
@@ -97,13 +107,23 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
           <div className="track">
             <div className="stack">
               {encounter.combatants.length === 0 && <p className="dim">{t("nobody", { mode })}</p>}
-              <OrderList
-                encounter={encounter}
-                actors={actors}
-                selectedId={selected?.id}
-                onSelect={setSelectedId}
-                run={run}
-              />
+              {sides ? (
+                <SidesOrder
+                  encounter={encounter}
+                  sides={sides}
+                  actors={actors}
+                  selectedId={selected?.id}
+                  onSelect={setSelectedId}
+                />
+              ) : (
+                <OrderList
+                  encounter={encounter}
+                  actors={actors}
+                  selectedId={selected?.id}
+                  onSelect={setSelectedId}
+                  run={run}
+                />
+              )}
             </div>
             {selected && (
               <CombatantPanel
@@ -115,10 +135,14 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                 mode={mode}
                 onSheet={sheet.ruleset ? setSheetOf : undefined}
                 onCallTest={state.testDefs.length > 0 ? setTestFor : undefined}
+                sides={sides ?? undefined}
+                pools={state.pools}
               />
             )}
           </div>
-          {encounter && <AddCombatants encounter={encounter} actors={state.actors} run={run} mode={mode} />}
+          {encounter && (
+            <AddCombatants encounter={encounter} actors={state.actors} run={run} mode={mode} sided={sides !== null} />
+          )}
         </fieldset>
       ) : (
         !noTurnOrder && <p className="dim">{state.session ? t("noFight", { mode }) : t("startSession", { mode })}</p>

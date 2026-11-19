@@ -109,12 +109,16 @@ var conditionSchema = schema.Object(
 	schema.Def("visibility", visibilityEnum, "gm"),
 )
 
+// The actor entity types a Test or a health state applies to (house decision #50).
+var actorTypesSchema = schema.Array(idSchema).Min(1).Max(50)
+
 func testVariant(tag string, extra ...schema.Field) schema.Variant {
 	fields := append([]schema.Field{
 		schema.Req("target", exprSource),
 		schema.Def("ties", tieRuleEnum, "meetOrBeat"),
 		schema.Def("inputs", schema.Record(idSchema, schema.Enum("int", "bool", "text")), map[string]any{}),
 		schema.Def("inputOptions", schema.Record(idSchema, schema.Array(label(60)).Min(1).Max(50)), map[string]any{}),
+		schema.Opt("entities", actorTypesSchema),
 		schema.Opt("cite", citeSchema),
 		schema.Req("kind", schema.Literal(tag)),
 	}, extra...)
@@ -164,6 +168,7 @@ var diceMechanicSchema = schema.Union("kind",
 		)).Min(2).Max(8)),
 		schema.Def("inputs", schema.Record(idSchema, schema.Enum("int", "bool", "text")), map[string]any{}),
 		schema.Def("inputOptions", schema.Record(idSchema, schema.Array(label(60)).Min(1).Max(50)), map[string]any{}),
+		schema.Opt("entities", actorTypesSchema),
 		schema.Opt("cite", citeSchema),
 	)},
 )
@@ -218,6 +223,7 @@ var healthSchema = schema.Object(
 		schema.Req("id", idSchema),
 		schema.Opt("label", label(80)),
 		schema.Req("when", exprSource),
+		schema.Opt("entities", actorTypesSchema),
 	)).Max(20), []any{}),
 	schema.Opt("cite", citeSchema),
 )

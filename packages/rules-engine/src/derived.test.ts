@@ -178,10 +178,9 @@ test("resource bounds, resets and health states", () => {
   assert.equal(resourceBounds({ compiled: c, resource: "luck", scope: party }).max, 3);
   assert.equal(resetValue({ compiled: c, resource: "luck", event: "sessionStart", scope: party }), 0);
   // 9 * 2 <= 15 is false; at 7 it holds.
-  assert.deepEqual(healthStatesOf({ compiled: c, scope }), []);
-  assert.deepEqual(healthStatesOf({ compiled: c, scope: actorScope({ ...HERO, resources: { hp: 7 }, derived }) }), [
-    "bloodied",
-  ]);
+  assert.deepEqual(healthStatesOf({ compiled: c, entity: "character", scope }), []);
+  const hurt = actorScope({ ...HERO, resources: { hp: 7 }, derived });
+  assert.deepEqual(healthStatesOf({ compiled: c, entity: "character", scope: hurt }), ["bloodied"]);
 });
 
 test("a max below the min collapses to the min", () => {

@@ -204,7 +204,17 @@ export function instantDeathAt({
   return expr === undefined ? null : evaluateInt({ expr, scope });
 }
 
-/** The display health states (`bloodied`…) whose condition holds for an actor. */
-export function healthStatesOf({ compiled, scope }: { compiled: CompiledRuleset; scope: ExprRecord }): string[] {
-  return compiled.healthStates.filter((s) => evaluateBool({ expr: s.when, scope })).map((s) => s.id);
+/** The display health states (`bloodied`…) that apply to an actor of this type and whose condition holds for it. */
+export function healthStatesOf({
+  compiled,
+  entity,
+  scope,
+}: {
+  compiled: CompiledRuleset;
+  entity: string;
+  scope: ExprRecord;
+}): string[] {
+  return compiled.healthStates
+    .filter((s) => (s.entities === null || s.entities.includes(entity)) && evaluateBool({ expr: s.when, scope }))
+    .map((s) => s.id);
 }

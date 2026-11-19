@@ -21,6 +21,7 @@ import { compileExpr, type CompiledExpr } from "../../../packages/rules-engine/s
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
+import { SAMPLE_SCOPED } from "../../../packages/rules-engine/src/fixtures/sample-scoped.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
 import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
 import type { FieldDef, Ruleset } from "../../../packages/rules-engine/src/manifest.ts";
@@ -681,7 +682,15 @@ function checkVectors(sources: readonly string[]) {
   });
 }
 
-const MANIFESTS: unknown[] = [SAMPLE_D20, SAMPLE_HARVEST, SAMPLE_POOL, SAMPLE_NO_ORDER, FIXTURE_RULESET, FREEFORM];
+const MANIFESTS: unknown[] = [
+  SAMPLE_D20,
+  SAMPLE_HARVEST,
+  SAMPLE_POOL,
+  SAMPLE_NO_ORDER,
+  FIXTURE_RULESET,
+  FREEFORM,
+  SAMPLE_SCOPED,
+];
 
 function allStrings(value: unknown, out: string[]): string[] {
   if (typeof value === "string") out.push(value);
@@ -783,7 +792,12 @@ function compiledView(c: CompiledRuleset) {
             tiebreaks: c.scoring.tiebreaks.map(exprView),
             endWhen: c.scoring.endWhen.map(exprView),
           },
-    healthStates: c.healthStates.map((s) => ({ id: s.id, label: s.label ?? null, when: exprView(s.when) })),
+    healthStates: c.healthStates.map((s) => ({
+      id: s.id,
+      label: s.label ?? null,
+      when: exprView(s.when),
+      entities: s.entities,
+    })),
     instantDeath: mapValues(c.instantDeath, exprView),
     conditions: Object.keys(c.conditions).sort(),
   };
@@ -865,6 +879,12 @@ MANIFESTS.push({ ...MINIMAL, tables: TABLES_OK });
 
 const CRAFTED: object[] = [
   { tables: TABLES_OK },
+  // House decision #50: a Test and a health state may name the actor types they apply to.
+  { tests: { t: { ...sumTest, entities: ["pc"] } }, health: { states: [{ id: "s", when: "true", entities: ["pc"] }] } },
+  { tests: { t: { ...sumTest, entities: ["nope"] } } },
+  { tests: { t: { ...sumTest, entities: [] } } },
+  { entities: [pcBase, { id: "gear", label: "G", base: "item" }], tests: { t: { ...sumTest, entities: ["gear"] } } },
+  { health: { states: [{ id: "s", when: "true", entities: ["pc", "nope"] }] } },
   { tables: { t: tbl("d6", [span("a", 1, 2), span("b", 4, 6)]) } },
   { tables: { t: tbl("d6", [span("a", 1, 4), span("b", 4, 6)]) } },
   { tables: { t: tbl("d6", [span("a", 0, 3), span("b", 4, 7)]) } },
@@ -1446,7 +1466,7 @@ function deriveVectors() {
             resets: attempt(() => resetValues({ compiled: c, resource, scope })),
             death: attempt(() => instantDeathAt({ compiled: c, resource, scope })),
           })),
-          states: attempt(() => healthStatesOf({ compiled: c, scope })),
+          states: attempt(() => healthStatesOf({ compiled: c, entity, scope })),
         });
       }
     }

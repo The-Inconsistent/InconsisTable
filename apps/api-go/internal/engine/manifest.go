@@ -133,12 +133,14 @@ type (
 		Target       string            `json:"target"`
 		Inputs       map[string]string `json:"inputs"`
 		InputOptions map[string]any    `json:"inputOptions"`
-		Cite         *string           `json:"cite"`
-		Modifier     string            `json:"modifier"`
-		Dice         string            `json:"dice"`
-		Advantage    bool              `json:"advantage"`
-		CritOn       []float64         `json:"critOn"`
-		Degrees      *struct {
+		// Entities names the actor types that take the Test (house decision #50); nil is every actor type.
+		Entities  *[]string `json:"entities"`
+		Cite      *string   `json:"cite"`
+		Modifier  string    `json:"modifier"`
+		Dice      string    `json:"dice"`
+		Advantage bool      `json:"advantage"`
+		CritOn    []float64 `json:"critOn"`
+		Degrees   *struct {
 			Step         float64 `json:"step"`
 			NaturalShift bool    `json:"naturalShift"`
 			Cite         *string `json:"cite"`
@@ -192,6 +194,8 @@ type (
 			ID    string  `json:"id"`
 			Label *string `json:"label"`
 			When  string  `json:"when"`
+			// Entities names the actor types the state applies to (house decision #50); nil is every actor type.
+			Entities *[]string `json:"entities"`
 		} `json:"states"`
 		Cite *string `json:"cite"`
 	}
@@ -605,9 +609,26 @@ func (r *Ruleset) semanticProblems() problems {
 		p.add("health.tracks", "only one track may have deathSaves")
 	}
 
+	actorTypes := func(ids *[]string, path string) {
+		if ids == nil {
+			return
+		}
+		for j, id := range *ids {
+			if e := r.entity(id); e == nil {
+				p.add(fmt.Sprintf("%s[%d]", path, j), `unknown entity "%s"`, id)
+			} else if e.Base != "actor" {
+				p.add(fmt.Sprintf("%s[%d]", path, j), `"%s" is not an actor entity`, id)
+			}
+		}
+	}
+	for i, s := range r.Health.States {
+		actorTypes(s.Entities, fmt.Sprintf("health.states[%d].entities", i))
+	}
+
 	for _, id := range sortedKeys(r.Tests) {
 		t := r.Tests[id]
 		path := "tests." + id
+		actorTypes(t.Entities, path+".entities")
 		for _, key := range sortedKeys(t.InputOptions) {
 			if t.Inputs[key] != "text" {
 				p.add(path+".inputOptions."+key, "options are only for text inputs")

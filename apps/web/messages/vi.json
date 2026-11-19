@@ -1002,6 +1002,7 @@
     "noGmHere": "Phòng này không có GM nên không có gì chỉ dành cho GM.",
     "noGmSeats": "Phòng này không có ghế GM.",
     "testCharactersOnly": "Không có GM thì Test chỉ gọi cho nhân vật.",
+    "testNotForType": "{name} không gieo Test này.",
     "testTargetShown": "Không có GM thì ngưỡng của Test luôn hiện cho mọi người.",
     "testTableOnly": "Không có GM thì Test chỉ dùng được những gì cả bàn nhìn thấy.",
     "undoOthers": "Bạn chỉ hoàn tác được bước của mình.",

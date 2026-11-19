@@ -81,6 +81,8 @@ type (
 		ID    string
 		Label *string
 		When  *CompiledExpr
+		// Entities is the actor types the state applies to; nil is every actor type.
+		Entities *[]string
 	}
 	// CompiledRuleset is a manifest ready for play.
 	CompiledRuleset struct {
@@ -588,11 +590,25 @@ func (c *compiler) scoring(scopes []map[string]ExprType) (compiled *CompiledScor
 	return out, ok
 }
 
-func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity, actorScopes []map[string]ExprType) *CompiledTest {
+// actorsOf is the compiled actor types a Test or a health state applies to: the ones it names, or all of them.
+func (c *compiler) actorsOf(ids *[]string, entities map[string]*CompiledEntity) (types []*EntityType, scopes []map[string]ExprType) {
+	for _, e := range c.actorEntities() {
+		ce, ok := entities[e.ID]
+		if !ok || (ids != nil && !slices.Contains(*ids, e.ID)) {
+			continue
+		}
+		types = append(types, e)
+		scopes = append(scopes, ce.Scope)
+	}
+	return types, scopes
+}
+
+func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity) *CompiledTest {
 	inputs := map[string]ExprType{}
 	for k, v := range t.Inputs {
 		inputs[k] = Scalar(v)
 	}
+	takers, actorScopes := c.actorsOf(t.Entities, entities)
 	scopes := withScope(actorScopes, "ctx", RecordType{inputs})
 	path := "tests." + id
 	// A reported Test has no numbers: the constant 0 keeps every reader of a compiled Test one shape.
@@ -612,11 +628,8 @@ func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity,
 	// A value the call computes for an actor is as hidden as its most hidden input, like a derived value.
 	seen := func(exprs ...*CompiledExpr) map[string]string {
 		out := map[string]string{}
-		for _, e := range c.actorEntities() {
-			ce, ok := entities[e.ID]
-			if !ok {
-				continue
-			}
+		for _, e := range takers {
+			ce := entities[e.ID]
 			_, carried := c.carried(e)
 			derived := map[string]string{}
 			for _, d := range ce.Derived {
@@ -668,7 +681,7 @@ func (c *compiler) run() *CompiledRuleset {
 	tests := map[string]*CompiledTest{}
 	for _, id := range sortedKeys(c.r.Tests) {
 		t := c.r.Tests[id]
-		if ct := c.test(id, &t, entities, actorScopes); ct != nil {
+		if ct := c.test(id, &t, entities); ct != nil {
 			tests[id] = ct
 		}
 	}
@@ -689,8 +702,9 @@ func (c *compiler) run() *CompiledRuleset {
 	scoring, scoringOK := c.scoring(actorScopes)
 	var healthStates []CompiledHealthState
 	for j, s := range c.r.Health.States {
-		if when := c.expr(s.When, actorScopes, boolType, fmt.Sprintf("health.states[%d].when", j)); when != nil {
-			healthStates = append(healthStates, CompiledHealthState{s.ID, s.Label, when})
+		_, scopes := c.actorsOf(s.Entities, entities)
+		if when := c.expr(s.When, scopes, boolType, fmt.Sprintf("health.states[%d].when", j)); when != nil {
+			healthStates = append(healthStates, CompiledHealthState{s.ID, s.Label, when, s.Entities})
 		}
 	}
 	instantDeath := map[string]*CompiledExpr{}

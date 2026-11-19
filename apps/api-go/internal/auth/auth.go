@@ -155,7 +155,7 @@ func (s *Service) DeviceUser(ctx context.Context, cookieHeader string) (*User, e
 		if err != nil {
 			return nil, err
 		}
-		u.Creator = role == "creator"
+		u.Creator = DeviceCreates(role, s.SignIn)
 		return &u, nil
 	}
 	known, err := find()

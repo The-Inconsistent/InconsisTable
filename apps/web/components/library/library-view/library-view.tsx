@@ -15,17 +15,19 @@ import { PackList } from "./components/pack-list/pack-list";
 
 type OpenForm = { kind: FormKind; doc: Doc; editing: boolean; n: number };
 
-type LibraryViewProps = { rulesets: RulesetList; packs: PackListData };
+// canImport: the caller is a creator (the lobby's canCreate). With sign-in on, an anonymous device is not one, and
+// the api refuses its imports and saves, so neither the importer nor the form is offered.
+type LibraryViewProps = { rulesets: RulesetList; packs: PackListData; canImport: boolean };
 
 // MY RULESETS & PACKS: everything the device's user imported. Nothing here is shared; a room can use what its owner
 // imported, and a private pack only in rooms its owner runs as GM.
-export function LibraryView({ rulesets, packs }: LibraryViewProps) {
+export function LibraryView({ rulesets, packs, canImport }: LibraryViewProps) {
   const t = useTranslations("library");
   const tWs = useTranslations("workspace");
   const locale = useLocale();
   const router = useRouter();
   const { usage } = packs;
-  const [importing, setImporting] = useState(rulesets.length === 0);
+  const [importing, setImporting] = useState(canImport && rulesets.length === 0);
   const [toggled, setToggled] = useState(false);
   const [form, setForm] = useState<OpenForm | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,23 +71,25 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
   return (
     <main className="page library">
       <PageHead title={t("title")} lede={tWs("lede.library")}>
-        <div className="row">
-          <button type="button" className="btn primary" onClick={handleNewRuleset}>
-            {t("newRuleset")}
-          </button>
-          <button type="button" className="btn primary" onClick={handleNewPack} disabled={rulesets.length === 0}>
-            {t("newPack")}
-          </button>
-          <button
-            type="button"
-            className="btn"
-            aria-expanded={importing}
-            aria-controls="import-panel"
-            onClick={handleToggle}
-          >
-            {tWs("importToggle")}
-          </button>
-        </div>
+        {canImport && (
+          <div className="row">
+            <button type="button" className="btn primary" onClick={handleNewRuleset}>
+              {t("newRuleset")}
+            </button>
+            <button type="button" className="btn primary" onClick={handleNewPack} disabled={rulesets.length === 0}>
+              {t("newPack")}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              aria-expanded={importing}
+              aria-controls="import-panel"
+              onClick={handleToggle}
+            >
+              {tWs("importToggle")}
+            </button>
+          </div>
+        )}
       </PageHead>
       {form && (
         <ManifestForm
@@ -98,7 +102,7 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
           onSaved={handleChanged}
         />
       )}
-      {importing && <ImportPanel onSaved={handleChanged} autoFocus={toggled} onOpenForm={handleOpenDoc} />}
+      {canImport && importing && <ImportPanel onSaved={handleChanged} autoFocus={toggled} onOpenForm={handleOpenDoc} />}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -110,7 +114,7 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
           {t("rulesets")} <span className="ws-tally">{rulesets.length}</span>
         </h2>
         {rulesets.length === 0 ? (
-          <p className="dim">{t("noRulesets")}</p>
+          <p className="dim">{t(canImport ? "noRulesets" : "noRulesetsCreatorsOnly")}</p>
         ) : (
           <ul className="grid library-list rise-list">
             {rulesets.map((r, i) => (
@@ -151,7 +155,12 @@ export function LibraryView({ rulesets, packs }: LibraryViewProps) {
             maxBytes: formatBytes(usage.maxBytes, locale),
           })}
         </p>
-        <PackList packs={packs.packs} onChanged={handleChanged} onEdit={(id) => handleEdit("pack", id)} />
+        <PackList
+          packs={packs.packs}
+          canImport={canImport}
+          onChanged={handleChanged}
+          onEdit={(id) => handleEdit("pack", id)}
+        />
       </section>
     </main>
   );

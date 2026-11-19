@@ -6,10 +6,15 @@ import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
 import { HideReply, formatBytes, type PackList as PackListData } from "@/lib/library/library";
 
-type PackListProps = { packs: PackListData["packs"]; onChanged: () => void; onEdit: (id: string) => void };
+type PackListProps = {
+  packs: PackListData["packs"];
+  canImport: boolean;
+  onChanged: () => void;
+  onEdit: (id: string) => void;
+};
 
 // The owner's packs: what each is, the credit its license asks for, and the two things they can do with it.
-export function PackList({ packs, onChanged, onEdit }: PackListProps) {
+export function PackList({ packs, canImport, onChanged, onEdit }: PackListProps) {
   const t = useTranslations("packList");
   const tStatus = useTranslations("status");
   const tr = useRefusal();
@@ -58,7 +63,7 @@ export function PackList({ packs, onChanged, onEdit }: PackListProps) {
     setBusy(null);
   };
 
-  if (packs.length === 0) return <p className="dim">{t("empty")}</p>;
+  if (packs.length === 0) return <p className="dim">{t(canImport ? "empty" : "emptyCreatorsOnly")}</p>;
   return (
     <>
       <ul className="stack library-list rise-list">

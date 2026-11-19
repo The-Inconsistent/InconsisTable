@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { Actor } from "@inconsistable/core-schema";
+import type { Actor, LiveState } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { AssignStep } from "@/components/builder/components/assign-step/assign-step";
@@ -44,16 +44,18 @@ export function Builder({ campaignId, actorId, ruleset, entries }: BuilderProps)
   return (
     <BuilderGate
       {...{ campaignId, actorId, ruleset, entries, send, actor }}
+      campaign={state.campaign.fields}
       draft={state.myDraft?.actorId === actorId ? state.myDraft.answers : {}}
     />
   );
 }
 
-type GateProps = BuilderProps & { actor: Actor; draft: Answers; send: Send };
+type CampaignValues = LiveState["campaign"]["fields"];
+type GateProps = BuilderProps & { actor: Actor; draft: Answers; send: Send; campaign: CampaignValues };
 
 // Decides once, from the first snapshot, whether there is anything to build: a build that lands while the form is open
 // must not swap the form away before it has taken the player back to the table.
-function BuilderGate({ campaignId, actorId, ruleset, entries, send, actor, draft }: GateProps) {
+function BuilderGate({ campaignId, actorId, ruleset, entries, send, actor, draft, campaign }: GateProps) {
   const t = useTranslations("builder");
   const [built] = useState(() => !needsBuild(actor)); // the server refuses a second build
   const entity = entityFor({ ruleset, entityType: actor.entity });
@@ -81,18 +83,34 @@ function BuilderGate({ campaignId, actorId, ruleset, entries, send, actor, draft
   return (
     <BuilderForm
       key={actorId}
-      {...{ campaignId, actorId, ruleset, entries, entity, send }}
+      {...{ campaignId, actorId, ruleset, entries, entity, send, campaign }}
       name={actor.name}
       initial={draft}
     />
   );
 }
 
-type BuilderFormProps = BuilderProps & { entity: string; name: string; initial: Answers; send: Send };
+type BuilderFormProps = BuilderProps & {
+  entity: string;
+  name: string;
+  initial: Answers;
+  send: Send;
+  campaign: CampaignValues;
+};
 
 // The steps of one entity as cards on one column, the draft saved a moment after each change, the server's refusal
 // shown under the step it names.
-function BuilderForm({ campaignId, actorId, ruleset, entries, entity, name, initial, send }: BuilderFormProps) {
+function BuilderForm({
+  campaignId,
+  actorId,
+  ruleset,
+  entries,
+  entity,
+  name,
+  initial,
+  send,
+  campaign,
+}: BuilderFormProps) {
   const t = useTranslations("builder");
   const router = useRouter();
   const [answers, setAnswers] = useState<Answers>(initial);
@@ -109,8 +127,8 @@ function BuilderForm({ campaignId, actorId, ruleset, entries, entity, name, init
   const defs = useMemo(() => new Map(ruleset.entities.map((e) => [e.id, e])), [ruleset.entities]);
   const allEntries = useMemo(() => Object.values(entries).flat(), [entries]);
   const preview = useMemo(
-    () => previewBuild({ ruleset, entity, answers, entries: allEntries }),
-    [ruleset, entity, answers, allEntries],
+    () => previewBuild({ ruleset, entity, answers, entries: allEntries, campaign }),
+    [ruleset, entity, answers, allEntries, campaign],
   );
   const clientProblems = problemsByStep(preview.problems);
 

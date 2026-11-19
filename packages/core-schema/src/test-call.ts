@@ -39,6 +39,8 @@ export const TestDef = z.object({
   pool: PoolSpec.nullable(),
   /** Set on a reported Test: it has no dice, target or modifier, and the reporter picks one of these. */
   outcomes: z.array(OutcomeSpec).nullable(),
+  /** The actor entity type ids that take this Test (house decision #50); absent when every type does. */
+  entities: z.array(z.string()).optional(),
   inputs: z.array(z.object({ id: z.string(), type: z.string(), options: z.array(z.string()).optional() })),
 });
 export type TestDef = z.infer<typeof TestDef>;

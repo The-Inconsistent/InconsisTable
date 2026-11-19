@@ -88,6 +88,9 @@ func DefsOf(compiled *engine.CompiledRuleset) []cs.TestDef {
 			ID: id, Dice: diceOf(t), Advantage: t.Kind == "sumVsTarget" && t.Advantage, Pool: poolSpecOf(t),
 			Outcomes: outcomesOf(t), Inputs: []cs.TestDefInput{},
 		}
+		if t.Entities != nil {
+			def.Entities = append([]string(nil), *t.Entities...)
+		}
 		for _, inputID := range jsonbOrder(t.Inputs) {
 			input := cs.TestDefInput{ID: inputID, Type: t.Inputs[inputID]}
 			if options, ok := t.InputOptions[inputID].([]any); ok {

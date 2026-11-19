@@ -233,6 +233,7 @@ const STATE = {
       advantage: true,
       pool: null,
       outcomes: null,
+      entities: ["character"],
       inputs: [
         { id: "ability", type: "text", options: ["str", "dex"] },
         { id: "dc", type: "int" },

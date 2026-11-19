@@ -319,6 +319,7 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
                         actor={a}
                         ruleset={sheet.ruleset}
                         characters={state.actors.filter((x) => x.kind === "pc").length}
+                        campaign={state.campaign.fields}
                         gm={canInCampaign({ ctx: me, perm: gmPermOf(a.kind) })}
                         send={send}
                         books={sheet.books}

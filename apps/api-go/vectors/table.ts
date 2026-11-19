@@ -140,6 +140,7 @@ const STATE = {
     nextSessionPlace: "",
     tableMode: "gm",
     safety: { lines: ["Line one"], veils: ["Veil one"], xCard: true },
+    fields: { danger: 2, edge: "open", dark: false },
   },
   stateVersion: 9,
   session: {
@@ -496,6 +497,7 @@ const VALID: Record<string, Record<string, unknown>> = {
   "campaign.setRuleset": { rulesetVersionId: ID },
   "campaign.unpinRuleset": {},
   "campaign.setTableMode": { mode: "gmless" },
+  "campaign.setField": { fieldId: "danger", value: 3 },
   "campaign.attachPack": { packVersionId: ID },
   "campaign.detachPack": { packVersionId: ID },
   "session.start": { title: " Night " },

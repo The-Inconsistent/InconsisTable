@@ -107,7 +107,11 @@ func callTest(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 	if err != nil {
 		return cs.Result{}, err
 	}
-	built, err := actor.Build(rules, rows)
+	campaign, err := actor.LoadCampaign(ctx, tx, cid, rules)
+	if err != nil {
+		return cs.Result{}, err
+	}
+	built, err := actor.Build(rules, rows, campaign)
 	if err != nil {
 		return cs.Result{}, err
 	}

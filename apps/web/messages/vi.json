@@ -1000,6 +1000,8 @@
     "requestSpendYourself": "Bạn tự tiêu được thứ này.",
     "changeBetweenSessions": "Chỉ đổi kiểu ngồi giữa các buổi chơi.",
     "modeNotPlayed": "Game này không chơi kiểu đó.",
+    "unknownCampaignField": "Game này không có thiết lập đó.",
+    "campaignFieldValue": "Giá trị đó không hợp lệ: {detail}",
     "soloOneSeat": "Phòng chơi một mình chỉ có một ghế.",
     "safetyListFull": "Danh sách này đã đầy.",
     "xcardOff": "Bàn này đã tắt X-Card.",

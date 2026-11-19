@@ -130,6 +130,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
             actor={sheetActor}
             ruleset={sheet.ruleset}
             characters={state.actors.filter((x) => x.kind === "pc").length}
+            campaign={state.campaign.fields}
             gm={canInCampaign({ ctx: me, perm: gmPermOf(sheetActor.kind) })}
             send={send}
             books={sheet.books}

@@ -172,6 +172,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
               actor={character}
               ruleset={view.ruleset}
               characters={state.actors.filter((a) => a.kind === "pc").length}
+              campaign={state.campaign.fields}
               gm={false}
               requests={state.requests}
               {...{ send, books, requestPage }}

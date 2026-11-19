@@ -35,7 +35,7 @@ func apply(t *testing.T, tx pgx.Tx, c cs.Ctx, deltas ...engine.Delta) (string, e
 	ctx := context.Background()
 	rules := dbtest.Must[*engine.CompiledRuleset](t)(compiled.Load(ctx, tx, c.CampaignID))
 	rows := dbtest.Must[[]Rows](t)(LoadRows(ctx, tx, c.CampaignID))
-	built := dbtest.Must[map[string]*Built](t)(Build(rules, rows))
+	built := dbtest.Must[map[string]*Built](t)(Build(rules, rows, nil))
 	return ApplyDeltas(ctx, tx, Apply{Ctx: c, Compiled: rules, Built: built, Deltas: deltas})
 }
 

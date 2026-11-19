@@ -1000,6 +1000,8 @@
     "requestSpendYourself": "You can spend that yourself.",
     "changeBetweenSessions": "Change how the table sits between sessions.",
     "modeNotPlayed": "This game isn't played that way.",
+    "unknownCampaignField": "This game has no such setting.",
+    "campaignFieldValue": "That value does not fit: {detail}",
     "soloOneSeat": "A solo room seats one player.",
     "safetyListFull": "That list is full.",
     "xcardOff": "The X-Card is off at this table.",

@@ -247,8 +247,8 @@ func CountCharacters(rows []Rows) float64 {
 
 // Build reads each actor's rows into what the engine reads: fields, resources with their evaluated bounds, conditions,
 // derived values. A half-built actor (a field an expression needs is not set yet) shows no derived values and no
-// bounds; Problem says what is missing.
-func Build(compiled *engine.CompiledRuleset, rows []Rows) (map[string]*Built, error) {
+// bounds; Problem says what is missing. campaign is the record in play (LoadCampaign), nil without a ruleset.
+func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]any) (map[string]*Built, error) {
 	characters := CountCharacters(rows)
 	out := make(map[string]*Built, len(rows))
 	for _, r := range rows {
@@ -290,7 +290,7 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows) (map[string]*Built, er
 			b.State.Conditions = append(b.State.Conditions, engine.ConditionState{ID: c.ID, ExpiresOn: c.ExpiresOn, ExpiresAfter: after})
 		}
 		values := engine.ActorValues{
-			Fields: b.Fields, Resources: b.Resources, Conditions: activeIDs(b.Conditions), Characters: characters,
+			Fields: b.Fields, Resources: b.Resources, Conditions: activeIDs(b.Conditions), Characters: characters, Campaign: campaign,
 		}
 		var exprErr engine.ExprError
 		derived, err := compiled.DeriveValues(b.Entity, values)
@@ -314,7 +314,7 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows) (map[string]*Built, er
 		for k, v := range derived {
 			live.Fields[k] = v
 		}
-		b.Scope = engine.ActorScope(fields, live, b.Resources, characters, nil)
+		b.Scope = engine.ActorScopeWith(fields, live, b.Resources, characters, campaign, nil)
 		for _, x := range r.Resources {
 			if !slices.Contains(ce.Resources, x.ResourceID) {
 				continue

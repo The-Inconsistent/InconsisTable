@@ -170,11 +170,14 @@ export function rangeOf({
   resource,
   actor,
   characters,
+  campaign,
 }: {
   compiled: CompiledRuleset;
   resource: string;
   actor: SheetActor;
   characters: number;
+  /** The campaign's values in play (`state.campaign.fields`); a bound that reads `campaign.*` needs them. */
+  campaign?: Readonly<Record<string, number | string | boolean>>;
 }): { min: number; max: number | null } | null {
   try {
     const scope = actorScope({
@@ -182,6 +185,7 @@ export function rangeOf({
       derived: actor.derived,
       resources: actor.resources,
       party: { characters },
+      campaign,
     });
     const { min, max } = resourceBounds({ compiled, resource, scope });
     return { min, max };

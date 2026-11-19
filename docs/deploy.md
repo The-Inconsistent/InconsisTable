@@ -149,10 +149,12 @@ in the table `schema_migration`. A database the NestJS api migrated keeps workin
 
 ## VPS
 
-The public stack is `deploy/vps/compose.yaml`: Caddy, web, api, InconsisID and Postgres 18 on one host, run with plain
-`docker compose`, with Dockhand as the web UI for deploys and logs. `.github/workflows/publish-ghcr.yml` builds the api and web on every merge to `main`
-(`ghcr.io/the-inconsistent/inconsistable-api` and `-web`, tagged `sha-<short>` and `main`). InconsisID's image
-(`ghcr.io/the-inconsistent/inconsisid`) comes from its own repo. The VPS never builds anything.
+The public stack is `deploy/vps/compose.yaml`: Caddy, web, api, InconsisID and Postgres 18 on one host, run as a
+Dockhand stack. Every setting and secret lives in that stack's variables in Dockhand, so changing one is an edit and a
+redeploy there; none is a file you keep on the host. `.github/workflows/publish-ghcr.yml` builds the api and web on every
+merge to `main` (`ghcr.io/the-inconsistent/inconsistable-api` and `-web`, tagged `sha-<short>` and `main`).
+InconsisID's image (`ghcr.io/the-inconsistent/inconsisid`) comes from its own repo, on its `server-v*` tags. The VPS
+never builds anything.
 
 ```
 Internet ─▶ :80/:443 Caddy ─┬─▶ web:3000 ── /api, /socket.io ──▶ api:4000 ─▶ postgres (it)
@@ -177,71 +179,75 @@ SSH :22 ─▶ host;  Dockhand on 127.0.0.1:4444 only, through an SSH tunnel
 1. **Host.** A sudo user with an SSH key; `PermitRootLogin` and `PasswordAuthentication` off; `ufw allow OpenSSH`,
    `ufw allow 80,443/tcp`, `ufw enable`; `unattended-upgrades`; a 2 GB swap file; Docker Engine with the compose
    plugin (2.23.1 or later, for inline `configs`).
-2. **Registry.** The images are private: `docker login ghcr.io -u <github user>` on the VPS with a classic token that
-   has `read:packages` and nothing else.
-3. **DNS.** Two A records, `TABLE_HOST` and `AUTH_HOST`, pointing at the VPS. In Cloudflare, DNS only (grey cloud):
+2. **DNS.** Two A records, `TABLE_HOST` and `AUTH_HOST`, pointing at the VPS. In Cloudflare, DNS only (grey cloud):
    Caddy gets the certificates, and behind an orange cloud every client would reach the api as Cloudflare's address
    and share one rate-limit bucket. Pick the names before anyone registers a passkey: passkeys are bound to
    `AUTH_HOST`.
-4. **Secrets.** Make them on your own machine, then copy them into `/srv/inconsis/secrets` (the directory `0700` root,
-   the files `0444`; each container mounts only its own):
-
-   | File | What |
-   | --- | --- |
-   | `postgres_password` | the `postgres` superuser, for the entrypoint and backups (`openssl rand -hex 32`) |
-   | `it_db_password` | the api's `it` role, which owns database `it` and is not a superuser (`openssl rand -hex 32`) |
-   | `idp_db_password` | InconsisID's `it_idp` role (`openssl rand -hex 32`) |
-   | `op_kek`, `op_jwks.json`, `op_cookie_keys.json` | InconsisID's key-sealing key, first signing keys and cookie keys: `go run ./cmd/inconsisid keys-dev <dir>` in an InconsisID checkout. Keep a copy of `op_kek` offline: losing it loses every key the database holds |
-   | `idp_client_jwk.json` | this app's private client key, from step 6 |
-
-5. **Files.** Copy `deploy/vps/compose.yaml` and `deploy/vps/backup.sh` to `/srv/inconsis/`, and write
-   `/srv/inconsis/.env` (`0600`) with the variables named at the top of `compose.yaml`: `TABLE_HOST`, `AUTH_HOST`,
-   `APP_TAG`, `IDP_TAG`, `DATABASE_URL` (`postgres://it:<it_db_password>@postgres:5432/it`; hex is safe in a URL) and
-   `ADMIN_KEY`.
-6. **InconsisID first, then the client key.** The api refuses to boot without its key, so start the rest first:
-   `docker compose up -d caddy idp` (it starts Postgres, whose first boot makes both databases and their roles).
-   Then, following InconsisID's `deploy/README.md`:
-   - "First admin": register a passkey at `https://<AUTH_HOST>/account`, then from `/srv/inconsis`
-     `docker compose run --rm idp admin list` and `docker compose run --rm idp admin grant <sub> admin`.
-   - "Adding an app": at `https://<AUTH_HOST>/account/admin/apps/new`, client ID `inconsistable`, redirect URI
-     `https://<TABLE_HOST>/api/auth/callback`, post-logout `https://<TABLE_HOST>/`, back-channel
-     `https://<TABLE_HOST>/api/auth/backchannel-logout`. Save the private key it offers as
-     `/srv/inconsis/secrets/idp_client_jwk.json`.
-7. **Start.** `docker compose up -d`. Check `https://<TABLE_HOST>/api/health` answers `200`.
-8. **Dockhand.** Run it with its UI on the VPS's loopback only (its manual: "Do not expose Dockhand to the public
-   internet"), and `/srv/inconsis` mounted at the same path so it can run the stack where it lives:
+3. **Dockhand.** Its UI on the VPS's loopback only (its manual: "Do not expose Dockhand to the public internet"):
    ```bash
    docker run -d --name dockhand --restart unless-stopped \
      -p 127.0.0.1:4444:3000 \
      -v /var/run/docker.sock:/var/run/docker.sock \
      -v dockhand_data:/app/data \
-     -v /srv/inconsis:/srv/inconsis \
      fnsys/dockhand:latest
    ```
    Open it from your own machine through `ssh -L 4444:localhost:4444 <host>` at `http://localhost:4444`, and make its
-   admin account. Then:
-   - **Registries** (Settings): add `ghcr.io` with your GitHub user and the `read:packages` token from step 2 as the
-     password. Dockhand pulls with its own credentials, not the host's `docker login`.
-   - **Stacks → Import**: browse to `/srv/inconsis` and import `compose.yaml`. The stack keeps its name, `inconsis`
-     (`backup.sh` finds Postgres by it), and its files stay in place: Dockhand reads and edits `/srv/inconsis/.env`.
-     Keep every value in that `.env`, not in Dockhand's own secrets, so a `docker compose` run from the shell still
-     has them.
+   admin account. Dockhand holds the Docker socket, which is root on the host: anyone who reaches its UI owns the VPS.
+   In **Settings → Registries**, add `ghcr.io` with a GitHub user and a classic token that has `read:packages` and
+   nothing else (the images are private).
+4. **Values.** Make them on your own machine and keep a copy in a password manager: Dockhand's database is otherwise
+   the only one, and the `it_auth` backups are unreadable without `OP_KEK`.
 
-   Dockhand holds the Docker socket, which is root on the host: anyone who reaches its UI owns the VPS. It runs as root
-   (no `PUID`), so it can read the `0600` `.env`.
-9. **Cron** (root):
+   | Variable | Kind | Value |
+   | --- | --- | --- |
+   | `TABLE_HOST`, `AUTH_HOST` | variable | the two host names |
+   | `APP_TAG` | variable | `sha-<short>` of the `main` commit to run |
+   | `IDP_TAG` | variable | InconsisID's release, e.g. `0.1.0` |
+   | `POSTGRES_PASSWORD` | secret | the `postgres` superuser, for the entrypoint and backups (`openssl rand -hex 32`) |
+   | `IT_DB_PASSWORD` | secret | the api's `it` role, which owns database `it` and is not a superuser (`openssl rand -hex 32`) |
+   | `IDP_DB_PASSWORD` | secret | InconsisID's `it_idp` role (`openssl rand -hex 32`) |
+   | `OP_KEK`, `OP_JWKS`, `OP_COOKIE_KEYS` | secret | InconsisID's key-sealing key, first signing keys and cookie keys: `go run ./cmd/inconsisid keys-dev <dir>` in an InconsisID checkout writes `op_kek`, `op_jwks.json` and `op_cookie_keys.json` (ignore its two `*_client_jwk.json`); paste each JSON on one line (`jq -c . <file>`) |
+   | `IDP_CLIENT_JWK` | secret | empty for now; step 6 fills it |
+   | `ADMIN_KEY` | secret | optional, `openssl rand -hex 32` |
+
+5. **Stack.** In Dockhand, a new stack named **`inconsis`** (`backup.sh` finds Postgres by that name) with the contents
+   of `deploy/vps/compose.yaml` and the values above. Deploy. Postgres's first boot makes both databases and their
+   roles; Caddy gets the certificates; InconsisID starts. The api restarts in a loop and the web waits for it: it has
+   no client key yet.
+6. **First admin and the client key**, following InconsisID's `deploy/README.md`:
+   - "First admin": register a passkey at `https://<AUTH_HOST>/account`, then on the VPS
+     `docker exec inconsis-idp-1 /inconsisid admin list` and `docker exec inconsis-idp-1 /inconsisid admin grant <sub> admin`.
+   - "Adding an app": at `https://<AUTH_HOST>/account/admin/apps/new`, client ID `inconsistable`, redirect URI
+     `https://<TABLE_HOST>/api/auth/callback`, post-logout `https://<TABLE_HOST>/`, back-channel
+     `https://<TABLE_HOST>/api/auth/backchannel-logout`. Paste the private key it offers, on one line, into
+     `IDP_CLIENT_JWK`, and redeploy. Check `https://<TABLE_HOST>/api/health` answers `200`.
+7. **Backups.** Copy `deploy/vps/backup.sh` to `/srv/inconsis/backup.sh` on the host, and add to root's cron:
    ```
    0 3 * * *  /srv/inconsis/backup.sh
    0 4 * * 0  docker image prune -af --filter until=168h
    ```
-   `backup.sh` keeps 7 days of `pg_dump -Fc` files for `it` and `it_auth` in `/srv/inconsis/backups`.
-10. **Off-host copy.** Your own machine pulls it, so the VPS holds no credential to anything else, for example nightly
-    `rsync -a <host>:/srv/inconsis/backups/ ~/backups/inconsis/`. Restore one into a scratch database now and then.
+   It keeps 7 days of `pg_dump -Fc` files for `it` and `it_auth` in `/srv/inconsis/backups`.
+8. **Off-host copy.** Your own machine pulls it, so the VPS holds no credential to anything else, for example nightly
+   `rsync -a <host>:/srv/inconsis/backups/ ~/backups/inconsis/`. Restore one into a scratch database now and then.
 
-**Upgrading:** back up, then in Dockhand open the `inconsis` stack, set `APP_TAG` or `IDP_TAG` in its `.env`, and
-"Pull & redeploy". From the shell, the same is `docker compose pull && docker compose up -d` in `/srv/inconsis`.
+**Deploy only from Dockhand.** Its secrets reach `docker compose` only when Dockhand runs it; a `docker compose up`
+from a shell has none of them and would fail, or recreate containers without them.
+
+**Upgrading:** back up, then in Dockhand set `APP_TAG` or `IDP_TAG` on the `inconsis` stack and "Pull & redeploy".
 Migrations run at the api's boot (see Migrations). Avoid it during a session: the restart drops every socket (they
 reconnect with a full snapshot).
+
+### Changing a secret
+
+A one-shot `secrets` service writes the values the api and InconsisID read as files into two volumes on every deploy,
+and both restart when it changes (`depends_on` with `restart: true`), so a redeploy is all most changes need:
+
+| Value | To change it |
+| --- | --- |
+| `TABLE_HOST`, `AUTH_HOST`, `APP_TAG`, `IDP_TAG`, `ADMIN_KEY`, `IDP_CLIENT_JWK` | edit, redeploy. A new `AUTH_HOST` drops every passkey; a new `TABLE_HOST` needs the app's URIs changed in InconsisID first |
+| `IT_DB_PASSWORD`, `IDP_DB_PASSWORD`, `POSTGRES_PASSWORD` | the database keeps the old one: first `docker exec -it inconsis-postgres-1 psql -U postgres -c "ALTER ROLE it PASSWORD '<new>'"` (`it_idp`, `postgres` likewise), then edit, redeploy |
+| `OP_KEK` | never: it seals every key InconsisID's database holds |
+| `OP_JWKS`, `OP_COOKIE_KEYS` | read on the first boot only; rotate them in InconsisID's admin console instead |
 
 ## Data and backups
 

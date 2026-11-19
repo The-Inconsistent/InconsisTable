@@ -13,6 +13,7 @@ import {
   healthStatesOf,
   instantDeathAt,
   resetValues,
+  startValue,
   resourceBounds,
 } from "../../../packages/rules-engine/src/derived.ts";
 import type { ExprScope, ExprType } from "../../../packages/rules-engine/src/expr/expr.ast.ts";
@@ -772,6 +773,7 @@ function compiledView(c: CompiledRuleset) {
       min: exprView(r.min),
       max: exprView(r.max),
       resetOn: r.resetOn.map((x) => ({ event: x.event, to: exprView(x.to) })),
+      start: exprView(r.start),
     })),
     tests: mapValues(c.tests, (t) => ({
       modifier: exprView(t.modifier),
@@ -992,6 +994,8 @@ const CRAFTED: object[] = [
     ],
   },
   { resources: [{ id: "g", label: "G", scope: "entity", resetOn: [{ event: "longRest", to: "max" }] }] },
+  { resources: [{ id: "g", label: "G", scope: "entity", max: "5", start: "min" }] },
+  { resources: [{ id: "g", label: "G", scope: "entity", start: "nope" }] },
   {
     phases: [
       { id: "p", label: "P", mode: "turns" },
@@ -1464,6 +1468,7 @@ function deriveVectors() {
             resource,
             bounds: attempt(() => resourceBounds({ compiled: c, resource, scope })),
             resets: attempt(() => resetValues({ compiled: c, resource, scope })),
+            start: attempt(() => startValue({ compiled: c, resource, scope })),
             death: attempt(() => instantDeathAt({ compiled: c, resource, scope })),
           })),
           states: attempt(() => healthStatesOf({ compiled: c, entity, scope })),

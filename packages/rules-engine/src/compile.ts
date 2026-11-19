@@ -60,6 +60,7 @@ export interface CompiledResource {
   min: CompiledExpr;
   max: CompiledExpr | null;
   resetOn: { event: ResetEvent; to: CompiledExpr }[];
+  start: CompiledExpr | null;
 }
 
 export interface CompiledTest {
@@ -421,9 +422,13 @@ class Compiler {
       event: reset.event,
       to: this.expr({ source: reset.to, scopes: resetScopes, expect: "int", path: `resources[${i}].resetOn[${j}].to` }),
     }));
+    const start =
+      x.start === undefined
+        ? null
+        : this.expr({ source: x.start, scopes: resetScopes, expect: "int", path: `resources[${i}].start` });
     if (min === null || (x.max !== undefined && max === null)) return null;
     const okResets = resetOn.flatMap((reset) => (reset.to === null ? [] : [{ event: reset.event, to: reset.to }]));
-    return { def: x, min, max, resetOn: okResets };
+    return { def: x, min, max, resetOn: okResets, start };
   }
 
   /** null: no scoring block; undefined: it did not compile (the problems are recorded). */

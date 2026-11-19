@@ -57,6 +57,7 @@ type (
 		Def      *Resource
 		Min, Max *CompiledExpr
 		ResetOn  []CompiledReset
+		Start    *CompiledExpr
 	}
 	// CompiledTest is one Test. Visibility maps go by actor type: the strictest of anything the expression reads.
 	CompiledTest struct {
@@ -553,10 +554,14 @@ func (c *compiler) resource(x *Resource, i int) *CompiledResource {
 			resets = append(resets, CompiledReset{reset.Event, to})
 		}
 	}
+	var start *CompiledExpr
+	if x.Start != nil {
+		start = c.expr(*x.Start, resetScopes, intType, fmt.Sprintf("resources[%d].start", i))
+	}
 	if lo == nil || (x.Max != nil && hi == nil) {
 		return nil
 	}
-	return &CompiledResource{x, lo, hi, resets}
+	return &CompiledResource{x, lo, hi, resets, start}
 }
 
 func withScope(scopes []map[string]ExprType, key string, t ExprType) []map[string]ExprType {

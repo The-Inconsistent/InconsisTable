@@ -289,6 +289,36 @@ func (c *CompiledRuleset) ResetValues(resource string, scope *Record) (map[strin
 	return out, nil
 }
 
+// StartValue is the value a new holder starts with, held to the bounds (never below min; above max only when capped),
+// or nil when the resource declares no start (house decision #23 then decides).
+func (c *CompiledRuleset) StartValue(resource string, scope *Record) (*float64, error) {
+	cr, ok := c.Resources[resource]
+	if !ok || cr.Start == nil {
+		return nil, nil
+	}
+	bounds, err := c.ResourceBounds(resource, scope)
+	if err != nil {
+		return nil, err
+	}
+	inner := &Record{make(map[string]any, len(scope.Fields)+2)}
+	for k, v := range scope.Fields {
+		inner.Fields[k] = v
+	}
+	inner.Fields["min"] = bounds.Min
+	if bounds.Max != nil {
+		inner.Fields["max"] = *bounds.Max
+	}
+	n, err := evaluateInt(cr.Start, inner)
+	if err != nil {
+		return nil, err
+	}
+	if bounds.Max != nil && bounds.Capped {
+		n = math.Min(*bounds.Max, n)
+	}
+	n = math.Max(bounds.Min, n)
+	return &n, nil
+}
+
 // InstantDeathAt returns the overflow that kills outright for a health track's resource, or nil when there is none.
 func (c *CompiledRuleset) InstantDeathAt(resource string, scope *Record) (*float64, error) {
 	expr, ok := c.InstantDeath[resource]

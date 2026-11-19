@@ -32,6 +32,7 @@ export {
   nestFields,
   resetValue,
   resetValues,
+  startValue,
   resourceBounds,
   type ActorValues,
   type FieldValue,

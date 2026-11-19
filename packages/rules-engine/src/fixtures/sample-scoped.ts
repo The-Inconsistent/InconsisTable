@@ -22,6 +22,19 @@ export const SAMPLE_SCOPED: RulesetInput = {
       cite: "Sample p.12",
     },
   },
+  resources: [
+    ...(SAMPLE_D20.resources ?? []),
+    {
+      id: "strain",
+      label: "Strain",
+      cite: "Sample p.13",
+      scope: "entity",
+      max: "derived.maxHp",
+      capped: false,
+      start: "min",
+      visibility: "party",
+    },
+  ],
   health: {
     ...SAMPLE_D20.health,
     states: [

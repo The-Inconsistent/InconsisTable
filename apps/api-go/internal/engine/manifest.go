@@ -87,6 +87,7 @@ type (
 		Max        *string     `json:"max"`
 		Capped     bool        `json:"capped"`
 		ResetOn    []ResetRule `json:"resetOn"`
+		Start      *string     `json:"start"`
 		Visibility string      `json:"visibility"`
 	}
 	// Effect is one effect of a condition.

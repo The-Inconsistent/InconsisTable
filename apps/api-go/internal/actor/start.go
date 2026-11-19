@@ -21,8 +21,8 @@ type StartingResource struct {
 	Bounds   Bounds
 }
 
-// StartingResources is the entity's resources at the start: full when the resource has a ceiling, else at its floor
-// (house decision #23). A resource whose bounds can't be evaluated yet (a field it reads is unset) is left out, as is
+// StartingResources is the entity's resources at the start: the resource's own `start` when it declares one, else full
+// when it has a ceiling, else at its floor (house decision #23). A resource whose bounds can't be evaluated yet (a field it reads is unset) is left out, as is
 // everything when the derived values can't be computed.
 func StartingResources(compiled *engine.CompiledRuleset, entity string, fields map[string]any, characters float64) ([]StartingResource, error) {
 	ce, ok := compiled.Entities[entity]
@@ -63,7 +63,21 @@ func StartingResources(compiled *engine.CompiledRuleset, entity string, fields m
 		if b.Max != nil {
 			value = *b.Max
 		}
-		out = append(out, StartingResource{resource, value, Bounds{b.Min, b.Max}})
+		begin, err := compiled.StartValue(resource, scope)
+		if errors.As(err, &exprErr) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		limits := Bounds{b.Min, b.Max}
+		if begin != nil {
+			value = *begin
+			if !b.Capped {
+				limits.Max = nil // an uncapped resource may start past its max; the write must not clamp it back
+			}
+		}
+		out = append(out, StartingResource{resource, value, limits})
 	}
 	return out, nil
 }

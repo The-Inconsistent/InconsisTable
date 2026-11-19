@@ -17,6 +17,11 @@ type manifestVectorFile struct {
 		Refs   []string `json:"refs"`
 		Error  *string  `json:"error"`
 	} `json:"checks"`
+	CampaignValueChecks []struct {
+		Def   CampaignFieldDef `json:"def"`
+		Value any              `json:"value"`
+		Why   *string          `json:"why"`
+	} `json:"campaignValueChecks"`
 	TypeScope map[string]any `json:"typeScope"`
 	Manifests []any          `json:"manifests"`
 	Cases     []struct {
@@ -32,9 +37,13 @@ type manifestVectorFile struct {
 		Resources  map[string]float64 `json:"resources"`
 		Conditions []string           `json:"conditions"`
 		Characters float64            `json:"characters"`
-		Base       attempted          `json:"base"`
-		Derived    attempted          `json:"derived"`
-		Bounds     []struct {
+		// Stored is what the campaign holds for its fields, and Campaign what CampaignValues makes of it; both are
+		// absent for a manifest with no campaign fields.
+		Stored   map[string]any `json:"stored"`
+		Campaign map[string]any `json:"campaign"`
+		Base     attempted      `json:"base"`
+		Derived  attempted      `json:"derived"`
+		Bounds   []struct {
 			Resource string    `json:"resource"`
 			Bounds   attempted `json:"bounds"`
 			Resets   attempted `json:"resets"`
@@ -265,6 +274,22 @@ func firstDifference(path string, want, got any) string {
 	return fmt.Sprintf("%s: want %s, got %s", path, short(string(w)), short(string(g)))
 }
 
+func TestCampaignValueChecksMatchTypeScript(t *testing.T) {
+	v := loadManifestVectors(t)
+	if len(v.CampaignValueChecks) == 0 {
+		t.Fatal("no campaign value vectors")
+	}
+	for _, x := range v.CampaignValueChecks {
+		want := ""
+		if x.Why != nil {
+			want = *x.Why
+		}
+		if got := CheckCampaignValue(&x.Def, x.Value); got != want {
+			t.Errorf("%s value %v: want %q, got %q", x.Def.Type, x.Value, want, got)
+		}
+	}
+}
+
 func TestDerivedValuesMatchTypeScript(t *testing.T) {
 	v := loadManifestVectors(t)
 	compiled := make([]*CompiledRuleset, len(v.Manifests))
@@ -295,8 +320,12 @@ func TestDerivedValuesMatchTypeScript(t *testing.T) {
 	}
 	for i, x := range v.Derive {
 		c := compiled[x.Manifest]
-		values := ActorValues{x.Fields, x.Resources, x.Conditions, x.Characters}
+		values := ActorValues{Fields: x.Fields, Resources: x.Resources, Conditions: x.Conditions, Characters: x.Characters}
 		name := fmt.Sprintf("case %d %s", i, x.Entity)
+		if x.Stored != nil {
+			values.Campaign = CampaignValues(c, x.Stored)
+			compare(name+" campaign", attempted{Value: x.Campaign}, values.Campaign, nil)
+		}
 		base, err := c.ApplyBaseEffects(x.Entity, values)
 		compare(name+" base", x.Base, base, err)
 		derived, err := c.DeriveValues(x.Entity, values)
@@ -305,7 +334,7 @@ func TestDerivedValuesMatchTypeScript(t *testing.T) {
 		for k, n := range derived {
 			live.Fields[k] = n
 		}
-		scope := ActorScope(x.Fields, live, x.Resources, x.Characters, nil)
+		scope := ActorScopeWith(x.Fields, live, x.Resources, x.Characters, values.Campaign, nil)
 		for _, b := range x.Bounds {
 			bounds, err := c.ResourceBounds(b.Resource, scope)
 			compare(name+" bounds "+b.Resource, b.Bounds, map[string]any{"min": bounds.Min, "max": bounds.Max, "capped": bounds.Capped}, err)

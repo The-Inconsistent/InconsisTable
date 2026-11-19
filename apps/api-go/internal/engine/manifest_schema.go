@@ -59,6 +59,24 @@ var fieldDefSchema = schema.Union("type",
 	fieldDefVariant("list", schema.Opt("maxItems", schema.Int().Min(1).Max(500))),
 )
 
+func campaignFieldVariant(tag string, extra ...schema.Field) schema.Variant {
+	fields := append([]schema.Field{
+		schema.Req("label", label(80)),
+		schema.Opt("cite", citeSchema),
+		schema.Req("type", schema.Literal(tag)),
+	}, extra...)
+	return schema.Variant{Tag: tag, Schema: schema.Object(fields...)}
+}
+
+var campaignInt = schema.Int().Min(-1000).Max(1000)
+
+// campaignFieldSchema is one campaign field of the manifest (house decision #55).
+var campaignFieldSchema = schema.Union("type",
+	campaignFieldVariant("int", schema.Req("min", campaignInt), schema.Req("max", campaignInt), schema.Req("default", campaignInt)),
+	campaignFieldVariant("enum", schema.Req("values", schema.Array(idSchema).Min(1).Max(20)), schema.Req("default", idSchema)),
+	campaignFieldVariant("bool", schema.Req("default", schema.Bool())),
+)
+
 var entityTypeSchema = schema.Object(
 	schema.Req("id", idSchema),
 	schema.Req("label", label(80)),
@@ -294,6 +312,9 @@ var rulesetSchema = schema.Object(
 	)).Max(200), []any{}),
 	schema.Req("entities", schema.Array(entityTypeSchema).Min(1).Max(50)),
 	schema.Def("resources", schema.Array(resourceSchema).Max(200), []any{}),
+	schema.Opt("campaignFields", schema.Refined(schema.Record(idSchema, campaignFieldSchema), func(v any) bool {
+		return len(v.(map[string]any)) <= MaxCampaignFields
+	}, "at most 50 campaign fields")),
 	schema.Def("conditions", schema.Array(conditionSchema).Max(500), []any{}),
 	schema.Def("tests", schema.Record(idSchema, diceMechanicSchema), map[string]any{}),
 	schema.Opt("initiative", initiativeSchema),

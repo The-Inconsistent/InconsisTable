@@ -12,6 +12,9 @@ import (
 // MaxManifestBytes bounds a user-written import before anything else reads it.
 const MaxManifestBytes = 512 * 1024
 
+// MaxCampaignFields caps the campaign fields of a manifest.
+const MaxCampaignFields = 50
+
 // MaxFields caps the fields and derived values across a manifest.
 const MaxFields = 2000
 
@@ -55,6 +58,17 @@ type (
 		MaxLength  *float64 `json:"maxLength"`
 		Values     []string `json:"values"`
 		MaxItems   *float64 `json:"maxItems"`
+	}
+	// CampaignFieldDef is one campaign field: an int has Min and Max, an enum Values; Default is a number, a word or a
+	// bool by the type.
+	CampaignFieldDef struct {
+		Type    string   `json:"type"`
+		Label   string   `json:"label"`
+		Cite    *string  `json:"cite"`
+		Min     float64  `json:"min"`
+		Max     float64  `json:"max"`
+		Values  []string `json:"values"`
+		Default any      `json:"default"`
 	}
 	// DerivedDef is one derived value.
 	DerivedDef struct {
@@ -247,19 +261,21 @@ type (
 			ID      string `json:"id"`
 			License string `json:"license"`
 		} `json:"sources"`
-		Options    []idAndCite            `json:"options"`
-		Entities   []EntityType           `json:"entities"`
-		Resources  []Resource             `json:"resources"`
-		Conditions []Condition            `json:"conditions"`
-		Tests      map[string]Test        `json:"tests"`
-		Initiative *Initiative            `json:"initiative"`
-		Phases     []Phase                `json:"phases"`
-		Scoring    *Scoring               `json:"scoring"`
-		Tables     map[string]RandomTable `json:"tables"`
-		Health     Health                 `json:"health"`
-		Creation   []CreationStep         `json:"creation"`
-		Decisions  []idAndCite            `json:"decisions"`
-		Game       *GameInfo              `json:"game"`
+		Options   []idAndCite  `json:"options"`
+		Entities  []EntityType `json:"entities"`
+		Resources []Resource   `json:"resources"`
+		// CampaignFields is nil when the manifest declares none.
+		CampaignFields map[string]CampaignFieldDef `json:"campaignFields"`
+		Conditions     []Condition                 `json:"conditions"`
+		Tests          map[string]Test             `json:"tests"`
+		Initiative     *Initiative                 `json:"initiative"`
+		Phases         []Phase                     `json:"phases"`
+		Scoring        *Scoring                    `json:"scoring"`
+		Tables         map[string]RandomTable      `json:"tables"`
+		Health         Health                      `json:"health"`
+		Creation       []CreationStep              `json:"creation"`
+		Decisions      []idAndCite                 `json:"decisions"`
+		Game           *GameInfo                   `json:"game"`
 	}
 	// GameInfo is the manifest's `game` block: what the game is and how a table can sit for it.
 	GameInfo struct {
@@ -435,7 +451,41 @@ func (p *problems) pool(t *Test, path string) {
 	}
 }
 
-var reservedRoots = []string{"derived", "res", "party", "ctx", "max", "min", "true", "false"}
+var reservedRoots = []string{"derived", "res", "party", "campaign", "ctx", "max", "min", "true", "false"}
+
+// Words an expression reads as themselves, so a campaign field may not take them.
+var expressionWords = []string{"true", "false", "max", "min"}
+
+func (p *problems) campaignFields(r *Ruleset, needCite func(*string, string)) {
+	for _, id := range sortedKeys(r.CampaignFields) {
+		def := r.CampaignFields[id]
+		path := "campaignFields." + id
+		if slices.Contains(expressionWords, id) {
+			p.add(path, `"%s" is reserved for expressions`, id)
+		}
+		needCite(def.Cite, path)
+		switch def.Type {
+		case "int":
+			if def.Max < def.Min {
+				p.add(path+".max", "max is below min")
+			}
+			if n := def.Default.(float64); n < def.Min || n > def.Max {
+				p.add(path+".default", "the default is not allowed")
+			}
+		case "enum":
+			seen := map[string]bool{}
+			for i, v := range def.Values {
+				if seen[v] {
+					p.add(fmt.Sprintf("%s.values[%d]", path, i), `duplicate id "%s"`, v)
+				}
+				seen[v] = true
+			}
+			if !slices.Contains(def.Values, def.Default.(string)) {
+				p.add(path+".default", "the default is not allowed")
+			}
+		}
+	}
+}
 
 func (r *Ruleset) semanticProblems() problems {
 	var p problems
@@ -455,6 +505,7 @@ func (r *Ruleset) semanticProblems() problems {
 	for i, x := range r.Options {
 		needCite(x.Cite, fmt.Sprintf("options[%d]", i))
 	}
+	p.campaignFields(r, needCite)
 	for i, c := range r.Conditions {
 		needCite(c.Cite, fmt.Sprintf("conditions[%d]", i))
 		for j, e := range c.Effects {

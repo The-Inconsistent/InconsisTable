@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"slices"
+	"strconv"
 )
 
 // ExprType is a static type the checker assigns: a scalar, a list, a record or a dict.
@@ -67,6 +68,21 @@ func recordValueType(fields map[string]ExprType) ExprType {
 		}
 	}
 	return out
+}
+
+// The number an id ends in (f12 is 12), and whether it ends in one: at most 9 digits, so the number is exact in both
+// engines.
+func trailingNumber(id string) (int, bool) {
+	end := len(id)
+	start := end
+	for start > 0 && id[start-1] >= '0' && id[start-1] <= '9' {
+		start--
+	}
+	if start == end || end-start > 9 {
+		return 0, false
+	}
+	n, _ := strconv.Atoi(id[start:])
+	return n, true
 }
 
 type checker struct {
@@ -258,6 +274,9 @@ func (c *checker) call(x CallNode) ExprType {
 	case "sum":
 		arity(1, 1)
 		c.expect(x.Args[0], ListType{intType}, "sum() argument")
+	case "at":
+		arity(2, 2)
+		return c.at(x)
 	case "has":
 		arity(1, 1)
 		if _, isPath := pathOf(x.Args[0]); !isPath {
@@ -267,6 +286,34 @@ func (c *checker) call(x CallNode) ExprType {
 		return boolType
 	}
 	return intType
+}
+
+// at(group, n): the member of a field group whose id ends in n. The call may read any member, so each is a reference.
+func (c *checker) at(x CallNode) ExprType {
+	path, isPath := pathOf(x.Args[0])
+	t := c.check(x.Args[0], true)
+	group, isRecord := t.(RecordType)
+	if !isPath || !isRecord {
+		exprFail("at() takes a group of fields, got %s", typeName(t))
+	}
+	c.refs[path+".*"] = true
+	member := recordValueType(group.Fields)
+	if member == nil {
+		exprFail(`"%s" mixes value types, so at() cannot pick from it`, path)
+	}
+	seen := map[int]bool{}
+	for _, key := range sortedKeys(group.Fields) {
+		num, ok := trailingNumber(key)
+		if !ok {
+			exprFail(`"%s.%s" does not end in a number, so at() cannot pick it`, path, key)
+		}
+		if seen[num] {
+			exprFail(`two members of "%s" end in %d, so at() cannot pick one`, path, num)
+		}
+		seen[num] = true
+	}
+	c.expect(x.Args[1], intType, "at() argument 2")
+	return member
 }
 
 // CompiledExpr is an expression compiled at manifest load: its AST, static type and the scope paths it reads.

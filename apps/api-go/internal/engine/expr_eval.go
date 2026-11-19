@@ -333,6 +333,32 @@ func (e *evaluator) call(n CallNode) any {
 			total += x
 		}
 		return safe(total)
+	case "at":
+		// The checker holds two arguments; the evaluator reads what it is given, as the TypeScript one does.
+		name, group := "?", (*Record)(nil)
+		if len(n.Args) > 0 {
+			if p, ok := pathOf(n.Args[0]); ok {
+				name = p
+			}
+			group, _ = e.lookup(n.Args[0]).(*Record)
+		}
+		var second any = absent
+		if len(n.Args) > 1 {
+			second = e.eval(n.Args[1])
+		}
+		want := toInt(second, "at() argument 2")
+		var found any = absent
+		if group != nil {
+			for key, v := range group.Fields {
+				if num, ok := trailingNumber(key); ok && float64(num) == want {
+					found = v
+				}
+			}
+		}
+		if found == absent || found == nil {
+			exprFail(`missing value "%s[%s]"`, name, esNumber(want))
+		}
+		return found
 	case "has":
 		if len(n.Args) == 0 {
 			return false

@@ -2,6 +2,7 @@ import type { CompiledEffect, CompiledRuleset } from "./compile.ts";
 import type { EffectMode, ResetEvent } from "./enums.ts";
 import type { ExprRecord, ExprValue } from "./expr/expr.ast.ts";
 import { evaluateBool, evaluateInt } from "./expr/expr.ts";
+import { checkCampaignValue } from "./field-value.ts";
 import { own } from "./own.ts";
 
 /** A stored field value, as the actor_field row holds it. */
@@ -15,6 +16,8 @@ export interface ActorValues {
   /** Active condition ids; their effects apply in §4.4 order. */
   conditions?: readonly string[];
   party?: { characters: number };
+  /** The campaign's field values (`campaign.danger`), as `campaignValues` gives them. */
+  campaign?: Readonly<Record<string, number | string | boolean>>;
 }
 
 /** `{ "attr.str": 14 }` → `{ attr: { str: 14 } }`, the shape expressions read. */
@@ -42,15 +45,43 @@ export function actorScope({
   derived = {},
   resources = {},
   party = { characters: 0 },
+  campaign,
   ctx,
 }: {
   fields: Readonly<Record<string, FieldValue>>;
   derived?: Readonly<Record<string, number>>;
   resources?: Readonly<Record<string, number>>;
   party?: { characters: number };
+  campaign?: Readonly<Record<string, number | string | boolean>>;
   ctx?: ExprRecord;
 }): ExprRecord {
-  return { ...nestFields(fields), derived, res: resources, party, ...(ctx === undefined ? {} : { ctx }) };
+  return {
+    ...nestFields(fields),
+    derived,
+    res: resources,
+    party,
+    ...(campaign === undefined ? {} : { campaign }),
+    ...(ctx === undefined ? {} : { ctx }),
+  };
+}
+
+/**
+ * The campaign values to read: for each declared field the stored value when it fits, else the field's default.
+ * Unknown stored ids are dropped. Empty when the manifest declares no campaign fields.
+ */
+export function campaignValues({
+  compiled,
+  stored,
+}: {
+  compiled: CompiledRuleset;
+  stored: Readonly<Record<string, unknown>>;
+}): Record<string, number | string | boolean> {
+  const out: Record<string, number | string | boolean> = {};
+  for (const [id, def] of Object.entries(compiled.ruleset.campaignFields ?? {})) {
+    const v = own(stored, id);
+    out[id] = checkCampaignValue({ def, value: v }) === null ? (v as number | string | boolean) : def.default;
+  }
+  return out;
 }
 
 function applyMode({ mode, current, value }: { mode: EffectMode; current: number; value: number }): number {
@@ -97,7 +128,7 @@ export function applyBaseEffects({
     if (eff.phase !== "base") continue;
     const current = own(fields, eff.target);
     if (typeof current !== "number") continue; // an unset field has nothing to modify
-    const scope = actorScope({ fields, resources: values.resources, party: values.party });
+    const scope = actorScope({ fields, resources: values.resources, party: values.party, campaign: values.campaign });
     if (eff.when !== null && !evaluateBool({ expr: eff.when, scope })) continue;
     fields[eff.target] = applyMode({ mode: eff.mode, current, value: evaluateInt({ expr: eff.value, scope }) });
   }
@@ -125,7 +156,13 @@ export function deriveValues({
   const ce = entityOf({ compiled, entity });
   const fields = applyBaseEffects({ compiled, entity, values });
   const derived: Record<string, number> = {};
-  const scope = actorScope({ fields, derived, resources: values.resources, party: values.party });
+  const scope = actorScope({
+    fields,
+    derived,
+    resources: values.resources,
+    party: values.party,
+    campaign: values.campaign,
+  });
   for (const d of ce.derived) derived[d.id] = evaluateInt({ expr: d.expr, scope });
   for (const eff of activeEffects({ effects: ce.effects, conditions: values.conditions ?? [] })) {
     const current = own(derived, eff.target);

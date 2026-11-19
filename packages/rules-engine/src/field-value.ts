@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { FieldDef } from "./manifest.ts";
+import type { CampaignField, FieldDef } from "./manifest.ts";
 
 // Server-side ceilings for a field value; a manifest's own `maxLength` / `maxItems` may only tighten them.
 // core-schema repeats these numbers (it can't import the engine): keep `FieldValue` there in step.
@@ -50,5 +50,21 @@ export function checkFieldValue({ def, value }: { def: FieldDef; value: unknown 
         ? `an item is over ${MAX_LIST_ITEM_CHARS} characters`
         : null;
     }
+  }
+}
+
+/** Why `value` does not fit a campaign field, or null when it does; worded like `checkFieldValue`. */
+export function checkCampaignValue({ def, value }: { def: CampaignField; value: unknown }): string | null {
+  switch (def.type) {
+    case "int":
+      if (typeof value !== "number" || !Number.isInteger(value)) return "expected a whole number";
+      if (value < def.min) return `below the minimum of ${def.min}`;
+      return value > def.max ? `above the maximum of ${def.max}` : null;
+    case "enum":
+      return typeof value === "string" && def.values.includes(value)
+        ? null
+        : `expected one of ${def.values.join(", ")}`;
+    case "bool":
+      return typeof value === "boolean" ? null : "expected true or false";
   }
 }

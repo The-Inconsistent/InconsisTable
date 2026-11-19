@@ -8,6 +8,7 @@ import { FIXTURE_RULESET } from "../../smoke/test/fixture.ts";
 import { compileRuleset, type CompiledRuleset } from "../../../packages/rules-engine/src/compile.ts";
 import {
   applyBaseEffects,
+  campaignValues,
   actorScope,
   deriveValues,
   healthStatesOf,
@@ -23,11 +24,12 @@ import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
 import { SAMPLE_SCOPED } from "../../../packages/rules-engine/src/fixtures/sample-scoped.ts";
+import { SAMPLE_TIERED } from "../../../packages/rules-engine/src/fixtures/sample-tiered.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
 import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
-import type { FieldDef, Ruleset } from "../../../packages/rules-engine/src/manifest.ts";
+import type { CampaignField, FieldDef, Ruleset } from "../../../packages/rules-engine/src/manifest.ts";
 import { runCreation, type EntryLookup } from "../../../packages/rules-engine/src/creation.ts";
-import { checkFieldValue } from "../../../packages/rules-engine/src/field-value.ts";
+import { checkCampaignValue, checkFieldValue } from "../../../packages/rules-engine/src/field-value.ts";
 import { validatePack, type PackEntry } from "../../../packages/rules-engine/src/pack.ts";
 import {
   endMet,
@@ -80,6 +82,8 @@ const SCOPE = {
   big: 9007199254740991,
   frac: 1.5,
   nested: { a: { b: [1, 2, { c: 3 }] } },
+  form: { f1: 11, f2: 22, f10: 100, f01x: 5 },
+  forms: { a1: "one", a2: null, a3: "three" },
 };
 
 let seed = 20261107;
@@ -199,6 +203,9 @@ const FIXED_EXPR = [
   "99999999999999999999999999999999999999999999", "é", "😀", "a😀", '"😀"', "😀 + 1", '"é" + 1', '1 + "😀" +', " 1", "﻿1",
   " 1", "1 + 1", "@", " @", "é@", "😀@",
   "(".repeat(600), "-".repeat(600) + "1", "!".repeat(600) + "true", "1" + "+1".repeat(499), "1" + "+1".repeat(250), "1" + "+1".repeat(249), "-1" + "+1".repeat(249),
+  "at(form, 1)", "at(form, 2)", "at(form, 10)", "at(form, 3)", "at(form, 0)", "at(form, -1)", "at(form, zero + 1)", "at(form, frac)", "at(form, name)",
+  "at(form)", "at()", "at(form, 1, 2)", "at(1, 2)", "at(name, 1)", "at(forms, 1)", "at(forms, 2)", "at(forms, 3)", "at(nope, 1)", "at(nested.a, 1)", "at(attr, 1)",
+  "at(form, 1) + at(form, 2)", "at(form, rolls[0])", "at(rolls, 0)", "at(form, 1 / 0)", "at(missing, 1)",
   "x".repeat(2000), "x".repeat(2001), "é".repeat(2001), "😀".repeat(1001), "min(" + "1,".repeat(499) + "1)",
 ];
 
@@ -714,6 +721,15 @@ const typeScope: ExprScope = {
   res: { record: { hp: "int", gone: "int" } },
   skill: { record: { attr: "text", rank: "int" } },
   missing: "int",
+  form: { record: { f1: "int", f2: "int", f10: "int" } },
+  forms: { record: { a1: "text", a3: "text" } },
+  badmix: { record: { a1: "int", a2: "text" } },
+  bare: { record: { a1: "int", b: "int" } },
+  twin: { record: { a1: "int", b1: "int" } },
+  zeros: { record: { f01: "int", f1: "int" } },
+  hug: { record: { a1234567890: "int" } },
+  deep: { record: { g: { record: { v1: "int", v2: "int" } } } },
+  derived: { record: { d1: "int", d2: "int" } },
 };
 const EXPECTS: (ExprType | undefined)[] = [undefined, undefined, "int", "bool", "text", { list: "int" }];
 // prettier-ignore
@@ -725,6 +741,9 @@ const TYPED_SOURCES = [
   "abs()", "abs(1,2)", "abs(ready)", "mod(1)", "mod(name)", "count()", "count(tags)", "count(name)", "sum(rolls)", "sum(tags)", "sum()", "has()", "has(1)", "has(res.gone)",
   "has(nope)", "has(attr[name])", "has(1,2)", "has(rolls[0])", "attr[name] + 1", "attr.str + attr[name]", "res.hp + res.gone + res.hp", "attr.str > 1 && has(res.hp)",
   "ready ? attr.str : attr.dex", "tags[attr.str]", "constructor", "attr.constructor", "toString",
+  "at(form, 1)", "at(form, attr.str)", "at(forms, 1)", "at(form, name)", "at(form, \"a\")", "at(form)", "at(form, 1, 2)", "at()", "at(1, 2)", "at(name, 1)", "at(tags, 1)",
+  "at(badmix, 1)", "at(bare, 1)", "at(twin, 1)", "at(zeros, 1)", "at(hug, 1)", "at(empty, 1)", "at(nope, 1)", "at(deep.g, 1)", "at(deep, 1)", "at(derived, 1)", "at(book, 1)",
+  "at(form, 1) + 1", "at(forms, 1) == \"x\"", "has(at(form, 1))", "ready ? at(form, 1) : at(form, 2)", "at(attr, 1)", "at(mixed, 1)",
 ];
 
 function checkVectors(sources: readonly string[]) {
@@ -747,6 +766,7 @@ const MANIFESTS: unknown[] = [
   FIXTURE_RULESET,
   FREEFORM,
   SAMPLE_SCOPED,
+  SAMPLE_TIERED,
 ];
 
 function allStrings(value: unknown, out: string[]): string[] {
@@ -935,7 +955,95 @@ const TABLES_OK = {
 };
 MANIFESTS.push({ ...MINIMAL, tables: TABLES_OK });
 
+// House decision #55: campaign fields, the `campaign` root and at().
+const cInt = { type: "int", label: "D", min: 1, max: 5, default: 1, cite: "p1" };
+const cEnum = { type: "enum", label: "M", values: ["calm", "tense"], default: "calm", cite: "p1" };
+const cBool = { type: "bool", label: "B", default: false, cite: "p1" };
+const withCampaign = (campaignFields: object) => ({ campaignFields });
+const withForm = (fields: object, expr: string) =>
+  withPc({ fields: { ...pcBase.fields, ...fields }, derived: [{ id: "a", label: "A", expr }] });
+const intField = { label: "F", type: "int" };
+
 const CRAFTED: object[] = [
+  {
+    ...withCampaign({ danger: cInt, mood: cEnum, on: cBool }),
+    ...withDerived({
+      id: "a",
+      label: "A",
+      expr: 'campaign.danger + (campaign.on ? 1 : 0) + (campaign.mood == "calm" ? 1 : 2)',
+    }),
+  },
+  withCampaign({ danger: { ...cInt, default: 6 } }),
+  withCampaign({ danger: { ...cInt, default: 0 } }),
+  withCampaign({ mood: { ...cEnum, default: "wild" } }),
+  withCampaign({ danger: { ...cInt, min: 6, max: 2 } }),
+  withCampaign({ danger: { ...cInt, min: 6, max: 2, default: 9 } }),
+  withCampaign({ mood: { ...cEnum, values: ["calm", "calm", "tense"] } }),
+  withCampaign({ max: cInt }),
+  withCampaign({ min: cInt, true: cBool, false: cBool }),
+  withCampaign({ danger: { ...cInt, cite: undefined } }),
+  {
+    sources: [{ id: "s", title: "T", license: "srd" }],
+    resources: [],
+    initiative: undefined,
+    ...withCampaign({ danger: { ...cInt, cite: undefined }, mood: cEnum }),
+  },
+  withCampaign({ "a.b": cInt }),
+  withCampaign({ danger: { ...cInt, min: 1.5 } }),
+  withCampaign({ danger: { ...cInt, min: -1001 } }),
+  withCampaign({ danger: { ...cInt, max: 1001, default: 1001 } }),
+  withCampaign({ danger: { ...cInt, label: "" } }),
+  withCampaign({ danger: { type: "text", label: "T", default: "a" } }),
+  withCampaign({ mood: { ...cEnum, values: [] } }),
+  withCampaign({ mood: { ...cEnum, values: Array.from({ length: 21 }, (_, i) => `v${i}`), default: "v0" } }),
+  withCampaign({ mood: { ...cEnum, default: "no way" } }),
+  withCampaign({ on: { ...cBool, default: "yes" } }),
+  withCampaign({}),
+  withCampaign(Object.fromEntries(Array.from({ length: 51 }, (_, i) => [`f${i}`, cInt]))),
+  withCampaign(Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`f${i}`, cInt]))),
+  withFields({ "campaign.x": fieldInt }),
+  withFields({ campaign: fieldInt }),
+  withDerived({ id: "a", label: "A", expr: "campaign.danger" }),
+  {
+    ...withCampaign({ danger: cInt }),
+    ...withDerived({ id: "a", label: "A", expr: "campaign.danger", visibility: "public" }),
+  },
+  { ...withCampaign({ danger: cInt }), ...withDerived({ id: "a", label: "A", expr: "campaign.nope" }) },
+  { ...withCampaign({ danger: cInt }), ...withDerived({ id: "a", label: "A", expr: "campaign.mood + 1" }) },
+  { ...withCampaign({ mood: cEnum }), ...withDerived({ id: "a", label: "A", expr: "campaign.mood" }) },
+  {
+    ...withCampaign({ danger: cInt }),
+    resources: [{ id: "pool", label: "P", scope: "party", max: "campaign.danger * 2" }],
+  },
+  { ...withCampaign({ danger: cInt }), tests: { t: { ...sumTest, target: "10 + campaign.danger" } } },
+  { tests: { t: { ...sumTest, target: "campaign.danger" } } },
+  withForm({ "form.f1": intField, "form.f2": intField, "form.f10": intField }, "at(form, 2)"),
+  withForm({ "form.f1": intField, "form.f2": intField }, "at(form, hp)"),
+  withForm({ "form.f1": intField, "form.f2": { label: "N", type: "text" } }, "at(form, 1)"),
+  withForm({ "form.f1": intField, "form.x": intField }, "at(form, 1)"),
+  withForm({ "form.f1": intField, "form.g1": intField }, "at(form, 1)"),
+  withForm({ "form.f1": intField, "form.f01": intField }, "at(form, 1)"),
+  withForm({ "form.a1234567890": intField }, "at(form, 1)"),
+  withForm({ "form.f1": intField }, "at(form)"),
+  withForm({ "form.f1": intField }, "at(hp, 1)"),
+  withForm({ "form.f1": intField }, 'at(form, "1")'),
+  withForm({ "form.f1": intField, "form.f2": intField }, "at(form, 1) + at(form, 2)"),
+  { ...withForm({ "form.f1": intField, "form.f2": intField }, "at(form, 1)"), ...withCampaign({ danger: cInt }) },
+  {
+    entities: [
+      {
+        ...pcBase,
+        fields: { ...pcBase.fields, "form.f1": { ...intField, visibility: "owner" }, "form.f2": intField },
+        derived: [{ id: "a", label: "A", expr: "at(form, 1)", visibility: "party" }],
+      },
+    ],
+  },
+  withPc({
+    derived: [
+      { id: "d1", label: "D", expr: "1" },
+      { id: "a", label: "A", expr: "at(derived, 1)" },
+    ],
+  }),
   { tables: TABLES_OK },
   // House decision #50: a Test and a health state may name the actor types they apply to.
   { tests: { t: { ...sumTest, entities: ["pc"] } }, health: { states: [{ id: "s", when: "true", entities: ["pc"] }] } },
@@ -1478,6 +1586,23 @@ function genFieldValue(def: FieldDef): FieldValue | undefined {
   }
 }
 
+// What a campaign stores for a declared field: usually nothing, a fitting value, or a wrong or unknown one.
+function genStored(c: CompiledRuleset): Record<string, unknown> {
+  const stored: Record<string, unknown> = {};
+  for (const [id, def] of Object.entries(c.ruleset.campaignFields ?? {})) {
+    if (rnd(3) === 0) continue;
+    if (rnd(4) === 0) {
+      stored[id] = pick<unknown>(["x", 2.5, true, null, 1001, -1001, ["a"]]);
+      continue;
+    }
+    if (def.type === "int") stored[id] = def.min + rnd(def.max - def.min + 1) + (rnd(5) === 0 ? 1 : 0);
+    else if (def.type === "enum") stored[id] = pick([...def.values, "zzz"]);
+    else stored[id] = rnd(2) === 0;
+  }
+  if (rnd(4) === 0) stored.unknownId = rnd(9);
+  return stored;
+}
+
 function deriveVectors() {
   const out: unknown[] = [];
   const attempt = <T>(run: () => T): { value: T } | { error: string } => {
@@ -1502,7 +1627,16 @@ function deriveVectors() {
         const resources = Object.fromEntries(ce.resources.filter(() => rnd(6) !== 0).map((id) => [id, rnd(31) - 5]));
         const conditions = conditionIds.filter(() => rnd(3) === 0);
         const characters = rnd(7);
-        const values = { fields, resources, conditions, party: { characters } };
+        const declared = Object.keys(c.ruleset.campaignFields ?? {}).length > 0;
+        const stored = declared ? genStored(c) : undefined;
+        const campaign = stored === undefined ? undefined : campaignValues({ compiled: c, stored });
+        const values = {
+          fields,
+          resources,
+          conditions,
+          party: { characters },
+          ...(campaign === undefined ? {} : { campaign }),
+        };
         const base = attempt(() => applyBaseEffects({ compiled: c, entity, values }));
         const derived = attempt(() => deriveValues({ compiled: c, entity, values }));
         const scope = actorScope({
@@ -1510,8 +1644,10 @@ function deriveVectors() {
           derived: "value" in derived ? derived.value : {},
           resources,
           party: { characters },
+          ...(campaign === undefined ? {} : { campaign }),
         });
         out.push({
+          ...(stored === undefined ? {} : { stored, campaign }),
           manifest: manifestIndex,
           entity,
           fields,
@@ -1565,6 +1701,40 @@ function fieldValueVectors() {
     Array.from({ length: 500 }, () => "a"), Array.from({ length: 501 }, () => "a"), {}, { a: 1 },
   ];
   return defs.flatMap((def) => values.map((value) => ({ def, value, why: checkFieldValue({ def, value }) })));
+}
+
+function campaignValueVectors() {
+  const defs = [
+    { type: "int", label: "D", min: 1, max: 5, default: 1 },
+    { type: "int", label: "D", min: -1000, max: 1000, default: 0 },
+    { type: "enum", label: "M", values: ["calm", "tense"], default: "calm" },
+    { type: "bool", label: "B", default: true },
+  ] satisfies CampaignField[];
+  const values: unknown[] = [
+    null,
+    true,
+    false,
+    0,
+    1,
+    5,
+    6,
+    -1,
+    1.5,
+    1000,
+    1001,
+    -1000,
+    -1001,
+    1e300,
+    "",
+    "calm",
+    "tense",
+    "x",
+    [],
+    ["calm"],
+    {},
+    { a: 1 },
+  ];
+  return defs.flatMap((def) => values.map((value) => ({ def, value, why: checkCampaignValue({ def, value }) })));
 }
 
 const scoreField = { label: "F", type: "int", visibility: "public" };
@@ -1960,6 +2130,7 @@ const vectors = {
   manifestCases: manifestVectors(),
   derive: deriveVectors(),
   fieldValues: fieldValueVectors(),
+  campaignValueChecks: campaignValueVectors(),
   scoringManifests: SCORING_MANIFESTS,
   scoring: scoringVectors(),
   views: viewVectors(),

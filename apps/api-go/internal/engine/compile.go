@@ -105,6 +105,25 @@ type (
 // ponytail: only the character count today; party pools and averages join when a ruleset needs them.
 var partyScope = RecordType{map[string]ExprType{"characters": intType}}
 
+// The campaign root: one member per declared field, typed as the field reads. Nil when the manifest declares none.
+func campaignScope(r *Ruleset) ExprType {
+	if r.CampaignFields == nil {
+		return nil
+	}
+	fields := make(map[string]ExprType, len(r.CampaignFields))
+	for id, def := range r.CampaignFields {
+		switch def.Type {
+		case "int":
+			fields[id] = intType
+		case "bool":
+			fields[id] = boolType
+		default:
+			fields[id] = textType
+		}
+	}
+	return RecordType{fields}
+}
+
 func fieldType(def FieldDef) ExprType {
 	switch def.Type {
 	case "int":
@@ -158,7 +177,7 @@ func pathVisibility(ref string, e *EntityType, carried map[string]*Resource, der
 	}
 	root, rest, _ := strings.Cut(prefix, ".")
 	switch root {
-	case "party":
+	case "party", "campaign": // campaign.* is a value of the whole table, shown to every seat like the party's size
 		return "party"
 	case "ctx":
 		return "public" // call-time inputs, supplied by whoever calls the Test
@@ -280,6 +299,9 @@ func (c *compiler) carried(e *EntityType) (ids []string, byID map[string]*Resour
 func (c *compiler) entityScope(e *EntityType, withDerived, withRes bool) map[string]ExprType {
 	scope := fieldScope(e.Fields)
 	scope["party"] = partyScope
+	if campaign := campaignScope(c.r); campaign != nil {
+		scope["campaign"] = campaign
+	}
 	if withDerived {
 		fields := map[string]ExprType{}
 		for _, d := range e.Derived {
@@ -528,7 +550,11 @@ func (c *compiler) resource(x *Resource, i int) *CompiledResource {
 			}
 		}
 	} else {
-		scopes = []map[string]ExprType{{"party": partyScope}}
+		scope := map[string]ExprType{"party": partyScope}
+		if campaign := campaignScope(c.r); campaign != nil {
+			scope["campaign"] = campaign
+		}
+		scopes = []map[string]ExprType{scope}
 	}
 	if len(scopes) == 0 {
 		c.problems.add(fmt.Sprintf("resources[%d].entities", i), "no entity carries this resource")

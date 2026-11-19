@@ -69,10 +69,13 @@ type Context struct {
 	Built    map[string]*actor.Built
 	// Order is the actors' ids in load order, which the ops' state follows (the rest op's deltas do).
 	Order []string
-	c     cs.Ctx
-	tx    core.Conn
-	turn  *turn.Turn
-	read  bool
+	// Pools are the room's shared pools as they stand, by resource id, and PoolOrder their ids in the state's order.
+	Pools     map[string]actor.Pool
+	PoolOrder []string
+	c         cs.Ctx
+	tx        core.Conn
+	turn      *turn.Turn
+	read      bool
 }
 
 // OpenIfPinned is the campaign's ruleset context, or nil when it has no ruleset.
@@ -93,7 +96,20 @@ func OpenIfPinned(ctx context.Context, tx core.Conn, c cs.Ctx) (*Context, error)
 	for i, r := range rows {
 		order[i] = r.Actor.ID
 	}
-	return &Context{Compiled: rules, Built: built, Order: order, c: c, tx: tx}, nil
+	poolRows, err := actor.LoadPools(ctx, tx, c.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+	pools, err := actor.BuildPools(rules, poolRows, actor.CountCharacters(rows))
+	if err != nil {
+		return nil, err
+	}
+	rc := &Context{Compiled: rules, Built: built, Order: order, Pools: map[string]actor.Pool{}, c: c, tx: tx}
+	for _, p := range pools {
+		rc.Pools[p.ID] = p
+		rc.PoolOrder = append(rc.PoolOrder, p.ID)
+	}
+	return rc, nil
 }
 
 // Open is OpenIfPinned, refusing when the campaign has no ruleset.
@@ -117,9 +133,12 @@ func (rc *Context) Turn(ctx context.Context) (*turn.Turn, error) {
 	return rc.turn, nil
 }
 
-// State is what the ops read: every actor as it is now, less exclude, and the turn (nil with none).
+// State is what the ops read: every actor as it is now, less exclude, the shared pools, and the turn (nil with none).
 func (rc *Context) State(exclude map[string]bool, t *engine.TurnState) *engine.RuleState {
-	state := &engine.RuleState{Actors: []*engine.ActorState{}, Turn: t}
+	state := &engine.RuleState{Actors: []*engine.ActorState{}, Turn: t, Pools: []engine.NamedResource{}}
+	for _, id := range rc.PoolOrder {
+		state.Pools = append(state.Pools, engine.NamedResource{Name: id, State: rc.Pools[id].State})
+	}
 	for _, id := range rc.Order {
 		if !exclude[id] {
 			state.Actors = append(state.Actors, rc.Built[id].State)
@@ -163,9 +182,20 @@ func (rc *Context) Run(ctx context.Context, r Run) ([]engine.Delta, error) {
 }
 
 // Apply is the only write of a context: every delta through the pipeline. It returns the logged action id, "" when
-// nothing changed.
+// nothing changed. A pool delta here is a hand edit and is asked who may make it.
 func (rc *Context) Apply(ctx context.Context, deltas []engine.Delta) (string, error) {
-	return actor.ApplyDeltas(ctx, rc.tx, actor.Apply{Ctx: rc.c, Compiled: rc.Compiled, Built: rc.Built, Deltas: deltas})
+	return rc.apply(ctx, deltas, false)
+}
+
+// ApplyCharged is Apply for deltas an op proposed under its own permission: a pool delta is not asked for a hand edit.
+func (rc *Context) ApplyCharged(ctx context.Context, deltas []engine.Delta) (string, error) {
+	return rc.apply(ctx, deltas, true)
+}
+
+func (rc *Context) apply(ctx context.Context, deltas []engine.Delta, charged bool) (string, error) {
+	return actor.ApplyDeltas(ctx, rc.tx, actor.Apply{
+		Ctx: rc.c, Compiled: rc.Compiled, Built: rc.Built, Deltas: deltas, Pools: rc.Pools, Charged: charged,
+	})
 }
 
 // ApplyRuled writes what a table event's own rules decided: the resets and expiries of a session start or end, an
@@ -173,7 +203,7 @@ func (rc *Context) Apply(ctx context.Context, deltas []engine.Delta) (string, er
 // editableBy, which says who may edit a value by hand, is not asked. Never for a delta a seat chose.
 func (rc *Context) ApplyRuled(ctx context.Context, deltas []engine.Delta) (string, error) {
 	return actor.ApplyDeltas(ctx, rc.tx,
-		actor.Apply{Ctx: rc.c, Compiled: rc.Compiled, Built: rc.Built, Deltas: deltas, Trusted: true})
+		actor.Apply{Ctx: rc.c, Compiled: rc.Compiled, Built: rc.Built, Deltas: deltas, Pools: rc.Pools, Trusted: true, Charged: true})
 }
 
 // CheckRuleset is a manifest as the owner pasted it: validated and every expression compiled, returned normalized

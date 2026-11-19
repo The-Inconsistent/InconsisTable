@@ -87,6 +87,8 @@ func DescribeTarget(t engine.DeltaTarget) string {
 		return "that clock"
 	case t.Resource != "":
 		return `resource "` + t.Resource + `"`
+	case t.Pool != "":
+		return `pool "` + t.Pool + `"`
 	case t.Field != "":
 		return `field "` + t.Field + `"`
 	case t.Condition != "":
@@ -137,7 +139,7 @@ func left(v any) (float64, bool) {
 //     once a later step changed it, undoing this one would silently overwrite that step.
 func Invert(logged Written, current any) (*engine.Delta, *cs.Error) {
 	t := logged.Target
-	if t.Resource != "" || t.Clock != "" {
+	if t.Resource != "" || t.Pool != "" || t.Clock != "" {
 		change := number(logged.Before) - number(logged.After)
 		if change == 0 {
 			return nil, nil

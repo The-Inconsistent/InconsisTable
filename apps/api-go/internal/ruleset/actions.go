@@ -44,8 +44,12 @@ func RestActors(ctx context.Context, tx core.Conn, c cs.Ctx, event, actorID stri
 	return true, actionID, err
 }
 
-func applied(rc *Context, ctx context.Context, deltas []engine.Delta) (cs.Result, error) {
-	id, err := rc.Apply(ctx, deltas)
+func applied(rc *Context, ctx context.Context, deltas []engine.Delta, charged bool) (cs.Result, error) {
+	apply := rc.Apply
+	if charged {
+		apply = rc.ApplyCharged
+	}
+	id, err := apply(ctx, deltas)
 	if err != nil {
 		return cs.Result{}, err
 	}
@@ -73,7 +77,8 @@ func RuleOp(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	if err != nil {
 		return cs.Result{}, err
 	}
-	return applied(rc, ctx, deltas)
+	// Every op but a hand adjust of a pool is authorised by its own permission; that one is asked who may change the pool.
+	return applied(rc, ctx, deltas, !(primitive == "resource.capped" && op == "adjustPool"))
 }
 
 // FieldSet is field.set: one declared field of an actor with an entity.
@@ -90,7 +95,7 @@ func FieldSet(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 	if actor.FieldDefOf(rc.Compiled, b, field) == nil {
 		return cs.Result{}, cs.Fail("noField", cs.Params{"name": b.Row.Name, "field": field})
 	}
-	return applied(rc, ctx, []engine.Delta{{Target: engine.DeltaTarget{ActorID: actorID, Field: field}, Kind: "set", Value: a["value"]}})
+	return applied(rc, ctx, []engine.Delta{{Target: engine.DeltaTarget{ActorID: actorID, Field: field}, Kind: "set", Value: a["value"]}}, false)
 }
 
 func conditionTarget(actorID, rowID string) engine.DeltaTarget {
@@ -144,7 +149,7 @@ func ConditionAdd(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.
 		}
 		break
 	}
-	return applied(rc, ctx, []engine.Delta{{Target: conditionTarget(actorID, rowID), Kind: "set", Value: row}})
+	return applied(rc, ctx, []engine.Delta{{Target: conditionTarget(actorID, rowID), Kind: "set", Value: row}}, false)
 }
 
 // ConditionRemove is condition.remove: every row of that condition on the actor.
@@ -167,7 +172,7 @@ func ConditionRemove(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (
 	if len(deltas) == 0 {
 		return cs.Result{}, cs.Fail("lacksCondition", cs.Params{"name": b.Row.Name})
 	}
-	return applied(rc, ctx, deltas)
+	return applied(rc, ctx, deltas, false)
 }
 
 // ActorRest is actor.rest: a rest event for one actor, or for everyone.

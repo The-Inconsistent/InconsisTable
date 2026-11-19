@@ -69,8 +69,8 @@ func LoadAnswers(ctx context.Context, conn core.Conn, campaignID string) ([]cs.R
 
 // Send is request.send. Only a resource the seat may not change itself, on a character it holds, can be asked for.
 //
-// ponytail: shared pools have no storage yet, so a request with no actor is refused; the table already allows a NULL
-// actor_id for the day party-scope pools land. A room without a GM applies a request at once instead of queuing it.
+// ponytail: shared pools have storage now, but a request against one is the next step, so a request with no actor is
+// refused; the table already allows a NULL actor_id for it. A room without a GM applies a request at once instead of queuing it.
 func Send(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	if c.UserID == nil {
 		return cs.Result{}, cs.Fail("noPermission")

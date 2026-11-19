@@ -22,6 +22,7 @@ import (
 type skipped struct {
 	ActorID string `json:"actorId,omitempty"`
 	Turn    string `json:"turn,omitempty"`
+	Pool    string `json:"pool,omitempty"`
 	Reason  string `json:"reason"`
 }
 
@@ -115,6 +116,30 @@ func Undo(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, 
 			if w != nil {
 				written = append(written, *w)
 			}
+			continue
+		}
+		if t.Pool != "" {
+			// Counted like a resource. Its bounds are read again: party.characters may have moved since.
+			inverse, refused := eventlog.Invert(logged, nil)
+			if refused != nil || inverse == nil {
+				if refused != nil {
+					return cs.Result{}, refused
+				}
+				continue
+			}
+			pool, declared, err := actor.BuildPool(rules, t.Pool, nil, actor.CountCharacters(actorRows))
+			if err != nil {
+				return cs.Result{}, err
+			}
+			if !declared {
+				passed = append(passed, skipped{Pool: t.Pool, Reason: "gone"})
+				continue
+			}
+			w, err := actor.WriteDelta(ctx, tx, actor.Write{CampaignID: cid, Delta: *inverse, Bounds: &pool.Bounds, PoolScope: pool.Scope})
+			if err != nil {
+				return cs.Result{}, err
+			}
+			written = append(written, w)
 			continue
 		}
 		b, ok := built[t.ActorID]

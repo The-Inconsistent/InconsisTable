@@ -95,12 +95,7 @@ func WriteStart(ctx context.Context, tx core.Conn, c cs.Ctx, compiled *engine.Co
 	if err != nil {
 		return "", err
 	}
-	characters := 0.0
-	for _, b := range built {
-		if b.Row.Kind == "pc" && b.Row.Status == "active" {
-			characters++
-		}
-	}
+	characters := CountCharacters(rows)
 	patched := make(map[string]*Built, len(built))
 	for id, b := range built {
 		patched[id] = b

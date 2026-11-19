@@ -36,6 +36,34 @@ func CheckEditable(c cs.Ctx, editableBy, actorID, kind, visibility string, delta
 	return cs.Fail("onlySpend", cs.Params{"what": what})
 }
 
+// CheckPoolEditable is the refusal when the seat may not change a shared pool by hand (house decision #56), else nil.
+// The GM side is a seat that runs the table with a GM, never in a room without one. A pool a seat may not see answers
+// `unknownPool`, the same as one that does not exist. Only a `party` pool is ever open to a holder (a seat holding a
+// character).
+func CheckPoolEditable(c cs.Ctx, scope, editableBy, visibility string, delta engine.Delta, what string) *cs.Error {
+	gmSide := c.HasGM() && view.SightOf(c).Tables
+	if gmSide {
+		return nil
+	}
+	if visibility == "gm" {
+		return cs.Fail("unknownPool")
+	}
+	if scope != "party" || len(view.HeldBy(c)) == 0 {
+		return cs.Fail("gmOnly")
+	}
+	dec, inc := engine.StepsFor(editableBy, false)
+	if !dec && !inc {
+		return cs.Fail("gmOnly")
+	}
+	if inc {
+		return nil
+	}
+	if n, isNumber := delta.Value.(float64); delta.Kind == "add" && isNumber && n < 0 {
+		return nil
+	}
+	return cs.Fail("onlySpend", cs.Params{"what": what})
+}
+
 // InferFieldType is the type of a field the ruleset doesn't declare (the engine's own bookkeeping), read off the
 // values written.
 func InferFieldType(samples ...any) string {
@@ -85,6 +113,11 @@ type Apply struct {
 	Built    map[string]*Built
 	Deltas   []engine.Delta
 	Trusted  bool
+	// Pools are the room's shared pools as built now, by resource id.
+	Pools map[string]Pool
+	// Charged marks deltas an op proposed under its own permission (a reset, a charge): a pool delta is then not asked
+	// who may change a pool by hand. False by default, so an unmarked caller is checked as a hand edit. Trusted implies it.
+	Charged bool
 }
 
 // ApplyDeltas is pipeline steps 6-7 of docs/design.md §5.3: every delta is checked against what this seat may write
@@ -97,6 +130,25 @@ func ApplyDeltas(ctx context.Context, tx core.Conn, a Apply) (string, error) {
 		delta.Value = JSONValue(delta.Value)
 		t := delta.Target
 		write := Write{CampaignID: a.Ctx.CampaignID, Delta: delta}
+		if t.Pool != "" {
+			pool, known := a.Pools[t.Pool]
+			if !known {
+				return "", cs.Fail("unknownPool")
+			}
+			def := a.Compiled.Resources[t.Pool].Def
+			if !a.Trusted && !a.Charged {
+				if refused := CheckPoolEditable(a.Ctx, pool.Scope, def.EditableBy, def.Visibility, delta, def.Label); refused != nil {
+					return "", refused
+				}
+			}
+			write.Bounds, write.PoolScope = &pool.Bounds, pool.Scope
+			w, err := WriteDelta(ctx, tx, write)
+			if err != nil {
+				return "", err
+			}
+			written = append(written, w)
+			continue
+		}
 		if t.ActorID == "" {
 			w, err := WriteDelta(ctx, tx, write)
 			if err != nil {

@@ -36,6 +36,8 @@ type Write struct {
 	Delta      engine.Delta
 	Bounds     *Bounds
 	FieldType  string
+	// PoolScope is a pool's scope, copied from the manifest when its row is written.
+	PoolScope string
 }
 
 // JSONValue turns an engine delta value into decoded JSON, the shape the log stores ([]string becomes []any).
@@ -117,6 +119,39 @@ func writeResource(ctx context.Context, tx core.Conn, w Write) (eventlog.Written
 		return eventlog.Written{}, err
 	}
 	return eventlog.Written{Target: t, Kind: w.Delta.Kind, Before: intValue(before), After: intValue(after)}, nil
+}
+
+// A shared pool: `add` only. A pool has no row until its first change, and then it starts from its minimum; the
+// statement adds to the stored value and clamps, so two taps at once never overwrite each other.
+func writePool(ctx context.Context, tx core.Conn, w Write) (eventlog.Written, error) {
+	t := w.Delta.Target
+	if w.Delta.Kind != "add" {
+		return eventlog.Written{}, cs.Fail("cannotWrite")
+	}
+	if !eventlog.IsWhole(w.Delta.Value) {
+		return eventlog.Written{}, cs.Fail("wholeNumber", cs.Params{"what": t.Pool})
+	}
+	ceiling := w.Bounds.Ceiling()
+	clamp := func(v string) string {
+		floor := "GREATEST(" + v + ", $5::int)"
+		if ceiling == nil {
+			return floor
+		}
+		return "LEAST(" + floor + ", GREATEST($5::int, $6::int))"
+	}
+	args := []any{w.CampaignID, w.PoolScope, t.Pool, int64(w.Delta.Value.(float64)), int64(w.Bounds.Min)}
+	if ceiling != nil {
+		args = append(args, int64(*ceiling))
+	}
+	var before, after int32
+	err := tx.QueryRow(ctx, `INSERT INTO resource_pool AS r (campaign_id, scope, resource_id, value)
+		VALUES ($1::uuid, $2::text, $3::text, `+clamp("$5::int + $4::int")+`)
+		ON CONFLICT (campaign_id, scope, resource_id) DO UPDATE SET value = `+clamp("r.value + $4::int")+`
+		RETURNING COALESCE(OLD.value, $5::int), NEW.value`, args...).Scan(&before, &after)
+	if err != nil {
+		return eventlog.Written{}, err
+	}
+	return eventlog.Written{Target: t, Kind: "add", Before: float64(before), After: float64(after)}, nil
 }
 
 func intValue(n *int32) any {
@@ -336,6 +371,11 @@ func WriteDelta(ctx context.Context, tx core.Conn, w Write) (eventlog.Written, e
 	w.Delta.Value = JSONValue(w.Delta.Value)
 	t := w.Delta.Target
 	switch {
+	case t.Pool != "":
+		if w.Bounds == nil || w.PoolScope == "" {
+			return eventlog.Written{}, cs.Fail("noBounds", cs.Params{"resource": t.Pool})
+		}
+		return writePool(ctx, tx, w)
 	case t.Resource != "":
 		if w.Bounds == nil {
 			return eventlog.Written{}, cs.Fail("noBounds", cs.Params{"resource": t.Resource})

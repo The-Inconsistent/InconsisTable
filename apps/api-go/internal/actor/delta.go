@@ -88,9 +88,10 @@ func writeResource(ctx context.Context, tx core.Conn, w Write) (eventlog.Written
 		return eventlog.Written{}, cs.Fail("wholeNumber", cs.Params{"what": t.Resource})
 	}
 	value := int64(w.Delta.Value.(float64))
+	ceiling := w.Bounds.Ceiling()
 	clamp := func(v string) string {
 		floor := "GREATEST(" + v + ", $5::int)"
-		if w.Bounds.Max == nil {
+		if ceiling == nil {
 			return floor
 		}
 		return "LEAST(" + floor + ", GREATEST($5::int, $6::int))"
@@ -100,8 +101,8 @@ func writeResource(ctx context.Context, tx core.Conn, w Write) (eventlog.Written
 		update = clamp("r.value + $4::int")
 	}
 	args := []any{t.ActorID, w.CampaignID, t.Resource, value, int64(w.Bounds.Min)}
-	if w.Bounds.Max != nil {
-		args = append(args, int64(*w.Bounds.Max))
+	if ceiling != nil {
+		args = append(args, int64(*ceiling))
 	}
 	// The first value of a row that does not exist yet is the delta itself (from nothing).
 	var before, after *int32

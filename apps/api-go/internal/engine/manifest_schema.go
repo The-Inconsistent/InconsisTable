@@ -206,6 +206,32 @@ var initiativeSchema = schema.Union("strategy",
 		schema.Req("firstPlayer", schema.Enum("fixed", "rotate", "manual")),
 		schema.Opt("cite", citeSchema),
 	)},
+	schema.Variant{Tag: "sides", Schema: schema.Object(
+		schema.Req("strategy", schema.Literal("sides")),
+		schema.Req("sides", schema.Array(schema.Object(
+			schema.Req("id", idSchema),
+			schema.Req("label", label(40)),
+		)).Min(2).Max(4)),
+		schema.Def("firstSide", schema.Enum("fixed", "rotate"), "fixed"),
+		schema.Def("roundEnd", schema.Enum("auto", "manual"), "auto"),
+		schema.Opt("setup", schema.Object(schema.Opt("cite", citeSchema))),
+		schema.Opt("outOfTurn", schema.Object(
+			schema.Req("cost", schema.Record(idSchema, sideCostSchema)),
+			schema.Opt("cite", citeSchema),
+		)),
+		schema.Opt("hold", schema.Object(schema.Opt("cite", citeSchema))),
+		schema.Opt("barred", schema.Object(
+			schema.Def("throughRound", schema.Int().Min(1).Max(10), 1.0),
+			schema.Def("liftCost", schema.Record(idSchema, sideCostSchema), map[string]any{}),
+			schema.Opt("cite", citeSchema),
+		)),
+		schema.Opt("cite", citeSchema),
+	)},
+)
+
+var sideCostSchema = schema.Object(
+	schema.Req("pool", idSchema),
+	schema.Req("amount", schema.Int().Min(1).Max(20)),
 )
 
 var scoringSchema = schema.Object(

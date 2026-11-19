@@ -4,7 +4,7 @@
 # A Dockhand stack named `inconsis` (backup.sh finds Postgres by that project name). Every value comes from the stack's
 # variables in Dockhand; none is committed and none lives in a file on the host:
 #   TABLE_HOST, AUTH_HOST       the two public host names, e.g. inconsistable.app, auth.inconsistable.app
-#   APP_TAG                     inconsistable-api/-web tag, sha-<short> from .github/workflows/publish-ghcr.yml
+#   APP_TAG                     inconsistable-api/-web tag, sha-<short> from the publish job in .github/workflows/ci.yml
 #   IDP_TAG                     inconsisid image tag (InconsisID's server-v<version> release)
 # and, as Dockhand secrets:
 #   POSTGRES_PASSWORD           the superuser, for the entrypoint and backups

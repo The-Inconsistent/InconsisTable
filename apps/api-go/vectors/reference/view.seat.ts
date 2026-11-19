@@ -11,6 +11,7 @@ import {
   type Encounter,
   type RollRow,
   type LiveState,
+  type PoolState,
   type RequestAnswer,
   type SpendRequest,
 } from "../../../../packages/core-schema/src/index.ts";
@@ -107,13 +108,16 @@ export function seatView({
   const myDraft = (ctx.userId !== null && snapshot.drafts.get(ctx.userId)) || null;
   const manifest = compiled && seatManifest({ ruleset: compiled.ruleset, ctx });
   const packVisibilities = readableEntryVisibilities(ctx);
-  if (sight.all) return { state: { ...snapshot.state, myDraft }, codex: snapshot.codex, manifest, packVisibilities };
+  const pools = seatPools({ pools: snapshot.state.pools, compiled, ctx });
+  if (sight.all)
+    return { state: { ...snapshot.state, myDraft, pools }, codex: snapshot.codex, manifest, packVisibilities };
   const codex = seatCodex({ codex: snapshot.codex, ctx, sight });
   const state = seatState({ state: snapshot.state, compiled, ctx, sight });
   return {
     state: {
       ...state,
       myDraft,
+      pools,
       clocks: seatClocks({ clocks: state.clocks, codex, sight }),
       ...seatRequests({ requests: state.requests, answers: state.requestAnswers, ctx, sight }),
       ...seatTables({ rolls: state.rolls, dealt: state.dealt, ctx, sight }),
@@ -123,6 +127,31 @@ export function seatView({
     packVisibilities,
   };
 }
+
+// The pools a seat receives (house decision #59). The GM side (a room with a GM, a seat that runs the table; the same
+// notion as the pool write path) gets every pool. Anyone else gets `public` ones, `party` ones, and `owner` ones only for
+// a `party`-scope pool and a seat holding a character (never the screen); `gm` and every other `owner` pool reach nobody.
+// A pool the seat may not see is dropped whole. Without a ruleset in the view, none.
+export const seatPools = ({
+  pools,
+  compiled,
+  ctx,
+}: {
+  pools: readonly PoolState[];
+  compiled: CompiledRuleset | null;
+  ctx: Ctx;
+}): PoolState[] => {
+  if (compiled === null) return [];
+  const gmSide = ctx.tableMode === "gm" && sightOf(ctx).tables;
+  const holder = !(ctx.seat.kind === "token" && ctx.seat.role === "screen") && heldBy(ctx).length > 0;
+  return pools.filter(
+    (p) =>
+      gmSide ||
+      p.visibility === "public" ||
+      p.visibility === "party" ||
+      (p.visibility === "owner" && p.scope === "party" && holder),
+  );
+};
 
 // The rolls and dealt cards a seat receives (house decision #49): the side that runs the table with a GM sees them all.
 // Anyone else sees what the table's visibility shows: `party` to every seat, `owner` to the seat that holds the card's

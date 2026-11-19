@@ -174,6 +174,21 @@ export const RollRow = z.object({
   at: z.string(),
 });
 export type RollRow = z.infer<typeof RollRow>;
+// A shared pool as one seat sees it (house decision #59). Self-describing, so no screen needs the manifest: `max` is the
+// declared maximum (null when none) and `capped` says whether the value stops there.
+export const PoolState = z.object({
+  id: z.string(),
+  label: z.string(),
+  scope: z.enum(["party", "gm", "campaign"]),
+  value: z.number(),
+  min: z.number(),
+  max: z.number().nullable(),
+  capped: z.boolean(),
+  visibility: z.enum(["public", "party", "owner", "gm"]),
+  editableBy: z.string(),
+});
+export type PoolState = z.infer<typeof PoolState>;
+
 export const DealtRow = z.object({
   tableId: z.string(),
   actorId: z.string(),
@@ -231,6 +246,8 @@ export const LiveState = z.object({
     // A transfer waiting for its recipient to accept.
     transfer: z.object({ toUserId: z.string(), expiresAt: z.string() }).nullable(),
   }),
+  // The shared pools in manifest order; each seat gets the ones it may see (the api's Seat view module).
+  pools: z.array(PoolState),
 });
 export type LiveState = z.infer<typeof LiveState>;
 

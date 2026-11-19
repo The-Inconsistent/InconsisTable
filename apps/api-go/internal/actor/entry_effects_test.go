@@ -66,6 +66,16 @@ func TestAChosenEntryRaisesTheNumbersOfThatActorOnly(t *testing.T) {
 			t.Fatalf("starts full at the raised maximum: %+v", start)
 		}
 
+		// A pack an admin took down stops adding, and adds again once it is restored.
+		dbtest.Exec(t, tx, `UPDATE pack SET disabled_at = now() WHERE id = $1`, pack)
+		if a, b := maxHp(); a != 10 || b != 10 {
+			t.Fatalf("a taken-down pack adds nothing, got %v and %v", a, b)
+		}
+		dbtest.Exec(t, tx, `UPDATE pack SET disabled_at = NULL WHERE id = $1`, pack)
+		if a, _ := maxHp(); a != 15 {
+			t.Fatalf("a restored pack adds again, got %v", a)
+		}
+
 		// The entry leaves the attached packs: it adds nothing, and nothing fails.
 		dbtest.Exec(t, tx, `DELETE FROM campaign_pack WHERE campaign_id = $1 AND pack_version_id = $2`, room.ID, attached)
 		if a, b := maxHp(); a != 10 || b != 10 {

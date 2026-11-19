@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
@@ -141,7 +142,7 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 
 	rows, err := conn.Query(ctx, `SELECT pack_version.id::text, pack.slug, pack_version.version, pack.license, pack.attribution
 		FROM campaign_pack JOIN pack_version ON pack_version.id = campaign_pack.pack_version_id
-		JOIN pack ON pack.id = pack_version.pack_id WHERE `+ServedPacks("$1")+` ORDER BY pack.slug ASC`, c.CampaignID)
+		JOIN pack ON pack.id = pack_version.pack_id WHERE `+actor.ServedPacks("$1")+` ORDER BY pack.slug ASC`, c.CampaignID)
 	if err != nil {
 		return nil, err
 	}

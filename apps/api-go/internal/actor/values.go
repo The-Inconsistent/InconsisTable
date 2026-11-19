@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"slices"
 	"sort"
@@ -51,6 +52,20 @@ type ConditionRow struct {
 	Source       string
 	ExpiresOn    string
 	ExpiresAfter *int32
+}
+
+// ServedPacks is the SQL condition for the pack versions of a room that may be served to anyone: attached, not taken
+// down by an admin, and a `private` pack only while its owner is a GM of the room (CLAUDE.md, principle 4). The one
+// place this is decided (it lives here, not in package pack, because pack imports this package). It reads campaign_pack and pack, so the query must join both. campaignParam is the
+// placeholder holding the campaign id, such as "$1".
+func ServedPacks(campaignParam string) string {
+	// Without a GM the owner counts as the one running the room (docs/adr/0009-table-modes.md), and only the owner's own
+	// pack: a private pack is never served on another user's say-so.
+	return fmt.Sprintf(`campaign_pack.campaign_id = %[1]s AND pack.disabled_at IS NULL AND (pack.license <> 'private' OR EXISTS (
+		SELECT 1 FROM membership WHERE membership.campaign_id = %[1]s AND membership.user_id = pack.owner_user_id AND membership.role = 'gm'
+		) OR EXISTS (
+		SELECT 1 FROM campaign WHERE campaign.id = %[1]s AND campaign.table_mode <> 'gm' AND campaign.owner_user_id = pack.owner_user_id))`,
+		campaignParam)
 }
 
 // ChosenEntry is an attached pack entry an actor holds an actor_choice row for, with the step that row belongs to.
@@ -137,14 +152,16 @@ func LoadRows(ctx context.Context, conn core.Conn, campaignID string) ([]Rows, e
 	if err != nil {
 		return nil, err
 	}
-	// Every attached entry, whoever looks and whatever its visibility: what a chosen entry adds is in the number for
-	// every seat (house decision #61). The first entry per key wins, by pack slug, as in the served lookup.
+	// Every entry of the packs the room is served, whoever looks and whatever the entry's visibility: what a chosen
+	// entry adds is in the number for every seat (house decision #61). A pack taken down, or a private one whose owner
+	// no longer runs the room, stops adding (principle 4). The first entry per key wins, by pack slug, as in the served
+	// lookup.
 	chosen, err := byActor(ctx, conn, `SELECT c.actor_id::text, c.step_id, e.type, e.key, e.name, e.effects
 		FROM actor_choice c JOIN actor ON actor.id = c.actor_id
 		JOIN campaign_pack ON campaign_pack.campaign_id = actor.campaign_id
 		JOIN pack_entry e ON e.pack_version_id = campaign_pack.pack_version_id AND e.key = c.option_key
 		JOIN pack_version ON pack_version.id = e.pack_version_id JOIN pack ON pack.id = pack_version.pack_id
-		WHERE actor.campaign_id = $1 ORDER BY c.actor_id, c.step_id, c.ordinal, pack.slug, e.key`, campaignID,
+		WHERE actor.campaign_id = $1 AND `+ServedPacks("$1")+` ORDER BY c.actor_id, c.step_id, c.ordinal, pack.slug, e.key`, campaignID,
 		func(r pgx.Rows) (string, ChosenEntry, error) {
 			var id string
 			var x ChosenEntry

@@ -667,7 +667,10 @@ function tableProblems({ id, t, out }: { id: string; t: RandomTable; out: Proble
 
 /** Steps name real actor entities, pack entity types and fields, and no field has two writers. */
 function creationProblems(r: Ruleset, out: Problem[]): void {
-  const entities = new Map(r.entities.map((e) => [e.id, e]));
+  // The first definition of an id is the one the steps are checked against, as in the Go twin (`Ruleset.entity`); a
+  // repeated id is reported on its own as a duplicate.
+  const entities = new Map<string, EntityType>();
+  for (const e of r.entities) if (!entities.has(e.id)) entities.set(e.id, e);
   const written = new Map<string, string>(); // "actor/field" → step id
   const claim = ({ actor, field, step, path }: { actor: string; field: string; step: string; path: string }) => {
     const key = `${actor}/${field}`;

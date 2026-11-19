@@ -965,6 +965,9 @@ const withForm = (fields: object, expr: string) =>
 const intField = { label: "F", type: "int" };
 
 const CRAFTED: object[] = [
+  // An entity id declared twice: both engines check a creation step against the first definition.
+  { entities: [pcBase, { ...pcBase, base: "item" }], creation: [step({})] },
+  { entities: [{ ...pcBase, base: "item" }, pcBase], creation: [step({})] },
   {
     ...withCampaign({ danger: cInt, mood: cEnum, on: cBool }),
     ...withDerived({

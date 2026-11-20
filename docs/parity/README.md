@@ -41,12 +41,22 @@ are not open:
 Three Auspex defects are not ported: stale language picks surviving an archetype change, a dead "new character" link,
 and other players' builds and drafts being sent to every phone.
 
-## Kept from the platform where Auspex differs (owner to confirm)
+## Decided by the owner (2026-11-21)
 
-See "Decisions" in the pull request that carries this file. Until the owner says otherwise the stack keeps: a phone
-reports its dice and the server works out the result; one report stands; a fight needs a running session and does not
-replace a running fight; packs carry no printed text (names, numbers, cites, an importer's own summary, and the page
-through the book relay); no official art ships (a printable sheet drawn by the platform, portraits uploaded by users).
+1. **Whispers are ported** as Auspex has them: a GM's private line to chosen characters, one reply of up to 200
+   characters, cleared each session. A single reply to a GM's note is not chat (principle 8); the layer that builds it
+   records that.
+2. **The character library is built:** a user's own characters outside any room, an owner-scoped write. The layer that
+   builds it adds the clause to principle 6 in `CLAUDE.md`.
+3. **Packs keep carrying no printed text:** names, numbers, cites, the importer's own summary, and the page through the
+   book relay. Boxes that show printed text in Auspex show the name, the numbers and a page link.
+4. **No official art:** the printable sheet is drawn by the platform without it, and portraits are pictures users
+   upload.
+5. **Three play rules stay the platform's:** a phone reports its dice and the server works out the result; one report
+   stands; a fight needs a running session and does not replace a running fight.
+6. **Undo is TURN BACK only,** as on Auspex's `main`. The journal with redo and a history is not built.
+7. **Not ported:** other tables' running games in the lobby, and a character's sheet shown to someone holding only an
+   invite link.
 
 ## The layers, bottom to top
 
@@ -104,6 +114,4 @@ structured rows), the World's words, and the converter. One pull request there p
 
 ## Not in the stack
 
-Printed battle maps (undecided, outside P3). The Next.js upgrade (#144). Other players' live games in the lobby and a
-character's sheet shown to someone holding only an invite link: both show content to people without a seat
-(principle 4), unless the owner says otherwise.
+Printed battle maps (undecided, outside P3). The Next.js upgrade (#144). The two things of decision 7.

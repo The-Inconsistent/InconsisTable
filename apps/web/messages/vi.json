@@ -455,6 +455,7 @@
     "linePick": "{side}: chọn người hành động",
     "lineComplete": "Hết vòng {round}",
     "lineActing": "{name} đang hành động",
+    "lineUnseen": "Có kẻ chưa lộ diện đang hành động",
     "mark": {
       "ready": "sẵn sàng",
       "acting": "đang đi",

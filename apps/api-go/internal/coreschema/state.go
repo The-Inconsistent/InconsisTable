@@ -276,6 +276,8 @@ type (
 		EndMet        []int            `json:"endMet"`
 		Scoring       *ScoringMode     `json:"scoring"`
 		Combatants    []Combatant      `json:"combatants"`
+		// Unseen says the acting combatant is one this seat is not sent (house decision #68); never set for the combat side.
+		Unseen bool `json:"unseen,omitempty"`
 		*EncounterSides
 	}
 	// EncounterSides is the encounter's part of a sides order (house decision #60); nil for any other order.

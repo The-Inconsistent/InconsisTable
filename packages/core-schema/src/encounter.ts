@@ -73,6 +73,11 @@ export const Encounter = z.object({
   /** How the ruleset scores the game; null when it has no scoring block, so the game cannot be ended with a result. */
   scoring: z.object({ mode: z.enum(["compete", "coop"]) }).nullable(),
   combatants: z.array(Combatant), // in turn order
+  /**
+   * True when the combatant acting is one this seat is not sent (a hidden one): the seat's `currentId` is null, and
+   * this says a turn is being taken all the same (house decision #68). Absent otherwise, and always for the combat side.
+   */
+  unseen: z.boolean().optional(),
   /** Sides order only (house decision #60), absent otherwise: whether the fight has begun (a setup opens it not begun). */
   begun: z.boolean().optional(),
   /** The side that acted last, and the side that acted out of turn this round; side ids, so public. */

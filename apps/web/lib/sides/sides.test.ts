@@ -160,6 +160,8 @@ test("the line says where the fight is", () => {
   assert.deepEqual(lineOf({ encounter: fight() }), { key: "pick", side: "wardens" });
   assert.deepEqual(lineOf({ encounter: fight({ sideUp: null }), sides }), { key: "complete", round: 1 });
   assert.deepEqual(lineOf({ encounter: fight({ currentId: "x" }), sides }), { key: "acting", name: "X" });
+  // A hidden combatant holds the turn: the seat is told so, and no side is asked to pick.
+  assert.deepEqual(lineOf({ encounter: fight({ unseen: true }), sides }), { key: "unseen" });
 });
 
 test("a phone gets one line for its own character", () => {
@@ -167,6 +169,7 @@ test("a phone gets one line for its own character", () => {
   assert.equal(line(fight(), cb("x", { barred: true })), "noTurn");
   assert.equal(line(fight({ begun: false }), cb("x")), "setup");
   assert.equal(line(fight(), cb("x")), "sideUp");
+  assert.equal(line(fight({ unseen: true }), cb("x")), null); // nobody picks while a hidden one acts
   assert.equal(line(fight({ sideUp: "raiders" }), cb("x")), null);
   assert.equal(line(fight({ done: ["x"] }), cb("x")), "done");
   assert.equal(line(fight(), cb("x", { held: true })), "holding");

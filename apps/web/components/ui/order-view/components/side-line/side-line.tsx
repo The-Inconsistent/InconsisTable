@@ -18,6 +18,7 @@ export function SideLine({ encounter, sides }: SideLineProps) {
       {line.key === "pick" && t("linePick", { side: line.side })}
       {line.key === "complete" && t("lineComplete", { round: line.round })}
       {line.key === "acting" && t("lineActing", { name: line.name })}
+      {line.key === "unseen" && t("lineUnseen")}
     </p>
   );
 }

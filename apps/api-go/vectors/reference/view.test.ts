@@ -245,6 +245,7 @@ function digest(ctx: Ctx) {
     ogreHp: hp("ogre"),
     impHp: hp("imp"),
     turn: s.encounter?.currentId,
+    unseen: s.encounter?.unseen,
     encounterMarks: s.encounter?.combatants.some((c) => c.keep || c.conditions.length > 0),
     notes: s.session?.notes,
     invites: s.access.invites.length,
@@ -281,6 +282,7 @@ const ALL = {
   ogreHp: 30,
   impHp: 12,
   turn: "c-wisp",
+  unseen: undefined,
   encounterMarks: true,
   notes: "session notes",
   invites: 1,
@@ -305,6 +307,7 @@ const NOBODY = {
   ogreHp: 30, // `full`: the ruleset lets the table see Vigour
   impHp: undefined, // `bar`: a fraction, no numbers
   turn: null,
+  unseen: true, // the hidden one holds the turn: said, never named (#68)
   encounterMarks: false,
   notes: "",
   invites: 0,
@@ -419,6 +422,7 @@ test("combat opens hidden Combatants, Creatures and NPCs, the whole Encounter an
     combatants: ALL.combatants,
     impHp: 12,
     turn: "c-wisp",
+    unseen: undefined,
     encounterMarks: true,
     packEntries: ALL.packEntries,
     manifestGmField: true, // ponytail: the manifest is read whole by the party and combat sides

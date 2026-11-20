@@ -455,6 +455,7 @@
     "linePick": "{side}: pick who acts",
     "lineComplete": "Round {round} complete",
     "lineActing": "{name} is acting",
+    "lineUnseen": "Someone unseen is acting",
     "mark": {
       "ready": "ready",
       "acting": "acting",

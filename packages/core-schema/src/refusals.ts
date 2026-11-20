@@ -263,6 +263,15 @@ export const REFUSALS = {
   bookNoReply: "No reply from the GM's tablet.",
   bookMalformed: "That page request is malformed.",
   bookRenderFailed: "The GM's tablet couldn't render it.",
+  // A room document (house decision #74), refused by path
+  roomNotDocument: "This is not a room document (inconsistable-room, version 1).",
+  roomImportFirst: "Import {slug} {version} first.",
+  roomHashDiffers: "Your {slug} {version} is not the one this room was made with.",
+  roomNoSuchEntry: "No such entry in this document.",
+  roomNoSuchActor: "No such character in this document.",
+  roomNoSuchPicture: "No such picture in this document.",
+  roomPictureEncoding: "This picture is not base64.",
+  roomValueClamped: "The room would hold {now} here, not {value}.",
 } as const;
 
 export type RefusalKey = keyof typeof REFUSALS;

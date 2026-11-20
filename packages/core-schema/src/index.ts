@@ -4,6 +4,7 @@ export * from "./book.ts";
 export * from "./encounter.ts";
 export * from "./permissions.ts";
 export * from "./prep.ts";
+export * from "./room-document.ts";
 export * from "./refusals.ts";
 export * from "./seat.ts";
 export * from "./state.ts";

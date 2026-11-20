@@ -19,6 +19,8 @@ import {
   type Ctx,
   type Seat,
 } from "../../../packages/core-schema/src/index.ts";
+// The room document's vectors and the documents the Go import tests apply (house decision #74).
+import "./roomdoc.ts";
 
 const OUT = join(import.meta.dirname, "../internal/coreschema/testdata/vectors.json");
 

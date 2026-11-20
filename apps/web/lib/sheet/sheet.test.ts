@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { compileRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+import { SAMPLE_HARM } from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { canAskToSpend, pageOfCite, rangeOf, restsOf, sectionsOf, stepAction, stepsOf, timeLeft } from "./sheet.ts";
 
 const ruleset = Ruleset.parse(SAMPLE_D20);
@@ -71,6 +72,14 @@ test("a player steps only what the resource lets its owner; the GM steps everyth
     inc: false,
   });
   assert.deepEqual(stepsOf({ ruleset: withEdit("owner", "hp"), resource: "hp", gm: true }), { dec: true, inc: true });
+});
+
+test("in a harm ruleset its wounds, shock and members are read-only for every seat", () => {
+  const harm = Ruleset.parse(SAMPLE_HARM);
+  for (const resource of ["wounds", "strain", "members"]) {
+    assert.deepEqual(stepsOf({ ruleset: harm, resource, gm: true }), { dec: false, inc: false }, resource);
+    assert.equal(canAskToSpend({ ruleset: harm, resource }), false, resource);
+  }
 });
 
 test("a player may ask the GM to spend only what they cannot change themselves, outside a health track", () => {

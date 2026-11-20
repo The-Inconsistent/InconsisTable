@@ -374,7 +374,7 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]an
 		var exprErr engine.ExprError
 		derived, err := compiled.DeriveValues(b.Entity, values)
 		if errors.As(err, &exprErr) {
-			b.Problem = exprErr.Message
+			b.Problem = problemOf(ce, exprErr)
 			continue
 		}
 		if err != nil {
@@ -382,7 +382,7 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]an
 		}
 		fields, err := compiled.ApplyBaseEffects(b.Entity, values)
 		if errors.As(err, &exprErr) {
-			b.Problem = exprErr.Message
+			b.Problem = problemOf(ce, exprErr)
 			continue
 		}
 		if err != nil {
@@ -471,4 +471,13 @@ func LoadDrafts(ctx context.Context, conn core.Conn, campaignID string) (map[str
 		out[userID] = body
 	}
 	return out, rows.Err()
+}
+
+// problemOf words why an actor's values cannot be derived, for the refusals that name it: a field the rules read and
+// found empty goes by the label its sheet shows, anything else by the engine's message.
+func problemOf(ce *engine.CompiledEntity, e engine.ExprError) string {
+	if d, ok := ce.Def.Fields[e.Missing]; ok && d.Label != "" {
+		return d.Label
+	}
+	return e.Message
 }

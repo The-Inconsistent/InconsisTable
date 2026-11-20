@@ -195,7 +195,7 @@ func (e *evaluator) eval(n Node) any {
 			if !ok {
 				path = "?"
 			}
-			exprFail(`missing value "%s"`, path)
+			panic(ExprError{Message: fmt.Sprintf(`missing value "%s"`, path), Missing: path})
 		}
 		return v
 	case UnaryNode:

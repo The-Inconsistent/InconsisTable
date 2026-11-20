@@ -173,8 +173,8 @@ func TestHarmRefusals(t *testing.T) {
 		// A creature whose sheet lacks what its limit reads takes no hit, and the refusal names it.
 		troll := p.room.Actor(t, tx, "creature", "Troll", "brute")
 		_, err = p.try(gm, hit(troll, 1, 0))
-		if refusal, ok := err.(*cs.Error); !ok || refusal.Code != "incomplete" || refusal.Params["name"] != "Troll" {
-			t.Fatalf("want incomplete naming the Troll, got %v", err)
+		if refusal, ok := err.(*cs.Error); !ok || refusal.Code != "incomplete" || refusal.Params["name"] != "Troll" || refusal.Params["detail"] != "Hide" {
+			t.Fatalf("want incomplete naming the Troll and its Hide, got %v", err)
 		}
 		// The plain stepper is closed on the counted resources, for every seat.
 		for _, r := range []string{"wounds", "strain"} {

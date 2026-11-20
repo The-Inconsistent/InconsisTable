@@ -324,6 +324,9 @@ export const CodexEntry = z.object({
   position: z.number().int(), // order among siblings (an adventure's scenes, the adventures)
   links: z.array(z.string()), // entries a scene points at, only those the seat can also see
   plannedTests: z.array(z.string()), // a scene's planned ruleset Test ids; GM side only
+  // The entry's picture; another seat than the codex side gets it only once it is shown to the table (house decision #70).
+  imageId: z.string().nullable(),
+  imageRevealed: z.boolean(),
 });
 export type CodexEntry = z.infer<typeof CodexEntry>;
 

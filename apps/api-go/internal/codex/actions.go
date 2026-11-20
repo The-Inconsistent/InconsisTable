@@ -10,6 +10,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign/eventlog"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/image"
 )
 
 // The codex actions (apps/api/src/codex/codex.actions.ts).
@@ -56,6 +57,21 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	}
 	id, existing := a["id"].(string)
 	kind := a.Str("kind")
+	// imageId: a picture of this room, or null to remove it; not sent leaves it alone.
+	imageID, imageSent := a["imageId"]
+	picture, _ := imageID.(string)
+	if picture != "" {
+		has, err := image.Has(ctx, tx, cid, picture)
+		if err != nil {
+			return cs.Result{}, err
+		}
+		if !has {
+			return cs.Result{}, cs.Fail("pictureNotFound")
+		}
+	}
+	if err := sweep(ctx, tx, cid); err != nil {
+		return cs.Result{}, err
+	}
 	if existing {
 		var err error
 		if kind, err = entryKind(ctx, tx, cid, id); err != nil {
@@ -86,12 +102,18 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 			VALUES ($1, $2, $3, coalesce($4, ''), coalesce($5, ''), $6, coalesce($7::text[], '{}'), $8,
 				(SELECT coalesce(max(position) + 1, 0) FROM codex_entry WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NULL))
 			RETURNING id::text`, cid, kind, *title, body, notes, status, planned, visibility).Scan(&id)
-		return cs.Done(id), err
+		if err != nil || !imageSent {
+			return cs.Done(id), err
+		}
+		return cs.Done(id), setPicture(ctx, tx, c, id, picture)
 	}
 	_, err := tx.Exec(ctx, `UPDATE codex_entry SET title = coalesce($2, title), body = coalesce($3, body),
 		gm_notes = coalesce($4, gm_notes), status = coalesce($5, status), planned_tests = coalesce($6::text[], planned_tests)
 		WHERE id = $1`, id, title, body, notes, status, planned)
-	return cs.Done(id), err
+	if err != nil || !imageSent {
+		return cs.Done(id), err
+	}
+	return cs.Done(id), setPicture(ctx, tx, c, id, picture)
 }
 
 // linkable are the kinds a scene may link (docs/p2-plan.md, group A).
@@ -188,12 +210,22 @@ func renumber(ctx context.Context, tx core.Conn, cid, kind string, parent *strin
 	return err
 }
 
-// Reveal is codex.reveal: who reads an entry. Only this campaign's characters can be listed readers, and a reader
-// listed twice is one row.
+// Reveal is codex.reveal: who reads an entry, and whether the table sees its picture; either may be sent alone. Only
+// this campaign's characters can be listed readers, and a reader listed twice is one row.
 func Reveal(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	cid, id := c.CampaignID, a.Str("id")
 	if err := ownEntry(ctx, tx, cid, id); err != nil {
 		return cs.Result{}, err
+	}
+	logged := map[string]any{"entryId": id}
+	if shown, sent := a["imageRevealed"].(bool); sent {
+		if _, err := tx.Exec(ctx, `UPDATE codex_entry SET image_revealed = $2 WHERE id = $1`, id, shown); err != nil {
+			return cs.Result{}, err
+		}
+		logged["imageRevealed"] = shown
+	}
+	if _, sent := a["visibility"]; !sent {
+		return cs.Done(""), eventlog.LogEvent(ctx, tx, c, "codex.reveal", logged)
 	}
 	if !c.HasGM() && a.Str("visibility") == "gm" {
 		return cs.Result{}, cs.Fail("noGmHere")
@@ -231,9 +263,8 @@ func Reveal(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 			return cs.Result{}, err
 		}
 	}
-	return cs.Done(""), eventlog.LogEvent(ctx, tx, c, "codex.reveal", map[string]any{
-		"entryId": id, "visibility": a.Str("visibility"), "audienceMode": a.Str("audienceMode"),
-	})
+	logged["visibility"], logged["audienceMode"] = a.Str("visibility"), a.Str("audienceMode")
+	return cs.Done(""), eventlog.LogEvent(ctx, tx, c, "codex.reveal", logged)
 }
 
 // Delete is codex.delete.
@@ -249,6 +280,12 @@ func Delete(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	if scenes {
 		return cs.Result{}, cs.Fail("adventureHasScenes")
 	}
-	_, err := tx.Exec(ctx, `DELETE FROM codex_entry WHERE id = $1`, id)
-	return cs.Done(""), err
+	var picture *string
+	if err := tx.QueryRow(ctx, `DELETE FROM codex_entry WHERE id = $1 RETURNING image_id::text`, id).Scan(&picture); err != nil {
+		return cs.Result{}, err
+	}
+	if err := dropUnused(ctx, tx, c.CampaignID, picture); err != nil {
+		return cs.Result{}, err
+	}
+	return cs.Done(""), sweep(ctx, tx, c.CampaignID)
 }

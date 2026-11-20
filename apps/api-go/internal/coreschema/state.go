@@ -404,6 +404,9 @@ type (
 		Links []string `json:"links"`
 		// PlannedTests are the ruleset Test ids a scene plans; the GM side only.
 		PlannedTests []string `json:"plannedTests"`
+		// ImageID is the entry's picture; ImageRevealed says the table sees it (house decision #70).
+		ImageID       *string `json:"imageId"`
+		ImageRevealed bool    `json:"imageRevealed"`
 	}
 	// Codex is the `codex` event.
 	Codex struct {

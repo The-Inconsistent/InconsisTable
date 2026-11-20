@@ -111,6 +111,7 @@ func run() error {
 	route(router, "POST", "/api/admin/packs/:id/disable", core.Serve(console.DisablePack))
 	route(router, "GET", "/api/admin/events", core.Serve(console.Events))
 	route(router, "GET", "/api/campaigns/:id/rules", core.Serve(library.Rules))
+	route(router, "GET", "/api/campaigns/:id/catalogue", core.Serve(library.Catalogue))
 
 	// Signing in through InconsisID, and the signed-in account's page.
 	signIn := &auth.SignInRoutes{Auth: authService, Sockets: gateway}

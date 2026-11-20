@@ -82,6 +82,10 @@ func StartingResources(compiled *engine.CompiledRuleset, entity string, fields m
 type StartTarget struct {
 	ActorID string
 	Fields  map[string]any
+	// Resources are starting values decided elsewhere (a ledger sheet's Wealth), over the ones the ruleset gives.
+	Resources map[string]float64
+	// FieldsOnly writes the fields and leaves every resource as it is (a ledger build saved again).
+	FieldsOnly bool
 }
 
 // WriteStart writes the starting fields and resources of actors that already exist. One log entry for the lot, so one
@@ -121,6 +125,9 @@ func WriteStart(ctx context.Context, tx core.Conn, c cs.Ctx, compiled *engine.Co
 				deltas = append(deltas, engine.Delta{Target: engine.DeltaTarget{ActorID: t.ActorID, Field: field}, Kind: "set", Value: value})
 			}
 		}
+		if t.FieldsOnly {
+			continue
+		}
 		start, err := StartingResources(compiled, b.Entity, t.Fields, characters, campaign, b.Entries)
 		if err != nil {
 			return "", err
@@ -135,7 +142,11 @@ func WriteStart(ctx context.Context, tx core.Conn, c cs.Ctx, compiled *engine.Co
 		}
 		patched[t.ActorID] = &copied
 		for _, r := range start {
-			deltas = append(deltas, engine.Delta{Target: engine.DeltaTarget{ActorID: t.ActorID, Resource: r.Resource}, Kind: "set", Value: r.Value})
+			value := r.Value
+			if decided, ok := t.Resources[r.Resource]; ok {
+				value = decided
+			}
+			deltas = append(deltas, engine.Delta{Target: engine.DeltaTarget{ActorID: t.ActorID, Resource: r.Resource}, Kind: "set", Value: value})
 		}
 	}
 	return ApplyDeltas(ctx, tx, Apply{Ctx: c, Compiled: compiled, Built: patched, Deltas: deltas, Trusted: true})

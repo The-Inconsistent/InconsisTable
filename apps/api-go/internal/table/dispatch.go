@@ -192,6 +192,11 @@ func buildActor(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (Resul
 	return actor.BuildAction(ctx, tx, c, a, pack.ServedLookup)
 }
 
+// build.save resolves against the room's served catalogue (house decision #63).
+func saveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (Result, error) {
+	return actor.SaveBuild(ctx, tx, c, a, pack.LedgerCatalogue)
+}
+
 // handlers is each ported action's handler, by type.
 var handlers = map[string]handler{
 	// campaign/campaign.actions.ts
@@ -216,6 +221,7 @@ var handlers = map[string]handler{
 	"actor.rename":  actor.Rename,
 	"actor.delete":  actor.Delete,
 	"actor.build":   buildActor,
+	"build.save":    saveBuild,
 	"draft.save":    actor.Draft,
 	"draft.discard": actor.Draft,
 	// actor/actor.spawn.ts

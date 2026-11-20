@@ -70,7 +70,7 @@ func Create(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 		return cs.Result{}, err
 	}
 	// House decision #23: a typed actor starts with its resources, so a game with no creation steps can score them.
-	if _, err := WriteStart(ctx, tx, c, rules, []StartTarget{{id, map[string]any{}}}); err != nil {
+	if _, err := WriteStart(ctx, tx, c, rules, []StartTarget{{ActorID: id, Fields: map[string]any{}}}); err != nil {
 		return cs.Result{}, err
 	}
 	return cs.Done(id), holdForCreator(ctx, tx, c, id, a.Str("kind"))

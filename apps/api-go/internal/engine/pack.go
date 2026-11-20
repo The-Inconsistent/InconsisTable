@@ -64,7 +64,7 @@ type PackEntry struct {
 }
 
 // record checks an entry's catalogue record (house decision #62): there exactly when the entry's type holds a kind
-// the ledger builder reads, within the size cap, valid for its kind, and naming the entry's key and name. It answers
+// the ledger builder reads, within the size cap, valid for its kind, and naming the entry's name. It answers
 // the parsed record, or nil when there is none or it is refused. The twin of recordOf in pack.ts.
 func (p *problems) record(r *Ruleset, entry PackEntry, i int, kind string) *schema.Obj {
 	at := fmt.Sprintf("entries[%d]", i)
@@ -90,9 +90,6 @@ func (p *problems) record(r *Ruleset, entry PackEntry, i int, kind string) *sche
 		return nil
 	}
 	record := out.(*schema.Obj)
-	if id, _ := record.Get("id"); id != entry.Key {
-		p.add(at+".record.id", `must be the entry's key "%s"`, entry.Key)
-	}
 	if name, _ := record.Get("name"); name != entry.Name {
 		p.add(at+".record.name", `must be the entry's name "%s"`, entry.Name)
 	}
@@ -174,6 +171,7 @@ func (p *Pack) semanticProblems(r *Ruleset) (found, warnings problems) {
 	seen := map[string]bool{}
 	withEffects := map[string][]int{} // entry type → indices of its entries that have effects
 	kindOf := map[string]string{}     // entity type → the kind of record it holds
+	recordIDs := map[string]bool{}    // entity type and record id, seen
 	if r.Build != nil {
 		for _, kind := range LedgerKinds {
 			kindOf[r.Build.Kinds[kind]] = kind
@@ -215,10 +213,19 @@ func (p *Pack) semanticProblems(r *Ruleset) (found, warnings problems) {
 				}
 			}
 		}
-		if record := found.record(r, entry, i, kindOf[entry.Type]); record != nil {
-			p.Entries[i].Record = record
-			p.Normalized["entries"].([]any)[i].(map[string]any)["record"] = record
+		record := found.record(r, entry, i, kindOf[entry.Type])
+		if record == nil {
+			continue
 		}
+		p.Entries[i].Record = record
+		p.Normalized["entries"].([]any)[i].(map[string]any)["record"] = record
+		// A record's id is unique within its kind, not across the pack, so a reader finds it by type and id, never by key.
+		id, _ := record.Get("id")
+		key := entry.Type + "\x00" + fmt.Sprint(id)
+		if recordIDs[key] {
+			found.add(at+".record.id", `another "%s" in this pack already has the id "%v"`, entry.Type, id)
+		}
+		recordIDs[key] = true
 	}
 	// Effects hold for every actor type that picks the entry's type in a choose step.
 	for _, typ := range sortedKeys(withEffects) {

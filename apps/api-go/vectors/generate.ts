@@ -1900,16 +1900,23 @@ function ledgerPackVectors() {
   one(0, shuffled);
   const changes: ((p: Mutable) => void)[] = [
     (p) => p.entries.push({ key: "x", type: "hero", name: "X", cite: "Base p.1", record: { id: "x" } }),
-    (p) => delete at(p, "wardens").record,
-    (p) => (at(p, "wardens").record = []),
-    (p) => (at(p, "wardens").record = "x"),
+    (p) => delete at(p, "factions.wardens").record,
+    (p) => (at(p, "factions.wardens").record = []),
+    (p) => (at(p, "factions.wardens").record = "x"),
     // Not page 0: the Go twin words a refused .positive() as ">=1" where zod says ">0" (reported, left as it is).
-    (p) => Object.assign(at(p, "wardens").record, { page: "x", source: "nope" }),
-    (p) => delete at(p, "wardens").record.name,
-    (p) => Object.assign(at(p, "wardens"), { key: "old-wardens", name: "Wardens of Old" }),
-    (p) => (at(p, "wardens").record.summary = "x".repeat(MAX_ENTRY_RECORD_BYTES)),
-    (p) => (at(p, "wardens").record.summary = "é".repeat(MAX_ENTRY_RECORD_BYTES / 2)),
-    (p) => (at(p, "lantern-staff").record.weapon.range = "far"),
+    (p) => Object.assign(at(p, "factions.wardens").record, { page: "x", source: "nope" }),
+    (p) => delete at(p, "factions.wardens").record.name,
+    (p) => Object.assign(at(p, "factions.wardens"), { key: "old-wardens", name: "Wardens of Old" }),
+    // The key is free of the record's id; an id is unique within its type only.
+    (p) => (at(p, "factions.wardens").key = "anything-else"),
+    (p) => p.entries.push({ ...at(p, "factions.wardens"), key: "factions.wardens-again" }),
+    (p) => {
+      const wardens = at(p, "factions.wardens");
+      p.entries.push({ ...wardens, key: "talents.wardens", type: "talent", record: { ...wardens.record, xp: 1 } });
+    },
+    (p) => (at(p, "factions.wardens").record.summary = "x".repeat(MAX_ENTRY_RECORD_BYTES)),
+    (p) => (at(p, "factions.wardens").record.summary = "é".repeat(MAX_ENTRY_RECORD_BYTES / 2)),
+    (p) => (at(p, "wargear.lantern-staff").record.weapon.range = "far"),
     (p) => (p.entries = p.entries.filter((e: Mutable) => e.type === "talent")),
   ];
   for (const change of changes) {

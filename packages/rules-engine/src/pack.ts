@@ -114,6 +114,7 @@ function semanticProblems({ pack, ruleset }: { pack: Pack; ruleset: Ruleset }): 
   const build = ruleset.build;
   const kindOf = new Map<string, LedgerKind>(build === undefined ? [] : LEDGER_KINDS.map((k) => [build.kinds[k], k]));
   const records = new Map<number, Record<string, unknown>>(); // entry index → its parsed record
+  const recordIds = new Map<string, Set<string>>(); // entry type → the record ids seen
   // ponytail: the ruleset's version is not matched against `ruleset.range` (the range is only shape-checked, like
   // the manifest's `core`); matching comes with the importer's version pinning.
   if (pack.ruleset.id !== ruleset.id)
@@ -157,7 +158,18 @@ function semanticProblems({ pack, ruleset }: { pack: Pack; ruleset: Ruleset }): 
       }
     }
     const record = recordOf({ entry, at, i, build, kind: kindOf.get(entry.type), problems });
-    if (record !== null) records.set(i, record);
+    if (record === null) return;
+    records.set(i, record);
+    // A record's id is unique within its kind, not across the pack, so a reader finds it by type and id, never by key.
+    const id = String(record.id);
+    const ids = recordIds.get(entry.type) ?? new Set<string>();
+    if (ids.has(id))
+      problems.push({
+        path: `${at}.record.id`,
+        message: `another "${entry.type}" in this pack already has the id "${id}"`,
+      });
+    ids.add(id);
+    recordIds.set(entry.type, ids);
   });
   // Effects hold for every actor type that picks the entry's type in a `choose` step.
   for (const [type, list] of withEffects) {
@@ -187,7 +199,7 @@ function semanticProblems({ pack, ruleset }: { pack: Pack; ruleset: Ruleset }): 
 
 /**
  * An entry's catalogue record (house decision #62): there exactly when the entry's type holds a kind the ledger builder
- * reads, within the size cap, valid for its kind, and naming the entry's key and name. Null when there is none or it
+ * reads, within the size cap, valid for its kind, and naming the entry's name. Null when there is none or it
  * is refused.
  */
 function recordOf({
@@ -225,8 +237,6 @@ function recordOf({
     return null;
   }
   const record = parsed.data as Record<string, unknown>;
-  if (record.id !== entry.key)
-    problems.push({ path: `${at}.record.id`, message: `must be the entry's key "${entry.key}"` });
   if (record.name !== entry.name)
     problems.push({ path: `${at}.record.name`, message: `must be the entry's name "${entry.name}"` });
   return record;

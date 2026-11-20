@@ -2282,7 +2282,7 @@ test("a ledger ruleset imports, and its pack's records reach every seat through 
 
   // A record whose keys arrive in reverse is stored, and served, in its schema's order.
   const reversed = (e: (typeof SAMPLE_LEDGER_PACK.entries)[number]) =>
-    e.key === "wardens" ? { ...e, record: Object.fromEntries(Object.entries(e.record ?? {}).reverse()) } : e;
+    e.key === "factions.wardens" ? { ...e, record: Object.fromEntries(Object.entries(e.record ?? {}).reverse()) } : e;
   const gmOnly = { key: "sample-hero", type: "hero", name: "Sample Hero", cite: "Base p.1" }; // no record, gm by default
   const pack = { ...SAMPLE_LEDGER_PACK, entries: [...SAMPLE_LEDGER_PACK.entries.map(reversed), gmOnly] };
   const imported = await me.post<PackReply>("/packs", pack);
@@ -2290,7 +2290,7 @@ test("a ledger ruleset imports, and its pack's records reach every seat through 
   ok(await owner.send({ type: "campaign.attachPack", packVersionId: imported.body.versionId }));
   const anaDevice = await seatPlayer(owner, "ana-ledger");
 
-  const wardens = SAMPLE_LEDGER_PACK.entries.find((e) => e.key === "wardens")?.record;
+  const wardens = SAMPLE_LEDGER_PACK.entries.find((e) => e.key === "factions.wardens")?.record;
   const expected = JSON.stringify(buildSchemas(SAMPLE_PARAMS).Faction.parse(wardens));
   for (const [cookie, gm] of [
     [ownerDevice, true],
@@ -2299,7 +2299,7 @@ test("a ledger ruleset imports, and its pack's records reach every seat through 
     const res = await get(`/campaigns/${campaignId}/rules?limit=500`, { cookie });
     assert.equal(res.status, 200);
     const served = (await res.json()) as { entries: { key: string; record: Record<string, unknown> | null }[] };
-    assert.equal(JSON.stringify(served.entries.find((e) => e.key === "wardens")?.record), expected);
+    assert.equal(JSON.stringify(served.entries.find((e) => e.key === "factions.wardens")?.record), expected);
     assert.equal(served.entries.filter((e) => e.record !== null).length, SAMPLE_LEDGER_PACK.entries.length);
     const hero = served.entries.find((e) => e.key === "sample-hero");
     assert.equal(hero !== undefined, gm, "a gm entry reaches the GM side only");

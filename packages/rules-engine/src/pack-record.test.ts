@@ -24,6 +24,7 @@ const LEDGER = rulesetOf(SAMPLE_LEDGER_RULESET);
 const D20 = rulesetOf(SAMPLE_D20);
 
 const pack = (): Mutable => structuredClone(SAMPLE_LEDGER_PACK) as Mutable;
+const WARDENS = "factions.wardens";
 const indexOf = (p: Mutable, key: string) => p.entries.findIndex((e: Mutable) => e.key === key);
 
 function refused(r: PackResult, path: string, message: string) {
@@ -36,7 +37,7 @@ function refused(r: PackResult, path: string, message: string) {
 
 test("the sample pack validates, each record parsed in its schema's key order", () => {
   const p = pack();
-  const at = indexOf(p, "wardens");
+  const at = indexOf(p, WARDENS);
   p.entries[at].record = Object.fromEntries(Object.entries(p.entries[at].record).reverse());
   const r = validatePack({ input: p, ruleset: LEDGER });
   assert.ok(r.ok, JSON.stringify(!r.ok && r.problems));
@@ -74,7 +75,7 @@ test("a record changes the entry's hash", () => {
 test("a record is read only on a type the builder reads, and needed there", () => {
   const p = pack();
   p.entries.push({ key: "x", type: "hero", name: "X", cite: "Base p.1", record: { id: "x" } });
-  const at = indexOf(p, "wardens");
+  const at = indexOf(p, WARDENS);
   delete p.entries[at].record;
   const r = validatePack({ input: p, ruleset: LEDGER });
   refused(r, `entries[${p.entries.length - 1}].record`, 'nothing reads a record on a "hero"');
@@ -88,7 +89,7 @@ test("a record is read only on a type the builder reads, and needed there", () =
 
 test("a record parses with its kind's schema, problems under the entry's record", () => {
   const p = pack();
-  const at = indexOf(p, "wardens");
+  const at = indexOf(p, WARDENS);
   p.entries[at].record.page = 0;
   p.entries[at].record.source = "nope";
   const r = validatePack({ input: p, ruleset: LEDGER });
@@ -96,19 +97,32 @@ test("a record parses with its kind's schema, problems under the entry's record"
   refused(r, `entries[${at}].record.source`, 'Invalid option: expected one of "base"|"extra"');
 });
 
-test("a record names the entry's key and name", () => {
+test("a record names the entry's name; its id is free of the key, and unique within its type", () => {
   const p = pack();
-  const at = indexOf(p, "wardens");
+  const at = indexOf(p, WARDENS);
   p.entries[at].name = "Wardens of Old";
-  p.entries[at].key = "old-wardens";
   const r = validatePack({ input: p, ruleset: LEDGER });
-  refused(r, `entries[${at}].record.id`, `must be the entry's key "old-wardens"`);
   refused(r, `entries[${at}].record.name`, `must be the entry's name "Wardens of Old"`);
+  assert.ok(!r.ok && !r.problems.some((x) => x.path.endsWith(".record.id")), "the key is not the id");
+
+  // The same id on two kinds is fine; twice on one kind is refused at the second.
+  const q = pack();
+  const wardens = q.entries[indexOf(q, WARDENS)];
+  q.entries.push({ ...wardens, key: "talents.wardens", type: "talent", record: { ...wardens.record, xp: 1 } });
+  q.entries.push({ ...wardens, key: "factions.wardens-again" });
+  const s = validatePack({ input: q, ruleset: LEDGER });
+  const last = q.entries.length - 1;
+  assert.ok(!s.ok);
+  if (s.ok) return;
+  assert.deepEqual(
+    s.problems.filter((x) => x.path.endsWith(".record.id")),
+    [{ path: `entries[${last}].record.id`, message: 'another "faction" in this pack already has the id "wardens"' }],
+  );
 });
 
 test("a record over the cap is refused", () => {
   const p = pack();
-  const at = indexOf(p, "wardens");
+  const at = indexOf(p, WARDENS);
   p.entries[at].record.summary = "x".repeat(MAX_ENTRY_RECORD_BYTES);
   const r = validatePack({ input: p, ruleset: LEDGER });
   const bytes = JSON.stringify(p.entries[at].record).length;

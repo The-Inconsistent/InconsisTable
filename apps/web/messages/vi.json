@@ -1166,6 +1166,8 @@
     "adventureHasScenes": "Hãy chuyển hoặc xóa các cảnh của nó trước.",
     "onlySceneTests": "Chỉ cảnh mới lên kế hoạch cho Test.",
     "cantLinkThat": "Một cảnh liên kết NPC, địa điểm, phe phái, vật phẩm, tài liệu, tri thức và nhiệm vụ.",
+    "noSuchEntryField": "Loại mục này không có trường {field}.",
+    "badEntryField": "{field} không nhận giá trị đó: {detail}",
     "nothingToUndo": "Không có gì để hoàn tác",
     "cantUndoKind": "Chưa hoàn tác được loại bước này",
     "undoGone": "Không hoàn tác được: {target} không còn nữa.",

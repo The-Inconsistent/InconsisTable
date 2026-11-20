@@ -34,7 +34,7 @@ var (
 	memberRoles      = []string{"gm", "cogm", "player"}
 	cogmScopes       = []string{"combat", "codex", "codex.secrets", "party", "session"}
 	inviteModes      = []string{"room", "character"}
-	codexKinds       = []string{"adventure", "scene", "npc", "location", "faction", "item", "handout", "quest", "lore"}
+	codexKinds       = engine.CodexKinds
 	codexVisibility  = []string{"gm", "party", "public"}
 	questStatuses    = []string{"open", "done", "failed"}
 	audienceModes    = []string{"all", "listed"}
@@ -255,6 +255,8 @@ var ActionSchema = schema.Union("type",
 		schema.Opt("gmNotes", schema.String().Max(20_000)),
 		schema.Opt("status", schema.Enum(questStatuses...)),
 		schema.Opt("plannedTests", schema.Array(schema.String().Min(1).Max(100)).Max(10)),
+		schema.Opt("fields", schema.Refined(schema.Record(schema.String().Min(1).Max(64), fieldValue),
+			func(v any) bool { return len(v.(map[string]any)) <= 20 }, "At most 20 fields")),
 	),
 	variant("codex.move",
 		schema.Req("id", id),

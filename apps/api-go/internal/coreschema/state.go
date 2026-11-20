@@ -404,6 +404,9 @@ type (
 		Links []string `json:"links"`
 		// PlannedTests are the ruleset Test ids a scene plans; the GM side only.
 		PlannedTests []string `json:"plannedTests"`
+		// Fields are the ruleset's declared fields of the entry's kind (house decision #71): stored whole as loaded,
+		// filtered to what is declared, valid and seen by the Seat view.
+		Fields map[string]any `json:"fields"`
 	}
 	// Codex is the `codex` event.
 	Codex struct {

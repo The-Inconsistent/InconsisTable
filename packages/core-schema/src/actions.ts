@@ -192,6 +192,11 @@ export const Action = z.discriminatedUnion("type", [
     gmNotes: CodexText.optional(),
     status: QuestStatus.optional(), // a quest only
     plannedTests: z.array(z.string().min(1).max(100)).max(10).optional(), // a scene only: ruleset Test ids
+    // The ruleset's declared fields of this kind (house decision #71): a value sets one, null clears it, absent leaves it.
+    fields: z
+      .record(z.string().min(1).max(64), FieldValue)
+      .refine((o) => Object.keys(o).length <= 20, "At most 20 fields")
+      .optional(),
   }),
   z.object({
     type: z.literal("codex.reveal"),

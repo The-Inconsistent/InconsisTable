@@ -57,6 +57,7 @@ func TestSeatViewsMatchTypeScript(t *testing.T) {
 			Ctx              vectorCtx `json:"ctx"`
 			State            any       `json:"state"`
 			Codex            any       `json:"codex"`
+			Manifest         any       `json:"manifest"`
 		} `json:"views"`
 	}
 	if err := json.Unmarshal(raw, &v); err != nil {
@@ -109,6 +110,14 @@ func TestSeatViewsMatchTypeScript(t *testing.T) {
 		}
 		if want, have := engine.CanonicalJSON(c.Codex), canonical(t, got.Codex); want != have {
 			t.Errorf("%s, %s: codex\n want %s\n  got %s", c.Snapshot, c.SeatName, want, have)
+		}
+		// The manifest the rules route serves this seat (decision 5 of house decision #71 among the rest).
+		var manifest any
+		if ruleset != nil {
+			manifest = SeatManifest(ruleset.Ruleset.Normalized, fresh)
+		}
+		if want, have := engine.CanonicalJSON(c.Manifest), canonical(t, manifest); want != have {
+			t.Errorf("%s, %s: manifest\n want %s\n  got %s", c.Snapshot, c.SeatName, want, have)
 		}
 		// Every socket of a campaign reads the same snapshot, so a seat's view must never write into it.
 		if after := canonical(t, s.State); after != before {

@@ -1166,6 +1166,8 @@
     "adventureHasScenes": "Move or delete its scenes first.",
     "onlySceneTests": "Only a scene plans Tests.",
     "cantLinkThat": "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
+    "noSuchEntryField": "This kind of entry has no field {field}.",
+    "badEntryField": "{field} doesn't take that: {detail}",
     "nothingToUndo": "Nothing to undo",
     "cantUndoKind": "Can't undo that kind of step yet",
     "undoGone": "Can't undo: {target} is gone.",

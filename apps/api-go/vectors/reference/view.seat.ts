@@ -16,6 +16,7 @@ import {
   type SpendRequest,
 } from "../../../../packages/core-schema/src/index.ts";
 import {
+  checkFieldValue,
   toViewerView,
   type ActorView,
   type CompiledRuleset,
@@ -60,7 +61,7 @@ const NO_VALUES = { entity: "", fields: {}, resources: {}, derived: {}, conditio
  * redact them if a ruleset needs that secret kept
  */
 export function seatManifest({ ruleset, ctx }: { ruleset: Ruleset; ctx: Ctx }): Ruleset {
-  const shown = seatDefinitions({ ruleset, ctx });
+  const shown = seatCodexDefinitions({ ruleset: seatDefinitions({ ruleset, ctx }), secrets: sightOf(ctx).secrets });
   // The entries of a `gm` or `owner` table are what a roll or a deal keeps secret: only the side that runs the table
   // with a GM reads them. Anyone else still sees the table's title (a deal can be run without a GM).
   if (shown.tables === undefined || sightOf(ctx).tables) return shown;
@@ -69,6 +70,39 @@ export function seatManifest({ ruleset, ctx }: { ruleset: Ruleset; ctx: Ctx }): 
     tables: Object.fromEntries(
       Object.entries(shown.tables).map(([id, t]) => [id, t.visibility === "party" ? t : { ...t, entries: [] }]),
     ),
+  };
+}
+
+/**
+ * The codex block (house decision #71) as a seat may read it: the side that reads GM notes every field, anyone else the
+ * `party` ones. Independent of the actor definitions: a co-GM with `combat` but not `codex.secrets` reads no `gm` one.
+ */
+function seatCodexDefinitions({ ruleset, secrets }: { ruleset: Ruleset; secrets: boolean }): Ruleset {
+  if (ruleset.codex === undefined || secrets) return ruleset;
+  const kinds = Object.entries(ruleset.codex.kinds).map(([kind, k]) => [
+    kind,
+    { fields: Object.fromEntries(Object.entries(k.fields).filter(([, f]) => f.visibility === "party")) },
+  ]);
+  return { ...ruleset, codex: { kinds: Object.fromEntries(kinds) } };
+}
+
+/**
+ * An entry's declared fields as a seat receives them (house decision #71): only what the room's ruleset declares for
+ * the kind and what is still valid for it, `gm` ones only to the side that reads GM notes.
+ * ponytail: a value the ruleset no longer declares, or that no longer fits, stays stored and reaches nobody; the
+ * compatible upgrade (house decision #51) is where it would be carried or cleared.
+ */
+function seatEntryFields({ codex, ruleset, secrets }: { codex: Codex; ruleset: Ruleset | null; secrets: boolean }) {
+  return {
+    ...codex,
+    entries: codex.entries.map((e) => {
+      const defs = ruleset?.codex?.kinds[e.kind]?.fields ?? {};
+      const fields = Object.entries(e.fields).filter(([id, value]) => {
+        const def = Object.hasOwn(defs, id) ? defs[id] : undefined;
+        return def !== undefined && (secrets || def.visibility === "party") && checkFieldValue({ def, value }) === null;
+      });
+      return { ...e, fields: Object.fromEntries(fields) };
+    }),
   };
 }
 
@@ -109,9 +143,13 @@ export function seatView({
   const manifest = compiled && seatManifest({ ruleset: compiled.ruleset, ctx });
   const packVisibilities = readableEntryVisibilities(ctx);
   const pools = seatPools({ pools: snapshot.state.pools, compiled, ctx });
-  if (sight.all)
-    return { state: { ...snapshot.state, myDraft, pools }, codex: snapshot.codex, manifest, packVisibilities };
-  const codex = seatCodex({ codex: snapshot.codex, ctx, sight });
+  const fielded = seatEntryFields({
+    codex: snapshot.codex,
+    ruleset: compiled?.ruleset ?? null,
+    secrets: sight.secrets,
+  });
+  if (sight.all) return { state: { ...snapshot.state, myDraft, pools }, codex: fielded, manifest, packVisibilities };
+  const codex = seatCodex({ codex: fielded, ctx, sight });
   const state = seatState({ state: snapshot.state, compiled, ctx, sight });
   return {
     state: {

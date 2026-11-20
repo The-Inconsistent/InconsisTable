@@ -162,6 +162,9 @@ export const REFUSALS = {
   adventureHasScenes: "Move or delete its scenes first.",
   onlySceneTests: "Only a scene plans Tests.",
   cantLinkThat: "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
+  // Declared entry fields (house decision #71). {field} is the field's id, then its label.
+  noSuchEntryField: "This kind of entry has no field {field}.",
+  badEntryField: "{field} doesn't take that: {detail}",
   // Clocks
   clockNotFound: "Clock not found",
   clockLimit: "This room has as many clocks as it can hold.",

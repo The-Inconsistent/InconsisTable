@@ -324,6 +324,8 @@ export const CodexEntry = z.object({
   position: z.number().int(), // order among siblings (an adventure's scenes, the adventures)
   links: z.array(z.string()), // entries a scene points at, only those the seat can also see
   plannedTests: z.array(z.string()), // a scene's planned ruleset Test ids; GM side only
+  // The ruleset's declared fields of this kind that hold a value and that the seat may see (house decision #71).
+  fields: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])),
 });
 export type CodexEntry = z.infer<typeof CodexEntry>;
 

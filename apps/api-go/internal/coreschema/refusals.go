@@ -145,6 +145,8 @@ var refusals = map[string]string{
 	"adventureHasScenes":        "Move or delete its scenes first.",
 	"onlySceneTests":            "Only a scene plans Tests.",
 	"cantLinkThat":              "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
+	"noSuchEntryField":          "This kind of entry has no field {field}.",
+	"badEntryField":             "{field} doesn't take that: {detail}",
 	"clockNotFound":             "Clock not found",
 	"clockLimit":                "This room has as many clocks as it can hold.",
 	"tableNotFound":             "Table not found",

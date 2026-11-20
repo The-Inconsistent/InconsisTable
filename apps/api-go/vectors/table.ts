@@ -435,6 +435,7 @@ const entry = (
   position: 0,
   links: [] as string[],
   plannedTests: [] as string[],
+  fields: {} as Record<string, unknown>,
   ...over,
 });
 
@@ -464,6 +465,14 @@ const CODEX = {
       body: `see @[Hidden one](${U(500)}), @[Shown](${U(501)}) and @[Gone](${U(999)})`,
     }),
     entry(U(509), "party", "all", [], { kind: "quest", status: "done" }),
+    // Declared fields (house decision #71): a `gm` one reaches only the side that reads GM notes; one the ruleset does
+    // not declare for the kind, or that no longer fits, reaches nobody.
+    entry(U(510), "party", "all", [], {
+      kind: "npc",
+      fields: { mood: "cold", disposition: -2, patron: "ember-wisp", gone: "x", standing: "ally" },
+    }),
+    entry(U(511), "gm", "all", [], { kind: "npc", fields: { mood: "sulky", disposition: 9, patron: "" } }),
+    entry(U(512), "party", "listed", [PC1], { kind: "faction", fields: { standing: "rival" } }),
   ],
   recaps: [
     { sessionId: U(600), number: 2, title: "The bridge", endedAt: "2026-02-01T10:00:00.000Z", recap: "They crossed." },
@@ -659,6 +668,7 @@ const views = SNAPSHOTS.flatMap((snap) =>
         packVisibilities: v.packVisibilities,
         state: v.state,
         codex: v.codex,
+        manifest: v.manifest,
       };
     }),
   ),
@@ -746,6 +756,7 @@ const VALID: Record<string, Record<string, unknown>> = {
     gmNotes: "g",
     status: "failed",
     plannedTests: ["check", "x".repeat(100)],
+    fields: { mood: "cold", disposition: -2, patron: null, flag: true },
   },
   "codex.move": { id: ID, parentId: null, position: 2 },
   "codex.link": { id: ID, targetId: ID },
@@ -825,6 +836,23 @@ for (const text of ["", " ", "a".repeat(80), "a".repeat(81), ` ${"a".repeat(80)}
   record("Action", { type: "campaign.setSafety", lines: [text], veils: [text], xCard: true });
 }
 record("Action", { type: "safety.suggest", kind: "other", text: "a" });
+// An entry's declared fields (house decision #71): at most 20 keys of 1 to 64 characters, each a field value or null.
+for (const fields of [
+  Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`f${i}`, i])),
+  Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`f${i}`, i])),
+  { "": 1 },
+  { ["x".repeat(64)]: 1 },
+  { ["x".repeat(65)]: 1 },
+  { a: 1.5 },
+  { a: 2 ** 31 },
+  { a: "x".repeat(10_001) },
+  { a: ["x"] },
+  { a: { b: 1 } },
+  [],
+  "x",
+]) {
+  record("Action", { type: "codex.save", kind: "npc", fields });
+}
 // A reported Test's report carries an outcome id and no dice (house decision #41).
 const reportBase = { type: "test.report", callId: ID, actorId: ID };
 for (const extra of [

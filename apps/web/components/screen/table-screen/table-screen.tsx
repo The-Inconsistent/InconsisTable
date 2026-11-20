@@ -5,6 +5,7 @@ import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
 import { PoolsView } from "@/components/ui/pools-view/pools-view";
 import { RollsView } from "@/components/ui/rolls-view/rolls-view";
 import { GameResult } from "@/components/ui/game-result/game-result";
+import { HandoutDoc } from "@/components/ui/handout-doc/handout-doc";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { OrderView } from "@/components/ui/order-view/order-view";
 import { RecapCard } from "@/components/ui/recap-card/recap-card";
@@ -70,9 +71,13 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
         {revealed.map((e) => (
           <section key={e.id} className="card">
             <strong>{e.title}</strong>
-            <span>
-              <MentionText body={e.body} entries={revealed} />
-            </span>
+            {e.layout !== null ? (
+              <HandoutDoc layout={e.layout} header={e.header ?? ""} title={e.title} body={e.body} entries={revealed} />
+            ) : (
+              <span>
+                <MentionText body={e.body} entries={revealed} />
+              </span>
+            )}
           </section>
         ))}
       </main>

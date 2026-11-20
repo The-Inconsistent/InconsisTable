@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { CodexKind, type Codex, type CodexEntry, type Me, type Safety } from "@inconsistable/core-schema";
 
 import { SafetySection } from "@/components/player/notebook/safety-section";
+import { HandoutDoc } from "@/components/ui/handout-doc/handout-doc";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import type { Send } from "@/hooks/use-table/use-table";
 
@@ -41,9 +42,20 @@ export function Notebook({ codex, me, safety, send }: NotebookProps) {
         <strong>{e.title}</strong>
         {e.status && e.status !== "open" && <span className="chip">{tStatus(e.status)}</span>}
       </summary>
-      <p style={{ whiteSpace: "pre-wrap" }}>
-        <MentionText body={e.body} entries={entries} onOpen={handleOpen} />
-      </p>
+      {e.layout !== null ? (
+        <HandoutDoc
+          layout={e.layout}
+          header={e.header ?? ""}
+          title={e.title}
+          body={e.body}
+          entries={entries}
+          onOpen={handleOpen}
+        />
+      ) : (
+        <p style={{ whiteSpace: "pre-wrap" }}>
+          <MentionText body={e.body} entries={entries} onOpen={handleOpen} />
+        </p>
+      )}
     </details>
   );
   return (

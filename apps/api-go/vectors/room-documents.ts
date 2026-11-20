@@ -57,7 +57,8 @@ export const d20Document = (): RoomDocumentInput => ({
     packs: [{ slug: "sample-bestiary", version: "0.1.0" }],
     world: { slug: "sample-tidewater", version: "0.1.0" },
   },
-  pools: { luck: 2 },
+  // Menace counts the party (its max is two per character), so it holds 2 only once Mara exists.
+  pools: { luck: 2, menace: 2 },
   actors: [
     {
       id: IDS.mara,
@@ -96,7 +97,7 @@ export const d20Document = (): RoomDocumentInput => ({
       title: "Harbourmaster Oyle",
       body: "Counts every crate twice.",
       gmNotes: "Owes the guild; see @[The Salt Guild](" + IDS.guild + ").",
-      fields: { mood: "wary", disposition: 1 },
+      fields: { mood: "wary", disposition: 1, home: IDS.quay },
       visibility: "party",
     },
     {
@@ -139,7 +140,7 @@ export const d20Document = (): RoomDocumentInput => ({
       body: "Twice a day.",
       gmNotes: "Not on the night of the storm.",
     },
-    { id: IDS.guild, kind: "faction", title: "The Salt Guild", fields: { standing: "rival" } },
+    { id: IDS.guild, kind: "faction", title: "The Salt Guild", fields: { standing: "rival", seat: IDS.town } },
   ],
   sessions: [
     { title: "Arrival", recap: "The crew came ashore at @[Harbour town](" + IDS.town + ").", notes: "Slow start." },

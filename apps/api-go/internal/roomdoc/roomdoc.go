@@ -330,8 +330,10 @@ func apply(ctx context.Context, tx pgx.Tx, owner campaign.Owner, d doc, v versio
 	im := &importer{ctx: ctx, tx: tx, d: d, actors: map[string]string{}, entries: map[string]string{}, images: map[string]string{},
 		gm: cs.Ctx{CampaignID: id, UserID: &owner.UserID, CampaignOwnerID: &owner.UserID, TableMode: cs.TableModeGM,
 			Seat: cs.Seat{Kind: cs.SeatMember, Role: "gm"}}}
+	// Pools come after the actors: a pool's limits may count the party, and before any character exists such a pool
+	// holds only its minimum.
 	for _, step := range []func() error{im.sessions, im.settings, func() error { return im.pin(v) }, im.campaignValues,
-		im.pictures, im.actorRows, im.codexRows, im.codexWhole, im.sessionMentions, im.clocks} {
+		im.pictures, im.actorRows, im.pools, im.codexRows, im.codexWhole, im.sessionMentions, im.clocks} {
 		if err := step(); err != nil {
 			return "", err
 		}
@@ -441,6 +443,11 @@ func (im *importer) campaignValues() error {
 			return err
 		}
 	}
+	return nil
+}
+
+// pools moves each pool to the document's value through the pool's own adjust, and refuses a value it cannot hold.
+func (im *importer) pools() error {
 	pools, _ := im.d["pools"].(map[string]any)
 	if len(pools) == 0 {
 		return nil
@@ -696,7 +703,16 @@ func (im *importer) codexWhole() error {
 				return err
 			}
 		}
-		if err := cmp.Or(save("fields", "fields"), save(firstKey(e, "layout", "header"), "layout", "header")); err != nil {
+		if given, has := e["fields"].(map[string]any); has && len(given) > 0 {
+			fields, err := im.linked(i, kind, given)
+			if err != nil {
+				return err
+			}
+			if _, err := im.run(map[string]any{"type": "codex.save", "id": id, "kind": kind, "fields": fields}, "codex", i, "fields"); err != nil {
+				return err
+			}
+		}
+		if err := save(firstKey(e, "layout", "header"), "layout", "header"); err != nil {
 			return err
 		}
 		for j, target := range strs(e["links"]) {
@@ -722,6 +738,30 @@ func (im *importer) codexWhole() error {
 		}
 	}
 	return nil
+}
+
+// linked is an entry's fields with every link (a field the room's ruleset declares as `entry`, house decision #76)
+// naming the row made for the document's entry. A link to an entry the document does not hold is refused.
+func (im *importer) linked(i int, kind any, given map[string]any) (map[string]any, error) {
+	rules, err := compiled.Load(im.ctx, im.tx, im.gm.CampaignID)
+	if err != nil || rules == nil || rules.Ruleset.Codex == nil {
+		return given, err
+	}
+	k, _ := kind.(string)
+	defs := rules.Ruleset.Codex.Kinds[k].Fields
+	out := maps.Clone(given)
+	for _, key := range sortedKeys(given) {
+		old, isID := given[key].(string)
+		if defs[key].Type != "entry" || !isID {
+			continue
+		}
+		made, known := im.entries[old]
+		if !known {
+			return nil, problem("roomNoSuchEntry", nil, "codex", i, "fields", key)
+		}
+		out[key] = made
+	}
+	return out, nil
 }
 
 func firstKey(e map[string]any, keys ...string) string {

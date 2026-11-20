@@ -274,6 +274,16 @@ func (r *room) entries() {
 		got := map[string]any{"body": r.text(row[1].(string)), "gmNotes": r.text(row[2].(string)), "visibility": row[3],
 			"audienceMode": row[4], "plannedTests": or(row[7], []any{}), "status": row[8], "fields": row[9], "layout": row[10],
 			"header": row[11], "prep": row[12], "imageRevealed": row[14]}
+		// A link field holds the row made for the document's entry (house decision #76).
+		if fields, has := got["fields"].(map[string]any); has {
+			for key, v := range fields {
+				if rowID, isText := v.(string); isText {
+					if local, known := r.local[rowID]; known {
+						fields[key] = local
+					}
+				}
+			}
+		}
 		if row[5] != "" {
 			got["parentId"] = r.back(row[5].(string))
 		}
@@ -591,6 +601,9 @@ func TestARefusedDocumentNamesItsPathAndLeavesNothing(t *testing.T) {
 		{"a resource past its max", "d20", func(d map[string]any) { at(d, 99.0, "actors", 0, "resources", "hp") }, "actors[0].resources.hp", "roomValueClamped"},
 		{"no such condition", "d20", func(d map[string]any) { at(d, []any{"cursed"}, "actors", 0, "conditions") }, "actors[0].conditions[0]", "noCondition"},
 		{"no such type", "d20", func(d map[string]any) { at(d, "dragon", "actors", 1, "entityType") }, "actors[1].entityType", "noSuchEntity"},
+		{"a link to an entry it does not hold", "d20", func(d map[string]any) {
+			at(d, map[string]any{"mood": "wary", "home": "00000000-0000-4000-8000-000000009999"}, "codex", 2, "fields")
+		}, "codex[2].fields.home", "roomNoSuchEntry"},
 		{"an undeclared entry field", "d20", func(d map[string]any) { at(d, map[string]any{"rank": 1.0}, "codex", 2, "fields") }, "codex[2].fields", "noSuchEntryField"},
 		{"a scene under a place", "d20", func(d map[string]any) { at(d, "00000000-0000-4000-8000-000000000010", "codex", 6, "parentId") }, "codex[6].parentId", "sceneNeedsAdventure"},
 		{"a bad build", "ledger", func(d map[string]any) { at(d, `{"tier":1}`, "actors", 0, "build") }, "actors[0].build", ""},

@@ -4537,6 +4537,7 @@ test("scene prep: START THE FIGHT starts it, seats the party and places each ros
   assert.deepEqual(seen.get("Vermin ×6")?.members, { value: 6, max: 6 });
   assert.ok(!JSON.stringify(v).includes("Ogre 1"));
   for (const c of [owner, ana]) c.socket.close();
+});
 
 // House decision #74: a room document comes in over REST, whole or not at all, and its room is played like any other.
 test("room document: a creator imports it, the GM reads all of it, an invited player only what is theirs", async () => {

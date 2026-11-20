@@ -212,7 +212,11 @@ html:has([data-world]) {
   border-bottom-color: var(--line);
 }
 /* A chip is the page's second surface in an outline, on the table and in a card; the first player's stays brass. */
-[data-world] .chip:not([data-first="true"]) {
+/* The shade in a card's edges and wells is the card's line, not the main action's brass. */
+[data-world] {
+  --card-shade: var(--parchment-line);
+}
+[data-world] .chip:not([data-first="true"], [aria-pressed="true"]) {
   border-color: var(--line);
   background: var(--paper-2);
 }

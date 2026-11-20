@@ -581,7 +581,21 @@
     "conditions": "Trạng thái",
     "none": "Không có.",
     "turnsLeft": "{count, plural, other {còn # lượt}}",
-    "roundsLeft": "{count, plural, other {còn # vòng}}"
+    "roundsLeft": "{count, plural, other {còn # vòng}}",
+    "ledger": {
+      "talents": "Talent",
+      "abilities": "Năng lực",
+      "weapons": "Vũ khí",
+      "gear": "Trang bị",
+      "powers": "Quyền năng",
+      "count": "{name} ×{count}",
+      "damage": "Sát thương {damage} +{ed} ED",
+      "ap": "AP {ap}",
+      "range": "Tầm {range}",
+      "salvo": "Salvo {salvo}",
+      "armour": "AR {ar}",
+      "power": "DN {dn} · {activation} · {duration} · Tầm {range}"
+    }
   },
   "breakdown": {
     "hidden": "Các thành phần của chỉ số này không hiện trên điện thoại của bạn."

@@ -97,3 +97,43 @@ export function playerEntryOf({ ruleset, actor }: { ruleset: Ruleset | null; act
   if (!usesLedger({ ruleset, actor }) || actor.ledger?.build) return null;
   return actor.ledger?.draft ? "continue" : "build";
 }
+
+// What the saved sheet carries that the field rows do not, read leniently: a section that does not read is left out,
+// never the whole sheet.
+const Rule = z.object({ name: z.string(), page: z.string().optional(), summary: z.string().optional() });
+const Weapon = z.object({
+  name: z.string(),
+  count: z.number().optional(),
+  damage: z.number(),
+  ed: z.union([z.number(), z.string()]),
+  ap: z.number().optional(),
+  range: z.array(z.number()),
+  salvo: z.number().nullable().optional(),
+  traits: z.array(z.string()).catch([]),
+});
+const Power = z.object({
+  name: z.string(),
+  page: z.string(),
+  summary: z.string().optional(),
+  dn: z.union([z.number(), z.string()]),
+  activation: z.string(),
+  duration: z.string(),
+  range: z.string(),
+});
+const Armour = z.object({ name: z.string(), ar: z.number(), traits: z.array(z.string()).catch([]) });
+const SheetLines = z.object({
+  talents: z.array(Rule).catch([]),
+  abilities: z.array(Rule).catch([]),
+  weapons: z.array(Weapon).catch([]),
+  armour: Armour.nullable().catch(null),
+  gear: z.array(z.string()).catch([]),
+  powers: z.array(Power).catch([]),
+});
+export type LedgerSheetLines = z.infer<typeof SheetLines>;
+
+/** The talents, abilities, weapons, armour, gear and powers of a saved sheet; null without one. */
+export function sheetLinesOf(sheet: Record<string, unknown> | null | undefined): LedgerSheetLines | null {
+  if (!sheet) return null;
+  const lines = SheetLines.parse(sheet); // every key catches, so this never throws
+  return { ...lines, armour: lines.armour?.name ? lines.armour : null };
+}

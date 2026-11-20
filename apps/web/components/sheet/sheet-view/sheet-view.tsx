@@ -6,6 +6,7 @@ import type { Actor, BookSource, SpendRequest } from "@inconsistable/core-schema
 import { breakdownOf, campaignValues, compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { Breakdown } from "@/components/sheet/components/breakdown/breakdown";
+import { LedgerLines } from "@/components/sheet/components/ledger-lines/ledger-lines";
 import { SpendAsk } from "@/components/sheet/components/spend-ask/spend-ask";
 import { Cite } from "@/components/ui/cite/cite";
 import { ResourceRow } from "@/components/ui/resource-row/resource-row";
@@ -196,6 +197,8 @@ export function SheetView({
         </section>
       ))}
       {sections.length === 0 && <p className="dim">{t("nothing")}</p>}
+      <LedgerLines sheet={actor.ledger?.sheet} {...{ ruleset, books, requestPage }} />
+
       <section className="stack sheet-card">
         <h2 className="head">{t("conditions")}</h2>
         {conditions.length === 0 ? (

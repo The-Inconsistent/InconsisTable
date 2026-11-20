@@ -581,7 +581,21 @@
     "conditions": "Conditions",
     "none": "None.",
     "turnsLeft": "{count, plural, one {# turn left} other {# turns left}}",
-    "roundsLeft": "{count, plural, one {# round left} other {# rounds left}}"
+    "roundsLeft": "{count, plural, one {# round left} other {# rounds left}}",
+    "ledger": {
+      "talents": "Talents",
+      "abilities": "Abilities",
+      "weapons": "Weapons",
+      "gear": "Gear",
+      "powers": "Powers",
+      "count": "{name} ×{count}",
+      "damage": "Damage {damage} +{ed} ED",
+      "ap": "AP {ap}",
+      "range": "Range {range}",
+      "salvo": "Salvo {salvo}",
+      "armour": "AR {ar}",
+      "power": "DN {dn} · {activation} · {duration} · Range {range}"
+    }
   },
   "breakdown": {
     "hidden": "The parts of this number aren't shown on your phone."

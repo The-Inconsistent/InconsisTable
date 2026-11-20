@@ -5,8 +5,38 @@ import type { ActorLedger, Me } from "@inconsistable/core-schema";
 import { Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_LEDGER_RULESET } from "../../../../packages/rules-engine/src/fixtures/sample-ledger-ruleset.ts";
-import { sampleCatalogue } from "./sample";
-import { catalogueOf, gmEntryOf, gmSideOf, playerEntryOf, roomTier, startingBuild, usesLedger } from "./table";
+import { resolveDraft } from "./ledger";
+import { SAMPLE_PARAMS, sampleCatalogue } from "./sample";
+import {
+  catalogueOf,
+  gmEntryOf,
+  gmSideOf,
+  playerEntryOf,
+  roomTier,
+  sheetLinesOf,
+  startingBuild,
+  usesLedger,
+} from "./table";
+
+test("the saved sheet's lines: what the builder resolved, a section that does not read left out", () => {
+  const { resolved } = resolveDraft({
+    params: SAMPLE_PARAMS,
+    catalogue: sampleCatalogue(),
+    build: { tier: 1, archetypeId: "lamplighter" },
+  });
+  assert.ok(resolved);
+  const lines = sheetLinesOf(JSON.parse(JSON.stringify(resolved.sheet)));
+  assert.ok(lines);
+  assert.deepEqual(
+    lines.abilities.map((a) => a.name),
+    resolved.sheet.abilities.map((a) => a.name),
+  );
+  assert.equal(lines.weapons.length, resolved.sheet.weapons.length);
+  assert.deepEqual(lines.gear, resolved.sheet.gear);
+  assert.equal(sheetLinesOf(null), null);
+  const odd = sheetLinesOf({ talents: "x", weapons: [{ name: "w" }], gear: ["Rope"], armour: { name: "", ar: 0 } });
+  assert.deepEqual(odd, { talents: [], abilities: [], weapons: [], armour: null, gear: ["Rope"], powers: [] });
+});
 
 // The engine's invented ledger game only (ADR 0001).
 const ledger = Ruleset.parse(SAMPLE_LEDGER_RULESET);

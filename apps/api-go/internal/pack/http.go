@@ -1,6 +1,7 @@
 package pack
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -22,8 +23,13 @@ type Service struct {
 	Auth *auth.Service
 }
 
+// caller reads as the Visitor, so a new device's library is empty and its own export or hide finds nothing.
 func (s *Service) caller(r *http.Request) (*auth.User, error) {
-	user, err := s.Auth.DeviceUser(r.Context(), core.CookieHeader(r))
+	return s.who(r, s.Auth.Visitor)
+}
+
+func (s *Service) who(r *http.Request, find func(context.Context, string) (*auth.User, error)) (*auth.User, error) {
+	user, err := find(r.Context(), core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +43,7 @@ func (s *Service) caller(r *http.Request) (*auth.User, error) {
 // room does: with sign-in on, an anonymous device never is one (auth.DeviceCreates). Reading, exporting and hiding
 // one's own stay open to every caller.
 func (s *Service) importer(r *http.Request) (*auth.User, error) {
-	user, err := s.caller(r)
+	user, err := s.who(r, s.Auth.EnsureDeviceUser)
 	if err != nil {
 		return nil, err
 	}

@@ -177,7 +177,7 @@ func TestASessionLivesUntilIdleOrOldAndADeadOneFallsBackToTheDevice(t *testing.T
 	if live, _ := s.SessionOf(ctx, cookie); live != nil {
 		t.Error("past 90 days")
 	}
-	fallback, err := s.DeviceUser(ctx, cookie)
+	fallback, err := s.EnsureDeviceUser(ctx, cookie)
 	if err != nil || fallback == nil || fallback.UserID == userID || fallback.Account {
 		t.Fatalf("back to the anonymous device user: %+v %v", fallback, err)
 	}

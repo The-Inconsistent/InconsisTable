@@ -1,6 +1,6 @@
 // End-to-end check against a running api (bun run dev:api) + Postgres 18 (bun run dev:db). The api must run with
 // ADMIN_KEY set (32+ characters) and the suite with the same value: admin calls use it. Every simulated person is a
-// device: a random `it_device` cookie, so the api makes the user on first sight.
+// device: a random `it_device` cookie, so the api makes the user on its first write.
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -44,8 +44,8 @@ const run = Date.now().toString(36); // test users are fresh per run, so reruns 
 const ADMIN = { "x-admin-key": process.env.ADMIN_KEY ?? "" };
 
 // One simulated person: a random `it_device` cookie, remembered by name so the same name is the same person. The first
-// request makes the user; its id is read back from the database so `uid(name)` can name them in assertions.
-// Returns the Cookie header value.
+// write (keeping the default name) makes the user; its id is read back from the database so `uid(name)` can name them
+// in assertions. Returns the Cookie header value.
 const people = new Map<string, Promise<{ cookie: string; userId: string }>>();
 const device = (name: string) => {
   let p = people.get(name);
@@ -53,7 +53,7 @@ const device = (name: string) => {
     p = (async () => {
       const secret = deviceSecret();
       const cookie = `${DEVICE_COOKIE}=${secret}`;
-      assert.equal((await get("/lobby", { cookie, "cf-connecting-ip": nextSocketIp() })).status, 200);
+      assert.equal((await rename("Player", { cookie })).status, 200);
       const tokenHash = createHash("sha256").update(secret).digest("hex");
       const [row] = await withDb(
         async (c) => (await c.query("select user_id from device where token_hash = $1", [tokenHash])).rows,
@@ -77,6 +77,12 @@ const post = (path: string, body: unknown, headers: Record<string, string> = {})
     method: "POST",
     headers: { "content-type": "application/json", ...SAME_ORIGIN, ...headers },
     body: JSON.stringify(body),
+  });
+const rename = (name: string, headers: Record<string, string> = {}) =>
+  fetch(`${API}/api/me`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json", "cf-connecting-ip": nextSocketIp(), ...SAME_ORIGIN, ...headers },
+    body: JSON.stringify({ name }),
   });
 
 // Each socket comes from its own address: the suite opens more sockets than the api allows one address a minute. The
@@ -438,7 +444,7 @@ test("the admin key runs housekeeping at a room over REST", async () => {
   owner.socket.close();
 });
 
-test("a missing, short or garbage it_device is no user, never an error; a fresh one is a new user", async () => {
+test("a missing, short or garbage it_device is no user, never an error; a fresh one is a user from its first write", async () => {
   const ip = () => ({ "cf-connecting-ip": nextSocketIp() });
   assert.equal((await get("/lobby", ip())).status, 401);
   for (const bad of ["short", "x".repeat(31), `${"a".repeat(31)}=`, "%", "a b".repeat(20), "x".repeat(201)])
@@ -453,36 +459,31 @@ test("a missing, short or garbage it_device is no user, never an error; a fresh 
     assert.equal(res.status, 200);
     return (await res.json()) as Lobby;
   };
+  const devices = async (cookie: string) =>
+    (
+      await withDb(
+        async (c) =>
+          (
+            await c.query("select count(*)::int as n from device where token_hash = $1", [
+              createHash("sha256").update(cookie.split("=")[1]!).digest("hex"),
+            ])
+          ).rows,
+      )
+    )[0].n as number;
   assert.equal((await seen()).name, "Player");
-  await seen();
-  const rows = await withDb(
-    async (c) =>
-      (
-        await c.query("select count(*)::int as n from device where token_hash = $1", [
-          createHash("sha256").update(first.split("=")[1]!).digest("hex"),
-        ])
-      ).rows,
-  );
-  assert.equal(rows[0].n, 1, "the same secret is still one device");
-  // Two first requests at once make one user.
+  assert.equal(await devices(first), 0, "looking makes no user");
+  assert.equal((await rename("Ana", { cookie: first })).status, 200);
+  assert.equal((await seen()).name, "Ana");
+  assert.equal((await rename("Ana", { cookie: first })).status, 200);
+  assert.equal(await devices(first), 1, "the same secret is still one device");
+  // Two first writes at once make one user.
   const racer = `${DEVICE_COOKIE}=${deviceSecret()}`;
-  const both = await Promise.all([
-    get("/lobby", { ...ip(), cookie: racer }),
-    get("/lobby", { ...ip(), cookie: racer }),
-  ]);
+  const both = await Promise.all([rename("A", { cookie: racer }), rename("B", { cookie: racer })]);
   assert.deepEqual(
     both.map((r) => r.status),
     [200, 200],
   );
-  const users = await withDb(
-    async (c) =>
-      (
-        await c.query("select count(*)::int as n from device where token_hash = $1", [
-          createHash("sha256").update(racer.split("=")[1]!).digest("hex"),
-        ])
-      ).rows,
-  );
-  assert.equal(users[0].n, 1);
+  assert.equal(await devices(racer), 1);
 });
 
 test("PATCH /me renames the device's user, and the new name shows at the table", async () => {

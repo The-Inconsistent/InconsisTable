@@ -6,6 +6,7 @@ import {
   type ResetEvent,
   type Visibility,
 } from "./enums.ts";
+import type { BuildParams } from "./build/params.ts";
 import type { ExprScope, ExprType } from "./expr/expr.ast.ts";
 import { compileExpr, type CompiledExpr } from "./expr/expr.ts";
 import {
@@ -21,6 +22,7 @@ import {
   type Ruleset,
   type Scoring,
   type DiceMechanic,
+  type LedgerKind,
 } from "./manifest.ts";
 import { own } from "./own.ts";
 import type { Problem } from "./problem.ts";
@@ -120,6 +122,11 @@ export interface CompiledRuleset {
   healthStates: { id: string; label: string | undefined; when: CompiledExpr; entities: readonly string[] | null }[];
   /** `health.tracks[].instantDeathOverflow`, by the track's resource id. */
   instantDeath: Record<string, CompiledExpr>;
+  /**
+   * The ledger builder's actor type, parsed parameters and catalogue kinds (house decision #62), for `resolveBuild`
+   * without parsing again; null when the ruleset has none.
+   */
+  build: { actor: string; params: BuildParams; kinds: Record<LedgerKind, string> } | null;
 }
 
 export type CompileResult = { ok: true; compiled: CompiledRuleset } | { ok: false; problems: Problem[] };
@@ -625,6 +632,7 @@ class Compiler {
     });
 
     if (this.problems.length > 0 || scoring === undefined || (ranked !== null && score === null)) return null;
+    const b = this.r.build;
     return {
       ruleset: this.r,
       entities,
@@ -640,6 +648,7 @@ class Compiler {
             : { def: init as SeatedInitiative | SidesInitiative, score: null, tiebreak: [] },
       healthStates,
       instantDeath,
+      build: b === undefined ? null : { actor: b.actor, params: b.params, kinds: b.kinds },
     };
   }
 }

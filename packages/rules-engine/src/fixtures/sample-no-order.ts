@@ -1,7 +1,7 @@
 import type { RulesetInput } from "../manifest.ts";
-import { NOTICE_RESOURCES, SAMPLE_D20 } from "./sample-d20.ts";
+import { NOTICE_RESOURCES, SAMPLE_D20_BEFORE_WIDGETS } from "./sample-d20.ts";
 
-const { initiative: _turnOrder, codex: _codex, notices: _notices, ...withoutOrder } = SAMPLE_D20;
+const { initiative: _turnOrder, codex: _codex, notices: _notices, ...withoutOrder } = SAMPLE_D20_BEFORE_WIDGETS;
 void _turnOrder;
 void _codex;
 void _notices;

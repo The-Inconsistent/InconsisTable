@@ -390,6 +390,8 @@ type (
 		Codex *CodexBlock `json:"codex"`
 		// Notices is what an action's answer tells its sender about an actor (house decision #79); nil when absent.
 		Notices []NoticeRule `json:"notices"`
+		// Layout is read for its widget rows (house decision #83).
+		Layout map[string]LayoutDef `json:"layout"`
 	}
 	// TestMark is a yes-or-no the GM sets when calling a Test, read as ctx.<id>.
 	TestMark struct {
@@ -1049,6 +1051,7 @@ func (r *Ruleset) semanticProblems() problems {
 		}
 	}
 	p.codex(r)
+	p.layout(r)
 
 	for i, x := range r.Resources {
 		if x.Entities != nil {

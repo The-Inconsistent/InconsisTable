@@ -73,6 +73,7 @@ import { charge, checkDeltas } from "../../../packages/rules-engine/src/primitiv
 import { PRIMITIVES, runOp } from "../../../packages/rules-engine/src/primitives/registry.ts";
 import { firstOf, nextFirst, sequence } from "../../../packages/rules-engine/src/primitives/initiative-seated.ts";
 import { poolSize } from "../../../packages/rules-engine/src/primitives/dice-pool-successes.ts";
+import { LAYOUT_TARGETS, WIDGETS } from "../../../packages/rules-engine/src/widgets.ts";
 import { worldVectors } from "./world.ts";
 
 const OUT = join(import.meta.dirname, "../internal/engine/testdata/vectors.json");
@@ -1532,7 +1533,56 @@ function sidesCrafted(): object[] {
   ];
 }
 
+// Layout rows that name a widget (house decision #83), each check once, on the sheet and the other targets.
+const rows = (...show: unknown[]) => ({ layout: { pc: { sections: [{ id: "s", label: "S", show }] } } });
+const WIDGET_CRAFTED: object[] = [
+  rows(
+    "attr.str",
+    { widget: "strip", label: "Who", bind: { title: "name", values: ["name", "a", "res.hp"] } },
+    { widget: "grid", bind: { ratings: ["attr.str", "attr.dex"], bonus: ["a", "hp"], total: ["derived.a", "res.hp"] } },
+    { widget: "grid", variant: "pairs", bind: { ratings: ["attr.str"], link: ["name"], total: ["a"] } },
+    { widget: "frames", bind: { values: ["a", "hp"] } },
+    { widget: "sum", bind: { parts: ["attr.str", "attr.dex"], total: "a" } },
+    { widget: "track", bind: { value: "res.hp", max: "a" } },
+    {
+      widget: "pips",
+      bind: { value: "hp" },
+      steps: [
+        { label: "One", size: 3 },
+        { label: "Two", size: 5 },
+      ],
+    },
+    { widget: "notes", bind: { fields: ["name"] } },
+  ),
+  rows({ widget: "nope", bind: {} }),
+  rows({ widget: "grid", variant: "rows", bind: { ratings: ["hp"], link: ["name"] } }),
+  rows({ widget: "grid", bind: { ratings: ["hp"], link: ["name"], extra: ["hp"] } }),
+  rows({ widget: "grid" }, { widget: "sum", bind: { parts: ["hp"] } }),
+  rows({ widget: "strip", bind: { values: "name", title: ["name"] } }),
+  rows({ widget: "frames", bind: { values: ["nope", "name", "derived.hp", "res.a", "res.nope", "secret"] } }),
+  rows({ widget: "notes", bind: { fields: ["hp", "a", "name"] } }),
+  rows({ widget: "grid", bind: { ratings: ["hp", "a"], total: ["a"], bonus: ["a", "a", "a"] } }),
+  rows(
+    { widget: "pips", bind: { value: "hp" } },
+    { widget: "track", bind: { value: "hp" }, steps: [{ label: "A", size: 1 }] },
+  ),
+  rows({ widget: "pips", bind: { value: "hp" }, steps: [{ label: "", size: 0 }] }),
+  rows({ widget: "cards", variant: "weapons" }, { widget: "folds" }),
+  rows({ wodget: "strip" }),
+  rows({ widget: "grid", bind: { ratings: 3 } }),
+  rows({ widget: "grid", bind: { ratings: [] } }),
+  rows({ widget: "Bad", bind: { "Bad-Slot": "x" } }),
+  rows(42),
+  { layout: { sheet: { sections: [], phoneTurn: [{ widget: "track", bind: { value: "res.hp" } }], screen: ["x"] } } },
+  { layout: { pc: { sections: [], trackerRow: [{ widget: "frames", bind: { values: ["nope"] } }] } } },
+  {
+    layout: { nobody: { sections: [{ id: "s", label: "S", show: [{ widget: "frames", bind: { values: ["hp"] } }] }] } },
+  },
+  { layout: { pc: { sections: [], screen: "x" } } },
+];
+
 const CRAFTED: object[] = [
+  ...WIDGET_CRAFTED,
   // An entity id declared twice: both engines check a creation step against the first definition.
   { entities: [pcBase, { ...pcBase, base: "item" }], creation: [step({})] },
   { entities: [{ ...pcBase, base: "item" }, pcBase], creation: [step({})] },
@@ -2306,6 +2356,22 @@ type Mutable = Record<string, any>;
 /** One change per check of the build block, the first none at all. */
 const LEDGER_CHANGES: ((m: Mutable) => void)[] = [
   () => {},
+  // The widgets that read the saved build's sheet (house decision #83).
+  (m) =>
+    (m.layout = {
+      hero: {
+        sections: [
+          {
+            id: "k",
+            label: "K",
+            show: [
+              { widget: "cards", variant: "powers" },
+              { widget: "folds", variant: "talents" },
+            ],
+          },
+        ],
+      },
+    }),
   (m) => (m.build.params.startingXp.perTier = -1),
   (m) => (m.build.params.tiers = { min: 3, max: 2 }),
   (m) => (m.build.params.vocabulary.mods = [{ key: "guard" }]),
@@ -3148,6 +3214,11 @@ const vectors = {
   seats: seatVectors(),
   poolSizes: poolSizeVectors(),
   worlds: worldVectors(),
+  // The widget list without the importer's descriptions, which only the TypeScript side carries.
+  widgets: {
+    list: WIDGETS.map(({ about: _about, slots, ...w }) => ({ ...w, slots: slots.map(({ about: _a, ...x }) => x) })),
+    targets: LAYOUT_TARGETS,
+  },
 };
 
 mkdirSync(dirname(OUT), { recursive: true });

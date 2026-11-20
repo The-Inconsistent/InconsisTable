@@ -517,6 +517,19 @@ func (c *compiler) effects(entities map[string]*CompiledEntity) {
 			}
 		}
 	}
+	// A spawn option's effects run with the conditions' (house decision #92); only the GM side is told an actor has one.
+	if s := c.r.Spawn; s != nil {
+		for i := range s.Options {
+			o := &s.Options[i]
+			for j := range o.Effects {
+				eff := &o.Effects[j]
+				noHost := fmt.Sprintf(`no actor it applies to has an integer "%s"`, eff.Path)
+				for _, h := range c.effect(entities, eff, fmt.Sprintf("spawn.options[%d].effects[%d]", i, j), SpawnSourceID(o.ID), "gm", c.spawnOf(o.Entities), noHost) {
+					h.host.Effects = append(h.host.Effects, h.effect)
+				}
+			}
+		}
+	}
 	// Stable sort keeps declaration order within one condition.
 	for _, ce := range entities {
 		slices.SortStableFunc(ce.Effects, compareEffects)
@@ -723,6 +736,94 @@ func (c *compiler) scoring(scopes []map[string]ExprType) (compiled *CompiledScor
 var spendCtx = map[string]ExprType{
 	"self":  textType,
 	"fight": RecordType{map[string]ExprType{"on": boolType, "in": boolType, "round": intType, "barred": boolType}},
+}
+
+// Spawn scopes (compile.ts SPAWN_PARTY_SCOPE, SPAWN_CTX, BUDGET_COST_CTX; house decision #92).
+var (
+	spawnPartyScope = RecordType{map[string]ExprType{"characters": intType, "seated": intType}}
+	spawnCtx        = map[string]ExprType{"mob": boolType}
+	budgetCostCtx   = map[string]ExprType{"count": intType, "mob": boolType}
+)
+
+// SpawnSourceID is compile.ts spawnSourceId: a spawn option's effects' source id.
+func SpawnSourceID(optionID string) string { return "spawn/" + optionID }
+
+// roomScope is what a spawn reads of the room: campaign, and party with seated.
+func (c *compiler) roomScope() map[string]ExprType {
+	scope := map[string]ExprType{"party": spawnPartyScope}
+	if campaign := campaignScope(c.r); campaign != nil {
+		scope["campaign"] = campaign
+	}
+	return scope
+}
+
+// spawnOf is the actor types ids names, or every one.
+func (c *compiler) spawnOf(ids *[]string) []*EntityType {
+	var out []*EntityType
+	for _, e := range c.actorEntities() {
+		if ids == nil || slices.Contains(*ids, e.ID) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// spawn is compile.ts Compiler.spawn (house decision #92).
+func (c *compiler) spawn() {
+	s := c.r.Spawn
+	if s == nil {
+		return
+	}
+	scopesOf := func(types []*EntityType, ctx map[string]ExprType) []map[string]ExprType {
+		out := []map[string]ExprType{}
+		for _, e := range types {
+			scope := fieldScope(e.Fields)
+			maps.Copy(scope, c.roomScope())
+			scope["ctx"] = RecordType{ctx}
+			out = append(out, scope)
+		}
+		return out
+	}
+	for i, o := range s.Options {
+		if o.When != nil {
+			c.expr(*o.When, scopesOf(c.spawnOf(o.Entities), spawnCtx), boolType, fmt.Sprintf("spawn.options[%d].when", i))
+		}
+	}
+	for i, a := range s.Adjust {
+		scopes := scopesOf(c.spawnOf(a.Entities), spawnCtx)
+		if a.When != nil {
+			c.expr(*a.When, scopes, boolType, fmt.Sprintf("spawn.adjust[%d].when", i))
+		}
+		for _, key := range sortedKeys(a.Add) {
+			c.expr(a.Add[key], scopes, intType, fmt.Sprintf("spawn.adjust[%d].add.%s", i, key))
+		}
+	}
+	if s.Budget == nil {
+		return
+	}
+	built := map[string]bool{}
+	for _, step := range c.r.Creation {
+		built[step.Actor] = true
+	}
+	var spawned []*EntityType
+	for _, e := range c.actorEntities() {
+		if !built[e.ID] {
+			spawned = append(spawned, e)
+		}
+	}
+	if len(spawned) == 0 {
+		spawned = c.actorEntities()
+	}
+	costScopes := scopesOf(spawned, budgetCostCtx)
+	for i, l := range s.Budget.Lines {
+		c.expr(l.Cost, costScopes, intType, fmt.Sprintf("spawn.budget.lines[%d].cost", i))
+		c.expr(l.Budget, []map[string]ExprType{c.roomScope()}, intType, fmt.Sprintf("spawn.budget.lines[%d].budget", i))
+	}
+	for i, w := range s.Budget.Switches {
+		scope := c.roomScope()
+		scope["ctx"] = RecordType{map[string]ExprType{"budget": intType}}
+		c.expr(w.By, []map[string]ExprType{scope}, intType, fmt.Sprintf("spawn.budget.switches[%d].by", i))
+	}
 }
 
 // spends is compile.ts Compiler.spends: every expression in the scope of each actor type that may spend it plus ctx,
@@ -994,6 +1095,7 @@ func (c *compiler) run() *CompiledRuleset {
 		}
 	}
 	c.spends(entities)
+	c.spawn()
 
 	lookups := c.lookups(entities)
 

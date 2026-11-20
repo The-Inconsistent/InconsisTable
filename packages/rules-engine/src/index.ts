@@ -81,6 +81,7 @@ export * from "./primitives/conditions-expire.ts";
 export * from "./primitives/rest.ts";
 export { declaredPrimitives, opInputKeys, PRIMITIVES, runOp, type RunOpResult } from "./primitives/registry.ts";
 export * from "./spend.ts";
+export * from "./spawn.ts";
 export * from "./scoring.ts";
 export * from "./reminders.ts";
 export * from "./view.ts";

@@ -17,6 +17,8 @@ type ActorValues struct {
 	// Entries holds the pack entries the actor chose (house decision #61); their effects apply with the conditions',
 	// in design order.
 	Entries []ActiveEntry
+	// Options holds the spawn options the actor took (house decision #92); their effects apply with the conditions'.
+	Options []string
 	// Characters is party.characters.
 	Characters float64
 	// Campaign holds the campaign's field values (campaign.danger) as CampaignValues gives them; nil leaves campaign
@@ -147,7 +149,8 @@ func applyMode(mode string, current, value float64) float64 {
 func (c *CompiledRuleset) activeEffects(entity string, ce *CompiledEntity, values ActorValues) []CompiledEffect {
 	var out []CompiledEffect
 	for _, e := range ce.Effects {
-		if slices.Contains(values.Conditions, e.SourceID) {
+		option, isOption := strings.CutPrefix(e.SourceID, "spawn/")
+		if (isOption && slices.Contains(values.Options, option)) || (!isOption && slices.Contains(values.Conditions, e.SourceID)) {
 			out = append(out, e)
 		}
 	}
@@ -199,10 +202,28 @@ func (c *CompiledRuleset) ApplyBaseEffects(entity string, values ActorValues) (m
 			continue
 		}
 		current, isNumber := fields[eff.Target].(float64)
-		if !isNumber {
-			continue // an unset field has nothing to modify
+		// An unset field has nothing to modify; an override needs nothing and sets it (house decision #92).
+		if !isNumber && eff.Mode != "override" {
+			continue
 		}
 		scope := ActorScopeWith(fields, nil, values.Resources, values.Characters, values.Campaign, nil)
+		if !isNumber {
+			if eff.When != nil {
+				holds, err := evaluateBool(eff.When, scope)
+				if err != nil {
+					return nil, err
+				}
+				if !holds {
+					continue
+				}
+			}
+			value, err := evaluateInt(eff.Value, scope)
+			if err != nil {
+				return nil, err
+			}
+			fields[eff.Target] = value
+			continue
+		}
 		next, err := applyEffect(eff, current, scope)
 		if err != nil {
 			return nil, err

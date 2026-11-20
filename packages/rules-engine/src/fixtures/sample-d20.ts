@@ -6,7 +6,7 @@ import type { RulesetInput } from "../manifest.ts";
  */
 export const SAMPLE_D20: RulesetInput = {
   id: "sample-d20",
-  version: "0.1.2",
+  version: "0.1.3",
   core: "^0.1.0",
   sources: [{ id: "sample", title: "Sample d20 Rules", license: "private", pageOffset: 0 }],
   terms: { party: "Crew", foe: "Opposition", hp: "Vigour" },
@@ -236,5 +236,37 @@ export const SAMPLE_D20: RulesetInput = {
   ],
   layout: {
     sheet: { sections: [{ id: "abilities", label: "Abilities", show: ["attr.str", "attr.dex", "attr.con"] }] },
+  },
+  // What a person and a faction carry in the codex (house decision #71): the crew sees how a person feels, the GM
+  // whose creature backs them and where a faction stands.
+  codex: {
+    kinds: {
+      npc: {
+        fields: {
+          mood: {
+            type: "enum",
+            label: "Mood",
+            values: ["warm", "wary", "cold"],
+            labels: { warm: "Warm", wary: "Wary", cold: "Cold" },
+            notes: { cold: "-2 to sway them" },
+            visibility: "party",
+            cite: "Sample p.14",
+          },
+          disposition: { type: "int", label: "Disposition", min: -3, max: 3, visibility: "party", cite: "Sample p.14" },
+          patron: { type: "ref", label: "Patron", entity: "creature", cite: "Sample p.15" },
+        },
+      },
+      faction: {
+        fields: {
+          standing: {
+            type: "enum",
+            label: "Standing",
+            values: ["ally", "neutral", "rival"],
+            labels: { ally: "Ally", neutral: "Neutral", rival: "Rival" },
+            cite: "Sample p.16",
+          },
+        },
+      },
+    },
   },
 };

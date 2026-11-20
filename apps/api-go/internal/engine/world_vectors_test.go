@@ -15,6 +15,8 @@ type worldVectorFile struct {
 		Schemes   []string `json:"schemes"`
 		Typefaces []string `json:"typefaces"`
 		Textures  []string `json:"textures"`
+		Layouts   []string `json:"layouts"`
+		MaxName   int      `json:"maxLayoutName"`
 		Shapes    []struct {
 			Key     string   `json:"key"`
 			Options []string `json:"options"`
@@ -58,11 +60,15 @@ func TestWorldListsMatchTypeScript(t *testing.T) {
 	if w.MaxBytes != MaxWorldBytes {
 		t.Errorf("max bytes: want %d, got %d", w.MaxBytes, MaxWorldBytes)
 	}
+	if w.MaxName != maxHandoutLayoutName {
+		t.Errorf("max layout name: want %d, got %d", w.MaxName, maxHandoutLayoutName)
+	}
 	for name, pair := range map[string][2][]string{
 		"tokens":    {w.Tokens, worldColourTokens},
 		"schemes":   {w.Schemes, worldSchemes},
 		"typefaces": {w.Typefaces, worldTypefaces},
 		"textures":  {w.Textures, worldTextures},
+		"layouts":   {w.Layouts, HandoutLayouts},
 	} {
 		if !slices.Equal(pair[0], pair[1]) {
 			t.Errorf("%s: want %v, got %v", name, pair[0], pair[1])

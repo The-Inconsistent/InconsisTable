@@ -310,6 +310,12 @@ export type QuestStatus = z.infer<typeof QuestStatus>;
 
 export const MAX_PLANNED_TESTS = 10;
 
+// A handout's layout, one the platform draws (house decision #72). The list repeats HANDOUT_LAYOUTS in
+// rules-engine/world.ts, where a World picks from it; the vectors hold both equal to the Go twin's one list.
+export const HandoutLayout = z.enum(["plain", "tablet", "form", "transcript", "proclamation"]);
+export type HandoutLayout = z.infer<typeof HandoutLayout>;
+export const HandoutHeader = z.string().max(120);
+
 export const CodexEntry = z.object({
   id: z.string(),
   kind: CodexKind,
@@ -329,6 +335,10 @@ export const CodexEntry = z.object({
   // The entry's picture; another seat than the codex side gets it only once it is shown to the table (house decision #70).
   imageId: z.string().nullable(),
   imageRevealed: z.boolean(),
+  // The ruleset's declared fields of this kind that hold a value and that the seat may see (house decision #71).
+  fields: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])),
+  layout: HandoutLayout.nullable(), // a handout's; null on every other kind. Seen by whoever sees the entry
+  header: HandoutHeader.nullable(), // a handout's line above its body, "" for none; null on every other kind
 });
 export type CodexEntry = z.infer<typeof CodexEntry>;
 

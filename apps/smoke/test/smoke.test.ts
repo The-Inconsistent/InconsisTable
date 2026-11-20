@@ -16,7 +16,7 @@ import type {
   Lobby,
   RefusalKey,
 } from "@inconsistable/core-schema";
-import { MAX_PAGE_BYTES } from "@inconsistable/core-schema";
+import { HandoutLayout, MAX_PAGE_BYTES } from "@inconsistable/core-schema";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_HARM } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
@@ -1002,6 +1002,161 @@ test("codex tree: places nest, never in a loop; a hidden middle is never named t
   owner.socket.close();
   ana.socket.close();
   screen.socket.close();
+});
+
+test("entry fields: the ruleset declares them, the GM sets them, a player and the screen read the party's (#71)", async () => {
+  const ownerDevice = await device("ef-owner");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const pk = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  const made = await me.post<{ campaignId: string }>("/campaigns", { name: "Ef", rulesetVersionId: rs.body.versionId });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const anaDevice = await seatPlayer(owner, "ef-ana");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  const screen = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  await Promise.all([ana.until(() => true), screen.until(() => true)]);
+
+  // The GM sets the four invented fields; the server checks each against the manifest and the room's packs.
+  const npc = ok(
+    await owner.send({
+      type: "codex.save",
+      kind: "npc",
+      title: "Harbourmaster",
+      fields: { mood: "cold", disposition: -2, patron: "ember-wisp" },
+    }),
+  ).id!;
+  const band = ok(await owner.send({ type: "codex.save", kind: "faction", title: "Tide Guild" })).id!;
+  ok(await owner.send({ type: "codex.save", id: band, kind: "faction", fields: { standing: "rival" } }));
+  refused(
+    await owner.send({ type: "codex.save", id: npc, kind: "npc", fields: { standing: "ally" } }),
+    "noSuchEntryField",
+  );
+  refused(await owner.send({ type: "codex.save", id: npc, kind: "npc", fields: { disposition: 4 } }), "badEntryField");
+  refused(await owner.send({ type: "codex.save", id: npc, kind: "npc", fields: { mood: "sulky" } }), "badEntryField");
+  refused(
+    await owner.send({ type: "codex.save", id: npc, kind: "npc", fields: { patron: "coil-rope" } }),
+    "badEntryField",
+  );
+  refused(await ana.send({ type: "codex.save", id: npc, kind: "npc", fields: { mood: "warm" } }), "noPermission");
+  for (const id of [npc, band])
+    ok(await owner.send({ type: "codex.reveal", id, visibility: "party", audienceMode: "all", audience: [] }));
+  const fieldsOf = (c: typeof owner, id: string) => c.codex()?.entries.find((e) => e.id === id)?.fields;
+  await eventually(() => fieldsOf(owner, npc)?.patron === "ember-wisp", "the GM reads every field");
+  assert.deepEqual(fieldsOf(owner, band), { standing: "rival" });
+  const party = { mood: "cold", disposition: -2 };
+  await eventually(() => fieldsOf(ana, band) !== undefined && fieldsOf(screen, band) !== undefined, "revealed");
+  for (const c of [ana, screen]) {
+    assert.deepEqual(fieldsOf(c, npc), party);
+    assert.deepEqual(fieldsOf(c, band), {});
+  }
+
+  // A null clears one field and leaves the others.
+  ok(await owner.send({ type: "codex.save", id: npc, kind: "npc", fields: { disposition: null } }));
+  await eventually(() => fieldsOf(ana, npc)?.disposition === undefined, "cleared");
+  assert.equal(fieldsOf(ana, npc)?.mood, "cold");
+
+  // The served manifest carries the definitions each seat may read.
+  type Defs = { codex?: { kinds: Record<string, { fields: Record<string, unknown> }> } };
+  const defsOf = async (c: ReturnType<typeof caller>, kind: string) => {
+    const manifest = (await c.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset?.manifest as Defs;
+    return Object.keys(manifest?.codex?.kinds[kind]?.fields ?? {}).sort();
+  };
+  assert.deepEqual(await defsOf(me, "npc"), ["disposition", "mood", "patron"]);
+  assert.deepEqual(await defsOf(me, "faction"), ["standing"]);
+  assert.deepEqual(await defsOf(caller(anaDevice), "npc"), ["disposition", "mood"]);
+  assert.deepEqual(await defsOf(caller(anaDevice), "faction"), []);
+  // A ref's entry is read by its type and key, as the seat may read it: the gm creature only from the GM side.
+  const byKey = `/campaigns/${campaignId}/rules?type=creature&key=ember-wisp&limit=1`;
+  assert.deepEqual(keysOf((await me.get<RulesReply>(byKey)).body), ["ember-wisp"]);
+  assert.deepEqual(keysOf((await caller(anaDevice).get<RulesReply>(byKey)).body), []);
+
+  // A room on a ruleset with no codex block takes no fields at all.
+  const plain = await me.post<RulesetReply>("/rulesets", SAMPLE_NO_ORDER);
+  const other = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Ef2",
+    rulesetVersionId: plain.body.versionId,
+  });
+  const otherOwner = connect({ auth: { campaignId: other.body.campaignId, cookie: ownerDevice } });
+  await otherOwner.until(() => true);
+  refused(
+    await otherOwner.send({ type: "codex.save", kind: "npc", title: "N", fields: { mood: "cold" } }),
+    "noSuchEntryField",
+  );
+  const plainNpc = ok(await otherOwner.send({ type: "codex.save", kind: "npc", title: "N" })).id!;
+  await eventually(() => fieldsOf(otherOwner, plainNpc) !== undefined, "saved");
+  assert.deepEqual(fieldsOf(otherOwner, plainNpc), {});
+  for (const c of [owner, ana, screen, otherOwner]) c.socket.close();
+});
+
+test("a handout has a layout and a header, read by its player; the room's World offers and names its layouts", async () => {
+  const ownerDevice = await device("hl-owner");
+  const me = caller(ownerDevice);
+  const { campaignId } = (await me.post<{ campaignId: string }>("/campaigns", { name: "Layouts" })).body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  const anaDevice = await seatPlayer(owner, "hl-ana");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  const seen = (id: string) => ana.codex()?.entries.find((e) => e.id === id);
+
+  // Each of the platform's layouts, saved with a header and read back by the player.
+  const ids: Record<string, string> = {};
+  for (const layout of HandoutLayout.options) {
+    const header = `${layout} header`;
+    const id = ok(
+      await owner.send({ type: "codex.save", kind: "handout", title: layout, body: "Line one", layout, header }),
+    ).id!;
+    ok(await owner.send({ type: "codex.reveal", id, visibility: "party", audienceMode: "all", audience: [] }));
+    await eventually(() => seen(id)?.layout === layout && seen(id)?.header === header, `the player reads ${layout}`);
+    ids[layout] = id;
+  }
+  const bare = ok(await owner.send({ type: "codex.save", kind: "handout", title: "Bare" })).id!;
+  await eventually(() => owner.codex()?.entries.some((e) => e.id === bare) ?? false, "the bare handout");
+  const stored = owner.codex()?.entries.find((e) => e.id === bare);
+  assert.deepEqual([stored?.layout, stored?.header], ["plain", ""], "a handout is plain with no header by default");
+
+  // Only a handout carries them, and only the platform's layouts.
+  const npc = ok(await owner.send({ type: "codex.save", kind: "npc", title: "Ferryman" })).id!;
+  refused(await owner.send({ type: "codex.save", id: npc, kind: "npc", layout: "form" }), "handoutOnly");
+  refused(await owner.send({ type: "codex.save", kind: "lore", title: "L", header: "x" }), "handoutOnly");
+  const unknown = { type: "codex.save", kind: "handout", title: "H", layout: "scroll" };
+  refused((await owner.socket.emitWithAck("action", unknown)) as ActionResult, "badRequest");
+  refused(await owner.send({ type: "codex.save", kind: "handout", title: "H", header: "x".repeat(121) }), "badRequest");
+  await eventually(() => owner.codex()?.entries.some((e) => e.id === npc) ?? false, "the NPC");
+  assert.deepEqual(
+    [
+      owner.codex()?.entries.find((e) => e.id === npc)?.layout,
+      owner.codex()?.entries.find((e) => e.id === npc)?.header,
+    ],
+    [null, null],
+  );
+
+  // A World that offers three of the five under its own names; every seat reads them with the room's rules.
+  type Rules = { world: { handouts: { layouts: string[]; names: Record<string, string> } | null } | null };
+  const pinned = (await me.post<WorldReply>("/worlds", SAMPLE_WORLD)).body.versionId!;
+  ok(await owner.send({ type: "campaign.setWorld", worldVersionId: pinned }));
+  for (const reader of [me, caller(anaDevice)]) {
+    const { body } = await reader.get<Rules>(`/campaigns/${campaignId}/rules`);
+    assert.deepEqual(body.world?.handouts, {
+      layouts: ["proclamation", "transcript", "plain"],
+      names: { proclamation: "Harbour notice", transcript: "Signal log", plain: "Note" },
+    });
+  }
+  // A layout the World does not offer is kept and still read; nothing is rewritten when the World changes.
+  const { handouts: _, ...withoutHandouts } = SAMPLE_WORLD;
+  const plainer = (await me.post<WorldReply>("/worlds", { ...withoutHandouts, version: "0.3.0" })).body.versionId!;
+  ok(await owner.send({ type: "campaign.setWorld", worldVersionId: plainer }));
+  const after = await me.get<Rules>(`/campaigns/${campaignId}/rules`);
+  assert.equal(after.body.world?.handouts, null, "a World without the part");
+  ok(await owner.send({ type: "codex.save", id: ids.tablet!, kind: "handout", body: "Line two" }));
+  await eventually(() => seen(ids.tablet!)?.body === "Line two", "the edit reaches the player");
+  for (const layout of HandoutLayout.options) {
+    assert.deepEqual([seen(ids[layout]!)?.layout, seen(ids[layout]!)?.header], [layout, `${layout} header`]);
+  }
+  owner.socket.close();
+  ana.socket.close();
 });
 
 test("the admin action route seats a known user and refuses anything but housekeeping", async () => {

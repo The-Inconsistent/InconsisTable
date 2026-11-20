@@ -2,15 +2,33 @@
 import { useTranslations } from "next-intl";
 import { useState, type ChangeEvent } from "react";
 
-import { QuestStatus, splitMentions, type ActionInput, type Actor, type CodexEntry } from "@inconsistable/core-schema";
+import {
+  HandoutLayout,
+  QuestStatus,
+  splitMentions,
+  type ActionInput,
+  type Actor,
+  type CodexEntry,
+} from "@inconsistable/core-schema";
+import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { PictureField } from "@/components/gm/codex/components/entry-editor/components/picture-field/picture-field";
+import {
+  EntryFieldsForm,
+  type FieldsDraft,
+} from "@/components/gm/codex/components/entry-fields-form/entry-fields-form";
 import { RevealForm } from "@/components/gm/codex/components/reveal-form/reveal-form";
+import { EntryFields } from "@/components/ui/entry-fields/entry-fields";
 import { EntryPath } from "@/components/ui/entry-path/entry-path";
+import { HandoutDoc } from "@/components/ui/handout-doc/handout-doc";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { MentionTextarea } from "@/components/ui/mention-textarea/mention-textarea";
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
-import { parentOptions, savePatch } from "@/lib/codex/codex";
+import { useRoomHandouts } from "@/components/ui/room-handouts/room-handouts";
+import { parentOptions, savePatch, type EntryDraft } from "@/lib/codex/codex";
+import { declaredFields, fieldsPatch, type EntryFieldValue } from "@/lib/entry-fields/entry-fields";
+import { offeredLayouts } from "@/lib/handout/handout";
+import type { RulesEntry } from "@/lib/library/library";
 
 type EntryEditorProps = {
   campaignId: string;
@@ -22,35 +40,57 @@ type EntryEditorProps = {
   can: { write: boolean; secrets: boolean; reveal: boolean };
   act: (a: ActionInput) => Promise<{ ok: boolean }>;
   onDeleted: () => void;
+  /** The manifest as this seat reads it: the entry's declared fields (house decision #71). */
+  ruleset: Ruleset | null;
+  /** Pack entries this seat already read, to name a ref. */
+  known: readonly RulesEntry[];
 };
 
-// One entry open: its title, body and (for a seat that may read them) GM notes, who sees it, and delete.
-export function EntryEditor({
-  campaignId,
-  entry,
-  characters,
-  entries,
-  onOpenEntry,
-  can,
-  act,
-  onDeleted,
-}: EntryEditorProps) {
+// One entry open: its title, where it sits, its declared fields, a handout's layout and header, body and (for a seat that
+// may read them) GM notes, who sees it, and delete.
+export function EntryEditor(props: EntryEditorProps) {
+  const { entry, characters, entries, onOpenEntry, can, act, onDeleted, ruleset, campaignId, known } = props;
   const t = useTranslations("codex");
-  const [draft, setDraft] = useState({ title: entry.title, body: entry.body, gmNotes: entry.gmNotes });
+  const tHandout = useTranslations("handout");
+  const handouts = useRoomHandouts();
+  const [draft, setDraft] = useState<EntryDraft>({
+    title: entry.title,
+    body: entry.body,
+    gmNotes: entry.gmNotes,
+    ...(entry.kind === "handout" ? { layout: entry.layout ?? "plain", header: entry.header ?? "" } : {}),
+  });
+  const declared = declaredFields({ ruleset, kind: entry.kind });
+  const [fieldsDraft, setFieldsDraft] = useState<FieldsDraft>(() =>
+    Object.fromEntries(
+      declared.map(({ id }) => [id, Object.hasOwn(entry.fields, id) ? (entry.fields[id] ?? null) : null]),
+    ),
+  );
   const [confirming, setConfirming] = useState(false);
   const patch = savePatch({ entry, draft, canSecrets: can.secrets });
+  const fields = fieldsPatch({ entry, draft: fieldsDraft });
   const hasMention = splitMentions(draft.body).some((p) => "id" in p);
-  const dirty = Object.keys(patch).length > 0 && draft.title.trim() !== "";
+  const dirty = (Object.keys(patch).length > 0 || fields !== null) && draft.title.trim() !== "";
   const parents = parentOptions({ entries, entry });
 
   // A text field of the draft.
-  const handleField = (field: keyof typeof draft) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setDraft({ ...draft, [field]: e.target.value });
+  const handleField =
+    (field: "title" | "gmNotes" | "header") => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setDraft({ ...draft, [field]: e.target.value });
 
-  // SAVE sends only the fields that changed.
+  // A handout's layout, from the layouts the room's World offers.
+  const handleLayout = (e: ChangeEvent<HTMLSelectElement>) => {
+    const layout = HandoutLayout.safeParse(e.target.value);
+    if (layout.success) setDraft({ ...draft, layout: layout.data });
+  };
+
+  // A declared field of the draft.
+  const handleDeclared = ({ id, value }: { id: string; value: EntryFieldValue | null }) =>
+    setFieldsDraft({ ...fieldsDraft, [id]: value });
+
+  // SAVE sends only the texts and fields that changed.
   const handleSave = async () => {
     if (!dirty) return;
-    await act({ type: "codex.save", id: entry.id, kind: entry.kind, ...patch });
+    await act({ type: "codex.save", id: entry.id, kind: entry.kind, ...patch, ...(fields ? { fields } : {}) });
   };
 
   // A quest's status is saved as soon as it is picked.
@@ -116,6 +156,43 @@ export function EntryEditor({
           </select>
         </label>
       )}
+      {can.write ? (
+        <EntryFieldsForm
+          ruleset={ruleset}
+          fields={declared}
+          draft={fieldsDraft}
+          onChange={handleDeclared}
+          campaignId={campaignId}
+          known={known}
+          disabled={false}
+        />
+      ) : (
+        <EntryFields ruleset={ruleset} entry={entry} campaignId={campaignId} known={known} />
+      )}
+      {draft.layout !== undefined && (
+        <>
+          <label className="stack">
+            {tHandout("layoutLabel")}
+            <select id="codex-layout" value={draft.layout} onChange={handleLayout} disabled={!can.write}>
+              {offeredLayouts({ handouts, current: entry.layout }).map((l) => (
+                <option key={l} value={l}>
+                  {handouts?.names[l] ?? tHandout(`layout.${l}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="stack">
+            {tHandout("headerLabel")}
+            <input
+              id="codex-header"
+              value={draft.header ?? ""}
+              onChange={handleField("header")}
+              maxLength={120}
+              disabled={!can.write}
+            />
+          </label>
+        </>
+      )}
       <label className="stack">
         {t("body")}
         <MentionTextarea
@@ -129,10 +206,24 @@ export function EntryEditor({
           disabled={!can.write}
         />
       </label>
-      {hasMention && (
-        <p className="dim" style={{ whiteSpace: "pre-wrap" }}>
-          <MentionText body={draft.body} entries={entries} onOpen={onOpenEntry} />
-        </p>
+      {draft.layout !== undefined ? (
+        <section className="stack" aria-label={tHandout("preview")}>
+          <span className="dim small">{tHandout("preview")}</span>
+          <HandoutDoc
+            layout={draft.layout}
+            header={draft.header ?? ""}
+            title={draft.title}
+            body={draft.body}
+            entries={entries}
+            onOpen={onOpenEntry}
+          />
+        </section>
+      ) : (
+        hasMention && (
+          <p className="dim" style={{ whiteSpace: "pre-wrap" }}>
+            <MentionText body={draft.body} entries={entries} onOpen={onOpenEntry} />
+          </p>
+        )
       )}
       {can.secrets && (
         <label className="stack">

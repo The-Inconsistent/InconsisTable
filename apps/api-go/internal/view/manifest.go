@@ -16,7 +16,7 @@ import (
 // ponytail: the manifest is not split per entity kind; a co-GM with `party` or `combat` reads every definition.
 func SeatManifest(manifest map[string]any, c cs.Ctx) map[string]any {
 	sight := SightOf(c)
-	out := seatDefinitions(manifest, sight, c)
+	out := seatCodexDefs(seatDefinitions(manifest, sight, c), sight.Secrets)
 	if tables, has := manifest["tables"].(map[string]any); has && !sight.Tables {
 		out = maps.Clone(out)
 		out["tables"] = seatTableDefs(tables)

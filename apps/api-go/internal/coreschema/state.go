@@ -407,6 +407,13 @@ type (
 		// ImageID is the entry's picture; ImageRevealed says the table sees it (house decision #70).
 		ImageID       *string `json:"imageId"`
 		ImageRevealed bool    `json:"imageRevealed"`
+		// Fields are the ruleset's declared fields of the entry's kind (house decision #71): stored whole as loaded,
+		// filtered to what is declared, valid and seen by the Seat view.
+		Fields map[string]any `json:"fields"`
+		// Layout and Header are a handout's (house decision #72): one of engine.HandoutLayouts and the line above its
+		// body, "" for none. Both are null on every other kind. Seen by whoever sees the entry.
+		Layout *string `json:"layout"`
+		Header *string `json:"header"`
 	}
 	// Codex is the `codex` event.
 	Codex struct {

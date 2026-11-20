@@ -204,6 +204,9 @@ const entry = (id: string, over: Partial<CodexEntry> = {}): CodexEntry => ({
   plannedTests: [],
   imageId: null,
   imageRevealed: false,
+  fields: {},
+  layout: (over.kind ?? "handout") === "handout" ? "plain" : null,
+  header: (over.kind ?? "handout") === "handout" ? "" : null,
   ...over,
 });
 const codex: Codex = {
@@ -424,6 +427,49 @@ test("a tree's hidden middle is never named: below it, a seat that can't read it
   ]);
 });
 
+// House decision #71: an entry's declared fields reach a seat as the ruleset declares them.
+test("a gm entry field reaches only the side that reads GM notes; the player and the table screen get the party ones", () => {
+  const stored = { mood: "cold", disposition: -2, patron: "ember-wisp", gone: "x" };
+  const npc = entry("npc", { kind: "npc", fields: stored });
+  const faction = entry("band", { kind: "faction", fields: { standing: "rival" } });
+  const fielded = { ...snapshot, codex: { ...codex, entries: [...codex.entries, npc, faction] } };
+  const fieldsOf = (c: Ctx, id: string, rules: typeof compiled | null = compiled) =>
+    seatView({ snapshot: fielded, compiled: rules, ctx: c }).codex.entries.find((e) => e.id === id)?.fields;
+  const party = { mood: "cold", disposition: -2 };
+  for (const c of [
+    ctx(member("player"), "u-x"),
+    ctx({ kind: "token", role: "screen", characterIds: [] }, null),
+    ctx(member("cogm", ["codex"]), "u-co"),
+    ctx(member("cogm", ["combat"]), "u-co"),
+  ]) {
+    assert.deepEqual(fieldsOf(c, "npc"), party);
+    assert.deepEqual(fieldsOf(c, "band"), {});
+  }
+  for (const c of [ctx(member("gm"), "u-gm"), ctx(member("cogm", ["codex.secrets"]), "u-co")]) {
+    assert.deepEqual(fieldsOf(c, "npc"), { ...party, patron: "ember-wisp" });
+    assert.deepEqual(fieldsOf(c, "band"), { standing: "rival" });
+  }
+  // A value that no longer fits, or a room without a ruleset, sends nothing; the snapshot keeps it.
+  const stale = {
+    ...fielded,
+    codex: { ...codex, entries: [entry("npc", { kind: "npc", fields: { mood: "sulky" } })] },
+  };
+  assert.deepEqual(
+    seatView({ snapshot: stale, compiled, ctx: ctx(member("gm"), "u-gm") }).codex.entries[0]?.fields,
+    {},
+  );
+  assert.deepEqual(fieldsOf(ctx(member("gm"), "u-gm"), "npc", null), {});
+  assert.deepEqual(npc.fields, stored);
+
+  // The served manifest carries the definitions the seat may read, and no `gm` one off that side.
+  const defs = (c: Ctx, kind: "npc" | "faction") =>
+    Object.keys(seatManifest({ ruleset: compiled.ruleset, ctx: c }).codex?.kinds[kind]?.fields ?? {}).sort();
+  assert.deepEqual(defs(ctx(member("player"), "u-x"), "npc"), ["disposition", "mood"]);
+  assert.deepEqual(defs(ctx({ kind: "token", role: "screen", characterIds: [] }, null), "faction"), []);
+  assert.deepEqual(defs(ctx(member("cogm", ["combat"]), "u-co"), "npc"), ["disposition", "mood"]);
+  assert.deepEqual(defs(ctx(member("gm"), "u-gm"), "npc"), ["disposition", "mood", "patron"]);
+});
+
 test("a mention of an entry the seat cannot see becomes the hidden form; the GM and the stored body are untouched", () => {
   const body = "met @[Secret Name](secret), @[Open](open) and @[Gone](nope)";
   const mentioning = { ...snapshot, codex: { ...codex, entries: [...codex.entries, entry("m", { body })] } };
@@ -461,6 +507,15 @@ test("a seat outside the codex side never receives the id of a picture not shown
       ["shown", "pic-shown", true],
       ["secret-shown", "pic-secret", true],
     ]);
+  }
+});
+
+test("a player and the table screen receive a handout's layout and header with the entry (house decision #72)", () => {
+  const notice = entry("notice", { layout: "proclamation", header: "By order of the harbour" });
+  const posted = { ...snapshot, codex: { ...codex, entries: [...codex.entries, notice] } };
+  for (const c of [ctx(member("player"), "u-x"), ctx({ kind: "token", role: "screen", characterIds: [] }, null)]) {
+    const seen = seatView({ snapshot: posted, compiled, ctx: c }).codex.entries.find((e) => e.id === "notice");
+    assert.deepEqual([seen?.layout, seen?.header], ["proclamation", "By order of the harbour"]);
   }
 });
 

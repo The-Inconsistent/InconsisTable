@@ -28,13 +28,15 @@ const (
 var rulesQuery = schema.Object(
 	schema.Opt("type", schema.String().Min(1).Max(64)),
 	schema.Opt("q", schema.String().Min(1).Max(100)),
+	// key finds the entry a codex ref field names (house decision #71).
+	schema.Opt("key", schema.String().Min(1).Max(120)),
 	schema.Def("limit", schema.Int().Min(1).Max(maxRulesPage), float64(defaultRulesPage)),
 	schema.Def("offset", schema.Int().Min(0), float64(0)),
 )
 
 // RulesQuery is the filter and page of a rules read.
 type RulesQuery struct {
-	Type, Q       string
+	Type, Q, Key  string
 	Limit, Offset int
 }
 
@@ -42,7 +44,7 @@ type RulesQuery struct {
 func parseRulesQuery(r *http.Request) (RulesQuery, error) {
 	raw := map[string]any{}
 	q := r.URL.Query()
-	for _, key := range []string{"type", "q"} {
+	for _, key := range []string{"type", "q", "key"} {
 		if q.Has(key) {
 			raw[key] = q.Get(key)
 		}
@@ -66,6 +68,7 @@ func parseRulesQuery(r *http.Request) (RulesQuery, error) {
 	result := RulesQuery{Limit: int(parsed["limit"].(float64)), Offset: int(parsed["offset"].(float64))}
 	result.Type, _ = parsed["type"].(string)
 	result.Q, _ = parsed["q"].(string)
+	result.Key, _ = parsed["key"].(string)
 	return result, nil
 }
 
@@ -112,6 +115,8 @@ type rulesWorld struct {
 	Version   string          `json:"version"`
 	Name      string          `json:"name"`
 	Theme     json.RawMessage `json:"theme"`
+	// Handouts is the World's handout layouts and their names (house decision #72); null when it brings none.
+	Handouts json.RawMessage `json:"handouts"`
 }
 
 // Rules is what a seat may read of the room's rules.
@@ -157,10 +162,10 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 	// Every seat of the room reads the World alike, the table screen included: it holds only a look.
 	var w rulesWorld
 	err = conn.QueryRow(ctx, `SELECT world_version.id::text, world.slug, world_version.version, world_version.document->>'name',
-			world_version.document->'theme'
+			world_version.document->'theme', coalesce(world_version.document->'handouts', 'null')
 		FROM campaign JOIN world_version ON world_version.id = campaign.world_version_id
 		JOIN world ON world.id = world_version.world_id WHERE campaign.id = $1 AND `+actor.ServedWorld("$1"), c.CampaignID).
-		Scan(&w.VersionID, &w.Slug, &w.Version, &w.Name, &w.Theme)
+		Scan(&w.VersionID, &w.Slug, &w.Version, &w.Name, &w.Theme, &w.Handouts)
 	switch {
 	case err == nil:
 		out.World = &w
@@ -203,6 +208,10 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 	if query.Q != "" {
 		args = append(args, likePattern(query.Q))
 		where += fmt.Sprintf(" AND pack_entry.name ILIKE $%d", len(args))
+	}
+	if query.Key != "" {
+		args = append(args, query.Key)
+		where += fmt.Sprintf(" AND pack_entry.key = $%d", len(args))
 	}
 	if err := conn.QueryRow(ctx, `SELECT count(*)::int FROM pack_entry WHERE `+where, args...).Scan(&out.Total); err != nil {
 		return nil, err

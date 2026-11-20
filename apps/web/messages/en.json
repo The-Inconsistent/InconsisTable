@@ -110,7 +110,11 @@
       "notes": "Running text in a section stays as written: never in capitals, whatever the headings do.",
       "buttons": "Buttons",
       "sheetTitle": "Where this number comes from",
-      "sheetText": "A bottom sheet rises from the edge, on the card colours."
+      "sheetText": "A bottom sheet rises from the edge, on the card colours.",
+      "handouts": "Handout layouts",
+      "handoutTitle": "Notice at the quay",
+      "handoutHeader": "No. 4 · posted at the quay",
+      "handoutBody": "[06:40] The ferry did not sail.\n[06:52] Lanterns lit on the far bank, three of them.\nNo one has claimed the crates on the east pier. Whoever holds the tally should bring it to the harbour office before the evening bell."
     }
   },
   "roles": {
@@ -1168,7 +1172,10 @@
     "wouldLoop": "That would put an entry inside itself",
     "tooDeep": "Entries nest {limit} deep at most",
     "onlySceneTests": "Only a scene plans Tests.",
+    "handoutOnly": "Only a handout has a layout and a header.",
     "cantLinkThat": "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
+    "noSuchEntryField": "This kind of entry has no field {field}.",
+    "badEntryField": "{field} doesn't take that: {detail}",
     "nothingToUndo": "Nothing to undo",
     "cantUndoKind": "Can't undo that kind of step yet",
     "undoGone": "Can't undo: {target} is gone.",
@@ -1351,6 +1358,19 @@
       "listed": "Chosen characters"
     }
   },
+  "handout": {
+    "layoutLabel": "Layout",
+    "headerLabel": "Header line (empty: none)",
+    "preview": "As the table sees it",
+    "signed": "Signed and sealed",
+    "layout": {
+      "plain": "Plain text",
+      "tablet": "Screen readout",
+      "form": "Form",
+      "transcript": "Transcript",
+      "proclamation": "Proclamation"
+    }
+  },
   "recaps": {
     "lastTime": "Last time",
     "session": "Session {number}",
@@ -1421,6 +1441,20 @@
       "send": "Add to the list",
       "sent": "Added."
     }
+  },
+  "entryFields": {
+    "legend": "Details",
+    "chips": "Details",
+    "none": "Not set",
+    "open": "Open {name}",
+    "search": "Search for {label}",
+    "results": "Matches for {label}",
+    "noMatch": "Nothing matches.",
+    "clear": "Clear",
+    "clearLabel": "Clear {label}",
+    "gone": "This room's packs no longer have that entry.",
+    "readFailed": "Couldn't read the room's packs.",
+    "level": "Level {level}"
   },
   "notebook": {
     "entries": "Revealed",

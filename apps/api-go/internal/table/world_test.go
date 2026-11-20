@@ -67,17 +67,30 @@ func TestTheRoomRunnerPinsTheirOwnWorldAndEverySeatReadsIt(t *testing.T) {
 			if theme["texture"] != "paper" {
 				t.Fatalf("%s reads the theme as stored: %v", name, theme)
 			}
+			if w["handouts"] != nil {
+				t.Fatalf("%s reads no handout layouts from a World without them: %v", name, w["handouts"])
+			}
 			if got := p.seatView(seat).State.Campaign.WorldVersionID; got == nil || *got != first {
 				t.Fatalf("%s's state names the pinned World: %v", name, got)
 			}
 		}
 
 		// Changed mid-session (the play room has one running), and to the same version again.
-		second := p.importWorld(p.room.Owner, "tide", "1.1.0")
+		// This one offers two handout layouts (house decision #72), read by every seat with the World.
+		doc := map[string]any{"id": "tide", "version": "1.1.0", "core": "^1.0.0", "name": "Tide",
+			"theme":    map[string]any{"schemes": map[string]any{"dark": map[string]any{}}},
+			"handouts": map[string]any{"layouts": []any{"form", "plain"}, "names": map[string]any{"form": "Ledger"}}}
+		second := dbtest.Must[*world.Imported](t)(world.ImportTx(context.Background(), tx, p.room.Owner, doc)).VersionID
 		p.send(gm, setWorld(second))
 		p.send(gm, setWorld(second))
 		if w := p.served(player); w == nil || w["versionId"] != second {
 			t.Fatalf("the new version is served: %v", w)
+		}
+		for _, seat := range []cs.Ctx{player, screen} {
+			want := `{"layouts":["form","plain"],"names":{"form":"Ledger"}}`
+			if got, _ := json.Marshal(p.served(seat)["handouts"]); string(got) != want {
+				t.Fatalf("handouts: want %s, got %s", want, got)
+			}
 		}
 
 		// A seat of another room reads that room's rules, which have no World.

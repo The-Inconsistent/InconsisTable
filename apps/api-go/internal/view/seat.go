@@ -43,15 +43,16 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 	if c.UserID != nil {
 		myDraft = snapshot.Drafts[*c.UserID]
 	}
+	fielded := seatEntryFields(snapshot.Codex, compiled, sight.Secrets)
 	if sight.All {
 		state := snapshot.State
 		state.MyDraft = myDraft
 		state.Pools = seatPools(state.Pools, compiled, c)
-		return SeatView{state, snapshot.Codex}
+		return SeatView{state, fielded}
 	}
 	state := seatState(snapshot.State, compiled, c, sight)
 	state.MyDraft = myDraft
-	codex := seatCodex(snapshot.Codex, c, sight)
+	codex := seatCodex(fielded, c, sight)
 	state.Clocks = seatClocks(state.Clocks, codex, sight)
 	state.Requests, state.RequestAnswers = seatRequests(state.Requests, state.RequestAnswers, c, sight)
 	state.Rolls, state.Dealt = seatTables(state.Rolls, state.Dealt, c, sight)

@@ -79,6 +79,20 @@ export const ActorLedger = z.object({
 });
 export type ActorLedger = z.infer<typeof ActorLedger>;
 
+/**
+ * A record an actor holds (house decision #88): its kind, the pack entry's key, name and cite, and its effects as the
+ * sheet words them. For a seat that may not read a kind's names, `name` is the kind's unseen word and `key` and `cite`
+ * are null.
+ */
+export const HeldRecord = z.object({
+  kind: z.string(),
+  key: z.string().nullable(),
+  name: z.string(),
+  cite: z.string().nullable(),
+  effects: z.array(z.object({ path: z.string(), mode: z.string(), value: z.string(), phase: z.string() })),
+});
+export type HeldRecord = z.infer<typeof HeldRecord>;
+
 export const Actor = ActorBrief.extend({
   // The ruleset's values. The api filters them per seat with the rules engine's `toViewerView` (a GM seat gets them
   // whole); empty until a ruleset is pinned and the actor has an entity type.
@@ -89,6 +103,8 @@ export const Actor = ActorBrief.extend({
   conditions: z.array(z.string()), // active condition ids
   // Their durations, for the conditions this viewer sees (the same visibility as the condition itself).
   conditionTimers: z.array(ConditionTimer),
+  // The records it holds (house decision #88), as this seat may read them; absent from an older api.
+  held: z.array(HeldRecord).optional(),
   // The saved ledger build, sheet and draft, for the GM side and a seat holding this character; null for everyone else,
   // and for an actor not built with the ledger builder.
   ledger: ActorLedger.nullable(),

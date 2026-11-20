@@ -29,5 +29,6 @@ complete enough that a medium-effort model never has to re-derive a decision.
 
 ## After it reports
 
-Verify independently before relaying: rerun the gates (and smoke on a fresh database) on the agent's branch, then
-cherry-pick or merge into the target branch. Relay the outcome to the user, not the agent's wording.
+Verify independently before relaying: have the gates rerun (and smoke on a fresh database) on the agent's branch, by a
+Haiku subagent given the exact commands and asked only for pass or fail per gate, the counts and any failing output;
+then cherry-pick or merge into the target branch. Relay the outcome to the user, not the agent's wording.

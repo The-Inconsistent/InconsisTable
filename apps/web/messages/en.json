@@ -1692,7 +1692,8 @@
       "wealthNote": "{xp} XP a point, up to {max}. Wealth on the sheet: {now}.",
       "wealthLess": "Buy one less Wealth",
       "wealthMore": "Buy one more Wealth",
-      "wealthBought": "{count} Wealth bought"
+      "wealthBought": "{count} Wealth bought",
+      "held": { "picks": "Taken free", "bought": "Bought", "learned": "Learned in play" }
     },
     "gm": {
       "title": "The GM's rulings",

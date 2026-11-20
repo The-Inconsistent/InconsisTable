@@ -1692,7 +1692,8 @@
       "wealthNote": "{xp} XP mỗi điểm, tối đa {max}. Wealth trên sheet: {now}.",
       "wealthLess": "Mua bớt một Wealth",
       "wealthMore": "Mua thêm một Wealth",
-      "wealthBought": "Đã mua {count} Wealth"
+      "wealthBought": "Đã mua {count} Wealth",
+      "held": { "picks": "Đã lấy miễn phí", "bought": "Đã mua", "learned": "Học trong game" }
     },
     "gm": {
       "title": "Quyết định của GM",

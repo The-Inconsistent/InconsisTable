@@ -667,6 +667,48 @@ export function setLanguage({
   if (way === "bought") bought.push(name);
   return { ...build, languages: { picks, bought } };
 }
+// A tap on a language's Free or Buy: takes it that way (moving it from the other), or gives it back on a second tap.
+export function tapLanguage({ build, name, way }: { build: LedgerBuild; name: string; way: LanguageWay }) {
+  const now = languageWayOf({ build, name });
+  return setLanguage({ build, name, way: now === way ? null : way });
+}
+// How a language is held: free, bought at creation, learned in play, or not at all.
+export function languageWayOf({ build, name }: { build: LedgerBuild; name: string }): LanguageWay | "learned" | null {
+  if (build.languages?.picks?.includes(name)) return "picks";
+  if (build.languages?.bought?.includes(name)) return "bought";
+  return build.advancement?.languages?.includes(name) ? "learned" : null;
+}
+// The languages part of DETAIL, as `resolveBuild` reads it: how many free picks are owed (its "languages" item), and per
+// language how it is held and whether Free can be taken. A free pick must come from the keywords unless something grants
+// more languages than the keywords give (then any may be free); with no free pick owed, Free only gives one back.
+export function languageRows({
+  params,
+  catalogue,
+  build,
+  resolved,
+}: {
+  params: BuildParams;
+  catalogue: BuildCatalogue;
+  build: LedgerBuild;
+  resolved: ResolvedBuild;
+}) {
+  const keywords = new Set(resolved.sheet.keywords);
+  const qualifies = (l: { keywords: readonly string[] }) => l.keywords.some((k) => keywords.has(k));
+  const owed = resolved.pending.find((p) => p.path === "languages")?.choose ?? 0;
+  const picks = build.languages?.picks ?? [];
+  // the engine's allowance is the picks plus what is owed; past the keywords' own it comes from a grant
+  const keywordsOnly =
+    catalogue.creation.languages.some(qualifies) && picks.length + owed <= params.languages.freeFromKeywords;
+  const rows = catalogue.creation.languages.flatMap((l) => {
+    const way = languageWayOf({ build, name: l.id });
+    if (!offered({ params, catalogue, source: l.source, taken: way !== null })) return [];
+    const canFree = way === "picks" || (way !== "learned" && owed > 0 && (!keywordsOnly || qualifies(l)));
+    return [{ language: l, way, canFree }];
+  });
+  const known = new Set(catalogue.creation.languages.map((l) => l.id));
+  const writtenIn = [...picks, ...(build.languages?.bought ?? [])].filter((l) => !known.has(l));
+  return { owed, rows, writtenIn };
+}
 export const toggleLearnedLanguage = ({ build, name }: { build: LedgerBuild; name: string }): LedgerBuild => ({
   ...build,
   advancement: { ...build.advancement, languages: toggle(build.advancement?.languages ?? [], name) },

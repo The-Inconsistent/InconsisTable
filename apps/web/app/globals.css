@@ -1464,6 +1464,11 @@ summary {
 .lb-taken > .lb-row-text {
   flex: 1 1 160px;
 }
+/* a language held (free, bought or learned): an edge as well as the word */
+.lb-taken:is([data-state="picks"], [data-state="bought"], [data-state="learned"]) {
+  padding-left: 10px;
+  box-shadow: inset 4px 0 0 var(--accent);
+}
 .lb-rating .stepper .btn {
   min-height: var(--tap);
 }

@@ -11,6 +11,7 @@ import { compileExpr, type CompiledExpr } from "./expr/expr.ts";
 import {
   validateRuleset,
   type Condition,
+  type Effect,
   type EntityType,
   type FieldDef,
   type RankedInitiative,
@@ -34,8 +35,20 @@ export interface CompiledDerived {
   deps: string[];
 }
 
+/** What an actor holds from a pack: the entry it chose and what it adds (house decision #61). */
+export interface ActiveEntry {
+  type: string;
+  key: string;
+  name: string;
+  effects: readonly Effect[];
+}
+
+/** An entry's source id in the §4.4 order: `<type>/<key>`. */
+export const entrySourceId = (e: Pick<ActiveEntry, "type" | "key">): string => `${e.type}/${e.key}`;
+
 export interface CompiledEffect {
-  conditionId: string;
+  /** The condition id, or `<type>/<key>` of the entry the effect comes from. */
+  sourceId: string;
   phase: EffectPhase;
   mode: EffectMode;
   /** Field id (phase base) or derived id (phase derived). */
@@ -45,13 +58,17 @@ export interface CompiledEffect {
   when: CompiledExpr | null;
 }
 
+/** §4.4 order: priority, then source id. Callers sort stably, so declaration order holds within one source. */
+export const byOrder = (a: CompiledEffect, b: CompiledEffect): number =>
+  a.priority - b.priority || (a.sourceId < b.sourceId ? -1 : a.sourceId > b.sourceId ? 1 : 0);
+
 export interface CompiledEntity {
   def: EntityType;
   /** Entity-scoped resources this entity carries. */
   resources: string[];
   /** Topological order: each one comes after everything it reads. */
   derived: CompiledDerived[];
-  /** Application order (§4.4): priority, then condition id, then declaration order. */
+  /** Conditions' effects, in application order (§4.4): priority, then source id, then declaration order. */
   effects: CompiledEffect[];
   scope: ExprScope;
 }
@@ -341,77 +358,130 @@ class Compiler {
     return { def: e, resources: [...carried.keys()], derived, effects: [], scope };
   }
 
+  /**
+   * One effect of a condition or a pack entry against the actor types `pool` that may host it. Returns the compiled
+   * effect for each host it holds for; problems are recorded, and an effect that fails compiles to nothing.
+   */
+  private effect({
+    eff,
+    path,
+    sourceId,
+    sourceVisibility,
+    pool,
+    entities,
+    noHost,
+  }: {
+    eff: Effect;
+    path: string;
+    sourceId: string;
+    /** How hidden the source itself is: an effect shows that its source is on, like an input. */
+    sourceVisibility: Visibility;
+    pool: readonly EntityType[];
+    entities: Record<string, CompiledEntity>;
+    noHost: string;
+  }): { host: CompiledEntity; effect: CompiledEffect }[] {
+    const target = eff.phase === "derived" ? eff.path.replace(/^derived\./, "") : eff.path;
+    if (eff.phase === "derived" && !eff.path.startsWith("derived.")) {
+      this.problems.push({ path: `${path}.path`, message: 'a derived-phase effect targets "derived.<id>"' });
+      return [];
+    }
+    // An effect applies to the actor types that have its target; it must reach at least one. Hosts come from
+    // the definitions, so an entity that failed to compile (already reported) does not cascade a second error.
+    const declared = pool.filter((e) =>
+      eff.phase === "derived" ? e.derived.some((d) => d.id === target) : own(e.fields, target)?.type === "int",
+    );
+    if (declared.length === 0) {
+      this.problems.push({ path: `${path}.path`, message: noHost });
+      return [];
+    }
+    const hosts = declared.flatMap((e) => {
+      const ce = own(entities, e.id);
+      return ce === undefined ? [] : [ce];
+    });
+    if (hosts.length === 0) return [];
+    // Base effects run before derived values exist, so they cannot read them.
+    const scopes = hosts.map((h) =>
+      eff.phase === "base" ? this.entityScope(h.def, { derived: false, res: true }) : h.scope,
+    );
+    const value = this.expr({ source: eff.value, scopes, expect: "int", path: `${path}.value` });
+    const when =
+      eff.when === undefined ? null : this.expr({ source: eff.when, scopes, expect: "bool", path: `${path}.when` });
+    if (value === null || (eff.when !== undefined && when === null)) return [];
+    const out: { host: CompiledEntity; effect: CompiledEffect }[] = [];
+    for (const h of hosts) {
+      // Same rule as a derived value: the target shows the effect's inputs and that its source is on, so it
+      // must be at least as hidden as all of them.
+      const targetVis =
+        eff.phase === "derived"
+          ? (h.derived.find((d) => d.id === target)?.visibility ?? "gm")
+          : (own(h.def.fields, target)?.visibility ?? "gm");
+      const derivedVis = new Map(h.derived.map((d) => [d.id, d.visibility]));
+      const carried = new Map([...this.resources].filter(([, x]) => carries(x, h.def)));
+      const refs = [...value.refs, ...(when?.refs ?? [])];
+      const taint = strictestVisibility([
+        sourceVisibility,
+        ...refs.map((ref) => pathVisibility({ ref, entity: h.def, resources: carried, derived: derivedVis })),
+      ]);
+      if (VISIBILITY_RANK[targetVis] < VISIBILITY_RANK[taint]) {
+        this.problems.push({
+          path: `${path}.path`,
+          message: `"${eff.path}" on ${h.def.id} is "${targetVis}" but the effect reveals "${taint}" values`,
+        });
+        continue;
+      }
+      out.push({
+        host: h,
+        effect: { sourceId, phase: eff.phase, mode: eff.mode, target, priority: eff.priority ?? 0, value, when },
+      });
+    }
+    return out;
+  }
+
+  /** Entries' effects against the actor types `pool`; the problems carry `pathOf(entry index, effect index)`. */
+  entryEffects({
+    entries,
+    pool,
+    entities,
+    pathOf,
+  }: {
+    entries: readonly ActiveEntry[];
+    pool: readonly EntityType[];
+    entities: Record<string, CompiledEntity>;
+    pathOf: (entry: number, effect: number) => string;
+  }): { host: CompiledEntity; effect: CompiledEffect }[] {
+    return entries.flatMap((entry, i) =>
+      entry.effects.flatMap((eff, j) =>
+        this.effect({
+          eff,
+          path: pathOf(i, j),
+          sourceId: entrySourceId(entry),
+          // The entry's own visibility is who may read its page; what it adds to a number is the same for every seat.
+          sourceVisibility: "public",
+          pool,
+          entities,
+          noHost: `${pool.map((e) => e.id).join(", ")} has no integer "${eff.path}"`,
+        }),
+      ),
+    );
+  }
+
   private effects(entities: Record<string, CompiledEntity>): void {
     this.r.conditions.forEach((cond, i) => {
       cond.effects.forEach((eff, j) => {
-        const path = `conditions[${i}].effects[${j}]`;
-        const target = eff.phase === "derived" ? eff.path.replace(/^derived\./, "") : eff.path;
-        if (eff.phase === "derived" && !eff.path.startsWith("derived.")) {
-          this.problems.push({ path: `${path}.path`, message: 'a derived-phase effect targets "derived.<id>"' });
-          return;
-        }
-        // An effect applies to the actor types that have its target; it must reach at least one. Hosts come from
-        // the definitions, so an entity that failed to compile (already reported) does not cascade a second error.
-        const declared = this.actorEntities().filter((e) =>
-          eff.phase === "derived" ? e.derived.some((d) => d.id === target) : own(e.fields, target)?.type === "int",
-        );
-        if (declared.length === 0) {
-          this.problems.push({ path: `${path}.path`, message: `no actor has an integer "${eff.path}"` });
-          return;
-        }
-        const hosts = declared.flatMap((e) => {
-          const ce = own(entities, e.id);
-          return ce === undefined ? [] : [ce];
+        const hits = this.effect({
+          eff,
+          path: `conditions[${i}].effects[${j}]`,
+          sourceId: cond.id,
+          sourceVisibility: cond.visibility,
+          pool: this.actorEntities(),
+          entities,
+          noHost: `no actor has an integer "${eff.path}"`,
         });
-        if (hosts.length === 0) return;
-        // Base effects run before derived values exist, so they cannot read them.
-        const scopes = hosts.map((h) =>
-          eff.phase === "base" ? this.entityScope(h.def, { derived: false, res: true }) : h.scope,
-        );
-        const value = this.expr({ source: eff.value, scopes, expect: "int", path: `${path}.value` });
-        const when =
-          eff.when === undefined ? null : this.expr({ source: eff.when, scopes, expect: "bool", path: `${path}.when` });
-        if (value === null || (eff.when !== undefined && when === null)) return;
-        for (const h of hosts) {
-          // Same rule as a derived value: the target shows the effect's inputs and that the condition is on, so it
-          // must be at least as hidden as all of them.
-          const targetVis =
-            eff.phase === "derived"
-              ? (h.derived.find((d) => d.id === target)?.visibility ?? "gm")
-              : (own(h.def.fields, target)?.visibility ?? "gm");
-          const derivedVis = new Map(h.derived.map((d) => [d.id, d.visibility]));
-          const carried = new Map([...this.resources].filter(([, x]) => carries(x, h.def)));
-          const refs = [...value.refs, ...(when?.refs ?? [])];
-          const taint = strictestVisibility([
-            cond.visibility,
-            ...refs.map((ref) => pathVisibility({ ref, entity: h.def, resources: carried, derived: derivedVis })),
-          ]);
-          if (VISIBILITY_RANK[targetVis] < VISIBILITY_RANK[taint]) {
-            this.problems.push({
-              path: `${path}.path`,
-              message: `"${eff.path}" on ${h.def.id} is "${targetVis}" but the effect reveals "${taint}" values`,
-            });
-            continue;
-          }
-          h.effects.push({
-            conditionId: cond.id,
-            phase: eff.phase,
-            mode: eff.mode,
-            target,
-            priority: eff.priority ?? 0,
-            value,
-            when,
-          });
-        }
+        for (const { host, effect } of hits) host.effects.push(effect);
       });
     });
     // Stable sort keeps declaration order within one condition.
-    for (const ce of Object.values(entities)) {
-      ce.effects.sort(
-        (a, b) =>
-          a.priority - b.priority || (a.conditionId < b.conditionId ? -1 : a.conditionId > b.conditionId ? 1 : 0),
-      );
-    }
+    for (const ce of Object.values(entities)) ce.effects.sort(byOrder);
   }
 
   private resource(x: Resource, i: number): CompiledResource | null {
@@ -584,4 +654,50 @@ export function compileRuleset(input: unknown): CompileResult {
   const compiler = new Compiler(valid.ruleset);
   const compiled = compiler.run();
   return compiled === null ? { ok: false, problems: compiler.problems } : { ok: true, compiled };
+}
+
+/**
+ * The compiled effects of the entries an actor of type `entity` chose, against that type alone. An effect that does
+ * not compile for it (the pack was written for another version) contributes nothing, never an error.
+ */
+export function compileEntryEffects({
+  compiled,
+  entity,
+  entries,
+}: {
+  compiled: CompiledRuleset;
+  entity: string;
+  entries: readonly ActiveEntry[];
+}): CompiledEffect[] {
+  const def = own(compiled.entities, entity)?.def;
+  if (def === undefined || entries.length === 0) return [];
+  const hits = new Compiler(compiled.ruleset).entryEffects({
+    entries,
+    pool: [def],
+    entities: compiled.entities,
+    pathOf: () => "",
+  });
+  return hits.map((h) => h.effect);
+}
+
+/**
+ * Problems of the effects of `entries` against every actor type in `pool` (the ones a `choose` step picks them
+ * for); `pathOf` places each one in the pack. Empty when the ruleset does not compile (it was refused on import).
+ */
+export function entryEffectProblems({
+  ruleset,
+  entries,
+  pool,
+  pathOf,
+}: {
+  ruleset: Ruleset;
+  entries: readonly ActiveEntry[];
+  pool: readonly EntityType[];
+  pathOf: (entry: number, effect: number) => string;
+}): Problem[] {
+  const compiled = compileRuleset(ruleset);
+  if (!compiled.ok) return [];
+  const compiler = new Compiler(compiled.compiled.ruleset);
+  compiler.entryEffects({ entries, pool, entities: compiled.compiled.entities, pathOf });
+  return compiler.problems;
 }

@@ -13,6 +13,7 @@ const (
 	MaxPackBytes      = 5 * 1024 * 1024
 	MaxPackEntries    = 5000
 	MaxEntryBodyBytes = 16 * 1024
+	MaxEntryEffects   = 20
 	// A text value in a private pack longer than this draws a warning: it is probably copied, not summarised.
 	privateTextWarnChars = 280
 )
@@ -26,6 +27,7 @@ var packEntrySchema = schema.Object(
 	schema.Opt("cite", citeSchema),
 	schema.Def("visibility", schema.Enum("public", "party", "gm"), "gm"),
 	schema.Def("body", schema.Record(fieldIDSchema, fieldValueInput), map[string]any{}),
+	schema.Def("effects", schema.Array(effectSchema).Max(MaxEntryEffects), []any{}),
 )
 
 var packSchema = schema.Object(
@@ -48,6 +50,8 @@ type PackEntry struct {
 	Cite       *string        `json:"cite"`
 	Visibility string         `json:"visibility"`
 	Body       map[string]any `json:"body"`
+	// Effects is what an actor that chose the entry gets in its numbers (house decision #61).
+	Effects []Effect `json:"effects"`
 }
 
 // Pack is a parsed pack. Normalized is the same document as decoded JSON, defaults applied.
@@ -86,6 +90,7 @@ func (p *Pack) semanticProblems(r *Ruleset) (found, warnings problems) {
 		}
 	}
 	seen := map[string]bool{}
+	withEffects := map[string][]int{} // entry type → indices of its entries that have effects
 	for i, entry := range p.Entries {
 		at := fmt.Sprintf("entries[%d]", i)
 		if seen[entry.Key] {
@@ -103,6 +108,9 @@ func (p *Pack) semanticProblems(r *Ruleset) (found, warnings problems) {
 			found.add(at+".type", `unknown entity "%s"`, entry.Type)
 			continue
 		}
+		if len(entry.Effects) > 0 {
+			withEffects[entry.Type] = append(withEffects[entry.Type], i)
+		}
 		for _, field := range sortedKeys(entry.Body) {
 			path := at + ".body." + field
 			def, ok := entity.Fields[field]
@@ -119,6 +127,31 @@ func (p *Pack) semanticProblems(r *Ruleset) (found, warnings problems) {
 				}
 			}
 		}
+	}
+	// Effects hold for every actor type that picks the entry's type in a choose step.
+	for _, typ := range sortedKeys(withEffects) {
+		list := withEffects[typ]
+		var pool []*EntityType
+		for k := range r.Entities {
+			e := &r.Entities[k]
+			if slices.ContainsFunc(r.Creation, func(s CreationStep) bool { return s.Kind == "choose" && s.Pick == typ && s.Actor == e.ID }) {
+				pool = append(pool, e)
+			}
+		}
+		if len(pool) == 0 {
+			for _, i := range list {
+				found.add(fmt.Sprintf("entries[%d].effects", i), `nothing chooses a "%s", so these could never apply`, typ)
+			}
+			continue
+		}
+		entries := make([]ActiveEntry, len(list))
+		for k, i := range list {
+			e := p.Entries[i]
+			entries[k] = ActiveEntry{Type: e.Type, Key: e.Key, Name: e.Name, Effects: e.Effects}
+		}
+		found = append(found, entryEffectProblems(r, entries, pool, func(k, j int) string {
+			return fmt.Sprintf("entries[%d].effects[%d]", list[k], j)
+		})...)
 	}
 	sourceIDs := map[string]bool{}
 	for i, s := range p.Sources {

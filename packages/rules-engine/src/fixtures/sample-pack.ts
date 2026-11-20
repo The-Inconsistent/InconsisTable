@@ -49,3 +49,29 @@ export const SAMPLE_PACK: PackInput = {
     },
   ],
 };
+
+/** Two entries whose effects reach an actor that chose them (house decision #61); a pack beside the plain sample. */
+export const SAMPLE_PACK_EFFECTS: PackInput = {
+  ...SAMPLE_PACK,
+  id: "sample-boons",
+  entries: [
+    {
+      key: "swift-blood",
+      type: "lineage",
+      name: "Swift Blood",
+      cite: "Sample p.12",
+      visibility: "public",
+      body: { size: "small" },
+      effects: [{ path: "attr.dex", mode: "add", value: "2", phase: "base" }],
+    },
+    {
+      key: "shield-arm",
+      type: "calling",
+      name: "Shield Arm",
+      cite: "Sample p.13",
+      visibility: "public",
+      body: { guardBase: 3 },
+      effects: [{ path: "derived.defense", mode: "add", value: "3", phase: "derived" }],
+    },
+  ],
+};

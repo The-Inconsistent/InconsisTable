@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
@@ -91,6 +92,8 @@ type rulesEntry struct {
 	Cite       *string        `json:"cite"`
 	Visibility string         `json:"visibility"`
 	Body       map[string]any `json:"body"`
+	// Effects is what an actor that chose the entry gets in its numbers; [] when none.
+	Effects json.RawMessage `json:"effects"`
 }
 
 type rulesRuleset struct {
@@ -139,7 +142,7 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 
 	rows, err := conn.Query(ctx, `SELECT pack_version.id::text, pack.slug, pack_version.version, pack.license, pack.attribution
 		FROM campaign_pack JOIN pack_version ON pack_version.id = campaign_pack.pack_version_id
-		JOIN pack ON pack.id = pack_version.pack_id WHERE `+ServedPacks("$1")+` ORDER BY pack.slug ASC`, c.CampaignID)
+		JOIN pack ON pack.id = pack_version.pack_id WHERE `+actor.ServedPacks("$1")+` ORDER BY pack.slug ASC`, c.CampaignID)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +180,7 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 		return nil, err
 	}
 	args = append(args, query.Limit, query.Offset)
-	entries, err := conn.Query(ctx, `SELECT pack_version_id::text, key, type, name, level, tags, cite, visibility, body FROM pack_entry
+	entries, err := conn.Query(ctx, `SELECT pack_version_id::text, key, type, name, level, tags, cite, visibility, body, effects FROM pack_entry
 		WHERE `+where+fmt.Sprintf(` ORDER BY type ASC, name ASC, key ASC LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, err
@@ -188,7 +191,7 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 		var packVersion string
 		var level *int32
 		var body []byte
-		if err := entries.Scan(&packVersion, &e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body); err != nil {
+		if err := entries.Scan(&packVersion, &e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body, &e.Effects); err != nil {
 			return nil, err
 		}
 		e.Pack = slugOf[packVersion]

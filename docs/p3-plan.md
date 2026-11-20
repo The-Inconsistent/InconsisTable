@@ -55,7 +55,7 @@ Viết thử ruleset bậc 1 và chạy qua validator hiện tại, để danh s
 | 1 | Test và trạng thái máu bị kiểm tra với **mọi** loại actor. Test chỉ Agent mới gieo (đọc `derived.conviction`) làm manifest bị từ chối ngay khi có loại actor thứ hai | Bỏ hẳn entity Threat khỏi bậc 1 | **Đã sửa** (house decision #50): `tests.<id>.entities` và `health.states[].entities`, như `resources[].entities` đã có |
 | 2 | Phòng có nhân vật đã dựng không đổi được sang phiên bản khác của ruleset (`charactersUseOtherVersion`) | Không sửa được ruleset khi bàn đã chơi | **Đã sửa một nửa** (house decision #51): phòng chuyển được sang phiên bản mà mọi giá trị đang lưu vẫn hợp lệ. Phiên bản đổi tên hoặc bỏ thứ đang dùng vẫn chờ migration có khai báo (design §4.5) |
 | 3 | Không có field cấp campaign (Tier) | Mỗi sheet tự ghi Tier | `campaignFields` trong manifest + `campaign_option` (design §5.4) |
-| 4 | Effect chỉ gắn được vào Condition. Bonus từ Species, Talent, giáp, Mutation không có chỗ khai | GM gõ 11 ô `mod.*` | Entry của pack mang `effects`, áp theo thứ tự của design §4.4 |
+| 4 | Effect chỉ gắn được vào Condition. Bonus từ Species, Talent, giáp, Mutation không có chỗ khai | GM gõ 11 ô `mod.*` | **Đã sửa** (house decision #61): entry của pack mang `effects`; actor đã chọn entry đó trong bước `choose` được áp chúng cùng effect của Condition, theo thứ tự của design §4.4 |
 | 5 | `initiative` chỉ có `ranked` và `seated` | Không khai `initiative`, nên `encounter.start` bị từ chối: chưa có trận | Primitive xếp lượt luân phiên theo phe, có Seize |
 | 6 | `health.tracks` đếm xuống. Wounds và Shock đếm lên và vượt trần | Khai là resource `capped: false` và bốn `health.states`; không có luật khi trúng đòn | Primitive máu đếm lên (Dying, Traumatic Injury, Annihilation, Exhausted đổi Shock thành Wounds) |
 | 7 | House decision #23: resource có trần khởi đầu ở trần | Wounds khởi đầu bằng Max Wounds, GM phải kéo về 0 | **Đã sửa** (house decision #52): resource khai giá trị khởi đầu (`start`) |
@@ -106,7 +106,7 @@ Mỗi bước một PR, xong bằng test của nó. Bậc sau chỉ bắt đầu
 
 ### Bậc 3. Builder và dữ liệu
 
-1. Entry mang effect (thiếu 4).
+1. Entry mang effect (thiếu 4). **Đã làm** (house decision #61); preview của builder chưa dùng chúng.
 2. Schema pack cho catalogue tạo nhân vật (Species, Archetype, Talent, Keyword, power, package) và wargear, **dừng để
    duyệt schema**, rồi script chuyển.
 3. Primitive sổ XP (thiếu 13): manifest khai bảng giá và các bước; engine giữ sổ. Đích: 11 pregen ra đúng sheet và sổ.

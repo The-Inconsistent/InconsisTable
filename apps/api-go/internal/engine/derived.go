@@ -14,6 +14,9 @@ type ActorValues struct {
 	Resources map[string]float64
 	// Conditions holds active condition ids; their effects apply in design order.
 	Conditions []string
+	// Entries holds the pack entries the actor chose (house decision #61); their effects apply with the conditions',
+	// in design order.
+	Entries []ActiveEntry
 	// Characters is party.characters.
 	Characters float64
 	// Campaign holds the campaign's field values (campaign.danger) as CampaignValues gives them; nil leaves campaign
@@ -133,16 +136,24 @@ func applyMode(mode string, current, value float64) float64 {
 	return value // override
 }
 
-// An effect applies once per active condition, whatever its stacks.
+// The conditions' effects that are active and the chosen entries', in design order. An effect applies once per active
+// condition, whatever its stacks.
 //
-// ponytail: no per-stack scaling, add it when a ruleset declares one.
-func activeEffects(effects []CompiledEffect, conditions []string) []CompiledEffect {
+// ponytail: no per-stack scaling, add it when a ruleset declares one. Entry effects compile on every call; cache by
+// entry when a profile shows it.
+func (c *CompiledRuleset) activeEffects(entity string, ce *CompiledEntity, values ActorValues) []CompiledEffect {
 	var out []CompiledEffect
-	for _, e := range effects {
-		if slices.Contains(conditions, e.ConditionID) {
+	for _, e := range ce.Effects {
+		if slices.Contains(values.Conditions, e.SourceID) {
 			out = append(out, e)
 		}
 	}
+	fromEntries := c.compileEntryEffects(entity, values.Entries)
+	if len(fromEntries) == 0 {
+		return out
+	}
+	out = append(out, fromEntries...)
+	slices.SortStableFunc(out, compareEffects)
 	return out
 }
 
@@ -180,7 +191,7 @@ func (c *CompiledRuleset) ApplyBaseEffects(entity string, values ActorValues) (m
 	for k, v := range values.Fields {
 		fields[k] = v
 	}
-	for _, eff := range activeEffects(ce.Effects, values.Conditions) {
+	for _, eff := range c.activeEffects(entity, ce, values) {
 		if eff.Phase != "base" {
 			continue
 		}
@@ -233,7 +244,7 @@ func (c *CompiledRuleset) DeriveValues(entity string, values ActorValues) (map[s
 		out[d.ID] = n
 		live.Fields[d.ID] = n
 	}
-	for _, eff := range activeEffects(ce.Effects, values.Conditions) {
+	for _, eff := range c.activeEffects(entity, ce, values) {
 		current, known := out[eff.Target]
 		if eff.Phase != "derived" || !known {
 			continue

@@ -1,8 +1,20 @@
 import { z } from "zod";
 
+import { entryEffectProblems } from "./compile.ts";
 import { ATTRIBUTION_LICENSES, EntryVisibility, PackLicense } from "./enums.ts";
 import { checkFieldValue, FieldValueInput } from "./field-value.ts";
-import { byteSize, Cite, FieldId, Id, RulesetId, SemVer, SemVerRange, Source, type Ruleset } from "./manifest.ts";
+import {
+  byteSize,
+  Cite,
+  Effect,
+  FieldId,
+  Id,
+  RulesetId,
+  SemVer,
+  SemVerRange,
+  Source,
+  type Ruleset,
+} from "./manifest.ts";
 import { own } from "./own.ts";
 import { formatPath, type Problem } from "./problem.ts";
 
@@ -12,6 +24,8 @@ export const MAX_PACK_ENTRIES = 5000;
 export const MAX_ENTRY_BODY_BYTES = 16 * 1024;
 /** A text value in a `private` pack longer than this draws a warning: it is probably copied, not summarised. */
 export const PRIVATE_TEXT_WARN_CHARS = 280;
+
+export const MAX_ENTRY_EFFECTS = 20;
 
 export const PackId = RulesetId;
 /** Unique within a pack; the importer namespaces it as `pack:key`. */
@@ -33,6 +47,11 @@ export const PackEntry = z.object({
   visibility: EntryVisibility.default("gm"),
   /** Field values, keyed by the entity type's field ids, checked against their `FieldDef`. */
   body: z.record(FieldId, FieldValueInput).default({}),
+  /**
+   * What an actor that chose this entry in a `choose` step gets in its numbers (house decision #61). Cited by the
+   * entry's own cite unless an effect has one.
+   */
+  effects: z.array(Effect).max(MAX_ENTRY_EFFECTS).default([]),
 });
 export type PackEntry = z.infer<typeof PackEntry>;
 
@@ -73,6 +92,7 @@ function semanticProblems({ pack, ruleset }: { pack: Pack; ruleset: Ruleset }): 
 
   const exempt = citeExempt({ pack, ruleset });
   const seen = new Set<string>();
+  const withEffects = new Map<string, { entry: PackEntry; at: string }[]>();
   pack.entries.forEach((entry, i) => {
     const at = `entries[${i}]`;
     if (seen.has(entry.key)) problems.push({ path: `${at}.key`, message: `duplicate key "${entry.key}"` });
@@ -88,6 +108,7 @@ function semanticProblems({ pack, ruleset }: { pack: Pack; ruleset: Ruleset }): 
       problems.push({ path: `${at}.type`, message: `unknown entity "${entry.type}"` });
       return;
     }
+    if (entry.effects.length > 0) withEffects.set(entry.type, [...(withEffects.get(entry.type) ?? []), { entry, at }]);
     for (const [field, value] of Object.entries(entry.body)) {
       const def = own(entity.fields, field);
       if (def === undefined) {
@@ -105,6 +126,24 @@ function semanticProblems({ pack, ruleset }: { pack: Pack; ruleset: Ruleset }): 
       }
     }
   });
+  // Effects hold for every actor type that picks the entry's type in a `choose` step.
+  for (const [type, list] of withEffects) {
+    const pickers = new Set(ruleset.creation.flatMap((c) => (c.kind === "choose" && c.pick === type ? [c.actor] : [])));
+    const pool = ruleset.entities.filter((e) => pickers.has(e.id));
+    if (pool.length === 0) {
+      for (const { at } of list)
+        problems.push({ path: `${at}.effects`, message: `nothing chooses a "${type}", so these could never apply` });
+      continue;
+    }
+    problems.push(
+      ...entryEffectProblems({
+        ruleset,
+        entries: list.map((l) => l.entry),
+        pool,
+        pathOf: (i, j) => `${list[i]?.at ?? ""}.effects[${j}]`,
+      }),
+    );
+  }
   const sourceIds = new Set<string>();
   pack.sources.forEach((s, i) => {
     if (sourceIds.has(s.id)) problems.push({ path: `sources[${i}].id`, message: `duplicate id "${s.id}"` });

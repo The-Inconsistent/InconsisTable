@@ -66,7 +66,11 @@ export function canonicalJson(value: unknown): string {
  * content hashes the same. Takes a parsed entry (defaults applied), so an omitted default and a written one agree.
  */
 export function contentHash(entry: PackEntry): string {
-  return sha256Hex(canonicalJson({ ...entry, tags: [...entry.tags].sort() }));
+  // An entry with no effects hashes as before effects existed, so a stored hash stays valid.
+  const { effects, ...rest } = entry;
+  return sha256Hex(
+    canonicalJson({ ...rest, ...(effects.length > 0 ? { effects } : {}), tags: [...entry.tags].sort() }),
+  );
 }
 
 export interface PackDiff {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core/dbtest"
 )
 
@@ -25,7 +26,7 @@ func TestAPrivatePackIsServedOnlyWhereItsOwnerRunsTheRoom(t *testing.T) {
 		}
 		served := func() int {
 			return dbtest.Scalar[int](t, tx, `SELECT count(*) FROM campaign_pack JOIN pack_version ON pack_version.id = campaign_pack.pack_version_id
-				JOIN pack ON pack.id = pack_version.pack_id WHERE `+ServedPacks("$1"), room.ID)
+				JOIN pack ON pack.id = pack_version.pack_id WHERE `+actor.ServedPacks("$1"), room.ID)
 		}
 		attach(room.Owner)
 		if served() != 1 {

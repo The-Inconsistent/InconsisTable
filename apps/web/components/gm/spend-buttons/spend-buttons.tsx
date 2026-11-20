@@ -3,14 +3,15 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 
 import type { Actor, LiveState } from "@inconsistable/core-schema";
-import type { CompiledRuleset } from "@inconsistable/rules-engine";
+import type { CompiledRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import type { Send } from "@/hooks/use-table/use-table";
 import { resourceLabels } from "@/lib/spend-request/spend-request";
 import { costText, defaultInputs, inputMax, offersOf, spendWorld } from "@/lib/spends/spends";
 
 type SpendButtonsProps = {
-  compiled: CompiledRuleset;
+  ruleset: Ruleset;
+  compiled: CompiledRuleset | null;
   state: LiveState;
   actor: Actor;
   send: Send;
@@ -18,18 +19,18 @@ type SpendButtonsProps = {
 
 // The GM side's one-tap spends for one character (house decision #84): each spend the server would take now, with its
 // cost, and a number for each input. A tap is spend.do: the cost and the effect as one action, which Undo takes back.
-export function SpendButtons({ compiled, state, actor, send }: SpendButtonsProps) {
+export function SpendButtons({ ruleset, compiled, state, actor, send }: SpendButtonsProps) {
   const t = useTranslations("spendRequest");
   const id = useId();
   const [picked, setPicked] = useState<Record<string, Record<string, number>>>({});
   const [error, setError] = useState<string | null>(null);
   const table = state;
   const characters = state.actors.filter((a) => a.kind === "pc").length;
-  const listed = offersOf({ compiled, table, actor, characters }).filter((o) => o.plan !== null);
+  const listed = offersOf({ ruleset, compiled, table, actor, characters }).filter((o) => o.plan !== null);
   if (listed.length === 0) return null;
-  const chosen = offersOf({ compiled, table, actor, characters, inputs: picked });
+  const chosen = offersOf({ ruleset, compiled, table, actor, characters, inputs: picked });
   const world = spendWorld({ compiled, table, actor, characters });
-  const labels = resourceLabels(compiled.ruleset);
+  const labels = resourceLabels(ruleset);
 
   // SPEND: does it now, as the GM side; a refusal shows under the buttons.
   const handleSpend = async (spendId: string, inputs: Record<string, number>) => {

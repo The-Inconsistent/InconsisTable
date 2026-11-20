@@ -38,7 +38,7 @@ const table = (momentum: number, barred: boolean | null): Pick<LiveState, "pools
   }) as unknown as Pick<LiveState, "pools" | "encounter" | "campaign">;
 
 const available = (t: ReturnType<typeof table>, inputs = {}) =>
-  offersOf({ compiled, table: t, actor, characters: 1, inputs })
+  offersOf({ ruleset: compiled.ruleset, compiled: null, table: t, actor, characters: 1, inputs })
     .filter((o) => o.plan !== null)
     .map((o) => o.spend.id);
 

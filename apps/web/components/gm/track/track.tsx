@@ -170,9 +170,15 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                 pools={state.pools}
                 harm={harmPad && { pad: harmPad, maxOf }}
                 spends={
-                  compiled &&
+                  sheet.ruleset &&
                   actors.get(selected.actorId) && (
-                    <SpendButtons compiled={compiled} state={state} actor={actors.get(selected.actorId)!} send={send} />
+                    <SpendButtons
+                      ruleset={sheet.ruleset}
+                      compiled={compiled}
+                      state={state}
+                      actor={actors.get(selected.actorId)!}
+                      send={send}
+                    />
                   )
                 }
               />

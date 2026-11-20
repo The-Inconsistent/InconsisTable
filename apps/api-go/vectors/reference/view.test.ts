@@ -11,6 +11,7 @@ import type {
   LiveState,
   TestCall,
 } from "../../../../packages/core-schema/src/index.ts";
+import { ScenePrep } from "../../../../packages/core-schema/src/index.ts";
 import { compileRuleset } from "../../../../packages/rules-engine/src/index.ts";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
@@ -207,6 +208,7 @@ const entry = (id: string, over: Partial<CodexEntry> = {}): CodexEntry => ({
   fields: {},
   layout: (over.kind ?? "handout") === "handout" ? "plain" : null,
   header: (over.kind ?? "handout") === "handout" ? "" : null,
+  prep: null,
   ...over,
 });
 const codex: Codex = {
@@ -468,6 +470,34 @@ test("a gm entry field reaches only the side that reads GM notes; the player and
   assert.deepEqual(defs(ctx({ kind: "token", role: "screen", characterIds: [] }, null), "faction"), []);
   assert.deepEqual(defs(ctx(member("cogm", ["combat"]), "u-co"), "npc"), ["disposition", "mood"]);
   assert.deepEqual(defs(ctx(member("gm"), "u-gm"), "npc"), ["disposition", "mood", "patron"]);
+});
+
+test("a scene's prepared lines and status reach the codex and secrets sides only (house decision #73)", () => {
+  const prep = ScenePrep.parse({
+    roster: [{ id: "r1", pack: "sample", key: "ember-wisp", count: 2 }],
+    tests: [{ id: "t1", testId: "check", inputs: { dc: 12 }, outcomes: [{ label: "Pass", text: "The door opens." }] }],
+    pools: [{ id: "p1", pool: "menace", amount: -1 }],
+    exits: [{ id: "e1", label: "Down the well", sceneId: "00000000-0000-4000-8000-000000000001" }],
+    reveals: [{ id: "v1", entryId: "00000000-0000-4000-8000-000000000002" }],
+  });
+  const scene = entry("plan", { kind: "scene", status: "active", prep });
+  const quest = entry("quest", { kind: "quest", status: "open" });
+  const prepared = { ...snapshot, codex: { ...codex, entries: [...codex.entries, scene, quest] } };
+  const seen = (c: Ctx) => seatView({ snapshot: prepared, compiled, ctx: c }).codex.entries;
+  for (const c of [
+    ctx(member("player", [], ["lyra"]), "u-lyra"),
+    ctx({ kind: "token", role: "player", characterIds: ["lyra"] }, null),
+    ctx({ kind: "token", role: "screen", characterIds: [] }, null),
+    ctx(member("cogm", ["combat"]), "u-co"),
+  ]) {
+    const plan = seen(c).find((e) => e.id === "plan");
+    assert.deepEqual([plan?.prep, plan?.status], [null, null]);
+    assert.equal(seen(c).find((e) => e.id === "quest")?.status, "open"); // a quest's status is the party's to see
+  }
+  for (const c of [ctx(member("gm"), "u-gm"), ctx(member("cogm", ["codex"]), "u-co")]) {
+    const plan = seen(c).find((e) => e.id === "plan");
+    assert.deepEqual([plan?.prep, plan?.status], [prep, "active"]);
+  }
 });
 
 test("a mention of an entry the seat cannot see becomes the hidden form; the GM and the stored body are untouched", () => {
@@ -839,7 +869,9 @@ describe("a room without a GM", () => {
         // The Ctx still carries the mode it was handed (gm): the snapshot's wins.
         const v = seatView({ snapshot: room, compiled, ctx: seat });
         assert.deepEqual(
-          v.codex.entries.filter((e) => e.visibility === "gm" || e.gmNotes !== "" || e.plannedTests.length > 0),
+          v.codex.entries.filter(
+            (e) => e.visibility === "gm" || e.gmNotes !== "" || e.plannedTests.length > 0 || e.prep !== null,
+          ),
           [],
         );
         assert.equal(v.packVisibilities.includes("gm"), false);

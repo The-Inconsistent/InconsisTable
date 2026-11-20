@@ -3,6 +3,7 @@ package codex
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"math"
 	"slices"
@@ -81,14 +82,35 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 			return cs.Result{}, err
 		}
 	}
-	if status != nil && kind != "quest" {
-		return cs.Result{}, cs.Fail("onlyQuestStatus")
+	if status != nil {
+		switch kind {
+		case "quest", "scene":
+			if !slices.Contains(map[string][]string{"quest": cs.QuestStatuses, "scene": cs.SceneStatuses}[kind], *status) {
+				return cs.Result{}, cs.Fail("wrongStatus")
+			}
+		default:
+			return cs.Result{}, cs.Fail("onlyQuestStatus")
+		}
 	}
 	if plannedSent && kind != "scene" {
 		return cs.Result{}, cs.Fail("onlySceneTests")
 	}
 	if (layout != nil || header != nil) && kind != "handout" {
 		return cs.Result{}, cs.Fail("handoutOnly")
+	}
+	// The prepared lines replace the stored ones whole; null clears them (house decision #73).
+	prep, prepSent := a["prep"]
+	var prepJSON *string
+	if prepSent && kind != "scene" {
+		return cs.Result{}, cs.Fail("sceneOnly")
+	}
+	if prepSent && prep != nil {
+		b, err := json.Marshal(prep)
+		if err != nil {
+			return cs.Result{}, err
+		}
+		text := string(b)
+		prepJSON = &text
 	}
 	fields, err := checkFields(ctx, tx, c, kind, a)
 	if err != nil {
@@ -99,13 +121,20 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	if fields != nil {
 		setFields, clearFields = string(fields.set), fields.clear
 	}
+	// One scene of a room is active at a time: making one active leaves the one being played done, as taking an exit
+	// does at a table (house decision #73).
+	if kind == "scene" && status != nil && *status == "active" {
+		if _, err := tx.Exec(ctx, `UPDATE codex_entry SET status = 'done'
+			WHERE campaign_id = $1 AND kind = 'scene' AND status = 'active' AND id::text IS DISTINCT FROM $2`, cid, a["id"]); err != nil {
+			return cs.Result{}, err
+		}
+	}
 	if !existing {
 		if title == nil {
 			return cs.Result{}, cs.Fail("giveTitle")
 		}
-		if kind == "quest" && status == nil {
-			open := "open"
-			status = &open
+		if fallback := map[string]string{"quest": "open", "scene": "planned"}[kind]; status == nil && fallback != "" {
+			status = &fallback
 		}
 		// A handout always has a layout and a header (plain, none); every other kind has neither (migration 0022).
 		if kind == "handout" {
@@ -117,10 +146,11 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 		if !c.HasGM() {
 			visibility = "party"
 		}
-		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, visibility, position, fields, layout, header)
+		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, visibility, position, fields, layout, header, prep)
 			VALUES ($1, $2, $3, coalesce($4, ''), coalesce($5, ''), $6, coalesce($7::text[], '{}'), $8,
-				(SELECT coalesce(max(position) + 1, 0) FROM codex_entry WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NULL), $9::jsonb, $10, $11)
-			RETURNING id::text`, cid, kind, *title, body, notes, status, planned, visibility, setFields, layout, header).Scan(&id)
+				(SELECT coalesce(max(position) + 1, 0) FROM codex_entry WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NULL),
+				$9::jsonb, $10, $11, $12::jsonb)
+			RETURNING id::text`, cid, kind, *title, body, notes, status, planned, visibility, setFields, layout, header, prepJSON).Scan(&id)
 		if err != nil || !imageSent {
 			return cs.Done(id), err
 		}
@@ -128,8 +158,9 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	}
 	_, err = tx.Exec(ctx, `UPDATE codex_entry SET title = coalesce($2, title), body = coalesce($3, body),
 		gm_notes = coalesce($4, gm_notes), status = coalesce($5, status), planned_tests = coalesce($6::text[], planned_tests),
-		fields = (fields || $7::jsonb) - $8::text[], layout = coalesce($9, layout), header = coalesce($10, header)
-		WHERE id = $1`, id, title, body, notes, status, planned, setFields, clearFields, layout, header)
+		fields = (fields || $7::jsonb) - $8::text[], layout = coalesce($9, layout), header = coalesce($10, header),
+		prep = CASE WHEN $11 THEN $12::jsonb ELSE prep END
+		WHERE id = $1`, id, title, body, notes, status, planned, setFields, clearFields, layout, header, prepSent, prepJSON)
 	if err != nil || !imageSent {
 		return cs.Done(id), err
 	}

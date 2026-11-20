@@ -24,6 +24,7 @@ const entry = (over: Partial<CodexEntry>): CodexEntry => ({
   fields: {},
   layout: null,
   header: null,
+  prep: null,
   ...over,
 });
 

@@ -28,6 +28,7 @@ const npc = (fields: CodexEntry["fields"]): CodexEntry => ({
   fields,
   layout: null,
   header: null,
+  prep: null,
 });
 
 test("the declared fields of a kind, in order; none without a block or a ruleset", () => {

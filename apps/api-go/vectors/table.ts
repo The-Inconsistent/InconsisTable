@@ -442,6 +442,7 @@ const entry = (
   // A handout's layout and header (house decision #72); null on every other kind.
   layout: (over.kind ?? "handout") === "handout" ? "tablet" : null,
   header: (over.kind ?? "handout") === "handout" ? "Read aloud" : null,
+  prep: null as unknown,
   ...over,
 });
 
@@ -461,10 +462,20 @@ const CODEX = {
       parentId: U(505),
       links: [U(500), U(501), U(502), U(504)],
       plannedTests: ["check", "gone"],
+      // Prepared lines and the active status reach the codex and secrets sides only (house decision #73).
+      status: "active",
+      prep: {
+        roster: [{ id: "r", pack: "sample", key: "ember-wisp", count: 2, visibility: "hidden", temporary: true }],
+        tests: [],
+        pools: [{ id: "p", pool: "menace", amount: 2, text: "" }],
+        exits: [{ id: "x", label: "On", sceneId: U(508) }],
+        reveals: [{ id: "v", entryId: U(500) }],
+      },
     }),
     // Mentions in a body: a hidden entry's title never reaches a seat that can't see it, nor does a deleted id's.
     entry(U(508), "party", "all", [], {
       kind: "scene",
+      status: "planned",
       parentId: U(506),
       position: 1,
       links: [U(501)],
@@ -777,6 +788,7 @@ const VALID: Record<string, Record<string, unknown>> = {
     fields: { mood: "cold", disposition: -2, patron: null, flag: true },
     layout: "proclamation",
     header: " Notice ",
+    prep: { exits: [{ id: "e", label: " On ", sceneId: ID }] },
   },
   "codex.move": { id: ID, parentId: null, position: 2 },
   "codex.link": { id: ID, targetId: ID },
@@ -892,6 +904,59 @@ for (const extra of [
   {},
 ]) {
   record("Action", { ...reportBase, ...extra });
+}
+// A scene's prepared lines (house decision #73): every kind, every limit, the size cap, an unknown kind, null.
+const LINES: Record<string, Record<string, unknown>> = {
+  roster: { id: "r", pack: "sample", key: "ember-wisp", count: 3, mob: 12, visibility: "bar", temporary: false },
+  tests: {
+    id: "t",
+    testId: "check",
+    inputs: { dc: 12, ability: "dex", flag: true },
+    takers: "listed",
+    actorIds: [ID],
+    hideTarget: true,
+    outcomes: [{ label: "Pass", text: "It opens." }],
+  },
+  pools: { id: "p", pool: "menace", amount: -3, text: "Spend" },
+  exits: { id: "e", label: "Down", sceneId: ID },
+  reveals: { id: "v", entryId: ID },
+};
+const prepSave = (prep: unknown) => record("Action", { type: "codex.save", id: ID, kind: "scene", prep });
+for (const prep of [null, {}, { roster: [] }, { hazards: [] }, { roster: [], extra: 1 }, [], "x", 1]) prepSave(prep);
+for (const [kind, sample] of Object.entries(LINES)) {
+  prepSave({ [kind]: [sample] });
+  prepSave({ [kind]: [{ id: "only" }] });
+  prepSave({ [kind]: [{ ...sample, label: "l".repeat(80), note: "n".repeat(500) }] });
+  prepSave({ [kind]: [{ ...sample, label: "l".repeat(81) }] });
+  prepSave({ [kind]: [{ ...sample, note: "n".repeat(501) }] });
+  prepSave({ [kind]: [{ ...sample, unknown: 1 }] });
+  for (const n of [40, 41]) prepSave({ [kind]: Array.from({ length: n }, (_, i) => ({ ...sample, id: `l${i}` })) });
+  prepSave({ [kind]: [sample, sample] }); // two lines, one id
+  for (const [key, value] of Object.entries(sample)) {
+    const { [key]: _gone, ...rest } = sample;
+    prepSave({ [kind]: [rest] });
+    for (const m of mutations(key, value)) prepSave({ [kind]: [{ ...sample, [key]: m }] });
+  }
+}
+for (const count of [0, 1, 50, 51]) prepSave({ roster: [{ ...LINES.roster, count }] });
+for (const mob of [1, 2, 500, 501]) prepSave({ roster: [{ ...LINES.roster, mob }] });
+for (const amount of [-1001, -1000, -1, 0, 1, 1000, 1001, 1.5]) prepSave({ pools: [{ ...LINES.pools, amount }] });
+for (const n of [6, 7]) {
+  const outcomes = Array.from({ length: n }, () => ({ label: "x".repeat(40), text: "y".repeat(500) }));
+  prepSave({ tests: [{ ...LINES.tests, outcomes }] });
+}
+for (const label of ["", "x".repeat(40), "x".repeat(41)])
+  prepSave({ tests: [{ ...LINES.tests, outcomes: [{ label, text: "" }] }] });
+for (const label of ["", " ", " a ", "x".repeat(80), "x".repeat(81)]) prepSave({ exits: [{ ...LINES.exits, label }] });
+for (const id of ["", "x".repeat(40), "x".repeat(41)]) prepSave({ reveals: [{ ...LINES.reveals, id }] });
+prepSave({ roster: [{ ...LINES.roster, id: "same" }], reveals: [{ ...LINES.reveals, id: "same" }] });
+// Just under and just over 32 KB, serialized: forty pool lines of a long text, with a note that tips it.
+for (const n of [370, 380, 383, 384, 385, 386, 390, 400]) {
+  prepSave({ pools: Array.from({ length: 40 }, (_, i) => ({ ...LINES.pools, id: `p${i}`, text: "é".repeat(n) })) });
+}
+// Every status codex.save takes; the api decides which a kind may hold.
+for (const status of ["open", "done", "failed", "planned", "active", "skipped", "nope", null]) {
+  record("Action", { type: "codex.save", id: ID, kind: "scene", status });
 }
 // A draft just under and just over 64 KB, serialized.
 const pad = (n: number) => ({ type: "draft.save", body: { actorId: ID, answers: { p: "é".repeat(n) } } });

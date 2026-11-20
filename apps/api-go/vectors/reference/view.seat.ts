@@ -392,6 +392,9 @@ function seatCodex({ codex, ctx, sight }: { codex: Codex; ctx: Ctx; sight: Sight
       plannedTests: sight.secrets || sight.codex ? e.plannedTests : [],
       // A picture reaches the table only once it is shown to it (house decision #70).
       ...(sight.secrets || sight.codex ? {} : shownPicture(e)),
+      // A scene's prepared lines and where it stands: the codex and secrets sides only (house decision #73).
+      prep: sight.secrets || sight.codex ? e.prep : null,
+      status: sight.secrets || sight.codex || e.kind !== "scene" ? e.status : null,
     })),
   };
 }

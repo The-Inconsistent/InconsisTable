@@ -394,6 +394,34 @@ test("a link or a parent is kept only when the seat sees both ends; planned Test
   assert.deepEqual(codexSide?.plannedTests, ["check"]);
 });
 
+test("a tree's hidden middle is never named: below it, a seat that can't read it gets a root", () => {
+  const tree = [
+    entry("top", { kind: "location" }),
+    entry("mid", { kind: "location", visibility: "gm", parentId: "top" }),
+    entry("leaf", { kind: "location", parentId: "mid" }),
+    entry("twig", { kind: "location", parentId: "leaf" }),
+  ];
+  const nested = { ...snapshot, codex: { ...codex, entries: [...codex.entries, ...tree] } };
+  const parents = (c: Ctx) =>
+    seatView({ snapshot: nested, compiled, ctx: c })
+      .codex.entries.filter((e) => e.kind === "location")
+      .map((e) => [e.id, e.parentId]);
+  for (const c of [ctx(member("player"), "u-x"), ctx({ kind: "token", role: "screen", characterIds: [] }, null)]) {
+    assert.deepEqual(parents(c), [
+      ["top", null],
+      ["leaf", null],
+      ["twig", "leaf"],
+    ]);
+    assert.ok(!JSON.stringify(seatView({ snapshot: nested, compiled, ctx: c })).includes('"mid"'));
+  }
+  assert.deepEqual(parents(ctx(member("gm"), "u-gm")), [
+    ["top", null],
+    ["mid", "top"],
+    ["leaf", "mid"],
+    ["twig", "leaf"],
+  ]);
+});
+
 test("a mention of an entry the seat cannot see becomes the hidden form; the GM and the stored body are untouched", () => {
   const body = "met @[Secret Name](secret), @[Open](open) and @[Gone](nope)";
   const mentioning = { ...snapshot, codex: { ...codex, entries: [...codex.entries, entry("m", { body })] } };

@@ -464,6 +464,11 @@ const CODEX = {
       body: `see @[Hidden one](${U(500)}), @[Shown](${U(501)}) and @[Gone](${U(999)})`,
     }),
     entry(U(509), "party", "all", [], { kind: "quest", status: "done" }),
+    // A tree of places with its middle hidden (house decision #69): below it, a seat that can't read it gets a root.
+    entry(U(510), "party", "all", [], { kind: "location" }),
+    entry(U(511), "gm", "all", [], { kind: "location", parentId: U(510) }),
+    entry(U(512), "party", "all", [], { kind: "location", parentId: U(511) }),
+    entry(U(513), "party", "listed", [PC1], { kind: "location", parentId: U(512), position: 1 }),
   ],
   recaps: [
     { sessionId: U(600), number: 2, title: "The bridge", endedAt: "2026-02-01T10:00:00.000Z", recap: "They crossed." },

@@ -3,6 +3,7 @@ package codex
 import (
 	"context"
 	"errors"
+	"math"
 	"slices"
 
 	"github.com/jackc/pgx/v5"
@@ -124,8 +125,12 @@ func Unlink(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	return cs.Done(""), err
 }
 
-// Move is codex.move: reorders an entry among its siblings, or moves a scene to another adventure (or out of any).
-// `position` says where to insert; the siblings are then renumbered 0..n-1, never trusted.
+// maxDepth is how many levels an entry tree holds, a root being the first (house decision #69).
+const maxDepth = 8
+
+// Move is codex.move: reorders an entry among its siblings, or moves it under another entry (or out of any). An entry
+// sits under one of its own kind, a scene under an adventure; never under itself or its own descendant, and never so its
+// branch reaches below maxDepth. `position` says where to insert; the siblings are then renumbered 0..n-1, never trusted.
 func Move(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	cid, id := c.CampaignID, a.Str("id")
 	kind, err := entryKind(ctx, tx, cid, id)
@@ -138,8 +143,14 @@ func Move(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 		if err != nil {
 			return cs.Result{}, err
 		}
-		if kind != "scene" || pk != "adventure" {
+		if kind == "scene" && pk != "adventure" {
 			return cs.Result{}, cs.Fail("sceneNeedsAdventure")
+		}
+		if kind != "scene" && pk != kind {
+			return cs.Result{}, cs.Fail("parentOtherKind")
+		}
+		if err := fitsUnder(ctx, tx, id, p); err != nil {
+			return cs.Result{}, err
 		}
 		parent = &p
 	}
@@ -151,22 +162,52 @@ func Move(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 		return cs.Result{}, err
 	}
 	at, _ := a["position"].(float64)
-	if err := renumber(ctx, tx, cid, kind, parent, id, int(at)); err != nil {
+	if err := renumber(ctx, tx, cid, kind, parent, []string{id}, int(at)); err != nil {
 		return cs.Result{}, err
 	}
 	if !samePtr(from, parent) {
-		return cs.Done(""), renumber(ctx, tx, cid, kind, from, "", 0)
+		return cs.Done(""), renumber(ctx, tx, cid, kind, from, nil, 0)
 	}
 	return cs.Done(""), nil
+}
+
+// fitsUnder refuses putting entry id under parent when parent is id or sits inside it, or when id's branch would then
+// reach below maxDepth. Both walks stop past maxDepth, so a tree already too deep cannot keep them going.
+func fitsUnder(ctx context.Context, tx core.Conn, id, parent string) error {
+	var depth int
+	var loops bool
+	if err := tx.QueryRow(ctx, `WITH RECURSIVE up AS (
+			SELECT id, parent_id, 1 AS depth FROM codex_entry WHERE id = $1
+			UNION ALL SELECT e.id, e.parent_id, up.depth + 1 FROM codex_entry e JOIN up ON e.id = up.parent_id WHERE up.depth <= $3)
+		SELECT count(*), coalesce(bool_or(id::text = $2), false) FROM up`, parent, id, maxDepth).Scan(&depth, &loops); err != nil {
+		return err
+	}
+	if loops {
+		return cs.Fail("wouldLoop")
+	}
+	var height int
+	if err := tx.QueryRow(ctx, `WITH RECURSIVE down AS (
+			SELECT id, 1 AS depth FROM codex_entry WHERE id = $1
+			UNION ALL SELECT e.id, down.depth + 1 FROM codex_entry e JOIN down ON e.parent_id = down.id WHERE down.depth <= $2)
+		SELECT max(depth) FROM down`, id, maxDepth).Scan(&height); err != nil {
+		return err
+	}
+	if depth+height > maxDepth {
+		return cs.Fail("tooDeep", cs.Params{"limit": maxDepth})
+	}
+	return nil
 }
 
 func samePtr(a, b *string) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }
 
 // renumber rewrites the positions of one sibling group (same kind, same parent) as 0..n-1 in their current order,
-// with `moved` (when given) inserted at index `at`, cut to the group's size.
-func renumber(ctx context.Context, tx core.Conn, cid, kind string, parent *string, moved string, at int) error {
+// with `moved` (in their order) inserted at index `at`, cut to the group's size.
+func renumber(ctx context.Context, tx core.Conn, cid, kind string, parent *string, moved []string, at int) error {
+	if moved == nil {
+		moved = []string{} // a nil slice is SQL NULL, and `<> ALL(NULL)` would match no row
+	}
 	rows, err := tx.Query(ctx, `SELECT id::text FROM codex_entry
-		WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NOT DISTINCT FROM $3::uuid AND id::text <> $4
+		WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NOT DISTINCT FROM $3::uuid AND id::text <> ALL($4::text[])
 		ORDER BY position, created_at, id`, cid, kind, parent, moved)
 	if err != nil {
 		return err
@@ -175,10 +216,8 @@ func renumber(ctx context.Context, tx core.Conn, cid, kind string, parent *strin
 	if err != nil {
 		return err
 	}
-	if moved != "" {
-		at = max(0, min(at, len(ids)))
-		ids = slices.Insert(ids, at, moved)
-	}
+	at = max(0, min(at, len(ids)))
+	ids = slices.Insert(ids, at, moved...)
 	positions := make([]int32, len(ids))
 	for i := range ids {
 		positions[i] = int32(i)
@@ -236,19 +275,44 @@ func Reveal(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	})
 }
 
-// Delete is codex.delete.
+// Delete is codex.delete. An adventure that still has scenes stays; any other entry's children become roots, after
+// the roots there are (house decision #69).
 func Delete(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
-	id := a.Str("id")
-	if err := ownEntry(ctx, tx, c.CampaignID, id); err != nil {
+	cid, id := c.CampaignID, a.Str("id")
+	kind, err := entryKind(ctx, tx, cid, id)
+	if err != nil {
 		return cs.Result{}, err
 	}
 	var scenes bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM codex_entry WHERE parent_id = $1)`, id).Scan(&scenes); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM codex_entry WHERE parent_id = $1 AND kind = 'scene')`, id).Scan(&scenes); err != nil {
 		return cs.Result{}, err
 	}
 	if scenes {
 		return cs.Result{}, cs.Fail("adventureHasScenes")
 	}
-	_, err := tx.Exec(ctx, `DELETE FROM codex_entry WHERE id = $1`, id)
-	return cs.Done(""), err
+	var parent *string
+	if err := tx.QueryRow(ctx, `SELECT parent_id::text FROM codex_entry WHERE id = $1`, id).Scan(&parent); err != nil {
+		return cs.Result{}, err
+	}
+	rows, err := tx.Query(ctx, `SELECT id::text FROM codex_entry WHERE parent_id = $1 ORDER BY position, created_at, id`, id)
+	if err != nil {
+		return cs.Result{}, err
+	}
+	children, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return cs.Result{}, err
+	}
+	// Its children become roots, after the roots there are, as Auspex's location tree has it (house decision #69).
+	if _, err := tx.Exec(ctx, `UPDATE codex_entry SET parent_id = NULL WHERE parent_id = $1`, id); err != nil {
+		return cs.Result{}, err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM codex_entry WHERE id = $1`, id); err != nil {
+		return cs.Result{}, err
+	}
+	if parent != nil {
+		if err := renumber(ctx, tx, cid, kind, parent, nil, 0); err != nil {
+			return cs.Result{}, err
+		}
+	}
+	return cs.Done(""), renumber(ctx, tx, cid, kind, nil, children, math.MaxInt32)
 }

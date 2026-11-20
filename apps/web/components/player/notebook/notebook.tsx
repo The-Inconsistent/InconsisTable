@@ -1,16 +1,18 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { CodexKind, type Codex, type CodexEntry, type Me, type Safety } from "@inconsistable/core-schema";
+import { CodexKind, type Codex, type Me, type Safety } from "@inconsistable/core-schema";
 
 import { SafetySection } from "@/components/player/notebook/safety-section";
+import { EntryPath } from "@/components/ui/entry-path/entry-path";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import type { Send } from "@/hooks/use-table/use-table";
+import { treeRows, type TreeRow } from "@/lib/codex/codex";
 
 type NotebookProps = { codex: Codex | null; me: Me; safety: Safety; send: Send };
 
 // The phone's notebook: open quests first, then what the GM revealed by kind and tapped open (closed quests with their
-// outcome under Quest), then the recaps, newest first.
+// outcome under Quest), then the recaps, newest first. An entry sits indented under its parent when the phone reads it.
 export function Notebook({ codex, me, safety, send }: NotebookProps) {
   const t = useTranslations("notebook");
   const tKind = useTranslations("codex.kind");
@@ -35,12 +37,18 @@ export function Notebook({ codex, me, safety, send }: NotebookProps) {
     el.open = true;
     el.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
-  const card = (e: CodexEntry) => (
-    <details key={e.id} id={`entry-${e.id}`} className="card">
+  const card = ({ entry: e, depth }: TreeRow) => (
+    <details
+      key={e.id}
+      id={`entry-${e.id}`}
+      className={depth > 0 ? "card tree-child" : "card"}
+      style={{ marginInlineStart: depth * 12 }}
+    >
       <summary>
         <strong>{e.title}</strong>
         {e.status && e.status !== "open" && <span className="chip">{tStatus(e.status)}</span>}
       </summary>
+      <EntryPath entries={entries} entry={e} onOpen={handleOpen} />
       <p style={{ whiteSpace: "pre-wrap" }}>
         <MentionText body={e.body} entries={entries} onOpen={handleOpen} />
       </p>
@@ -51,7 +59,7 @@ export function Notebook({ codex, me, safety, send }: NotebookProps) {
       {openQuests.length > 0 && (
         <section className="stack">
           <h2 className="head">{t("openQuests")}</h2>
-          {openQuests.map(card)}
+          {treeRows(openQuests).map(card)}
         </section>
       )}
       {CodexKind.options.map((kind) => {
@@ -60,7 +68,7 @@ export function Notebook({ codex, me, safety, send }: NotebookProps) {
           ofKind.length > 0 && (
             <section key={kind} className="stack">
               <h2 className="head">{tKind(kind)}</h2>
-              {ofKind.map(card)}
+              {treeRows(ofKind).map(card)}
             </section>
           )
         );

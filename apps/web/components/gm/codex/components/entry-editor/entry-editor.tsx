@@ -5,10 +5,11 @@ import { useState, type ChangeEvent } from "react";
 import { QuestStatus, splitMentions, type ActionInput, type Actor, type CodexEntry } from "@inconsistable/core-schema";
 
 import { RevealForm } from "@/components/gm/codex/components/reveal-form/reveal-form";
+import { EntryPath } from "@/components/ui/entry-path/entry-path";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { MentionTextarea } from "@/components/ui/mention-textarea/mention-textarea";
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
-import { savePatch } from "@/lib/codex/codex";
+import { parentOptions, savePatch } from "@/lib/codex/codex";
 
 type EntryEditorProps = {
   entry: CodexEntry;
@@ -29,6 +30,7 @@ export function EntryEditor({ entry, characters, entries, onOpenEntry, can, act,
   const patch = savePatch({ entry, draft, canSecrets: can.secrets });
   const hasMention = splitMentions(draft.body).some((p) => "id" in p);
   const dirty = Object.keys(patch).length > 0 && draft.title.trim() !== "";
+  const parents = parentOptions({ entries, entry });
 
   // A text field of the draft.
   const handleField = (field: keyof typeof draft) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -46,6 +48,15 @@ export function EntryEditor({ entry, characters, entries, onOpenEntry, can, act,
     if (status.success) await act({ type: "codex.save", id: entry.id, kind: entry.kind, status: status.data });
   };
 
+  // INSIDE moves the entry as soon as a parent is picked, to the end of its new siblings; a refusal shows above.
+  const handleParent = async (e: ChangeEvent<HTMLSelectElement>) => {
+    const parentId = e.target.value || null;
+    const position = entries.filter(
+      (s) => s.kind === entry.kind && s.parentId === parentId && s.id !== entry.id,
+    ).length;
+    await act({ type: "codex.move", id: entry.id, parentId, position });
+  };
+
   // DELETE, after the confirm step.
   const handleDelete = async () => {
     if ((await act({ type: "codex.delete", id: entry.id })).ok) onDeleted();
@@ -57,6 +68,7 @@ export function EntryEditor({ entry, characters, entries, onOpenEntry, can, act,
         <span className="dim small">{t(`kind.${entry.kind}`)}</span>
         <VisibilityBadge entry={entry} />
       </div>
+      <EntryPath entries={entries} entry={entry} onOpen={onOpenEntry} />
       {entry.status && (
         <label className="stack">
           {t("statusLabel")}
@@ -79,6 +91,20 @@ export function EntryEditor({ entry, characters, entries, onOpenEntry, can, act,
           disabled={!can.write}
         />
       </label>
+      {(parents.length > 0 || entry.parentId !== null) && (
+        <label className="stack">
+          {t("insideLabel")}
+          <select id="codex-parent" value={entry.parentId ?? ""} onChange={handleParent} disabled={!can.write}>
+            <option value="">{t("insideNone")}</option>
+            {parents.map(({ entry: p, depth }) => (
+              <option key={p.id} value={p.id}>
+                {" ".repeat(depth * 3)}
+                {p.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label className="stack">
         {t("body")}
         <MentionTextarea

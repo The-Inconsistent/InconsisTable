@@ -1338,7 +1338,7 @@ summary {
    that says in words whether it is taken or closed. From 768px the steps become a rail beside the step. It reuses
    .mf-tabs, .found, .stepper, .build-bar and .bottom-sheet; only what they don't cover is here. */
 .lb-page {
-  padding-bottom: 160px; /* the sticky XP bar never covers the last row */
+  padding-bottom: 240px; /* the sticky XP bar (three rows on a phone) never covers the last row */
 }
 .lb-body {
   display: grid;
@@ -1477,13 +1477,56 @@ summary {
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 8px;
 }
+/* The bar is a grid of its own areas, so whatever the caller's footer holds stays in its row: on a phone the figures
+   and the ledger, the status, then the caller's actions with the primary in the bottom right corner; from 600px the
+   figures, the status and the ledger share the first row. */
 .lb-bar {
   z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "figures ledger"
+    "status status"
+    "actions actions";
+  column-gap: 12px;
+  row-gap: 6px;
 }
 .lb-figures {
+  grid-area: figures;
   display: flex;
   gap: 16px;
   margin: 0;
+  min-width: 0;
+}
+.lb-ledger-open {
+  grid-area: ledger;
+}
+.lb-actions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+.lb-note {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+.lb-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+@media (min-width: 600px) {
+  .lb-bar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "figures status ledger"
+      "actions actions actions";
+  }
 }
 .lb-figures dt {
   font-size: var(--fs-small);
@@ -1500,7 +1543,8 @@ summary {
   color: var(--accent);
 }
 .lb-status {
-  flex: 1 1 160px;
+  grid-area: status;
+  min-width: 0;
   margin: 0;
   font-weight: 700;
 }

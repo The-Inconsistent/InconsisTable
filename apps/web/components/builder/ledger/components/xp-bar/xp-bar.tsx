@@ -34,13 +34,13 @@ export function XpBar({ onOpen, footer }: XpBarProps) {
           <dd>{Math.abs(budget - spent)}</dd>
         </div>
       </dl>
+      <button type="button" className="btn lb-ledger-open" onClick={onOpen} disabled={!resolved}>
+        {t("ledger")}
+      </button>
       <p className="lb-status" role="status" data-state={isReady(resolved) ? "ready" : "open"}>
         {!resolved ? t("begin") : isReady(resolved) ? t("ready") : t("toSettle", { count: left })}
       </p>
-      <button type="button" className="btn" onClick={onOpen} disabled={!resolved}>
-        {t("ledger")}
-      </button>
-      {footer}
+      {footer && <div className="lb-actions">{footer}</div>}
     </div>
   );
 }

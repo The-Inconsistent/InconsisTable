@@ -53,7 +53,11 @@ const SCOPE_KEY = {
 } as const satisfies Record<CogmScope, string>;
 
 // A link the phones open, shown as a QR and as text to copy.
-type Shown = { title: string; url: string; qr: string };
+// `at`: the character whose Guest QR was pressed (the QR shows under its row), or null for the invite row's QRs.
+type Shown = { title: string; url: string; qr: string; at: string | null };
+
+// Brings a QR that just appeared on screen. Stable, so it runs when the card mounts, not on every render.
+const bringIntoView = (el: HTMLElement | null) => el?.scrollIntoView({ block: "nearest" });
 
 // PARTY: who sits at this table, how others join, and the room's owner controls (docs/design.md §3.6, §3.7).
 export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = false }: PartyProps) {
@@ -88,10 +92,10 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
   };
 
   // Shows a join link for a token or invite code as a QR the phones can scan.
-  const show = async ({ title, path }: { title: string; path: string }) => {
+  const show = async ({ title, path, at = null }: { title: string; path: string; at?: string | null }) => {
     const url = `${shareOrigin(location)}${path}`;
     try {
-      setShown({ title, url, qr: await qrImage(url) });
+      setShown({ title, url, qr: await qrImage(url), at });
     } catch {
       setError(t("qrFailed"));
     }
@@ -121,7 +125,7 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
   // GUEST QR for one character: a phone without an account plays it.
   const handleGuest = async ({ actorId, name }: { actorId: string; name: string }) => {
     const r = await act({ type: "token.issue", actorId });
-    if (r.ok && r.token) await show({ title: t("guestQrTitle", { name }), path: `/join/${r.token}` });
+    if (r.ok && r.token) await show({ title: t("guestQrTitle", { name }), path: `/join/${r.token}`, at: actorId });
   };
 
   // SCREEN QR: the TV at the table joins read-only.
@@ -168,6 +172,26 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
   };
 
   const transferTo = state.access.transfer;
+  // The QR last asked for, where it was asked for; keyed by its link, so a new one scrolls into view again.
+  const qrCard = shown && (
+    <div
+      key={shown.url}
+      ref={bringIntoView}
+      className="card"
+      style={{ justifyItems: "center", textAlign: "center", width: "100%" }}
+    >
+      <strong>{shown.title}</strong>
+      {/* A data: URL made in this browser; next/image has nothing to optimise. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="qr" src={shown.qr} alt={t("qrAlt", { title: shown.title })} />
+      <code className="small" style={{ wordBreak: "break-all" }}>
+        {shown.url}
+      </code>
+      <button className="btn sm" onClick={() => setShown(null)}>
+        {t("hide")}
+      </button>
+    </div>
+  );
 
   return (
     <div className="stack" style={{ gap: 24 }}>
@@ -244,20 +268,7 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
             </button>
           )}
         </div>
-        {shown && (
-          <div className="card" style={{ justifyItems: "center", textAlign: "center" }}>
-            <strong>{shown.title}</strong>
-            {/* A data: URL made in this browser; next/image has nothing to optimise. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="qr" src={shown.qr} alt={t("qrAlt", { title: shown.title })} />
-            <code className="small" style={{ wordBreak: "break-all" }}>
-              {shown.url}
-            </code>
-            <button className="btn sm" onClick={() => setShown(null)}>
-              {t("hide")}
-            </button>
-          </div>
-        )}
+        {shown?.at === null && qrCard}
       </section>
 
       {can("session:run") && <SafetyPanel safety={state.campaign.safety} send={send} />}
@@ -346,6 +357,7 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
                       />
                     </div>
                   )}
+                  {shown?.at === a.id && qrCard}
                 </li>
               );
             })}

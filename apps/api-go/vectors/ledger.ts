@@ -23,9 +23,27 @@ import {
   SAMPLE_PARAMS_INPUT,
   SAMPLE_WARGEAR_RAW,
 } from "../../../packages/rules-engine/src/build/fixtures/sample-ledger.ts";
+import {
+  WIDE_CREATION_RAW,
+  WIDE_PARAMS_INPUT,
+  WIDE_WARGEAR_RAW,
+} from "../../../packages/rules-engine/src/build/fixtures/sample-ledger-wide.ts";
+import {
+  meets,
+  outOfReach,
+  wargearMatches,
+  type BuildCtx,
+} from "../../../packages/rules-engine/src/build/requirements.ts";
+import { capital, norm } from "../../../packages/rules-engine/src/build/labels.ts";
 import { resolveBuild } from "../../../packages/rules-engine/src/build/resolve.ts";
 import type { CharacterBuildInput, Creation } from "../../../packages/rules-engine/src/build/schemas.ts";
-import { buildReady, type BuildCatalogue, type ResolvedBuild } from "../../../packages/rules-engine/src/build/types.ts";
+import {
+  buildReady,
+  purchaseKey,
+  type BuildCatalogue,
+  type Purchase,
+  type ResolvedBuild,
+} from "../../../packages/rules-engine/src/build/types.ts";
 
 const OUT = join(import.meta.dirname, "../internal/engine/testdata/ledger.json");
 
@@ -47,8 +65,30 @@ const PARAMS: Obj[] = [
   { ...P, treeOfLearning: { enabled: false, cite: "Base p.7" } },
   { ...P, sources: { ...P.sources, list: [P.sources.list[0], { id: "extra", cite: "Extra", official: true }] } },
   { ...P, rarity: { ...P.rarity, order: [...P.rarity.order].reverse() } },
+  WIDE_PARAMS_INPUT,
+  // the wide game with other prices, ranks and limits, the unofficial source made official
+  {
+    ...WIDE_PARAMS_INPUT,
+    startingXp: { perTier: 60, cite: "Other p.1" },
+    rank: { xpPerRank: 20, top: 6, cite: "Other p.3" },
+    skillXp: { table: [0, 2, 5, 9, 14, 20], cite: "Other p.5" },
+    treeOfLearning: { enabled: false, cite: "Other p.7" },
+    sources: {
+      ...P.sources,
+      pageSep: ", page ",
+      list: [P.sources.list[0], { id: "extra", cite: `${"E".repeat(39)}🖋 Press`, official: true }],
+    },
+    advanced: {
+      ...P.advanced,
+      wargear: { rows: [{ total: 30, max: null, rare: 3, veryRare: 2 }], cite: "Other p.10" },
+    },
+    archetypeAscension: { minRank: 1, cite: "Other p.11" },
+    background: { bonusAmount: 2 },
+  },
 ];
 const PARSED = PARAMS.map((p) => BuildParams.parse(p));
+const WIDE = 5; // PARAMS[WIDE] and PARAMS[WIDE + 1] read CATALOGUES[WIDE_CATALOGUE]
+const WIDE_CATALOGUE = 3;
 
 // Each key dropped, nulled and given the wrong kind, an unknown key, and the keys in reverse: what zod strips, fills and
 // refuses on any object.
@@ -337,9 +377,8 @@ const PLAIN: Record<string, [Schema, Json[]]> = {
 };
 
 // The inputs each params-built schema reads, by name.
-function samples(): Record<string, Json[]> {
-  const raw = SAMPLE_CREATION_RAW;
-  const records = (list: unknown[]) => list.flatMap((r) => [r, ...mutations(r)]);
+function samples(raw: Record<string, unknown[]>, wargear: unknown[]): Record<string, Json[]> {
+  const records = (list: unknown[] = []) => list.flatMap((r) => [r, ...mutations(r)]);
   return {
     Tier: [0, 1, 4, 5, 2.5, "2"],
     Source: ["base", "extra", "nope"],
@@ -368,8 +407,8 @@ function samples(): Record<string, Json[]> {
     Discipline: records(raw.disciplines),
     PsychicPower: records(raw.powers),
     Language: records(raw.languages),
-    WargearWeapon: SAMPLE_WARGEAR_RAW.flatMap((w) => ("weapon" in w ? [w.weapon, ...mutations(w.weapon)] : [])),
-    Wargear: records(SAMPLE_WARGEAR_RAW),
+    WargearWeapon: (wargear as Obj[]).flatMap((w) => ("weapon" in w ? [w.weapon, ...mutations(w.weapon)] : [])),
+    Wargear: records(wargear),
     SheetWeaponEffect: [{ source: "x", fits: { names: ["a"], wargearIds: ["b"] }, mods: [EFFECT.mods[0]] }],
     CharacterStats: [
       {},
@@ -414,8 +453,9 @@ function parseVectors() {
   for (const [i, p] of PARSED.entries()) {
     const S = buildSchemas(p) as unknown as Record<string, Schema>;
     // every params variant on the schemas whose shape it changes, the sample on all of them
-    const names = i === 0 ? Object.keys(S) : ["CharacterBuild", "Source", "Rarity", "Wargear"];
-    const all = samples();
+    const wide = i === WIDE;
+    const names = i === 0 || wide ? Object.keys(S) : ["CharacterBuild", "Source", "Rarity", "Wargear"];
+    const all = wide ? samples(WIDE_CREATION_RAW, WIDE_WARGEAR_RAW) : samples(SAMPLE_CREATION_RAW, SAMPLE_WARGEAR_RAW);
     for (const name of names) for (const x of all[name] ?? []) add(i, name, S[name]!, x);
   }
   return cases;
@@ -449,6 +489,7 @@ const CATALOGUES: RawCatalogue[] = [
     },
     wargear: SAMPLE_WARGEAR_RAW,
   },
+  { creation: WIDE_CREATION_RAW, wargear: WIDE_WARGEAR_RAW },
 ];
 
 const parsedCatalogues = new Map<string, BuildCatalogue>();
@@ -658,16 +699,456 @@ function testBuilds(): ResolveCase[] {
   ]);
 }
 
+// ── generated builds: a seeded walk over the catalogues, valid and invalid alike ──
+
+type Rng = () => number;
+// mulberry32: small, seeded, the same on every run.
+function seeded(seed: number): Rng {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const chance = (rng: Rng, p: number) => rng() < p;
+const int = (rng: Rng, lo: number, hi: number) => lo + Math.floor(rng() * (hi - lo + 1));
+const one = <T>(rng: Rng, list: readonly T[]): T => list[Math.floor(rng() * list.length)]!;
+const some = <T>(rng: Rng, list: readonly T[], most: number): T[] =>
+  Array.from({ length: int(rng, 0, most) }, () => one(rng, list));
+function shuffled<T>(rng: Rng, list: readonly T[]): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
+}
+// Some of the keys, in a shuffled order, each with a value: the order an Object.entries walk reads.
+const ratings = (rng: Rng, keys: readonly string[], lo: number, hi: number, top: number) =>
+  Object.fromEntries(
+    shuffled(rng, keys)
+      .filter(() => chance(rng, 0.4))
+      .map((k) => [k, chance(rng, 0.01) ? top + 1 : int(rng, lo, hi)]),
+  );
+
+const ATTRS = ["MGT", "AGI", "WIT", "PRE"];
+const SKILLS = ["Brawl", "Climb", "Sneak", "Dodge", "Lore", "Craft", "Charm", "Command"];
+const KEYWORDS = ["WARDEN", "DRIFTER", "SEER", "HARDENED", "ASH", "BANNERED", "MYSTIC", "SOOT", "OUTCAST", "WANDERERS"];
+const PLACEHOLDERS = ["[GUILD]", "[WILD]", "[WILD 2]", "[CIRCLE]"];
+const CHOICE_WORDS = [
+  "sight",
+  "smell",
+  "touch",
+  "SIGHT",
+  "taste",
+  "wolves",
+  "Hand Axe",
+  "Sling",
+  "Might",
+  "AGI",
+  "Lore",
+  "😀 stone",
+  "i̇ron",
+  "στασισ",
+];
+const GM_ITEMS = [
+  { name: "Rope", wargearId: "rope" },
+  { name: "Hand Axe", wargearId: "hand-axe", qty: 2, traitIds: ["notched"], upgrades: ["sight-lens"] },
+  { name: "Chalk", qty: "2d6", mundane: true },
+  { name: "Plate Harness", wargearId: "plate", upgrades: ["sight-lens"] },
+  {
+    name: "Ring Mail of the Long Road, Patched Many Times Over by Hands Long Gone and Never Once Washed Clean Again",
+    wargearId: "ring-mail",
+  },
+  { name: "Ember Plate", wargearId: "ember-plate" },
+  { name: "Lantern", scope: "group" },
+];
+
+const idsOf = (raw: RawCatalogue, key: string) => (raw.creation[key] ?? []).map((r) => (r as Obj).id as string);
+
+function randomBuild(rng: Rng, raw: RawCatalogue, rows: string[]): Obj {
+  const archetypes = idsOf(raw, "archetypes");
+  const species = idsOf(raw, "species");
+  const wargear = raw.wargear.map((w) => (w as Obj).id as string);
+  const b: Obj = { tier: chance(rng, 0.02) ? one(rng, [0, 5, 2.5]) : int(rng, 1, 4) };
+  const mode = rng();
+  if (mode < 0.72) b.archetypeId = chance(rng, 0.03) ? "nobody" : one(rng, archetypes);
+  else if (mode < 0.97) {
+    const advanced: Obj = {};
+    if (chance(rng, 0.5)) advanced.factionId = one(rng, [...idsOf(raw, "factions"), "nobody"]);
+    if (chance(rng, 0.3)) advanced.abilityOf = one(rng, [...archetypes, "nobody"]);
+    if (chance(rng, 0.8)) advanced.wargear = some(rng, [...wargear, "nope"], 4);
+    b.advanced = advanced;
+  } else if (mode < 0.985) Object.assign(b, { archetypeId: one(rng, archetypes), advanced: {} });
+  if (chance(rng, 0.55)) b.speciesId = chance(rng, 0.05) ? "nobody" : one(rng, species);
+  if (chance(rng, 0.6)) {
+    const subFactions = [...idsOf(raw, "sub-factions"), "nobody"];
+    b.fills = Object.fromEntries(
+      shuffled(rng, PLACEHOLDERS)
+        .filter(() => chance(rng, 0.6))
+        .map((k) => [
+          k,
+          chance(rng, 0.55) ? { id: one(rng, subFactions) } : { writeIn: one(rng, [...KEYWORDS, "ASHEN-KIN"]) },
+        ]),
+    );
+  }
+  if (chance(rng, 0.7)) {
+    const tables = (raw.creation.backgrounds ?? []) as Obj[];
+    const table = chance(rng, 0.05) ? { id: "nobody" } : one(rng, tables);
+    const bg: Obj = { tableId: table.id };
+    for (const row of shuffled(rng, rows)) {
+      const names = ((table[row] ?? []) as Obj[]).map((x) => x.name);
+      if (chance(rng, 0.7)) bg[row] = names.length && chance(rng, 0.9) ? one(rng, names) : "Nowhere";
+    }
+    if (chance(rng, 0.7)) bg.bonus = one(rng, rows);
+    b.background = bg;
+  }
+  const pairs = ((raw.creation["option-groups"] ?? []) as Obj[]).flatMap((g) =>
+    (g.options as Obj[]).map((o) => ({ groupId: g.id, name: o.name })),
+  );
+  if (chance(rng, 0.4)) b.options = some(rng, [...pairs, { groupId: "nobody", name: "Nothing" }], 3);
+  if (chance(rng, 0.7)) b.attributes = ratings(rng, ATTRS, 1, 6, 6);
+  if (chance(rng, 0.7)) b.skills = ratings(rng, SKILLS, 0, 5, 5);
+  const talentPick = () => ({
+    id: chance(rng, 0.03) ? "nobody" : one(rng, idsOf(raw, "talents")),
+    ...(chance(rng, 0.4) && { choice: one(rng, CHOICE_WORDS) }),
+  });
+  if (chance(rng, 0.6)) b.talents = Array.from({ length: int(rng, 0, 4) }, talentPick);
+  if (chance(rng, 0.4)) b.powers = some(rng, [...idsOf(raw, "powers"), "nobody"], 3);
+  if (chance(rng, 0.35)) b.packages = some(rng, [...idsOf(raw, "packages"), "nobody"], 2);
+  const languages = [...idsOf(raw, "languages"), "Whistle", "Old Cant"];
+  if (chance(rng, 0.6)) {
+    const l: Obj = {};
+    if (chance(rng, 0.7)) l.picks = some(rng, languages, 2);
+    if (chance(rng, 0.4)) l.bought = some(rng, languages, 2);
+    b.languages = l;
+  }
+  if (chance(rng, 0.4)) b.wealth = chance(rng, 0.02) ? 9 : int(rng, 0, 3);
+  if (chance(rng, 0.1)) b.budget = int(rng, 0, 300);
+  if (chance(rng, 0.35)) {
+    const gm: Obj = {};
+    if (chance(rng, 0.15)) gm.species = one(rng, species);
+    if (chance(rng, 0.4)) gm.keywords = some(rng, KEYWORDS, 2);
+    if (chance(rng, 0.5)) {
+      gm.gear = {
+        ...(chance(rng, 0.6) && { remove: some(rng, ["Rope", "hand axe", "Lantern Staff", "Hunting Bow"], 2) }),
+        ...(chance(rng, 0.6) && { add: some(rng, GM_ITEMS, 2) }),
+      };
+    }
+    if (chance(rng, 0.3)) gm.mods = { guard: int(rng, -1, 2), ...(chance(rng, 0.5) && { speed: int(rng, 0, 2) }) };
+    b.gm = gm;
+  }
+  if (chance(rng, 0.45)) {
+    const a: Obj = {};
+    if (chance(rng, 0.5)) a.attributes = ratings(rng, ATTRS, 1, 6, 6);
+    if (chance(rng, 0.5)) a.skills = ratings(rng, SKILLS, 0, 5, 5);
+    if (chance(rng, 0.4)) a.talents = Array.from({ length: int(rng, 0, 3) }, talentPick);
+    if (chance(rng, 0.3)) a.powers = some(rng, idsOf(raw, "powers"), 2);
+    if (chance(rng, 0.4)) a.packages = some(rng, [...idsOf(raw, "packages"), "nobody"], 3);
+    if (chance(rng, 0.3)) a.languages = some(rng, languages, 2);
+    if (chance(rng, 0.25)) a.archetypeAscension = { archetypeId: one(rng, [...archetypes, "nobody"]) };
+    b.advancement = a;
+  }
+  return b;
+}
+
+// An answer to a choice the build was asked: mostly a fitting one, sometimes not.
+function answerOf(rng: Rng, c: ResolvedBuild["choices"][number], r: ResolvedBuild, raw: RawCatalogue): Json[] {
+  if (chance(rng, 0.08)) return [];
+  // a negative count keeps all but the last answers, so it gets several
+  const n = c.choose < 0 ? int(rng, 1, 3) : Math.max(0, Math.min(3, c.choose)) + (chance(rng, 0.1) ? 1 : 0);
+  const pick = (): Json => {
+    switch (c.pick.kind) {
+      case "option":
+        return chance(rng, 0.9) && c.options.length ? int(rng, 0, c.options.length - 1) : int(rng, 0, 6);
+      case "wargear":
+        return one(rng, [...raw.wargear.map((w) => (w as Obj).id as string), "nope"]);
+      case "skill":
+        return chance(rng, 0.85) ? one(rng, c.pick.from) : one(rng, SKILLS);
+      case "attribute":
+        return chance(rng, 0.85) ? one(rng, c.pick.from) : one(rng, ATTRS);
+      case "discipline":
+        return chance(rng, 0.1) ? 2 : one(rng, c.pick.from ?? [...idsOf(raw, "disciplines"), "nothing"]);
+      case "power":
+        return one(rng, [...idsOf(raw, "powers"), "nothing"]);
+      case "keyword":
+        return chance(rng, 0.1) ? one(rng, [0, 3]) : one(rng, r.who.keywords.length ? r.who.keywords : ["NONE"]);
+    }
+  };
+  const out = Array.from({ length: n }, pick);
+  if (out.length && chance(rng, 0.1)) out.push(out[0]);
+  return out;
+}
+
+// Builds on the wide catalogue that each prove one behaviour the generator reaches only by luck, under both its params.
+function wideBuilds(): ResolveCase[] {
+  const run = { params: WIDE, catalogue: WIDE_CATALOGUE };
+  const advanced = { tier: 1, advanced: {}, speciesId: "ashkin" };
+  const negative = resolveNow(advanced, run).choices.find((c) => c.choose < 0)!.path;
+  const cases: [string, Json, Run?][] = [
+    // 10 × 0.3 is 3.0000000000000004, so the Undertow costs 4
+    ["a discount floating point rounds up", { tier: 2, archetypeId: "mystic", powers: ["undertow", "ebb", "veil"] }],
+    [
+      "an Archetype Ascension short of Skills listed in the record's order",
+      {
+        tier: 1,
+        archetypeId: "tinker",
+        speciesId: "stoneborn",
+        advancement: { archetypeAscension: { archetypeId: "mystic" } },
+      },
+      { play: { tier: 2, xpEarned: 40 } },
+    ],
+    ["a negative choice count keeps all but the last", { ...advanced, choices: { [negative]: [0, 1, 2] } }],
+    [
+      "options compared in full Unicode case",
+      {
+        tier: 1,
+        archetypeId: "seeker",
+        talents: [
+          { id: "iron-will", choice: "i̇ron" },
+          { id: "iron-will", choice: "στασισ" },
+        ],
+      },
+    ],
+    // only a Talent's first purchase is checked against its options: the final sigma first
+    [
+      "a final sigma folds apart from a medial one",
+      { tier: 1, archetypeId: "seeker", talents: [{ id: "iron-will", choice: "στασισ" }] },
+    ],
+    ["never-keywords in the order given", { tier: 1, archetypeId: "seeker", speciesId: "stoneborn" }],
+  ];
+  return cases.flatMap(([name, build, more = {}]) =>
+    [WIDE, WIDE + 1].map((params) => resolveCase(name, build, { ...run, ...more, params })),
+  );
+}
+
+function generatedBuilds(count: number): ResolveCase[] {
+  const cases: ResolveCase[] = [];
+  for (let seed = 1; seed <= count; seed++) {
+    const rng = seeded(seed);
+    const wide = chance(rng, 0.6);
+    const params = wide ? one(rng, [WIDE, WIDE + 1]) : one(rng, [0, 1, 2]);
+    const catalogue = wide ? WIDE_CATALOGUE : 0;
+    const raw = CATALOGUES[catalogue]!;
+    const rows = PARSED[params]!.vocabulary.backgroundRows;
+    const homebrew = chance(rng, 0.3);
+    const build = randomBuild(rng, raw, rows);
+    const tier = typeof build.tier === "number" ? build.tier : 1;
+    const play = chance(rng, 0.5)
+      ? { tier: tier + int(rng, 0, 2), xpEarned: int(rng, 0, 150), ...(chance(rng, 0.3) && { packageWaived: true }) }
+      : undefined;
+    const run: Run = { params, catalogue, homebrew, play, seed };
+    // Answer what the build asks, twice, as a player would: the answers open further choices.
+    for (let round = 0; round < 2; round++) {
+      const r = resolveCase("", build, run).result;
+      if (!r) break;
+      const choices: Obj = { ...((build.choices as Obj | undefined) ?? {}) };
+      for (const c of r.choices) if (chance(rng, 0.75)) choices[c.path] = answerOf(rng, c, r, raw);
+      build.choices = choices;
+      const ticks = r.problems.flatMap((p) => (p.severity === "gm" && p.path ? [p.path] : []));
+      if (ticks.length && chance(rng, 0.5))
+        build.gm = { ...((build.gm as Obj | undefined) ?? {}), approved: ticks.filter(() => chance(rng, 0.6)) };
+      const keys = r.ledger.flatMap((l) => (l.key ? [l.key] : []));
+      if (keys.length && build.advancement && chance(rng, 0.6))
+        (build.advancement as Obj).boughtIn = Object.fromEntries(
+          keys.filter(() => chance(rng, 0.5)).map((k) => [k, int(rng, 1, 20)]),
+        );
+    }
+    cases.push(resolveCase("generated", build, run));
+  }
+  return cases;
+}
+
+// ── meets, outOfReach, wargearMatches and purchaseKey on generated inputs ──
+
+const S_WIDE = buildSchemas(PARSED[WIDE]!);
+const WIDE_PARSED = catalogueOf(WIDE, WIDE_CATALOGUE, true);
+// Every requirement the wide catalogue holds, and the hand-written ones that parse.
+const REQS = [
+  ...REQUIREMENTS.flatMap((r) => {
+    const parsed = S_WIDE.Requirement.safeParse(r);
+    return parsed.success ? [parsed.data] : [];
+  }),
+  ...[...WIDE_PARSED.creation.talents, ...WIDE_PARSED.creation.packages, ...WIDE_PARSED.creation.archetypes].flatMap(
+    (x) => x.requires,
+  ),
+];
+
+function randomCtx(rng: Rng): { json: Obj; ctx: BuildCtx } {
+  const gear = some(rng, [...WIDE_PARSED.wargear.values()], 4).map((w) => ({
+    name: chance(rng, 0.8) ? w.name : w.name.toUpperCase(),
+    qty: 1,
+    scope: "character" as const,
+    ...(chance(rng, 0.9) && { wargearId: w.id }),
+    from: "x",
+  }));
+  const powers = some(rng, WIDE_PARSED.creation.powers, 3).map((p) => ({ id: p.id, disciplineId: p.disciplineId }));
+  const json = {
+    attributes: Object.fromEntries(ATTRS.map((a) => [a, int(rng, 1, 6)])),
+    skills: ratings(rng, SKILLS, 0, 5, 5),
+    keywords: some(rng, [...KEYWORDS, "[GUILD]"], 4),
+    species: some(rng, ["heron-kin", "stoneborn", "ashkin"], 2),
+    archetypeId: chance(rng, 0.3) ? null : one(rng, ["lamplighter", "seeker", "mystic"]),
+    subFactionIds: some(rng, ["ironhand", "rook", "crow"], 2),
+    talents: some(rng, ["hardy", "wanderer", "toughened"], 2),
+    talentCategories: some(rng, ["talent", "gift"], 3),
+    powers,
+    gear,
+    options: some(
+      rng,
+      [
+        { groupId: "marks", name: "Wing Mark" },
+        { groupId: "vows", name: "Vow of Ash" },
+      ],
+      2,
+    ),
+    influence: int(rng, -1, 3),
+    rank: int(rng, 1, 4),
+    tier: int(rng, 1, 4),
+    ...(chance(rng, 0.6) && { chosen: one(rng, [...ATTRS, "Might", "Lore", "Sneak", "Nope"]) }),
+  };
+  const ctx: BuildCtx = {
+    ...json,
+    params: PARSED[WIDE]!,
+    keywords: new Set(json.keywords),
+    subFactionIds: new Set(json.subFactionIds),
+    talents: new Set(json.talents),
+    wargear: WIDE_PARSED.wargear,
+  };
+  return { json, ctx };
+}
+
+function helperVectors() {
+  const rng = seeded(7);
+  const meetsCases = Array.from({ length: 1500 }, () => {
+    const { json, ctx } = randomCtx(rng);
+    const req = one(rng, REQS);
+    return { ctx: json, req, why: meets(req, ctx) };
+  });
+  const reach = Array.from({ length: 800 }, () => {
+    const reqs = some(rng, REQS, 3);
+    const who = {
+      species: chance(rng, 0.3) ? null : some(rng, ["heron-kin", "stoneborn", "ashkin"], 2),
+      archetypeId: chance(rng, 0.3) ? null : one(rng, ["lamplighter", "seeker", "mystic"]),
+      keywords: some(rng, KEYWORDS, 3),
+      buyable: some(rng, ["SEER", "FARSEER", "WANDERER", "BIRD"], 2),
+    };
+    return { reqs, who, out: outOfReach(reqs, who) };
+  });
+  const filters = [
+    ...FILTERS.flatMap((f) => {
+      const parsed = S_WIDE.WargearFilter.safeParse(f);
+      return parsed.success ? [parsed.data] : [];
+    }),
+    ...REQS.flatMap((r) => (r.kind === "wargearCount" ? [r.of] : [])),
+    { weapon: "melee" as const },
+    { weapon: "ranged" as const },
+    { weaponTraits: ["heavy"], notWeaponTraits: ["Slow (1)"] },
+    { categories: ["Arms"] },
+    { notWeaponTraits: ["Slow"] },
+    { rarity: { atLeast: "Scarce", atMost: "Fabled" } },
+    { maxValue: { newTierPlus: 2 } },
+  ];
+  const matches = [0, 4, WIDE].flatMap((params) =>
+    [...WIDE_PARSED.wargear.values()].flatMap((w) =>
+      filters.flatMap((f) =>
+        [
+          [1, 1],
+          [2, 4],
+        ].map(([tier, newTier]) => ({
+          params,
+          wargear: w.id,
+          filter: f,
+          tier,
+          newTier,
+          match: wargearMatches(w, f, { tier: tier!, newTier: newTier! }, PARSED[params]!),
+        })),
+      ),
+    ),
+  );
+  const purchases: Purchase[] = Array.from({ length: 200 }, () => {
+    switch (one(rng, ["attribute", "skill", "talent", "power", "package", "language", "ascension"] as const)) {
+      case "attribute":
+        return { kind: "attribute", attribute: one(rng, ATTRS), rating: int(rng, 1, 6) };
+      case "skill":
+        return { kind: "skill", skill: one(rng, SKILLS), rating: int(rng, 0, 5) };
+      case "talent":
+        return { kind: "talent", id: one(rng, ["hardy", "keen-sense"]), ...(chance(rng, 0.5) && { choice: "sight" }) };
+      case "power":
+        return { kind: "power", id: "spark" };
+      case "package":
+        return { kind: "package", id: "veil-cloak" };
+      case "language":
+        return { kind: "language", name: one(rng, ["old-cant", "Whistle"]) };
+      case "ascension":
+        return { kind: "ascension", archetypeId: "pyre-lord" };
+    }
+  });
+  return {
+    meets: meetsCases,
+    outOfReach: reach,
+    wargearMatches: matches,
+    purchaseKeys: purchases.map((p) => ({ purchase: p, key: purchaseKey(p) })),
+  };
+}
+
+// ── what JavaScript itself answers, which the Go reproduces by hand ──
+
+function jsVectors() {
+  const texts = ["", "a", "Hand Axe", "😀", "a😀b", "ßpirit", "ǅ", "İstanbul", "ΑΣ", "🌊tide", "x�y", "Kelvin K"];
+  return {
+    numbers: [
+      0,
+      -0,
+      1,
+      -1,
+      2.5,
+      0.1 + 0.2,
+      1e21,
+      1e-7,
+      1.5e-7,
+      123e-20,
+      1e-6,
+      123456789012345680000,
+      2 ** 53 + 2,
+      -1e300,
+    ]
+      .concat([NaN, Infinity, -Infinity, 5e-324, 0.000001234, 100, 1e20, 1.7976931348623157e308])
+      .map((n) => ({ n: String(n) === "NaN" || !Number.isFinite(n) ? String(n) : n, s: String(n) })),
+    cuts: texts.flatMap((s) => [0, 1, 2, 3, 5].map((n) => ({ s, n, cut: s.slice(0, n) }))),
+    toNumber: ["", " 12 ", "1.5", "0x1f", "0X1F", "0o17", "0b101", "0xg", "1e3", ".5", "5.", "+3", "-Infinity", "abc"]
+      .concat(["1_000", "0x", " 12 ", "Infinity", "infinity", "1e400", "00012", "-0x2"])
+      .map((s) => ({ s, n: String(Number(s)) })),
+    capital: texts.filter(Boolean).map((s) => ({ s, capital: capital(s) })),
+    norm: texts.map((s) => ({ s, norm: norm(s) })),
+    lower: texts.map((s) => ({ s, lower: s.toLowerCase() })),
+    stringify: [
+      { a: 'q"uote', b: "back\\slash", c: "\b\f\n\r\t\u0001\u001f", d: "<>& 😀", e: [1.5, -0, 1e21, true, null] },
+      { kind: "either", of: [{ kind: "gm", id: "x", label: "dropped" }], label: "dropped too" },
+    ].map((value) => ({
+      value,
+      json: JSON.stringify(value),
+      noLabel: JSON.stringify(value, (k, x: unknown) => (k === "label" ? undefined : x)),
+    })),
+  };
+}
+
 const vectors = {
   params: PARAMS,
   paramsCases: paramsVectors(),
   parse: parseVectors(),
   catalogues: CATALOGUES,
-  resolve: testBuilds(),
+  resolve: [...testBuilds(), ...wideBuilds(), ...generatedBuilds(3200)],
+  ...helperVectors(),
+  js: jsVectors(),
 };
 
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, JSON.stringify(vectors));
 console.log(
-  `ledger vectors: ${vectors.paramsCases.length} params, ${vectors.parse.length} parse, ${vectors.resolve.length} resolve`,
+  `ledger vectors: ${vectors.paramsCases.length} params, ${vectors.parse.length} parse, ${vectors.resolve.length} resolve,` +
+    ` ${vectors.meets.length} meets, ${vectors.outOfReach.length} outOfReach, ${vectors.wargearMatches.length} wargearMatches`,
 );

@@ -33,6 +33,189 @@ type vectorFile struct {
 		Wargear  json.RawMessage `json:"wargear"`
 	} `json:"catalogues"`
 	Resolve []resolveCase `json:"resolve"`
+	Meets   []struct {
+		Ctx json.RawMessage `json:"ctx"`
+		Req json.RawMessage `json:"req"`
+		Why json.RawMessage `json:"why"`
+	} `json:"meets"`
+	OutOfReach []struct {
+		Reqs json.RawMessage `json:"reqs"`
+		Who  Who             `json:"who"`
+		Out  bool            `json:"out"`
+	} `json:"outOfReach"`
+	WargearMatches []struct {
+		Params  int             `json:"params"`
+		Wargear string          `json:"wargear"`
+		Filter  json.RawMessage `json:"filter"`
+		Tier    float64         `json:"tier"`
+		NewTier float64         `json:"newTier"`
+		Match   bool            `json:"match"`
+	} `json:"wargearMatches"`
+	PurchaseKeys []struct {
+		Purchase Purchase `json:"purchase"`
+		Key      string   `json:"key"`
+	} `json:"purchaseKeys"`
+	JS struct {
+		Numbers []struct {
+			N any    `json:"n"`
+			S string `json:"s"`
+		} `json:"numbers"`
+		Cuts []struct {
+			S   string `json:"s"`
+			N   int    `json:"n"`
+			Cut string `json:"cut"`
+		} `json:"cuts"`
+		ToNumber []struct {
+			S string `json:"s"`
+			N string `json:"n"`
+		} `json:"toNumber"`
+		Capital []struct {
+			S, Capital string
+		} `json:"capital"`
+		Norm []struct {
+			S, Norm string
+		} `json:"norm"`
+		Lower []struct {
+			S, Lower string
+		} `json:"lower"`
+		Stringify []struct {
+			Value   json.RawMessage `json:"value"`
+			JSON    string          `json:"json"`
+			NoLabel string          `json:"noLabel"`
+		} `json:"stringify"`
+	} `json:"js"`
+}
+
+// What JavaScript answers itself, which js.go reproduces: String(n), .slice, Number(s), toUpperCase on the first
+// unit, toLowerCase, labels.ts norm, and JSON.stringify with and without its label replacer.
+func TestJavaScriptBehaviourMatches(t *testing.T) {
+	v := loadVectors(t).JS
+	for _, c := range v.Numbers {
+		n, isNum := c.N.(float64)
+		if !isNum {
+			n = toNumber(c.N.(string))
+		}
+		if got := num(n); got != c.S {
+			t.Errorf("String(%v): Go %q, JavaScript %q", c.N, got, c.S)
+		}
+	}
+	for _, c := range v.Cuts {
+		if got := cut(c.S, c.N); got != c.Cut {
+			t.Errorf("%q.slice(0, %d): Go %q, JavaScript %q", c.S, c.N, got, c.Cut)
+		}
+	}
+	for _, c := range v.ToNumber {
+		if got := num(toNumber(c.S)); got != c.N {
+			t.Errorf("Number(%q): Go %s, JavaScript %s", c.S, got, c.N)
+		}
+	}
+	for _, c := range v.Capital {
+		if got := capital(c.S); got != c.Capital {
+			t.Errorf("capital(%q): Go %q, JavaScript %q", c.S, got, c.Capital)
+		}
+	}
+	for _, c := range v.Norm {
+		if got := norm(c.S); got != c.Norm {
+			t.Errorf("norm(%q): Go %q, JavaScript %q", c.S, got, c.Norm)
+		}
+	}
+	for _, c := range v.Lower {
+		if got := lowerJS.String(c.S); got != c.Lower {
+			t.Errorf("%q.toLowerCase(): Go %q, JavaScript %q", c.S, got, c.Lower)
+		}
+	}
+	for _, c := range v.Stringify {
+		value := decoded(c.Value)
+		if got := stringify(value, false); got != c.JSON {
+			t.Errorf("JSON.stringify: Go %s, JavaScript %s", got, c.JSON)
+		}
+		if got := stringify(value, true); got != c.NoLabel {
+			t.Errorf("JSON.stringify without labels: Go %s, JavaScript %s", got, c.NoLabel)
+		}
+	}
+}
+
+// The wide catalogue and its params, as the vector writer numbers them.
+const (
+	wideParams    = 5
+	wideCatalogue = 3
+)
+
+func set(list []string) map[string]bool {
+	out := map[string]bool{}
+	for _, x := range list {
+		out[x] = true
+	}
+	return out
+}
+
+func TestMeetsMatchesTheTypeScript(t *testing.T) {
+	v := loadVectors(t)
+	wargear := catalogueFor(t, v, wideParams, wideCatalogue, true).Wargear
+	for i, c := range v.Meets {
+		var in struct {
+			Attributes, Skills                                          map[string]float64
+			Keywords, Species, SubFactionIDs, Talents, TalentCategories []string
+			ArchetypeID                                                 *string
+			Powers                                                      []Power
+			Gear                                                        []GearItem
+			Options                                                     []Option
+			Influence, Rank, Tier                                       float64
+			Chosen                                                      *string
+		}
+		if err := json.Unmarshal(c.Ctx, &in); err != nil {
+			t.Fatal(err)
+		}
+		ctx := Ctx{
+			Params: params[wideParams], Attributes: in.Attributes, Skills: in.Skills, Keywords: set(in.Keywords),
+			Species: in.Species, ArchetypeID: in.ArchetypeID, SubFactionIDs: set(in.SubFactionIDs),
+			Talents: set(in.Talents), TalentCategories: in.TalentCategories, Powers: in.Powers, Gear: in.Gear,
+			Wargear: wargear, Options: in.Options, Influence: in.Influence, Rank: in.Rank, Tier: in.Tier, Chosen: in.Chosen,
+		}
+		why := Meets(decoded(c.Req).(*schema.Obj), ctx)
+		var got any = why.Reason
+		switch {
+		case why.Met:
+			got = true
+		case why.GM != nil:
+			got = map[string]any{"gm": *why.GM}
+		}
+		out, _ := json.Marshal(got)
+		if !same(t, out, c.Why) {
+			t.Fatalf("meets case %d: Go %s, TypeScript %s\nreq %s\nctx %s", i, out, c.Why, c.Req, c.Ctx)
+		}
+	}
+}
+
+func TestOutOfReachMatchesTheTypeScript(t *testing.T) {
+	v := loadVectors(t)
+	for i, c := range v.OutOfReach {
+		reqs, _ := decoded(c.Reqs).([]any)
+		if got := OutOfReach(asObjs(reqs), c.Who); got != c.Out {
+			t.Fatalf("outOfReach case %d: Go %v, TypeScript %v\nreqs %s\nwho %+v", i, got, c.Out, c.Reqs, c.Who)
+		}
+	}
+}
+
+func TestWargearMatchesMatchesTheTypeScript(t *testing.T) {
+	v := loadVectors(t)
+	wargear := catalogueFor(t, v, wideParams, wideCatalogue, true).Wargear
+	for i, c := range v.WargearMatches {
+		f, _ := decoded(c.Filter).(*schema.Obj)
+		if got := WargearMatches(wargear[c.Wargear], f, c.Tier, c.NewTier, params[c.Params]); got != c.Match {
+			t.Fatalf("wargearMatches case %d: %s with %s at %v/%v under params %d: Go %v, TypeScript %v",
+				i, c.Wargear, c.Filter, c.Tier, c.NewTier, c.Params, got, c.Match)
+		}
+	}
+}
+
+func TestPurchaseKeyMatchesTheTypeScript(t *testing.T) {
+	v := loadVectors(t)
+	for _, c := range v.PurchaseKeys {
+		if got := PurchaseKey(c.Purchase); got != c.Key {
+			t.Fatalf("purchaseKey %+v: Go %q, TypeScript %q", c.Purchase, got, c.Key)
+		}
+	}
 }
 
 type resolveCase struct {

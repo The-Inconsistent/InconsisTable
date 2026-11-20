@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Suspense, use, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { Actor, LiveState, Me } from "@inconsistable/core-schema";
 import type { BuildCatalogue, Ruleset } from "@inconsistable/rules-engine";
@@ -12,7 +12,7 @@ import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import type { Send } from "@/hooks/use-table/use-table";
 import type { LedgerBuild as LedgerBuildDoc } from "@/lib/ledger/ledger";
-import { catalogueOf, gmSideOf, roomTier, startingBuild } from "@/lib/ledger/table";
+import { catalogueOf, gmSideOf, playOf, roomTier, startingBuild } from "@/lib/ledger/table";
 
 import type { DraftNote } from "./constants";
 
@@ -24,6 +24,8 @@ type LedgerBuildProps = {
   me: Me;
   send: Send;
   campaign: LiveState["campaign"]["fields"];
+  /** The step a link asked for, for a character in play. */
+  step?: string | null | undefined;
 };
 
 // One read of the room's catalogue. Never rejects: a failed read is null, which the screen shows with a retry.
@@ -40,7 +42,7 @@ async function readCatalogue(campaignId: string): Promise<BuildCatalogue | null>
 // BUILD CHARACTER with the ledger builder (docs/adr/0011, house decision #63): the room's catalogue read by the
 // browser, the build started from the draft or the saved build, saved through `build.save`, and kept as a draft the
 // GM can open a moment after every change.
-export function LedgerBuild({ campaignId, ruleset, actor, me, send, campaign }: LedgerBuildProps) {
+export function LedgerBuild({ campaignId, ruleset, actor, me, send, campaign, step }: LedgerBuildProps) {
   const t = useTranslations("builder");
   // The read is held here, outside the Suspense boundary, so it is started once; a retry starts another.
   const [read, setRead] = useState(() => readCatalogue(campaignId));
@@ -55,7 +57,7 @@ export function LedgerBuild({ campaignId, ruleset, actor, me, send, campaign }: 
       <main className="page lb-page">
         <Suspense fallback={<Loading />}>
           <Loaded
-            {...{ campaignId, ruleset, actor, me, send, campaign, read }}
+            {...{ campaignId, ruleset, actor, me, send, campaign, read, step }}
             onRetry={() => setRead(readCatalogue(campaignId))}
           />
         </Suspense>
@@ -95,12 +97,14 @@ function Loaded({ read, onRetry, ...rest }: LoadedProps) {
 
 type LedgerFormProps = LedgerBuildProps & { catalogue: BuildCatalogue };
 
-function LedgerForm({ campaignId, ruleset, actor, me, send, campaign, catalogue }: LedgerFormProps) {
+function LedgerForm({ campaignId, ruleset, actor, me, send, campaign, catalogue, step }: LedgerFormProps) {
   const t = useTranslations("ledgerBuilder.table");
   const router = useRouter();
   const tier = roomTier({ ruleset, campaign });
   const gm = gmSideOf({ me, kind: actor.kind });
   const [build, setBuild] = useState(() => startingBuild({ ledger: actor.ledger, tier }));
+  // A made character is in play (house decision #64): the builder prices purchases against the XP it earned.
+  const play = useMemo(() => playOf({ ruleset, actor, campaign }), [ruleset, actor, campaign]);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<DraftNote>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +168,9 @@ function LedgerForm({ campaignId, ruleset, actor, me, send, campaign, catalogue 
       build={build}
       onChange={handleChange}
       gm={gm}
-      tier={tier}
+      tier={build.tier ?? tier}
+      play={play}
+      step={step}
       footer={({ ready }) => (
         <>
           {error && (

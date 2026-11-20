@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ascensionRows, awardOf, rankOf, toSpend, type AscensionMember } from "./play.ts";
+import type { ResolvedBuild } from "@inconsistable/rules-engine";
+
+import { lookupsOf, resolveDraft, stepsFor, type LedgerBuild } from "./ledger.ts";
+import { ascensionRows, awardOf, playOpeningStep, rankOf, toSpend, type AscensionMember } from "./play.ts";
+import { SAMPLE_PARAMS as params, sampleCatalogue } from "./sample.ts";
 
 // Invented numbers throughout.
 
@@ -63,4 +67,41 @@ test("a session award is a whole number from 0 to max; anything else is not pass
   assert.equal(awardOf({ text: "-1", max: 30 }), null);
   assert.equal(awardOf({ text: "2.5", max: 30 }), null);
   assert.equal(awardOf({ text: "", max: 30 }), null);
+});
+
+test("a made character opens on the step a link asks for when the seat has it, else what it owes, else Advance", () => {
+  const catalogue = sampleCatalogue();
+  const lookups = lookupsOf(catalogue.creation);
+  const build: LedgerBuild = { tier: 1, archetypeId: "lamplighter" };
+  const play = { tier: 1, xpEarned: 40 };
+  const resolved = resolveDraft({ params, catalogue, build, play }).resolved;
+  assert.ok(resolved);
+  const clear: ResolvedBuild = { ...resolved, pending: [], problems: [] };
+  const player = stepsFor({ build, lookups, play, gm: false });
+  const gmSteps = stepsFor({ build, lookups, play, gm: true });
+  const open = (o: { asked?: string | null; resolved: ResolvedBuild; gm: boolean }) =>
+    playOpeningStep({ asked: o.asked, build, resolved: o.resolved, steps: o.gm ? gmSteps : player, gm: o.gm });
+
+  // asked for, and the seat has it
+  assert.equal(open({ asked: "advance", resolved, gm: false }), "advance");
+  assert.equal(open({ asked: "detail", resolved: clear, gm: true }), "detail");
+  // asked for a step a player in play does not have, or nonsense: the rule decides
+  assert.equal(open({ asked: "customise", resolved: clear, gm: false }), "advance");
+  assert.equal(open({ asked: "nope", resolved: clear, gm: true }), "advance");
+  // nothing owed: Advance, never the creation's purchases
+  assert.equal(open({ resolved: clear, gm: true }), "advance");
+  // something owed on a step the seat has: that step
+  const owesDetail = {
+    ...clear,
+    problems: [{ step: "detail" as const, what: "x", severity: "gm" as const, path: "p" }],
+  };
+  assert.equal(open({ resolved: owesDetail, gm: true }), "detail");
+  // a GM's tick is not the player's to settle, and Detail is not a player's step in play
+  assert.equal(open({ resolved: owesDetail, gm: false }), "advance");
+  // Customise owed: the GM opens there
+  const owesCustomise = {
+    ...clear,
+    problems: [{ step: "customise" as const, what: "x", severity: "error" as const, path: "p" }],
+  };
+  assert.equal(open({ resolved: owesCustomise, gm: true }), "customise");
 });

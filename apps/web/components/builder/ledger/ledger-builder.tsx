@@ -16,6 +16,7 @@ import {
   type LedgerBuild,
   type LedgerPlay,
 } from "@/lib/ledger/ledger";
+import { playOpeningStep } from "@/lib/ledger/play";
 
 import { ArchetypeStep } from "./components/archetype-step/archetype-step";
 import { AscensionStep } from "./components/ascension-step/ascension-step";
@@ -41,6 +42,8 @@ export type LedgerBuilderProps = {
   play?: LedgerPlay | undefined;
   // where the caller puts its own controls (a save button), told whether the build is ready to save
   footer?: (state: { ready: boolean; resolved: ResolvedBuild | null }) => ReactNode;
+  // in play, the step a link asked for (`?step=advance`); opened when this seat has it
+  step?: string | null | undefined;
 };
 
 const STEP_SCREENS: Record<BuildStep, () => ReactNode> = {
@@ -57,7 +60,17 @@ const STEP_SCREENS: Record<BuildStep, () => ReactNode> = {
 // the device by `resolveBuild` after every tap. Controlled: the build lives with the caller, which also decides what
 // saving means. Nothing here knows a game: every label that is the game's comes from the params, the catalogue or the
 // resolved build. Ported from Auspex's builder: its flow and behaviour, this app's look.
-export function LedgerBuilder({ params, catalogue, build, onChange, gm, tier, play, footer }: LedgerBuilderProps) {
+export function LedgerBuilder({
+  params,
+  catalogue,
+  build,
+  onChange,
+  gm,
+  tier,
+  play,
+  footer,
+  step: asked,
+}: LedgerBuilderProps) {
   const t = useTranslations("ledgerBuilder");
   const lookups = useMemo(() => lookupsOf(catalogue.creation), [catalogue]);
   const { resolved, error } = useMemo(
@@ -70,8 +83,11 @@ export function LedgerBuilder({ params, catalogue, build, onChange, gm, tier, pl
     [params, catalogue, lookups, build, resolved],
   );
   const steps = stepsFor({ build, lookups, play, gm });
-  // A new build opens on the Tier; one begun on the first step with something left for this seat, else its purchases.
-  const [chosen, setChosen] = useState<BuildStep>(() => openingStep({ build, resolved, steps, gm }));
+  // A new build opens on the Tier; one begun on the first step with something left for this seat, else its purchases;
+  // one in play on the step a link asked for, else the same, else Advance.
+  const [chosen, setChosen] = useState<BuildStep>(() =>
+    play ? playOpeningStep({ asked, build, resolved, steps, gm }) : openingStep({ build, resolved, steps, gm }),
+  );
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const step = steps.includes(chosen) ? chosen : steps[0]!; // stepsFor always gives at least one step
   const next = steps[steps.indexOf(step) + 1];

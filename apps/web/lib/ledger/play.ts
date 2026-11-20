@@ -1,3 +1,7 @@
+import type { BuildStep, ResolvedBuild } from "@inconsistable/rules-engine";
+
+import { issuesByStep, openingStep, type LedgerBuild } from "./ledger";
+
 // The ledger in play (docs/adr/0011, last stage): XP to spend, Rank from XP earned, the group's Ascension and the XP a
 // session awards. Pure: the play components show what these answer, and the numbers come from the caller.
 
@@ -39,6 +43,30 @@ export function ascensionRows({
     experience: !atTop && counted.length > 0 && ready === counted.length,
     milestone: !atTop,
   };
+}
+
+// Where a made character's builder opens: the step a link asked for (`?step=`) when this seat has it, else the first
+// step with something left for the seat (`openingStep`), else its purchases with earned XP.
+export function playOpeningStep({
+  asked,
+  build,
+  resolved,
+  steps,
+  gm,
+}: {
+  asked: string | null | undefined;
+  build: LedgerBuild;
+  resolved: ResolvedBuild | null;
+  steps: readonly BuildStep[];
+  gm: boolean;
+}): BuildStep {
+  const wanted = steps.find((s) => s === asked);
+  if (wanted) return wanted;
+  const first = openingStep({ build, resolved, steps, gm });
+  // `openingStep` falls back to Customise, the creation's purchases; in play the fallback is Advance. Customise is in
+  // the steps of a GM-side seat only, which counts every issue, so its count is what `openingStep` weighs.
+  const owes = first !== "customise" || issuesByStep(resolved).customise.left > 0;
+  return owes && steps.includes(first) ? first : "advance";
 }
 
 // The session's XP award as typed: a whole number from 0 to `max`, else null (not passed on).

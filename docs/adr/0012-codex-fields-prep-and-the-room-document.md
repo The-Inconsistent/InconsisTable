@@ -15,7 +15,7 @@ What does not fit is the part a GM prepared most carefully:
 
 | In the export | Here today |
 |---|---|
-| Scene rosters (41 lines, 8 as mobs), planned Tests with a target and who rolls (61), exits (16), pool award and spend lines (77) | A scene holds text and up to ten Test ids |
+| Scene rosters (41 lines, 8 as mobs), planned Tests with a target and who rolls (61), exits (16), pool award and spend lines (77), entries shown on entering a scene (19) | A scene holds text and up to ten Test ids |
 | NPC attitude (shown on phones), the stat block an NPC uses, faction stance | An entry is a title and two texts |
 | Locations in a tree | Only a scene may have a parent |
 | Handout styles | None (issue #159) |
@@ -54,7 +54,7 @@ without the block, and a room without a ruleset, have entries exactly as today.
 For Wrath & Glory this is an NPC's attitude (an enum the party sees, each option noting its modifier), an NPC's role
 and stat block, and a faction's stance (an enum for the GM). The platform knows none of those words.
 
-**3. Prep is parked actions.** A scene's prepared lines are of four kinds, each of which is an action the table
+**3. Prep is parked actions.** A scene's prepared lines are of five kinds, each of which is an action the table
 already has:
 
 | Line | Holds | Sending it is |
@@ -63,6 +63,7 @@ already has:
 | Test | A Test of the ruleset, its inputs (a target), who takes it, whether the target is hidden, a note | `test.call` |
 | Pool | A pool of the ruleset, an amount, a note | the pool's own adjust |
 | Exit | A label and a scene | opening that scene |
+| Reveal | Another entry of the room | `codex.reveal` of it to the party |
 
 Nothing runs by itself and nothing runs outside the one mutation path: a line is sent by a seat that holds the action's
 own permission, is refused as that action would be, and lands in the log and in Undo as that action does. A line that

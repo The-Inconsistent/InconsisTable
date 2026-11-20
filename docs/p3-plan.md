@@ -121,7 +121,8 @@ Mỗi bước một PR, xong bằng test của nó. Bậc sau chỉ bắt đầu
    1. **Auspex:** field chữ cho tiểu sử nhân vật trong ruleset; pack riêng cho Threat tự tạo, sinh từ file export.
    2. **Cây entry:** một entry nằm dưới entry cùng loại (Location trong Location), không vòng lặp.
    3. **Field của entry do ruleset khai** (khối `codex`): attitude và stat block của NPC, stance của Faction.
-   4. **Prep là hành động chờ gửi:** roster, Test có đích và người gieo, dòng pool, lối ra của scene.
+   4. **Prep là hành động chờ gửi:** roster, Test có đích và người gieo, dòng pool, lối ra của scene, entry được mở khi
+      vào scene.
    5. **Ảnh:** một ảnh cho entry, một ảnh cho actor, có công tắc "cho bàn xem", lưu sau một lớp storage.
    6. **Kiểu handout:** danh sách bố cục của platform; handout chọn một kiểu và có dòng tiêu đề (nửa của issue #159).
    7. **Tài liệu phòng** `inconsistable-room`: nhập qua REST của chủ phòng, một transaction; rồi xuất (backup).

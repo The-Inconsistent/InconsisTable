@@ -47,11 +47,13 @@ import { parseDice, rollDice, seededRng } from "../../../packages/rules-engine/s
 import type { FieldValue } from "../../../packages/rules-engine/src/derived.ts";
 import {
   AdvantageMode,
+  CodexEntryKind,
   ConditionDuration,
   DeathSaveResult,
   ResetEvent,
   ViewerRole,
 } from "../../../packages/rules-engine/src/enums.ts";
+import { CodexKind } from "../../../packages/core-schema/src/state.ts";
 import { FnName } from "../../../packages/rules-engine/src/expr/expr.ast.ts";
 import { evaluate } from "../../../packages/rules-engine/src/expr/expr.eval.ts";
 import { parseExpr } from "../../../packages/rules-engine/src/expr/expr.parser.ts";
@@ -1360,6 +1362,44 @@ function harmCrafted(): object[] {
   ];
 }
 
+// The codex block and the words of an enum (house decision #71): one valid block, then each refusal.
+function codexCrafted(): object[] {
+  const entities = [pcBase, { id: "foe", label: "Foe", base: "actor", fields: {} }];
+  const enumDef = (over: object = {}) => ({ type: "enum", label: "M", values: ["a", "b"], ...over });
+  const codex = (fields: object, kind = "npc") => ({ entities, codex: { kinds: { [kind]: { fields } } } });
+  const many = (n: number) =>
+    Object.fromEntries(Array.from({ length: n }, (_, i) => [`f${i}`, { type: "bool", label: "F" }]));
+  return [
+    codex({
+      mood: enumDef({ labels: { a: "A" }, notes: { b: "B" }, visibility: "party", cite: "p1" }),
+      n: { type: "int", label: "N", min: -3, max: 3 },
+      t: { type: "text", label: "T", maxLength: 10 },
+      b: { type: "bool", label: "B" },
+      boss: { type: "ref", label: "R", entity: "foe" },
+    }),
+    codex({}, "faction"),
+    { entities, codex: { kinds: {} } },
+    { entities, codex: {} },
+    codex({}, "ship"),
+    codex(many(20)),
+    codex(many(21)),
+    codex({ m: { type: "text", label: "M", visibility: "owner" } }),
+    codex({ m: { type: "text", label: "M", visibility: "public" } }),
+    codex({ m: { type: "text", label: "M", editableBy: "owner" } }),
+    codex({ m: { type: "list", label: "M" } }),
+    codex({ m: enumDef({ labels: { c: "C" }, notes: { a: "x".repeat(41) } }) }),
+    codex({ m: enumDef({ labels: { a: "x".repeat(61) }, notes: { z: "Z" } }) }),
+    codex({ m: enumDef({ labels: { Bad_Id: "x" } }) }),
+    codex({ m: { type: "ref", label: "R", entity: "nope" } }),
+    codex({ m: { type: "int", label: "N", min: 3, max: 1 } }),
+    codex({ "a.b": { type: "bool", label: "B" } }),
+    { entities: [{ ...pcBase, fields: { ...pcBase.fields, e: enumDef({ labels: { c: "C" } }) } }] },
+    {
+      campaignFields: { era: { type: "enum", label: "E", values: ["a"], default: "a", notes: { b: "B" }, cite: "p1" } },
+    },
+  ];
+}
+
 // `initiative.sides` (house decision #57): one valid block, then each refusal of the schema and of the semantic pass.
 function sidesCrafted(): object[] {
   const two = sideList(2);
@@ -1977,7 +2017,12 @@ const CRAFTED: object[] = [
   ),
   ...sidesCrafted(),
   ...harmCrafted(),
+  ...codexCrafted(),
 ];
+
+// The engine's codex kinds are core-schema's, which the engine cannot import (house decision #71).
+if (JSON.stringify(CodexEntryKind.options) !== JSON.stringify(CodexKind.options))
+  throw new Error("rules-engine CodexEntryKind and core-schema CodexKind differ");
 
 // `health.harm` with random changes, so the two schemas and semantic passes are held equal beyond the crafted cases.
 MANIFESTS.push(harmManifest());

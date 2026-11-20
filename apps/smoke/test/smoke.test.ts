@@ -1004,6 +1004,93 @@ test("codex tree: places nest, never in a loop; a hidden middle is never named t
   screen.socket.close();
 });
 
+test("entry fields: the ruleset declares them, the GM sets them, a player and the screen read the party's (#71)", async () => {
+  const ownerDevice = await device("ef-owner");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const pk = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  const made = await me.post<{ campaignId: string }>("/campaigns", { name: "Ef", rulesetVersionId: rs.body.versionId });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const anaDevice = await seatPlayer(owner, "ef-ana");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  const screen = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  await Promise.all([ana.until(() => true), screen.until(() => true)]);
+
+  // The GM sets the four invented fields; the server checks each against the manifest and the room's packs.
+  const npc = ok(
+    await owner.send({
+      type: "codex.save",
+      kind: "npc",
+      title: "Harbourmaster",
+      fields: { mood: "cold", disposition: -2, patron: "ember-wisp" },
+    }),
+  ).id!;
+  const band = ok(await owner.send({ type: "codex.save", kind: "faction", title: "Tide Guild" })).id!;
+  ok(await owner.send({ type: "codex.save", id: band, kind: "faction", fields: { standing: "rival" } }));
+  refused(
+    await owner.send({ type: "codex.save", id: npc, kind: "npc", fields: { standing: "ally" } }),
+    "noSuchEntryField",
+  );
+  refused(await owner.send({ type: "codex.save", id: npc, kind: "npc", fields: { disposition: 4 } }), "badEntryField");
+  refused(await owner.send({ type: "codex.save", id: npc, kind: "npc", fields: { mood: "sulky" } }), "badEntryField");
+  refused(
+    await owner.send({ type: "codex.save", id: npc, kind: "npc", fields: { patron: "coil-rope" } }),
+    "badEntryField",
+  );
+  refused(await ana.send({ type: "codex.save", id: npc, kind: "npc", fields: { mood: "warm" } }), "noPermission");
+  for (const id of [npc, band])
+    ok(await owner.send({ type: "codex.reveal", id, visibility: "party", audienceMode: "all", audience: [] }));
+  const fieldsOf = (c: typeof owner, id: string) => c.codex()?.entries.find((e) => e.id === id)?.fields;
+  await eventually(() => fieldsOf(owner, npc)?.patron === "ember-wisp", "the GM reads every field");
+  assert.deepEqual(fieldsOf(owner, band), { standing: "rival" });
+  const party = { mood: "cold", disposition: -2 };
+  await eventually(() => fieldsOf(ana, band) !== undefined && fieldsOf(screen, band) !== undefined, "revealed");
+  for (const c of [ana, screen]) {
+    assert.deepEqual(fieldsOf(c, npc), party);
+    assert.deepEqual(fieldsOf(c, band), {});
+  }
+
+  // A null clears one field and leaves the others.
+  ok(await owner.send({ type: "codex.save", id: npc, kind: "npc", fields: { disposition: null } }));
+  await eventually(() => fieldsOf(ana, npc)?.disposition === undefined, "cleared");
+  assert.equal(fieldsOf(ana, npc)?.mood, "cold");
+
+  // The served manifest carries the definitions each seat may read.
+  type Defs = { codex?: { kinds: Record<string, { fields: Record<string, unknown> }> } };
+  const defsOf = async (c: ReturnType<typeof caller>, kind: string) => {
+    const manifest = (await c.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset?.manifest as Defs;
+    return Object.keys(manifest?.codex?.kinds[kind]?.fields ?? {}).sort();
+  };
+  assert.deepEqual(await defsOf(me, "npc"), ["disposition", "mood", "patron"]);
+  assert.deepEqual(await defsOf(me, "faction"), ["standing"]);
+  assert.deepEqual(await defsOf(caller(anaDevice), "npc"), ["disposition", "mood"]);
+  assert.deepEqual(await defsOf(caller(anaDevice), "faction"), []);
+  // A ref's entry is read by its type and key, as the seat may read it: the gm creature only from the GM side.
+  const byKey = `/campaigns/${campaignId}/rules?type=creature&key=ember-wisp&limit=1`;
+  assert.deepEqual(keysOf((await me.get<RulesReply>(byKey)).body), ["ember-wisp"]);
+  assert.deepEqual(keysOf((await caller(anaDevice).get<RulesReply>(byKey)).body), []);
+
+  // A room on a ruleset with no codex block takes no fields at all.
+  const plain = await me.post<RulesetReply>("/rulesets", SAMPLE_NO_ORDER);
+  const other = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Ef2",
+    rulesetVersionId: plain.body.versionId,
+  });
+  const otherOwner = connect({ auth: { campaignId: other.body.campaignId, cookie: ownerDevice } });
+  await otherOwner.until(() => true);
+  refused(
+    await otherOwner.send({ type: "codex.save", kind: "npc", title: "N", fields: { mood: "cold" } }),
+    "noSuchEntryField",
+  );
+  const plainNpc = ok(await otherOwner.send({ type: "codex.save", kind: "npc", title: "N" })).id!;
+  await eventually(() => fieldsOf(otherOwner, plainNpc) !== undefined, "saved");
+  assert.deepEqual(fieldsOf(otherOwner, plainNpc), {});
+  for (const c of [owner, ana, screen, otherOwner]) c.socket.close();
+});
+
 test("the admin action route seats a known user and refuses anything but housekeeping", async () => {
   const { owner, campaignId } = await newRoom("Seat");
   const act = (body: unknown) => post(`/admin/campaigns/${campaignId}/action`, body, ADMIN);

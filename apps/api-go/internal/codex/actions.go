@@ -85,6 +85,15 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	if plannedSent && kind != "scene" {
 		return cs.Result{}, cs.Fail("onlySceneTests")
 	}
+	fields, err := checkFields(ctx, tx, c, kind, a)
+	if err != nil {
+		return cs.Result{}, err
+	}
+	// Unsent fields leave the column alone: {} merged, nothing cleared.
+	setFields, clearFields := "{}", []string{}
+	if fields != nil {
+		setFields, clearFields = string(fields.set), fields.clear
+	}
 	if !existing {
 		if title == nil {
 			return cs.Result{}, cs.Fail("giveTitle")
@@ -99,18 +108,19 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 		if !c.HasGM() {
 			visibility = "party"
 		}
-		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, visibility, position)
+		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, visibility, position, fields)
 			VALUES ($1, $2, $3, coalesce($4, ''), coalesce($5, ''), $6, coalesce($7::text[], '{}'), $8,
-				(SELECT coalesce(max(position) + 1, 0) FROM codex_entry WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NULL))
-			RETURNING id::text`, cid, kind, *title, body, notes, status, planned, visibility).Scan(&id)
+				(SELECT coalesce(max(position) + 1, 0) FROM codex_entry WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NULL), $9::jsonb)
+			RETURNING id::text`, cid, kind, *title, body, notes, status, planned, visibility, setFields).Scan(&id)
 		if err != nil || !imageSent {
 			return cs.Done(id), err
 		}
 		return cs.Done(id), setPicture(ctx, tx, c, id, picture)
 	}
-	_, err := tx.Exec(ctx, `UPDATE codex_entry SET title = coalesce($2, title), body = coalesce($3, body),
-		gm_notes = coalesce($4, gm_notes), status = coalesce($5, status), planned_tests = coalesce($6::text[], planned_tests)
-		WHERE id = $1`, id, title, body, notes, status, planned)
+	_, err = tx.Exec(ctx, `UPDATE codex_entry SET title = coalesce($2, title), body = coalesce($3, body),
+		gm_notes = coalesce($4, gm_notes), status = coalesce($5, status), planned_tests = coalesce($6::text[], planned_tests),
+		fields = (fields || $7::jsonb) - $8::text[]
+		WHERE id = $1`, id, title, body, notes, status, planned, setFields, clearFields)
 	if err != nil || !imageSent {
 		return cs.Done(id), err
 	}

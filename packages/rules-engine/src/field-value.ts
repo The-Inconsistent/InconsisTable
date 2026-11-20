@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { CampaignField, FieldDef } from "./manifest.ts";
+import type { CampaignField, CodexField, FieldDef } from "./manifest.ts";
 
 // Server-side ceilings for a field value; a manifest's own `maxLength` / `maxItems` may only tighten them.
 // core-schema repeats these numbers (it can't import the engine): keep `FieldValue` there in step.
@@ -20,7 +20,7 @@ export const FieldValueInput = z.union([
 export type FieldValueInput = z.infer<typeof FieldValueInput>;
 
 /** Why `value` does not fit `def`, or null when it does. The one place a value is checked against a `FieldDef`. */
-export function checkFieldValue({ def, value }: { def: FieldDef; value: unknown }): string | null {
+export function checkFieldValue({ def, value }: { def: FieldDef | CodexField; value: unknown }): string | null {
   switch (def.type) {
     case "int":
       if (typeof value !== "number" || !Number.isInteger(value)) return "expected a whole number";

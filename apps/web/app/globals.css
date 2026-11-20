@@ -741,6 +741,16 @@ label {
 .chip:is([aria-pressed], [data-status]):active {
   transform: scale(0.96);
 }
+/* A declared entry field's chip (house decision #71) stays one box beside a title; only a word too long for the line
+   wraps inside it. */
+.chip[data-field] {
+  display: inline-block;
+  max-width: 100%;
+  margin-inline-start: 4px;
+}
+.chip[data-field] .chip-note {
+  font-weight: 400;
+}
 .card .chip,
 .combatant .chip {
   border-color: var(--parchment-line);

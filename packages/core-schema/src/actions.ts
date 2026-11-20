@@ -193,6 +193,11 @@ export const Action = z.discriminatedUnion("type", [
     status: QuestStatus.optional(), // a quest only
     plannedTests: z.array(z.string().min(1).max(100)).max(10).optional(), // a scene only: ruleset Test ids
     imageId: id.nullable().optional(), // a picture uploaded to this room; null removes it (house decision #70)
+    // The ruleset's declared fields of this kind (house decision #71): a value sets one, null clears it, absent leaves it.
+    fields: z
+      .record(z.string().min(1).max(64), FieldValue)
+      .refine((o) => Object.keys(o).length <= 20, "At most 20 fields")
+      .optional(),
   }),
   // Who reads an entry, and whether the table sees its picture: either may be sent alone.
   z.object({

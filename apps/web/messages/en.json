@@ -1169,6 +1169,8 @@
     "tooDeep": "Entries nest {limit} deep at most",
     "onlySceneTests": "Only a scene plans Tests.",
     "cantLinkThat": "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
+    "noSuchEntryField": "This kind of entry has no field {field}.",
+    "badEntryField": "{field} doesn't take that: {detail}",
     "nothingToUndo": "Nothing to undo",
     "cantUndoKind": "Can't undo that kind of step yet",
     "undoGone": "Can't undo: {target} is gone.",
@@ -1421,6 +1423,20 @@
       "send": "Add to the list",
       "sent": "Added."
     }
+  },
+  "entryFields": {
+    "legend": "Details",
+    "chips": "Details",
+    "none": "Not set",
+    "open": "Open {name}",
+    "search": "Search for {label}",
+    "results": "Matches for {label}",
+    "noMatch": "Nothing matches.",
+    "clear": "Clear",
+    "clearLabel": "Clear {label}",
+    "gone": "This room's packs no longer have that entry.",
+    "readFailed": "Couldn't read the room's packs.",
+    "level": "Level {level}"
   },
   "notebook": {
     "entries": "Revealed",

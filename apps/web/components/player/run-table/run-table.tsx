@@ -125,7 +125,7 @@ export function RunTable({
         ) : shown === "tests" ? (
           <Tests state={state} send={send} />
         ) : shown === "codex" ? (
-          <Codex me={me} state={state} codex={codex} send={send} />
+          <Codex me={me} state={state} codex={codex} send={send} ruleset={ruleset} />
         ) : (
           <div className="stack" style={{ gap: 24 }}>
             <TableModePicker me={me} state={state} ruleset={ruleset} send={send} />

@@ -148,6 +148,8 @@ var refusals = map[string]string{
 	"tooDeep":                   "Entries nest {limit} deep at most",
 	"onlySceneTests":            "Only a scene plans Tests.",
 	"cantLinkThat":              "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
+	"noSuchEntryField":          "This kind of entry has no field {field}.",
+	"badEntryField":             "{field} doesn't take that: {detail}",
 	"clockNotFound":             "Clock not found",
 	"clockLimit":                "This room has as many clocks as it can hold.",
 	"pictureType":               "Send a WebP or JPEG picture",

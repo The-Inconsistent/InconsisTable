@@ -329,6 +329,8 @@ export const CodexEntry = z.object({
   // The entry's picture; another seat than the codex side gets it only once it is shown to the table (house decision #70).
   imageId: z.string().nullable(),
   imageRevealed: z.boolean(),
+  // The ruleset's declared fields of this kind that hold a value and that the seat may see (house decision #71).
+  fields: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])),
 });
 export type CodexEntry = z.infer<typeof CodexEntry>;
 

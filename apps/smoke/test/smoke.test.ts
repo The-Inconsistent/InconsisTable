@@ -965,6 +965,10 @@ test("entry fields: the ruleset declares them, the GM sets them, a player and th
   assert.deepEqual(await defsOf(me, "faction"), ["standing"]);
   assert.deepEqual(await defsOf(caller(anaDevice), "npc"), ["disposition", "mood"]);
   assert.deepEqual(await defsOf(caller(anaDevice), "faction"), []);
+  // A ref's entry is read by its type and key, as the seat may read it: the gm creature only from the GM side.
+  const byKey = `/campaigns/${campaignId}/rules?type=creature&key=ember-wisp&limit=1`;
+  assert.deepEqual(keysOf((await me.get<RulesReply>(byKey)).body), ["ember-wisp"]);
+  assert.deepEqual(keysOf((await caller(anaDevice).get<RulesReply>(byKey)).body), []);
 
   // A room on a ruleset with no codex block takes no fields at all.
   const plain = await me.post<RulesetReply>("/rulesets", SAMPLE_NO_ORDER);

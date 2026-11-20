@@ -1400,6 +1400,20 @@
       "sent": "Added."
     }
   },
+  "entryFields": {
+    "legend": "Details",
+    "chips": "Details",
+    "none": "Not set",
+    "open": "Open {name}",
+    "search": "Search for {label}",
+    "results": "Matches for {label}",
+    "noMatch": "Nothing matches.",
+    "clear": "Clear",
+    "clearLabel": "Clear {label}",
+    "gone": "This room's packs no longer have that entry.",
+    "readFailed": "Couldn't read the room's packs.",
+    "level": "Level {level}"
+  },
   "notebook": {
     "entries": "Revealed",
     "recaps": "Recaps",

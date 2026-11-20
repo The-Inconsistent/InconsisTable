@@ -10,11 +10,14 @@ import {
   type LiveState,
   type Me,
 } from "@inconsistable/core-schema";
+import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { EntryEditor } from "@/components/gm/codex/components/entry-editor/entry-editor";
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
+import { EntryFieldChips } from "@/components/ui/entry-fields/entry-fields";
 import type { Send } from "@/hooks/use-table/use-table";
 import { filterEntries, type KindFilter } from "@/lib/codex/codex";
+import type { RulesEntry } from "@/lib/library/library";
 
 type CodexProps = {
   me: Me;
@@ -23,11 +26,25 @@ type CodexProps = {
   send: Send;
   /** The entry open on arrival (PREP's "Open in CODEX"). */
   initialOpenId?: string | null;
+  /** The manifest as this seat reads it: the fields each kind of entry carries (house decision #71). */
+  ruleset?: Ruleset | null;
+  /** Pack entries this seat already read, to name a ref field's entry. */
+  known?: readonly RulesEntry[];
 };
+
+const NO_ENTRIES: readonly RulesEntry[] = [];
 
 // CODEX: the world's NPCs, places, factions and handouts. The GM writes them, searches them and reveals one to the
 // table or to chosen characters; the server decides who then sees it (docs/design.md §1.3).
-export function Codex({ me, state, codex, send, initialOpenId = null }: CodexProps) {
+export function Codex({
+  me,
+  state,
+  codex,
+  send,
+  initialOpenId = null,
+  ruleset = null,
+  known = NO_ENTRIES,
+}: CodexProps) {
   const t = useTranslations("codex");
   const [kind, setKind] = useState<KindFilter>("all");
   const [query, setQuery] = useState("");
@@ -152,6 +169,7 @@ export function Codex({ me, state, codex, send, initialOpenId = null }: CodexPro
               >
                 <strong>{e.title}</strong>
                 <span className="row small">
+                  <EntryFieldChips ruleset={ruleset} entry={e} />
                   <span>{t(`kind.${e.kind}`)}</span>
                   {e.status && <span className="chip">{t(`status.${e.status}`)}</span>}
                   <VisibilityBadge entry={e} />
@@ -174,6 +192,9 @@ export function Codex({ me, state, codex, send, initialOpenId = null }: CodexPro
             }}
             act={act}
             onDeleted={handleDeleted}
+            ruleset={ruleset}
+            campaignId={me.campaignId}
+            known={known}
           />
         )}
       </div>

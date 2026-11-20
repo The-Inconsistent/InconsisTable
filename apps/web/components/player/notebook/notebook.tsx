@@ -2,16 +2,28 @@
 import { useTranslations } from "next-intl";
 
 import { CodexKind, type Codex, type CodexEntry, type Me, type Safety } from "@inconsistable/core-schema";
+import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { SafetySection } from "@/components/player/notebook/safety-section";
+import { EntryFieldChips, EntryFields } from "@/components/ui/entry-fields/entry-fields";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import type { Send } from "@/hooks/use-table/use-table";
+import type { RulesEntry } from "@/lib/library/library";
 
-type NotebookProps = { codex: Codex | null; me: Me; safety: Safety; send: Send };
+type NotebookProps = {
+  codex: Codex | null;
+  me: Me;
+  safety: Safety;
+  send: Send;
+  /** The manifest as this seat reads it: the fields each kind of entry carries (house decision #71). */
+  ruleset: Ruleset | null;
+  /** Pack entries this seat already read, to name a ref field's entry. */
+  known: readonly RulesEntry[];
+};
 
 // The phone's notebook: open quests first, then what the GM revealed by kind and tapped open (closed quests with their
-// outcome under Quest), then the recaps, newest first.
-export function Notebook({ codex, me, safety, send }: NotebookProps) {
+// outcome under Quest), each with the fields the party sees, then the recaps, newest first.
+export function Notebook({ codex, me, safety, send, ruleset, known }: NotebookProps) {
   const t = useTranslations("notebook");
   const tKind = useTranslations("codex.kind");
   const tStatus = useTranslations("codex.status");
@@ -40,7 +52,9 @@ export function Notebook({ codex, me, safety, send }: NotebookProps) {
       <summary>
         <strong>{e.title}</strong>
         {e.status && e.status !== "open" && <span className="chip">{tStatus(e.status)}</span>}
+        <EntryFieldChips ruleset={ruleset} entry={e} />
       </summary>
+      <EntryFields ruleset={ruleset} entry={e} campaignId={me.campaignId} known={known} enumChips={false} />
       <p style={{ whiteSpace: "pre-wrap" }}>
         <MentionText body={e.body} entries={entries} onOpen={handleOpen} />
       </p>

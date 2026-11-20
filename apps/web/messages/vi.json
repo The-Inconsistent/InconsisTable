@@ -1400,6 +1400,20 @@
       "sent": "Đã thêm."
     }
   },
+  "entryFields": {
+    "legend": "Chi tiết",
+    "chips": "Chi tiết",
+    "none": "Chưa đặt",
+    "open": "Mở {name}",
+    "search": "Tìm {label}",
+    "results": "Kết quả cho {label}",
+    "noMatch": "Không có kết quả.",
+    "clear": "Xoá",
+    "clearLabel": "Xoá {label}",
+    "gone": "Các gói của phòng này không còn mục đó.",
+    "readFailed": "Không đọc được các gói của phòng.",
+    "level": "Cấp {level}"
+  },
   "notebook": {
     "entries": "Đã tiết lộ",
     "recaps": "Tóm tắt các buổi",

@@ -51,9 +51,9 @@ function summary({ kind, line, names, t }: { kind: PrepKind; line: PrepLine; nam
       .map(([k, v]) => `${k} ${String(v)}`)
       .join(", ");
     const who =
-      line.takers === "party"
-        ? t("summary.party")
-        : line.actorIds.map((id) => names.actor(id) ?? t("summary.gone")).join(", ");
+      line.takers === "listed"
+        ? line.actorIds.map((id) => names.actor(id) ?? t("summary.gone")).join(", ")
+        : t(`summary.${line.takers}`);
     return inputs === ""
       ? t("summary.test", { test: line.testId, who })
       : t("summary.testWith", { test: line.testId, inputs, who });

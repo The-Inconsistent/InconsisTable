@@ -1182,6 +1182,8 @@ test("scene prep: each line is sent as the action it stands for; players and the
         hideTarget: true,
         outcomes: [{ label: "Pass", text: "The rope holds." }],
       },
+      // Taken by one seated character the GM picks when sending it (house decision #75).
+      { id: "t2", testId: "check", inputs: { ability: "str", dc: 10 }, takers: "pick" },
     ],
     pools: [{ id: "p1", pool: "menace", amount: 2, text: "They are heard" }],
     exits: [{ id: "e1", label: "Down the well", sceneId: well }],
@@ -1226,6 +1228,22 @@ test("scene prep: each line is sent as the action it stands for; players and the
   );
   const called = await ana.c.until((s) => s.tests.some((t) => t.testId === "check" && t.status === "open"));
   assert.equal(called.tests.find((t) => t.testId === "check")?.targets[0]?.target, null, "the target stays hidden");
+  // The pick line, once the GM taps Ben: test.call for him alone.
+  assert.equal(gmYard()?.prep?.tests[1]?.takers, "pick");
+  const picked = prep.tests[1]!;
+  ok(
+    await owner.send({
+      type: "test.call",
+      testId: picked.testId,
+      actorIds: [ben.held],
+      inputs: picked.inputs,
+      hideTarget: false,
+      showOutcome: false,
+    }),
+  );
+  await ben.c.until((s) =>
+    s.tests.some((t) => t.status === "open" && t.targets.length === 1 && t.targets[0]?.actorId === ben.held),
+  );
   ok(await owner.send({ type: "codex.reveal", id: keeper, visibility: "party", audienceMode: "all", audience: [] }));
   await eventually(() => ana.c.codex()?.entries.some((e) => e.id === keeper) ?? false, "the keeper is shown");
   const menace = (s: LiveState) => s.pools.find((p) => p.id === "menace")?.value;
@@ -1247,6 +1265,67 @@ test("scene prep: each line is sent as the action it stands for; players and the
   ok(await owner.send({ type: "codex.save", id: well, kind: "scene", status: "active" }));
   await eventually(() => gmYard()?.status === "done", "one scene is active at a time");
   for (const c of [owner, ana.c, ben.c, screen]) c.socket.close();
+});
+
+// The five codex features together (#69 to #73) on one room: what a player receives of each, and nothing of a scene's.
+test("codex entry, all at once: a nested place with a shown picture and a field, a laid-out handout, a prepared scene", async () => {
+  // The d20 fixture declares no place field; this copy adds one, so the nested place can carry one.
+  const ruleset = structuredClone(SAMPLE_D20);
+  ruleset.version = "0.1.3-all";
+  ruleset.codex!.kinds.location = {
+    fields: {
+      district: { type: "text", label: "District", maxLength: 40, visibility: "party", cite: "Sample p.17" },
+    },
+  };
+  const ownerDevice = await device("all-owner");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", ruleset);
+  assert.equal(rs.status, 201);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "All",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  const anaDevice = await seatPlayer(owner, "all-ana");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  await ana.until(() => true);
+  const save = async (a: Record<string, unknown>) => ok(await owner.send({ type: "codex.save", ...a } as never)).id!;
+  const reveal = (id: string) =>
+    owner.send({ type: "codex.reveal", id, visibility: "party", audienceMode: "all", audience: [] });
+
+  const upload = await fetch(`${API}/api/campaigns/${campaignId}/images`, {
+    method: "POST",
+    headers: { "content-type": "image/jpeg", ...SAME_ORIGIN, cookie: ownerDevice, "cf-connecting-ip": nextSocketIp() },
+    body: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 7]),
+  });
+  assert.equal(upload.status, 200);
+  const picture = ((await upload.json()) as { id: string }).id;
+  const town = await save({ kind: "location", title: "Harbour town" });
+  const quay = await save({ kind: "location", title: "Quay", imageId: picture, fields: { district: "Docks" } });
+  ok(await owner.send({ type: "codex.move", id: quay, parentId: town, position: 0 }));
+  const notice = await save({ kind: "handout", title: "Notice", layout: "proclamation", header: "By order" });
+  const scene = await save({ kind: "scene", title: "The quay", prep: { reveals: [{ id: "v1", entryId: notice }] } });
+  ok(await owner.send({ type: "codex.save", id: scene, kind: "scene", status: "active" }));
+  for (const id of [town, quay, notice, scene]) ok(await reveal(id));
+  ok(await owner.send({ type: "codex.reveal", id: quay, imageRevealed: true }));
+
+  const gm = (id: string) => owner.codex()?.entries.find((e) => e.id === id);
+  await eventually(() => gm(scene)?.status === "active", "the GM reads the scene's status");
+  assert.deepEqual(gm(scene)?.prep?.reveals, [{ id: "v1", entryId: notice }]);
+  const seen = (id: string) => ana.codex()?.entries.find((e) => e.id === id);
+  await eventually(() => seen(quay)?.imageRevealed === true && seen(scene) !== undefined, "the player reads them all");
+  const place = seen(quay);
+  assert.deepEqual(
+    [place?.parentId, place?.imageId, place?.fields],
+    [town, picture, { district: "Docks" }],
+    "the nested place, its parent, its shown picture and its party field",
+  );
+  assert.deepEqual([seen(notice)?.layout, seen(notice)?.header], ["proclamation", "By order"]);
+  assert.deepEqual([seen(scene)?.prep, seen(scene)?.status], [null, null], "nothing of the scene's prep or status");
+  owner.socket.close();
+  ana.socket.close();
 });
 
 test("the admin action route seats a known user and refuses anything but housekeeping", async () => {
@@ -3014,8 +3093,11 @@ test("actor.spawn: the GM places numbered creatures from an attached pack, as ro
   refused(await owner.send(spawn({ packVersionId: crypto.randomUUID() })), /isn't in a pack attached/);
   refused(await owner.send(spawn({ key: "nope" })), /isn't in a pack attached/);
   refused(await owner.send(spawn({ key: "coil-rope" })), /takes a place at the table/); // gear isn't an actor
-  refused(await owner.send(spawn({ count: 21 })), /too big|<=20|20/);
+  refused(await owner.send(spawn({ count: 51 })), /too big|<=50|50/);
   refused(await owner.send(spawn({ count: 0 })), /too small|>=1|1/);
+  refused(await owner.send(spawn({ name: " " })), "badRequest");
+  refused(await owner.send(spawn({ name: "x".repeat(81) })), "badRequest");
+  refused(await owner.send(spawn({ visibility: "stats" })), "badRequest");
 
   ok(await owner.send(spawn()));
   const s = await owner.until((x) => x.actors.filter((a) => a.kind === "creature").length === 3);
@@ -3053,6 +3135,13 @@ test("actor.spawn: the GM places numbered creatures from an attached pack, as ro
     (await ana.c.until(() => true)).actors.some((a) => a.kind === "creature"),
     false,
   );
+
+  // A name in the entry's place, numbered the same way; fifty at once (house decision #75).
+  ok(await owner.send(spawn({ count: 2, name: " Cinder " })));
+  ok(await owner.send(spawn({ count: 50 })));
+  const named = await owner.until((x) => x.actors.filter((a) => a.kind === "creature").length === 57);
+  const names = named.actors.map((a) => a.name);
+  assert.ok(["Cinder 1", "Cinder 2", "Ember Wisp 6", "Ember Wisp 55"].every((n) => names.includes(n)));
   for (const c of [owner, ana.c, ben.c]) c.socket.close();
 });
 
@@ -4350,4 +4439,70 @@ test("health.harm: hit down, scarred, healed, destroyed, a mob thinned and muste
     );
   }
   for (const c of [owner, ana, screen]) c.socket.close();
+});
+
+// START THE FIGHT on a prepared scene (house decision #75): the actions the Run view builds, sent one by one as it
+// sends them, each its own action. A hidden line, a bar line under a name, and a mob at full under a name.
+test("scene prep: START THE FIGHT starts it, seats the party and places each roster line at its view", async () => {
+  const ownerDevice = await device("owner-Cellar");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_HARM);
+  const pk = await me.post<PackReply>("/packs", HARM_PACK);
+  assert.deepEqual([rs.status, pk.status], [201, 201]);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Cellar",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-Cellar") } });
+  const pc = (await owner.until((s) => s.actors.some((a) => a.kind === "pc"))).actors.find((a) => a.kind === "pc")!;
+  await equip(pc.id, "hero", { fields: { grit: 2 }, resources: { wounds: 0, strain: 0 } });
+
+  const roster = [
+    { id: "h", pack: HARM_PACK.id, key: "ogre", count: 1 },
+    { id: "b", pack: HARM_PACK.id, key: "ogre", count: 2, visibility: "bar" as const, label: "Brutes" },
+    { id: "m", pack: HARM_PACK.id, key: "rats", count: 1, mob: 6, visibility: "full" as const, label: "Vermin" },
+  ];
+  const cellar = ok(await owner.send({ type: "codex.save", kind: "scene", title: "The cellar", prep: { roster } })).id!;
+  await eventually(
+    () => owner.codex()?.entries.find((e) => e.id === cellar)?.prep?.roster.length === 3,
+    "the GM receives the roster",
+  );
+
+  ok(await owner.send({ type: "session.start" }));
+  const spawn = { type: "actor.spawn", packVersionId: pk.body.versionId, temporary: true };
+  const steps = [
+    { type: "encounter.start" },
+    { type: "encounter.add", actorIds: [pc.id], side: "party", visibility: "full" },
+    { ...spawn, key: "ogre", count: 1, visibility: "hidden" },
+    { ...spawn, key: "ogre", count: 2, visibility: "bar", name: "Brutes" },
+    { ...spawn, key: "rats", count: 1, visibility: "full", mob: 6, name: "Vermin" },
+  ];
+  for (const step of steps) ok(await owner.send(step as ActionInput));
+  const fight = await owner.until((s) => s.encounter?.combatants.length === 5);
+  const views = Object.fromEntries(fight.encounter!.combatants.map((c) => [c.name, c.visibility]));
+  assert.deepEqual(views, {
+    [pc.name]: "full",
+    "Ogre 1": "hidden",
+    "Brutes 1": "bar",
+    "Brutes 2": "bar",
+    "Vermin ×6": "full",
+  });
+  // With the fight running the sequence sends no start: that one is refused there.
+  refused(await owner.send({ type: "encounter.start" }), /already running/);
+
+  // The player: nothing of the hidden one; the named bar ones without numbers; the mob with its count.
+  const v = await ana.until((x) => x.stateVersion >= fight.stateVersion);
+  const seen = new Map(v.encounter!.combatants.map((c) => [c.name, c]));
+  assert.deepEqual([...seen.keys()].sort(), [pc.name, "Brutes 1", "Brutes 2", "Vermin ×6"].sort());
+  for (const n of ["Brutes 1", "Brutes 2"]) {
+    assert.equal(seen.get(n)?.hp, null);
+    assert.equal(typeof seen.get(n)?.bar, "number");
+  }
+  assert.deepEqual(seen.get("Vermin ×6")?.members, { value: 6, max: 6 });
+  assert.ok(!JSON.stringify(v).includes("Ogre 1"));
+  for (const c of [owner, ana]) c.socket.close();
 });

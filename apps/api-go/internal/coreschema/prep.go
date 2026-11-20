@@ -49,7 +49,7 @@ var ScenePrep = schema.Refined(
 			lines("tests", prepLine(
 				schema.Req("testId", schema.String().Min(1).Max(64)),
 				schema.Def("inputs", testInputs, map[string]any{}),
-				schema.Def("takers", schema.Enum("party", "listed"), "party"),
+				schema.Def("takers", schema.Enum("party", "listed", "pick"), "party"),
 				schema.Def("actorIds", schema.Array(id).Max(50), []any{}),
 				schema.Def("hideTarget", schema.Bool(), false),
 				schema.Def("outcomes", schema.Array(schema.Object(

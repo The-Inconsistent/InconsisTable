@@ -43,6 +43,9 @@ var (
 	clockVisibility  = []string{"gm", "party"}
 )
 
+// maxSpawn is core-schema's MAX_SPAWN: the creatures one actor.spawn places.
+const maxSpawn = 50
+
 // MaxClocks is core-schema's MAX_CLOCKS: the clocks one room holds.
 const MaxClocks = 30
 
@@ -152,9 +155,12 @@ var ActionSchema = schema.Union("type",
 	variant("actor.spawn",
 		schema.Req("packVersionId", id),
 		schema.Req("key", schema.String().Min(1).Max(80)),
-		schema.Req("count", schema.Int().Min(1).Max(20)),
+		schema.Req("count", schema.Int().Min(1).Max(maxSpawn)),
 		schema.Def("temporary", schema.Bool(), false),
 		schema.Opt("mob", schema.Int().Min(2).Max(500)),
+		// How the table sees them in a running fight, and a name in the entry's place (house decision #75).
+		schema.Def("visibility", schema.Enum(combatVisibility...), "hidden"),
+		schema.Opt("name", schema.String().Trim().Min(1).Max(80)),
 	),
 	variant("draft.save", schema.Req("body", BuilderDraftBody)),
 	variant("draft.discard"),

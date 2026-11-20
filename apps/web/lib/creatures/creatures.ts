@@ -1,3 +1,4 @@
+import { MAX_SPAWN } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 // Which entity types of a ruleset are creatures to place at a table: actor-based types that creation does not build for
@@ -8,7 +9,7 @@ export function creatureTypes(ruleset: Ruleset): string[] {
 }
 
 export const MIN_SPAWN = 1;
-export const MAX_SPAWN = 20; // the api's limit (actor.spawn)
+export { MAX_SPAWN }; // the api's limit (actor.spawn)
 
 /** The count stepper stays inside the api's range. */
 export const clampCount = (n: number) => Math.min(MAX_SPAWN, Math.max(MIN_SPAWN, n));

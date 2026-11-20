@@ -27,7 +27,7 @@ import {
   SafetyLine,
   SafetyList,
 } from "./state.ts";
-import { ENCOUNTER_ACTIONS } from "./encounter.ts";
+import { CombatVisibility, ENCOUNTER_ACTIONS } from "./encounter.ts";
 import { ScenePrep } from "./prep.ts";
 import { TestCallAction, TestCloseAction, TestReportAction } from "./test-call.ts";
 
@@ -42,6 +42,8 @@ export const SessionTitle = z.string().trim().max(100);
 // The two ways a group Ascends (house decision #64): everyone has earned the XP, or at the GM's word.
 export const AscendKind = z.enum(["experience", "milestone"]);
 export type AscendKind = z.infer<typeof AscendKind>;
+// The creatures one actor.spawn places (house decision #75).
+export const MAX_SPAWN = 50;
 
 export const Action = z.discriminatedUnion("type", [
   z.object({
@@ -113,14 +115,17 @@ export const Action = z.discriminatedUnion("type", [
     waivePackage: z.boolean().default(false),
   }),
   // N creatures from one attached pack entry, numbered after the ones already at the table. With `mob` (and a count
-  // of 1), one actor standing for that many members, named "<entry> ×N" (house decision #66).
+  // of 1), one actor standing for that many members, named "<entry> ×N" (house decision #66). `name` stands in for the
+  // entry's own; `visibility` is how the table sees them when a fight is running (house decision #75).
   z.object({
     type: z.literal("actor.spawn"),
     packVersionId: id,
     key: z.string().min(1).max(80),
-    count: z.int().min(1).max(20),
+    count: z.int().min(1).max(MAX_SPAWN),
     temporary: z.boolean().default(false),
     mob: z.int().min(2).max(500).optional(),
+    visibility: CombatVisibility.default("hidden"),
+    name: z.string().trim().min(1).max(80).optional(),
   }),
   // The signed-in user's builder draft in this room (one per user and room).
   z.object({ type: z.literal("draft.save"), body: BuilderDraftBody }),

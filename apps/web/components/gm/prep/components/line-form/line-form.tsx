@@ -121,6 +121,7 @@ export function LineForm({ kind, line, scene, entries, state, ruleset, spawnable
           onChange={handleText("label", kind !== "exits")}
           maxLength={80}
         />
+        {kind === "roster" && <span className="small dim">{t("form.rosterLabelHint")}</span>}
       </label>
       <label className="stack">
         {t("form.note")}

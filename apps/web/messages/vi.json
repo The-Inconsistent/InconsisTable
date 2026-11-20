@@ -866,7 +866,8 @@
     "spawn": "Thêm {count} × {name}",
     "asMob": "Thành đám đông gồm",
     "spawnMob": "Thêm {name} ×{count}",
-    "addedMob": "Đã thêm {name} ×{count}"
+    "addedMob": "Đã thêm {name} ×{count}",
+    "tableSees": "Khi đang có trận, cả bàn thấy"
   },
   "track": {
     "noTurnOrder": "Bộ luật này không có thứ tự lượt.",
@@ -1441,8 +1442,7 @@
     },
     "blocked": {
       "noFight": "Chưa có trận đánh nào. Hãy bắt đầu một trận trước.",
-      "visibility": "Sinh vật vào trận ở chế độ ẩn; dòng này muốn cách hiện khác, bàn chưa gửi được.",
-      "count": "Hơn 20 cùng lúc; bàn chưa gửi được nhiều vậy.",
+      "count": "Hơn 50 cùng lúc; hãy chia ra hai dòng.",
       "mobCount": "Nhiều đám cùng lúc; bàn gửi mỗi lần một đám.",
       "nobody": "Chưa có nhân vật nào ngồi vào bàn để làm Test này.",
       "short": "Quỹ không đủ để trả."
@@ -1453,6 +1453,7 @@
       "test": "{test} · {who}",
       "testWith": "{test} · {inputs} · {who}",
       "party": "mọi người đang ngồi",
+      "pick": "một nhân vật đang ngồi, chọn lúc gửi",
       "gone": "(không còn)",
       "pool": "{pool} {amount, number, ::sign-always}",
       "exit": "Tới {scene}",
@@ -1473,8 +1474,10 @@
       "note": "Ghi chú cho GM (tuỳ chọn)",
       "takers": {
         "party": "Mọi người đang ngồi",
-        "listed": "Chỉ những người này"
+        "listed": "Chỉ những người này",
+        "pick": "Một người, chọn lúc gửi"
       },
+      "rosterLabelHint": "Sinh vật mang tên này ở bàn, có đánh số.",
       "outcomes": "Mỗi kết quả nghĩa là gì",
       "outcomeLabel": "Kết quả",
       "outcomeText": "Chuyện gì xảy ra",
@@ -1498,6 +1501,16 @@
       "skipped": "Bỏ qua"
     },
     "startFight": "Bắt đầu trận đánh",
+    "joinFight": "Đưa họ vào trận",
+    "fight": {
+      "start": "bước bắt đầu trận",
+      "party": "bước thêm các nhân vật đang ngồi",
+      "done": "Trận đã bắt đầu.",
+      "stopped": "Dừng ở {what}; những gì sau đó chưa được gửi.",
+      "skipped": "Trận đã bắt đầu. Chưa gửi: {lines}."
+    },
+    "who": "Ai?",
+    "whoTakes": "Ai làm {what}",
     "send": "Gửi",
     "open": "Mở",
     "sendLine": "Gửi {what}",

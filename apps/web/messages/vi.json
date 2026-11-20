@@ -736,6 +736,7 @@
     "none": "Không có.",
     "turnsLeft": "{count, plural, other {còn # lượt}}",
     "roundsLeft": "{count, plural, other {còn # vòng}}",
+    "jump": "Đến một mục",
     "ledger": {
       "talents": "Talent",
       "abilities": "Năng lực",
@@ -749,6 +750,26 @@
       "salvo": "Salvo {salvo}",
       "armour": "AR {ar}",
       "power": "DN {dn} · {activation} · {duration} · Tầm {range}"
+    },
+    "widget": {
+      "rating": "Bậc",
+      "bonus": "Cộng thêm",
+      "total": "Tổng",
+      "name": "Tên",
+      "link": "Gắn với",
+      "untrained": "chưa học",
+      "trackOf": "{label}: {value} trên {max}",
+      "pipsOf": "{label} {value}: {step}",
+      "noStep": "Chưa có",
+      "damage": "ST",
+      "ap": "AP",
+      "ed": "+{ed} ED",
+      "talent": "Tài năng",
+      "save": "Lưu",
+      "cancel": "Huỷ",
+      "write": "Viết",
+      "edit": "Sửa",
+      "notWritten": "{fields}: chưa viết."
     }
   },
   "breakdown": {

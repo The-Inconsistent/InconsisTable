@@ -1,57 +1,52 @@
-import type { Actor, BookPage, ConditionTimer } from "@inconsistable/core-schema";
+import type { BookPage, ConditionTimer } from "@inconsistable/core-schema";
 import {
   actorScope,
   resourceBounds,
   type CompiledRuleset,
   stepsFor,
   type FieldValue,
+  type LayoutRow,
   type ResetEvent,
   type Ruleset,
 } from "@inconsistable/rules-engine";
 
 import { harmOnly } from "../harm/harm.ts";
+import { rowFor, type SheetActor, type SheetRow, type WidgetModel, widgetOf } from "../sheet-widgets/sheet-widgets.ts";
 import { leftOf } from "../track/track.ts";
 
 // The sheet's pure side: which rows a ruleset's `layout` puts on a character, who may step a resource, which rests the
 // manifest declares, and how a printed cite becomes a page of the GM's book. Values never come from here: they are the
 // server's, already filtered for the seat (CLAUDE.md, principle 6).
 
-export type SheetActor = Pick<Actor, "entity" | "fields" | "resources" | "derived">;
+export type { SheetActor, SheetRow } from "../sheet-widgets/sheet-widgets.ts";
 
-export type SheetRow = {
-  kind: "field" | "derived" | "resource";
-  id: string;
-  label: string;
-  cite: string | null;
-};
+/** A run of value rows, or one widget, in the order the layout lists them. */
+export type SheetPart = { kind: "rows"; rows: SheetRow[] } | { kind: "widget"; model: WidgetModel };
 /** A section of the sheet. `label` is the ruleset's own; null for the three built-in ones, named by the `sheet.section` messages. */
-export type SheetSection = { id: string; label: string | null; rows: SheetRow[] };
+export type SheetSection = { id: string; label: string | null; parts: SheetPart[] };
 
 /** The layout key a ruleset may use for every entity that has no layout of its own. */
 export const SHARED_LAYOUT = "sheet";
 
-/**
- * The rows a layout path names for this character. `derived.x` and `res.x` name those kinds outright; a bare path is
- * a field, else a derived value, else a resource. A path the seat holds no value for is left out (it may be hidden).
- */
-function rowFor({ ruleset, actor, path }: { ruleset: Ruleset; actor: SheetActor; path: string }): SheetRow | null {
-  const def = ruleset.entities.find((e) => e.id === actor.entity);
-  const field = () =>
-    path in actor.fields && def?.fields[path]
-      ? { kind: "field" as const, id: path, label: def.fields[path].label, cite: def.fields[path].cite ?? null }
-      : null;
-  const derived = (id: string) => {
-    const d = def?.derived.find((x) => x.id === id);
-    return d && id in actor.derived ? { kind: "derived" as const, id, label: d.label, cite: d.cite ?? null } : null;
-  };
-  const resource = (id: string) => {
-    const r = ruleset.resources.find((x) => x.id === id);
-    return r && id in actor.resources ? { kind: "resource" as const, id, label: r.label, cite: r.cite ?? null } : null;
-  };
-  if (path.startsWith("derived.")) return derived(path.slice(8));
-  if (path.startsWith("res.")) return resource(path.slice(4));
-  return field() ?? derived(path) ?? resource(path);
+/** A section's rows as parts: consecutive value rows run together, each widget stands alone; nothing drawn is dropped. */
+function partsOf({ ruleset, actor, show }: { ruleset: Ruleset; actor: SheetActor; show: readonly LayoutRow[] }) {
+  const parts: SheetPart[] = [];
+  for (const item of show) {
+    if (typeof item !== "string") {
+      const model = widgetOf({ ruleset, actor, row: item });
+      if (model) parts.push({ kind: "widget", model });
+      continue;
+    }
+    const row = rowFor({ ruleset, actor, path: item });
+    if (!row) continue;
+    const last = parts.at(-1);
+    if (last?.kind === "rows") last.rows.push(row);
+    else parts.push({ kind: "rows", rows: [row] });
+  }
+  return parts;
 }
+
+const rowsPart = (rows: SheetRow[]): SheetPart[] => (rows.length > 0 ? [{ kind: "rows", rows }] : []);
 
 /** Sections in layout order. No layout for the entity: derived values, then resources, then fields. */
 export function sectionsOf({ ruleset, actor }: { ruleset: Ruleset; actor: SheetActor }): SheetSection[] {
@@ -59,32 +54,38 @@ export function sectionsOf({ ruleset, actor }: { ruleset: Ruleset; actor: SheetA
   if (!def) return [];
   const layout = ruleset.layout[actor.entity] ?? ruleset.layout[SHARED_LAYOUT];
   const sections: SheetSection[] = layout
-    ? layout.sections.map((s) => ({
-        id: s.id,
-        label: s.label,
-        rows: s.show.flatMap((path) => rowFor({ ruleset, actor, path }) ?? []),
-      }))
+    ? layout.sections.map((s) => ({ id: s.id, label: s.label, parts: partsOf({ ruleset, actor, show: s.show }) }))
     : [
         {
           id: "derived",
           label: null,
-          rows: def.derived.flatMap((d) => rowFor({ ruleset, actor, path: `derived.${d.id}` }) ?? []),
+          parts: rowsPart(def.derived.flatMap((d) => rowFor({ ruleset, actor, path: `derived.${d.id}` }) ?? [])),
         },
         {
           id: "resources",
           label: null,
-          rows: ruleset.resources.flatMap((r) => rowFor({ ruleset, actor, path: `res.${r.id}` }) ?? []),
+          parts: rowsPart(ruleset.resources.flatMap((r) => rowFor({ ruleset, actor, path: `res.${r.id}` }) ?? [])),
         },
         {
           id: "fields",
           label: null,
-          rows: Object.keys(def.fields).flatMap((f) =>
-            f in actor.fields ? (rowFor({ ruleset, actor, path: f }) ?? []) : [],
+          parts: rowsPart(
+            Object.keys(def.fields).flatMap((f) =>
+              f in actor.fields ? (rowFor({ ruleset, actor, path: f }) ?? []) : [],
+            ),
           ),
         },
       ];
-  return sections.filter((s) => s.rows.length > 0);
+  return sections.filter((s) => s.parts.length > 0);
 }
+
+/** The value rows of a section, in order (widgets left out). */
+export const rowsOf = (s: SheetSection): SheetRow[] => s.parts.flatMap((p) => (p.kind === "rows" ? p.rows : []));
+
+/** The fewest sections a sheet has before it gets a strip of links to them at the top. */
+export const JUMP_FROM = 4;
+/** Whether a sheet is long enough for the strip of links to its sections. */
+export const showJump = (sections: readonly SheetSection[]): boolean => sections.length >= JUMP_FROM;
 
 /** A field value as the sheet prints it. */
 export function printValue({ value: v, yes, no }: { value: FieldValue | undefined; yes: string; no: string }): string {

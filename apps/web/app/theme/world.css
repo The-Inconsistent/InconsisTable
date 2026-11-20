@@ -182,16 +182,19 @@ html:has([data-world]) {
   background: var(--band);
   border-bottom-color: var(--line);
 }
+/* "Your turn" is the one banner that says now: it takes the main action's colours, which every World is held to
+   (brass-ink on brass), instead of the band's. */
 [data-world] .turn-banner {
-  background: var(--grain-h), var(--band);
+  --ink: var(--brass-ink);
+  background: var(--grain-h), var(--brass);
   background-size:
     360px 120px,
     auto;
-  color: var(--ink);
-  border-color: var(--line);
+  color: var(--brass-ink);
+  border-color: var(--brass-lo);
   box-shadow:
-    inset 0 0 0 4px var(--band),
-    inset 0 0 0 5px var(--line),
+    inset 0 0 0 4px var(--brass),
+    inset 0 0 0 5px color-mix(in srgb, var(--brass-ink) 45%, transparent),
     0 8px 14px var(--shadow);
   text-shadow: none;
 }

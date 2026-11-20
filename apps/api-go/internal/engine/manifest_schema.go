@@ -611,19 +611,48 @@ var (
 	))).Max(100)
 )
 
-// tableSchema is one random table of the manifest (house decision #49).
+// tableEffectVariant is one kind of effect a lookup line applies (house decision #87), with its own fields first.
+func tableEffectVariant(tag string, fields ...schema.Field) schema.Variant {
+	fields = append([]schema.Field{schema.Req("kind", schema.Literal(tag))}, fields...)
+	fields = append(fields, schema.Opt("when", exprSource), schema.Opt("times", exprSource))
+	return schema.Variant{Tag: tag, Schema: schema.Object(fields...)}
+}
+
+var tableEffectSchema = schema.Union("kind",
+	tableEffectVariant("harm", schema.Opt("wounds", exprSource), schema.Opt("shock", exprSource)),
+	tableEffectVariant("condition", schema.Req("condition", idSchema)),
+	tableEffectVariant("resource", schema.Req("resource", idSchema), schema.Req("by", exprSource)),
+	tableEffectVariant("pool", schema.Req("pool", idSchema), schema.Req("by", exprSource)),
+)
+
+// tableSchema is one random table of the manifest (house decision #49), or a lookup (house decision #87).
 var tableSchema = schema.Object(
 	schema.Req("title", label(80)),
 	schema.Opt("die", diceNotation),
 	schema.Req("entries", schema.Array(schema.Object(
 		schema.Req("id", idSchema),
 		schema.Req("label", label(80)),
-		schema.Opt("range", schema.Array(schema.Int().Min(-100_000).Max(100_000)).Min(2).Max(2)),
+		schema.Opt("range", schema.Array(schema.Int().Min(-100_000).Max(100_000)).Min(1).Max(2)),
 		schema.Opt("weight", schema.Int().Min(1).Max(100)),
 		schema.Opt("count", schema.Int().Min(1).Max(20)),
+		schema.Opt("apply", schema.Array(tableEffectSchema).Min(1).Max(MaxRowEffects)),
+		schema.Opt("note", label(200)),
+		schema.Opt("cite", citeSchema),
+		schema.Opt("next", idSchema),
 	)).Max(200)),
 	schema.Req("visibility", schema.Enum("gm", "party", "owner")),
 	schema.Opt("cite", citeSchema),
+	schema.Opt("typedOnly", schema.Bool()),
+	schema.Opt("inputs", schema.Array(schema.Object(
+		schema.Req("id", idSchema),
+		schema.Req("label", label(60)),
+		schema.Req("type", schema.Enum("bool", "int")),
+		schema.Opt("min", schema.Int().Min(-1000).Max(1000)),
+		schema.Opt("max", schema.Int().Min(-1000).Max(1000)),
+		schema.Opt("cite", citeSchema),
+	)).Min(1).Max(MaxLookupInputs)),
+	schema.Opt("modifier", exprSource),
+	schema.Opt("entities", schema.Array(idSchema).Min(1).Max(50)),
 )
 
 // gameSchema is the manifest's `game` block: what the game is and how a table can sit for it.

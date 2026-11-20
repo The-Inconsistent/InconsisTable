@@ -1074,7 +1074,7 @@ func (r *Ruleset) semanticProblems() problems {
 	for _, id := range sortedKeys(r.Tables) {
 		t := r.Tables[id]
 		needCite(t.Cite, "tables."+id)
-		p.table(id, &t)
+		p.table(r, id, &t)
 	}
 	if s := r.Scoring; s != nil {
 		needCite(s.Cite, "scoring")

@@ -22,8 +22,8 @@ var (
 	entryStatuses = []string{"open", "done", "failed", "planned", "active", "skipped"}
 )
 
-// PrepKinds are the document's keys, the five kinds of line.
-var PrepKinds = []string{"roster", "tests", "pools", "exits", "reveals"}
+// PrepKinds are the document's keys, the six kinds of line.
+var PrepKinds = []string{"roster", "tests", "pools", "exits", "reveals", "picks"}
 
 // prepLine is what every line carries, then its own fields (an exit's own label in the shared one's place).
 func prepLine(fields ...schema.Field) *schema.ObjectSchema {
@@ -68,6 +68,15 @@ var ScenePrep = schema.Refined(
 				schema.Req("sceneId", id),
 			)),
 			lines("reveals", prepLine(schema.Req("entryId", id))),
+			// Rows a scene picks from another entry's rows field, each with its switch (house decision #89).
+			lines("picks", prepLine(
+				schema.Req("entryId", id),
+				schema.Req("field", schema.String().Min(1).Max(64)),
+				schema.Def("rows", schema.Refined(schema.Array(schema.Object(
+					schema.Req("rowId", schema.String().Min(1).Max(40)),
+					schema.Def("on", schema.Bool(), false),
+				)).Max(MaxPickedRows), uniqueRowIDs, "A row is picked twice"), []any{}),
+			)),
 		).Strict(),
 		uniqueLineIDs, "Two lines share an id",
 	),
@@ -75,6 +84,24 @@ var ScenePrep = schema.Refined(
 	func(v any) bool { return len(engine.CanonicalJSON(v)) <= MaxPrepBytes },
 	"The scene's prepared lines are over 32 KB",
 )
+
+// MaxPickedRows caps the rows one pick line holds (core-schema MAX_PICKED_ROWS).
+const MaxPickedRows = 30
+
+// uniqueRowIDs: a pick line names a row once.
+func uniqueRowIDs(v any) bool {
+	list, _ := schema.Plain(v).([]any)
+	seen := map[string]bool{}
+	for _, r := range list {
+		row, _ := r.(map[string]any)
+		rowID, _ := row["rowId"].(string)
+		if seen[rowID] {
+			return false
+		}
+		seen[rowID] = true
+	}
+	return true
+}
 
 func lines(kind string, line *schema.ObjectSchema) schema.Field {
 	return schema.Def(kind, schema.Array(line).Max(MaxPrepLines), []any{})

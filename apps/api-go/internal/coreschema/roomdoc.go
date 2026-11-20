@@ -85,7 +85,7 @@ var (
 		schema.Opt("links", schema.Array(id).Max(roomMaxLinks)),
 		schema.Opt("plannedTests", schema.Array(schema.String().Min(1).Max(100)).Max(10)),
 		schema.Opt("status", schema.Enum(entryStatuses...)),
-		schema.Opt("fields", capped(schema.Record(roomKey, fieldValue), roomMaxEntryFields, "fields")),
+		schema.Opt("fields", capped(schema.Record(roomKey, codexFieldValue), roomMaxEntryFields, "fields")),
 		schema.Opt("layout", schema.Enum(engine.HandoutLayouts...)),
 		schema.Opt("header", schema.String().Max(120)),
 		schema.Opt("prep", ScenePrep),

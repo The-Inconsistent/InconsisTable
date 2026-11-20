@@ -98,7 +98,10 @@ var (
 		schema.Array(schema.String().Max(1_000)).Max(500),
 		schema.Null(),
 	)
-	testInputs = schema.Record(schema.String().Max(64), schema.AnyOf(
+	// codexFieldValue is a codex entry field's value (core-schema CodexFieldValue, house decision #89): a field value, or
+	// a rows field's rows, whose shape the ruleset's declaration checks.
+	codexFieldValue = schema.AnyOf(fieldValue, schema.Array(schema.Record(schema.String(), schema.Unknown())).Max(30))
+	testInputs      = schema.Record(schema.String().Max(64), schema.AnyOf(
 		schema.Number(-math.MaxFloat64, math.MaxFloat64),
 		schema.String().Max(100),
 		schema.Bool(),
@@ -277,7 +280,7 @@ var ActionSchema = schema.Union("type",
 		schema.Opt("status", schema.Enum(entryStatuses...)),
 		schema.Opt("plannedTests", schema.Array(schema.String().Min(1).Max(100)).Max(10)),
 		schema.Opt("imageId", schema.Nullable(id)),
-		schema.Opt("fields", schema.Refined(schema.Record(schema.String().Min(1).Max(64), fieldValue),
+		schema.Opt("fields", schema.Refined(schema.Record(schema.String().Min(1).Max(64), codexFieldValue),
 			func(v any) bool { return len(v.(map[string]any)) <= 20 }, "At most 20 fields")),
 		schema.Opt("layout", schema.Enum(engine.HandoutLayouts...)),
 		schema.Opt("header", schema.String().Max(120)),

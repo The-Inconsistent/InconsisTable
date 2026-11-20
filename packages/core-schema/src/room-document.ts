@@ -10,6 +10,7 @@ import {
   ClockName,
   ClockSegments,
   ClockVisibility,
+  CodexFieldValue,
   CodexKind,
   CodexText,
   CodexTitle,
@@ -98,7 +99,7 @@ export const RoomEntry = z.strictObject({
   links: z.array(LocalId).max(ROOM_LIMITS.links).optional(), // a scene's
   plannedTests: z.array(z.string().min(1).max(100)).max(MAX_PLANNED_TESTS).optional(),
   status: EntryStatus.optional(),
-  fields: capped(z.record(Key, FieldValue), ROOM_LIMITS.entryFields, "fields").optional(),
+  fields: capped(z.record(Key, CodexFieldValue), ROOM_LIMITS.entryFields, "fields").optional(),
   layout: HandoutLayout.optional(),
   header: HandoutHeader.optional(),
   prep: ScenePrep.optional(), // its scenes, entries and actors are this document's

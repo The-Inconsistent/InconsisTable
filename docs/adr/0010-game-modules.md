@@ -1,7 +1,8 @@
 # A game is a module of imported parts, and the core decides nothing per game
 
-Status: proposed (2026-11-19). Awaits the product owner. It replaces the "Game Module Platform" proposal of 2026-11-02
-where the two differ (see "Considered options", one pinned hash).
+Status: accepted (2026-11-20), as proposed. It replaces the "Game Module Platform" proposal of 2026-11-02 where the two
+differ (see "Considered options", one pinned hash). ADR 0011 records one later departure: the ledger builder's flow is
+platform code, at the product owner's choice.
 
 ## Context
 

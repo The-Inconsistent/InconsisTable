@@ -167,6 +167,8 @@ bước 0 đã làm.
    đường của Wrath & Glory; nó vẫn là một khối chung cho ruleset khác.
 10. **Builder chạy ở đâu:** cả hai engine cùng lúc. Server tự resolve mọi build (nguyên tắc 6), nên primitive có bản Go
     giữ bằng bản TypeScript qua vector ngay từ lần merge đầu; không chạy trên thiết bị trước rồi bù bản Go sau.
+11. **ADR 0010** (game là một module gồm các phần được nhập): chấp nhận đúng như đề xuất. World (giao diện và từ vựng
+    của một bối cảnh) làm theo ADR này.
 
 ## Đã có câu trả lời ở auspex_gm (tra 2026-11-20)
 
@@ -193,8 +195,7 @@ Platform làm theo đúng các dòng trên. Hai chỗ platform làm khác cách 
 
 ## Chờ chốt
 
-1. **ADR 0010** đã merge nhưng còn ghi "proposed": đổi thành "accepted"?
-2. **Bản đồ in có ô lưới** mà Auspex đã hứa: vẫn chưa quyết, ngoài phạm vi P3.
+1. **Bản đồ in có ô lưới** mà Auspex đã hứa: vẫn chưa quyết, ngoài phạm vi P3.
 
 ## Không làm ở P3
 

@@ -30,6 +30,7 @@ import { GameResult } from "@/components/ui/game-result/game-result";
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { harmPadOf } from "@/lib/harm/harm";
+import { afterAnswer, afterSelect, refusalAt, type Refusal } from "@/lib/refusal/refusal";
 import { gmSideOf } from "@/lib/ledger/table";
 import { rangeOf } from "@/lib/sheet/sheet";
 import { currentOf } from "@/lib/track/track";
@@ -52,7 +53,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
   const [sheetOf, setSheetOf] = useState<string | null>(null);
   const [testFor, setTestFor] = useState<string | null>(null); // the actor a Test is being called for
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const [error, setError] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<Refusal | null>(null);
   const encounter = state.encounter;
   const actors = useMemo(() => new Map(state.actors.map((a) => [a.id, a])), [state.actors]);
   const rules = sheet.ruleset;
@@ -63,12 +64,14 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
 
   const noTurnOrder = rules != null && rules.initiative === undefined; // a game without a turn order has no fight to run
 
-  // RUN: sends one action, shows the api's refusal, and says whether it went through.
-  const run = async (action: ActionInput) => {
+  // RUN: sends one action, keeps the api's refusal with where it came from (a combatant's panel, or null for the
+  // tracker), and says whether it went through.
+  const runFrom = (from: string | null) => async (action: ActionInput) => {
     const r = await send(action);
-    setError(r.ok ? null : r.error);
+    setRefusal(afterAnswer({ result: r, from }));
     return r.ok;
   };
+  const run = runFrom(null);
 
   // CORRECT: the GM fixes one score of the newest game; the server ranks the game again.
   const handleCorrect = (resultId: string, score: number) => run({ type: "result.set", resultId, score });
@@ -78,6 +81,13 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
     encounter?.combatants.find((c) => c.id === selectedId) ??
     (encounter ? (currentOf(encounter) ?? encounter.combatants[0]) : undefined);
   const characters = state.actors.filter((x) => x.kind === "pc").length;
+  const trackerRefusal = refusalAt({ refusal, at: null });
+
+  // SELECT: another combatant's panel opens; a refusal about the one before goes.
+  const handleSelect = (id: string) => {
+    setRefusal(afterSelect({ refusal, was: selected?.id, now: id }));
+    setSelectedId(id);
+  };
 
   // The selected combatant's hit pad, when the ruleset has `health.harm` and a profile holds its type (#66).
   const compiled = useMemo(() => {
@@ -109,9 +119,9 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
       )}
       {encounter && <EndNotice encounter={encounter} />}
       {encounter && <PhaseBar encounter={encounter} run={run} />}
-      {error && (
+      {trackerRefusal && (
         <p className="error" role="alert">
-          {error}
+          {trackerRefusal}
         </p>
       )}
       {encounter?.paused && (
@@ -130,14 +140,14 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                   sides={sides}
                   actors={actors}
                   selectedId={selected?.id}
-                  onSelect={setSelectedId}
+                  onSelect={handleSelect}
                 />
               ) : (
                 <OrderList
                   encounter={encounter}
                   actors={actors}
                   selectedId={selected?.id}
-                  onSelect={setSelectedId}
+                  onSelect={handleSelect}
                   run={run}
                 />
               )}
@@ -148,7 +158,8 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                 encounter={encounter}
                 combatant={selected}
                 actor={actors.get(selected.actorId)}
-                run={run}
+                run={runFrom(selected.id)}
+                refusal={refusalAt({ refusal, at: selected.id })}
                 mode={mode}
                 onSheet={sheet.ruleset ? setSheetOf : undefined}
                 onCallTest={state.testDefs.length > 0 ? setTestFor : undefined}

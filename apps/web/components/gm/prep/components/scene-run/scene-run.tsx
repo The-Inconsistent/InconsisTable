@@ -12,15 +12,20 @@ import {
 } from "@inconsistable/core-schema";
 
 import { LineText } from "@/components/gm/prep/components/line-text/line-text";
+import { TestInputField } from "@/components/gm/tests/components/test-input/test-input";
+import { useSummaryWords } from "@/hooks/use-summary-words/use-summary-words";
 import {
   EMPTY_PREP,
   fightSteps,
+  lineAsks,
+  lineName,
   PREP_ORDER,
   resolveLine,
   type FightStep,
   type LineNames,
   type PrepWorld,
 } from "@/lib/scene-prep/scene-prep";
+import type { InputDraft } from "@/lib/test-inputs/test-inputs";
 
 type SceneRunProps = {
   scene: CodexEntry;
@@ -42,20 +47,29 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
   const [busy, setBusy] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null); // the `pick` Test line whose takers are shown
+  // What the GM filled in on a Test line that lacked inputs, by line id: for the next send only, never saved.
+  const [filled, setFilled] = useState<Record<string, InputDraft>>({});
+  const words = useSummaryWords();
   const prep = scene.prep ?? EMPTY_PREP;
   const empty = PREP_ORDER.every((k) => prep[k].length === 0);
   const creatureName = (line: RosterLine) => line.label || names.creature(line.pack, line.key) || line.key;
   const stepName = (step: FightStep) =>
     step.line ? creatureName(step.line) : t(step.action.type === "encounter.start" ? "fight.start" : "fight.party");
 
-  // SEND: the line's action; the status line says what went out, the refusal shows where every refusal does.
+  // SEND: the line's action; the status line says what went out, the refusal shows where every refusal does. What the
+  // GM filled in on the line served this send and is cleared.
   const handleSend = (id: string, what: string, action: ActionInput) => async () => {
     setBusy(id);
     setAsking(null);
     const r = await act(action);
     setBusy(null);
     setSent(r.ok ? t("sent", { what }) : null);
+    if (r.ok) setFilled((cur) => Object.fromEntries(Object.entries(cur).filter(([lineId]) => lineId !== id)));
   };
+
+  // An input a Test line lacked, filled in on the line.
+  const handleFill = (lineId: string, inputId: string) => (value: string | boolean) =>
+    setFilled((cur) => ({ ...cur, [lineId]: { ...cur[lineId], [inputId]: value } }));
 
   // START THE FIGHT: each step sent once the one before it went through; a refusal stops the rest and says where.
   const handleFight = async () => {
@@ -116,8 +130,9 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
           </div>
           <ul className="list">
             {(prep[kind] as PrepLine[]).map((line) => {
-              const resolved = resolveLine({ kind, line, world });
-              const what = line.label ?? t(`kind.${kind}`);
+              const resolved = resolveLine({ kind, line, world, filled: filled[line.id] });
+              const what = lineName({ kind, line, names, t: words });
+              const asks = "testId" in line ? lineAsks({ line, world }) : [];
               return (
                 <li key={line.id} className="row between" style={{ flexWrap: "wrap", alignItems: "start" }}>
                   <span className="stack" style={{ flex: "1 1 220px", minWidth: 0 }}>
@@ -160,11 +175,32 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
                     >
                       {t("who")}
                     </button>
-                  ) : resolved.state === "blocked" ? (
+                  ) : resolved.state === "blocked" || resolved.state === "fill" ? (
                     <button className="btn" aria-label={t("sendLine", { what })} disabled>
-                      {t("send")}
+                      {"takers" in line && line.takers === "pick" && resolved.state === "fill" ? t("who") : t("send")}
                     </button>
                   ) : null}
+                  {asks.length > 0 && (
+                    <div
+                      className="row"
+                      role="group"
+                      aria-label={t("fillFor", { what })}
+                      style={{ flexBasis: "100%", alignItems: "end" }}
+                    >
+                      <span className="small dim" style={{ flexBasis: "100%" }}>
+                        {t("fillIn")}
+                      </span>
+                      {asks.map((input) => (
+                        <TestInputField
+                          key={input.id}
+                          id={`run-${line.id}-${input.id}`}
+                          input={input}
+                          value={filled[line.id]?.[input.id]}
+                          onChange={handleFill(line.id, input.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
                   {resolved.state === "pick" && asking === line.id && (
                     <div
                       className="row"
@@ -173,7 +209,7 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
                       style={{ flexBasis: "100%" }}
                     >
                       {resolved.takers.map((a) => {
-                        const picked = resolveLine({ kind, line, world, taker: a.id });
+                        const picked = resolveLine({ kind, line, world, taker: a.id, filled: filled[line.id] });
                         return (
                           picked.state === "ready" && (
                             <button

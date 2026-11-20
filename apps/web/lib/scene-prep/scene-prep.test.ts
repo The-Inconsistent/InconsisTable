@@ -9,6 +9,9 @@ import { SAMPLE_HARVEST } from "../../../../packages/rules-engine/src/fixtures/s
 import {
   EMPTY_PREP,
   fightSteps,
+  lineAsks,
+  lineName,
+  lineNames,
   offeredKinds,
   resolveLine,
   stepLine,
@@ -16,6 +19,7 @@ import {
   withoutLine,
   type PrepWorld,
   type Spawnable,
+  type SummaryWords,
 } from "./scene-prep.ts";
 
 const ANA = "00000000-0000-4000-8000-0000000000a1";
@@ -204,6 +208,64 @@ describe("a `pick` Test line is taken by the one seated character the GM picks (
     assert.equal(resolveLine({ kind: "tests", line, world: world(), taker: GONE }).state, "pick");
     const empty = world({ access: { members: [], guests: [] } as never });
     assert.deepEqual(resolveLine({ kind: "tests", line, world: empty }), { state: "blocked", reason: "nobody" });
+  });
+});
+
+describe("a Test line lacking an input its Test asks for is filled in on the line, for that send only", () => {
+  const short = ScenePrep.parse({
+    tests: [
+      { id: "t", testId: "check", takers: "pick" },
+      { id: "u", testId: "check", inputs: { dc: 9 } },
+    ],
+  });
+  test("it asks for the missing input, and holds back even the taker until it is filled", () => {
+    const line = short.tests[0]!;
+    assert.deepEqual(
+      lineAsks({ line, world: world() }).map((i) => i.id),
+      ["dc"],
+    );
+    assert.deepEqual(resolveLine({ kind: "tests", line, world: world(), taker: ANA }), {
+      state: "fill",
+      missing: [{ id: "dc", type: "int" }],
+    });
+    // Filled with something that is not a whole number: still held.
+    assert.equal(resolveLine({ kind: "tests", line, world: world(), filled: { dc: "x" } }).state, "fill");
+    assert.equal(resolveLine({ kind: "tests", line, world: world(), filled: { dc: "11" } }).state, "pick");
+    const sent = resolveLine({ kind: "tests", line, world: world(), taker: ANA, filled: { dc: "11" } });
+    assert.deepEqual(sent.state === "ready" && sent.action.type === "test.call" && sent.action.inputs, { dc: 11 });
+    // The line itself is untouched: the next send asks again.
+    assert.deepEqual(line.inputs, {});
+  });
+  test("a line with everything asks for nothing and sends as it is", () => {
+    const line = short.tests[1]!;
+    assert.deepEqual(lineAsks({ line, world: world() }), []);
+    assert.equal(resolveLine({ kind: "tests", line, world: world() }).state, "ready");
+  });
+});
+
+describe("a line is named by what it is", () => {
+  const names = lineNames(world());
+  const t: SummaryWords = (key, values) => `${key}${values ? ` ${JSON.stringify(values)}` : ""}`;
+  test("its own label first, else what it does", () => {
+    const named = { ...doc.reveals[0]!, label: "  The letter  " };
+    assert.equal(lineName({ kind: "reveals", line: named, names, t }), "The letter");
+    assert.equal(lineName({ kind: "reveals", line: doc.reveals[0]!, names, t }), `summary.reveal {"entry":"?"}`);
+    assert.equal(
+      lineName({ kind: "pools", line: doc.pools[0]!, names, t }),
+      `summary.pool {"pool":"Luck","amount":-2} · Spend`,
+    );
+    assert.equal(
+      lineName({ kind: "roster", line: doc.roster[0]!, names, t }),
+      `summary.roster {"count":3,"name":"Ember Wisp"}`,
+    );
+    assert.equal(
+      lineName({ kind: "exits", line: { ...doc.exits[0]!, label: "" }, names, t }),
+      `summary.exit {"scene":"?"}`,
+    );
+    assert.equal(
+      lineName({ kind: "tests", line: doc.tests[0]!, names, t }),
+      `summary.testWith {"test":"check","inputs":"dc 12","who":"summary.party"}`,
+    );
   });
 });
 

@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useRef, useState, type ChangeEvent } from "react";
 
+import { RefName } from "@/components/ui/ref-name/ref-name";
 import { readEntries } from "@/hooks/use-pack-entry/use-pack-entry";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import type { RulesEntry } from "@/lib/library/library";
@@ -17,7 +18,7 @@ type RefPickerProps = {
   entity: string;
   /** The picked entry's key, or null. */
   value: string | null;
-  /** What to show for the picked key: its name when this seat has read it. */
+  /** What to show for the picked key: its name when this seat has read it; else the rules read names it. */
   name: string | null;
   disabled: boolean;
   onPick: (entry: RulesEntry | null) => void;
@@ -66,9 +67,13 @@ export function RefPicker({ id, label, campaignId, entity, value, name, disabled
       <span>{label}</span>
       {value !== null && (
         <div className="row">
-          <button type="button" className="btn sm" onClick={onOpen} aria-label={t("open", { name: name ?? value })}>
-            {name ?? value}
-          </button>
+          <RefName campaignId={campaignId} type={entity} entryKey={value} name={name ?? undefined}>
+            {(shown) => (
+              <button type="button" className="btn sm" onClick={onOpen} aria-label={t("open", { name: shown })}>
+                {shown}
+              </button>
+            )}
+          </RefName>
           {!disabled && (
             <button
               type="button"

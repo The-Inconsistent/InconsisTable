@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useState, type SyntheticEvent } from "react";
 
 import { CodexKind, type Codex, type Me, type Safety } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
@@ -33,6 +34,8 @@ export function Notebook({ codex, me, safety, send, ruleset, known }: NotebookPr
   const tKind = useTranslations("codex.kind");
   const tStatus = useTranslations("codex.status");
   const tRecaps = useTranslations("recaps");
+  // The cards opened so far: only those read a ref field's name the page doesn't hold (no read per closed card).
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const entries = codex?.entries ?? [];
   const recaps = codex?.recaps ?? [];
   const safetySection = <SafetySection me={me} safety={safety} send={send} />;
@@ -52,12 +55,17 @@ export function Notebook({ codex, me, safety, send, ruleset, known }: NotebookPr
     el.open = true;
     el.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
+  // A card opened (by a tap or by a mention) may read its refs' names from then on; a read is kept once made.
+  const handleToggle = (id: string) => (ev: SyntheticEvent<HTMLDetailsElement>) => {
+    if (ev.currentTarget.open) setOpened((cur) => (cur.has(id) ? cur : new Set(cur).add(id)));
+  };
   const card = ({ entry: e, depth }: TreeRow) => (
     <details
       key={e.id}
       id={`entry-${e.id}`}
       className={depth > 0 ? "card tree-child" : "card"}
       style={{ marginInlineStart: depth * 12 }}
+      onToggle={handleToggle(e.id)}
     >
       <summary>
         <strong>{e.title}</strong>
@@ -74,6 +82,7 @@ export function Notebook({ codex, me, safety, send, ruleset, known }: NotebookPr
         enumChips={false}
         entries={entries}
         onOpenEntry={handleOpen}
+        readNames={opened.has(e.id)}
       />
       {e.layout !== null ? (
         <HandoutDoc

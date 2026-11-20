@@ -12,11 +12,13 @@ import {
   type TestDef,
   type TestLine,
   type ExitLine,
+  type PrepLine,
 } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { takers } from "@/components/gm/tests/components/call-form/takers";
 import { JOIN_AS } from "@/components/gm/track/constants";
+import { draftOf, missingInputs, toInputs, type InputDraft, type TestInput } from "@/lib/test-inputs/test-inputs";
 
 // A scene's prepared lines on the GM's screen (house decision #73): what each line stands for, whether it can be sent,
 // and which kinds a scene offers. Sending a line is the action it stands for, built here and sent through the same path
@@ -51,6 +53,8 @@ export type Resolved =
   | { state: "blocked"; reason: Blocked }
   | { state: "ready"; action: ActionInput }
   | { state: "open"; sceneId: string }
+  // A Test line that lacks inputs its Test asks for: the GM fills them in on the line, for that send only.
+  | { state: "fill"; missing: TestInput[] }
   // A `pick` Test line before the GM has chosen who takes it: nothing is built until then (house decision #75).
   | { state: "pick"; takers: Actor[] };
 
@@ -94,9 +98,20 @@ function resolveRoster(line: RosterLine, world: PrepWorld): Resolved {
   return r;
 }
 
-function resolveTest(line: TestLine, world: PrepWorld, taker?: string): Resolved {
+/** The inputs a Test line leaves for the GM to fill in before sending it; none when its Test is gone. */
+export function lineAsks({ line, world }: { line: TestLine; world: PrepWorld }): TestInput[] {
+  const def = world.state.testDefs.find((d) => d.id === line.testId);
+  return def ? missingInputs({ def, inputs: line.inputs }) : [];
+}
+
+function resolveTest(line: TestLine, world: PrepWorld, taker?: string, filled: InputDraft = {}): Resolved {
   const def: TestDef | undefined = world.state.testDefs.find((d) => d.id === line.testId);
   if (!def) return { state: "broken", missing: "test" };
+  if (line.takers === "listed" && line.actorIds.some((id) => !world.state.actors.some((a) => a.id === id)))
+    return { state: "broken", missing: "actor" };
+  // What the GM filled in on the line counts for this send only; the call form's own reading decides what is filled.
+  const inputs = toInputs({ def, draft: { ...draftOf(line.inputs), ...filled } });
+  if (!inputs.ok) return { state: "fill", missing: missingInputs({ def, inputs: line.inputs }) };
   const seated = takers({ actors: seatedCharacters(world.state), def });
   // `pick`: the one seated character the GM chose when sending it; nothing is built until then.
   if (line.takers === "pick" && seated.length > 0 && !seated.some((a) => a.id === taker))
@@ -105,14 +120,12 @@ function resolveTest(line: TestLine, world: PrepWorld, taker?: string): Resolved
     line.takers === "listed"
       ? line.actorIds
       : seated.filter((a) => line.takers === "party" || a.id === taker).map((a) => a.id);
-  if (line.takers === "listed" && actorIds.some((id) => !world.state.actors.some((a) => a.id === id)))
-    return { state: "broken", missing: "actor" };
   if (actorIds.length === 0) return { state: "blocked", reason: "nobody" };
   const action: ActionInput = {
     type: "test.call",
     testId: line.testId,
     actorIds,
-    inputs: line.inputs,
+    inputs: inputs.inputs,
     // A reported Test has no number to hide.
     hideTarget: !def.outcomes && line.hideTarget,
     showOutcome: false,
@@ -153,24 +166,26 @@ function resolveReveal(line: RevealLine, world: PrepWorld): Resolved {
 
 /**
  * What sending one line does now: the action it stands for, the scene it opens, or why it can't be sent. `taker` is
- * the seated character the GM picked for a `pick` Test line.
+ * the seated character the GM picked for a `pick` Test line; `filled`, the inputs the GM filled in on a Test line.
  */
 export function resolveLine<K extends PrepKind>({
   kind,
   line,
   world,
   taker,
+  filled,
 }: {
   kind: K;
   line: Line<K>;
   world: PrepWorld;
   taker?: string;
+  filled?: InputDraft;
 }): Resolved {
   switch (kind) {
     case "roster":
       return resolveRoster(line as RosterLine, world);
     case "tests":
-      return resolveTest(line as TestLine, world, taker);
+      return resolveTest(line as TestLine, world, taker, filled);
     case "pools":
       return resolvePool(line as PoolLine, world);
     case "exits":
@@ -267,4 +282,51 @@ export function lineNames({ state, entries, spawnable }: PrepWorld): LineNames {
     entry: (id) => titles.get(id),
     actor: (id) => actors.get(id),
   };
+}
+
+/** The prep namespace's words a line's summary reads (next-intl's `t`, narrowed to the keys used here). */
+export type SummaryWords = (key: `summary.${string}`, values?: Record<string, string | number>) => string;
+
+/** What a line does, in the room's own names; a name the room no longer has falls back to the id the line keeps. */
+export function lineSummary({
+  kind,
+  line,
+  names,
+  t,
+}: {
+  kind: PrepKind;
+  line: PrepLine;
+  names: LineNames;
+  t: SummaryWords;
+}): string {
+  if (kind === "roster" && "pack" in line) {
+    const name = names.creature(line.pack, line.key) ?? line.key;
+    return line.mob === undefined
+      ? t("summary.roster", { count: line.count, name })
+      : t("summary.mob", { count: line.count, name, mob: line.mob });
+  }
+  if (kind === "tests" && "testId" in line) {
+    const inputs = Object.entries(line.inputs)
+      .map(([k, v]) => `${k} ${String(v)}`)
+      .join(", ");
+    const who =
+      line.takers === "listed"
+        ? line.actorIds.map((id) => names.actor(id) ?? t("summary.gone")).join(", ")
+        : t(`summary.${line.takers}`);
+    return inputs === ""
+      ? t("summary.test", { test: line.testId, who })
+      : t("summary.testWith", { test: line.testId, inputs, who });
+  }
+  if (kind === "pools" && "pool" in line) {
+    const pool = names.pool(line.pool) ?? line.pool;
+    return [t("summary.pool", { pool, amount: line.amount }), line.text].filter(Boolean).join(" · ");
+  }
+  if (kind === "exits" && "sceneId" in line) return t("summary.exit", { scene: names.entry(line.sceneId) ?? "?" });
+  if ("entryId" in line) return t("summary.reveal", { entry: names.entry(line.entryId) ?? "?" });
+  return "";
+}
+
+/** What names a line on its send button and in "Sent: …": the GM's own label, else what the line does. */
+export function lineName(args: { kind: PrepKind; line: PrepLine; names: LineNames; t: SummaryWords }): string {
+  return args.line.label?.trim() || lineSummary(args);
 }

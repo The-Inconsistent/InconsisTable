@@ -41,7 +41,13 @@ type CombatantPanelProps = {
   pools?: readonly PoolState[];
   /** The `health.harm` pad this combatant gets (house decision #66), shown instead of the health track's keypad. */
   harm?: { pad: HarmPadOf; maxOf: (resource: string) => number | null } | null;
+  /** The api's refusal of an action this panel sent, shown here (issue #167); null when there is none. */
+  refusal?: string | null;
 };
+
+// A refusal shown in the panel is brought into view when it appears: on a phone the panel's controls sit far below.
+// Stable, so React calls it only when the line mounts (a new refusal remounts it by its key).
+const bringIntoView = (el: HTMLElement | null) => el?.scrollIntoView({ block: "nearest" });
 
 // The selected combatant: a keypad for damage, healing and temporary points, death saves, what the table sees, the
 // conditions it carries with their time left, and the way out of the fight.
@@ -56,6 +62,7 @@ export function CombatantPanel({
   sides,
   pools = [],
   harm,
+  refusal = null,
 }: CombatantPanelProps) {
   const t = useTranslations("combatantPanel");
   const tSave = useTranslations("deathSave");
@@ -122,6 +129,11 @@ export function CombatantPanel({
     <section className="card combatant-panel" aria-label={t("controls", { name: c.name })}>
       <h2 className="title">{c.name}</h2>
       <HealthBar combatant={c} />
+      {refusal && (
+        <p key={refusal} ref={bringIntoView} className="error" role="alert">
+          {refusal}
+        </p>
+      )}
       {actor && actor.entity !== "" && (onSheet || onCallTest) && (
         <div className="row">
           {onSheet && (

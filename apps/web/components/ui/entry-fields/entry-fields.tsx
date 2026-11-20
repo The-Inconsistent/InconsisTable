@@ -5,6 +5,7 @@ import type { CodexEntry } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { PackEntrySheet } from "@/components/ui/pack-entry-sheet/pack-entry-sheet";
+import { RefName } from "@/components/ui/ref-name/ref-name";
 import { usePackEntry } from "@/hooks/use-pack-entry/use-pack-entry";
 import {
   entryUrl,
@@ -29,6 +30,8 @@ type EntryFieldsProps = {
   entries: readonly CodexEntry[];
   /** Opens a linked entry; absent where nothing opens (the table screen). */
   onOpenEntry?: (entryId: string) => void;
+  /** False while the entry sits closed in a list: a ref the page doesn't hold shows its key, and nothing is read. */
+  readNames?: boolean;
 };
 
 /**
@@ -60,6 +63,7 @@ export function EntryFields({
   enumChips = true,
   entries,
   onOpenEntry,
+  readNames = true,
 }: EntryFieldsProps) {
   const t = useTranslations("entryFields");
   const { opened, openEntry, close } = usePackEntry();
@@ -87,10 +91,10 @@ export function EntryFields({
   });
 
   // A ref row: opens the pack entry it names, read for this seat (a gm one only where the seat reads gm entries).
-  const handleOpen = (row: (typeof rows)[number]) => async () => {
+  const handleOpen = (row: (typeof rows)[number], title: string) => async () => {
     if (campaignId === null || row.ref === null) return;
     const key = row.named?.key ?? row.text;
-    await openEntry({ url: entryUrl({ campaignId, type: row.ref, key }), title: row.text, known: row.named });
+    await openEntry({ url: entryUrl({ campaignId, type: row.ref, key }), title, known: row.named });
   };
 
   if (chips.length === 0 && rows.length === 0 && links.length === 0) return null;
@@ -123,9 +127,19 @@ export function EntryFields({
             <div key={row.id} className="sheet-row" data-field={row.ref === null ? "value" : "ref"}>
               <span>{row.label}</span>
               {row.ref !== null && campaignId !== null ? (
-                <button className="btn sm" onClick={handleOpen(row)} aria-label={t("open", { name: row.text })}>
-                  {row.text}
-                </button>
+                <RefName
+                  campaignId={campaignId}
+                  type={row.ref}
+                  entryKey={row.named?.key ?? row.text}
+                  name={row.named?.name}
+                  read={readNames}
+                >
+                  {(name) => (
+                    <button className="btn sm" onClick={handleOpen(row, name)} aria-label={t("open", { name })}>
+                      {name}
+                    </button>
+                  )}
+                </RefName>
               ) : (
                 <strong style={{ minWidth: 0, overflowWrap: "anywhere", textAlign: "end" }}>{row.text}</strong>
               )}

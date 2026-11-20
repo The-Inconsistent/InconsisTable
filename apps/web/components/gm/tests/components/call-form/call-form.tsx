@@ -2,10 +2,11 @@
 import { useTranslations } from "next-intl";
 import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 
-import type { LiveState, TestDef, TestInputs } from "@inconsistable/core-schema";
-import { ScalarType } from "@inconsistable/rules-engine";
+import type { LiveState } from "@inconsistable/core-schema";
 
+import { TestInputField } from "@/components/gm/tests/components/test-input/test-input";
 import type { Send } from "@/hooks/use-table/use-table";
+import { toInputs, type InputDraft } from "@/lib/test-inputs/test-inputs";
 
 import { keepTakers, takers } from "./takers";
 
@@ -20,42 +21,12 @@ type CallFormProps = {
   onCalled?: () => void;
 };
 
-// What the form holds for one input while it is being filled in; the Test's declared type decides how it is sent.
-type Draft = Record<string, string | boolean>;
-
-// The text typed into one input ("" while it holds a checkbox or nothing).
-const textOf = (draft: Draft, id: string): string => {
-  const v = draft[id];
-  return typeof v === "string" ? v : "";
-};
-
-// The call as the API takes it, or which input the form can't send yet (the form words it).
-type Filled = { ok: true; inputs: TestInputs } | { ok: false; problem: "wholeNumber" | "fillIn"; id: string };
-
-function toInputs({ def, draft }: { def: TestDef; draft: Draft }): Filled {
-  const out: TestInputs = {};
-  for (const input of def.inputs) {
-    const v = draft[input.id];
-    const type = ScalarType.safeParse(input.type);
-    if (type.success && type.data === "bool") out[input.id] = v === true;
-    else if (type.success && type.data === "int") {
-      if (typeof v !== "string" || v.trim() === "" || !Number.isSafeInteger(Number(v)))
-        return { ok: false, problem: "wholeNumber", id: input.id };
-      out[input.id] = Number(v);
-    } else {
-      if (typeof v !== "string" || v.trim() === "") return { ok: false, problem: "fillIn", id: input.id };
-      out[input.id] = v.trim();
-    }
-  }
-  return { ok: true, inputs: out };
-}
-
 // CALL A TEST: pick one of the ruleset's Tests, who rolls it and the number to beat. The target is hidden from the
 // table unless the GM unticks that (docs/house-decisions.md #21).
 export function CallForm({ state, send, initialTargets = [], initialTestId, onCalled }: CallFormProps) {
   const t = useTranslations("callForm");
   const [testId, setTestId] = useState(initialTestId ?? state.testDefs[0]?.id ?? "");
-  const [draft, setDraft] = useState<Draft>({});
+  const [draft, setDraft] = useState<InputDraft>({});
   const [targets, setTargets] = useState<string[]>(() =>
     keepTakers({
       picked: initialTargets,
@@ -122,45 +93,15 @@ export function CallForm({ state, send, initialTargets = [], initialTestId, onCa
             ))}
           </select>
         </label>
-        {def.inputs.map((input) =>
-          input.type === "bool" ? (
-            <label key={input.id} className="row" style={{ minHeight: 44 }}>
-              <input
-                type="checkbox"
-                checked={draft[input.id] === true}
-                onChange={(e) => setDraft({ ...draft, [input.id]: e.target.checked })}
-                style={{ minHeight: 24 }}
-              />
-              {input.id}
-            </label>
-          ) : (
-            <label key={input.id}>
-              {input.id}
-              {input.options ? (
-                <select
-                  id={`call-input-${input.id}`}
-                  value={textOf(draft, input.id)}
-                  onChange={(e) => setDraft({ ...draft, [input.id]: e.target.value })}
-                >
-                  <option value="">{t("pick")}</option>
-                  {input.options.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  id={`call-input-${input.id}`}
-                  inputMode={input.type === "int" ? "numeric" : "text"}
-                  value={textOf(draft, input.id)}
-                  onChange={(e) => setDraft({ ...draft, [input.id]: e.target.value })}
-                  style={{ width: input.type === "int" ? 96 : 160 }}
-                />
-              )}
-            </label>
-          ),
-        )}
+        {def.inputs.map((input) => (
+          <TestInputField
+            key={input.id}
+            id={`call-input-${input.id}`}
+            input={input}
+            value={draft[input.id]}
+            onChange={(v) => setDraft({ ...draft, [input.id]: v })}
+          />
+        ))}
       </div>
       <div className="stack">
         <span className="small">{t("whoRolls")}</span>

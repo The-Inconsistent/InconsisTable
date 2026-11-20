@@ -1548,7 +1548,10 @@
     "open": "Open",
     "sendLine": "Send {what}",
     "openLine": "Open {what}",
-    "sent": "Sent: {what}"
+    "sent": "Sent: {what}",
+    "asks": "Asks for {inputs} when sent.",
+    "fillIn": "This Test still asks for these. They go with this send only.",
+    "fillFor": "What {what} still asks for"
   },
   "safety": {
     "card": {

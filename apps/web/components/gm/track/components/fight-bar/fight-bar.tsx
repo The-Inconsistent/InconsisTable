@@ -6,7 +6,7 @@ import type { Encounter } from "@inconsistable/core-schema";
 import type { SidesInitiative } from "@inconsistable/rules-engine";
 
 import { SidesControls } from "@/components/gm/track/components/sides-controls/sides-controls";
-import type { Run, TrackMode } from "@/components/gm/track/constants";
+import { TURN_BACK_ASKS_OVER, type Run, type TrackMode } from "@/components/gm/track/constants";
 
 type FightBarProps = {
   encounter: Encounter | null;
@@ -17,12 +17,15 @@ type FightBarProps = {
   sides?: SidesInitiative;
 };
 
-// The bar that stays under the thumb: the round, Prev and Next, and Undo (always, even between fights: it takes back the
-// newest step of the session). Ending the fight asks twice, because temporary creatures go with it and that stays.
+// The bar that stays under the thumb: the round, Prev and Next, Undo (always, even between fights: it takes back the
+// newest step of the session) and TURN BACK, named by the turn step it would take back (house decision #82). Ending the
+// fight asks twice, because temporary creatures go with it and that stays.
 export function FightBar({ encounter, sessionRunning, run, mode, sides }: FightBarProps) {
   const t = useTranslations("fightBar");
   const [ending, setEnding] = useState(false);
   const [endingGame, setEndingGame] = useState(false);
+  const [turningBack, setTurningBack] = useState(false);
+  const back = encounter?.turnBack;
 
   // END: the first tap asks, the second ends and clears the temporary creatures nobody marked Keep.
   const handleEnd = async () => {
@@ -36,6 +39,13 @@ export function FightBar({ encounter, sessionRunning, run, mode, sides }: FightB
     if (!endingGame) return setEndingGame(true);
     setEndingGame(false);
     await run({ type: "game.end" });
+  };
+
+  // TURN BACK: the last turn step and everything since; a step of more than five actions asks a second tap.
+  const handleTurnBack = async () => {
+    if (back !== undefined && back.later + 1 > TURN_BACK_ASKS_OVER && !turningBack) return setTurningBack(true);
+    setTurningBack(false);
+    await run({ type: "event.turnBack" });
   };
 
   return (
@@ -80,6 +90,20 @@ export function FightBar({ encounter, sessionRunning, run, mode, sides }: FightB
       <button className="btn" onClick={() => run({ type: "event.undo" })} disabled={!sessionRunning}>
         {t("undo")}
       </button>
+      {encounter && (
+        <button
+          className="btn"
+          disabled={back === undefined}
+          onClick={handleTurnBack}
+          onBlur={() => setTurningBack(false)}
+        >
+          {back === undefined
+            ? t("turnBackNone")
+            : turningBack
+              ? t("turnBackConfirm", { count: back.later + 1 })
+              : t("turnBack", { kind: back.kind, name: back.name ?? "", round: back.round, later: back.later })}
+        </button>
+      )}
       {encounter?.scoring && (
         <button
           className="btn"

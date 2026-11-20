@@ -93,6 +93,18 @@ export const Encounter = z.object({
   unseen: z.boolean().optional(),
   /** The reminder lines due now (house decision #81): the combat side's only, absent for every other seat or when none. */
   reminders: z.array(EncounterReminder).optional(),
+  /**
+   * What TURN BACK would take back (house decision #82): the last step's kind, whose turn (absent for a round), its
+   * round, and how many later actions go back with it. The combat side's only; absent with nothing to take back.
+   */
+  turnBack: z
+    .object({
+      kind: z.enum(["turnStart", "turnEnd", "round"]),
+      name: z.string().optional(),
+      round: z.number().int(),
+      later: z.number().int(),
+    })
+    .optional(),
   /** Sides order only (house decision #60), absent otherwise: whether the fight has begun (a setup opens it not begun). */
   begun: z.boolean().optional(),
   /** The side that acted last, and the side that acted out of turn this round; side ids, so public. */

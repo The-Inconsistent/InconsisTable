@@ -175,6 +175,8 @@ var refusals = map[string]string{
 	"requestSpendYourself":      "You can spend that yourself.",
 	"requestNoPool":             "Shared pools aren't at this table yet.",
 	"nothingToUndo":             "Nothing to undo",
+	"nothingToTurnBack":         "Nothing to turn back: no turn has started or ended in this fight this session.",
+	"turnBackRefused":           "Can't turn back: action {n} of {count}, counting back, can't be undone. {reason}",
 	"cantUndoKind":              "Can't undo that kind of step yet",
 	"undoGone":                  "Can't undo: {target} is gone.",
 	"undoChanged":               "Can't undo: {target} changed after this step (now {now}, the step left {left}). Undo the later steps first.",

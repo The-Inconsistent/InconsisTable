@@ -309,6 +309,8 @@ const STATE = {
     ],
     // A line naming the hidden combatant's actor: the combat side's only (house decision #81).
     reminders: [{ at: "roundEnd", source: "reminder", id: "heldLost", text: "Held", cite: null, actorIds: [GOB] }],
+    // TURN BACK's step, naming whoever's turn it was: the combat side's only (house decision #82).
+    turnBack: { kind: "turnStart", name: "Goblin", round: 2, later: 3 },
   },
   games: [],
   access: {
@@ -772,6 +774,7 @@ const VALID: Record<string, Record<string, unknown>> = {
   "condition.remove": { actorId: ID, condition: "dazed" },
   "actor.rest": { event: "longRest", actorId: ID },
   "event.undo": {},
+  "event.turnBack": {},
   "encounter.start": {},
   "encounter.end": {},
   "encounter.add": { actorIds: [ID], side: "foe", visibility: "hidden" },

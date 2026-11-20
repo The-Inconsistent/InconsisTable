@@ -156,6 +156,9 @@ export const Action = z.discriminatedUnion("type", [
   z.object({ type: z.literal("actor.rest"), event: z.string().min(1).max(40), actorId: id.optional() }),
   // Undoes the newest logged action of the running session that is not undone yet. There is no redo.
   z.object({ type: z.literal("event.undo") }),
+  // Undoes the running fight's last turn step: every action back to and including the newest one that changed who acts
+  // or the round (house decision #82). There is no redo.
+  z.object({ type: z.literal("event.turnBack") }),
 
   // A Test the GM calls, the physical roll a player or the GM reports, and the close (docs/design.md §6.3). The api
   // resolves a report with the engine's `dice.sumVsTarget`, so a hidden target number never leaves it.
@@ -320,6 +323,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "condition.remove": "encounter:run",
   "actor.rest": "session:run",
   "event.undo": "encounter:run", // the GM, and a co-GM with the combat scope
+  "event.turnBack": "encounter:run",
   "encounter.start": "encounter:run",
   "encounter.end": "encounter:run",
   "encounter.add": "encounter:run",

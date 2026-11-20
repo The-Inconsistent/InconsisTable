@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+import { SAMPLE_TIERED } from "../../../../packages/rules-engine/src/fixtures/sample-tiered.ts";
 import { SAMPLE_PACK } from "../../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import type { RulesEntry } from "@/lib/library/library";
 
@@ -64,4 +65,22 @@ test("the preview runs the creation and derives the numbers; incomplete answers 
   const partial = previewBuild({ ruleset, entity: "character", answers: { lineage: ["reedfolk"] }, entries });
   assert.equal(partial.fields, null);
   assert.ok(partial.problems.some((p) => p.path === "calling"));
+});
+
+test("the preview reads the room's campaign values, and the ruleset's defaults where the room has set none", () => {
+  const tiered = Ruleset.parse(SAMPLE_TIERED);
+  const answers = {
+    lineage: ["reedfolk"],
+    calling: ["wayfinder"],
+    scores: { "attr.str": 12, "attr.dex": 9, "attr.con": 15 },
+    identity: { name: "Lyra", level: 2 },
+  };
+  const valueOf = (campaign?: Record<string, unknown>) =>
+    previewBuild({ ruleset: tiered, entity: "character", answers, entries, campaign }).derived.find(
+      (d) => d.id === "dangerHp",
+    )?.value;
+  const byDefault = valueOf();
+  assert.equal(typeof byDefault, "number");
+  // Danger defaults to 1; a room at Danger 4 adds three more.
+  assert.equal(valueOf({ danger: 4 }), (byDefault ?? 0) + 3);
 });

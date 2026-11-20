@@ -116,11 +116,14 @@ export function previewBuild({
   entity,
   answers,
   entries,
+  campaign = {},
 }: {
   ruleset: Ruleset;
   entity: string;
   answers: Answers;
   entries: readonly RulesEntry[];
+  /** The room's stored campaign values; a value it has not set reads as the ruleset's default. */
+  campaign?: Record<string, unknown>;
 }): Preview {
   const lookup = ({ type, key }: { type: string; key: string }) => {
     const e = entries.find((x) => x.type === type && x.key === key);
@@ -146,8 +149,7 @@ export function previewBuild({
         resources: {},
         conditions: [],
         party: { characters: 1 },
-        // No room yet: the defaults.
-        campaign: campaignValues({ compiled: compiled.compiled, stored: {} }),
+        campaign: campaignValues({ compiled: compiled.compiled, stored: campaign }),
       },
     });
     return {

@@ -8,7 +8,10 @@ import { Builder } from "@/components/builder/builder";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { RulesReply, type RulesEntry } from "@/lib/library/library";
 
-type BuildProps = { params: Promise<{ campaignId: string; actorId: string }> };
+type BuildProps = {
+  params: Promise<{ campaignId: string; actorId: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
 
 // ponytail: a step lists at most 500 entries of a type, page or search once a pack holds more
 const MAX_PICKS = 500;
@@ -16,8 +19,10 @@ const MAX_PICKS = 500;
 // BUILD CHARACTER for one actor. The ruleset and the entries a step may pick are read here, on the server, through the
 // seat-scoped rules route (a player is never sent a GM-only entry); the form then runs on the client. A ruleset with a
 // ledger builder also reads the seat, and the client picks the builder once it knows the actor.
-export default async function Build({ params }: BuildProps) {
-  const [p, t] = await Promise.all([params, getTranslations("status")]);
+export default async function Build({ params, searchParams }: BuildProps) {
+  const [p, query, t] = await Promise.all([params, searchParams, getTranslations("status")]);
+  // The step a link asks for (`?step=advance`, from the sheet's XP box), read here so the first render already has it.
+  const step = typeof query["step"] === "string" ? query["step"] : null;
   const campaignId = encodeURIComponent(p.campaignId);
   try {
     const res = await apiGet(`/api/campaigns/${campaignId}/rules?limit=1`);
@@ -51,7 +56,16 @@ export default async function Build({ params }: BuildProps) {
       if (!reply.success) return <StatusScreen text={t("nosignal")} />;
       entries[type] = reply.data.entries;
     }
-    return <Builder campaignId={p.campaignId} actorId={p.actorId} ruleset={ruleset.data} entries={entries} me={me} />;
+    return (
+      <Builder
+        campaignId={p.campaignId}
+        actorId={p.actorId}
+        ruleset={ruleset.data}
+        entries={entries}
+        me={me}
+        step={step}
+      />
+    );
   } catch {
     return <StatusScreen text={t("nosignal")} />;
   }

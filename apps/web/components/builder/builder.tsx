@@ -35,11 +35,13 @@ type BuilderProps = {
   entries: Readonly<Record<string, readonly RulesEntry[]>>;
   /** The seat, read when the ruleset has a ledger builder. */
   me?: Me | undefined;
+  /** The ledger builder's step a link asked for, for a character in play. */
+  step?: string | null | undefined;
 };
 
 // BUILD CHARACTER: waits for the table's first snapshot (it carries this user's draft), then walks the ruleset's creation,
 // or opens the ledger builder for a character it builds.
-export function Builder({ campaignId, actorId, ruleset, entries, me }: BuilderProps) {
+export function Builder({ campaignId, actorId, ruleset, entries, me, step }: BuilderProps) {
   const t = useTranslations("builder");
   const tStatus = useTranslations("status");
   const { state, send } = useTable(campaignId);
@@ -47,7 +49,7 @@ export function Builder({ campaignId, actorId, ruleset, entries, me }: BuilderPr
   const actor = state.actors.find((a) => a.id === actorId);
   if (!actor) return <StatusScreen text={t("notAtTable")} />;
   if (me && usesLedger({ ruleset, actor }))
-    return <LedgerBuild {...{ campaignId, ruleset, actor, send }} me={me} campaign={state.campaign.fields} />;
+    return <LedgerBuild {...{ campaignId, ruleset, actor, send, step }} me={me} campaign={state.campaign.fields} />;
   return (
     <BuilderGate
       {...{ campaignId, actorId, ruleset, entries, send, actor }}

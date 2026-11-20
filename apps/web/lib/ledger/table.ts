@@ -8,15 +8,25 @@ import {
   type ActorLedger,
   type Me,
 } from "@inconsistable/core-schema";
-import type { BuildCatalogue, LedgerCreation, LedgerWargear, Ruleset } from "@inconsistable/rules-engine";
+import {
+  actorScope,
+  campaignValues,
+  compileRuleset,
+  healthStatesOf,
+  type BuildCatalogue,
+  type LedgerCreation,
+  type LedgerWargear,
+  type Ruleset,
+} from "@inconsistable/rules-engine";
 
-import type { LedgerBuild } from "./ledger";
+import type { LedgerBuild, LedgerPlay } from "./ledger";
+import { rankOf, toSpend, type AscensionMember } from "./play";
 
 // The ledger builder at the table (docs/adr/0011, house decision #63): which builder a character's page shows, the
 // build it starts from, the catalogue as the api serves it, the entry each seat gets to it, and what the saved sheet
 // adds to a character's sheet. Pure.
 
-type Ledgered = Pick<Actor, "entity" | "ledger">;
+type Ledgered = Pick<Actor, "entity" | "ledger" | "fields">;
 
 /** The ledger builder builds a character that is untyped or of the type the ruleset's `build` names. */
 export const usesLedger = ({ ruleset, actor }: { ruleset: Ruleset | null; actor: Pick<Actor, "entity"> }) =>
@@ -41,12 +51,52 @@ export function roomTier({ ruleset, campaign }: { ruleset: Ruleset; campaign: Re
 // parse would put its keys in the schema's order, and the builder reads them in the order they were written.
 const AsStored = z.custom<LedgerBuild>((x) => typeof x === "object" && x !== null && !Array.isArray(x));
 
-/** What the screens start from: the draft, else the saved build, else an empty build; always at the room's Tier. */
+/** What the screens start from: the draft, else the saved build, else an empty build; at the room's Tier, or for a made
+ * character at the Tier it was made at, which the server holds it to (house decision #64). */
 export function startingBuild({ ledger, tier }: { ledger: ActorLedger | null; tier: number }): LedgerBuild {
   const stored = AsStored.safeParse(ledger?.draft ?? ledger?.build);
+  const madeAt = ledger?.build?.["tier"];
+  const at = typeof madeAt === "number" ? madeAt : tier;
   // A spread keeps a stored `tier` where it was written.
-  return stored.success ? { ...stored.data, tier } : { tier };
+  return stored.success ? { ...stored.data, tier: at } : { tier: at };
 }
+
+/** The XP a character has earned: its value of the field `build.xp` names; 0 unset or unnamed. */
+export function xpEarnedOf({ ruleset, actor }: { ruleset: Ruleset | null; actor: Pick<Actor, "fields"> }) {
+  const id = ruleset?.build?.xp;
+  const value = id === undefined ? undefined : actor.fields[id];
+  return typeof value === "number" ? value : 0;
+}
+
+/** A made character's `play` (house decision #64): the room's Tier, its XP earned and where its Ascension count
+ * restarted. None for a character with no stored build, which is still being created. */
+export function playOf({
+  ruleset,
+  actor,
+  campaign,
+}: {
+  ruleset: Ruleset;
+  actor: Pick<Actor, "fields" | "ledger">;
+  campaign: Readonly<Record<string, unknown>>;
+}): LedgerPlay | undefined {
+  const ledger = actor.ledger;
+  if (!ledger?.build) return undefined;
+  return {
+    tier: roomTier({ ruleset, campaign }),
+    xpEarned: xpEarnedOf({ ruleset, actor }),
+    xpAtAscension: ledger.xpAtAscension,
+    packageWaived: ledger.packageWaived,
+  };
+}
+
+/** The XP a made character has left to spend; 0 for one not made. */
+export const xpToSpendOf = ({
+  ruleset,
+  actor,
+}: {
+  ruleset: Ruleset | null;
+  actor: Pick<Actor, "fields" | "ledger">;
+}) => (actor.ledger?.build ? toSpend({ earned: xpEarnedOf({ ruleset, actor }), spent: actor.ledger.xpSpent }) : 0);
 
 // The catalogue reply, `{ params, kinds, wargear }`. Its records were parsed and normalised at import and are used as
 // served: only their place is checked here (a list of objects per kind), never their fields.
@@ -78,10 +128,64 @@ export function catalogueOf(reply: unknown): BuildCatalogue | null {
   return { creation: r.data.kinds, wargear: new Map(r.data.wargear.map((w) => [w.id, w])), homebrew: true };
 }
 
+/** A character's XP figures where the ruleset keeps XP and the ledger builds it: earned, the Rank it sets, and what is
+ * left to spend; null otherwise. */
+export function xpFiguresOf({ ruleset, actor }: { ruleset: Ruleset | null; actor: Ledgered }) {
+  const build = ruleset?.build;
+  if (!build?.xp || actor.entity !== build.actor) return null;
+  const earned = xpEarnedOf({ ruleset, actor });
+  const { xpPerRank, top } = build.params.rank;
+  return { earned, rank: rankOf({ earned, xpPerRank, top }), toSpend: xpToSpendOf({ ruleset, actor }) };
+}
+
+/** Who the group's Ascension weighs: every player character of the type the ledger builds, with the XP earned since the
+ * group last Ascended (a character with no ledger row counts from 0, as the server does). */
+export function ascensionMembersOf({
+  ruleset,
+  actors,
+  campaign = {},
+}: {
+  ruleset: Ruleset;
+  actors: readonly Pick<Actor, "id" | "name" | "kind" | "entity" | "fields" | "derived" | "resources" | "ledger">[];
+  /** The room's stored campaign values; a health state that reads `campaign.*` needs them. */
+  campaign?: Readonly<Record<string, number | string | boolean>>;
+}): AscensionMember[] {
+  const build = ruleset.build;
+  if (!build) return [];
+  // Who is gone, for display: the ruleset's `gone` health states, worked out with the engine the server's twin runs,
+  // from the values this seat holds (the panel is the GM side's, which holds them all). The server decides the count
+  // itself when the group Ascends. A state that cannot be evaluated does not count, as there.
+  const goneStates = build.gone ?? [];
+  const made = goneStates.length > 0 ? compileRuleset(ruleset) : null;
+  const compiled = made?.ok ? made.compiled : null;
+  const inPlay = compiled ? campaignValues({ compiled, stored: campaign }) : undefined;
+  const isGone = (a: (typeof actors)[number]) => {
+    if (!compiled) return false;
+    try {
+      const scope = actorScope({ fields: a.fields, derived: a.derived, resources: a.resources, campaign: inPlay });
+      return healthStatesOf({ compiled, entity: a.entity, scope }).some((id) => goneStates.includes(id));
+    } catch {
+      return false;
+    }
+  };
+  return actors
+    .filter((a) => a.kind === "pc" && a.entity === build.actor)
+    .map((a) => {
+      const earned = xpEarnedOf({ ruleset, actor: a });
+      return {
+        id: a.id,
+        name: a.name,
+        rank: rankOf({ earned, ...build.params.rank }),
+        earnedThisTier: earned - (a.ledger?.xpAtAscension ?? 0),
+        gone: isGone(a),
+      };
+    });
+}
+
 // The entry the GM's Party tab gives a character to its builder, and the one a player's phone gives.
 export const GM_ENTRIES = ["build", "review", "open"] as const;
 export type GmEntry = (typeof GM_ENTRIES)[number];
-export const PLAYER_ENTRIES = ["build", "continue"] as const;
+export const PLAYER_ENTRIES = ["build", "continue", "levelUp"] as const;
 export type PlayerEntry = (typeof PLAYER_ENTRIES)[number];
 
 /** BUILD with neither a build nor a draft, REVIEW with a draft, OPEN once built; null when the ledger does not build it. */
@@ -91,10 +195,11 @@ export function gmEntryOf({ ruleset, actor }: { ruleset: Ruleset | null; actor: 
   return actor.ledger?.build ? "open" : "build";
 }
 
-/** A player builds a character not yet built, or continues its draft; a built one has no entry yet (buying in play
- * comes later). Null when the ledger does not build it. */
+/** A player builds a character not yet built, or continues its draft; a built one levels up while it has XP to spend,
+ * else has no entry here (the sheet's XP box keeps the way in). Null when the ledger does not build it. */
 export function playerEntryOf({ ruleset, actor }: { ruleset: Ruleset | null; actor: Ledgered }): PlayerEntry | null {
-  if (!usesLedger({ ruleset, actor }) || actor.ledger?.build) return null;
+  if (!usesLedger({ ruleset, actor })) return null;
+  if (actor.ledger?.build) return xpToSpendOf({ ruleset, actor }) > 0 ? "levelUp" : null;
   return actor.ledger?.draft ? "continue" : "build";
 }
 

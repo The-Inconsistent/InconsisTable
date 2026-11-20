@@ -1,13 +1,14 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useId, useState, type ChangeEvent } from "react";
+import { useId, useState, type KeyboardEvent } from "react";
 
 import { awardOf } from "@/lib/ledger/play";
 
 export type SessionAwardProps = { max: number; suggested: number[]; value: number; onChange: (n: number) => void };
 
 // The XP each character gains when a session ends, as Auspex's session band picks it: the suggested amounts as chips,
-// or a number typed from 0 to `max`. The amount chosen is always on screen; a typed one out of range is not passed on.
+// or a number typed from 0 to `max`, passed on when the box is left or Enter is pressed (a chip at once). The amount
+// chosen is always on screen; a typed one out of range is not passed on.
 export function SessionAward({ max, suggested, value, onChange }: SessionAwardProps) {
   const t = useTranslations("ledgerBuilder.play.session");
   const id = useId();
@@ -19,11 +20,16 @@ export function SessionAward({ max, suggested, value, onChange }: SessionAwardPr
     setText(String(n));
     onChange(n);
   };
-  // The box: kept as typed, passed on only when it is a whole number in range.
-  const handleType = (e: ChangeEvent<HTMLInputElement>) => {
-    setText(e.target.value);
-    const n = awardOf({ text: e.target.value, max });
-    if (n !== null) onChange(n);
+  // The box, left or confirmed: passed on only when it is a whole number in range.
+  const handleCommit = () => {
+    const n = awardOf({ text, max });
+    if (n !== null && n !== value) onChange(n);
+  };
+  // Enter commits the amount and goes no further: it never submits the form the picker sits in.
+  const handleKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    handleCommit();
   };
 
   return (
@@ -44,7 +50,9 @@ export function SessionAward({ max, suggested, value, onChange }: SessionAwardPr
             inputMode="numeric"
             autoComplete="off"
             value={text}
-            onChange={handleType}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={handleCommit}
+            onKeyDown={handleKey}
             aria-invalid={invalid}
             aria-describedby={`${id}-range`}
           />

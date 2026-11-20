@@ -2,9 +2,9 @@
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useState, type KeyboardEvent } from "react";
 
-import { ascensionRows, type AscensionMember } from "@/lib/ledger/play";
+import type { AscendKind } from "@inconsistable/core-schema";
 
-import type { AscendKind } from "../constants";
+import { ascensionRows, type AscensionMember } from "@/lib/ledger/play";
 
 export type AscensionPanelProps = {
   tier: number;

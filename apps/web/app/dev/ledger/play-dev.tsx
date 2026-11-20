@@ -2,7 +2,8 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-import type { AscendKind } from "@/components/builder/ledger/play/constants";
+import type { AscendKind } from "@inconsistable/core-schema";
+
 import { AscensionPanel } from "@/components/builder/ledger/play/ascension-panel/ascension-panel";
 import { SessionAward } from "@/components/builder/ledger/play/session-award/session-award";
 import { XpBox } from "@/components/builder/ledger/play/xp-box/xp-box";

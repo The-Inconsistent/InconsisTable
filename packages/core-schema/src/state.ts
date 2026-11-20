@@ -72,11 +72,9 @@ export const ActorLedger = z.object({
   build: LedgerDocument,
   sheet: LedgerDocument,
   draft: LedgerDocument,
-  // ponytail: the api always sends the three, but the type keeps them optional so the web's ledger fixtures
-  // (apps/web/lib/ledger/table.test.ts) still compile, upgrade: drop .optional() when those fixtures carry them
-  xpSpent: z.int().optional(),
-  xpAtAscension: z.int().optional(),
-  packageWaived: z.boolean().optional(),
+  xpSpent: z.int(),
+  xpAtAscension: z.int(),
+  packageWaived: z.boolean(),
 });
 export type ActorLedger = z.infer<typeof ActorLedger>;
 

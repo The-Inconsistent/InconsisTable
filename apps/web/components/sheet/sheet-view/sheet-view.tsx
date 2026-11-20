@@ -5,12 +5,15 @@ import { Fragment, useMemo, useState } from "react";
 import type { Actor, BookSource, SpendRequest } from "@inconsistable/core-schema";
 import { breakdownOf, campaignValues, compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
+import { XpBox } from "@/components/builder/ledger/play/xp-box/xp-box";
 import { Breakdown } from "@/components/sheet/components/breakdown/breakdown";
 import { LedgerLines } from "@/components/sheet/components/ledger-lines/ledger-lines";
 import { SpendAsk } from "@/components/sheet/components/spend-ask/spend-ask";
 import { Cite } from "@/components/ui/cite/cite";
 import { ResourceRow } from "@/components/ui/resource-row/resource-row";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
+import { rankOf } from "@/lib/ledger/play";
+import { xpEarnedOf } from "@/lib/ledger/table";
 import { pendingFor } from "@/lib/spend-request/spend-request";
 import {
   canAskToSpend,
@@ -39,6 +42,8 @@ type SheetViewProps = {
   send: Send;
   books: readonly BookSource[];
   requestPage: RequestPage;
+  /** This character's builder, for the seat that holds it or a GM-side seat; the XP box links there. */
+  builderHref?: string | null;
 };
 
 // SHEET: one character as the ruleset's layout lays it out. Every value is the server's, already cut down to what this
@@ -53,6 +58,7 @@ export function SheetView({
   send,
   books,
   requestPage,
+  builderHref = null,
 }: SheetViewProps) {
   const t = useTranslations("sheet");
   const tDuration = useTranslations("duration");
@@ -69,6 +75,10 @@ export function SheetView({
   const sections = sectionsOf({ ruleset, actor });
   const conditions = actor.conditions.flatMap((id) => ruleset.conditions.find((c) => c.id === id) ?? []);
   const rests = restsOf(ruleset);
+  // XP, for a seat that receives this character's ledger, when the ruleset keeps XP (house decision #64).
+  const build = ruleset.build;
+  const ledger = actor.ledger;
+  const earned = xpEarnedOf({ ruleset, actor });
 
   // What is left of a condition's count ("2 rounds left"), or "" when it has none.
   const leftText = (id: string) => {
@@ -198,6 +208,15 @@ export function SheetView({
       ))}
       {sections.length === 0 && <p className="dim">{t("nothing")}</p>}
       <LedgerLines sheet={actor.ledger?.sheet} {...{ ruleset, books, requestPage }} />
+      {build?.xp && ledger && (
+        <XpBox
+          earned={earned}
+          spent={ledger.xpSpent}
+          rank={rankOf({ earned, ...build.params.rank })}
+          built={ledger.build !== null}
+          href={builderHref}
+        />
+      )}
 
       <section className="stack sheet-card">
         <h2 className="head">{t("conditions")}</h2>

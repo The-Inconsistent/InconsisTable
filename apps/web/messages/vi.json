@@ -617,6 +617,8 @@
     "showMore": "Xem thêm (còn {left})"
   },
   "party": {
+    "xp": { "line": "{xp} XP · Rank {rank}", "toSpend": "còn {xp} XP để tiêu" },
+    "ascension": "Ascension · Tier {tier}",
     "guest": "Khách",
     "qrFailed": "Không vẽ được mã QR. Hãy thử lại",
     "campaignInviteTitle": "Lời mời campaign · {role}",

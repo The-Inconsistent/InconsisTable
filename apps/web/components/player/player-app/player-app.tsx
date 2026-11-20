@@ -29,7 +29,7 @@ import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { RunTable } from "@/components/player/run-table/run-table";
 import { useTable } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
-import { playerEntryOf, usesLedger } from "@/lib/ledger/table";
+import { playerEntryOf, usesLedger, xpToSpendOf } from "@/lib/ledger/table";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 
 type PlayerAppProps = { me: Me; view: RulesView | null; quick?: boolean };
@@ -40,6 +40,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   const t = useTranslations("playerApp");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
+  const tXp = useTranslations("ledgerBuilder.play.xp");
   const { state, codex, online, send, draftRecap, books, requestPage, xcard } = useTable(me.campaignId);
   const held = me.seat.kind === "admin" ? [] : me.seat.characterIds;
   const [current, setCurrent] = useState(held[0] ?? "");
@@ -69,9 +70,11 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   };
   const mine = state.actors.filter((a) => held.includes(a.id));
   const character = mine.find((a) => a.id === current) ?? mine[0];
-  // A character the ledger builder builds has an entry while it has no saved build (buying in play comes later).
+  // A character the ledger builder builds has an entry while it has no saved build, and once built while it has XP
+  // to spend (Level up, on the purchases); the sheet's XP box keeps the way in otherwise.
   const ruleset = view?.ruleset ?? null;
   const ledgerEntry = character ? playerEntryOf({ ruleset, actor: character }) : null;
+  const builderHref = character ? `/c/${me.campaignId}/build/${character.id}` : "";
   const buildEntry =
     character && (ledgerEntry !== null || (!usesLedger({ ruleset, actor: character }) && needsBuild(character)));
 
@@ -125,10 +128,14 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
         {character && buildEntry && (
           <a
             className="btn primary"
-            href={`/c/${me.campaignId}/build/${character.id}`}
+            href={ledgerEntry === "levelUp" ? `${builderHref}?step=advance` : builderHref}
             style={{ justifySelf: "start" }}
           >
-            {ledgerEntry === "continue" || state.myDraft?.actorId === character.id ? t("continueBuilding") : t("build")}
+            {ledgerEntry === "levelUp"
+              ? tXp("levelUp", { xp: xpToSpendOf({ ruleset, actor: character }) })
+              : ledgerEntry === "continue" || state.myDraft?.actorId === character.id
+                ? t("continueBuilding")
+                : t("build")}
           </a>
         )}
         {ledgerEntry === "continue" && <p className="small dim">{t("buildDraft")}</p>}
@@ -190,6 +197,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
               campaign={state.campaign.fields}
               gm={false}
               requests={state.requests}
+              builderHref={`${builderHref}?step=advance`}
               {...{ send, books, requestPage }}
             />
           ) : !character || !needsBuild(character) ? (

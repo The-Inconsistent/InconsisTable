@@ -11,6 +11,7 @@ import {
   gmPermOf,
   MemberRole,
   type ActionInput,
+  type AscendKind,
   type BookSource,
   type LiveState,
   type Me,
@@ -19,13 +20,16 @@ import {
 } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
+import { AscensionPanel } from "@/components/builder/ledger/play/ascension-panel/ascension-panel";
+import { SessionAward } from "@/components/builder/ledger/play/session-award/session-award";
 import { Recaps } from "@/components/gm/party/recaps";
 import { SafetyPanel } from "@/components/gm/party/safety-panel";
 import { DraftRecap as DraftRecapButton } from "@/components/ui/draft-recap/draft-recap";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import type { DraftRecap, RequestPage, Send } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
-import { gmEntryOf, gmSideOf, usesLedger } from "@/lib/ledger/table";
+import { startingAward } from "@/lib/ledger/play";
+import { ascensionMembersOf, gmEntryOf, gmSideOf, roomTier, usesLedger, xpFiguresOf } from "@/lib/ledger/table";
 import { restsOf } from "@/lib/sheet/sheet";
 import { RECAP_MAX } from "@/lib/codex/codex";
 import { qrImage } from "@/lib/qr/qr";
@@ -72,6 +76,9 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
   const [deleteName, setDeleteName] = useState("");
   const [recap, setRecap] = useState<string | null>(null); // the end-of-session form, open while not null
   const [sheetOf, setSheetOf] = useState<string | null>(null);
+  const [award, setAward] = useState(0); // the session's XP award, set when the end-of-session form opens
+  const [ascending, setAscending] = useState(false);
+  const [ascendRefusal, setAscendRefusal] = useState<string | null>(null);
   const isOwner = me.userId !== null && me.userId === state.campaign.ownerUserId;
   const can = (perm: Parameters<typeof canInCampaign>[0]["perm"]) => canInCampaign({ ctx: me, perm });
   const holderOf = (actorId: string) =>
@@ -83,6 +90,10 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
   const builds = (sheet.ruleset?.creation.length ?? 0) > 0;
   const actorTypes = sheet.ruleset?.entities.filter((e) => e.base === "actor") ?? [];
   const typeOnCreate = !builds && actorTypes.length === 1 ? actorTypes[0]?.id : undefined;
+  // In play with the ledger builder (house decision #64): the XP a session's end awards, and the group's Ascension.
+  const ledgerBuild = sheet.ruleset?.build;
+  const awardRule = ledgerBuild?.xp ? ledgerBuild.award : undefined;
+  const tier = sheet.ruleset ? roomTier({ ruleset: sheet.ruleset, campaign: state.campaign.fields }) : 0;
 
   // Sends an action and shows its refusal, if any.
   const act = async (a: ActionInput) => {
@@ -160,10 +171,25 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
     void act({ type: "member.appoint", userId: m.userId, role: "cogm", scopes });
   };
 
-  // END SESSION: sends the recap typed in the form (it may be empty), then closes the form.
+  // END SESSION: opens the form, the award on the middle suggested amount.
+  const handleOpenEnd = () => {
+    setRecap("");
+    setAward(startingAward(awardRule?.suggested ?? []));
+  };
+  // END SESSION (confirm): sends the recap typed in the form (it may be empty) and, where the ruleset gives XP, the
+  // award picked; then closes the form.
   const handleEndSession = async (e: FormEvent) => {
     e.preventDefault();
-    if ((await act({ type: "session.end", recap: recap ?? "" })).ok) setRecap(null);
+    const r = await act({ type: "session.end", recap: recap ?? "", ...(awardRule ? { award } : {}) });
+    if (r.ok) setRecap(null);
+  };
+
+  // ASCEND: the whole group, one Tier; a refusal stays in the panel.
+  const handleAscend = async ({ kind, waivePackage }: { kind: AscendKind; waivePackage: boolean }) => {
+    setAscending(true);
+    const r = await send({ type: "build.ascend", kind, waivePackage });
+    setAscending(false);
+    setAscendRefusal(r.ok ? null : r.error);
   };
 
   // DELETE FOR GOOD: only an archived room, after typing its name; then back to the lobby.
@@ -205,7 +231,7 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
         <section className="row">
           {state.session ? (
             recap === null ? (
-              <button className="btn" onClick={() => setRecap("")}>
+              <button className="btn" onClick={handleOpenEnd}>
                 {t("endSession", { number: state.session.number })}
               </button>
             ) : (
@@ -223,6 +249,9 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
                     autoFocus
                   />
                 </label>
+                {awardRule && (
+                  <SessionAward max={awardRule.max} suggested={awardRule.suggested} value={award} onChange={setAward} />
+                )}
                 <div className="row">
                   <button className="btn primary">{t("endSessionConfirm", { number: state.session.number })}</button>
                   <button type="button" className="btn" onClick={() => setRecap(null)}>
@@ -284,10 +313,18 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
               const ledgerEntry = gmSideOf({ me, kind: a.kind })
                 ? gmEntryOf({ ruleset: sheet.ruleset, actor: a })
                 : null;
+              const xp = xpFiguresOf({ ruleset: sheet.ruleset, actor: a });
               return (
                 <li key={a.id}>
                   <span>
                     <strong>{a.name}</strong> <span className="dim small">{holder ?? t("open")}</span>
+                    {xp && (
+                      <span className="small" data-stat="xp">
+                        {" "}
+                        {t("xp.line", { xp: xp.earned, rank: xp.rank })}
+                        {xp.toSpend > 0 && <strong> · {t("xp.toSpend", { xp: xp.toSpend })}</strong>}
+                      </span>
+                    )}
                   </span>
                   <span className="row">
                     {sheet.ruleset && (!builds || !needsBuild(a)) && (
@@ -354,6 +391,9 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
                         send={send}
                         books={sheet.books}
                         requestPage={sheet.requestPage}
+                        builderHref={
+                          gmSideOf({ me, kind: a.kind }) ? `/c/${state.campaign.id}/build/${a.id}?step=advance` : null
+                        }
                       />
                     </div>
                   )}
@@ -375,6 +415,24 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
               </button>
             ))}
           </div>
+        )}
+        {sheet.ruleset && ledgerBuild?.ascension && ledgerBuild.xp && can("campaign:update") && (
+          <details className="stack ws-fold">
+            <summary className="head">{t("ascension", { tier })}</summary>
+            <AscensionPanel
+              tier={tier}
+              topTier={ledgerBuild.params.tiers.max}
+              needed={ledgerBuild.ascension.xp}
+              members={ascensionMembersOf({
+                ruleset: sheet.ruleset,
+                actors: state.actors,
+                campaign: state.campaign.fields,
+              })}
+              busy={ascending}
+              refusal={ascendRefusal}
+              onAscend={handleAscend}
+            />
+          </details>
         )}
         {can("character:create") && (
           <form className="row" onSubmit={handleNewCharacter}>

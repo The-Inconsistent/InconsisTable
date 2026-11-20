@@ -1548,7 +1548,10 @@
     "open": "Mở",
     "sendLine": "Gửi {what}",
     "openLine": "Mở {what}",
-    "sent": "Đã gửi: {what}"
+    "sent": "Đã gửi: {what}",
+    "asks": "Khi gửi sẽ hỏi thêm {inputs}.",
+    "fillIn": "Test này còn thiếu các mục dưới đây. Chúng chỉ dùng cho lần gửi này.",
+    "fillFor": "Những gì {what} còn thiếu"
   },
   "safety": {
     "card": {

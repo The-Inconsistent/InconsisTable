@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { buildSchemas, type Schemas as LedgerSchemas } from "./build/schemas.ts";
 import { entryEffectProblems } from "./compile.ts";
 import { ATTRIBUTION_LICENSES, EntryVisibility, PackLicense } from "./enums.ts";
 import { checkFieldValue, FieldValueInput } from "./field-value.ts";
@@ -9,10 +10,12 @@ import {
   Effect,
   FieldId,
   Id,
+  LEDGER_KINDS,
   RulesetId,
   SemVer,
   SemVerRange,
   Source,
+  type LedgerKind,
   type Ruleset,
 } from "./manifest.ts";
 import { own } from "./own.ts";
@@ -26,6 +29,25 @@ export const MAX_ENTRY_BODY_BYTES = 16 * 1024;
 export const PRIVATE_TEXT_WARN_CHARS = 280;
 
 export const MAX_ENTRY_EFFECTS = 20;
+/** The most a catalogue record may take, as serialised JSON (house decision #62). */
+export const MAX_ENTRY_RECORD_BYTES = 32 * 1024;
+
+/** The builder's schema of each kind of record. */
+const RECORD_SCHEMA = {
+  keywords: "Keyword",
+  factions: "Faction",
+  "sub-factions": "SubFaction",
+  species: "Species",
+  backgrounds: "BackgroundTable",
+  "option-groups": "OptionGroup",
+  archetypes: "Archetype",
+  talents: "Talent",
+  packages: "Package",
+  disciplines: "Discipline",
+  powers: "PsychicPower",
+  languages: "Language",
+  wargear: "Wargear",
+} as const satisfies Record<LedgerKind, keyof LedgerSchemas>;
 
 export const PackId = RulesetId;
 /** Unique within a pack; the importer namespaces it as `pack:key`. */
@@ -52,6 +74,11 @@ export const PackEntry = z.object({
    * entry's own cite unless an effect has one.
    */
   effects: z.array(Effect).max(MAX_ENTRY_EFFECTS).default([]),
+  /**
+   * The catalogue record the ledger builder reads (house decision #62), on an entry of a type `build.kinds` names. Once
+   * validated it is the record its kind's schema answers, keys in the schema's order, which the builder reads.
+   */
+  record: z.record(z.string(), z.unknown()).optional(),
 });
 export type PackEntry = z.infer<typeof PackEntry>;
 
@@ -80,9 +107,13 @@ function citeExempt({ pack, ruleset }: { pack: Pack; ruleset: Ruleset }): boolea
 function semanticProblems({ pack, ruleset }: { pack: Pack; ruleset: Ruleset }): {
   problems: Problem[];
   warnings: Problem[];
+  records: Map<number, Record<string, unknown>>;
 } {
   const problems: Problem[] = [];
   const warnings: Problem[] = [];
+  const build = ruleset.build;
+  const kindOf = new Map<string, LedgerKind>(build === undefined ? [] : LEDGER_KINDS.map((k) => [build.kinds[k], k]));
+  const records = new Map<number, Record<string, unknown>>(); // entry index → its parsed record
   // ponytail: the ruleset's version is not matched against `ruleset.range` (the range is only shape-checked, like
   // the manifest's `core`); matching comes with the importer's version pinning.
   if (pack.ruleset.id !== ruleset.id)
@@ -125,6 +156,8 @@ function semanticProblems({ pack, ruleset }: { pack: Pack; ruleset: Ruleset }): 
           });
       }
     }
+    const record = recordOf({ entry, at, i, build, kind: kindOf.get(entry.type), problems });
+    if (record !== null) records.set(i, record);
   });
   // Effects hold for every actor type that picks the entry's type in a `choose` step.
   for (const [type, list] of withEffects) {
@@ -149,7 +182,54 @@ function semanticProblems({ pack, ruleset }: { pack: Pack; ruleset: Ruleset }): 
     if (sourceIds.has(s.id)) problems.push({ path: `sources[${i}].id`, message: `duplicate id "${s.id}"` });
     sourceIds.add(s.id);
   });
-  return { problems, warnings };
+  return { problems, warnings, records };
+}
+
+/**
+ * An entry's catalogue record (house decision #62): there exactly when the entry's type holds a kind the ledger builder
+ * reads, within the size cap, valid for its kind, and naming the entry's key and name. Null when there is none or it
+ * is refused.
+ */
+function recordOf({
+  entry,
+  at,
+  i,
+  build,
+  kind,
+  problems,
+}: {
+  entry: PackEntry;
+  at: string;
+  i: number;
+  build: Ruleset["build"];
+  kind: LedgerKind | undefined;
+  problems: Problem[];
+}): Record<string, unknown> | null {
+  if (entry.record === undefined) {
+    if (kind !== undefined) problems.push({ path: `${at}.record`, message: `a "${entry.type}" needs its record` });
+    return null;
+  }
+  if (build === undefined || kind === undefined) {
+    problems.push({ path: `${at}.record`, message: `nothing reads a record on a "${entry.type}"` });
+    return null;
+  }
+  const bytes = byteSize(entry.record) ?? 0;
+  if (bytes > MAX_ENTRY_RECORD_BYTES) {
+    problems.push({ path: `${at}.record`, message: `${bytes} bytes, over the cap of ${MAX_ENTRY_RECORD_BYTES}` });
+    return null;
+  }
+  const parsed = buildSchemas(build.params)[RECORD_SCHEMA[kind]].safeParse(entry.record);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues)
+      problems.push({ path: formatPath(["entries", i, "record", ...issue.path]), message: issue.message });
+    return null;
+  }
+  const record = parsed.data as Record<string, unknown>;
+  if (record.id !== entry.key)
+    problems.push({ path: `${at}.record.id`, message: `must be the entry's key "${entry.key}"` });
+  if (record.name !== entry.name)
+    problems.push({ path: `${at}.record.name`, message: `must be the entry's name "${entry.name}"` });
+  return record;
 }
 
 /**
@@ -169,6 +249,12 @@ export function validatePack({ input, ruleset }: { input: unknown; ruleset: Rule
     const problems = parsed.error.issues.map((i) => ({ path: formatPath(i.path), message: i.message }));
     return { ok: false, problems, warnings: [] };
   }
-  const { problems, warnings } = semanticProblems({ pack: parsed.data, ruleset });
-  return problems.length > 0 ? { ok: false, problems, warnings } : { ok: true, pack: parsed.data, warnings };
+  const { problems, warnings, records } = semanticProblems({ pack: parsed.data, ruleset });
+  if (problems.length > 0) return { ok: false, problems, warnings };
+  // What is stored and hashed is each record as its kind's schema answers it.
+  const entries = parsed.data.entries.map((e, i) => {
+    const record = records.get(i);
+    return record === undefined ? e : { ...e, record };
+  });
+  return { ok: true, pack: { ...parsed.data, entries }, warnings };
 }

@@ -4813,7 +4813,8 @@ test("sides fixture: reminders, a side barred at once, immunity, stacks and a re
   )!.id;
   ok(await owner.send({ type: "actor.rename", id: hero, name: "Hal" }));
   // Level 3, Grit 10: 14 Vigour at most, 2 left, so below half.
-  await equip(hero, "character", { fields: { level: 3, "attr.con": 10 }, resources: { hp: 2 } });
+  const stats = { "attr.str": 10, "attr.dex": 10, "attr.con": 10, guard: 1 };
+  await equip(hero, "character", { fields: { level: 3, ...stats }, resources: { hp: 2 } });
   const brute = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Brute" })).id!;
   await equip(brute, "creature", { fields: { level: 6, "attr.con": 10 }, resources: { hp: 20 } });
   const imp = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Imp" })).id!;

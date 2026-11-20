@@ -1338,7 +1338,7 @@ summary {
    that says in words whether it is taken or closed. From 768px the steps become a rail beside the step. It reuses
    .mf-tabs, .found, .stepper, .build-bar and .bottom-sheet; only what they don't cover is here. */
 .lb-page {
-  padding-bottom: 160px; /* the sticky XP bar never covers the last row */
+  padding-bottom: 240px; /* the sticky XP bar (three rows on a phone) never covers the last row */
 }
 .lb-body {
   display: grid;
@@ -1464,6 +1464,11 @@ summary {
 .lb-taken > .lb-row-text {
   flex: 1 1 160px;
 }
+/* a language held (free, bought or learned): an edge as well as the word */
+.lb-taken:is([data-state="picks"], [data-state="bought"], [data-state="learned"]) {
+  padding-left: 10px;
+  box-shadow: inset 4px 0 0 var(--accent);
+}
 .lb-rating .stepper .btn {
   min-height: var(--tap);
 }
@@ -1472,13 +1477,56 @@ summary {
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 8px;
 }
+/* The bar is a grid of its own areas, so whatever the caller's footer holds stays in its row: on a phone the figures
+   and the ledger, the status, then the caller's actions with the primary in the bottom right corner; from 600px the
+   figures, the status and the ledger share the first row. */
 .lb-bar {
   z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "figures ledger"
+    "status status"
+    "actions actions";
+  column-gap: 12px;
+  row-gap: 6px;
 }
 .lb-figures {
+  grid-area: figures;
   display: flex;
   gap: 16px;
   margin: 0;
+  min-width: 0;
+}
+.lb-ledger-open {
+  grid-area: ledger;
+}
+.lb-actions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+.lb-note {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+.lb-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+@media (min-width: 600px) {
+  .lb-bar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "figures status ledger"
+      "actions actions actions";
+  }
 }
 .lb-figures dt {
   font-size: var(--fs-small);
@@ -1495,7 +1543,8 @@ summary {
   color: var(--accent);
 }
 .lb-status {
-  flex: 1 1 160px;
+  grid-area: status;
+  min-width: 0;
   margin: 0;
   font-weight: 700;
 }
@@ -1520,6 +1569,94 @@ summary {
   flex: none;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+/* In play: the XP box, the session's award and the group's Ascension (lb-play). Parchment cards like the builder's. */
+.lb-play-dev {
+  margin-top: calc(var(--gap) * 2);
+}
+.lb-play-grid {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  align-items: start;
+}
+.lb-play-figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.lb-play-figures dt {
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+}
+.lb-play-figures dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.lb-play-figures dd:not(.small) {
+  font-size: var(--fs-num);
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.lb-play > a.btn {
+  justify-self: start;
+}
+.lb-award {
+  margin: 0;
+  padding: 12px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+}
+.lb-award p {
+  margin: 0;
+}
+.lb-award-field input {
+  width: 6em;
+}
+.lb-award-chosen {
+  font-weight: 700;
+}
+.lb-member-head {
+  margin: 0;
+  font-size: var(--fs-small);
+  text-transform: uppercase;
+}
+.lb-member-state {
+  flex: none;
+  font-weight: 700;
+}
+.lb-members > li[data-state="ready"] {
+  box-shadow: inset 4px 0 0 var(--ok);
+  padding-left: 10px;
+}
+.lb-members > li[data-state="short"] {
+  box-shadow: inset 4px 0 0 var(--line);
+  padding-left: 10px;
+}
+.lb-members > li[data-state="gone"] {
+  opacity: 0.8;
+}
+.lb-ascend-ways > .lb-card .btn {
+  justify-self: start;
+}
+.lb-ascend-ways p {
+  margin: 0;
+}
+/* armed: one more press sends it, so it looks unlike any resting button (and its label says so) */
+.lb-ascend-go[data-state="armed"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.lb-waive {
+  min-height: var(--tap);
+  gap: 8px;
+}
+.lb-waive input {
+  width: 22px;
+  height: 22px;
 }
 @media (min-width: 768px) {
   .lb-body {

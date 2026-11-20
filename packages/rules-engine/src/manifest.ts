@@ -25,6 +25,7 @@ import {
 import { MAX_EXPR_LENGTH } from "./expr/expr.ast.ts";
 import { own } from "./own.ts";
 import { formatPath, type Problem } from "./problem.ts";
+import { LAYOUT_TARGETS, MAX_PIP_STEPS, MAX_PIPS_PER_STEP, type WidgetSpec, widgetSpec } from "./widgets.ts";
 
 /** Manifests are user-written imports stored as JSONB: bound them before anything else reads them. */
 export const MAX_MANIFEST_BYTES = 512 * 1024;
@@ -735,11 +736,41 @@ export const LedgerBuild = z.object({
 });
 export type LedgerBuild = z.infer<typeof LedgerBuild>;
 
-/** A layout hint for the sheet: sections listing field, derived or resource paths. Never HTML. */
+const LayoutPath = z.string().max(130);
+/**
+ * A row that names one of the platform's widgets (`WIDGETS`), bound to values by slot (house decision #83). Which
+ * widget, variant and slots exist, and what each path names, is checked by `validateRuleset`.
+ */
+export const WidgetRow = z.object({
+  widget: Id,
+  variant: Id.optional(),
+  label: z.string().min(1).max(80).optional(),
+  bind: z.record(Id, z.union([LayoutPath, z.array(LayoutPath).min(1).max(40)])).default({}),
+  /** A pips widget's rows: each a label and how many pips it holds. */
+  steps: z
+    .array(z.object({ label: z.string().min(1).max(40), size: z.int().min(1).max(MAX_PIPS_PER_STEP) }))
+    .min(1)
+    .max(MAX_PIP_STEPS)
+    .optional(),
+});
+export type WidgetRow = z.infer<typeof WidgetRow>;
+/** A field, derived or resource path drawn as a row of its own, or a widget. */
+export const LayoutRow = z.union([LayoutPath, WidgetRow]);
+export type LayoutRow = z.infer<typeof LayoutRow>;
+const LayoutRows = z.array(LayoutRow).max(100);
+
+/**
+ * A layout hint for one entity type's screens: the sheet's sections, and the other targets of ADR 0010, decision 3,
+ * each a list of rows. A target left out keeps the platform's fixed screen. Never HTML.
+ */
 export const Layout = z.object({
-  sections: z
-    .array(z.object({ id: Id, label: z.string().min(1).max(80), show: z.array(z.string().max(130)).max(100) }))
-    .max(50),
+  sections: z.array(z.object({ id: Id, label: z.string().min(1).max(80), show: LayoutRows })).max(50),
+  /** The phone on the seat's turn. */
+  phoneTurn: LayoutRows.optional(),
+  /** A combatant's row on the GM's tracker. */
+  trackerRow: LayoutRows.optional(),
+  /** The table screen (the TV). */
+  screen: LayoutRows.optional(),
 });
 export type Layout = z.infer<typeof Layout>;
 
@@ -1377,6 +1408,103 @@ function harmProblems({
   });
 }
 
+/** What a layout path names on one entity type, as the sheet reads it (apps/web lib/sheet `rowFor`); null: nothing. */
+function valueKind({ r, e, path }: { r: Ruleset; e: EntityType; path: string }): "number" | "text" | "other" | null {
+  const derived = (id: string) => (e.derived.some((d) => d.id === id) ? "number" : null);
+  const resource = (id: string) =>
+    r.resources.some((x) => x.id === id && x.scope === "entity" && (x.entities?.includes(e.id) ?? true))
+      ? "number"
+      : null;
+  if (path.startsWith("derived.")) return derived(path.slice(8));
+  if (path.startsWith("res.")) return resource(path.slice(4));
+  const field = own(e.fields, path);
+  if (field !== undefined) return field.type === "int" ? "number" : field.type === "text" ? "text" : "other";
+  return derived(path) ?? resource(path);
+}
+
+/** One widget row (house decision #83): a known widget and variant, its slots, and paths the entity types hold. */
+function widgetRowProblems({
+  r,
+  row,
+  entities,
+  path,
+  out,
+}: {
+  r: Ruleset;
+  row: WidgetRow;
+  entities: readonly EntityType[];
+  path: string;
+  out: Problem[];
+}): void {
+  const spec: WidgetSpec | undefined = widgetSpec(row.widget);
+  if (spec === undefined) {
+    out.push({ path: `${path}.widget`, message: `unknown widget "${row.widget}"` });
+    return;
+  }
+  if (row.variant !== undefined && !spec.variants.includes(row.variant))
+    out.push({ path: `${path}.variant`, message: `unknown variant "${row.variant}"` });
+  const variant = row.variant ?? spec.variants[0];
+  if (spec.steps && row.steps === undefined) out.push({ path: `${path}.steps`, message: "this widget needs steps" });
+  if (!spec.steps && row.steps !== undefined)
+    out.push({ path: `${path}.steps`, message: "this widget takes no steps" });
+  if (spec.ledger && r.build === undefined)
+    out.push({ path: `${path}.widget`, message: `"${spec.id}" reads the build's sheet, and the ruleset has no build` });
+  const pathOk = (p: string, takes: string, at: string) => {
+    const kinds = entities.map((e) => valueKind({ r, e, path: p })).filter((k) => k !== null);
+    if (kinds.length === 0) out.push({ path: at, message: `unknown value "${p}"` });
+    else if (takes === "number" && !kinds.includes("number")) out.push({ path: at, message: `"${p}" is not a number` });
+    else if (takes === "text" && !kinds.includes("text")) out.push({ path: at, message: `"${p}" is not a text field` });
+  };
+  for (const key of Object.keys(row.bind).sort()) {
+    const at = `${path}.bind.${key}`;
+    const slot = spec.slots.find((x) => x.id === key);
+    const bound = row.bind[key];
+    if (slot === undefined || bound === undefined) {
+      out.push({ path: at, message: `unknown slot "${key}"` });
+      continue;
+    }
+    if (slot.variants !== undefined && variant !== undefined && !slot.variants.includes(variant))
+      out.push({ path: at, message: `variant "${variant}" does not read "${key}"` });
+    if (slot.list !== Array.isArray(bound)) {
+      out.push({ path: at, message: slot.list ? "takes a list of paths" : "takes one path" });
+      continue;
+    }
+    if (Array.isArray(bound)) bound.forEach((p, i) => pathOk(p, slot.takes, `${at}[${i}]`));
+    else pathOk(bound, slot.takes, at);
+    const other = slot.sameLengthAs === undefined ? undefined : row.bind[slot.sameLengthAs];
+    if (Array.isArray(bound) && Array.isArray(other) && other.length !== bound.length)
+      out.push({ path: at, message: `has ${bound.length}, "${slot.sameLengthAs}" has ${other.length}` });
+  }
+  for (const slot of spec.slots) {
+    const used = slot.variants === undefined || variant === undefined || slot.variants.includes(variant);
+    if (slot.required && used && row.bind[slot.id] === undefined)
+      out.push({ path: `${path}.bind`, message: `slot "${slot.id}" is missing` });
+  }
+}
+
+/**
+ * Widget rows in every layout (house decision #83). Their paths are checked against the entity types the layout is
+ * for: its own, or for the shared `sheet` key every type without a layout of its own. Plain path rows stay unchecked,
+ * as they were before widgets: the sheet leaves out a path it finds no value for.
+ */
+function layoutProblems(r: Ruleset, out: Problem[]): void {
+  for (const key of Object.keys(r.layout).sort()) {
+    const layout = r.layout[key];
+    if (layout === undefined) continue;
+    const mine = r.entities.find((e) => e.id === key);
+    const entities = mine ? [mine] : key === "sheet" ? r.entities.filter((e) => own(r.layout, e.id) === undefined) : [];
+    const rows = (list: readonly LayoutRow[], path: string) =>
+      list.forEach((row, j) => {
+        if (typeof row !== "string") widgetRowProblems({ r, row, entities, path: `${path}[${j}]`, out });
+      });
+    layout.sections.forEach((s, i) => rows(s.show, `layout.${key}.sections[${i}].show`));
+    for (const target of LAYOUT_TARGETS) {
+      const list = layout[target];
+      if (list !== undefined) rows(list, `layout.${key}.${target}`);
+    }
+  }
+}
+
 function semanticProblems(r: Ruleset): Problem[] {
   const out: Problem[] = [];
   // CLAUDE.md principle 1: every rule entry cites its printed page, unless the whole ruleset is homebrew.
@@ -1471,6 +1599,7 @@ function semanticProblems(r: Ruleset): Problem[] {
     }
   });
   codexProblems({ r, entityIds, out });
+  layoutProblems(r, out);
 
   const resources = new Map(r.resources.map((x) => [x.id, x]));
   r.resources.forEach((x, i) => {

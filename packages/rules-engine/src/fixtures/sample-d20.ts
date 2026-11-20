@@ -9,7 +9,7 @@ export const NOTICE_RESOURCES: readonly string[] = ["boons", "renown"];
 
 export const SAMPLE_D20: RulesetInput = {
   id: "sample-d20",
-  version: "0.1.6",
+  version: "0.1.7",
   core: "^0.1.0",
   sources: [{ id: "sample", title: "Sample d20 Rules", license: "private", pageOffset: 0 }],
   terms: { party: "Crew", foe: "Opposition", hp: "Vigour" },
@@ -32,6 +32,7 @@ export const SAMPLE_D20: RulesetInput = {
         healthState: { type: "enum", label: "Status", values: ["ok", "dying", "stable", "dead"], visibility: "party" },
         deathSaveSuccesses: { type: "int", label: "Saves passed", visibility: "party" },
         deathSaveFailures: { type: "int", label: "Saves failed", visibility: "party" },
+        strain: { type: "int", label: "Strain", min: 0, max: 9, visibility: "party", cite: "Sample p.6" },
       },
       derived: [
         // Declared out of order on purpose: the engine sorts them.
@@ -45,6 +46,9 @@ export const SAMPLE_D20: RulesetInput = {
         { id: "baseHp", label: "Base Vigour", expr: "6 + mod(attr.con)", visibility: "party", cite: "Sample p.3" },
         { id: "initBonus", label: "Readiness", expr: "mod(attr.dex)", visibility: "party", cite: "Sample p.4" },
         { id: "defense", label: "Defense", expr: "guard + derived.initBonus", visibility: "party", cite: "Sample p.4" },
+        { id: "mightMod", label: "Might bonus", expr: "mod(attr.str)", visibility: "party", cite: "Sample p.2" },
+        { id: "graceMod", label: "Grace bonus", expr: "mod(attr.dex)", visibility: "party", cite: "Sample p.2" },
+        { id: "gritMod", label: "Grit bonus", expr: "mod(attr.con)", visibility: "party", cite: "Sample p.2" },
       ],
     },
     {
@@ -264,6 +268,68 @@ export const SAMPLE_D20: RulesetInput = {
   ],
   layout: {
     sheet: { sections: [{ id: "abilities", label: "Abilities", show: ["attr.str", "attr.dex", "attr.con"] }] },
+    // The character's sheet drawn with widgets (house decision #83); every other actor keeps the plain `sheet` rows.
+    character: {
+      sections: [
+        {
+          id: "who",
+          label: "Character",
+          show: [{ widget: "strip", bind: { title: "name", values: ["level", "size", "healthState"] } }],
+        },
+        {
+          id: "abilities",
+          label: "Abilities",
+          show: [
+            {
+              widget: "grid",
+              bind: {
+                ratings: ["attr.str", "attr.dex", "attr.con"],
+                bonus: ["derived.mightMod", "derived.graceMod", "derived.gritMod"],
+              },
+            },
+          ],
+        },
+        {
+          id: "vigour",
+          label: "Vigour",
+          show: [
+            { widget: "track", bind: { value: "res.hp" } },
+            "res.tempHp",
+            { widget: "track", label: "Focus", bind: { value: "res.focus" } },
+          ],
+        },
+        {
+          id: "defense",
+          label: "Defense",
+          show: [
+            { widget: "frames", bind: { values: ["derived.initBonus", "derived.maxHp"] } },
+            {
+              widget: "sum",
+              label: "Defense",
+              bind: { parts: ["guard", "derived.initBonus"], total: "derived.defense" },
+            },
+          ],
+        },
+        {
+          id: "strain",
+          label: "Strain",
+          show: [
+            {
+              widget: "pips",
+              bind: { value: "strain" },
+              steps: [
+                { label: "Calm", size: 3 },
+                { label: "Tense", size: 3 },
+                { label: "Breaking", size: 3 },
+              ],
+            },
+            "deathSaveSuccesses",
+            "deathSaveFailures",
+          ],
+        },
+        { id: "notes", label: "Notes", show: [{ widget: "notes", bind: { fields: ["diary"] } }] },
+      ],
+    },
   },
   // What a person and a faction carry in the codex (house decision #71): the crew sees how a person feels and where
   // they live, the GM whose creature backs them, where a faction stands and where it sits (house decision #76).
@@ -320,4 +386,22 @@ export const SAMPLE_D20: RulesetInput = {
       cite: "Sample p.17",
     },
   ],
+};
+
+/** The values 0.1.7 added for its widget layout (house decision #83). */
+const WIDGET_DERIVED = new Set(["mightMod", "graceMod", "gritMod"]);
+
+/**
+ * SAMPLE_D20 as it was at 0.1.6, before its character had a widget layout: the plain `sheet` rows only, without the
+ * values the widgets added. The rulesets built on it before then keep their pinned hashes (fixtures.test.ts).
+ */
+export const SAMPLE_D20_BEFORE_WIDGETS: RulesetInput = {
+  ...SAMPLE_D20,
+  version: "0.1.6",
+  entities: SAMPLE_D20.entities.map((e) => {
+    if (e.id !== "character") return e;
+    const { strain: _strain, ...fields } = e.fields ?? {};
+    return { ...e, fields, derived: e.derived?.filter((d) => !WIDGET_DERIVED.has(d.id)) };
+  }),
+  layout: { sheet: SAMPLE_D20.layout?.sheet ?? { sections: [] } },
 };

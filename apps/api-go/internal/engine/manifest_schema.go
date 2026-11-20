@@ -519,8 +519,11 @@ var rulesetSchema = schema.Object(
 		schema.Req("sections", schema.Array(schema.Object(
 			schema.Req("id", idSchema),
 			schema.Req("label", label(80)),
-			schema.Req("show", schema.Array(schema.String().Max(130)).Max(100)),
+			schema.Req("show", layoutRows),
 		)).Max(50)),
+		schema.Opt("phoneTurn", layoutRows),
+		schema.Opt("trackerRow", layoutRows),
+		schema.Opt("screen", layoutRows),
 	)), map[string]any{}),
 	schema.Opt("game", gameSchema),
 	schema.Opt("codex", codexSchema),
@@ -532,6 +535,23 @@ var rulesetSchema = schema.Object(
 		schema.Req("text", label(MaxNoticeText)),
 		schema.Opt("cite", citeSchema),
 	)).Max(MaxNotices)),
+)
+
+// layoutPath is a layout row that names a value; layoutRows a layout's list of rows, each a path or a widget row
+// (house decision #83, manifest.ts WidgetRow).
+var (
+	layoutPath = schema.String().Max(130)
+	layoutRows = schema.Array(schema.AnyOf(layoutPath, schema.Object(
+		schema.Req("widget", idSchema),
+		schema.Opt("variant", idSchema),
+		schema.Opt("label", label(80)),
+		schema.Def("bind", schema.Record(idSchema, schema.AnyOf(layoutPath, schema.Array(layoutPath).Min(1).Max(40))),
+			map[string]any{}),
+		schema.Opt("steps", schema.Array(schema.Object(
+			schema.Req("label", label(40)),
+			schema.Req("size", schema.Int().Min(1).Max(MaxPipsPerStep)),
+		)).Min(1).Max(MaxPipSteps)),
+	))).Max(100)
 )
 
 // tableSchema is one random table of the manifest (house decision #49).

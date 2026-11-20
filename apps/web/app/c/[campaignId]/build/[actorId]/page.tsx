@@ -5,6 +5,7 @@ import { Ruleset } from "@inconsistable/rules-engine";
 
 import { apiGet } from "@/app/server-api";
 import { Builder } from "@/components/builder/builder";
+import { RoomWorld } from "@/components/ui/room-world/room-world";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { RulesReply, type RulesEntry } from "@/lib/library/library";
 
@@ -56,15 +57,19 @@ export default async function Build({ params, searchParams }: BuildProps) {
       if (!reply.success) return <StatusScreen text={t("nosignal")} />;
       entries[type] = reply.data.entries;
     }
+    const world = room.data.world;
     return (
-      <Builder
-        campaignId={p.campaignId}
-        actorId={p.actorId}
-        ruleset={ruleset.data}
-        entries={entries}
-        me={me}
-        step={step}
-      />
+      <RoomWorld world={world}>
+        <Builder
+          campaignId={p.campaignId}
+          actorId={p.actorId}
+          ruleset={ruleset.data}
+          entries={entries}
+          me={me}
+          step={step}
+          worldVersionId={world?.versionId ?? null}
+        />
+      </RoomWorld>
     );
   } catch {
     return <StatusScreen text={t("nosignal")} />;

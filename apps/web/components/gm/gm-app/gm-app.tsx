@@ -20,6 +20,7 @@ import { SettingsMenu } from "@/components/ui/settings-menu/settings-menu";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useTable } from "@/hooks/use-table/use-table";
+import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import type { RulesTabData } from "@/lib/library/library";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 import { resourceLabels } from "@/lib/spend-request/spend-request";
@@ -32,6 +33,7 @@ export function GmApp({ me, initialTab, rules, view, quick = false }: GmAppProps
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
   const { state, codex, online, send, draftRecap, books, requestPage, xcard } = useTable(me.campaignId);
+  useWorldRefresh({ rendered: view?.first.world?.versionId ?? null, live: state?.campaign.worldVersionId });
   const tabs = (Object.keys(GM_TABS) as GmTab[]).filter(
     (k) => canInCampaign({ ctx: me, perm: GM_TABS[k].perm }) && (k !== "standings" || (state?.games.length ?? 0) > 0),
   );

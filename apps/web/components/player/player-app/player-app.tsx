@@ -28,6 +28,7 @@ import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { RunTable } from "@/components/player/run-table/run-table";
 import { useTable } from "@/hooks/use-table/use-table";
+import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import { needsBuild } from "@/lib/builder/builder";
 import { playerEntryOf, usesLedger, xpToSpendOf } from "@/lib/ledger/table";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
@@ -42,6 +43,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   const tStatus = useTranslations("status");
   const tXp = useTranslations("ledgerBuilder.play.xp");
   const { state, codex, online, send, draftRecap, books, requestPage, xcard } = useTable(me.campaignId);
+  useWorldRefresh({ rendered: view?.first.world?.versionId ?? null, live: state?.campaign.worldVersionId });
   const held = me.seat.kind === "admin" ? [] : me.seat.characterIds;
   const [current, setCurrent] = useState(held[0] ?? "");
   const [tab, setTab] = useState<PlayerTab>(quick ? "run" : "sheet");

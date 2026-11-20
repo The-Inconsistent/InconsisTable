@@ -99,8 +99,7 @@ type RootLayoutProps = { children: React.ReactNode };
 export default async function RootLayout({ children }: RootLayoutProps) {
   const locale = await getLocale();
   // Each device picks its Theme (the switch beside the language one); felt proves a World can re-map the tokens.
-  // Inside a room whose World is on the page, the World's look replaces it (theme/world.css, lib/world).
-  // ponytail: no room wears its World yet, upgrade: the room page wraps its table in worldLook() of its pinned World.
+  // Inside a room whose World is on the page, the World's look replaces it (theme/world.css, lib/world, RoomWorld).
   const jar = await cookies();
   const theme = themeClass(resolveTheme(jar.get(THEME_COOKIE)?.value));
   // The colour set a World's room shows on this device, when the World brings both (theme/world.css reads it).

@@ -314,6 +314,7 @@ var handlers = map[string]handler{
 	"safety.xcard":       safety.XCard,
 	// randomtable/randomtable.go
 	"table.roll":      randomtable.Roll,
+	"table.apply":     randomtable.Apply,
 	"table.deal":      randomtable.Deal,
 	"table.reshuffle": randomtable.Reshuffle,
 }

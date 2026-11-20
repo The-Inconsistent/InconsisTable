@@ -22,6 +22,8 @@ import {
   LedgerBuildText,
   RequestText,
   TableId,
+  TableResult,
+  LookupInputs,
   InviteMode,
   SafetyKind,
   SafetyLine,
@@ -292,8 +294,22 @@ export const Action = z.discriminatedUnion("type", [
   z.object({ type: z.literal("safety.suggest"), kind: SafetyKind, text: SafetyLine }),
   z.object({ type: z.literal("safety.xcard") }),
 
-  // Random tables (house decision #49): the server rolls, or deals without replacement; a deal is never undone.
-  z.object({ type: z.literal("table.roll"), tableId: TableId }),
+  // Random tables (house decision #49): the server rolls, or deals without replacement; a deal is never undone. A typed
+  // `result` is the GM's own roll (I ROLLED), and a lookup reads it with its inputs and target (house decision #87).
+  z.object({
+    type: z.literal("table.roll"),
+    tableId: TableId,
+    result: TableResult.optional(),
+    actorId: id.optional(),
+    inputs: LookupInputs.optional(),
+  }),
+  z.object({
+    type: z.literal("table.apply"),
+    tableId: TableId,
+    result: TableResult,
+    actorId: id,
+    inputs: LookupInputs.default({}),
+  }),
   z.object({
     type: z.literal("table.deal"),
     tableId: TableId,
@@ -397,6 +413,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "safety.suggest": "safety:signal",
   "safety.xcard": "safety:signal",
   "table.roll": "session:run",
+  "table.apply": "encounter:run", // a lookup changes its target as the fight's own writes do (house decision #87)
   "table.deal": "session:run",
   "table.reshuffle": "session:run",
 };
@@ -453,7 +470,15 @@ export type Refused = { ok: false; error: string } & Partial<RefusalBody>;
  * own lines by code, which the screen words, and a ruleset's line (`rule`) with its words, the actor's name filled in,
  * in `text`. They are neither state nor log.
  */
-export const NoticeCode = z.enum(["poolFull", "restSkipped", "rule", "sessionDeleted", "sceneBegun", "revealSkipped"]);
+export const NoticeCode = z.enum([
+  "poolFull",
+  "restSkipped",
+  "rule",
+  "sessionDeleted",
+  "sceneBegun",
+  "revealSkipped",
+  "conditionSkipped",
+]);
 export type NoticeCode = z.infer<typeof NoticeCode>;
 /** The params each code carries, which its words may name. */
 export const NOTICE_PARAMS = {
@@ -463,6 +488,7 @@ export const NOTICE_PARAMS = {
   sessionDeleted: ["number"], // the deleted session's number; what it awarded stays (house decision #85)
   sceneBegun: ["title", "revealed"], // the scene begun and how many of its reveal lines went out (house decision #86)
   revealSkipped: ["line", "reason"], // a scene's reveal line the begin skipped: its label or id, and the refusal code
+  conditionSkipped: ["name", "condition"], // a lookup left out a condition its target is immune to (house decision #87)
 } as const satisfies Record<NoticeCode, readonly string[]>;
 export const Notice = z.object({
   code: NoticeCode,
@@ -471,4 +497,6 @@ export const Notice = z.object({
 });
 export type Notice = z.infer<typeof Notice>;
 
-export type ActionResult = { ok: true; id?: string; token?: string; notices?: Notice[] } | Refused;
+/** What `table.roll` drew or read and `table.apply` applied (house decision #87): the line, the dice, and the total. */
+export type RollAnswer = { entryId: string; value: number; total: number };
+export type ActionResult = { ok: true; id?: string; token?: string; notices?: Notice[]; roll?: RollAnswer } | Refused;

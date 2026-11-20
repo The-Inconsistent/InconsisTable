@@ -73,7 +73,10 @@ var (
 	clockSegments = schema.Int().Min(2).Max(12)
 	requestText   = schema.String().Trim().Max(140)
 	tableID       = schema.String().Min(1).Max(64)
-	answers       = schema.Record(schema.String().Max(120), schema.Unknown())
+	// tableResult and lookupInputs are a typed roll and a lookup's inputs (state.ts TableResult, LookupInputs).
+	tableResult  = schema.Int().Min(-100_000).Max(100_000)
+	lookupInputs = schema.Record(schema.String().Max(64), schema.AnyOf(schema.Number(-math.MaxFloat64, math.MaxFloat64), schema.Bool()))
+	answers      = schema.Record(schema.String().Max(120), schema.Unknown())
 
 	// BuilderDraftBody is the character being built and the answers so far, read and written whole.
 	BuilderDraftBody = schema.Refined(
@@ -335,7 +338,10 @@ var ActionSchema = schema.Union("type",
 	variant("safety.suggest", schema.Req("kind", schema.Enum("line", "veil")), schema.Req("text", safetyLine)),
 	variant("safety.xcard"),
 
-	variant("table.roll", schema.Req("tableId", tableID)),
+	variant("table.roll", schema.Req("tableId", tableID), schema.Opt("result", tableResult), schema.Opt("actorId", id),
+		schema.Opt("inputs", lookupInputs)),
+	variant("table.apply", schema.Req("tableId", tableID), schema.Req("result", tableResult), schema.Req("actorId", id),
+		schema.Def("inputs", lookupInputs, map[string]any{})),
 	variant("table.deal",
 		schema.Req("tableId", tableID),
 		schema.Req("actorIds", schema.UniqueList(id, 1, 20, "a character is listed twice")),
@@ -440,6 +446,7 @@ var ActionPerms = map[string]string{
 	"safety.suggest":          "safety:signal",
 	"safety.xcard":            "safety:signal",
 	"table.roll":              "session:run",
+	"table.apply":             "encounter:run",
 	"table.deal":              "session:run",
 	"table.reshuffle":         "session:run",
 }

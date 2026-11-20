@@ -17,6 +17,8 @@ var NoticeParams = map[string][]string{
 	// sceneBegun and revealSkipped answer scene.begin (house decision #86).
 	"sceneBegun":    {"title", "revealed"},
 	"revealSkipped": {"line", "reason"},
+	// conditionSkipped answers table.apply (house decision #87).
+	"conditionSkipped": {"name", "condition"},
 }
 
 // SceneBegun is the notice that a scene began and revealed that many entries.
@@ -51,6 +53,11 @@ func RestSkipped(names []string) Notice {
 // SessionDeleted is the notice that session number was deleted.
 func SessionDeleted(number int) Notice {
 	return Notice{Code: "sessionDeleted", Params: Params{"number": number}}
+}
+
+// ConditionSkipped is the notice that a lookup left out a condition its target is immune to (house decision #87).
+func ConditionSkipped(name, condition string) Notice {
+	return Notice{Code: "conditionSkipped", Params: Params{"name": name, "condition": condition}}
 }
 
 // RuleNotice is a ruleset's notice rule raised for one actor.

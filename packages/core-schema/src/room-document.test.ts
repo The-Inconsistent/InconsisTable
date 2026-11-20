@@ -21,12 +21,18 @@ test("a room document needs only its format, version and name; a scene's prep ke
   });
 });
 
-test("refused: another format, a key it does not know, a repeated id, a built actor with fields, a list past its cap", () => {
+test("refused: another format, a key it does not know, a repeated id, a built actor with a type, a list past its cap", () => {
   const refused = (input: unknown) => assert.equal(RoomDocument.safeParse(input).success, false);
   refused({ ...BASE, format: "another-app" });
   refused({ ...BASE, owner: "me" });
   refused({ ...BASE, codex: [1, 2].map(() => ({ id: ID(1), kind: "lore", title: "x" })) });
-  refused({ ...BASE, actors: [{ id: ID(1), kind: "pc", name: "x", build: "{}", fields: { level: 1 } }] });
+  refused({ ...BASE, actors: [{ id: ID(1), kind: "pc", name: "x", build: "{}", entityType: "hero" }] });
+  // The values a build does not write come beside it.
+  assert.equal(
+    RoomDocument.safeParse({ ...BASE, actors: [{ id: ID(1), kind: "pc", name: "x", build: "{}", fields: { xp: 5 } }] })
+      .success,
+    true,
+  );
   refused({ ...BASE, clocks: Array.from({ length: ROOM_LIMITS.clocks + 1 }, (_, i) => ({ name: `c${i}` })) });
   refused({ ...BASE, clocks: [{ name: "c", segments: 4, filled: 5 }] });
 });

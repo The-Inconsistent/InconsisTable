@@ -199,6 +199,6 @@ export const ledgerDocument = (): RoomDocumentInput => ({
     packs: [{ slug: "sample-ledger-catalogue", version: "0.1.0" }],
   },
   campaignFields: { tier: 1 },
-  actors: [{ id: IDS.wren, kind: "pc", name: "Wren", build: LEDGER_BUILD }],
+  actors: [{ id: IDS.wren, kind: "pc", name: "Wren", build: LEDGER_BUILD, fields: { xp: 12 } }],
   codex: [{ id: IDS.npc, kind: "npc", title: "The lamplighter", visibility: "party" }],
 });

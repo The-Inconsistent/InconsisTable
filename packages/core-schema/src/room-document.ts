@@ -75,12 +75,12 @@ export const RoomActor = z
     entityType: z.string().min(1).max(64).optional(),
     fields: capped(z.record(z.string().min(1).max(120), FieldValue), ROOM_LIMITS.actorFields, "fields").optional(),
     resources: capped(z.record(Key, Amount), ROOM_LIMITS.actorResources, "resources").optional(),
-    build: LedgerBuildText.optional(), // what build.save takes; never a draft
+    build: LedgerBuildText.optional(), // what build.save takes; never a draft. `fields` beside it: what it does not write
     conditions: z.array(Key).max(ROOM_LIMITS.actorConditions).optional(),
   })
   .refine(
-    (a) => a.build === undefined || (a.entityType === undefined && a.fields === undefined),
-    "A built character takes its type and fields from its build",
+    (a) => a.build === undefined || a.entityType === undefined,
+    "A built character takes its type from its build",
   );
 export type RoomActor = z.infer<typeof RoomActor>;
 

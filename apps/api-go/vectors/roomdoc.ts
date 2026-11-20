@@ -50,7 +50,10 @@ const cases: [string, unknown][] = [
   ["two active scenes", { ...base, codex: times(2, (i) => ({ ...entry(i), kind: "scene", status: "active" })) }],
   ["clock overfilled", { ...base, clocks: [{ name: "c", segments: 4, filled: 5 }] }],
   ["clock default overfilled", { ...base, clocks: [{ name: "c", filled: 5 }] }],
-  ["built with fields", { ...base, actors: [{ ...actor(1), build: LEDGER_BUILD, fields: { name: "x" } }] }],
+  [
+    "built with fields it does not write",
+    { ...base, actors: [{ ...actor(1), build: LEDGER_BUILD, fields: { xp: 5 } }] },
+  ],
   ["built with a type", { ...base, actors: [{ ...actor(1), build: LEDGER_BUILD, entityType: "hero" }] }],
   ["build too large", { ...base, actors: [{ ...actor(1), build: "x".repeat(64 * 1024 + 1) }] }],
   ["picture type", { ...base, images: [{ ...image(1), mime: "image/gif" }] }],

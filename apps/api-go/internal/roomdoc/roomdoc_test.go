@@ -607,6 +607,12 @@ func TestARefusedDocumentNamesItsPathAndLeavesNothing(t *testing.T) {
 		{"an undeclared entry field", "d20", func(d map[string]any) { at(d, map[string]any{"rank": 1.0}, "codex", 2, "fields") }, "codex[2].fields", "noSuchEntryField"},
 		{"a scene under a place", "d20", func(d map[string]any) { at(d, "00000000-0000-4000-8000-000000000010", "codex", 6, "parentId") }, "codex[6].parentId", "sceneNeedsAdventure"},
 		{"a bad build", "ledger", func(d map[string]any) { at(d, `{"tier":1}`, "actors", 0, "build") }, "actors[0].build", ""},
+		{"a field beside a build its type does not declare", "ledger", func(d map[string]any) {
+			at(d, map[string]any{"xp": 12.0, "background": "Born under a lamp"}, "actors", 0, "fields")
+		}, "actors[0].fields.background", "noField"},
+		{"a field beside a build that does not fit", "ledger", func(d map[string]any) {
+			at(d, map[string]any{"xp": "lots"}, "actors", 0, "fields")
+		}, "actors[0].fields.xp", "fieldInvalid"},
 		{"a typed actor without a ruleset", "bare", func(d map[string]any) {
 			d["actors"] = []any{map[string]any{"id": "00000000-0000-4000-8000-000000000050", "kind": "pc", "name": "Lone", "entityType": "character"}}
 		}, "actors[0].entityType", "noRuleset"},

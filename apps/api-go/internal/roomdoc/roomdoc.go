@@ -504,7 +504,7 @@ func (im *importer) pictures() error {
 	return nil
 }
 
-// actorRows makes every actor, then builds each that has a build and gives the rest their fields, then gives each its
+// actorRows makes every actor, then builds each that has a build and gives every one its fields, then gives each its
 // resources and conditions. A typed actor's fields and resources are written as a creation writes them
 // (actor.WriteStart, which actor.create runs for every typed actor): its starting resources come from those fields, and
 // a value the document gives stands over the start, checked against the field's declaration.
@@ -528,9 +528,10 @@ func (im *importer) actorRows() error {
 			if _, err := im.run(map[string]any{"type": "build.save", "actorId": id, "build": build}, "actors", i, "build"); err != nil {
 				return err
 			}
-			continue
 		}
 		fields, _ := a["fields"].(map[string]any)
+		// A typed actor's fields come with its start; a built one's, the values its build does not write, through
+		// field.set one by one after the build, as the GM sets them at the table.
 		if _, typed := a["entityType"]; typed {
 			if err := im.start(id, a); err != nil {
 				return refusedAt(err, "actors", i, "fields")

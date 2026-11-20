@@ -68,9 +68,8 @@ var (
 		a, _ := v.(map[string]any)
 		_, built := a["build"]
 		_, typed := a["entityType"]
-		_, fields := a["fields"]
-		return !built || (!typed && !fields)
-	}, "A built character takes its type and fields from its build")
+		return !built || !typed
+	}, "A built character takes its type from its build")
 
 	roomEntry = schema.Object(
 		schema.Req("id", id),

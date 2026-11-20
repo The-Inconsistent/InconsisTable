@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { ConditionDuration } from "../enums.ts";
+import type { Condition } from "../manifest.ts";
 import {
   defineOp,
   refuse,
@@ -36,6 +37,24 @@ function holders(state: RuleState): ActorState[] {
     .filter((a) => !seen.has(a.id))
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return [...first, ...rest].flatMap((a) => (a === undefined ? [] : [a]));
+}
+
+/**
+ * The count a condition row starts with when added (house decision #81): what the GM typed, else, for a condition armed
+ * `from: "nextOwnTurn"` added during its holder's own turn, 2 (that turn's end is one tick, the next turn's the last),
+ * else null (one tick).
+ */
+export function armedTicks({
+  def,
+  holderActing,
+  typed,
+}: {
+  def: Pick<Condition, "duration" | "from">;
+  holderActing: boolean;
+  typed: number | null;
+}): number | null {
+  if (typed !== null) return typed;
+  return def.from === "nextOwnTurn" && def.duration === "ownTurnEnd" && holderActing ? 2 : null;
 }
 
 function remove({ actorId, row }: { actorId: string; row: ConditionState }): Delta {

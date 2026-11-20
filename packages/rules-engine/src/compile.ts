@@ -170,7 +170,14 @@ export interface CompiledRuleset {
   build: { actor: string; params: BuildParams; kinds: Record<LedgerKind, string> } | null;
   /** The notice rules (house decision #79), in the manifest's order; empty without a `notices` block. */
   notices: CompiledNotice[];
+  /** Each of `reminders`' `if` in manifest order, null where it has none (house decision #81). */
+  reminders: (CompiledExpr | null)[];
+  /** Each condition's `immune`, by condition id, for those that have one (house decision #81). */
+  immune: Record<string, CompiledExpr>;
 }
+
+/** What a reminder's `if` reads beside the combatant's own scope (house decision #81). */
+export const REMINDER_SCOPE: ExprScope = { round: "int", held: "bool", barred: "bool" };
 
 export type CompileResult = { ok: true; compiled: CompiledRuleset } | { ok: false; problems: Problem[] };
 
@@ -734,6 +741,27 @@ class Compiler {
       const visibility = this.seenBy(takers, [when]);
       return [{ id: n.id, when: n.when, entities: n.entities ?? null, if: when, text: n.text, visibility }];
     });
+    const reminders = (this.r.reminders ?? []).map((x, j) =>
+      x.if === undefined
+        ? null
+        : this.expr({
+            source: x.if,
+            scopes: actorScopes.map((s) => ({ ...s, ...REMINDER_SCOPE })),
+            expect: "bool",
+            path: `reminders[${j}].if`,
+          }),
+    );
+    const immune: Record<string, CompiledExpr> = {};
+    this.r.conditions.forEach((c, j) => {
+      if (c.immune === undefined) return;
+      const expr = this.expr({
+        source: c.immune,
+        scopes: actorScopes,
+        expect: "bool",
+        path: `conditions[${j}].immune`,
+      });
+      if (expr !== null) immune[c.id] = expr;
+    });
 
     if (this.problems.length > 0 || scoring === undefined || (ranked !== null && score === null)) return null;
     const b = this.r.build;
@@ -754,6 +782,8 @@ class Compiler {
       instantDeath,
       build: b === undefined ? null : { actor: b.actor, params: b.params, kinds: b.kinds },
       notices,
+      reminders,
+      immune,
     };
   }
 }

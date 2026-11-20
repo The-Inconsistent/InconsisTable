@@ -176,7 +176,30 @@ var conditionSchema = schema.Object(
 	schema.Def("stacking", schema.Enum("none", "stack", "refresh"), "none"),
 	schema.Opt("maxStacks", schema.Int().Min(1).Max(100)),
 	schema.Req("duration", schema.Enum("ownTurnEnd", "roundEnd", "encounterEnd", "manual")),
+	schema.Opt("from", schema.Literal("nextOwnTurn")),
 	schema.Def("visibility", visibilityEnum, "gm"),
+	schema.Opt("at", reminderAtEnum),
+	schema.Opt("text", label(120)),
+	schema.Opt("immune", exprSource),
+)
+
+// ReminderAts are when a reminder line shows (house decision #81; rules-engine ReminderAt).
+var ReminderAts = []string{"turnStart", "turnEnd", "roundEnd"}
+
+var reminderAtEnum = schema.Enum(ReminderAts...)
+
+var reminderSchema = schema.Object(
+	schema.Req("id", idSchema),
+	schema.Req("at", reminderAtEnum),
+	schema.Req("text", label(120)),
+	schema.Opt("cite", citeSchema),
+	schema.Opt("if", exprSource),
+)
+
+var restRuleSchema = schema.Object(
+	schema.Req("event", resetEventEnum),
+	schema.Req("refusedIn", schema.Array(idSchema).Min(1).Max(20)),
+	schema.Opt("cite", citeSchema),
 )
 
 // The actor entity types a Test or a health state applies to (house decision #50).
@@ -297,7 +320,7 @@ var initiativeSchema = schema.Union("strategy",
 		schema.Opt("unableStates", schema.Array(idSchema).Max(20)),
 		schema.Def("firstSide", schema.Enum("fixed", "rotate"), "fixed"),
 		schema.Def("roundEnd", schema.Enum("auto", "manual"), "auto"),
-		schema.Opt("setup", schema.Object(schema.Opt("cite", citeSchema))),
+		schema.Opt("setup", schema.Object(schema.Opt("cite", citeSchema), schema.Opt("note", label(200)))),
 		schema.Opt("outOfTurn", schema.Object(
 			schema.Req("cost", schema.Record(idSchema, sideCostSchema)),
 			schema.Opt("cite", citeSchema),
@@ -497,6 +520,8 @@ var rulesetSchema = schema.Object(
 		return len(v.(map[string]any)) <= MaxCampaignFields
 	}, "at most 50 campaign fields")),
 	schema.Def("conditions", schema.Array(conditionSchema).Max(500), []any{}),
+	schema.Opt("reminders", schema.Array(reminderSchema).Max(100)),
+	schema.Opt("rests", schema.Array(restRuleSchema).Max(5)),
 	schema.Def("tests", schema.Record(idSchema, diceMechanicSchema), map[string]any{}),
 	schema.Opt("initiative", initiativeSchema),
 	schema.Opt("phases", schema.Array(schema.Object(

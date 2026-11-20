@@ -42,6 +42,8 @@ import {
   type ScoreRow,
   type ScoredActor,
 } from "../../../packages/rules-engine/src/scoring.ts";
+import { remindersOf, type ReminderActor } from "../../../packages/rules-engine/src/reminders.ts";
+import { armedTicks } from "../../../packages/rules-engine/src/primitives/conditions-expire.ts";
 import { toViewerView, type ActorView } from "../../../packages/rules-engine/src/view.ts";
 import { parseDice, rollDice, seededRng } from "../../../packages/rules-engine/src/dice/dice.ts";
 import type { FieldValue } from "../../../packages/rules-engine/src/derived.ts";
@@ -733,7 +735,10 @@ function genInput(primitive: string, op: string, state: RuleState): unknown {
     case "initiative.sides.mark":
       return { id: id(), done: rnd(2) === 0 };
     case "initiative.sides.bar":
-      return { id: id(), barred: rnd(2) === 0 };
+      // A whole side (house decision #81) a third of the time, and now and then both or neither.
+      return rnd(3) === 0
+        ? { side: pick(["red", "blue", "green", "nope"]), barred: rnd(2) === 0, ...(rnd(6) === 0 ? { id: id() } : {}) }
+        : { ...(rnd(12) === 0 ? {} : { id: id() }), barred: rnd(2) === 0 };
     case "health.tracks.damage":
       return {
         actorId: id(),
@@ -1181,6 +1186,8 @@ function compiledView(c: CompiledRuleset) {
     instantDeath: mapValues(c.instantDeath, exprView),
     conditions: Object.keys(c.conditions).sort(),
     notices: c.notices.map((n) => ({ ...n, if: exprView(n.if) })),
+    reminders: c.reminders.map(exprView),
+    immune: mapValues(c.immune, exprView),
   };
 }
 
@@ -2132,6 +2139,7 @@ const CRAFTED: object[] = [
   ...codexCrafted(),
   ...noticesCrafted(),
   ...offersCrafted(),
+  ...reminderCrafted(),
 ];
 
 // A Test's marks and offers (house decision #80): one manifest per check.
@@ -2230,6 +2238,56 @@ function noticesCrafted(): object[] {
       initiative: undefined,
       notices: [rule(), rule({ id: "cited", cite: "p2" })],
     },
+  ];
+}
+
+/** Reminders, a condition's line, arming, immunity and refused rests (house decision #81): every check. */
+function reminderCrafted(): object[] {
+  const cond = (over: object) => ({ conditions: [{ id: "c", label: "C", duration: "ownTurnEnd", ...over }] });
+  const states = { health: { states: [{ id: "down", when: "res.hp <= 0" }] } };
+  const cited = { sources: [{ id: "s", title: "T", license: "srd" }] };
+  return [
+    { reminders: [{ id: "r", at: "turnStart", text: "Go" }] },
+    { reminders: [{ id: "r", at: "roundEnd", text: "Go", if: "held && round > 1 && !barred && attr.str > 2" }] },
+    { reminders: [{ id: "r", at: "turnEnd", text: "Go", if: "res.hp" }] },
+    { reminders: [{ id: "r", at: "turnEnd", text: "Go", if: "nope > 1" }] },
+    { reminders: [{ id: "r", at: "later", text: "Go" }] },
+    { reminders: [{ id: "r", at: "turnEnd", text: "" }] },
+    { reminders: [{ id: "r", at: "turnEnd", text: "x".repeat(121) }] },
+    {
+      reminders: [
+        { id: "r", at: "turnEnd", text: "x".repeat(120) },
+        { id: "r", at: "roundEnd", text: "y" },
+      ],
+    },
+    { ...cited, reminders: [{ id: "r", at: "turnEnd", text: "Go" }] },
+    { reminders: Array.from({ length: 101 }, (_, i) => ({ id: `r${i}`, at: "turnEnd", text: "Go" })) },
+    cond({ at: "turnEnd", text: "Burn" }),
+    cond({ at: "turnEnd" }),
+    cond({ text: "Burn" }),
+    cond({ from: "nextOwnTurn" }),
+    cond({ from: "nextOwnTurn", duration: "roundEnd" }),
+    cond({ from: "lastTurn" }),
+    cond({ immune: "attr.str >= 3" }),
+    cond({ immune: "attr.str" }),
+    cond({ immune: "round > 1" }),
+    { ...states, rests: [{ event: "longRest", refusedIn: ["down"] }] },
+    { ...states, rests: [{ event: "longRest", refusedIn: ["nope", "down"] }] },
+    { ...states, rests: [{ event: "longRest", refusedIn: [] }] },
+    { ...states, rests: [{ event: "nap", refusedIn: ["down"] }] },
+    {
+      ...states,
+      rests: [
+        { event: "longRest", refusedIn: ["down"] },
+        { event: "longRest", refusedIn: ["down"] },
+      ],
+    },
+    { ...states, ...cited, rests: [{ event: "shortRest", refusedIn: ["down"] }] },
+    {
+      initiative: { strategy: "sides", sides: sideList(2), setup: { note: "Set the scene." } },
+    },
+    { initiative: { strategy: "sides", sides: sideList(2), setup: { note: "" } } },
+    { initiative: { strategy: "sides", sides: sideList(2), setup: { note: "x".repeat(201) } } },
   ];
 }
 
@@ -2856,6 +2914,84 @@ function scoringVectors() {
   return out;
 }
 
+// Reminder lines (house decision #81): the invented sides fixture, and one of our own with every kind of line.
+const REMINDER_MANIFESTS: unknown[] = [
+  SAMPLE_SKIRMISH,
+  {
+    ...scoringBase,
+    conditions: [
+      { id: "burn", label: "B", duration: "ownTurnEnd", at: "turnStart", text: "Burn" },
+      { id: "bleed", label: "L", duration: "ownTurnEnd", at: "turnEnd", text: "Bleed" },
+      { id: "slow", label: "S", duration: "roundEnd", at: "roundEnd", text: "Slow" },
+      { id: "plain", label: "P", duration: "manual" },
+    ],
+    reminders: [
+      { id: "a", at: "turnStart", text: "A" },
+      { id: "b", at: "turnStart", text: "B", if: "vp > 2", cite: "p1" },
+      { id: "c", at: "roundEnd", text: "C", if: "held" },
+      { id: "d", at: "roundEnd", text: "D", if: "barred && round == 1" },
+      { id: "e", at: "turnEnd", text: "E", if: "gold > vp" },
+      { id: "f", at: "roundEnd", text: "F" },
+    ],
+  },
+];
+
+function reminderVectors() {
+  const out: unknown[] = [];
+  REMINDER_MANIFESTS.forEach((manifest, index) => {
+    const r = compileRuleset(manifest);
+    if (!r.ok) throw new Error(`reminder fixture ${index}: ${JSON.stringify(r.problems)}`);
+    const conditions = Object.keys(r.compiled.conditions);
+    for (let i = 0; i < 300; i++) {
+      const ids = ["a", "b", "c", "d"].slice(0, 1 + rnd(4));
+      const actors: Record<
+        string,
+        { fields: Record<string, number> | null; conditions: string[]; held: boolean; barred: boolean }
+      > = {};
+      const built: Record<string, ReminderActor> = {};
+      for (const id of ids) {
+        const fields: Record<string, number> = {};
+        for (const key of ["vp", "gold", "level"]) if (rnd(6) !== 0) fields[key] = rnd(7) - 1;
+        const isNull = rnd(8) === 0;
+        const held = rnd(3) === 0;
+        const barred = rnd(3) === 0;
+        const has = conditions.filter(() => rnd(3) === 0);
+        actors[id] = { fields: isNull ? null : fields, conditions: has, held, barred };
+        built[id] = { scope: isNull ? null : actorScope({ fields }), conditions: has, held, barred };
+      }
+      const order = [...ids, ...(rnd(5) === 0 ? ["gone"] : [])];
+      const at = pick(["turnStart", "turnEnd", "roundEnd"] as const);
+      const round = rnd(4);
+      out.push({
+        manifest: index,
+        at,
+        actors,
+        order,
+        round,
+        lines: remindersOf({ ruleset: r.compiled, at, actors: built, order, round }),
+      });
+    }
+  });
+  return out;
+}
+
+/** A condition row's starting count (house decision #81), every combination. */
+function armedVectors() {
+  return ConditionDuration.options.flatMap((duration) =>
+    [undefined, "nextOwnTurn" as const].flatMap((from) =>
+      [true, false].flatMap((holderActing) =>
+        [null, 1, 3].map((typed) => ({
+          duration,
+          from: from ?? null,
+          holderActing,
+          typed,
+          ticks: armedTicks({ def: { duration, from }, holderActing, typed }),
+        })),
+      ),
+    ),
+  );
+}
+
 function viewVectors() {
   const out: unknown[] = [];
   MANIFESTS.forEach((manifest, index) => {
@@ -3204,6 +3340,9 @@ const vectors = {
   campaignValueChecks: campaignValueVectors(),
   scoringManifests: SCORING_MANIFESTS,
   scoring: scoringVectors(),
+  reminderManifests: REMINDER_MANIFESTS,
+  reminders: reminderVectors(),
+  armed: armedVectors(),
   views: viewVectors(),
   creationManifest: CREATION_MANIFEST,
   creationEntries: CREATION_ENTRIES,

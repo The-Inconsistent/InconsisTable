@@ -483,7 +483,8 @@
       "notebook": "Notebook",
       "standings": "Standings",
       "run": "Run the table"
-    }
+    },
+    "buildDraft": "Your unfinished build is saved. The GM can open it to approve their part."
   },
   "turnBanner": {
     "yourTurn": "Your turn, {name}",
@@ -658,7 +659,15 @@
     "recap": "Recap",
     "recapHint": "What happened this session? Leave empty to skip.",
     "endSessionConfirm": "End session {number}",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "ledger": {
+      "build": "Build",
+      "buildLabel": "Build {name}",
+      "review": "Review build",
+      "reviewLabel": "Review the build of {name}: a draft waits",
+      "open": "Open builder",
+      "openLabel": "Open the builder for {name}"
+    }
   },
   "rulesPanel": {
     "readFailed": "Couldn't read the rules. Check the connection and reload.",

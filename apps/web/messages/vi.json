@@ -483,7 +483,8 @@
       "standings": "Xếp hạng",
       "notebook": "Sổ tay",
       "run": "Chạy bàn"
-    }
+    },
+    "buildDraft": "Bản tạo dở dang của bạn đã được lưu. GM có thể mở nó để duyệt phần của GM."
   },
   "turnBanner": {
     "yourTurn": "Đến lượt bạn, {name}",
@@ -658,7 +659,15 @@
     "recap": "Tóm tắt buổi chơi",
     "recapHint": "Buổi này đã xảy ra chuyện gì? Để trống nếu không cần.",
     "endSessionConfirm": "Kết thúc buổi {number}",
-    "cancel": "Hủy"
+    "cancel": "Hủy",
+    "ledger": {
+      "build": "Tạo",
+      "buildLabel": "Tạo {name}",
+      "review": "Xem bản tạo",
+      "reviewLabel": "Xem bản tạo của {name}: có bản nháp đang chờ",
+      "open": "Mở trình tạo",
+      "openLabel": "Mở trình tạo cho {name}"
+    }
   },
   "rulesPanel": {
     "readFailed": "Không đọc được luật. Kiểm tra kết nối rồi tải lại.",

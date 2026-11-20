@@ -25,6 +25,7 @@ import { DraftRecap as DraftRecapButton } from "@/components/ui/draft-recap/draf
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import type { DraftRecap, RequestPage, Send } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
+import { gmEntryOf, gmSideOf, usesLedger } from "@/lib/ledger/table";
 import { restsOf } from "@/lib/sheet/sheet";
 import { RECAP_MAX } from "@/lib/codex/codex";
 import { qrImage } from "@/lib/qr/qr";
@@ -268,6 +269,10 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
             .filter((a) => a.kind === "pc")
             .map((a) => {
               const holder = holderOf(a.id);
+              // The ledger builder's entry, for the GM side of the character (it approves the GM's part there).
+              const ledgerEntry = gmSideOf({ me, kind: a.kind })
+                ? gmEntryOf({ ruleset: sheet.ruleset, actor: a })
+                : null;
               return (
                 <li key={a.id}>
                   <span>
@@ -286,15 +291,29 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
                         {t("sheet")}
                       </button>
                     )}
-                    {builds && needsBuild(a) && can("character:edit:any") && (
+                    {ledgerEntry && (
                       <a
                         className="btn sm"
-                        aria-label={t("buildLabel", { name: a.name })}
+                        data-state={ledgerEntry}
+                        aria-label={t(`ledger.${ledgerEntry}Label`, { name: a.name })}
                         href={`/c/${state.campaign.id}/build/${a.id}`}
                       >
-                        {state.myDraft?.actorId === a.id ? t("continueBuilding") : t("build")}
+                        {ledgerEntry === "review" && <span aria-hidden>● </span>}
+                        {t(`ledger.${ledgerEntry}`)}
                       </a>
                     )}
+                    {builds &&
+                      needsBuild(a) &&
+                      !usesLedger({ ruleset: sheet.ruleset, actor: a }) &&
+                      can("character:edit:any") && (
+                        <a
+                          className="btn sm"
+                          aria-label={t("buildLabel", { name: a.name })}
+                          href={`/c/${state.campaign.id}/build/${a.id}`}
+                        >
+                          {state.myDraft?.actorId === a.id ? t("continueBuilding") : t("build")}
+                        </a>
+                      )}
                     <button
                       className="btn sm"
                       aria-label={t("guestQrLabel", { name: a.name })}

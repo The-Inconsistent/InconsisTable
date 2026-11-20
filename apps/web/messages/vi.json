@@ -446,7 +446,8 @@
   "healthBar": {
     "label": "HP của {name}: {percent} phần trăm",
     "count": "còn {count}",
-    "times": "×{count}"
+    "times": "×{count}",
+    "stacked": "{label} ({count})"
   },
   "harmPad": {
     "label": "Đòn đánh vào {name}",
@@ -822,6 +823,7 @@
     "revokeGuest": "Thu hồi khách",
     "restParty": "{rest} cho cả party",
     "restPartyButton": "{rest} (party)",
+    "restSkipped": "Không được nghỉ vì đang ở trạng thái đó: {names}",
     "newCharacter": "Tên nhân vật mới",
     "add": "Thêm",
     "seats": "Ghế",
@@ -949,6 +951,16 @@
     "begin": "Bắt đầu vòng 1",
     "endTurn": "Kết thúc lượt của {name}",
     "newRound": "Bắt đầu vòng {round}"
+  },
+  "reminders": {
+    "label": "Nhắc nhở",
+    "barSides": "Chặn cả một phe",
+    "barSide": "Chặn cả phe {side}",
+    "freeSide": "Bỏ chặn cả phe {side}",
+    "turnStart": "Đầu lượt này",
+    "turnEnd": "Cuối lượt này",
+    "roundEnd": "Cuối vòng",
+    "names": "{names}:"
   },
   "orderList": {
     "label": "Thứ tự lượt",
@@ -1194,7 +1206,9 @@
     "noField": "{name} không có trường \"{field}\"",
     "noCondition": "Bộ luật này không có trạng thái \"{condition}\"",
     "lacksCondition": "{name} không có trạng thái đó",
+    "conditionImmune": "{name} miễn nhiễm với {condition}",
     "noRest": "Không có đợt nghỉ nào tên \"{event}\"",
+    "restRefused": "{name} không thể nghỉ khi đang {state}",
     "noOperation": "Không có thao tác \"{primitive}.{op}\"",
     "opNoPermission": "Thao tác \"{primitive}.{op}\" không khai báo quyền",
     "notRunThisWay": "Không chạy \"{primitive}\" theo cách này được",

@@ -16,7 +16,11 @@ export function HealthBar({ combatant: c, conditions: defs }: HealthBarProps) {
   const t = useTranslations("healthBar");
   const { percent, numbers, states, count } = drawnOf(c);
   const conditions = defs
-    ? c.conditions.map((k) => ({ id: k.id, label: defs.find((d) => d.id === k.id)?.label ?? k.id }))
+    ? c.conditions.map((k) => {
+        const label = defs.find((d) => d.id === k.id)?.label ?? k.id;
+        // A rated condition shows how many it holds on every seat that sees it (house decision #81).
+        return { id: k.id, label: k.stacks === undefined ? label : t("stacked", { label, count: k.stacks }) };
+      })
     : [];
   return (
     <>

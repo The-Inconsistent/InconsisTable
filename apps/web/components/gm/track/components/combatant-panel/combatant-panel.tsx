@@ -69,6 +69,9 @@ export function CombatantPanel({
   const tVisibility = useTranslations("combatVisibility");
   const tKeys = useTranslations("keypad");
   const tSheet = useTranslations("sheet");
+  const tBar = useTranslations("healthBar");
+  const stackedLabel = (label: string, count: number | undefined) =>
+    count === undefined ? label : tBar("stacked", { label, count });
   const [entry, setEntry] = useState("");
   const [critical, setCritical] = useState(false);
   const [condition, setCondition] = useState("");
@@ -236,7 +239,7 @@ export function CombatantPanel({
           {c.conditions.map((k) => (
             <li key={k.id}>
               <span>
-                {encounter.conditionDefs.find((d) => d.id === k.id)?.label ?? k.id}{" "}
+                {stackedLabel(encounter.conditionDefs.find((d) => d.id === k.id)?.label ?? k.id, k.stacks)}{" "}
                 <span className="dim">{leftText(k)}</span>
               </span>
               <button

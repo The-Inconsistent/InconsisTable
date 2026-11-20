@@ -33,6 +33,7 @@ func TestScenePrep(t *testing.T) {
 			"pools":   []any{map[string]any{"id": "p", "pool": "no-such-pool", "amount": float64(-2)}},
 			"exits":   []any{map[string]any{"id": "e", "label": "Away", "sceneId": nowhere}},
 			"reveals": []any{map[string]any{"id": "v", "entryId": nowhere}},
+			"picks":   []any{map[string]any{"id": "k", "entryId": nowhere, "field": "gone", "rows": []any{map[string]any{"rowId": "x"}}}},
 		}
 		scene := run(t, tx, room, Save, parsed(t, save("scene", "S", cs.Action{"prep": prep})))
 		read := func() (any, string) {
@@ -49,7 +50,7 @@ func TestScenePrep(t *testing.T) {
 			return nil, ""
 		}
 		stored, status := read()
-		want := `{"exits":[{"id":"e","label":"Away","sceneId":"` + nowhere + `"}],"pools":[{"amount":-2,"id":"p","pool":"no-such-pool","text":""}],` +
+		want := `{"exits":[{"id":"e","label":"Away","sceneId":"` + nowhere + `"}],"picks":[{"entryId":"` + nowhere + `","field":"gone","id":"k","rows":[{"on":false,"rowId":"x"}]}],"pools":[{"amount":-2,"id":"p","pool":"no-such-pool","text":""}],` +
 			`"reveals":[{"entryId":"` + nowhere + `","id":"v"}],"roster":[{"count":2,"id":"r","key":"nobody","pack":"no-such-pack","temporary":true,"visibility":"hidden"}],` +
 			`"tests":[{"actorIds":[],"hideTarget":false,"id":"t","inputs":{},"outcomes":[],"takers":"party","testId":"no-such-test"}]}`
 		if got := engine.CanonicalJSON(stored); got != want {
@@ -67,7 +68,7 @@ func TestScenePrep(t *testing.T) {
 		run(t, tx, room, Save, parsed(t, cs.Action{"type": "codex.save", "kind": "scene", "id": scene,
 			"prep": map[string]any{"exits": []any{map[string]any{"id": "e2", "label": "Back", "sceneId": nowhere}}}}))
 		if stored, _ := read(); engine.CanonicalJSON(stored) !=
-			`{"exits":[{"id":"e2","label":"Back","sceneId":"`+nowhere+`"}],"pools":[],"reveals":[],"roster":[],"tests":[]}` {
+			`{"exits":[{"id":"e2","label":"Back","sceneId":"`+nowhere+`"}],"picks":[],"pools":[],"reveals":[],"roster":[],"tests":[]}` {
 			t.Fatalf("a new document replaces the old one whole, got %s", engine.CanonicalJSON(stored))
 		}
 		run(t, tx, room, Save, cs.Action{"type": "codex.save", "kind": "scene", "id": scene, "prep": nil})

@@ -1174,6 +1174,7 @@ function compiledView(c: CompiledRuleset) {
     })),
     instantDeath: mapValues(c.instantDeath, exprView),
     conditions: Object.keys(c.conditions).sort(),
+    notices: c.notices.map((n) => ({ ...n, if: exprView(n.if) })),
   };
 }
 
@@ -2074,7 +2075,39 @@ const CRAFTED: object[] = [
   ...sidesCrafted(),
   ...harmCrafted(),
   ...codexCrafted(),
+  ...noticesCrafted(),
 ];
+
+// The notices block (house decision #79): one manifest per check.
+function noticesCrafted(): object[] {
+  const rule = (over: object = {}) => ({
+    id: "low",
+    when: "crossed",
+    if: "res.hp < 3",
+    text: "{name} is low",
+    ...over,
+  });
+  return [
+    { notices: [rule(), rule({ id: "spent", when: "sessionStart", entities: ["pc"], if: "secret > 0 && hp > 1" })] },
+    { notices: [] },
+    { notices: [rule(), rule()] },
+    { notices: [rule({ entities: ["nope"] })] },
+    { entities: [pcBase, { ...pcBase, id: "gear", base: "item" }], notices: [rule({ entities: ["gear"] })] },
+    { notices: [rule({ when: "turnStart" })] },
+    { notices: [rule({ text: "x".repeat(120) })] },
+    { notices: [rule({ text: "x".repeat(121) })] },
+    { notices: [rule({ text: "" })] },
+    { notices: [rule({ if: "1" })] },
+    { notices: [rule({ if: "nope > 1" })] },
+    { notices: Array.from({ length: 51 }, (_, i) => rule({ id: `r${i}` })) },
+    {
+      sources: [{ id: "s", title: "T", license: "srd" }],
+      resources: [{ id: "hp", label: "H", scope: "entity", max: "10", cite: "p1" }],
+      initiative: undefined,
+      notices: [rule(), rule({ id: "cited", cite: "p2" })],
+    },
+  ];
+}
 
 // The engine's codex kinds are core-schema's, which the engine cannot import (house decision #71).
 if (JSON.stringify(CodexEntryKind.options) !== JSON.stringify(CodexKind.options))

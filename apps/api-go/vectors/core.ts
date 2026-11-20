@@ -10,6 +10,7 @@ import {
   canInCampaign,
   CreateGame,
   gmPermOf,
+  NOTICE_PARAMS,
   Permission,
   refusalBody,
   REFUSALS,
@@ -114,6 +115,7 @@ writeFileSync(
   OUT,
   JSON.stringify({
     refusals: REFUSALS,
+    noticeParams: NOTICE_PARAMS,
     messages: [
       { code: "unauthorized", body: refusalBody("unauthorized") },
       { code: "badRequest", params: { detail: "a <b>" }, body: refusalBody("badRequest", { detail: "a <b>" }) },

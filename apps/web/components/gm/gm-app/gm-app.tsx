@@ -12,6 +12,7 @@ import { RequestBar } from "@/components/gm/request-bar/request-bar";
 import { RulesPanel } from "@/components/gm/rules/rules-panel";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { Track } from "@/components/gm/track/track";
+import { ActionNotices } from "@/components/ui/action-notices/action-notices";
 import { TableModePicker } from "@/components/player/run-table/table-mode-picker";
 import { Tests } from "@/components/gm/tests/tests";
 import { Standings } from "@/components/ui/standings/standings";
@@ -41,7 +42,9 @@ export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }:
   const t = useTranslations("gmApp");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
-  const { state, codex, online, send, draftRecap, books, requestPage, xcard } = useTable(me.campaignId);
+  const { state, codex, online, send, draftRecap, books, requestPage, xcard, notices, dismissNotices } = useTable(
+    me.campaignId,
+  );
   useWorldRefresh({ rendered: view?.first.world?.versionId ?? null, live: state?.campaign.worldVersionId });
   const tabs = (Object.keys(GM_TABS) as GmTab[]).filter(
     (k) => canInCampaign({ ctx: me, perm: GM_TABS[k].perm }) && (k !== "standings" || (state?.games.length ?? 0) > 0),
@@ -89,6 +92,7 @@ export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }:
         ))}
       </nav>
       <RequestBar state={state} labels={resourceLabels(view?.ruleset ?? null)} send={send} />
+      <ActionNotices notices={notices} onDismiss={dismissNotices} />
       <main className="page">
         {tab === "party" ? (
           <div className="stack" style={{ gap: 24 }}>

@@ -181,7 +181,21 @@ func ApplyAction(ctx context.Context, tx pgx.Tx, seated cs.Ctx, a cs.Action) (Re
 	if refusal := Authorize(c, a); refusal != nil {
 		return Result{}, refusal
 	}
-	return dispatch(ctx, tx, c, a)
+	// What the answer tells its sender (house decision #79): what the writes raised, then the ruleset's notice rules.
+	read, err := readNotices(ctx, tx, c, a)
+	if err != nil {
+		return Result{}, err
+	}
+	ctx, notices := cs.WithNotices(ctx)
+	result, err := dispatch(ctx, tx, c, a)
+	if err == nil && read != nil {
+		err = read.raise(ctx, tx, c, a)
+	}
+	if err != nil {
+		return Result{}, err
+	}
+	result.Notices = *notices
+	return result, nil
 }
 
 // A feature's handler for one action type. A refusal is a *coreschema.Error, which rolls the transaction back.

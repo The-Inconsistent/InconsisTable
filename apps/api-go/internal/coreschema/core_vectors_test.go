@@ -147,3 +147,31 @@ func TestShapesMatchTypeScript(t *testing.T) {
 		}
 	}
 }
+
+// The notice codes and their params are core-schema's (house decision #79), and each constructor fills exactly those.
+func TestNoticesMatchTypeScript(t *testing.T) {
+	raw, err := os.ReadFile("testdata/vectors.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v struct {
+		NoticeParams map[string][]string `json:"noticeParams"`
+	}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(v.NoticeParams, NoticeParams) {
+		t.Fatalf("want %v, got %v", v.NoticeParams, NoticeParams)
+	}
+	for _, n := range []Notice{PoolFull("Luck", 2), RuleNotice("unspent", "Ash", "Ash has boons")} {
+		keys := []string{}
+		for _, k := range NoticeParams[n.Code] {
+			if _, ok := n.Params[k]; ok {
+				keys = append(keys, k)
+			}
+		}
+		if len(keys) != len(n.Params) || len(keys) != len(NoticeParams[n.Code]) {
+			t.Errorf("%s: params %v, want %v", n.Code, n.Params, NoticeParams[n.Code])
+		}
+	}
+}

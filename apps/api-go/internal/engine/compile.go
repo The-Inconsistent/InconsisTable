@@ -108,6 +108,17 @@ type (
 		// Build is the ledger builder's actor type, parsed params and catalogue kinds (house decision #62), for
 		// ledger.Resolve without parsing again; nil when the ruleset has none.
 		Build *CompiledBuild
+		// Notices are the notice rules (house decision #79) in the manifest's order; empty without a notices block.
+		Notices []CompiledNotice
+	}
+	// CompiledNotice is one notice rule, with who may be told its If by actor type, as a Test's numbers are.
+	CompiledNotice struct {
+		ID, When string
+		// Entities is the actor types it reads; nil is every actor type.
+		Entities   *[]string
+		If         *CompiledExpr
+		Text       string
+		Visibility map[string]string
 	}
 	// CompiledBuild is what a caller hands the ledger builder.
 	CompiledBuild struct {
@@ -690,6 +701,27 @@ func (c *compiler) actorsOf(ids *[]string, entities map[string]*CompiledEntity) 
 	return types, scopes
 }
 
+// seenBy is, by actor type, the strictest visibility of anything the expressions read: who may be told what they say.
+func (c *compiler) seenBy(takers []*EntityType, entities map[string]*CompiledEntity, exprs []*CompiledExpr) map[string]string {
+	out := map[string]string{}
+	for _, e := range takers {
+		ce := entities[e.ID]
+		_, carried := c.carried(e)
+		derived := map[string]string{}
+		for _, d := range ce.Derived {
+			derived[d.ID] = d.Visibility
+		}
+		var refs []string
+		for _, expr := range exprs {
+			for _, ref := range expr.Refs {
+				refs = append(refs, pathVisibility(ref, e, carried, derived))
+			}
+		}
+		out[e.ID] = strictestVisibility(refs)
+	}
+	return out
+}
+
 func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity) *CompiledTest {
 	inputs := map[string]ExprType{}
 	for k, v := range t.Inputs {
@@ -713,25 +745,7 @@ func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity)
 		return nil
 	}
 	// A value the call computes for an actor is as hidden as its most hidden input, like a derived value.
-	seen := func(exprs ...*CompiledExpr) map[string]string {
-		out := map[string]string{}
-		for _, e := range takers {
-			ce := entities[e.ID]
-			_, carried := c.carried(e)
-			derived := map[string]string{}
-			for _, d := range ce.Derived {
-				derived[d.ID] = d.Visibility
-			}
-			var refs []string
-			for _, expr := range exprs {
-				for _, ref := range expr.Refs {
-					refs = append(refs, pathVisibility(ref, e, carried, derived))
-				}
-			}
-			out[e.ID] = strictestVisibility(refs)
-		}
-		return out
-	}
+	seen := func(exprs ...*CompiledExpr) map[string]string { return c.seenBy(takers, entities, exprs) }
 	modifierVisibility := seen(modifier)
 	if pool != nil {
 		modifierVisibility = seen(modifier, pool)
@@ -829,6 +843,14 @@ func (c *compiler) run() *CompiledRuleset {
 		}
 	}
 
+	notices := []CompiledNotice{}
+	for j, n := range c.r.Notices {
+		takers, scopes := c.actorsOf(n.Entities, entities)
+		if when := c.expr(n.If, scopes, boolType, fmt.Sprintf("notices[%d].if", j)); when != nil {
+			notices = append(notices, CompiledNotice{n.ID, n.When, n.Entities, when, n.Text, c.seenBy(takers, entities, []*CompiledExpr{when})})
+		}
+	}
+
 	if len(c.problems) > 0 || !scoringOK || (init != nil && init.Def.Strategy == "ranked" && init.Score == nil) {
 		return nil
 	}
@@ -840,7 +862,7 @@ func (c *compiler) run() *CompiledRuleset {
 	if b := c.r.Build; b != nil {
 		build = &CompiledBuild{b.Actor, b.Params, b.Kinds}
 	}
-	return &CompiledRuleset{c.r, entities, resources, conditions, tests, init, scoring, healthStates, instantDeath, build}
+	return &CompiledRuleset{c.r, entities, resources, conditions, tests, init, scoring, healthStates, instantDeath, build, notices}
 }
 
 // CompileRuleset loads a manifest given as decoded JSON: validate it, then compile every expression against its scope,

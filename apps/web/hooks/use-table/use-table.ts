@@ -9,6 +9,7 @@ import {
   BookSource,
   Codex,
   LiveState,
+  Notice,
   RefusalKey,
   RefusalParamsSchema,
   refused,
@@ -29,7 +30,12 @@ const Refusal = {
 };
 // Acks are untrusted socket payloads too; core-schema has only their types, so they're checked against those.
 const ActionReply = z.discriminatedUnion("ok", [
-  z.object({ ok: z.literal(true), id: z.string().optional(), token: z.string().optional() }),
+  z.object({
+    ok: z.literal(true),
+    id: z.string().optional(),
+    token: z.string().optional(),
+    notices: z.array(Notice).optional(),
+  }),
   z.object({ ok: z.literal(false), error: z.string(), ...Refusal }),
 ]) satisfies z.ZodType<ActionResult>;
 // The union of every serving GM's sources (each one capped by BookServing, the union not).
@@ -74,6 +80,8 @@ export function useTable(campaignId: string) {
   const [xcard, setXcard] = useState(0);
   // Sources a GM tablet is serving right now (book:available); a cite in one of them opens its page.
   const [books, setBooks] = useState<BookSource[]>([]);
+  // What this seat's last accepted action was told (house decision #79): gone with the next action, or when dismissed.
+  const [notices, setNotices] = useState<Notice[]>([]);
   // GM only: what this tab serves, re-announced on every reconnect (the server forgets it with the old socket).
   const serving = useRef<{ sources: BookSource[]; render: RenderPage } | null>(null);
 
@@ -181,6 +189,7 @@ export function useTable(campaignId: string) {
       const focused = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
       const btn = focused ?? (last && performance.now() - last.at < TAP_WINDOW_MS ? last.el : null);
       btn?.setAttribute("aria-busy", "true");
+      setNotices([]);
       const result = await emit({
         socket: socket.current,
         action: a,
@@ -191,10 +200,12 @@ export function useTable(campaignId: string) {
         btn.setAttribute("data-sent", result.ok ? "ok" : "no");
         setTimeout(() => btn.removeAttribute("data-sent"), SENT_MS);
       }
+      if (result.ok && result.notices) setNotices(result.notices);
       return result.ok ? result : worded(result);
     },
     [t, worded],
   );
+  const dismissNotices = useCallback(() => setNotices([]), []);
 
   const requestPage: RequestPage = useCallback(
     async (p) => {
@@ -230,7 +241,7 @@ export function useTable(campaignId: string) {
     socket.current?.emit("book:serving", { sources: next?.sources ?? [] });
   }, []);
 
-  return { state, codex, online, send, draftRecap, books, requestPage, serveBooks, xcard };
+  return { state, codex, online, send, draftRecap, books, requestPage, serveBooks, xcard, notices, dismissNotices };
 }
 
 type EmitWords = { noSignal: string; unreadable: string; noReply: string };

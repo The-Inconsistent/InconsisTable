@@ -1605,6 +1605,12 @@
     "nothing": "Sổ tay chưa có gì.",
     "openQuests": "Nhiệm vụ đang mở"
   },
+  "actionNotices": {
+    "label": "Kết quả vừa rồi",
+    "poolFull": "{pool} đã đầy: mất {lost}",
+    "rule": "{name}: {rule}",
+    "dismiss": "Đóng"
+  },
   "spendRequest": {
     "ask": "Xin tiêu",
     "askAria": "Xin GM cho tiêu {label}",

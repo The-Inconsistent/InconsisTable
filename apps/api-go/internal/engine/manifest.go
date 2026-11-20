@@ -19,6 +19,12 @@ const MaxCampaignFields = 50
 // MaxFields caps the fields and derived values across a manifest.
 const MaxFields = 2000
 
+// MaxNotices caps a manifest's notice rules, and MaxNoticeText a rule's words (house decision #79).
+const (
+	MaxNotices    = 50
+	MaxNoticeText = 120
+)
+
 // CodexKinds are the kinds of codex entry (rules-engine CodexEntryKind; coreschema's list is this one).
 var CodexKinds = []string{"adventure", "scene", "npc", "location", "faction", "item", "handout", "quest", "lore"}
 
@@ -372,6 +378,17 @@ type (
 		Game      *GameInfo    `json:"game"`
 		// Codex is nil when entries carry no declared fields (house decision #71).
 		Codex *CodexBlock `json:"codex"`
+		// Notices is what an action's answer tells its sender about an actor (house decision #79); nil when absent.
+		Notices []NoticeRule `json:"notices"`
+	}
+	// NoticeRule is one notice rule: when it is read, the actor types, the line it watches and the words it says.
+	NoticeRule struct {
+		ID       string    `json:"id"`
+		When     string    `json:"when"`
+		Entities *[]string `json:"entities"`
+		If       string    `json:"if"`
+		Text     string    `json:"text"`
+		Cite     *string   `json:"cite"`
 	}
 	// LedgerBuild is the manifest's build block (house decision #62). Params is parsed by ValidateRuleset.
 	LedgerBuild struct {
@@ -1048,6 +1065,11 @@ func (r *Ruleset) semanticProblems() problems {
 			}
 		}
 	}
+	for i, n := range r.Notices {
+		needCite(n.Cite, fmt.Sprintf("notices[%d]", i))
+		actorTypes(n.Entities, fmt.Sprintf("notices[%d].entities", i))
+	}
+	p.duplicates("notices", idsOf(r.Notices, func(n NoticeRule) string { return n.ID }))
 	return p
 }
 

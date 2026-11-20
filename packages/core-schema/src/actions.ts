@@ -414,4 +414,24 @@ export type AdminEventAction = z.infer<typeof AdminEventAction>;
 // A refusal carries its code, English message and params (refusals.ts). `error` repeats the message for older web builds
 // and is what the screen shows: the web puts the translation there when it has one for the code.
 export type Refused = { ok: false; error: string } & Partial<RefusalBody>;
-export type ActionResult = { ok: true; id?: string; token?: string } | Refused;
+
+/**
+ * What an accepted action's answer may tell the seat that sent it (house decision #79), and no one else: the platform's
+ * own lines by code, which the screen words, and a ruleset's line (`rule`) with its words, the actor's name filled in,
+ * in `text`. They are neither state nor log.
+ */
+export const NoticeCode = z.enum(["poolFull", "rule"]);
+export type NoticeCode = z.infer<typeof NoticeCode>;
+/** The params each code carries, which its words may name. */
+export const NOTICE_PARAMS = {
+  poolFull: ["pool", "lost"], // the pool's label and how much of the change it could not take
+  rule: ["rule", "name"], // the rule's id and the actor's name
+} as const satisfies Record<NoticeCode, readonly string[]>;
+export const Notice = z.object({
+  code: NoticeCode,
+  params: z.record(z.string(), z.union([z.string(), z.number()])),
+  text: z.string().max(200).optional(),
+});
+export type Notice = z.infer<typeof Notice>;
+
+export type ActionResult = { ok: true; id?: string; token?: string; notices?: Notice[] } | Refused;

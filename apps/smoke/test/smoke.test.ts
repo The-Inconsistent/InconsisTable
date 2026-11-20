@@ -2769,6 +2769,54 @@ async function buildRoom(name: string) {
   return { owner, ana, ben, campaignId, packVersionId: pk.body.versionId, otherVersionId: other.body.versionId };
 }
 
+// A room on the d20 sample (its notice rules, house decision #79), a running session, Ana holding Lyra.
+async function d20Room(name: string) {
+  const { owner, ownerDevice, campaignId } = await newRoom(name);
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, `ana-${name}`) } });
+  const hero = (await owner.until((s) => s.actors.some((a) => a.kind === "pc"))).actors.find(
+    (a) => a.kind === "pc",
+  )!.id;
+  const rs = await caller(ownerDevice).post<RulesetReply>("/rulesets", SAMPLE_D20);
+  assert.equal(rs.status, 201);
+  ok(await owner.send({ type: "campaign.setRuleset", rulesetVersionId: rs.body.versionId }));
+  await equip(hero, "character", {
+    fields: { level: 1, "attr.str": 10, "attr.dex": 12, "attr.con": 10, guard: 1 },
+    resources: { hp: 6, boons: 2, renown: 0 },
+  });
+  ok(await owner.send({ type: "actor.rename", id: hero, name: "Lyra" }));
+  await ana.until((s) => s.actors.find((a) => a.id === hero)?.entity === "character");
+  return { owner, ana, campaignId, hero };
+}
+
+test("notices: an answer tells its sender who has points as a session starts, who crossed a line, a full pool", async () => {
+  const { owner, ana } = await d20Room("Notices");
+  const rule = (id: string, text: string) => ({ code: "rule", params: { rule: id, name: "Lyra" }, text });
+  const luck = (delta: number) =>
+    ({ type: "rule.op", primitive: "resource.capped", op: "adjustPool", input: { resource: "luck", delta } }) as const;
+
+  // Points left are told at every start; the end's refill crosses the top step once, never again while it holds.
+  assert.deepEqual(ok(await owner.send({ type: "session.start" })).notices, [
+    rule("unspent", "Lyra has boons to spend"),
+  ]);
+  assert.deepEqual(ok(await owner.send({ type: "session.end", recap: "" })).notices, [
+    rule("renowned", "Lyra is renowned"),
+  ]);
+  assert.deepEqual(ok(await owner.send({ type: "session.start" })).notices, [
+    rule("unspent", "Lyra has boons to spend"),
+  ]);
+  assert.equal(ok(await owner.send({ type: "session.end", recap: "" })).notices, undefined);
+
+  // A pool that cannot take the whole change says how much was lost, to the one seat that sent it.
+  ok(await owner.send({ type: "session.start" }));
+  assert.deepEqual(ok(await owner.send(luck(5))).notices, [{ code: "poolFull", params: { pool: "Luck", lost: 2 } }]);
+  assert.deepEqual(ok(await ana.send(luck(1))).notices, [{ code: "poolFull", params: { pool: "Luck", lost: 1 } }]);
+  assert.equal(ok(await owner.send(luck(-1))).notices, undefined);
+  // Nothing of it is in the state either seat receives.
+  for (const c of [owner, ana])
+    assert.equal(JSON.stringify(await c.until(() => true)).includes("Lyra is renowned"), false);
+  for (const c of [owner, ana]) c.socket.close();
+});
+
 test("actor.create: a typed actor needs a ruleset and one of its actor entities", async () => {
   const bare = await newRoom("TypedBare");
   refused(await bare.owner.send({ type: "actor.create", name: "Kay", entityType: "character" }), /no ruleset/);

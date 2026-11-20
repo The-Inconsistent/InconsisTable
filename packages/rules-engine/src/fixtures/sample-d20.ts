@@ -4,9 +4,12 @@ import type { RulesetInput } from "../manifest.ts";
  * A placeholder d20-style ruleset written for tests. Every name, number and cite is our own invention ("Sample p.N"
  * points at no real book); it exists to exercise the engine, not to describe any published game.
  */
+/** The resources only sample-d20's notices read (house decision #79); the samples built on it leave them out. */
+export const NOTICE_RESOURCES: readonly string[] = ["boons", "renown"];
+
 export const SAMPLE_D20: RulesetInput = {
   id: "sample-d20",
-  version: "0.1.5",
+  version: "0.1.6",
   core: "^0.1.0",
   sources: [{ id: "sample", title: "Sample d20 Rules", license: "private", pageOffset: 0 }],
   terms: { party: "Crew", foe: "Opposition", hp: "Vigour" },
@@ -126,6 +129,28 @@ export const SAMPLE_D20: RulesetInput = {
       scope: "gm",
       max: "party.characters * 2",
       resetOn: [{ event: "encounterEnd", to: "min" }],
+    },
+    // Boons are spent between sessions; Renown comes back in full when a session ends (house decision #79's fixture).
+    {
+      id: "boons",
+      label: "Boons",
+      cite: "Sample p.17",
+      scope: "entity",
+      entities: ["character"],
+      max: "5",
+      start: "0",
+      visibility: "party",
+    },
+    {
+      id: "renown",
+      label: "Renown",
+      cite: "Sample p.17",
+      scope: "entity",
+      entities: ["character"],
+      max: "12",
+      start: "0",
+      resetOn: [{ event: "sessionEnd", to: "max" }],
+      visibility: "party",
     },
   ],
   conditions: [
@@ -275,4 +300,24 @@ export const SAMPLE_D20: RulesetInput = {
       },
     },
   },
+  // What the GM is told (house decision #79): who still has boons as a session starts, and who rose to the top standing.
+  notices: [
+    {
+      id: "unspent",
+      when: "sessionStart",
+      entities: ["character"],
+      if: "res.boons > 0",
+      text: "{name} has boons to spend",
+      cite: "Sample p.17",
+    },
+    {
+      id: "renowned",
+      when: "crossed",
+      entities: ["character"],
+      // Renown counts in steps of four; the third step is the top one.
+      if: "floor(res.renown, 4) >= 3",
+      text: "{name} is renowned",
+      cite: "Sample p.17",
+    },
+  ],
 };

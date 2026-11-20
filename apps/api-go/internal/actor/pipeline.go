@@ -183,6 +183,13 @@ func ApplyDeltas(ctx context.Context, tx core.Conn, a Apply) (string, error) {
 			if err != nil {
 				return "", err
 			}
+			// A pool full before it took the whole change says so, for any game (house decision #79).
+			by, _ := delta.Value.(float64)
+			before, _ := w.Before.(float64)
+			after, _ := w.After.(float64)
+			if took := after - before; by > 0 && took < by && pool.Bounds.Ceiling() != nil {
+				cs.Notify(ctx, cs.PoolFull(def.Label, by-took))
+			}
 			written = append(written, w)
 			continue
 		}

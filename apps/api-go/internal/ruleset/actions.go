@@ -76,8 +76,29 @@ func RuleOp(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	if err != nil {
 		return cs.Result{}, err
 	}
+	handPool := primitive == "resource.capped" && op == "adjustPool"
+	if handPool {
+		notifyPoolFull(ctx, rc, input, deltas)
+	}
 	// Every op but a hand adjust of a pool is authorised by its own permission; that one is asked who may change the pool.
-	return applied(rc, ctx, deltas, !(primitive == "resource.capped" && op == "adjustPool"))
+	return applied(rc, ctx, deltas, !handPool)
+}
+
+// notifyPoolFull tells the sender that a hand adjust of a pool was clamped at its max (house decision #79): the op
+// proposes only what fits, so what it left out is what was lost.
+func notifyPoolFull(ctx context.Context, rc *Context, input map[string]any, deltas []engine.Delta) {
+	id, _ := input["resource"].(string)
+	asked, _ := input["delta"].(float64)
+	took := 0.0
+	for _, d := range deltas {
+		n, _ := d.Value.(float64)
+		took += n
+	}
+	pool, known := rc.Pools[id]
+	if !known || asked <= 0 || took >= asked || pool.Bounds.Ceiling() == nil {
+		return
+	}
+	cs.Notify(ctx, cs.PoolFull(rc.Compiled.Resources[id].Def.Label, asked-took))
 }
 
 // FieldSet is field.set: one declared field of an actor with an entity.

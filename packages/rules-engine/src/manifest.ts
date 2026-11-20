@@ -734,6 +734,29 @@ export type GameInfo = z.infer<typeof GameInfo>;
 /** The modes a ruleset allows; one with no `game` block is played with a GM. */
 export const modesOf = (r: { game?: { modes: readonly GameMode[] } }): readonly GameMode[] => r.game?.modes ?? ["gm"];
 
+/**
+ * When a notice rule is read (house decision #79): after one of the reset events, on every actor of its types, or
+ * `crossed`, on an action that took an actor from not meeting `if` to meeting it.
+ */
+export const NoticeWhen = z.enum([...ResetEvent.options, "crossed"]);
+export type NoticeWhen = z.infer<typeof NoticeWhen>;
+export const MAX_NOTICE_TEXT = 120;
+export const MAX_NOTICES = 50;
+
+/**
+ * A line the server tells the seat that sent an action, about an actor (house decision #79). `if` reads the actor's
+ * scope; `text` is the ruleset's own short words, `{name}` standing for the actor's name.
+ */
+export const NoticeRule = z.object({
+  id: Id,
+  when: NoticeWhen,
+  entities: ActorTypes,
+  if: ExprSource,
+  text: z.string().min(1).max(MAX_NOTICE_TEXT),
+  cite: Cite.optional(),
+});
+export type NoticeRule = z.infer<typeof NoticeRule>;
+
 export const Ruleset = z.object({
   id: RulesetId,
   version: SemVer,
@@ -769,6 +792,8 @@ export const Ruleset = z.object({
   game: GameInfo.optional(),
   /** The fields codex entries carry, per kind (house decision #71). Absent: none. */
   codex: CodexBlock.optional(),
+  /** What an action's answer tells its sender about an actor (house decision #79). Absent: none. */
+  notices: z.array(NoticeRule).max(MAX_NOTICES).optional(),
 });
 export type Ruleset = z.infer<typeof Ruleset>;
 export type RulesetInput = z.input<typeof Ruleset>;
@@ -1437,6 +1462,11 @@ function semanticProblems(r: Ruleset): Problem[] {
       }
     }
   }
+  r.notices?.forEach((n, i) => {
+    needCite(n.cite, `notices[${i}]`);
+    actorTypes(n.entities, `notices[${i}].entities`);
+  });
+  duplicates({ ids: (r.notices ?? []).map((n) => n.id), path: "notices", out });
   return out;
 }
 

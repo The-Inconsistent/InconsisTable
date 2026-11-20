@@ -110,6 +110,9 @@ func evaluateInt(expr *CompiledExpr, scope *Record) (float64, error) {
 	return n, nil
 }
 
+// EvaluateBool runs an expression that must give a boolean (expr.ts evaluateBool); anything else is an ExprError.
+func EvaluateBool(expr *CompiledExpr, scope *Record) (bool, error) { return evaluateBool(expr, scope) }
+
 func evaluateBool(expr *CompiledExpr, scope *Record) (bool, error) {
 	v, err := Evaluate(expr.AST, scope)
 	if err != nil {

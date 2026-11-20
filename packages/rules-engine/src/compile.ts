@@ -23,6 +23,7 @@ import {
   type Scoring,
   type DiceMechanic,
   type LedgerKind,
+  type NoticeWhen,
 } from "./manifest.ts";
 import { own } from "./own.ts";
 import type { Problem } from "./problem.ts";
@@ -97,6 +98,17 @@ export interface CompiledTest {
   targetVisibility: Record<string, Visibility>;
 }
 
+/** A notice rule (house decision #79), with who may be told its `if` by actor type, as a Test's numbers are. */
+export interface CompiledNotice {
+  id: string;
+  when: NoticeWhen;
+  /** The actor types it reads; null for every actor type. */
+  entities: readonly string[] | null;
+  if: CompiledExpr;
+  text: string;
+  visibility: Record<string, Visibility>;
+}
+
 export type CompiledInitiative =
   | { def: RankedInitiative; score: CompiledExpr; tiebreak: CompiledExpr[] }
   | { def: SeatedInitiative | SidesInitiative; score: null; tiebreak: [] };
@@ -127,6 +139,8 @@ export interface CompiledRuleset {
    * without parsing again; null when the ruleset has none.
    */
   build: { actor: string; params: BuildParams; kinds: Record<LedgerKind, string> } | null;
+  /** The notice rules (house decision #79), in the manifest's order; empty without a `notices` block. */
+  notices: CompiledNotice[];
 }
 
 export type CompileResult = { ok: true; compiled: CompiledRuleset } | { ok: false; problems: Problem[] };
@@ -536,6 +550,23 @@ class Compiler {
     return score !== null && ok(tiebreaks) && ok(endWhen) ? { def, score, tiebreaks, endWhen } : undefined;
   }
 
+  /** By actor type: the strictest visibility of anything the expressions read, i.e. who may be told what they say. */
+  private seenBy(
+    takers: readonly { e: EntityType; ce: CompiledEntity }[],
+    exprs: readonly CompiledExpr[],
+  ): Record<string, Visibility> {
+    return Object.fromEntries(
+      takers.map(({ e, ce }): [string, Visibility] => {
+        const carried = new Map([...this.resources].filter(([, x]) => carries(x, e)));
+        const derived = new Map(ce.derived.map((d) => [d.id, d.visibility]));
+        const refs = exprs.flatMap((expr) =>
+          expr.refs.map((ref) => pathVisibility({ ref, entity: e, resources: carried, derived })),
+        );
+        return [e.id, strictestVisibility(refs)];
+      }),
+    );
+  }
+
   run(): CompiledRuleset | null {
     const entities: Record<string, CompiledEntity> = {};
     this.r.entities.forEach((e, i) => {
@@ -587,17 +618,7 @@ class Compiler {
           : null;
       if (modifier === null || target === null || (t.kind === "poolSuccesses" && pool === null)) continue;
       // A value the call computes for an actor is as hidden as its most hidden input, like a derived value.
-      const seen = (...exprs: CompiledExpr[]) =>
-        Object.fromEntries(
-          takers.map(({ e, ce }): [string, Visibility] => {
-            const carried = new Map([...this.resources].filter(([, x]) => carries(x, e)));
-            const derived = new Map(ce.derived.map((d) => [d.id, d.visibility]));
-            const refs = exprs.flatMap((expr) =>
-              expr.refs.map((ref) => pathVisibility({ ref, entity: e, resources: carried, derived })),
-            );
-            return [e.id, strictestVisibility(refs)];
-          }),
-        );
+      const seen = (...exprs: CompiledExpr[]) => this.seenBy(takers, exprs);
       const modifierVisibility = pool === null ? seen(modifier) : seen(modifier, pool);
       tests[id] = { def: t, modifier, target, pool, modifierVisibility, targetVisibility: seen(target) };
     }
@@ -645,6 +666,19 @@ class Compiler {
       check(p.destroyed?.over, "int", "destroyed.over");
     });
 
+    const notices = (this.r.notices ?? []).flatMap((n, j): CompiledNotice[] => {
+      const takers = actorsOf(n.entities);
+      const when = this.expr({
+        source: n.if,
+        scopes: takers.map(({ ce }) => ce.scope),
+        expect: "bool",
+        path: `notices[${j}].if`,
+      });
+      if (when === null) return [];
+      const visibility = this.seenBy(takers, [when]);
+      return [{ id: n.id, when: n.when, entities: n.entities ?? null, if: when, text: n.text, visibility }];
+    });
+
     if (this.problems.length > 0 || scoring === undefined || (ranked !== null && score === null)) return null;
     const b = this.r.build;
     return {
@@ -663,6 +697,7 @@ class Compiler {
       healthStates,
       instantDeath,
       build: b === undefined ? null : { actor: b.actor, params: b.params, kinds: b.kinds },
+      notices,
     };
   }
 }

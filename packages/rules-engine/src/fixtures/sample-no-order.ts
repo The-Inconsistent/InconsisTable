@@ -1,9 +1,10 @@
 import type { RulesetInput } from "../manifest.ts";
-import { SAMPLE_D20 } from "./sample-d20.ts";
+import { NOTICE_RESOURCES, SAMPLE_D20 } from "./sample-d20.ts";
 
-const { initiative: _turnOrder, codex: _codex, ...withoutOrder } = SAMPLE_D20;
+const { initiative: _turnOrder, codex: _codex, notices: _notices, ...withoutOrder } = SAMPLE_D20;
 void _turnOrder;
 void _codex;
+void _notices;
 
 /**
  * A placeholder homebrew ruleset written for tests: the sample-d20 characters with no turn order and a four-level
@@ -13,6 +14,7 @@ export const SAMPLE_NO_ORDER: RulesetInput = {
   ...withoutOrder,
   id: "sample-no-order",
   version: "0.1.0",
+  resources: withoutOrder.resources?.filter((x) => !NOTICE_RESOURCES.includes(x.id)),
   sources: [{ id: "sample", title: "Sample table rules", license: "homebrew", pageOffset: 0 }],
   tests: {
     ordeal: {

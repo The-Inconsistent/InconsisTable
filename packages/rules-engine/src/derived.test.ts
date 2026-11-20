@@ -51,7 +51,7 @@ test("the sample compiles, with derived values in dependency order", () => {
     ["baseHp", "initBonus", "maxHp", "defense"],
   );
   assert.deepEqual(c.entities.character?.derived.find((d) => d.id === "maxHp")?.deps, ["baseHp"]);
-  assert.deepEqual(c.entities.character?.resources, ["hp", "tempHp", "focus"]);
+  assert.deepEqual(c.entities.character?.resources, ["hp", "tempHp", "focus", "boons", "renown"]);
   assert.deepEqual(c.entities.creature?.resources, ["hp", "tempHp"]);
   assert.deepEqual(c.entities.gear?.resources, []);
 });
@@ -240,5 +240,5 @@ test("expressions in resources, tests, initiative and health are checked at load
   m.health = { ...m.health, states: [{ id: "low", when: "res.hp" }] };
   const list = problemsOf(m);
   const paths = list.map((p) => p.path);
-  assert.deepEqual(paths, ["resources[5].max", "tests.check.target", "initiative.score", "health.states[0].when"]);
+  assert.deepEqual(paths, ["resources[7].max", "tests.check.target", "initiative.score", "health.states[0].when"]);
 });

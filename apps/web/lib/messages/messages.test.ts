@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { REFUSALS } from "@inconsistable/core-schema";
+import { NOTICE_PARAMS, REFUSALS } from "@inconsistable/core-schema";
 
 const load = (locale: string): unknown =>
   JSON.parse(readFileSync(new URL(`../../messages/${locale}.json`, import.meta.url), "utf8"));
@@ -40,6 +40,18 @@ test("the errors namespace has one en and one vi message per refusal code", () =
     for (const [code, text] of Object.entries(REFUSALS)) {
       assert.deepEqual(slotsOf(errors[code] ?? ""), slotsOf(text), `${locale}.${code}`);
       if (locale === "en") assert.equal(errors[code], text, code);
+    }
+  }
+});
+
+// Every notice code (house decision #79) has words in both languages that fill in only the params it carries.
+test("the actionNotices namespace words every notice code with its params", () => {
+  for (const locale of ["en", "vi"]) {
+    const words = (load(locale) as { actionNotices: Record<string, string> }).actionNotices;
+    for (const [code, params] of Object.entries(NOTICE_PARAMS)) {
+      const text = words[code];
+      assert.ok(text !== undefined, `${locale}.actionNotices.${code}`);
+      for (const slot of slotsOf(text)) assert.ok((params as readonly string[]).includes(slot), `${locale}.${code}`);
     }
   }
 });

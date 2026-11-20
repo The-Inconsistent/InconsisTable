@@ -15,6 +15,7 @@ import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
 import { PoolsView } from "@/components/ui/pools-view/pools-view";
 import { poolSidesOf, poolSteps } from "@/lib/pools/pools";
 import { YourCards } from "@/components/ui/your-cards/your-cards";
+import { ActionNotices } from "@/components/ui/action-notices/action-notices";
 import { RequestNotices } from "@/components/ui/request-notices/request-notices";
 import { resourceLabels } from "@/lib/spend-request/spend-request";
 import { GameResult } from "@/components/ui/game-result/game-result";
@@ -42,7 +43,9 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
   const tXp = useTranslations("ledgerBuilder.play.xp");
-  const { state, codex, online, send, draftRecap, books, requestPage, xcard } = useTable(me.campaignId);
+  const { state, codex, online, send, draftRecap, books, requestPage, xcard, notices, dismissNotices } = useTable(
+    me.campaignId,
+  );
   useWorldRefresh({ rendered: view?.first.world?.versionId ?? null, live: state?.campaign.worldVersionId });
   const held = me.seat.kind === "admin" ? [] : me.seat.characterIds;
   const [current, setCurrent] = useState(held[0] ?? "");
@@ -141,6 +144,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           </a>
         )}
         {ledgerEntry === "continue" && <p className="small dim">{t("buildDraft")}</p>}
+        <ActionNotices notices={notices} onDismiss={dismissNotices} />
         <RequestNotices
           answers={state.requestAnswers}
           actors={state.actors}

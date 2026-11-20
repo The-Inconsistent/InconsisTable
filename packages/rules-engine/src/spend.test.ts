@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { compileRuleset } from "./compile.ts";
+import { actorScope, deriveValues } from "./derived.ts";
+import { evaluate } from "./expr/expr.eval.ts";
 import { SAMPLE_HARM } from "./fixtures/sample-harm.ts";
 import { SAMPLE_SKIRMISH } from "./fixtures/sample-skirmish.ts";
 import type { RulesetInput } from "./manifest.ts";
@@ -117,6 +119,65 @@ test("the fight's scope: an out-of-turn start needs the actor in the fight, a li
   });
   const free = plan("shake", { ...turn, barred: [] });
   assert.ok(isRefusal(free) && free.code === "spendNotNow");
+});
+
+test("a spend limited per round counts its uses in the turn, round by round (house decision #91)", () => {
+  const a: ActorState = { ...fighter("c1"), resources: { nerve: res(4, 0, 4) } };
+  const plan = (turn: RuleState["turn"], push = 1) =>
+    planSpend({ ruleset: SKIRMISH.ruleset, spendId: "channel", actor: a, state: state(a, { turn }), inputs: { push } });
+  // Outside a fight, or in one the actor is not in, nothing is counted.
+  assert.deepEqual(plan(null), { costs: [{ resource: "nerve", amount: 2, byRun: false }], run: [] });
+  assert.deepEqual(plan({ round: 2, currentId: null, order: ["r1"] }), {
+    costs: [{ resource: "nerve", amount: 2, byRun: false }],
+    run: [],
+  });
+  // The round's first use writes itself beside the round's others; an earlier round's are left behind.
+  const turn = { round: 2, currentId: null, order: ["c1", "r1"], used: ["1:c1:channel", "2:r1:channel"] };
+  assert.deepEqual(plan(turn, 0), {
+    costs: [{ resource: "nerve", amount: 1, byRun: false }],
+    run: [],
+    used: ["2:r1:channel", "2:c1:channel"],
+  });
+  const again = plan({ ...turn, used: ["2:r1:channel", "2:c1:channel"] });
+  assert.ok(isRefusal(again) && again.code === "usedThisRound");
+  assert.equal(again.message, '"Channel", round 2');
+  // A new round clears it: the count is read from the round.
+  assert.ok(!isRefusal(plan({ ...turn, round: 3, used: ["2:c1:channel"] })));
+});
+
+test("the validator checks a spend's limit and the table it opens next (house decision #91)", () => {
+  const problems = (over: Record<string, unknown>) => {
+    const channel = SAMPLE_SKIRMISH.spends?.find((s) => s.id === "channel");
+    const r = compileRuleset({ ...SAMPLE_SKIRMISH, spends: [{ ...channel, ...over }] });
+    return r.ok ? [] : r.problems.map((p) => `${p.path}: ${p.message}`);
+  };
+  assert.deepEqual(problems({}), []);
+  assert.deepEqual(problems({ then: { table: "nope", inputs: { extra: "nope" } } }), [
+    'spends[0].then.table: unknown table "nope"',
+    'spends[0].then.inputs.extra: "nope" is not an input of the spend',
+  ]);
+  assert.equal(problems({ limit: { per: "turn", max: 1 } }).length, 1);
+  assert.equal(problems({ limit: { per: "round", max: 0 } }).length, 1);
+});
+
+test("a list held in play is counted from empty, raising a Test's target, and its picks name a type (#91)", () => {
+  const fields = { level: 1, "attr.str": 10, "attr.dex": 10, "attr.con": 10, "attr.wis": 10 };
+  const load = (more: Record<string, string[]>) =>
+    deriveValues({ compiled: SKIRMISH, entity: "creature", values: { fields: { ...fields, ...more }, resources: {} } })
+      .wardLoad;
+  assert.equal(load({}), 0);
+  assert.equal(load({ wards: ["a", "b"] }), 4);
+  const target = SKIRMISH.tests.check?.target;
+  assert.ok(target);
+  const scope = actorScope({ fields, derived: { wardLoad: 4 }, ctx: { dc: 12, ability: "str" } });
+  assert.equal(evaluate({ node: target.ast, scope }), 16);
+  const entities = SAMPLE_SKIRMISH.entities.map((e) =>
+    e.id !== "character"
+      ? e
+      : { ...e, fields: { ...e.fields, wards: { type: "list", label: "W", picks: { entity: "x" } } } },
+  );
+  const r = compileRuleset({ ...SAMPLE_SKIRMISH, entities } as RulesetInput);
+  assert.ok(!r.ok && r.problems.some((p) => p.path === "entities[0].fields.wards.picks.entity"));
 });
 
 test("convert moves up to the amount from wounds to the second track, and refuses where it cannot", () => {

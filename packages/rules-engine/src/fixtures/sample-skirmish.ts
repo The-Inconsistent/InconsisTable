@@ -13,7 +13,7 @@ import { CODEX_0_1_7, SAMPLE_D20 } from "./sample-d20.ts";
 export const SAMPLE_SKIRMISH: RulesetInput = {
   ...SAMPLE_D20,
   id: "sample-skirmish",
-  version: "0.1.4",
+  version: "0.1.5",
   codex: {
     kinds: {
       ...CODEX_0_1_7.kinds,
@@ -34,11 +34,69 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
       },
     },
   },
+  // House decision #91: anyone may hold wards up, each raising the target of its own checks by 2, ended by hand.
+  entities: SAMPLE_D20.entities.map((e) =>
+    e.base !== "actor"
+      ? e
+      : {
+          ...e,
+          fields: {
+            ...e.fields,
+            wards: {
+              type: "list",
+              label: "Holding",
+              visibility: "party",
+              editableBy: "owner",
+              maxItems: 6,
+              chips: true,
+              picks: { entity: "gear" },
+              cite: "Sample p.23",
+            },
+          },
+          derived: [
+            ...(e.derived ?? []),
+            { id: "wardLoad", label: "Ward load", expr: "2 * count(wards)", visibility: "party", cite: "Sample p.23" },
+          ],
+        },
+  ),
   resources: [
     ...(SAMPLE_D20.resources ?? []),
     { id: "momentum", label: "Momentum", cite: "Sample p.15", scope: "party", max: "6", visibility: "party" },
     { id: "pressure", label: "Pressure", cite: "Sample p.15", scope: "gm", max: "6" },
+    {
+      id: "nerve",
+      label: "Nerve",
+      cite: "Sample p.22",
+      scope: "entity",
+      entities: ["character"],
+      max: "4",
+      start: "4",
+      visibility: "party",
+      editableBy: "owner",
+    },
   ],
+  tests: {
+    ...SAMPLE_D20.tests,
+    check: { ...SAMPLE_D20.tests?.check, target: "ctx.dc + derived.wardLoad" } as NonNullable<
+      RulesetInput["tests"]
+    >[string],
+  },
+  tables: {
+    backlash: {
+      title: "Backlash",
+      die: "1d6",
+      visibility: "party",
+      cite: "Sample p.22",
+      // The Channel's push, carried over by its `then`, adds to the count (house decision #91).
+      inputs: [{ id: "extra", label: "Extra", type: "int", min: 0, max: 2 }],
+      modifier: "ctx.extra",
+      entries: [
+        { id: "jolt", label: "Jolt", range: [1, 3] },
+        { id: "daze", label: "Daze", range: [4, 5] },
+        { id: "burst", label: "Burst", range: [6] },
+      ],
+    },
+  },
   conditions: [
     ...(SAMPLE_D20.conditions ?? []),
     {
@@ -138,6 +196,17 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
       run: [{ primitive: "initiative.sides", op: "lift", input: { id: "ctx.self" } }],
       clearOn: ["encounterEnd"],
     },
+    // House decision #91: once a round in a fight, pushed by up to 2 for a Nerve each; a backlash count opens the table.
+    {
+      id: "channel",
+      label: "Channel",
+      cite: "Sample p.22",
+      entities: ["character"],
+      cost: [{ resource: "nerve", amount: "1 + ctx.push" }],
+      inputs: { push: { label: "Push", min: 0, max: "2" } },
+      limit: { per: "round", max: 1 },
+      then: { table: "backlash", inputs: { extra: "push" } },
+    },
   ],
   requests: { max: 3 },
   // The chapter a campaign is in, which the checklist's second step reads (house decision #90).
@@ -205,8 +274,21 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
   ],
 };
 
+/** SAMPLE_SKIRMISH as it was at 0.1.4, before the wards it holds up, Nerve, Channel and its backlash table (#91). */
+export const SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND: RulesetInput = (() => {
+  const { tables: _tables, ...before } = SAMPLE_SKIRMISH;
+  return {
+    ...before,
+    version: "0.1.4",
+    entities: SAMPLE_D20.entities,
+    tests: SAMPLE_D20.tests,
+    resources: before.resources?.filter((x) => x.id !== "nerve"),
+    spends: before.spends?.filter((x) => x.id !== "channel"),
+  };
+})();
+
 /** SAMPLE_SKIRMISH as it was at 0.1.3, before its checklist and the campaign field the checklist reads. */
 export const SAMPLE_SKIRMISH_BEFORE_CHECKLIST: RulesetInput = (() => {
-  const { checklist: _checklist, campaignFields: _fields, ...before } = SAMPLE_SKIRMISH;
+  const { checklist: _checklist, campaignFields: _fields, ...before } = SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND;
   return { ...before, version: "0.1.3" };
 })();

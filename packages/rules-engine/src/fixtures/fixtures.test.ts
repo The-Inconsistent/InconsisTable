@@ -8,7 +8,11 @@ import { SAMPLE_HARM, SAMPLE_HARM_BEFORE_HELD } from "./sample-harm.ts";
 import { SAMPLE_HARVEST } from "./sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "./sample-no-order.ts";
 import { SAMPLE_POOL } from "./sample-pool.ts";
-import { SAMPLE_SKIRMISH, SAMPLE_SKIRMISH_BEFORE_CHECKLIST } from "./sample-skirmish.ts";
+import {
+  SAMPLE_SKIRMISH,
+  SAMPLE_SKIRMISH_BEFORE_CHECKLIST,
+  SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND,
+} from "./sample-skirmish.ts";
 
 // An imported ruleset version is immutable: the api refuses the same version with a different normalized manifest, so
 // a sample (or an engine default) changed under the same version breaks `bun run seed` on every local database. Bump
@@ -17,7 +21,7 @@ const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9c
 const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf";
 const PINNED: Record<string, string> = {
   "sample-d20@0.1.8": "d8016ed3e9769e73b8493a54d050377ab60869ccbddf67c18204bf47a2ab32a5",
-  "sample-skirmish@0.1.4": "036bb829436a6a414e79117a233627bd7779fd636eae2c71df8a96904446f934",
+  "sample-skirmish@0.1.5": "9cd49772844ad39f62972811e3e371c92a864a41766f0a559b1ce58e7ebccaa5",
   "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.1": "e166afc269320775b0d1e455a2e7a5b10ca9b9c4f0d96f9fa473addb65b93f08",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
@@ -172,5 +176,14 @@ test("a ruleset without a checklist hashes as it did before checklists existed (
   assert.equal(
     sha256Hex(canonicalJson(result.compiled.ruleset)),
     "088fd2f9b3bf74c03ca45437ca868cc9b36acff812691bcb56c7c2334ecf97d3",
+  );
+});
+
+test("a ruleset without once-a-round uses or chips hashes as it did before they existed (house decision #91)", () => {
+  const result = compileRuleset(SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "036bb829436a6a414e79117a233627bd7779fd636eae2c71df8a96904446f934",
   );
 });

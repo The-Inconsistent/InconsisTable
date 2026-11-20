@@ -386,7 +386,8 @@ class Compiler {
     const steps = this.r.creation.filter((s) => s.actor === e.id);
     if (steps.length === 0) return [];
     const written = new Set(steps.flatMap((s) => (s.kind === "choose" ? s.copy.map((c) => c.to) : s.fields)));
-    return refs.filter((ref) => Object.hasOwn(e.fields, ref) && !written.has(ref));
+    // An unset list reads as empty (house decision #91), so creation need not write one.
+    return refs.filter((ref) => Object.hasOwn(e.fields, ref) && e.fields[ref]?.type !== "list" && !written.has(ref));
   }
 
   private entity(e: EntityType, index: number): CompiledEntity | null {

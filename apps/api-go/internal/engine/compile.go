@@ -406,7 +406,8 @@ func (c *compiler) unsetByCreation(e *EntityType, refs []string) []string {
 	}
 	var out []string
 	for _, ref := range refs {
-		if _, isField := e.Fields[ref]; isField && !written[ref] {
+		// An unset list reads as empty (house decision #91), so creation need not write one.
+		if def, isField := e.Fields[ref]; isField && def.Type != "list" && !written[ref] {
 			out = append(out, ref)
 		}
 	}

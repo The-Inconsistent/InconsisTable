@@ -1043,12 +1043,29 @@ function spendVectors() {
       { round: 1, currentId: null, order: ["c1", "r1"] },
       { round: 2, currentId: "r1", order: ["c1", "r1"], barred: ["c1"] },
       { round: 1, currentId: null, order: ["r1"], barred: ["r1"] },
+      // House decision #91: uses limited per round, this round's and an earlier one's.
+      { round: 2, currentId: null, order: ["c1", "r1"], used: ["1:c1:channel", "2:r1:channel"] },
+      { round: 2, currentId: null, order: ["c1", "r1"], used: ["2:c1:channel"] },
+      { round: 3, currentId: null, order: ["c1", "r1"], used: ["2:c1:channel", "3:c1:rally"] },
     ]);
     const pools: Record<string, ResourceState> =
       r(8) === 0 ? {} : { momentum: { value: one([0, 1, 2, 3, 6]), min: 0, max: 6 } };
-    const actor = one([fighter, { ...fighter, entity: "creature" }, { ...fighter, scope: undefined }]);
-    const inputs = one<Record<string, unknown>>([{}, { dice: 1 }, { dice: 2 }, { dice: 3 }, { dice: 4 }, { dice: 0 }]);
-    add(1, one(["rally", "rally", "jump", "shake"]), actor, { actors: { c1: actor }, turn, pools }, inputs);
+    const nerve = one([0, 1, 3, 4]);
+    const armed = { ...fighter, resources: { nerve: { value: nerve, min: 0, max: 4 } } };
+    const actor = one([fighter, armed, armed, { ...fighter, entity: "creature" }, { ...fighter, scope: undefined }]);
+    const inputs = one<Record<string, unknown>>([
+      {},
+      { dice: 1 },
+      { dice: 2 },
+      { dice: 3 },
+      { dice: 4 },
+      { dice: 0 },
+      { push: 0 },
+      { push: 2 },
+      { push: 3 },
+    ]);
+    const spendId = one(["rally", "rally", "jump", "shake", "channel", "channel"]);
+    add(1, spendId, actor, { actors: { c1: actor }, turn, pools }, inputs);
   }
   return { rulesets: [SAMPLE_HARM, SAMPLE_SKIRMISH], cases };
 }
@@ -2797,6 +2814,20 @@ function spendCrafted(): object[] {
     }),
     spend({ if: "ctx.fight.round", clearOn: ["encounterEnd", "encounterEnd"], entities: ["lineage", "nope"] }),
     spend({ cite: undefined, label: "", id: "Bad" }),
+    // House decision #91: a limit, and the table a spend opens next.
+    spend({ limit: { per: "turn", max: 0 }, then: { table: "nope", inputs: { extra: "nope", Bad: 1 } } }),
+    spend({
+      inputs: { n: { label: "N", min: 0, max: "1" } },
+      limit: { per: "round", max: 11 },
+      then: { table: "backlash", inputs: { extra: "n" } },
+    }),
+    {
+      ...SAMPLE_SKIRMISH,
+      entities: SAMPLE_SKIRMISH.entities.map((e) => ({
+        ...e,
+        fields: { ...e.fields, held: { type: "list", label: "H", chips: "yes", picks: { entity: "nope" } } },
+      })),
+    },
     { ...SAMPLE_SKIRMISH, requests: { max: 0 } },
     { ...SAMPLE_SKIRMISH, spends: [...(SAMPLE_SKIRMISH.spends ?? []), ...(SAMPLE_SKIRMISH.spends ?? []).slice(0, 1)] },
   ];

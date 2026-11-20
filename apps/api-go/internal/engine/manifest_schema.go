@@ -77,7 +77,8 @@ var fieldDefSchema = schema.Union("type",
 	fieldDefVariant("enum", enumShape...),
 	fieldDefVariant("bool"),
 	fieldDefVariant("ref", refShape...),
-	fieldDefVariant("list", schema.Opt("maxItems", schema.Int().Min(1).Max(500))),
+	fieldDefVariant("list", schema.Opt("maxItems", schema.Int().Min(1).Max(500)), schema.Opt("chips", schema.Bool()),
+		schema.Opt("picks", schema.Object(schema.Req("entity", idSchema)))),
 )
 
 func codexFieldVariant(tag string, extra ...schema.Field) schema.Variant {
@@ -486,6 +487,9 @@ var spendSchema = schema.Object(
 		schema.Req("input", schema.Record(label(64), schema.AnyOf(exprSource, schema.Float(), schema.Bool()))),
 	)).Max(5)),
 	schema.Opt("clearOn", schema.Array(schema.Enum(SpendClearEvents...)).Max(3)),
+	// manifest.ts SpendLimitPer (house decision #91): zod words a one-option enum as a literal.
+	schema.Opt("limit", schema.Object(schema.Req("per", schema.Literal("round")), schema.Req("max", schema.Int().Min(1).Max(10)))),
+	schema.Opt("then", schema.Object(schema.Req("table", idSchema), schema.Opt("inputs", schema.Record(idSchema, idSchema)))),
 )
 
 func stepVariant(tag string, extra ...schema.Field) schema.Variant {

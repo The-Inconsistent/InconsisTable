@@ -116,7 +116,15 @@ export const FieldDef = z.discriminatedUnion("type", [
   z.object({ ...fieldBase, type: z.literal("bool") }),
   z.object({ ...fieldBase, ...refShape }),
   // ponytail: a list holds text items only; typed lists (of refs, of ints) when a ruleset needs them.
-  z.object({ ...fieldBase, type: z.literal("list"), maxItems: z.int().min(1).max(500).optional() }),
+  z.object({
+    ...fieldBase,
+    type: z.literal("list"),
+    maxItems: z.int().min(1).max(500).optional(),
+    /** House decision #91: its items show as chips where Condition chips show, each ended by itself or all at once. */
+    chips: z.boolean().optional(),
+    /** House decision #91: where the screen's quick picks come from: the names of pack entries of this entity type. */
+    picks: z.object({ entity: Id }).optional(),
+  }),
 ]);
 export type FieldDef = z.infer<typeof FieldDef>;
 
@@ -965,6 +973,10 @@ export type Layout = z.infer<typeof Layout>;
 export const SpendClearEvent = z.enum(["sessionStart", "sessionEnd", "encounterEnd"]);
 export type SpendClearEvent = z.infer<typeof SpendClearEvent>;
 
+/** What a spend's limit counts in (house decision #91). */
+export const SpendLimitPer = z.enum(["round"]);
+export type SpendLimitPer = z.infer<typeof SpendLimitPer>;
+
 /** Input names a spend may not take: `ctx.self` and `ctx.fight` are the platform's. */
 export const SPEND_CTX_ROOTS: ReadonlySet<string> = new Set(["self", "fight"]);
 
@@ -1009,6 +1021,16 @@ export const Spend = z.object({
   if: ExprSource.optional(),
   run: z.array(SpendStep).max(5).optional(),
   clearOn: z.array(SpendClearEvent).max(3).optional(),
+  /**
+   * House decision #91: at most `max` times per actor in one round of a running fight the actor is in; once more is
+   * refused (`usedThisRound`). Outside a fight it is not counted: a spend only for fights says so in `if`.
+   */
+  limit: z.object({ per: SpendLimitPer, max: z.int().min(1).max(10) }).optional(),
+  /**
+   * House decision #91: the random table the screen offers next, for the same actor, and which of the spend's inputs
+   * (the values) fill which of the table's inputs (the keys). Only the link: the table is opened, never rolled here.
+   */
+  then: z.object({ table: Id, inputs: z.record(Id, Id).optional() }).optional(),
 });
 export type Spend = z.infer<typeof Spend>;
 
@@ -2037,6 +2059,23 @@ function spendProblems({
     }
     if (s.clearOn !== undefined && new Set(s.clearOn).size !== s.clearOn.length)
       out.push({ path: `${path}.clearOn`, message: "an event is listed twice" });
+    if (s.then !== undefined) {
+      if (r.tables?.[s.then.table] === undefined)
+        out.push({ path: `${path}.then.table`, message: `unknown table "${s.then.table}"` });
+      for (const key of Object.keys(s.then.inputs ?? {}).sort()) {
+        const from = s.then.inputs?.[key] ?? "";
+        if (s.inputs?.[from] === undefined)
+          out.push({ path: `${path}.then.inputs.${key}`, message: `"${from}" is not an input of the spend` });
+      }
+    }
+  });
+  // A list's quick picks name an entity type (house decision #91).
+  r.entities.forEach((e, i) => {
+    for (const id of Object.keys(e.fields).sort()) {
+      const f = e.fields[id];
+      if (f?.type === "list" && f.picks !== undefined && !r.entities.some((x) => x.id === f.picks?.entity))
+        out.push({ path: `entities[${i}].fields.${id}.picks.entity`, message: `unknown entity "${f.picks.entity}"` });
+    }
   });
 }
 

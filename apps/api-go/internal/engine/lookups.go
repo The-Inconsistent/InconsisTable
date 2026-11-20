@@ -124,7 +124,7 @@ func (c *CompiledRuleset) ReadLookup(tableID string, result float64, inputs map[
 		if scope == nil {
 			return nil, &LookupRefusal{Code: "unreadable", Detail: "the modifier reads a target"}
 		}
-		n, err := evaluateInt(lookup.Modifier, lookupScope(c.withHeld(scope), ctx))
+		n, err := evaluateInt(lookup.Modifier, lookupScope(c.withLists(scope), ctx))
 		if err != nil {
 			return nil, unreadable(err)
 		}
@@ -140,7 +140,7 @@ func (c *CompiledRuleset) PlanLookup(tableID string, result float64, inputs map[
 	if refused != nil {
 		return nil, nil, refused
 	}
-	full := lookupScope(c.withHeld(scope), read.Ctx)
+	full := lookupScope(c.withLists(scope), read.Ctx)
 	steps := []LookupStep{}
 	effects := c.Lookups[tableID].Effects
 	if read.Entry < 0 || read.Entry >= len(effects) {

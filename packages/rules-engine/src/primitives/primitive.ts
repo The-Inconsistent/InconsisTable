@@ -105,6 +105,11 @@ export interface TurnState {
   /** `initiative.sides`: members holding an action, and members taking no turn this round (`barred.throughRound`). */
   held?: readonly string[];
   barred?: readonly string[];
+  /**
+   * The uses of spends limited per round (house decision #91), each `usedKey`'s "<round>:<actorId>:<spendId>". Only
+   * the current round's count; a later round leaves earlier ones behind, so TURN BACK over a round brings them back.
+   */
+  used?: readonly string[];
   /** `initiative.sides`: members that cannot act (down, removed). The caller computes it; the primitive only reads it. */
   unable?: readonly string[];
 }

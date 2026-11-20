@@ -10,7 +10,7 @@ import { SAMPLE_D20 } from "./sample-d20.ts";
 export const SAMPLE_SKIRMISH: RulesetInput = {
   ...SAMPLE_D20,
   id: "sample-skirmish",
-  version: "0.1.1",
+  version: "0.1.2",
   resources: [
     ...(SAMPLE_D20.resources ?? []),
     { id: "momentum", label: "Momentum", cite: "Sample p.15", scope: "party", max: "6", visibility: "party" },

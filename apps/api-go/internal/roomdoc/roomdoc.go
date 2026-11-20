@@ -204,7 +204,7 @@ func references(d doc) error {
 			return problem("roomNoSuchPicture", nil, "codex", i, "imageId")
 		}
 		prep, _ := e["prep"].(map[string]any)
-		for kind, key := range map[string]string{"exits": "sceneId", "reveals": "entryId"} {
+		for kind, key := range map[string]string{"exits": "sceneId", "reveals": "entryId", "picks": "entryId"} {
 			for j, line := range doc(prep).list(kind) {
 				if !entries[line[key].(string)] {
 					return problem("roomNoSuchEntry", nil, "codex", i, "prep", kind, j, key)
@@ -876,6 +876,9 @@ func (im *importer) prep(prep map[string]any) map[string]any {
 	}
 	rewrite("exits", func(l map[string]any) { l["sceneId"] = im.entries[doc(l).str("sceneId")] })
 	rewrite("reveals", func(l map[string]any) { l["entryId"] = im.entries[doc(l).str("entryId")] })
+	// A pick line names its entry as the room has it (house decision #89); its rows keep their ids, which live in the
+	// entry's field value and travel unchanged.
+	rewrite("picks", func(l map[string]any) { l["entryId"] = im.entries[doc(l).str("entryId")] })
 	rewrite("tests", func(l map[string]any) {
 		ids := []any{}
 		for _, a := range strs(l["actorIds"]) {

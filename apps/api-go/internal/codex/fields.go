@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/jackc/pgx/v5"
@@ -81,12 +83,83 @@ func checkFields(ctx context.Context, tx core.Conn, c cs.Ctx, kind string, a cs.
 				return nil, cs.Fail("badEntryField", cs.Params{"field": def.Label, "detail": "no such entry in this room's packs"})
 			}
 		}
+		if def.Type == "tags" || def.Type == "rows" {
+			detail, err := listProblem(ctx, tx, c, rules, &def, value)
+			if err != nil {
+				return nil, err
+			}
+			if detail != "" {
+				return nil, cs.Fail("badEntryField", cs.Params{"field": def.Label, "detail": detail})
+			}
+		}
 		set[id] = value
 	}
 	if patch.set, err = json.Marshal(set); err != nil {
 		return nil, err
 	}
 	return patch, nil
+}
+
+// listProblem says why a tags or rows value, already of the right shape, names what the room does not have (house
+// decision #89), or "" when it does not: a word outside a tags field's suggestions when it takes no write-in; a row's
+// `from` or a ref cell naming no entry the room's packs serve to the field's readers; a Test cell naming no Test of
+// the ruleset. Each refusal names the row or the word by its place.
+func listProblem(ctx context.Context, tx core.Conn, c cs.Ctx, rules *engine.CompiledRuleset, def *engine.FieldDef, value any) (string, error) {
+	gm := def.Visibility == "gm" && view.ReadsGM(c)
+	if def.Type == "tags" {
+		if def.WriteIn {
+			return "", nil
+		}
+		names := map[string]bool{}
+		if len(def.Entities) > 0 {
+			entries, err := pack.LoadServedEntries(ctx, tx, c.CampaignID, pack.ServedOptions{Types: def.Entities})
+			if err != nil {
+				return "", err
+			}
+			for _, e := range entries {
+				names[e.Name] = names[e.Name] || pack.SeesEntry(e.Visibility, gm)
+			}
+		}
+		for i, w := range value.([]any) {
+			if word := w.(string); !slices.Contains(def.Options, word) && !names[word] {
+				return fmt.Sprintf(`[%d]: "%s" is not one of the suggestions`, i, word), nil
+			}
+		}
+		return "", nil
+	}
+	types := []string{}
+	for _, f := range def.From {
+		types = append(types, f.Entity)
+	}
+	for _, col := range def.Columns {
+		if col.Type == "ref" {
+			types = append(types, col.Entity)
+		}
+	}
+	lookup, err := pack.ServedLookup(ctx, tx, c.CampaignID, types, gm)
+	if err != nil {
+		return "", err
+	}
+	for i, raw := range value.([]any) {
+		row := raw.(map[string]any)
+		if from, has := row["from"].(map[string]any); has && lookup(from["entity"].(string), from["key"].(string)) == nil {
+			return fmt.Sprintf("[%d].from.key: no such entry in this room's packs", i), nil
+		}
+		values := row["values"].(map[string]any)
+		for _, col := range def.Columns {
+			cell, has := values[col.ID]
+			switch {
+			case !has:
+			case col.Type == "ref" && lookup(col.Entity, cell.(string)) == nil:
+				return fmt.Sprintf("[%d].values.%s: no such entry in this room's packs", i, col.ID), nil
+			case col.Type == "test":
+				if _, known := rules.Tests[cell.(map[string]any)["testId"].(string)]; !known {
+					return fmt.Sprintf("[%d].values.%s: no such Test in this room's ruleset", i, col.ID), nil
+				}
+			}
+		}
+	}
+	return "", nil
 }
 
 // linkProblem says why an `entry` field may not name target (house decision #76), or "" when it may: the target is an

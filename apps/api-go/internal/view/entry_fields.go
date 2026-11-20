@@ -1,6 +1,7 @@
 package view
 
 import (
+	"encoding/json"
 	"maps"
 
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
@@ -24,7 +25,15 @@ func seatEntryFields(codex cs.Codex, compiled *engine.CompiledRuleset, secrets b
 		fields := map[string]any{}
 		for id, value := range e.Fields {
 			def, declared := defs[id]
-			if declared && (secrets || def.Visibility == "party") && engine.CheckFieldValue(&def, value) == "" {
+			if !declared || !(secrets || def.Visibility == "party") {
+				continue
+			}
+			// A rows value keeps what still fits, row by row and cell by cell (house decision #89).
+			if def.Type == "rows" {
+				if fit := engine.FitRows(&def, value); fit != nil {
+					fields[id] = fit
+				}
+			} else if engine.CheckFieldValue(&def, value) == "" {
 				fields[id] = value
 			}
 		}
@@ -66,7 +75,8 @@ func seatEntryLinks(codex cs.Codex, compiled *engine.CompiledRuleset) cs.Codex {
 }
 
 // The codex block as a seat may read it (house decision #71): the side that reads GM notes every field, anyone else the
-// `party` ones. Independent of the actor definitions: a co-GM with `combat` but not `codex.secrets` reads no `gm` one.
+// `party` ones, and only the reminders whose `if` reads none of the others (house decision #89). Independent of the
+// actor definitions: a co-GM with `combat` but not `codex.secrets` reads no `gm` one.
 func seatCodexDefs(manifest map[string]any, secrets bool) map[string]any {
 	codex, has := manifest["codex"].(map[string]any)
 	if !has || secrets {
@@ -83,7 +93,22 @@ func seatCodexDefs(manifest map[string]any, secrets bool) map[string]any {
 				fields[id] = def
 			}
 		}
-		kinds[kind] = map[string]any{"fields": fields}
+		out := map[string]any{"fields": fields}
+		if declared, has := k["reminders"].([]any); has {
+			// The normalized manifest is ours and valid, so its kind decodes; one that did not would keep no reminder.
+			var typed engine.CodexKind
+			if raw, err := json.Marshal(k); err == nil {
+				_ = json.Unmarshal(raw, &typed)
+			}
+			reminders := []any{}
+			for i, r := range declared {
+				if i < len(typed.Reminders) && engine.PartyReadsReminder(typed, typed.Reminders[i]) {
+					reminders = append(reminders, r)
+				}
+			}
+			out["reminders"] = reminders
+		}
+		kinds[kind] = out
 	}
 	out := maps.Clone(manifest)
 	out["codex"] = map[string]any{"kinds": kinds}

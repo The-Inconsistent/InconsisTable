@@ -19,6 +19,8 @@ import {
 } from "../../../../packages/core-schema/src/index.ts";
 import {
   checkFieldValue,
+  fitRows,
+  partyReadsReminder,
   toViewerView,
   type ActorView,
   type CompiledRuleset,
@@ -81,9 +83,15 @@ export function seatManifest({ ruleset, ctx }: { ruleset: Ruleset; ctx: Ctx }): 
  */
 function seatCodexDefinitions({ ruleset, secrets }: { ruleset: Ruleset; secrets: boolean }): Ruleset {
   if (ruleset.codex === undefined || secrets) return ruleset;
+  // A reminder goes only where every field its `if` reads goes (house decision #89).
   const kinds = Object.entries(ruleset.codex.kinds).map(([kind, k]) => [
     kind,
-    { fields: Object.fromEntries(Object.entries(k.fields).filter(([, f]) => f.visibility === "party")) },
+    {
+      fields: Object.fromEntries(Object.entries(k.fields).filter(([, f]) => f.visibility === "party")),
+      ...(k.reminders === undefined
+        ? {}
+        : { reminders: k.reminders.filter((reminder) => partyReadsReminder({ kind: k, reminder })) }),
+    },
   ]);
   return { ...ruleset, codex: { kinds: Object.fromEntries(kinds) } };
 }
@@ -99,9 +107,15 @@ function seatEntryFields({ codex, ruleset, secrets }: { codex: Codex; ruleset: R
     ...codex,
     entries: codex.entries.map((e) => {
       const defs = ruleset?.codex?.kinds[e.kind]?.fields ?? {};
-      const fields = Object.entries(e.fields).filter(([id, value]) => {
+      const fields = Object.entries(e.fields).flatMap(([id, value]): [string, (typeof e.fields)[string]][] => {
         const def = Object.hasOwn(defs, id) ? defs[id] : undefined;
-        return def !== undefined && (secrets || def.visibility === "party") && checkFieldValue({ def, value }) === null;
+        if (def === undefined || !(secrets || def.visibility === "party")) return [];
+        // A rows value keeps what still fits, row by row and cell by cell (house decision #89).
+        if (def.type === "rows") {
+          const fit = fitRows({ def, value });
+          return fit === null ? [] : [[id, fit as Record<string, unknown>[]]];
+        }
+        return checkFieldValue({ def, value }) === null ? [[id, value]] : [];
       });
       return { ...e, fields: Object.fromEntries(fields) };
     }),

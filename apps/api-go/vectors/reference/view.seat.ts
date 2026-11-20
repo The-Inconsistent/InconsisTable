@@ -180,7 +180,7 @@ export function seatView({
       myDraft,
       pools,
       clocks: seatClocks({ clocks: state.clocks, codex, sight }),
-      ...seatRequests({ requests: state.requests, answers: state.requestAnswers, ctx, sight }),
+      ...seatRequests({ requests: state.requests, answers: state.requestAnswers, ctx, sight, ruleset, pools }),
       ...seatTables({ rolls: state.rolls, dealt: state.dealt, ctx, sight }),
     },
     codex,
@@ -237,25 +237,36 @@ const seatTables = ({
   };
 };
 
-// The spend requests a seat receives: the side that answers them sees every pending request, a player only their own
-// and their own answers (that side sees every answer), a screen and a guest token (no user) none.
+// The spend requests a seat receives: the side that answers them sees every pending request, a player their own and
+// their own answers (that side sees every answer). An ask for a spend that costs pools also reaches every seat that
+// receives each of those pools (house decision #84); a spend that costs no pool stays with the asker and that side.
 const seatRequests = ({
   requests,
   answers,
   ctx,
   sight,
+  ruleset,
+  pools,
 }: {
   requests: readonly SpendRequest[];
   answers: readonly RequestAnswer[];
   ctx: Ctx;
   sight: Sight;
-}): Pick<LiveState, "requests" | "requestAnswers"> =>
-  sight.requests
-    ? { requests: [...requests], requestAnswers: [...answers] }
-    : {
-        requests: requests.filter((q) => ctx.userId !== null && q.userId === ctx.userId),
-        requestAnswers: answers.filter((r) => ctx.userId !== null && r.userId === ctx.userId),
-      };
+  ruleset: Ruleset | null;
+  pools: readonly PoolState[];
+}): Pick<LiveState, "requests" | "requestAnswers"> => {
+  if (sight.requests) return { requests: [...requests], requestAnswers: [...answers] };
+  const seen = new Set(pools.map((p) => p.id));
+  const onSeenPools = (q: SpendRequest) => {
+    const costs = ruleset?.spends?.find((s) => s.id === q.spendId)?.cost ?? [];
+    const charged = costs.flatMap((c) => (c.pool === undefined ? [] : [c.pool]));
+    return charged.length > 0 && charged.every((pool) => seen.has(pool));
+  };
+  return {
+    requests: requests.filter((q) => (ctx.userId !== null && q.userId === ctx.userId) || onSeenPools(q)),
+    requestAnswers: answers.filter((r) => ctx.userId !== null && r.userId === ctx.userId),
+  };
+};
 
 // The clocks a seat receives: the clock side sees every clock, anyone else the `party` ones. A clock's entry id is sent
 // only when the seat can read that entry, so a hidden entry's id never leaks.

@@ -175,8 +175,11 @@ export const SpendRequest = z.object({
   id: z.string(),
   userId: z.string(),
   actorId: z.string().nullable(),
-  resourceId: z.string(),
-  amount: z.number().int().min(1).max(99),
+  // A resource and an amount, or a spend of the ruleset and its inputs (house decision #84).
+  resourceId: z.string().nullable(),
+  amount: z.number().int().min(1).max(99).nullable(),
+  spendId: z.string().nullable(),
+  inputs: z.record(z.string(), z.number().int()).nullable(),
   note: z.string(),
   createdAt: z.string(),
 });
@@ -186,8 +189,9 @@ export const RequestAnswer = z.object({
   id: z.string(),
   userId: z.string(),
   actorId: z.string().nullable(),
-  resourceId: z.string(),
-  amount: z.number().int(),
+  resourceId: z.string().nullable(),
+  amount: z.number().int().nullable(),
+  spendId: z.string().nullable(),
   status: z.enum(["approved", "denied"]),
   reason: z.string(),
 });

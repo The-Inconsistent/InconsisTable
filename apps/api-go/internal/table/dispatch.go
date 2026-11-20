@@ -248,7 +248,7 @@ var handlers = map[string]handler{
 	"actor.spawn": pack.Spawn,
 	// encounter/encounter.actions.ts
 	"encounter.start":         encounter.Action,
-	"encounter.end":           encounter.Action,
+	"encounter.end":           clearing("encounterEnd", encounter.Action),
 	"encounter.add":           encounter.Action,
 	"encounter.remove":        encounter.Action,
 	"encounter.setInitiative": encounter.Action,
@@ -307,6 +307,7 @@ var handlers = map[string]handler{
 	"request.cancel":  request.Cancel,
 	"request.approve": request.Approve,
 	"request.deny":    request.Deny,
+	"spend.do":        request.Do,
 	// safety/safety.go
 	"campaign.setSafety": safety.Set,
 	"safety.suggest":     safety.Suggest,
@@ -315,6 +316,17 @@ var handlers = map[string]handler{
 	"table.roll":      randomtable.Roll,
 	"table.deal":      randomtable.Deal,
 	"table.reshuffle": randomtable.Reshuffle,
+}
+
+// clearing runs h, then cancels the pending asks of the spends that clear on event (house decision #84).
+func clearing(event string, h func(context.Context, core.Conn, cs.Ctx, cs.Action) (cs.Result, error)) func(context.Context, core.Conn, cs.Ctx, cs.Action) (cs.Result, error) {
+	return func(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
+		res, err := h(ctx, tx, c, a)
+		if err != nil {
+			return res, err
+		}
+		return res, request.Clear(ctx, tx, c.CampaignID, event)
+	}
 }
 
 // dispatch sends an authorized action to its feature's handler. Every action type has one (dispatch_test.go); a type

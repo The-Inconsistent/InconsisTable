@@ -19,7 +19,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
 
-// MaxPending is how many requests one user may have waiting.
+// MaxPending is how many requests one user may have waiting, unless the ruleset's requests.max says (house decision #84).
 const MaxPending = 5
 
 // answersKept is how many of a player's latest answers the snapshot carries, and for how long.
@@ -30,7 +30,7 @@ const (
 
 // Load is the campaign's pending requests, oldest first, whole. The Seat view decides what each seat gets.
 func Load(ctx context.Context, conn core.Conn, campaignID string) ([]cs.SpendRequest, error) {
-	rows, err := conn.Query(ctx, `SELECT id::text, user_id, actor_id::text, resource_id, amount, note, created_at
+	rows, err := conn.Query(ctx, `SELECT id::text, user_id, actor_id::text, resource_id, amount, spend_id, inputs, note, created_at
 		FROM spend_request WHERE campaign_id = $1 AND status = 'pending' ORDER BY created_at, id`, campaignID)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string) ([]cs.SpendReq
 	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (cs.SpendRequest, error) {
 		var q cs.SpendRequest
 		var at time.Time
-		err := r.Scan(&q.ID, &q.UserID, &q.ActorID, &q.ResourceID, &q.Amount, &q.Note, &at)
+		err := r.Scan(&q.ID, &q.UserID, &q.ActorID, &q.ResourceID, &q.Amount, &q.SpendID, &q.Inputs, &q.Note, &at)
 		q.CreatedAt = core.ISOTime(at)
 		return q, err
 	})
@@ -51,7 +51,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string) ([]cs.SpendReq
 // LoadAnswers is the recent approved and denied requests of the room, newest first, with their askers: the Seat view
 // gives each player their own (with userId), so a phone can say what the GM answered.
 func LoadAnswers(ctx context.Context, conn core.Conn, campaignID string) ([]cs.RequestAnswer, error) {
-	rows, err := conn.Query(ctx, `SELECT id::text, user_id, actor_id::text, resource_id, amount, status, reason
+	rows, err := conn.Query(ctx, `SELECT id::text, user_id, actor_id::text, resource_id, amount, spend_id, status, reason
 		FROM spend_request WHERE campaign_id = $1 AND status IN ('approved', 'denied') AND resolved_at > now() - $2::interval
 		ORDER BY resolved_at DESC, id DESC LIMIT 100`, campaignID, answersFor.String())
 	if err != nil {
@@ -59,7 +59,7 @@ func LoadAnswers(ctx context.Context, conn core.Conn, campaignID string) ([]cs.R
 	}
 	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (cs.RequestAnswer, error) {
 		var a cs.RequestAnswer
-		return a, r.Scan(&a.ID, &a.UserID, &a.ActorID, &a.ResourceID, &a.Amount, &a.Status, &a.Reason)
+		return a, r.Scan(&a.ID, &a.UserID, &a.ActorID, &a.ResourceID, &a.Amount, &a.SpendID, &a.Status, &a.Reason)
 	})
 	if out == nil {
 		out = []cs.RequestAnswer{}
@@ -67,7 +67,8 @@ func LoadAnswers(ctx context.Context, conn core.Conn, campaignID string) ([]cs.R
 	return out, err
 }
 
-// Send is request.send. Only a resource the seat may not change itself, on a character it holds, can be asked for.
+// Send is request.send: a resource the seat may not change itself, on a character it holds, or a spend of the ruleset
+// (house decision #84, sendSpend).
 //
 // ponytail: shared pools have storage now, but a request against one is the next step, so a request with no actor is
 // refused; the table already allows a NULL actor_id for it. A room without a GM applies a request at once instead of queuing it.
@@ -76,6 +77,11 @@ func Send(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 		return cs.Result{}, cs.Fail("noPermission")
 	}
 	actorID, resource := a.Str("actorId"), a.Str("resourceId")
+	_, hasAmount := a["amount"]
+	// One form or the other: a resource and an amount, or a spend (house decision #84).
+	if spending := a.Str("spendId") != ""; spending && (resource != "" || hasAmount) || !spending && (resource == "" || !hasAmount) {
+		return cs.Result{}, cs.Fail("requestKind")
+	}
 	if actorID == "" {
 		return cs.Result{}, cs.Fail("requestNoPool")
 	}
@@ -88,11 +94,18 @@ func Send(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	if err != nil {
 		return cs.Result{}, err
 	}
+	max := MaxPending
+	if r := rc.Compiled.Ruleset.Requests; r != nil {
+		max = int(r.Max)
+	}
+	if a.Str("spendId") != "" {
+		return sendSpend(ctx, tx, c, rc, a, max)
+	}
 	b, ok := rc.Built[actorID]
 	if !ok {
 		return cs.Result{}, cs.Fail("characterNotFound")
 	}
-	if !slices.Contains(view.HeldBy(c), actorID) {
+	if !slices.Contains(heldBy(c), actorID) {
 		return cs.Result{}, cs.Fail("notYourCharacter")
 	}
 	res, known := rc.Compiled.Resources[resource]
@@ -124,19 +137,29 @@ func Send(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 		actionID, err := spend(ctx, tx, table, actorID, resource, int(amount))
 		return cs.Done(actionID), err
 	}
-	var waiting int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM spend_request WHERE campaign_id = $1 AND user_id = $2 AND status = 'pending'`,
-		c.CampaignID, *c.UserID).Scan(&waiting); err != nil {
+	if err := underLimit(ctx, tx, c, max); err != nil {
 		return cs.Result{}, err
-	}
-	if waiting >= MaxPending {
-		return cs.Result{}, cs.Fail("requestLimit")
 	}
 	var id string
 	err = tx.QueryRow(ctx, `INSERT INTO spend_request (campaign_id, user_id, actor_id, resource_id, amount, note)
 		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id::text`,
 		c.CampaignID, *c.UserID, actorID, resource, int(amount), a.Str("note")).Scan(&id)
 	return cs.Done(id), err
+}
+
+var heldBy = view.HeldBy
+
+// underLimit refuses a user who already has max requests waiting.
+func underLimit(ctx context.Context, tx core.Conn, c cs.Ctx, max int) error {
+	var waiting int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM spend_request WHERE campaign_id = $1 AND user_id = $2 AND status = 'pending'`,
+		c.CampaignID, *c.UserID).Scan(&waiting); err != nil {
+		return err
+	}
+	if waiting >= max {
+		return cs.Fail("requestLimit")
+	}
+	return nil
 }
 
 // Cancel is request.cancel: the asker's own pending request. Another user's request is not found, not refused, so its
@@ -169,25 +192,39 @@ func CancelPending(ctx context.Context, tx core.Conn, campaignID string) error {
 	return err
 }
 
+// waiting is one pending request: a resource and an amount, or a spend and its inputs.
+type waiting struct {
+	actorID, resource, spendID string
+	amount                     int
+	inputs                     map[string]any
+}
+
 // The pending request of this room, locked, or the refusal.
-func pending(ctx context.Context, tx core.Conn, campaignID, id string) (actorID, resource string, amount int, err error) {
+func pending(ctx context.Context, tx core.Conn, campaignID, id string) (waiting, error) {
 	var status string
-	var actor *string
-	err = tx.QueryRow(ctx, `SELECT status, actor_id::text, resource_id, amount FROM spend_request
-		WHERE id = $1 AND campaign_id = $2 FOR UPDATE`, id, campaignID).Scan(&status, &actor, &resource, &amount)
+	var actor, resource, spend *string
+	var amount *int
+	var w waiting
+	err := tx.QueryRow(ctx, `SELECT status, actor_id::text, resource_id, amount, spend_id, inputs FROM spend_request
+		WHERE id = $1 AND campaign_id = $2 FOR UPDATE`, id, campaignID).Scan(&status, &actor, &resource, &amount, &spend, &w.inputs)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", "", 0, cs.Fail("requestNotFound")
+		return w, cs.Fail("requestNotFound")
 	}
 	if err != nil {
-		return "", "", 0, err
+		return w, err
 	}
 	if status != "pending" {
-		return "", "", 0, cs.Fail("requestAnswered")
+		return w, cs.Fail("requestAnswered")
 	}
-	if actor != nil {
-		actorID = *actor
+	for to, from := range map[*string]*string{&w.actorID: actor, &w.resource: resource, &w.spendID: spend} {
+		if from != nil {
+			*to = *from
+		}
 	}
-	return actorID, resource, amount, nil
+	if amount != nil {
+		w.amount = *amount
+	}
+	return w, nil
 }
 
 // Approve is request.approve: -amount through the resource.capped adjust op and the actor pipeline, as a GM's own delta,
@@ -195,11 +232,16 @@ func pending(ctx context.Context, tx core.Conn, campaignID, id string) (actorID,
 // the character is deleted, a seat without the scope for it) refuses, and the request stays for the GM to deny.
 func Approve(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	id := a.Str("id")
-	actorID, resource, amount, err := pending(ctx, tx, c.CampaignID, id)
+	w, err := pending(ctx, tx, c.CampaignID, id)
 	if err != nil {
 		return cs.Result{}, err
 	}
-	actionID, err := spend(ctx, tx, c, actorID, resource, amount)
+	var actionID string
+	if w.spendID != "" {
+		actionID, err = doSpend(ctx, tx, c, w.spendID, w.actorID, w.inputs)
+	} else {
+		actionID, err = spend(ctx, tx, c, w.actorID, w.resource, w.amount)
+	}
 	if err != nil {
 		return cs.Result{}, err
 	}
@@ -225,7 +267,7 @@ func spend(ctx context.Context, tx core.Conn, c cs.Ctx, actorID, resource string
 // Deny is request.deny, with the GM's reason if they gave one.
 func Deny(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	id := a.Str("id")
-	if _, _, _, err := pending(ctx, tx, c.CampaignID, id); err != nil {
+	if _, err := pending(ctx, tx, c.CampaignID, id); err != nil {
 		return cs.Result{}, err
 	}
 	_, err := tx.Exec(ctx, `UPDATE spend_request SET status = 'denied', reason = $2, resolved_at = now() WHERE id = $1`,

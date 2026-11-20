@@ -16,12 +16,16 @@ type ResourceState struct {
 	Reset map[string]float64 `json:"reset"`
 	// InstantDeathAt is the overflow damage that kills outright, for health tracks.
 	InstantDeathAt *float64 `json:"instantDeathAt"`
+	// Limit is the max as the table shows it, also for a resource declared capped: false, whose Max is nil (health.harm
+	// reads the shock limit from it, house decision #66). Nil reads as Max.
+	Limit *float64 `json:"limit"`
 }
 
 // ConditionState is one actor_condition row.
 type ConditionState struct {
-	ID        string `json:"id"`
-	ExpiresOn string `json:"expiresOn"`
+	ID          string `json:"id"`
+	ConditionID string `json:"conditionId"`
+	ExpiresOn   string `json:"expiresOn"`
 	// ExpiresAfter is the turns or rounds left. Nil reads as 1 (house decision #14).
 	ExpiresAfter *float64 `json:"expiresAfter"`
 }
@@ -38,6 +42,11 @@ type ActorState struct {
 	Fields     map[string]any   `json:"fields"`
 	Resources  []NamedResource  `json:"resources"`
 	Conditions []ConditionState `json:"conditions"`
+	// Entity is the ruleset's entity type, for the ops that read it by type (health.harm); "" for none.
+	Entity string `json:"entity"`
+	// Scope is the actor's expression scope as the caller evaluated it, for the ops that read expressions; nil when
+	// it cannot be evaluated.
+	Scope *Record `json:"scope"`
 }
 
 func (a *ActorState) resource(name string) *ResourceState {

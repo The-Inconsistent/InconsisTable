@@ -21,6 +21,7 @@ import type { ExprScope, ExprType } from "../../../packages/rules-engine/src/exp
 import { typeName } from "../../../packages/rules-engine/src/expr/expr.check.ts";
 import { compileExpr, type CompiledExpr } from "../../../packages/rules-engine/src/expr/expr.ts";
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+import { SAMPLE_HARM } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
 import { SAMPLE_SCOPED } from "../../../packages/rules-engine/src/fixtures/sample-scoped.ts";
@@ -556,6 +557,122 @@ function genSidesState(): RuleState {
   return { actors: {}, turn, ...(srnd(10) === 0 ? {} : { pools }) };
 }
 STATES.push(...Array.from({ length: 150 }, genSidesState));
+const SIDES_END = STATES.length;
+
+// `health.harm` (house decision #66): actors of the invented sample-harm ruleset, built as the api builds them (scope,
+// bounds, limits), from a stream of their own so the corpora above do not move. Heroes at every wound and strain
+// around their limits, spent or not, down or not; brutes; swarms at several sizes; actors no profile holds.
+const HARM_COMPILED = (() => {
+  const r = compileRuleset(SAMPLE_HARM);
+  if (!r.ok) throw new Error(JSON.stringify(r.problems));
+  return r.compiled;
+})();
+const HARM_BLOCK = HARM_COMPILED.ruleset.health.harm;
+const HARM_PARAMS: unknown[] = [
+  HARM_BLOCK,
+  // No shock and no mobs: every shock is refused, a swarm is wounded like anyone.
+  { ...HARM_BLOCK, shock: undefined, mob: undefined },
+  // Spent by its condition alone, down without a cap on healing or a condition, nothing destroyed.
+  {
+    ...HARM_BLOCK,
+    profiles: [
+      {
+        entities: ["hero", "swarm"],
+        spent: { conditions: ["winded", "down"] },
+        felled: { when: "res.wounds >= derived.limit" },
+      },
+      { entities: ["brute"], felled: { when: "res.wounds > 2", injuries: "hide", condition: "winded" } },
+    ],
+  },
+];
+let harmSeed = 66;
+const hrnd = (n: number) => (((harmSeed = (Math.imul(harmSeed, 1103515245) + 12345) >>> 0) / 2 ** 32) * n) | 0;
+const hpick = <T>(items: readonly T[]): T => items[hrnd(items.length)] as T;
+
+function harmActor({
+  entity,
+  fields,
+  values,
+  conditions,
+}: {
+  entity: string;
+  fields: Record<string, FieldValue>;
+  values: Record<string, number>;
+  conditions: string[];
+}): ActorState {
+  const derived = deriveValues({ compiled: HARM_COMPILED, entity, values: { fields, resources: values, conditions } });
+  const scope = actorScope({ fields, derived, resources: values });
+  const resources: Record<string, ResourceState> = {};
+  for (const [resource, value] of Object.entries(values)) {
+    const b = resourceBounds({ compiled: HARM_COMPILED, resource, scope });
+    resources[resource] = { value, min: b.min, max: b.capped ? b.max : null, limit: b.max };
+  }
+  return {
+    id: "h",
+    entity,
+    fields,
+    resources,
+    scope,
+    conditions: conditions.map((c, i) => ({ id: `h${i}`, conditionId: c, expiresOn: "manual", expiresAfter: null })),
+  };
+}
+
+function genHarmState(): RuleState {
+  const conditions = ["down", "winded"].filter(() => hrnd(3) === 0);
+  const kind = hpick(["hero", "hero", "hero", "brute", "swarm", "swarm", "ghost", "none"]);
+  let a: ActorState;
+  if (kind === "swarm") {
+    const size = hpick([1, 2, 3, 5, 8, 12, 40]);
+    const members = hpick([0, 1, size, size, Math.ceil(size / 2), size - 1].filter((n) => n >= 0));
+    a = harmActor({ entity: "swarm", fields: { size }, values: { wounds: 0, strain: 0, members }, conditions });
+  } else if (kind === "brute") {
+    const hide = 1 + hrnd(6);
+    const wounds = hrnd(2 * hide + 4);
+    a = harmActor({ entity: "brute", fields: { hide }, values: { wounds, strain: 0 }, conditions });
+  } else {
+    const grit = 1 + hrnd(5);
+    const limit = grit + 3;
+    const wounds = hpick([0, 0, 1, limit - 1, limit, limit + 1, limit + 2, 2 * limit, hrnd(3 * limit)]);
+    const strain = hpick([0, grit - 1, grit, grit + 1, grit + 3, hrnd(2 * grit + 2)].filter((n) => n >= 0));
+    const scars = hpick<FieldValue | undefined>([undefined, 0, 1, 3]);
+    const fields: Record<string, FieldValue> = { grit, ...(scars === undefined ? {} : { scars }) };
+    a = harmActor({ entity: "hero", fields, values: { wounds, strain }, conditions });
+    if (kind === "ghost") a = { ...a, entity: "ghost" };
+    if (kind === "none") a = { ...a, entity: undefined };
+  }
+  if (hrnd(25) === 0) a = { ...a, scope: undefined };
+  if (hrnd(30) === 0) a = { ...a, resources: {} };
+  return { actors: { h: a }, turn: null };
+}
+const HARM_STATES_AT = STATES.length;
+STATES.push(...Array.from({ length: 400 }, genHarmState));
+
+/** A hit for one harm state: its thresholds often, any sign and size otherwise. */
+function genHit(state: RuleState): { wounds?: number; shock?: number } {
+  const a = state.actors.h;
+  const derived = new Map(Object.entries(a?.scope?.derived ?? {}));
+  const num = (v: unknown, fallback: number) => (typeof v === "number" ? v : fallback);
+  const limit = num(derived.get("limit"), 3);
+  const cap = num(derived.get("strainCap"), 2);
+  const wounds = a?.resources.wounds?.value ?? 0;
+  const strain = a?.resources.strain?.value ?? 0;
+  const w = hpick([
+    0,
+    0,
+    hrnd(25) - 12,
+    limit - wounds,
+    limit - wounds + 1,
+    2 * limit,
+    2 * limit + 1,
+    -limit,
+    100,
+    -100,
+    1,
+    -1,
+  ]);
+  const s = hpick([0, 0, hrnd(13) - 6, cap, cap + 1, cap - strain, cap - strain + 1, -strain, 3, -2]);
+  return { ...(w === 0 && hrnd(2) === 0 ? {} : { wounds: w }), ...(s === 0 && hrnd(2) === 0 ? {} : { shock: s }) };
+}
 
 function genInput(primitive: string, op: string, state: RuleState): unknown {
   const ids = [...Object.keys(state.actors), ...(state.turn?.order ?? [])];
@@ -703,8 +820,7 @@ function opVectors() {
       // The pool op draws from a stream of its own: the manifest vectors that follow keep the corpus they had.
       const saved = seed;
       for (let i = 0; i < (primitive === "health.tracks" ? 6000 : 1500); i++) {
-        const state =
-          primitive === "initiative.sides" ? BASE_STATES + rnd(STATES.length - BASE_STATES) : rnd(BASE_STATES);
+        const state = primitive === "initiative.sides" ? BASE_STATES + rnd(SIDES_END - BASE_STATES) : rnd(BASE_STATES);
         const valid = genInput(primitive, op, STATES[state] as RuleState);
         run({ primitive, op, p: pick(list), state, input: rnd(4) === 0 ? breakInput(valid) : valid });
       }
@@ -724,6 +840,35 @@ function opVectors() {
   for (const critical of [true, false]) {
     const input = { actorId: "pc", amount: 1, critical };
     run({ primitive: "health.tracks", op: "damage", p: OP_PARAMS["health.tracks"]?.[3], state: 2, input });
+  }
+  // `health.harm`: 3,000 hits and 400 musters over the harm states, on the stream they were drawn from.
+  for (const p of HARM_PARAMS) {
+    if (!PRIMITIVES["health.harm"]?.params.safeParse(p).success) throw new Error(`not valid: ${JSON.stringify(p)}`);
+    paramsAt.set(p, params.length);
+    params.push(p);
+  }
+  const harmState = () => HARM_STATES_AT + hrnd(STATES.length - HARM_STATES_AT);
+  const BROKEN = [
+    { actorId: "h", wounds: 1.5 },
+    { actorId: "h", wounds: 101 },
+    { actorId: "h", shock: -101 },
+    { actorId: "h" },
+    { actorId: "h", wounds: 0, shock: 0 },
+    { actorId: "", wounds: 1 },
+    { wounds: 1 },
+    { actorId: "h", shock: "1" },
+    null,
+  ];
+  for (let i = 0; i < 3000; i++) {
+    const state = harmState();
+    const valid = { actorId: hrnd(40) === 0 ? "nobody" : "h", ...genHit(STATES[state] as RuleState) };
+    const input = hrnd(15) === 0 ? hpick(BROKEN) : valid;
+    run({ primitive: "health.harm", op: "hit", p: hpick(HARM_PARAMS), state, input });
+  }
+  for (let i = 0; i < 400; i++) {
+    const members = hpick([1, 2, 5, 12, 40, 500, 0, 501, 2.5]);
+    const input = { actorId: hrnd(20) === 0 ? "nobody" : "h", members };
+    run({ primitive: "health.harm", op: "muster", p: hpick(HARM_PARAMS), state: harmState(), input });
   }
   // Sides: the paths a random state seldom lines up for (a paid seize, an automatic wrap, a lifted bar).
   const sideTurn = (over: Partial<TurnState>, gold = 3, tin = 3): number =>

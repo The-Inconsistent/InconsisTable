@@ -131,8 +131,7 @@ function targets({ params }: { params: HealthTracksParams }): TargetPattern[] {
   ];
 }
 
-// The tracks count down from max to min (hit points). A track that counts damage up past its max is a different
-// mechanic and gets its own primitive.
+// The tracks count down from max to min (hit points). Damage that counts up past its max is `health.harm`.
 export const healthTracks: Primitive<HealthTracksParams> = {
   id: "health.tracks",
   params: HealthTracksParams,

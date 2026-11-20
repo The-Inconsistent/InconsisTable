@@ -71,6 +71,7 @@ export * from "./primitives/initiative-ranked.ts";
 export { firstOf, initiativeSeated, nextFirst, sequence } from "./primitives/initiative-seated.ts";
 export { initiativeSides, sideUp } from "./primitives/initiative-sides.ts";
 export * from "./primitives/health-tracks.ts";
+export * from "./primitives/health-harm.ts";
 export * from "./primitives/resource-capped.ts";
 export * from "./primitives/conditions-expire.ts";
 export * from "./primitives/rest.ts";

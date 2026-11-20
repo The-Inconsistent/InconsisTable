@@ -136,6 +136,11 @@ export const RefusalCode = z.enum([
   "outOfTargets",
   "unknownPool",
   "cannotPay",
+  // `health.harm` (house decision #66).
+  "badRequest",
+  "noHarmHere",
+  "neverShocked",
+  "notAMob",
 ]);
 export type RefusalCode = z.infer<typeof RefusalCode>;
 

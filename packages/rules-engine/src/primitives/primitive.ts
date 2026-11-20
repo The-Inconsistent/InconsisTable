@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { FieldValue } from "../derived.ts";
+import type { ExprRecord } from "../expr/expr.ast.ts";
 import {
   DeltaKind,
   TestKey,
@@ -55,6 +56,11 @@ export interface ResourceState {
   reset?: Partial<Record<ResetEvent, number>>;
   /** Health tracks: the overflow damage that kills outright, evaluated by the caller (`instantDeathAt`). */
   instantDeathAt?: number | null;
+  /**
+   * The max as the table shows it, also for a resource declared `capped: false`, whose `max` is null (`health.harm`
+   * reads the shock limit from it, house decision #66). Absent or null reads as `max`.
+   */
+  limit?: number | null;
 }
 
 /** An active condition: one `actor_condition` row. */
@@ -73,6 +79,10 @@ export interface ActorState {
   resources: Readonly<Record<string, ResourceState>>;
   /** Active conditions in the order the table applied them. Absent: none loaded. */
   conditions?: readonly ConditionState[];
+  /** The ruleset's entity type, for the ops that read it by type (`health.harm`). Absent: none. */
+  entity?: string;
+  /** The actor's expression scope as the caller evaluated it (`actorScope`), for the ops that read expressions. */
+  scope?: ExprRecord;
 }
 
 export interface TurnState {

@@ -45,6 +45,8 @@ type CombatantPanelProps = {
   refusal?: string | null;
   /** The ruleset's one-tap spends for this combatant's actor (house decision #84). */
   spends?: ReactNode;
+  /** What the actor holds up, with its quick picks, end one and end all (house decision #91). */
+  held?: ReactNode;
 };
 
 // A refusal shown in the panel is brought into view when it appears: on a phone the panel's controls sit far below.
@@ -67,6 +69,7 @@ export function CombatantPanel({
   harm,
   refusal = null,
   spends,
+  held,
 }: CombatantPanelProps) {
   const t = useTranslations("combatantPanel");
   const tSave = useTranslations("deathSave");
@@ -158,6 +161,7 @@ export function CombatantPanel({
 
       {sides && <SideActions encounter={encounter} combatant={c} sides={sides} pools={pools} run={run} />}
       {spends}
+      {held}
 
       {harm && actor ? (
         <HarmPad combatant={c} actor={actor} pad={harm.pad} maxOf={harm.maxOf} run={run} />

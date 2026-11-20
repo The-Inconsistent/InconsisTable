@@ -6,6 +6,7 @@ import type { ActionInput, ActionResult, Actor, BookSource, DealtRow, RollRow } 
 import type { CompiledRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import { TableLookup } from "@/components/gm/track/components/tables-panel/components/table-lookup/table-lookup";
+import { tableCardId } from "@/components/gm/track/constants";
 import type { RequestPage } from "@/hooks/use-table/use-table";
 import { isLookupTable, targetsOf, typedOf } from "@/lib/lookup/lookup";
 
@@ -83,7 +84,7 @@ export function TablesPanel(props: TablesPanelProps) {
   // nothing is rolled or granted.
   const handleNext = (id: string, from: { title: string; label: string }) => {
     setTrail((was) => [...was, from]);
-    const card = document.getElementById(`table-${id}`);
+    const card = document.getElementById(tableCardId(id));
     card?.scrollIntoView({ behavior: "smooth", block: "start" });
     card?.querySelector("input")?.focus({ preventScroll: true });
   };
@@ -140,7 +141,13 @@ export function TablesPanel(props: TablesPanelProps) {
           const usable = hasGm || table.visibility !== "gm";
           const lookup = compiled !== null && isLookupTable(table);
           return (
-            <li key={id} id={`table-${id}`} className="card table-card" style={{ "--i": i } as React.CSSProperties}>
+            <li
+              key={id}
+              id={tableCardId(id)}
+              tabIndex={-1}
+              className="card table-card"
+              style={{ "--i": i } as React.CSSProperties}
+            >
               <div className="row table-head">
                 <h3 className="head">{table.title}</h3>
                 <span className="chip">{t(table.visibility)}</span>

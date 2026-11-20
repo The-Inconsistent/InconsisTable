@@ -15,6 +15,7 @@ import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { Creatures } from "@/components/gm/creatures/creatures";
 import { SpendButtons } from "@/components/gm/spend-buttons/spend-buttons";
+import { HeldListEditor } from "@/components/ui/held-list/held-list";
 import { AddCombatants } from "@/components/gm/track/components/add-combatants/add-combatants";
 import { ClocksPanel } from "@/components/gm/track/components/clocks-panel/clocks-panel";
 import { PoolsPanel } from "@/components/gm/track/components/pools-panel/pools-panel";
@@ -34,9 +35,10 @@ import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { harmPadOf } from "@/lib/harm/harm";
 import { afterAnswer, afterSelect, refusalAt, type Refusal } from "@/lib/refusal/refusal";
 import { gmSideOf } from "@/lib/ledger/table";
+import { heldChips } from "@/lib/held/held";
 import { rangeOf } from "@/lib/sheet/sheet";
 import { currentOf } from "@/lib/track/track";
-import type { TrackMode } from "@/components/gm/track/constants";
+import { tableCardId, type TrackMode } from "@/components/gm/track/constants";
 
 type TrackProps = {
   me: Me;
@@ -92,6 +94,16 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
     setSelectedId(id);
   };
 
+  // What each combatant holds up, for its row (house decision #91).
+  const heldOf = (actorId: string) => heldChips({ ruleset: rules, actor: actors.get(actorId) });
+
+  // OPEN TABLE: a spend's next table (house decision #91), brought into view in the tables panel and focused.
+  const handleOpenTable = (tableId: string) => {
+    const card = document.getElementById(tableCardId(tableId));
+    card?.scrollIntoView({ block: "center" });
+    card?.focus();
+  };
+
   // The selected combatant's hit pad, when the ruleset has `health.harm` and a profile holds its type (#66).
   const compiled = useMemo(() => {
     const c = rules ? compileRuleset(rules) : null;
@@ -145,6 +157,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                   actors={actors}
                   selectedId={selected?.id}
                   onSelect={handleSelect}
+                  heldOf={heldOf}
                 />
               ) : (
                 <OrderList
@@ -153,6 +166,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                   selectedId={selected?.id}
                   onSelect={handleSelect}
                   run={run}
+                  heldOf={heldOf}
                 />
               )}
             </div>
@@ -178,6 +192,19 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                       compiled={compiled}
                       state={state}
                       actor={actors.get(selected.actorId)!}
+                      send={send}
+                      onTable={handleOpenTable}
+                    />
+                  )
+                }
+                held={
+                  sheet.ruleset &&
+                  selectedActor && (
+                    <HeldListEditor
+                      ruleset={sheet.ruleset}
+                      actor={selectedActor}
+                      campaignId={state.campaign.id}
+                      gm
                       send={send}
                     />
                   )

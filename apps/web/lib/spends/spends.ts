@@ -5,9 +5,12 @@ import {
   parseExpr,
   planSpend,
   resourceBounds,
+  usedKey,
+  withLists,
   type ActorState,
   type CompiledRuleset,
   type PlannedCost,
+  type Refusal,
   type RuleState,
   type Ruleset,
   type Spend,
@@ -23,22 +26,28 @@ type Table = Pick<LiveState, "pools" | "encounter" | "campaign">;
 
 /** The actor and the room as the engine's planSpend reads them, from what this seat receives. */
 export function spendWorld({
+  ruleset,
   compiled,
   table,
   actor,
   characters,
 }: {
+  ruleset: Ruleset;
   compiled: CompiledRuleset | null;
   table: Table;
   actor: Actor;
   characters: number;
 }): { actor: ActorState; state: RuleState } {
-  const scope = actorScope({
-    fields: actor.fields,
-    derived: actor.derived,
-    resources: actor.resources,
-    party: { characters },
-    campaign: table.campaign.fields,
+  // An unset list reads as empty, as on the server (house decision #91).
+  const scope = withLists({
+    ruleset,
+    scope: actorScope({
+      fields: actor.fields,
+      derived: actor.derived,
+      resources: actor.resources,
+      party: { characters },
+      campaign: table.campaign.fields,
+    }),
   });
   const resources: Record<string, ActorState["resources"][string]> = {};
   for (const [id, value] of Object.entries(actor.resources)) {
@@ -60,6 +69,10 @@ export function spendWorld({
           currentId: null,
           order: e.combatants.map((c) => c.actorId),
           barred: e.combatants.filter((c) => c.barred === true).map((c) => c.actorId),
+          // House decision #91: the round's uses, as the server counts them.
+          used: e.combatants.flatMap((c) =>
+            (c.used ?? []).map((spendId) => usedKey({ round: e.round, actorId: c.actorId, spendId })),
+          ),
         };
   const state: RuleState = { actors: {}, turn, pools };
   const self: ActorState = { id: actor.id, fields: actor.fields, resources, scope, entity: actor.entity ?? undefined };
@@ -81,18 +94,24 @@ export function offersOf({
   actor: Actor;
   characters: number;
   inputs?: Readonly<Record<string, Readonly<Record<string, number>>>>;
-}): { spend: Spend; plan: SpendPlan | null }[] {
+}): { spend: Spend; plan: SpendPlan | null; refusal: Refusal | null }[] {
   const spends = (ruleset.spends ?? []).filter(
     (s) => actor.entity !== null && (s.entities === undefined || s.entities.includes(actor.entity)),
   );
   if (spends.length === 0) return [];
-  const world = spendWorld({ compiled, table, actor, characters });
+  const world = spendWorld({ ruleset, compiled, table, actor, characters });
   return spends.map((spend) => {
     const picked = { ...defaultInputs(spend), ...inputs[spend.id] };
     const r = planSpend({ ruleset, spendId: spend.id, ...world, inputs: picked });
-    return { spend, plan: "code" in r ? null : r };
+    return "code" in r ? { spend, plan: null, refusal: r } : { spend, plan: r, refusal: null };
   });
 }
+
+/** A spend to show: one the server would take now, or one whose limit this round is reached (house decision #91). */
+export const shown = (o: { plan: SpendPlan | null; refusal: Refusal | null }) => o.plan !== null || usedUp(o);
+
+/** The spend's limit is reached this round: shown, disabled, with the reason. */
+export const usedUp = (o: { refusal: Refusal | null }) => o.refusal?.code === "usedThisRound";
 
 /** Each input at its min. */
 export const defaultInputs = (spend: Spend): Record<string, number> =>

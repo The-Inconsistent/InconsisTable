@@ -36,6 +36,81 @@
         "light": "Sáng",
         "dark": "Tối"
       }
+    },
+    "dev": {
+      "title": "Diện mạo của một Thế giới",
+      "lede": "Một bàn chơi mẫu khoác một Thế giới bịa ra. Mỗi ô chọn đổi một lựa chọn; công tắc màu trên thanh đầu là của riêng máy này.",
+      "controls": "Lựa chọn",
+      "world": "Thế giới",
+      "worlds": {
+        "base": "Gốc (không đổi gì)",
+        "meadow": "Đồng cỏ (sáng, bo tròn)",
+        "hoarfrost": "Sương giá (lạnh, vuông)"
+      },
+      "sets": "Bộ màu",
+      "set": {
+        "both": "Cả hai",
+        "light": "Chỉ sáng",
+        "dark": "Chỉ tối"
+      },
+      "density": "Mật độ",
+      "densityName": {
+        "table": "Bàn chơi",
+        "tv": "TV"
+      },
+      "baseFace": "gốc",
+      "tabs": "Mục",
+      "tab": {
+        "fight": "Giao tranh",
+        "sheet": "Phiếu",
+        "notes": "Ghi chú"
+      },
+      "round": "Vòng {round}",
+      "nextTurn": "Lượt kế",
+      "endFight": "Kết thúc trận",
+      "yourTurn": "Đến lượt bạn",
+      "order": "Thứ tự lượt",
+      "names": {
+        "first": "Ada Marrow",
+        "second": "Người Gác Xám"
+      },
+      "firstPlayer": "Đi đầu",
+      "party": "Nhóm",
+      "foe": "Địch",
+      "acting": "Đang hành động",
+      "bloodied": "Gục",
+      "health": "Máu {now} trên {max}",
+      "cardText": "Một dòng chữ thường, để xem kiểu chữ thân đọc thế nào ở khoảng cách một sải tay.",
+      "chip": {
+        "ready": "Sẵn sàng",
+        "hidden": "Ẩn",
+        "pressed": "Đã đánh dấu"
+      },
+      "button": {
+        "plain": "Xem",
+        "main": "Xác nhận",
+        "small": "Nhỏ",
+        "pressed": "Bật",
+        "disabled": "Không dùng được",
+        "step": "Thêm một",
+        "sheet": "Mở bảng"
+      },
+      "field": "Tên trên thẻ",
+      "fieldValue": "ada marrow",
+      "machine": "ghế 3 · máu -4 · 21:04:17",
+      "section": {
+        "abilities": "Năng lực",
+        "notes": "Ghi chú"
+      },
+      "stat": {
+        "health": "Máu",
+        "defence": "Phòng thủ",
+        "speed": "Tốc độ"
+      },
+      "notes": "Chữ thường trong một mục giữ nguyên như đã viết: không bao giờ viết hoa, dù tiêu đề thế nào.",
+      "buttons": "Nút",
+      "sheetTitle": "Con số này từ đâu ra",
+      "sheetText": "Một bảng trồi lên từ mép dưới, mang màu của thẻ."
     }
   },
   "roles": {

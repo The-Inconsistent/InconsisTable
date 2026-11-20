@@ -5,6 +5,7 @@ import (
 	"maps"
 	"math"
 	"slices"
+	"strings"
 )
 
 // Spends (packages/rules-engine/src/spend.ts, house decision #84): what a spend costs and runs for one actor now, or why
@@ -29,6 +30,13 @@ type PlannedStep struct {
 type SpendPlan struct {
 	Costs []PlannedCost `json:"costs"`
 	Run   []PlannedStep `json:"run"`
+	// Used is the turn's `used` list once the spend is done (house decision #91); nil without a limit or a fight.
+	Used []string `json:"used,omitempty"`
+}
+
+// UsedKey is spend.ts usedKey: one use of a spend limited per round, as the turn's `used` list holds it.
+func UsedKey(round float64, actorID, spendID string) string {
+	return esNumber(round) + ":" + actorID + ":" + spendID
 }
 
 // SpendOf is the ruleset's spend by id, or nil.
@@ -59,7 +67,7 @@ func withCtx(scope *Record, ctx map[string]any) *Record {
 	return &Record{fields}
 }
 
-// PlanSpend is spend.ts planSpend. The refusals are its: noSuchSpend, badInput, spendNotNow, cannotPay (and
+// PlanSpend is spend.ts planSpend. The refusals are its: noSuchSpend, badInput, spendNotNow, cannotPay, usedThisRound (and
 // unknownResource, unknownPool, wrongState for what cannot be read).
 func PlanSpend(r *Ruleset, spendID string, actor *ActorState, state *RuleState, inputs map[string]any) (*SpendPlan, *Refusal) {
 	spend := r.SpendOf(spendID)
@@ -103,6 +111,22 @@ func PlanSpend(r *Ruleset, spendID string, actor *ActorState, state *RuleState, 
 		}
 	}
 	plan := &SpendPlan{Costs: []PlannedCost{}, Run: []PlannedStep{}}
+	if t := state.Turn; spend.Limit != nil && t != nil && slices.Contains(t.Order, actor.ID) {
+		key, round := UsedKey(t.Round, actor.ID, spendID), esNumber(t.Round)+":"
+		now, times := []string{}, 0.0
+		for _, u := range t.Used {
+			if strings.HasPrefix(u, round) {
+				now = append(now, u)
+				if u == key {
+					times++
+				}
+			}
+		}
+		if times >= spend.Limit.Max {
+			return nil, refuse("usedThisRound", `"%s", round %s`, spend.Label, esNumber(t.Round))
+		}
+		plan.Used = append(now, key)
+	}
 	owed := map[string]float64{}
 	for j, c := range spend.Cost {
 		amount, refusal := readNumber(c.Amount, scope, fmt.Sprintf("%s.cost[%d].amount", path, j))

@@ -1,7 +1,7 @@
 import type { CompiledRuleset, CompiledTableEffect } from "./compile.ts";
 import { ExprError, type ExprRecord, type ExprValue } from "./expr/expr.ast.ts";
 import { evaluateBool, evaluateInt } from "./expr/expr.ts";
-import { MAX_EFFECT_TIMES, tableDie, type RandomTable, type TableEntry } from "./manifest.ts";
+import { MAX_EFFECT_TIMES, tableDie, type RandomTable, type Ruleset, type TableEntry } from "./manifest.ts";
 import { own } from "./own.ts";
 
 // Lookups (house decision #87): the GM types what the dice showed, the inputs and the target decide the total, the
@@ -104,7 +104,10 @@ export function readLookup({
   if (lookup.modifier !== null) {
     if (scope === null) return { ok: false, code: "unreadable", detail: "the modifier reads a target" };
     try {
-      total += evaluateInt({ expr: lookup.modifier, scope: { ...withHeld({ compiled, scope }), ctx: read.ctx } });
+      total += evaluateInt({
+        expr: lookup.modifier,
+        scope: { ...withLists({ ruleset: compiled.ruleset, scope }), ctx: read.ctx },
+      });
     } catch (e) {
       if (e instanceof ExprError) return { ok: false, code: "unreadable", detail: e.message };
       throw e;
@@ -129,7 +132,7 @@ export function planLookup(args: {
   if (!read.ok) return read;
   const { compiled, tableId, scope } = args;
   const effects = own(compiled.lookups, tableId)?.effects[read.entry] ?? [];
-  const full = { ...withHeld({ compiled, scope }), ctx: read.ctx };
+  const full = { ...withLists({ ruleset: compiled.ruleset, scope }), ctx: read.ctx };
   const steps: LookupStep[] = [];
   try {
     for (const x of effects) {
@@ -192,12 +195,18 @@ function stepOf({
 }
 
 /**
- * The scope with each held kind's list field read as empty where it is unset (house decision #88): an actor that holds
- * nothing yet counts 0 records, as it holds none.
+ * The scope with every list field an actor type declares read as empty where it is unset (house decisions #88, #91), as
+ * the derived pass reads its own type's: an actor that holds nothing yet counts 0 records, as it holds none. A scope
+ * does not say its type, so another type's list reads as empty too; an expression compiled for a type reads only its
+ * own fields.
  */
-export function withHeld({ compiled, scope }: { compiled: CompiledRuleset; scope: ExprRecord }): ExprRecord {
+export function withLists({ ruleset, scope }: { ruleset: Pick<Ruleset, "entities">; scope: ExprRecord }): ExprRecord {
   let out = scope;
-  for (const k of Object.values(compiled.ruleset.held ?? {})) out = setIfAbsent({ at: out, path: k.field.split(".") });
+  for (const e of ruleset.entities) {
+    if (e.base !== "actor") continue;
+    for (const [id, def] of Object.entries(e.fields))
+      if (def.type === "list") out = setIfAbsent({ at: out, path: id.split(".") });
+  }
   return out;
 }
 

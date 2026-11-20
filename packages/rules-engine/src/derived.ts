@@ -156,6 +156,8 @@ export function applyBaseEffects({
   }
   for (const [id, def] of Object.entries(ce.def.fields)) {
     const v = own(fields, id);
+    // An unset list reads as empty (house decision #91), as `withLists` reads it: counted from nothing.
+    if (def.type === "list" && (v === undefined || v === null)) fields[id] = [];
     if (def.type !== "int" || typeof v !== "number") continue;
     fields[id] = Math.min(def.max ?? Infinity, Math.max(def.min ?? -Infinity, v));
   }

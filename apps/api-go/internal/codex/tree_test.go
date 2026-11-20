@@ -73,7 +73,7 @@ func TestEntryTree(t *testing.T) {
 }
 
 // Deleting an entry moves its children up into its place among its siblings, in their order.
-func TestDeleteMovesChildrenUp(t *testing.T) {
+func TestDeleteMakesChildrenRoots(t *testing.T) {
 	db := dbtest.Open(t)
 	dbtest.Tx(t, db, func(tx pgx.Tx) {
 		room := dbtest.NewRoom(t, tx)
@@ -93,15 +93,18 @@ func TestDeleteMovesChildrenUp(t *testing.T) {
 
 		run(t, tx, room, Delete, cs.Action{"type": "codex.delete", "id": mid})
 		for _, id := range []string{c1, c2} {
-			if p := parentOf(t, tx, id); p == nil || *p != top {
-				t.Fatalf("a child of the deleted entry moves to its parent, got %v", p)
+			if p := parentOf(t, tx, id); p != nil {
+				t.Fatalf("a child of the deleted entry becomes a root, got %v", p)
 			}
 		}
 		if p := parentOf(t, tx, grand); p == nil || *p != c1 {
 			t.Fatalf("a grandchild stays where it is, got %v", p)
 		}
-		if got := positions(t, tx, first, c1, c2, last); !slices.Equal(got, []int{0, 1, 2, 3}) {
-			t.Fatalf("want 0 1 2 3, got %v", got)
+		if got := positions(t, tx, first, last); !slices.Equal(got, []int{0, 1}) {
+			t.Fatalf("the siblings it left close up: want 0 1, got %v", got)
+		}
+		if got := positions(t, tx, top, c1, c2); !slices.Equal(got, []int{0, 1, 2}) {
+			t.Fatalf("the new roots follow the roots there were, in their order: want 0 1 2, got %v", got)
 		}
 
 		// A root's children become roots.

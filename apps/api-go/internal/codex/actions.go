@@ -3,6 +3,7 @@ package codex
 import (
 	"context"
 	"errors"
+	"math"
 	"slices"
 
 	"github.com/jackc/pgx/v5"
@@ -274,8 +275,8 @@ func Reveal(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	})
 }
 
-// Delete is codex.delete. An adventure that still has scenes stays; any other entry's children take its place among
-// its siblings, in their order, so its branch moves up a level (house decision #69).
+// Delete is codex.delete. An adventure that still has scenes stays; any other entry's children become roots, after
+// the roots there are (house decision #69).
 func Delete(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	cid, id := c.CampaignID, a.Str("id")
 	kind, err := entryKind(ctx, tx, cid, id)
@@ -289,13 +290,8 @@ func Delete(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	if scenes {
 		return cs.Result{}, cs.Fail("adventureHasScenes")
 	}
-	// Where it sits among its siblings, in renumber's order.
 	var parent *string
-	var at int
-	if err := tx.QueryRow(ctx, `SELECT e.parent_id::text, (SELECT count(*) FROM codex_entry s
-			WHERE s.campaign_id = e.campaign_id AND s.kind = e.kind AND s.parent_id IS NOT DISTINCT FROM e.parent_id
-				AND (s.position, s.created_at, s.id) < (e.position, e.created_at, e.id))
-		FROM codex_entry e WHERE e.id = $1`, id).Scan(&parent, &at); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT parent_id::text FROM codex_entry WHERE id = $1`, id).Scan(&parent); err != nil {
 		return cs.Result{}, err
 	}
 	rows, err := tx.Query(ctx, `SELECT id::text FROM codex_entry WHERE parent_id = $1 ORDER BY position, created_at, id`, id)
@@ -306,11 +302,17 @@ func Delete(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	if err != nil {
 		return cs.Result{}, err
 	}
-	if _, err := tx.Exec(ctx, `UPDATE codex_entry SET parent_id = $2 WHERE parent_id = $1`, id, parent); err != nil {
+	// Its children become roots, after the roots there are, as Auspex's location tree has it (house decision #69).
+	if _, err := tx.Exec(ctx, `UPDATE codex_entry SET parent_id = NULL WHERE parent_id = $1`, id); err != nil {
 		return cs.Result{}, err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM codex_entry WHERE id = $1`, id); err != nil {
 		return cs.Result{}, err
 	}
-	return cs.Done(""), renumber(ctx, tx, cid, kind, parent, children, at)
+	if parent != nil {
+		if err := renumber(ctx, tx, cid, kind, parent, nil, 0); err != nil {
+			return cs.Result{}, err
+		}
+	}
+	return cs.Done(""), renumber(ctx, tx, cid, kind, nil, children, math.MaxInt32)
 }

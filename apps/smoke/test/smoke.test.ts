@@ -935,10 +935,10 @@ test("codex tree: places nest, never in a loop; a hidden middle is never named t
     assert.deepEqual(parents(seat.codex()), { City: null, Inn: null, Dock: null }, `the ${who} gets roots`);
     assert.ok(!JSON.stringify(seat.codex()).includes(ward), `the ${who} never learns the Ward's id`);
   }
-  // Deleting the Ward moves its children up under the City.
+  // Deleting the Ward leaves its children as roots.
   ok(await owner.send({ type: "codex.delete", id: ward }));
-  await eventually(() => parents(owner.codex()).Inn === city && parents(owner.codex()).Dock === city, "moved up");
-  await eventually(() => parents(ana.codex()).Inn === city, "the player now sees the Inn inside the City");
+  await eventually(() => parents(owner.codex()).Inn === null && parents(owner.codex()).Dock === null, "roots");
+  assert.deepEqual(parents(ana.codex()), { City: null, Inn: null, Dock: null }, "the player sees three roots still");
   owner.socket.close();
   ana.socket.close();
   screen.socket.close();

@@ -30,7 +30,10 @@ export type MemberInput = z.infer<typeof MemberInput>;
 export const MarkInput = z.object({ id: z.string().min(1), done: z.boolean() });
 export type MarkInput = z.infer<typeof MarkInput>;
 
-export const BarInput = z.object({ id: z.string().min(1), barred: z.boolean() });
+/** One member by `id`, or every member of a `side` that may be (house decision #81); exactly one of the two. */
+export const BarInput = z
+  .object({ id: z.string().min(1).optional(), side: z.string().min(1).optional(), barred: z.boolean() })
+  .refine((x) => (x.id === undefined) !== (x.side === undefined), "name a member or a side");
 export type BarInput = z.infer<typeof BarInput>;
 
 type P = SidesInitiative;
@@ -300,14 +303,32 @@ export const initiativeSides: Primitive<SidesInitiative> = {
         if (isRefusal(t)) return t;
         if (params.barred === undefined) return refuse("wrongState", "this ruleset has no barring");
         if (t.round > params.barred.throughRound) return refuse("wrongState", "barring is over");
-        if (!t.order.includes(input.id)) return refuse("badInput", `"${input.id}" is not in the order`);
+        if (input.side !== undefined)
+          return sideIds(params).includes(input.side) ? null : refuse("badInput", `"${input.side}" is not a side`);
+        const id = input.id ?? "";
+        if (!t.order.includes(id)) return refuse("badInput", `"${id}" is not in the order`);
         if (!input.barred) return null;
-        if ((t.done ?? []).includes(input.id)) return refuse("wrongState", `"${input.id}" has already acted`);
-        return input.id === t.currentId ? refuse("wrongState", `"${input.id}" is acting`) : null;
+        if ((t.done ?? []).includes(id)) return refuse("wrongState", `"${id}" has already acted`);
+        return id === t.currentId ? refuse("wrongState", `"${id}" is acting`) : null;
       },
-      apply: ({ ctx: { state }, input }) => [
-        set("barred", input.barred ? withId(state.turn?.barred, input.id) : without(state.turn?.barred, input.id)),
-      ],
+      apply: ({ ctx: { state }, input }) => {
+        const t = state.turn;
+        if (t === null) return [];
+        // A whole side: every member that may be barred (in the order, not done, not acting), or all of them freed.
+        const ids =
+          input.side === undefined
+            ? [input.id ?? ""]
+            : t.order.filter(
+                (id) =>
+                  sideOf(t, id) === input.side &&
+                  (!input.barred || (!(t.done ?? []).includes(id) && id !== t.currentId)),
+              );
+        const barred = ids.reduce(
+          (list: readonly string[], id) => (input.barred ? withId(list, id) : without(list, id)),
+          t.barred ?? [],
+        );
+        return [set("barred", [...barred])];
+      },
     }),
     lift: defineOp<P, MemberInput>({
       input: MemberInput,

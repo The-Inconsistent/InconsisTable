@@ -201,6 +201,17 @@ type (
 		ID        string `json:"id"`
 		Left      *int   `json:"left"`
 		ExpiresOn string `json:"expiresOn"`
+		// Stacks is how many it holds, when more than one (house decision #81).
+		Stacks int `json:"stacks,omitempty"`
+	}
+	// EncounterReminder is one reminder line due now (house decision #81), the combat side's only.
+	EncounterReminder struct {
+		At       string   `json:"at"`
+		Source   string   `json:"source"`
+		ID       string   `json:"id"`
+		Text     string   `json:"text"`
+		Cite     *string  `json:"cite"`
+		ActorIDs []string `json:"actorIds"`
 	}
 	// HP is a combatant's health numbers.
 	HP struct {
@@ -278,6 +289,8 @@ type (
 		Combatants    []Combatant      `json:"combatants"`
 		// Unseen says the acting combatant is one this seat is not sent (house decision #68); never set for the combat side.
 		Unseen bool `json:"unseen,omitempty"`
+		// Reminders are the lines due now (house decision #81); the combat side's only, absent for every other seat.
+		Reminders []EncounterReminder `json:"reminders,omitempty"`
 		*EncounterSides
 	}
 	// EncounterSides is the encounter's part of a sides order (house decision #60); nil for any other order.

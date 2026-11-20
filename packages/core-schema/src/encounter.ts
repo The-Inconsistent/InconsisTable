@@ -17,8 +17,21 @@ export const CombatantCondition = z.object({
   /** Turns or rounds left for the expiries that count; null when it doesn't count. */
   left: z.number().int().nullable(),
   expiresOn: z.string(),
+  /** How many it holds, when more than one (house decision #81). */
+  stacks: z.number().int().optional(),
 });
 export type CombatantCondition = z.infer<typeof CombatantCondition>;
+
+/** A reminder line due now (house decision #81): the ruleset's own words, with the combatants it holds for. */
+export const EncounterReminder = z.object({
+  at: z.enum(["turnStart", "turnEnd", "roundEnd"]),
+  source: z.enum(["reminder", "condition"]),
+  id: z.string(),
+  text: z.string(),
+  cite: z.string().nullable(),
+  actorIds: z.array(z.string()),
+});
+export type EncounterReminder = z.infer<typeof EncounterReminder>;
 
 export const Combatant = z.object({
   id: z.string(),
@@ -78,6 +91,8 @@ export const Encounter = z.object({
    * this says a turn is being taken all the same (house decision #68). Absent otherwise, and always for the combat side.
    */
   unseen: z.boolean().optional(),
+  /** The reminder lines due now (house decision #81): the combat side's only, absent for every other seat or when none. */
+  reminders: z.array(EncounterReminder).optional(),
   /** Sides order only (house decision #60), absent otherwise: whether the fight has begun (a setup opens it not begun). */
   begun: z.boolean().optional(),
   /** The side that acted last, and the side that acted out of turn this round; side ids, so public. */

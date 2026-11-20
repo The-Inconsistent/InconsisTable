@@ -262,6 +262,7 @@ func seatEncounter(e *cs.Encounter, views map[string]engine.ActorView, sight Sig
 		return id != nil && slices.ContainsFunc(seen, func(cb cs.Combatant) bool { return cb.ID == *id })
 	}
 	out.ConditionDefs = []cs.ConditionDef{}
+	out.Reminders = nil // a line may name a hidden combatant (house decision #81)
 	if !isSeen(e.CurrentID) {
 		out.CurrentID = nil
 		// Someone the seat is not sent holds the turn: said, never named (house decision #68).

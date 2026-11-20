@@ -167,7 +167,11 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 					}
 					left = &n
 				}
-				c.Conditions = append(c.Conditions, cs.CombatantCondition{ID: x.ConditionID, Left: left, ExpiresOn: x.ExpiresOn})
+				stacks := 0
+				if x.Stacks > 1 {
+					stacks = int(x.Stacks)
+				}
+				c.Conditions = append(c.Conditions, cs.CombatantCondition{ID: x.ConditionID, Left: left, ExpiresOn: x.ExpiresOn, Stacks: stacks})
 			}
 		}
 		return c, nil
@@ -187,9 +191,21 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 		return out, nil
 	}
 	r := compiled.Ruleset
-	if r.Initiative != nil && r.Initiative.Strategy == "sides" {
-		sidesOf(out, e, compiled, built, sideOf, held, barred)
+	acting := (*string)(nil)
+	for _, c := range combatants {
+		if e.CurrentCombatantID != nil && c.ID == *e.CurrentCombatantID {
+			acting = &c.ActorID
+		}
 	}
+	// The round ends after this turn: in a ranked or seated order, whoever acts is the last of it.
+	// ponytail: a round of phases ends after its last phase, not its last seat; ask the phases once a ruleset needs it.
+	roundEnding := acting != nil && len(order) > 0 && order[len(order)-1] == *acting
+	if r.Initiative != nil && r.Initiative.Strategy == "sides" {
+		roundEnding = sidesOf(out, e, compiled, built, sideOf, held, barred)
+	}
+	out.Reminders = remindersNow(compiled, built, remindersAsk{
+		acting: acting, roundEnding: roundEnding, order: order, held: held, barred: barred, round: e.Round,
+	})
 	for _, p := range r.Phases {
 		out.Phases = append(out.Phases, cs.EncounterPhase{ID: p.ID, Label: p.Label, Mode: p.Mode})
 	}
@@ -216,9 +232,52 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 	return out, nil
 }
 
+// remindersAsk is the moment the reminders are asked about: who acts (nil between turns), whether the round ends
+// after this turn (or has ended, waiting for the next), and every combatant's flags.
+type remindersAsk struct {
+	acting       *string
+	roundEnding  bool
+	order        []string
+	held, barred []string
+	round        int
+}
+
+// remindersNow is the reminder lines due now (house decision #81): a turn's start and end lines for whoever acts, and
+// the round's end lines, asked of every combatant, while the round is ending. Nil when none is due.
+func remindersNow(rules *engine.CompiledRuleset, built map[string]*actor.Built, ask remindersAsk) []cs.EncounterReminder {
+	actors := map[string]engine.ReminderActor{}
+	for _, id := range ask.order {
+		b := built[id]
+		if b == nil {
+			continue
+		}
+		held := []string{}
+		for _, x := range b.Conditions {
+			held = append(held, x.ConditionID)
+		}
+		actors[id] = engine.ReminderActor{Scope: b.Scope, Conditions: held, Held: slices.Contains(ask.held, id),
+			Barred: slices.Contains(ask.barred, id)}
+	}
+	var out []cs.EncounterReminder
+	add := func(at string, order []string) {
+		for _, l := range rules.RemindersOf(at, actors, order, float64(ask.round)) {
+			out = append(out, cs.EncounterReminder{At: at, Source: l.Source, ID: l.ID, Text: l.Text, Cite: l.Cite, ActorIDs: l.ActorIDs})
+		}
+	}
+	if ask.acting != nil {
+		add("turnStart", []string{*ask.acting})
+		add("turnEnd", []string{*ask.acting})
+	}
+	if ask.roundEnding {
+		add("roundEnd", ask.order)
+	}
+	return out
+}
+
 // sidesOf adds a sides order's part to the encounter and to each combatant (house decision #60). `sideUp` is the
-// primitive's own, read from the turn as it stands.
-func sidesOf(out *cs.Encounter, e *Active, rules *engine.CompiledRuleset, built map[string]*actor.Built, sideOf map[string]string, held, barred []string) {
+// primitive's own, read from the turn as it stands. It says whether the round ends once whoever acts is done: the fight
+// has begun and nobody would be pending.
+func sidesOf(out *cs.Encounter, e *Active, rules *engine.CompiledRuleset, built map[string]*actor.Built, sideOf map[string]string, held, barred []string) bool {
 	order := make([]string, len(out.Combatants))
 	for i, c := range out.Combatants {
 		order[i] = c.ActorID
@@ -248,4 +307,11 @@ func sidesOf(out *cs.Encounter, e *Active, rules *engine.CompiledRuleset, built 
 			Held: slices.Contains(held, c.ActorID), Barred: slices.Contains(barred, c.ActorID), Unable: slices.Contains(unable, c.ActorID),
 		}
 	}
+	after := *t
+	after.CurrentID, after.Done = nil, done
+	if acting != nil {
+		after.Done = append(slices.Clone(done), *acting)
+	}
+	_, pending := engine.SideUp(rules.Ruleset.Normalized["initiative"], &after)
+	return e.Begun && !pending
 }

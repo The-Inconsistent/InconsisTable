@@ -159,6 +159,25 @@ type (
 		Cite       *string  `json:"cite"`
 		Effects    []Effect `json:"effects"`
 		Visibility string   `json:"visibility"`
+		// From, At, Text and Immune are house decision #81; nil when absent.
+		From   *string `json:"from"`
+		At     *string `json:"at"`
+		Text   *string `json:"text"`
+		Immune *string `json:"immune"`
+	}
+	// Reminder is one line of `reminders` (house decision #81). If is nil when it has none.
+	Reminder struct {
+		ID   string  `json:"id"`
+		At   string  `json:"at"`
+		Text string  `json:"text"`
+		Cite *string `json:"cite"`
+		If   *string `json:"if"`
+	}
+	// RestRule is one of `rests` (house decision #81).
+	RestRule struct {
+		Event     string   `json:"event"`
+		RefusedIn []string `json:"refusedIn"`
+		Cite      *string  `json:"cite"`
 	}
 	poolBandDef struct {
 		ID    string  `json:"id"`
@@ -239,6 +258,7 @@ type (
 		RoundEnd        string    `json:"roundEnd"`
 		Setup           *struct {
 			Cite *string `json:"cite"`
+			Note *string `json:"note"`
 		} `json:"setup"`
 		OutOfTurn *struct {
 			Cost map[string]SideCost `json:"cost"`
@@ -375,6 +395,8 @@ type (
 		// CampaignFields is nil when the manifest declares none.
 		CampaignFields map[string]CampaignFieldDef `json:"campaignFields"`
 		Conditions     []Condition                 `json:"conditions"`
+		Reminders      []Reminder                  `json:"reminders"`
+		Rests          []RestRule                  `json:"rests"`
 		Tests          map[string]Test             `json:"tests"`
 		Initiative     *Initiative                 `json:"initiative"`
 		Phases         []Phase                     `json:"phases"`
@@ -920,6 +942,23 @@ func (r *Ruleset) semanticProblems() problems {
 			}
 			needCite(cite, fmt.Sprintf("conditions[%d].effects[%d]", i, j))
 		}
+		if (c.At == nil) != (c.Text == nil) {
+			p.add(fmt.Sprintf("conditions[%d]", i), "a reminder needs both at and text")
+		}
+		if c.From != nil && c.Duration != "ownTurnEnd" {
+			p.add(fmt.Sprintf("conditions[%d].from", i), "only an ownTurnEnd condition is armed from a turn")
+		}
+	}
+	for i, x := range r.Reminders {
+		needCite(x.Cite, fmt.Sprintf("reminders[%d]", i))
+	}
+	for i, x := range r.Rests {
+		needCite(x.Cite, fmt.Sprintf("rests[%d]", i))
+		for j, id := range x.RefusedIn {
+			if !slices.ContainsFunc(r.Health.States, func(s HealthState) bool { return s.ID == id }) {
+				p.add(fmt.Sprintf("rests[%d].refusedIn[%d]", i, j), `unknown health state "%s"`, id)
+			}
+		}
 	}
 	for _, id := range sortedKeys(r.Tests) {
 		t := r.Tests[id]
@@ -1012,6 +1051,8 @@ func (r *Ruleset) semanticProblems() problems {
 	p.duplicates("entities", idsOf(r.Entities, func(e EntityType) string { return e.ID }))
 	p.duplicates("resources", idsOf(r.Resources, func(x Resource) string { return x.ID }))
 	p.duplicates("conditions", idsOf(r.Conditions, func(x Condition) string { return x.ID }))
+	p.duplicates("reminders", idsOf(r.Reminders, func(x Reminder) string { return x.ID }))
+	p.duplicates("rests", idsOf(r.Rests, func(x RestRule) string { return x.Event }))
 	p.duplicates("phases", idsOf(r.Phases, func(x Phase) string { return x.ID }))
 	if i := r.Initiative; i != nil && i.Strategy == "sides" {
 		p.duplicates("initiative.sides", idsOf(i.Sides, func(x Side) string { return x.ID }))

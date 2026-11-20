@@ -436,4 +436,5 @@ export const Notice = z.object({
 });
 export type Notice = z.infer<typeof Notice>;
 
-export type ActionResult = { ok: true; id?: string; token?: string; notices?: Notice[] } | Refused;
+// `skipped`: the actors a rest of everyone left out, by name (house decision #81); absent when none.
+export type ActionResult = { ok: true; id?: string; token?: string; notices?: Notice[]; skipped?: string[] } | Refused;

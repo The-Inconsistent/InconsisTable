@@ -118,7 +118,7 @@ func SessionStart(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.
 	if _, err := tx.Exec(ctx, `UPDATE campaign SET next_session_at = NULL WHERE id = $1`, cid); err != nil {
 		return cs.Result{}, err
 	}
-	if _, _, err := ruleset.RestActors(ctx, tx, c, "sessionStart", ""); err != nil {
+	if _, _, _, err := ruleset.RestActors(ctx, tx, c, "sessionStart", ""); err != nil {
 		return cs.Result{}, err
 	}
 	return cs.Done(id), nil
@@ -131,7 +131,7 @@ func SessionEnd(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	if err := checkAward(ctx, tx, c.CampaignID, award); err != nil {
 		return cs.Result{}, err
 	}
-	if _, _, err := ruleset.RestActors(ctx, tx, c, "sessionEnd", ""); err != nil {
+	if _, _, _, err := ruleset.RestActors(ctx, tx, c, "sessionEnd", ""); err != nil {
 		return cs.Result{}, err
 	}
 	if err := sessionAward(ctx, tx, c, award); err != nil {

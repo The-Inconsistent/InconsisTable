@@ -35,7 +35,7 @@ export const HitInput = z
 export type HitInput = z.infer<typeof HitInput>;
 
 /** A mob's size set by hand: its members, and its start raised to match. */
-export const MusterInput = z.object({ actorId: z.string().min(1), members: z.int().min(1).max(500) });
+export const MusterInput = z.object({ actorId: z.string().min(1), members: z.int().min(0).max(500) });
 export type MusterInput = z.infer<typeof MusterInput>;
 
 type P = HealthHarmParams;

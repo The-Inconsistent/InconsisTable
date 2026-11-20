@@ -155,7 +155,7 @@ func parseMusterInput(raw any) (musterInput, *Refusal) {
 	if !ok {
 		return musterInput{}, refuse("badInput", "not an object")
 	}
-	in := musterInput{actorID: r.str("actorId"), members: r.intIn("members", 1, 500)}
+	in := musterInput{actorID: r.str("actorId"), members: r.intIn("members", 0, 500)}
 	return in, r.refusal("badInput")
 }
 

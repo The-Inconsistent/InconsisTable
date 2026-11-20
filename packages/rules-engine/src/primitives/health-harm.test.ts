@@ -135,7 +135,7 @@ test("mustering raises the start and sets the members; only a mob musters", () =
   ]);
   assert.deepEqual(muster(swarm(3), 4), [add("members", 1)]);
   assert.equal(refused(hero(), { members: 3 }, "muster"), "notAMob");
-  assert.equal(refused(hero(), { members: 0 }, "muster"), "badInput");
+  assert.equal(refused(hero(), { members: -1 }, "muster"), "badInput");
 });
 
 test("an actor no profile holds takes no hits", () => {

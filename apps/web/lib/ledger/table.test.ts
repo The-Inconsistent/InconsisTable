@@ -41,7 +41,15 @@ test("the saved sheet's lines: what the builder resolved, a section that does no
 // The engine's invented ledger game only (ADR 0001).
 const ledger = Ruleset.parse(SAMPLE_LEDGER_RULESET);
 const plain = Ruleset.parse({ ...SAMPLE_LEDGER_RULESET, build: undefined });
-const saved = (o: Partial<ActorLedger>): ActorLedger => ({ build: null, sheet: null, draft: null, ...o });
+const saved = (o: Partial<ActorLedger>): ActorLedger => ({
+  build: null,
+  sheet: null,
+  draft: null,
+  xpSpent: 0,
+  xpAtAscension: 0,
+  packageWaived: false,
+  ...o,
+});
 
 test("the page shows the ledger builder for an untyped actor or one of the type it builds, else the creation steps", () => {
   assert.equal(usesLedger({ ruleset: ledger, actor: { entity: "" } }), true);

@@ -41,6 +41,8 @@ const cb = (id: string, over: Partial<Combatant> = {}): Combatant => ({
   keep: false,
   hp: null,
   bar: null,
+  states: [],
+  members: null,
   conditions: [],
   ...over,
 });

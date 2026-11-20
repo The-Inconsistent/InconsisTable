@@ -69,6 +69,51 @@ func healthOf(b *actor.Built, resource string, known bool) (*cs.HP, *float64) {
 	return hp, &bar
 }
 
+// harmOf is a combatant's bar and members under health.harm (house decision #66): a mob's members over their max, or
+// for anyone else 1 - wounds / max held to 0..1 (1 with no max).
+func harmOf(b *actor.Built, harm *engine.Harm) (*float64, *cs.HP) {
+	if b == nil {
+		return nil, nil
+	}
+	if harm.Mob != nil {
+		if bounds, carried := b.Bounds[harm.Mob.Members]; carried {
+			members := &cs.HP{Value: b.Resources[harm.Mob.Members], Max: bounds.Max}
+			if bounds.Max == nil || *bounds.Max <= 0 {
+				return nil, members
+			}
+			bar := math.Min(1, math.Max(0, members.Value / *bounds.Max))
+			return &bar, members
+		}
+	}
+	bar := 1.0
+	if bounds := b.Bounds[harm.Wounds]; bounds.Max != nil && *bounds.Max > 0 {
+		bar = math.Min(1, math.Max(0, 1 - b.Resources[harm.Wounds] / *bounds.Max))
+	}
+	return &bar, nil
+}
+
+// statesOf is the ruleset's health states that hold for the actor, in manifest order; none when they cannot be read.
+func statesOf(compiled *engine.CompiledRuleset, b *actor.Built) []cs.CombatantState {
+	out := []cs.CombatantState{}
+	if compiled == nil || b == nil || b.Scope == nil {
+		return out
+	}
+	held, err := compiled.HealthStatesOf(b.Entity, b.Scope)
+	if err != nil {
+		return out
+	}
+	for _, s := range compiled.HealthStates {
+		if slices.Contains(held, s.ID) {
+			label := s.ID
+			if s.Label != nil {
+				label = *s.Label
+			}
+			out = append(out, cs.CombatantState{ID: s.ID, Label: label})
+		}
+	}
+	return out
+}
+
 // Load is the running encounter as the GM sees it, whole: combatants in turn order, each with its health and
 // conditions. The Seat view cuts it down for every other seat. paused is whether no session is running.
 func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engine.CompiledRuleset, built map[string]*actor.Built,
@@ -106,6 +151,11 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 		order = append(order, c.ActorID)
 		b := built[c.ActorID]
 		c.HP, c.Bar = healthOf(b, resource, hasHealth)
+		// A ruleset with both reads its health track (house decision #66).
+		if compiled != nil && compiled.Ruleset.Health.Harm != nil && !hasHealth {
+			c.Bar, c.Members = harmOf(b, compiled.Ruleset.Health.Harm)
+		}
+		c.States = statesOf(compiled, b)
 		c.Conditions = []cs.CombatantCondition{}
 		if b != nil {
 			for _, x := range b.Conditions {

@@ -71,6 +71,8 @@ const combatant = (id: string, visibility: Combatant["visibility"], hp: number, 
     keep: true,
     hp: { value: hp, max: 31 },
     bar: 0.5,
+    states: [{ id: "hurt", label: "Hurt" }],
+    members: null,
     conditions: [{ id: "marked", left: null, expiresOn: "manual" }],
     ...over,
   }) satisfies Combatant;
@@ -481,6 +483,43 @@ test("a health number follows the ruleset's visibility of the actor, in the Enco
     view(ctx(member("gm"), "u-gm")).state.encounter?.combatants.find((c) => c.actorId === "wisp")?.hp?.value,
     5,
   );
+});
+
+// House decision #66: a Combatant's health states and a mob's count reach the combat side always, anyone else at `bar`
+// and `full`; a hidden one is gone with them, and `bar` carries no numbers.
+test("states and a mob's count follow the Combatant's visibility; bar carries no numbers", () => {
+  const states = [{ id: "fallen", label: "Fallen" }];
+  const members = { value: 3, max: 12 };
+  const withStates: Snapshot = {
+    ...snapshot,
+    state: {
+      ...state,
+      encounter: {
+        ...state.encounter!,
+        combatants: state.encounter!.combatants.map((c) => ({ ...c, states, members })),
+      },
+    },
+  };
+  const seen = (c: Ctx) =>
+    seatView({ snapshot: withStates, compiled, ctx: c }).state.encounter?.combatants.map((x) => ({
+      id: x.actorId,
+      hp: x.hp?.value ?? null,
+      states: x.states.length,
+      members: x.members?.value ?? null,
+    }));
+  const all = [
+    { id: "wisp", hp: 5, states: 1, members: 3 },
+    { id: "ogre", hp: 30, states: 1, members: 3 },
+    { id: "imp", hp: 12, states: 1, members: 3 },
+  ];
+  assert.deepEqual(seen(ctx(member("gm"), "u-gm")), all);
+  assert.deepEqual(seen(ctx(member("cogm", ["combat"]), "u-co")), all);
+  const below = [
+    { id: "ogre", hp: 30, states: 1, members: 3 },
+    { id: "imp", hp: null, states: 1, members: 3 },
+  ];
+  assert.deepEqual(seen(ctx(member("player"), "u-p")), below);
+  assert.deepEqual(seen(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), below);
 });
 
 test("no ruleset pinned: no value reaches a seat below the GM side", () => {

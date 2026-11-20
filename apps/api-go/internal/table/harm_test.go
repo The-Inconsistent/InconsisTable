@@ -238,3 +238,67 @@ func TestAMobIsSpawnedHitHealedAndMustered(t *testing.T) {
 		want(6, 6)
 	})
 }
+
+// What each seat receives of a harm fight (house decision #66): the bar from wounds or members, the states, a mob's
+// count; the combat side all of it, anyone else nothing of a hidden combatant and no numbers at bar.
+func TestEachSeatReceivesTheBarStatesAndCountItMay(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		p := newHarmPlay(t, tx)
+		gm := p.room.GM()
+		hal := p.hero("Hal", 3, 0)
+		lurker := p.hero("Lurker", 6, 0)
+		version := p.attachHarmPack()
+		p.send(gm, spawnMob(version, "rats", 1, 6))
+		rats := dbtest.Scalar[string](t, tx, `SELECT id::text FROM actor WHERE campaign_id = $1 AND name = 'rats ×6'`, p.room.ID)
+		p.send(gm, map[string]any{"type": "encounter.start"})
+		p.send(gm, map[string]any{"type": "encounter.add", "actorIds": []any{hal}, "side": "party", "visibility": "full"})
+		p.send(gm, map[string]any{"type": "encounter.add", "actorIds": []any{lurker}, "side": "foe", "visibility": "hidden"})
+		p.send(gm, map[string]any{"type": "encounter.add", "actorIds": []any{rats}, "side": "foe"}) // at bar
+		p.send(gm, hit(rats, 2, 0))
+
+		type seen struct {
+			bar     float64
+			hp      bool
+			states  string
+			members float64 // -1: none
+		}
+		look := func(c cs.Ctx) map[string]seen {
+			out := map[string]seen{}
+			for _, cb := range p.seatView(c).State.Encounter.Combatants {
+				s := seen{hp: cb.HP != nil, members: -1}
+				if cb.Bar != nil {
+					s.bar = *cb.Bar
+				}
+				for _, x := range cb.States {
+					s.states += x.ID + ","
+				}
+				if cb.Members != nil {
+					s.members = cb.Members.Value
+				}
+				out[cb.ActorID] = s
+			}
+			return out
+		}
+		check := func(who string, got map[string]seen, id string, want seen) {
+			t.Helper()
+			if g, ok := got[id]; !ok || g != want {
+				t.Fatalf("%s sees %s as %+v (present %v), want %+v", who, id, g, ok, want)
+			}
+		}
+		all := look(gm)
+		mob := seen{bar: 4.0 / 6, states: "", members: 4}
+		check("gm", all, hal, seen{bar: 0.4, states: "hurt,", members: -1})
+		check("gm", all, lurker, seen{bar: 0, states: "fallen,", members: -1})
+		check("gm", all, rats, mob)
+		screen := p.room.GM()
+		screen.UserID, screen.Seat = nil, cs.Seat{Kind: cs.SeatToken, Role: "screen", CharacterIDs: []string{}}
+		for who, c := range map[string]cs.Ctx{"player": p.room.Seat(t, tx, dbtest.User(t, tx, "Pl"), hal), "screen": screen} {
+			got := look(c)
+			if _, ok := got[lurker]; ok || len(got) != 2 {
+				t.Fatalf("%s receives the hidden combatant: %+v", who, got)
+			}
+			check(who, got, rats, mob)
+			check(who, got, hal, seen{bar: 0.4, states: "hurt,", members: -1})
+		}
+	})
+}

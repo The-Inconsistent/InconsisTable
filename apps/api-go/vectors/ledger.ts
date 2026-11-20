@@ -23,6 +23,9 @@ import {
   SAMPLE_PARAMS_INPUT,
   SAMPLE_WARGEAR_RAW,
 } from "../../../packages/rules-engine/src/build/fixtures/sample-ledger.ts";
+import { resolveBuild } from "../../../packages/rules-engine/src/build/resolve.ts";
+import type { CharacterBuildInput, Creation } from "../../../packages/rules-engine/src/build/schemas.ts";
+import { buildReady, type BuildCatalogue, type ResolvedBuild } from "../../../packages/rules-engine/src/build/types.ts";
 
 const OUT = join(import.meta.dirname, "../internal/engine/testdata/ledger.json");
 
@@ -418,8 +421,253 @@ function parseVectors() {
   return cases;
 }
 
-const vectors = { params: PARAMS, paramsCases: paramsVectors(), parse: parseVectors() };
+// ── resolve: catalogues as written, parsed again on both sides ──
+
+type RawCatalogue = { creation: Record<string, unknown[]>; wargear: unknown[] };
+const RAW = SAMPLE_CREATION_RAW as Record<string, Obj[]>;
+const CATALOGUES: RawCatalogue[] = [
+  { creation: RAW, wargear: SAMPLE_WARGEAR_RAW },
+  // the Tinker holds the gate keyword, as build.test.ts edits it
+  {
+    creation: {
+      ...RAW,
+      archetypes: RAW.archetypes!.map((a) =>
+        a.id === "tinker" ? { ...a, keywords: [...(a.keywords as string[]), "HARDENED"] } : a,
+      ),
+    },
+    wargear: SAMPLE_WARGEAR_RAW,
+  },
+  // the gm requirement reworded, as build.test.ts edits it
+  {
+    creation: {
+      ...RAW,
+      talents: RAW.talents!.map((t) =>
+        t.id === "oath-witness"
+          ? { ...t, requires: [{ kind: "gm", id: "oath-witness", label: "Another wording" }] }
+          : t,
+      ),
+    },
+    wargear: SAMPLE_WARGEAR_RAW,
+  },
+];
+
+const parsedCatalogues = new Map<string, BuildCatalogue>();
+function catalogueOf(params: number, catalogue: number, homebrew: boolean): BuildCatalogue {
+  const key = `${params}/${catalogue}/${homebrew}`;
+  const known = parsedCatalogues.get(key);
+  if (known) return known;
+  const S = buildSchemas(PARSED[params]!);
+  const raw = CATALOGUES[catalogue]!;
+  const lists = {
+    keywords: S.Keyword,
+    factions: S.Faction,
+    "sub-factions": S.SubFaction,
+    species: S.Species,
+    backgrounds: S.BackgroundTable,
+    "option-groups": S.OptionGroup,
+    archetypes: S.Archetype,
+    talents: S.Talent,
+    packages: S.Package,
+    disciplines: S.Discipline,
+    powers: S.PsychicPower,
+    languages: S.Language,
+  } as Record<string, Schema & { parse: (x: unknown) => unknown }>;
+  const creation = Object.fromEntries(
+    Object.entries(lists).map(([k, s]) => [k, (raw.creation[k] ?? []).map((x) => s.parse(x))]),
+  ) as unknown as Creation;
+  const wargear = new Map(
+    raw.wargear.map((w) => {
+      const parsed = S.Wargear.parse(w);
+      return [parsed.id, parsed];
+    }),
+  );
+  const made = { creation, wargear, homebrew };
+  parsedCatalogues.set(key, made);
+  return made;
+}
+
+type Play = { tier: number; xpEarned: number; packageWaived?: boolean };
+type Run = { params?: number; catalogue?: number; homebrew?: boolean; play?: Play; seed?: number };
+type ResolveCase = Run & { name: string; build: Json; result?: ResolvedBuild; ready?: boolean; throws?: string };
+
+function resolveCase(name: string, build: Json, run: Run = {}): ResolveCase {
+  const params = run.params ?? 0;
+  const catalogue = run.catalogue ?? 0;
+  const homebrew = run.homebrew ?? false;
+  const c: ResolveCase = { name, ...run, params, catalogue, homebrew, build };
+  try {
+    const result = resolveBuild({
+      params: PARSED[params]!,
+      catalogue: catalogueOf(params, catalogue, homebrew),
+      build: build as CharacterBuildInput,
+      play: run.play,
+    });
+    return { ...c, result, ready: buildReady(result) };
+  } catch (e) {
+    return { ...c, throws: String(e).slice(0, 300) };
+  }
+}
+
+const resolveNow = (build: Json, run: Run = {}) => resolveCase("", build, run).result!;
+
+// Every build packages/rules-engine/src/build/build.test.ts resolves, with its play and params, each also under the
+// second params on the same catalogue.
+function testBuilds(): ResolveCase[] {
+  const l = { tier: 1, archetypeId: "lamplighter" };
+  const tinker = { tier: 1, archetypeId: "tinker", speciesId: "stoneborn" };
+  const wayfarer = { tier: 1, archetypeId: "wayfarer", speciesId: "heron-kin" };
+  const outlander = { tier: 1, archetypeId: "outlander", speciesId: "heron-kin" };
+  const sense = (choice?: string) => ({ id: "keen-sense", choice });
+  const play = { tier: 3, xpEarned: 100 };
+  const to = (archetypeId: string, more: Obj = {}) => ({
+    ...l,
+    advancement: { archetypeAscension: { archetypeId }, ...more },
+  });
+  const advancement = {
+    attributes: { AGI: 5 },
+    talents: [{ id: "toughened" }, { id: "toughened" }],
+    languages: ["old-cant"],
+  };
+  const oldRite = resolveNow(l).problems.find((p) => p.what.startsWith("Old Rite"))!.path!;
+  const oath = resolveNow({ tier: 1, archetypeId: "oathkeeper" }).problems;
+  const oathPaths = oath
+    .filter((p) => p.what.startsWith("Oath Witness") || p.what === "Owes an old debt")
+    .map((p) => p.path);
+  const choicePath = resolveNow(tinker).pending.find((p) => p.path.endsWith("/choice"))!.path;
+  const pick = "archetype/tinker/wargear/0";
+  const adv = (wargear: string[], tier = 1) => ({ tier, advanced: { wargear }, speciesId: "stoneborn" });
+  const bg = { tableId: "warden-roots", roots: "Lowland", deed: "Walked Alone", dream: "A Quiet Hearth" };
+  const cases: [string, Json, Run?][] = [
+    ["cumulative tables", { ...l, attributes: { MGT: 4 }, skills: { Brawl: 1, Craft: 1, Sneak: 3 } }],
+    ["tier 2 budget", { tier: 2, archetypeId: "lamplighter" }],
+    ["custom budget", { ...l, budget: 30, attributes: { MGT: 4 }, skills: { Brawl: 1, Craft: 1, Sneak: 3 } }],
+    ["lamplighter", l],
+    ["tree of learning", { ...l, skills: { Sneak: 3 } }],
+    ["tree of learning off", { ...l, skills: { Sneak: 3 } }, { params: 2 }],
+    ["tree met", { ...l, skills: { Sneak: 3, Brawl: 1 } }],
+    ["species maximum", { ...l, attributes: { MGT: 5 } }],
+    ["under the maximum", { ...l, attributes: { MGT: 4 } }],
+    ["granted talent ticked", { ...l, gm: { approved: [oldRite] } }],
+    ["bought talent refused", { ...l, talents: [{ id: "hardy" }], attributes: {} }],
+    ["granted talent met", { ...l, skills: { Lore: 3, Brawl: 1 } }],
+    ["fill ironhand", { ...l, fills: { "[GUILD]": { id: "ironhand" } } }],
+    ["fill sparrow", { ...l, fills: { "[GUILD]": { id: "sparrow" } } }],
+    ["fill nobody", { ...l, fills: { "[GUILD]": { id: "nobody" } } }],
+    [
+      "gene-seed skip",
+      { tier: 2, archetypeId: "beacon-keeper", speciesId: "heron-kin", fills: { "[GUILD]": { id: "ironhand" } } },
+    ],
+    ["write-in", { ...l, fills: { "[GUILD]": { writeIn: "WANDERERS" } } }],
+    ["write-in approved", { ...l, fills: { "[GUILD]": { writeIn: "WANDERERS" } }, gm: { approved: ["fill/guild"] } }],
+    ["any two repeat", { ...wayfarer, fills: { "[WILD]": { writeIn: "WARDEN" }, "[WILD 2]": { writeIn: "WARDEN" } } }],
+    [
+      "any two differ",
+      { ...wayfarer, fills: { "[WILD]": { writeIn: "WARDEN" }, "[WILD 2]": { writeIn: "ASHEN-KIN" } } },
+    ],
+    ["creation ascension", { tier: 3, archetypeId: "lamplighter", packages: ["rising-banner"] }],
+    ["creation ascension asked", { tier: 3, archetypeId: "lamplighter" }],
+    ["two ascensions", { tier: 3, archetypeId: "lamplighter", packages: ["rising-banner", "veil-cloak"] }],
+    ["no ascension to take", { ...l, packages: ["veil-cloak"] }],
+    ["not at creation", { ...l, packages: ["second-wind"] }],
+    ["packages in play", { ...l, advancement: { packages: ["rising-banner", "veil-cloak"] } }, { play }],
+    ["one slot short", { ...l, advancement: { packages: ["veil-cloak"] } }, { play }],
+    ["slot waived", { ...l, advancement: { packages: ["veil-cloak"] } }, { play: { ...play, packageWaived: true } }],
+    ["too many packages", { ...l, advancement: { packages: ["veil-cloak", "veil-cloak", "veil-cloak"] } }, { play }],
+    ["no ascension yet", { ...l, advancement: { packages: ["veil-cloak"] } }, { play: { tier: 1, xpEarned: 10 } }],
+    ["advancement package", { ...l, advancement: { packages: ["second-wind"] } }, { play: { tier: 1, xpEarned: 10 } }],
+    ["over the XP earned", { ...l, advancement: { packages: ["second-wind"] } }, { play: { tier: 1, xpEarned: 3 } }],
+    ["archetype ascension", to("beacon-keeper"), { play: { tier: 2, xpEarned: 40 } }],
+    ["ascension rank", to("beacon-keeper"), { play: { tier: 2, xpEarned: 10 } }],
+    ["ascension faction", to("wayfarer"), { play: { tier: 2, xpEarned: 40 } }],
+    ["ascension tier", to("pyre-lord"), { play: { tier: 2, xpEarned: 40 } }],
+    ["ascension before ascending", to("beacon-keeper"), { play: { tier: 1, xpEarned: 40 } }],
+    ["ascension and package", to("beacon-keeper", { packages: ["veil-cloak"] }), { play: { tier: 2, xpEarned: 40 } }],
+    ["purchase history", { ...l, advancement }, { play: { tier: 1, xpEarned: 100 } }],
+    [
+      "purchase history dated",
+      {
+        ...l,
+        advancement: { ...advancement, boughtIn: { "advance/attribute/AGI/4": 2, "advance/talent/toughened~2": 5 } },
+      },
+      { play: { tier: 1, xpEarned: 100 } },
+    ],
+    ["power at creation", { ...tinker, powers: ["kindle"], advancement: { powers: [] } }],
+    ["power later", { ...tinker, advancement: { powers: ["kindle"] } }, { play: { tier: 1, xpEarned: 100 } }],
+    ["tinker", tinker],
+    ["powers bought", { ...tinker, powers: ["spark", "ebb"] }],
+    ["gate keyword by the GM", { ...tinker, gm: { keywords: ["HARDENED"] } }],
+    ["gate keyword printed", tinker, { catalogue: 1 }],
+    ["options per choice", { ...l, talents: [sense("sight"), sense("smell")] }],
+    ["option twice", { ...l, talents: [sense("sight"), sense("sight")] }],
+    ["option missing", { ...l, talents: [sense()] }],
+    ["option unknown", { ...l, talents: [sense("taste")] }],
+    ["option in any case", { ...l, talents: [sense("SIGHT")] }],
+    [
+      "choice without options",
+      {
+        ...l,
+        talents: [
+          { id: "quarry", choice: "wolves" },
+          { id: "quarry", choice: "crows" },
+        ],
+      },
+    ],
+    ["repeatable", { ...l, talents: [{ id: "toughened" }, { id: "toughened" }] }],
+    ["not repeatable", { ...l, talents: [{ id: "iron-nerve" }, { id: "iron-nerve" }] }],
+    ["granted choice answered", { ...tinker, choices: { [choicePath]: [1] } }],
+    ["pick rope", { ...tinker, choices: { [pick]: ["rope"] } }],
+    ["pick plate", { ...tinker, choices: { [pick]: ["plate"] } }],
+    ["pick over value", { ...tinker, choices: { [pick]: ["signal-horn"] } }],
+    ["best armour worn", { tier: 1, advanced: { wargear: ["leather-coat", "plate"] }, speciesId: "stoneborn" }],
+    ["advanced empty", adv([])],
+    ["advanced kit", adv(["rope", "lens"])],
+    ["advanced total", adv(["plate", "plate"])],
+    ["advanced rare", adv(["plate"])],
+    ["advanced maximum", adv(["twin-blades"])],
+    ["advanced refused", adv(["void-glaive"], 3)],
+    ["advanced no maximum", adv(["twin-blades"], 3)],
+    ["advanced past the table", adv(["rope"], 4)],
+    ["advanced upgrade", adv(["sight-lens"])],
+    ["advanced unknown", adv(["nope"])],
+    ["archetype and advanced", { tier: 1, archetypeId: "lamplighter", advanced: { wargear: [] } }],
+    ["homebrew closed", outlander],
+    ["homebrew open", outlander, { homebrew: true }],
+    ["homebrew made official", outlander, { params: 3 }],
+    ["homebrew sub-faction offered", l, { homebrew: true }],
+    ["gm requirement", { tier: 1, archetypeId: "oathkeeper" }],
+    ["gm requirement reworded", { tier: 1, archetypeId: "oathkeeper" }, { catalogue: 2 }],
+    ["gm requirement ticked", { tier: 1, archetypeId: "oathkeeper", gm: { approved: oathPaths } }],
+    ["two params", { ...l, attributes: { MGT: 4 }, wealth: 2 }],
+    ["background roots", { ...l, background: { ...bg, bonus: "roots" } }],
+    ["background deed", { ...l, background: { ...bg, bonus: "deed" } }],
+    ["background asked", { ...l, background: { tableId: "warden-roots" } }],
+    [
+      "options priced by order",
+      {
+        ...l,
+        options: [
+          { groupId: "marks", name: "Wing Mark" },
+          { groupId: "marks", name: "Beak Mark" },
+        ],
+      },
+    ],
+  ];
+  return cases.flatMap(([name, build, run = {}]) => [
+    resolveCase(name, build, run),
+    ...(run.params === undefined ? [resolveCase(`${name} (other params)`, build, { ...run, params: 1 })] : []),
+  ]);
+}
+
+const vectors = {
+  params: PARAMS,
+  paramsCases: paramsVectors(),
+  parse: parseVectors(),
+  catalogues: CATALOGUES,
+  resolve: testBuilds(),
+};
 
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, JSON.stringify(vectors));
-console.log(`ledger vectors: ${vectors.paramsCases.length} params, ${vectors.parse.length} parse`);
+console.log(
+  `ledger vectors: ${vectors.paramsCases.length} params, ${vectors.parse.length} parse, ${vectors.resolve.length} resolve`,
+);

@@ -215,7 +215,7 @@ type Schemas struct {
 func (p *Params) Schemas() *Schemas { return p.schemas }
 
 func dedupe(list []string) []string {
-	var out []string
+	out := []string{}
 	for _, x := range list {
 		if !slices.Contains(out, x) {
 			out = append(out, x)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -27,6 +28,130 @@ type vectorFile struct {
 		Ok     bool            `json:"ok"`
 		Output json.RawMessage `json:"output"`
 	} `json:"parse"`
+	Catalogues []struct {
+		Creation json.RawMessage `json:"creation"`
+		Wargear  json.RawMessage `json:"wargear"`
+	} `json:"catalogues"`
+	Resolve []resolveCase `json:"resolve"`
+}
+
+type resolveCase struct {
+	Name      string          `json:"name"`
+	Seed      *int            `json:"seed"`
+	Params    int             `json:"params"`
+	Catalogue int             `json:"catalogue"`
+	Homebrew  bool            `json:"homebrew"`
+	Build     json.RawMessage `json:"build"`
+	Play      *Play           `json:"play"`
+	Result    json.RawMessage `json:"result"`
+	Ready     bool            `json:"ready"`
+	Throws    *string         `json:"throws"`
+}
+
+var catalogues = map[[2]int]Catalogue{}
+
+// catalogueFor parses a vector catalogue under one params, once.
+func catalogueFor(t *testing.T, v *vectorFile, params, catalogue int, homebrew bool) Catalogue {
+	t.Helper()
+	key := [2]int{params, catalogue}
+	c, ok := catalogues[key]
+	if !ok {
+		p := paramsAt(params)
+		raw := v.Catalogues[catalogue]
+		creation, err := ParseCreation(p, decoded(raw.Creation))
+		if err != nil {
+			t.Fatal(err)
+		}
+		list, _ := decoded(raw.Wargear).([]any)
+		wargear, err := ParseWargear(p, list)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c = Catalogue{Creation: creation, Wargear: wargear}
+		catalogues[key] = c
+	}
+	c.Homebrew = homebrew
+	return c
+}
+
+func paramsAt(i int) *Params { return params[i] }
+
+// firstDiff names the first place two decoded JSON values differ.
+func firstDiff(path string, a, b any) string {
+	switch x := a.(type) {
+	case map[string]any:
+		y, ok := b.(map[string]any)
+		if !ok {
+			return path
+		}
+		keys := map[string]bool{}
+		for k := range x {
+			keys[k] = true
+		}
+		for k := range y {
+			keys[k] = true
+		}
+		for k := range keys {
+			if d := firstDiff(path+"."+k, x[k], y[k]); d != "" {
+				return d
+			}
+		}
+		return ""
+	case []any:
+		y, ok := b.([]any)
+		if !ok || len(x) != len(y) {
+			out, _ := json.Marshal(map[string]any{"go": a, "ts": b})
+			return path + " " + string(out)
+		}
+		for i := range x {
+			if d := firstDiff(path+"["+strconv.Itoa(i)+"]", x[i], y[i]); d != "" {
+				return d
+			}
+		}
+		return ""
+	}
+	if !reflect.DeepEqual(a, b) {
+		out, _ := json.Marshal(map[string]any{"go": a, "ts": b})
+		return path + " " + string(out)
+	}
+	return ""
+}
+
+// checkResolve resolves one vector case and compares it with the TypeScript's answer.
+func checkResolve(t *testing.T, v *vectorFile, c resolveCase) {
+	t.Helper()
+	name := c.Name
+	if c.Seed != nil {
+		name = "seed " + strconv.Itoa(*c.Seed) + " " + name
+	}
+	got, err := Resolve(paramsAt(c.Params), catalogueFor(t, v, c.Params, c.Catalogue, c.Homebrew), decoded(c.Build), c.Play)
+	if c.Throws != nil {
+		if err == nil {
+			t.Fatalf("%s: the TypeScript throws (%s), Go answers\nbuild %s", name, *c.Throws, c.Build)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatalf("%s: Go fails: %v\nbuild %s", name, err, c.Build)
+	}
+	out, _ := json.Marshal(got)
+	var a, b any
+	_ = json.Unmarshal(out, &a)
+	_ = json.Unmarshal(c.Result, &b)
+	if d := firstDiff("", a, b); d != "" {
+		t.Fatalf("%s: differs at %s\nbuild %s\nplay %+v params %d catalogue %d homebrew %v",
+			name, d, c.Build, c.Play, c.Params, c.Catalogue, c.Homebrew)
+	}
+	if Ready(got) != c.Ready {
+		t.Fatalf("%s: Ready is %v, the TypeScript's %v", name, Ready(got), c.Ready)
+	}
+}
+
+func TestResolveMatchesTheTypeScript(t *testing.T) {
+	v := loadVectors(t)
+	for _, c := range v.Resolve {
+		checkResolve(t, v, c)
+	}
 }
 
 var (

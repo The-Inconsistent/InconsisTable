@@ -14,7 +14,7 @@ import { SAMPLE_POOL } from "./sample-pool.ts";
 const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9cb58c5d";
 const PINNED: Record<string, string> = {
   "sample-d20@0.1.6": "8aa3ff0feffbc0f5289f3aa242204e10389fa957fdbdba437501fc450577b2a1",
-  "sample-pool@0.1.2": "57e50c011a1f73ee5c2e78f0546956686f5fcec64ecda3dbdda16b71b4803b0c",
+  "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.1": "e166afc269320775b0d1e455a2e7a5b10ca9b9c4f0d96f9fa473addb65b93f08",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
 };
@@ -27,6 +27,18 @@ test("a sample ruleset's normalized manifest changes only with its version", () 
     const hash = sha256Hex(canonicalJson(result.compiled.ruleset));
     assert.equal(hash, PINNED[key], `${key} changed: bump its version, then pin the new hash`);
   }
+});
+
+test("a Test without marks or offers hashes as it did before they existed (house decision #80)", () => {
+  const skill = SAMPLE_POOL.tests?.skill;
+  assert.ok(skill);
+  const { marks: _marks, offers: _offers, ...before } = skill;
+  const result = compileRuleset({ ...SAMPLE_POOL, version: "0.1.2", tests: { skill: before } });
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "57e50c011a1f73ee5c2e78f0546956686f5fcec64ecda3dbdda16b71b4803b0c",
+  );
 });
 
 /** SAMPLE_D20 as it was before it declared notices and the values they read (house decision #79), at 0.1.5. */

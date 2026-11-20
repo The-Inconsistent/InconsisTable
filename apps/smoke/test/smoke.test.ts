@@ -25,6 +25,7 @@ import { SAMPLE_HARM } from "../../../packages/rules-engine/src/fixtures/sample-
 import { SAMPLE_PACK, SAMPLE_PACK_EFFECTS } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
+import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
 import { SAMPLE_LEDGER_RULESET } from "../../../packages/rules-engine/src/fixtures/sample-ledger-ruleset.ts";
 import { SAMPLE_LEDGER_PACK } from "../../../packages/rules-engine/src/fixtures/sample-ledger-pack.ts";
 import { SAMPLE_WORLD } from "../../../packages/rules-engine/src/fixtures/sample-world.ts";
@@ -2771,18 +2772,22 @@ async function buildRoom(name: string) {
 }
 
 // A room on the d20 sample (its notice rules, house decision #79), a running session, Ana holding Lyra.
-async function d20Room(name: string) {
+async function d20Room(
+  name: string,
+  ruleset: object = SAMPLE_D20,
+  resources: Record<string, number> = { hp: 6, boons: 2, renown: 0 },
+) {
   const { owner, ownerDevice, campaignId } = await newRoom(name);
   const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, `ana-${name}`) } });
   const hero = (await owner.until((s) => s.actors.some((a) => a.kind === "pc"))).actors.find(
     (a) => a.kind === "pc",
   )!.id;
-  const rs = await caller(ownerDevice).post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const rs = await caller(ownerDevice).post<RulesetReply>("/rulesets", ruleset);
   assert.equal(rs.status, 201);
   ok(await owner.send({ type: "campaign.setRuleset", rulesetVersionId: rs.body.versionId }));
   await equip(hero, "character", {
-    fields: { level: 1, "attr.str": 10, "attr.dex": 12, "attr.con": 10, guard: 1 },
-    resources: { hp: 6, boons: 2, renown: 0 },
+    fields: { level: 1, "attr.str": 12, "attr.dex": 12, "attr.con": 10, guard: 1 },
+    resources,
   });
   ok(await owner.send({ type: "actor.rename", id: hero, name: "Lyra" }));
   await ana.until((s) => s.actors.find((a) => a.id === hero)?.entity === "character");
@@ -2816,6 +2821,89 @@ test("notices: an answer tells its sender who has points as a session starts, wh
   for (const c of [owner, ana])
     assert.equal(JSON.stringify(await c.until(() => true)).includes("Lyra is renowned"), false);
   for (const c of [owner, ana]) c.socket.close();
+});
+
+test("offers: a called Test's result offers the GM its changes, applied once, undone whole, never told a phone", async () => {
+  const { owner, ana, campaignId, hero } = await d20Room("Offers", SAMPLE_POOL, { hp: 6, tempHp: 0 });
+  const screen = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  ok(await owner.send({ type: "session.start" }));
+  const call = async (marks: Record<string, boolean>) =>
+    ok(
+      await owner.send({
+        type: "test.call",
+        testId: "skill",
+        actorIds: [hero],
+        inputs: { ability: "str", dn: 4, bonus: 0, ...marks },
+        hideTarget: false,
+      }),
+    ).id!;
+  const report = (callId: string, counts: Record<string, number>, special: number[]) =>
+    ({ type: "test.report", callId, actorId: hero, roll: { kind: "pool", counts, special } }) as ActionInput;
+  const apply = (callId: string, offerId: string) =>
+    ({ type: "test.applyOffer", callId, actorId: hero, offerId }) as ActionInput;
+  const offersIn = (s: LiveState, callId: string) =>
+    s.tests.find((c) => c.id === callId)?.targets.find((t) => t.actorId === hero)?.offers;
+  const shown = (offers: ReturnType<typeof offersIn>) =>
+    offers?.map((o) => [o.id, o.changes.map((c) => [c.label, c.by]), o.applied]);
+  const pool = (s: LiveState, id: string) => s.pools.find((p) => p.id === id)?.value;
+
+  // The call form reads the mark; a call under it, failed on the phone by 3 with a complication.
+  const def = (await owner.until(() => true)).testDefs.find((d) => d.id === "skill")!;
+  assert.deepEqual(def.marks, [{ id: "dread", label: "Dread" }]);
+  const id = await call({ dread: true });
+  refused(await owner.send(apply(id, "shaken")), "notReported");
+  ok(await ana.send(report(id, { hit: 1 }, [1])));
+  const gm = await owner.until((s) => offersIn(s, id) !== undefined);
+  assert.deepEqual(shown(offersIn(gm, id)), [
+    ["shaken", [["Menace", 1]], false],
+    [
+      "strain",
+      [
+        ["Spare Vigour", 6],
+        ["Luck", 1],
+      ],
+      false,
+    ],
+  ]);
+  // Never on a phone or the table screen.
+  assert.equal(offersIn(await ana.until((s) => s.tests.some((c) => c.id === id && c.reported === 1)), id), undefined);
+  assert.deepEqual(
+    (await screen.until((s) => s.tests.some((c) => c.id === id))).tests.find((c) => c.id === id)?.targets,
+    [],
+  );
+  refused(await ana.send(apply(id, "strain")), "noPermission");
+  refused(await owner.send(apply(id, "nope")), "noSuchOffer");
+
+  // Applied once through the ordinary writes; a second tap is refused; the card shows it applied.
+  ok(await owner.send(apply(id, "strain")));
+  refused(await owner.send(apply(id, "strain")), "offerApplied");
+  const after = await owner.until((s) => offersIn(s, id)?.find((o) => o.id === "strain")?.applied === true);
+  assert.equal(actorIn(after, hero)?.resources.tempHp, 6);
+  assert.equal(pool(after, "luck"), 1);
+  // Undo takes both changes back, and the offer is offered again.
+  ok(await owner.send({ type: "event.undo" }));
+  const undone = await owner.until((s) => offersIn(s, id)?.find((o) => o.id === "strain")?.applied === false);
+  assert.deepEqual([actorIn(undone, hero)?.resources.tempHp, pool(undone, "luck")], [0, 0]);
+
+  // A full pool takes what it can, and the answer says what was lost.
+  const fill = {
+    type: "rule.op",
+    primitive: "resource.capped",
+    op: "adjustPool",
+    input: { resource: "menace", delta: 2 },
+  };
+  ok(await owner.send(fill as ActionInput));
+  assert.deepEqual(ok(await owner.send(apply(id, "shaken"))).notices, [
+    { code: "poolFull", params: { pool: "Menace", lost: 1 } },
+  ]);
+
+  // Without the mark only the other offer stands; a report changed to a pass offers nothing new.
+  const plain = await call({});
+  ok(await ana.send(report(plain, { hit: 1 }, [1])));
+  refused(await owner.send(apply(plain, "shaken")), "offerNotOffered");
+  ok(await owner.send(report(plain, { hit: 3 }, [6])));
+  refused(await owner.send(apply(plain, "strain")), "offerNotOffered");
+  for (const c of [owner, ana, screen]) c.socket.close();
 });
 
 test("actor.create: a typed actor needs a ruleset and one of its actor entities", async () => {

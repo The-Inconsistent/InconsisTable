@@ -189,6 +189,25 @@ var testWords = []schema.Field{
 	schema.Opt("inputOptionLabels", schema.Record(idSchema, schema.Record(label(60), label(60)))),
 }
 
+// testOutcomes are a Test's marks and offers (house decision #80).
+var testOutcomes = []schema.Field{
+	schema.Opt("marks", schema.Refined(schema.Record(idSchema, schema.Object(
+		schema.Req("label", label(60)),
+		schema.Opt("cite", citeSchema),
+	)), func(v any) bool { return len(v.(map[string]any)) <= MaxMarks }, "at most 10 marks")),
+	schema.Opt("offers", schema.Array(schema.Object(
+		schema.Req("id", idSchema),
+		schema.Req("label", label(60)),
+		schema.Req("when", exprSource),
+		schema.Req("changes", schema.Array(schema.Object(
+			schema.Opt("pool", idSchema),
+			schema.Opt("resource", idSchema),
+			schema.Req("by", exprSource),
+		)).Min(1).Max(5)),
+		schema.Opt("cite", citeSchema),
+	)).Max(MaxOffers)),
+}
+
 func testVariant(tag string, extra ...schema.Field) schema.Variant {
 	fields := append([]schema.Field{
 		schema.Req("target", exprSource),
@@ -198,6 +217,7 @@ func testVariant(tag string, extra ...schema.Field) schema.Variant {
 		schema.Opt("entities", actorTypesSchema),
 		schema.Opt("cite", citeSchema),
 		testWords[0], testWords[1], testWords[2],
+		testOutcomes[0], testOutcomes[1],
 		schema.Req("kind", schema.Literal(tag)),
 	}, extra...)
 	return schema.Variant{Tag: tag, Schema: schema.Object(fields...)}
@@ -249,6 +269,7 @@ var diceMechanicSchema = schema.Union("kind",
 		schema.Opt("entities", actorTypesSchema),
 		schema.Opt("cite", citeSchema),
 		testWords[0], testWords[1], testWords[2],
+		testOutcomes[0], testOutcomes[1],
 	)},
 )
 

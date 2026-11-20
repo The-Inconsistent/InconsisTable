@@ -49,6 +49,8 @@ export const TestDef = z.object({
   label: z.string().optional(),
   inputLabels: z.record(z.string(), z.string()).optional(),
   inputOptionLabels: z.record(z.string(), z.record(z.string(), z.string())).optional(),
+  /** The yes-or-no the GM sets when calling, by id with its word (house decision #80); absent when there is none. */
+  marks: z.array(z.object({ id: z.string(), label: z.string() })).optional(),
 });
 export type TestDef = z.infer<typeof TestDef>;
 
@@ -66,6 +68,20 @@ export const TestResult = z.object({
 });
 export type TestResult = z.infer<typeof TestResult>;
 
+/**
+ * What a taker's result offers the GM (house decision #80): each change with its pool or resource, the ruleset's label
+ * for it and the amount worked out for that taker, and whether it was applied. GM side only.
+ */
+export const OfferState = z.object({
+  id: z.string(),
+  label: z.string(),
+  changes: z.array(
+    z.object({ pool: z.string().optional(), resource: z.string().optional(), label: z.string(), by: z.int() }),
+  ),
+  applied: z.boolean(),
+});
+export type OfferState = z.infer<typeof OfferState>;
+
 export const TestTargetState = z.object({
   actorId: z.string(),
   /** Added to the die, or dice added to a pool: null when the seat may not be told it (or it was never computed). */
@@ -75,6 +91,8 @@ export const TestTargetState = z.object({
   /** A Dice pool's dice to roll, modifier included: null for a sum Test or when the seat may not be told it. */
   pool: z.int().nullable(),
   report: TestResult.nullable(),
+  /** The GM side's only: absent when there is none, and never sent to a seat below it. */
+  offers: z.array(OfferState).optional(),
 });
 export type TestTargetState = z.infer<typeof TestTargetState>;
 
@@ -137,6 +155,13 @@ export const TestReportAction = z
       (a.roll === undefined) !== (a.outcome === undefined) && (a.outcome === undefined || a.advantage === undefined),
     "Report either a roll or an outcome",
   );
+// Applies one offer of a taker's result, once, through the ordinary writes (house decision #80).
+export const TestApplyOfferAction = z.object({
+  type: z.literal("test.applyOffer"),
+  callId: z.uuid(),
+  actorId: z.uuid(),
+  offerId: z.string().min(1).max(64),
+});
 export const TestCloseAction = z.object({
   type: z.literal("test.close"),
   callId: z.uuid(),

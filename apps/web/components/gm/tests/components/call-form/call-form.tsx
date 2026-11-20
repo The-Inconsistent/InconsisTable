@@ -4,6 +4,7 @@ import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 
 import type { LiveState } from "@inconsistable/core-schema";
 
+import { MarkSwitches } from "@/components/gm/tests/components/mark-switches/mark-switches";
 import { TestInputField } from "@/components/gm/tests/components/test-input/test-input";
 import type { Send } from "@/hooks/use-table/use-table";
 import { testWords, toInputs, type InputDraft } from "@/lib/test-inputs/test-inputs";
@@ -105,6 +106,12 @@ export function CallForm({ state, send, initialTargets = [], initialTestId, onCa
           />
         ))}
       </div>
+      <MarkSwitches
+        marks={def.marks ?? []}
+        on={(id) => draft[id] === true}
+        onChange={(id, on) => setDraft({ ...draft, [id]: on })}
+        idPrefix="call-mark"
+      />
       <div className="stack">
         <span className="small">{t("whoRolls")}</span>
         <div className="row" role="group" aria-label={t("whoRolls")}>

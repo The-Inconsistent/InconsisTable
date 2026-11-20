@@ -25,7 +25,7 @@ import {
   type LineNames,
   type PrepWorld,
 } from "@/lib/scene-prep/scene-prep";
-import type { InputDraft } from "@/lib/test-inputs/test-inputs";
+import { testWords, type InputDraft } from "@/lib/test-inputs/test-inputs";
 
 type SceneRunProps = {
   scene: CodexEntry;
@@ -132,7 +132,13 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
             {(prep[kind] as PrepLine[]).map((line) => {
               const resolved = resolveLine({ kind, line, world, filled: filled[line.id] });
               const what = lineName({ kind, line, names, t: words });
-              const asks = "testId" in line ? lineAsks({ line, world }) : [];
+              const ask =
+                "testId" in line
+                  ? {
+                      inputs: lineAsks({ line, world }),
+                      words: testWords(names.test(line.testId) ?? { id: line.testId }),
+                    }
+                  : null;
               return (
                 <li key={line.id} className="row between" style={{ flexWrap: "wrap", alignItems: "start" }}>
                   <span className="stack" style={{ flex: "1 1 220px", minWidth: 0 }}>
@@ -180,7 +186,7 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
                       {"takers" in line && line.takers === "pick" && resolved.state === "fill" ? t("who") : t("send")}
                     </button>
                   ) : null}
-                  {asks.length > 0 && (
+                  {ask && ask.inputs.length > 0 && (
                     <div
                       className="row"
                       role="group"
@@ -190,11 +196,12 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
                       <span className="small dim" style={{ flexBasis: "100%" }}>
                         {t("fillIn")}
                       </span>
-                      {asks.map((input) => (
+                      {ask.inputs.map((input) => (
                         <TestInputField
                           key={input.id}
                           id={`run-${line.id}-${input.id}`}
                           input={input}
+                          words={ask.words}
                           value={filled[line.id]?.[input.id]}
                           onChange={handleFill(line.id, input.id)}
                         />

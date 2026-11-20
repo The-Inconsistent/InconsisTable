@@ -87,6 +87,10 @@ func DefsOf(compiled *engine.CompiledRuleset) []cs.TestDef {
 		def := cs.TestDef{
 			ID: id, Dice: diceOf(t), Advantage: t.Kind == "sumVsTarget" && t.Advantage, Pool: poolSpecOf(t),
 			Outcomes: outcomesOf(t), Inputs: []cs.TestDefInput{},
+			InputLabels: t.InputLabels, InputOptionLabels: t.InputOptionLabels,
+		}
+		if t.Label != nil {
+			def.Label = *t.Label
 		}
 		if t.Entities != nil {
 			def.Entities = append([]string(nil), *t.Entities...)

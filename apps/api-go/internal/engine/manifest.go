@@ -171,6 +171,11 @@ type (
 		Target       string            `json:"target"`
 		Inputs       map[string]string `json:"inputs"`
 		InputOptions map[string]any    `json:"inputOptions"`
+		// Label, InputLabels and InputOptionLabels are what the screens call the Test, its inputs and an input's
+		// options (house decision #77); without one the id shows.
+		Label             *string                      `json:"label"`
+		InputLabels       map[string]string            `json:"inputLabels"`
+		InputOptionLabels map[string]map[string]string `json:"inputOptionLabels"`
 		// Entities names the actor types that take the Test (house decision #50); nil is every actor type.
 		Entities  *[]string `json:"entities"`
 		Cite      *string   `json:"cite"`
@@ -716,6 +721,27 @@ func (p *problems) campaignFields(r *Ruleset, needCite func(*string, string)) {
 	}
 }
 
+// testWords checks that a Test's words name only its own inputs, and an input's option words only its declared options.
+func (p *problems) testWords(t *Test, path string) {
+	for _, key := range sortedKeys(t.InputLabels) {
+		if _, ok := t.Inputs[key]; !ok {
+			p.add(path+".inputLabels."+key, `"%s" is not an input`, key)
+		}
+	}
+	for _, key := range sortedKeys(t.InputOptionLabels) {
+		if _, ok := t.Inputs[key]; !ok {
+			p.add(path+".inputOptionLabels."+key, `"%s" is not an input`, key)
+			continue
+		}
+		options, _ := t.InputOptions[key].([]any)
+		for _, option := range sortedKeys(t.InputOptionLabels[key]) {
+			if !slices.Contains(options, any(option)) {
+				p.add(path+".inputOptionLabels."+key+"."+option, `"%s" is not an option`, option)
+			}
+		}
+	}
+}
+
 // enumWords checks that an enum's labels, notes and tones name only its own values.
 func (p *problems) enumWords(path string, values []string, labels, notes, tones map[string]string) {
 	for i, words := range []map[string]string{labels, notes, tones} {
@@ -985,6 +1011,7 @@ func (r *Ruleset) semanticProblems() problems {
 				p.add(path+".inputOptions."+key, "options are only for text inputs")
 			}
 		}
+		p.testWords(&t, path)
 		if t.Kind == "poolSuccesses" {
 			p.pool(&t, path)
 			continue

@@ -270,6 +270,9 @@ const STATE = {
         { id: "ability", type: "text", options: ["str", "dex"] },
         { id: "dc", type: "int" },
       ],
+      label: "Check",
+      inputLabels: { ability: "Ability" },
+      inputOptionLabels: { ability: { str: "Strength" } },
     },
   ],
   encounter: {

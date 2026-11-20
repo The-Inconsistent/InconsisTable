@@ -267,6 +267,22 @@ describe("a line is named by what it is", () => {
       `summary.testWith {"test":"check","inputs":"dc 12","who":"summary.party"}`,
     );
   });
+  test("a Test line in the Test's words, its inputs in the Test's order (house decision #77)", () => {
+    const worded = def("check", {
+      label: "Ability check",
+      inputs: [
+        { id: "ability", type: "text", options: ["str", "dex"] },
+        { id: "dc", type: "int" },
+      ],
+      inputLabels: { ability: "Ability", dc: "DC" },
+      inputOptionLabels: { ability: { dex: "Dexterity" } },
+    });
+    const line = { ...doc.tests[0]!, inputs: { dc: 12, ability: "dex" } };
+    assert.equal(
+      lineName({ kind: "tests", line, names: lineNames(world({ testDefs: [worded] })), t }),
+      `summary.testWith {"test":"Ability check","inputs":"Ability Dexterity, DC 12","who":"summary.party"}`,
+    );
+  });
 });
 
 describe("START THE FIGHT is ordinary actions, one after another (house decision #75)", () => {

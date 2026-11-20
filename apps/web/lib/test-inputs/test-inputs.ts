@@ -1,4 +1,4 @@
-import type { TestDef, TestInputs } from "@inconsistable/core-schema";
+import type { TestDef, TestInputs, TestInputValue } from "@inconsistable/core-schema";
 import { ScalarType } from "@inconsistable/rules-engine";
 
 /** One input a Test declares: what the call form asks for. */
@@ -36,6 +36,25 @@ export function toInputs({ def, draft }: { def: TestDef; draft: InputDraft }): F
     out[input.id] = r.value;
   }
   return { ok: true, inputs: out };
+}
+
+/** What the screens call a Test, one of its inputs, and a value given to an input. */
+export type TestWords = {
+  test: string;
+  input: (id: string) => string;
+  value: (input: string, value: TestInputValue) => string;
+};
+
+/**
+ * The ruleset's words for a Test (house decision #77): its label, else its id; an input's label, else its id; a chosen
+ * option's label, else the value as it is. A Test the room no longer has is worded by the id the caller keeps.
+ */
+export function testWords(def: Pick<TestDef, "id" | "label" | "inputLabels" | "inputOptionLabels">): TestWords {
+  return {
+    test: def.label ?? def.id,
+    input: (id) => def.inputLabels?.[id] ?? id,
+    value: (input, value) => (typeof value === "string" && def.inputOptionLabels?.[input]?.[value]) || String(value),
+  };
 }
 
 /** Values a prepared line keeps, as the call form's draft holds them. */

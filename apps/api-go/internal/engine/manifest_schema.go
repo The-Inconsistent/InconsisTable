@@ -180,6 +180,13 @@ var conditionSchema = schema.Object(
 // The actor entity types a Test or a health state applies to (house decision #50).
 var actorTypesSchema = schema.Array(idSchema).Min(1).Max(50)
 
+// testWords are what the screens call a Test, its inputs and a text input's options (house decision #77).
+var testWords = []schema.Field{
+	schema.Opt("label", label(80)),
+	schema.Opt("inputLabels", schema.Record(idSchema, label(60))),
+	schema.Opt("inputOptionLabels", schema.Record(idSchema, schema.Record(label(60), label(60)))),
+}
+
 func testVariant(tag string, extra ...schema.Field) schema.Variant {
 	fields := append([]schema.Field{
 		schema.Req("target", exprSource),
@@ -188,6 +195,7 @@ func testVariant(tag string, extra ...schema.Field) schema.Variant {
 		schema.Def("inputOptions", schema.Record(idSchema, schema.Array(label(60)).Min(1).Max(50)), map[string]any{}),
 		schema.Opt("entities", actorTypesSchema),
 		schema.Opt("cite", citeSchema),
+		testWords[0], testWords[1], testWords[2],
 		schema.Req("kind", schema.Literal(tag)),
 	}, extra...)
 	return schema.Variant{Tag: tag, Schema: schema.Object(fields...)}
@@ -238,6 +246,7 @@ var diceMechanicSchema = schema.Union("kind",
 		schema.Def("inputOptions", schema.Record(idSchema, schema.Array(label(60)).Min(1).Max(50)), map[string]any{}),
 		schema.Opt("entities", actorTypesSchema),
 		schema.Opt("cite", citeSchema),
+		testWords[0], testWords[1], testWords[2],
 	)},
 )
 

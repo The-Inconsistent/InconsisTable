@@ -6,7 +6,7 @@ import type { LiveState } from "@inconsistable/core-schema";
 
 import { TestInputField } from "@/components/gm/tests/components/test-input/test-input";
 import type { Send } from "@/hooks/use-table/use-table";
-import { toInputs, type InputDraft } from "@/lib/test-inputs/test-inputs";
+import { testWords, toInputs, type InputDraft } from "@/lib/test-inputs/test-inputs";
 
 import { keepTakers, takers } from "./takers";
 
@@ -58,7 +58,7 @@ export function CallForm({ state, send, initialTargets = [], initialTestId, onCa
     e.preventDefault();
     if (!def) return;
     const filled = toInputs({ def, draft });
-    if (!filled.ok) return setError(t(filled.problem, { id: filled.id }));
+    if (!filled.ok) return setError(t(filled.problem, { id: testWords(def).input(filled.id) }));
     if (targets.length === 0) return setError(t("pickWho"));
     const r = await send({
       type: "test.call",
@@ -79,6 +79,7 @@ export function CallForm({ state, send, initialTargets = [], initialTestId, onCa
   if (!def) {
     return <p className="dim">{state.campaign.archived ? "" : t("pinRuleset")}</p>;
   }
+  const words = testWords(def);
   return (
     <form className="card" onSubmit={handleCall}>
       <h2 className="head">{t("title")}</h2>
@@ -88,7 +89,7 @@ export function CallForm({ state, send, initialTargets = [], initialTestId, onCa
           <select id="call-test" value={def.id} onChange={handleTest}>
             {state.testDefs.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.id} ({d.outcomes ? t("reported") : d.dice})
+                {testWords(d).test} ({d.outcomes ? t("reported") : d.dice})
               </option>
             ))}
           </select>
@@ -98,6 +99,7 @@ export function CallForm({ state, send, initialTargets = [], initialTestId, onCa
             key={input.id}
             id={`call-input-${input.id}`}
             input={input}
+            words={words}
             value={draft[input.id]}
             onChange={(v) => setDraft({ ...draft, [input.id]: v })}
           />

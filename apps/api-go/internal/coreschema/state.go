@@ -346,6 +346,11 @@ type (
 		// Entities is the actor entity types that take the Test; omitted when every type does.
 		Entities []string       `json:"entities,omitempty"`
 		Inputs   []TestDefInput `json:"inputs"`
+		// Label, InputLabels and InputOptionLabels are the ruleset's words for the Test, its inputs and an input's
+		// options (house decision #77); each omitted when the ruleset gives none.
+		Label             string                       `json:"label,omitempty"`
+		InputLabels       map[string]string            `json:"inputLabels,omitempty"`
+		InputOptionLabels map[string]map[string]string `json:"inputOptionLabels,omitempty"`
 	}
 	// TestResult is a reported roll; a field the seat may not see is nil.
 	TestResult struct {

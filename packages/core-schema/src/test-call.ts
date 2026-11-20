@@ -42,6 +42,13 @@ export const TestDef = z.object({
   /** The actor entity type ids that take this Test (house decision #50); absent when every type does. */
   entities: z.array(z.string()).optional(),
   inputs: z.array(z.object({ id: z.string(), type: z.string(), options: z.array(z.string()).optional() })),
+  /**
+   * The ruleset's words for the Test, its inputs (by input id) and a text input's options (by input id, then option),
+   * house decision #77. Each is absent when the ruleset gives none; a screen then shows the id or the option itself.
+   */
+  label: z.string().optional(),
+  inputLabels: z.record(z.string(), z.string()).optional(),
+  inputOptionLabels: z.record(z.string(), z.record(z.string(), z.string())).optional(),
 });
 export type TestDef = z.infer<typeof TestDef>;
 

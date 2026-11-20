@@ -254,6 +254,17 @@ export const RuleOption = z.object({
 });
 export type RuleOption = z.infer<typeof RuleOption>;
 
+/**
+ * What the screens call a Test, its inputs and a text input's options (house decision #77); without a word the id (or
+ * the option itself) shows. Optional on every kind of Test. `inputLabels` names inputs, `inputOptionLabels` an input's
+ * declared options.
+ */
+const testWords = {
+  label: z.string().min(1).max(80).optional(),
+  inputLabels: z.record(Id, z.string().min(1).max(60)).optional(),
+  inputOptionLabels: z.record(Id, z.record(z.string().min(1).max(60), z.string().min(1).max(60))).optional(),
+};
+
 // What every kind of Test declares: the number it is compared with, how a tie goes, and what the GM fills in to call it.
 const testBase = {
   target: ExprSource,
@@ -264,6 +275,7 @@ const testBase = {
   inputOptions: z.record(Id, z.array(z.string().min(1).max(60)).min(1).max(50)).default({}),
   entities: ActorTypes,
   cite: Cite.optional(),
+  ...testWords,
 };
 
 /**
@@ -344,6 +356,7 @@ export const ReportedTest = z.object({
   inputOptions: z.record(Id, z.array(z.string().min(1).max(60)).min(1).max(50)).default({}),
   entities: ActorTypes,
   cite: Cite.optional(),
+  ...testWords,
 });
 export type ReportedTest = z.infer<typeof ReportedTest>;
 
@@ -1103,6 +1116,25 @@ function enumWordProblems({
   }
 }
 
+/** A Test's words name only its own inputs, and an input's option words only that input's declared options. */
+function testWordProblems({ t, path, out }: { t: DiceMechanic; path: string; out: Problem[] }): void {
+  for (const key of Object.keys(t.inputLabels ?? {}).sort()) {
+    if (t.inputs[key] === undefined)
+      out.push({ path: `${path}.inputLabels.${key}`, message: `"${key}" is not an input` });
+  }
+  const optionLabels = t.inputOptionLabels ?? {};
+  for (const key of Object.keys(optionLabels).sort()) {
+    if (t.inputs[key] === undefined) {
+      out.push({ path: `${path}.inputOptionLabels.${key}`, message: `"${key}" is not an input` });
+      continue;
+    }
+    for (const option of Object.keys(optionLabels[key] ?? {}).sort()) {
+      if (!(t.inputOptions[key] ?? []).includes(option))
+        out.push({ path: `${path}.inputOptionLabels.${key}.${option}`, message: `"${option}" is not an option` });
+    }
+  }
+}
+
 /** A codex field's ref names a declared entity, its int range is the right way up, its enum words name its values. */
 function codexProblems({ r, entityIds, out }: { r: Ruleset; entityIds: ReadonlySet<string>; out: Problem[] }): void {
   for (const [kind, k] of Object.entries(r.codex?.kinds ?? {})) {
@@ -1373,6 +1405,7 @@ function semanticProblems(r: Ruleset): Problem[] {
       if (t.inputs[key] !== "text")
         out.push({ path: `tests.${id}.inputOptions.${key}`, message: "options are only for text inputs" });
     }
+    testWordProblems({ t, path: `tests.${id}`, out });
     if (t.kind === "poolSuccesses") {
       poolProblems({ t, path: `tests.${id}`, out });
       continue;

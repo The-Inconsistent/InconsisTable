@@ -238,6 +238,38 @@ type (
 		Tracks []HealthTrack `json:"tracks"`
 		States []HealthState `json:"states"`
 		Cite   *string       `json:"cite"`
+		// Harm is nil when the ruleset declares no damage that counts up (house decision #66).
+		Harm *Harm `json:"harm"`
+	}
+	// Harm is health.harm: damage that counts up toward a limit, and mobs (house decision #66).
+	Harm struct {
+		Cite   *string `json:"cite"`
+		Wounds string  `json:"wounds"`
+		Shock  *string `json:"shock"`
+		Mob    *struct {
+			Members string `json:"members"`
+			Start   string `json:"start"`
+		} `json:"mob"`
+		Profiles []HarmProfile `json:"profiles"`
+	}
+	// HarmProfile is how one group of actor types takes a hit.
+	HarmProfile struct {
+		Entities  []string `json:"entities"`
+		Shockless *string  `json:"shockless"`
+		Spent     *struct {
+			When       *string  `json:"when"`
+			Conditions []string `json:"conditions"`
+		} `json:"spent"`
+		Felled *struct {
+			When      string  `json:"when"`
+			Injuries  *string `json:"injuries"`
+			Condition *string `json:"condition"`
+			HealTo    *string `json:"healTo"`
+		} `json:"felled"`
+		Destroyed *struct {
+			Over  string `json:"over"`
+			Field string `json:"field"`
+		} `json:"destroyed"`
 	}
 	// HealthState is one display state of the health block.
 	HealthState struct {
@@ -486,6 +518,113 @@ func (p *problems) creation(r *Ruleset) {
 }
 
 // Every face range fits the die, bands never overlap, and shift names a band.
+// harm is harmProblems of manifest.ts: health.harm's resources, fields and conditions (house decision #66).
+func (p *problems) harm(r *Ruleset, harm *Harm, actorTypes func(*[]string, string)) {
+	// The last declaration wins, as in TypeScript's Map built from the list.
+	resources := map[string]*Resource{}
+	for i := range r.Resources {
+		resources[r.Resources[i].ID] = &r.Resources[i]
+	}
+	tracked := map[string]bool{}
+	for _, t := range r.Health.Tracks {
+		tracked[t.Resource] = true
+		if t.Temp != nil {
+			tracked[*t.Temp] = true
+		}
+	}
+	type named struct {
+		key    string
+		id     *string
+		capped bool
+	}
+	list := []named{{"wounds", &harm.Wounds, false}, {"shock", harm.Shock, false}}
+	if harm.Mob != nil {
+		list = append(list, named{"mob.members", &harm.Mob.Members, true})
+	}
+	used := map[string]string{}
+	for _, n := range list {
+		if n.id == nil {
+			continue
+		}
+		id, path := *n.id, "health.harm."+n.key
+		res := resources[id]
+		other, taken := used[id]
+		switch {
+		case res == nil:
+			p.add(path, `unknown resource "%s"`, id)
+		case res.Scope != "entity":
+			p.add(path, `"%s" must be an entity-scoped resource`, id)
+		case tracked[id]:
+			p.add(path, `"%s" is already a health track`, id)
+		case taken:
+			p.add(path, `"%s" is already health.harm.%s`, id, other)
+		case res.Capped != n.capped && n.capped:
+			p.add(path, `"%s" must be capped`, id)
+		case res.Capped != n.capped:
+			p.add(path, `"%s" must be declared capped: false`, id)
+		}
+		if !taken {
+			used[id] = n.key
+		}
+	}
+	var actors []*EntityType
+	for i := range r.Entities {
+		if r.Entities[i].Base == "actor" {
+			actors = append(actors, &r.Entities[i])
+		}
+	}
+	fieldOf := func(e *EntityType, id, typ, path string) {
+		if def, ok := e.Fields[id]; !ok || def.Type != typ {
+			p.add(path, `"%s" has no %s field "%s"`, e.ID, typ, id)
+		}
+	}
+	if mob := harm.Mob; mob != nil {
+		if members := resources[mob.Members]; members != nil && members.Scope == "entity" {
+			for _, e := range actors {
+				if members.Entities == nil || slices.Contains(*members.Entities, e.ID) {
+					fieldOf(e, mob.Start, "int", "health.harm.mob.start")
+				}
+			}
+		}
+	}
+	condition := func(id, path string) {
+		if !slices.ContainsFunc(r.Conditions, func(c Condition) bool { return c.ID == id }) {
+			p.add(path, `unknown condition "%s"`, id)
+		}
+	}
+	profiled := map[string]int{}
+	for i, x := range harm.Profiles {
+		path := fmt.Sprintf("health.harm.profiles[%d]", i)
+		actorTypes(&x.Entities, path+".entities")
+		for j, id := range x.Entities {
+			if other, taken := profiled[id]; taken {
+				p.add(fmt.Sprintf("%s.entities[%d]", path, j), `"%s" is already in profiles[%d]`, id, other)
+			} else {
+				profiled[id] = i
+			}
+		}
+		for _, e := range actors {
+			if !slices.Contains(x.Entities, e.ID) {
+				continue
+			}
+			if x.Felled != nil && x.Felled.Injuries != nil {
+				fieldOf(e, *x.Felled.Injuries, "int", path+".felled.injuries")
+			}
+			if x.Destroyed != nil {
+				fieldOf(e, x.Destroyed.Field, "bool", path+".destroyed.field")
+			}
+		}
+		if x.Spent != nil {
+			for j, id := range x.Spent.Conditions {
+				condition(id, fmt.Sprintf("%s.spent.conditions[%d]", path, j))
+			}
+		}
+		if x.Felled != nil && x.Felled.Condition != nil {
+			condition(*x.Felled.Condition, path+".felled.condition")
+		}
+	}
+}
+
 func (p *problems) pool(t *Test, path string) {
 	checkRange := func(from, to float64, at string) {
 		if to < from {
@@ -644,6 +783,9 @@ func (r *Ruleset) semanticProblems() problems {
 	if len(r.Health.Tracks) > 0 {
 		needCite(r.Health.Cite, "health")
 	}
+	if r.Health.Harm != nil {
+		needCite(r.Health.Harm.Cite, "health.harm")
+	}
 	for i, x := range r.Creation {
 		needCite(x.Cite, fmt.Sprintf("creation[%d]", i))
 	}
@@ -765,6 +907,9 @@ func (r *Ruleset) semanticProblems() problems {
 	}
 	for i, s := range r.Health.States {
 		actorTypes(s.Entities, fmt.Sprintf("health.states[%d].entities", i))
+	}
+	if r.Health.Harm != nil {
+		p.harm(r, r.Health.Harm, actorTypes)
 	}
 
 	for _, id := range sortedKeys(r.Tests) {

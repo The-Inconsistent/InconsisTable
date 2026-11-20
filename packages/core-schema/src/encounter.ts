@@ -31,9 +31,17 @@ export const Combatant = z.object({
   keep: z.boolean(), // a temporary creature the GM keeps at encounter end
   /** The health track's numbers; null when the seat may not see them (`bar` and hidden values never carry them). */
   hp: z.object({ value: z.number().int(), max: z.number().int().nullable() }).nullable(),
-  /** The health track as 0..1, for the bar; null when the actor has no health to show. */
+  /**
+   * How much is left, 0..1, for the bar; null when the actor has no health to show. A `health.tracks` ruleset reads its
+   * first track; a `health.harm` one a mob's members over their max, anyone else 1 - wounds / max (house decision #66).
+   */
   bar: z.number().min(0).max(1).nullable(),
-  conditions: z.array(CombatantCondition), // GM side only
+  /** The ruleset's health states that hold for the actor, in manifest order, decided on the server. */
+  states: z.array(z.object({ id: z.string(), label: z.string() })),
+  /** A mob's members standing (house decision #66); null for anyone else. */
+  members: z.object({ value: z.number().int(), max: z.number().int().nullable() }).nullable(),
+  /** The conditions the ruleset lets the seat see on the actor (house decision #67); every one for the combat side. */
+  conditions: z.array(CombatantCondition),
   /** Sides order only (house decision #60): holding an action, barred this round, unable to act. Absent otherwise. */
   held: z.boolean().optional(),
   barred: z.boolean().optional(),

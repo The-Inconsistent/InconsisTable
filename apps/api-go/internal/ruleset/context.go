@@ -2,6 +2,8 @@ package ruleset
 
 import (
 	"context"
+	"errors"
+	"maps"
 	"slices"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
@@ -23,6 +25,10 @@ var primitiveParams = map[string]func(r *engine.Ruleset) any{
 	"initiative.seated": func(r *engine.Ruleset) any { return r.Normalized["initiative"] },
 	"initiative.sides":  func(r *engine.Ruleset) any { return r.Normalized["initiative"] },
 	"health.tracks":     func(r *engine.Ruleset) any { return r.Normalized["health"] },
+	"health.harm": func(r *engine.Ruleset) any {
+		health, _ := r.Normalized["health"].(map[string]any)
+		return health["harm"]
+	},
 	"resource.capped":   func(*engine.Ruleset) any { return map[string]any{} },
 	"conditions.expire": func(*engine.Ruleset) any { return map[string]any{} },
 	"rest":              func(*engine.Ruleset) any { return map[string]any{} },
@@ -38,12 +44,14 @@ func RunPrimitive(r *engine.Ruleset, state *engine.RuleState, primitive, op stri
 	if !known {
 		return nil, cs.Fail("notRunThisWay", cs.Params{"primitive": primitive})
 	}
+	if primitive == "health.harm" && r.Health.Harm == nil {
+		return nil, cs.Fail("noHarmHere")
+	}
 	if primitive == "resource.capped" {
 		if in, isObject := input.(map[string]any); isObject {
-			for _, t := range r.Health.Tracks {
-				if target, has := in["resource"]; has && target == t.Resource {
-					return nil, cs.Fail("hpThroughDamage")
-				}
+			target, has := in["resource"]
+			if has && slices.Contains(throughDamage(r), target) {
+				return nil, cs.Fail("hpThroughDamage")
 			}
 		}
 	}
@@ -52,6 +60,25 @@ func RunPrimitive(r *engine.Ruleset, state *engine.RuleState, primitive, op stri
 		return nil, cs.Fail(refusal.Code, cs.Params{"detail": refusal.Message})
 	}
 	return result.Deltas, nil
+}
+
+// throughDamage is the resources the plain stepper may not change, for any seat: a health track's, and the ones
+// health.harm counts (house decision #66). Rests and other trusted writes still reach them.
+func throughDamage(r *engine.Ruleset) []any {
+	out := []any{}
+	for _, t := range r.Health.Tracks {
+		out = append(out, t.Resource)
+	}
+	if h := r.Health.Harm; h != nil {
+		out = append(out, h.Wounds)
+		if h.Shock != nil {
+			out = append(out, *h.Shock)
+		}
+		if h.Mob != nil {
+			out = append(out, h.Mob.Members)
+		}
+	}
+	return out
 }
 
 // IsPaused is house decision #28: an encounter may stay open across sessions, but nothing moves until the next one
@@ -74,10 +101,13 @@ type Context struct {
 	// Pools are the room's shared pools as they stand, by resource id, and PoolOrder their ids in the state's order.
 	Pools     map[string]actor.Pool
 	PoolOrder []string
-	c         cs.Ctx
-	tx        core.Conn
-	turn      *turn.Turn
-	read      bool
+	// characters and campaign are what the actors were built with, for bounds evaluated again (rebound).
+	characters float64
+	campaign   map[string]any
+	c          cs.Ctx
+	tx         core.Conn
+	turn       *turn.Turn
+	read       bool
 }
 
 // OpenIfPinned is the campaign's ruleset context, or nil when it has no ruleset.
@@ -110,7 +140,8 @@ func OpenIfPinned(ctx context.Context, tx core.Conn, c cs.Ctx) (*Context, error)
 	if err != nil {
 		return nil, err
 	}
-	rc := &Context{Compiled: rules, Built: built, Order: order, Pools: map[string]actor.Pool{}, c: c, tx: tx}
+	rc := &Context{Compiled: rules, Built: built, Order: order, Pools: map[string]actor.Pool{}, c: c, tx: tx,
+		characters: actor.CountCharacters(rows), campaign: campaign}
 	for _, p := range pools {
 		rc.Pools[p.ID] = p
 		rc.PoolOrder = append(rc.PoolOrder, p.ID)
@@ -209,7 +240,56 @@ func (rc *Context) Run(ctx context.Context, r Run) ([]engine.Delta, error) {
 			return nil, cs.Fail("sessionPaused")
 		}
 	}
-	return RunPrimitive(rc.Compiled.Ruleset, rc.State(r.Exclude, t), r.Primitive, r.Op, r.Input)
+	in, _ := r.Input.(map[string]any)
+	actorID, _ := in["actorId"].(string)
+	// A sheet the rules cannot read yet takes no hit: refused in the words a called Test uses, not the engine's.
+	if b := rc.Built[actorID]; r.Primitive == "health.harm" && b != nil && b.Entity != "" && b.Scope == nil {
+		return nil, cs.Fail("incomplete", cs.Params{"name": b.Row.Name, "detail": b.Problem})
+	}
+	deltas, err := RunPrimitive(rc.Compiled.Ruleset, rc.State(r.Exclude, t), r.Primitive, r.Op, r.Input)
+	var refused *cs.Error
+	if errors.As(err, &refused) && namesActor[refused.Code] && rc.Built[actorID] != nil {
+		params := cs.Params{"name": rc.Built[actorID].Row.Name}
+		maps.Copy(params, refused.Params)
+		refused.Params = params
+	}
+	if err == nil && r.Primitive == "health.harm" && r.Op == "muster" {
+		err = rc.rebound(actorID, deltas)
+	}
+	return deltas, err
+}
+
+// The engine refusals whose text names the actor (house decision #66).
+var namesActor = map[string]bool{"noHarmHere": true, "neverShocked": true, "notAMob": true}
+
+// rebound evaluates an actor's resource bounds again with the fields the deltas are about to write, so a resource
+// whose max reads one of them (a mob's members, up to its start) is clamped by the new value in the same action.
+// ponytail: muster only, and a held resource's max override is not kept; widen to every op that writes a field a
+// bound reads if another needs it.
+func (rc *Context) rebound(actorID string, deltas []engine.Delta) error {
+	b := rc.Built[actorID]
+	if b == nil || b.Entity == "" {
+		return nil
+	}
+	fields := maps.Clone(b.Fields)
+	for _, d := range deltas {
+		if d.Target.ActorID == actorID && d.Target.Field != "" {
+			fields[d.Target.Field] = d.Value
+		}
+	}
+	start, err := actor.StartingResources(rc.Compiled, b.Entity, fields, rc.characters, rc.campaign, b.Entries)
+	if err != nil {
+		return err
+	}
+	copied := *b
+	copied.Bounds = maps.Clone(b.Bounds)
+	for _, r := range start {
+		if _, held := copied.Bounds[r.Resource]; held {
+			copied.Bounds[r.Resource] = r.Bounds
+		}
+	}
+	rc.Built[actorID] = &copied
+	return nil
 }
 
 // Apply is the only write of a context: every delta through the pipeline. It returns the logged action id, "" when

@@ -52,6 +52,7 @@ var primitives = map[string]primitive{
 	"initiative.seated":  initiativeSeated,
 	"initiative.sides":   initiativeSides,
 	"health.tracks":      healthTracks,
+	"health.harm":        healthHarm,
 	"resource.capped":    resourceCapped,
 	"conditions.expire":  conditionsExpire,
 	"rest":               rest,

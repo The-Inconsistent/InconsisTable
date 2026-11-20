@@ -117,6 +117,8 @@ const combatant = (id: string, actorId: string, visibility: string, over: Record
   keep: true,
   hp: { value: 4, max: 7 },
   bar: 0.5,
+  states: [{ id: "hurt", label: "Hurt" }],
+  members: null,
   conditions: [
     { id: "dazed", left: 1, expiresOn: "roundEnd" },
     { id: "marked", left: null, expiresOn: "manual" },
@@ -287,7 +289,7 @@ const STATE = {
       combatant(CB1, PC1, "full", { side: "party", ord: 0 }),
       combatant(CB2, GOB, "full", { ord: 1 }),
       combatant(CB3, GOB, "hidden", { ord: 2 }),
-      combatant(CB4, NPC, "bar", { ord: 3, hp: null, bar: null }),
+      combatant(CB4, NPC, "bar", { ord: 3, hp: null, bar: 0.25, members: { value: 3, max: 12 } }),
       combatant(CB5, GHOST, "full", { ord: 4 }),
     ],
   },

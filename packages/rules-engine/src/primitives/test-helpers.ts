@@ -98,6 +98,17 @@ export function applyDeltas(state: RuleState, list: readonly Delta[]): RuleState
       if (d.kind === "set" && d.value === null) a.conditions = a.conditions.filter((c) => c !== row);
       else if (d.kind === "add" && typeof d.value === "number") row.expiresAfter = (row.expiresAfter ?? 1) + d.value;
       else assert.fail("a condition delta is an add or a removal");
+    } else if ("applyCondition" in t) {
+      // As the api applies it to a condition that does not stack: a new manual row, unless the actor holds one.
+      assert.ok(d.kind === "add" && d.value === 1);
+      if (!(a.conditions ?? []).some((c) => c.conditionId === t.applyCondition)) {
+        const row = {
+          id: `${t.actorId}/${t.applyCondition}`,
+          conditionId: t.applyCondition,
+          expiresOn: "manual" as const,
+        };
+        a.conditions = [...(a.conditions ?? []), { ...row, expiresAfter: null }];
+      }
     } else a.fields[t.field] = d.value;
   }
   return { actors, turn, ...(pools === undefined ? {} : { pools }) };

@@ -16,12 +16,16 @@ type ResourceState struct {
 	Reset map[string]float64 `json:"reset"`
 	// InstantDeathAt is the overflow damage that kills outright, for health tracks.
 	InstantDeathAt *float64 `json:"instantDeathAt"`
+	// Limit is the max as the table shows it, also for a resource declared capped: false, whose Max is nil (health.harm
+	// reads the shock limit from it, house decision #66). Nil reads as Max.
+	Limit *float64 `json:"limit"`
 }
 
 // ConditionState is one actor_condition row.
 type ConditionState struct {
-	ID        string `json:"id"`
-	ExpiresOn string `json:"expiresOn"`
+	ID          string `json:"id"`
+	ConditionID string `json:"conditionId"`
+	ExpiresOn   string `json:"expiresOn"`
 	// ExpiresAfter is the turns or rounds left. Nil reads as 1 (house decision #14).
 	ExpiresAfter *float64 `json:"expiresAfter"`
 }
@@ -38,6 +42,11 @@ type ActorState struct {
 	Fields     map[string]any   `json:"fields"`
 	Resources  []NamedResource  `json:"resources"`
 	Conditions []ConditionState `json:"conditions"`
+	// Entity is the ruleset's entity type, for the ops that read it by type (health.harm); "" for none.
+	Entity string `json:"entity"`
+	// Scope is the actor's expression scope as the caller evaluated it, for the ops that read expressions; nil when
+	// it cannot be evaluated.
+	Scope *Record `json:"scope"`
 }
 
 func (a *ActorState) resource(name string) *ResourceState {
@@ -113,8 +122,11 @@ type DeltaTarget struct {
 	Resource  string `json:"resource,omitempty"`
 	Field     string `json:"field,omitempty"`
 	Condition string `json:"condition,omitempty"`
-	Turn      string `json:"turn,omitempty"`
-	Test      string `json:"test,omitempty"`
+	// ApplyCondition names a condition of the manifest, with "add" of 1 only: applied once more as condition.add does
+	// (its stacking rule; no count, expiring manual). The pipeline turns it into a write on the row (house decision #66).
+	ApplyCondition string `json:"applyCondition,omitempty"`
+	Turn           string `json:"turn,omitempty"`
+	Test           string `json:"test,omitempty"`
 	// Pool is a shared pool's resource id (scope party, gm or campaign), used with "add" only.
 	Pool string `json:"pool,omitempty"`
 	// Clock is a room clock's id: a counted target with no actor, written by internal/clock (not a ruleset primitive,
@@ -184,7 +196,7 @@ func (p TargetPattern) matches(t DeltaTarget) bool {
 		return p.Kind == "resource" && named(t.Resource)
 	case t.Field != "":
 		return p.Kind == "field" && named(t.Field)
-	case t.Condition != "":
+	case t.Condition != "" || t.ApplyCondition != "":
 		return p.Kind == "condition"
 	case t.Turn != "":
 		return p.Kind == "turn" && p.Name == t.Turn
@@ -205,6 +217,7 @@ func (t DeltaTarget) json() string {
 	add("resource", t.Resource)
 	add("field", t.Field)
 	add("condition", t.Condition)
+	add("applyCondition", t.ApplyCondition)
 	add("turn", t.Turn)
 	add("test", t.Test)
 	add("pool", t.Pool)

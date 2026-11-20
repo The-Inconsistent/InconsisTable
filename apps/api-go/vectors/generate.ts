@@ -21,6 +21,7 @@ import type { ExprScope, ExprType } from "../../../packages/rules-engine/src/exp
 import { typeName } from "../../../packages/rules-engine/src/expr/expr.check.ts";
 import { compileExpr, type CompiledExpr } from "../../../packages/rules-engine/src/expr/expr.ts";
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+import { SAMPLE_HARM } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
 import { SAMPLE_SCOPED } from "../../../packages/rules-engine/src/fixtures/sample-scoped.ts";
@@ -60,11 +61,13 @@ import { canonicalJson, contentHash, diffHashes, sha256Hex } from "../../../pack
 import type {
   ActorState,
   ConditionState,
+  Delta,
   RuleState,
   ResourceState,
+  TargetPattern,
   TurnState,
 } from "../../../packages/rules-engine/src/primitives/primitive.ts";
-import { charge } from "../../../packages/rules-engine/src/primitives/primitive.ts";
+import { charge, checkDeltas } from "../../../packages/rules-engine/src/primitives/primitive.ts";
 import { PRIMITIVES, runOp } from "../../../packages/rules-engine/src/primitives/registry.ts";
 import { firstOf, nextFirst, sequence } from "../../../packages/rules-engine/src/primitives/initiative-seated.ts";
 import { poolSize } from "../../../packages/rules-engine/src/primitives/dice-pool-successes.ts";
@@ -554,6 +557,122 @@ function genSidesState(): RuleState {
   return { actors: {}, turn, ...(srnd(10) === 0 ? {} : { pools }) };
 }
 STATES.push(...Array.from({ length: 150 }, genSidesState));
+const SIDES_END = STATES.length;
+
+// `health.harm` (house decision #66): actors of the invented sample-harm ruleset, built as the api builds them (scope,
+// bounds, limits), from a stream of their own so the corpora above do not move. Heroes at every wound and strain
+// around their limits, spent or not, down or not; brutes; swarms at several sizes; actors no profile holds.
+const HARM_COMPILED = (() => {
+  const r = compileRuleset(SAMPLE_HARM);
+  if (!r.ok) throw new Error(JSON.stringify(r.problems));
+  return r.compiled;
+})();
+const HARM_BLOCK = HARM_COMPILED.ruleset.health.harm;
+const HARM_PARAMS: unknown[] = [
+  HARM_BLOCK,
+  // No shock and no mobs: every shock is refused, a swarm is wounded like anyone.
+  { ...HARM_BLOCK, shock: undefined, mob: undefined },
+  // Spent by its condition alone, down without a cap on healing or a condition, nothing destroyed.
+  {
+    ...HARM_BLOCK,
+    profiles: [
+      {
+        entities: ["hero", "swarm"],
+        spent: { conditions: ["winded", "down"] },
+        felled: { when: "res.wounds >= derived.limit" },
+      },
+      { entities: ["brute"], felled: { when: "res.wounds > 2", injuries: "hide", condition: "winded" } },
+    ],
+  },
+];
+let harmSeed = 66;
+const hrnd = (n: number) => (((harmSeed = (Math.imul(harmSeed, 1103515245) + 12345) >>> 0) / 2 ** 32) * n) | 0;
+const hpick = <T>(items: readonly T[]): T => items[hrnd(items.length)] as T;
+
+function harmActor({
+  entity,
+  fields,
+  values,
+  conditions,
+}: {
+  entity: string;
+  fields: Record<string, FieldValue>;
+  values: Record<string, number>;
+  conditions: string[];
+}): ActorState {
+  const derived = deriveValues({ compiled: HARM_COMPILED, entity, values: { fields, resources: values, conditions } });
+  const scope = actorScope({ fields, derived, resources: values });
+  const resources: Record<string, ResourceState> = {};
+  for (const [resource, value] of Object.entries(values)) {
+    const b = resourceBounds({ compiled: HARM_COMPILED, resource, scope });
+    resources[resource] = { value, min: b.min, max: b.capped ? b.max : null, limit: b.max };
+  }
+  return {
+    id: "h",
+    entity,
+    fields,
+    resources,
+    scope,
+    conditions: conditions.map((c, i) => ({ id: `h${i}`, conditionId: c, expiresOn: "manual", expiresAfter: null })),
+  };
+}
+
+function genHarmState(): RuleState {
+  const conditions = ["down", "winded"].filter(() => hrnd(3) === 0);
+  const kind = hpick(["hero", "hero", "hero", "brute", "swarm", "swarm", "ghost", "none"]);
+  let a: ActorState;
+  if (kind === "swarm") {
+    const size = hpick([1, 2, 3, 5, 8, 12, 40]);
+    const members = hpick([0, 1, size, size, Math.ceil(size / 2), size - 1].filter((n) => n >= 0));
+    a = harmActor({ entity: "swarm", fields: { size }, values: { wounds: 0, strain: 0, members }, conditions });
+  } else if (kind === "brute") {
+    const hide = 1 + hrnd(6);
+    const wounds = hrnd(2 * hide + 4);
+    a = harmActor({ entity: "brute", fields: { hide }, values: { wounds, strain: 0 }, conditions });
+  } else {
+    const grit = 1 + hrnd(5);
+    const limit = grit + 3;
+    const wounds = hpick([0, 0, 1, limit - 1, limit, limit + 1, limit + 2, 2 * limit, hrnd(3 * limit)]);
+    const strain = hpick([0, grit - 1, grit, grit + 1, grit + 3, hrnd(2 * grit + 2)].filter((n) => n >= 0));
+    const scars = hpick<FieldValue | undefined>([undefined, 0, 1, 3]);
+    const fields: Record<string, FieldValue> = { grit, ...(scars === undefined ? {} : { scars }) };
+    a = harmActor({ entity: "hero", fields, values: { wounds, strain }, conditions });
+    if (kind === "ghost") a = { ...a, entity: "ghost" };
+    if (kind === "none") a = { ...a, entity: undefined };
+  }
+  if (hrnd(25) === 0) a = { ...a, scope: undefined };
+  if (hrnd(30) === 0) a = { ...a, resources: {} };
+  return { actors: { h: a }, turn: null };
+}
+const HARM_STATES_AT = STATES.length;
+STATES.push(...Array.from({ length: 400 }, genHarmState));
+
+/** A hit for one harm state: its thresholds often, any sign and size otherwise. */
+function genHit(state: RuleState): { wounds?: number; shock?: number } {
+  const a = state.actors.h;
+  const derived = new Map(Object.entries(a?.scope?.derived ?? {}));
+  const num = (v: unknown, fallback: number) => (typeof v === "number" ? v : fallback);
+  const limit = num(derived.get("limit"), 3);
+  const cap = num(derived.get("strainCap"), 2);
+  const wounds = a?.resources.wounds?.value ?? 0;
+  const strain = a?.resources.strain?.value ?? 0;
+  const w = hpick([
+    0,
+    0,
+    hrnd(25) - 12,
+    limit - wounds,
+    limit - wounds + 1,
+    2 * limit,
+    2 * limit + 1,
+    -limit,
+    100,
+    -100,
+    1,
+    -1,
+  ]);
+  const s = hpick([0, 0, hrnd(13) - 6, cap, cap + 1, cap - strain, cap - strain + 1, -strain, 3, -2]);
+  return { ...(w === 0 && hrnd(2) === 0 ? {} : { wounds: w }), ...(s === 0 && hrnd(2) === 0 ? {} : { shock: s }) };
+}
 
 function genInput(primitive: string, op: string, state: RuleState): unknown {
   const ids = [...Object.keys(state.actors), ...(state.turn?.order ?? [])];
@@ -701,8 +820,7 @@ function opVectors() {
       // The pool op draws from a stream of its own: the manifest vectors that follow keep the corpus they had.
       const saved = seed;
       for (let i = 0; i < (primitive === "health.tracks" ? 6000 : 1500); i++) {
-        const state =
-          primitive === "initiative.sides" ? BASE_STATES + rnd(STATES.length - BASE_STATES) : rnd(BASE_STATES);
+        const state = primitive === "initiative.sides" ? BASE_STATES + rnd(SIDES_END - BASE_STATES) : rnd(BASE_STATES);
         const valid = genInput(primitive, op, STATES[state] as RuleState);
         run({ primitive, op, p: pick(list), state, input: rnd(4) === 0 ? breakInput(valid) : valid });
       }
@@ -722,6 +840,35 @@ function opVectors() {
   for (const critical of [true, false]) {
     const input = { actorId: "pc", amount: 1, critical };
     run({ primitive: "health.tracks", op: "damage", p: OP_PARAMS["health.tracks"]?.[3], state: 2, input });
+  }
+  // `health.harm`: 3,000 hits and 400 musters over the harm states, on the stream they were drawn from.
+  for (const p of HARM_PARAMS) {
+    if (!PRIMITIVES["health.harm"]?.params.safeParse(p).success) throw new Error(`not valid: ${JSON.stringify(p)}`);
+    paramsAt.set(p, params.length);
+    params.push(p);
+  }
+  const harmState = () => HARM_STATES_AT + hrnd(STATES.length - HARM_STATES_AT);
+  const BROKEN = [
+    { actorId: "h", wounds: 1.5 },
+    { actorId: "h", wounds: 101 },
+    { actorId: "h", shock: -101 },
+    { actorId: "h" },
+    { actorId: "h", wounds: 0, shock: 0 },
+    { actorId: "", wounds: 1 },
+    { wounds: 1 },
+    { actorId: "h", shock: "1" },
+    null,
+  ];
+  for (let i = 0; i < 3000; i++) {
+    const state = harmState();
+    const valid = { actorId: hrnd(40) === 0 ? "nobody" : "h", ...genHit(STATES[state] as RuleState) };
+    const input = hrnd(15) === 0 ? hpick(BROKEN) : valid;
+    run({ primitive: "health.harm", op: "hit", p: hpick(HARM_PARAMS), state, input });
+  }
+  for (let i = 0; i < 400; i++) {
+    const members = hpick([1, 2, 5, 12, 40, 500, 0, 501, 2.5]);
+    const input = { actorId: hrnd(20) === 0 ? "nobody" : "h", members };
+    run({ primitive: "health.harm", op: "muster", p: hpick(HARM_PARAMS), state: harmState(), input });
   }
   // Sides: the paths a random state seldom lines up for (a paid seize, an automatic wrap, a lifted bar).
   const sideTurn = (over: Partial<TurnState>, gold = 3, tin = 3): number =>
@@ -824,6 +971,30 @@ function chargeVectors() {
         return { state, pool, amount, ...("delta" in r ? { delta: r.delta } : { code: r.code, message: r.message }) };
       }),
     ),
+  );
+}
+
+// Every delta target shape, the condition an op applies among them (house decision #66), against every target pattern:
+// which a pattern lets through, and the target as the refusal prints it.
+function deltaCheckVectors() {
+  const deltas: Delta[] = [
+    { target: { actorId: "a", resource: "hp" }, kind: "add", value: -2 },
+    { target: { actorId: "a", field: "gone" }, kind: "set", value: true },
+    { target: { actorId: "a", condition: "row1" }, kind: "set", value: null },
+    { target: { actorId: "a", applyCondition: "prone" }, kind: "add", value: 1 },
+    { target: { turn: "round" }, kind: "set", value: 2 },
+    { target: { test: "outcome" }, kind: "set", value: "success" },
+    { target: { pool: "luck" }, kind: "add", value: -1 },
+  ];
+  const patterns: TargetPattern[][] = [
+    [],
+    [{ resource: "*" }],
+    [{ resource: "hp" }, { field: "gone" }],
+    [{ condition: "*" }],
+    [{ field: "*" }, { turn: "round" }, { test: "outcome" }, { pool: "*" }],
+  ];
+  return deltas.flatMap((d) =>
+    patterns.map((targets) => ({ deltas: [d], targets, refusal: checkDeltas({ deltas: [d], targets }) })),
   );
 }
 
@@ -1086,6 +1257,108 @@ const withCampaign = (campaignFields: object) => ({ campaignFields });
 const withForm = (fields: object, expr: string) =>
   withPc({ fields: { ...pcBase.fields, ...fields }, derived: [{ id: "a", label: "A", expr }] });
 const intField = { label: "F", type: "int" };
+
+// `health.harm` (house decision #66): an invented ruleset with characters that go down, creatures that never take
+// shock, and mobs. Its pieces are spread so each refusal below changes one of them.
+const harmEntities = [
+  { ...pcBase, fields: { ...pcBase.fields, injuries: fieldInt, gone: { label: "G", type: "bool" } } },
+  {
+    id: "foe",
+    label: "Foe",
+    base: "actor",
+    fields: { gone: { label: "G", type: "bool" }, tough: fieldInt },
+    derived: [{ id: "edge", label: "E", expr: "tough * 2" }],
+  },
+  { id: "horde", label: "Horde", base: "actor", fields: { size: fieldInt } },
+  { id: "gear", label: "Gear", base: "item", fields: {} },
+];
+const harmResources = [
+  { id: "hp", label: "H", scope: "entity", max: "10" },
+  { id: "wounds", label: "W", scope: "entity", max: "5", capped: false },
+  { id: "shock", label: "S", scope: "entity", max: "3", capped: false },
+  { id: "members", label: "M", scope: "entity", entities: ["horde"], max: "size" },
+  { id: "luck", label: "L", scope: "party" },
+];
+const harmConditions = [
+  { id: "prone", label: "P", duration: "manual" },
+  { id: "tired", label: "T", duration: "manual" },
+];
+const harmProfiles = [
+  {
+    entities: ["pc"],
+    spent: { when: "res.shock > 3", conditions: ["tired"] },
+    felled: { when: "res.wounds > 5", injuries: "injuries", condition: "prone", healTo: "5" },
+    destroyed: { over: "10", field: "gone" },
+  },
+  { entities: ["foe"], shockless: "tough > 2", destroyed: { over: "derived.edge", field: "gone" } },
+  { entities: ["horde"] },
+];
+const harmBlock = {
+  wounds: "wounds",
+  shock: "shock",
+  mob: { members: "members", start: "size" },
+  profiles: harmProfiles,
+};
+const harmManifest = (harm: object = {}, over: object = {}) => ({
+  ...MINIMAL,
+  entities: harmEntities,
+  resources: harmResources,
+  conditions: harmConditions,
+  health: { harm: { ...harmBlock, ...harm } },
+  ...over,
+});
+const harmProfile = (i: number, over: object) => ({
+  profiles: harmProfiles.map((p, j) => (j === i ? { ...p, ...over } : p)),
+});
+
+// One manifest per rule of the block, in the schema and in the semantic pass.
+function harmCrafted(): object[] {
+  const cited = (x: object) => ({ ...x, cite: "p1" });
+  return [
+    harmManifest(),
+    harmManifest({ shock: undefined, mob: undefined }),
+    harmManifest(
+      {},
+      {
+        sources: [{ id: "s", title: "T", license: "srd" }],
+        resources: harmResources.map(cited),
+        conditions: harmConditions.map(cited),
+        initiative: { strategy: "seated", firstPlayer: "fixed", cite: "p1" },
+      },
+    ),
+    harmManifest({ wounds: "nope" }),
+    harmManifest({ wounds: "luck" }),
+    harmManifest({}, { health: { tracks: [{ resource: "wounds" }], harm: harmBlock } }),
+    harmManifest({ shock: "wounds" }),
+    harmManifest({ mob: { members: "shock", start: "size" } }),
+    harmManifest({ wounds: "hp" }),
+    harmManifest({}, { resources: harmResources.map((r) => (r.id === "members" ? { ...r, capped: false } : r)) }),
+    harmManifest({ mob: { members: "members", start: "nope" } }),
+    harmManifest({ mob: { members: "hp", start: "size" } }),
+    harmManifest(harmProfile(1, { entities: ["foe", "ghost", "gear"] })),
+    harmManifest(harmProfile(2, { entities: ["horde", "pc"] })),
+    harmManifest(harmProfile(1, { entities: ["foe", "foe"] })),
+    harmManifest(harmProfile(0, { felled: { when: "true", injuries: "gone" } })),
+    harmManifest(harmProfile(0, { destroyed: { over: "1", field: "injuries" } })),
+    harmManifest(harmProfile(1, { destroyed: { over: "1", field: "nope" } })),
+    harmManifest(
+      harmProfile(0, { spent: { conditions: ["tired", "ghost"] }, felled: { when: "true", condition: "x" } }),
+    ),
+    harmManifest(harmProfile(1, { shockless: "1" })),
+    harmManifest(harmProfile(0, { spent: { when: "res.nope > 1" } })),
+    harmManifest(harmProfile(0, { felled: { when: "res.wounds" } })),
+    harmManifest(harmProfile(0, { felled: { when: "true", healTo: "true" } })),
+    harmManifest(harmProfile(0, { destroyed: { over: "tough", field: "gone" } })),
+    harmManifest({ profiles: [] }),
+    harmManifest({ profiles: Array.from({ length: 11 }, () => ({ entities: ["pc"] })) }),
+    harmManifest({ wounds: "Bad_Id" }),
+    harmManifest(harmProfile(0, { entities: [] })),
+    harmManifest(harmProfile(0, { felled: {} })),
+    harmManifest(harmProfile(0, { spent: { conditions: Array.from({ length: 21 }, () => "tired") } })),
+    harmManifest({ mob: { members: "members" } }),
+    harmManifest({ profiles: undefined }),
+  ];
+}
 
 // `initiative.sides` (house decision #57): one valid block, then each refusal of the schema and of the semantic pass.
 function sidesCrafted(): object[] {
@@ -1703,7 +1976,11 @@ const CRAFTED: object[] = [
     { id: "d", label: "D", expr: "derived.c + derived.a" },
   ),
   ...sidesCrafted(),
+  ...harmCrafted(),
 ];
+
+// `health.harm` with random changes, so the two schemas and semantic passes are held equal beyond the crafted cases.
+MANIFESTS.push(harmManifest());
 
 // The `game` block: a homebrew ruleset needs no cite for gmless or solo, the others do (principle 1).
 // The mutations turn the license to `srd` and the modes around, which reach the cite rule.
@@ -2640,6 +2917,7 @@ const vectors = {
   dice: diceVectors(),
   ops: opVectors(),
   charge: chargeVectors(),
+  deltaChecks: deltaCheckVectors(),
   typeScope,
   checks: checkVectors(exprSources),
   manifests: MANIFESTS,

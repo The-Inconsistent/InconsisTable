@@ -3,6 +3,7 @@ import { own } from "../own.ts";
 import { conditionsExpire } from "./conditions-expire.ts";
 import { dicePoolSuccesses } from "./dice-pool-successes.ts";
 import { diceSumVsTarget } from "./dice-sum-vs-target.ts";
+import { healthHarm } from "./health-harm.ts";
 import { healthTracks } from "./health-tracks.ts";
 import { initiativeRanked } from "./initiative-ranked.ts";
 import { initiativeSeated } from "./initiative-seated.ts";
@@ -19,6 +20,7 @@ export const PRIMITIVES: Readonly<Record<string, Primitive<unknown>>> = {
   [initiativeSeated.id]: initiativeSeated,
   [initiativeSides.id]: initiativeSides,
   [healthTracks.id]: healthTracks,
+  [healthHarm.id]: healthHarm,
   [resourceCapped.id]: resourceCapped,
   [conditionsExpire.id]: conditionsExpire,
   [rest.id]: rest,

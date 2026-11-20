@@ -147,6 +147,11 @@ export const REFUSALS = {
   outOfTargets: "{detail}",
   unknownPool: "No such pool.",
   cannotPay: "Not enough to pay for that.",
+  // Hits and mobs (house decision #66). {name} is the actor's or the entry's.
+  noHarmHere: "{name} doesn't take hits in this ruleset",
+  neverShocked: "{name} never takes that",
+  notAMob: "{name} isn't a mob",
+  noMobsHere: "{name} can't come as a mob in this ruleset",
   // Codex
   entryNotFound: "Entry not found",
   needSecretsScope: "GM notes need the secrets scope",

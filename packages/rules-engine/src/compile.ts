@@ -631,6 +631,20 @@ class Compiler {
       if (expr !== null) instantDeath[t.resource] = expr;
     });
 
+    // `health.harm` (house decision #66): checked here, read by the primitive from the manifest's own text.
+    this.r.health.harm?.profiles.forEach((p, j) => {
+      const scopes = actorsOf(p.entities).map(({ ce }) => ce.scope);
+      const path = `health.harm.profiles[${j}]`;
+      const check = (source: string | undefined, expect: "bool" | "int", at: string) => {
+        if (source !== undefined) this.expr({ source, scopes, expect, path: `${path}.${at}` });
+      };
+      check(p.shockless, "bool", "shockless");
+      check(p.spent?.when, "bool", "spent.when");
+      check(p.felled?.when, "bool", "felled.when");
+      check(p.felled?.healTo, "int", "felled.healTo");
+      check(p.destroyed?.over, "int", "destroyed.over");
+    });
+
     if (this.problems.length > 0 || scoring === undefined || (ranked !== null && score === null)) return null;
     const b = this.r.build;
     return {

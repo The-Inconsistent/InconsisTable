@@ -196,7 +196,7 @@ type (
 		EditableBy string   `json:"editableBy"`
 	}
 
-	// CombatantCondition is a condition on a combatant, GM side only.
+	// CombatantCondition is a condition on a combatant, sent where the seat sees it on the actor (house decision #67).
 	CombatantCondition struct {
 		ID        string `json:"id"`
 		Left      *int   `json:"left"`
@@ -209,18 +209,27 @@ type (
 	}
 	// Combatant is one place in the order.
 	Combatant struct {
-		ID         string               `json:"id"`
-		ActorID    string               `json:"actorId"`
-		Name       string               `json:"name"`
-		Side       string               `json:"side"`
-		Ord        int                  `json:"ord"`
-		Initiative *int                 `json:"initiative"`
-		Visibility string               `json:"visibility"`
-		Keep       bool                 `json:"keep"`
-		HP         *HP                  `json:"hp"`
-		Bar        *float64             `json:"bar"`
+		ID         string   `json:"id"`
+		ActorID    string   `json:"actorId"`
+		Name       string   `json:"name"`
+		Side       string   `json:"side"`
+		Ord        int      `json:"ord"`
+		Initiative *int     `json:"initiative"`
+		Visibility string   `json:"visibility"`
+		Keep       bool     `json:"keep"`
+		HP         *HP      `json:"hp"`
+		Bar        *float64 `json:"bar"`
+		// States are the ruleset's health states that hold for the actor, in manifest order (house decision #66).
+		States []CombatantState `json:"states"`
+		// Members is a mob's members standing; nil for anyone else.
+		Members    *HP                  `json:"members"`
 		Conditions []CombatantCondition `json:"conditions"`
 		*CombatantSides
+	}
+	// CombatantState is one health state that holds for a combatant.
+	CombatantState struct {
+		ID    string `json:"id"`
+		Label string `json:"label"`
 	}
 	// CombatantSides is a combatant's part of a sides order (house decision #60); nil for any other order, so the keys
 	// are absent. It is embedded, which encoding/json flattens and leaves out while nil.

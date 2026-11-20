@@ -105,7 +105,7 @@ func evaluateInt(expr *CompiledExpr, scope *Record) (float64, error) {
 	}
 	n, ok := v.(float64)
 	if !ok {
-		return 0, ExprError{fmt.Sprintf(`"%s" did not give an integer`, expr.Source)}
+		return 0, ExprError{Message: fmt.Sprintf(`"%s" did not give an integer`, expr.Source)}
 	}
 	return n, nil
 }
@@ -117,7 +117,7 @@ func evaluateBool(expr *CompiledExpr, scope *Record) (bool, error) {
 	}
 	b, ok := v.(bool)
 	if !ok {
-		return false, ExprError{fmt.Sprintf(`"%s" did not give a boolean`, expr.Source)}
+		return false, ExprError{Message: fmt.Sprintf(`"%s" did not give a boolean`, expr.Source)}
 	}
 	return b, nil
 }

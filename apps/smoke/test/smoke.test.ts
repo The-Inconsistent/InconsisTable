@@ -19,6 +19,7 @@ import type {
 import { MAX_PAGE_BYTES } from "@inconsistable/core-schema";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+import { SAMPLE_HARM } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { SAMPLE_PACK, SAMPLE_PACK_EFFECTS } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
@@ -1873,7 +1874,7 @@ test("test.call / test.report / test.close: a hidden target stays on the GM side
   // Half built (no level, which the vigour formula reads): the refusal names what is missing, not "isn't built".
   const half = ok(await owner.send({ type: "actor.create", kind: "npc", name: "Half" })).id!;
   await equip(half, "character", { fields: { "attr.con": 10, "attr.dex": 14, diary: "" } });
-  refused(await owner.send(call({ actorIds: [half] })), /Half's sheet is missing something.*level/);
+  refused(await owner.send(call({ actorIds: [half] })), /Half's sheet is missing something.*\(Level\)/);
   const session = await coGm({ owner, campaignId, name: "co-session-TestReport", scopes: ["session"] });
   ok(await session.send({ type: "test.close", callId: ok(await session.send(call({ actorIds: [hero] }))).id! }));
   session.socket.close();
@@ -2844,7 +2845,18 @@ test("encounter: a full round of turns, seat views, undo of a turn, and the end 
   assert.equal(bar.hp, null);
   assert.ok(Math.abs((bar.bar ?? -1) - 4 / 7) < 1e-9);
   assert.deepEqual(enc.combatants.find((c) => c.actorId === w2)?.hp, { value: 5, max: 7 });
-  assert.ok(enc.combatants.every((c) => c.conditions.length === 0 && !c.keep));
+  // The GM's mark stays home; a combatant's conditions are the ones the ruleset lets the table see (#67): every one
+  // the GM reads here but `marked`, which is `gm`.
+  assert.ok(enc.combatants.every((c) => !c.keep));
+  const gmSide = (await owner.until((x) => x.stateVersion >= seen.stateVersion)).encounter!;
+  for (const c of enc.combatants) {
+    const all = gmSide.combatants.find((x) => x.id === c.id)!.conditions;
+    assert.deepEqual(
+      c.conditions,
+      all.filter((x) => x.id !== "marked"),
+    );
+  }
+  assert.ok(enc.combatants.some((c) => c.conditions.length > 0));
   assert.equal(enc.round, 2);
   assert.equal(enc.combatants.find((c) => c.id === enc.currentId)?.actorId, pcA); // A holds this turn: Ana's banner
   assert.equal((await ben.c.until((s) => s.encounter?.round === 2)).encounter?.combatants.length, 5);
@@ -3869,4 +3881,125 @@ test("random tables without a GM: a GM-only table is refused, a deal stays with 
   const version = Math.max(mine.stateVersion, (await ben.until(() => true)).stateVersion);
   assert.deepEqual((await owner.until((s) => s.stateVersion >= version)).dealt, []);
   for (const c of [owner, ana, ben]) c.socket.close();
+});
+
+// ---- Harm that counts up, and mobs (house decision #66) ------------------------------------------------------------
+
+const HARM_PACK = {
+  id: "sample-harm-foes",
+  version: "0.1.0",
+  ruleset: { id: "sample-harm", range: "^0.1.0" },
+  license: "private",
+  sources: [{ id: "sample", title: "Sample Harm Rules", license: "private" }],
+  entries: [
+    { key: "ogre", type: "brute", name: "Ogre", tags: [], cite: "Sample p.20", visibility: "gm", body: { hide: 3 } },
+    { key: "rats", type: "swarm", name: "Rats", tags: [], cite: "Sample p.21", visibility: "gm", body: {} },
+  ],
+};
+
+const harm = (op: "hit" | "muster", input: Record<string, unknown>) =>
+  ({ type: "rule.op", primitive: "health.harm", op, input }) as ActionInput;
+
+test("health.harm: hit down, scarred, healed, destroyed, a mob thinned and mustered, Undo, and what each seat receives", async () => {
+  const ownerDevice = await device("owner-Harm");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_HARM);
+  const pk = await me.post<PackReply>("/packs", HARM_PACK);
+  assert.deepEqual([rs.status, pk.status], [201, 201]);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Harm",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-Harm") } });
+  const screen = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  const hero = (await owner.until((s) => s.actors.some((a) => a.kind === "pc"))).actors.find(
+    (a) => a.kind === "pc",
+  )!.id;
+  // Grit 2: a wound limit of 5, a strain limit of 2, destroyed by one hit past 10.
+  await equip(hero, "hero", { fields: { grit: 2 }, resources: { wounds: 3, strain: 0 } });
+  ok(await owner.send({ type: "actor.rename", id: hero, name: "Hal" }));
+  await owner.until((s) => actorIn(s, hero)?.entity === "hero");
+
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: [hero], side: "party", visibility: "full" }));
+  const spawn = { type: "actor.spawn", packVersionId: pk.body.versionId, count: 1, temporary: true } as const;
+  ok(await owner.send({ ...spawn, key: "ogre", count: 2 }));
+  refused(await owner.send({ ...spawn, key: "ogre", mob: 4 }), "noMobsHere");
+  ok(await owner.send({ ...spawn, key: "rats", mob: 6 }));
+  const fight = await owner.until((s) => s.encounter?.combatants.length === 4);
+  const idOf = (name: string) => fight.actors.find((a) => a.name === name)!.id;
+  const [ogre, lurker, rats] = [idOf("Ogre 1"), idOf("Ogre 2"), idOf("Rats ×6")];
+  const cb = (s: LiveState, actorId: string) => s.encounter!.combatants.find((c) => c.actorId === actorId)!;
+  ok(await owner.send({ type: "encounter.setVisibility", combatantId: cb(fight, ogre).id, visibility: "full" }));
+  ok(await owner.send({ type: "encounter.setVisibility", combatantId: cb(fight, rats).id, visibility: "bar" }));
+  assert.deepEqual(cb(fight, rats).members, { value: 6, max: 6 });
+
+  // The plain stepper and a player's tap are refused; a brute never takes strain, and the refusal names it.
+  refused(await owner.send(adjust(hero, "wounds", 1)), "hpThroughDamage");
+  refused(await ana.send(harm("hit", { actorId: hero, wounds: 1 })), "noPermission");
+  const never = await owner.send(harm("hit", { actorId: ogre, shock: 1 }));
+  refused(never, "neverShocked");
+  assert.equal(never.ok ? "" : never.error, "Ogre 1 never takes that");
+
+  // Hal is hit down: past 5 wounds, Down laid in the same action.
+  ok(await owner.send(harm("hit", { actorId: hero, wounds: 3 })));
+  let s = await owner.until((x) => actorIn(x, hero)?.resources.wounds === 6);
+  assert.deepEqual(actorIn(s, hero)?.conditions, ["down"]);
+  assert.deepEqual(cb(s, hero).states, [{ id: "fallen", label: "Fallen" }]);
+  assert.equal(cb(s, hero).bar, 0);
+  assert.equal(cb(s, hero).hp, null);
+  // A wound while down is a scar; healing while down stops at the limit.
+  ok(await owner.send(harm("hit", { actorId: hero, wounds: 2 })));
+  s = await owner.until((x) => actorIn(x, hero)?.fields.scars === 1);
+  assert.equal(actorIn(s, hero)?.resources.wounds, 6);
+  ok(await owner.send(harm("hit", { actorId: hero, wounds: -1 })));
+  s = await owner.until((x) => actorIn(x, hero)?.resources.wounds === 5);
+  assert.deepEqual(cb(s, hero).states, [{ id: "hurt", label: "Hurt" }]);
+
+  // One hit past twice the Ogre's limit destroys it outright; its wounds do not move.
+  ok(await owner.send(harm("hit", { actorId: ogre, wounds: 7 })));
+  s = await owner.until((x) => actorIn(x, ogre)?.fields.gone === true);
+  assert.equal(actorIn(s, ogre)?.resources.wounds, 0);
+
+  // The swarm loses members, is mustered past its start, and Undo takes the last hit back.
+  ok(await owner.send(harm("hit", { actorId: rats, wounds: 2 })));
+  await owner.until((x) => cb(x, rats).members?.value === 4);
+  ok(await owner.send(harm("muster", { actorId: rats, members: 8 })));
+  s = await owner.until((x) => cb(x, rats).members?.value === 8);
+  assert.deepEqual(cb(s, rats).members, { value: 8, max: 8 });
+  assert.equal(actorIn(s, rats)?.fields.size, 8);
+  ok(await owner.send(harm("hit", { actorId: rats, wounds: 3, shock: 3 })));
+  s = await owner.until((x) => cb(x, rats).members?.value === 4);
+  assert.equal(cb(s, rats).bar, 0.5);
+  ok(await owner.send({ type: "event.undo" }));
+  s = await owner.until((x) => cb(x, rats).members?.value === 8);
+  assert.equal(cb(s, rats).bar, 1);
+
+  // The player and the screen: no hidden Ogre, the swarm's bar and count without numbers, Hal's states.
+  const version = s.stateVersion;
+  for (const c of [ana, screen]) {
+    const v = await c.until((x) => x.stateVersion >= version);
+    assert.deepEqual(v.encounter!.combatants.map((x) => x.actorId).sort(), [hero, ogre, rats].sort());
+    assert.equal(
+      v.encounter!.combatants.some((x) => x.actorId === lurker),
+      false,
+    );
+    assert.deepEqual(
+      { hp: cb(v, rats).hp, bar: cb(v, rats).bar, members: cb(v, rats).members, states: cb(v, rats).states },
+      { hp: null, bar: 1, members: { value: 8, max: 8 }, states: [] },
+    );
+    assert.deepEqual(cb(v, hero).states, [{ id: "hurt", label: "Hurt" }]);
+    assert.equal(cb(v, hero).hp, null);
+    // The condition the felling hit laid is `party` in the ruleset, so every seat reads it on the combatant (#67).
+    assert.deepEqual(
+      cb(v, hero).conditions.map((x) => x.id),
+      ["down"],
+    );
+  }
+  for (const c of [owner, ana, screen]) c.socket.close();
 });

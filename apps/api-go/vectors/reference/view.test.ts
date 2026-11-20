@@ -71,6 +71,8 @@ const combatant = (id: string, visibility: Combatant["visibility"], hp: number, 
     keep: true,
     hp: { value: hp, max: 31 },
     bar: 0.5,
+    states: [{ id: "hurt", label: "Hurt" }],
+    members: null,
     conditions: [{ id: "marked", left: null, expiresOn: "manual" }],
     ...over,
   }) satisfies Combatant;
@@ -483,6 +485,43 @@ test("a health number follows the ruleset's visibility of the actor, in the Enco
   );
 });
 
+// House decision #66: a Combatant's health states and a mob's count reach the combat side always, anyone else at `bar`
+// and `full`; a hidden one is gone with them, and `bar` carries no numbers.
+test("states and a mob's count follow the Combatant's visibility; bar carries no numbers", () => {
+  const states = [{ id: "fallen", label: "Fallen" }];
+  const members = { value: 3, max: 12 };
+  const withStates: Snapshot = {
+    ...snapshot,
+    state: {
+      ...state,
+      encounter: {
+        ...state.encounter!,
+        combatants: state.encounter!.combatants.map((c) => ({ ...c, states, members })),
+      },
+    },
+  };
+  const seen = (c: Ctx) =>
+    seatView({ snapshot: withStates, compiled, ctx: c }).state.encounter?.combatants.map((x) => ({
+      id: x.actorId,
+      hp: x.hp?.value ?? null,
+      states: x.states.length,
+      members: x.members?.value ?? null,
+    }));
+  const all = [
+    { id: "wisp", hp: 5, states: 1, members: 3 },
+    { id: "ogre", hp: 30, states: 1, members: 3 },
+    { id: "imp", hp: 12, states: 1, members: 3 },
+  ];
+  assert.deepEqual(seen(ctx(member("gm"), "u-gm")), all);
+  assert.deepEqual(seen(ctx(member("cogm", ["combat"]), "u-co")), all);
+  const below = [
+    { id: "ogre", hp: 30, states: 1, members: 3 },
+    { id: "imp", hp: null, states: 1, members: 3 },
+  ];
+  assert.deepEqual(seen(ctx(member("player"), "u-p")), below);
+  assert.deepEqual(seen(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), below);
+});
+
 test("no ruleset pinned: no value reaches a seat below the GM side", () => {
   const v = seatView({ snapshot, compiled: null, ctx: ctx(member("player", [], ["lyra"]), "u-lyra") });
   assert.ok(v.state.actors.every((a) => Object.keys(a.fields).length + Object.keys(a.resources).length === 0));
@@ -515,8 +554,11 @@ test("a Combatant's conditions are the ones the seat sees on its actor", () => {
   assert.deepEqual(conditions(ctx(member("gm"), "u-gm")), ["dazed", "marked"]);
   assert.deepEqual(conditions(ctx(member("cogm", ["combat", "party"]), "u-co")), ["dazed", "marked"]);
   assert.deepEqual(conditions(ctx(member("cogm", ["combat"]), "u-co")), ["dazed"]);
-  assert.deepEqual(conditions(ctx(member("cogm", ["party"]), "u-co")), []); // the marks stay on the combat side
-  assert.deepEqual(conditions(ctx(member("player", [], ["lyra"]), "u-lyra")), []);
+  // Off the combat side too (house decision #67): the party scope reads a Character whole, a player what the table may.
+  assert.deepEqual(conditions(ctx(member("cogm", ["party"]), "u-co")), ["dazed", "marked"]);
+  assert.deepEqual(conditions(ctx(member("player", [], ["lyra"]), "u-lyra")), ["dazed"]);
+  assert.deepEqual(conditions(ctx(member("player", [], ["bran"]), "u-bran")), ["dazed"]);
+  assert.deepEqual(conditions(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), ["dazed"]);
 });
 
 // Two characters called, the target number and the outcome shown or the Test revealed.

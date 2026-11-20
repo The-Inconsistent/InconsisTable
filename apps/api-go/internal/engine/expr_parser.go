@@ -16,13 +16,17 @@ const (
 )
 
 // ExprError is a refused expression: bad syntax, a breached cap, or a value that cannot be evaluated.
-type ExprError struct{ Message string }
+type ExprError struct {
+	Message string
+	// Missing is the path a missing-value error could not read ("" for any other error), for callers that word it.
+	Missing string
+}
 
 func (e ExprError) Error() string { return e.Message }
 
 // Parsing and evaluating unwind with this panic, and the exported functions turn it back into an error.
 func exprFail(format string, args ...any) {
-	panic(ExprError{fmt.Sprintf(format, args...)})
+	panic(ExprError{Message: fmt.Sprintf(format, args...)})
 }
 
 func recoverExprError(err *error) {

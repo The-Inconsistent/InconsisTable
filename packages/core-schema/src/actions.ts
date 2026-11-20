@@ -109,13 +109,15 @@ export const Action = z.discriminatedUnion("type", [
     kind: AscendKind,
     waivePackage: z.boolean().default(false),
   }),
-  // N creatures from one attached pack entry, numbered after the ones already at the table.
+  // N creatures from one attached pack entry, numbered after the ones already at the table. With `mob` (and a count
+  // of 1), one actor standing for that many members, named "<entry> ×N" (house decision #66).
   z.object({
     type: z.literal("actor.spawn"),
     packVersionId: id,
     key: z.string().min(1).max(80),
     count: z.int().min(1).max(20),
     temporary: z.boolean().default(false),
+    mob: z.int().min(2).max(500).optional(),
   }),
   // The signed-in user's builder draft in this room (one per user and room).
   z.object({ type: z.literal("draft.save"), body: BuilderDraftBody }),

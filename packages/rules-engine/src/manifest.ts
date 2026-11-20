@@ -460,6 +460,47 @@ export const HealthTrack = z.object({
 });
 export type HealthTrack = z.infer<typeof HealthTrack>;
 
+/**
+ * How one group of actor types takes a hit under `health.harm` (house decision #66). Every expression is read on the
+ * actor before the hit; `felled.when` is read again with the new wounds to see whether the hit brought it down.
+ */
+export const HarmProfile = z.object({
+  /** The actor types this profile applies to; a type sits in one profile at most. */
+  entities: z.array(Id).min(1).max(50),
+  /** Boolean: this actor never takes shock. */
+  shockless: ExprSource.optional(),
+  /** Already past its shock limit: the boolean holds, or the actor has any of the conditions. Its shock becomes wounds. */
+  spent: z.object({ when: ExprSource.optional(), conditions: z.array(Id).max(20).optional() }).optional(),
+  felled: z
+    .object({
+      /** Boolean: the actor is down. */
+      when: ExprSource,
+      /** An int field: one more for each wounding hit taken while down. */
+      injuries: FieldId.optional(),
+      /** Added when a hit brings the actor down. */
+      condition: Id.optional(),
+      /** Number: healing while down leaves wounds at most this. */
+      healTo: ExprSource.optional(),
+    })
+    .optional(),
+  /** Number: one hit's wounds above `over` destroys the actor outright, which sets the bool `field`. */
+  destroyed: z.object({ over: ExprSource, field: FieldId }).optional(),
+});
+export type HarmProfile = z.infer<typeof HarmProfile>;
+
+/** Damage that counts up toward a limit, and mobs: one combatant standing for many members (house decision #66). */
+export const Harm = z.object({
+  cite: Cite.optional(),
+  /** An entity-scoped resource, `capped: false`: damage taken, counting up; its max is the limit. */
+  wounds: Id,
+  /** A second count-up track, like `wounds`. */
+  shock: Id.optional(),
+  /** `members`: a capped resource, the members standing; `start`: an int field, how many it started with. */
+  mob: z.object({ members: Id, start: FieldId }).optional(),
+  profiles: z.array(HarmProfile).min(1).max(10),
+});
+export type Harm = z.infer<typeof Harm>;
+
 export const Health = z.object({
   tracks: z.array(HealthTrack).max(10).default([]),
   /** Display states such as "bloodied": `when` is a boolean expression over the actor. */
@@ -468,6 +509,7 @@ export const Health = z.object({
     .max(20)
     .default([]),
   cite: Cite.optional(),
+  harm: Harm.optional(),
 });
 export type Health = z.infer<typeof Health>;
 
@@ -1025,6 +1067,74 @@ function sidesProblems({
   costs(init.barred?.liftCost, "initiative.barred.liftCost");
 }
 
+/** `health.harm` (house decision #66): its resources, fields and conditions. Its expressions are `compileRuleset`'s. */
+function harmProblems({
+  r,
+  harm,
+  actorTypes,
+  out,
+}: {
+  r: Ruleset;
+  harm: Harm;
+  actorTypes: (ids: readonly string[] | undefined, path: string) => void;
+  out: Problem[];
+}): void {
+  const resources = new Map(r.resources.map((x) => [x.id, x]));
+  const tracked = new Set(r.health.tracks.flatMap((t) => (t.temp === undefined ? [t.resource] : [t.resource, t.temp])));
+  const named: [string, string | undefined, boolean][] = [
+    ["wounds", harm.wounds, false],
+    ["shock", harm.shock, false],
+    ["mob.members", harm.mob?.members, true],
+  ];
+  const used = new Map<string, string>();
+  for (const [key, id, capped] of named) {
+    if (id === undefined) continue;
+    const path = `health.harm.${key}`;
+    const res = resources.get(id);
+    const other = used.get(id);
+    if (res === undefined) out.push({ path, message: `unknown resource "${id}"` });
+    else if (res.scope !== "entity") out.push({ path, message: `"${id}" must be an entity-scoped resource` });
+    else if (tracked.has(id)) out.push({ path, message: `"${id}" is already a health track` });
+    else if (other !== undefined) out.push({ path, message: `"${id}" is already health.harm.${other}` });
+    else if (res.capped !== capped)
+      out.push({ path, message: capped ? `"${id}" must be capped` : `"${id}" must be declared capped: false` });
+    if (other === undefined) used.set(id, key);
+  }
+  const actors = r.entities.filter((e) => e.base === "actor");
+  const fieldOf = (e: EntityType, id: string, type: "int" | "bool", path: string) => {
+    if (own(e.fields, id)?.type !== type) out.push({ path, message: `"${e.id}" has no ${type} field "${id}"` });
+  };
+  const mob = harm.mob;
+  const members = mob === undefined ? undefined : resources.get(mob.members);
+  if (mob !== undefined && members?.scope === "entity") {
+    for (const e of actors) {
+      if (members.entities === undefined || members.entities.includes(e.id))
+        fieldOf(e, mob.start, "int", "health.harm.mob.start");
+    }
+  }
+  const conditions = new Set(r.conditions.map((c) => c.id));
+  const condition = (id: string, path: string) => {
+    if (!conditions.has(id)) out.push({ path, message: `unknown condition "${id}"` });
+  };
+  const profiled = new Map<string, number>();
+  harm.profiles.forEach((p, i) => {
+    const path = `health.harm.profiles[${i}]`;
+    actorTypes(p.entities, `${path}.entities`);
+    p.entities.forEach((id, j) => {
+      const other = profiled.get(id);
+      if (other !== undefined)
+        out.push({ path: `${path}.entities[${j}]`, message: `"${id}" is already in profiles[${other}]` });
+      else profiled.set(id, i);
+    });
+    for (const e of actors.filter((x) => p.entities.includes(x.id))) {
+      if (p.felled?.injuries !== undefined) fieldOf(e, p.felled.injuries, "int", `${path}.felled.injuries`);
+      if (p.destroyed !== undefined) fieldOf(e, p.destroyed.field, "bool", `${path}.destroyed.field`);
+    }
+    p.spent?.conditions?.forEach((id, j) => condition(id, `${path}.spent.conditions[${j}]`));
+    if (p.felled?.condition !== undefined) condition(p.felled.condition, `${path}.felled.condition`);
+  });
+}
+
 function semanticProblems(r: Ruleset): Problem[] {
   const out: Problem[] = [];
   // CLAUDE.md principle 1: every rule entry cites its printed page, unless the whole ruleset is homebrew.
@@ -1074,6 +1184,7 @@ function semanticProblems(r: Ruleset): Problem[] {
   if (r.game?.modes.some((m) => m !== "gm")) needCite(r.game.cite, "game");
   // Death saves and damage order are rules too.
   if (r.health.tracks.length > 0) needCite(r.health.cite, "health");
+  if (r.health.harm !== undefined) needCite(r.health.harm.cite, "health.harm");
   r.creation.forEach((x, i) => needCite(x.cite, `creation[${i}]`));
 
   const fieldCount = r.entities.reduce((n, e) => n + Object.keys(e.fields).length + e.derived.length, 0);
@@ -1157,6 +1268,7 @@ function semanticProblems(r: Ruleset): Problem[] {
       else if (e.base !== "actor") out.push({ path: `${path}[${j}]`, message: `"${id}" is not an actor entity` });
     });
   r.health.states.forEach((s, i) => actorTypes(s.entities, `health.states[${i}].entities`));
+  if (r.health.harm !== undefined) harmProblems({ r, harm: r.health.harm, actorTypes, out });
 
   for (const [id, t] of Object.entries(r.tests)) {
     actorTypes(t.entities, `tests.${id}.entities`);

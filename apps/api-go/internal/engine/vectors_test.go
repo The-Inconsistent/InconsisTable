@@ -420,6 +420,37 @@ func TestChargeMatchesTypeScript(t *testing.T) {
 	}
 }
 
+func TestDeltaChecksMatchTypeScript(t *testing.T) {
+	raw, err := readVectors()
+	if err != nil {
+		t.Fatalf("no vectors, run `bun run test:go` from the repo root: %v", err)
+	}
+	var v struct {
+		DeltaChecks []struct {
+			Deltas  []Delta             `json:"deltas"`
+			Targets []map[string]string `json:"targets"`
+			Refusal *Refusal            `json:"refusal"`
+		} `json:"deltaChecks"`
+	}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		t.Fatal(err)
+	}
+	if len(v.DeltaChecks) == 0 {
+		t.Fatal("no delta check vectors, so this test would prove nothing")
+	}
+	for _, x := range v.DeltaChecks {
+		var targets []TargetPattern
+		for _, p := range x.Targets {
+			for kind, name := range p {
+				targets = append(targets, TargetPattern{kind, name})
+			}
+		}
+		if got := checkDeltas(x.Deltas, targets); !reflect.DeepEqual(got, x.Refusal) {
+			t.Errorf("%+v against %v: want %+v, got %+v", x.Deltas, x.Targets, x.Refusal, got)
+		}
+	}
+}
+
 func TestDeltasOutsideTheTargetsAreRefused(t *testing.T) {
 	refusal := checkDeltas(
 		[]Delta{addResource("a", "hp", 1)},

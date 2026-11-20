@@ -234,8 +234,9 @@ function actorViews({ actors, compiled, ctx }: { actors: readonly Actor[]; compi
 /**
  * The Encounter one seat receives. The combat side sees every Combatant. Anyone else (players, the table screen) gets no
  * hidden Combatant at all, the turn passes over a hidden one without naming it, a `bar` Combatant carries its fraction
- * and no numbers, and the GM's own marks (keep, conditions) stay home. A Combatant's health numbers follow the values of
- * its actor: they are sent only where the ruleset lets the seat see that actor's health resource.
+ * and no numbers, and the GM's own mark (keep) stays home. A Combatant's health numbers and conditions follow the values
+ * of its actor: they are sent only where the ruleset lets the seat see that resource or condition on that actor (house
+ * decision #67).
  */
 function seatEncounter({
   encounter,
@@ -269,7 +270,7 @@ function seatEncounter({
       ...c,
       ord: i, // renumbered over what the seat sees, so a gap never shows where a hidden one sits
       keep: false,
-      conditions: [],
+      conditions: conditionsOf(c),
       hp: c.visibility === "full" ? hpOf(c) : null,
     })),
   };

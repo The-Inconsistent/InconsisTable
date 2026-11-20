@@ -838,6 +838,66 @@ test("codex: a reader listed twice is one reader, and an entry deletes once", as
   owner.socket.close();
 });
 
+test("pictures: uploaded, attached, shown to the table apart from the entry; a replaced one is gone", async () => {
+  const { owner, campaignId, ownerDevice } = await newRoom("Pictures");
+  const anaDevice = await seatPlayer(owner, "ana-pics");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  await ana.until(() => true);
+  const jpeg = (n: number) => new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, n]);
+  const upload = (cookie: string, bytes: Uint8Array<ArrayBuffer>, type = "image/jpeg", site = SAME_ORIGIN) =>
+    fetch(`${API}/api/campaigns/${campaignId}/images`, {
+      method: "POST",
+      headers: { "content-type": type, ...site, cookie, "cf-connecting-ip": nextSocketIp() },
+      body: bytes,
+    });
+  const picture = (cookie: string, id: string) =>
+    get(`/campaigns/${campaignId}/images/${id}`, { cookie, "cf-connecting-ip": nextSocketIp() });
+  const idOf = async (res: Response) => {
+    assert.equal(res.status, 200);
+    return ((await res.json()) as { id: string }).id;
+  };
+  const codeOf = async (res: Response) => ((await res.json()) as { code?: string }).code;
+
+  assert.equal((await upload(anaDevice, jpeg(1))).status, 403, "a player uploads nothing into a room with a GM");
+  assert.equal((await upload(ownerDevice, jpeg(1), "image/jpeg", { "sec-fetch-site": "cross-site" })).status, 403);
+  assert.equal(await codeOf(await upload(ownerDevice, jpeg(1), "image/webp")), "pictureNotPicture");
+  assert.equal(await codeOf(await upload(ownerDevice, jpeg(1), "image/png")), "pictureType");
+
+  const first = await idOf(await upload(ownerDevice, jpeg(1)));
+  const npc = ok(await owner.send({ type: "codex.save", kind: "npc", title: "Lamplighter", imageId: first })).id!;
+  ok(await owner.send({ type: "codex.reveal", id: npc, visibility: "party", audienceMode: "all", audience: [] }));
+  const seen = () => ana.codex()?.entries.find((e) => e.id === npc);
+  await eventually(() => seen() !== undefined, "the player reads the entry");
+  assert.deepEqual([seen()?.imageId, seen()?.imageRevealed], [null, false], "the picture is not shown yet");
+  assert.ok(!JSON.stringify(ana.codex()).includes(first), "nor its id anywhere");
+  assert.equal((await picture(anaDevice, first)).status, 404);
+  assert.equal((await picture(ownerDevice, first)).status, 200);
+
+  ok(await owner.send({ type: "codex.reveal", id: npc, imageRevealed: true }));
+  await eventually(() => seen()?.imageId === first, "the player receives the shown picture's id");
+  assert.equal(seen()?.imageRevealed, true);
+  assert.equal(owner.codex()?.entries.find((e) => e.id === npc)?.visibility, "party", "who reads it is unchanged");
+  const res = await picture(anaDevice, first);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("content-type"), "image/jpeg");
+  assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+  assert.match(res.headers.get("cache-control") ?? "", /^private/);
+  assert.deepEqual(new Uint8Array(await res.arrayBuffer()), jpeg(1));
+  assert.equal((await picture(await device("stranger-pics"), first)).status, 404, "no seat, no picture");
+
+  const second = await idOf(await upload(ownerDevice, jpeg(2)));
+  ok(await owner.send({ type: "codex.save", id: npc, kind: "npc", imageId: second }));
+  await eventually(() => seen()?.imageId === null, "a replacement starts hidden from the table");
+  assert.equal(owner.codex()?.entries.find((e) => e.id === npc)?.imageId, second);
+  assert.equal((await picture(ownerDevice, first)).status, 404, "the replaced picture is gone");
+  refused(
+    await owner.send({ type: "codex.save", id: npc, kind: "npc", imageId: crypto.randomUUID() }),
+    "pictureNotFound",
+  );
+  owner.socket.close();
+  ana.socket.close();
+});
+
 test("prep: scenes under an adventure, reordered and linked; a player sees only the visible ends", async () => {
   const { owner, campaignId } = await newRoom("Prep");
   const inv = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;

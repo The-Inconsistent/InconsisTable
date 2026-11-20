@@ -5,6 +5,7 @@ import { CodexKind, type Codex, type Me, type Safety } from "@inconsistable/core
 
 import { SafetySection } from "@/components/player/notebook/safety-section";
 import { EntryPath } from "@/components/ui/entry-path/entry-path";
+import { EntryPicture } from "@/components/ui/entry-picture/entry-picture";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import type { Send } from "@/hooks/use-table/use-table";
 import { treeRows, type TreeRow } from "@/lib/codex/codex";
@@ -49,6 +50,7 @@ export function Notebook({ codex, me, safety, send }: NotebookProps) {
         {e.status && e.status !== "open" && <span className="chip">{tStatus(e.status)}</span>}
       </summary>
       <EntryPath entries={entries} entry={e} onOpen={handleOpen} />
+      <EntryPicture campaignId={me.campaignId} entry={e} />
       <p style={{ whiteSpace: "pre-wrap" }}>
         <MentionText body={e.body} entries={entries} onOpen={handleOpen} />
       </p>

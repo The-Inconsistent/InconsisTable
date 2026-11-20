@@ -193,6 +193,17 @@ span.mention {
   border-inline-start: 1px dotted var(--line);
   padding-inline-start: 8px;
 }
+/* An entry's picture: never wider than its column, never taller than most of a phone's screen. */
+.entry-picture {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 2px solid var(--brass);
+}
 .small {
   font-size: var(--fs-small);
 }

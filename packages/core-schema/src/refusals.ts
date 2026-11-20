@@ -168,6 +168,13 @@ export const REFUSALS = {
   // Clocks
   clockNotFound: "Clock not found",
   clockLimit: "This room has as many clocks as it can hold.",
+  // Pictures on entries (house decision #70)
+  pictureType: "Send a WebP or JPEG picture",
+  pictureNotPicture: "That isn't a WebP or JPEG picture",
+  pictureTooLarge: "That picture is over 1 MB",
+  picturesFull: "This room already holds 200 pictures",
+  picturesTooHeavy: "This room's pictures are at 100 MB",
+  pictureNotFound: "Picture not found",
   // Spend requests
   requestNotFound: "Request not found",
   requestAnswered: "That request was already answered.",

@@ -33,6 +33,9 @@ export const AccountView = z.object({
 });
 export type AccountView = z.infer<typeof AccountView>;
 
+// POST /api/campaigns/:id/images: the uploaded picture's id, for codex.save to attach.
+export const PictureSaved = z.object({ id: z.uuid() });
+
 // The api's refusal body (code, English message, params); any other shape falls back to the caller's own text.
 export const ApiMessage = z.object({
   message: z.string(),

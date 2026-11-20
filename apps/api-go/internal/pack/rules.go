@@ -28,13 +28,15 @@ const (
 var rulesQuery = schema.Object(
 	schema.Opt("type", schema.String().Min(1).Max(64)),
 	schema.Opt("q", schema.String().Min(1).Max(100)),
+	// key finds the entry a codex ref field names (house decision #71).
+	schema.Opt("key", schema.String().Min(1).Max(120)),
 	schema.Def("limit", schema.Int().Min(1).Max(maxRulesPage), float64(defaultRulesPage)),
 	schema.Def("offset", schema.Int().Min(0), float64(0)),
 )
 
 // RulesQuery is the filter and page of a rules read.
 type RulesQuery struct {
-	Type, Q       string
+	Type, Q, Key  string
 	Limit, Offset int
 }
 
@@ -42,7 +44,7 @@ type RulesQuery struct {
 func parseRulesQuery(r *http.Request) (RulesQuery, error) {
 	raw := map[string]any{}
 	q := r.URL.Query()
-	for _, key := range []string{"type", "q"} {
+	for _, key := range []string{"type", "q", "key"} {
 		if q.Has(key) {
 			raw[key] = q.Get(key)
 		}
@@ -66,6 +68,7 @@ func parseRulesQuery(r *http.Request) (RulesQuery, error) {
 	result := RulesQuery{Limit: int(parsed["limit"].(float64)), Offset: int(parsed["offset"].(float64))}
 	result.Type, _ = parsed["type"].(string)
 	result.Q, _ = parsed["q"].(string)
+	result.Key, _ = parsed["key"].(string)
 	return result, nil
 }
 
@@ -205,6 +208,10 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 	if query.Q != "" {
 		args = append(args, likePattern(query.Q))
 		where += fmt.Sprintf(" AND pack_entry.name ILIKE $%d", len(args))
+	}
+	if query.Key != "" {
+		args = append(args, query.Key)
+		where += fmt.Sprintf(" AND pack_entry.key = $%d", len(args))
 	}
 	if err := conn.QueryRow(ctx, `SELECT count(*)::int FROM pack_entry WHERE `+where, args...).Scan(&out.Total); err != nil {
 		return nil, err

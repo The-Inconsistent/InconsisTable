@@ -160,12 +160,25 @@ export const REFUSALS = {
   onlyQuestStatus: "Only a quest has a status.",
   sceneNeedsAdventure: "A scene belongs to an adventure.",
   adventureHasScenes: "Move or delete its scenes first.",
+  parentOtherKind: "An entry sits under one of its own kind",
+  wouldLoop: "That would put an entry inside itself",
+  tooDeep: "Entries nest {limit} deep at most",
   onlySceneTests: "Only a scene plans Tests.",
   handoutOnly: "Only a handout has a layout and a header.",
   cantLinkThat: "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
+  // Declared entry fields (house decision #71). {field} is the field's id, then its label.
+  noSuchEntryField: "This kind of entry has no field {field}.",
+  badEntryField: "{field} doesn't take that: {detail}",
   // Clocks
   clockNotFound: "Clock not found",
   clockLimit: "This room has as many clocks as it can hold.",
+  // Pictures on entries (house decision #70)
+  pictureType: "Send a WebP or JPEG picture",
+  pictureNotPicture: "That isn't a WebP or JPEG picture",
+  pictureTooLarge: "That picture is over 1 MB",
+  picturesFull: "This room already holds 200 pictures",
+  picturesTooHeavy: "This room's pictures are at 100 MB",
+  pictureNotFound: "Picture not found",
   // Spend requests
   requestNotFound: "Request not found",
   requestAnswered: "That request was already answered.",

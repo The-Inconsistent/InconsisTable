@@ -12,7 +12,7 @@ import { SAMPLE_POOL } from "./sample-pool.ts";
 // a sample (or an engine default) changed under the same version breaks `bun run seed` on every local database. Bump
 // the sample's version, then the hash here. The hash is the one the importer compares (apps/api-go internal/ruleset/import.go).
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.2": "6e20d1e785dcfe5c6eae0d1bebf163bf41c00b438fea68b79453493244c0defa",
+  "sample-d20@0.1.3": "ed6ec8736e93d4445951c4e2dadce6f2fa1902cf30852ada3b5809228073c5e5",
   "sample-pool@0.1.2": "57e50c011a1f73ee5c2e78f0546956686f5fcec64ecda3dbdda16b71b4803b0c",
   "sample-harvest@0.1.1": "e166afc269320775b0d1e455a2e7a5b10ca9b9c4f0d96f9fa473addb65b93f08",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
@@ -26,4 +26,14 @@ test("a sample ruleset's normalized manifest changes only with its version", () 
     const hash = sha256Hex(canonicalJson(result.compiled.ruleset));
     assert.equal(hash, PINNED[key], `${key} changed: bump its version, then pin the new hash`);
   }
+});
+
+test("a ruleset without a codex block hashes as it did before the block existed (house decision #71)", () => {
+  const { codex: _codex, ...before } = { ...SAMPLE_D20, version: "0.1.2" };
+  const result = compileRuleset(before);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "6e20d1e785dcfe5c6eae0d1bebf163bf41c00b438fea68b79453493244c0defa",
+  );
 });

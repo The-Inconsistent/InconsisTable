@@ -70,7 +70,7 @@ Viết thử ruleset bậc 1 và chạy qua validator hiện tại, để danh s
 |---|---|---|
 | 10 | Mob: một combatant nhiều thành viên, mỗi thành viên 1 Wound; trần "–" (không bao giờ nhận Shock) | **Đã sửa** (house decision #66): `health.harm.mob`, `actor.spawn` với `mob`, op `muster`, `shockless`; combatant mang `members` và `states`. Màn hình: thêm creature thành đám đông N, đặt cỡ Mob, số ×N trên mọi ghế. Nguồn: `combatant.adjust`, `threatStatus` |
 | 11 | Hệ quả của Test: Wrath Critical cộng Glory, Corruption nhận DN − Icon (gấp đôi khi Complication) | `corruption.ts`; hiện GM tự bấm |
-| 12 | Luật "hiện như": Corruption của người khác chỉ hiện khi Lost, Mutation hiện "Unseen" nhưng vẫn tính số, Threat ẩn / chỉ thanh máu / đủ chỉ số, lượt của Threat ẩn hiện là "unseen" | `toPlayerView` |
+| 12 | Luật "hiện như": Corruption của người khác chỉ hiện khi Lost, Mutation hiện "Unseen" nhưng vẫn tính số, Threat ẩn / chỉ thanh máu / đủ chỉ số, lượt của Threat ẩn hiện là "unseen" | `toPlayerView`. **Đã có trừ Mutation** (mục 16 của "Đã chốt", house decision #68) |
 | 13 | Builder mua bằng XP: bảng giá luỹ tiến, Archetype, Ascension, mua thêm sau khi tạo | `build.ts` (2.498 dòng), `build.test.ts` (68 case) |
 | 14 | Bảng tra do GM gõ kết quả xúc xắc thật rồi áp phần cơ chế (Critical Hit, Perils of the Warp) | `lookups.ts` |
 | 15 | Psychic trong trận: mỗi Round một power, power đang duy trì cộng DN | `psychic.ts` |
@@ -116,7 +116,18 @@ Mỗi bước một PR, xong bằng test của nó. Bậc sau chỉ bắt đầu
 
 1. World Wrath & Glory (Theme, từ vựng) và widget cho sheet, lượt và TV, theo ADR 0010.
 2. Các tính năng bàn đang dùng mà InconsisTable chưa có (thiếu 14, 15, 16). Phần lớn trung lập với hệ luật, làm ở core.
-3. Nhập campaign đang chơi: đọc file export `auspex-campaign` (codex, recap, nhân vật) thành dữ liệu của một phòng.
+3. Nhập campaign đang chơi, theo `docs/adr/0012-codex-fields-prep-and-the-room-document.md`. Mỗi bước một PR, mỗi cơ
+   chế thử trên một game thứ hai (fixture tự đặt) trước khi merge:
+   1. **Auspex:** field chữ cho tiểu sử nhân vật trong ruleset; pack riêng cho Threat tự tạo, sinh từ file export.
+   2. **Cây entry:** một entry nằm dưới entry cùng loại (Location trong Location), không vòng lặp.
+   3. **Field của entry do ruleset khai** (khối `codex`): attitude và stat block của NPC, stance của Faction.
+   4. **Prep là hành động chờ gửi:** roster, Test có đích và người gieo, dòng pool, lối ra của scene, entry được mở khi
+      vào scene.
+   5. **Ảnh:** một ảnh cho entry, một ảnh cho actor, có công tắc "cho bàn xem", lưu sau một lớp storage.
+   6. **Kiểu handout:** danh sách bố cục của platform; handout chọn một kiểu và có dòng tiêu đề (nửa của issue #159).
+   7. **Tài liệu phòng** `inconsistable-room`: nhập qua REST của chủ phòng, một transaction; rồi xuất (backup).
+   8. **Auspex:** bộ chuyển file export `auspex-campaign` sang tài liệu phòng. Platform không đọc định dạng của Auspex.
+   9. Nhập campaign thật vào máy local, so từng màn với Auspex.
 4. Một buổi chơi thật; Auspex giữ nguyên tới khi buổi đó xong.
 
 ## Chuẩn đối chiếu
@@ -178,6 +189,18 @@ bước 0 đã làm.
     còn bị ép tối khi phòng có World.
 14. **Tiêu đề tiếng Việt:** giữ Cinzel (không có dấu tiếng Việt); chữ tiếng Việt rơi về kiểu chữ thân bài của World.
 15. **Từ vựng (terms):** chưa làm ở lần cắt này. Ghi lại ở issue #159 để quay lại.
+
+2026-11-20, cho "ai thấy gì" (thiếu 12) và việc chuyển campaign đang chơi:
+
+16. **"Hiện như":** không thêm khối mới vào manifest. Nhãn công khai của một con số ẩn là một `health.states` (Corruption
+    của người khác chỉ hiện là Lost); lượt của combatant ẩn được báo mà không nêu tên (house decision #68). Che tên
+    Mutation làm cùng lúc Mutation được chuyển sang. Khối `shownAs` tổng quát để ngỏ: chưa màn nào vẽ sheet của người
+    khác.
+17. **Nhập campaign là tính năng của platform:** tải một "tài liệu phòng" ở sảnh, server dựng phòng trong một
+    transaction qua chính các handler của hành động; cũng là đường backup. Không dùng script lái socket.
+18. **Làm đủ trước buổi chơi thật, giống Auspex hiện nay:** roster và Test của scene, tiểu sử nhân vật, Threat tự tạo,
+    attitude của NPC, cây Location, kiểu handout, ảnh, stance của Faction. Mỗi thứ là một cơ chế chung do game module
+    khai (ADR 0010, ADR 0012), không phải luật riêng của Wrath & Glory trong core: sẽ có những game khác xa hơn nhiều.
 
 ## Đã có câu trả lời ở auspex_gm (tra 2026-11-20)
 

@@ -5,6 +5,8 @@ import { MAX_SIDES, parseDice } from "./dice/dice.ts";
 import {
   ConditionDuration,
   ConditionStacking,
+  CodexEntryKind,
+  CodexFieldVisibility,
   CreationKind,
   EditableBy,
   EffectMode,
@@ -82,13 +84,26 @@ const fieldBase = {
   cite: Cite.optional(),
 };
 
+/**
+ * What the screens show for an enum's values (house decision #71), keyed by value id: `labels` the word (a value
+ * without one shows as its id), `notes` a short line beside it. Optional on every enum.
+ */
+const enumWords = {
+  labels: z.record(Id, z.string().min(1).max(60)).optional(),
+  notes: z.record(Id, z.string().min(1).max(40)).optional(),
+};
+const intShape = { type: z.literal("int"), min: z.int().optional(), max: z.int().optional() };
+const textShape = { type: z.literal("text"), maxLength: z.int().min(1).max(10_000).optional() };
+const enumShape = { type: z.literal("enum"), values: z.array(Id).min(1).max(200), ...enumWords };
+/** A reference to another actor or entry of the given entity type. */
+const refShape = { type: z.literal("ref"), entity: Id };
+
 export const FieldDef = z.discriminatedUnion("type", [
-  z.object({ ...fieldBase, type: z.literal("int"), min: z.int().optional(), max: z.int().optional() }),
-  z.object({ ...fieldBase, type: z.literal("text"), maxLength: z.int().min(1).max(10_000).optional() }),
-  z.object({ ...fieldBase, type: z.literal("enum"), values: z.array(Id).min(1).max(200) }),
+  z.object({ ...fieldBase, ...intShape }),
+  z.object({ ...fieldBase, ...textShape }),
+  z.object({ ...fieldBase, ...enumShape }),
   z.object({ ...fieldBase, type: z.literal("bool") }),
-  /** A reference to another actor or entry of the given entity type. */
-  z.object({ ...fieldBase, type: z.literal("ref"), entity: Id }),
+  z.object({ ...fieldBase, ...refShape }),
   // ponytail: a list holds text items only; typed lists (of refs, of ints) when a ruleset needs them.
   z.object({ ...fieldBase, type: z.literal("list"), maxItems: z.int().min(1).max(500).optional() }),
 ]);
@@ -113,6 +128,7 @@ export const CampaignField = z.discriminatedUnion("type", [
     ...campaignFieldBase,
     type: z.literal("enum"),
     values: z.array(Id).min(1).max(20),
+    ...enumWords,
     default: Id,
   }),
   z.object({ ...campaignFieldBase, type: z.literal("bool"), default: z.boolean() }),
@@ -120,6 +136,40 @@ export const CampaignField = z.discriminatedUnion("type", [
 export type CampaignField = z.infer<typeof CampaignField>;
 
 export const MAX_CAMPAIGN_FIELDS = 50;
+
+const codexFieldBase = {
+  label: z.string().min(1).max(80),
+  visibility: CodexFieldVisibility.default("gm"),
+  cite: Cite.optional(),
+};
+
+/**
+ * A field a kind of codex entry carries (ADR 0012 decision 2, house decision #71): an entity field's types and shapes,
+ * seen by the GM side or the party; no `editableBy` (only the codex writers write it) and no list.
+ */
+export const CodexField = z.discriminatedUnion("type", [
+  z.object({ ...codexFieldBase, ...intShape }),
+  z.object({ ...codexFieldBase, ...textShape }),
+  z.object({ ...codexFieldBase, ...enumShape }),
+  z.object({ ...codexFieldBase, type: z.literal("bool") }),
+  z.object({ ...codexFieldBase, ...refShape }),
+]);
+export type CodexField = z.infer<typeof CodexField>;
+
+export const MAX_CODEX_FIELDS = 20;
+
+/** The fields each kind of codex entry carries. Absent: an entry is a title and two texts, as in a room without one. */
+export const CodexBlock = z.object({
+  kinds: z.partialRecord(
+    CodexEntryKind,
+    z.object({
+      fields: z
+        .record(Id, CodexField)
+        .refine((o) => Object.keys(o).length <= MAX_CODEX_FIELDS, `at most ${MAX_CODEX_FIELDS} fields`),
+    }),
+  ),
+});
+export type CodexBlock = z.infer<typeof CodexBlock>;
 
 export const DerivedDef = z.object({
   id: Id,
@@ -699,6 +749,8 @@ export const Ruleset = z.object({
   decisions: z.array(Decision).max(200).default([]),
   layout: z.record(Id, Layout).default({}),
   game: GameInfo.optional(),
+  /** The fields codex entries carry, per kind (house decision #71). Absent: none. */
+  codex: CodexBlock.optional(),
 });
 export type Ruleset = z.infer<typeof Ruleset>;
 export type RulesetInput = z.input<typeof Ruleset>;
@@ -1018,6 +1070,39 @@ function campaignFieldProblems({
       });
       if (!def.values.includes(def.default))
         out.push({ path: `${path}.default`, message: "the default is not allowed" });
+      enumWordProblems({ def, path, out });
+    }
+  }
+}
+
+/** An enum's labels and notes name only its own values. */
+function enumWordProblems({
+  def,
+  path,
+  out,
+}: {
+  def: { values: readonly string[]; labels?: Record<string, string>; notes?: Record<string, string> };
+  path: string;
+  out: Problem[];
+}): void {
+  for (const key of ["labels", "notes"] as const) {
+    for (const value of Object.keys(def[key] ?? {}).sort()) {
+      if (!def.values.includes(value))
+        out.push({ path: `${path}.${key}.${value}`, message: `"${value}" is not a value` });
+    }
+  }
+}
+
+/** A codex field's ref names a declared entity, its int range is the right way up, its enum words name its values. */
+function codexProblems({ r, entityIds, out }: { r: Ruleset; entityIds: ReadonlySet<string>; out: Problem[] }): void {
+  for (const [kind, k] of Object.entries(r.codex?.kinds ?? {})) {
+    for (const [id, def] of Object.entries(k.fields)) {
+      const path = `codex.kinds.${kind}.fields.${id}`;
+      if (def.type === "ref" && !entityIds.has(def.entity))
+        out.push({ path: `${path}.entity`, message: `unknown entity "${def.entity}"` });
+      if (def.type === "int" && def.min !== undefined && def.max !== undefined && def.max < def.min)
+        out.push({ path: `${path}.max`, message: "max is below min" });
+      if (def.type === "enum") enumWordProblems({ def, path, out });
     }
   }
 }
@@ -1225,8 +1310,10 @@ function semanticProblems(r: Ruleset): Problem[] {
       if (def?.type === "int" && def.min !== undefined && def.max !== undefined && def.max < def.min) {
         out.push({ path: `${path}.max`, message: "max is below min" });
       }
+      if (def?.type === "enum") enumWordProblems({ def, path, out });
     }
   });
+  codexProblems({ r, entityIds, out });
 
   const resources = new Map(r.resources.map((x) => [x.id, x]));
   r.resources.forEach((x, i) => {

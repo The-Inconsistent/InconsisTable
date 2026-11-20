@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 
 import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
+import { EntryFields } from "@/components/ui/entry-fields/entry-fields";
 import { PoolsView } from "@/components/ui/pools-view/pools-view";
 import { RollsView } from "@/components/ui/rolls-view/rolls-view";
 import { GameResult } from "@/components/ui/game-result/game-result";
@@ -71,6 +72,12 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
         {revealed.map((e) => (
           <section key={e.id} className="card">
             <strong>{e.title}</strong>
+            <EntryFields
+              ruleset={view?.ruleset ?? null}
+              entry={e}
+              campaignId={null}
+              known={view?.first.entries ?? []}
+            />
             {e.layout !== null ? (
               <HandoutDoc layout={e.layout} header={e.header ?? ""} title={e.title} body={e.body} entries={revealed} />
             ) : (

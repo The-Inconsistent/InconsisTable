@@ -99,6 +99,7 @@ export const d20Document = (): RoomDocumentInput => ({
       gmNotes: "Owes the guild; see @[The Salt Guild](" + IDS.guild + ").",
       fields: { mood: "wary", disposition: 1, home: IDS.quay },
       visibility: "party",
+      revealedAt: "2026-03-01T19:30:00+01:00", // kept, as the same instant
     },
     {
       id: IDS.notice,
@@ -112,7 +113,7 @@ export const d20Document = (): RoomDocumentInput => ({
       audience: [IDS.mara],
     },
     { id: IDS.quest, kind: "quest", title: "Find the lost ledger", status: "open", visibility: "party" },
-    { id: IDS.road, kind: "adventure", title: "The Salt Road" },
+    { id: IDS.road, kind: "adventure", title: "The Salt Road", revealedAt: "2026-03-01T18:00:00Z" }, // sealed: ignored
     {
       id: IDS.quayScene,
       kind: "scene",

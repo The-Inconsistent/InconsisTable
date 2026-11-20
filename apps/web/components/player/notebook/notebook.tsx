@@ -12,7 +12,7 @@ import { EntryPicture } from "@/components/ui/entry-picture/entry-picture";
 import { HandoutDoc } from "@/components/ui/handout-doc/handout-doc";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import type { Send } from "@/hooks/use-table/use-table";
-import { treeRows, type TreeRow } from "@/lib/codex/codex";
+import { newestRevealed, treeRows, type TreeRow } from "@/lib/codex/codex";
 import type { RulesEntry } from "@/lib/library/library";
 
 type NotebookProps = {
@@ -109,12 +109,14 @@ export function Notebook({ codex, me, safety, send, ruleset, known }: NotebookPr
         </section>
       )}
       {CodexKind.options.map((kind) => {
+        // Handouts newest revealed first, as a phone's inbox has them (house decision #86).
         const ofKind = rest.filter((e) => e.kind === kind);
+        const shown = kind === "handout" ? newestRevealed(ofKind) : ofKind;
         return (
           ofKind.length > 0 && (
             <section key={kind} className="stack">
               <h2 className="head">{tKind(kind)}</h2>
-              {treeRows(ofKind).map(card)}
+              {treeRows(shown).map(card)}
             </section>
           )
         );

@@ -108,9 +108,14 @@ export function EntryEditor(props: EntryEditorProps) {
     await act({ type: "codex.move", id: entry.id, parentId, position });
   };
 
+  // An adventure with scenes goes with them, once its title is typed (house decision #86), as a room is deleted.
+  const withScenes = entry.kind === "adventure" && entries.some((e) => e.kind === "scene" && e.parentId === entry.id);
+  const [typedTitle, setTypedTitle] = useState("");
+
   // DELETE, after the confirm step.
   const handleDelete = async () => {
-    if ((await act({ type: "codex.delete", id: entry.id })).ok) onDeleted();
+    const r = await act({ type: "codex.delete", id: entry.id, ...(withScenes ? { withScenes: true } : {}) });
+    if (r.ok) onDeleted();
   };
 
   return (
@@ -255,7 +260,19 @@ export function EntryEditor(props: EntryEditorProps) {
           </button>
           {confirming ? (
             <>
-              <button className="btn" onClick={handleDelete}>
+              {withScenes && (
+                <input
+                  aria-label={t("typeToDeleteScenes")}
+                  placeholder={entry.title}
+                  value={typedTitle}
+                  onChange={(e) => setTypedTitle(e.target.value)}
+                />
+              )}
+              <button
+                className="btn"
+                disabled={withScenes && typedTitle.trim() !== entry.title.trim()}
+                onClick={handleDelete}
+              >
                 {t("confirmDelete", { title: entry.title })}
               </button>
               <button className="btn" onClick={() => setConfirming(false)}>

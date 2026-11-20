@@ -14,6 +14,19 @@ var NoticeParams = map[string][]string{
 	"rule":        {"rule", "name"},
 	// sessionDeleted: what the session awarded stays with the characters (house decision #85).
 	"sessionDeleted": {"number"},
+	// sceneBegun and revealSkipped answer scene.begin (house decision #86).
+	"sceneBegun":    {"title", "revealed"},
+	"revealSkipped": {"line", "reason"},
+}
+
+// SceneBegun is the notice that a scene began and revealed that many entries.
+func SceneBegun(title string, revealed int) Notice {
+	return Notice{Code: "sceneBegun", Params: Params{"title": title, "revealed": revealed}}
+}
+
+// RevealSkipped is the notice that a scene's reveal line (its label or id) was not sent, with the refusal's code.
+func RevealSkipped(line, reason string) Notice {
+	return Notice{Code: "revealSkipped", Params: Params{"line": line, "reason": reason}}
 }
 
 // Notice is one line an accepted action's answer tells the seat that sent it, and no one else. Text is a ruleset's

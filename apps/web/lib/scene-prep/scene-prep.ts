@@ -59,7 +59,6 @@ export type Resolved =
   | { state: "broken"; missing: Missing }
   | { state: "blocked"; reason: Blocked }
   | { state: "ready"; action: ActionInput }
-  | { state: "open"; sceneId: string }
   // A Test line that lacks inputs its Test asks for: the GM fills them in on the line, for that send only.
   | { state: "fill"; missing: TestInput[] }
   // A `pick` Test line before the GM has chosen who takes it: nothing is built until then (house decision #75).
@@ -156,7 +155,10 @@ function resolvePool(line: PoolLine, world: PrepWorld): Resolved {
 
 function resolveExit(line: ExitLine, world: PrepWorld): Resolved {
   const found = world.entries.some((e) => e.id === line.sceneId && e.kind === "scene");
-  return found ? { state: "open", sceneId: line.sceneId } : { state: "broken", missing: "scene" };
+  // Taking an exit begins the scene it names (house decision #86).
+  return found
+    ? { state: "ready", action: { type: "scene.begin", sceneId: line.sceneId } }
+    : { state: "broken", missing: "scene" };
 }
 
 function resolveReveal(line: RevealLine, world: PrepWorld): Resolved {

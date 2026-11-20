@@ -165,6 +165,8 @@ bước 0 đã làm.
    này dù nó đặt luật của một game vào code platform, điều ADR 0010 từng từ chối và không game nào khác dùng lại được.
    Cách làm cụ thể: `docs/adr/0011-the-ledger-builder-is-ported-whole.md`. Hệ quả: "entry mang effect" (thiếu 4, house decision #61) không còn nằm trên
    đường của Wrath & Glory; nó vẫn là một khối chung cho ruleset khác.
+10. **Builder chạy ở đâu:** cả hai engine cùng lúc. Server tự resolve mọi build (nguyên tắc 6), nên primitive có bản Go
+    giữ bằng bản TypeScript qua vector ngay từ lần merge đầu; không chạy trên thiết bị trước rồi bù bản Go sau.
 
 ## Đã có câu trả lời ở auspex_gm (tra 2026-11-20)
 
@@ -193,9 +195,6 @@ Platform làm theo đúng các dòng trên. Hai chỗ platform làm khác cách 
 
 1. **ADR 0010** đã merge nhưng còn ghi "proposed": đổi thành "accepted"?
 2. **Bản đồ in có ô lưới** mà Auspex đã hứa: vẫn chưa quyết, ngoài phạm vi P3.
-3. **Builder chạy ở đâu** (theo mục 9 của "Đã chốt", ADR 0011 mục "Open"): api viết bằng Go, nên "server quyết định" (nguyên tắc 6) đòi một
-   bản Go của builder, giữ bằng nhau với bản TypeScript qua vector. Làm cả hai ngay, hay chạy trên thiết bị trước (server
-   chỉ kiểm khoảng giá trị của từng ô, như bước nhập tay hiện nay) rồi thêm bản Go sau?
 
 ## Không làm ở P3
 

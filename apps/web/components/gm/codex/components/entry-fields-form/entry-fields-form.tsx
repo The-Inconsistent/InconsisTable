@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useState, type ChangeEvent } from "react";
 
+import type { CodexEntry } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { PackEntrySheet } from "@/components/ui/pack-entry-sheet/pack-entry-sheet";
@@ -9,6 +10,7 @@ import { usePackEntry } from "@/hooks/use-pack-entry/use-pack-entry";
 import { entryUrl, enumWords, type DeclaredField, type EntryFieldValue } from "@/lib/entry-fields/entry-fields";
 import type { RulesEntry } from "@/lib/library/library";
 
+import { EntryPicker } from "./components/entry-picker/entry-picker";
 import { RefPicker } from "./components/ref-picker/ref-picker";
 
 export type FieldsDraft = Readonly<Record<string, EntryFieldValue | null>>;
@@ -22,6 +24,11 @@ type EntryFieldsFormProps = {
   /** Pack entries this seat already read, to name a picked ref. */
   known: readonly RulesEntry[];
   disabled: boolean;
+  /** The entry being edited, which a link field may not name. */
+  entryId: string;
+  /** Every entry this seat reads: what a link field offers (house decision #76). */
+  entries: readonly CodexEntry[];
+  onOpenEntry: (entryId: string) => void;
 };
 
 type IntInputProps = { id: string; label: string; min?: number; max?: number; value: number | null } & Pick<
@@ -68,6 +75,9 @@ export function EntryFieldsForm({
   campaignId,
   known,
   disabled,
+  entryId,
+  entries,
+  onOpenEntry,
 }: EntryFieldsFormProps) {
   const t = useTranslations("entryFields");
   const [picked, setPicked] = useState<readonly RulesEntry[]>([]);
@@ -181,6 +191,21 @@ export function EntryFieldsForm({
               />
             );
           }
+          case "entry":
+            return (
+              <EntryPicker
+                key={id}
+                id={inputId}
+                label={def.label}
+                kind={def.kind}
+                entries={entries}
+                self={entryId}
+                value={typeof value === "string" ? value : null}
+                disabled={disabled}
+                onPick={(picked) => onChange({ id, value: picked })}
+                onOpen={onOpenEntry}
+              />
+            );
         }
       })}
       {opened && <PackEntrySheet opened={opened} ruleset={ruleset} onClose={close} />}

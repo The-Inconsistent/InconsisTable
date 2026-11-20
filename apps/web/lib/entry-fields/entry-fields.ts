@@ -1,5 +1,5 @@
 import type { CodexEntry, CodexKind } from "@inconsistable/core-schema";
-import { checkFieldValue, type CodexField, type Ruleset } from "@inconsistable/rules-engine";
+import { checkFieldValue, type CodexField, type EnumTone, type Ruleset } from "@inconsistable/rules-engine";
 
 // A codex entry's declared fields (house decision #71): what the ruleset the seat was served declares for a kind, read
 // and drawn from that declaration. The server has already sent each seat only what it may see.
@@ -26,13 +26,43 @@ export function shownFields({ ruleset, entry }: { ruleset: Ruleset | null; entry
   });
 }
 
-/** What a screen shows for an enum value: its label (the id without one) and its note, when it has one. */
-export function enumWords({ def, value }: { def: CodexField; value: string }): { label: string; note: string | null } {
-  if (def.type !== "enum") return { label: value, note: null };
+export type EnumWords = { label: string; note: string | null; tone: EnumTone | null };
+
+/**
+ * What a screen shows for an enum value: its label (the id without one), its note and its tone (house decision #76),
+ * when it has them.
+ */
+export function enumWords({ def, value }: { def: CodexField; value: string }): EnumWords {
+  if (def.type !== "enum") return { label: value, note: null, tone: null };
   // A value id may be `constructor`: read only the record's own keys.
-  const word = (rec: Record<string, string> | undefined) => (rec && Object.hasOwn(rec, value) ? rec[value] : undefined);
-  return { label: word(def.labels) ?? value, note: word(def.notes) ?? null };
+  const word = <T>(rec: Record<string, T> | undefined) => (rec && Object.hasOwn(rec, value) ? rec[value] : undefined);
+  return { label: word(def.labels) ?? value, note: word(def.notes) ?? null, tone: word(def.tones) ?? null };
 }
+
+/**
+ * What an `entry` field's picker offers (house decision #76): the room's entries of the field's kind whose title holds
+ * the search (any case), by title, without the entry being edited.
+ */
+export function linkOptions({
+  entries,
+  kind,
+  self,
+  q = "",
+}: {
+  entries: readonly CodexEntry[];
+  kind: CodexKind;
+  self: string;
+  q?: string;
+}): CodexEntry[] {
+  const needle = q.trim().toLowerCase();
+  return entries
+    .filter((e) => e.kind === kind && e.id !== self && e.title.toLowerCase().includes(needle))
+    .sort((a, b) => a.title.localeCompare(b.title));
+}
+
+/** The entry a link names, among the entries this seat received; undefined when it has none (the server sends none). */
+export const linkedEntry = ({ entries, id }: { entries: readonly CodexEntry[]; id: EntryFieldValue }) =>
+  entries.find((e) => e.id === id);
 
 /** The enum fields of an entry with a value: the chips beside its title in a list. */
 export const listChips = ({ ruleset, entry }: { ruleset: Ruleset | null; entry: CodexEntry }) =>

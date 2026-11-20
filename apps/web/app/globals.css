@@ -751,6 +751,16 @@ label {
 .chip[data-field] .chip-note {
   font-weight: 400;
 }
+/* A toned enum value (house decision #76) in the Theme's own good and bad treatments, as `.mf-status` draws them: an
+   --ok edge, or an --accent edge dashed, so the tone never rests on colour alone; the words and the ink stay. */
+.chip[data-field][data-state="good"] {
+  border: 2px solid var(--ok);
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+}
+.chip[data-field][data-state="bad"] {
+  border: 2px dashed var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
 .card .chip,
 .combatant .chip {
   border-color: var(--parchment-line);

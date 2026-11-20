@@ -6,7 +6,14 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { PackEntrySheet } from "@/components/ui/pack-entry-sheet/pack-entry-sheet";
 import { usePackEntry } from "@/hooks/use-pack-entry/use-pack-entry";
-import { entryUrl, enumWords, listChips, shownFields } from "@/lib/entry-fields/entry-fields";
+import {
+  entryUrl,
+  enumWords,
+  linkedEntry,
+  listChips,
+  shownFields,
+  type EnumWords,
+} from "@/lib/entry-fields/entry-fields";
 import type { RulesEntry } from "@/lib/library/library";
 
 type EntryFieldsProps = {
@@ -18,12 +25,19 @@ type EntryFieldsProps = {
   known: readonly RulesEntry[];
   /** False where the enum chips already sit beside the title (the notebook's card): only the bools and rows here. */
   enumChips?: boolean;
+  /** Every entry this seat received: a link field names one of them (house decision #76). */
+  entries: readonly CodexEntry[];
+  /** Opens a linked entry; absent where nothing opens (the table screen). */
+  onOpenEntry?: (entryId: string) => void;
 };
 
-/** An enum value as a chip: its label, and its note after a dot. */
-export function EnumChip({ label, note }: { label: string; note: string | null }) {
+/**
+ * An enum value as a chip: its label, and its note after a dot. A toned value (house decision #76) wears the Theme's
+ * good or bad treatment and names it in `data-state`, as other chips name their state; the words stay.
+ */
+export function EnumChip({ label, note, tone }: EnumWords) {
   return (
-    <span className="chip" data-field="enum">
+    <span className="chip" data-field="enum" data-state={tone ?? undefined}>
       {label}
       {note && <span className="chip-note"> · {note}</span>}
     </span>
@@ -32,12 +46,21 @@ export function EnumChip({ label, note }: { label: string; note: string | null }
 
 /** The enum fields of an entry the seat received, as chips beside its title in a list. */
 export function EntryFieldChips({ ruleset, entry }: { ruleset: Ruleset | null; entry: CodexEntry }) {
-  return listChips({ ruleset, entry }).map((c) => <EnumChip key={c.id} label={c.label} note={c.note} />);
+  return listChips({ ruleset, entry }).map(({ id, ...words }) => <EnumChip key={id} {...words} />);
 }
 
 // An entry's declared fields with a value, drawn from the ruleset's declaration (house decision #71): enums and true
-// bools as chips, text and numbers as labelled rows, a ref as a row that opens its pack entry. Nothing for an empty one.
-export function EntryFields({ ruleset, entry, campaignId, known, enumChips = true }: EntryFieldsProps) {
+// bools as chips, text and numbers as labelled rows, a ref as a row that opens its pack entry, a link as a row that opens
+// the entry it names (house decision #76). Nothing for an empty one.
+export function EntryFields({
+  ruleset,
+  entry,
+  campaignId,
+  known,
+  enumChips = true,
+  entries,
+  onOpenEntry,
+}: EntryFieldsProps) {
   const t = useTranslations("entryFields");
   const { opened, openEntry, close } = usePackEntry();
   const shown = shownFields({ ruleset, entry });
@@ -51,6 +74,10 @@ export function EntryFields({ ruleset, entry, campaignId, known, enumChips = tru
         </span>,
       ];
     return [];
+  });
+  const links = shown.flatMap(({ id, def, value }) => {
+    const target = def.type === "entry" ? linkedEntry({ entries, id: value }) : undefined;
+    return target ? [{ id, label: def.label, target }] : [];
   });
   const rows = shown.flatMap(({ id, def, value }) => {
     if (def.type !== "text" && def.type !== "int" && def.type !== "ref") return [];
@@ -66,7 +93,7 @@ export function EntryFields({ ruleset, entry, campaignId, known, enumChips = tru
     await openEntry({ url: entryUrl({ campaignId, type: row.ref, key }), title: row.text, known: row.named });
   };
 
-  if (chips.length === 0 && rows.length === 0) return null;
+  if (chips.length === 0 && rows.length === 0 && links.length === 0) return null;
   return (
     <div className="stack entry-fields">
       {chips.length > 0 && (
@@ -74,8 +101,24 @@ export function EntryFields({ ruleset, entry, campaignId, known, enumChips = tru
           {chips}
         </div>
       )}
-      {rows.length > 0 && (
+      {rows.length + links.length > 0 && (
         <div className="sheet-rows">
+          {links.map(({ id, label, target }) => (
+            <div key={id} className="sheet-row" data-field="entry">
+              <span>{label}</span>
+              {onOpenEntry ? (
+                <button
+                  className="btn sm"
+                  onClick={() => onOpenEntry(target.id)}
+                  aria-label={t("open", { name: target.title })}
+                >
+                  {target.title}
+                </button>
+              ) : (
+                <strong style={{ minWidth: 0, overflowWrap: "anywhere", textAlign: "end" }}>{target.title}</strong>
+              )}
+            </div>
+          ))}
           {rows.map((row) => (
             <div key={row.id} className="sheet-row" data-field={row.ref === null ? "value" : "ref"}>
               <span>{row.label}</span>

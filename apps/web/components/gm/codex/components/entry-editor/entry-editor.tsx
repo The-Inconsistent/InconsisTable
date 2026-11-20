@@ -165,9 +165,19 @@ export function EntryEditor(props: EntryEditorProps) {
           campaignId={campaignId}
           known={known}
           disabled={false}
+          entryId={entry.id}
+          entries={entries}
+          onOpenEntry={onOpenEntry}
         />
       ) : (
-        <EntryFields ruleset={ruleset} entry={entry} campaignId={campaignId} known={known} />
+        <EntryFields
+          ruleset={ruleset}
+          entry={entry}
+          campaignId={campaignId}
+          known={known}
+          entries={entries}
+          onOpenEntry={onOpenEntry}
+        />
       )}
       {draft.layout !== undefined && (
         <>

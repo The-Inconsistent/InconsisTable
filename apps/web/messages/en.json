@@ -1553,6 +1553,7 @@
     "chips": "Details",
     "none": "Not set",
     "open": "Open {name}",
+    "openShort": "Open",
     "search": "Search for {label}",
     "results": "Matches for {label}",
     "noMatch": "Nothing matches.",

@@ -66,7 +66,15 @@ export function Notebook({ codex, me, safety, send, ruleset, known }: NotebookPr
       </summary>
       <EntryPath entries={entries} entry={e} onOpen={handleOpen} />
       <EntryPicture campaignId={me.campaignId} entry={e} />
-      <EntryFields ruleset={ruleset} entry={e} campaignId={me.campaignId} known={known} enumChips={false} />
+      <EntryFields
+        ruleset={ruleset}
+        entry={e}
+        campaignId={me.campaignId}
+        known={known}
+        enumChips={false}
+        entries={entries}
+        onOpenEntry={handleOpen}
+      />
       {e.layout !== null ? (
         <HandoutDoc
           layout={e.layout}

@@ -24,20 +24,37 @@ func SetField(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 	if rules == nil {
 		return cs.Result{}, cs.Fail("pickRulesetFirst")
 	}
-	def, declared := rules.Ruleset.CampaignFields[id]
-	if !declared {
+	if _, declared := rules.Ruleset.CampaignFields[id]; !declared {
 		return cs.Result{}, cs.Fail("unknownCampaignField")
 	}
 	value := a["value"]
-	if bad := engine.CheckCampaignValue(&def, value); bad != "" {
-		return cs.Result{}, cs.Fail("campaignFieldValue", cs.Params{"detail": bad})
-	}
 	before, err := actor.LoadCampaign(ctx, tx, cid, rules)
 	if err != nil {
 		return cs.Result{}, err
 	}
 	if before[id] == value {
 		return cs.Done(""), nil
+	}
+	if err := writeCampaignField(ctx, tx, c, rules, id, before[id], value); err != nil {
+		return cs.Result{}, err
+	}
+	// Raising the ledger's Tier by hand starts the next Tier's count as an Ascension does, with no XP and no waive
+	// (house decision #64); lowering it changes neither.
+	if b := rules.Ruleset.Build; b != nil && id == b.Tier {
+		was, _ := before[id].(float64)
+		if now, _ := value.(float64); now > was {
+			return cs.Done(""), markAscension(ctx, tx, cid, b, false)
+		}
+	}
+	return cs.Done(""), nil
+}
+
+// writeCampaignField stores a campaign field's value, checked against its definition, and logs the change while a
+// session runs (house decision #58).
+func writeCampaignField(ctx context.Context, tx core.Conn, c cs.Ctx, rules *engine.CompiledRuleset, id string, before, value any) error {
+	def := rules.Ruleset.CampaignFields[id]
+	if bad := engine.CheckCampaignValue(&def, value); bad != "" {
+		return cs.Fail("campaignFieldValue", cs.Params{"detail": bad})
 	}
 	var asInt *int32
 	var asText *string
@@ -56,10 +73,10 @@ func SetField(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO campaign_field (campaign_id, field_id, int_value, text_value) VALUES ($1, $2, $3, $4)
 		ON CONFLICT (campaign_id, field_id) DO UPDATE SET int_value = EXCLUDED.int_value, text_value = EXCLUDED.text_value`,
-		cid, id, asInt, asText); err != nil {
-		return cs.Result{}, err
+		c.CampaignID, id, asInt, asText); err != nil {
+		return err
 	}
-	return cs.Done(""), eventlog.LogEvent(ctx, tx, c, "campaign.field", map[string]any{"fieldId": id, "from": before[id], "to": value})
+	return eventlog.LogEvent(ctx, tx, c, "campaign.field", map[string]any{"fieldId": id, "from": before, "to": value})
 }
 
 // fieldProblem says why a stored campaign value cannot move from the old version to the next, or returns "".

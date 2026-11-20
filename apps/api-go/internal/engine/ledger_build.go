@@ -44,6 +44,17 @@ func (p *problems) build(r *Ruleset) {
 		p.add("build.tier", `"%s" runs %s to %s, outside the tiers %s to %s`,
 			b.Tier, esNumber(tier.Min), esNumber(tier.Max), esNumber(tiers.Min), esNumber(tiers.Max))
 	}
+	// The amounts offered at a session's end are within the max, ascending (house decision #64).
+	if b.Award != nil {
+		for i, n := range b.Award.Suggested {
+			path := fmt.Sprintf("build.award.suggested[%d]", i)
+			if n > b.Award.Max {
+				p.add(path, "%s is more than the max %s", esNumber(n), esNumber(b.Award.Max))
+			} else if i > 0 && n <= b.Award.Suggested[i-1] {
+				p.add(path, "%s does not come after %s", esNumber(n), esNumber(b.Award.Suggested[i-1]))
+			}
+		}
+	}
 	if actor == nil || actor.Base != "actor" {
 		return
 	}
@@ -123,5 +134,13 @@ func (p *problems) build(r *Ruleset) {
 	}
 	if b.XP != nil {
 		field(*b.XP, "build.xp", "int")
+	}
+	// A gone state is one the actor type can be in (house decision #64).
+	for i, id := range b.Gone {
+		if !slices.ContainsFunc(r.Health.States, func(s HealthState) bool {
+			return s.ID == id && (s.Entities == nil || slices.Contains(*s.Entities, actor.ID))
+		}) {
+			p.add(fmt.Sprintf("build.gone[%d]", i), `unknown health state "%s"`, id)
+		}
 	}
 }

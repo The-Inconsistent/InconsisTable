@@ -300,7 +300,8 @@ function seatState({
         return {
           ...a,
           ownerUserId: own ? a.ownerUserId : null,
-          // The saved ledger build and sheet (house decision #63): the GM side and the seat holding the character.
+          // The saved ledger build and sheet, and their play figures (house decisions #63, #64): the GM side and the
+          // seat holding the character.
           ledger: own ? a.ledger : null,
           ...(v ? copyValues(v) : NO_VALUES),
           // The durations of the conditions the seat sees.

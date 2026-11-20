@@ -124,10 +124,17 @@ func SessionStart(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.
 	return cs.Done(id), nil
 }
 
-// SessionEnd is session.end. The sessionEnd resets run before the session ends, so they are logged in it; with no
-// session running the refusal rolls them back.
+// SessionEnd is session.end. The sessionEnd resets and the award's XP (house decision #64) are written before the
+// session ends, so they are logged in it; with no session running the refusal rolls them back.
 func SessionEnd(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
+	award, _ := a["award"].(float64)
+	if err := checkAward(ctx, tx, c.CampaignID, award); err != nil {
+		return cs.Result{}, err
+	}
 	if _, _, err := ruleset.RestActors(ctx, tx, c, "sessionEnd", ""); err != nil {
+		return cs.Result{}, err
+	}
+	if err := sessionAward(ctx, tx, c, award); err != nil {
 		return cs.Result{}, err
 	}
 	tag, err := tx.Exec(ctx, `UPDATE session SET ended_at = now(), recap = $2 WHERE campaign_id = $1 AND ended_at IS NULL`,

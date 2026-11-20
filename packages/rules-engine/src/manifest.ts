@@ -578,6 +578,15 @@ export const LedgerBuild = z.object({
   tier: Id,
   /** The XP earned in play. */
   xp: FieldId.optional(),
+  /**
+   * The XP every character must earn in a Tier before the group may Ascend, which a milestone Ascension awards (house
+   * decision #64). Absent: the ruleset has no Ascension.
+   */
+  ascension: z.object({ xp: z.int().min(1), cite: Cite }).optional(),
+  /** Health states of `actor`: a character in any of them is left out of the Ascension count. Absent: none. */
+  gone: z.array(Id).max(10).optional(),
+  /** The XP a session's end may give, and the amounts the GM is offered. Absent: a session's end gives none. */
+  award: z.object({ max: z.int().min(1).max(1000), suggested: z.array(z.int().min(0)).max(6), cite: Cite }).optional(),
   cite: Cite,
 });
 export type LedgerBuild = z.infer<typeof LedgerBuild>;
@@ -865,6 +874,12 @@ function buildProblems(r: Ruleset, out: Problem[]): void {
       path: "build.tier",
       message: `"${b.tier}" runs ${tier.min} to ${tier.max}, outside the tiers ${min} to ${max}`,
     });
+  // The amounts offered at a session's end are within the max, ascending (house decision #64).
+  b.award?.suggested.forEach((n, i, all) => {
+    const path = `build.award.suggested[${i}]`;
+    if (n > b.award!.max) out.push({ path, message: `${n} is more than the max ${b.award!.max}` });
+    else if (i > 0 && n <= all[i - 1]!) out.push({ path, message: `${n} does not come after ${all[i - 1]}` });
+  });
   if (actor?.base !== "actor") return;
 
   const named = new Map<string, string>(); // field id → the path that first names it
@@ -907,6 +922,11 @@ function buildProblems(r: Ruleset, out: Problem[]): void {
       out.push({ path: `build.sheet.${key}`, message: `"${id}" is not an entity resource the ${actor.id} carries` });
   }
   if (b.xp !== undefined) field(b.xp, "build.xp", "int");
+  // A gone state is one the actor type can be in (house decision #64).
+  b.gone?.forEach((id, i) => {
+    if (!r.health.states.some((s) => s.id === id && (s.entities === undefined || s.entities.includes(actor.id))))
+      out.push({ path: `build.gone[${i}]`, message: `unknown health state "${id}"` });
+  });
 }
 
 /** Every face range fits the die, bands never overlap, and `shift` names a band. */

@@ -35,6 +35,7 @@ import {
   type BuildCtx,
 } from "../../../packages/rules-engine/src/build/requirements.ts";
 import { capital, norm } from "../../../packages/rules-engine/src/build/labels.ts";
+import { creationKey } from "../../../packages/rules-engine/src/build/creation-key.ts";
 import { resolveBuild } from "../../../packages/rules-engine/src/build/resolve.ts";
 import type { CharacterBuildInput, Creation } from "../../../packages/rules-engine/src/build/schemas.ts";
 import {
@@ -1136,12 +1137,57 @@ function jsVectors() {
   };
 }
 
+// ── creationKey on the builds above, as sent, with their keys reversed at every depth, and with an advance/ choice ──
+
+const reversedKeys = (v: Json): Json =>
+  Array.isArray(v)
+    ? v.map(reversedKeys)
+    : isObj(v)
+      ? Object.fromEntries(
+          Object.entries(v)
+            .reverse()
+            .map(([k, x]) => [k, reversedKeys(x)]),
+        )
+      : v;
+
+function creationKeyVectors(cases: ResolveCase[]) {
+  const out: { params: number; build: Json; key: string }[] = [];
+  for (const c of cases.slice(0, 800)) {
+    const parse = (b: Json) => buildSchemas(PARSED[c.params!]!).CharacterBuild.safeParse(b);
+    const parsed = parse(c.build);
+    if (!parsed.success) continue;
+    const key = creationKey(parsed.data);
+    const b = c.build as Obj;
+    const same = [
+      reversedKeys(b),
+      { ...b, choices: { ...((b.choices as Obj | undefined) ?? {}), "advance/talent/x": ["a"] } },
+      { ...b, advancement: { boughtIn: { x: 2 } }, gm: { approved: ["y"] } },
+    ];
+    for (const build of [c.build, ...same]) {
+      const p = parse(build);
+      if (!p.success || creationKey(p.data) !== key)
+        throw new Error(`creationKey differs for ${JSON.stringify(build)}`);
+      out.push({ params: c.params!, build, key });
+    }
+    // A creation change gives another key.
+    const changed = { ...b, wealth: (typeof b.wealth === "number" ? b.wealth : 0) + 1 };
+    const p = parse(changed);
+    if (p.success) {
+      if (creationKey(p.data) === key) throw new Error("a creation change kept the key");
+      out.push({ params: c.params!, build: changed, key: creationKey(p.data) });
+    }
+  }
+  return out;
+}
+
+const resolve = [...testBuilds(), ...wideBuilds(), ...generatedBuilds(3200)];
 const vectors = {
   params: PARAMS,
   paramsCases: paramsVectors(),
   parse: parseVectors(),
   catalogues: CATALOGUES,
-  resolve: [...testBuilds(), ...wideBuilds(), ...generatedBuilds(3200)],
+  resolve,
+  creationKeys: creationKeyVectors([...resolve.slice(0, 200), ...resolve.slice(-600)]),
   ...helperVectors(),
   js: jsVectors(),
 };

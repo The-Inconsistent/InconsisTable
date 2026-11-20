@@ -359,6 +359,13 @@ var buildSchema = schema.Object(
 	)),
 	schema.Req("tier", idSchema),
 	schema.Opt("xp", fieldIDSchema),
+	schema.Opt("ascension", schema.Object(schema.Req("xp", schema.Int().Min(1)), schema.Req("cite", citeSchema))),
+	schema.Opt("gone", schema.Array(idSchema).Max(10)),
+	schema.Opt("award", schema.Object(
+		schema.Req("max", schema.Int().Min(1).Max(1000)),
+		schema.Req("suggested", schema.Array(schema.Int().Min(0)).Max(6)),
+		schema.Req("cite", citeSchema),
+	)),
 	schema.Req("cite", citeSchema),
 )
 

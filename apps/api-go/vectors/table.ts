@@ -71,14 +71,27 @@ const ledger = (archetypeId: string) => ({
   build: { tier: 1, archetypeId, gm: { approved: ["x/y"] } },
   sheet: { species: "Heron-kin", archetype: archetypeId, attributes: { MGT: 2 } },
   draft: null,
+  // In play (house decision #64).
+  xpSpent: 12,
+  xpAtAscension: 40,
+  packageWaived: true,
 });
 // An unfinished draft and no build yet: it reaches the same seats.
-const draftOnly = (archetypeId: string) => ({ build: null, sheet: null, draft: { tier: 1, archetypeId, gm: {} } });
+const draftOnly = (archetypeId: string) => ({
+  build: null,
+  sheet: null,
+  draft: { tier: 1, archetypeId, gm: {} },
+  xpSpent: 0,
+  xpAtAscension: 0,
+  packageWaived: false,
+});
+// A row that holds only an Ascension's bookkeeping: the documents are null, the figures set.
+const playOnly = { build: null, sheet: null, draft: null, xpSpent: 0, xpAtAscension: 25, packageWaived: true };
 
 const ACTORS = [
   actor(PC1, "pc", "One", "player1", { ledger: ledger("one") }),
   actor(PC2, "pc", "Two", null, { ledger: draftOnly("two") }),
-  actor(PAL, "companion", "Pal", "player1", { conditions: ["staggered"], conditionTimers: [] }),
+  actor(PAL, "companion", "Pal", "player1", { conditions: ["staggered"], conditionTimers: [], ledger: playOnly }),
   actor(NPC, "npc", "Keeper", null, {
     entity: "creature",
     fields: { name: "K", level: 2, "attr.con": 12 },
@@ -669,11 +682,12 @@ const VALID: Record<string, Record<string, unknown>> = {
   "campaign.attachPack": { packVersionId: ID },
   "campaign.detachPack": { packVersionId: ID },
   "session.start": { title: " Night " },
-  "session.end": { recap: "done" },
+  "session.end": { recap: "done", award: 20 },
   "session.edit": { sessionId: ID, title: "t", recap: "r", notes: "n" },
   "actor.create": { kind: "npc", name: " Keeper ", entityType: "creature" },
   "actor.build": { actorId: ID, answers: { name: "x", n: 1 } },
   "build.save": { actorId: ID, build: '{"tier":1,"archetypeId":"a"}', draft: true },
+  "build.ascend": { kind: "milestone", waivePackage: true },
   "actor.spawn": { packVersionId: ID, key: "goblin", count: 3, temporary: true },
   "draft.save": { body: { actorId: ID, answers: { a: [1, 2] } } },
   "draft.discard": {},

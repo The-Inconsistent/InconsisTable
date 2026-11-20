@@ -115,3 +115,33 @@ test("an actor type the ledger builder builds takes no creation steps", () => {
   m.creation = [{ id: "name", actor: "hero", kind: "fields", label: "Name", fields: ["species"], cite: "Base p.1" }];
   refused(m, "creation", "an actor type the ledger builder builds takes no creation steps");
 });
+
+// House decision #64: play after creation.
+
+test("gone names health states the built actor type can be in", () => {
+  const m = sample();
+  m.entities.push({ id: "rival", label: "Rival", base: "actor", fields: {} });
+  m.health.states.push({ id: "routed", when: "true", entities: ["rival"] });
+  m.build.gone = ["lost", "nope", "routed"];
+  refused(m, "build.gone[1]", 'unknown health state "nope"');
+  refused(m, "build.gone[2]", 'unknown health state "routed"');
+  assert.ok(!problems(m).some((p) => p.path === "build.gone[0]"));
+});
+
+test("the suggested awards lie within the max, ascending", () => {
+  const m = sample();
+  m.build.award = { max: 20, suggested: [5, 5, 3, 21], cite: "Base p.31" };
+  refused(m, "build.award.suggested[1]", "5 does not come after 5");
+  refused(m, "build.award.suggested[2]", "3 does not come after 5");
+  refused(m, "build.award.suggested[3]", "21 is more than the max 20");
+});
+
+test("a ruleset without ascension, gone and award validates as before, with none of them", () => {
+  const m = sample();
+  delete m.build.ascension;
+  delete m.build.gone;
+  delete m.build.award;
+  const r = validateRuleset(m);
+  assert.ok(r.ok);
+  if (r.ok) assert.deepEqual(Object.keys(r.ruleset.build ?? {}).slice(-3), ["tier", "xp", "cite"]);
+});

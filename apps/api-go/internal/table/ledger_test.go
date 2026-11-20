@@ -426,7 +426,8 @@ func TestALedgerDraftIsStoredUnresolvedForTheGMToOpen(t *testing.T) {
 				if a.Ledger == nil || string(a.Ledger.Draft) != *draft || a.Ledger.Build != nil || a.Ledger.Sheet != nil {
 					t.Fatalf("as %s: %+v", seat.Seat.Role, a.Ledger)
 				}
-				if out, _ := json.Marshal(a.Ledger); string(out) != `{"build":null,"sheet":null,"draft":`+*draft+`}` {
+				if out, _ := json.Marshal(a.Ledger); string(out) != `{"build":null,"sheet":null,"draft":`+*draft+
+					`,"xpSpent":0,"xpAtAscension":0,"packageWaived":false}` {
 					t.Fatalf("sent %s", out)
 				}
 			}

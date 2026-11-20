@@ -68,7 +68,12 @@ export const Action = z.discriminatedUnion("type", [
   z.object({ type: z.literal("campaign.detachPack"), packVersionId: id }),
 
   z.object({ type: z.literal("session.start"), title: SessionTitle.default("") }),
-  z.object({ type: z.literal("session.end"), recap: z.string().max(10_000).default("") }),
+  // `award`: XP to every player character the ledger builder builds, when the ruleset gives it (house decision #64).
+  z.object({
+    type: z.literal("session.end"),
+    recap: z.string().max(10_000).default(""),
+    award: z.int().min(0).max(1000).default(0),
+  }),
   z.object({
     type: z.literal("session.edit"),
     sessionId: id,
@@ -90,6 +95,13 @@ export const Action = z.discriminatedUnion("type", [
   // sheet's numbers as the actor's fields and stores the build and the sheet.
   // `draft: true` stores the build unresolved, for the GM to open; nothing of the actor changes (house decision #63).
   z.object({ type: z.literal("build.save"), actorId: id, build: LedgerBuildText, draft: z.boolean().default(false) }),
+  // The group Ascends one Tier together (house decision #64): `experience` once every character has earned the XP in
+  // this Tier, `milestone` at the GM's word, awarding it. `waivePackage` waives this Ascension's package.
+  z.object({
+    type: z.literal("build.ascend"),
+    kind: z.enum(["experience", "milestone"]),
+    waivePackage: z.boolean().default(false),
+  }),
   // N creatures from one attached pack entry, numbered after the ones already at the table.
   z.object({
     type: z.literal("actor.spawn"),
@@ -265,6 +277,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "actor.create": "character:create",
   "actor.build": "character:edit:own", // a player on a held character; the GM side through OWN_FALLBACK
   "build.save": "character:edit:own", // the same; the GM's part of the build is the GM side's (house decision #63)
+  "build.ascend": "campaign:update", // as campaign.setField, which changes the same Tier (house decision #64)
   "actor.spawn": "encounter:run",
   "draft.save": null, // a signed-in member's own draft; the handler checks the caller
   "draft.discard": null,

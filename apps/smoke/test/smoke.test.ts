@@ -2395,7 +2395,8 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
   const drafted = actorIn(await owner.until((x) => actorIn(x, ana.held)?.ledger?.draft != null), ana.held);
   assert.equal(
     JSON.stringify(drafted?.ledger),
-    '{"build":null,"sheet":null,"draft":{"tier":1,"archetypeId":"lamplighter","gm":{}}}',
+    '{"build":null,"sheet":null,"draft":{"tier":1,"archetypeId":"lamplighter","gm":{}},' +
+      '"xpSpent":0,"xpAtAscension":0,"packageWaived":false}',
   );
   assert.equal(drafted?.entity, "");
 
@@ -2433,6 +2434,37 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
   // Ben sees Ana's hero by name and its party numbers, never the build.
   const benSees = actorIn(await ben.c.until((x) => actorIn(x, ana.held)?.derived.toughness === 25), ana.held);
   assert.equal(benSees?.ledger, null);
+
+  // In play (house decision #64). A session's end gives XP, up to the ruleset's max.
+  ok(await owner.send({ type: "session.start" }));
+  refused(await owner.send({ type: "session.end", award: 51 }), "awardTooHigh");
+  ok(await owner.send({ type: "session.end", award: 10 }));
+  await ana.c.until((x) => actorIn(x, ana.held)?.fields.xp === 10);
+  // The player buys a rating with it, stamped with that session; a creation change or another Tier is refused.
+  const bought = { ...dream, advancement: { skills: { Brawl: 2 }, boughtIn: { "made/up": 9 } } };
+  ok(await ana.c.send(save(ana.held, bought)));
+  refused(await ana.c.send(save(ana.held, { ...bought, wealth: 0 })), "creationLocked");
+  refused(await ana.c.send(save(ana.held, { ...bought, tier: 2 })), "buildMadeAtTier");
+  const inPlay = actorIn(await ana.c.until((x) => actorIn(x, ana.held)?.fields["skill.brawl"] === 2), ana.held);
+  assert.deepEqual(inPlay?.ledger?.build?.advancement, {
+    skills: { Brawl: 2 },
+    boughtIn: { "advance/skill/Brawl/2": 1 },
+  });
+  assert.equal(inPlay?.ledger?.xpSpent, 3);
+  // The group Ascends at the GM's word: a player may not, nor may the GM by experience before the XP is earned.
+  refused(await ana.c.send({ type: "build.ascend", kind: "milestone" }), "noPermission");
+  refused(await owner.send({ type: "build.ascend", kind: "experience" }), "ascensionShort");
+  ok(await owner.send({ type: "build.ascend", kind: "milestone", waivePackage: true }));
+  for (const c of [owner, ana.c]) {
+    const s = await c.until(
+      (x) => x.campaign.fields.tier === 2 && actorIn(x, ana.held)?.ledger?.packageWaived === true,
+    );
+    const hero = actorIn(s, ana.held)!;
+    assert.equal(hero.fields.xp, 30);
+    assert.deepEqual([hero.ledger?.xpSpent, hero.ledger?.xpAtAscension], [3, 30]);
+  }
+  // The waived package lets the next purchase through at the new Tier.
+  ok(await ana.c.send(save(ana.held, { ...bought, advancement: { skills: { Brawl: 3 } } })));
   for (const c of [owner, ana.c, ben.c]) c.socket.close();
 });
 

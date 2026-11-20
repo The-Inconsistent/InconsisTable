@@ -76,6 +76,8 @@ export const SAMPLE_LEDGER_RULESET: RulesetInput = {
     { id: "wealth", label: "Wealth", scope: "entity", entities: ["hero"], cite: "Base p.8" },
     { id: "corruption", label: "Corruption", scope: "entity", cite: "Base p.21" },
   ],
+  // Out of play for good: what leaves a hero out of the Ascension count.
+  health: { states: [{ id: "lost", label: "Lost", when: "res.corruption >= 10", entities: ["hero"] }] },
   build: {
     strategy: "ledger",
     actor: "hero",
@@ -96,6 +98,9 @@ export const SAMPLE_LEDGER_RULESET: RulesetInput = {
     },
     tier: "tier",
     xp: "xp",
+    ascension: { xp: 20, cite: "Base p.30" },
+    gone: ["lost"],
+    award: { max: 50, suggested: [5, 10, 20], cite: "Base p.31" },
     cite: "Base p.1",
   },
 };

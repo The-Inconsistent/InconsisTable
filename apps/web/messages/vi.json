@@ -1584,7 +1584,8 @@
       "homebrewOff": "Bàn này không dùng homebrew.",
       "official": "Chính thức",
       "homebrewIn": "Homebrew, được phép",
-      "homebrewOut": "Homebrew, không hiện"
+      "homebrewOut": "Homebrew, không hiện",
+      "roomTier": "Đây là Tier của phòng. GM đổi nó ở Luật, Thiết lập campaign."
     },
     "archetype": {
       "advanced": "Tạo nâng cao",
@@ -1696,6 +1697,18 @@
       "startOver": "Làm lại",
       "readyToSave": "Bước sau sẽ đặt nút lưu ở đây: sẵn sàng.",
       "notReady": "Bước sau sẽ đặt nút lưu ở đây: chưa sẵn sàng."
+    },
+    "table": {
+      "loading": "Đang mở danh mục…",
+      "failed": "Không đọc được danh mục. Kiểm tra kết nối rồi thử lại.",
+      "retry": "Thử lại",
+      "save": "Lưu nhân vật",
+      "sendToGm": "Gửi cho GM",
+      "saveForLater": "Lưu để làm tiếp",
+      "sentToGm": "Đã gửi cho GM.",
+      "savedForLater": "Đã lưu để làm tiếp.",
+      "kept": "Đã lưu nháp",
+      "notKept": "Chưa giữ nháp"
     }
   }
 }

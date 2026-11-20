@@ -1584,7 +1584,8 @@
       "homebrewOff": "This table keeps homebrew out.",
       "official": "Official",
       "homebrewIn": "Homebrew, allowed",
-      "homebrewOut": "Homebrew, not offered"
+      "homebrewOut": "Homebrew, not offered",
+      "roomTier": "This is the room's Tier. The GM changes it under Rules, Campaign settings."
     },
     "archetype": {
       "advanced": "Advanced Creation",
@@ -1696,6 +1697,18 @@
       "startOver": "Start over",
       "readyToSave": "The next task puts the save button here: ready.",
       "notReady": "The next task puts the save button here: not ready yet."
+    },
+    "table": {
+      "loading": "Opening the catalogue…",
+      "failed": "The catalogue could not be read. Check the connection and try again.",
+      "retry": "Try again",
+      "save": "Save character",
+      "sendToGm": "Send to the GM",
+      "saveForLater": "Save for later",
+      "sentToGm": "Sent to the GM.",
+      "savedForLater": "Saved for later.",
+      "kept": "Draft saved",
+      "notKept": "Draft not kept"
     }
   }
 }

@@ -1,0 +1,99 @@
+import { z } from "zod";
+
+import {
+  canInCampaign,
+  gmPermOf,
+  type Actor,
+  type ActorKind,
+  type ActorLedger,
+  type Me,
+} from "@inconsistable/core-schema";
+import type { BuildCatalogue, LedgerCreation, LedgerWargear, Ruleset } from "@inconsistable/rules-engine";
+
+import type { LedgerBuild } from "./ledger";
+
+// The ledger builder at the table (docs/adr/0011, house decision #63): which builder a character's page shows, the
+// build it starts from, the catalogue as the api serves it, the entry each seat gets to it, and what the saved sheet
+// adds to a character's sheet. Pure.
+
+type Ledgered = Pick<Actor, "entity" | "ledger">;
+
+/** The ledger builder builds a character that is untyped or of the type the ruleset's `build` names. */
+export const usesLedger = ({ ruleset, actor }: { ruleset: Ruleset | null; actor: Pick<Actor, "entity"> }) =>
+  ruleset?.build !== undefined && (actor.entity === "" || actor.entity === ruleset.build.actor);
+
+/** A GM-side seat of an actor of this kind, as the Seat view decides who reads and approves the GM's part. */
+export const gmSideOf = ({ me, kind }: { me: Me; kind: ActorKind }) =>
+  me.seat.kind === "admin" ||
+  (me.userId !== null && me.userId === me.campaignOwnerId) ||
+  (me.tableMode === "gm" && canInCampaign({ ctx: me, perm: gmPermOf(kind) }));
+
+/** The room's Tier: its value of the campaign field `build.tier` names; the lowest Tier while it has none. */
+export function roomTier({ ruleset, campaign }: { ruleset: Ruleset; campaign: Readonly<Record<string, unknown>> }) {
+  const build = ruleset.build;
+  if (!build) return 0;
+  const value = campaign[build.tier];
+  return typeof value === "number" ? value : build.params.tiers.min;
+}
+
+// The stored document is the server's own: it read the text in order before storing it, and the builder parses the
+// build again on every resolve and shows what it cannot read. So it is passed on as it is, never re-parsed here: a
+// parse would put its keys in the schema's order, and the builder reads them in the order they were written.
+const AsStored = z.custom<LedgerBuild>((x) => typeof x === "object" && x !== null && !Array.isArray(x));
+
+/** What the screens start from: the draft, else the saved build, else an empty build; always at the room's Tier. */
+export function startingBuild({ ledger, tier }: { ledger: ActorLedger | null; tier: number }): LedgerBuild {
+  const stored = AsStored.safeParse(ledger?.draft ?? ledger?.build);
+  // A spread keeps a stored `tier` where it was written.
+  return stored.success ? { ...stored.data, tier } : { tier };
+}
+
+// The catalogue reply, `{ params, kinds, wargear }`. Its records were parsed and normalised at import and are used as
+// served: only their place is checked here (a list of objects per kind), never their fields.
+const served = <T>() => z.array(z.custom<T>((x) => typeof x === "object" && x !== null && !Array.isArray(x)));
+type Of<K extends keyof LedgerCreation> = LedgerCreation[K][number];
+const CatalogueReply = z.object({
+  kinds: z.object({
+    keywords: served<Of<"keywords">>(),
+    factions: served<Of<"factions">>(),
+    "sub-factions": served<Of<"sub-factions">>(),
+    species: served<Of<"species">>(),
+    backgrounds: served<Of<"backgrounds">>(),
+    "option-groups": served<Of<"option-groups">>(),
+    archetypes: served<Of<"archetypes">>(),
+    talents: served<Of<"talents">>(),
+    packages: served<Of<"packages">>(),
+    disciplines: served<Of<"disciplines">>(),
+    powers: served<Of<"powers">>(),
+    languages: served<Of<"languages">>(),
+  }),
+  wargear: served<LedgerWargear>(),
+});
+
+/** The builder's catalogue from the api's reply; null when the reply is not one. Every source is let in, as the server
+ * resolves (house decision #63). */
+export function catalogueOf(reply: unknown): BuildCatalogue | null {
+  const r = CatalogueReply.safeParse(reply);
+  if (!r.success) return null;
+  return { creation: r.data.kinds, wargear: new Map(r.data.wargear.map((w) => [w.id, w])), homebrew: true };
+}
+
+// The entry the GM's Party tab gives a character to its builder, and the one a player's phone gives.
+export const GM_ENTRIES = ["build", "review", "open"] as const;
+export type GmEntry = (typeof GM_ENTRIES)[number];
+export const PLAYER_ENTRIES = ["build", "continue"] as const;
+export type PlayerEntry = (typeof PLAYER_ENTRIES)[number];
+
+/** BUILD with neither a build nor a draft, REVIEW with a draft, OPEN once built; null when the ledger does not build it. */
+export function gmEntryOf({ ruleset, actor }: { ruleset: Ruleset | null; actor: Ledgered }): GmEntry | null {
+  if (!usesLedger({ ruleset, actor })) return null;
+  if (actor.ledger?.draft) return "review";
+  return actor.ledger?.build ? "open" : "build";
+}
+
+/** A player builds a character not yet built, or continues its draft; a built one has no entry yet (buying in play
+ * comes later). Null when the ledger does not build it. */
+export function playerEntryOf({ ruleset, actor }: { ruleset: Ruleset | null; actor: Ledgered }): PlayerEntry | null {
+  if (!usesLedger({ ruleset, actor }) || actor.ledger?.build) return null;
+  return actor.ledger?.draft ? "continue" : "build";
+}

@@ -1499,6 +1499,11 @@ summary {
   margin: 0;
   font-weight: 700;
 }
+.lb-refusal {
+  flex-basis: 100%;
+  margin: 0;
+  white-space: pre-line; /* a build refusal lists its problems one to a line */
+}
 .lb-ledger-rows {
   list-style: none;
   margin: 0;

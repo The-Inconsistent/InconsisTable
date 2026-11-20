@@ -3,13 +3,14 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { Actor, LiveState } from "@inconsistable/core-schema";
+import type { Actor, LiveState, Me } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { AssignStep } from "@/components/builder/components/assign-step/assign-step";
 import { ChooseStep } from "@/components/builder/components/choose-step/choose-step";
 import { FieldsStep } from "@/components/builder/components/fields-step/fields-step";
 import { DRAFT_DELAY_MS } from "@/components/builder/constants";
+import { LedgerBuild } from "@/components/builder/ledger-build/ledger-build";
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
@@ -23,6 +24,7 @@ import {
   problemsByStep,
   stepsFor,
 } from "@/lib/builder/builder";
+import { usesLedger } from "@/lib/ledger/table";
 import type { RulesEntry } from "@/lib/library/library";
 
 type BuilderProps = {
@@ -31,16 +33,21 @@ type BuilderProps = {
   ruleset: Ruleset;
   /** The attached entries this seat may pick, by entity type (read on the server, seat-scoped). */
   entries: Readonly<Record<string, readonly RulesEntry[]>>;
+  /** The seat, read when the ruleset has a ledger builder. */
+  me?: Me | undefined;
 };
 
-// BUILD CHARACTER: waits for the table's first snapshot (it carries this user's draft), then walks the ruleset's creation.
-export function Builder({ campaignId, actorId, ruleset, entries }: BuilderProps) {
+// BUILD CHARACTER: waits for the table's first snapshot (it carries this user's draft), then walks the ruleset's creation,
+// or opens the ledger builder for a character it builds.
+export function Builder({ campaignId, actorId, ruleset, entries, me }: BuilderProps) {
   const t = useTranslations("builder");
   const tStatus = useTranslations("status");
   const { state, send } = useTable(campaignId);
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   const actor = state.actors.find((a) => a.id === actorId);
   if (!actor) return <StatusScreen text={t("notAtTable")} />;
+  if (me && usesLedger({ ruleset, actor }))
+    return <LedgerBuild {...{ campaignId, ruleset, actor, send }} me={me} campaign={state.campaign.fields} />;
   return (
     <BuilderGate
       {...{ campaignId, actorId, ruleset, entries, send, actor }}

@@ -32,6 +32,7 @@ export type LedgerState = {
   issues: Record<BuildStep, StepIssues>;
   ctx: BuildCtx | null;
   gm: boolean;
+  tier: number | undefined; // given from outside: the Tier step only shows it
   play: LedgerPlay | undefined;
   edit: (next: LedgerBuild) => void;
   go: (step: BuildStep) => void;

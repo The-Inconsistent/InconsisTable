@@ -170,6 +170,15 @@ bước 0 đã làm.
 11. **ADR 0010** (game là một module gồm các phần được nhập): chấp nhận đúng như đề xuất. World (giao diện và từ vựng
     của một bối cảnh) làm theo ADR này.
 
+2026-11-20, cho World Wrath & Glory (giao diện của Auspex), trước khi viết code:
+
+12. **Lần cắt đầu:** màu, kiểu chữ và hình dạng cùng lúc. Các nét riêng của Auspex (đường kẻ lông ngỗng, mép rách, nút
+    khung đôi, nền giấy lạnh) là những lựa chọn mới trong danh sách của platform, vẽ bằng CSS; World chỉ chọn.
+13. **Sáng và tối ở bàn:** World mang cả hai bộ màu; mỗi thiết bị tự chọn, theo hệ thống và có nút đổi riêng. Bàn không
+    còn bị ép tối khi phòng có World.
+14. **Tiêu đề tiếng Việt:** giữ Cinzel (không có dấu tiếng Việt); chữ tiếng Việt rơi về kiểu chữ thân bài của World.
+15. **Từ vựng (terms):** chưa làm ở lần cắt này. Ghi lại ở issue #159 để quay lại.
+
 ## Đã có câu trả lời ở auspex_gm (tra 2026-11-20)
 
 | Câu hỏi | auspex_gm làm gì | Nguồn |

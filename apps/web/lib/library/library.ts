@@ -92,12 +92,15 @@ export type PackList = z.infer<typeof PackList>;
 
 export const HideReply = z.object({ deleted: z.boolean() });
 
-/** What the GM's Rules tab reads on the server: the room's pin and attached packs, and the owner's own libraries. */
+/** What the GM's Rules tab reads on the server: the room's pin, attached packs and World, and the caller's libraries. */
 export interface RulesTabData {
   rulesets: RulesetList;
   packs: PackList;
+  worlds: WorldList;
   pinned: { versionId: string; slug: string; version: string } | null;
   attached: { id: string; slug: string; version: string; license: string }[];
+  /** The room's World while it is served, null without one. */
+  world: { versionId: string; name: string; version: string } | null;
 }
 
 /** One entry of an attached pack, as the seat-scoped rules route serves it (`GET /api/campaigns/:id/rules`). */

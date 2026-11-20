@@ -11,7 +11,7 @@ import { PlayerApp } from "@/components/player/player-app/player-app";
 import { TableScreen } from "@/components/screen/table-screen/table-screen";
 import { RoomWorld } from "@/components/ui/room-world/room-world";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
-import { PackList, RulesReply, RulesetList, type RulesTabData } from "@/lib/library/library";
+import { PackList, RulesReply, RulesetList, WorldList, type RulesTabData } from "@/lib/library/library";
 import { RULES_PAGE, type RulesView } from "@/lib/rules-reader/rules-reader";
 
 type TableProps = {
@@ -19,27 +19,33 @@ type TableProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-// What the GM's Rules tab shows: the room's pin and attached packs, and the caller's own rulesets and packs. Read here so
-// the tab needs no fetch of its own; it asks the page to refresh after a pin or an attach. Null when any read fails.
+// What the GM's Rules tab shows: the room's pin, attached packs and World, and the caller's own rulesets, packs and
+// Worlds. Read here so the tab needs no fetch of its own; it asks the page to refresh after a pin or an attach. Null
+// when any read fails.
 async function rulesTab(campaignId: string): Promise<RulesTabData | null> {
   try {
-    const [rulesets, packs, room] = await Promise.all([
+    const [rulesets, packs, worlds, room] = await Promise.all([
       apiGet("/api/rulesets"),
       apiGet("/api/packs"),
+      apiGet("/api/worlds"),
       apiGet(`/api/campaigns/${campaignId}/rules?limit=1`),
     ]);
     const parsed = {
       rulesets: RulesetList.safeParse(rulesets.ok ? await rulesets.json() : null),
       packs: PackList.safeParse(packs.ok ? await packs.json() : null),
+      worlds: WorldList.safeParse(worlds.ok ? await worlds.json() : null),
       room: RulesReply.safeParse(room.ok ? await room.json() : null),
     };
-    if (!parsed.rulesets.success || !parsed.packs.success || !parsed.room.success) return null;
-    const { ruleset, packs: attached } = parsed.room.data;
+    if (!parsed.rulesets.success || !parsed.packs.success || !parsed.worlds.success || !parsed.room.success)
+      return null;
+    const { ruleset, packs: attached, world } = parsed.room.data;
     return {
       rulesets: parsed.rulesets.data,
       packs: parsed.packs.data,
+      worlds: parsed.worlds.data,
       pinned: ruleset && { versionId: ruleset.versionId, slug: ruleset.slug, version: ruleset.version },
       attached,
+      world: world && { versionId: world.versionId, name: world.name, version: world.version },
     };
   } catch {
     return null;

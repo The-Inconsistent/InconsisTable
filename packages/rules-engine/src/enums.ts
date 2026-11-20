@@ -167,6 +167,10 @@ export const RefusalCode = z.enum([
   "noHarmHere",
   "neverShocked",
   "notAMob",
+  // `health.harm` `convert` and spends (house decision #84).
+  "noConvertHere",
+  "noSuchSpend",
+  "spendNotNow",
 ]);
 export type RefusalCode = z.infer<typeof RefusalCode>;
 

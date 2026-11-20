@@ -72,7 +72,8 @@ import type {
   TurnState,
 } from "../../../packages/rules-engine/src/primitives/primitive.ts";
 import { charge, checkDeltas } from "../../../packages/rules-engine/src/primitives/primitive.ts";
-import { PRIMITIVES, runOp } from "../../../packages/rules-engine/src/primitives/registry.ts";
+import { opInputKeys, PRIMITIVES, runOp } from "../../../packages/rules-engine/src/primitives/registry.ts";
+import { planSpend } from "../../../packages/rules-engine/src/spend.ts";
 import { firstOf, nextFirst, sequence } from "../../../packages/rules-engine/src/primitives/initiative-seated.ts";
 import { poolSize } from "../../../packages/rules-engine/src/primitives/dice-pool-successes.ts";
 import { LAYOUT_TARGETS, WIDGETS } from "../../../packages/rules-engine/src/widgets.ts";
@@ -586,7 +587,7 @@ const HARM_PARAMS: unknown[] = [
         spent: { conditions: ["winded", "down"] },
         felled: { when: "res.wounds >= derived.limit" },
       },
-      { entities: ["brute"], felled: { when: "res.wounds > 2", injuries: "hide", condition: "winded" } },
+      { entities: ["brute"], felled: { when: "res.wounds > 2", injuries: "hide", condition: "winded" }, convert: true },
     ],
   },
 ];
@@ -878,6 +879,12 @@ function opVectors() {
     const input = { actorId: hrnd(20) === 0 ? "nobody" : "h", members };
     run({ primitive: "health.harm", op: "muster", p: hpick(HARM_PARAMS), state: harmState(), input });
   }
+  // `convert` (house decision #84): amounts either side of the wounds held, and out of range.
+  for (let i = 0; i < 600; i++) {
+    const amount = hpick([1, 1, 2, 3, 5, 12, 100, 0, 101, 2.5]);
+    const input = { actorId: hrnd(20) === 0 ? "nobody" : "h", amount };
+    run({ primitive: "health.harm", op: "convert", p: hpick(HARM_PARAMS), state: harmState(), input });
+  }
   // Sides: the paths a random state seldom lines up for (a paid seize, an automatic wrap, a lifted bar).
   const sideTurn = (over: Partial<TurnState>, gold = 3, tin = 3): number =>
     STATES.push({
@@ -968,6 +975,90 @@ function opVectors() {
     cases,
   };
 }
+
+// Spends (house decision #84): what planSpend answers for the fixtures' spends on actors and fights around their edges.
+function spendVectors() {
+  const compiled = (input: unknown) => {
+    const r = compileRuleset(input);
+    if (!r.ok) throw new Error(JSON.stringify(r.problems));
+    return r.compiled.ruleset;
+  };
+  const rulesets = [compiled(SAMPLE_HARM), compiled(SAMPLE_SKIRMISH)];
+  let seed = 84;
+  const r = (n: number) => (((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 2 ** 32) * n) | 0;
+  const one = <T>(items: readonly T[]): T => items[r(items.length)] as T;
+  const cases: unknown[] = [];
+  const add = (
+    ruleset: number,
+    spendId: string,
+    actor: ActorState,
+    state: RuleState,
+    inputs: Record<string, unknown>,
+  ) => {
+    const plan = planSpend({ ruleset: rulesets[ruleset] as Ruleset, spendId, actor, state, inputs });
+    const flat = {
+      turn: state.turn,
+      pools: Object.entries(state.pools ?? {}).map(([name, s]) => ({ name, state: s })),
+    };
+    const wire = { ...actor, resources: Object.entries(actor.resources).map(([name, s]) => ({ name, state: s })) };
+    cases.push({ ruleset, spendId, actor: wire, state: flat, inputs, ...(isRefusalLike(plan) ? plan : { plan }) });
+  };
+  const harmStates = STATES.slice(HARM_STATES_AT, HARM_STATES_AT + 400);
+  for (let i = 0; i < 1500; i++) {
+    const base = one(harmStates).actors.h;
+    if (base === undefined) continue;
+    const resolve = one([0, 1, 2, 3]);
+    const scope =
+      base.scope === undefined ? undefined : { ...base.scope, res: { ...(base.scope.res as object), resolve } };
+    const actor: ActorState = {
+      ...base,
+      ...(scope === undefined ? {} : { scope }),
+      resources: r(10) === 0 ? base.resources : { ...base.resources, resolve: { value: resolve, min: 0, max: 3 } },
+    };
+    const inputs = one<Record<string, unknown>>([
+      {},
+      { marks: 1 },
+      { marks: 4 },
+      { marks: 0 },
+      { marks: 11 },
+      { marks: 1.5 },
+      { marks: "2" },
+      { marks: 2, x: 1 },
+    ]);
+    add(0, one(["retry", "steady", "endure", "endure", "nope"]), actor, { actors: { h: actor }, turn: null }, inputs);
+  }
+  const fighter: ActorState = {
+    id: "c1",
+    entity: "character",
+    fields: {},
+    resources: {},
+    scope: { party: { characters: 2 } },
+  };
+  for (let i = 0; i < 600; i++) {
+    const turn = one<RuleState["turn"]>([
+      null,
+      { round: 1, currentId: null, order: ["c1", "r1"] },
+      { round: 2, currentId: "r1", order: ["c1", "r1"], barred: ["c1"] },
+      { round: 1, currentId: null, order: ["r1"], barred: ["r1"] },
+    ]);
+    const pools: Record<string, ResourceState> =
+      r(8) === 0 ? {} : { momentum: { value: one([0, 1, 2, 3, 6]), min: 0, max: 6 } };
+    const actor = one([fighter, { ...fighter, entity: "creature" }, { ...fighter, scope: undefined }]);
+    const inputs = one<Record<string, unknown>>([{}, { dice: 1 }, { dice: 2 }, { dice: 3 }, { dice: 4 }, { dice: 0 }]);
+    add(1, one(["rally", "rally", "jump", "shake"]), actor, { actors: { c1: actor }, turn, pools }, inputs);
+  }
+  return { rulesets: [SAMPLE_HARM, SAMPLE_SKIRMISH], cases };
+}
+
+const isRefusalLike = (v: object): v is { code: string; message: string } => "code" in v && "message" in v;
+
+// The keys each op's input takes, which a spend's run may name (house decision #84); Go keeps a table of its own.
+const opKeyVectors = () =>
+  Object.fromEntries(
+    Object.entries(PRIMITIVES).flatMap(([p, prim]) =>
+      Object.keys(prim.ops).map((op) => [`${p}.${op}`, opInputKeys(p, op)]),
+    ),
+  );
 
 // The `charge` helper has no op to run through, so it has a section of its own: every state, a pool or two, amounts
 // either side of what the pool holds.
@@ -2140,6 +2231,7 @@ const CRAFTED: object[] = [
   ...noticesCrafted(),
   ...offersCrafted(),
   ...reminderCrafted(),
+  ...spendCrafted(),
 ];
 
 // A Test's marks and offers (house decision #80): one manifest per check.
@@ -2297,6 +2389,55 @@ if (JSON.stringify(CodexEntryKind.options) !== JSON.stringify(CodexKind.options)
 
 // `health.harm` with random changes, so the two schemas and semantic passes are held equal beyond the crafted cases.
 MANIFESTS.push(harmManifest());
+
+// Spends (house decision #84): the harm fixture's, and crafted problems on the skirmish fixture's (already listed).
+MANIFESTS.push(SAMPLE_HARM);
+
+function spendCrafted(): object[] {
+  const spend = (over: Record<string, unknown>) => ({
+    ...SAMPLE_SKIRMISH,
+    spends: [{ id: "x", label: "X", cite: "p.1", cost: [], ...over }],
+  });
+  return [
+    spend({ cost: [{ pool: "hp", amount: "1" }, { resource: "momentum", amount: "1" }, { amount: "1" }] }),
+    spend({
+      cost: [
+        { pool: "momentum", resource: "hp", amount: "1" },
+        { pool: "nope", amount: "true" },
+      ],
+    }),
+    spend({ inputs: { self: { label: "S", min: 0, max: "1" }, n: { label: "N", min: 2, max: "attr.str" } } }),
+    spend({
+      inputs: {
+        a: { label: "A", min: 0, max: "1" },
+        b: { label: "B", min: 0, max: "1" },
+        c: { label: "C", min: 0, max: "1" },
+        d: { label: "D", min: 0, max: "1" },
+      },
+    }),
+    spend({
+      run: [
+        { primitive: "health.harm", op: "hit", input: {} },
+        { primitive: "dice.sumVsTarget", op: "resolve", input: {} },
+      ],
+    }),
+    spend({
+      run: [
+        { primitive: "initiative.sides", op: "fly", input: {} },
+        { primitive: "initiative.sides", op: "seize", input: { who: "ctx.self", id: "ctx.nope" } },
+      ],
+    }),
+    spend({
+      run: [
+        { primitive: "resource.capped", op: "adjust", input: { actorId: "ctx.self", resource: '"hp"', delta: -1 } },
+      ],
+    }),
+    spend({ if: "ctx.fight.round", clearOn: ["encounterEnd", "encounterEnd"], entities: ["lineage", "nope"] }),
+    spend({ cite: undefined, label: "", id: "Bad" }),
+    { ...SAMPLE_SKIRMISH, requests: { max: 0 } },
+    { ...SAMPLE_SKIRMISH, spends: [...(SAMPLE_SKIRMISH.spends ?? []), ...(SAMPLE_SKIRMISH.spends ?? []).slice(0, 1)] },
+  ];
+}
 
 // The `game` block: a homebrew ruleset needs no cite for gmless or solo, the others do (principle 1).
 // The mutations turn the license to `srd` and the modes around, which reach the cite rule.
@@ -3329,6 +3470,8 @@ const vectors = {
   dice: diceVectors(),
   ops: opVectors(),
   charge: chargeVectors(),
+  spends: spendVectors(),
+  opInputKeys: opKeyVectors(),
   deltaChecks: deltaCheckVectors(),
   typeScope,
   checks: checkVectors(exprSources),

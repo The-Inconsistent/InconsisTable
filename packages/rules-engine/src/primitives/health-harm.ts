@@ -38,6 +38,10 @@ export type HitInput = z.infer<typeof HitInput>;
 export const MusterInput = z.object({ actorId: z.string().min(1), members: z.int().min(0).max(500) });
 export type MusterInput = z.infer<typeof MusterInput>;
 
+/** Wounds moved to the second track, as many as the player reports (house decision #84). */
+export const ConvertInput = z.object({ actorId: z.string().min(1), amount: z.int().min(1).max(100) });
+export type ConvertInput = z.infer<typeof ConvertInput>;
+
 type P = HealthHarmParams;
 
 /** One expression of the block read on the actor. The manifest's text is parsed here: the validator checked it. */
@@ -104,6 +108,58 @@ function load({
 const resourceOf = (actor: ActorState, id: string | undefined): ResourceState | undefined =>
   id === undefined ? undefined : own(actor.resources, id);
 
+/** Past its shock limit: `spent.when` holds, or the actor has any of `spent.conditions`. */
+function spentNow({
+  profile,
+  actor,
+  scope,
+  path,
+}: {
+  profile: HarmProfile;
+  actor: ActorState;
+  scope: ExprRecord;
+  path: string;
+}): boolean | Refusal {
+  const spent = profile.spent;
+  if (spent === undefined) return false;
+  if (spent.when !== undefined) {
+    const v = readBool({ source: spent.when, scope, path: `${path}.spent.when` });
+    if (isRefused(v)) return v;
+    if (v) return true;
+  }
+  const held = actor.conditions ?? [];
+  return (spent.conditions ?? []).some((c) => held.some((row) => row.conditionId === c));
+}
+
+/**
+ * `convert` (house decision #84): up to `amount` wounds become shock, never below zero wounds. It lays and lifts no
+ * condition. Refused for a profile without `convert`, an actor without the second track, one that never takes shock,
+ * one already spent, and one with no wounds.
+ */
+function convert({ params, state, input }: { params: P; state: RuleState; input: ConvertInput }): Delta[] | Refusal {
+  const loaded = load({ params, state, actorId: input.actorId });
+  if (isRefusal(loaded)) return loaded;
+  const { actor, profile, at, scope } = loaded;
+  const path = `health.harm.profiles[${at}]`;
+  const id = actor.id;
+  const shockRes = resourceOf(actor, params.shock);
+  if (profile.convert !== true || params.shock === undefined || shockRes === undefined)
+    return refuse("noConvertHere", `"${id}" converts no harm under this ruleset`);
+  if (profile.shockless !== undefined) {
+    const never = readBool({ source: profile.shockless, scope, path: `${path}.shockless` });
+    if (isRefused(never)) return never;
+    if (never) return refuse("neverShocked", `"${id}" never takes shock`);
+  }
+  const isSpent = spentNow({ profile, actor, scope, path });
+  if (isRefused(isSpent)) return isSpent;
+  if (isSpent) return refuse("wrongState", `"${id}" is spent`);
+  const wounded = actorResource({ state, actorId: id, resource: params.wounds });
+  if (isRefusal(wounded)) return wounded;
+  const moved = Math.min(input.amount, wounded.res.value);
+  if (moved <= 0) return refuse("wrongState", `"${id}" has no wounds to convert`);
+  return [addTo(id, params.wounds, -moved), addTo(id, params.shock, moved)];
+}
+
 /** What one hit does, in the order of house decision #66; every expression is read on the actor before it. */
 function hit({ params, state, input }: { params: P; state: RuleState; input: HitInput }): Delta[] | Refusal {
   const loaded = load({ params, state, actorId: input.actorId });
@@ -135,16 +191,9 @@ function hit({ params, state, input }: { params: P; state: RuleState; input: Hit
   let wounds = input.wounds ?? 0;
   let shock = shock0;
   // a. Already spent: shock taken becomes wounds. Healing shock is never turned into anything.
-  const spent = profile.spent;
-  if (spent !== undefined && shock > 0) {
-    let isSpent = false;
-    if (spent.when !== undefined) {
-      const v = readBool({ source: spent.when, scope, path: `${path}.spent.when` });
-      if (isRefused(v)) return v;
-      isSpent = v;
-    }
-    const held = actor.conditions ?? [];
-    isSpent ||= (spent.conditions ?? []).some((c) => held.some((row) => row.conditionId === c));
+  if (shock > 0) {
+    const isSpent = spentNow({ profile, actor, scope, path });
+    if (isRefused(isSpent)) return isSpent;
     if (isSpent) {
       wounds += shock;
       shock = 0;
@@ -274,6 +323,20 @@ export const healthHarm: Primitive<HealthHarmParams> = {
           deltas.push({ target: { actorId: actor.id, field: mob.start }, kind: "set", value: input.members });
         if (input.members !== members.value) deltas.push(addTo(actor.id, mob.members, input.members - members.value));
         return deltas;
+      },
+    }),
+    convert: defineOp<P, ConvertInput>({
+      input: ConvertInput,
+      perm: "encounter:run",
+      touches: "state",
+      targets,
+      validate: ({ ctx: { params, state }, input }) => {
+        const r = convert({ params, state, input });
+        return isRefusal(r) ? r : null;
+      },
+      apply: ({ ctx: { params, state }, input }) => {
+        const r = convert({ params, state, input });
+        return isRefusal(r) ? [] : r;
       },
     }),
   },

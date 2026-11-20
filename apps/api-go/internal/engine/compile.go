@@ -705,6 +705,59 @@ func (c *compiler) scoring(scopes []map[string]ExprType) (compiled *CompiledScor
 	return out, ok
 }
 
+// spendCtx is `ctx.self` and `ctx.fight` in a spend's expressions (compile.ts SPEND_CTX, house decision #84).
+var spendCtx = map[string]ExprType{
+	"self":  textType,
+	"fight": RecordType{map[string]ExprType{"on": boolType, "in": boolType, "round": intType, "barred": boolType}},
+}
+
+// spends is compile.ts Compiler.spends: every expression in the scope of each actor type that may spend it plus ctx,
+// and every run op one of a primitive the ruleset declares, its input keys that op's.
+func (c *compiler) spends(entities map[string]*CompiledEntity) {
+	declared := DeclaredPrimitives(c.r)
+	for i, s := range c.r.Spends {
+		path := fmt.Sprintf("spends[%d]", i)
+		_, bases := c.actorsOf(s.Entities, entities)
+		scopes := func(withInputs bool) []map[string]ExprType {
+			ctx := maps.Clone(spendCtx)
+			if withInputs {
+				for name := range s.Inputs {
+					ctx[name] = intType
+				}
+			}
+			return withScope(bases, "ctx", RecordType{ctx})
+		}
+		for _, name := range sortedKeys(s.Inputs) {
+			c.expr(s.Inputs[name].Max, scopes(false), intType, path+".inputs."+name+".max")
+		}
+		if s.If != nil {
+			c.expr(*s.If, scopes(true), boolType, path+".if")
+		}
+		for j, cost := range s.Cost {
+			c.expr(cost.Amount, scopes(true), intType, fmt.Sprintf("%s.cost[%d].amount", path, j))
+		}
+		for j, step := range s.Run {
+			at := fmt.Sprintf("%s.run[%d]", path, j)
+			if !slices.Contains(declared, step.Primitive) {
+				c.problems.add(at+".primitive", `"%s" is not declared by this ruleset`, step.Primitive)
+				continue
+			}
+			keys, known := OpInputKeys(step.Primitive, step.Op)
+			if !known {
+				c.problems.add(at+".op", `"%s" has no op "%s"`, step.Primitive, step.Op)
+				continue
+			}
+			for _, key := range sortedKeys(step.Input) {
+				if !slices.Contains(keys, key) {
+					c.problems.add(at+".input."+key, `"%s" is not an input`, key)
+				} else if source, isText := step.Input[key].(string); isText {
+					c.expr(source, scopes(true), nil, at+".input."+key)
+				}
+			}
+		}
+	}
+}
+
 // actorsOf is the compiled actor types a Test or a health state applies to: the ones it names, or all of them.
 func (c *compiler) actorsOf(ids *[]string, entities map[string]*CompiledEntity) (types []*EntityType, scopes []map[string]ExprType) {
 	for _, e := range c.actorEntities() {
@@ -917,6 +970,7 @@ func (c *compiler) run() *CompiledRuleset {
 			}
 		}
 	}
+	c.spends(entities)
 
 	if len(c.problems) > 0 || !scoringOK || (init != nil && init.Def.Strategy == "ranked" && init.Score == nil) {
 		return nil

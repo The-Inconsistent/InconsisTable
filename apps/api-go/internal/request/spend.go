@@ -8,6 +8,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter/turn"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
@@ -72,6 +73,10 @@ func doSpend(ctx context.Context, tx core.Conn, c cs.Ctx, spendID, actorID strin
 			target = engine.DeltaTarget{ActorID: actorID, Resource: cost.Resource}
 		}
 		deltas = append(deltas, engine.Delta{Target: target, Kind: "add", Value: -cost.Amount})
+	}
+	// A spend limited per round records its use in the turn (house decision #91), so Undo and TURN BACK return it.
+	if p.Used != nil {
+		deltas = append(deltas, engine.Delta{Target: engine.DeltaTarget{Turn: turn.Used}, Kind: "set", Value: p.Used})
 	}
 	t, err := rc.Turn(ctx)
 	if err != nil {

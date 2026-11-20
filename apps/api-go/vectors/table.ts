@@ -791,6 +791,8 @@ const BASE_SNAPSHOTS: {
           held: i === 1,
           barred: i === 2,
           unable: i === 3,
+          // House decision #91: the uses limited per round travel with the combatant, a hidden one's with it.
+          ...(i % 2 === 0 ? { used: ["channel"] } : {}),
         })),
         begun: true,
         lastSide: "wardens",

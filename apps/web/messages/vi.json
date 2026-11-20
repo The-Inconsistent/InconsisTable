@@ -754,6 +754,10 @@
     },
     "widget": {
       "rating": "Bậc",
+      "heldAdd": "{by, number, ::sign-always} {label}",
+      "heldOther": "{label}: {mode} {value}",
+      "heldCut": "Cắt bỏ",
+      "heldCutLabel": "Cắt bỏ {name}",
       "bonus": "Cộng thêm",
       "total": "Tổng",
       "name": "Tên",
@@ -1363,7 +1367,13 @@
     "tableInput": "Bảng đó không nhận {input} như vậy.",
     "tableNoApply": "Bảng đó không có gì để áp dụng.",
     "tableNotFor": "Bảng đó không dùng cho {name}.",
-    "tableNeedsTarget": "Hãy chọn bảng dành cho ai trước: bảng đọc chỉ số của họ."
+    "tableNeedsTarget": "Hãy chọn bảng dành cho ai trước: bảng đọc chỉ số của họ.",
+    "noHeldKind": "Bộ luật này không có loại {held}.",
+    "heldNotFor": "{name} không thể có {kind}.",
+    "heldNoEntry": "Các gói của phòng này không có {entry}.",
+    "heldAlready": "{name} đã có {entry}: hãy gieo lại trên bảng này.",
+    "heldFull": "{name} đã có đủ số {kind} tối đa.",
+    "heldNotHeld": "{name} không có thứ đó."
   },
   "workspace": {
     "skip": "Bỏ qua, tới nội dung trang",
@@ -1967,7 +1977,14 @@
     "times": "{step} ×{count}",
     "nothing": "Dòng này không thay đổi gì",
     "apply": "Áp dụng cho {name}",
-    "next": "Sang {title}"
+    "next": "Sang {title}",
+    "grant": "Nhận {kind}: {entry}",
+    "grantHas": "{kind}: {entry}, đã có",
+    "rollAgain": "Đã có rồi: hãy gieo lại trên bảng này.",
+    "add": "Thêm cho {name}",
+    "trail": "Chuỗi đến giờ",
+    "trailStep": "{title}: {label}",
+    "trailClear": "Làm lại"
   },
   "pools": {
     "title": "Pool chung",

@@ -225,6 +225,9 @@ function recordOf({
     problems.push({ path: `${at}.record`, message: `nothing reads a record on a "${entry.type}"` });
     return null;
   }
+  // One catalogue for every seat, and a saved sheet with no name a player may not read (house decision #63).
+  if (entry.visibility === "gm")
+    problems.push({ path: `${at}.visibility`, message: "every seat reads a catalogue record" });
   const bytes = byteSize(entry.record) ?? 0;
   if (bytes > MAX_ENTRY_RECORD_BYTES) {
     problems.push({ path: `${at}.record`, message: `${bytes} bytes, over the cap of ${MAX_ENTRY_RECORD_BYTES}` });

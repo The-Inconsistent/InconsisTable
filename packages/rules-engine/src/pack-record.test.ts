@@ -72,6 +72,26 @@ test("a record changes the entry's hash", () => {
   assert.notEqual(contentHash(e), contentHash(without));
 });
 
+test("a catalogue record is never GM-only: its entry is party or public (house decision #63)", () => {
+  for (const visibility of ["gm", undefined]) {
+    const p = pack();
+    const entry = p.entries[indexOf(p, WARDENS)];
+    if (visibility === undefined)
+      delete entry.visibility; // the default is gm
+    else entry.visibility = visibility;
+    refused(
+      validatePack({ input: p, ruleset: LEDGER }),
+      `entries[${indexOf(p, WARDENS)}].visibility`,
+      "every seat reads a catalogue record",
+    );
+  }
+  for (const visibility of ["party", "public"]) {
+    const p = pack();
+    p.entries[indexOf(p, WARDENS)].visibility = visibility;
+    assert.ok(validatePack({ input: p, ruleset: LEDGER }).ok, visibility);
+  }
+});
+
 test("a record is read only on a type the builder reads, and needed there", () => {
   const p = pack();
   p.entries.push({ key: "x", type: "hero", name: "X", cite: "Base p.1", record: { id: "x" } });

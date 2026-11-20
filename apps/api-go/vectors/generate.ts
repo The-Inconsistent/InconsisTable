@@ -1910,6 +1910,10 @@ function ledgerPackVectors() {
     // The key is free of the record's id; an id is unique within its type only.
     (p) => (at(p, "factions.wardens").key = "anything-else"),
     (p) => p.entries.push({ ...at(p, "factions.wardens"), key: "factions.wardens-again" }),
+    // A catalogue record is never GM-only (house decision #63), the default visibility included.
+    (p) => (at(p, "factions.wardens").visibility = "gm"),
+    (p) => delete at(p, "factions.wardens").visibility,
+    (p) => (at(p, "factions.wardens").visibility = "party"),
     (p) => {
       const wardens = at(p, "factions.wardens");
       p.entries.push({ ...wardens, key: "talents.wardens", type: "talent", record: { ...wardens.record, xp: 1 } });

@@ -422,11 +422,12 @@ export type Refused = { ok: false; error: string } & Partial<RefusalBody>;
  * own lines by code, which the screen words, and a ruleset's line (`rule`) with its words, the actor's name filled in,
  * in `text`. They are neither state nor log.
  */
-export const NoticeCode = z.enum(["poolFull", "rule"]);
+export const NoticeCode = z.enum(["poolFull", "restSkipped", "rule"]);
 export type NoticeCode = z.infer<typeof NoticeCode>;
 /** The params each code carries, which its words may name. */
 export const NOTICE_PARAMS = {
   poolFull: ["pool", "lost"], // the pool's label and how much of the change it could not take
+  restSkipped: ["names", "count"], // who a rest of everyone left out, in name order joined with ", ", and how many
   rule: ["rule", "name"], // the rule's id and the actor's name
 } as const satisfies Record<NoticeCode, readonly string[]>;
 export const Notice = z.object({
@@ -436,5 +437,4 @@ export const Notice = z.object({
 });
 export type Notice = z.infer<typeof Notice>;
 
-// `skipped`: the actors a rest of everyone left out, by name (house decision #81); absent when none.
-export type ActionResult = { ok: true; id?: string; token?: string; notices?: Notice[]; skipped?: string[] } | Refused;
+export type ActionResult = { ok: true; id?: string; token?: string; notices?: Notice[] } | Refused;

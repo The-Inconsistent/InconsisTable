@@ -1654,6 +1654,7 @@
   "actionNotices": {
     "label": "What that did",
     "poolFull": "{pool} is full: {lost} lost",
+    "restSkipped": "Not rested in their state: {names}",
     "rule": "{name}: {rule}",
     "dismiss": "Dismiss"
   },

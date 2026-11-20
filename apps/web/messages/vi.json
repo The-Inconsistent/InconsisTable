@@ -1654,6 +1654,7 @@
   "actionNotices": {
     "label": "Kết quả vừa rồi",
     "poolFull": "{pool} đã đầy: mất {lost}",
+    "restSkipped": "Không được nghỉ vì đang ở trạng thái đó: {names}",
     "rule": "{name}: {rule}",
     "dismiss": "Đóng"
   },

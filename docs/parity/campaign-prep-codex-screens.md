@@ -1,0 +1,216 @@
+# Parity with Auspex: the campaign, prep and story tools, the codex and the shared screens
+
+Read on 2026-11-21 from Auspex (`~/antigravity/wrath_glory`) against InconsisTable `main` at 2f16f9b.
+
+**Legend.**
+- Source paths: `W` = `apps/web/components`, `A` = `apps/api/src`, `SH` = `packages/shared/src`, `P` = `packages/data/port` (all in Auspex).
+- Target paths: `T` = `apps/web/components`, `CS` = `packages/core-schema/src`, `GO` = `apps/api-go/internal` (in InconsisTable). `HD#n` = `docs/house-decisions.md` row n.
+- "Needs" codes: **D** = declaration only (ruleset, pack or World). **C** = converter only. **X** = an existing mechanism used differently. **N** = a new general building block (named). **Sc** = screen only.
+- Size: S, M, L.
+
+| # | Feature | Source (where; who; what seats see) | Target today | Needs | Size |
+|---|---|---|---|---|---|
+| **Lobby, creating a campaign, settings** | | | | | |
+| 1 | Lobby cards: own games, role, Agents, live session number, next session on a member's card only | `W/lobby/lobby-view/lobby-view.tsx:27-46,214`; `SH/access.ts:21`; any signed-in user | HAS `GO/campaign/campaign.go:147-160`; `T/lobby/lobby-view/lobby-view.tsx:40-43,73` | – | – |
+| 2 | One-tap "RETURN TO <game> · SESSION n" | `lobby-view.tsx:195` | PARTIAL: cards only | Sc | S |
+| 3 | RUNNING NOW: others' live games as cards that cannot be opened | `lobby-view.tsx:300`; `A/campaign/campaign.service.ts:399` | MISSING | Sc, plus owner choice (see Decisions) | S |
+| 4 | ARCHIVED list apart from live games | `lobby-view.tsx:312` | HAS `lobby-view.tsx:216-221` | – | – |
+| 5 | Create campaign (creator only): name and Tier | `W/new-campaign/new-campaign.tsx:44-63`; `A/campaign/campaign.controller.ts:96-108` | PARTIAL: `GO/campaign/campaign.go:103-145` takes name, ruleset and table mode; Tier is not asked at creation | Sc: ask the ruleset's campaign fields at create | S |
+| 6 | Four-step wizard TIER, PREMISE, TABLE, NAME, one POST, nothing stored if abandoned | `new-campaign/constants.ts`; `new-campaign.tsx:78-129` | MISSING (only the one-screen QUICK GAME, `T/lobby/quick-game/quick-game.tsx:16`) | Sc | M |
+| 7 | Post-create wizard SETTING, FACTIONS, PLAYERS (pickers, QR, skippable) | `W/campaign-setup/campaign-setup.tsx:62-96`; `app/c/[campaignId]/start/page.tsx` | MISSING | Sc over rows 52, 54, 58 and the invite QR | M |
+| 8 | Setup checklist: 11 steps in the Core's order, ticks read from content and never stored, NOW column, GO TO with anchors, folds when done | `W/gm/setup/components/setup-panel/setup-panel.tsx:13-90`; `lib/setup/setup.ts:30-53`; `setup-panel/constants.ts:11-23` | MISSING | N: manifest block `checklist` (step, cite, what it counts: entries of a kind, a field set, sessions) plus Sc | M |
+| 9 | START FROM A FRAMEWORK picker: printed patrons and Frameworks by book, Tier-fit warning; USE fills names only, never prose, never Tier (§11.80) | `W/gm/setup/components/framework-picker/framework-picker.tsx:20-21`; `A/campaign/campaign.controller.ts:110-117,244-252` | MISSING | D (pack entry types patron and framework, cite only) plus X (the `ref` picker, `T/gm/codex/components/entry-fields-form/components/ref-picker`) | M |
+| 10 | Premise: Framework, Framework Bonus (own box), Patron; phones show them under MISSION (§11.79-80) | `SH/state.ts:431-439`; `SH/actions.ts:71-79`; `W/player/player-app/components/intel/components/mission/mission.tsx:86-100` | MISSING; converter drops them (`P/room.ts:708-711`) | X: a party-visible `lore` entry with declared text fields, plus C | S |
+| 11 | Kind of game and Limits (≤12 lines of ≤60 chars, book examples toggle, whole table agrees, everyone reads) | `W/ui/table-talk/table-talk.tsx:25,91`; `SH/state.ts:425-427` | PARTIAL: Limits are close to safety lines (`CS/actions.ts:265`; `T/gm/party/safety-panel.tsx:19`); Kind has no home; converter drops both (`room.ts:710-711`) | X (Limits as safety lines, Kind as a lore field) plus C | S |
+| 12 | Tier 1-5 at creation; moved only by group Ascension | `SH/state.ts:11-12`; `A/campaign/campaign.actions.ts:267-300`; `W/gm/party/components/ascend-panel/ascend-panel.tsx:21` | HAS: campaign field via `campaign.setField` (`CS/actions.ts:71`; `T/gm/rules/campaign-settings/campaign-settings.tsx:78`) and `build.ascend` (`CS/actions.ts:113`; `T/gm/party/party.tsx:419-436`); converter writes tier (`room.ts:736`) | – | – |
+| 13 | Homebrew switch: builder may use homebrew books, GM's, whole campaign | `SH/actions.ts:74`; `W/builder/builder.tsx:139-146` | MISSING; the converter notes it (`room.ts:712`) | D (homebrew sources as their own pack, attach or detach per room, `CS/actions.ts:75`) or N: builder honours a campaign bool field | M |
+| 14 | Rename campaign; every header follows | `W/gm/setup/setup.tsx:51-55` | PARTIAL: action HAS (`CS/actions.ts:50-53`); no UI sends `campaign.update` | Sc | S |
+| 15 | Archive and unarchive: read-only for all but unarchive, delete, seat.leave and revokes; ends the live session; kills open invites | `W/gm/setup/components/archive-panel/archive-panel.tsx:12-31`; `A/campaign/campaign.actions.ts:240-253` | HAS `CS/actions.ts:55-56` and `ARCHIVED_OPEN`; server enforces at `GO/table/dispatch.go:156-162`; `T/gm/party/party.tsx:545-558`. Invite revocation on archive not checked | – | – |
+| 16 | "READ ONLY" banner on every GM tab, with OPEN SETUP | `W/gm/gm-app/gm-app.tsx:235`; `ui/archived-banner/archived-banner.tsx:5` | MISSING | Sc | S |
+| 17 | Delete game: archive first (admin may skip), typed exact name, EXPORT offered first | `W/ui/delete-game/delete-game.tsx:11`; `campaign.actions.ts:254-266` | HAS `GO/campaign/actions.go:83-95`; `party.tsx:195-198,559-572`; the EXPORT offer is missing (row 124) | Sc | S |
+| 18 | Ruleset-declared campaign settings, editable any time | none in source | HAS (extra) `campaign-settings.tsx:78`; HD#55, #58 | – | – |
+| 19 | Owner transfer, table mode, safety lines and X-card, co-GM scopes | none in source | HAS (extra) `party.tsx:163-172,531-541`; `CS/actions.ts:60-68,265-267` | – | – |
+| **Access** | | | | | |
+| 20 | Room invite QR: one code for the table, players claim an open Agent or start one, hours set | `W/gm/party/components/room-invite/room-invite.tsx:13-49`; `A/auth/access.actions.ts:31-52`; GM | HAS `CS/actions.ts:168-174`; `party.tsx:116-125,273-301` (adds roles) | – | – |
+| 21 | Single-character invite (one Agent) | `W/gm/party/components/dossier/components/seat-tab/seat-tab.tsx:31-40` | PARTIAL: action takes `mode: "character"` with `actorId`; UI only sends `mode: "room"` (`party.tsx:116-125`) | Sc | S |
+| 22 | Guest QR per Agent (no account, httpOnly cookie) and REVOKE | `seat-tab.tsx:43-51` | HAS `party.tsx:136-140,365-380` | – | – |
+| 23 | Table-screen token QR and REVOKE SCREENS | `W/gm/party/components/more-panel/more-panel.tsx:33-44` | HAS `party.tsx:142-146,291-298` | – | – |
+| 24 | Open invites list (uses, expiry, accounts-only) with REVOKE | `W/gm/party/components/table-access/table-access.tsx:22-37` | PARTIAL: action HAS (`CS/actions.ts:175`), `state.access.invites` carried, no UI calls `invite.revoke` | Sc | S |
+| 25 | Members list; GM removes a player | `table-access.tsx:39-51` | HAS `party.tsx:455-504` | – | – |
+| 26 | Roles gm, player, screen | `SH/state.ts:14` | HAS plus co-GM and scopes (extra) `party.tsx:505-526` | – | – |
+| 27 | Admin seats a known user as GM | `A/auth/access.actions.ts:70-84`; `W/admin/admin-view/components/games-tab/components/game-card/game-card.tsx:35-43` | PARTIAL: action HAS (`CS/actions.ts:185`); admin UI has no control | Sc | S |
+| 28 | Player gives up the seat; Agent returns to reserve | `W/player/player-app/player-app.tsx:61-70` | HAS `T/player/player-app/player-app.tsx:83-87` | – | – |
+| 29 | Invite page: framework and Tier, open Agents as read-only sheets (book prose stripped for guests), claim, new, guest | `W/invite/invite-accept/invite-accept.tsx:17-124`; `SH/access.ts:36` | PARTIAL: `CS/access.ts:49-59` preview has Agent names only, no premise, Tier or sheet preview | N: invite-preview fields from the lore entry plus a seat-scoped sheet preview | M |
+| 30 | `/join/<token>`, `/leave` routes | `app/join/[token]/route.ts`; `app/leave/route.ts` | HAS `apps/web/app/join`, `app/leave` | – | – |
+| **Sessions** | | | | | |
+| 31 | START SESSION with optional title; clears the next date, keeps the place; clears spend requests, called Test and whispers; "unspent XP" notice | `W/gm/party/components/session-band/session-band.tsx:41-47,84-97`; `A/campaign/campaign.actions.ts:141-170` | PARTIAL: `CS/actions.ts:82`; next date cleared `GO/campaign/actions.go:118`; ruleset resets `actions.go:101`; the button sends no title (`party.tsx:264`); no notice | Sc; N: `notices` on an action reply (source `SH/actions.ts:487`) | M |
+| 32 | END SESSION: recap, XP each (8/10/12 or typed), notices (Rank crossed, "group may Ascend") | `session-band.tsx:111-166`; `campaign.actions.ts:172-206` | PARTIAL: recap and award via the ruleset `build.award` (`party.tsx:174-185`; HD#64); notices missing | N: `notices` (as row 31) | M |
+| 33 | END SESSION WITHOUT XP (never played or left open) | `session-band.tsx:57-61,159-163`; `SH/actions.ts:147` | MISSING; not in `ACTION_PERMS` or `AdminAction` | N: action `session.abandon` | S |
+| 34 | DELETE LAST SESSION (only latest, only once ended; XP stays) | `W/gm/party/components/session-history/session-history.tsx:53-56,154-162`; `campaign.actions.ts:225-238` | MISSING | N: action `session.delete` | S |
+| 35 | Session journal: list newest first (title, dates, XP), edit title, recap (ended only), GM notes; send only changes | `session-history.tsx:20-153`; `SH/actions.ts:140-145` | PARTIAL: `session.edit` HAS (`CS/actions.ts:90-96`); UI edits recap only (`T/gm/party/recaps.tsx:11-69`); the GM gets no all-sessions list, only `state.session` and recaps (`CS/state.ts`, `Session`, `Codex.recaps`) | N: a GM-side session list in the snapshot, plus Sc | M |
+| 36 | Notes (GM only) kept during the running session | `session-history.tsx:111-123,141-148` | PARTIAL: action HAS, no UI | Sc | S |
+| 37 | Next session form: date and time in the tablet's zone stored as UTC, place, SAVE and CLEAR | `W/gm/party/components/next-session/next-session.tsx:21-76`; `SH/actions.ts:35,71-79` | PARTIAL: action HAS (`CS/actions.ts:50-53`); no form | Sc | S |
+| 38 | Next session on lobby card (member only) | `lobby-view.tsx:16-46` | HAS `T/lobby/lobby-view/lobby-view.tsx:40-43` | – | – |
+| 39 | Next session card on every phone, in its own zone | `mission.tsx:102-118` | MISSING (no `nextSession` use outside the lobby) | Sc | S |
+| 40 | ADD TO CALENDAR: `.ics` for any seat, 404 until a date is set, fixed 3 hours | `A/campaign/campaign.controller.ts:299-310`; `SH/calendar.ts:46` | MISSING (no route in `apps/api-go/cmd/api/main.go`) | N: read-only route `GET /api/campaigns/:id/next.ics` | S |
+| 41 | "Last time" recap card; every past recap newest first, latest open | recaps in `mission.tsx:140-155`; no card, TV shows none | HAS (superset) `T/ui/recap-card/recap-card.tsx:8`; `T/screen/table-screen/table-screen.tsx:49`; `T/player/player-app/player-app.tsx:9`; notebook recaps (`T/player/notebook/notebook.tsx:28`) | – | – |
+| **Story: adventures and missions** | | | | | |
+| 42 | Create adventure | `W/gm/story/components/adventure-bar/adventure-bar.tsx:60-71` | HAS `T/gm/prep/prep.tsx:67-73` | – | – |
+| 43 | Adventure list and switch | `adventure-bar.tsx:91-145` | HAS `prep.tsx` list of all adventures | – | – |
+| 44 | Adventure fields: title, premise (GM-only, closed plate), brief, mission status planned/running/done/failed, SHOWN to party (needs a brief, §11.148-150) | `adventure-bar.tsx:163-230`; `SH/codex.ts:210,219` | HAS via ruleset codex fields `status` and `brief` (visibility party) plus entry visibility (`P/ruleset.ts:390-406`; `P/room.ts:512-522`; drawn by `T/gm/codex/components/entry-fields-form/entry-fields-form.tsx:68`). The SHOWN-needs-brief check is missing | N: a codex field rule "needed before reveal" | S |
+| 45 | Mission log on phones: shown adventures with title, brief, status; no premise or scenes | `mission.tsx:119-137`; `SH/codex.ts:365` | HAS as party-visible entries in the notebook (`notebook.tsx:28-129`) | C | – |
+| 46 | Delete adventure takes its scenes with it; Agents' missions stay unlinked (§11.163) | `adventure-bar.tsx:83-89`; `A/codex/codex.actions.ts:287` | PARTIAL: `GO/codex/actions.go:371-373` refuses (`adventureHasScenes`) | Sc or decision | S |
+| 47 | IMPORT ADVENTURE: pick adventures from an export, sliced with what scenes link (places, NPCs, handouts, items, custom threats, pictures, mentions), as prep, name-matched | `W/gm/story/components/import-adventure/import-adventure.tsx:19`; `A/campaign/campaign.controller.ts:130-145`; `SH/export.ts:155` | MISSING: room import is new-room only (`apps/api-go/cmd/api/main.go:112`; `GO/roomdoc`) | N: slice import into a live room; see Decisions | L |
+| **Story: scenes** | | | | | |
+| 48 | Scene board (cards on a spine, exits as tags, crimson when leading nowhere, SELECTED) | `W/gm/story/components/scene-board/scene-board.tsx:19-76` | PARTIAL: list with chips (`T/gm/prep/prep.tsx:130-150`) | Sc | S |
+| 49 | Scene glance (counts, "shown on entry", READY FOR THE TABLE fixes, OPEN, RUN FROM HERE) | `W/gm/story/components/scene-board/components/scene-glance/scene-glance.tsx:19-85`; `lib/story-scenes/story-scenes.ts:8-18` | MISSING | Sc plus a small generic readiness rule (no goal, no body, unwired exit) | M |
+| 50 | Scene page as a book spread (flip ‹ ›, numbered tabs, a pencil per part, ↑↓, DONE, SKIP) | `W/gm/story/components/scene-page/scene-page.tsx:53-431`; `story.tsx:37-157` | PARTIAL: editor and RUN list only (`T/gm/prep/components/scene-editor/scene-editor.tsx:34`; `scene-run.tsx:36`) | Sc | M |
+| 51 | Scene fields: type (7 kinds), goal, read-aloud, GM notes, outcome | `SH/codex.ts:100,219` | HAS: ruleset codex fields type, goal, outcome plus body and gmNotes (`P/ruleset.ts:376-388`; `room.ts:550-568`) | – | – |
+| 52 | New scene; NEW SCENE FROM A TABLE (book event, ROLL or I ROLLED, brings read-aloud, text, Tests) | `W/gm/prep/components/scene-picker/scene-picker.tsx:21-58`; `beat-editor.tsx:196` | PARTIAL: new scene HAS (`prep.tsx:75-92`); from-table MISSING | D (pack rows of scene events) plus N: action `codex.fromPack` (see 53) | M |
+| 53 | Presets "ADD FROM BOOK" for places, NPCs, factions, scene events, hazards: copy a printed entry (names, cites, nesting) into the codex | `place-picker.tsx:29-31`; `npc-picker.tsx:25`; `faction-picker.tsx:24`; `A/campaign/campaign.controller.ts:255-286`; `A/codex/codex.actions.ts:369` | MISSING | D (pack entry types) plus N: `codex.fromPack` creating an entry from a served pack entry (title, cite, fields). Principle 2: no printed text copied; see Decisions | L |
+| 54 | Reorder scenes ↑↓ | `story.tsx:121-130`; `beat.reorder` | HAS `codex.move` (`CS/actions.ts:225`; `prep.tsx:95-103`) | – | – |
+| 55 | Scene status planned/active/done/skipped; one active at a time | `story.tsx:132-138`; `A/codex/codex.actions.ts:94-135` | HAS `CS/state.ts` `EntryStatus`; `scene-run.tsx:88-100`; HD#73 | – | – |
+| 56 | BEGIN a scene: the one being played goes to done, ON ENTRY picks reach phones, "SCENE BEGUN" notice | `W/gm/scene/scene.tsx:70-79`; `story.tsx:139-157`; `codex.actions.ts:94-135` | PARTIAL: active via `codex.save` (`scene-run.tsx:92`); no auto-reveal, no notice (HD#73 "nothing runs by itself") | decision, then N: scene `reveals` fire on becoming active | M |
+| 57 | ON ENTRY ticks per place, NPC, handout | `story/scene-page.tsx:88-118`; `SH/codex.ts:356` | PARTIAL: `reveals` lines, sent by hand (`scene-run.tsx:52`) | converter (C: `room.ts:678-683`) | – |
+| 58 | UNDO of a scene begin: previous scene current again, what the begin revealed sealed | `scene.tsx:82-97`; `lib/scene-reveal/scene-reveal.ts:undoBegin` | MISSING: `event.undo` covers rule deltas, not codex writes (`GO/campaign/undo.go`; button only in `T/gm/track/components/fight-bar/fight-bar.tsx:80`) | N: undoable `codex.reveal` or a client step list | M |
+| 59 | SCENE tab "no scene is being played": each adventure's next planned scene to BEGIN, or an unplanned fight | `W/gm/scene/components/no-scene/no-scene.tsx:8-53` | MISSING | Sc | S |
+| 60 | Scene strip (played ticked); preview another scene read-only, then BEGIN THIS SCENE | `scene-strip.tsx:19`; `scene-preview.tsx:9` | MISSING | Sc | S |
+| 61 | Play page: label, goal, read-aloud, GM notes closed, hazards, tests, Ruin and Glory | `W/gm/scene/components/scene-page/scene-page.tsx:30` | PARTIAL: RUN lists lines only (`scene-run.tsx:36`) | Sc | M |
+| 62 | IN THIS SCENE panel: place, cast, handouts, items, one-tap SHOWN or SEALED, peek, ready fight | `W/gm/scene/components/in-this-scene/in-this-scene.tsx:24-45`; `reveal-row.tsx:15` | PARTIAL: `codex.reveal` HAS (`CS/actions.ts:215`); no scene-scoped one-tap panel | Sc | M |
+| 63 | WHERE NEXT: one button per exit ends this scene and begins the next; unwired exits disabled; OTHER SCENE… | `W/gm/scene/components/where-next/where-next.tsx:15-57` | PARTIAL: exit line only opens the scene in PREP (`scene-run.tsx:76-85`; HD#73) | Sc (begin on exit tied to row 56) | S |
+| 64 | Exits editor: label, target scene, "→ NEW SCENE"; unwired flagged | `W/gm/prep/components/beat-editor/components/exits/exits.tsx:17-28`; `SH/codex.ts:106` | HAS `exits` lines (HD#73; `P/room.ts:659-676`) | – | – |
+| 65 | Scene links (place is one; cast, handouts, items) with find-or-name, + NEW, remove | `W/gm/prep/components/beat-editor/components/people-props/people-props.tsx:29-60` | PARTIAL: one `links` list (`CS/state.ts`; `scene-editor.tsx:34`), kinds not separated | Sc | S |
+| 66 | One tap links everything the scene's text names | `beat-editor.tsx:166` | MISSING | Sc | S |
+| 67 | ADD TO SCENE from an NPC card (bestiary NPC into the prepared encounter) | `W/gm/codex/components/npc-card/components/add-to-scene/add-to-scene.tsx:17` | PARTIAL: roster line picks any pack creature (`line-form.tsx:150`) | Sc | S |
+| 68 | Agents' missions tied to an adventure or scene, on a closed plate (§11.163) | `W/gm/agent-objectives/agent-objectives.tsx:5`; `story/scene-page.tsx:226` | PARTIAL: `quest` entries listed to one Agent (`CS/state.ts`; `room.ts:335-363`); story link only as a GM note | X: `codex.link` quest→scene (`CS/actions.ts:230`) plus Sc | S |
+| 69 | Planned Tests: kind (skill, attribute, opposed, influence, resolve, corruption), DN, ONE or ALL, purpose, ≤5 Shifts, success, failure, book sample DN | `W/gm/prep/components/beat-editor/components/tests/tests.tsx:49-112`; `SH/codex.ts:130` | PARTIAL: Test lines with takers, `hideTarget`, ≤6 outcomes (HD#73, #75; `line-form.tsx:241`); converter maps skill, attribute, trait, corruption and notes opposed (`room.ts:605-645`); no sample DNs | D (an opposed Test in the ruleset) plus D (sample DNs as pack data) | S |
+| 70 | CALL a planned Test: ALL or one Agent, FEAR tick, hide DN | `W/gm/prep/components/scene-tests/components/call-test/call-test.tsx:17-31` | HAS: send a Test line (`scene-run.tsx:52`; takers pick HD#75); hide DN HAS; Fear is a Test input declared in the ruleset | D | – |
+| 71 | Ruin and Glory lines (earned, spends from either pool, book presets with cite, no invented amounts §11.77-78) | `W/gm/prep/components/beat-editor/components/ruin-glory/ruin-glory.tsx:37-64`; `scene-pools/scene-pools.tsx:18`; `SH/codex.ts:174` | HAS `pools` lines, an unpayable spend held back (HD#73; `P/room.ts:647-657`); book presets MISSING | D (pack presets) | S |
+| 72 | Header seals offer the scene's planned spends | `W/gm/header/seal-button/seal-button.tsx:20-29` | PARTIAL: pools live in TRACK (`T/gm/track/track.tsx:19`) | Sc | S |
+| 73 | Prepared fight (count, mob, marker, label, view, Tier-5 profiles, Scaling Threats) | `W/gm/prep/components/beat-editor/components/fight-entries/fight-entries.tsx:42`; `SH/codex.ts:82` | PARTIAL: roster line has pack, key, count, mob, visibility, label (HD#73, #75; `line-form.tsx:150`); marker, profiles, scale only as notes (`room.ts:587-592`) | N: roster-line modifiers the ruleset declares (profiles, scaling) | L |
+| 74 | Encounter budget panel (Threat Assessment p.8, FORTIFIED toggle) | `W/gm/prep/components/beat-editor/components/budget-panel/budget-panel.tsx:12` | MISSING | N: `encounter.budget` (rules domain) | M |
+| 75 | START FIGHT from the roster; BRING THEM INTO THE FIGHT | `W/gm/scene/scene.tsx:100-108`; `beat.startEncounter` | HAS HD#75; `scene-run.tsx:60-72` | – | – |
+| 76 | Location hazards: book table rows with intensity, own hazards with Tests and effect, ×TIER roll | `W/gm/codex/components/hazard-list/hazard-list.tsx:45-111`; `SH/codex.ts:188` | MISSING as structure: GM-notes lines (`P/room.ts:402-408`) plus text field | N: codex field type `list` of typed rows with a pack picker (ADR 0012 "Not decided") | L |
+| 77 | A scene's picks of its place's hazards with SPOTTED | `W/gm/prep/components/scene-hazards/scene-hazards.tsx:22-33`; `SH/codex.ts:206` | MISSING: GM note (`room.ts:539-548`) | N: one more prep line kind or list pick | L |
+| 78 | Hazard chips (Tests, Conditions, Threats, printed result) on lists and cards | `W/gm/prep/components/hazard-chips/hazard-chips.tsx:17` | MISSING | Sc after row 76 | S |
+| 79 | PRINT CARDS and PRINT HANDOUTS buttons on the scene page | `story/scene-page.tsx:415-427` | MISSING | see Printing | – |
+| **Codex** | | | | | |
+| 80 | Codex per kind with list, NEW, edit, delete | `W/gm/codex/codex.tsx:84-199` | HAS (nine kinds, tree) `T/gm/codex/codex.tsx:71-227` | – | – |
+| 81 | Search over every entry, hits grouped by kind, "/" focuses | `W/ui/codex-search/codex-search.tsx:14-60` | PARTIAL: title and body filter, GM notes excluded (`T/lib/codex/codex.ts:18-40`; `codex.tsx:123`); none on phones | Sc | S |
+| 82 | One-tap REVEALED or HIDDEN chip on a row | `codex.tsx:164-176` | PARTIAL: reveal form in the editor (`T/gm/codex/components/reveal-form/reveal-form.tsx:22`; `CS/actions.ts:215`) | Sc | S |
+| 83 | Picture shown or held back (separate reveal) | `codex.tsx:176` | HAS `T/gm/codex/components/entry-editor/components/picture-field/picture-field.tsx:19,70`; HD#70 | – | – |
+| 84 | NPC: faction, role, description, GM notes, secrets, attitude (phones see it), stat source bestiary, quick or none | `SH/codex.ts:67,219` | HAS via codex fields attitude (enum with notes), role, stats (`ref`), faction (`entry`) (`P/ruleset.ts:324-353`; HD#71, #76; `room.ts:424-457`); the Quick source is only a GM note (`room.ts:438-443`) | D (Quick rows as pack entries, `ref`) | S |
+| 85 | Attitude chip "HOSTILE · +4 DN" on lists and phones | `W/ui/attitude-chip/attitude-chip.tsx:1-11` | HAS enum notes and tones (`T/gm/codex/codex.tsx:184` `EntryFieldChips`; HD#76) | – | – |
+| 86 | NPC card: stat block, or Quick row with Scaling lines | `W/gm/codex/components/npc-card/npc-card.tsx:30`; `SH/codex.ts:45` | PARTIAL: a `ref` opens the pack entry sheet (`entry-fields-form.tsx:101`) | Sc | S |
+| 87 | NPC name roll and look roll (book tables, prep only) | `W/gm/codex/components/npc-roller/npc-roller.tsx:24-42` | MISSING: `table.roll` exists (`CS/actions.ts:270`) but writes no field | N: "roll into a field" | M |
+| 88 | Faction: stance (4), Keywords (chips, picker, write-in), notes, secrets; never reaches phones | `SH/codex.ts:219`; `W/gm/codex/components/keyword-picker/keyword-picker.tsx:16` | PARTIAL: stance enum and Keywords as one joined text field (`P/ruleset.ts:357-374`; `room.ts:381-400`); no picker | N: codex field type `tags`/`list` | M |
+| 89 | Faction card ally hint (non-Imperial ally warning, §11.83) | `W/gm/codex/components/faction-card/faction-card.tsx:7` | MISSING (`P/ruleset.ts:355-356` "not ported") | N: field-conditioned reminder text declared by the ruleset | M |
+| 90 | Locations as a tree, N INSIDE fold, no cycles; deleting a place frees its children (§11.96) | `codex.tsx:179-199`; `SH/codex.ts:403,424` | HAS HD#69; `codex.tsx:56,107-112`; `GO/codex/actions.go:359-401` | – | – |
+| 91 | Place presets: a book's tree, add a place and the places inside | `W/gm/codex/components/place-picker/place-picker.tsx:29-31`; `A/codex/codex.actions.ts:369` | MISSING | as row 53 | M |
+| 92 | Space Hulk Generator: rolled stages produce a hulk and rooms | `W/gm/codex/components/hulk-generator/hulk-generator.tsx:110`; `codex.addHulk` | MISSING | D (tables) plus N: "generator" = ordered tables feeding `codex.fromPack`; the same block serves rows 93 and 94 | L |
+| 93 | FROM LOOT TABLE: roll a book table, choose catalogue picks, make items | `W/gm/codex/components/loot-picker/loot-picker.tsx:88-126`; `codex.addLoot` | MISSING | as row 92 | L |
+| 94 | Holy Relic wizard | `W/gm/codex/components/relic-wizard/relic-wizard.tsx:22`; `codex.addRelic` | MISSING | as row 92 | L |
+| 95 | Handout: title, body, 5 styles, header (style default), reveal, audience (listed Agents), picture | `SH/codex.ts:15,219`; `W/gm/codex/components/codex-editor/codex-editor.tsx:126` | HAS layout, header, audience and visibility (HD#72; `T/gm/codex/components/entry-editor/entry-editor.tsx:80`; converter `room.ts:459-477`) | – | – |
+| 96 | Handout drawn as a prop on phone, GM and TV | `W/ui/handout-doc/handout-doc.tsx:22` | HAS `T/ui/handout-doc`; `notebook.tsx`; `table-screen.tsx:82` | – | – |
+| 97 | Reach chip: ALL or NAMES ONLY with the full list | `W/ui/reach-chip/reach-chip.tsx:5` | PARTIAL: badge says "listed" (`T/gm/codex/components/visibility-badge/visibility-badge.tsx:5`) | Sc | S |
+| 98 | Handout reveal time orders the phone's inbox | `W/player/player-app/components/intel/utils.ts:23` | MISSING: no `revealed_at` (migrations 0001-0023); converter drops it (`room.ts:461`) | N: entry `revealedAt` stamp | S |
+| 99 | Items: catalogue link, description (read when found), GM notes, place or NPC holder, relic mods | `SH/codex.ts:219`; `W/gm/codex/components/item-card/item-card.tsx:11`; `holder-field.tsx:19` | PARTIAL: location and holder entry fields (`P/ruleset.ts:420-425`); catalogue and mods only as GM-note lines (`room.ts:479-506`) | D (catalogue as a pack entry `ref`) plus C | M |
+| 100 | GIVE and TAKE BACK to an Agent: builds the sheet line from the catalogue, refuses per the rules (§11.112-114); phone INVENTORY | `W/ui/item-give/item-give.tsx:24-36`; `character.giveItem`/`takeItem` | PARTIAL: given item becomes a listed reveal only (`room.ts:504`); no sheet effect | N: action `entry.give` (an actor holds an entry that grants rows or effects; builds on HD#61) | L |
+| 101 | Custom Threat editor: clone, blank, quick; save, delete, print; joins every bestiary picker | `W/gm/codex/components/threat-editor/threat-editor.tsx:51-104`; `A/threat/threat.actions.ts:27-60` | PARTIAL: custom Threats are a private pack the GM owns (ADR 0012; `P/pack.ts` `buildCustomThreatPack`); import REST HAS (`main.go:106`); no in-app editor | N: pack-entry editor; REST question, see Decisions | L |
+| 102 | Pictures on NPC, place, handout (≤1 MB WebP or JPEG, 200 and 100 MB per campaign, served only to seats that see the entry, TV none) | `W/gm/codex/components/image-field/image-field.tsx:15`; `A/campaign/campaign.controller.ts:165-198` | HAS HD#70; `main.go:127-128`; `picture-field.tsx:19` | – | – |
+| 103 | `@` picker writes a mention token in text fields | `W/ui/mention-field/mention-field.tsx:25` | HAS `T/ui/mention-textarea/mention-textarea.tsx:23` | – | – |
+| 104 | Mentions drawn as links, live name, "(removed)" placeholder; plain names also auto-link (NPC wins) | `W/ui/mentions/mentions.tsx:10`; `mentions-provider.tsx:33-60` | PARTIAL: explicit tokens only, hidden shown as `…` (`T/ui/mention-text/mention-text.tsx`; `CS/mention.ts`) | Sc | S |
+| 105 | Peek: entry over the current screen with GO TO and EDIT in place | `mentions-provider.tsx:33-125`; `gm-app.tsx:151-175` | PARTIAL: mention opens the entry in CODEX (`onOpenEntry`) | Sc | M |
+| 106 | Mentions inside recaps and session notes | `session-history.tsx:136-147` | PARTIAL: recaps are plain text (`T/gm/party/recaps.tsx`) | Sc | S |
+| 107 | What each seat receives of each kind: no factions; shown adventures without premise or scenes; revealed places without GM notes or hazards; NPCs without secrets, stat source, faction; handouts by audience; only items given to you; every recap, no notes; no custom threats | `SH/codex.ts:365-401` | HAS, generalised per field (`GO/view`; HD#69-#76; `CS/state.ts` `CodexEntry`) | – | – |
+| 108 | Rules browser: GM also sees `gm` entries; players do not; TV none | `A/campaign/campaign.controller.ts:312-319`; `SH/rules.ts` | HAS `main.go:122`; `T/rules/rules-reader/rules-reader.tsx:23`. TV exclusion not checked | – | – |
+| 109 | BOOKS tab: GM loads own PDFs on this tablet; a player's cite tap shows that page; nothing uploaded | `W/gm/books/books.tsx:13`; `W/ui/books-provider/books-provider.tsx:21`; `A/table/table.gateway.ts:128-160` | PARTIAL: socket relay HAS (`GO/table/books.go`; `T/hooks/use-table/use-table.ts:199-233`); no screen calls `serveBooks`; no PDF renderer in `package.json` | Sc plus a browser PDF renderer | M |
+| 110 | Cites open the page sheet | `W/ui/page-cite` | HAS `T/ui/cite/cite.tsx` | – | – |
+| **Phones and the TV** | | | | | |
+| 111 | Phone INBOX: what is new since last visit, MARK ALL READ | `W/player/player-app/components/intel/components/inbox/inbox.tsx:22-50`; `lib/seen` | MISSING | Sc (local "seen") | S |
+| 112 | Phone ARCHIVE by kind, nested, with search | `.../intel/components/archive/archive.tsx:15` | PARTIAL: notebook by kind, nested, no search (`notebook.tsx:28-129`) | Sc | S |
+| 113 | Entry sheet with "FOR YOUR EYES ONLY" | `.../intel/components/entry-sheet/entry-sheet.tsx:22-71` | PARTIAL: details card, no chip | Sc | S |
+| 114 | SHOW THE TABLE: fullscreen handout or picture, screen awake | `.../intel/components/show-table/show-table.tsx:14-39` | MISSING (wake lock exists in `use-table`) | Sc | S |
+| 115 | Phone MISSION: YOUR ORDERS (folded), INVENTORY, THE MISSION, NEXT SESSION, MISSION LOG, recaps | `.../intel/components/mission/mission.tsx:21-155` | PARTIAL: quests and recaps in the notebook; the rest per rows 10, 11, 39, 100 | Sc plus rows above | M |
+| 116 | TV: campaign name, side up or NO FIGHT, Round, Glory (never Ruin), combatants by side with bars, status, conditions, mob counts; no codex, no book, no controls | `W/screen/table-screen/table-screen.tsx:43-132`; image route note `A/campaign/campaign.controller.ts:178-181` | HAS (superset) `T/screen/table-screen/table-screen.tsx:21-94`; also shows revealed entries (`:80-93`), see Decisions | – | – |
+| 117 | Clocks | none in source | HAS (extra) `CS/actions.ts:235-250`; `T/gm/track/components/clocks-panel`; `T/ui/clocks-view` | – | – |
+| **GM header and shell** | | | | | |
+| 118 | Header: campaign name, Tier, round, ADMIN chip, theme toggle | `W/gm/gm-app/gm-app.tsx:191-221` | PARTIAL: name and session chip, settings menu (theme, scheme, locale) (`T/gm/gm-app/gm-app.tsx`); no Tier or round | Sc | S |
+| 119 | Header Glory and Ruin seals: ±1, planned spends, refusal toast; Ruin GM-only (§11.58) | `W/gm/header/seal-button/seal-button.tsx:20-29`; `W/ui/seal/seal.tsx:5` | PARTIAL: pools in TRACK; visibility by ruleset (HD#59); not in the header | Sc | S |
+| 120 | Header spend-request badge, ACCEPT or DENY on every tab | `W/gm/header/spend-badge/spend-badge.tsx:11`; `spend-requests.tsx:11` | HAS `T/gm/request-bar` (`gm-app.tsx:11`; HD#43) | – | – |
+| 121 | Header CALL A TEST and tally on every tab | `W/gm/header/call-test-button/call-test-button.tsx:13`; `W/gm/test-call/test-call.tsx:13` | PARTIAL: separate Tests tab (`T/gm/tests`) | Sc | S |
+| 122 | WHISPER: GM's private line to chosen Agents, unread badge, phone reply ≤200 chars, GM deletes, cleared at session start or end (§11.164) | `W/gm/header/whisper-button/whisper-button.tsx:11`; `W/gm/whisper/whisper.tsx:23-32`; `A/whisper/whisper.actions.ts:22-60`; `W/player/whisper-sheet` | MISSING | N: actions `whisper.*`, a seat view rule (only the addressed Agent), header and phone widgets; see Decisions | M |
+| 123 | Every GM tab, entry and editor has its own URL; Back works | `W/gm/gm-app/constants.ts`; `lib/gm-path`; `story.tsx:31` | MISSING: tab is `useState` (`T/gm/gm-app/gm-app.tsx`) | Sc | M |
+| **Export, import, backups** | | | | | |
+| 124 | EXPORT whole campaign (notes, secrets, pictures) as `<slug>.auspex.json` | `A/campaign/campaign.controller.ts:147-163`; `SH/export.ts:15`; `setup.tsx:128-141` | MISSING: no GET export route (`main.go` has import only; ADR 0012 d4 "follows the import") | N: `GET /api/campaigns/:id/export` writing the room document | L |
+| 125 | EXPORT WITHOUT PICTURES | `campaign.controller.ts:156` | MISSING (part of 124) | N | S |
+| 126 | IMPORT GAME as a new campaign, importer is GM, 100 MB cap, dropped pictures reported | `campaign.controller.ts:119-128`; `lobby-view.tsx:91-170` | HAS `POST /api/campaigns/import` with dry run (`main.go:112`; `GO/roomdoc`; `T/lobby/import-room/import-room.tsx:27-60`; HD#74) | C (the converter) | – |
+| 127 | FRESH START import (no sessions, reveals, wounds, limits, next date) | `SH/export.ts:114`; `lobby-view.tsx:141` | MISSING | C: offline `freshStart` for the room document | S |
+| 128 | Backups: nightly `pg_dump` plus the export file | `docs/deploy.md:49` | PARTIAL: no room export (row 124); database backup not checked | – | – |
+| **Printing** | | | | | |
+| 129 | Handouts as printed props, PDF built in the GM's browser, A5 or A4, frame on every page | `W/ui/print-dialog/print-dialog.tsx:25-118`; `W/print/handout-sheet/handout-sheet.tsx` | MISSING (no PDF library; target principle 3 allows browser-built) | Sc plus a browser PDF library | M |
+| 130 | Poker cards (Threat, item), Agent tent cards | `print-dialog.tsx`; `W/print/card-sheet`; `more-panel.tsx:56-64` | MISSING | as 129 | L |
+| 131 | Printed battle maps | promised, not built | not decided (`docs/p3-plan.md` "Chờ chốt") | – | – |
+| **Admin and dev** | | | | | |
+| 132 | Admin games ledger (live, archived), per-game export, add GM, abandon and delete session, archive, unarchive, delete, event log | `A/admin/admin.controller.ts:39-83`; `W/admin/admin-view/components/games-tab/components/game-card/game-card.tsx:15-123` | PARTIAL: campaigns, events, pack and World takedown (`main.go:116-121`; `T/admin/admin-view/admin-view.tsx:29`); per-game controls absent | Sc plus rows 33, 34, 124 | M |
+| 133 | Admin users list with roles and seats; REMOVE FROM ALL GAMES | `A/admin/admin.controller.ts:39-54`; `W/admin/admin-view/components/users-tab/users-tab.tsx:14` | MISSING (no users route) | N: `GET /api/admin/users`, `DELETE /api/admin/users/:id/seats` | M |
+| 134 | OPEN AS ADMIN, acting as GM unseated, logged | `A/admin/admin.service.ts` (admin ctx) | HAS `admin-view.tsx:46` (admin key) | – | – |
+| 135 | Dev seed: load a pack, create a campaign through the admin key | `apps/api/scripts/seed.ts`; `docs/development.md:158` | HAS `/dev/seed` (`apps/web/app/dev/seed/route.ts:9`) with made-up content | – | – |
+| **Languages and look** | | | | | |
+| 136 | Day and night switch | `W/ui/theme-toggle/theme-toggle.tsx` | HAS `T/ui/settings-menu`; scheme and theme switches | – | – |
+| 137 | Locales | source is English only | HAS en and vi (extra); World `terms` not built (ADR 0010 "Not decided") | – | – |
+
+## 1. The GM's screens, tab by tab
+
+Source GM tabs are `SCENE, STORY, CODEX, PARTY, RULES, BOOKS, SETUP` (`W/gm/gm-app/constants.ts:3`). Target tabs are `track, prep, codex, party, tests, standings, map, rules` (`T/gm/gm-app/constants.ts`).
+
+| Source screen | What it shows and does | Target counterpart | Missing there |
+|---|---|---|---|
+| SCENE (`W/gm/scene`) | Play home: scene strip, SCENE BEGUN and UNDO, scene page as printed, IN THIS SCENE, WHERE NEXT, a layer switch to the fight, no-scene state | `prep` RUN mode (`scene-run.tsx`) and `track` | Rows 56-63. The target has no play-home screen. Run is a list of lines inside PREP |
+| STORY (`W/gm/story`) | Adventure dialog, board with spine and glance, page spread, editors with a section strip, import adventure, new scene from a table, print | `prep` (`T/gm/prep`) | Rows 47-50, 52, 65-67, 73-74, 79 |
+| CODEX | Sub-tabs per kind plus THREATS, search, one-tap reveal, tree, pickers, generators, picture, print | `codex` (`T/gm/codex`) | Rows 53, 81-82, 87-89, 91-94, 97-101, 104-106, 129-130 |
+| PARTY | Session band, journal, Agent cards, MORE (tents, screen QR, access), ASCENSION, RESPITE | `party` | Rows 21, 24, 31-36, 37, 39-40 (Agents and dossier are other domains) |
+| RULES | Rules browser | `rules` (reader plus campaign settings, ruleset, World, packs) | Parity HAS; target adds ruleset pinning |
+| BOOKS | Serve own PDFs for page relay | none | Row 109 |
+| SETUP | Checklist, rename, Framework fields, Kind and Limits, export, archive, delete | `party` bottom section plus `rules` | Rows 8-11, 13-14, 16, 124-125 |
+| Header and overlays | Seals, spend badge, CALL A TEST, WHISPER, admin chip, theme, tally, refusal toast | `gm-app.tsx` header plus request bar | Rows 72, 118-122 |
+| Player INTEL (INBOX, MISSION, ARCHIVE, entry sheet, SHOW THE TABLE) | Phone reading side | notebook (`T/player/notebook/notebook.tsx`) | Rows 39, 111-115 |
+| Table screen / TV | Rows 116-117 | `T/screen/table-screen` | HAS (superset) |
+| Lobby, `/c/new`, `/c/:id/start`, invite, admin | Rows 1-7, 20-30, 132-135 | `T/lobby`, `T/invite`, `T/admin` | Rows 2-3, 6-7, 29, 133 |
+
+## 2. Decisions the product owner must make
+
+1. **Whisper versus "no chat" (principle 8).** Source §11.164 has a GM line to chosen Agents plus a 200-character reply from the Agent, cleared each session (`SH/actions.ts:122-132`). Choose one of three: port as ruled, GM-to-Agent only, or drop it (row 122).
+2. **Importing an adventure slice into a running room (principle 6).** Source does it through a REST write that runs in the table's queue (`A/campaign/campaign.controller.ts:130-145`). Principle 6 lists the REST writes allowed. Options: the GM's browser slices a room document and sends ordinary actions, with pictures through the existing upload route (HD#70). Or add a new REST exception (row 47).
+3. **Presets that copy printed text (principles 2 and 3).** Source place, NPC, hazard, loot and relic presets read book text from the server and write it into GM NOTES (`W/gm/codex/components/place-picker/place-picker.tsx:29-31`; `A/campaign/campaign.controller.ts:216-296` serves book text over REST). The target pack carries names, numbers and cites only, and `summary` stays empty (`docs/p3-plan.md` decisions 3 and 7). Rule that "ADD FROM BOOK" copies name and cite only, with the page read through the book relay (rows 53, 91-94).
+4. **ON ENTRY reveals fire by themselves (§ beat.begin, `scene.tsx:70-79`) versus HD#73 "nothing runs by itself".** Decide whether becoming active sends the scene's `reveals`, and whether that can be undone (rows 56-58). `event.undo` does not cover codex writes today.
+5. **Delete adventure takes its scenes (§11.163) versus `adventureHasScenes` refusal (HD#69, `GO/codex/actions.go:371`).** Cascade, or keep the refusal (row 46).
+6. **The TV shows revealed entries and handouts in the target (`T/screen/table-screen/table-screen.tsx:80-93`). In the source the TV "shows no codex" (`campaign.controller.ts:178-181`).** Keep or remove (row 116).
+7. **Where Framework, Patron, Bonus, Kind and Limits live (§11.79-80).** The converter says "no place in a room" (`P/room.ts:708-711`). Choose between a party-visible `lore` entry plus safety lines (existing mechanisms) or a new campaign "premise" block (rows 10-11).
+8. **Per-room homebrew switch (row 13).** A separate attachable pack, or a campaign field the builder honours. The converter reports the platform builder as always allowing homebrew (`room.ts:712`).
+9. **Editing a custom Threat inside a room (row 101).** Principle 6's REST list covers importing and exporting packs, not editing entries. Choose: a new owner-scoped REST route, or re-import a new pack version from the app.
+10. **Lobby "RUNNING NOW" showing other people's live games (row 3).** Source shows every running game as a card (`SH/access.ts:21`). Keep, or hide for privacy.
+11. **Handout reveal time (row 98).** Add an entry `revealedAt` (migration plus seat view) for phone inbox order, or accept position order.
+
+## 3. Out of domain actions
+
+All of these are source action types in `SH/actions.ts`.
+- `character.create`, `update`, `adjust`, `supply`, `gear`, `corrupt`, `mutate`, `unmutate`, `requisition`, `fitUpgrade`, `removeUpgrade`, `rollObjective`, `respite`, `delete`, `build`, `draft`: sheet, build, gear and Agents (characters domain).
+- `character.objectives`: Agents' orders. Characters domain; only its story link touches this domain (row 68).
+- `encounter.start`, `end`, `begin`, `newRound`, `ambush`: the fight (tracker domain). `beat.startEncounter` is in domain (row 75).
+- `turn.start`, `seize`, `end`, `hold`, `interrupt`, `mark`, `back`: turn order and TURN BACK.
+- `combatant.addThreat`, `addCharacter`, `update`, `adjust`, `aware`, `remove`, `manifest`: tracker.
+- `test.call`, `test.report`, `test.close`: called Tests (rules domain); scene use is in rows 70 and 121.
+- `spend.request`, `spend.cancel`, `spend.resolve`: Glory spends from phones (rules and economy); header badge is row 120.
+
+In domain: `codex.save` (7 kinds), `codex.delete`, `campaign.update`, `campaign.ascend`, `pool.adjust`, `whisper.send`, `whisper.reply`, `whisper.delete`, `session.start`, `end`, `edit`, `abandon`, `delete`, `campaign.archive`, `campaign.unarchive`, `campaign.delete`, `character.giveItem`, `character.takeItem`, `token.issue`, `token.revoke`, `screen.issue`, `screen.revoke`, `invite.create`, `invite.revoke`, `member.remove`, `member.seat`, `seat.leave`, `threat.save`, `threat.delete`, `beat.startEncounter`, `beat.reorder`, `beat.begin`, `codex.addPlaces`, `codex.addHulk`, `codex.addLoot`, `codex.addRelic`.
+
+## 4. Not checked
+
+- Source `§11.x` ruling text beyond the numbers quoted in code comments; I did not read `docs/rules-flow.md` §11 in full.
+- Whether the target revokes open invites on archive; whether `/rules` refuses the TV seat; the database backup procedure.
+- Target behaviour without a GM (principle table modes) for each row.
+- Tracker, Party dossier, builder and player FIGHT tab (other domains).
+- No tests, builds or servers were run; "HAS" rests on reading code and grepping the `main` copy.
+- The `feat/test-labels` branch differences from `main` (Test labels and inputs) beyond confirming they are not in the `main` copy.
+- Line numbers for source items cited by comment text (for example `SH/codex.ts` blocks) are the nearest definition line, not the exact statement.

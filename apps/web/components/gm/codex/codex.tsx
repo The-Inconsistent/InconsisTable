@@ -166,8 +166,8 @@ export function Codex({
           </button>
         ))}
       </div>
-      <div className="grid" style={{ alignItems: "start" }}>
-        <ul className="list" style={{ minWidth: 0 }}>
+      <div className="codex-layout">
+        <ul className="list codex-list">
           {shown.length === 0 && <li className="dim">{entries.length === 0 ? t("empty") : t("noMatch")}</li>}
           {rows.map(({ entry: e, depth, inside }) => (
             <li
@@ -175,18 +175,21 @@ export function Codex({
               className={depth > 0 ? "tree-child" : undefined}
               style={{ marginInlineStart: Math.max(0, depth - 1) * 12 }}
             >
+              {/* The title on top (two lines at most, the whole of it in the name and on hover), then one line of chips. */}
               <button
-                className="btn"
+                className="btn codex-row"
                 aria-pressed={openId === e.id}
                 onClick={() => setOpenId(openId === e.id ? null : e.id)}
-                style={{ flex: 1, justifyContent: "space-between", textAlign: "left" }}
+                title={e.title}
               >
-                <strong>{e.title}</strong>
-                <span className="row small">
-                  <EntryFieldChips ruleset={ruleset} entry={e} />
-                  <span>{t(`kind.${e.kind}`)}</span>
-                  {e.status && <span className="chip">{t(`status.${e.status}`)}</span>}
-                  <VisibilityBadge entry={e} />
+                <span className="codex-row-text">
+                  <strong className="codex-row-title">{e.title}</strong>
+                  <span className="codex-row-meta small">
+                    <span>{t(`kind.${e.kind}`)}</span>
+                    <EntryFieldChips ruleset={ruleset} entry={e} />
+                    {e.status && <span className="chip">{t(`status.${e.status}`)}</span>}
+                    <VisibilityBadge entry={e} />
+                  </span>
                 </span>
               </button>
               {inside > 0 && (

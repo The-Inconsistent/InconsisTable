@@ -193,6 +193,55 @@ span.mention {
   border-inline-start: 1px dotted var(--line);
   padding-inline-start: 8px;
 }
+/* The GM's codex: the list beside the open entry from 768px (two fifths of the width, never under 280px), stacked on a
+   phone. A row reads in two lines in the common case: the title (two lines at most, cut between words), then the kind,
+   the field chips and the visibility as one line that wraps as a group. */
+.codex-layout {
+  display: grid;
+  gap: calc(var(--gap) * 1.6);
+  align-items: start;
+}
+@media (min-width: 768px) {
+  .codex-layout {
+    grid-template-columns: minmax(280px, 2fr) minmax(0, 3fr);
+  }
+}
+.codex-layout > * {
+  min-width: 0;
+}
+.codex-list > li {
+  flex-wrap: nowrap;
+}
+.btn.codex-row {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: flex-start;
+  text-align: start;
+  padding-block: 6px;
+}
+.codex-row-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.codex-row-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: normal;
+}
+.codex-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  font-weight: 600;
+}
+.codex-row-meta .chip[data-field] {
+  margin-inline-start: 0;
+}
 /* An entry's picture: never wider than its column, never taller than most of a phone's screen. */
 .entry-picture {
   display: block;

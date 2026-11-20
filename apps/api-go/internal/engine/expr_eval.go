@@ -359,6 +359,16 @@ func (e *evaluator) call(n CallNode) any {
 			exprFail(`missing value "%s[%s]"`, name, esNumber(want))
 		}
 		return found
+	case "contains":
+		l, ok := e.firstArg(n).(*List)
+		if !ok {
+			exprFail("contains() of a non-list")
+		}
+		var item any = absent
+		if len(n.Args) > 1 {
+			item = e.eval(n.Args[1])
+		}
+		return slices.Contains(l.Items, item)
 	case "has":
 		if len(n.Args) == 0 {
 			return false

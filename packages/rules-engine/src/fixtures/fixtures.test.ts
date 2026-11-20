@@ -3,18 +3,21 @@ import { test } from "node:test";
 
 import { compileRuleset } from "../compile.ts";
 import { canonicalJson, sha256Hex } from "../pack-hash.ts";
-import { NOTICE_RESOURCES, SAMPLE_D20, SAMPLE_D20_BEFORE_WIDGETS } from "./sample-d20.ts";
+import { CODEX_0_1_7, NOTICE_RESOURCES, SAMPLE_D20, SAMPLE_D20_BEFORE_WIDGETS } from "./sample-d20.ts";
 import { SAMPLE_HARM, SAMPLE_HARM_BEFORE_HELD } from "./sample-harm.ts";
 import { SAMPLE_HARVEST } from "./sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "./sample-no-order.ts";
 import { SAMPLE_POOL } from "./sample-pool.ts";
+import { SAMPLE_SKIRMISH } from "./sample-skirmish.ts";
 
 // An imported ruleset version is immutable: the api refuses the same version with a different normalized manifest, so
 // a sample (or an engine default) changed under the same version breaks `bun run seed` on every local database. Bump
 // the sample's version, then the hash here. The hash is the one the importer compares (apps/api-go internal/ruleset/import.go).
 const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9cb58c5d";
+const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf";
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.7": "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf",
+  "sample-d20@0.1.8": "d8016ed3e9769e73b8493a54d050377ab60869ccbddf67c18204bf47a2ab32a5",
+  "sample-skirmish@0.1.3": "088fd2f9b3bf74c03ca45437ca868cc9b36acff812691bcb56c7c2334ecf97d3",
   "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.1": "e166afc269320775b0d1e455a2e7a5b10ca9b9c4f0d96f9fa473addb65b93f08",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
@@ -22,7 +25,7 @@ const PINNED: Record<string, string> = {
 };
 
 test("a sample ruleset's normalized manifest changes only with its version", () => {
-  for (const fixture of [SAMPLE_D20, SAMPLE_POOL, SAMPLE_HARVEST, SAMPLE_NO_ORDER, SAMPLE_HARM]) {
+  for (const fixture of [SAMPLE_D20, SAMPLE_POOL, SAMPLE_HARVEST, SAMPLE_NO_ORDER, SAMPLE_HARM, SAMPLE_SKIRMISH]) {
     const key = `${fixture.id}@${fixture.version}`;
     const result = compileRuleset(fixture);
     assert.ok(result.ok, `${key} compiles`);
@@ -147,5 +150,18 @@ test("a codex block without links or tones hashes as it did before they existed 
   assert.equal(
     sha256Hex(canonicalJson(result.compiled.ruleset)),
     "ed6ec8736e93d4445951c4e2dadce6f2fa1902cf30852ada3b5809228073c5e5",
+  );
+});
+
+test("a codex block without tags, rows or reminders hashes as it did before they existed (house decision #89)", () => {
+  const hash = (x: unknown) => {
+    const result = compileRuleset(x);
+    assert.ok(result.ok);
+    return sha256Hex(canonicalJson(result.compiled.ruleset));
+  };
+  assert.equal(hash({ ...SAMPLE_D20, version: "0.1.7", codex: CODEX_0_1_7 }), PINNED_0_1_7);
+  assert.equal(
+    hash({ ...SAMPLE_SKIRMISH, version: "0.1.2", codex: CODEX_0_1_7 }),
+    "bf150933537f5ec88178be2b24a4b2fdd1db2fe8e32d0f744d0cbc169295a41d",
   );
 });

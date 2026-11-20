@@ -81,6 +81,49 @@ type (
 		Tones  map[string]string `json:"tones"`
 		// Kind is the codex entry kind an `entry` field links to (house decision #76).
 		Kind string `json:"kind"`
+		// A `tags` field's suggestions (house decision #89): pack entry types whose names are offered, fixed options
+		// (worded by Labels), and whether a word outside them may be written in.
+		Entities []string `json:"entities"`
+		Options  []string `json:"options"`
+		WriteIn  bool     `json:"writeIn"`
+		// A `rows` field's columns, its cap, the pack entry types that fill a row and the switch a scene picks it with
+		// (house decision #89).
+		Columns []RowColumn  `json:"columns"`
+		MaxRows *float64     `json:"maxRows"`
+		From    []RowPrefill `json:"from"`
+		Pick    *RowPick     `json:"pick"`
+	}
+	// RowColumn is one column of a `rows` field: an entry field's type, or `test` (house decision #89).
+	RowColumn struct {
+		ID        string            `json:"id"`
+		Type      string            `json:"type"`
+		Label     string            `json:"label"`
+		Min       *float64          `json:"min"`
+		Max       *float64          `json:"max"`
+		MaxLength *float64          `json:"maxLength"`
+		Values    []string          `json:"values"`
+		Labels    map[string]string `json:"labels"`
+		Notes     map[string]string `json:"notes"`
+		Tones     map[string]string `json:"tones"`
+		Entity    string            `json:"entity"`
+	}
+	// RowPrefill is how a pack entry of Entity fills a new row: Name the text column that takes its name, Values a
+	// column id to the entity field it takes.
+	RowPrefill struct {
+		Entity string            `json:"entity"`
+		Name   *string           `json:"name"`
+		Values map[string]string `json:"values"`
+	}
+	// RowPick says a scene may pick a rows field's rows, each with one switch of this name.
+	RowPick struct {
+		Label string `json:"label"`
+	}
+	// CodexReminder is a line an entry's card shows while its values meet If (house decision #89).
+	CodexReminder struct {
+		ID   string  `json:"id"`
+		If   string  `json:"if"`
+		Text string  `json:"text"`
+		Cite *string `json:"cite"`
 	}
 	// CampaignFieldDef is one campaign field: an int has Min and Max, an enum Values; Default is a number, a word or a
 	// bool by the type.
@@ -103,7 +146,8 @@ type (
 	}
 	// CodexKind is what one kind of codex entry carries.
 	CodexKind struct {
-		Fields map[string]FieldDef `json:"fields"`
+		Fields    map[string]FieldDef `json:"fields"`
+		Reminders []CodexReminder     `json:"reminders"`
 	}
 	// DerivedDef is one derived value.
 	DerivedDef struct {
@@ -992,6 +1036,103 @@ func (p *problems) codex(r *Ruleset) {
 			}
 			if def.Type == "enum" {
 				p.enumWords(path, def.Values, def.Labels, def.Notes, def.Tones)
+			}
+			if def.Type == "tags" {
+				p.tags(r, &def, path)
+			}
+			if def.Type == "rows" {
+				p.rows(r, &def, path)
+			}
+		}
+		p.duplicates("codex.kinds."+kind+".reminders", idsOf(r.Codex.Kinds[kind].Reminders, func(x CodexReminder) string { return x.ID }))
+	}
+}
+
+// tags checks a tags field (house decision #89; tagsProblems in manifest.ts): its suggestions name declared entities,
+// its labels its options, and something can be entered.
+func (p *problems) tags(r *Ruleset, def *FieldDef, path string) {
+	for i, e := range def.Entities {
+		if r.entity(e) == nil {
+			p.add(fmt.Sprintf("%s.entities[%d]", path, i), `unknown entity "%s"`, e)
+		}
+	}
+	p.enumWords(path, def.Options, def.Labels, nil, nil)
+	if def.Entities == nil && def.Options == nil && !def.WriteIn {
+		p.add(path, "a tags field needs entities, options or writeIn")
+	}
+}
+
+// fitsColumn says whether an entity field's values fit a column: the same type, an enum's values among the column's,
+// a ref's entity.
+func fitsColumn(col *RowColumn, field *FieldDef) bool {
+	switch {
+	case col.Type != field.Type:
+		return false
+	case col.Type == "enum":
+		for _, v := range field.Values {
+			if !slices.Contains(col.Values, v) {
+				return false
+			}
+		}
+	case col.Type == "ref":
+		return field.Entity == col.Entity
+	}
+	return true
+}
+
+func columnOf(def *FieldDef, id string) *RowColumn {
+	for i := range def.Columns {
+		if def.Columns[i].ID == id {
+			return &def.Columns[i]
+		}
+	}
+	return nil
+}
+
+// rows checks a rows field (house decision #89; rowsProblems in manifest.ts): its columns are unique and sound, and
+// each prefill names a declared entity whose fields fit their columns.
+func (p *problems) rows(r *Ruleset, def *FieldDef, path string) {
+	p.duplicates(path+".columns", idsOf(def.Columns, func(c RowColumn) string { return c.ID }))
+	for i, c := range def.Columns {
+		at := fmt.Sprintf("%s.columns[%d]", path, i)
+		if c.Type == "ref" && r.entity(c.Entity) == nil {
+			p.add(at+".entity", `unknown entity "%s"`, c.Entity)
+		}
+		if c.Type == "int" && c.Min != nil && c.Max != nil && *c.Max < *c.Min {
+			p.add(at+".max", "max is below min")
+		}
+		if c.Type == "enum" {
+			p.enumWords(at, c.Values, c.Labels, c.Notes, c.Tones)
+		}
+	}
+	seen := map[string]bool{}
+	for i, f := range def.From {
+		at := fmt.Sprintf("%s.from[%d]", path, i)
+		if seen[f.Entity] {
+			p.add(at+".entity", `"%s" fills rows twice`, f.Entity)
+		}
+		seen[f.Entity] = true
+		entity := r.entity(f.Entity)
+		if entity == nil {
+			p.add(at+".entity", `unknown entity "%s"`, f.Entity)
+			continue
+		}
+		if f.Name != nil {
+			if c := columnOf(def, *f.Name); c == nil || c.Type != "text" {
+				p.add(at+".name", `"%s" is not a text column`, *f.Name)
+			}
+		}
+		for _, col := range sortedKeys(f.Values) {
+			fieldID := f.Values[col]
+			c := columnOf(def, col)
+			field, has := entity.Fields[fieldID]
+			switch {
+			case c == nil:
+				p.add(at+".values."+col, `"%s" is not a column`, col)
+			case !has:
+				p.add(at+".values."+col, `"%s" is not a field of "%s"`, fieldID, f.Entity)
+			case !fitsColumn(c, &field):
+				p.add(at+".values."+col, `"%s" does not fit the column`, fieldID)
 			}
 		}
 	}

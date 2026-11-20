@@ -21,7 +21,7 @@ import type {
 import { HandoutLayout, MAX_PAGE_BYTES } from "@inconsistable/core-schema";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
-import { SAMPLE_HARM } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
+import { SAMPLE_HARM, SAMPLE_HARM_GROWTHS } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { SAMPLE_PACK, SAMPLE_PACK_EFFECTS } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
@@ -4947,6 +4947,86 @@ test("lookups: a typed result applies its line as one undoable action, and I ROL
   assert.deepEqual([rolled.rolls[0]!.label, rolled.rolls[0]!.value], ["Scar", 5]);
   refused(await owner.send({ type: "table.roll", tableId: "aftermath", result: 7 }), "tableResultOut");
   for (const c of [owner, ana]) c.socket.close();
+});
+
+// Held records (house decision #88) on sample-harm 0.1.3: the GM steps through the Omen to the Lesser Growths with one
+// hero, and only the last line grants; the growth feeds the hero's wound limit on every seat, its holder and the GM read
+// its name, another player reads "Unseen" and the same numbers; a duplicate asks for a roll again, and CUT OFF undoes.
+test("held records: a chain ends in a grant, another player sees the numbers but not the name", async () => {
+  const ownerDevice = await device("owner-Held");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_HARM);
+  const pk = await me.post<PackReply>("/packs", {
+    id: "sample-harm-growths",
+    version: "0.1.0",
+    ruleset: { id: "sample-harm", range: "^0.1.0" },
+    license: "private",
+    sources: [{ id: "sample", title: "Sample Harm Rules", license: "private" }],
+    entries: SAMPLE_HARM_GROWTHS,
+  });
+  assert.deepEqual([rs.status, pk.status], [201, 201]);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Held",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-Held") } });
+  const bo = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "bo-Held") } });
+  const pcs = (await owner.until((s) => s.actors.filter((a) => a.kind === "pc").length === 2)).actors.filter(
+    (a) => a.kind === "pc",
+  );
+  const [hero, other] = [pcs[0]!.id, pcs[1]!.id];
+  for (const id of [hero, other]) await equip(id, "hero", { fields: { grit: 2 }, resources: { wounds: 0, strain: 0 } });
+  ok(await owner.send({ type: "actor.rename", id: hero, name: "Hal" }));
+  await owner.until((s) => actorIn(s, hero)?.entity === "hero" && actorIn(s, other)?.entity === "hero");
+  ok(await owner.send({ type: "session.start" }));
+
+  // The Omen's 2 sends the GM to the Lesser table and grants nothing; its 23 grants Horn, the end of the chain.
+  const omen = ok(await owner.send({ type: "table.roll", tableId: "omen", result: 2 }));
+  assert.equal(omen.roll?.entryId, "faint");
+  const grant = (result: number) =>
+    ({ type: "table.apply", tableId: "lesser", result, actorId: hero, inputs: {} }) as ActionInput;
+  const added = ok(await owner.send(grant(23)));
+  assert.deepEqual(added.roll, { entryId: "horn", value: 23, total: 23 });
+  const s = await owner.until((x) => (actorIn(x, hero)?.held ?? []).length === 1);
+  assert.equal(actorIn(s, hero)?.derived.limit, 6);
+  assert.deepEqual(
+    actorIn(s, hero)?.held?.map((r) => [r.name, r.key]),
+    [["Horn", "horn"]],
+  );
+  // Holding one adds 10: 23 reads 33, Horn again, which asks for a roll again.
+  refused(await owner.send(grant(23)), "heldAlready");
+
+  // Whose seat reads what: the holder by name, the other player the word and the same numbers, no name, key or cite.
+  const version = s.stateVersion;
+  const anaView = await ana.until((x) => x.stateVersion >= version);
+  const mine = anaView.actors.find((a) => (a.held ?? []).length > 0);
+  assert.equal(mine?.held?.[0]?.name, "Horn");
+  const boView = await bo.until((x) => x.stateVersion >= version);
+  const seen = boView.actors.find((a) => a.id === mine?.id);
+  assert.deepEqual(seen?.held, [
+    {
+      kind: "growth",
+      key: null,
+      name: "Unseen",
+      cite: null,
+      effects: [{ path: "derived.limit", mode: "add", value: "1", phase: "derived" }],
+    },
+  ]);
+  assert.equal(seen?.derived.limit, 6);
+  const sent = JSON.stringify(boView.actors);
+  for (const secret of ["Horn", '"horn"', "Sample p.14"]) assert.ok(!sent.includes(secret), secret);
+
+  // CUT OFF is the GM's, logged, and Undo gives the growth back.
+  refused(await ana.send({ type: "held.remove", actorId: mine!.id, held: "growth", entry: "horn" }), "noPermission");
+  ok(await owner.send({ type: "held.remove", actorId: hero, held: "growth", entry: "horn" }));
+  await owner.until((x) => (actorIn(x, hero)?.held ?? []).length === 0 && actorIn(x, hero)?.derived.limit === 5);
+  ok(await owner.send({ type: "event.undo" }));
+  await owner.until((x) => (actorIn(x, hero)?.held ?? []).length === 1);
+  for (const c of [owner, ana, bo]) c.socket.close();
 });
 
 // START THE FIGHT on a prepared scene (house decision #75): the actions the Run view builds, sent one by one as it

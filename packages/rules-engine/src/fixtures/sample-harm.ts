@@ -7,7 +7,7 @@ import type { RulesetInput } from "../manifest.ts";
  */
 export const SAMPLE_HARM: RulesetInput = {
   id: "sample-harm",
-  version: "0.1.0",
+  version: "0.1.1",
   core: "^0.1.0",
   sources: [{ id: "sample", title: "Sample Harm Rules", license: "private", pageOffset: 0 }],
   entities: [
@@ -69,6 +69,16 @@ export const SAMPLE_HARM: RulesetInput = {
       resetOn: [{ event: "longRest", to: "0" }],
     },
     {
+      id: "resolve",
+      label: "Resolve",
+      cite: "Sample p.8",
+      scope: "entity",
+      entities: ["hero"],
+      max: "3",
+      start: "2",
+      visibility: "party",
+    },
+    {
       id: "members",
       label: "Members",
       cite: "Sample p.6",
@@ -100,6 +110,7 @@ export const SAMPLE_HARM: RulesetInput = {
           spent: { when: "res.strain > derived.strainCap", conditions: ["winded"] },
           felled: { when: "res.wounds > derived.limit", injuries: "scars", condition: "down", healTo: "derived.limit" },
           destroyed: { over: "derived.limit * 2", field: "gone" },
+          convert: true,
         },
         {
           entities: ["brute"],
@@ -110,4 +121,34 @@ export const SAMPLE_HARM: RulesetInput = {
       ],
     },
   },
+  // House decision #84: a costed spend with no effect, one that pays a personal resource and heals by an expression,
+  // and a free one that converts harm by a number the player reports.
+  spends: [
+    {
+      id: "retry",
+      label: "Try again",
+      cite: "Sample p.8",
+      entities: ["hero"],
+      cost: [{ resource: "resolve", amount: "1" }],
+    },
+    {
+      id: "steady",
+      label: "Steady yourself",
+      cite: "Sample p.8",
+      entities: ["hero"],
+      cost: [{ resource: "resolve", amount: "1" }],
+      if: "res.strain > 0 && res.wounds <= derived.limit",
+      run: [{ primitive: "health.harm", op: "hit", input: { actorId: "ctx.self", shock: "-grit" } }],
+    },
+    {
+      id: "endure",
+      label: "Endure",
+      cite: "Sample p.9",
+      entities: ["hero"],
+      cost: [],
+      inputs: { marks: { label: "Marks rolled", min: 1, max: "grit * 2" } },
+      run: [{ primitive: "health.harm", op: "convert", input: { actorId: "ctx.self", amount: "ctx.marks" } }],
+      clearOn: ["encounterEnd"],
+    },
+  ],
 };

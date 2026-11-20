@@ -400,7 +400,37 @@ var harmSchema = schema.Object(
 			schema.Opt("healTo", exprSource),
 		)),
 		schema.Opt("destroyed", schema.Object(schema.Req("over", exprSource), schema.Req("field", fieldIDSchema))),
+		schema.Opt("convert", schema.Bool()),
 	)).Min(1).Max(10)),
+)
+
+// SpendClearEvents are the table events that cancel a spend's pending asks (manifest.ts SpendClearEvent, #84).
+var SpendClearEvents = []string{"sessionStart", "sessionEnd", "encounterEnd"}
+
+// spendSchema is one entry of the manifest's spends (house decision #84).
+var spendSchema = schema.Object(
+	schema.Req("id", idSchema),
+	schema.Req("label", label(80)),
+	schema.Opt("cite", citeSchema),
+	schema.Opt("entities", schema.Array(idSchema).Min(1).Max(50)),
+	schema.Req("cost", schema.Array(schema.Object(
+		schema.Opt("pool", idSchema),
+		schema.Opt("resource", idSchema),
+		schema.Req("amount", exprSource),
+		schema.Opt("byRun", schema.Bool()),
+	)).Max(5)),
+	schema.Opt("inputs", schema.Refined(schema.Record(idSchema, schema.Object(
+		schema.Req("label", label(60)),
+		schema.Req("min", schema.Int().Min(0).Max(1000)),
+		schema.Req("max", exprSource),
+	)), func(v any) bool { return len(v.(map[string]any)) <= 3 }, "at most 3 inputs")),
+	schema.Opt("if", exprSource),
+	schema.Opt("run", schema.Array(schema.Object(
+		schema.Req("primitive", label(64)),
+		schema.Req("op", label(64)),
+		schema.Req("input", schema.Record(label(64), schema.AnyOf(exprSource, schema.Float(), schema.Bool()))),
+	)).Max(5)),
+	schema.Opt("clearOn", schema.Array(schema.Enum(SpendClearEvents...)).Max(3)),
 )
 
 func stepVariant(tag string, extra ...schema.Field) schema.Variant {
@@ -560,6 +590,8 @@ var rulesetSchema = schema.Object(
 		schema.Req("text", label(MaxNoticeText)),
 		schema.Opt("cite", citeSchema),
 	)).Max(MaxNotices)),
+	schema.Opt("spends", schema.Array(spendSchema).Max(50)),
+	schema.Opt("requests", schema.Object(schema.Req("max", schema.Int().Min(1).Max(20)))),
 )
 
 // layoutPath is a layout row that names a value; layoutRows a layout's list of rows, each a path or a widget row

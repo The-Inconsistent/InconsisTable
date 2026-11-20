@@ -84,4 +84,37 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
     },
     cite: "Sample p.16",
   },
+  // House decision #84: a party-pool spend with a number, a paid out-of-turn start and a lifted bar, each taken by its
+  // own op; at most three asks per user.
+  spends: [
+    {
+      id: "rally",
+      label: "Rally",
+      cite: "Sample p.19",
+      entities: ["character"],
+      cost: [{ pool: "momentum", amount: "ctx.dice" }],
+      inputs: { dice: { label: "Dice", min: 1, max: "3" } },
+    },
+    {
+      id: "jump",
+      label: "Jump the line",
+      cite: "Sample p.17",
+      entities: ["character"],
+      cost: [{ pool: "momentum", amount: "1", byRun: true }],
+      if: "ctx.fight.in",
+      run: [{ primitive: "initiative.sides", op: "seize", input: { id: "ctx.self" } }],
+      clearOn: ["encounterEnd"],
+    },
+    {
+      id: "shake",
+      label: "Shake it off",
+      cite: "Sample p.18",
+      entities: ["character"],
+      cost: [{ pool: "momentum", amount: "2", byRun: true }],
+      if: "ctx.fight.barred",
+      run: [{ primitive: "initiative.sides", op: "lift", input: { id: "ctx.self" } }],
+      clearOn: ["encounterEnd"],
+    },
+  ],
+  requests: { max: 3 },
 };

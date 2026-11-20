@@ -14,9 +14,12 @@ import {
   gearName,
   issuesByStep,
   isReady,
+  languageRows,
+  languageWayOf,
   LEDGER_STEPS,
   ledgerGroups,
   lookupsOf,
+  openingStep,
   pickArchetype,
   pickAscension,
   pickBackgroundBonus,
@@ -37,6 +40,7 @@ import {
   setWealth,
   startAdvanced,
   stepsFor,
+  tapLanguage,
   tapTalent,
   toggleApproval,
   toggleArchetypeAscension,
@@ -78,6 +82,29 @@ test("the steps: ascension only when the build ascends, advance only in play, a 
     "advance",
   ]);
   assert.deepEqual(stepsFor({ ...base, gm: true, build: lamplighter, play: { tier: 2, xpEarned: 40 } }), LEDGER_STEPS);
+});
+
+test("the opening step: the Tier when new, else the first step with something left for this seat, else customise", () => {
+  const steps = stepsFor({ build: lamplighter, lookups, gm: true });
+  assert.equal(openingStep({ build: { tier: 1 }, resolved: null, steps, gm: false }), "tier");
+  const r = run(lamplighter);
+  const first = steps.find((s) => r.pending.some((p) => p.step === s) || r.problems.some((p) => p.step === s));
+  assert.equal(openingStep({ build: lamplighter, resolved: r, steps, gm: true }), first);
+  // only a GM's tick left, on Detail: the GM lands there, a player on the purchases
+  const gmOnly = {
+    ...r,
+    pending: [],
+    problems: [{ step: "detail" as const, what: "x", severity: "gm" as const, path: "p" }],
+  };
+  assert.equal(openingStep({ build: lamplighter, resolved: gmOnly, steps, gm: true }), "detail");
+  assert.equal(openingStep({ build: lamplighter, resolved: gmOnly, steps, gm: false }), "customise");
+  // a player's own choice comes before a later GM tick
+  const both = { ...gmOnly, pending: [{ path: "q", step: "faction" as const, what: "y", choose: 1, options: [] }] };
+  assert.equal(openingStep({ build: lamplighter, resolved: both, steps, gm: false }), "faction");
+  assert.equal(
+    openingStep({ build: lamplighter, resolved: { ...r, pending: [], problems: [] }, steps, gm: true }),
+    "customise",
+  );
 });
 
 test("pending choices and problems are counted by the step that settles them, and choices with a pick are cards", () => {
@@ -352,6 +379,43 @@ test("detail: a language is free or bought, never both; wealth stays in its rang
   });
   assert.equal(setWealth({ build: lamplighter, params, to: -2 }).wealth, 0);
   assert.equal(setWealth({ build: lamplighter, params, to: 999 }).wealth, params.wealth.maxBought);
+});
+
+test("languages: Free settles the owed pick, a held language says how, Free is offered as the engine reads it", () => {
+  const rowsOf = (build: LedgerBuild, resolved = run(build)) => languageRows({ params, catalogue, build, resolved });
+  const byId = (rows: ReturnType<typeof rowsOf>["rows"]) => new Map(rows.map((r) => [r.language.id, r]));
+  // one free pick owed, from the keywords: only Trade-tongue and Birdsong (WARDEN) can be it
+  const start = rowsOf(lamplighter);
+  assert.equal(start.owed, 1);
+  assert.ok(byId(start.rows).get("trade-tongue")!.canFree);
+  assert.ok(!byId(start.rows).get("old-cant")!.canFree);
+  // a tap on Free takes it, settles the item, and the row reads as taken; nothing else can be free now
+  const free = tapLanguage({ build: lamplighter, name: "trade-tongue", way: "picks" });
+  const after = rowsOf(free);
+  assert.equal(after.owed, 0);
+  assert.equal(byId(after.rows).get("trade-tongue")!.way, "picks");
+  assert.ok(byId(after.rows).get("trade-tongue")!.canFree); // a second tap gives it back
+  assert.ok(!byId(after.rows).get("birdsong")!.canFree);
+  assert.deepEqual(tapLanguage({ build: free, name: "trade-tongue", way: "picks" }).languages, {
+    picks: [],
+    bought: [],
+  });
+  // Buy moves a free one to bought
+  const bought = tapLanguage({ build: free, name: "trade-tongue", way: "bought" });
+  assert.deepEqual(bought.languages, { picks: [], bought: ["trade-tongue"] });
+  assert.equal(languageWayOf({ build: bought, name: "trade-tongue" }), "bought");
+  // a grant past the keywords' one: any language may be free (the engine's keyword rule holds only without grants)
+  const r = run(lamplighter);
+  const granted = { ...r, pending: r.pending.map((p) => (p.path === "languages" ? { ...p, choose: 2 } : p)) };
+  assert.ok(byId(rowsOf(lamplighter, granted).rows).get("old-cant")!.canFree);
+  // learned in play: held, and Free is closed
+  const learned: LedgerBuild = { ...lamplighter, advancement: { languages: ["birdsong"] } };
+  assert.equal(languageWayOf({ build: learned, name: "birdsong" }), "learned");
+  assert.ok(!byId(rowsOf(learned).rows).get("birdsong")!.canFree);
+  // a written-in language is listed apart
+  assert.deepEqual(rowsOf(setLanguage({ build: lamplighter, name: "Gull-talk", way: "bought" })).writtenIn, [
+    "Gull-talk",
+  ]);
 });
 
 test("a choice: a tap answers or takes back, one-of replaces, many-of drops the oldest; declining is an empty answer", () => {

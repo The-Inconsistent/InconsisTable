@@ -10,8 +10,8 @@ import {
   isReady,
   issuesByStep,
   lookupsOf,
+  openingStep,
   resolveDraft,
-  started,
   stepsFor,
   type LedgerBuild,
   type LedgerPlay,
@@ -70,8 +70,8 @@ export function LedgerBuilder({ params, catalogue, build, onChange, gm, tier, pl
     [params, catalogue, lookups, build, resolved],
   );
   const steps = stepsFor({ build, lookups, play, gm });
-  // A build already begun opens on its purchases; a new one on the Tier, as in Auspex.
-  const [chosen, setChosen] = useState<BuildStep>(() => (started(build) ? "customise" : "tier"));
+  // A new build opens on the Tier; one begun on the first step with something left for this seat, else its purchases.
+  const [chosen, setChosen] = useState<BuildStep>(() => openingStep({ build, resolved, steps, gm }));
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const step = steps.includes(chosen) ? chosen : steps[0]!; // stepsFor always gives at least one step
   const next = steps[steps.indexOf(step) + 1];

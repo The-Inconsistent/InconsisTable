@@ -423,7 +423,11 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
               tier={tier}
               topTier={ledgerBuild.params.tiers.max}
               needed={ledgerBuild.ascension.xp}
-              members={ascensionMembersOf({ ruleset: sheet.ruleset, actors: state.actors })}
+              members={ascensionMembersOf({
+                ruleset: sheet.ruleset,
+                actors: state.actors,
+                campaign: state.campaign.fields,
+              })}
               busy={ascending}
               refusal={ascendRefusal}
               onAscend={handleAscend}

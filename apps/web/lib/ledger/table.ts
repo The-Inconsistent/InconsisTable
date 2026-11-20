@@ -8,7 +8,16 @@ import {
   type ActorLedger,
   type Me,
 } from "@inconsistable/core-schema";
-import type { BuildCatalogue, LedgerCreation, LedgerWargear, Ruleset } from "@inconsistable/rules-engine";
+import {
+  actorScope,
+  campaignValues,
+  compileRuleset,
+  healthStatesOf,
+  type BuildCatalogue,
+  type LedgerCreation,
+  type LedgerWargear,
+  type Ruleset,
+} from "@inconsistable/rules-engine";
 
 import type { LedgerBuild, LedgerPlay } from "./ledger";
 import { rankOf, toSpend, type AscensionMember } from "./play";
@@ -134,12 +143,31 @@ export function xpFiguresOf({ ruleset, actor }: { ruleset: Ruleset | null; actor
 export function ascensionMembersOf({
   ruleset,
   actors,
+  campaign = {},
 }: {
   ruleset: Ruleset;
-  actors: readonly Pick<Actor, "id" | "name" | "kind" | "entity" | "fields" | "ledger">[];
+  actors: readonly Pick<Actor, "id" | "name" | "kind" | "entity" | "fields" | "derived" | "resources" | "ledger">[];
+  /** The room's stored campaign values; a health state that reads `campaign.*` needs them. */
+  campaign?: Readonly<Record<string, number | string | boolean>>;
 }): AscensionMember[] {
   const build = ruleset.build;
   if (!build) return [];
+  // Who is gone, for display: the ruleset's `gone` health states, worked out with the engine the server's twin runs,
+  // from the values this seat holds (the panel is the GM side's, which holds them all). The server decides the count
+  // itself when the group Ascends. A state that cannot be evaluated does not count, as there.
+  const goneStates = build.gone ?? [];
+  const made = goneStates.length > 0 ? compileRuleset(ruleset) : null;
+  const compiled = made?.ok ? made.compiled : null;
+  const inPlay = compiled ? campaignValues({ compiled, stored: campaign }) : undefined;
+  const isGone = (a: (typeof actors)[number]) => {
+    if (!compiled) return false;
+    try {
+      const scope = actorScope({ fields: a.fields, derived: a.derived, resources: a.resources, campaign: inPlay });
+      return healthStatesOf({ compiled, entity: a.entity, scope }).some((id) => goneStates.includes(id));
+    } catch {
+      return false;
+    }
+  };
   return actors
     .filter((a) => a.kind === "pc" && a.entity === build.actor)
     .map((a) => {
@@ -149,9 +177,7 @@ export function ascensionMembersOf({
         name: a.name,
         rank: rankOf({ earned, ...build.params.rank }),
         earnedThisTier: earned - (a.ledger?.xpAtAscension ?? 0),
-        // ponytail: the seat's state carries no health states, so nobody shows as gone (the server still leaves them
-        // out of the count), upgrade: read them once the Seat view sends each actor's health states
-        gone: false,
+        gone: isGone(a),
       };
     });
 }

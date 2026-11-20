@@ -205,6 +205,8 @@ test("the Party tab's XP figures and the Ascension's members: the ledger's playe
     kind,
     entity,
     fields: { xp },
+    derived: {},
+    resources: {} as Record<string, number>,
     ledger: l && saved(l),
   });
   const a = hero("a", 45, { build: {}, sheet: {}, xpSpent: 30, xpAtAscension: 20 });
@@ -224,4 +226,19 @@ test("the Party tab's XP figures and the Ascension's members: the ledger's playe
     ],
   );
   assert.deepEqual(ascensionMembersOf({ ruleset: plain, actors: [a] }), []);
+  // Gone is the ruleset's own health state, read from the values the seat holds: the invented one is Lost at 10
+  // Corruption. Nobody is gone on the first list (no Corruption).
+  assert.deepEqual(
+    members.map((m) => m.gone),
+    [false, false],
+  );
+  const lost = { ...hero("c", 30, null), resources: { corruption: 10 } };
+  const nearly = { ...hero("d", 30, null), resources: { corruption: 9 } };
+  assert.deepEqual(
+    ascensionMembersOf({ ruleset: ledger, actors: [lost, nearly] }).map((m) => [m.id, m.gone]),
+    [
+      ["c", true],
+      ["d", false],
+    ],
+  );
 });

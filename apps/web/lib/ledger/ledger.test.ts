@@ -17,6 +17,7 @@ import {
   LEDGER_STEPS,
   ledgerGroups,
   lookupsOf,
+  openingStep,
   pickArchetype,
   pickAscension,
   pickBackgroundBonus,
@@ -78,6 +79,29 @@ test("the steps: ascension only when the build ascends, advance only in play, a 
     "advance",
   ]);
   assert.deepEqual(stepsFor({ ...base, gm: true, build: lamplighter, play: { tier: 2, xpEarned: 40 } }), LEDGER_STEPS);
+});
+
+test("the opening step: the Tier when new, else the first step with something left for this seat, else customise", () => {
+  const steps = stepsFor({ build: lamplighter, lookups, gm: true });
+  assert.equal(openingStep({ build: { tier: 1 }, resolved: null, steps, gm: false }), "tier");
+  const r = run(lamplighter);
+  const first = steps.find((s) => r.pending.some((p) => p.step === s) || r.problems.some((p) => p.step === s));
+  assert.equal(openingStep({ build: lamplighter, resolved: r, steps, gm: true }), first);
+  // only a GM's tick left, on Detail: the GM lands there, a player on the purchases
+  const gmOnly = {
+    ...r,
+    pending: [],
+    problems: [{ step: "detail" as const, what: "x", severity: "gm" as const, path: "p" }],
+  };
+  assert.equal(openingStep({ build: lamplighter, resolved: gmOnly, steps, gm: true }), "detail");
+  assert.equal(openingStep({ build: lamplighter, resolved: gmOnly, steps, gm: false }), "customise");
+  // a player's own choice comes before a later GM tick
+  const both = { ...gmOnly, pending: [{ path: "q", step: "faction" as const, what: "y", choose: 1, options: [] }] };
+  assert.equal(openingStep({ build: lamplighter, resolved: both, steps, gm: false }), "faction");
+  assert.equal(
+    openingStep({ build: lamplighter, resolved: { ...r, pending: [], problems: [] }, steps, gm: true }),
+    "customise",
+  );
 });
 
 test("pending choices and problems are counted by the step that settles them, and choices with a pick are cards", () => {

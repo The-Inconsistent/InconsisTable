@@ -126,6 +126,27 @@ export function stepsFor({
   return LEDGER_STEPS.filter((s) => (s !== "ascension" || atCreation || ascending) && (s !== "advance" || !!play));
 }
 
+// The step the builder opens on. A new build: the Tier. One begun: the first step, in order, with something left for
+// this seat (a player doesn't count what waits for the GM's tick), else its purchases.
+export function openingStep({
+  build,
+  resolved,
+  steps,
+  gm,
+}: {
+  build: LedgerBuild;
+  resolved: ResolvedBuild | null;
+  steps: readonly BuildStep[];
+  gm: boolean;
+}): BuildStep {
+  if (!started(build)) return "tier";
+  const owes = (s: BuildStep) =>
+    !!resolved &&
+    (resolved.pending.some((p) => p.step === s) ||
+      resolved.problems.some((p) => p.step === s && (gm || p.severity !== "gm")));
+  return steps.find(owes) ?? "customise";
+}
+
 export type StepIssues = {
   pending: PendingChoice[]; // answered by the step's own controls (no `pick`)
   choices: BuildChoicePrompt[]; // every grant choice of the step, answered or not

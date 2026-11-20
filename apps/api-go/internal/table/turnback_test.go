@@ -113,3 +113,44 @@ func TestTurnBackThatCannotTakeBackOneActionChangesNothing(t *testing.T) {
 		p.wantTurnBack(&cs.EncounterTurnBack{Kind: "turnStart", Name: "Wick", Round: 1, Later: 3})
 	})
 }
+
+// An offer applied inside the step (house decision #80) goes back with it and is offered again, as Undo does it.
+func TestTurnBackTakesBackAnAppliedOfferAndOffersItAgain(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		room := dbtest.NewRoom(t, tx)
+		room.Pin(t, tx, offerFixture(t))
+		p := &play{t, tx, room}
+		gm := room.GM()
+		p.startSession()
+		ash := p.character("Ash", 4)
+		p.counters(ash, map[string]int{"spare": 0})
+		p.send(gm, map[string]any{"type": "encounter.start"})
+		p.send(gm, map[string]any{"type": "encounter.add", "actorIds": []any{ash}, "side": "party"})
+		p.send(gm, map[string]any{"type": "encounter.setInitiative", "combatantId": p.combatant(ash), "score": 10.0})
+		p.send(gm, map[string]any{"type": "turn.next"})
+		p.wantCurrent(&ash)
+
+		// Ash's turn: a Test failed by 3 with a complication, and its Strain applied.
+		id := p.send(gm, map[string]any{"type": "test.call", "testId": "pool", "actorIds": []any{ash},
+			"inputs": map[string]any{"dn": 4.0}}).ID
+		p.send(gm, map[string]any{"type": "test.report", "callId": id, "actorId": ash,
+			"roll": map[string]any{"kind": "pool", "counts": map[string]any{"hit": 1.0}, "special": []any{1.0}}})
+		p.send(gm, apply(id, ash, "strain"))
+		if p.res(ash, "spare") != 6 {
+			t.Fatalf("spare: %d", p.res(ash, "spare"))
+		}
+		wantPool(t, p, "dread", 1)
+
+		// One press takes the turn's start back and the offer with it; the offer may be applied again.
+		p.send(gm, turnBack)
+		p.wantCurrent(nil)
+		wantPool(t, p, "dread", 0)
+		if p.res(ash, "spare") != 0 || offerOf(t, p, gm, id, ash)["strain"].Applied {
+			t.Fatal("TURN BACK did not take strain back whole")
+		}
+		p.send(gm, apply(id, ash, "strain"))
+		if p.res(ash, "spare") != 6 || !offerOf(t, p, gm, id, ash)["strain"].Applied {
+			t.Fatal("strain is not applicable again after TURN BACK")
+		}
+	})
+}

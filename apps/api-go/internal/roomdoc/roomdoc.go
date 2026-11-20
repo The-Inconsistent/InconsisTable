@@ -862,8 +862,17 @@ func (im *importer) readers(i int, e map[string]any, id string) error {
 	if len(reveal) == 2 {
 		return nil
 	}
-	_, err := im.run(reveal, "codex", i, "visibility")
-	return err
+	if _, err := im.run(reveal, "codex", i, "visibility"); err != nil {
+		return err
+	}
+	// The reveal stamped the import's time; a time the document gives is kept, on an entry it reveals only (house
+	// decision #86).
+	if at := doc(e).str("revealedAt"); at != "" {
+		_, err := im.tx.Exec(im.ctx, `UPDATE codex_entry SET revealed_at = $2::timestamptz WHERE id = $1 AND visibility <> 'gm'`,
+			id, at)
+		return err
+	}
+	return nil
 }
 
 // clocks are made as clock.create takes them, then ticked to how full they are.

@@ -227,7 +227,12 @@ export const Action = z.discriminatedUnion("type", [
     audience: z.array(id).max(50).default([]),
     imageRevealed: z.boolean().optional(),
   }),
-  z.object({ type: z.literal("codex.delete"), id }),
+  // `withScenes`: an adventure goes with its scenes; without it, one that has scenes is refused (house decision #86).
+  z.object({ type: z.literal("codex.delete"), id, withScenes: z.boolean().optional() }),
+  // A scene begun: the one being played goes to done, this one is active, its prepared reveals are sent (house decision
+  // #86). The answer's id is the begin's, which scene.undoBegin takes back while it is the room's latest.
+  z.object({ type: z.literal("scene.begin"), sceneId: id }),
+  z.object({ type: z.literal("scene.undoBegin"), beginId: id }),
   // Reorders or reparents; `position` only says where to insert: the server renumbers the siblings 0..n-1.
   z.object({
     type: z.literal("codex.move"),
@@ -361,6 +366,8 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "codex.save": "codex:write",
   "codex.reveal": "codex:reveal",
   "codex.delete": "codex:write",
+  "scene.begin": "codex:write", // as making a scene active with codex.save; each reveal then asks codex:reveal
+  "scene.undoBegin": "codex:write",
   "codex.move": "codex:write",
   "codex.link": "codex:write",
   "codex.unlink": "codex:write",
@@ -432,7 +439,7 @@ export type Refused = { ok: false; error: string } & Partial<RefusalBody>;
  * own lines by code, which the screen words, and a ruleset's line (`rule`) with its words, the actor's name filled in,
  * in `text`. They are neither state nor log.
  */
-export const NoticeCode = z.enum(["poolFull", "restSkipped", "rule", "sessionDeleted"]);
+export const NoticeCode = z.enum(["poolFull", "restSkipped", "rule", "sessionDeleted", "sceneBegun", "revealSkipped"]);
 export type NoticeCode = z.infer<typeof NoticeCode>;
 /** The params each code carries, which its words may name. */
 export const NOTICE_PARAMS = {
@@ -440,6 +447,8 @@ export const NOTICE_PARAMS = {
   restSkipped: ["names", "count"], // who a rest of everyone left out, in name order joined with ", ", and how many
   rule: ["rule", "name"], // the rule's id and the actor's name
   sessionDeleted: ["number"], // the deleted session's number; what it awarded stays (house decision #85)
+  sceneBegun: ["title", "revealed"], // the scene begun and how many of its reveal lines went out (house decision #86)
+  revealSkipped: ["line", "reason"], // a scene's reveal line the begin skipped: its label or id, and the refusal code
 } as const satisfies Record<NoticeCode, readonly string[]>;
 export const Notice = z.object({
   code: NoticeCode,

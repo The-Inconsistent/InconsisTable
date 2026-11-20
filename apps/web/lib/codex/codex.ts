@@ -30,6 +30,11 @@ export function filterEntries({
   );
 }
 
+/** The entries newest revealed first (house decision #86); one with no time (revealed before it was kept) goes last. */
+export function newestRevealed(entries: readonly CodexEntry[]): CodexEntry[] {
+  return [...entries].sort((a, b) => (b.revealedAt ?? "").localeCompare(a.revealedAt ?? ""));
+}
+
 /** One row of a drawn tree: the entry, how deep it sits (0 for a root) and how many entries sit anywhere inside it. */
 export type TreeRow = { entry: CodexEntry; depth: number; inside: number };
 

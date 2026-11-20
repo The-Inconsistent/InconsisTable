@@ -21,6 +21,7 @@ const entry = (over: Partial<CodexEntry>): CodexEntry => ({
   plannedTests: [],
   imageId: null,
   imageRevealed: false,
+  revealedAt: null,
   fields: {},
   layout: null,
   header: null,

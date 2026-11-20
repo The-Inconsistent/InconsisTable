@@ -64,6 +64,8 @@ const cases: [string, unknown][] = [
   ],
   ["unknown prep kind", { ...base, codex: [{ ...entry(1), kind: "scene", prep: { hazards: [] } }] }],
   ["bad datetime", { ...base, room: { name: "x", nextSessionAt: "tomorrow" } }],
+  ["bad reveal time", { ...base, codex: [{ ...entry(1), visibility: "party", revealedAt: "yesterday" }] }],
+  ["reveal time", { ...base, codex: [{ ...entry(1), visibility: "party", revealedAt: "2026-03-01T18:00:00.000Z" }] }],
   ["bad field value", { ...base, campaignFields: { tier: [1] } }],
   ["too many actors", { ...base, actors: times(ROOM_LIMITS.actors + 1, actor) }],
   ["too many entries", { ...base, codex: times(ROOM_LIMITS.codex + 1, entry) }],

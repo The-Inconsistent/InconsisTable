@@ -3,7 +3,7 @@ import { describe, test } from "node:test";
 
 import type { CodexEntry } from "@inconsistable/core-schema";
 
-import { entryPath, filterEntries, parentOptions, savePatch, treeRows, unfolded } from "./codex.ts";
+import { entryPath, filterEntries, newestRevealed, parentOptions, savePatch, treeRows, unfolded } from "./codex.ts";
 
 const entry = (over: Partial<CodexEntry>): CodexEntry => ({
   id: "e1",
@@ -21,6 +21,7 @@ const entry = (over: Partial<CodexEntry>): CodexEntry => ({
   plannedTests: [],
   imageId: null,
   imageRevealed: false,
+  revealedAt: null,
   fields: {},
   layout: null,
   header: null,
@@ -35,6 +36,15 @@ const entries = [
 ];
 
 const ids = (list: CodexEntry[]) => list.map((e) => e.id);
+
+test("newestRevealed: the latest reveal first, an entry with no time last", () => {
+  const list = [
+    entry({ id: "old", revealedAt: "2026-01-01T10:00:00.000Z" }),
+    entry({ id: "none" }),
+    entry({ id: "new", revealedAt: "2026-02-01T10:00:00.000Z" }),
+  ];
+  assert.deepEqual(ids(newestRevealed(list)), ["new", "old", "none"]);
+});
 
 describe("filterEntries", () => {
   test("a kind keeps only that kind", () => {

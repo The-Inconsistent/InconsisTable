@@ -435,6 +435,8 @@ const entry = (
   position: 0,
   links: [] as string[],
   plannedTests: [] as string[],
+  imageId: null as string | null,
+  imageRevealed: false,
   ...over,
 });
 
@@ -469,6 +471,12 @@ const CODEX = {
     entry(U(511), "gm", "all", [], { kind: "location", parentId: U(510) }),
     entry(U(512), "party", "all", [], { kind: "location", parentId: U(511) }),
     entry(U(513), "party", "listed", [PC1], { kind: "location", parentId: U(512), position: 1 }),
+    // Pictures (house decision #70): held back, shown, shown on a hidden entry, shown to a listed reader.
+    entry(U(520), "party", "all", [], { kind: "npc", imageId: U(700) }),
+    entry(U(521), "party", "all", [], { kind: "location", imageId: U(701), imageRevealed: true }),
+    entry(U(522), "gm", "all", [], { kind: "npc", imageId: U(702), imageRevealed: true }),
+    entry(U(523), "party", "listed", [PC1], { imageId: U(703), imageRevealed: true }),
+    entry(U(524), "party", "all", [], { imageRevealed: true }),
   ],
   recaps: [
     { sessionId: U(600), number: 2, title: "The bridge", endedAt: "2026-02-01T10:00:00.000Z", recap: "They crossed." },
@@ -751,11 +759,12 @@ const VALID: Record<string, Record<string, unknown>> = {
     gmNotes: "g",
     status: "failed",
     plannedTests: ["check", "x".repeat(100)],
+    imageId: ID,
   },
   "codex.move": { id: ID, parentId: null, position: 2 },
   "codex.link": { id: ID, targetId: ID },
   "codex.unlink": { id: ID, targetId: ID },
-  "codex.reveal": { id: ID, visibility: "party", audienceMode: "listed", audience: [ID] },
+  "codex.reveal": { id: ID, visibility: "party", audienceMode: "listed", audience: [ID], imageRevealed: true },
   "codex.delete": { id: ID },
   "clock.create": { name: " Ritual ", segments: 6, visibility: "party", entryId: ID },
   "clock.tick": { id: ID, delta: -3 },

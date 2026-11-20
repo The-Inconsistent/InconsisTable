@@ -187,6 +187,7 @@ export function Codex({ me, state, codex, send, initialOpenId = null }: CodexPro
         {open && (
           <EntryEditor
             key={open.id}
+            campaignId={me.campaignId}
             entry={open}
             characters={state.actors.filter((a) => a.kind === "pc")}
             entries={entries}

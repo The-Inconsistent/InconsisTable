@@ -202,6 +202,8 @@ const entry = (id: string, over: Partial<CodexEntry> = {}): CodexEntry => ({
   position: 0,
   links: [],
   plannedTests: [],
+  imageId: null,
+  imageRevealed: false,
   ...over,
 });
 const codex: Codex = {
@@ -431,6 +433,35 @@ test("a mention of an entry the seat cannot see becomes the hidden form; the GM 
   assert.equal(bodyFor(player), "met @[…](hidden), @[Open](open) and @[…](hidden)");
   assert.ok(!JSON.stringify(seatView({ snapshot: mentioning, compiled, ctx: player })).includes("Secret Name"));
   assert.equal(bodyFor(ctx(member("gm"), "u-gm")), body);
+});
+
+test("a seat outside the codex side never receives the id of a picture not shown to the table", () => {
+  const pictured = {
+    ...snapshot,
+    codex: {
+      ...codex,
+      entries: [
+        entry("held", { imageId: "pic-held" }),
+        entry("shown", { imageId: "pic-shown", imageRevealed: true }),
+        entry("secret-shown", { visibility: "gm", imageId: "pic-secret", imageRevealed: true }),
+      ],
+    },
+  };
+  const pictures = (c: Ctx) =>
+    seatView({ snapshot: pictured, compiled, ctx: c }).codex.entries.map((e) => [e.id, e.imageId, e.imageRevealed]);
+  const player = ctx(member("player"), "u-x");
+  assert.deepEqual(pictures(player), [
+    ["held", null, false],
+    ["shown", "pic-shown", true],
+  ]);
+  assert.ok(!JSON.stringify(seatView({ snapshot: pictured, compiled, ctx: player })).includes("pic-held"));
+  for (const c of [ctx(member("gm"), "u-gm"), ctx(member("cogm", ["codex"]), "u-co")]) {
+    assert.deepEqual(pictures(c), [
+      ["held", "pic-held", false],
+      ["shown", "pic-shown", true],
+      ["secret-shown", "pic-secret", true],
+    ]);
+  }
 });
 
 test("every seat receives the recaps, whole", () => {

@@ -10,6 +10,7 @@ import {
   CreationKind,
   EditableBy,
   EffectMode,
+  EnumTone,
   EffectPhase,
   EntityBase,
   License,
@@ -86,11 +87,13 @@ const fieldBase = {
 
 /**
  * What the screens show for an enum's values (house decision #71), keyed by value id: `labels` the word (a value
- * without one shows as its id), `notes` a short line beside it. Optional on every enum.
+ * without one shows as its id), `notes` a short line beside it, `tones` the Theme's good or bad treatment (house
+ * decision #76). Optional on every enum.
  */
 const enumWords = {
   labels: z.record(Id, z.string().min(1).max(60)).optional(),
   notes: z.record(Id, z.string().min(1).max(40)).optional(),
+  tones: z.record(Id, EnumTone).optional(),
 };
 const intShape = { type: z.literal("int"), min: z.int().optional(), max: z.int().optional() };
 const textShape = { type: z.literal("text"), maxLength: z.int().min(1).max(10_000).optional() };
@@ -153,6 +156,8 @@ export const CodexField = z.discriminatedUnion("type", [
   z.object({ ...codexFieldBase, ...enumShape }),
   z.object({ ...codexFieldBase, type: z.literal("bool") }),
   z.object({ ...codexFieldBase, ...refShape }),
+  /** A link to another entry of the room, of the given kind (house decision #76); codex fields only. */
+  z.object({ ...codexFieldBase, type: z.literal("entry"), kind: CodexEntryKind }),
 ]);
 export type CodexField = z.infer<typeof CodexField>;
 
@@ -1081,11 +1086,16 @@ function enumWordProblems({
   path,
   out,
 }: {
-  def: { values: readonly string[]; labels?: Record<string, string>; notes?: Record<string, string> };
+  def: {
+    values: readonly string[];
+    labels?: Record<string, string>;
+    notes?: Record<string, string>;
+    tones?: Record<string, string>;
+  };
   path: string;
   out: Problem[];
 }): void {
-  for (const key of ["labels", "notes"] as const) {
+  for (const key of ["labels", "notes", "tones"] as const) {
     for (const value of Object.keys(def[key] ?? {}).sort()) {
       if (!def.values.includes(value))
         out.push({ path: `${path}.${key}.${value}`, message: `"${value}" is not a value` });

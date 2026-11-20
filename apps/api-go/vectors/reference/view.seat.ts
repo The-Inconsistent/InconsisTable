@@ -107,6 +107,28 @@ function seatEntryFields({ codex, ruleset, secrets }: { codex: Codex; ruleset: R
   };
 }
 
+/**
+ * The links between entries (house decision #76) a seat receives, run on the codex as the seat receives it: an `entry`
+ * field stays only while it names an entry of the field's kind that the seat also receives. The side that reads every
+ * entry keeps every link whose target exists; anyone else loses one to an entry hidden from them, so nothing names it.
+ * ponytail: a link whose target was deleted stays stored and reaches nobody, as a value the ruleset no longer declares;
+ * the compatible upgrade (house decision #51) is where it would be carried or cleared.
+ */
+function seatEntryLinks({ codex, ruleset }: { codex: Codex; ruleset: Ruleset | null }): Codex {
+  const kinds = new Map(codex.entries.map((e) => [e.id, e.kind] as const));
+  return {
+    ...codex,
+    entries: codex.entries.map((e) => {
+      const defs = ruleset?.codex?.kinds[e.kind]?.fields ?? {};
+      const fields = Object.entries(e.fields).filter(([id, value]) => {
+        const def = Object.hasOwn(defs, id) ? defs[id] : undefined;
+        return def?.type !== "entry" || (typeof value === "string" && kinds.get(value) === def.kind);
+      });
+      return { ...e, fields: Object.fromEntries(fields) };
+    }),
+  };
+}
+
 function seatDefinitions({ ruleset, ctx }: { ruleset: Ruleset; ctx: Ctx }): Ruleset {
   const sight = sightOf(ctx);
   // ponytail: the manifest is not split per entity kind; a co-GM with `party` or `combat` reads every definition
@@ -144,13 +166,13 @@ export function seatView({
   const manifest = compiled && seatManifest({ ruleset: compiled.ruleset, ctx });
   const packVisibilities = readableEntryVisibilities(ctx);
   const pools = seatPools({ pools: snapshot.state.pools, compiled, ctx });
-  const fielded = seatEntryFields({
-    codex: snapshot.codex,
-    ruleset: compiled?.ruleset ?? null,
-    secrets: sight.secrets,
-  });
-  if (sight.all) return { state: { ...snapshot.state, myDraft, pools }, codex: fielded, manifest, packVisibilities };
-  const codex = seatCodex({ codex: fielded, ctx, sight });
+  const ruleset = compiled?.ruleset ?? null;
+  const fielded = seatEntryFields({ codex: snapshot.codex, ruleset, secrets: sight.secrets });
+  if (sight.all) {
+    const codex = seatEntryLinks({ codex: fielded, ruleset });
+    return { state: { ...snapshot.state, myDraft, pools }, codex, manifest, packVisibilities };
+  }
+  const codex = seatEntryLinks({ codex: seatCodex({ codex: fielded, ctx, sight }), ruleset });
   const state = seatState({ state: snapshot.state, compiled, ctx, sight });
   return {
     state: {

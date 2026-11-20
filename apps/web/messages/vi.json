@@ -1553,6 +1553,7 @@
     "chips": "Chi tiết",
     "none": "Chưa đặt",
     "open": "Mở {name}",
+    "openShort": "Mở",
     "search": "Tìm {label}",
     "results": "Kết quả cho {label}",
     "noMatch": "Không có kết quả.",

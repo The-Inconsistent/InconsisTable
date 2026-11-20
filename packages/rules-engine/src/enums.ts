@@ -33,6 +33,10 @@ export const CodexEntryKind = z.enum([
 ]);
 export type CodexEntryKind = z.infer<typeof CodexEntryKind>;
 
+/** How a screen draws an enum's value (house decision #76): in the Theme's positive or warning treatment. */
+export const EnumTone = z.enum(["good", "bad"]);
+export type EnumTone = z.infer<typeof EnumTone>;
+
 export const EditableBy = z.enum(["gm", "owner", "ownerSpendOnly"]);
 export type EditableBy = z.infer<typeof EditableBy>;
 

@@ -48,11 +48,11 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 		state := snapshot.State
 		state.MyDraft = myDraft
 		state.Pools = seatPools(state.Pools, compiled, c)
-		return SeatView{state, fielded}
+		return SeatView{state, seatEntryLinks(fielded, compiled)}
 	}
 	state := seatState(snapshot.State, compiled, c, sight)
 	state.MyDraft = myDraft
-	codex := seatCodex(fielded, c, sight)
+	codex := seatEntryLinks(seatCodex(fielded, c, sight), compiled)
 	state.Clocks = seatClocks(state.Clocks, codex, sight)
 	state.Requests, state.RequestAnswers = seatRequests(state.Requests, state.RequestAnswers, c, sight)
 	state.Rolls, state.Dealt = seatTables(state.Rolls, state.Dealt, c, sight)

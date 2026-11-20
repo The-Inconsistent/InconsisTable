@@ -29,7 +29,7 @@ import { SAMPLE_SKIRMISH } from "../../../packages/rules-engine/src/fixtures/sam
 import { SAMPLE_TIERED } from "../../../packages/rules-engine/src/fixtures/sample-tiered.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
 import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
-import type { CampaignField, FieldDef, Ruleset } from "../../../packages/rules-engine/src/manifest.ts";
+import type { CampaignField, CodexField, FieldDef, Ruleset } from "../../../packages/rules-engine/src/manifest.ts";
 import { runCreation, type EntryLookup } from "../../../packages/rules-engine/src/creation.ts";
 import { checkCampaignValue, checkFieldValue } from "../../../packages/rules-engine/src/field-value.ts";
 import { MAX_ENTRY_RECORD_BYTES, validatePack, type PackEntry } from "../../../packages/rules-engine/src/pack.ts";
@@ -1393,6 +1393,25 @@ function codexCrafted(): object[] {
     codex({ m: { type: "ref", label: "R", entity: "nope" } }),
     codex({ m: { type: "int", label: "N", min: 3, max: 1 } }),
     codex({ "a.b": { type: "bool", label: "B" } }),
+    // House decision #76: a link to another entry, and an enum's tones.
+    codex({
+      home: { type: "entry", label: "H", kind: "location", visibility: "party", cite: "p1" },
+      at: { type: "entry", label: "A", kind: "npc" },
+    }),
+    codex({ m: { type: "entry", label: "H", kind: "ship" } }),
+    codex({ m: { type: "entry", label: "H" } }),
+    codex({ m: { type: "entry", label: "H", kind: "npc", visibility: "owner" } }),
+    codex({ m: { type: "entry", label: "H", kind: "npc", entity: "foe" } }),
+    codex({ m: enumDef({ tones: { a: "good", b: "bad" } }) }),
+    codex({ m: enumDef({ tones: { c: "good" } }) }),
+    codex({ m: enumDef({ tones: { a: "warn" } }) }),
+    { entities: [{ ...pcBase, fields: { ...pcBase.fields, e: enumDef({ tones: { a: "bad", z: "good" } }) } }] },
+    { entities: [{ ...pcBase, fields: { ...pcBase.fields, e: { type: "entry", label: "E", kind: "npc" } } }] },
+    {
+      campaignFields: {
+        era: { type: "enum", label: "E", values: ["a"], default: "a", tones: { a: "good", b: "bad" }, cite: "p1" },
+      },
+    },
     { entities: [{ ...pcBase, fields: { ...pcBase.fields, e: enumDef({ labels: { c: "C" } }) } }] },
     {
       campaignFields: { era: { type: "enum", label: "E", values: ["a"], default: "a", notes: { b: "B" }, cite: "p1" } },
@@ -2491,7 +2510,7 @@ function entryDeriveVectors() {
 }
 
 function fieldValueVectors() {
-  const defs: FieldDef[] = [
+  const defs: (FieldDef | CodexField)[] = [
     { label: "F", visibility: "gm", editableBy: "gm", type: "int" },
     { label: "F", visibility: "gm", editableBy: "gm", type: "int", min: -2, max: 5 },
     { label: "F", visibility: "gm", editableBy: "gm", type: "text" },
@@ -2502,12 +2521,14 @@ function fieldValueVectors() {
     { label: "F", visibility: "gm", editableBy: "gm", type: "ref", entity: "x" },
     { label: "F", visibility: "gm", editableBy: "gm", type: "list" },
     { label: "F", visibility: "gm", editableBy: "gm", type: "list", maxItems: 2 },
+    { label: "F", visibility: "party", type: "entry", kind: "location" },
   ];
   // prettier-ignore
   const values: unknown[] = [
     null, true, false, 0, 1, -2, -3, 5, 6, 1.5, 1e300, 2147483647, 2147483648, -2147483648, -2147483649, "", "a", "b", "abc", "abcd", "é😀", "😀😀", "x".repeat(120), "x".repeat(121),
     "x".repeat(10000), "x".repeat(10001), "é".repeat(10001), [], ["a"], ["a", "b"], ["a", "b", "c"], [1], ["a", 1], ["x".repeat(1000)], ["x".repeat(1001)], ["😀".repeat(501)],
     Array.from({ length: 500 }, () => "a"), Array.from({ length: 501 }, () => "a"), {}, { a: 1 },
+    "0193a1b2-c3d4-7e5f-8a6b-9c0d1e2f3a4b", "0193A1B2-C3D4-7E5F-8A6B-9C0D1E2F3A4B", "0193a1b2-c3d4-7e5f-8a6b-9c0d1e2f3a4", "0193a1b2-c3d4-9e5f-8a6b-9c0d1e2f3a4b", "00000000-0000-0000-0000-000000000000",
   ];
   return defs.flatMap((def) => values.map((value) => ({ def, value, why: checkFieldValue({ def, value }) })));
 }

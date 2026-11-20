@@ -322,3 +322,57 @@ test("enum labels and notes name the enum's own values, on entity and campaign f
   hasProblem(found, "entities[0].fields.size.labels.big", /"big" is not a value/);
   hasProblem(found, "campaignFields.era.notes.new", /"new" is not a value/);
 });
+
+// House decision #76: a codex field that links to another entry, and an enum's tones.
+test("codex: an entry link names one of the nine kinds, gm or party, and only in the codex block", () => {
+  const r = validateRuleset(SAMPLE_D20);
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  assert.deepEqual(r.ruleset.codex?.kinds.faction?.fields.seat, {
+    type: "entry",
+    label: "Seat",
+    kind: "location",
+    visibility: "gm",
+    cite: "Sample p.16",
+  });
+  const npc = (fields: unknown) => problems({ ...sample(), codex: { kinds: { npc: { fields } } } });
+  assert.deepEqual(npc({ at: { type: "entry", label: "At", kind: "faction", visibility: "party" } }), []);
+  assert.ok(
+    npc({ at: { type: "entry", label: "At", kind: "ship" } }).some((p) => p.path.startsWith("codex.kinds.npc")),
+  );
+  assert.ok(npc({ at: { type: "entry", label: "At" } }).some((p) => p.path.startsWith("codex.kinds.npc")));
+  hasProblem(
+    npc({ at: { type: "entry", label: "At", kind: "npc", visibility: "owner" } }),
+    "codex.kinds.npc.fields.at.visibility",
+    /./,
+  );
+  const s = sample();
+  const character = s.entities[0];
+  assert.ok(character);
+  character.fields = { ...character.fields, at: { type: "entry", label: "At", kind: "npc" } as never };
+  assert.ok(problems(s).some((p) => p.path.startsWith("entities[0].fields.at")));
+});
+
+test("enum tones are good or bad and name the enum's own values, wherever an enum takes words", () => {
+  const npc = (tones: unknown) =>
+    problems({
+      ...sample(),
+      codex: { kinds: { npc: { fields: { mood: { type: "enum", label: "M", values: ["a", "b"], tones } } } } },
+    });
+  assert.deepEqual(npc({ a: "good", b: "bad" }), []);
+  hasProblem(npc({ c: "good" }), "codex.kinds.npc.fields.mood.tones.c", /"c" is not a value/);
+  hasProblem(npc({ a: "warn" }), "codex.kinds.npc.fields.mood.tones.a", /./);
+  const s = sample();
+  const character = s.entities[0];
+  assert.ok(character);
+  character.fields = {
+    ...character.fields,
+    size: { type: "enum", label: "S", values: ["small"], tones: { big: "bad" } },
+  };
+  s.campaignFields = {
+    era: { type: "enum", label: "E", values: ["old"], default: "old", tones: { new: "good" }, cite: "p" },
+  };
+  const found = problems(s);
+  hasProblem(found, "entities[0].fields.size.tones.big", /"big" is not a value/);
+  hasProblem(found, "campaignFields.era.tones.new", /"new" is not a value/);
+});

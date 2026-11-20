@@ -33,6 +33,8 @@ func fieldsFixture(t *testing.T) string {
 			"sworn":  map[string]any{"type": "bool", "label": "Sworn", "visibility": "party"},
 			"backer": map[string]any{"type": "ref", "label": "Backer", "entity": "boon"},
 			"ally":   map[string]any{"type": "ref", "label": "Ally", "entity": "boon", "visibility": "party"},
+			"home":   map[string]any{"type": "entry", "label": "Home", "kind": "location", "visibility": "party"},
+			"friend": map[string]any{"type": "entry", "label": "Friend", "kind": "npc", "visibility": "party"},
 		}},
 		"faction": map[string]any{"fields": map[string]any{
 			"footing": map[string]any{"type": "enum", "label": "Footing", "values": []any{"ally", "rival"}},
@@ -126,6 +128,62 @@ func TestEntryFieldsArePatchedAndChecked(t *testing.T) {
 		p.send(secrets, saveFields(id, map[string]any{"backer": "hound"}))
 		player := room.Seat(t, tx, dbtest.User(t, tx, "P"))
 		p.refused(player, saveFields(id, map[string]any{"mood": "cold"}), "noPermission")
+	})
+}
+
+// House decision #76: a link names an entry of this room and of the field's kind, never the entry itself; deleting its
+// target rewrites nothing, and the link is then sent to nobody.
+func TestEntryLinksAreCheckedAndOutliveTheirTarget(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		room := dbtest.NewRoom(t, tx)
+		room.Pin(t, tx, fieldsFixture(t))
+		p := &play{t, tx, room}
+		gm := room.GM()
+		save := func(kind, title string) string {
+			return p.send(gm, map[string]any{"type": "codex.save", "kind": kind, "title": title}).ID
+		}
+		npc, place, band := save("npc", "Vale"), save("location", "Quay"), save("faction", "Band")
+		other := dbtest.NewRoom(t, tx)
+		elsewhere := p.send(other.GM(), map[string]any{"type": "codex.save", "kind": "location", "title": "Far"}).ID
+
+		for _, bad := range []map[string]any{
+			{"home": elsewhere}, // another room's entry
+			{"home": band},      // another kind
+			{"home": "0190a000-0000-7000-8000-000000000999"}, // no entry at all
+			{"home": "quay"}, // not an id
+			{"friend": npc},  // the entry itself
+		} {
+			p.refused(gm, saveFields(npc, bad), "badEntryField")
+		}
+		// A new entry has no id yet: it may link to any entry of the kind.
+		p.send(gm, map[string]any{"type": "codex.save", "kind": "npc", "title": "Wren", "fields": map[string]any{"friend": npc}})
+		p.send(gm, saveFields(npc, map[string]any{"home": place}))
+
+		player := room.Seat(t, tx, dbtest.User(t, tx, "P"))
+		p.send(gm, map[string]any{"type": "codex.reveal", "id": npc, "visibility": "party", "audienceMode": "all"})
+		p.send(gm, map[string]any{"type": "codex.reveal", "id": place, "visibility": "party", "audienceMode": "all"})
+		homeOf := func(c cs.Ctx) any {
+			for _, e := range p.seatView(c).Codex.Entries {
+				if e.ID == npc {
+					return e.Fields["home"]
+				}
+			}
+			return nil
+		}
+		if homeOf(player) != place || homeOf(gm) != place {
+			t.Fatalf("a link to a readable place reaches the player and the GM: %v, %v", homeOf(player), homeOf(gm))
+		}
+		p.send(gm, map[string]any{"type": "codex.reveal", "id": place, "visibility": "gm", "audienceMode": "all"})
+		if homeOf(player) != nil || homeOf(gm) != place {
+			t.Fatalf("a link to a hidden place reaches the GM only: %v, %v", homeOf(player), homeOf(gm))
+		}
+		p.send(gm, map[string]any{"type": "codex.delete", "id": place})
+		if homeOf(gm) != nil {
+			t.Fatalf("a link to a deleted entry reaches nobody, got %v", homeOf(gm))
+		}
+		if p.storedFields(npc)["home"] != place {
+			t.Fatalf("deleting the target rewrites nothing, got %v", p.storedFields(npc))
+		}
 	})
 }
 

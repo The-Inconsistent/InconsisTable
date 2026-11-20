@@ -3,7 +3,10 @@ package codex
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sort"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
@@ -59,6 +62,15 @@ func checkFields(ctx context.Context, tx core.Conn, c cs.Ctx, kind string, a cs.
 		if problem := engine.CheckFieldValue(&def, value); problem != "" {
 			return nil, cs.Fail("badEntryField", cs.Params{"field": def.Label, "detail": problem})
 		}
+		if def.Type == "entry" {
+			detail, err := linkProblem(ctx, tx, c.CampaignID, a, def.Kind, value.(string))
+			if err != nil {
+				return nil, err
+			}
+			if detail != "" {
+				return nil, cs.Fail("badEntryField", cs.Params{"field": def.Label, "detail": detail})
+			}
+		}
 		if def.Type == "ref" {
 			// A party field names only an entry the party may read, so its key never tells a player of a gm entry.
 			lookup, err := pack.ServedLookup(ctx, tx, c.CampaignID, []string{def.Entity}, def.Visibility == "gm" && view.ReadsGM(c))
@@ -75,4 +87,23 @@ func checkFields(ctx context.Context, tx core.Conn, c cs.Ctx, kind string, a cs.
 		return nil, err
 	}
 	return patch, nil
+}
+
+// linkProblem says why an `entry` field may not name target (house decision #76), or "" when it may: the target is an
+// entry of this room, of the field's kind, and not the entry being saved. Who may read it is the Seat view's business.
+func linkProblem(ctx context.Context, tx core.Conn, campaignID string, a cs.Action, kind, target string) (string, error) {
+	if id, _ := a["id"].(string); id == target {
+		return "an entry can't link to itself", nil
+	}
+	var got string
+	err := tx.QueryRow(ctx, `SELECT kind FROM codex_entry WHERE id = $1 AND campaign_id = $2`, target, campaignID).Scan(&got)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return "no such entry in this room", nil
+	case err != nil:
+		return "", err
+	case got != kind:
+		return "expected a " + kind + " entry", nil
+	}
+	return "", nil
 }

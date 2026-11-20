@@ -27,6 +27,9 @@ var fieldValueInput = schema.AnyOf(
 	schema.Array(schema.String().Max(maxListItemChars)).Max(maxListItems),
 )
 
+// entryID is the shape of an `entry` field's value, an entry's id (house decision #76).
+var entryID = schema.UUID()
+
 func unitLength(s string) int {
 	// ASCII is the common case, and there a unit is a byte.
 	if utf8.RuneCountInString(s) == len(s) {
@@ -79,6 +82,11 @@ func CheckFieldValue(def *FieldDef, value any) string {
 		text, ok := value.(string)
 		if !ok || text == "" || unitLength(text) > 120 {
 			return "expected an entry key"
+		}
+	case "entry":
+		// Only the shape; the server checks the id names an entry of the room and of the kind (house decision #76).
+		if _, issues := schema.Parse(entryID, value); len(issues) > 0 {
+			return "expected an entry id"
 		}
 	case "list":
 		items, ok := value.([]any)

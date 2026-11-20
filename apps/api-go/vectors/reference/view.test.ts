@@ -466,10 +466,64 @@ test("a gm entry field reaches only the side that reads GM notes; the player and
   // The served manifest carries the definitions the seat may read, and no `gm` one off that side.
   const defs = (c: Ctx, kind: "npc" | "faction") =>
     Object.keys(seatManifest({ ruleset: compiled.ruleset, ctx: c }).codex?.kinds[kind]?.fields ?? {}).sort();
-  assert.deepEqual(defs(ctx(member("player"), "u-x"), "npc"), ["disposition", "mood"]);
+  assert.deepEqual(defs(ctx(member("player"), "u-x"), "npc"), ["disposition", "home", "mood"]);
   assert.deepEqual(defs(ctx({ kind: "token", role: "screen", characterIds: [] }, null), "faction"), []);
-  assert.deepEqual(defs(ctx(member("cogm", ["combat"]), "u-co"), "npc"), ["disposition", "mood"]);
-  assert.deepEqual(defs(ctx(member("gm"), "u-gm"), "npc"), ["disposition", "mood", "patron"]);
+  assert.deepEqual(defs(ctx(member("cogm", ["combat"]), "u-co"), "npc"), ["disposition", "home", "mood"]);
+  assert.deepEqual(defs(ctx(member("gm"), "u-gm"), "npc"), ["disposition", "home", "mood", "patron"]);
+});
+
+// House decision #76: a link to another entry reaches a seat only when the seat may read the entry it names.
+test("an entry link reaches the GM notes side while its target exists, anyone else only when they read the target", () => {
+  const id = (n: number) => `00000000-0000-4000-8000-00000000000${n}`;
+  const [shown, hidden, gone, band] = [id(1), id(2), id(3), id(4)];
+  const linked = {
+    ...snapshot,
+    codex: {
+      ...codex,
+      entries: [
+        entry(shown, { kind: "location" }),
+        entry(hidden, { kind: "location", visibility: "gm" }),
+        entry("npc-a", { kind: "npc", fields: { home: shown } }),
+        entry("npc-b", { kind: "npc", fields: { home: hidden, mood: "warm" } }),
+        entry("npc-c", { kind: "npc", fields: { home: gone } }),
+        // Another kind than the field's, and the faction's gm seat.
+        entry("npc-d", { kind: "npc", fields: { home: band } }),
+        entry(band, { kind: "faction", fields: { seat: shown } }),
+        entry("band-b", { kind: "faction", visibility: "gm", fields: { seat: hidden } }),
+      ],
+    },
+  };
+  const fieldsOf = (c: Ctx) =>
+    Object.fromEntries(
+      seatView({ snapshot: linked, compiled, ctx: c }).codex.entries.map((e) => [e.id, e.fields] as const),
+    );
+  for (const c of [ctx(member("gm"), "u-gm"), ctx(member("cogm", ["codex.secrets"]), "u-co")]) {
+    const f = fieldsOf(c);
+    assert.deepEqual(f["npc-a"], { home: shown });
+    assert.deepEqual(f["npc-b"], { home: hidden, mood: "warm" });
+    assert.deepEqual(f["npc-c"], {});
+    assert.deepEqual(f["npc-d"], {});
+    assert.deepEqual(f[band], { seat: shown });
+    assert.deepEqual(f["band-b"], { seat: hidden });
+  }
+  // A co-GM with the codex but not its secrets reads every entry, and so every party link; never a gm one.
+  const co = fieldsOf(ctx(member("cogm", ["codex"]), "u-co"));
+  assert.deepEqual(co["npc-b"], { home: hidden, mood: "warm" });
+  assert.deepEqual(co[band], {});
+  for (const c of [
+    ctx(member("player"), "u-x"),
+    ctx({ kind: "token", role: "screen", characterIds: [] }, null),
+    ctx(member("cogm", ["combat"]), "u-co"),
+  ]) {
+    const f = fieldsOf(c);
+    assert.deepEqual(f["npc-a"], { home: shown });
+    // The party link to a hidden place is not sent at all; the rest of the entry is.
+    assert.deepEqual(f["npc-b"], { mood: "warm" });
+    assert.deepEqual(f["npc-c"], {});
+    assert.deepEqual(f[band], {});
+    assert.equal(f["band-b"], undefined);
+    assert.ok(!JSON.stringify(seatView({ snapshot: linked, compiled, ctx: c }).codex).includes(hidden));
+  }
 });
 
 test("a scene's prepared lines and status reach the codex and secrets sides only (house decision #73)", () => {

@@ -1064,14 +1064,43 @@ test("entry fields: the ruleset declares them, the GM sets them, a player and th
     const manifest = (await c.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset?.manifest as Defs;
     return Object.keys(manifest?.codex?.kinds[kind]?.fields ?? {}).sort();
   };
-  assert.deepEqual(await defsOf(me, "npc"), ["disposition", "mood", "patron"]);
-  assert.deepEqual(await defsOf(me, "faction"), ["standing"]);
-  assert.deepEqual(await defsOf(caller(anaDevice), "npc"), ["disposition", "mood"]);
+  assert.deepEqual(await defsOf(me, "npc"), ["disposition", "home", "mood", "patron"]);
+  assert.deepEqual(await defsOf(me, "faction"), ["seat", "standing"]);
+  assert.deepEqual(await defsOf(caller(anaDevice), "npc"), ["disposition", "home", "mood"]);
   assert.deepEqual(await defsOf(caller(anaDevice), "faction"), []);
   // A ref's entry is read by its type and key, as the seat may read it: the gm creature only from the GM side.
   const byKey = `/campaigns/${campaignId}/rules?type=creature&key=ember-wisp&limit=1`;
   assert.deepEqual(keysOf((await me.get<RulesReply>(byKey)).body), ["ember-wisp"]);
   assert.deepEqual(keysOf((await caller(anaDevice).get<RulesReply>(byKey)).body), []);
+
+  // Links to other entries (#76): the GM links the person to a place (the party's field) and the guild to it (the
+  // GM's). The server refuses another kind, the entry itself, and an id that is no entry of this room.
+  const quay = ok(await owner.send({ type: "codex.save", kind: "location", title: "Quay" })).id!;
+  const helper = ok(await owner.send({ type: "codex.save", kind: "npc", title: "Helper" })).id!;
+  for (const home of [band, "0190a000-0000-7000-8000-000000000999", "quay"])
+    refused(await owner.send({ type: "codex.save", id: npc, kind: "npc", fields: { home } }), "badEntryField");
+  refused(
+    await owner.send({ type: "codex.save", id: band, kind: "faction", fields: { seat: helper } }),
+    "badEntryField",
+  );
+  ok(await owner.send({ type: "codex.save", id: npc, kind: "npc", fields: { home: quay } }));
+  ok(await owner.send({ type: "codex.save", id: band, kind: "faction", fields: { seat: quay } }));
+  await eventually(() => fieldsOf(owner, band)?.seat === quay, "the GM reads both links");
+  assert.equal(fieldsOf(owner, npc)?.home, quay);
+  // The place is hidden: no player link yet, and never the guild's.
+  assert.equal(fieldsOf(ana, npc)?.home, undefined);
+  ok(await owner.send({ type: "codex.reveal", id: quay, visibility: "party", audienceMode: "all", audience: [] }));
+  await eventually(() => fieldsOf(ana, npc)?.home === quay, "the party's link once the place is readable");
+  assert.equal(fieldsOf(screen, npc)?.home, quay);
+  assert.equal(fieldsOf(ana, band)?.seat, undefined);
+  ok(await owner.send({ type: "codex.reveal", id: quay, visibility: "gm", audienceMode: "all", audience: [] }));
+  await eventually(() => fieldsOf(ana, npc)?.home === undefined, "the link goes with the place");
+  assert.ok(!JSON.stringify(ana.codex()).includes(quay), "nothing names the hidden place");
+  assert.equal(fieldsOf(owner, npc)?.home, quay);
+  // Deleting the place rewrites nothing; the link reaches nobody.
+  ok(await owner.send({ type: "codex.delete", id: quay }));
+  await eventually(() => fieldsOf(owner, npc)?.home === undefined, "a link to a deleted entry is not sent");
+  assert.equal(fieldsOf(owner, band)?.seat, undefined);
 
   // A room on a ruleset with no codex block takes no fields at all.
   const plain = await me.post<RulesetReply>("/rulesets", SAMPLE_NO_ORDER);
@@ -1271,7 +1300,7 @@ test("scene prep: each line is sent as the action it stands for; players and the
 test("codex entry, all at once: a nested place with a shown picture and a field, a laid-out handout, a prepared scene", async () => {
   // The d20 fixture declares no place field; this copy adds one, so the nested place can carry one.
   const ruleset = structuredClone(SAMPLE_D20);
-  ruleset.version = "0.1.3-all";
+  ruleset.version = "0.1.4-all";
   ruleset.codex!.kinds.location = {
     fields: {
       district: { type: "text", label: "District", maxLength: 40, visibility: "party", cite: "Sample p.17" },

@@ -2,7 +2,9 @@ package pack
 
 import (
 	"context"
+	"maps"
 	"regexp"
+	"slices"
 	"strconv"
 	"unicode/utf16"
 
@@ -94,9 +96,28 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	}
 	count, _ := a["count"].(float64)
 	temporary, _ := a["temporary"].(bool)
+	names := SpawnNames(taken, entry.Name, int(count))
+	body := entry.Body
+	var members map[string]float64
+	// A mob (house decision #66): one actor standing for N members, its start field and members resource at N.
+	if mob, isMob := a["mob"].(float64); isMob {
+		if count > 1 {
+			return cs.Result{}, cs.Fail("badRequest", cs.Params{"detail": "a mob is one actor: spawn it with a count of 1"})
+		}
+		harm := rules.Ruleset.Health.Harm
+		if harm == nil || harm.Mob == nil || !slices.Contains(rules.Entities[entry.Type].Resources, harm.Mob.Members) {
+			return cs.Result{}, cs.Fail("noMobsHere", cs.Params{"name": entry.Name})
+		}
+		n := strconv.FormatFloat(mob, 'f', -1, 64)
+		names = []string{sliceUnits(entry.Name, maxName-len(n)-2) + " ×" + n}
+		body = map[string]any{harm.Mob.Start: mob}
+		maps.Copy(body, entry.Body)
+		body[harm.Mob.Start] = mob
+		members = map[string]float64{harm.Mob.Members: mob}
+	}
 	made := []string{}
 	targets := []actor.StartTarget{}
-	for _, name := range SpawnNames(taken, entry.Name, int(count)) {
+	for _, name := range names {
 		var id string
 		if err := tx.QueryRow(ctx, `INSERT INTO actor (campaign_id, kind, entity_type, name, temporary, ruleset_version_id)
 			VALUES ($1, 'creature', $2, $3, $4, (SELECT ruleset_version_id FROM campaign WHERE id = $1)) RETURNING id::text`,
@@ -104,7 +125,7 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 			return cs.Result{}, err
 		}
 		made = append(made, id)
-		targets = append(targets, actor.StartTarget{ActorID: id, Fields: entry.Body})
+		targets = append(targets, actor.StartTarget{ActorID: id, Fields: body, Resources: members})
 	}
 	id, err := actor.WriteStart(ctx, tx, c, rules, targets)
 	if err != nil {

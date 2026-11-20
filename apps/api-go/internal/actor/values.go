@@ -343,6 +343,7 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]an
 			continue
 		}
 		b.Entity = r.Actor.EntityType
+		b.State.Entity = b.Entity
 		byField := map[string][]FieldRow{}
 		for _, f := range r.Fields {
 			byField[f.FieldID] = append(byField[f.FieldID], f)
@@ -365,7 +366,7 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]an
 				n := float64(*c.ExpiresAfter)
 				after = &n
 			}
-			b.State.Conditions = append(b.State.Conditions, engine.ConditionState{ID: c.ID, ExpiresOn: c.ExpiresOn, ExpiresAfter: after})
+			b.State.Conditions = append(b.State.Conditions, engine.ConditionState{ID: c.ID, ConditionID: c.ConditionID, ExpiresOn: c.ExpiresOn, ExpiresAfter: after})
 		}
 		values := engine.ActorValues{
 			Fields: b.Fields, Resources: b.Resources, Conditions: activeIDs(b.Conditions), Entries: b.Entries, Characters: characters, Campaign: campaign,
@@ -393,6 +394,7 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]an
 			live.Fields[k] = v
 		}
 		b.Scope = engine.ActorScopeWith(fields, live, b.Resources, characters, campaign, nil)
+		b.State.Scope = b.Scope
 		for _, x := range r.Resources {
 			if !slices.Contains(ce.Resources, x.ResourceID) {
 				continue
@@ -426,7 +428,7 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]an
 				return nil, err
 			}
 			b.State.Resources = append(b.State.Resources, engine.NamedResource{Name: x.ResourceID, State: engine.ResourceState{
-				Value: float64(x.Value), Min: bounds.Min, Max: held.Ceiling(), Reset: reset, InstantDeathAt: death,
+				Value: float64(x.Value), Min: bounds.Min, Max: held.Ceiling(), Reset: reset, InstantDeathAt: death, Limit: held.Max,
 			}})
 		}
 	}

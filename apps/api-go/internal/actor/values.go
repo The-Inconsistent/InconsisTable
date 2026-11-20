@@ -59,13 +59,24 @@ type ConditionRow struct {
 // place this is decided (it lives here, not in package pack, because pack imports this package). It reads campaign_pack and pack, so the query must join both. campaignParam is the
 // placeholder holding the campaign id, such as "$1".
 func ServedPacks(campaignParam string) string {
-	// Without a GM the owner counts as the one running the room (docs/adr/0009-table-modes.md), and only the owner's own
-	// pack: a private pack is never served on another user's say-so.
-	return fmt.Sprintf(`campaign_pack.campaign_id = %[1]s AND pack.disabled_at IS NULL AND (pack.license <> 'private' OR EXISTS (
-		SELECT 1 FROM membership WHERE membership.campaign_id = %[1]s AND membership.user_id = pack.owner_user_id AND membership.role = 'gm'
+	return fmt.Sprintf(`campaign_pack.campaign_id = %[1]s AND pack.disabled_at IS NULL AND (pack.license <> 'private' OR %[2]s)`,
+		campaignParam, runsRoom("pack.owner_user_id", campaignParam))
+}
+
+// ServedWorld is the SQL condition under which the room's pinned World reaches its seats (house decision #65): not
+// taken down, and its owner still runs the room, the rule a private pack follows (principle 4). The query joins `world`.
+func ServedWorld(campaignParam string) string {
+	return `world.disabled_at IS NULL AND ` + runsRoom("world.owner_user_id", campaignParam)
+}
+
+// runsRoom says the user in ownerColumn runs the room: as a GM of it, or, without a GM, as its owner, who counts as the
+// one running it (docs/adr/0009-table-modes.md). Only that user's own content: never served on another user's say-so.
+func runsRoom(ownerColumn, campaignParam string) string {
+	return fmt.Sprintf(`(EXISTS (
+		SELECT 1 FROM membership WHERE membership.campaign_id = %[1]s AND membership.user_id = %[2]s AND membership.role = 'gm'
 		) OR EXISTS (
-		SELECT 1 FROM campaign WHERE campaign.id = %[1]s AND campaign.table_mode <> 'gm' AND campaign.owner_user_id = pack.owner_user_id))`,
-		campaignParam)
+		SELECT 1 FROM campaign WHERE campaign.id = %[1]s AND campaign.table_mode <> 'gm' AND campaign.owner_user_id = %[2]s))`,
+		campaignParam, ownerColumn)
 }
 
 // ChosenEntry is an attached pack entry an actor holds an actor_choice row for, with the step that row belongs to.

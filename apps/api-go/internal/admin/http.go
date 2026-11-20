@@ -174,11 +174,29 @@ func (s *Service) Packs(_ http.ResponseWriter, r *http.Request) (any, error) {
 // SetPackDisabled is notice-and-takedown (docs/design.md §4.6): a disabled pack is served to nobody and can't be
 // attached or re-imported, at once, in every room. Logged with the owner as target. False when there is no such pack.
 func SetPackDisabled(ctx context.Context, db *pgxpool.Pool, packID string, disabled bool) (bool, error) {
+	return setDisabled(ctx, db, takenDownPack, packID, disabled)
+}
+
+// SetWorldDisabled is the same for a World (house decision #65): a disabled World is served to nobody and can't be
+// pinned, exported or imported again.
+func SetWorldDisabled(ctx context.Context, db *pgxpool.Pool, worldID string, disabled bool) (bool, error) {
+	return setDisabled(ctx, db, takenDownWorld, worldID, disabled)
+}
+
+// What an admin can take down: the table, and the noun its admin_event actions and not-found answer use.
+type takenDown struct{ table, notFound string }
+
+var (
+	takenDownPack  = takenDown{"pack", "Pack not found"}
+	takenDownWorld = takenDown{"world", "World not found"}
+)
+
+func setDisabled(ctx context.Context, db *pgxpool.Pool, kind takenDown, id string, disabled bool) (bool, error) {
 	found := false
 	err := core.InTx(ctx, db, func(tx pgx.Tx) error {
 		var slug, owner string
-		err := tx.QueryRow(ctx, `UPDATE pack SET disabled_at = CASE WHEN $2 THEN now() END WHERE id = $1
-			RETURNING slug, owner_user_id`, packID, disabled).Scan(&slug, &owner)
+		err := tx.QueryRow(ctx, `UPDATE `+kind.table+` SET disabled_at = CASE WHEN $2 THEN now() END WHERE id = $1
+			RETURNING slug, owner_user_id`, id, disabled).Scan(&slug, &owner)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -186,12 +204,12 @@ func SetPackDisabled(ctx context.Context, db *pgxpool.Pool, packID string, disab
 			return err
 		}
 		found = true
-		action := "pack.enable"
+		action := kind.table + ".enable"
 		if disabled {
-			action = "pack.disable"
+			action = kind.table + ".disable"
 		}
 		_, err = tx.Exec(ctx, `INSERT INTO admin_event (actor_user_id, action, target_user_id, detail) VALUES ($1, $2, $3, $4)`,
-			KeyActor, action, owner, slug+" ("+packID+")")
+			KeyActor, action, owner, slug+" ("+id+")")
 		return err
 	})
 	return found, err
@@ -199,10 +217,19 @@ func SetPackDisabled(ctx context.Context, db *pgxpool.Pool, packID string, disab
 
 // DisablePack is POST /api/admin/packs/{id}/disable: takes a pack down at once, or puts it back.
 func (s *Service) DisablePack(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.disable(w, r, takenDownPack)
+}
+
+// DisableWorld is POST /api/admin/worlds/{id}/disable: takes a World down at once, or puts it back.
+func (s *Service) DisableWorld(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.disable(w, r, takenDownWorld)
+}
+
+func (s *Service) disable(w http.ResponseWriter, r *http.Request, kind takenDown) (any, error) {
 	if err := guard(r); err != nil {
 		return nil, err
 	}
-	packID, idOK := uuid(r.PathValue("id"))
+	id, idOK := uuid(r.PathValue("id"))
 	body, err := core.ReadBody(w, r, core.MaxBody)
 	if err != nil {
 		return nil, err
@@ -211,12 +238,12 @@ func (s *Service) DisablePack(w http.ResponseWriter, r *http.Request) (any, erro
 	if !idOK || len(issues) > 0 {
 		return nil, badRequest("Not a takedown request")
 	}
-	found, err := SetPackDisabled(r.Context(), s.DB, packID, parsed.(map[string]any)["disabled"].(bool))
+	found, err := setDisabled(r.Context(), s.DB, kind, id, parsed.(map[string]any)["disabled"].(bool))
 	if err != nil {
 		return nil, err
 	}
 	if !found {
-		return nil, notFound("Pack not found")
+		return nil, notFound(kind.notFound)
 	}
 	return map[string]bool{"ok": true}, nil
 }

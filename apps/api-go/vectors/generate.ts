@@ -68,6 +68,7 @@ import { charge } from "../../../packages/rules-engine/src/primitives/primitive.
 import { PRIMITIVES, runOp } from "../../../packages/rules-engine/src/primitives/registry.ts";
 import { firstOf, nextFirst, sequence } from "../../../packages/rules-engine/src/primitives/initiative-seated.ts";
 import { poolSize } from "../../../packages/rules-engine/src/primitives/dice-pool-successes.ts";
+import { worldVectors } from "./world.ts";
 
 const OUT = join(import.meta.dirname, "../internal/engine/testdata/vectors.json");
 
@@ -2658,6 +2659,7 @@ const vectors = {
   diffs: diffVectors(),
   seats: seatVectors(),
   poolSizes: poolSizeVectors(),
+  worlds: worldVectors(),
 };
 
 mkdirSync(dirname(OUT), { recursive: true });

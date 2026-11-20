@@ -19,6 +19,8 @@ type (
 		Safety           Safety  `json:"safety"`
 		// Fields is each campaign field of the pinned ruleset at its value in play; {} without a ruleset or fields.
 		Fields map[string]any `json:"fields"`
+		// WorldVersionID is the pinned World version (house decision #65), or nil; the World is served by the rules read.
+		WorldVersionID *string `json:"worldVersionId"`
 	}
 	// Safety is the table's Session Zero: what stays out (lines), what stays off the page (veils), the X-Card's switch.
 	Safety struct {

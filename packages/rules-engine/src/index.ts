@@ -79,3 +79,4 @@ export * from "./scoring.ts";
 export * from "./view.ts";
 export * from "./breakdown.ts";
 export * from "./build/index.ts";
+export * from "./world.ts";

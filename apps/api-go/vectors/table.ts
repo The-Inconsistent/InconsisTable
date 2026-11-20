@@ -168,6 +168,7 @@ const STATE = {
     tableMode: "gm",
     safety: { lines: ["Line one"], veils: ["Veil one"], xCard: true },
     fields: { danger: 2, edge: "open", dark: false },
+    worldVersionId: U(990),
   },
   stateVersion: 9,
   session: {
@@ -500,7 +501,14 @@ const BASE_SNAPSHOTS: {
   { name: "no ruleset", state: STATE, codex: CODEX, drafts: DRAFTS, ruleset: false },
   {
     name: "quiet",
-    state: { ...STATE, session: null, encounter: null, tests: [], actors: [] },
+    state: {
+      ...STATE,
+      campaign: { ...STATE.campaign, worldVersionId: null },
+      session: null,
+      encounter: null,
+      tests: [],
+      actors: [],
+    },
     codex: { entries: [], recaps: [] },
     drafts: {},
     ruleset: true,
@@ -681,6 +689,8 @@ const VALID: Record<string, Record<string, unknown>> = {
   "campaign.setField": { fieldId: "danger", value: 3 },
   "campaign.attachPack": { packVersionId: ID },
   "campaign.detachPack": { packVersionId: ID },
+  "campaign.setWorld": { worldVersionId: ID },
+  "campaign.unsetWorld": {},
   "session.start": { title: " Night " },
   "session.end": { recap: "done", award: 20 },
   "session.edit": { sessionId: ID, title: "t", recap: "r", notes: "n" },

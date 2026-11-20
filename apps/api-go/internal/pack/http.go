@@ -11,6 +11,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/schema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/world"
 )
 
 // Service holds the owner's library routes, outside any table (docs/design.md §5.3): what they import is theirs alone
@@ -160,6 +161,84 @@ func (s *Service) Export(_ http.ResponseWriter, r *http.Request) (any, error) {
 	}
 	if out == nil {
 		return nil, core.Refuse(http.StatusNotFound, "packNotFound")
+	}
+	return out, nil
+}
+
+func worldID(r *http.Request) (string, error) {
+	id, issues := schema.Parse(schema.UUID(), r.PathValue("id"))
+	if len(issues) > 0 {
+		return "", core.Refuse(http.StatusBadRequest, "notAWorldId")
+	}
+	return id.(string), nil
+}
+
+// ImportWorld is POST /api/worlds (house decision #65).
+func (s *Service) ImportWorld(w http.ResponseWriter, r *http.Request) (any, error) {
+	user, err := s.importer(r)
+	if err != nil {
+		return nil, err
+	}
+	body, err := readBody(w, r, false)
+	if err != nil {
+		return nil, refusing(err)
+	}
+	out, err := world.Import(r.Context(), s.DB, user.UserID, body)
+	if err != nil {
+		return nil, refusing(err)
+	}
+	return core.Created{Body: out}, nil
+}
+
+// Worlds is GET /api/worlds: the caller's own.
+func (s *Service) Worlds(_ http.ResponseWriter, r *http.Request) (any, error) {
+	user, err := s.caller(r)
+	if err != nil {
+		return nil, err
+	}
+	return world.List(r.Context(), s.DB, user.UserID)
+}
+
+// ExportWorld is GET /api/worlds/{id}/export: the owner's newest version, as ImportWorld takes it. Anyone else's World
+// answers like a missing one.
+func (s *Service) ExportWorld(_ http.ResponseWriter, r *http.Request) (any, error) {
+	user, err := s.caller(r)
+	if err != nil {
+		return nil, err
+	}
+	id, err := worldID(r)
+	if err != nil {
+		return nil, err
+	}
+	out, err := world.Export(r.Context(), s.DB, user.UserID, id)
+	if errors.Is(err, world.ErrTakenDown) {
+		return nil, core.Refuse(http.StatusForbidden, "worldTakenDown")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if out == nil {
+		return nil, core.Refuse(http.StatusNotFound, "worldNotFound")
+	}
+	return out, nil
+}
+
+// HideWorld is POST /api/worlds/{id}/hide.
+func (s *Service) HideWorld(_ http.ResponseWriter, r *http.Request) (any, error) {
+	user, err := s.caller(r)
+	if err != nil {
+		return nil, err
+	}
+	id, err := worldID(r)
+	if err != nil {
+		return nil, err
+	}
+	out, err := world.Hide(r.Context(), s.DB, user.UserID, id)
+	if err != nil {
+		return nil, err
+	}
+	if out == nil {
+		return nil, core.Refuse(http.StatusNotFound, "worldNotFound")
 	}
 	return out, nil
 }

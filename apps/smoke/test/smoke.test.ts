@@ -24,6 +24,7 @@ import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/samp
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
 import { SAMPLE_LEDGER_RULESET } from "../../../packages/rules-engine/src/fixtures/sample-ledger-ruleset.ts";
 import { SAMPLE_LEDGER_PACK } from "../../../packages/rules-engine/src/fixtures/sample-ledger-pack.ts";
+import { SAMPLE_WORLD } from "../../../packages/rules-engine/src/fixtures/sample-world.ts";
 import { SAMPLE_PARAMS } from "../../../packages/rules-engine/src/build/fixtures/sample-ledger.ts";
 import { buildSchemas } from "../../../packages/rules-engine/src/build/schemas.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
@@ -1236,6 +1237,138 @@ test("takedown: an admin disables a pack in every room at once, and it is logged
   assert.equal((await disable(null, false)).status, 200);
   assert.equal((await me.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.entries.length, 4);
   owner.socket.close();
+});
+
+// ---- Worlds (house decision #65): imported by their owner, pinned by the one running the room, read by every seat ----
+
+interface WorldReply {
+  worldId: string;
+  versionId: string;
+  version: string;
+  unchanged: boolean;
+  problems?: Problem[];
+}
+interface ServedWorld {
+  versionId: string;
+  slug: string;
+  version: string;
+  name: string;
+  theme: { schemes: Record<string, Record<string, string>>; texture?: string };
+}
+
+test("Worlds: imported, pinned, read by every seat of the room, changed mid-session, unset, hidden, taken down", async () => {
+  assert.equal((await post("/worlds", SAMPLE_WORLD)).status, 401);
+  const ownerDevice = await device("wd-owner");
+  const me = caller(ownerDevice);
+
+  // The importer refuses a World that is hard to read, by path, and stores versions as a ruleset's.
+  const dim = await me.post<WorldReply>("/worlds", {
+    ...SAMPLE_WORLD,
+    theme: { schemes: { dark: { ink: "#000000" } } },
+  });
+  assert.equal(dim.status, 422);
+  assert.deepEqual(dim.body.problems?.[0], {
+    path: "theme.schemes.dark",
+    message: '"ink" on "paper" is 1.25:1, under 4.5:1',
+  });
+  const first = await me.post<WorldReply>("/worlds", SAMPLE_WORLD);
+  assert.equal(first.status, 201);
+  const same = await me.post<WorldReply>("/worlds", SAMPLE_WORLD);
+  assert.deepEqual([same.body.unchanged, same.body.versionId], [true, first.body.versionId]);
+  const clash = await me.post<WorldReply>("/worlds", { ...SAMPLE_WORLD, name: "Other tide" });
+  assert.equal(clash.status, 422);
+  assert.match(clash.body.problems?.[0]?.message ?? "", /raise the version/);
+  const second = await me.post<WorldReply>("/worlds", { ...SAMPLE_WORLD, version: "0.2.0", name: "Tidewater at dusk" });
+  assert.deepEqual([second.status, second.body.worldId], [201, first.body.worldId]);
+  const listed = await me.get<{ slug: string; versions: { version: string }[] }[]>("/worlds");
+  assert.deepEqual(
+    listed.body.map((w) => [w.slug, w.versions.map((v) => v.version)]),
+    [["sample-tidewater", ["0.2.0", "0.1.0"]]],
+  );
+  const exported = await me.get<{ version: string }>(`/worlds/${first.body.worldId}/export`);
+  assert.deepEqual([exported.status, exported.body.version], [200, "0.2.0"]);
+  assert.equal((await me.get("/worlds/not-an-id/export")).status, 400);
+  const stranger = caller(await device("wd-stranger"));
+  assert.equal((await stranger.get(`/worlds/${first.body.worldId}/export`)).status, 404);
+  assert.deepEqual((await stranger.get<unknown[]>("/worlds")).body, []);
+
+  // A room in session, a player and the table screen.
+  const { campaignId } = (await me.post<{ campaignId: string }>("/campaigns", { name: "Tide room" })).body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until((s) => s.campaign.worldVersionId === null);
+  ok(await owner.send({ type: "session.start" }));
+  const anaDevice = await seatPlayer(owner, "wd-ana");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  const screenToken = ok(await owner.send({ type: "screen.issue" })).token!;
+  const screen = connect({ auth: { campaignId, token: screenToken } });
+  await Promise.all([ana.until(() => true), screen.until(() => true)]);
+  const readers = {
+    gm: () => me.get<{ world: ServedWorld | null }>(`/campaigns/${campaignId}/rules`),
+    player: () => caller(anaDevice).get<{ world: ServedWorld | null }>(`/campaigns/${campaignId}/rules`),
+    screen: async () => {
+      const res = await get(`/campaigns/${campaignId}/rules`, { cookie: `it_token=${screenToken}` });
+      return { status: res.status, body: (await res.json()) as { world: ServedWorld | null } };
+    },
+  };
+  const everyone = async (versionId: string | null) => {
+    await Promise.all([owner, ana, screen].map((c) => c.until((s) => s.campaign.worldVersionId === versionId)));
+    for (const [seat, read] of Object.entries(readers)) {
+      const { status, body } = await read();
+      assert.equal(status, 200, seat);
+      assert.equal(body.world?.versionId ?? null, versionId, `${seat} reads the room's World`);
+    }
+  };
+
+  // Pinning: only the one running the room, only a World of their own.
+  const rival = await caller(await device("wd-rival")).post<WorldReply>("/worlds", SAMPLE_WORLD);
+  refused(await ana.send({ type: "campaign.setWorld", worldVersionId: first.body.versionId }), "noPermission");
+  refused(await screen.send({ type: "campaign.setWorld", worldVersionId: first.body.versionId }), "screenReadOnly");
+  refused(await owner.send({ type: "campaign.setWorld", worldVersionId: crypto.randomUUID() }), "worldNotFound");
+  refused(await owner.send({ type: "campaign.setWorld", worldVersionId: rival.body.versionId }), "worldNotFound");
+  ok(await owner.send({ type: "campaign.setWorld", worldVersionId: first.body.versionId }));
+  await everyone(first.body.versionId);
+  const served = (await readers.screen()).body.world;
+  assert.deepEqual(
+    [served?.slug, served?.version, served?.name, served?.theme.texture],
+    ["sample-tidewater", "0.1.0", "Tidewater", "paper"],
+  );
+  assert.equal(served?.theme.schemes.dark?.wood, "#0f2326");
+  assert.equal((await caller(await device("wd-outsider")).get(`/campaigns/${campaignId}/rules`)).status, 401);
+
+  // Changed mid-session, then unset.
+  ok(await owner.send({ type: "campaign.setWorld", worldVersionId: second.body.versionId }));
+  await everyone(second.body.versionId);
+  ok(await owner.send({ type: "campaign.unsetWorld" }));
+  await everyone(null);
+  refused(await ana.send({ type: "campaign.unsetWorld" }), "noPermission");
+
+  // Taken down: served to nobody, not pinned, not exported, not imported again; put back, served again.
+  ok(await owner.send({ type: "campaign.setWorld", worldVersionId: second.body.versionId }));
+  await everyone(second.body.versionId);
+  const takedown = (disabled: boolean) => post(`/admin/worlds/${first.body.worldId}/disable`, { disabled }, ADMIN);
+  assert.equal((await post(`/admin/worlds/${first.body.worldId}/disable`, { disabled: true })).status, 401);
+  assert.equal((await takedown(true)).status, 200);
+  assert.equal((await readers.player()).body.world, null, "a taken-down World is served to nobody");
+  refused(await owner.send({ type: "campaign.setWorld", worldVersionId: first.body.versionId }), "worldTakenDown");
+  assert.equal((await me.get(`/worlds/${first.body.worldId}/export`)).status, 403);
+  const reimport = await me.post<WorldReply>("/worlds", { ...SAMPLE_WORLD, version: "0.3.0" });
+  assert.equal(reimport.status, 422);
+  assert.match(reimport.body.problems?.[0]?.message ?? "", /taken down/);
+  const events = (await (await get("/admin/events", ADMIN)).json()) as { action: string; targetUserId: string }[];
+  assert.ok(events.some((e) => e.action === "world.disable" && e.targetUserId === uid("wd-owner")));
+  assert.equal((await post(`/admin/worlds/${crypto.randomUUID()}/disable`, { disabled: true }, ADMIN)).status, 404);
+  assert.equal((await takedown(false)).status, 200);
+  assert.equal((await readers.gm()).body.world?.versionId, second.body.versionId);
+
+  // Hidden while pinned: the room keeps its look, but it can't be pinned again until imported again.
+  assert.deepEqual((await me.post(`/worlds/${first.body.worldId}/hide`, {})).body, { deleted: false });
+  assert.deepEqual((await me.get<unknown[]>("/worlds")).body, []);
+  assert.equal((await readers.gm()).body.world?.versionId, second.body.versionId);
+  refused(await owner.send({ type: "campaign.setWorld", worldVersionId: first.body.versionId }), "worldDeleted");
+  ok(await owner.send({ type: "campaign.unsetWorld" }));
+  assert.deepEqual((await me.post(`/worlds/${first.body.worldId}/hide`, {})).body, { deleted: true });
+  assert.equal((await stranger.post(`/worlds/${rival.body.worldId}/hide`, {})).status, 404);
+  for (const c of [owner, ana, screen]) c.socket.close();
 });
 
 // ---- Ruleset actions: the pipeline, the value rows and undo (docs/design.md §5.3-5.4) ----------------------------

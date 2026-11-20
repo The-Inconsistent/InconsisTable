@@ -214,6 +214,8 @@ var handlers = map[string]handler{
 	"campaign.setField":     campaign.SetField,
 	"campaign.attachPack":   campaign.AttachPack,
 	"campaign.detachPack":   campaign.DetachPack,
+	"campaign.setWorld":     campaign.SetWorld,
+	"campaign.unsetWorld":   campaign.UnsetWorld,
 	// campaign/event.actions.ts
 	"event.undo": campaign.Undo,
 	// actor/actor.actions.ts

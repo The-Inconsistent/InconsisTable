@@ -395,7 +395,7 @@ type (
 		Visibility   string   `json:"visibility"`
 		AudienceMode string   `json:"audienceMode"`
 		Audience     []string `json:"audience"`
-		// Status is open, done or failed on a quest and null on every other kind.
+		// Status is open, done or failed on a quest, planned, active, done or skipped on a scene, and null otherwise.
 		Status *string `json:"status"`
 		// ParentID is the adventure a scene belongs to; Position orders siblings (an adventure's scenes, adventures).
 		ParentID *string `json:"parentId"`
@@ -404,6 +404,8 @@ type (
 		Links []string `json:"links"`
 		// PlannedTests are the ruleset Test ids a scene plans; the GM side only.
 		PlannedTests []string `json:"plannedTests"`
+		// Prep is a scene's prepared lines as stored (ScenePrep), the codex and secrets sides only; nil when none.
+		Prep any `json:"prep"`
 	}
 	// Codex is the `codex` event.
 	Codex struct {

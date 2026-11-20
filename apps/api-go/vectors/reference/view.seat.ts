@@ -346,6 +346,9 @@ function seatCodex({ codex, ctx, sight }: { codex: Codex; ctx: Ctx; sight: Sight
       parentId: e.parentId !== null && ids.has(e.parentId) ? e.parentId : null,
       links: e.links.filter((l) => ids.has(l)),
       plannedTests: sight.secrets || sight.codex ? e.plannedTests : [],
+      // A scene's prepared lines and where it stands: the codex and secrets sides only (house decision #73).
+      prep: sight.secrets || sight.codex ? e.prep : null,
+      status: sight.secrets || sight.codex || e.kind !== "scene" ? e.status : null,
     })),
   };
 }

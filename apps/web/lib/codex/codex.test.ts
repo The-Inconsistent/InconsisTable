@@ -19,6 +19,7 @@ const entry = (over: Partial<CodexEntry>): CodexEntry => ({
   position: 0,
   links: [],
   plannedTests: [],
+  prep: null,
   ...over,
 });
 

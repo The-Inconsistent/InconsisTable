@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Encounter, Game } from "./encounter.ts";
+import { ScenePrep, SceneStatus } from "./prep.ts";
 import { CogmScope, MemberRole, TableMode } from "./seat.ts";
 import { TestCall, TestDef } from "./test-call.ts";
 
@@ -307,6 +308,8 @@ export const CodexText = z.string().max(20_000);
 
 export const QuestStatus = z.enum(["open", "done", "failed"]);
 export type QuestStatus = z.infer<typeof QuestStatus>;
+// Every status `codex.save` takes: a quest's, or a scene's (house decision #73). The api checks it fits the kind.
+export const EntryStatus = z.enum(["open", "done", "failed", "planned", "active", "skipped"]);
 
 export const MAX_PLANNED_TESTS = 10;
 
@@ -319,11 +322,15 @@ export const CodexEntry = z.object({
   visibility: CodexVisibility,
   audienceMode: AudienceMode,
   audience: z.array(z.string()), // actor ids, when audienceMode is "listed"
-  status: QuestStatus.nullable(), // a quest's; null on every other kind. Seen by whoever sees the entry
+  // A quest's (seen by whoever sees the entry), or a scene's (the codex and secrets sides only); null otherwise.
+  status: z.union([QuestStatus, SceneStatus]).nullable(),
   parentId: z.string().nullable(), // a scene's adventure; null for a seat that can't see the adventure
   position: z.number().int(), // order among siblings (an adventure's scenes, the adventures)
   links: z.array(z.string()), // entries a scene points at, only those the seat can also see
+  // ponytail: a scene's test lines (`prep.tests`) supersede these ids; fold each into a test line with no inputs in a
+  // migration once the import no longer writes them, then drop the column and the field.
   plannedTests: z.array(z.string()), // a scene's planned ruleset Test ids; GM side only
+  prep: ScenePrep.nullable(), // a scene's prepared lines; the codex and secrets sides only (house decision #73)
 });
 export type CodexEntry = z.infer<typeof CodexEntry>;
 

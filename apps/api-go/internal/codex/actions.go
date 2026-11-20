@@ -2,6 +2,7 @@ package codex
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 
@@ -62,19 +63,47 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 			return cs.Result{}, err
 		}
 	}
-	if status != nil && kind != "quest" {
-		return cs.Result{}, cs.Fail("onlyQuestStatus")
+	if status != nil {
+		switch kind {
+		case "quest", "scene":
+			if !slices.Contains(map[string][]string{"quest": cs.QuestStatuses, "scene": cs.SceneStatuses}[kind], *status) {
+				return cs.Result{}, cs.Fail("wrongStatus")
+			}
+		default:
+			return cs.Result{}, cs.Fail("onlyQuestStatus")
+		}
 	}
 	if plannedSent && kind != "scene" {
 		return cs.Result{}, cs.Fail("onlySceneTests")
+	}
+	// The prepared lines replace the stored ones whole; null clears them (house decision #73).
+	prep, prepSent := a["prep"]
+	var prepJSON *string
+	if prepSent && kind != "scene" {
+		return cs.Result{}, cs.Fail("sceneOnly")
+	}
+	if prepSent && prep != nil {
+		b, err := json.Marshal(prep)
+		if err != nil {
+			return cs.Result{}, err
+		}
+		text := string(b)
+		prepJSON = &text
+	}
+	// One scene of a room is active at a time: making one active leaves the one being played done, as taking an exit
+	// does at a table (house decision #73).
+	if kind == "scene" && status != nil && *status == "active" {
+		if _, err := tx.Exec(ctx, `UPDATE codex_entry SET status = 'done'
+			WHERE campaign_id = $1 AND kind = 'scene' AND status = 'active' AND id::text IS DISTINCT FROM $2`, cid, a["id"]); err != nil {
+			return cs.Result{}, err
+		}
 	}
 	if !existing {
 		if title == nil {
 			return cs.Result{}, cs.Fail("giveTitle")
 		}
-		if kind == "quest" && status == nil {
-			open := "open"
-			status = &open
+		if fallback := map[string]string{"quest": "open", "scene": "planned"}[kind]; status == nil && fallback != "" {
+			status = &fallback
 		}
 		// A new entry goes last among its siblings (the other unparented entries of its kind).
 		// A new entry is GM-only; without a GM nothing can be, so it is the party's.
@@ -82,15 +111,17 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 		if !c.HasGM() {
 			visibility = "party"
 		}
-		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, visibility, position)
+		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, visibility, position, prep)
 			VALUES ($1, $2, $3, coalesce($4, ''), coalesce($5, ''), $6, coalesce($7::text[], '{}'), $8,
-				(SELECT coalesce(max(position) + 1, 0) FROM codex_entry WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NULL))
-			RETURNING id::text`, cid, kind, *title, body, notes, status, planned, visibility).Scan(&id)
+				(SELECT coalesce(max(position) + 1, 0) FROM codex_entry WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NULL),
+				$9::jsonb)
+			RETURNING id::text`, cid, kind, *title, body, notes, status, planned, visibility, prepJSON).Scan(&id)
 		return cs.Done(id), err
 	}
 	_, err := tx.Exec(ctx, `UPDATE codex_entry SET title = coalesce($2, title), body = coalesce($3, body),
-		gm_notes = coalesce($4, gm_notes), status = coalesce($5, status), planned_tests = coalesce($6::text[], planned_tests)
-		WHERE id = $1`, id, title, body, notes, status, planned)
+		gm_notes = coalesce($4, gm_notes), status = coalesce($5, status), planned_tests = coalesce($6::text[], planned_tests),
+		prep = CASE WHEN $7 THEN $8::jsonb ELSE prep END
+		WHERE id = $1`, id, title, body, notes, status, planned, prepSent, prepJSON)
 	return cs.Done(id), err
 }
 

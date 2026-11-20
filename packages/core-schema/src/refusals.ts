@@ -157,10 +157,12 @@ export const REFUSALS = {
   needSecretsScope: "GM notes need the secrets scope",
   giveTitle: "Give the entry a title",
   pickAudience: "Pick who sees it",
-  onlyQuestStatus: "Only a quest has a status.",
+  onlyQuestStatus: "Only a quest or a scene has a status.",
+  wrongStatus: "That status is not one this kind of entry has.",
   sceneNeedsAdventure: "A scene belongs to an adventure.",
   adventureHasScenes: "Move or delete its scenes first.",
   onlySceneTests: "Only a scene plans Tests.",
+  sceneOnly: "Only a scene holds prepared lines.",
   cantLinkThat: "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
   // Clocks
   clockNotFound: "Clock not found",

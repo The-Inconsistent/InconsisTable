@@ -322,8 +322,14 @@ func seatCodex(codex cs.Codex, c cs.Ctx, sight Sight) cs.Codex {
 			}
 		}
 		e.Links = links
+		// A scene's plan, its prepared lines and where it stands reach the codex and secrets sides only (house decision
+		// #73): those read every entry, so an exit or a reveal never names one a seat cannot read.
 		if !sight.Secrets && !sight.Codex {
 			e.PlannedTests = []string{}
+			e.Prep = nil
+			if e.Kind == "scene" {
+				e.Status = nil
+			}
 		}
 		if !sight.Secrets && !sight.Codex {
 			audience := []string{}

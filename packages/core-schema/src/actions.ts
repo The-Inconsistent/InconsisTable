@@ -9,7 +9,7 @@ import {
   BuilderDraftBody,
   CampaignName,
   CodexKind,
-  QuestStatus,
+  EntryStatus,
   CodexText,
   CodexTitle,
   ClockName,
@@ -26,6 +26,7 @@ import {
   SafetyList,
 } from "./state.ts";
 import { ENCOUNTER_ACTIONS } from "./encounter.ts";
+import { ScenePrep } from "./prep.ts";
 import { TestCallAction, TestCloseAction, TestReportAction } from "./test-call.ts";
 
 // Every mutation goes through one socket event: "action" (CLAUDE.md, "The server decides"). These are the core
@@ -190,8 +191,9 @@ export const Action = z.discriminatedUnion("type", [
     title: CodexTitle.optional(),
     body: CodexText.optional(),
     gmNotes: CodexText.optional(),
-    status: QuestStatus.optional(), // a quest only
+    status: EntryStatus.optional(), // a quest's or a scene's, of that kind's set
     plannedTests: z.array(z.string().min(1).max(100)).max(10).optional(), // a scene only: ruleset Test ids
+    prep: ScenePrep.nullable().optional(), // a scene only: the whole document replaces the stored one, null clears it
   }),
   z.object({
     type: z.literal("codex.reveal"),

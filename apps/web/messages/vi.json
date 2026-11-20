@@ -1161,10 +1161,12 @@
     "needSecretsScope": "Ghi chú GM cần quyền bí mật (secrets)",
     "giveTitle": "Hãy đặt tiêu đề cho mục này",
     "pickAudience": "Hãy chọn ai được xem",
-    "onlyQuestStatus": "Chỉ nhiệm vụ mới có trạng thái.",
+    "onlyQuestStatus": "Chỉ nhiệm vụ hoặc cảnh mới có trạng thái.",
+    "wrongStatus": "Trạng thái đó không thuộc loại mục này.",
     "sceneNeedsAdventure": "Một cảnh thuộc về một cuộc phiêu lưu.",
     "adventureHasScenes": "Hãy chuyển hoặc xóa các cảnh của nó trước.",
     "onlySceneTests": "Chỉ cảnh mới lên kế hoạch cho Test.",
+    "sceneOnly": "Chỉ cảnh mới có các dòng chuẩn bị.",
     "cantLinkThat": "Một cảnh liên kết NPC, địa điểm, phe phái, vật phẩm, tài liệu, tri thức và nhiệm vụ.",
     "nothingToUndo": "Không có gì để hoàn tác",
     "cantUndoKind": "Chưa hoàn tác được loại bước này",
@@ -1304,7 +1306,10 @@
     "status": {
       "open": "Đang mở",
       "done": "Xong",
-      "failed": "Thất bại"
+      "failed": "Thất bại",
+      "planned": "Dự kiến",
+      "active": "Đang chơi",
+      "skipped": "Bỏ qua"
     },
     "kind": {
       "adventure": "Cuộc phiêu lưu",

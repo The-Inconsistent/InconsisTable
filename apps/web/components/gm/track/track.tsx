@@ -29,6 +29,7 @@ import { EndNotice } from "@/components/ui/end-notice/end-notice";
 import { GameResult } from "@/components/ui/game-result/game-result";
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
+import { gmSideOf } from "@/lib/ledger/table";
 import { currentOf } from "@/lib/track/track";
 import type { TrackMode } from "@/components/gm/track/constants";
 
@@ -160,6 +161,11 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
             send={send}
             books={sheet.books}
             requestPage={sheet.requestPage}
+            builderHref={
+              gmSideOf({ me, kind: sheetActor.kind })
+                ? `/c/${state.campaign.id}/build/${sheetActor.id}?step=advance`
+                : null
+            }
           />
         </BottomSheet>
       )}

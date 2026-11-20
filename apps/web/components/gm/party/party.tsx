@@ -354,6 +354,9 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
                         send={send}
                         books={sheet.books}
                         requestPage={sheet.requestPage}
+                        builderHref={
+                          gmSideOf({ me, kind: a.kind }) ? `/c/${state.campaign.id}/build/${a.id}?step=advance` : null
+                        }
                       />
                     </div>
                   )}

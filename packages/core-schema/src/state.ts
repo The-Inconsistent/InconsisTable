@@ -64,9 +64,20 @@ export const LedgerBuildText = z
 
 // The stored build and the sheet it resolved to, and an unfinished draft the GM can open, as saved (keys in the order
 // the builder wrote them). A draft may come before any build; a ready save clears it. The ledger, the pending choices and
-// the problems are not stored: the builder resolves them again from the build.
+// the problems are not stored: the builder resolves them again from the build. In play (house decision #64): `xpSpent`
+// is what the saved build's advancement spends, `xpAtAscension` the XP the character had when the group last Ascended
+// (or the Tier was raised), `packageWaived` whether that Ascension waived its package. A row may hold only these.
 const LedgerDocument = z.record(z.string(), z.unknown()).nullable();
-export const ActorLedger = z.object({ build: LedgerDocument, sheet: LedgerDocument, draft: LedgerDocument });
+export const ActorLedger = z.object({
+  build: LedgerDocument,
+  sheet: LedgerDocument,
+  draft: LedgerDocument,
+  // ponytail: the api always sends the three, but the type keeps them optional so the web's ledger fixtures
+  // (apps/web/lib/ledger/table.test.ts) still compile, upgrade: drop .optional() when those fixtures carry them
+  xpSpent: z.int().optional(),
+  xpAtAscension: z.int().optional(),
+  packageWaived: z.boolean().optional(),
+});
 export type ActorLedger = z.infer<typeof ActorLedger>;
 
 export const Actor = ActorBrief.extend({

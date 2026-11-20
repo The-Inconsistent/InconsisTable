@@ -61,10 +61,14 @@ type (
 	}
 	// ActorLedger is a saved ledger build and the sheet it resolved to, and a draft not yet resolved, as stored: JSON
 	// text sent on as it is, so its keys keep the order the builder wrote them in. A part not stored is nil (null).
+	// XPSpent, XPAtAscension and PackageWaived are its play (house decision #64); a row may hold only these.
 	ActorLedger struct {
-		Build json.RawMessage `json:"build"`
-		Sheet json.RawMessage `json:"sheet"`
-		Draft json.RawMessage `json:"draft"`
+		Build         json.RawMessage `json:"build"`
+		Sheet         json.RawMessage `json:"sheet"`
+		Draft         json.RawMessage `json:"draft"`
+		XPSpent       int             `json:"xpSpent"`
+		XPAtAscension int             `json:"xpAtAscension"`
+		PackageWaived bool            `json:"packageWaived"`
 	}
 	// Member is a seated member.
 	Member struct {

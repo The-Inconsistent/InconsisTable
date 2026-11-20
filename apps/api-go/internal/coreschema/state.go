@@ -213,6 +213,14 @@ type (
 		Cite     *string  `json:"cite"`
 		ActorIDs []string `json:"actorIds"`
 	}
+	// EncounterTurnBack is the fight's last turn step (house decision #82): which kind, whose turn (left out for a round),
+	// in which round, and how many later actions go back with it.
+	EncounterTurnBack struct {
+		Kind  string `json:"kind"`
+		Name  string `json:"name,omitempty"`
+		Round int    `json:"round"`
+		Later int    `json:"later"`
+	}
 	// HP is a combatant's health numbers.
 	HP struct {
 		Value float64  `json:"value"`
@@ -291,6 +299,8 @@ type (
 		Unseen bool `json:"unseen,omitempty"`
 		// Reminders are the lines due now (house decision #81); the combat side's only, absent for every other seat.
 		Reminders []EncounterReminder `json:"reminders,omitempty"`
+		// TurnBack is what TURN BACK would take back (house decision #82); the combat side's only, nil with nothing to take.
+		TurnBack *EncounterTurnBack `json:"turnBack,omitempty"`
 		*EncounterSides
 	}
 	// EncounterSides is the encounter's part of a sides order (house decision #60); nil for any other order.

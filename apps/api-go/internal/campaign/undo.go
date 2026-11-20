@@ -42,34 +42,76 @@ func Undo(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, 
 		return cs.Result{}, cs.Fail("noSessionRunning")
 	}
 	var actionID string
-	var author *string
-	err = tx.QueryRow(ctx, `SELECT action_id::text, seat_user_id FROM session_event WHERE `+sessionDeltas+`
-		AND undone_by IS NULL AND action_id IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1`, cid, *sessionID).Scan(&actionID, &author)
+	err = tx.QueryRow(ctx, `SELECT action_id::text FROM session_event WHERE `+sessionDeltas+`
+		AND undone_by IS NULL AND action_id IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1`, cid, *sessionID).Scan(&actionID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return cs.Result{}, cs.Fail("nothingToUndo")
 	}
 	if err != nil {
 		return cs.Result{}, err
 	}
+	return cs.Done(actionID), undoAction(ctx, tx, c, *sessionID, actionID)
+}
+
+// TurnBack is event.turnBack (house decision #82): every live logged action of the running fight back to and including
+// its newest turn step (an action that changed who acts or the round), newest first, each taken back as Undo takes back
+// one. A refusal of any of them refuses the whole step, naming which, and nothing is written.
+func TurnBack(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, error) {
+	cid := c.CampaignID
+	sessionID, err := eventlog.RunningSessionID(ctx, tx, cid)
+	if err != nil {
+		return cs.Result{}, err
+	}
+	if sessionID == nil {
+		return cs.Result{}, cs.Fail("noSessionRunning")
+	}
+	step, err := eventlog.LastTurnStep(ctx, tx, cid, *sessionID)
+	if err != nil {
+		return cs.Result{}, err
+	}
+	if step == nil {
+		return cs.Result{}, cs.Fail("nothingToTurnBack")
+	}
+	for i, actionID := range step.Actions {
+		err := undoAction(ctx, tx, c, *sessionID, actionID)
+		var refusal *cs.Error
+		if errors.As(err, &refusal) {
+			return cs.Result{}, cs.Fail("turnBackRefused", cs.Params{"n": i + 1, "count": len(step.Actions), "reason": refusal.Error()})
+		}
+		if err != nil {
+			return cs.Result{}, err
+		}
+	}
+	return cs.Done(step.Actions[len(step.Actions)-1]), nil
+}
+
+// undoAction takes back one logged action of the running session, its writes in reverse order, and records the undo.
+func undoAction(ctx context.Context, tx core.Conn, c cs.Ctx, sessionID, actionID string) error {
+	cid := c.CampaignID
+	var author *string
+	if err := tx.QueryRow(ctx, `SELECT seat_user_id FROM session_event WHERE `+sessionDeltas+` AND action_id = $3 LIMIT 1`,
+		cid, sessionID, actionID).Scan(&author); err != nil {
+		return err
+	}
 	// Without a GM every seat undoes its own steps and the owner any step. A guest has no user to match, so none.
 	if !c.HasGM() && c.Seat.Kind != cs.SeatAdmin && !view.IsOwner(c) && (c.UserID == nil || author == nil || *author != *c.UserID) {
-		return cs.Result{}, cs.Fail("undoOthers")
+		return cs.Fail("undoOthers")
 	}
 	rules, err := compiled.Load(ctx, tx, cid)
 	if err != nil {
-		return cs.Result{}, err
+		return err
 	}
 	if rules == nil {
-		return cs.Result{}, cs.Fail("noRuleset")
+		return cs.Fail("noRuleset")
 	}
 	rows, err := tx.Query(ctx, `SELECT payload FROM session_event WHERE `+sessionDeltas+` AND action_id = $3
-		ORDER BY created_at DESC, id DESC`, cid, *sessionID, actionID)
+		ORDER BY created_at DESC, id DESC`, cid, sessionID, actionID)
 	if err != nil {
-		return cs.Result{}, err
+		return err
 	}
 	payloads, err := pgx.CollectRows(rows, pgx.RowTo[[]byte])
 	if err != nil {
-		return cs.Result{}, err
+		return err
 	}
 
 	written := []eventlog.Written{}
@@ -77,13 +119,13 @@ func Undo(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, 
 	for _, payload := range payloads {
 		logged, err := eventlog.Parse(payload)
 		if err != nil {
-			return cs.Result{}, err
+			return err
 		}
 		t := logged.Target
 		if t.Clock != "" {
 			w, skip, err := undoClock(ctx, tx, cid, logged)
 			if err != nil {
-				return cs.Result{}, err
+				return err
 			}
 			if skip != nil {
 				passed = append(passed, *skip)
@@ -96,23 +138,23 @@ func Undo(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, 
 		// Read again for every step: an inverse can move another actor's bounds (a level back down lowers the max).
 		actorRows, err := actor.LoadRows(ctx, tx, cid)
 		if err != nil {
-			return cs.Result{}, err
+			return err
 		}
 		campaign, err := actor.LoadCampaign(ctx, tx, cid, rules)
 		if err != nil {
-			return cs.Result{}, err
+			return err
 		}
 		built, err := actor.Build(rules, actorRows, campaign)
 		if err != nil {
-			return cs.Result{}, err
+			return err
 		}
 		if t.Test != "" {
-			return cs.Result{}, cs.Fail("cantUndoKind")
+			return cs.Fail("cantUndoKind")
 		}
 		if t.Turn != "" {
 			w, skip, err := undoTurn(ctx, tx, cid, logged)
 			if err != nil {
-				return cs.Result{}, err
+				return err
 			}
 			if skip != nil {
 				passed = append(passed, *skip)
@@ -127,13 +169,13 @@ func Undo(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, 
 			inverse, refused := eventlog.Invert(logged, nil)
 			if refused != nil || inverse == nil {
 				if refused != nil {
-					return cs.Result{}, refused
+					return refused
 				}
 				continue
 			}
 			pool, declared, err := actor.BuildPool(rules, t.Pool, nil, actor.CountCharacters(actorRows), campaign)
 			if err != nil {
-				return cs.Result{}, err
+				return err
 			}
 			if !declared {
 				passed = append(passed, skipped{Pool: t.Pool, Reason: "gone"})
@@ -141,7 +183,7 @@ func Undo(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, 
 			}
 			w, err := actor.WriteDelta(ctx, tx, actor.Write{CampaignID: cid, Delta: *inverse, Bounds: &pool.Bounds, PoolScope: pool.Scope})
 			if err != nil {
-				return cs.Result{}, err
+				return err
 			}
 			written = append(written, w)
 			continue
@@ -159,12 +201,12 @@ func Undo(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, 
 		var current any
 		if t.Resource == "" {
 			if current, err = actor.ReadTarget(ctx, tx, cid, t, fieldType); err != nil {
-				return cs.Result{}, err
+				return err
 			}
 		}
 		inverse, refused := eventlog.Invert(logged, current)
 		if refused != nil {
-			return cs.Result{}, refused
+			return refused
 		}
 		if inverse == nil {
 			continue
@@ -175,23 +217,23 @@ func Undo(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Result, 
 		}
 		w, err := actor.WriteDelta(ctx, tx, write)
 		if err != nil {
-			return cs.Result{}, err
+			return err
 		}
 		written = append(written, w)
 	}
 
 	payload, err := json.Marshal(map[string]any{"undone": actionID, "deltas": written, "skipped": passed})
 	if err != nil {
-		return cs.Result{}, err
+		return err
 	}
 	var eventID string
 	if err := tx.QueryRow(ctx, `INSERT INTO session_event (campaign_id, session_id, type, action_id, seat_user_id, payload)
-		VALUES ($1, $2, 'undo', $3, $4, $5) RETURNING id::text`, cid, *sessionID, core.NewUUID(), c.UserID, payload).Scan(&eventID); err != nil {
-		return cs.Result{}, err
+		VALUES ($1, $2, 'undo', $3, $4, $5) RETURNING id::text`, cid, sessionID, core.NewUUID(), c.UserID, payload).Scan(&eventID); err != nil {
+		return err
 	}
 	_, err = tx.Exec(ctx, `UPDATE session_event SET undone_by = $4 WHERE `+sessionDeltas+` AND action_id = $3`,
-		cid, *sessionID, actionID, eventID)
-	return cs.Done(actionID), err
+		cid, sessionID, actionID, eventID)
+	return err
 }
 
 // A clock tick is counted like a resource: undo ticks back the change that was made, and a deleted clock is passed over.

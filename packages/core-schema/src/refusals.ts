@@ -198,6 +198,8 @@ export const REFUSALS = {
   tableHeld: "Someone already holds a card from that table.",
   // Undo
   nothingToUndo: "Nothing to undo",
+  nothingToTurnBack: "Nothing to turn back: no turn has started or ended in this fight this session.",
+  turnBackRefused: "Can't turn back: action {n} of {count}, counting back, can't be undone. {reason}",
   cantUndoKind: "Can't undo that kind of step yet",
   undoGone: "Can't undo: {target} is gone.",
   undoChanged:

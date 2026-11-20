@@ -231,7 +231,8 @@ var handlers = map[string]handler{
 	"campaign.setWorld":     campaign.SetWorld,
 	"campaign.unsetWorld":   campaign.UnsetWorld,
 	// campaign/event.actions.ts
-	"event.undo": campaign.Undo,
+	"event.undo":     campaign.Undo,
+	"event.turnBack": campaign.TurnBack,
 	// actor/actor.actions.ts
 	"actor.create":  actor.Create,
 	"actor.rename":  actor.Rename,

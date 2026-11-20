@@ -881,6 +881,17 @@ test("clocks: the clock side sees every clock, anyone else the party ones, with 
   assert.deepEqual(seen(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), ["a:open", "c:null"]);
 });
 
+test("the step TURN BACK would take reaches the combat side only (house decision #82)", () => {
+  const turnBack = { kind: "turnStart" as const, name: "Wisp", round: 1, later: 2 };
+  const withStep: Snapshot = { ...snapshot, state: { ...state, encounter: { ...state.encounter!, turnBack } } };
+  const seen = (c: Ctx) => seatView({ snapshot: withStep, compiled, ctx: c }).state.encounter?.turnBack;
+  assert.deepEqual(seen(ctx(member("gm"), "u-gm")), turnBack);
+  assert.deepEqual(seen(ctx(member("cogm", ["combat"]), "u-co")), turnBack);
+  assert.equal(seen(ctx(member("cogm", ["party"]), "u-co")), undefined);
+  assert.equal(seen(ctx(member("player", [], ["lyra"]), "u-lyra")), undefined);
+  assert.equal(seen(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), undefined);
+});
+
 test("requests: the answering side sees every pending request, a player their own, a screen none", () => {
   const request = (id: string, userId: string) =>
     ({

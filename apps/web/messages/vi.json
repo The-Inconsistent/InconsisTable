@@ -960,7 +960,8 @@
     "turnStart": "Đầu lượt này",
     "turnEnd": "Cuối lượt này",
     "roundEnd": "Cuối vòng",
-    "names": "{names}:"
+    "names": "{names}:",
+    "endsThisTurn": "{conditions} hết hiệu lực ở cuối lượt này"
   },
   "orderList": {
     "label": "Thứ tự lượt",

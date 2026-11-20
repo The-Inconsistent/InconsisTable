@@ -877,7 +877,7 @@ test("prep: scenes under an adventure, reordered and linked; a player sees only 
   refused(await ana.send({ type: "codex.move", id: a, parentId: null, position: 0 }), "noPermission");
   refused(await ana.send({ type: "codex.link", id: a, targetId: npc }), "noPermission");
   refused(await owner.send({ type: "codex.delete", id: adv }), "adventureHasScenes");
-  refused(await owner.send({ type: "codex.move", id: npc, parentId: adv, position: 0 }), "sceneNeedsAdventure");
+  refused(await owner.send({ type: "codex.move", id: npc, parentId: adv, position: 0 }), "parentOtherKind");
   owner.socket.close();
   ana.socket.close();
 });
@@ -899,6 +899,49 @@ test("a quest has a status; only a quest", async () => {
   assert.equal(owner.codex()?.entries.find((e) => e.id === npc)?.status, null);
   owner.socket.close();
   ana.socket.close();
+});
+
+test("codex tree: places nest, never in a loop; a hidden middle is never named to a player or the screen", async () => {
+  const { owner, campaignId } = await newRoom("Tree");
+  const inv = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
+  const anaDevice = await device("ana-tree");
+  await post(`/invites/${inv}/accept`, { newCharacterName: "Lyra" }, cookieOf(anaDevice));
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  const screen = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  const place = async (title: string) => ok(await owner.send({ type: "codex.save", kind: "location", title })).id!;
+  const [city, ward, inn, dock] = [await place("City"), await place("Ward"), await place("Inn"), await place("Dock")];
+  const move = (id: string, parentId: string | null) => owner.send({ type: "codex.move", id, parentId, position: 0 });
+  ok(await move(ward, city));
+  ok(await move(inn, ward));
+  ok(await move(dock, city));
+  refused(await move(city, inn), "wouldLoop");
+  refused(await move(ward, ward), "wouldLoop");
+  refused(
+    await move(inn, ok(await owner.send({ type: "codex.save", kind: "npc", title: "Keeper" })).id!),
+    "parentOtherKind",
+  );
+  // The Dock moves under the Ward, then the Ward is hidden from the table: below it, the Inn reaches seats as a root.
+  ok(await move(dock, ward));
+  for (const id of [city, inn, dock])
+    ok(await owner.send({ type: "codex.reveal", id, visibility: "party", audienceMode: "all", audience: [] }));
+  const parents = (codex: Codex | null | undefined) =>
+    Object.fromEntries((codex?.entries ?? []).filter((e) => e.kind === "location").map((e) => [e.title, e.parentId]));
+  await eventually(() => parents(owner.codex()).Dock === ward, "the GM sees the Dock under the Ward");
+  for (const [who, seat] of [
+    ["player", ana],
+    ["screen", screen],
+  ] as const) {
+    await eventually(() => Object.keys(parents(seat.codex())).length === 3, `the ${who} sees three places`);
+    assert.deepEqual(parents(seat.codex()), { City: null, Inn: null, Dock: null }, `the ${who} gets roots`);
+    assert.ok(!JSON.stringify(seat.codex()).includes(ward), `the ${who} never learns the Ward's id`);
+  }
+  // Deleting the Ward moves its children up under the City.
+  ok(await owner.send({ type: "codex.delete", id: ward }));
+  await eventually(() => parents(owner.codex()).Inn === city && parents(owner.codex()).Dock === city, "moved up");
+  await eventually(() => parents(ana.codex()).Inn === city, "the player now sees the Inn inside the City");
+  owner.socket.close();
+  ana.socket.close();
+  screen.socket.close();
 });
 
 test("the admin action route seats a known user and refuses anything but housekeeping", async () => {

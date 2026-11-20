@@ -228,6 +228,10 @@ html:has([data-world]) {
   border-color: var(--line);
   background: var(--paper-2);
 }
+/* On that light ground a chip inside a pressed toggle (the open codex row) keeps the page's ink, not the toggle's. */
+[data-world] .btn[aria-pressed="true"] .chip {
+  color: var(--ink);
+}
 /* The first player's chip is a state: solid brass under brass-ink, a pair every World is held to. */
 [data-world] .combatant .chip[data-first="true"] {
   border-color: var(--brass-ink);
@@ -280,7 +284,7 @@ html:has([data-world]) {
   --fibre: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' stitchTiles='stitch' numOctaves='2' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.3 0 0 0 0 0.3 0 0 0 0.45 -0.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
   --bg-card: var(--fibre), radial-gradient(ellipse at 30% 0%, var(--parchment-hi), var(--parchment) 70%);
   --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .11 0 0 0 0 .11 0 0 0 0 .11 -4 0 0 0 1.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='.22'/%3E%3C/svg%3E");
-  --paper-mottle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800' viewBox='0 0 800 800' preserveAspectRatio='none'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0075 .01' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 .11 0 0 0 0 .11 0 0 0 0 .11 -2.6 0 0 0 1.45'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)' opacity='.2'/%3E%3C/svg%3E");
+  --paper-mottle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800' viewBox='0 0 800 800' preserveAspectRatio='none'%3E%3Cfilter id='m' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0075 .01' numOctaves='4' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .11 0 0 0 0 .11 0 0 0 0 .11 -2.6 0 0 0 1.45'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)' opacity='.2'/%3E%3C/svg%3E");
 }
 /* wood: lantern's planks and grain, a candle overhead and a vignette. The grain is tuned for dark wood, so a light set
    washes it with its own page colour (the first layer) and only darkens the far edge a little. */
@@ -328,10 +332,15 @@ html:has([data-world]) {
     transparent 75%
   );
 }
-/* paper: a flat printed page under a fine grain, a mottle, two faint stains and a vignette, held still on the screen */
+/* paper: a flat printed page under a fine grain and a mottle, with two faint stains and a vignette held still on the
+   screen. The grain and the mottle lie on the surface itself, tiled without a seam, and scroll with it as lantern's
+   planks do, so a long page is paper to its foot; only the light (stains, vignette) is the fixed layer. */
 .surface-app:has([data-texture="paper"]),
 [data-texture="paper"] .surface-table {
-  background: var(--paper);
+  background:
+    var(--paper-grain) 0 0 / 240px 240px,
+    var(--paper-mottle) 0 0 / 800px 800px,
+    var(--paper);
 }
 .surface-app:has([data-texture="paper"])::before,
 [data-texture="paper"] .surface-table::before {
@@ -342,15 +351,7 @@ html:has([data-world]) {
       ellipse 120% 90% at 50% 45%,
       transparent 50%,
       light-dark(color-mix(in srgb, var(--ink) 24%, transparent), rgb(0 0 0 / 0.55)) 100%
-    ),
-    var(--paper-grain), var(--paper-mottle);
-  background-size:
-    auto,
-    auto,
-    auto,
-    240px 240px,
-    100% 100%;
-  background-repeat: no-repeat, no-repeat, no-repeat, repeat, no-repeat;
+    );
 }
 
 /* ---------- Corners: buttons, fields and chips ---------- */

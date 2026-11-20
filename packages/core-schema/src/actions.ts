@@ -36,6 +36,9 @@ const userId = z.string().min(1).max(100);
 
 export const NextSessionPlace = z.string().trim().max(200);
 export const SessionTitle = z.string().trim().max(100);
+// The two ways a group Ascends (house decision #64): everyone has earned the XP, or at the GM's word.
+export const AscendKind = z.enum(["experience", "milestone"]);
+export type AscendKind = z.infer<typeof AscendKind>;
 
 export const Action = z.discriminatedUnion("type", [
   z.object({
@@ -99,7 +102,7 @@ export const Action = z.discriminatedUnion("type", [
   // this Tier, `milestone` at the GM's word, awarding it. `waivePackage` waives this Ascension's package.
   z.object({
     type: z.literal("build.ascend"),
-    kind: z.enum(["experience", "milestone"]),
+    kind: AscendKind,
     waivePackage: z.boolean().default(false),
   }),
   // N creatures from one attached pack entry, numbered after the ones already at the table.

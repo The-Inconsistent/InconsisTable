@@ -617,6 +617,8 @@
     "showMore": "Show more ({left} left)"
   },
   "party": {
+    "xp": { "line": "{xp} XP · Rank {rank}", "toSpend": "{xp} XP to spend" },
+    "ascension": "Ascension · Tier {tier}",
     "guest": "Guest",
     "qrFailed": "Couldn't draw the QR code. Try again",
     "campaignInviteTitle": "Campaign invite · {role}",

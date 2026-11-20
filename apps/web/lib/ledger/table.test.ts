@@ -8,6 +8,7 @@ import { SAMPLE_LEDGER_RULESET } from "../../../../packages/rules-engine/src/fix
 import { resolveDraft } from "./ledger";
 import { SAMPLE_PARAMS, sampleCatalogue } from "./sample";
 import {
+  ascensionMembersOf,
   catalogueOf,
   gmEntryOf,
   gmSideOf,
@@ -18,6 +19,7 @@ import {
   startingBuild,
   usesLedger,
   xpEarnedOf,
+  xpFiguresOf,
   xpToSpendOf,
 } from "./table";
 
@@ -188,4 +190,38 @@ test("the entry each seat gets: Build, Review build with a draft, Open builder o
     null,
   );
   assert.equal(playerEntryOf({ ruleset: plain, actor: actor("", null) }), null);
+});
+
+test("the Party tab's XP figures and the Ascension's members: the ledger's player characters, counted from their last Ascension", () => {
+  const hero = (
+    id: string,
+    xp: number,
+    l: Partial<ActorLedger> | null,
+    kind: "pc" | "npc" = "pc",
+    entity = "hero",
+  ) => ({
+    id,
+    name: id.toUpperCase(),
+    kind,
+    entity,
+    fields: { xp },
+    ledger: l && saved(l),
+  });
+  const a = hero("a", 45, { build: {}, sheet: {}, xpSpent: 30, xpAtAscension: 20 });
+  // The invented ruleset's Rank: one more per 30 XP, so 45 XP is Rank 2.
+  assert.deepEqual(xpFiguresOf({ ruleset: ledger, actor: a }), { earned: 45, rank: 2, toSpend: 15 });
+  assert.equal(xpFiguresOf({ ruleset: ledger, actor: hero("k", 5, null, "pc", "keyword") }), null);
+  assert.equal(xpFiguresOf({ ruleset: plain, actor: a }), null);
+  const members = ascensionMembersOf({
+    ruleset: ledger,
+    actors: [a, hero("b", 12, null), hero("n", 99, null, "npc"), hero("k", 5, null, "pc", "keyword")],
+  });
+  assert.deepEqual(
+    members.map((m) => [m.id, m.name, m.earnedThisTier, m.rank]),
+    [
+      ["a", "A", 25, 2],
+      ["b", "B", 12, 1],
+    ],
+  );
+  assert.deepEqual(ascensionMembersOf({ ruleset: plain, actors: [a] }), []);
 });

@@ -11,7 +11,7 @@ import {
 import type { BuildCatalogue, LedgerCreation, LedgerWargear, Ruleset } from "@inconsistable/rules-engine";
 
 import type { LedgerBuild, LedgerPlay } from "./ledger";
-import { toSpend } from "./play";
+import { rankOf, toSpend, type AscensionMember } from "./play";
 
 // The ledger builder at the table (docs/adr/0011, house decision #63): which builder a character's page shows, the
 // build it starts from, the catalogue as the api serves it, the entry each seat gets to it, and what the saved sheet
@@ -117,6 +117,43 @@ export function catalogueOf(reply: unknown): BuildCatalogue | null {
   const r = CatalogueReply.safeParse(reply);
   if (!r.success) return null;
   return { creation: r.data.kinds, wargear: new Map(r.data.wargear.map((w) => [w.id, w])), homebrew: true };
+}
+
+/** A character's XP figures where the ruleset keeps XP and the ledger builds it: earned, the Rank it sets, and what is
+ * left to spend; null otherwise. */
+export function xpFiguresOf({ ruleset, actor }: { ruleset: Ruleset | null; actor: Ledgered }) {
+  const build = ruleset?.build;
+  if (!build?.xp || actor.entity !== build.actor) return null;
+  const earned = xpEarnedOf({ ruleset, actor });
+  const { xpPerRank, top } = build.params.rank;
+  return { earned, rank: rankOf({ earned, xpPerRank, top }), toSpend: xpToSpendOf({ ruleset, actor }) };
+}
+
+/** Who the group's Ascension weighs: every player character of the type the ledger builds, with the XP earned since the
+ * group last Ascended (a character with no ledger row counts from 0, as the server does). */
+export function ascensionMembersOf({
+  ruleset,
+  actors,
+}: {
+  ruleset: Ruleset;
+  actors: readonly Pick<Actor, "id" | "name" | "kind" | "entity" | "fields" | "ledger">[];
+}): AscensionMember[] {
+  const build = ruleset.build;
+  if (!build) return [];
+  return actors
+    .filter((a) => a.kind === "pc" && a.entity === build.actor)
+    .map((a) => {
+      const earned = xpEarnedOf({ ruleset, actor: a });
+      return {
+        id: a.id,
+        name: a.name,
+        rank: rankOf({ earned, ...build.params.rank }),
+        earnedThisTier: earned - (a.ledger?.xpAtAscension ?? 0),
+        // ponytail: the seat's state carries no health states, so nobody shows as gone (the server still leaves them
+        // out of the count), upgrade: read them once the Seat view sends each actor's health states
+        gone: false,
+      };
+    });
 }
 
 // The entry the GM's Party tab gives a character to its builder, and the one a player's phone gives.

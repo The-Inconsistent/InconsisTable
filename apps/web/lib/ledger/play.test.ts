@@ -4,7 +4,15 @@ import { test } from "node:test";
 import type { ResolvedBuild } from "@inconsistable/rules-engine";
 
 import { lookupsOf, resolveDraft, stepsFor, type LedgerBuild } from "./ledger.ts";
-import { ascensionRows, awardOf, playOpeningStep, rankOf, toSpend, type AscensionMember } from "./play.ts";
+import {
+  ascensionRows,
+  awardOf,
+  playOpeningStep,
+  rankOf,
+  startingAward,
+  toSpend,
+  type AscensionMember,
+} from "./play.ts";
 import { SAMPLE_PARAMS as params, sampleCatalogue } from "./sample.ts";
 
 // Invented numbers throughout.
@@ -59,7 +67,14 @@ test("Ascension: ready or short per member, the gone apart, experience only when
   assert.equal(top.milestone, false);
 });
 
-test("a session award is a whole number from 0 to max; anything else is not passed on", () => {
+test("a session's award starts on the middle suggested amount, the lower middle of an even count, else 0", () => {
+  assert.equal(startingAward([5, 10, 20]), 10);
+  assert.equal(startingAward([5, 10, 20, 40]), 10);
+  assert.equal(startingAward([7]), 7);
+  assert.equal(startingAward([]), 0);
+});
+
+test("a typed award, committed on leaving the box or Enter, is a whole number from 0 to max; else not passed on", () => {
   assert.equal(awardOf({ text: "12", max: 30 }), 12);
   assert.equal(awardOf({ text: " 0 ", max: 30 }), 0);
   assert.equal(awardOf({ text: "30", max: 30 }), 30);

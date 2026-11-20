@@ -69,6 +69,9 @@ export function playOpeningStep({
   return owes && steps.includes(first) ? first : "advance";
 }
 
+// The award a session's end starts on: the middle suggested amount (the lower middle of an even count), else 0.
+export const startingAward = (suggested: readonly number[]) => suggested[Math.floor((suggested.length - 1) / 2)] ?? 0;
+
 // The session's XP award as typed: a whole number from 0 to `max`, else null (not passed on).
 export function awardOf({ text, max }: { text: string; max: number }): number | null {
   if (!/^\d+$/.test(text.trim())) return null;

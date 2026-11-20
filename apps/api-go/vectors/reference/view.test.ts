@@ -205,6 +205,8 @@ const entry = (id: string, over: Partial<CodexEntry> = {}): CodexEntry => ({
   imageId: null,
   imageRevealed: false,
   fields: {},
+  layout: (over.kind ?? "handout") === "handout" ? "plain" : null,
+  header: (over.kind ?? "handout") === "handout" ? "" : null,
   ...over,
 });
 const codex: Codex = {
@@ -505,6 +507,15 @@ test("a seat outside the codex side never receives the id of a picture not shown
       ["shown", "pic-shown", true],
       ["secret-shown", "pic-secret", true],
     ]);
+  }
+});
+
+test("a player and the table screen receive a handout's layout and header with the entry (house decision #72)", () => {
+  const notice = entry("notice", { layout: "proclamation", header: "By order of the harbour" });
+  const posted = { ...snapshot, codex: { ...codex, entries: [...codex.entries, notice] } };
+  for (const c of [ctx(member("player"), "u-x"), ctx({ kind: "token", role: "screen", characterIds: [] }, null)]) {
+    const seen = seatView({ snapshot: posted, compiled, ctx: c }).codex.entries.find((e) => e.id === "notice");
+    assert.deepEqual([seen?.layout, seen?.header], ["proclamation", "By order of the harbour"]);
   }
 });
 

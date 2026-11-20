@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useMemo, useState, type ChangeEvent } from "react";
 
+import { HandoutLayout } from "@inconsistable/core-schema";
 import {
   WORLD_SHAPES,
   WORLD_TEXTURES,
@@ -13,6 +14,7 @@ import {
 } from "@inconsistable/rules-engine";
 
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
+import { HandoutDoc } from "@/components/ui/handout-doc/handout-doc";
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { SAMPLE_WORLDS, type SampleWorld } from "@/lib/world/sample";
@@ -28,6 +30,7 @@ const NONE: Overrides = { shapes: {}, typefaces: {} };
 // World lives in this state only; the device's own colour pick is the switch in the band, as in a room.
 export function WorldDev() {
   const t = useTranslations("world.dev");
+  const tHandout = useTranslations("handout");
   const [name, setName] = useState<SampleWorld>("hoarfrost");
   const [sets, setSets] = useState<SetChoice>("both");
   const [density, setDensity] = useState<Density>("table");
@@ -285,6 +288,22 @@ export function WorldDev() {
               </button>
             </div>
             <p className="problem-path">{t("machine")}</p>
+          </section>
+
+          <section className="stack" aria-label={t("handouts")}>
+            <h2 className="head">{t("handouts")}</h2>
+            {HandoutLayout.options.map((layout) => (
+              <article key={layout} className="card stack">
+                <h3 className="card-name">{tHandout(`layout.${layout}`)}</h3>
+                <HandoutDoc
+                  layout={layout}
+                  header={t("handoutHeader")}
+                  title={t("handoutTitle")}
+                  body={t("handoutBody")}
+                  entries={[]}
+                />
+              </article>
+            ))}
           </section>
         </main>
         {sheetOpen && (

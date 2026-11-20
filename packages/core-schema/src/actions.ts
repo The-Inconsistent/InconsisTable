@@ -17,6 +17,8 @@ import {
   ClockVisibility,
   CodexVisibility,
   FieldValue,
+  HandoutHeader,
+  HandoutLayout,
   LedgerBuildText,
   RequestText,
   TableId,
@@ -198,6 +200,8 @@ export const Action = z.discriminatedUnion("type", [
       .record(z.string().min(1).max(64), FieldValue)
       .refine((o) => Object.keys(o).length <= 20, "At most 20 fields")
       .optional(),
+    layout: HandoutLayout.optional(), // a handout only
+    header: HandoutHeader.optional(), // a handout only
   }),
   // Who reads an entry, and whether the table sees its picture: either may be sent alone.
   z.object({

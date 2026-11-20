@@ -792,6 +792,166 @@ label {
   padding-bottom: 8px;
 }
 
+/* ---------- Handouts: one of the platform's layouts, drawn in the room's Theme (house decision #72) ----------
+   Square sheets that fill their column and grow with their text (no inner scroll). Every layout but plain is a sheet of
+   paper (.parchment); its ink, faded ink, rules and accent are the card's own tokens. The hooks are data-layout and
+   the handout-* classes, never a World's name for a layout. */
+.handout {
+  min-width: 0;
+  font-size: var(--fs-body);
+}
+.handout p {
+  margin: 0;
+}
+.handout-text,
+.handout-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* Machine text: plain, tablet, form and the transcript's lines. */
+.handout-text,
+.handout-lines {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  line-height: 1.55;
+}
+.handout.parchment {
+  position: relative;
+  padding: 14px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+.handout .handout-head {
+  margin-bottom: 10px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+/* tablet: a screen readout behind a heavy bezel, faint scanlines, the header centred. */
+.handout[data-layout="tablet"] {
+  border: 6px solid var(--ink);
+  background:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--ink) 6%, transparent) 0 1px, transparent 1px 3px),
+    var(--paper);
+}
+.handout[data-layout="tablet"] .handout-head {
+  text-align: center;
+}
+
+/* form: a boxed document. A full-width bar holds the reference line in ink and an empty stamp box; ruled lines run
+   under the text, one per line of it. */
+.handout[data-layout="form"] {
+  border: 2px solid var(--ink);
+}
+.handout-bar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin: -14px -14px 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ink);
+}
+.handout .handout-bar .handout-head {
+  margin: 0;
+  color: var(--ink);
+}
+.handout-box {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border: 1px dashed var(--accent);
+}
+.handout[data-layout="form"] .handout-text {
+  background: repeating-linear-gradient(
+    180deg,
+    transparent 0 calc(1.55em - 1px),
+    color-mix(in srgb, var(--line) 70%, transparent) calc(1.55em - 1px) 1.55em
+  );
+}
+
+/* transcript: a recorded message between two strips of static; a line's [stamp] stands in a column of its own. */
+.handout[data-layout="transcript"] .handout-noise {
+  height: 8px;
+  margin: 6px 0;
+  opacity: 0.45;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--ink) 0 1px,
+    transparent 1px 3px,
+    var(--ink-2) 3px 5px,
+    transparent 5px 9px,
+    var(--ink) 9px 10px,
+    transparent 10px 15px
+  );
+}
+.handout-lines[data-stamped] {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 10px;
+}
+.handout-lines[data-stamped] .handout-line {
+  display: contents;
+}
+.handout-lines[data-stamped] .handout-said:first-child {
+  grid-column: 2;
+}
+.handout-stamp {
+  color: var(--accent);
+}
+
+/* proclamation: a public notice in a double frame, the header a centred heading, the body prose, a seal and a
+   signature line at the foot. */
+.handout[data-layout="proclamation"] {
+  padding: 18px 18px 14px;
+  border: 3px double var(--ink);
+}
+.handout[data-layout="proclamation"] .handout-head {
+  font-family: var(--font-display);
+  font-size: 1.1em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+.handout[data-layout="proclamation"] .handout-text {
+  font-family: var(--font-body);
+  font-size: 1em;
+  line-height: 1.45;
+}
+.handout-foot {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+.handout-seal {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+.handout-seal .handout-seal-ring {
+  fill: none;
+  stroke: var(--paper);
+  stroke-width: 1.5;
+  opacity: 0.6;
+}
+.handout-sign {
+  flex: 1;
+  padding-top: 4px;
+  border-top: 1px solid var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--fs-small);
+  font-style: italic;
+  text-align: right;
+}
+
 /* ---------- The table screen: read from across the room ---------- */
 .screen {
   font-size: var(--fs-body);

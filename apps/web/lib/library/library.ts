@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { TableMode } from "@inconsistable/core-schema";
-import { WorldTheme } from "@inconsistable/rules-engine";
+import { WorldHandouts, WorldTheme } from "@inconsistable/rules-engine";
 
 // The importer's replies (apps/api-go/internal/pack/http.go). Parsed on arrival like every other reply.
 
@@ -135,9 +135,17 @@ export const RulesReply = z.object({
   ),
   entries: z.array(RulesEntry),
   total: z.number(),
-  /** The room's World while it is served (house decision #65), the same for every seat; null without one. */
+  /** The room's World while it is served (house decision #65), the same for every seat; null without one. Its handout
+   * layouts are null when it brings none (house decision #72). */
   world: z
-    .object({ versionId: z.string(), slug: z.string(), version: z.string(), name: z.string(), theme: WorldTheme })
+    .object({
+      versionId: z.string(),
+      slug: z.string(),
+      version: z.string(),
+      name: z.string(),
+      theme: WorldTheme,
+      handouts: WorldHandouts.nullable(),
+    })
     .nullable(),
 });
 export type RulesReply = z.infer<typeof RulesReply>;

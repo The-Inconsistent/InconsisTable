@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"math"
@@ -45,6 +46,7 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 		return nil
 	}
 	title, body, notes, status := text("title"), text("body"), text("gmNotes"), text("status")
+	layout, header := text("layout"), text("header")
 	// nil leaves the column alone (SQL NULL through coalesce); a sent list, even an empty one, replaces it.
 	var planned []string
 	given, plannedSent := a["plannedTests"].([]any)
@@ -85,6 +87,9 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	if plannedSent && kind != "scene" {
 		return cs.Result{}, cs.Fail("onlySceneTests")
 	}
+	if (layout != nil || header != nil) && kind != "handout" {
+		return cs.Result{}, cs.Fail("handoutOnly")
+	}
 	fields, err := checkFields(ctx, tx, c, kind, a)
 	if err != nil {
 		return cs.Result{}, err
@@ -102,16 +107,20 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 			open := "open"
 			status = &open
 		}
+		// A handout always has a layout and a header (plain, none); every other kind has neither (migration 0022).
+		if kind == "handout" {
+			layout, header = cmp.Or(layout, new("plain")), cmp.Or(header, new(""))
+		}
 		// A new entry goes last among its siblings (the other unparented entries of its kind).
 		// A new entry is GM-only; without a GM nothing can be, so it is the party's.
 		visibility := "gm"
 		if !c.HasGM() {
 			visibility = "party"
 		}
-		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, visibility, position, fields)
+		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, visibility, position, fields, layout, header)
 			VALUES ($1, $2, $3, coalesce($4, ''), coalesce($5, ''), $6, coalesce($7::text[], '{}'), $8,
-				(SELECT coalesce(max(position) + 1, 0) FROM codex_entry WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NULL), $9::jsonb)
-			RETURNING id::text`, cid, kind, *title, body, notes, status, planned, visibility, setFields).Scan(&id)
+				(SELECT coalesce(max(position) + 1, 0) FROM codex_entry WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NULL), $9::jsonb, $10, $11)
+			RETURNING id::text`, cid, kind, *title, body, notes, status, planned, visibility, setFields, layout, header).Scan(&id)
 		if err != nil || !imageSent {
 			return cs.Done(id), err
 		}
@@ -119,8 +128,8 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	}
 	_, err = tx.Exec(ctx, `UPDATE codex_entry SET title = coalesce($2, title), body = coalesce($3, body),
 		gm_notes = coalesce($4, gm_notes), status = coalesce($5, status), planned_tests = coalesce($6::text[], planned_tests),
-		fields = (fields || $7::jsonb) - $8::text[]
-		WHERE id = $1`, id, title, body, notes, status, planned, setFields, clearFields)
+		fields = (fields || $7::jsonb) - $8::text[], layout = coalesce($9, layout), header = coalesce($10, header)
+		WHERE id = $1`, id, title, body, notes, status, planned, setFields, clearFields, layout, header)
 	if err != nil || !imageSent {
 		return cs.Done(id), err
 	}

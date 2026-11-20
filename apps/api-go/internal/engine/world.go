@@ -40,6 +40,9 @@ var (
 		{"headingCase", []string{"normal", "caps"}},
 		{"buttonFrame", []string{"plate", "flat", "double"}},
 	}
+	// HandoutLayouts is HANDOUT_LAYOUTS: the handout layouts the platform draws (house decision #72). The codex entry's
+	// `layout` is one of them (coreschema), so the two lists are this one.
+	HandoutLayouts     = []string{"plain", "tablet", "form", "transcript", "proclamation"}
 	worldContrastPairs = []contrastPair{
 		{"ink", "paper", 4.5}, {"ink", "paper-2", 4.5}, {"ink-2", "paper", 4.5}, {"ink-2", "paper-2", 4.5},
 		{"band-ink", "band", 4.5}, {"accent-ink", "accent", 4.5}, {"accent", "paper", 4.5}, {"link", "paper", 4.5},
@@ -128,7 +131,16 @@ var worldSchema = schema.Object(
 	schema.Req("core", semVerRange),
 	schema.Req("name", schema.String().Min(1).Max(80)),
 	schema.Req("theme", worldThemeSchema()),
+	schema.Opt("handouts", schema.Object(
+		schema.Req("layouts", schema.UniqueList(schema.Enum(HandoutLayouts...), 1, len(HandoutLayouts),
+			"a layout is listed twice")),
+		schema.Def("names", schema.PartialRecord(schema.String().Min(1).Max(maxHandoutLayoutName), HandoutLayouts...),
+			map[string]any{}),
+	)),
 )
+
+// maxHandoutLayoutName is MAX_HANDOUT_LAYOUT_NAME: the longest name a World gives one of the layouts.
+const maxHandoutLayoutName = 40
 
 // worldColours lays a World's values for one set over the base, and resolves the semantic names as the base does: a
 // semantic name set directly wins, else it reads its palette name, the World's value or the base's.

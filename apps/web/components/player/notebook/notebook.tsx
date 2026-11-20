@@ -8,6 +8,7 @@ import { SafetySection } from "@/components/player/notebook/safety-section";
 import { EntryFieldChips, EntryFields } from "@/components/ui/entry-fields/entry-fields";
 import { EntryPath } from "@/components/ui/entry-path/entry-path";
 import { EntryPicture } from "@/components/ui/entry-picture/entry-picture";
+import { HandoutDoc } from "@/components/ui/handout-doc/handout-doc";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import type { Send } from "@/hooks/use-table/use-table";
 import { treeRows, type TreeRow } from "@/lib/codex/codex";
@@ -66,9 +67,20 @@ export function Notebook({ codex, me, safety, send, ruleset, known }: NotebookPr
       <EntryPath entries={entries} entry={e} onOpen={handleOpen} />
       <EntryPicture campaignId={me.campaignId} entry={e} />
       <EntryFields ruleset={ruleset} entry={e} campaignId={me.campaignId} known={known} enumChips={false} />
-      <p style={{ whiteSpace: "pre-wrap" }}>
-        <MentionText body={e.body} entries={entries} onOpen={handleOpen} />
-      </p>
+      {e.layout !== null ? (
+        <HandoutDoc
+          layout={e.layout}
+          header={e.header ?? ""}
+          title={e.title}
+          body={e.body}
+          entries={entries}
+          onOpen={handleOpen}
+        />
+      ) : (
+        <p style={{ whiteSpace: "pre-wrap" }}>
+          <MentionText body={e.body} entries={entries} onOpen={handleOpen} />
+        </p>
+      )}
     </details>
   );
   return (

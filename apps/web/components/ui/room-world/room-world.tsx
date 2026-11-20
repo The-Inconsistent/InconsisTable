@@ -1,3 +1,4 @@
+import { RoomHandouts } from "@/components/ui/room-handouts/room-handouts";
 import { roomLook, type RoomWorld as RoomWorldData } from "@/lib/world/room";
 
 type RoomWorldProps = { world: RoomWorldData; children: React.ReactNode };
@@ -11,7 +12,7 @@ export function RoomWorld({ world, children }: RoomWorldProps) {
   return (
     <div {...look?.attributes}>
       {look && <style>{look.style}</style>}
-      {children}
+      <RoomHandouts handouts={world?.handouts ?? null}>{children}</RoomHandouts>
     </div>
   );
 }

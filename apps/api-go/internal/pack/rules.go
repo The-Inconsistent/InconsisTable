@@ -115,6 +115,8 @@ type rulesWorld struct {
 	Version   string          `json:"version"`
 	Name      string          `json:"name"`
 	Theme     json.RawMessage `json:"theme"`
+	// Handouts is the World's handout layouts and their names (house decision #72); null when it brings none.
+	Handouts json.RawMessage `json:"handouts"`
 }
 
 // Rules is what a seat may read of the room's rules.
@@ -160,10 +162,10 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 	// Every seat of the room reads the World alike, the table screen included: it holds only a look.
 	var w rulesWorld
 	err = conn.QueryRow(ctx, `SELECT world_version.id::text, world.slug, world_version.version, world_version.document->>'name',
-			world_version.document->'theme'
+			world_version.document->'theme', coalesce(world_version.document->'handouts', 'null')
 		FROM campaign JOIN world_version ON world_version.id = campaign.world_version_id
 		JOIN world ON world.id = world_version.world_id WHERE campaign.id = $1 AND `+actor.ServedWorld("$1"), c.CampaignID).
-		Scan(&w.VersionID, &w.Slug, &w.Version, &w.Name, &w.Theme)
+		Scan(&w.VersionID, &w.Slug, &w.Version, &w.Name, &w.Theme, &w.Handouts)
 	switch {
 	case err == nil:
 		out.World = &w

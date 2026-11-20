@@ -22,6 +22,8 @@ const entry = (over: Partial<CodexEntry>): CodexEntry => ({
   imageId: null,
   imageRevealed: false,
   fields: {},
+  layout: null,
+  header: null,
   ...over,
 });
 

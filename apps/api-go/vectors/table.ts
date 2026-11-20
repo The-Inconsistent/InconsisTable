@@ -13,6 +13,7 @@ import {
   BookPage,
   BookServing,
   type Ctx,
+  HandoutLayout,
   type Seat,
 } from "../../../packages/core-schema/src/index.ts";
 import { compileRuleset } from "../../../packages/rules-engine/src/compile.ts";
@@ -438,6 +439,9 @@ const entry = (
   imageId: null as string | null,
   imageRevealed: false,
   fields: {} as Record<string, unknown>,
+  // A handout's layout and header (house decision #72); null on every other kind.
+  layout: (over.kind ?? "handout") === "handout" ? "tablet" : null,
+  header: (over.kind ?? "handout") === "handout" ? "Read aloud" : null,
   ...over,
 });
 
@@ -445,8 +449,8 @@ const CODEX = {
   entries: [
     entry(U(500), "gm", "all", []),
     entry(U(501), "party", "all", []),
-    entry(U(502), "public", "listed", [PC1, PC2]),
-    entry(U(503), "party", "listed", [PC2]),
+    entry(U(502), "public", "listed", [PC1, PC2], { layout: "transcript", header: "" }),
+    entry(U(503), "party", "listed", [PC2], { layout: "proclamation" }),
     entry(U(504), "gm", "listed", [PC1]),
     // A hidden adventure with a shown scene, a shown adventure, and a quest: a link or a parent to a hidden entry must
     // not reach a seat that can't see it, and planned Tests never reach one without the GM side.
@@ -771,6 +775,8 @@ const VALID: Record<string, Record<string, unknown>> = {
     plannedTests: ["check", "x".repeat(100)],
     imageId: ID,
     fields: { mood: "cold", disposition: -2, patron: null, flag: true },
+    layout: "proclamation",
+    header: " Notice ",
   },
   "codex.move": { id: ID, parentId: null, position: 2 },
   "codex.link": { id: ID, targetId: ID },
@@ -866,6 +872,10 @@ for (const fields of [
   "x",
 ]) {
   record("Action", { type: "codex.save", kind: "npc", fields });
+}
+// Every handout layout the platform draws, and one it does not (house decision #72).
+for (const layout of [...HandoutLayout.options, "scroll", "PLAIN"]) {
+  record("Action", { type: "codex.save", kind: "handout", title: "H", layout });
 }
 // A reported Test's report carries an outcome id and no dice (house decision #41).
 const reportBase = { type: "test.report", callId: ID, actorId: ID };

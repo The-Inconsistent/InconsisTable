@@ -105,10 +105,15 @@ func run() error {
 	route(router, "GET", "/api/packs", core.Serve(library.Packs))
 	route(router, "GET", "/api/packs/:id/export", core.Serve(library.Export))
 	route(router, "POST", "/api/packs/:id/hide", core.Serve(library.Hide))
+	route(router, "POST", "/api/worlds", core.Serve(library.ImportWorld))
+	route(router, "GET", "/api/worlds", core.Serve(library.Worlds))
+	route(router, "GET", "/api/worlds/:id/export", core.Serve(library.ExportWorld))
+	route(router, "POST", "/api/worlds/:id/hide", core.Serve(library.HideWorld))
 	route(router, "GET", "/api/admin/campaigns", core.Serve(console.Campaigns))
 	route(router, "POST", "/api/admin/campaigns/:id/action", core.Serve(console.Action))
 	route(router, "GET", "/api/admin/packs", core.Serve(console.Packs))
 	route(router, "POST", "/api/admin/packs/:id/disable", core.Serve(console.DisablePack))
+	route(router, "POST", "/api/admin/worlds/:id/disable", core.Serve(console.DisableWorld))
 	route(router, "GET", "/api/admin/events", core.Serve(console.Events))
 	route(router, "GET", "/api/campaigns/:id/rules", core.Serve(library.Rules))
 	route(router, "GET", "/api/campaigns/:id/catalogue", core.Serve(library.Catalogue))
@@ -195,7 +200,7 @@ func guarded(next http.Handler, adminKey *core.Limiter) http.Handler {
 			tooMany(w, slowDown)
 			return
 		}
-		if under(path, "/api/lobby", "/api/me", "/api/account", "/api/campaigns", "/api/admin", "/api/rulesets", "/api/packs") && !signedIn.Allow(ip) {
+		if under(path, "/api/lobby", "/api/me", "/api/account", "/api/campaigns", "/api/admin", "/api/rulesets", "/api/packs", "/api/worlds") && !signedIn.Allow(ip) {
 			tooMany(w, slowDown)
 			return
 		}
@@ -203,7 +208,7 @@ func guarded(next http.Handler, adminKey *core.Limiter) http.Handler {
 			tooMany(w, slowDown)
 			return
 		}
-		if under(path, "/api/rulesets", "/api/packs") && r.Method == http.MethodPost && !imports.Allow(ip) {
+		if under(path, "/api/rulesets", "/api/packs", "/api/worlds") && r.Method == http.MethodPost && !imports.Allow(ip) {
 			tooMany(w, "Too many imports. Wait a minute.")
 			return
 		}

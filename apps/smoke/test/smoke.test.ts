@@ -1429,6 +1429,31 @@ function caller(token: string) {
 const keysOf = (r: RulesReply) => r.entries.map((e) => e.key).sort();
 const SAMPLE_KEYS = ["coil-rope", "ember-wisp", "reedfolk", "wayfinder"];
 
+test("importer: a layout's widget rows import, and an unknown widget or value is refused at its path (house decision #83)", async () => {
+  const me = caller(await device("widgets"));
+  const bad = structuredClone(SAMPLE_D20);
+  const character = bad.layout?.character;
+  assert.ok(character?.sections[1]);
+  character.sections[1].show[0] = { widget: "dial", bind: { ratings: ["attr.str"] } };
+  character.trackerRow = [{ widget: "track", bind: { value: "res.nope" } }];
+  const refused = await me.post<PackReply>("/rulesets", bad);
+  assert.equal(refused.status, 422);
+  assert.deepEqual(
+    refused.body.problems?.map((p) => p.path),
+    ["layout.character.sections[1].show[0].widget", "layout.character.trackerRow[0].bind.value"],
+  );
+  assert.deepEqual((await me.get<unknown[]>("/rulesets")).body, [], "nothing is stored");
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  assert.equal(rs.status, 201, "seven widgets on the character's sheet import");
+  const exported = await me.get<{ layout: { character: { sections: { show: unknown[] }[] } } }>(
+    `/rulesets/${rs.body.rulesetId}/export`,
+  );
+  assert.deepEqual(
+    exported.body.layout.character.sections[1]?.show[0],
+    SAMPLE_D20.layout?.character?.sections[1]?.show[0],
+  );
+});
+
 test("importer: a ruleset and a pack are stored once, a re-import reports its diff, bad files are refused by path", async () => {
   assert.equal((await post("/rulesets", SAMPLE_D20)).status, 401);
   assert.equal((await post("/packs", SAMPLE_PACK)).status, 401);

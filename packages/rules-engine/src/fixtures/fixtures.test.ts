@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { compileRuleset } from "../compile.ts";
 import { canonicalJson, sha256Hex } from "../pack-hash.ts";
-import { NOTICE_RESOURCES, SAMPLE_D20 } from "./sample-d20.ts";
+import { NOTICE_RESOURCES, SAMPLE_D20, SAMPLE_D20_BEFORE_WIDGETS } from "./sample-d20.ts";
 import { SAMPLE_HARVEST } from "./sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "./sample-no-order.ts";
 import { SAMPLE_POOL } from "./sample-pool.ts";
@@ -13,7 +13,7 @@ import { SAMPLE_POOL } from "./sample-pool.ts";
 // the sample's version, then the hash here. The hash is the one the importer compares (apps/api-go internal/ruleset/import.go).
 const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9cb58c5d";
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.6": "8aa3ff0feffbc0f5289f3aa242204e10389fa957fdbdba437501fc450577b2a1",
+  "sample-d20@0.1.7": "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf",
   "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.1": "e166afc269320775b0d1e455a2e7a5b10ca9b9c4f0d96f9fa473addb65b93f08",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
@@ -41,9 +41,18 @@ test("a Test without marks or offers hashes as it did before they existed (house
   );
 });
 
+test("a ruleset without widget rows hashes as it did before widgets existed (house decision #83)", () => {
+  const result = compileRuleset(SAMPLE_D20_BEFORE_WIDGETS);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "8aa3ff0feffbc0f5289f3aa242204e10389fa957fdbdba437501fc450577b2a1",
+  );
+});
+
 /** SAMPLE_D20 as it was before it declared notices and the values they read (house decision #79), at 0.1.5. */
 function withoutNotices(): typeof SAMPLE_D20 {
-  const { notices: _notices, ...before } = SAMPLE_D20;
+  const { notices: _notices, ...before } = SAMPLE_D20_BEFORE_WIDGETS;
   return {
     ...before,
     version: "0.1.5",
@@ -86,7 +95,7 @@ test("a ruleset without a codex block hashes as it did before the block existed 
 });
 
 test("a codex block without links or tones hashes as it did before they existed (house decision #76)", () => {
-  const codex = structuredClone(SAMPLE_D20.codex);
+  const codex = structuredClone(SAMPLE_D20_BEFORE_WIDGETS.codex);
   assert.ok(codex?.kinds.npc && codex.kinds.faction);
   const { home: _home, ...npc } = codex.kinds.npc.fields;
   const { seat: _seat, ...faction } = codex.kinds.faction.fields;

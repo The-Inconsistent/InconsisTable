@@ -175,6 +175,9 @@ export const RefusalCode = z.enum([
   "spendNotNow",
   // A spend limited per round (house decision #91).
   "usedThisRound",
+  // Spawn options (house decision #92).
+  "noSuchOption",
+  "optionNotHere",
 ]);
 export type RefusalCode = z.infer<typeof RefusalCode>;
 

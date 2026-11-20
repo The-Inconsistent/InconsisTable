@@ -1,5 +1,20 @@
-import type { RulesetInput } from "../manifest.ts";
+import type { FieldDef, RulesetInput } from "../manifest.ts";
 import { CODEX_0_1_7, SAMPLE_D20 } from "./sample-d20.ts";
+
+/** The creature's own fields of house decision #92: its kind and the grudge its Spite starts from. */
+const CREATURE_FIELDS: Record<string, FieldDef> = {
+  kind: {
+    type: "enum",
+    label: "Kind",
+    values: ["minion", "brute", "boss"],
+    labels: { minion: "Minion", brute: "Brute", boss: "Boss" },
+    notes: { minion: "Falls at the first wound", brute: "Shrugs off staggering", boss: "Acts twice a round" },
+    visibility: "party",
+    editableBy: "gm",
+    cite: "Sample p.24",
+  },
+  grudge: { type: "int", label: "Grudge", min: 0, visibility: "gm", editableBy: "gm", cite: "Sample p.24" },
+};
 
 /**
  * A placeholder ruleset written for tests: sample-d20 with a turn order of two sides that alternate, a setup with a
@@ -13,7 +28,7 @@ import { CODEX_0_1_7, SAMPLE_D20 } from "./sample-d20.ts";
 export const SAMPLE_SKIRMISH: RulesetInput = {
   ...SAMPLE_D20,
   id: "sample-skirmish",
-  version: "0.1.5",
+  version: "0.1.6",
   codex: {
     kinds: {
       ...CODEX_0_1_7.kinds,
@@ -35,6 +50,7 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
     },
   },
   // House decision #91: anyone may hold wards up, each raising the target of its own checks by 2, ended by hand.
+  // House decision #92: a creature is of a kind (a note each, shown on its tracker row) and carries a grudge.
   entities: SAMPLE_D20.entities.map((e) =>
     e.base !== "actor"
       ? e
@@ -42,6 +58,7 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
           ...e,
           fields: {
             ...e.fields,
+            ...(e.id === "creature" ? CREATURE_FIELDS : {}),
             wards: {
               type: "list",
               label: "Holding",
@@ -74,7 +91,66 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
       visibility: "party",
       editableBy: "owner",
     },
+    // House decision #92: a creature's Spite starts from its own grudge.
+    {
+      id: "spite",
+      label: "Spite",
+      cite: "Sample p.24",
+      scope: "entity",
+      entities: ["creature"],
+      max: "6",
+      start: "grudge",
+      visibility: "gm",
+      editableBy: "gm",
+    },
   ],
+  // The tracker row names a creature's kind (its tag) and its Spite (a stepper) (house decision #92).
+  layout: {
+    ...SAMPLE_D20.layout,
+    sheet: { sections: SAMPLE_D20.layout?.sheet?.sections ?? [], trackerRow: ["kind", "res.spite"] },
+  },
+  // House decision #92: two options a foe may be spawned with, one scaling it to the table, and a budget.
+  spawn: {
+    options: [
+      {
+        id: "hardened",
+        label: "Hardened",
+        cite: "Sample p.25",
+        entities: ["creature"],
+        when: 'kind != "minion"',
+        effects: [{ path: "guard", mode: "add", value: "2" }],
+      },
+      {
+        id: "quick",
+        label: "Quick",
+        cite: "Sample p.25",
+        entities: ["creature"],
+        // A Grace the entry does not list lands on 10 plus the bonus.
+        effects: [
+          { path: "attr.dex", mode: "add", value: "2", when: "has(attr.dex)" },
+          { path: "attr.dex", mode: "override", value: "12", when: "!has(attr.dex)" },
+        ],
+      },
+      { id: "scaled", label: "Scaled to the table", cite: "Sample p.26", entities: ["creature"] },
+    ],
+    adjust: [
+      {
+        option: "scaled",
+        entities: ["creature"],
+        when: '!ctx.mob && kind != "minion"',
+        add: { level: "party.seated + campaign.peril", spite: "1" },
+        cite: "Sample p.26",
+      },
+    ],
+    budget: {
+      cite: "Sample p.27",
+      lines: [
+        { id: "foes", label: "Foes", cost: "ctx.mob ? 1 : ctx.count", budget: "party.seated * 2 + campaign.peril" },
+        { id: "bosses", label: "Bosses", cost: 'kind == "boss" ? ctx.count : 0', budget: "1" },
+      ],
+      switches: [{ id: "fortified", label: "Fortified", by: "ctx.budget * 2" }],
+    },
+  },
   tests: {
     ...SAMPLE_D20.tests,
     check: { ...SAMPLE_D20.tests?.check, target: "ctx.dc + derived.wardLoad" } as NonNullable<
@@ -209,8 +285,12 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
     },
   ],
   requests: { max: 3 },
-  // The chapter a campaign is in, which the checklist's second step reads (house decision #90).
-  campaignFields: { chapter: { type: "int", label: "Chapter", min: 1, max: 9, default: 1, cite: "Sample p.22" } },
+  campaignFields: {
+    // The chapter a campaign is in, which the checklist's second step reads (house decision #90).
+    chapter: { type: "int", label: "Chapter", min: 1, max: 9, default: 1, cite: "Sample p.22" },
+    // The peril spawn scaling and the budget read (house decision #92).
+    peril: { type: "int", label: "Peril", min: 1, max: 5, default: 1, cite: "Sample p.25" },
+  },
   // Setting up a skirmish campaign, in the order the invented book gives (house decision #90).
   checklist: [
     {
@@ -274,9 +354,27 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
   ],
 };
 
+/** SAMPLE_SKIRMISH as it was at 0.1.5, before its spawn block and the fields, Spite and Peril it reads (#92). */
+export const SAMPLE_SKIRMISH_BEFORE_SPAWN: RulesetInput = (() => {
+  const { spawn: _spawn, layout: _layout, ...before } = SAMPLE_SKIRMISH;
+  const { peril: _peril, ...campaignFields } = before.campaignFields ?? {};
+  return {
+    ...before,
+    version: "0.1.5",
+    layout: SAMPLE_D20.layout,
+    campaignFields,
+    resources: before.resources?.filter((x) => x.id !== "spite"),
+    entities: before.entities.map((e) => {
+      if (e.id !== "creature") return e;
+      const { kind: _kind, grudge: _grudge, ...fields } = e.fields ?? {};
+      return { ...e, fields };
+    }),
+  };
+})();
+
 /** SAMPLE_SKIRMISH as it was at 0.1.4, before the wards it holds up, Nerve, Channel and its backlash table (#91). */
 export const SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND: RulesetInput = (() => {
-  const { tables: _tables, ...before } = SAMPLE_SKIRMISH;
+  const { tables: _tables, ...before } = SAMPLE_SKIRMISH_BEFORE_SPAWN;
   return {
     ...before,
     version: "0.1.4",

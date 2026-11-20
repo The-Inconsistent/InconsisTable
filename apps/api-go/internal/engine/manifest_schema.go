@@ -492,6 +492,42 @@ var spendSchema = schema.Object(
 	schema.Opt("then", schema.Object(schema.Req("table", idSchema), schema.Opt("inputs", schema.Record(idSchema, idSchema)))),
 )
 
+// spawnSchema is the manifest's spawn block (manifest.ts SpawnBlock, house decision #92).
+var spawnSchema = schema.Object(
+	schema.Opt("options", schema.Array(schema.Object(
+		schema.Req("id", idSchema),
+		schema.Req("label", label(80)),
+		schema.Opt("cite", citeSchema),
+		schema.Opt("entities", schema.Array(idSchema).Min(1).Max(50)),
+		schema.Opt("when", exprSource),
+		schema.Def("effects", schema.Array(effectSchema).Max(20), []any{}),
+	)).Max(20)),
+	schema.Opt("adjust", schema.Array(schema.Object(
+		schema.Opt("option", idSchema),
+		schema.Opt("entities", schema.Array(idSchema).Min(1).Max(50)),
+		schema.Opt("when", exprSource),
+		schema.Req("add", schema.Refined(schema.Record(label(130), exprSource), func(v any) bool {
+			n := len(v.(map[string]any))
+			return n >= 1 && n <= 10
+		}, "1 to 10 values")),
+		schema.Opt("cite", citeSchema),
+	)).Max(10)),
+	schema.Opt("budget", schema.Object(
+		schema.Opt("cite", citeSchema),
+		schema.Req("lines", schema.Array(schema.Object(
+			schema.Req("id", idSchema),
+			schema.Req("label", label(80)),
+			schema.Req("cost", exprSource),
+			schema.Req("budget", exprSource),
+		)).Min(1).Max(8)),
+		schema.Opt("switches", schema.Array(schema.Object(
+			schema.Req("id", idSchema),
+			schema.Req("label", label(60)),
+			schema.Req("by", exprSource),
+		)).Max(4)),
+	)),
+)
+
 func stepVariant(tag string, extra ...schema.Field) schema.Variant {
 	fields := append([]schema.Field{
 		schema.Req("id", idSchema),
@@ -665,6 +701,7 @@ var rulesetSchema = schema.Object(
 		schema.Opt("note", label(200)),
 		schema.Opt("optional", schema.Bool()),
 	)).Max(maxChecklistSteps)),
+	schema.Opt("spawn", spawnSchema),
 )
 
 // The setup checklist (house decision #90; rules-engine CHECKLIST_TABS, CHECKLIST_PREP_KINDS, ChecklistCount).

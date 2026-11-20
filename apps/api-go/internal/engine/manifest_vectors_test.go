@@ -36,7 +36,9 @@ type manifestVectorFile struct {
 		Fields     map[string]any     `json:"fields"`
 		Resources  map[string]float64 `json:"resources"`
 		Conditions []string           `json:"conditions"`
-		Characters float64            `json:"characters"`
+		// Options are the spawn options the actor took (house decision #92).
+		Options    []string `json:"options"`
+		Characters float64  `json:"characters"`
 		// Stored is what the campaign holds for its fields, and Campaign what CampaignValues makes of it; both are
 		// absent for a manifest with no campaign fields.
 		Stored   map[string]any `json:"stored"`
@@ -369,7 +371,7 @@ func TestDerivedValuesMatchTypeScript(t *testing.T) {
 	}
 	for i, x := range v.Derive {
 		c := compiled[x.Manifest]
-		values := ActorValues{Fields: x.Fields, Resources: x.Resources, Conditions: x.Conditions, Characters: x.Characters}
+		values := ActorValues{Fields: x.Fields, Resources: x.Resources, Conditions: x.Conditions, Options: x.Options, Characters: x.Characters}
 		name := fmt.Sprintf("case %d %s", i, x.Entity)
 		if x.Stored != nil {
 			values.Campaign = CampaignValues(c, x.Stored)

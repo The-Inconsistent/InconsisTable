@@ -520,6 +520,48 @@ type (
 		Requests *struct {
 			Max float64 `json:"max"`
 		} `json:"requests"`
+		// Spawn is the spawn options, adjustments and encounter budget (house decision #92); nil when absent.
+		Spawn *SpawnBlock `json:"spawn"`
+	}
+	// SpawnOption is one option a spawned actor may take (manifest.ts SpawnOption).
+	SpawnOption struct {
+		ID       string    `json:"id"`
+		Label    string    `json:"label"`
+		Cite     *string   `json:"cite"`
+		Entities *[]string `json:"entities"`
+		When     *string   `json:"when"`
+		Effects  []Effect  `json:"effects"`
+	}
+	// SpawnAdjust is a change made once at spawn (manifest.ts SpawnAdjust).
+	SpawnAdjust struct {
+		Option   *string           `json:"option"`
+		Entities *[]string         `json:"entities"`
+		When     *string           `json:"when"`
+		Add      map[string]string `json:"add"`
+		Cite     *string           `json:"cite"`
+	}
+	// SpawnBudgetLine is one line of the encounter budget.
+	SpawnBudgetLine struct {
+		ID     string `json:"id"`
+		Label  string `json:"label"`
+		Cost   string `json:"cost"`
+		Budget string `json:"budget"`
+	}
+	// SpawnSwitch sets each budget line's budget to By while it is on.
+	SpawnSwitch struct {
+		ID    string `json:"id"`
+		Label string `json:"label"`
+		By    string `json:"by"`
+	}
+	// SpawnBlock is the manifest's spawn block (manifest.ts SpawnBlock).
+	SpawnBlock struct {
+		Options []SpawnOption `json:"options"`
+		Adjust  []SpawnAdjust `json:"adjust"`
+		Budget  *struct {
+			Cite     *string           `json:"cite"`
+			Lines    []SpawnBudgetLine `json:"lines"`
+			Switches []SpawnSwitch     `json:"switches"`
+		} `json:"budget"`
 	}
 	// ChecklistStep is one step of the setup checklist (house decision #90; rules-engine ChecklistStep).
 	ChecklistStep struct {
@@ -746,6 +788,52 @@ func (p *problems) creation(r *Ruleset) {
 // Every face range fits the die, bands never overlap, and shift names a band.
 // harm is harmProblems of manifest.ts: health.harm's resources, fields and conditions (house decision #66).
 // spends is manifest.ts spendProblems (house decision #84): ids, costs and inputs. Expressions and run ops are compiled.
+// spawn is manifest.ts spawnProblems (house decision #92): ids, cites, actor types, and what an adjustment adds to.
+func (p *problems) spawn(r *Ruleset, actorTypes func(*[]string, string), needCite func(*string, string)) {
+	s := r.Spawn
+	if s == nil {
+		return
+	}
+	p.duplicates("spawn.options", idsOf(s.Options, func(o SpawnOption) string { return o.ID }))
+	for i, o := range s.Options {
+		needCite(o.Cite, fmt.Sprintf("spawn.options[%d]", i))
+		actorTypes(o.Entities, fmt.Sprintf("spawn.options[%d].entities", i))
+	}
+	for i, a := range s.Adjust {
+		path := fmt.Sprintf("spawn.adjust[%d]", i)
+		needCite(a.Cite, path)
+		actorTypes(a.Entities, path+".entities")
+		if a.Option != nil && !slices.ContainsFunc(s.Options, func(o SpawnOption) bool { return o.ID == *a.Option }) {
+			p.add(path+".option", `unknown option "%s"`, *a.Option)
+		}
+		for _, key := range sortedKeys(a.Add) {
+			counts := false
+			for j := range r.Entities {
+				e := &r.Entities[j]
+				if e.Base != "actor" || (a.Entities != nil && !slices.Contains(*a.Entities, e.ID)) {
+					continue
+				}
+				if f, ok := e.Fields[key]; ok && f.Type == "int" {
+					counts = true
+				}
+				for _, x := range r.Resources {
+					if x.ID == key && x.Scope == "entity" && (x.Entities == nil || slices.Contains(*x.Entities, e.ID)) {
+						counts = true
+					}
+				}
+			}
+			if !counts {
+				p.add(path+".add."+key, `no spawned actor has an integer "%s"`, key)
+			}
+		}
+	}
+	if s.Budget != nil {
+		needCite(s.Budget.Cite, "spawn.budget")
+		p.duplicates("spawn.budget.lines", idsOf(s.Budget.Lines, func(l SpawnBudgetLine) string { return l.ID }))
+		p.duplicates("spawn.budget.switches", idsOf(s.Budget.Switches, func(w SpawnSwitch) string { return w.ID }))
+	}
+}
+
 func (p *problems) spends(r *Ruleset, actorTypes func(*[]string, string)) {
 	p.duplicates("spends", idsOf(r.Spends, func(s Spend) string { return s.ID }))
 	resources := map[string]Resource{}
@@ -1454,6 +1542,7 @@ func (r *Ruleset) semanticProblems() problems {
 		needCite(x.Cite, fmt.Sprintf("spends[%d]", i))
 	}
 	p.spends(r, actorTypes)
+	p.spawn(r, actorTypes, needCite)
 
 	for _, id := range sortedKeys(r.Tests) {
 		t := r.Tests[id]

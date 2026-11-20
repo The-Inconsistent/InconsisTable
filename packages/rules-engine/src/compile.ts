@@ -216,6 +216,14 @@ export const SPEND_CTX: Readonly<Record<string, ExprType>> = {
 /** Party-level values every actor expression may read. */
 // ponytail: only the character count today; party pools and averages join when a ruleset needs them.
 export const PARTY_SCOPE: ExprType = { record: { characters: "int" } };
+/** `party` at spawn (house decision #92): also `seated`, the characters held by a member's seat. */
+export const SPAWN_PARTY_SCOPE: ExprType = { record: { characters: "int", seated: "int" } };
+/** `ctx` of a spawn option's and an adjustment's expressions: whether it is spawned as a mob. */
+export const SPAWN_CTX: Record<string, ExprType> = { mob: "bool" };
+/** `ctx` of a budget line's cost: how many the line stands for, and whether as a mob. */
+export const BUDGET_COST_CTX: Record<string, ExprType> = { count: "int", mob: "bool" };
+/** The source id of a spawn option's effects, beside conditions' ids and entries' `<type>/<key>`. */
+export const spawnSourceId = (optionId: string) => `spawn/${optionId}`;
 /** `party.*` reads only how many characters sit at the table, which every seat already sees. */
 const PARTY_VISIBILITY: Visibility = "party";
 
@@ -571,6 +579,21 @@ class Compiler {
         for (const { host, effect } of hits) host.effects.push(effect);
       });
     });
+    // A spawn option's effects run with the conditions' (house decision #92); only the GM side is told an actor has one.
+    this.r.spawn?.options?.forEach((o, i) => {
+      o.effects.forEach((eff, j) => {
+        const hits = this.effect({
+          eff,
+          path: `spawn.options[${i}].effects[${j}]`,
+          sourceId: spawnSourceId(o.id),
+          sourceVisibility: "gm",
+          pool: this.actorEntities().filter((e) => o.entities?.includes(e.id) ?? true),
+          entities,
+          noHost: `no actor it applies to has an integer "${eff.path}"`,
+        });
+        for (const { host, effect } of hits) host.effects.push(effect);
+      });
+    });
     // Stable sort keeps declaration order within one condition.
     for (const ce of Object.values(entities)) ce.effects.sort(byOrder);
   }
@@ -678,6 +701,64 @@ class Compiler {
         }
       });
     });
+  }
+
+  /**
+   * `spawn` (house decision #92): an option's and an adjustment's `when` and `add` in the spawn scope of each actor type
+   * they apply to; a budget line's `cost` in that of each type a pack entry is spawned as, its `budget` and a switch's
+   * `by` in the room's. Read by `planSpawn` and `budgetOf` from the manifest's own text.
+   */
+  private spawn(): void {
+    const spawn = this.r.spawn;
+    if (spawn === undefined) return;
+    const scopeOf = (e: EntityType, ctx: Record<string, ExprType>): ExprScope => ({
+      ...fieldScope(e.fields),
+      ...this.roomScope(),
+      ctx: { record: ctx },
+    });
+    const of = (ids: readonly string[] | undefined) => this.actorEntities().filter((e) => ids?.includes(e.id) ?? true);
+    spawn.options?.forEach((o, i) => {
+      if (o.when !== undefined)
+        this.expr({
+          source: o.when,
+          scopes: of(o.entities).map((e) => scopeOf(e, SPAWN_CTX)),
+          expect: "bool",
+          path: `spawn.options[${i}].when`,
+        });
+    });
+    spawn.adjust?.forEach((a, i) => {
+      const scopes = of(a.entities).map((e) => scopeOf(e, SPAWN_CTX));
+      if (a.when !== undefined) this.expr({ source: a.when, scopes, expect: "bool", path: `spawn.adjust[${i}].when` });
+      for (const [key, source] of sortedEntries(a.add))
+        this.expr({ source, scopes, expect: "int", path: `spawn.adjust[${i}].add.${key}` });
+    });
+    const b = spawn.budget;
+    if (b === undefined) return;
+    const built = new Set(this.r.creation.map((s) => s.actor));
+    const spawned = this.actorEntities().filter((e) => !built.has(e.id));
+    const costScopes = (spawned.length > 0 ? spawned : this.actorEntities()).map((e) => scopeOf(e, BUDGET_COST_CTX));
+    b.lines.forEach((l, i) => {
+      this.expr({ source: l.cost, scopes: costScopes, expect: "int", path: `spawn.budget.lines[${i}].cost` });
+      this.expr({
+        source: l.budget,
+        scopes: [this.roomScope()],
+        expect: "int",
+        path: `spawn.budget.lines[${i}].budget`,
+      });
+    });
+    b.switches?.forEach((s, i) =>
+      this.expr({
+        source: s.by,
+        scopes: [{ ...this.roomScope(), ctx: { record: { budget: "int" } } }],
+        expect: "int",
+        path: `spawn.budget.switches[${i}].by`,
+      }),
+    );
+  }
+
+  /** What a spawn reads of the room: `campaign`, and `party` with `seated` (house decision #92). */
+  private roomScope(): Record<string, ExprType> {
+    return { party: SPAWN_PARTY_SCOPE, ...this.campaignRoot() };
   }
 
   run(): CompiledRuleset | null {
@@ -848,6 +929,7 @@ class Compiler {
       if (expr !== null) immune[c.id] = expr;
     });
     this.spends(actorsOf);
+    this.spawn();
 
     const lookups = this.lookups(actorsOf);
 

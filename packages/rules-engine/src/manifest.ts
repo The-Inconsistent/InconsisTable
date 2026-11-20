@@ -1034,6 +1034,64 @@ export const Spend = z.object({
 });
 export type Spend = z.infer<typeof Spend>;
 
+/**
+ * One option a spawned actor may take (house decision #92), chosen at spawn and kept by the actor: `effects` are the
+ * Condition effects' shape and run with them. `when` reads the spawn scope (the entry's values, `campaign`,
+ * `party.seated`, `ctx.mob`): the entries it may be taken for.
+ */
+export const SpawnOption = z.object({
+  id: Id,
+  label: z.string().min(1).max(80),
+  cite: Cite.optional(),
+  /** The actor types it applies to; absent: every actor type. */
+  entities: z.array(Id).min(1).max(50).optional(),
+  when: ExprSource.optional(),
+  effects: z.array(Effect).max(20).default([]),
+});
+export type SpawnOption = z.infer<typeof SpawnOption>;
+
+/**
+ * A change made once at spawn and fixed there (house decision #92): each `add` key is a field or a resource of the
+ * spawned actor, its value an integer in the spawn scope. A field the entry does not list, or a resource the actor does
+ * not get, stays absent. `option` makes it apply only when that option is chosen.
+ */
+export const SpawnAdjust = z.object({
+  option: Id.optional(),
+  entities: z.array(Id).min(1).max(50).optional(),
+  when: ExprSource.optional(),
+  add: z
+    .record(z.string().min(1).max(130), ExprSource)
+    .refine((o) => Object.keys(o).length >= 1 && Object.keys(o).length <= 10, "1 to 10 values"),
+  cite: Cite.optional(),
+});
+export type SpawnAdjust = z.infer<typeof SpawnAdjust>;
+
+/**
+ * A reading aid for sizing a fight (house decision #92): each line's `cost` reads an entry's values with `ctx.count`
+ * and `ctx.mob`, its `budget` reads `campaign` and `party.seated`; a switch on sets each line's budget to its `by`,
+ * which reads that budget as `ctx.budget`. It refuses and stores nothing.
+ */
+export const SpawnBudget = z.object({
+  cite: Cite.optional(),
+  lines: z
+    .array(z.object({ id: Id, label: z.string().min(1).max(80), cost: ExprSource, budget: ExprSource }))
+    .min(1)
+    .max(8),
+  switches: z
+    .array(z.object({ id: Id, label: z.string().min(1).max(60), by: ExprSource }))
+    .max(4)
+    .optional(),
+});
+export type SpawnBudget = z.infer<typeof SpawnBudget>;
+
+/** What spawning a pack entry may carry (house decision #92). */
+export const SpawnBlock = z.object({
+  options: z.array(SpawnOption).max(20).optional(),
+  adjust: z.array(SpawnAdjust).max(10).optional(),
+  budget: SpawnBudget.optional(),
+});
+export type SpawnBlock = z.infer<typeof SpawnBlock>;
+
 /** How a table can sit for a game (docs/adr/0009-table-modes.md): with a GM, without one, or one player alone. */
 export const GameMode = z.enum(["gm", "gmless", "solo"]);
 export type GameMode = z.infer<typeof GameMode>;
@@ -1181,6 +1239,8 @@ export const Ruleset = z.object({
   requests: z.object({ max: z.int().min(1).max(20) }).optional(),
   /** The setup checklist the GM works through (house decision #90). Absent: none. */
   checklist: z.array(ChecklistStep).max(MAX_CHECKLIST_STEPS).optional(),
+  /** Spawn options, adjustments fixed at spawn, and the encounter budget (house decision #92). Absent: none. */
+  spawn: SpawnBlock.optional(),
 });
 export type Ruleset = z.infer<typeof Ruleset>;
 export type RulesetInput = z.input<typeof Ruleset>;
@@ -2082,6 +2142,54 @@ function spendProblems({
   });
 }
 
+/**
+ * `spawn` (house decision #92): ids, cites, actor types, and what an adjustment adds to: an integer field or an
+ * entity resource of a type it applies to. Its expressions and the options' effects are `compileRuleset`'s.
+ */
+function spawnProblems({
+  r,
+  actorTypes,
+  needCite,
+  out,
+}: {
+  r: Ruleset;
+  actorTypes: (ids: readonly string[] | undefined, path: string) => void;
+  needCite: (cite: string | undefined, path: string) => void;
+  out: Problem[];
+}): void {
+  const spawn = r.spawn;
+  if (spawn === undefined) return;
+  const options = spawn.options ?? [];
+  duplicates({ ids: options.map((o) => o.id), path: "spawn.options", out });
+  options.forEach((o, i) => {
+    needCite(o.cite, `spawn.options[${i}]`);
+    actorTypes(o.entities, `spawn.options[${i}].entities`);
+  });
+  spawn.adjust?.forEach((a, i) => {
+    const path = `spawn.adjust[${i}]`;
+    needCite(a.cite, path);
+    actorTypes(a.entities, `${path}.entities`);
+    if (a.option !== undefined && !options.some((o) => o.id === a.option))
+      out.push({ path: `${path}.option`, message: `unknown option "${a.option}"` });
+    const pool = r.entities.filter((e) => e.base === "actor" && (a.entities?.includes(e.id) ?? true));
+    for (const key of Object.keys(a.add).sort()) {
+      const counts = pool.some(
+        (e) =>
+          own(e.fields, key)?.type === "int" ||
+          r.resources.some(
+            (x) => x.id === key && x.scope === "entity" && (x.entities === undefined || x.entities.includes(e.id)),
+          ),
+      );
+      if (!counts) out.push({ path: `${path}.add.${key}`, message: `no spawned actor has an integer "${key}"` });
+    }
+  });
+  if (spawn.budget !== undefined) {
+    needCite(spawn.budget.cite, "spawn.budget");
+    duplicates({ ids: spawn.budget.lines.map((l) => l.id), path: "spawn.budget.lines", out });
+    duplicates({ ids: (spawn.budget.switches ?? []).map((s) => s.id), path: "spawn.budget.switches", out });
+  }
+}
+
 function semanticProblems(r: Ruleset): Problem[] {
   const out: Problem[] = [];
   // CLAUDE.md principle 1: every rule entry cites its printed page, unless the whole ruleset is homebrew.
@@ -2236,6 +2344,7 @@ function semanticProblems(r: Ruleset): Problem[] {
   if (r.health.harm !== undefined) harmProblems({ r, harm: r.health.harm, actorTypes, out });
   r.spends?.forEach((s, i) => needCite(s.cite, `spends[${i}]`));
   spendProblems({ r, actorTypes, out });
+  spawnProblems({ r, actorTypes, needCite, out });
 
   for (const [id, t] of Object.entries(r.tests)) {
     actorTypes(t.entities, `tests.${id}.entities`);

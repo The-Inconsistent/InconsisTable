@@ -1014,6 +1014,65 @@ test("prep: scenes under an adventure, reordered and linked; a player sees only 
   ana.socket.close();
 });
 
+test("scenes: a begin sends its reveals and can be taken back, an exit begins the next, an adventure goes with its scenes", async () => {
+  const { owner, campaignId } = await newRoom("Scenes");
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-scenes") } });
+  await ana.until(() => true);
+  const save = async (a: Record<string, unknown>) => ok(await owner.send({ type: "codex.save", ...a } as never)).id!;
+  const adv = await save({ kind: "adventure", title: "The Gate Road" });
+  const keeper = await save({ kind: "npc", title: "Gatekeeper" });
+  const map = await save({ kind: "handout", title: "Gate map" });
+  const known = await save({ kind: "lore", title: "Old song" });
+  ok(await owner.send({ type: "codex.reveal", id: known, visibility: "party", audienceMode: "all", audience: [] }));
+  const hall = await save({ kind: "scene", title: "Hall" });
+  const reveals = [keeper, map, known].map((entryId, i) => ({ id: `v${i}`, entryId }));
+  const gate = await save({
+    kind: "scene",
+    title: "Gate",
+    prep: { reveals, exits: [{ id: "x", label: "Inside", sceneId: hall }] },
+  });
+  for (const [i, id] of [gate, hall].entries())
+    ok(await owner.send({ type: "codex.move", id, parentId: adv, position: i }));
+  const anaSees = (id: string) => ana.codex()?.entries.find((e) => e.id === id);
+  const statusOf = (id: string) => owner.codex()?.entries.find((e) => e.id === id)?.status;
+
+  refused(await ana.send({ type: "scene.begin", sceneId: gate }), "noPermission");
+  const begun = ok(await owner.send({ type: "scene.begin", sceneId: gate }));
+  assert.deepEqual(begun.notices, [{ code: "sceneBegun", params: { title: "Gate", revealed: 3 } }]);
+  await eventually(() => !!anaSees(keeper) && !!anaSees(map), "both reveals reach the player");
+  assert.ok(anaSees(map)?.revealedAt, "with the time they were revealed");
+  assert.ok(
+    !JSON.stringify([ana.codex(), await ana.until(() => true)]).includes("sceneBegun"),
+    "the notice is the GM's",
+  );
+  await eventually(() => statusOf(gate) === "active", "the begun scene is active");
+
+  refused(await ana.send({ type: "scene.undoBegin", beginId: begun.id! }), "noPermission");
+  ok(await owner.send({ type: "scene.undoBegin", beginId: begun.id! }));
+  await eventually(() => !anaSees(keeper) && !anaSees(map), "taking it back seals them again");
+  assert.ok(anaSees(known), "an entry revealed before the begin stays revealed");
+  await eventually(() => statusOf(gate) === "planned", "the scene goes back to where it stood");
+  refused(await owner.send({ type: "scene.undoBegin", beginId: begun.id! }), "notLatestBegin");
+
+  // An exit is scene.begin of the scene it names: the one being played goes to done.
+  const again = ok(await owner.send({ type: "scene.begin", sceneId: gate })).id!;
+  const inside = ok(await owner.send({ type: "scene.begin", sceneId: hall }));
+  assert.deepEqual(inside.notices, [{ code: "sceneBegun", params: { title: "Hall", revealed: 0 } }]);
+  await eventually(() => statusOf(gate) === "done" && statusOf(hall) === "active", "the exit began the next scene");
+  refused(await owner.send({ type: "scene.undoBegin", beginId: again }), "notLatestBegin");
+  ok(await owner.send({ type: "codex.save", id: hall, kind: "scene", status: "done" }));
+  refused(await owner.send({ type: "scene.undoBegin", beginId: inside.id! }), "sceneNotActive");
+  refused(await owner.send({ type: "scene.begin", sceneId: keeper }), "notAScene");
+
+  refused(await owner.send({ type: "codex.delete", id: adv }), "adventureHasScenes");
+  ok(await owner.send({ type: "codex.delete", id: adv, withScenes: true }));
+  await eventually(
+    () => ![adv, gate, hall].some((id) => owner.codex()?.entries.some((e) => e.id === id)),
+    "the adventure went with its scenes",
+  );
+  for (const c of [owner, ana]) c.socket.close();
+});
+
 test("a quest has a status; only a quest", async () => {
   const { owner, campaignId } = await newRoom("Quest");
   const inv = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;

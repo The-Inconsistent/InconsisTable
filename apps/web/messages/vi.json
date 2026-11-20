@@ -203,7 +203,32 @@
     "emptyMine": "Bạn chưa có campaign nào.",
     "emptySeated": "Chưa ai mời bạn vào bàn nào.",
     "nextSession": "Buổi tới {when}",
-    "creating": "Đang tạo…"
+    "creating": "Đang tạo…",
+    "importRoom": "Nhập một phòng"
+  },
+  "importRoom": {
+    "title": "Nhập một phòng",
+    "lede": "Tài liệu phòng sẽ thành một phòng mới do bạn sở hữu và điều hành với vai GM. Người chơi vào bằng lời mời, như mọi phòng khác.",
+    "file": "Tài liệu phòng (.json)",
+    "checking": "Đang đọc tài liệu…",
+    "noRuleset": "Không có bộ luật, gói hay Thế giới nào.",
+    "what": {
+      "ruleset": "Bộ luật",
+      "pack": "Gói",
+      "world": "Thế giới"
+    },
+    "imported": "đã nhập",
+    "missing": "chưa nhập",
+    "makesTable": "Tại bàn:",
+    "makesCodex": "Trong sổ tay:",
+    "count": "{kind}: {count}",
+    "pictures": "{count, plural, other {# hình}}",
+    "sessions": "{count, plural, other {# buổi chơi}}",
+    "clocks": "{count, plural, other {# đồng hồ}}",
+    "confirm": "Nhập thành phòng mới",
+    "importing": "Đang nhập…",
+    "at": "Tại {path}",
+    "failed": "Không nhập được tệp này."
   },
   "account": {
     "label": "Tài khoản",
@@ -1226,6 +1251,14 @@
     "bookNoReply": "Máy tính bảng của GM không phản hồi.",
     "bookMalformed": "Yêu cầu trang không hợp lệ.",
     "bookRenderFailed": "Máy tính bảng của GM không dựng được trang này.",
+    "roomNotDocument": "Đây không phải tài liệu phòng (inconsistable-room, phiên bản 1).",
+    "roomImportFirst": "Hãy nhập {slug} {version} trước.",
+    "roomHashDiffers": "Bản {slug} {version} của bạn không phải bản phòng này được tạo cùng.",
+    "roomNoSuchEntry": "Tài liệu này không có mục đó.",
+    "roomNoSuchActor": "Tài liệu này không có nhân vật đó.",
+    "roomNoSuchPicture": "Tài liệu này không có hình đó.",
+    "roomPictureEncoding": "Hình này không phải base64.",
+    "roomValueClamped": "Phòng sẽ giữ {now} ở đây, không phải {value}.",
     "clockNotFound": "Không tìm thấy đồng hồ",
     "clockLimit": "Phòng này đã có số đồng hồ tối đa.",
     "pictureType": "Hãy gửi một ảnh WebP hoặc JPEG",

@@ -8,6 +8,7 @@ import type { Lobby, LobbyGame, TableMode } from "@inconsistable/core-schema";
 
 import { AccountBar } from "@/components/lobby/account-bar/account-bar";
 import { GamePicker } from "@/components/lobby/game-picker/game-picker";
+import { ImportRoom } from "@/components/lobby/import-room/import-room";
 import { QuickGame } from "@/components/lobby/quick-game/quick-game";
 import { PageHead } from "@/components/ui/page-head/page-head";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
@@ -81,6 +82,7 @@ export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps)
   const [toggled, setToggled] = useState(false);
   const [name, setName] = useState("");
   const [quick, setQuick] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [slug, setSlug] = useState<string | null>(null);
   const [picked, setPicked] = useState<TableMode>("gm");
   const [error, setError] = useState<string | null>(null);
@@ -96,12 +98,20 @@ export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps)
   const handleToggle = () => {
     setCreating(!creating);
     setQuick(false);
+    setImporting(false);
     setToggled(true);
   };
   // QUICK GAME in the head: the one-screen path, in the place of the form.
   const handleQuick = () => {
     setQuick(!quick);
     setCreating(false);
+    setImporting(false);
+  };
+  // IMPORT A ROOM in the head: a room document as a new room, in the place of the forms.
+  const handleImport = () => {
+    setImporting(!importing);
+    setCreating(false);
+    setQuick(false);
   };
   // A card tapped: it is the ruleset, and the way of sitting the filter asked for is kept when the game allows it.
   const handleSelect = (g: GameOption | null, wanted: "any" | TableMode) => {
@@ -145,8 +155,20 @@ export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps)
             {t("quickGame")}
           </button>
         )}
+        {lobby.canCreate && (
+          <button
+            type="button"
+            className="btn"
+            aria-expanded={importing}
+            aria-controls="import-room"
+            onClick={handleImport}
+          >
+            {t("importRoom")}
+          </button>
+        )}
       </PageHead>
       {lobby.canCreate && quick && <QuickGame rulesets={rulesets} />}
+      {lobby.canCreate && importing && <ImportRoom />}
       <AccountBar me={me} signInFailed={signInFailed} />
       {lobby.canCreate && creating && (
         <form id="new-room" className="card" onSubmit={handleCreate}>

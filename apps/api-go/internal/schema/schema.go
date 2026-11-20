@@ -643,23 +643,28 @@ func Prettify(issues []Issue) string {
 		if len(issue.Path) == 0 {
 			continue
 		}
-		var at strings.Builder
-		for i, part := range issue.Path {
-			switch x := part.(type) {
-			case int:
-				fmt.Fprintf(&at, "[%d]", x)
-			case string:
-				if !plainKey.MatchString(x) {
-					fmt.Fprintf(&at, "[%q]", x)
-				} else {
-					if i > 0 {
-						at.WriteByte('.')
-					}
-					at.WriteString(x)
-				}
-			}
-		}
-		lines = append(lines, "  → at "+at.String())
+		lines = append(lines, "  → at "+PathString(issue.Path))
 	}
 	return strings.Join(lines, "\n")
+}
+
+// PathString is a path as z.prettifyError writes it: `actors[3].build`, a key that is not a plain name in brackets.
+func PathString(path []any) string {
+	var at strings.Builder
+	for i, part := range path {
+		switch x := part.(type) {
+		case int:
+			fmt.Fprintf(&at, "[%d]", x)
+		case string:
+			if !plainKey.MatchString(x) {
+				fmt.Fprintf(&at, "[%q]", x)
+			} else {
+				if i > 0 {
+					at.WriteByte('.')
+				}
+				at.WriteString(x)
+			}
+		}
+	}
+	return at.String()
 }

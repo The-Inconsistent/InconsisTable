@@ -116,15 +116,16 @@ func (s *Pictures) Upload(w http.ResponseWriter, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	picture, err := upload(r.Context(), s.DB, resolved.Ctx, declared, data)
+	picture, err := StorePicture(r.Context(), s.DB, resolved.Ctx, declared, data)
 	if err != nil {
 		return nil, err
 	}
 	return map[string]string{"id": picture}, nil
 }
 
-// upload stores a picture that fits the room, for a seat that may write the codex.
-func upload(ctx context.Context, conn core.Conn, c cs.Ctx, declared string, data []byte) (string, error) {
+// StorePicture stores a picture that fits the room, for a seat that may write the codex. The upload route and the room
+// import (internal/roomdoc) call it.
+func StorePicture(ctx context.Context, conn core.Conn, c cs.Ctx, declared string, data []byte) (string, error) {
 	if !cs.CanInCampaign(c, "codex:write", "") {
 		return "", core.Refuse(http.StatusForbidden, "noPermission")
 	}

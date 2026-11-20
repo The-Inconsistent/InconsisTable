@@ -27,59 +27,68 @@ type Service struct {
 	Mutate func(campaignID string, fn func() error) error
 }
 
-type owner struct{ userID, name string }
+// Owner is who a new room belongs to. Name is a placeholder until they next sign in.
+type Owner struct{ UserID, Name string }
 
-// Create makes a new room with its creator as owner and GM (a player, in a room without a GM). A ruleset version can be picked at creation, if the owner
-// imported it. owner.name is a placeholder until they next sign in.
-func (s *Service) create(ctx context.Context, name string, by *owner, rulesetVersionID, tableMode *string) (string, error) {
+// create makes a new room in its own transaction (NewRoom).
+func (s *Service) create(ctx context.Context, name string, by *Owner, rulesetVersionID, tableMode *string) (string, error) {
 	var campaignID string
 	err := core.InTx(ctx, s.DB, func(tx pgx.Tx) error {
-		ownerID := ""
-		var ownerParam *string
-		if by != nil {
-			ownerID = by.userID
-			ownerParam = &ownerID
-			if _, err := tx.Exec(ctx, `INSERT INTO app_user (id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING`, by.userID, by.name); err != nil {
-				return err
-			}
-		}
-		if rulesetVersionID != nil {
-			var mine string
-			err := tx.QueryRow(ctx, `SELECT ruleset_version.id::text FROM ruleset_version
-				JOIN ruleset ON ruleset.id = ruleset_version.ruleset_id
-				WHERE ruleset_version.id = $1 AND ruleset.owner_user_id = $2`, *rulesetVersionID, ownerID).Scan(&mine)
-			if errors.Is(err, pgx.ErrNoRows) {
-				return coreschema.Fail("rulesetNotFound")
-			}
-			if err != nil {
-				return err
-			}
-		}
-		// How the table sits is one of the modes the ruleset allows; a room with no ruleset yet is played with a GM.
-		mode, seat := coreschema.TableModeGM, "gm"
-		if tableMode != nil && *tableMode != mode {
-			modes := []string{coreschema.TableModeGM}
-			if rulesetVersionID != nil {
-				var err error
-				if modes, err = RulesetModes(ctx, tx, *rulesetVersionID); err != nil {
-					return err
-				}
-			}
-			if !slices.Contains(modes, *tableMode) {
-				return coreschema.Fail("modeNotPlayed")
-			}
-			mode, seat = *tableMode, "player" // without a GM the owner sits as a player
-		}
-		err := tx.QueryRow(ctx, `INSERT INTO campaign (name, owner_user_id, ruleset_version_id, table_mode) VALUES ($1, $2, $3, $4)
-			RETURNING id::text`, name, ownerParam, rulesetVersionID, mode).Scan(&campaignID)
-		if err != nil {
-			return err
-		}
-		if by != nil {
-			_, err = tx.Exec(ctx, `INSERT INTO membership (campaign_id, user_id, role) VALUES ($1, $2, $3)`, campaignID, by.userID, seat)
-		}
+		var err error
+		campaignID, err = NewRoom(ctx, tx, name, by, rulesetVersionID, tableMode)
 		return err
 	})
+	return campaignID, err
+}
+
+// NewRoom makes a new room with its creator as owner and GM (a player, in a room without a GM). A ruleset version can
+// be picked at creation, if the owner imported it. POST /api/campaigns and the room import (internal/roomdoc) call it.
+func NewRoom(ctx context.Context, tx core.Conn, name string, by *Owner, rulesetVersionID, tableMode *string) (string, error) {
+	var campaignID string
+	ownerID := ""
+	var ownerParam *string
+	if by != nil {
+		ownerID = by.UserID
+		ownerParam = &ownerID
+		if _, err := tx.Exec(ctx, `INSERT INTO app_user (id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING`, by.UserID, by.Name); err != nil {
+			return "", err
+		}
+	}
+	if rulesetVersionID != nil {
+		var mine string
+		err := tx.QueryRow(ctx, `SELECT ruleset_version.id::text FROM ruleset_version
+			JOIN ruleset ON ruleset.id = ruleset_version.ruleset_id
+			WHERE ruleset_version.id = $1 AND ruleset.owner_user_id = $2`, *rulesetVersionID, ownerID).Scan(&mine)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", coreschema.Fail("rulesetNotFound")
+		}
+		if err != nil {
+			return "", err
+		}
+	}
+	// How the table sits is one of the modes the ruleset allows; a room with no ruleset yet is played with a GM.
+	mode, seat := coreschema.TableModeGM, "gm"
+	if tableMode != nil && *tableMode != mode {
+		modes := []string{coreschema.TableModeGM}
+		if rulesetVersionID != nil {
+			var err error
+			if modes, err = RulesetModes(ctx, tx, *rulesetVersionID); err != nil {
+				return "", err
+			}
+		}
+		if !slices.Contains(modes, *tableMode) {
+			return "", coreschema.Fail("modeNotPlayed")
+		}
+		mode, seat = *tableMode, "player" // without a GM the owner sits as a player
+	}
+	err := tx.QueryRow(ctx, `INSERT INTO campaign (name, owner_user_id, ruleset_version_id, table_mode) VALUES ($1, $2, $3, $4)
+		RETURNING id::text`, name, ownerParam, rulesetVersionID, mode).Scan(&campaignID)
+	if err != nil {
+		return "", err
+	}
+	if by != nil {
+		_, err = tx.Exec(ctx, `INSERT INTO membership (campaign_id, user_id, role) VALUES ($1, $2, $3)`, campaignID, by.UserID, seat)
+	}
 	return campaignID, err
 }
 
@@ -99,9 +108,9 @@ func (s *Service) Create(w http.ResponseWriter, r *http.Request) (any, error) {
 			return nil, err
 		}
 		name := body["name"].(string)
-		var by *owner
+		var by *Owner
 		if id := optionalString(body, "ownerUserId"); id != nil {
-			by = &owner{*id, "GM"}
+			by = &Owner{*id, "GM"}
 		}
 		id, err := s.create(ctx, name, by, optionalString(body, "rulesetVersionId"), optionalString(body, "tableMode"))
 		if err != nil {
@@ -128,7 +137,7 @@ func (s *Service) Create(w http.ResponseWriter, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	id, err := s.create(ctx, body["name"].(string), &owner{user.UserID, user.Name}, optionalString(body, "rulesetVersionId"), optionalString(body, "tableMode"))
+	id, err := s.create(ctx, body["name"].(string), &Owner{user.UserID, user.Name}, optionalString(body, "rulesetVersionId"), optionalString(body, "tableMode"))
 	if err != nil {
 		return nil, err
 	}

@@ -240,9 +240,13 @@ func (rc *Context) Run(ctx context.Context, r Run) ([]engine.Delta, error) {
 			return nil, cs.Fail("sessionPaused")
 		}
 	}
-	deltas, err := RunPrimitive(rc.Compiled.Ruleset, rc.State(r.Exclude, t), r.Primitive, r.Op, r.Input)
 	in, _ := r.Input.(map[string]any)
 	actorID, _ := in["actorId"].(string)
+	// A sheet the rules cannot read yet takes no hit: refused in the words a called Test uses, not the engine's.
+	if b := rc.Built[actorID]; r.Primitive == "health.harm" && b != nil && b.Entity != "" && b.Scope == nil {
+		return nil, cs.Fail("incomplete", cs.Params{"name": b.Row.Name, "detail": b.Problem})
+	}
+	deltas, err := RunPrimitive(rc.Compiled.Ruleset, rc.State(r.Exclude, t), r.Primitive, r.Op, r.Input)
 	var refused *cs.Error
 	if errors.As(err, &refused) && namesActor[refused.Code] && rc.Built[actorID] != nil {
 		params := cs.Params{"name": rc.Built[actorID].Row.Name}

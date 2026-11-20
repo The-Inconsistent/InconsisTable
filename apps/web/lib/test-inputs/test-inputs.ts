@@ -35,6 +35,8 @@ export function toInputs({ def, draft }: { def: TestDef; draft: InputDraft }): F
     if (!r.ok) return { ok: false, problem: r.problem, id: input.id };
     out[input.id] = r.value;
   }
+  // A mark is a switch the GM sets (house decision #80): sent only when on, as the server reads one left out as off.
+  for (const mark of def.marks ?? []) if (draft[mark.id] === true) out[mark.id] = true;
   return { ok: true, inputs: out };
 }
 

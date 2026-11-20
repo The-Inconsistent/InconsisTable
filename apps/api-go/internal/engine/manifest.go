@@ -19,6 +19,12 @@ const MaxCampaignFields = 50
 // MaxFields caps the fields and derived values across a manifest.
 const MaxFields = 2000
 
+// MaxOffers caps a Test's offers and MaxMarks its marks (house decision #80).
+const (
+	MaxOffers = 10
+	MaxMarks  = 10
+)
+
 // MaxNotices caps a manifest's notice rules, and MaxNoticeText a rule's words (house decision #79).
 const (
 	MaxNotices    = 50
@@ -182,6 +188,10 @@ type (
 		Label             *string                      `json:"label"`
 		InputLabels       map[string]string            `json:"inputLabels"`
 		InputOptionLabels map[string]map[string]string `json:"inputOptionLabels"`
+		// Marks and Offers are what the GM sets when calling and what a result offers (house decision #80); nil when
+		// absent.
+		Marks  map[string]TestMark `json:"marks"`
+		Offers []TestOffer         `json:"offers"`
 		// Entities names the actor types that take the Test (house decision #50); nil is every actor type.
 		Entities  *[]string `json:"entities"`
 		Cite      *string   `json:"cite"`
@@ -380,6 +390,25 @@ type (
 		Codex *CodexBlock `json:"codex"`
 		// Notices is what an action's answer tells its sender about an actor (house decision #79); nil when absent.
 		Notices []NoticeRule `json:"notices"`
+	}
+	// TestMark is a yes-or-no the GM sets when calling a Test, read as ctx.<id>.
+	TestMark struct {
+		Label string  `json:"label"`
+		Cite  *string `json:"cite"`
+	}
+	// TestOffer is what a called Test's result offers the GM: when When holds, Changes, once.
+	TestOffer struct {
+		ID      string        `json:"id"`
+		Label   string        `json:"label"`
+		When    string        `json:"when"`
+		Changes []OfferChange `json:"changes"`
+		Cite    *string       `json:"cite"`
+	}
+	// OfferChange is one write of an offer: to a shared pool or to a resource of the taker.
+	OfferChange struct {
+		Pool     *string `json:"pool"`
+		Resource *string `json:"resource"`
+		By       string  `json:"by"`
 	}
 	// NoticeRule is one notice rule: when it is read, the actor types, the line it watches and the words it says.
 	NoticeRule struct {
@@ -739,6 +768,73 @@ func (p *problems) campaignFields(r *Ruleset, needCite func(*string, string)) {
 }
 
 // testWords checks that a Test's words name only its own inputs, and an input's option words only its declared options.
+// testOutcomes are a Test's marks and offers (house decision #80): a mark is not also an input; each change names
+// what it writes.
+func (p *problems) testOutcomes(r *Ruleset, id string, t *Test, needCite func(*string, string)) {
+	path := "tests." + id
+	for _, key := range sortedKeys(t.Marks) {
+		if _, input := t.Inputs[key]; input {
+			p.add(path+".marks."+key, `"%s" is also an input`, key)
+		}
+	}
+	p.duplicates(path+".offers", idsOf(t.Offers, func(o TestOffer) string { return o.ID }))
+	var takers []*EntityType
+	for i := range r.Entities {
+		e := &r.Entities[i]
+		if e.Base == "actor" && (t.Entities == nil || slices.Contains(*t.Entities, e.ID)) {
+			takers = append(takers, e)
+		}
+	}
+	// An offer reads the result as `result`, so a taker's field cannot be called that.
+	if len(t.Offers) > 0 {
+		for _, e := range takers {
+			for f := range e.Fields {
+				if head, _, _ := strings.Cut(f, "."); head == "result" {
+					p.add(path+".offers", `"result" is a field of "%s"`, e.ID)
+					break
+				}
+			}
+		}
+	}
+	for i, o := range t.Offers {
+		needCite(o.Cite, fmt.Sprintf("%s.offers[%d]", path, i))
+		for j, c := range o.Changes {
+			at := fmt.Sprintf("%s.offers[%d].changes[%d]", path, i, j)
+			if (c.Pool == nil) == (c.Resource == nil) {
+				p.add(at, "a change names one pool or one resource")
+				continue
+			}
+			named, key := "", "pool"
+			if c.Pool != nil {
+				named = *c.Pool
+			} else {
+				named, key = *c.Resource, "resource"
+			}
+			var res *Resource
+			for k := range r.Resources {
+				if r.Resources[k].ID == named {
+					res = &r.Resources[k]
+					break
+				}
+			}
+			switch {
+			case res == nil:
+				p.add(at+"."+key, `unknown resource "%s"`, named)
+			case c.Pool != nil && res.Scope == "entity":
+				p.add(at+".pool", `"%s" is not a shared pool`, named)
+			case c.Resource != nil && res.Scope != "entity":
+				p.add(at+".resource", `"%s" must be an entity-scoped resource`, named)
+			case c.Resource != nil:
+				for _, e := range takers {
+					if res.Entities != nil && !slices.Contains(*res.Entities, e.ID) {
+						p.add(at+".resource", `"%s" does not carry "%s"`, e.ID, named)
+					}
+				}
+			}
+		}
+	}
+}
+
 func (p *problems) testWords(t *Test, path string) {
 	for _, key := range sortedKeys(t.InputLabels) {
 		if _, ok := t.Inputs[key]; !ok {
@@ -1029,6 +1125,7 @@ func (r *Ruleset) semanticProblems() problems {
 			}
 		}
 		p.testWords(&t, path)
+		p.testOutcomes(r, id, &t, needCite)
 		if t.Kind == "poolSuccesses" {
 			p.pool(&t, path)
 			continue

@@ -1,4 +1,5 @@
 import {
+  PoolFlag,
   strictestVisibility,
   VISIBILITY_RANK,
   type EffectMode,
@@ -24,6 +25,7 @@ import {
   type DiceMechanic,
   type LedgerKind,
   type NoticeWhen,
+  type TestOffer,
 } from "./manifest.ts";
 import { own } from "./own.ts";
 import type { Problem } from "./problem.ts";
@@ -84,8 +86,35 @@ export interface CompiledResource {
   start: CompiledExpr | null;
 }
 
+/**
+ * What an offer reads of a taker's resolved report as `result` (house decision #80): passed (the outcome is a success
+ * or a critical one), the outcome id, the score, a Dice pool's margin and shifts, the natural die, the number to beat
+ * as the call set it, and the special dice's flags. A number the kind of Test has not is 0.
+ */
+export const RESULT_SCOPE: ExprType = {
+  record: {
+    passed: "bool",
+    outcome: "text",
+    total: "int",
+    margin: "int",
+    shifts: "int",
+    natural: "int",
+    target: "int",
+    flags: { record: Object.fromEntries(PoolFlag.options.map((f) => [f, "bool" as const])) },
+  },
+};
+
+/** One offer of a Test: `when` reads `result` and `ctx`, each change's `by` the taker's scope too. */
+export interface CompiledOffer {
+  def: TestOffer;
+  when: CompiledExpr;
+  changes: { pool: string | null; resource: string | null; by: CompiledExpr }[];
+}
+
 export interface CompiledTest {
   def: DiceMechanic;
+  /** The Test's offers (house decision #80); empty without any. */
+  offers: CompiledOffer[];
   modifier: CompiledExpr;
   target: CompiledExpr;
   /** A Dice pool's size before the modifier; null for every other kind. */
@@ -596,7 +625,9 @@ class Compiler {
 
     const tests: Record<string, CompiledTest> = {};
     for (const [id, t] of Object.entries(this.r.tests)) {
-      const ctx: ExprType = { record: { ...t.inputs } };
+      // A mark reads as a yes-or-no input (house decision #80).
+      const marks = Object.fromEntries(Object.keys(t.marks ?? {}).map((k) => [k, "bool" as const]));
+      const ctx: ExprType = { record: { ...t.inputs, ...marks } };
       const takers = actorsOf(t.entities);
       const scopes = takers.map(({ ce }) => ({ ...ce.scope, ctx }));
       // A reported Test has no numbers: the constant 0 keeps every reader of a compiled Test one shape.
@@ -617,10 +648,35 @@ class Compiler {
           ? this.expr({ source: t.pool, scopes, expect: "int", path: `tests.${id}.pool` })
           : null;
       if (modifier === null || target === null || (t.kind === "poolSuccesses" && pool === null)) continue;
+      const offers: CompiledOffer[] = [];
+      let offersCompile = true;
+      (t.offers ?? []).forEach((o, i) => {
+        const at = `tests.${id}.offers[${i}]`;
+        const when = this.expr({
+          source: o.when,
+          scopes: [{ ctx, result: RESULT_SCOPE }],
+          expect: "bool",
+          path: `${at}.when`,
+        });
+        const changes = o.changes.map((c, j) => ({
+          pool: c.pool ?? null,
+          resource: c.resource ?? null,
+          by: this.expr({
+            source: c.by,
+            scopes: scopes.map((x) => ({ ...x, result: RESULT_SCOPE })),
+            expect: "int",
+            path: `${at}.changes[${j}].by`,
+          }),
+        }));
+        const whole = changes.flatMap((c) => (c.by === null ? [] : [{ ...c, by: c.by }]));
+        if (when === null || whole.length < changes.length) offersCompile = false;
+        else offers.push({ def: o, when, changes: whole });
+      });
+      if (!offersCompile) continue;
       // A value the call computes for an actor is as hidden as its most hidden input, like a derived value.
       const seen = (...exprs: CompiledExpr[]) => this.seenBy(takers, exprs);
       const modifierVisibility = pool === null ? seen(modifier) : seen(modifier, pool);
-      tests[id] = { def: t, modifier, target, pool, modifierVisibility, targetVisibility: seen(target) };
+      tests[id] = { def: t, offers, modifier, target, pool, modifierVisibility, targetVisibility: seen(target) };
     }
 
     const init = this.r.initiative;

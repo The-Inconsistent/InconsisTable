@@ -154,7 +154,18 @@ const call = (id: string, over: Record<string, unknown>) => ({
   called: 2,
   reported: 1,
   targets: [
-    { actorId: PC1, modifier: 2, target: 15, pool: null, report: report(11) },
+    {
+      actorId: PC1,
+      modifier: 2,
+      target: 15,
+      pool: null,
+      report: report(11),
+      // The GM side's only (house decision #80): no seat below it, nor the screen, receives them.
+      offers: [
+        { id: "shaken", label: "Shaken", changes: [{ pool: "menace", label: "Menace", by: 1 }], applied: false },
+        { id: "strain", label: "Strain", changes: [{ resource: "tempHp", label: "Spare", by: 4 }], applied: true },
+      ],
+    },
     { actorId: PC2, modifier: 1, target: 15, pool: 3, report: null },
   ],
   ...over,
@@ -776,6 +787,7 @@ const VALID: Record<string, Record<string, unknown>> = {
   "test.call": { testId: "check", actorIds: [ID], inputs: { dc: 15, ability: "dex", flag: true }, hideTarget: true },
   "test.report": { callId: ID, actorId: ID, advantage: "advantage", roll: { faces: [12, 4] } },
   "test.close": { callId: ID, reveal: true },
+  "test.applyOffer": { callId: ID, actorId: ID, offerId: "shaken" },
   "invite.create": { mode: "character", role: "cogm", actorId: ID, allowGuests: false, hours: 24 },
   "invite.revoke": { id: ID },
   "member.remove": { userId: "u2" },

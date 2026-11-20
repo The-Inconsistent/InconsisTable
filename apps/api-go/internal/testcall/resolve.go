@@ -29,7 +29,13 @@ func jsString(v any) string {
 // CheckInputs is why the GM's inputs don't fit the Test's declared `inputs`, or "". Every declared input is needed;
 // extras are refused.
 func CheckInputs(test *engine.CompiledTest, inputs map[string]any) string {
-	declared := test.Def.Inputs
+	declared := maps.Clone(test.Def.Inputs)
+	if declared == nil {
+		declared = map[string]string{}
+	}
+	for mark := range test.Def.Marks {
+		declared[mark] = "bool" // a mark is a yes-or-no input (house decision #80)
+	}
 	for _, key := range slices.Sorted(maps.Keys(inputs)) {
 		if _, ok := declared[key]; !ok {
 			return fmt.Sprintf(`This Test has no input "%s"`, key)

@@ -183,7 +183,16 @@ func compiledJSON(c *CompiledRuleset) any {
 	}
 	tests := map[string]any{}
 	for id, x := range c.Tests {
+		offers := make([]any, len(x.Offers))
+		for i, o := range x.Offers {
+			changes := make([]any, len(o.Changes))
+			for j, ch := range o.Changes {
+				changes[j] = map[string]any{"pool": ch.Pool, "resource": ch.Resource, "by": exprJSON(ch.By)}
+			}
+			offers[i] = map[string]any{"id": o.Def.ID, "when": exprJSON(o.When), "changes": changes}
+		}
 		tests[id] = map[string]any{
+			"offers":   offers,
 			"modifier": exprJSON(x.Modifier), "target": exprJSON(x.Target), "pool": exprJSON(x.Pool),
 			"modifierVisibility": x.ModifierVisibility, "targetVisibility": x.TargetVisibility,
 		}

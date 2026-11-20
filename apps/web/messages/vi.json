@@ -1028,9 +1028,15 @@
     "close": "Đóng",
     "closeShow": "Đóng và hiện kết quả",
     "reportedTag": "Báo kết quả",
-    "reportedResult": "Kết quả: {label}"
+    "reportedResult": "Kết quả: {label}",
+    "offers": "Kết quả của {name} cho phép",
+    "offerChange": "{by} {label}",
+    "offerApply": "Áp dụng {offer} cho {name}: {changes}",
+    "applied": "Đã áp dụng",
+    "offerDone": "{offer}, đã áp dụng"
   },
   "callForm": {
+    "marks": "Gọi kèm",
     "nobodyTakes": "Ở đây không ai gieo Test này.",
     "wholeNumber": "Hãy nhập số nguyên cho {id}",
     "fillIn": "Hãy điền {id}",
@@ -1241,6 +1247,10 @@
     "cantCallTest": "Không gọi được Test",
     "notCalled": "Nhân vật đó không được gọi",
     "alreadyReported": "Đã báo kết quả. Hãy nhờ GM nếu cần sửa",
+    "noSuchOffer": "Test này không có lựa chọn \"{offer}\"",
+    "notReported": "{name} chưa báo kết quả",
+    "offerApplied": "Lựa chọn đó đã được áp dụng",
+    "offerNotOffered": "Kết quả đó không cho lựa chọn này",
     "badAdvantage": "\"{advantage}\" không phải advantage, disadvantage hay none",
     "unknownOutcome": "Kết quả này không nằm trong danh sách của Test.",
     "testTakesOutcome": "Test này nhận một kết quả, không nhận xúc xắc.",

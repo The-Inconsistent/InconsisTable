@@ -57,6 +57,18 @@ test("a switch left out is off, never missing, and is sent as off", () => {
   });
 });
 
+test("a mark is sent only when it is on (house decision #80)", () => {
+  const marked: TestDef = { ...check, marks: [{ id: "dread", label: "Dread" }] };
+  assert.deepEqual(toInputs({ def: marked, draft: { ability: "str", dc: "10", dread: true } }), {
+    ok: true,
+    inputs: { ability: "str", dc: 10, dread: true },
+  });
+  assert.deepEqual(toInputs({ def: marked, draft: { ability: "str", dc: "10", dread: false } }), {
+    ok: true,
+    inputs: { ability: "str", dc: 10 },
+  });
+});
+
 test("the call form's reading: a whole number, a filled text, extras dropped", () => {
   assert.deepEqual(toInputs({ def: check, draft: { ability: "dex", dc: "1.5" } }), {
     ok: false,

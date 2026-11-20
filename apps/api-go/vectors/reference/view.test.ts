@@ -777,6 +777,20 @@ describe("a Test Call as a player sees it", () => {
   const lyra = ctx(member("player", [], ["lyra"]), "u-lyra");
   const bran = ctx({ kind: "token", role: "player", characterIds: ["bran"] }, null);
 
+  // House decision #80: what a result offers is the GM side's, even for the character a seat holds or once revealed.
+  test("a result's offers reach the GM side only", () => {
+    const offers = [{ id: "o", label: "O", changes: [{ pool: "menace", label: "Menace", by: 1 }], applied: false }];
+    const offered = two({ revealed: true, targets: [{ ...sum.targets[0]!, offers }] });
+    assert.deepEqual(callFor(offered, ctx(member("gm"), "u-gm"))?.targets[0]?.offers, offers);
+    const screen = ctx({ kind: "token", role: "screen", characterIds: [] }, null);
+    for (const c of [lyra, bran, screen]) {
+      assert.equal(
+        (callFor(offered, c)?.targets ?? []).some((t) => t.offers !== undefined),
+        false,
+      );
+    }
+  });
+
   test("counts only the characters the seat holds", () => {
     const gm = callFor(two(), ctx(member("gm"), "u-gm"));
     assert.deepEqual([gm?.called, gm?.reported], [2, 1]);

@@ -14,7 +14,7 @@ void _notices;
 export const SAMPLE_POOL: RulesetInput = {
   ...withoutCodex,
   id: "sample-pool",
-  version: "0.1.2",
+  version: "0.1.3",
   resources: withoutCodex.resources?.filter((x) => !NOTICE_RESOURCES.includes(x.id)),
   tests: {
     skill: {
@@ -36,6 +36,28 @@ export const SAMPLE_POOL: RulesetInput = {
       inputs: { ability: "text", dn: "int", bonus: "int" },
       inputOptions: { ability: ["str", "dex", "con"] },
       cite: "Sample p.20",
+      // House decision #80: the GM may call it under Dread; a failure then feeds the Menace pool, and any failure
+      // strains the taker by what the score fell short, twice that when the Omen die showed its lowest face.
+      marks: { dread: { label: "Dread", cite: "Sample p.21" } },
+      offers: [
+        {
+          id: "shaken",
+          label: "Shaken",
+          when: "!result.passed && ctx.dread",
+          changes: [{ pool: "menace", by: "1" }],
+          cite: "Sample p.21",
+        },
+        {
+          id: "strain",
+          label: "Strain",
+          when: "!result.passed",
+          changes: [
+            { resource: "tempHp", by: "max(0, result.target - result.total) * (result.flags.complication ? 2 : 1)" },
+            { pool: "luck", by: "1" },
+          ],
+          cite: "Sample p.21",
+        },
+      ],
     },
   },
 };

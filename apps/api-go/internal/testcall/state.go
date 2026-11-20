@@ -95,6 +95,9 @@ func DefsOf(compiled *engine.CompiledRuleset) []cs.TestDef {
 		if t.Entities != nil {
 			def.Entities = append([]string(nil), *t.Entities...)
 		}
+		for _, markID := range jsonbOrder(t.Marks) {
+			def.Marks = append(def.Marks, cs.TestMarkDef{ID: markID, Label: t.Marks[markID].Label})
+		}
 		for _, inputID := range jsonbOrder(t.Inputs) {
 			input := cs.TestDefInput{ID: inputID, Type: t.Inputs[inputID]}
 			if options, ok := t.InputOptions[inputID].([]any); ok {
@@ -232,6 +235,17 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 		return nil, err
 	}
 
+	// What each taker's result offers the GM side (house decision #80); read only when a Test of the ruleset offers any.
+	var applied map[string]map[string]bool
+	for _, t := range compiled.Tests {
+		if len(t.Offers) > 0 {
+			if applied, err = appliedOffers(ctx, conn, ids); err != nil {
+				return nil, err
+			}
+			break
+		}
+	}
+
 	out := []cs.TestCall{}
 	for _, c := range calls {
 		test := compiled.Tests[c.testID]
@@ -261,6 +275,9 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 		inputs := map[string]any{}
 		if err := json.Unmarshal(c.inputs, &inputs); err != nil {
 			return nil, err
+		}
+		for i := range mine {
+			mine[i].Offers = offersOf(compiled, test, built[mine[i].ActorID], inputs, mine[i], applied[c.id+"/"+mine[i].ActorID])
 		}
 		out = append(out, cs.TestCall{
 			ID: c.id, TestID: c.testID, Dice: diceOf(test.Def), Advantage: test.Def.Kind == "sumVsTarget" && test.Def.Advantage,

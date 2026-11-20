@@ -69,9 +69,22 @@ type (
 	}
 	// CompiledTest is one Test. Visibility maps go by actor type: the strictest of anything the expression reads.
 	CompiledTest struct {
-		Def                                  *Test
+		Def *Test
+		// Offers are the Test's offers (house decision #80); empty without any.
+		Offers                               []CompiledOffer
 		Modifier, Target, Pool               *CompiledExpr
 		ModifierVisibility, TargetVisibility map[string]string
+	}
+	// CompiledOffer is one offer of a Test: When reads `result` and `ctx`, each change's By the taker's scope too.
+	CompiledOffer struct {
+		Def     *TestOffer
+		When    *CompiledExpr
+		Changes []CompiledChange
+	}
+	// CompiledChange is one write of an offer: Pool or Resource is set.
+	CompiledChange struct {
+		Pool, Resource *string
+		By             *CompiledExpr
 	}
 	// CompiledInitiative is ranked when Score is set, and seated otherwise.
 	CompiledInitiative struct {
@@ -722,10 +735,27 @@ func (c *compiler) seenBy(takers []*EntityType, entities map[string]*CompiledEnt
 	return out
 }
 
+// ResultScope is what an offer reads of a taker's resolved report as `result` (house decision #80; compile.ts
+// RESULT_SCOPE): a number the kind of Test has not is 0.
+var ResultScope = func() ExprType {
+	flags := map[string]ExprType{}
+	for _, f := range poolFlags {
+		flags[f] = boolType
+	}
+	return RecordType{map[string]ExprType{
+		"passed": boolType, "outcome": textType, "total": intType, "margin": intType, "shifts": intType, "natural": intType,
+		"target": intType, "flags": RecordType{flags},
+	}}
+}()
+
 func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity) *CompiledTest {
 	inputs := map[string]ExprType{}
 	for k, v := range t.Inputs {
 		inputs[k] = Scalar(v)
+	}
+	// A mark reads as a yes-or-no input (house decision #80).
+	for k := range t.Marks {
+		inputs[k] = boolType
 	}
 	takers, actorScopes := c.actorsOf(t.Entities, entities)
 	scopes := withScope(actorScopes, "ctx", RecordType{inputs})
@@ -744,13 +774,31 @@ func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity)
 	if modifier == nil || target == nil || (t.Kind == "poolSuccesses" && pool == nil) {
 		return nil
 	}
+	offers := []CompiledOffer{}
+	whole := true
+	for i := range t.Offers {
+		o := &t.Offers[i]
+		at := fmt.Sprintf("%s.offers[%d]", path, i)
+		when := c.expr(o.When, []map[string]ExprType{{"ctx": RecordType{inputs}, "result": ResultScope}}, boolType, at+".when")
+		compiled := CompiledOffer{Def: o, When: when}
+		for j, ch := range o.Changes {
+			by := c.expr(ch.By, withScope(scopes, "result", ResultScope), intType, fmt.Sprintf("%s.changes[%d].by", at, j))
+			whole = whole && by != nil
+			compiled.Changes = append(compiled.Changes, CompiledChange{ch.Pool, ch.Resource, by})
+		}
+		whole = whole && when != nil
+		offers = append(offers, compiled)
+	}
+	if !whole {
+		return nil
+	}
 	// A value the call computes for an actor is as hidden as its most hidden input, like a derived value.
 	seen := func(exprs ...*CompiledExpr) map[string]string { return c.seenBy(takers, entities, exprs) }
 	modifierVisibility := seen(modifier)
 	if pool != nil {
 		modifierVisibility = seen(modifier, pool)
 	}
-	return &CompiledTest{t, modifier, target, pool, modifierVisibility, seen(target)}
+	return &CompiledTest{t, offers, modifier, target, pool, modifierVisibility, seen(target)}
 }
 
 func (c *compiler) run() *CompiledRuleset {

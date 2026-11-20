@@ -323,7 +323,8 @@ export function lineSummary({
     const rank = (id: string) => (order.includes(id) ? order.indexOf(id) : order.length);
     const inputs = Object.entries(line.inputs)
       .sort(([a], [b]) => rank(a) - rank(b))
-      .map(([k, v]) => `${words.input(k)} ${words.value(k, v)}`)
+      // A mark (house decision #80) is kept only while on, and reads as its word.
+      .map(([k, v]) => def?.marks?.find((m) => m.id === k)?.label ?? `${words.input(k)} ${words.value(k, v)}`)
       .join(", ");
     const who =
       line.takers === "listed"

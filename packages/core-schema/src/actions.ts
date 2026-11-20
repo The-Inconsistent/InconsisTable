@@ -88,7 +88,8 @@ export const Action = z.discriminatedUnion("type", [
   z.object({ type: z.literal("actor.build"), actorId: id, answers: z.record(z.string().max(120), z.unknown()) }),
   // A character bought with the ledger builder (house decision #63): the server resolves the build, then writes the
   // sheet's numbers as the actor's fields and stores the build and the sheet.
-  z.object({ type: z.literal("build.save"), actorId: id, build: LedgerBuildText }),
+  // `draft: true` stores the build unresolved, for the GM to open; nothing of the actor changes (house decision #63).
+  z.object({ type: z.literal("build.save"), actorId: id, build: LedgerBuildText, draft: z.boolean().default(false) }),
   // N creatures from one attached pack entry, numbered after the ones already at the table.
   z.object({
     type: z.literal("actor.spawn"),

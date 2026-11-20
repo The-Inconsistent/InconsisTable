@@ -2390,6 +2390,14 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
   assert.match(notReady.ok ? "" : notReady.error, /needs Lore 3 \(for the GM to approve\)/);
   refused(await ana.c.send(save(ana.held, { tier: 2, archetypeId: "lamplighter" })), "buildTierMismatch");
   refused(await ana.c.send({ type: "build.save", actorId: ana.held, build: "{" }), "buildInvalid");
+  // The unfinished build is sent to the GM as a draft: stored unresolved, nothing of the character written.
+  ok(await ana.c.send({ ...save(ana.held, { tier: 1, archetypeId: "lamplighter" }), draft: true }));
+  const drafted = actorIn(await owner.until((x) => actorIn(x, ana.held)?.ledger?.draft != null), ana.held);
+  assert.equal(
+    JSON.stringify(drafted?.ledger),
+    '{"build":null,"sheet":null,"draft":{"tier":1,"archetypeId":"lamplighter","gm":{}}}',
+  );
+  assert.equal(drafted?.entity, "");
 
   // A ready build, its keys in an order of their own: saved, and sent back in that order.
   const dream = {
@@ -2411,10 +2419,11 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
   ok(await ana.c.send(save(ana.held, dream)));
   const saved = JSON.stringify({ ...dream, gm: {} }); // a player's save takes the GM's part, none yet
   for (const c of [ana.c, owner]) {
-    const s = await c.until((x) => actorIn(x, ana.held)?.ledger != null);
+    const s = await c.until((x) => actorIn(x, ana.held)?.ledger?.build != null);
     const hero = actorIn(s, ana.held)!;
     assert.equal(JSON.stringify(hero.ledger?.build), saved);
-    assert.equal(hero.ledger?.sheet.species, "Heron-kin");
+    assert.equal(hero.ledger?.sheet?.species, "Heron-kin");
+    assert.equal(hero.ledger?.draft, null); // a ready save clears the draft
     assert.equal(hero.entity, "hero");
     assert.equal(hero.fields["attr.mgt"], 2);
     assert.equal(hero.derived.toughness, 2 * 10 + 3 + 2);

@@ -70,11 +70,14 @@ const actor = (id: string, kind: string, name: string, owner: string | null, ove
 const ledger = (archetypeId: string) => ({
   build: { tier: 1, archetypeId, gm: { approved: ["x/y"] } },
   sheet: { species: "Heron-kin", archetype: archetypeId, attributes: { MGT: 2 } },
+  draft: null,
 });
+// An unfinished draft and no build yet: it reaches the same seats.
+const draftOnly = (archetypeId: string) => ({ build: null, sheet: null, draft: { tier: 1, archetypeId, gm: {} } });
 
 const ACTORS = [
   actor(PC1, "pc", "One", "player1", { ledger: ledger("one") }),
-  actor(PC2, "pc", "Two", null, { ledger: ledger("two") }),
+  actor(PC2, "pc", "Two", null, { ledger: draftOnly("two") }),
   actor(PAL, "companion", "Pal", "player1", { conditions: ["staggered"], conditionTimers: [] }),
   actor(NPC, "npc", "Keeper", null, {
     entity: "creature",
@@ -670,7 +673,7 @@ const VALID: Record<string, Record<string, unknown>> = {
   "session.edit": { sessionId: ID, title: "t", recap: "r", notes: "n" },
   "actor.create": { kind: "npc", name: " Keeper ", entityType: "creature" },
   "actor.build": { actorId: ID, answers: { name: "x", n: 1 } },
-  "build.save": { actorId: ID, build: '{"tier":1,"archetypeId":"a"}' },
+  "build.save": { actorId: ID, build: '{"tier":1,"archetypeId":"a"}', draft: true },
   "actor.spawn": { packVersionId: ID, key: "goblin", count: 3, temporary: true },
   "draft.save": { body: { actorId: ID, answers: { a: [1, 2] } } },
   "draft.discard": {},
@@ -819,6 +822,9 @@ for (const n of [32_700, 32_730, 32_740, 32_760, 32_800, 40_000]) record("Action
 for (const n of [32_767, 32_768, 32_769, 65_536])
   record("Action", { type: "build.save", actorId: ID, build: "é".repeat(n) });
 for (const n of [65_535, 65_536, 65_537]) record("Action", { type: "build.save", actorId: ID, build: "x".repeat(n) });
+// `draft` is a boolean, false when it is left out.
+for (const draft of [false, "yes", 1, null]) record("Action", { type: "build.save", actorId: ID, build: "{}", draft });
+record("Action", { type: "build.save", actorId: ID, build: "{}" });
 for (const nextSessionAt of [
   "2026-11-20T19:00:00Z",
   "2026-11-20T19:00Z",

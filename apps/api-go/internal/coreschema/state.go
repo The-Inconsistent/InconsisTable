@@ -55,15 +55,16 @@ type (
 		Derived         map[string]float64 `json:"derived"`
 		Conditions      []string           `json:"conditions"`
 		ConditionTimers []ConditionTimer   `json:"conditionTimers"`
-		// Ledger is the saved ledger build and sheet (house decision #63); nil when the actor has none or the seat may
-		// not read it.
+		// Ledger is the saved ledger build and sheet, and the unfinished draft (house decision #63); nil when the actor
+		// has none or the seat may not read it.
 		Ledger *ActorLedger `json:"ledger"`
 	}
-	// ActorLedger is a saved ledger build and the sheet it resolved to, as stored: JSON text sent on as it is, so its
-	// keys keep the order the builder wrote them in.
+	// ActorLedger is a saved ledger build and the sheet it resolved to, and a draft not yet resolved, as stored: JSON
+	// text sent on as it is, so its keys keep the order the builder wrote them in. A part not stored is nil (null).
 	ActorLedger struct {
 		Build json.RawMessage `json:"build"`
 		Sheet json.RawMessage `json:"sheet"`
+		Draft json.RawMessage `json:"draft"`
 	}
 	// Member is a seated member.
 	Member struct {

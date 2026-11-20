@@ -629,7 +629,8 @@ export function toggleOption({ build, groupId, name }: { build: LedgerBuild; gro
 
 export const LANGUAGE_WAYS = ["picks", "bought"] as const;
 export type LanguageWay = (typeof LANGUAGE_WAYS)[number];
-// A language taken free ("picks"), bought, or dropped (null): it is in one list at most.
+// A language taken free ("picks"), bought, or dropped (null): it is in one list at most. `name` is the language's id,
+// or the name a player writes in for one the table doesn't list (the GM ticks it).
 export function setLanguage({
   build,
   name,

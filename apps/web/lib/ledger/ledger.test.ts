@@ -156,14 +156,14 @@ test("picking an archetype starts over, keeping the Tier, the GM's part and the 
     ...lamplighter,
     attributes: { MGT: 3 },
     gm: { approved: ["x"] },
-    languages: { picks: ["Trade-tongue"] },
+    languages: { picks: ["trade-tongue"] },
   };
   assert.equal(pickArchetype({ build: built, id: "lamplighter" }), built);
   assert.deepEqual(pickArchetype({ build: built, id: "wayfarer" }), {
     tier: 1,
     archetypeId: "wayfarer",
     gm: { approved: ["x"] },
-    languages: { picks: ["Trade-tongue"] },
+    languages: { picks: ["trade-tongue"] },
   });
   const adv = startAdvanced({ build: built });
   assert.deepEqual(adv.advanced, { wargear: [] });
@@ -341,12 +341,12 @@ test("an Advanced faction change clears the background and what the old faction 
 });
 
 test("detail: a language is free or bought, never both; wealth stays in its range", () => {
-  const free = setLanguage({ build: lamplighter, name: "Trade-tongue", way: "picks" });
-  assert.deepEqual(free.languages, { picks: ["Trade-tongue"], bought: [] });
+  const free = setLanguage({ build: lamplighter, name: "trade-tongue", way: "picks" });
+  assert.deepEqual(free.languages, { picks: ["trade-tongue"], bought: [] });
   assert.ok(!run(free).pending.some((p) => p.path === "languages"));
-  const bought = setLanguage({ build: free, name: "Trade-tongue", way: "bought" });
-  assert.deepEqual(bought.languages, { picks: [], bought: ["Trade-tongue"] });
-  assert.deepEqual(setLanguage({ build: bought, name: "Trade-tongue", way: null }).languages, {
+  const bought = setLanguage({ build: free, name: "trade-tongue", way: "bought" });
+  assert.deepEqual(bought.languages, { picks: [], bought: ["trade-tongue"] });
+  assert.deepEqual(setLanguage({ build: bought, name: "trade-tongue", way: null }).languages, {
     picks: [],
     bought: [],
   });

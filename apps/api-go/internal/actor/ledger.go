@@ -291,11 +291,12 @@ func stampHistory(ctx context.Context, tx core.Conn, campaignID string, r *ledge
 	return out, nil
 }
 
-// LoadLedgers is the room's saved ledger builds, sheets and drafts by actor, as stored text (the Seat view decides who
-// reads them).
+// LoadLedgers is the room's saved ledger builds, sheets and drafts by actor, as stored text, with their play figures
+// (house decision #64; the Seat view decides who reads them).
 func LoadLedgers(ctx context.Context, conn core.Conn, campaignID string) (map[string]*cs.ActorLedger, error) {
-	rows, err := conn.Query(ctx, `SELECT b.actor_id::text, b.build::text, b.sheet::text, b.draft::text FROM actor_build b
-		JOIN actor ON actor.id = b.actor_id WHERE actor.campaign_id = $1`, campaignID)
+	rows, err := conn.Query(ctx, `SELECT b.actor_id::text, b.build::text, b.sheet::text, b.draft::text, b.xp_spent,
+			b.xp_at_ascension, b.package_waived
+		FROM actor_build b JOIN actor ON actor.id = b.actor_id WHERE actor.campaign_id = $1`, campaignID)
 	if err != nil {
 		return nil, err
 	}
@@ -304,10 +305,12 @@ func LoadLedgers(ctx context.Context, conn core.Conn, campaignID string) (map[st
 	for rows.Next() {
 		var id string
 		var build, sheet, draft *string
-		if err := rows.Scan(&id, &build, &sheet, &draft); err != nil {
+		var l cs.ActorLedger
+		if err := rows.Scan(&id, &build, &sheet, &draft, &l.XPSpent, &l.XPAtAscension, &l.PackageWaived); err != nil {
 			return nil, err
 		}
-		out[id] = &cs.ActorLedger{Build: raw(build), Sheet: raw(sheet), Draft: raw(draft)}
+		l.Build, l.Sheet, l.Draft = raw(build), raw(sheet), raw(draft)
+		out[id] = &l
 	}
 	return out, rows.Err()
 }

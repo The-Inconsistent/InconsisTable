@@ -863,8 +863,15 @@ test("pools: a seat with no ruleset in its view receives none", () => {
   assert.deepEqual(poolsFor(ctx(member("player", [], ["lyra"])), { compiled: false }), []);
 });
 
-test("a saved ledger build reaches the GM side and the seat holding the character, nobody else (house decision #63)", () => {
-  const saved = { build: null, sheet: null, draft: { tier: 1, archetypeId: "lamplighter" } };
+test("a saved ledger build reaches the GM side and the seat holding the character, nobody else (house decisions #63, #64)", () => {
+  const saved = {
+    build: null,
+    sheet: null,
+    draft: { tier: 1, archetypeId: "lamplighter" },
+    xpSpent: 3,
+    xpAtAscension: 20,
+    packageWaived: true,
+  };
   const actors = state.actors.map((a) => (a.id === "lyra" ? { ...a, ledger: saved } : a));
   const withLedger: Snapshot = { ...snapshot, state: { ...state, actors } };
   const ledgerOf = (c: Ctx) =>

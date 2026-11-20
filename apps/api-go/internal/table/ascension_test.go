@@ -2,11 +2,13 @@ package table
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core/dbtest"
+	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 )
 
 // XP at a session's end, the group's Ascension and the Tier raised by hand (house decision #64), against the invented
@@ -141,6 +143,47 @@ func TestTheGroupAscends(t *testing.T) {
 		p.send(gm, map[string]any{"type": "campaign.setField", "fieldId": "tier", "value": 3.0})
 		if at, waived := p.ascension(wren); at != 75 || waived || p.xp(wren) != 75 {
 			t.Fatalf("raising: at %d, waived %v, xp %d", at, waived, p.xp(wren))
+		}
+	})
+}
+
+func TestTheSeatsReadTheLedgersPlayFigures(t *testing.T) {
+	db := dbtest.Open(t)
+	lib := importLedger(t, db)
+	dbtest.Tx(t, db, func(tx pgx.Tx) {
+		p := ledgerPlay(t, tx, lib)
+		gm := p.room.GM()
+		wren := p.made("Wren", 10)
+		ana := p.room.Seat(t, tx, dbtest.User(t, tx, "Ana"), wren)
+		bo := p.room.Seat(t, tx, dbtest.User(t, tx, "Bo"))
+		p.send(ana, save(wren, withAdvancement(`{"skills":{"Brawl":2}}`)))
+		// An unbuilt hero gains a row with no documents when the group Ascends.
+		blank := p.room.Actor(t, tx, "pc", "Blank", "hero")
+		p.send(gm, ascend("milestone", true))
+
+		ledgerOf := func(seat cs.Ctx, id string) *cs.ActorLedger {
+			for _, a := range p.seatView(seat).State.Actors {
+				if a.ID == id {
+					return a.Ledger
+				}
+			}
+			t.Fatalf("no actor %s", id)
+			return nil
+		}
+		for _, seat := range []cs.Ctx{gm, ana} {
+			if l := ledgerOf(seat, wren); l == nil || l.XPSpent != 3 || l.XPAtAscension != 30 || !l.PackageWaived {
+				t.Fatalf("as %s: %+v", seat.Seat.Role, l)
+			}
+		}
+		if l := ledgerOf(bo, wren); l != nil {
+			t.Fatalf("another player reads %+v", l)
+		}
+		l := ledgerOf(gm, blank)
+		if l == nil || l.Build != nil || l.Sheet != nil || l.Draft != nil || l.XPAtAscension != 20 || !l.PackageWaived {
+			t.Fatalf("a row with no documents: %+v", l)
+		}
+		if out, _ := json.Marshal(l); string(out) != `{"build":null,"sheet":null,"draft":null,"xpSpent":0,"xpAtAscension":20,"packageWaived":true}` {
+			t.Fatalf("sent %s", out)
 		}
 	})
 }

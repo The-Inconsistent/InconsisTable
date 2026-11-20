@@ -6,7 +6,7 @@ import type { RulesetInput } from "../manifest.ts";
  */
 export const SAMPLE_D20: RulesetInput = {
   id: "sample-d20",
-  version: "0.1.4",
+  version: "0.1.5",
   core: "^0.1.0",
   sources: [{ id: "sample", title: "Sample d20 Rules", license: "private", pageOffset: 0 }],
   terms: { party: "Crew", foe: "Opposition", hp: "Vigour" },
@@ -158,6 +158,9 @@ export const SAMPLE_D20: RulesetInput = {
       critOn: [20],
       inputs: { ability: "text", dc: "int" },
       inputOptions: { ability: ["str", "dex", "con", "wis"] },
+      label: "Ability check",
+      inputLabels: { ability: "Ability", dc: "DC" },
+      inputOptionLabels: { ability: { str: "Strength", dex: "Dexterity", con: "Constitution", wis: "Wisdom" } },
       cite: "Sample p.2",
     },
     // The table rolls and works it out; the phone only picks what came up.

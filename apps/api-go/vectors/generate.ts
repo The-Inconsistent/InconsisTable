@@ -1907,6 +1907,43 @@ const CRAFTED: object[] = [
   { tests: { t: reportedTest(["a", "b", "c", "d", "e", "f", "g", "h", "i"]) } },
   { tests: { t: reportedTest(["a", "b", "a"]) } },
   { tests: { t: { ...reportedTest(["a", "b"]), inputOptions: { who: ["x"] } } } },
+  // A Test's words (house decision #77): named inputs and declared options only, and each word 1 to 60 (80 the label).
+  {
+    tests: {
+      t: {
+        ...sumTest,
+        inputs: { dc: "int", kind: "text" },
+        inputOptions: { kind: ["a", "b"] },
+        label: "The test",
+        inputLabels: { dc: "DC", nope: "N" },
+        inputOptionLabels: { kind: { a: "A", z: "Z" }, dc: { "1": "One" }, gone: { a: "A" } },
+      },
+    },
+  },
+  {
+    tests: {
+      t: {
+        ...reportedTest(["a", "b"]),
+        inputs: { who: "text" },
+        inputOptions: { who: ["x"] },
+        label: "",
+        inputLabels: { who: "x".repeat(61) },
+        inputOptionLabels: { who: { x: "" } },
+      },
+    },
+  },
+  {
+    tests: {
+      t: {
+        ...reportedTest(["a", "b"]),
+        inputs: { who: "text" },
+        inputOptions: { who: ["x"] },
+        label: "Who",
+        inputLabels: { who: "Who" },
+        inputOptionLabels: { who: { x: "Ex" } },
+      },
+    },
+  },
   {
     sources: [{ id: "s", title: "T", license: "private" }],
     tests: { t: { ...reportedTest(["a", "b"]), cite: "p.1" } },

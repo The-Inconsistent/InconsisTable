@@ -161,6 +161,31 @@ test("input options are only for declared text inputs", () => {
   hasProblem(problems(m), "tests.t.inputOptions.dc", /only for text/);
 });
 
+test("a Test's words name only its own inputs and an input's declared options (house decision #77)", () => {
+  const m = sample();
+  m.tests = {
+    t: {
+      kind: "reported",
+      outcomes: [
+        { id: "a", label: "A" },
+        { id: "b", label: "B" },
+      ],
+      inputs: { who: "text", n: "int" },
+      inputOptions: { who: ["x", "y"] },
+      label: "The test",
+      inputLabels: { who: "Who", nope: "Nope" },
+      inputOptionLabels: { who: { x: "Ex", z: "Zed" }, n: { "1": "One" }, gone: { x: "Ex" } },
+      cite: "Sample p.2",
+    },
+  };
+  const list = problems(m);
+  hasProblem(list, "tests.t.inputLabels.nope", /"nope" is not an input/);
+  hasProblem(list, "tests.t.inputOptionLabels.who.z", /"z" is not an option/);
+  hasProblem(list, "tests.t.inputOptionLabels.n.1", /"1" is not an option/);
+  hasProblem(list, "tests.t.inputOptionLabels.gone", /"gone" is not an input/);
+  assert.equal(list.filter((p) => p.path.startsWith("tests.t.input")).length, 4);
+});
+
 test("sumVsTarget takes plain dice, and advantage a single die", () => {
   const m = sample();
   m.tests = {

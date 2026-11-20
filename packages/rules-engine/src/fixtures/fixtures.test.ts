@@ -12,7 +12,7 @@ import { SAMPLE_POOL } from "./sample-pool.ts";
 // a sample (or an engine default) changed under the same version breaks `bun run seed` on every local database. Bump
 // the sample's version, then the hash here. The hash is the one the importer compares (apps/api-go internal/ruleset/import.go).
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.4": "8e41f01ddc5cba93cc02c8869ae7702daca884840f7459b26535857364a2647a",
+  "sample-d20@0.1.5": "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9cb58c5d",
   "sample-pool@0.1.2": "57e50c011a1f73ee5c2e78f0546956686f5fcec64ecda3dbdda16b71b4803b0c",
   "sample-harvest@0.1.1": "e166afc269320775b0d1e455a2e7a5b10ca9b9c4f0d96f9fa473addb65b93f08",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
@@ -28,8 +28,25 @@ test("a sample ruleset's normalized manifest changes only with its version", () 
   }
 });
 
+/** SAMPLE_D20 as it was before its Test had words (house decision #77). */
+function withoutTestWords(): typeof SAMPLE_D20 {
+  const worded = SAMPLE_D20.tests?.check;
+  assert.ok(worded);
+  const { label: _label, inputLabels: _inputs, inputOptionLabels: _options, ...check } = worded;
+  return { ...SAMPLE_D20, tests: { ...SAMPLE_D20.tests, check } };
+}
+
+test("a ruleset whose Tests have no words hashes as it did before they existed (house decision #77)", () => {
+  const result = compileRuleset({ ...withoutTestWords(), version: "0.1.4" });
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "8e41f01ddc5cba93cc02c8869ae7702daca884840f7459b26535857364a2647a",
+  );
+});
+
 test("a ruleset without a codex block hashes as it did before the block existed (house decision #71)", () => {
-  const { codex: _codex, ...before } = { ...SAMPLE_D20, version: "0.1.2" };
+  const { codex: _codex, ...before } = { ...withoutTestWords(), version: "0.1.2" };
   const result = compileRuleset(before);
   assert.ok(result.ok);
   assert.equal(
@@ -47,7 +64,7 @@ test("a codex block without links or tones hashes as it did before they existed 
   assert.ok(mood?.type === "enum");
   delete mood.tones;
   const result = compileRuleset({
-    ...SAMPLE_D20,
+    ...withoutTestWords(),
     version: "0.1.3",
     codex: { kinds: { npc: { fields: npc }, faction: { fields: faction } } },
   });

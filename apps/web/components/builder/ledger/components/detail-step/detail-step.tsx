@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
-import { offered, recordCite, setLanguage, setWealth, type LanguageWay } from "@/lib/ledger/ledger";
+import { languageRows, recordCite, setLanguage, setWealth, tapLanguage } from "@/lib/ledger/ledger";
 
 import { useLedger } from "../../ledger-context";
 import { GmRulings } from "../gm-rulings/gm-rulings";
@@ -15,23 +15,9 @@ export function DetailStep() {
   const { params, catalogue, build, resolved, gm, edit } = useLedger();
   const [written, setWritten] = useState("");
   if (!resolved) return <p className="dim">{t("archetypeFirst")}</p>;
-  const picks = build.languages?.picks ?? [];
-  const bought = build.languages?.bought ?? [];
-  const keywords = new Set(resolved.sheet.keywords);
-  const languages = catalogue.creation.languages.filter((l) =>
-    offered({ params, catalogue, source: l.source, taken: picks.includes(l.id) || bought.includes(l.id) }),
-  );
-  // The free ones come from the keywords; with none that qualifies, any language may be the free one
-  const anyFree = !languages.some((l) => l.keywords.some((k) => keywords.has(k)));
-  const known = new Set(languages.map((l) => l.id));
-  const writtenIn = [...picks, ...bought].filter((l) => !known.has(l));
+  const { rows, writtenIn } = languageRows({ params, catalogue, build, resolved });
   const wealth = build.wealth ?? 0;
 
-  // A language one way, or back to none on a second tap.
-  const handleWay = ({ id, way }: { id: string; way: LanguageWay }) => {
-    const now = picks.includes(id) ? "picks" : bought.includes(id) ? "bought" : null;
-    edit(setLanguage({ build, name: id, way: now === way ? null : way }));
-  };
   // A language the table doesn't list, bought under the name the player writes.
   const handleWriteIn = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -50,27 +36,29 @@ export function DetailStep() {
           <span className="small dim"> · {params.languages.cite}</span>
         </h3>
         <ul className="list lb-plain">
-          {languages.map((l) => (
-            <li key={l.id} className="lb-taken">
+          {rows.map(({ language: l, way, canFree }) => (
+            <li key={l.id} className="lb-taken" data-state={way ?? "open"}>
               <span className="lb-row-text">
                 <span className="pick-name">{l.name}</span>
                 <span className="small dim">{[recordCite(params, l), ...l.keywords].join(" · ")}</span>
+                {way && <span className="lb-row-state">{t(`held.${way}`)}</span>}
               </span>
               <span className="row" role="group" aria-label={l.name}>
                 <button
                   type="button"
                   className="btn sm"
-                  aria-pressed={picks.includes(l.id)}
-                  disabled={!anyFree && !l.keywords.some((k) => keywords.has(k)) && !picks.includes(l.id)}
-                  onClick={() => handleWay({ id: l.id, way: "picks" })}
+                  aria-pressed={way === "picks"}
+                  disabled={!canFree}
+                  onClick={() => edit(tapLanguage({ build, name: l.id, way: "picks" }))}
                 >
                   {t("free")}
                 </button>
                 <button
                   type="button"
                   className="btn sm"
-                  aria-pressed={bought.includes(l.id)}
-                  onClick={() => handleWay({ id: l.id, way: "bought" })}
+                  aria-pressed={way === "bought"}
+                  disabled={way === "learned"}
+                  onClick={() => edit(tapLanguage({ build, name: l.id, way: "bought" }))}
                 >
                   {t("buy", { xp: params.languages.xp })}
                 </button>

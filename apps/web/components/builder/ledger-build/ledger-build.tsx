@@ -167,20 +167,23 @@ function LedgerForm({ campaignId, ruleset, actor, me, send, campaign, catalogue 
       tier={tier}
       footer={({ ready }) => (
         <>
-          <button type="button" className="btn primary" disabled={busy || !ready} onClick={handleSave}>
-            {t("save")}
-          </button>
-          <button type="button" className="btn" disabled={busy} onClick={handleDraft}>
-            {gm ? t("saveForLater") : t("sendToGm")}
-          </button>
-          <span className="small dim" role="status">
-            {noteText}
-          </span>
           {error && (
             <p className="error lb-refusal" role="alert">
               {error}
             </p>
           )}
+          <span className="small dim lb-note" role="status">
+            {noteText}
+          </span>
+          {/* the primary last: the bottom right corner, under the thumb */}
+          <span className="lb-buttons">
+            <button type="button" className="btn" disabled={busy} onClick={handleDraft}>
+              {gm ? t("saveForLater") : t("sendToGm")}
+            </button>
+            <button type="button" className="btn primary" disabled={busy || !ready} onClick={handleSave}>
+              {t("save")}
+            </button>
+          </span>
         </>
       )}
     />

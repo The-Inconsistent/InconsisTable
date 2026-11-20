@@ -1700,7 +1700,8 @@
       "wealthNote": "{xp} XP a point, up to {max}. Wealth on the sheet: {now}.",
       "wealthLess": "Buy one less Wealth",
       "wealthMore": "Buy one more Wealth",
-      "wealthBought": "{count} Wealth bought"
+      "wealthBought": "{count} Wealth bought",
+      "held": { "picks": "Taken free", "bought": "Bought", "learned": "Learned in play" }
     },
     "gm": {
       "title": "The GM's rulings",
@@ -1716,6 +1717,46 @@
       "takeAway": "Take away",
       "give": "Give wargear"
     },
+    "play": {
+      "xp": {
+        "title": "XP",
+        "earned": "XP earned",
+        "earnedNote": "sets the Rank",
+        "toSpend": "XP to spend",
+        "rank": "Rank",
+        "levelUp": "Level up · spend {xp} XP",
+        "spend": "Spend XP (builder)"
+      },
+      "ascension": {
+        "title": "Ascension",
+        "now": "The group Ascends together: Tier {tier} now, Tier {next} after.",
+        "top": "Tier {tier} is the top: there is nothing to Ascend to.",
+        "counted": "Who counts",
+        "rank": "Rank {rank}",
+        "thisTier": "{earned} / {needed} XP this Tier",
+        "ready": "Ready",
+        "short": "{count} short",
+        "gone": "Not counted",
+        "goneNote": "Gone from the story",
+        "nobody": "Nobody in the group counts toward an Ascension.",
+        "experience": "By experience",
+        "experienceNote": "Everyone who counts has earned {needed} XP this Tier.",
+        "experienceWaiting": "{ready} of {count} ready: offered once everyone who counts has earned {needed} XP this Tier.",
+        "milestone": "By milestone",
+        "milestoneNote": "The GM's call, at a turn in the story.",
+        "waive": "Waive the Ascension Package",
+        "confirm": "Confirm: everyone to Tier {tier}",
+        "armedHint": "Press again to confirm. Anything else cancels.",
+        "busy": "Ascending…"
+      },
+      "session": {
+        "title": "XP each this session",
+        "suggested": "Suggested amounts",
+        "amount": "XP each",
+        "range": "A whole number from 0 to {max}.",
+        "chosen": "Each character gains {xp} XP."
+      }
+    },
     "dev": {
       "title": "Ledger builder",
       "lede": "Development only: the engine's invented game. The build lives in this page and is lost on reload.",
@@ -1727,7 +1768,17 @@
       "inPlay": "In play at Tier {tier}",
       "startOver": "Start over",
       "readyToSave": "The next task puts the save button here: ready.",
-      "notReady": "The next task puts the save button here: not ready yet."
+      "notReady": "The next task puts the save button here: not ready yet.",
+      "play": {
+        "title": "Play",
+        "lede": "The screens a table needs once these characters are in play, on invented figures. Nothing is sent.",
+        "ascension": "Ascension case",
+        "cases": { "short": "Someone short", "ready": "Everyone ready", "top": "Top Tier", "refusal": "A refusal" },
+        "xp": "XP box case",
+        "xpCases": { "toSpend": "XP to spend", "spentAll": "All spent", "notBuilt": "Not built" },
+        "refusal": "Refused: an invented refusal, to see where one shows.",
+        "sent": "Pressed: {kind, select, experience {by experience} other {by milestone}}{waived, select, true {, package waived} other {}}."
+      }
     },
     "table": {
       "loading": "Opening the catalogue…",

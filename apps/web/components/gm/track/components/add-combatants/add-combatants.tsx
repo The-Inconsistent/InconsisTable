@@ -19,7 +19,7 @@ const joinAs = (a: Actor) =>
   a.kind === "pc" ? JOIN_AS.party : a.kind === "creature" ? JOIN_AS.creature : JOIN_AS.other;
 
 // Who is at the table but not in the fight: the party joins in one tap, anyone else one by one. A creature spawned
-// while the fight is on joins it by itself, hidden.
+// while the fight is on joins it by itself, at the view it was spawned with.
 export function AddCombatants({ encounter, actors, run, mode, sided = false }: AddCombatantsProps) {
   const t = useTranslations("addCombatants");
   const waiting = useMemo(() => {

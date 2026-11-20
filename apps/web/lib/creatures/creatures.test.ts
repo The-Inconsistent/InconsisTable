@@ -11,6 +11,6 @@ test("creatures are the actor types the builder does not build", () => {
   assert.deepEqual(creatureTypes(Ruleset.parse(SAMPLE_D20)), ["creature"]);
 });
 
-test("the count stays between 1 and 20", () => {
-  assert.deepEqual([0, 1, 7, 20, 21].map(clampCount), [1, 1, 7, 20, 20]);
+test("the count stays between 1 and 50", () => {
+  assert.deepEqual([0, 1, 7, 21, 50, 51].map(clampCount), [1, 1, 7, 21, 50, 50]);
 });

@@ -1,21 +1,22 @@
-import type {
-  ActionInput,
-  Actor,
-  CodexEntry,
-  LiveState,
-  PoolLine,
-  PrepKind,
-  RevealLine,
-  RosterLine,
-  ScenePrep,
-  TestDef,
-  TestLine,
-  ExitLine,
+import {
+  MAX_SPAWN,
+  type ActionInput,
+  type Actor,
+  type CodexEntry,
+  type LiveState,
+  type PoolLine,
+  type PrepKind,
+  type RevealLine,
+  type RosterLine,
+  type ScenePrep,
+  type TestDef,
+  type TestLine,
+  type ExitLine,
 } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { takers } from "@/components/gm/tests/components/call-form/takers";
-import { MAX_SPAWN } from "@/lib/creatures/creatures";
+import { JOIN_AS } from "@/components/gm/track/constants";
 
 // A scene's prepared lines on the GM's screen (house decision #73): what each line stands for, whether it can be sent,
 // and which kinds a scene offers. Sending a line is the action it stands for, built here and sent through the same path
@@ -43,13 +44,15 @@ export type PrepWorld = {
 /** What a line names that the room no longer has. */
 export type Missing = "pack" | "entry" | "test" | "actor" | "pool" | "scene";
 /** Why a whole line cannot be sent right now (it is not broken). */
-export type Blocked = "noFight" | "visibility" | "count" | "mobCount" | "nobody" | "short";
+export type Blocked = "noFight" | "count" | "mobCount" | "nobody" | "short";
 
 export type Resolved =
   | { state: "broken"; missing: Missing }
   | { state: "blocked"; reason: Blocked }
   | { state: "ready"; action: ActionInput }
-  | { state: "open"; sceneId: string };
+  | { state: "open"; sceneId: string }
+  // A `pick` Test line before the GM has chosen who takes it: nothing is built until then (house decision #75).
+  | { state: "pick"; takers: Actor[] };
 
 type Line<K extends PrepKind> = ScenePrep[K][number];
 
@@ -62,32 +65,46 @@ export function seatedCharacters(state: PrepWorld["state"]): Actor[] {
   return state.actors.filter((a) => held.has(a.id));
 }
 
-function resolveRoster(line: RosterLine, world: PrepWorld): Resolved {
+// The spawn a roster line stands for, fight or no fight: its creatures under the line's label, at its view (house
+// decision #75); a mob stays one actor per action (house decision #66).
+function rosterAction(line: RosterLine, world: PrepWorld): Resolved {
   const pack = world.spawnable.packs.find((p) => p.slug === line.pack);
   if (!pack) return { state: "broken", missing: "pack" };
   const known = world.spawnable.entries.some((e) => e.pack === line.pack && e.key === line.key);
   if (!known && world.spawnable.complete) return { state: "broken", missing: "entry" };
-  // actor.spawn places creatures hidden, at most 20 of them, and a mob as one actor (house decision #66).
-  if (line.visibility !== "hidden") return { state: "blocked", reason: "visibility" };
   if (line.mob !== undefined && line.count > 1) return { state: "blocked", reason: "mobCount" };
   if (line.count > MAX_SPAWN) return { state: "blocked", reason: "count" };
-  if (!world.state.encounter) return { state: "blocked", reason: "noFight" };
+  const name = line.label?.trim();
   const action: ActionInput = {
     type: "actor.spawn",
     packVersionId: pack.id,
     key: line.key,
     count: line.count,
     temporary: line.temporary,
+    visibility: line.visibility,
     ...(line.mob === undefined ? {} : { mob: line.mob }),
+    ...(name ? { name } : {}),
   };
   return { state: "ready", action };
 }
 
-function resolveTest(line: TestLine, world: PrepWorld): Resolved {
+function resolveRoster(line: RosterLine, world: PrepWorld): Resolved {
+  const r = rosterAction(line, world);
+  if (r.state === "ready" && !world.state.encounter) return { state: "blocked", reason: "noFight" };
+  return r;
+}
+
+function resolveTest(line: TestLine, world: PrepWorld, taker?: string): Resolved {
   const def: TestDef | undefined = world.state.testDefs.find((d) => d.id === line.testId);
   if (!def) return { state: "broken", missing: "test" };
+  const seated = takers({ actors: seatedCharacters(world.state), def });
+  // `pick`: the one seated character the GM chose when sending it; nothing is built until then.
+  if (line.takers === "pick" && seated.length > 0 && !seated.some((a) => a.id === taker))
+    return { state: "pick", takers: seated };
   const actorIds =
-    line.takers === "party" ? takers({ actors: seatedCharacters(world.state), def }).map((a) => a.id) : line.actorIds;
+    line.takers === "listed"
+      ? line.actorIds
+      : seated.filter((a) => line.takers === "party" || a.id === taker).map((a) => a.id);
   if (line.takers === "listed" && actorIds.some((id) => !world.state.actors.some((a) => a.id === id)))
     return { state: "broken", missing: "actor" };
   if (actorIds.length === 0) return { state: "blocked", reason: "nobody" };
@@ -134,21 +151,26 @@ function resolveReveal(line: RevealLine, world: PrepWorld): Resolved {
   return { state: "ready", action };
 }
 
-/** What sending one line does now: the action it stands for, the scene it opens, or why it can't be sent. */
+/**
+ * What sending one line does now: the action it stands for, the scene it opens, or why it can't be sent. `taker` is
+ * the seated character the GM picked for a `pick` Test line.
+ */
 export function resolveLine<K extends PrepKind>({
   kind,
   line,
   world,
+  taker,
 }: {
   kind: K;
   line: Line<K>;
   world: PrepWorld;
+  taker?: string;
 }): Resolved {
   switch (kind) {
     case "roster":
       return resolveRoster(line as RosterLine, world);
     case "tests":
-      return resolveTest(line as TestLine, world);
+      return resolveTest(line as TestLine, world, taker);
     case "pools":
       return resolvePool(line as PoolLine, world);
     case "exits":
@@ -156,6 +178,35 @@ export function resolveLine<K extends PrepKind>({
     default:
       return resolveReveal(line as RevealLine, world);
   }
+}
+
+/** One action of START THE FIGHT, and the roster line it places, if it places one. */
+export type FightStep = { action: ActionInput; line?: RosterLine };
+
+/**
+ * START THE FIGHT on a scene's roster (house decision #75): what the source app's one button does, as ordinary actions
+ * the GM's screen sends one after another, each its own entry in the log and Undo. `encounter.start` when no fight is
+ * running (with one running, everything joins it), the seated characters not yet in it as the tracker's ADD PARTY adds
+ * them, then every roster line that can be sent. A line that can't is skipped, with why.
+ */
+export function fightSteps({ prep, world, sided }: { prep: ScenePrep; world: PrepWorld; sided: boolean }) {
+  const steps: FightStep[] = [];
+  const fight = world.state.encounter;
+  if (!fight) steps.push({ action: { type: "encounter.start" } });
+  const inFight = new Set(fight?.combatants.map((c) => c.actorId));
+  const joining = seatedCharacters(world.state).filter((a) => !inFight.has(a.id) && a.status === "active");
+  if (joining.length > 0) {
+    // A sides order places each actor by its entity type: no side is sent (house decision #60).
+    const join = sided ? { visibility: JOIN_AS.party.visibility } : JOIN_AS.party;
+    steps.push({ action: { type: "encounter.add", actorIds: joining.map((a) => a.id), ...join } });
+  }
+  const skipped: { line: RosterLine; resolved: Resolved }[] = [];
+  for (const line of prep.roster) {
+    const resolved = rosterAction(line, world);
+    if (resolved.state === "ready") steps.push({ action: resolved.action, line });
+    else skipped.push({ line, resolved });
+  }
+  return { steps, skipped };
 }
 
 /**

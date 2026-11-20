@@ -215,7 +215,14 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
               ))}
             </div>
             {mode === "run" ? (
-              <SceneRun scene={selected} world={world} names={names} act={act} onOpenScene={setSelectedId} />
+              <SceneRun
+                scene={selected}
+                world={world}
+                names={names}
+                act={act}
+                sided={ruleset?.initiative?.strategy === "sides"}
+                onOpenScene={setSelectedId}
+              />
             ) : (
               <SceneEditor
                 key={selected.id}

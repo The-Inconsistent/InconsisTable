@@ -866,7 +866,8 @@
     "spawn": "Spawn {count} × {name}",
     "asMob": "As a mob of",
     "spawnMob": "Spawn {name} ×{count}",
-    "addedMob": "Added {name} ×{count}"
+    "addedMob": "Added {name} ×{count}",
+    "tableSees": "In a running fight, the table sees"
   },
   "track": {
     "noTurnOrder": "This ruleset has no turn order.",
@@ -1441,8 +1442,7 @@
     },
     "blocked": {
       "noFight": "No fight is running. Start one first.",
-      "visibility": "Creatures arrive hidden; this line asks for another view, which the table can't send yet.",
-      "count": "More than 20 at once; the table can't send that many yet.",
+      "count": "More than 50 at once; split them over two lines.",
       "mobCount": "Several mobs at once; the table sends one mob at a time.",
       "nobody": "No character holds a seat to take it.",
       "short": "The pool can't pay this."
@@ -1453,6 +1453,7 @@
       "test": "{test} · {who}",
       "testWith": "{test} · {inputs} · {who}",
       "party": "everyone seated",
+      "pick": "one seated character, picked when sent",
       "gone": "(gone)",
       "pool": "{pool} {amount, number, ::sign-always}",
       "exit": "To {scene}",
@@ -1473,8 +1474,10 @@
       "note": "Note for the GM (optional)",
       "takers": {
         "party": "Everyone seated",
-        "listed": "Only these"
+        "listed": "Only these",
+        "pick": "One, picked when sent"
       },
+      "rosterLabelHint": "The creatures take this name at the table, numbered.",
       "outcomes": "What each result means",
       "outcomeLabel": "Result",
       "outcomeText": "What happens",
@@ -1497,7 +1500,17 @@
       "done": "Done",
       "skipped": "Skip"
     },
-    "startFight": "Start a fight",
+    "startFight": "Start the fight",
+    "joinFight": "Bring them into the fight",
+    "fight": {
+      "start": "the start of the fight",
+      "party": "the seated characters",
+      "done": "The fight is on.",
+      "stopped": "Stopped at {what}; nothing after it was sent.",
+      "skipped": "The fight is on. Not sent: {lines}."
+    },
+    "who": "Who?",
+    "whoTakes": "Who takes {what}",
     "send": "Send",
     "open": "Open",
     "sendLine": "Send {what}",

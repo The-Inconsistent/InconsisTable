@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
+import { CombatVisibility } from "@inconsistable/core-schema";
 import { Ruleset } from "@inconsistable/rules-engine";
 
 import { useRefusal, type RefusalText } from "@/hooks/use-refusal/use-refusal";
@@ -34,10 +35,12 @@ async function readRules({
 }
 
 // ADD CREATURES: search the attached packs for creatures by name, pick one, say how many, and place them. They arrive
-// numbered ("Goblin 1", "Goblin 2"…) with the entry's values; a temporary one goes when the encounter ends.
+// numbered ("Goblin 1", "Goblin 2"…) with the entry's values, and join a running fight at the view picked (hidden unless
+// the GM says otherwise); a temporary one goes when the encounter ends.
 export function Creatures({ campaignId, send }: CreaturesProps) {
   const t = useTranslations("creatures");
   const tStatus = useTranslations("status");
+  const tVisibility = useTranslations("combatVisibility");
   const tr = useRefusal();
   const readFailed = t("readFailed");
   const [q, setQ] = useState("");
@@ -49,6 +52,7 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
   const [picked, setPicked] = useState<RulesEntry | null>(null);
   const [count, setCount] = useState(3);
   const [temporary, setTemporary] = useState(true);
+  const [visibility, setVisibility] = useState<CombatVisibility>("hidden"); // how the table sees them in the fight
   const [mobText, setMobText] = useState(""); // blank: creatures one by one; a number: one mob of that many
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
@@ -97,8 +101,8 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
     setBusy(true);
     const r = await send(
       mob === null
-        ? { type: "actor.spawn", packVersionId, key: picked.key, count, temporary }
-        : { type: "actor.spawn", packVersionId, key: picked.key, count: 1, temporary, mob },
+        ? { type: "actor.spawn", packVersionId, key: picked.key, count, temporary, visibility }
+        : { type: "actor.spawn", packVersionId, key: picked.key, count: 1, temporary, visibility, mob },
     );
     setBusy(false);
     const added =
@@ -192,6 +196,22 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
                 />
               </label>
             )}
+          </div>
+          <div className="stack" role="group" aria-label={t("tableSees")}>
+            <span className="small">{t("tableSees")}</span>
+            <div className="seg">
+              {CombatVisibility.options.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  className="btn"
+                  aria-pressed={visibility === v}
+                  onClick={() => setVisibility(v)}
+                >
+                  {tVisibility(v)}
+                </button>
+              ))}
+            </div>
           </div>
           <button
             className="btn primary"

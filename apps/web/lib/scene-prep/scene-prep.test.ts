@@ -8,6 +8,7 @@ import { SAMPLE_HARVEST } from "../../../../packages/rules-engine/src/fixtures/s
 
 import {
   EMPTY_PREP,
+  fightSteps,
   offeredKinds,
   resolveLine,
   stepLine,
@@ -76,14 +77,29 @@ const resolve = (k: keyof ScenePrep, w = world(), d = doc) => resolveLine({ kind
 
 describe("each kind of line becomes the action the table already has", () => {
   test("roster: actor.spawn of the attached version, temporary as the line says", () => {
-    assert.deepEqual(resolve("roster"), {
-      state: "ready",
-      action: { type: "actor.spawn", packVersionId: "pv-1", key: "ember-wisp", count: 3, temporary: true },
-    });
+    const spawn = { type: "actor.spawn", packVersionId: "pv-1", key: "ember-wisp", temporary: true };
+    assert.deepEqual(resolve("roster"), { state: "ready", action: { ...spawn, count: 3, visibility: "hidden" } });
     const mob = ScenePrep.parse({ roster: [{ id: "m", pack: "sample", key: "ember-wisp", count: 1, mob: 12 }] });
     assert.deepEqual(resolve("roster", world(), mob), {
       state: "ready",
-      action: { type: "actor.spawn", packVersionId: "pv-1", key: "ember-wisp", count: 1, temporary: true, mob: 12 },
+      action: { ...spawn, count: 1, visibility: "hidden", mob: 12 },
+    });
+  });
+  test("roster: the line's view, and its label as the creatures' name (house decision #75)", () => {
+    const shown = ScenePrep.parse({
+      roster: [
+        { id: "b", pack: "sample", key: "ember-wisp", count: 2, visibility: "bar", label: " Cinders " },
+        { id: "f", pack: "sample", key: "ember-wisp", count: 50, visibility: "full", label: " " },
+      ],
+    });
+    const spawn = { type: "actor.spawn", packVersionId: "pv-1", key: "ember-wisp", temporary: true };
+    assert.deepEqual(resolveLine({ kind: "roster", line: shown.roster[0]!, world: world() }), {
+      state: "ready",
+      action: { ...spawn, count: 2, visibility: "bar", name: "Cinders" },
+    });
+    assert.deepEqual(resolveLine({ kind: "roster", line: shown.roster[1]!, world: world() }), {
+      state: "ready",
+      action: { ...spawn, count: 50, visibility: "full" },
     });
   });
   test("test: test.call of the seated characters, with the line's inputs and hidden target", () => {
@@ -150,13 +166,10 @@ describe("a line naming what the room no longer has is broken, and says what", (
 });
 
 describe("a line that can't be sent right now says why", () => {
-  test("no fight, a visibility or size actor.spawn can't make, nobody seated, a spend the pool can't pay", () => {
+  test("no fight, a size actor.spawn can't make, nobody seated, a spend the pool can't pay", () => {
     assert.deepEqual(resolve("roster", world({ encounter: null })), { state: "blocked", reason: "noFight" });
-    const shown = ScenePrep.parse({
-      roster: [{ id: "r", pack: "sample", key: "ember-wisp", count: 1, visibility: "bar" }],
-    });
-    assert.deepEqual(resolve("roster", world(), shown), { state: "blocked", reason: "visibility" });
-    const many = ScenePrep.parse({ roster: [{ id: "r", pack: "sample", key: "ember-wisp", count: 21 }] });
+    // Past what actor.spawn places, held back with its reason (a document saved under another limit).
+    const many = { roster: [{ id: "r", pack: "sample", key: "ember-wisp", count: 51 }] } as unknown as ScenePrep;
     assert.deepEqual(resolve("roster", world(), many), { state: "blocked", reason: "count" });
     const mobs = ScenePrep.parse({ roster: [{ id: "r", pack: "sample", key: "ember-wisp", count: 2, mob: 9 }] });
     assert.deepEqual(resolve("roster", world(), mobs), { state: "blocked", reason: "mobCount" });
@@ -164,6 +177,80 @@ describe("a line that can't be sent right now says why", () => {
     assert.deepEqual(resolve("tests", empty), { state: "blocked", reason: "nobody" });
     const poor = world({ pools: [pool({ id: "menace", value: 1 })] });
     assert.deepEqual(resolve("pools", poor), { state: "blocked", reason: "short" });
+  });
+});
+
+describe("a `pick` Test line is taken by the one seated character the GM picks (house decision #75)", () => {
+  const picked = ScenePrep.parse({ tests: [{ id: "t", testId: "check", takers: "pick", inputs: { dc: 10 } }] });
+  const line = picked.tests[0]!;
+  test("it builds nothing until a taker is chosen, then test.call for that one", () => {
+    const asked = resolveLine({ kind: "tests", line, world: world() });
+    assert.equal(asked.state, "pick");
+    assert.deepEqual(asked.state === "pick" && asked.takers.map((a) => a.id), [ANA, BEN]);
+    assert.ok(!("action" in asked));
+    assert.deepEqual(resolveLine({ kind: "tests", line, world: world(), taker: BEN }), {
+      state: "ready",
+      action: {
+        type: "test.call",
+        testId: "check",
+        actorIds: [BEN],
+        inputs: { dc: 10 },
+        hideTarget: false,
+        showOutcome: false,
+      },
+    });
+  });
+  test("someone not seated is no taker; nobody seated holds it back", () => {
+    assert.equal(resolveLine({ kind: "tests", line, world: world(), taker: GONE }).state, "pick");
+    const empty = world({ access: { members: [], guests: [] } as never });
+    assert.deepEqual(resolveLine({ kind: "tests", line, world: empty }), { state: "blocked", reason: "nobody" });
+  });
+});
+
+describe("START THE FIGHT is ordinary actions, one after another (house decision #75)", () => {
+  const roster = ScenePrep.parse({
+    roster: [
+      { id: "h", pack: "sample", key: "ember-wisp", count: 2 },
+      { id: "b", pack: "sample", key: "ember-wisp", count: 1, visibility: "bar", label: "Cinder" },
+      { id: "m", pack: "sample", key: "ember-wisp", count: 1, mob: 12, visibility: "full" },
+      { id: "x", pack: "sample", key: "nobody", count: 1 },
+    ],
+  });
+  const seatedWorld = (encounter: PrepWorld["state"]["encounter"]) =>
+    world({ encounter, actors: [ANA, BEN].map((id) => ({ ...actor(id), status: "active" }) as Actor) });
+  const spawn = { type: "actor.spawn", packVersionId: "pv-1", key: "ember-wisp", temporary: true };
+  const lines = [
+    { ...spawn, count: 2, visibility: "hidden" },
+    { ...spawn, count: 1, visibility: "bar", name: "Cinder" },
+    { ...spawn, count: 1, visibility: "full", mob: 12 },
+  ];
+
+  test("with no fight: start it, the seated characters join, then each line that can be sent", () => {
+    const { steps, skipped } = fightSteps({ prep: roster, world: seatedWorld(null), sided: false });
+    assert.deepEqual(
+      steps.map((s) => s.action),
+      [
+        { type: "encounter.start" },
+        { type: "encounter.add", actorIds: [ANA, BEN], side: "party", visibility: "full" },
+        ...lines,
+      ],
+    );
+    assert.deepEqual(
+      steps.map((s) => s.line?.id),
+      [undefined, undefined, "h", "b", "m"],
+    );
+    assert.deepEqual(
+      skipped.map((s) => [s.line.id, s.resolved]),
+      [["x", { state: "broken", missing: "entry" }]],
+    );
+  });
+  test("with one running: no start, only who is not in it yet joins; a sides order sends no side", () => {
+    const running = { combatants: [{ actorId: ANA }] } as never;
+    const { steps } = fightSteps({ prep: roster, world: seatedWorld(running), sided: true });
+    assert.deepEqual(
+      steps.map((s) => s.action),
+      [{ type: "encounter.add", actorIds: [BEN], visibility: "full" }, ...lines],
+    );
   });
 });
 

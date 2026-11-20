@@ -102,6 +102,9 @@ var (
 	))
 )
 
+// spendInputs is actions.ts SpendInputs: the numbers a spend's asker picks (house decision #84).
+var spendInputs = schema.Record(schema.String().Min(1).Max(64), schema.Int().Min(-1000).Max(1000))
+
 func variant(tag string, fields ...schema.Field) schema.Variant {
 	return schema.Variant{Tag: tag, Schema: schema.Object(append([]schema.Field{schema.Req("type", schema.Literal(tag))}, fields...)...)}
 }
@@ -314,9 +317,16 @@ var ActionSchema = schema.Union("type",
 
 	variant("request.send",
 		schema.Opt("actorId", id),
-		schema.Req("resourceId", schema.String().Min(1).Max(64)),
-		schema.Req("amount", schema.Int().Min(1).Max(99)),
+		schema.Opt("resourceId", schema.String().Min(1).Max(64)),
+		schema.Opt("amount", schema.Int().Min(1).Max(99)),
+		schema.Opt("spendId", schema.String().Min(1).Max(64)),
+		schema.Opt("inputs", spendInputs),
 		schema.Opt("note", requestText),
+	),
+	variant("spend.do",
+		schema.Req("spendId", schema.String().Min(1).Max(64)),
+		schema.Req("actorId", id),
+		schema.Opt("inputs", spendInputs),
 	),
 	variant("request.cancel", schema.Req("id", id)),
 	variant("request.approve", schema.Req("id", id)),
@@ -422,6 +432,7 @@ var ActionPerms = map[string]string{
 	"clock.update":            "clock:run",
 	"clock.delete":            "clock:run",
 	"request.send":            "request:send",
+	"spend.do":                "request:resolve",
 	"request.cancel":          "request:send",
 	"request.approve":         "request:resolve",
 	"request.deny":            "request:resolve",

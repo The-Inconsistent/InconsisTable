@@ -54,9 +54,9 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 	state.MyDraft = myDraft
 	codex := seatEntryLinks(seatCodex(fielded, c, sight), compiled)
 	state.Clocks = seatClocks(state.Clocks, codex, sight)
-	state.Requests, state.RequestAnswers = seatRequests(state.Requests, state.RequestAnswers, c, sight)
-	state.Rolls, state.Dealt = seatTables(state.Rolls, state.Dealt, c, sight)
 	state.Pools = seatPools(state.Pools, compiled, c)
+	state.Requests, state.RequestAnswers = seatRequests(state.Requests, state.RequestAnswers, c, sight, compiled, state.Pools)
+	state.Rolls, state.Dealt = seatTables(state.Rolls, state.Dealt, c, sight)
 	return SeatView{state, codex}
 }
 
@@ -98,23 +98,44 @@ func seatTables(rolls []cs.RollRow, dealt []cs.DealtRow, c cs.Ctx, sight Sight) 
 	return outRolls, outDealt
 }
 
-// The spend requests a seat receives: the side that answers them sees every pending request, a player only their own
-// and their own answers (that side sees every answer), a screen and a guest token (no user) none.
-func seatRequests(requests []cs.SpendRequest, answers []cs.RequestAnswer, c cs.Ctx, sight Sight) ([]cs.SpendRequest, []cs.RequestAnswer) {
+// The spend requests a seat receives (view.seat.ts seatRequests): the side that answers them sees every pending request,
+// a player their own and their own answers (that side sees every answer). An ask for a spend that costs pools also
+// reaches every seat that receives each of those pools (house decision #84); one that costs no pool stays with the
+// asker and that side.
+func seatRequests(requests []cs.SpendRequest, answers []cs.RequestAnswer, c cs.Ctx, sight Sight,
+	compiled *engine.CompiledRuleset, pools []cs.PoolState) ([]cs.SpendRequest, []cs.RequestAnswer) {
 	if sight.Requests {
 		return requests, answers
 	}
-	outRequests, outAnswers := []cs.SpendRequest{}, []cs.RequestAnswer{}
-	if c.UserID == nil {
-		return outRequests, outAnswers
+	mine := func(userID string) bool { return c.UserID != nil && userID == *c.UserID }
+	onSeenPools := func(q cs.SpendRequest) bool {
+		if q.SpendID == nil || compiled == nil {
+			return false
+		}
+		spend := compiled.Ruleset.SpendOf(*q.SpendID)
+		if spend == nil {
+			return false
+		}
+		charged := 0
+		for _, cost := range spend.Cost {
+			if cost.Pool == nil {
+				continue
+			}
+			charged++
+			if !slices.ContainsFunc(pools, func(p cs.PoolState) bool { return p.ID == *cost.Pool }) {
+				return false
+			}
+		}
+		return charged > 0
 	}
+	outRequests, outAnswers := []cs.SpendRequest{}, []cs.RequestAnswer{}
 	for _, q := range requests {
-		if q.UserID == *c.UserID {
+		if mine(q.UserID) || onSeenPools(q) {
 			outRequests = append(outRequests, q)
 		}
 	}
 	for _, r := range answers {
-		if r.UserID == *c.UserID {
+		if mine(r.UserID) {
 			outAnswers = append(outAnswers, r)
 		}
 	}

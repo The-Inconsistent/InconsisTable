@@ -260,7 +260,7 @@ func (rc *Context) Run(ctx context.Context, r Run) ([]engine.Delta, error) {
 }
 
 // The engine refusals whose text names the actor (house decision #66).
-var namesActor = map[string]bool{"noHarmHere": true, "neverShocked": true, "notAMob": true}
+var namesActor = map[string]bool{"noHarmHere": true, "neverShocked": true, "notAMob": true, "noConvertHere": true}
 
 // rebound evaluates an actor's resource bounds again with the fields the deltas are about to write, so a resource
 // whose max reads one of them (a mob's members, up to its start) is clamped by the new value in the same action.

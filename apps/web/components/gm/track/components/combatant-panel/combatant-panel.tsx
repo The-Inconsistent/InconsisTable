@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useState, type ChangeEvent } from "react";
+import { useState, type ChangeEvent, type ReactNode } from "react";
 
 import {
   CombatVisibility,
@@ -43,6 +43,8 @@ type CombatantPanelProps = {
   harm?: { pad: HarmPadOf; maxOf: (resource: string) => number | null } | null;
   /** The api's refusal of an action this panel sent, shown here (issue #167); null when there is none. */
   refusal?: string | null;
+  /** The ruleset's one-tap spends for this combatant's actor (house decision #84). */
+  spends?: ReactNode;
 };
 
 // A refusal shown in the panel is brought into view when it appears: on a phone the panel's controls sit far below.
@@ -64,6 +66,7 @@ export function CombatantPanel({
   pools = [],
   harm,
   refusal = null,
+  spends,
 }: CombatantPanelProps) {
   const t = useTranslations("combatantPanel");
   const tSave = useTranslations("deathSave");
@@ -154,6 +157,7 @@ export function CombatantPanel({
       )}
 
       {sides && <SideActions encounter={encounter} combatant={c} sides={sides} pools={pools} run={run} />}
+      {spends}
 
       {harm && actor ? (
         <HarmPad combatant={c} actor={actor} pad={harm.pad} maxOf={harm.maxOf} run={run} />

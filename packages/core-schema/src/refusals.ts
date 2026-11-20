@@ -158,6 +158,7 @@ export const REFUSALS = {
   neverShocked: "{name} never takes that",
   notAMob: "{name} isn't a mob",
   noMobsHere: "{name} can't come as a mob in this ruleset",
+  noConvertHere: "{name} can't convert harm in this ruleset",
   // Codex
   entryNotFound: "Entry not found",
   needSecretsScope: "GM notes need the secrets scope",
@@ -197,6 +198,10 @@ export const REFUSALS = {
   requestNotAllowed: "Players can't spend from that.",
   requestSpendYourself: "You can spend that yourself.",
   requestNoPool: "Shared pools aren't at this table yet.",
+  noSuchSpend: "That can't be spent here.",
+  spendNotNow: "That can't be done now.",
+  spendAsked: "Already asked for that: wait for the GM or cancel it.",
+  requestKind: "Ask for a resource and an amount, or for a spend.",
   // Random tables
   tableNotFound: "Table not found",
   tableDealOnly: "That table is dealt, not rolled.",

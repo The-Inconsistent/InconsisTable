@@ -108,13 +108,16 @@ type (
 	}
 	// SpendRequest is a pending ask to spend from a resource (house decision #43). Note is "" when none.
 	SpendRequest struct {
-		ID         string  `json:"id"`
-		UserID     string  `json:"userId"`
-		ActorID    *string `json:"actorId"`
-		ResourceID string  `json:"resourceId"`
-		Amount     int     `json:"amount"`
-		Note       string  `json:"note"`
-		CreatedAt  string  `json:"createdAt"`
+		ID      string  `json:"id"`
+		UserID  string  `json:"userId"`
+		ActorID *string `json:"actorId"`
+		// A resource and an amount, or a spend of the ruleset and its inputs (house decision #84).
+		ResourceID *string            `json:"resourceId"`
+		Amount     *int               `json:"amount"`
+		SpendID    *string            `json:"spendId"`
+		Inputs     map[string]float64 `json:"inputs"`
+		Note       string             `json:"note"`
+		CreatedAt  string             `json:"createdAt"`
 	}
 	// RollRow is one roll on a random table (house decision #49): what came up, as the seat that may see it reads it.
 	// Visibility is the table's, so the Seat view can cut it; Label is the entry's own short name.
@@ -140,8 +143,9 @@ type (
 		ID         string  `json:"id"`
 		UserID     string  `json:"userId"`
 		ActorID    *string `json:"actorId"`
-		ResourceID string  `json:"resourceId"`
-		Amount     int     `json:"amount"`
+		ResourceID *string `json:"resourceId"`
+		Amount     *int    `json:"amount"`
+		SpendID    *string `json:"spendId"`
 		Status     string  `json:"status"`
 		Reason     string  `json:"reason"`
 	}

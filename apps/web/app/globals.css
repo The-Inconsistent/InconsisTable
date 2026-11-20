@@ -1263,6 +1263,26 @@ label {
   justify-content: space-between;
   align-items: center;
 }
+/* Spends a ruleset declares (house decision #84): each offer a label, its cost and its numbers; rows wrap, never scroll. */
+.spend-offer {
+  padding-block: 4px 10px;
+  border-bottom: 1px dotted var(--line);
+}
+.spend-head,
+.spend-buttons > .row,
+.spend-one {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.spend-head {
+  justify-content: space-between;
+}
+.spend-input {
+  width: 5.5em;
+}
+.spend-asks {
+  margin: 0;
+}
 .motion :is(.request-bar, .spend-notice) {
   animation: rise var(--dur-move) var(--ease-out) backwards;
 }

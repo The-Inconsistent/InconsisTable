@@ -91,7 +91,12 @@ export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }:
           </button>
         ))}
       </nav>
-      <RequestBar state={state} labels={resourceLabels(view?.ruleset ?? null)} send={send} />
+      <RequestBar
+        state={state}
+        labels={resourceLabels(view?.ruleset ?? null)}
+        ruleset={view?.ruleset ?? null}
+        send={send}
+      />
       <ActionNotices notices={notices} onDismiss={dismissNotices} />
       <main className="page">
         {tab === "party" ? (

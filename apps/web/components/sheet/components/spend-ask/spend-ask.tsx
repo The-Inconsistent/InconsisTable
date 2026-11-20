@@ -49,10 +49,10 @@ export function SpendAsk({ actorId, resourceId, label, pending, send }: SpendAsk
     <div className="spend-ask stack" data-for={resourceId}>
       {pending.map((q) => (
         <div key={q.id} className="spend-waiting row" role="status">
-          <span>{t("waiting", { amount: q.amount, label })}</span>
+          <span>{t("waiting", { amount: q.amount ?? 0, label })}</span>
           <button
             className="btn sm"
-            aria-label={t("cancelAria", { amount: q.amount, label })}
+            aria-label={t("cancelAria", { amount: q.amount ?? 0, label })}
             onClick={() => handleCancel(q.id)}
           >
             {t("cancel")}

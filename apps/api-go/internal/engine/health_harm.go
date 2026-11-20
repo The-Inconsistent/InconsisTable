@@ -25,6 +25,7 @@ type harmProfile struct {
 	destroyed       bool
 	destroyedOver   string
 	destroyedField  string
+	convert         bool
 }
 
 type harmParams struct {
@@ -94,6 +95,7 @@ func parseHarmParams(raw any) (harmParams, *Refusal) {
 			profile.destroyed, profile.destroyedOver, profile.destroyedField = true, d.str("over"), d.str("field")
 			x.absorb("destroyed", d)
 		}
+		profile.convert = x.boolOr("convert", false)
 		r.absorb("profiles", x)
 		p.profiles = append(p.profiles, profile)
 	}
@@ -224,6 +226,71 @@ func (p harmParams) load(state *RuleState, actorID string) (*ActorState, *harmPr
 	return actor, &p.profiles[at], at, nil
 }
 
+// spentNow is health-harm.ts spentNow: past its shock limit, by `spent.when` or a condition held.
+func (x *harmProfile) spentNow(actor *ActorState, scope *Record, path string) (bool, *Refusal) {
+	if !x.spent {
+		return false, nil
+	}
+	if x.spentWhen != nil {
+		v, refusal := readBool(*x.spentWhen, scope, path+".spent.when")
+		if refusal != nil || v {
+			return v, refusal
+		}
+	}
+	return slices.ContainsFunc(x.spentConditions, actor.holds), nil
+}
+
+type convertInput struct {
+	actorID string
+	amount  float64
+}
+
+func parseConvertInput(raw any) (convertInput, *Refusal) {
+	r, ok := readObject(raw)
+	if !ok {
+		return convertInput{}, refuse("badInput", "not an object")
+	}
+	in := convertInput{actorID: r.str("actorId"), amount: r.intIn("amount", 1, 100)}
+	return in, r.refusal("badInput")
+}
+
+// convert is health-harm.ts convert (house decision #84): up to amount wounds become shock, never below zero wounds.
+func (p harmParams) convert(state *RuleState, in convertInput) ([]Delta, *Refusal) {
+	actor, profile, at, refusal := p.load(state, in.actorID)
+	if refusal != nil {
+		return nil, refusal
+	}
+	scope, id, path := actor.Scope, actor.ID, fmt.Sprintf("health.harm.profiles[%d]", at)
+	if !profile.convert || p.shock == nil || actor.optResource(p.shock) == nil {
+		return nil, refuse("noConvertHere", `"%s" converts no harm under this ruleset`, id)
+	}
+	if profile.shockless != nil {
+		never, refusal := readBool(*profile.shockless, scope, path+".shockless")
+		if refusal != nil {
+			return nil, refusal
+		}
+		if never {
+			return nil, refuse("neverShocked", `"%s" never takes shock`, id)
+		}
+	}
+	spent, refusal := profile.spentNow(actor, scope, path)
+	if refusal != nil {
+		return nil, refusal
+	}
+	if spent {
+		return nil, refuse("wrongState", `"%s" is spent`, id)
+	}
+	_, wRes, refusal := actorResource(state, id, p.wounds)
+	if refusal != nil {
+		return nil, refusal
+	}
+	moved := math.Min(in.amount, wRes.Value)
+	if moved <= 0 {
+		return nil, refuse("wrongState", `"%s" has no wounds to convert`, id)
+	}
+	return []Delta{addResource(id, p.wounds, -moved), addResource(id, *p.shock, moved)}, nil
+}
+
 // hit is what one hit does, in the order of house decision #66; every expression is read on the actor before it.
 func (p harmParams) hit(state *RuleState, in hitInput) ([]Delta, *Refusal) {
 	actor, profile, at, refusal := p.load(state, in.actorID)
@@ -275,14 +342,11 @@ func (p harmParams) hit(state *RuleState, in hitInput) ([]Delta, *Refusal) {
 	}
 	wounds, shock := in.wounds, in.shock
 	// a. Already spent: shock taken becomes wounds. Healing shock is never turned into anything.
-	if profile.spent && shock > 0 {
-		spent := false
-		if profile.spentWhen != nil {
-			if spent, refusal = readBool(*profile.spentWhen, scope, path+".spent.when"); refusal != nil {
-				return nil, refusal
-			}
+	if shock > 0 {
+		spent, refusal := profile.spentNow(actor, scope, path)
+		if refusal != nil {
+			return nil, refusal
 		}
-		spent = spent || slices.ContainsFunc(profile.spentConditions, actor.holds)
 		if spent {
 			wounds, shock = wounds+shock, 0
 		}
@@ -400,6 +464,15 @@ var healthHarm = definePrimitive(parseHarmParams, map[string]primitiveOp{
 			if in.members != members.Value {
 				deltas = append(deltas, addResource(actor.ID, p.members, in.members-members.Value))
 			}
+			return deltas
+		}),
+	"convert": defineOp("encounter:run", parseConvertInput, harmParams.targets,
+		func(p harmParams, state *RuleState, in convertInput) *Refusal {
+			_, refusal := p.convert(state, in)
+			return refusal
+		},
+		func(p harmParams, state *RuleState, in convertInput) []Delta {
+			deltas, _ := p.convert(state, in)
 			return deltas
 		}),
 })

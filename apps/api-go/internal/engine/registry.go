@@ -106,6 +106,65 @@ func OpTouches(primitiveID, opID string) string {
 	return "state"
 }
 
+// DeclaredPrimitives is registry.ts declaredPrimitives: the primitives a spend's run may name (house decision #84).
+func DeclaredPrimitives(r *Ruleset) []string {
+	out := []string{"resource.capped", "conditions.expire", "rest"}
+	if r.Initiative != nil {
+		out = append(out, "initiative."+r.Initiative.Strategy)
+	}
+	if len(r.Health.Tracks) > 0 {
+		out = append(out, "health.tracks")
+	}
+	if r.Health.Harm != nil {
+		out = append(out, "health.harm")
+	}
+	return out
+}
+
+// opInputKeys is the keys each op's input takes, sorted: registry.ts opInputKeys reads them from the zod schemas, and
+// the vectors hold this table equal to it.
+var opInputKeys = map[string][]string{
+	"conditions.expire.encounterEnd": {},
+	"conditions.expire.roundEnd":     {},
+	"conditions.expire.turnEnd":      {"actorId"},
+	"dice.poolSuccesses.resolve":     {"pool", "roll", "target"},
+	"dice.sumVsTarget.resolve":       {"advantage", "modifier", "roll", "target"},
+	"health.harm.convert":            {"actorId", "amount"},
+	"health.harm.hit":                {"actorId", "shock", "wounds"},
+	"health.harm.muster":             {"actorId", "members"},
+	"health.tracks.damage":           {"actorId", "amount", "critical", "track"},
+	"health.tracks.deathSave":        {"actorId", "result"},
+	"health.tracks.heal":             {"actorId", "amount", "track"},
+	"initiative.ranked.next":         {},
+	"initiative.ranked.remove":       {"id"},
+	"initiative.ranked.start":        {"combatants", "round"},
+	"initiative.seated.first":        {"id"},
+	"initiative.seated.next":         {},
+	"initiative.seated.remove":       {"id"},
+	"initiative.seated.start":        {"ids"},
+	"initiative.sides.bar":           {"barred", "id", "side"},
+	"initiative.sides.begin":         {},
+	"initiative.sides.hold":          {},
+	"initiative.sides.interrupt":     {"id"},
+	"initiative.sides.lift":          {"id"},
+	"initiative.sides.mark":          {"done", "id"},
+	"initiative.sides.newRound":      {},
+	"initiative.sides.next":          {},
+	"initiative.sides.pick":          {"force", "id"},
+	"initiative.sides.seize":         {"id"},
+	"resource.capped.adjust":         {"actorId", "delta", "resource"},
+	"resource.capped.adjustPool":     {"delta", "resource"},
+	"rest.apply":                     {"actorIds", "event"},
+}
+
+// OpInputKeys is the keys an op's input takes, and whether the registry knows the op.
+func OpInputKeys(primitiveID, opID string) ([]string, bool) {
+	if _, ok := primitives[primitiveID].ops[opID]; !ok {
+		return nil, false
+	}
+	return opInputKeys[primitiveID+"."+opID], true
+}
+
 // OpPerm is the permission an op declares, and whether the registry knows the op.
 func OpPerm(primitiveID, opID string) (string, bool) {
 	op, ok := primitives[primitiveID].ops[opID]

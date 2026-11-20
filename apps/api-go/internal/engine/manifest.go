@@ -333,6 +333,39 @@ type (
 			Over  string `json:"over"`
 			Field string `json:"field"`
 		} `json:"destroyed"`
+		// Convert lets `convert` move wounds to the second track (house decision #84).
+		Convert bool `json:"convert"`
+	}
+	// SpendCost is one cost of a spend: a shared pool or a resource of the asking actor (house decision #84).
+	SpendCost struct {
+		Pool     *string `json:"pool"`
+		Resource *string `json:"resource"`
+		Amount   string  `json:"amount"`
+		ByRun    bool    `json:"byRun"`
+	}
+	// SpendInput is a number the asker picks, within [Min, Max].
+	SpendInput struct {
+		Label string  `json:"label"`
+		Min   float64 `json:"min"`
+		Max   string  `json:"max"`
+	}
+	// SpendStep is one op a spend runs; a string input is an expression, anything else is taken as it is.
+	SpendStep struct {
+		Primitive string         `json:"primitive"`
+		Op        string         `json:"op"`
+		Input     map[string]any `json:"input"`
+	}
+	// Spend is one entry of the manifest's spends (house decision #84).
+	Spend struct {
+		ID       string                `json:"id"`
+		Label    string                `json:"label"`
+		Cite     *string               `json:"cite"`
+		Entities *[]string             `json:"entities"`
+		Cost     []SpendCost           `json:"cost"`
+		Inputs   map[string]SpendInput `json:"inputs"`
+		If       *string               `json:"if"`
+		Run      []SpendStep           `json:"run"`
+		ClearOn  []string              `json:"clearOn"`
 	}
 	// HealthState is one display state of the health block.
 	HealthState struct {
@@ -414,6 +447,11 @@ type (
 		Notices []NoticeRule `json:"notices"`
 		// Layout is read for its widget rows (house decision #83).
 		Layout map[string]LayoutDef `json:"layout"`
+		// Spends is what players may ask the GM to spend (house decision #84); Requests.Max caps pending asks per user.
+		Spends   []Spend `json:"spends"`
+		Requests *struct {
+			Max float64 `json:"max"`
+		} `json:"requests"`
 	}
 	// TestMark is a yes-or-no the GM sets when calling a Test, read as ctx.<id>.
 	TestMark struct {
@@ -618,6 +656,49 @@ func (p *problems) creation(r *Ruleset) {
 
 // Every face range fits the die, bands never overlap, and shift names a band.
 // harm is harmProblems of manifest.ts: health.harm's resources, fields and conditions (house decision #66).
+// spends is manifest.ts spendProblems (house decision #84): ids, costs and inputs. Expressions and run ops are compiled.
+func (p *problems) spends(r *Ruleset, actorTypes func(*[]string, string)) {
+	p.duplicates("spends", idsOf(r.Spends, func(s Spend) string { return s.ID }))
+	resources := map[string]Resource{}
+	for _, x := range r.Resources {
+		resources[x.ID] = x
+	}
+	for i, s := range r.Spends {
+		path := fmt.Sprintf("spends[%d]", i)
+		actorTypes(s.Entities, path+".entities")
+		for j, c := range s.Cost {
+			at := fmt.Sprintf("%s.cost[%d]", path, j)
+			if (c.Pool == nil) == (c.Resource == nil) {
+				p.add(at, "a cost names a pool or a resource")
+				continue
+			}
+			id, key := "", "pool"
+			if c.Pool != nil {
+				id = *c.Pool
+			} else {
+				id, key = *c.Resource, "resource"
+			}
+			res, known := resources[id]
+			switch {
+			case !known:
+				p.add(at+"."+key, `unknown resource "%s"`, id)
+			case c.Pool != nil && res.Scope == "entity":
+				p.add(at+".pool", `"%s" must be a shared pool`, id)
+			case c.Resource != nil && res.Scope != "entity":
+				p.add(at+".resource", `"%s" must be an entity-scoped resource`, id)
+			}
+		}
+		for _, name := range sortedKeys(s.Inputs) {
+			if name == "self" || name == "fight" {
+				p.add(path+".inputs."+name, `"%s" is reserved`, name)
+			}
+		}
+		if len(s.ClearOn) != len(slices.Compact(slices.Sorted(slices.Values(s.ClearOn)))) {
+			p.add(path+".clearOn", "an event is listed twice")
+		}
+	}
+}
+
 func (p *problems) harm(r *Ruleset, harm *Harm, actorTypes func(*[]string, string)) {
 	// The last declaration wins, as in TypeScript's Map built from the list.
 	resources := map[string]*Resource{}
@@ -1158,6 +1239,10 @@ func (r *Ruleset) semanticProblems() problems {
 	if r.Health.Harm != nil {
 		p.harm(r, r.Health.Harm, actorTypes)
 	}
+	for i, x := range r.Spends {
+		needCite(x.Cite, fmt.Sprintf("spends[%d]", i))
+	}
+	p.spends(r, actorTypes)
 
 	for _, id := range sortedKeys(r.Tests) {
 		t := r.Tests[id]

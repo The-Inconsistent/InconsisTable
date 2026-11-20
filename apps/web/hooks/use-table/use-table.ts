@@ -35,7 +35,6 @@ const ActionReply = z.discriminatedUnion("ok", [
     id: z.string().optional(),
     token: z.string().optional(),
     notices: z.array(Notice).optional(),
-    skipped: z.array(z.string()).optional(), // who a party rest left out (house decision #81)
   }),
   z.object({ ok: z.literal(false), error: z.string(), ...Refusal }),
 ]) satisfies z.ZodType<ActionResult>;

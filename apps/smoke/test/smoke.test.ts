@@ -4889,7 +4889,7 @@ test("sides fixture: reminders, a side barred at once, immunity, stacks and a re
   refused(one, "restRefused");
   assert.equal(one.ok ? "" : one.error, "Hal can't rest while Downed");
   const all = ok(await owner.send({ type: "actor.rest", event: "longRest" }));
-  assert.deepEqual(all.skipped, ["Hal"]);
+  assert.deepEqual(all.notices, [{ code: "restSkipped", params: { names: "Hal", count: 1 } }]);
   s = await owner.until((x) => actorIn(x, imp)?.resources.hp === 7);
   assert.equal(actorIn(s, hero)?.resources.hp, 0);
   for (const c of [owner, ana, screen]) c.socket.close();

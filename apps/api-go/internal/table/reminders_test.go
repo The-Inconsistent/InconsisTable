@@ -173,10 +173,7 @@ func TestImmunityArmingStacksAndARefusedRest(t *testing.T) {
 		if refusal.Code != "restRefused" || refusal.Params["name"] != "Wick" || refusal.Params["state"] != "downed" {
 			t.Fatalf("one downed: got %+v", refusal)
 		}
-		r := p.send(gm, map[string]any{"type": "actor.rest", "event": "longRest"})
-		if !slices.Equal(r.Skipped, []string{"Wick"}) {
-			t.Fatalf("skipped: got %v", r.Skipped)
-		}
+		wantNotices(t, p.send(gm, map[string]any{"type": "actor.rest", "event": "longRest"}), cs.RestSkipped([]string{"Wick"}))
 		if p.res(w1, "hp") != 10 || p.res(w2, "hp") != 0 {
 			t.Fatalf("Wren rested, Wick did not: %d, %d", p.res(w1, "hp"), p.res(w2, "hp"))
 		}

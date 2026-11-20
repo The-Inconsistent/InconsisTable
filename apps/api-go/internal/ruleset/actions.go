@@ -244,7 +244,8 @@ func ActorRest(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Res
 	if !pinned {
 		return cs.Result{}, cs.Fail("noRuleset")
 	}
-	out := cs.Done(id)
-	out.Skipped = skipped
-	return out, nil
+	if len(skipped) > 0 {
+		cs.Notify(ctx, cs.RestSkipped(skipped))
+	}
+	return cs.Done(id), nil
 }

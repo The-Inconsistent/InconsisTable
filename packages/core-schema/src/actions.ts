@@ -29,7 +29,7 @@ import {
 } from "./state.ts";
 import { CombatVisibility, ENCOUNTER_ACTIONS } from "./encounter.ts";
 import { ScenePrep } from "./prep.ts";
-import { TestCallAction, TestCloseAction, TestReportAction } from "./test-call.ts";
+import { TestApplyOfferAction, TestCallAction, TestCloseAction, TestReportAction } from "./test-call.ts";
 
 // Every mutation goes through one socket event: "action" (CLAUDE.md, "The server decides"). These are the core
 // actions; ruleset actions (res.adjust, turn.op, rule.op, test.*) are declared by the engine's primitives instead.
@@ -163,6 +163,7 @@ export const Action = z.discriminatedUnion("type", [
   TestCallAction,
   TestReportAction,
   TestCloseAction,
+  TestApplyOfferAction,
 
   z.object({
     type: z.literal("invite.create"),
@@ -336,6 +337,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "test.call": "test:call",
   "test.report": "test:report:own", // the player of that character; the GM side through OWN_FALLBACK
   "test.close": "test:call",
+  "test.applyOffer": "test:call",
   "invite.create": "member:invite",
   "invite.revoke": "member:invite",
   "member.remove": "member:remove",

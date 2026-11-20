@@ -1028,9 +1028,15 @@
     "close": "Close",
     "closeShow": "Close and show results",
     "reportedTag": "Reported",
-    "reportedResult": "Result: {label}"
+    "reportedResult": "Result: {label}",
+    "offers": "What {name}'s result offers",
+    "offerChange": "{by} {label}",
+    "offerApply": "Apply {offer} for {name}: {changes}",
+    "applied": "Applied",
+    "offerDone": "{offer}, applied"
   },
   "callForm": {
+    "marks": "Called with",
     "nobodyTakes": "No one here takes this Test.",
     "wholeNumber": "Fill in {id} with a whole number",
     "fillIn": "Fill in {id}",
@@ -1241,6 +1247,10 @@
     "cantCallTest": "Couldn't call the Test",
     "notCalled": "That character wasn't called",
     "alreadyReported": "Already reported. Ask the GM if it needs to change",
+    "noSuchOffer": "This Test offers no \"{offer}\"",
+    "notReported": "{name} has not reported yet",
+    "offerApplied": "That offer was already applied",
+    "offerNotOffered": "That result does not offer it",
     "badAdvantage": "\"{advantage}\" isn't advantage, disadvantage or none",
     "unknownOutcome": "That outcome is not one this Test lists.",
     "testTakesOutcome": "This Test takes an outcome, not dice.",

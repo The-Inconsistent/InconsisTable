@@ -351,6 +351,28 @@ type (
 		Label             string                       `json:"label,omitempty"`
 		InputLabels       map[string]string            `json:"inputLabels,omitempty"`
 		InputOptionLabels map[string]map[string]string `json:"inputOptionLabels,omitempty"`
+		// Marks are the yes-or-no the GM sets when calling (house decision #80); omitted when the Test has none.
+		Marks []TestMarkDef `json:"marks,omitempty"`
+	}
+	// TestMarkDef is one mark of a Test, by id, with the ruleset's word for it.
+	TestMarkDef struct {
+		ID    string `json:"id"`
+		Label string `json:"label"`
+	}
+	// TestOfferState is what a taker's result offers the GM (house decision #80): its changes with the amounts worked
+	// out for that taker, and whether it was applied.
+	TestOfferState struct {
+		ID      string            `json:"id"`
+		Label   string            `json:"label"`
+		Changes []TestOfferChange `json:"changes"`
+		Applied bool              `json:"applied"`
+	}
+	// TestOfferChange is one write of an offer: a pool or a resource, its label, and by how much.
+	TestOfferChange struct {
+		Pool     string `json:"pool,omitempty"`
+		Resource string `json:"resource,omitempty"`
+		Label    string `json:"label"`
+		By       int    `json:"by"`
 	}
 	// TestResult is a reported roll; a field the seat may not see is nil.
 	TestResult struct {
@@ -368,6 +390,8 @@ type (
 		Target   *int        `json:"target"`
 		Pool     *int        `json:"pool"`
 		Report   *TestResult `json:"report"`
+		// Offers is the GM side's only (house decision #80): omitted when there is none, and never sent to a seat below.
+		Offers []TestOfferState `json:"offers,omitempty"`
 	}
 	// TestCall is a Test the GM called.
 	TestCall struct {

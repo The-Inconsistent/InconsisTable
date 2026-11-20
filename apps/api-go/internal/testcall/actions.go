@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"slices"
 	"time"
 
@@ -70,13 +71,15 @@ func logEvent(ctx context.Context, tx core.Conn, c cs.Ctx, kind string, payload 
 	return err
 }
 
-// Action runs test.call, test.report or test.close.
+// Action runs test.call, test.report, test.applyOffer or test.close.
 func Action(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	switch a.Type() {
 	case "test.call":
 		return callTest(ctx, tx, c, a)
 	case "test.report":
 		return report(ctx, tx, c, a)
+	case "test.applyOffer":
+		return applyOffer(ctx, tx, c, a)
 	}
 	return closeCall(ctx, tx, c, a)
 }
@@ -100,6 +103,16 @@ func callTest(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 		return cs.Result{}, err
 	}
 	inputs, _ := a["inputs"].(map[string]any)
+	inputs = maps.Clone(inputs)
+	if inputs == nil {
+		inputs = map[string]any{}
+	}
+	// A mark the call leaves out is not set (house decision #80); stored, so what reads it never misses it.
+	for mark := range test.Def.Marks {
+		if _, set := inputs[mark]; !set {
+			inputs[mark] = false
+		}
+	}
 	if bad := CheckInputs(test, inputs); bad != "" {
 		return cs.Result{}, cs.Fail("testProblem", cs.Params{"detail": bad})
 	}

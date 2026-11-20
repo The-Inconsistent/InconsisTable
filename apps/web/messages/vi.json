@@ -203,7 +203,31 @@
     "emptyMine": "Bạn chưa có campaign nào.",
     "emptySeated": "Chưa ai mời bạn vào bàn nào.",
     "nextSession": "Buổi tới {when}",
-    "creating": "Đang tạo…"
+    "creating": "Đang tạo…",
+    "importRoom": "Nhập một phòng"
+  },
+  "importRoom": {
+    "title": "Nhập một phòng",
+    "lede": "Tài liệu phòng sẽ thành một phòng mới do bạn sở hữu và điều hành với vai GM. Người chơi vào bằng lời mời, như mọi phòng khác.",
+    "file": "Tài liệu phòng (.json)",
+    "checking": "Đang đọc tài liệu…",
+    "noRuleset": "Không có bộ luật, gói hay Thế giới nào.",
+    "what": {
+      "ruleset": "Bộ luật",
+      "pack": "Gói",
+      "world": "Thế giới"
+    },
+    "imported": "đã nhập",
+    "missing": "chưa nhập",
+    "makes": "Sẽ tạo:",
+    "count": "{kind}: {count}",
+    "pictures": "{count, plural, other {# hình}}",
+    "sessions": "{count, plural, other {# buổi chơi}}",
+    "clocks": "{count, plural, other {# đồng hồ}}",
+    "confirm": "Nhập thành phòng mới",
+    "importing": "Đang nhập…",
+    "at": "Tại {path}",
+    "failed": "Không nhập được tệp này."
   },
   "account": {
     "label": "Tài khoản",

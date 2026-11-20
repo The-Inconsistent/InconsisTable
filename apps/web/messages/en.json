@@ -203,7 +203,31 @@
     "emptyMine": "You don't own a campaign yet.",
     "emptySeated": "Nobody has invited you to a table yet.",
     "nextSession": "Next session {when}",
-    "creating": "Creating…"
+    "creating": "Creating…",
+    "importRoom": "Import a room"
+  },
+  "importRoom": {
+    "title": "Import a room",
+    "lede": "A room document becomes a new room you own and run as GM. Players join it by invite, as in any room.",
+    "file": "Room document (.json)",
+    "checking": "Reading the document…",
+    "noRuleset": "No ruleset, pack or World.",
+    "what": {
+      "ruleset": "Ruleset",
+      "pack": "Pack",
+      "world": "World"
+    },
+    "imported": "imported",
+    "missing": "not imported yet",
+    "makes": "It makes:",
+    "count": "{kind}: {count}",
+    "pictures": "{count, plural, one {# picture} other {# pictures}}",
+    "sessions": "{count, plural, one {# session} other {# sessions}}",
+    "clocks": "{count, plural, one {# clock} other {# clocks}}",
+    "confirm": "Import as a new room",
+    "importing": "Importing…",
+    "at": "At {path}",
+    "failed": "Couldn't import that file."
   },
   "account": {
     "label": "Account",

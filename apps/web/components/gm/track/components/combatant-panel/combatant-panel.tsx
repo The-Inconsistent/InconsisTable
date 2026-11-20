@@ -11,6 +11,7 @@ import {
 } from "@inconsistable/core-schema";
 import type { SidesInitiative } from "@inconsistable/rules-engine";
 
+import { HarmPad } from "@/components/gm/track/components/combatant-panel/components/harm-pad/harm-pad";
 import { SideActions } from "@/components/gm/track/components/side-actions/side-actions";
 import {
   DEATH_SAVE_KEYS,
@@ -21,6 +22,7 @@ import {
   type TrackMode,
 } from "@/components/gm/track/constants";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
+import type { HarmPad as HarmPadOf } from "@/lib/harm/harm";
 import { amountOf, leftOf, pressKey } from "@/lib/track/track";
 
 type CombatantPanelProps = {
@@ -37,6 +39,8 @@ type CombatantPanelProps = {
   sides?: SidesInitiative;
   /** The shared pools this seat received, to word a cost. */
   pools?: readonly PoolState[];
+  /** The `health.harm` pad this combatant gets (house decision #66), shown instead of the health track's keypad. */
+  harm?: { pad: HarmPadOf; maxOf: (resource: string) => number | null } | null;
 };
 
 // The selected combatant: a keypad for damage, healing and temporary points, death saves, what the table sees, the
@@ -51,6 +55,7 @@ export function CombatantPanel({
   onCallTest,
   sides,
   pools = [],
+  harm,
 }: CombatantPanelProps) {
   const t = useTranslations("combatantPanel");
   const tSave = useTranslations("deathSave");
@@ -134,46 +139,50 @@ export function CombatantPanel({
 
       {sides && <SideActions encounter={encounter} combatant={c} sides={sides} pools={pools} run={run} />}
 
-      {health && (
-        <div className="stack keypad">
-          <output className="keypad-out" aria-label={t("amount")}>
-            {entry === "" ? "0" : entry}
-          </output>
-          <div className="roll-pad">
-            {KEYPAD_KEYS.map((k) => (
-              <button
-                key={k}
-                className="roll-key"
-                aria-label={k === "clear" || k === "back" ? tKeys(k) : k}
-                onClick={handleKey(k)}
-              >
-                {KEY_LABELS[k] ?? k}
+      {harm && actor ? (
+        <HarmPad combatant={c} actor={actor} pad={harm.pad} maxOf={harm.maxOf} run={run} />
+      ) : (
+        health && (
+          <div className="stack keypad">
+            <output className="keypad-out" aria-label={t("amount")}>
+              {entry === "" ? "0" : entry}
+            </output>
+            <div className="roll-pad">
+              {KEYPAD_KEYS.map((k) => (
+                <button
+                  key={k}
+                  className="roll-key"
+                  aria-label={k === "clear" || k === "back" ? tKeys(k) : k}
+                  onClick={handleKey(k)}
+                >
+                  {KEY_LABELS[k] ?? k}
+                </button>
+              ))}
+            </div>
+            <div className="row">
+              <button className="btn primary" disabled={amount === 0} onClick={handleHit("damage")}>
+                {t("damage")}
               </button>
-            ))}
-          </div>
-          <div className="row">
-            <button className="btn primary" disabled={amount === 0} onClick={handleHit("damage")}>
-              {t("damage")}
-            </button>
-            <button className="btn" disabled={amount === 0} onClick={handleHit("heal")}>
-              {t("heal")}
-            </button>
-            {health.temp && (
-              <button className="btn" disabled={amount === 0} onClick={handleTemp}>
-                {t("tempHp")}
+              <button className="btn" disabled={amount === 0} onClick={handleHit("heal")}>
+                {t("heal")}
               </button>
-            )}
-            <label className="row" style={{ display: "flex", minHeight: 44 }}>
-              <input
-                type="checkbox"
-                checked={critical}
-                onChange={(e) => setCritical(e.target.checked)}
-                style={{ minHeight: 24 }}
-              />
-              {t("critical")}
-            </label>
+              {health.temp && (
+                <button className="btn" disabled={amount === 0} onClick={handleTemp}>
+                  {t("tempHp")}
+                </button>
+              )}
+              <label className="row" style={{ display: "flex", minHeight: 44 }}>
+                <input
+                  type="checkbox"
+                  checked={critical}
+                  onChange={(e) => setCritical(e.target.checked)}
+                  style={{ minHeight: 24 }}
+                />
+                {t("critical")}
+              </label>
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {health?.deathSaves && dying && (

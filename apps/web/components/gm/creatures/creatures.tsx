@@ -8,6 +8,7 @@ import { useRefusal, type RefusalText } from "@/hooks/use-refusal/use-refusal";
 import type { Send } from "@/hooks/use-table/use-table";
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
 import { clampCount, creatureTypes, MAX_SPAWN, MIN_SPAWN } from "@/lib/creatures/creatures";
+import { canMob, parseCount, SPAWN_MOB } from "@/lib/harm/harm";
 import { RulesReply, type RulesEntry } from "@/lib/library/library";
 
 type CreaturesProps = { campaignId: string; send: Send };
@@ -40,10 +41,15 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
   const tr = useRefusal();
   const readFailed = t("readFailed");
   const [q, setQ] = useState("");
-  const [found, setFound] = useState<{ entries: RulesEntry[]; versions: Map<string, string> } | null>(null);
+  const [found, setFound] = useState<{
+    entries: RulesEntry[];
+    versions: Map<string, string>;
+    ruleset: Ruleset;
+  } | null>(null);
   const [picked, setPicked] = useState<RulesEntry | null>(null);
   const [count, setCount] = useState(3);
   const [temporary, setTemporary] = useState(true);
+  const [mobText, setMobText] = useState(""); // blank: creatures one by one; a number: one mob of that many
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -68,7 +74,7 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
         ),
       );
       const versions = new Map(replies.flatMap((r) => r.packs.map((p) => [p.slug, p.id] as const)));
-      setFound({ entries: replies.flatMap((r) => r.entries), versions });
+      setFound({ entries: replies.flatMap((r) => r.entries), versions, ruleset: ruleset.data });
       setPicked(null);
     } catch (err) {
       setMessage({
@@ -79,14 +85,25 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
     setBusy(false);
   };
 
-  // SPAWN: places the creatures; the server numbers them and writes their values.
+  // As a mob (house decision #66): offered when the entry's type carries the ruleset's members; null when left blank.
+  const mobbable = picked !== null && canMob({ ruleset: found?.ruleset ?? null, type: picked.type });
+  const mob = mobbable ? parseCount({ text: mobText, ...SPAWN_MOB }) : null;
+  const mobTyped = mobbable && mobText.trim() !== "";
+
+  // SPAWN: places the creatures, or one mob of N; the server numbers them and writes their values.
   const handleSpawn = async () => {
     const packVersionId = picked && found?.versions.get(picked.pack);
     if (!picked || !packVersionId) return;
     setBusy(true);
-    const r = await send({ type: "actor.spawn", packVersionId, key: picked.key, count, temporary });
+    const r = await send(
+      mob === null
+        ? { type: "actor.spawn", packVersionId, key: picked.key, count, temporary }
+        : { type: "actor.spawn", packVersionId, key: picked.key, count: 1, temporary, mob },
+    );
     setBusy(false);
-    setMessage(r.ok ? { text: t("added", { count, name: picked.name }), ok: true } : { text: r.error, ok: false });
+    const added =
+      mob === null ? t("added", { count, name: picked.name }) : t("addedMob", { count: mob, name: picked.name });
+    setMessage(r.ok ? { text: added, ok: true } : { text: r.error, ok: false });
   };
 
   return (
@@ -160,9 +177,29 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
               />
               {t("temporary")}
             </label>
+            {mobbable && (
+              <label className="row" style={{ display: "flex", minHeight: 44 }}>
+                {t("asMob")}
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={SPAWN_MOB.min}
+                  max={SPAWN_MOB.max}
+                  value={mobText}
+                  aria-invalid={mobTyped && mob === null}
+                  onChange={(e) => setMobText(e.target.value)}
+                  style={{ width: 96 }}
+                />
+              </label>
+            )}
           </div>
-          <button className="btn primary" disabled={busy} onClick={handleSpawn} style={{ justifySelf: "start" }}>
-            {t("spawn", { count, name: picked.name })}
+          <button
+            className="btn primary"
+            disabled={busy || (mobTyped && mob === null)}
+            onClick={handleSpawn}
+            style={{ justifySelf: "start" }}
+          >
+            {mob === null ? t("spawn", { count, name: picked.name }) : t("spawnMob", { count: mob, name: picked.name })}
           </button>
         </div>
       )}

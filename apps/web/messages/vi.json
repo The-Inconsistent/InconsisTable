@@ -415,7 +415,27 @@
     "pageAlt": "Trang sách {cite}"
   },
   "healthBar": {
-    "label": "HP của {name}: {percent} phần trăm"
+    "label": "HP của {name}: {percent} phần trăm",
+    "count": "còn {count}",
+    "times": "×{count}"
+  },
+  "harmPad": {
+    "label": "Đòn đánh vào {name}",
+    "count": "{label} của {name}",
+    "track": "Thanh nào",
+    "direction": "Hướng",
+    "deal": "Gây +",
+    "heal": "Hồi −",
+    "recover": "Hồi phục −",
+    "apply": "{delta, number, ::sign-always} {label} cho {name}",
+    "typeLabel": "Lượng {label}",
+    "typePlaceholder": "−3 hoặc +2",
+    "applyTyped": "Áp dụng",
+    "typeHint": "Dấu được ưu tiên hơn hướng.",
+    "typeRefused": "Một số nguyên, từ 1 đến 100.",
+    "setSize": "Đặt số lượng",
+    "set": "Đặt",
+    "addInjury": "Thêm một {label} cho {name}"
   },
   "doneButton": {
     "label": "Xong: {name}"
@@ -838,7 +858,10 @@
     "howMany": "Bao nhiêu",
     "more": "Nhiều quái hơn",
     "temporary": "Tạm thời (biến mất khi trận kết thúc)",
-    "spawn": "Thêm {count} × {name}"
+    "spawn": "Thêm {count} × {name}",
+    "asMob": "Thành đám đông gồm",
+    "spawnMob": "Thêm {name} ×{count}",
+    "addedMob": "Đã thêm {name} ×{count}"
   },
   "track": {
     "noTurnOrder": "Bộ luật này không có thứ tự lượt.",

@@ -36,7 +36,7 @@ export function PickedRows({ line, world, onSwitch, busy }: PickedRowsProps) {
                 disabled={busy}
                 onClick={() => onSwitch(rowId)}
               >
-                {on ? `✓ ${label}` : label}
+                {label}
               </button>
             </>
           ) : (

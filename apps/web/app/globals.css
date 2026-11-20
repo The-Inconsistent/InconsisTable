@@ -60,7 +60,7 @@
 html {
   background: var(--paper);
 }
-html:has(.surface-table) {
+html:has(.surface-table):not(:has([data-world])) {
   color-scheme: dark;
   background: var(--wood-0);
 }

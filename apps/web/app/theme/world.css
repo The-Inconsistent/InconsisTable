@@ -220,6 +220,12 @@ html:has([data-world]) {
   border-color: var(--line);
   background: var(--paper-2);
 }
+/* The first player's chip is a state: solid brass under brass-ink, a pair every World is held to. */
+[data-world] .combatant .chip[data-first="true"] {
+  border-color: var(--brass-ink);
+  background: var(--brass);
+  color: var(--brass-ink);
+}
 /* The pin on a card is a plain stud in the card's own line. */
 [data-world] :is(.card, .sheet-card)::after,
 [data-world] :is(.card, .sheet-card):nth-child(even)::after {
@@ -261,21 +267,28 @@ html:has([data-world]) {
    the shading are neutral, lighter in the light set. A card's fibre turns neutral too, so a cold World's cards are not
    speckled brown. Every ornament here is original CSS and inline SVG: no image file, no book art. */
 [data-world] {
+  /* lantern's band grain, in a neutral dark: its own is brown, which streaks a cold band */
+  --grain-h: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.55' stitchTiles='stitch' numOctaves='3' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.01 0 0 0 0 0.01 0 0 0 0 0.01 1.27 0 0 0 -0.53'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
   --fibre: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' stitchTiles='stitch' numOctaves='2' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.3 0 0 0 0 0.3 0 0 0 0.45 -0.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
   --bg-card: var(--fibre), radial-gradient(ellipse at 30% 0%, var(--parchment-hi), var(--parchment) 70%);
   --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .11 0 0 0 0 .11 0 0 0 0 .11 -4 0 0 0 1.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='.22'/%3E%3C/svg%3E");
   --paper-mottle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800' viewBox='0 0 800 800' preserveAspectRatio='none'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0075 .01' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 .11 0 0 0 0 .11 0 0 0 0 .11 -2.6 0 0 0 1.45'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)' opacity='.2'/%3E%3C/svg%3E");
 }
-/* wood: lantern's planks and grain, a candle overhead and a vignette */
+/* wood: lantern's planks and grain, a candle overhead and a vignette. The grain is tuned for dark wood, so a light set
+   washes it with its own page colour (the first layer) and only darkens the far edge a little. */
 .surface-app:has([data-texture="wood"]),
 [data-texture="wood"] .surface-table {
   background:
+    linear-gradient(
+      light-dark(color-mix(in srgb, var(--paper) 65%, transparent), transparent),
+      light-dark(color-mix(in srgb, var(--paper) 65%, transparent), transparent)
+    ),
     var(--grain), var(--planks),
     linear-gradient(
       180deg,
       var(--paper-2),
       var(--paper) 40%,
-      light-dark(color-mix(in srgb, var(--paper), rgb(0 0 0) 10%), color-mix(in srgb, var(--paper), rgb(0 0 0) 45%))
+      light-dark(color-mix(in srgb, var(--paper), rgb(0 0 0) 4%), color-mix(in srgb, var(--paper), rgb(0 0 0) 45%))
     );
 }
 .surface-app:has([data-texture="wood"])::before,
@@ -293,7 +306,7 @@ html:has([data-world]) {
 .surface-app:has([data-texture="baize"]),
 [data-texture="baize"] .surface-table {
   background:
-    radial-gradient(ellipse at 50% 25%, transparent 35%, light-dark(rgb(0 0 0 / 0.16), rgb(0 0 0 / 0.5)) 100%),
+    radial-gradient(ellipse at 50% 25%, transparent 35%, light-dark(rgb(0 0 0 / 0.06), rgb(0 0 0 / 0.5)) 100%),
     repeating-linear-gradient(45deg, rgb(255 255 255 / 0.03) 0 1px, transparent 1px 3px),
     repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.07) 0 1px, transparent 1px 3px),
     radial-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1.6px) 0 0 / 5px 5px,

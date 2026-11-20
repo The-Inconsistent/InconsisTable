@@ -6,13 +6,14 @@ import { CODEX_0_1_7, SAMPLE_D20 } from "./sample-d20.ts";
  * note, paid out-of-turn action, holding and a first-round bar; reminder lines at a turn's start and end and at the
  * round's end, a condition with its own line, one armed from its holder's next turn that a big enough foe is immune to,
  * and a long rest refused while downed (house decision #81). Its codex is sample-d20's of 0.1.7 plus a second shape of
- * rows (house decision #89): a quest's road log the crew reads, text only, filled by hand and never picked by a scene.
+ * rows (house decision #89): a quest's road log the crew reads, text only, filled by hand and never picked by a scene;
+ * and a setup checklist with a campaign field it reads (house decision #90).
  * Every name, number and cite is our own invention.
  */
 export const SAMPLE_SKIRMISH: RulesetInput = {
   ...SAMPLE_D20,
   id: "sample-skirmish",
-  version: "0.1.3",
+  version: "0.1.4",
   codex: {
     kinds: {
       ...CODEX_0_1_7.kinds,
@@ -139,4 +140,73 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
     },
   ],
   requests: { max: 3 },
+  // The chapter a campaign is in, which the checklist's second step reads (house decision #90).
+  campaignFields: { chapter: { type: "int", label: "Chapter", min: 1, max: 9, default: 1, cite: "Sample p.22" } },
+  // Setting up a skirmish campaign, in the order the invented book gives (house decision #90).
+  checklist: [
+    {
+      id: "limits",
+      label: "Agree on lines and veils",
+      done: { count: "safety" },
+      goto: { tab: "party" },
+      cite: "Sample p.22",
+    },
+    {
+      id: "chapter",
+      label: "Pick the chapter",
+      done: { count: "campaignField", field: "chapter" },
+      goto: { tab: "party" },
+      cite: "Sample p.22",
+    },
+    {
+      id: "rivals",
+      label: "Name a rival faction",
+      done: { count: "entries", kind: "faction", field: "standing", equals: "rival" },
+      goto: { tab: "codex", kind: "faction" },
+      note: "Allies can wait",
+      cite: "Sample p.23",
+    },
+    {
+      id: "bestiary",
+      label: "Attach a bestiary",
+      done: { count: "packs" },
+      goto: { tab: "rules" },
+      cite: "Sample p.23",
+      optional: true,
+    },
+    {
+      id: "crew",
+      label: "Make two wardens",
+      done: { count: "actors", entity: "character", min: 2 },
+      goto: { tab: "party" },
+      cite: "Sample p.24",
+    },
+    {
+      id: "momentum",
+      label: "Start with momentum",
+      done: { count: "pool", pool: "momentum", min: 1 },
+      goto: { tab: "track" },
+      cite: "Sample p.24",
+    },
+    {
+      id: "fight",
+      label: "Prepare a fight",
+      done: { count: "entries", kind: "scene", prep: "roster" },
+      goto: { tab: "prep" },
+      cite: "Sample p.25",
+    },
+    {
+      id: "first",
+      label: "Play the first session",
+      done: { count: "sessions" },
+      goto: { tab: "party" },
+      cite: "Sample p.25",
+    },
+  ],
 };
+
+/** SAMPLE_SKIRMISH as it was at 0.1.3, before its checklist and the campaign field the checklist reads. */
+export const SAMPLE_SKIRMISH_BEFORE_CHECKLIST: RulesetInput = (() => {
+  const { checklist: _checklist, campaignFields: _fields, ...before } = SAMPLE_SKIRMISH;
+  return { ...before, version: "0.1.3" };
+})();

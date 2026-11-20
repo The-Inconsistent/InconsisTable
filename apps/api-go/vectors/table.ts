@@ -35,6 +35,9 @@ const cost = (over: object) => ({ amount: "1", ...over });
 const [character, ...entities] = SAMPLE_D20.entities ?? [];
 const VIEW_MANIFEST: RulesetInput = {
   ...SAMPLE_D20,
+  // The sides fixture's checklist reaches the side that reads GM notes only (house decision #90).
+  campaignFields: SAMPLE_SKIRMISH.campaignFields,
+  checklist: SAMPLE_SKIRMISH.checklist?.filter((s) => s.done.count !== "pool"),
   codex: {
     kinds: {
       ...SAMPLE_D20.codex?.kinds,

@@ -236,14 +236,16 @@ type (
 	// Health is the manifest's health block.
 	Health struct {
 		Tracks []HealthTrack `json:"tracks"`
-		States []struct {
-			ID    string  `json:"id"`
-			Label *string `json:"label"`
-			When  string  `json:"when"`
-			// Entities names the actor types the state applies to (house decision #50); nil is every actor type.
-			Entities *[]string `json:"entities"`
-		} `json:"states"`
-		Cite *string `json:"cite"`
+		States []HealthState `json:"states"`
+		Cite   *string       `json:"cite"`
+	}
+	// HealthState is one display state of the health block.
+	HealthState struct {
+		ID    string  `json:"id"`
+		Label *string `json:"label"`
+		When  string  `json:"when"`
+		// Entities names the actor types the state applies to (house decision #50); nil is every actor type.
+		Entities *[]string `json:"entities"`
 	}
 	copyRule struct {
 		From string `json:"from"`
@@ -330,6 +332,15 @@ type (
 		} `json:"sheet"`
 		Tier string  `json:"tier"`
 		XP   *string `json:"xp"`
+		// Ascension, Gone and Award are play after creation (house decision #64): nil, empty and nil when absent.
+		Ascension *struct {
+			XP float64 `json:"xp"`
+		} `json:"ascension"`
+		Gone  []string `json:"gone"`
+		Award *struct {
+			Max       float64   `json:"max"`
+			Suggested []float64 `json:"suggested"`
+		} `json:"award"`
 	}
 	// GameInfo is the manifest's `game` block: what the game is and how a table can sit for it.
 	GameInfo struct {

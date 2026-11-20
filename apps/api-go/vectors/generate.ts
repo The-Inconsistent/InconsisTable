@@ -1857,6 +1857,35 @@ const LEDGER_CHANGES: ((m: Mutable) => void)[] = [
   (m) => {
     m.creation = [{ id: "name", actor: "hero", kind: "fields", label: "Name", fields: ["species"], cite: "Base p.1" }];
   },
+  // Play after creation (house decision #64).
+  (m) => {
+    delete m.build.ascension;
+    delete m.build.gone;
+    delete m.build.award;
+  },
+  (m) => (m.build.gone = ["nope", "lost", "lost"]),
+  (m) => (m.build.gone = Array.from({ length: 11 }, () => "lost")),
+  (m) => (m.build.gone = []),
+  (m) => {
+    m.entities.push({ id: "rival", label: "Rival", base: "actor", fields: {} });
+    m.health.states.push({ id: "routed", when: "true", entities: ["rival"] }, { id: "any", when: "true" });
+    m.build.gone = ["routed", "any"];
+  },
+  (m) => {
+    m.build.actor = "nope";
+    m.build.gone = ["nope"];
+    m.build.award.suggested = [60];
+  },
+  (m) => (m.build.ascension = { xp: 0, cite: "Base p.30" }),
+  (m) => (m.build.ascension = { xp: 1.5, cite: "Base p.30" }),
+  (m) => (m.build.ascension = { xp: 1 }),
+  (m) => (m.build.award.suggested = [0, 5, 5, 3, 50, 51]),
+  (m) => (m.build.award.suggested = [1, 2, 3, 4, 5, 6, 7]),
+  (m) => (m.build.award.suggested = [-1]),
+  (m) => (m.build.award.suggested = []),
+  (m) => (m.build.award = { max: 0, suggested: [], cite: "Base p.31" }),
+  (m) => (m.build.award = { max: 1001, suggested: [1000], cite: "Base p.31" }),
+  (m) => (m.build.award = { max: 1000, suggested: [1000] }),
 ];
 
 /**

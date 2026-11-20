@@ -260,10 +260,13 @@ function seatEncounter({
       combatants: encounter.combatants.map((c) => ({ ...c, hp: hpOf(c), conditions: conditionsOf(c) })),
     };
   const seen = encounter.combatants.filter((c) => c.visibility !== "hidden");
+  const acting = seen.some((c) => c.id === encounter.currentId);
   return {
     ...encounter,
     conditionDefs: [],
-    currentId: seen.some((c) => c.id === encounter.currentId) ? encounter.currentId : null,
+    currentId: acting ? encounter.currentId : null,
+    // Someone the seat is not sent holds the turn: said, never named (house decision #68).
+    ...(encounter.currentId !== null && !acting ? { unseen: true } : {}),
     firstId: seen.some((c) => c.id === encounter.firstId) ? encounter.firstId : null,
     done: encounter.done.filter((id) => seen.some((c) => c.id === id)),
     combatants: seen.map((c, i) => ({

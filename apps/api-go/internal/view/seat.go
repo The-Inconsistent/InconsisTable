@@ -263,6 +263,8 @@ func seatEncounter(e *cs.Encounter, views map[string]engine.ActorView, sight Sig
 	out.ConditionDefs = []cs.ConditionDef{}
 	if !isSeen(e.CurrentID) {
 		out.CurrentID = nil
+		// Someone the seat is not sent holds the turn: said, never named (house decision #68).
+		out.Unseen = e.CurrentID != nil
 	}
 	if !isSeen(e.FirstID) {
 		out.FirstID = nil

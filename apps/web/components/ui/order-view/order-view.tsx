@@ -34,6 +34,12 @@ export function OrderView({ encounter, sides }: OrderViewProps) {
       </h2>
       <EndNotice encounter={encounter} />
       {sided && <SideLine encounter={encounter} sides={sides} />}
+      {/* A ranked or seated order has no side line: say here that a hidden combatant holds the turn (#68). */}
+      {!sided && encounter.unseen && (
+        <p className="side-line" role="status">
+          {t("lineUnseen")}
+        </p>
+      )}
       {sided ? (
         groupBySide({ combatants: encounter.combatants, sides }).map((g) => (
           <section key={g.id} className="stack" aria-label={g.label}>

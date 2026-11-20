@@ -121,6 +121,7 @@ export const sideLabel = ({ id, sides }: { id: string; sides?: SidesInitiative }
 export type SidesLine =
   | { key: "setup" }
   | { key: "acting"; name: string }
+  | { key: "unseen" }
   | { key: "pick"; side: string }
   | { key: "complete"; round: number };
 
@@ -128,6 +129,8 @@ export function lineOf({ encounter, sides }: { encounter: Encounter; sides?: Sid
   if (!begun(encounter)) return { key: "setup" };
   const acting = encounter.combatants.find((c) => c.id === encounter.currentId);
   if (acting) return { key: "acting", name: acting.name };
+  // Someone this seat is not sent holds the turn (house decision #68): no side picks until it ends.
+  if (encounter.unseen) return { key: "unseen" };
   if (encounter.sideUp != null) return { key: "pick", side: sideLabel({ id: encounter.sideUp, sides }) };
   return { key: "complete", round: encounter.round };
 }
@@ -160,7 +163,7 @@ export function phoneLineOf({
   if (mark === "noTurn") return "noTurn";
   if (mark === "out" || mark === "acting") return null;
   if (!begun(encounter)) return "setup";
-  if (mark === "ready" && encounter.sideUp === c.side) return "sideUp";
+  if (mark === "ready" && encounter.sideUp === c.side && !encounter.unseen) return "sideUp";
   if (mark === "done") return "done";
   if (mark === "holding") return "holding";
   return null;

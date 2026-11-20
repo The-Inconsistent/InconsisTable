@@ -52,6 +52,21 @@ type manifestVectorFile struct {
 		} `json:"bounds"`
 		States attempted `json:"states"`
 	} `json:"derive"`
+	// EntryDerive are derivations with chosen pack entries (house decision #61), every case written out.
+	EntryDerive []struct {
+		Manifest   int                `json:"manifest"`
+		Entity     string             `json:"entity"`
+		Fields     map[string]any     `json:"fields"`
+		Resources  map[string]float64 `json:"resources"`
+		Conditions []string           `json:"conditions"`
+		Characters float64            `json:"characters"`
+		Entries    []struct {
+			Type, Key, Name string
+			Effects         []Effect
+		} `json:"entries"`
+		Base    attempted `json:"base"`
+		Derived attempted `json:"derived"`
+	} `json:"entryDerive"`
 }
 
 // What TypeScript returned or threw.
@@ -146,7 +161,7 @@ func compiledJSON(c *CompiledRuleset) any {
 		effects := make([]any, len(e.Effects))
 		for i, x := range e.Effects {
 			effects[i] = map[string]any{
-				"conditionId": x.ConditionID, "phase": x.Phase, "mode": x.Mode, "target": x.Target, "priority": x.Priority,
+				"conditionId": x.SourceID, "phase": x.Phase, "mode": x.Mode, "target": x.Target, "priority": x.Priority,
 				"value": exprJSON(x.Value), "when": exprJSON(x.When),
 			}
 		}
@@ -353,5 +368,40 @@ func TestDerivedValuesMatchTypeScript(t *testing.T) {
 	}
 	if len(v.Derive) == 0 {
 		t.Fatal("no derive vectors")
+	}
+}
+
+func TestEntryEffectsMatchTypeScript(t *testing.T) {
+	v := loadManifestVectors(t)
+	if len(v.EntryDerive) == 0 {
+		t.Fatal("no entry derive vectors")
+	}
+	for i, x := range v.EntryDerive {
+		c, found := CompileRuleset(v.Manifests[x.Manifest])
+		if len(found) > 0 {
+			t.Fatal(found)
+		}
+		entries := make([]ActiveEntry, len(x.Entries))
+		for k, e := range x.Entries {
+			entries[k] = ActiveEntry{Type: e.Type, Key: e.Key, Name: e.Name, Effects: e.Effects}
+		}
+		values := ActorValues{Fields: x.Fields, Resources: x.Resources, Conditions: x.Conditions, Characters: x.Characters, Entries: entries}
+		for what, run := range map[string]struct {
+			want attempted
+			got  func() (any, error)
+		}{
+			"base":    {x.Base, func() (any, error) { return c.ApplyBaseEffects(x.Entity, values) }},
+			"derived": {x.Derived, func() (any, error) { return c.DeriveValues(x.Entity, values) }},
+		} {
+			got, err := run.got()
+			switch {
+			case run.want.Error != nil && (err == nil || !strings.Contains(err.Error(), *run.want.Error)):
+				t.Errorf("case %d %s: want error %q, got %v, %v", i, what, *run.want.Error, got, err)
+			case run.want.Error == nil && err != nil:
+				t.Errorf("case %d %s: want %v, got error %v", i, what, run.want.Value, err)
+			case run.want.Error == nil && !reflect.DeepEqual(viaJSON(t, got), run.want.Value):
+				t.Errorf("case %d %s: want %v, got %v", i, what, run.want.Value, viaJSON(t, got))
+			}
+		}
 	}
 }

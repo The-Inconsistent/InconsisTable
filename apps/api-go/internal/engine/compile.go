@@ -29,12 +29,18 @@ type (
 	}
 	// CompiledEffect is one effect, attached to each entity it applies to.
 	CompiledEffect struct {
-		ConditionID, Phase, Mode string
+		// SourceID is the condition id, or <type>/<key> of the pack entry the effect comes from.
+		SourceID, Phase, Mode string
 		// Target is a field id (phase base) or derived id (phase derived).
 		Target   string
 		Priority float64
 		Value    *CompiledExpr
 		When     *CompiledExpr
+	}
+	// ActiveEntry is a pack entry an actor chose and what it adds (house decision #61).
+	ActiveEntry struct {
+		Type, Key, Name string
+		Effects         []Effect
 	}
 	// CompiledEntity is one entity type.
 	CompiledEntity struct {
@@ -43,7 +49,7 @@ type (
 		Resources []string
 		// Derived is in topological order: each one comes after everything it reads.
 		Derived []CompiledDerived
-		// Effects is in application order: priority, then condition id, then declaration order.
+		// Effects holds the conditions' effects in application order: priority, then source id, then declaration order.
 		Effects []CompiledEffect
 		Scope   map[string]ExprType
 	}
@@ -431,34 +437,70 @@ func unique(items []string) []string {
 	return out
 }
 
+// EntrySourceID is an entry's source id in the application order: <type>/<key>.
+func EntrySourceID(e ActiveEntry) string { return e.Type + "/" + e.Key }
+
+// compareEffects is the application order: priority, then source id. Callers sort stably, so declaration order holds
+// within one source.
+func compareEffects(a, b CompiledEffect) int {
+	if a.Priority != b.Priority {
+		if a.Priority < b.Priority {
+			return -1
+		}
+		return 1
+	}
+	return compareUnits(a.SourceID, b.SourceID)
+}
+
 func (c *compiler) effects(entities map[string]*CompiledEntity) {
 	for i := range c.r.Conditions {
 		cond := &c.r.Conditions[i]
 		for j := range cond.Effects {
-			c.effect(entities, cond, &cond.Effects[j], fmt.Sprintf("conditions[%d].effects[%d]", i, j))
+			eff := &cond.Effects[j]
+			noHost := fmt.Sprintf(`no actor has an integer "%s"`, eff.Path)
+			for _, h := range c.effect(entities, eff, fmt.Sprintf("conditions[%d].effects[%d]", i, j), cond.ID, cond.Visibility, c.actorEntities(), noHost) {
+				h.host.Effects = append(h.host.Effects, h.effect)
+			}
 		}
 	}
 	// Stable sort keeps declaration order within one condition.
 	for _, ce := range entities {
-		slices.SortStableFunc(ce.Effects, func(a, b CompiledEffect) int {
-			if a.Priority != b.Priority {
-				if a.Priority < b.Priority {
-					return -1
-				}
-				return 1
-			}
-			return compareUnits(a.ConditionID, b.ConditionID)
-		})
+		slices.SortStableFunc(ce.Effects, compareEffects)
 	}
 }
 
-func (c *compiler) effect(entities map[string]*CompiledEntity, cond *Condition, eff *Effect, path string) {
+type hostEffect struct {
+	host   *CompiledEntity
+	effect CompiledEffect
+}
+
+// entryEffects compiles the effects of entries against the actor types pool; problems carry pathOf(entry, effect).
+func (c *compiler) entryEffects(entities map[string]*CompiledEntity, entries []ActiveEntry, pool []*EntityType, pathOf func(entry, effect int) string) []hostEffect {
+	ids := make([]string, len(pool))
+	for i, e := range pool {
+		ids[i] = e.ID
+	}
+	var out []hostEffect
+	for i, entry := range entries {
+		for j := range entry.Effects {
+			eff := &entry.Effects[j]
+			noHost := fmt.Sprintf(`%s has no integer "%s"`, strings.Join(ids, ", "), eff.Path)
+			// The entry's own visibility is who may read its page; what it adds to a number is the same for every seat.
+			out = append(out, c.effect(entities, eff, pathOf(i, j), EntrySourceID(entry), "public", pool, noHost)...)
+		}
+	}
+	return out
+}
+
+// effect compiles one effect of a condition or an entry against the actor types pool that may host it, returning it
+// for each host it holds for. Problems are recorded; an effect that fails compiles to nothing.
+func (c *compiler) effect(entities map[string]*CompiledEntity, eff *Effect, path, sourceID, sourceVisibility string, pool []*EntityType, noHost string) []hostEffect {
 	target := eff.Path
 	if eff.Phase == "derived" {
 		rest, ok := strings.CutPrefix(eff.Path, "derived.")
 		if !ok {
 			c.problems.add(path+".path", `a derived-phase effect targets "derived.<id>"`)
-			return
+			return nil
 		}
 		target = rest
 	}
@@ -466,7 +508,7 @@ func (c *compiler) effect(entities map[string]*CompiledEntity, cond *Condition, 
 	// definitions, so an entity that failed to compile (already reported) does not cascade a second error.
 	var hosts []*CompiledEntity
 	declared := 0
-	for _, e := range c.actorEntities() {
+	for _, e := range pool {
 		has := e.Fields[target].Type == "int"
 		if eff.Phase == "derived" {
 			has = firstDerived(e, target) >= 0
@@ -480,11 +522,11 @@ func (c *compiler) effect(entities map[string]*CompiledEntity, cond *Condition, 
 		}
 	}
 	if declared == 0 {
-		c.problems.add(path+".path", `no actor has an integer "%s"`, eff.Path)
-		return
+		c.problems.add(path+".path", "%s", noHost)
+		return nil
 	}
 	if len(hosts) == 0 {
-		return
+		return nil
 	}
 	// Base effects run before derived values exist, so they cannot read them.
 	scopes := make([]map[string]ExprType, len(hosts))
@@ -500,10 +542,11 @@ func (c *compiler) effect(entities map[string]*CompiledEntity, cond *Condition, 
 		when = c.expr(*eff.When, scopes, boolType, path+".when")
 	}
 	if value == nil || (eff.When != nil && when == nil) {
-		return
+		return nil
 	}
+	var out []hostEffect
 	for _, h := range hosts {
-		// Same rule as a derived value: the target shows the effect's inputs and that the condition is on, so it must be
+		// Same rule as a derived value: the target shows the effect's inputs and that its source is on, so it must be
 		// at least as hidden as all of them.
 		targetVis := "gm"
 		derivedVis := map[string]string{}
@@ -518,7 +561,7 @@ func (c *compiler) effect(entities map[string]*CompiledEntity, cond *Condition, 
 			targetVis = def.Visibility
 		}
 		_, carried := c.carried(h.Def)
-		inputs := []string{cond.Visibility}
+		inputs := []string{sourceVisibility}
 		for _, ref := range value.Refs {
 			inputs = append(inputs, pathVisibility(ref, h.Def, carried, derivedVis))
 		}
@@ -536,8 +579,9 @@ func (c *compiler) effect(entities map[string]*CompiledEntity, cond *Condition, 
 		if eff.Priority != nil {
 			priority = *eff.Priority
 		}
-		h.Effects = append(h.Effects, CompiledEffect{cond.ID, eff.Phase, eff.Mode, target, priority, value, when})
+		out = append(out, hostEffect{h, CompiledEffect{sourceID, eff.Phase, eff.Mode, target, priority, value, when}})
 	}
+	return out
 }
 
 func (c *compiler) resource(x *Resource, i int) *CompiledResource {
@@ -773,4 +817,32 @@ func CompileRuleset(input any) (*CompiledRuleset, []Problem) {
 		return nil, c.problems
 	}
 	return compiled, nil
+}
+
+// compileEntryEffects compiles the effects of the entries an actor of type entity chose, against that type alone. An
+// effect that does not compile for it (the pack was written for another version) contributes nothing, never an error.
+func (c *CompiledRuleset) compileEntryEffects(entity string, entries []ActiveEntry) []CompiledEffect {
+	ce, ok := c.Entities[entity]
+	if !ok || len(entries) == 0 {
+		return nil
+	}
+	hits := (&compiler{r: c.Ruleset}).entryEffects(c.Entities, entries, []*EntityType{ce.Def}, func(int, int) string { return "" })
+	out := make([]CompiledEffect, len(hits))
+	for i, h := range hits {
+		out[i] = h.effect
+	}
+	return out
+}
+
+// entryEffectProblems reports the effects of entries against every actor type in pool (the ones a choose step picks
+// them for); pathOf places each one in the pack. Nothing when the ruleset does not compile (it was refused on import).
+func entryEffectProblems(r *Ruleset, entries []ActiveEntry, pool []*EntityType, pathOf func(entry, effect int) string) []Problem {
+	c := &compiler{r: r}
+	compiled := c.run()
+	if compiled == nil {
+		return nil
+	}
+	c.problems = nil
+	c.entryEffects(compiled.Entities, entries, pool, pathOf)
+	return c.problems
 }

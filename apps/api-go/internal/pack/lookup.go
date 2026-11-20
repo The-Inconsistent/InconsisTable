@@ -7,23 +7,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 )
-
-// ServedPacks is the SQL condition for the pack versions of a room that may be served to anyone: attached, not taken
-// down by an admin, and a `private` pack only while its owner is a GM of the room (CLAUDE.md, principle 4). The one
-// place this is decided. It reads campaign_pack and pack, so the query must join both. campaignParam is the
-// placeholder holding the campaign id, such as "$1".
-func ServedPacks(campaignParam string) string {
-	// Without a GM the owner counts as the one running the room (docs/adr/0009-table-modes.md), and only the owner's own
-	// pack: a private pack is never served on another user's say-so.
-	return fmt.Sprintf(`campaign_pack.campaign_id = %[1]s AND pack.disabled_at IS NULL AND (pack.license <> 'private' OR EXISTS (
-		SELECT 1 FROM membership WHERE membership.campaign_id = %[1]s AND membership.user_id = pack.owner_user_id AND membership.role = 'gm'
-		) OR EXISTS (
-		SELECT 1 FROM campaign WHERE campaign.id = %[1]s AND campaign.table_mode <> 'gm' AND campaign.owner_user_id = pack.owner_user_id))`,
-		campaignParam)
-}
 
 // SeesEntry says what a seat may read of an entry: a `gm` entry is for GM-side seats only.
 func SeesEntry(visibility string, gm bool) bool {
@@ -41,6 +28,8 @@ type StoredEntry struct {
 	Cite          *string
 	Visibility    string
 	Body          map[string]any
+	// Effects is what an actor that chose the entry gets in its numbers, as stored JSON (house decision #61).
+	Effects json.RawMessage
 }
 
 // EntryLookup is the lookup RunCreation picks from, over entries already loaded: only what this seat may see (a player
@@ -92,7 +81,7 @@ func LoadServedEntries(ctx context.Context, conn core.Conn, campaignID string, o
 	}
 	var where strings.Builder
 	args := []any{campaignID}
-	where.WriteString(ServedPacks("$1"))
+	where.WriteString(actor.ServedPacks("$1"))
 	if opts.Types != nil {
 		args = append(args, opts.Types)
 		fmt.Fprintf(&where, " AND pack_entry.type = ANY($%d)", len(args))
@@ -102,7 +91,7 @@ func LoadServedEntries(ctx context.Context, conn core.Conn, campaignID string, o
 		fmt.Fprintf(&where, " AND pack_entry.pack_version_id = $%d", len(args))
 	}
 	rows, err := conn.Query(ctx, `SELECT pack_entry.pack_version_id::text, pack_entry.key, pack_entry.type, pack_entry.name,
-			pack_entry.level, pack_entry.tags, pack_entry.cite, pack_entry.visibility, pack_entry.body
+			pack_entry.level, pack_entry.tags, pack_entry.cite, pack_entry.visibility, pack_entry.body, pack_entry.effects
 		FROM pack_entry
 		JOIN campaign_pack ON campaign_pack.pack_version_id = pack_entry.pack_version_id
 		JOIN pack_version ON pack_version.id = pack_entry.pack_version_id
@@ -117,7 +106,7 @@ func LoadServedEntries(ctx context.Context, conn core.Conn, campaignID string, o
 		var e StoredEntry
 		var level *int32
 		var body []byte
-		if err := rows.Scan(&e.PackVersionID, &e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body); err != nil {
+		if err := rows.Scan(&e.PackVersionID, &e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body, &e.Effects); err != nil {
 			return nil, err
 		}
 		if level != nil {

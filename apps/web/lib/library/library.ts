@@ -110,6 +110,8 @@ export const RulesEntry = z.object({
   cite: z.string().nullable(),
   visibility: z.string(),
   body: z.record(z.string(), z.unknown()),
+  /** What an actor that chose the entry gets in its numbers; the builder's preview reads them later. */
+  effects: z.array(z.unknown()).optional(),
 });
 export type RulesEntry = z.infer<typeof RulesEntry>;
 

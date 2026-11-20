@@ -4,7 +4,9 @@ package actor
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"slices"
 	"sort"
@@ -52,12 +54,34 @@ type ConditionRow struct {
 	ExpiresAfter *int32
 }
 
+// ServedPacks is the SQL condition for the pack versions of a room that may be served to anyone: attached, not taken
+// down by an admin, and a `private` pack only while its owner is a GM of the room (CLAUDE.md, principle 4). The one
+// place this is decided (it lives here, not in package pack, because pack imports this package). It reads campaign_pack and pack, so the query must join both. campaignParam is the
+// placeholder holding the campaign id, such as "$1".
+func ServedPacks(campaignParam string) string {
+	// Without a GM the owner counts as the one running the room (docs/adr/0009-table-modes.md), and only the owner's own
+	// pack: a private pack is never served on another user's say-so.
+	return fmt.Sprintf(`campaign_pack.campaign_id = %[1]s AND pack.disabled_at IS NULL AND (pack.license <> 'private' OR EXISTS (
+		SELECT 1 FROM membership WHERE membership.campaign_id = %[1]s AND membership.user_id = pack.owner_user_id AND membership.role = 'gm'
+		) OR EXISTS (
+		SELECT 1 FROM campaign WHERE campaign.id = %[1]s AND campaign.table_mode <> 'gm' AND campaign.owner_user_id = pack.owner_user_id))`,
+		campaignParam)
+}
+
+// ChosenEntry is an attached pack entry an actor holds an actor_choice row for, with the step that row belongs to.
+type ChosenEntry struct {
+	StepID, Type, Key, Name string
+	Effects                 []engine.Effect
+}
+
 // Rows is one actor with its value rows.
 type Rows struct {
 	Actor      Row
 	Fields     []FieldRow
 	Resources  []ResourceRow
 	Conditions []ConditionRow
+	// Chosen are the entries the actor chose that the attached packs hold, for Build to match against the ruleset.
+	Chosen []ChosenEntry
 }
 
 // byActor runs a query whose rows each start with an actor id, and groups what scan reads by that id.
@@ -78,7 +102,7 @@ func byActor[T any](ctx context.Context, conn core.Conn, sql, campaignID string,
 	return out, rows.Err()
 }
 
-// LoadRows reads every actor of the campaign with its value rows. Four queries, each scoped to the campaign.
+// LoadRows reads every actor of the campaign with its value rows. Five queries, each scoped to the campaign.
 func LoadRows(ctx context.Context, conn core.Conn, campaignID string) ([]Rows, error) {
 	rows, err := conn.Query(ctx, `SELECT id::text, kind, name, status, owner_user_id, entity_type FROM actor
 		WHERE campaign_id = $1 ORDER BY created_at, id`, campaignID)
@@ -128,9 +152,31 @@ func LoadRows(ctx context.Context, conn core.Conn, campaignID string) ([]Rows, e
 	if err != nil {
 		return nil, err
 	}
+	// Every entry of the packs the room is served, whoever looks and whatever the entry's visibility: what a chosen
+	// entry adds is in the number for every seat (house decision #61). A pack taken down, or a private one whose owner
+	// no longer runs the room, stops adding (principle 4). The first entry per key wins, by pack slug, as in the served
+	// lookup.
+	chosen, err := byActor(ctx, conn, `SELECT c.actor_id::text, c.step_id, e.type, e.key, e.name, e.effects
+		FROM actor_choice c JOIN actor ON actor.id = c.actor_id
+		JOIN campaign_pack ON campaign_pack.campaign_id = actor.campaign_id
+		JOIN pack_entry e ON e.pack_version_id = campaign_pack.pack_version_id AND e.key = c.option_key
+		JOIN pack_version ON pack_version.id = e.pack_version_id JOIN pack ON pack.id = pack_version.pack_id
+		WHERE actor.campaign_id = $1 AND `+ServedPacks("$1")+` ORDER BY c.actor_id, c.step_id, c.ordinal, pack.slug, e.key`, campaignID,
+		func(r pgx.Rows) (string, ChosenEntry, error) {
+			var id string
+			var x ChosenEntry
+			var effects []byte
+			if err := r.Scan(&id, &x.StepID, &x.Type, &x.Key, &x.Name, &effects); err != nil {
+				return "", x, err
+			}
+			return id, x, json.Unmarshal(effects, &x.Effects)
+		})
+	if err != nil {
+		return nil, err
+	}
 	out := make([]Rows, len(actors))
 	for i, a := range actors {
-		out[i] = Rows{a, fields[a.ID], resources[a.ID], conditions[a.ID]}
+		out[i] = Rows{a, fields[a.ID], resources[a.ID], conditions[a.ID], chosen[a.ID]}
 	}
 	return out, nil
 }
@@ -162,6 +208,8 @@ type Built struct {
 	Derived   map[string]float64
 	// Conditions holds the actor_condition rows in the order they were applied.
 	Conditions []ConditionRow
+	// Entries are the pack entries the actor chose in a choose step of the ruleset (house decision #61).
+	Entries []engine.ActiveEntry
 	// Bounds holds the resources whose bounds evaluate now.
 	Bounds map[string]Bounds
 	// State is the actor as the ops read it: values with the bounds evaluated now. A resource whose bounds can't be
@@ -234,6 +282,24 @@ func activeIDs(conditions []ConditionRow) []string {
 	return out
 }
 
+// ChosenIn keeps the entries whose row belongs to a choose step of the ruleset that picks their type, once each. An
+// entry the attached packs no longer hold was never loaded, so it adds nothing.
+func ChosenIn(compiled *engine.CompiledRuleset, chosen []ChosenEntry) []engine.ActiveEntry {
+	var out []engine.ActiveEntry
+	seen := map[[2]string]bool{}
+	for _, x := range chosen {
+		step := slices.IndexFunc(compiled.Ruleset.Creation, func(s engine.CreationStep) bool {
+			return s.ID == x.StepID && s.Kind == "choose" && s.Pick == x.Type
+		})
+		if step < 0 || len(x.Effects) == 0 || seen[[2]string{x.StepID, x.Key}] {
+			continue
+		}
+		seen[[2]string{x.StepID, x.Key}] = true
+		out = append(out, engine.ActiveEntry{Type: x.Type, Key: x.Key, Name: x.Name, Effects: x.Effects})
+	}
+	return out
+}
+
 // CountCharacters is `party.characters`: the active player characters at the table.
 func CountCharacters(rows []Rows) float64 {
 	n := 0.0
@@ -281,6 +347,7 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]an
 			b.Resources[x.ResourceID] = float64(x.Value)
 		}
 		b.Conditions = append(b.Conditions, r.Conditions...)
+		b.Entries = ChosenIn(compiled, r.Chosen)
 		for _, c := range b.Conditions {
 			var after *float64
 			if c.ExpiresAfter != nil {
@@ -290,7 +357,7 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]an
 			b.State.Conditions = append(b.State.Conditions, engine.ConditionState{ID: c.ID, ExpiresOn: c.ExpiresOn, ExpiresAfter: after})
 		}
 		values := engine.ActorValues{
-			Fields: b.Fields, Resources: b.Resources, Conditions: activeIDs(b.Conditions), Characters: characters, Campaign: campaign,
+			Fields: b.Fields, Resources: b.Resources, Conditions: activeIDs(b.Conditions), Entries: b.Entries, Characters: characters, Campaign: campaign,
 		}
 		var exprErr engine.ExprError
 		derived, err := compiled.DeriveValues(b.Entity, values)

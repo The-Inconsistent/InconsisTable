@@ -13,6 +13,7 @@ export {
   fieldScope,
   PARTY_SCOPE,
   topoSort,
+  type ActiveEntry,
   type CompiledDerived,
   type CompiledEffect,
   type CompiledEntity,

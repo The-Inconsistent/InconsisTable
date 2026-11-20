@@ -256,14 +256,14 @@ func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*I
 
 func insertEntries(ctx context.Context, tx pgx.Tx, versionID string, entries []normalizedEntry) error {
 	var sql strings.Builder
-	sql.WriteString(`INSERT INTO pack_entry (pack_version_id, key, type, name, level, tags, visibility, cite, content_hash, body) VALUES `)
-	args := make([]any, 0, len(entries)*10)
+	sql.WriteString(`INSERT INTO pack_entry (pack_version_id, key, type, name, level, tags, visibility, cite, content_hash, body, effects) VALUES `)
+	args := make([]any, 0, len(entries)*11)
 	for i, e := range entries {
 		if i > 0 {
 			sql.WriteByte(',')
 		}
 		n := len(args)
-		fmt.Fprintf(&sql, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", n+1, n+2, n+3, n+4, n+5, n+6, n+7, n+8, n+9, n+10)
+		fmt.Fprintf(&sql, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", n+1, n+2, n+3, n+4, n+5, n+6, n+7, n+8, n+9, n+10, n+11)
 		var level *int
 		if v, ok := e.fields["level"].(float64); ok {
 			l := int(v)
@@ -281,7 +281,11 @@ func insertEntries(ctx context.Context, tx pgx.Tx, versionID string, entries []n
 		if err != nil {
 			return err
 		}
-		args = append(args, versionID, e.key, e.fields["type"], e.fields["name"], level, tags, e.fields["visibility"], cite, e.contentHash, body)
+		effects, err := json.Marshal(e.fields["effects"])
+		if err != nil {
+			return err
+		}
+		args = append(args, versionID, e.key, e.fields["type"], e.fields["name"], level, tags, e.fields["visibility"], cite, e.contentHash, body, effects)
 	}
 	_, err := tx.Exec(ctx, sql.String(), args...)
 	return err
@@ -397,6 +401,8 @@ type exportedEntry struct {
 	Cite       *string        `json:"cite,omitempty"`
 	Visibility string         `json:"visibility"`
 	Body       map[string]any `json:"body"`
+	// Effects is left out when the entry has none, so an export of an old pack stays as it was.
+	Effects json.RawMessage `json:"effects,omitempty"`
 }
 
 type exportedPack struct {
@@ -441,7 +447,7 @@ func Export(ctx context.Context, conn core.Conn, userID, packID string) (*export
 	if err != nil {
 		return nil, err
 	}
-	rows, err := conn.Query(ctx, `SELECT key, type, name, level, tags, cite, visibility, body FROM pack_entry
+	rows, err := conn.Query(ctx, `SELECT key, type, name, level, tags, cite, visibility, body, effects FROM pack_entry
 		WHERE pack_version_id = $1 ORDER BY type, key`, versionID)
 	if err != nil {
 		return nil, err
@@ -451,8 +457,8 @@ func Export(ctx context.Context, conn core.Conn, userID, packID string) (*export
 	for rows.Next() {
 		var e exportedEntry
 		var level *int32
-		var body []byte
-		if err := rows.Scan(&e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body); err != nil {
+		var body, effects []byte
+		if err := rows.Scan(&e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body, &effects); err != nil {
 			return nil, err
 		}
 		if level != nil {
@@ -461,6 +467,9 @@ func Export(ctx context.Context, conn core.Conn, userID, packID string) (*export
 		}
 		if err := json.Unmarshal(body, &e.Body); err != nil {
 			return nil, err
+		}
+		if string(effects) != "[]" {
+			e.Effects = effects
 		}
 		out.Entries = append(out.Entries, e)
 	}

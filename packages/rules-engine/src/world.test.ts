@@ -136,3 +136,30 @@ test("the hash is of the canonical parsed document: key order and written defaul
   assert.equal(worldHash(plain.world), worldHash(written.world));
   assert.notEqual(worldHash(plain.world), hash);
 });
+
+test("handout layouts: an unknown layout, a repeat and a name too long are refused at their paths", () => {
+  const withHandouts = (handouts: unknown) => ({ ...world({ light: {} }), handouts });
+  assert.deepEqual(problems(withHandouts({ layouts: ["plain", "form"], names: { form: "Ledger" } })), []);
+  assert.deepEqual(problems(withHandouts({ layouts: ["scroll"] })), [
+    'handouts.layouts[0] | Invalid option: expected one of "plain"|"tablet"|"form"|"transcript"|"proclamation"',
+  ]);
+  assert.deepEqual(problems(withHandouts({ layouts: ["form", "form"] })), [
+    "handouts.layouts | a layout is listed twice",
+  ]);
+  assert.deepEqual(problems(withHandouts({ layouts: ["form"], names: { form: "n".repeat(41) } })), [
+    "handouts.names.form | Too big: expected string to have <=40 characters",
+  ]);
+  assert.ok(
+    problems(withHandouts({ layouts: ["form"], names: { scroll: "Scroll" } }))[0]?.startsWith("handouts.names |"),
+  );
+});
+
+test("a World without handouts hashes as it did before the part existed", () => {
+  const { handouts: _, ...before } = SAMPLE_WORLD;
+  const r = validateWorld(before);
+  assert.ok(r.ok);
+  assert.equal(worldHash(r.world), "e880b4daac6decc62673b27326037fefa7b1475309cae24603ce4f058d8194e1");
+  const listed = validateWorld({ ...before, handouts: { layouts: ["form"] } });
+  assert.ok(listed.ok);
+  assert.deepEqual(listed.world.handouts, { layouts: ["form"], names: {} });
+});

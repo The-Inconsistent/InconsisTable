@@ -4,6 +4,8 @@
 import { SAMPLE_WORLD } from "../../../packages/rules-engine/src/fixtures/sample-world.ts";
 import {
   contrastHundredths,
+  HANDOUT_LAYOUTS,
+  MAX_HANDOUT_LAYOUT_NAME,
   MAX_WORLD_BYTES,
   validateWorld,
   WORLD_BASE_COLOURS,
@@ -99,6 +101,19 @@ function cases(): unknown[] {
     { ...world({ light: {} }), name: "n".repeat(80) },
     { ...world({ light: {} }), name: "n".repeat(81) },
     { ...world({ light: {} }), terms: { party: "crew" } },
+    // Handout layouts (house decision #72): offered, named, and refused.
+    { ...world({ light: {} }), handouts: { layouts: ["plain"] } },
+    { ...world({ light: {} }), handouts: { layouts: [...HANDOUT_LAYOUTS], names: { tablet: "Glass", plain: "Note" } } },
+    { ...world({ light: {} }), handouts: { layouts: ["form"], names: { transcript: "n".repeat(40) } } },
+    { ...world({ light: {} }), handouts: { layouts: ["form"], names: { transcript: "n".repeat(41) } } },
+    { ...world({ light: {} }), handouts: { layouts: ["form"], names: { form: "" } } },
+    { ...world({ light: {} }), handouts: { layouts: ["form"], names: { scroll: "Scroll", form: 1 } } },
+    { ...world({ light: {} }), handouts: { layouts: ["scroll"] } },
+    { ...world({ light: {} }), handouts: { layouts: ["form", "plain", "form"] } },
+    { ...world({ light: {} }), handouts: { layouts: [] } },
+    { ...world({ light: {} }), handouts: { layouts: [...HANDOUT_LAYOUTS, "plain"] } },
+    { ...world({ light: {} }), handouts: { names: { form: "Ledger" } } },
+    { ...world({ light: {} }), handouts: { layouts: ["form"], extra: true } },
     { id: "w" },
     {},
     null,
@@ -110,6 +125,9 @@ function cases(): unknown[] {
   ];
   for (const key of ["id", "version", "core", "name", "theme"])
     for (const junk of JUNK) inputs.push({ ...world({ light: {} }), [key]: junk });
+  for (const junk of JUNK) inputs.push({ ...world({ light: {} }), handouts: junk });
+  for (const junk of JUNK) inputs.push({ ...world({ light: {} }), handouts: { layouts: junk } });
+  for (const junk of JUNK) inputs.push({ ...world({ light: {} }), handouts: { layouts: ["form"], names: junk } });
   for (const key of ["schemes", "typefaces", "texture", "shapes"])
     for (const junk of JUNK) inputs.push(world({ light: {} }, { [key]: junk }));
   for (const [key, options] of Object.entries(WORLD_SHAPES))
@@ -131,6 +149,8 @@ export function worldVectors() {
     schemes: WORLD_SCHEMES,
     typefaces: WORLD_TYPEFACES,
     textures: WORLD_TEXTURES,
+    layouts: HANDOUT_LAYOUTS,
+    maxLayoutName: MAX_HANDOUT_LAYOUT_NAME,
     shapes: Object.entries(WORLD_SHAPES).map(([key, options]) => ({ key, options })),
     pairs: WORLD_CONTRAST_PAIRS,
     base: WORLD_BASE_COLOURS,

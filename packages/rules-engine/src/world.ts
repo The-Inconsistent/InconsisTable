@@ -7,7 +7,7 @@ import { formatPath, type Problem } from "./problem.ts";
 // A World: the look of one setting, as an imported document beside the ruleset and the pack (docs/adr/0010, decision
 // 2). It holds values for the platform's Theme tokens and picks from the platform's own lists. It carries no code, no
 // font file and no image: every typeface, texture and shape it names is drawn by the platform.
-// This file is the contract: the token names and the lists. Terms and handout styles are not in it yet (issue #159).
+// This file is the contract: the token names and the lists. Terms are not in it yet (issue #159).
 
 /** The largest World document the importer reads. */
 export const MAX_WORLD_BYTES = 64 * 1024;
@@ -97,6 +97,16 @@ export const WORLD_SHAPES = {
 } as const;
 export type WorldShape = keyof typeof WORLD_SHAPES;
 
+/**
+ * The handout layouts the platform draws with the room's Theme (house decision #72). Each describes a layout, never a
+ * setting: a screen readout, a ruled form, a recorded message in lines, a framed public notice. `plain` is always
+ * offered. packages/core-schema repeats this list for the entry (`HandoutLayout`); the vectors hold both equal.
+ */
+export const HANDOUT_LAYOUTS = ["plain", "tablet", "form", "transcript", "proclamation"] as const;
+export type HandoutLayoutId = (typeof HANDOUT_LAYOUTS)[number];
+/** The longest name a World gives one of the layouts. */
+export const MAX_HANDOUT_LAYOUT_NAME = 40;
+
 /** A colour as a World writes it: an opaque six-digit hex. Nothing else, so contrast can be computed the same everywhere. */
 export const WorldColour = z.string().regex(/^#[0-9a-fA-F]{6}$/, "expected a colour like #1c1b1a");
 
@@ -134,6 +144,17 @@ export const WorldTheme = z.object({
 });
 export type WorldTheme = z.infer<typeof WorldTheme>;
 
+/** Which of the platform's handout layouts the setting offers, in its picker's order, and its own names for them. */
+export const WorldHandouts = z.object({
+  layouts: z
+    .array(z.enum(HANDOUT_LAYOUTS))
+    .min(1)
+    .max(HANDOUT_LAYOUTS.length)
+    .refine((l) => new Set(l).size === l.length, "a layout is listed twice"),
+  names: z.partialRecord(z.enum(HANDOUT_LAYOUTS), z.string().min(1).max(MAX_HANDOUT_LAYOUT_NAME)).default({}),
+});
+export type WorldHandouts = z.infer<typeof WorldHandouts>;
+
 export const World = z.object({
   /** The World's own id: one owner imports it under this slug, version after version. */
   id: RulesetId,
@@ -142,6 +163,8 @@ export const World = z.object({
   core: SemVerRange,
   name: z.string().min(1).max(80),
   theme: WorldTheme,
+  /** Absent: every layout under the platform's names. */
+  handouts: WorldHandouts.optional(),
 });
 export type World = z.infer<typeof World>;
 export type WorldInput = z.input<typeof World>;

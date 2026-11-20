@@ -87,11 +87,12 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 
 	// The name the creatures take: the caller's, in the entry's place (house decision #75), numbered the same way.
 	base := entry.Name
-	if name := a.Str("name"); name != "" {
-		base = name
+	named := a.Str("name") != ""
+	if named {
+		base = a.Str("name")
 	}
-	rows, err := tx.Query(ctx, `SELECT name FROM actor WHERE campaign_id = $1 AND starts_with(name, $2)`,
-		cid, sliceUnits(base, maxName-4)+" ")
+	rows, err := tx.Query(ctx, `SELECT name FROM actor WHERE campaign_id = $1 AND (starts_with(name, $2) OR name = $3)`,
+		cid, sliceUnits(base, maxName-4)+" ", base)
 	if err != nil {
 		return cs.Result{}, err
 	}
@@ -102,6 +103,10 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	count, _ := a["count"].(float64)
 	temporary, _ := a["temporary"].(bool)
 	names := SpawnNames(taken, base, int(count))
+	// One creature under the caller's name takes it bare while no actor of the room carries it (house decision #78).
+	if named && count == 1 && !slices.Contains(taken, base) {
+		names = []string{base}
+	}
 	body := entry.Body
 	var members map[string]float64
 	// A mob (house decision #66): one actor standing for N members, its start field and members resource at N.

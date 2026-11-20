@@ -23,12 +23,21 @@ import { useTable } from "@/hooks/use-table/use-table";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import type { RulesTabData } from "@/lib/library/library";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
+import type { Spawnable } from "@/lib/scene-prep/scene-prep";
 import { resourceLabels } from "@/lib/spend-request/spend-request";
 
-type GmAppProps = { me: Me; initialTab: GmTab; rules: RulesTabData | null; view: RulesView | null; quick?: boolean };
+type GmAppProps = {
+  me: Me;
+  initialTab: GmTab;
+  rules: RulesTabData | null;
+  view: RulesView | null;
+  /** The attached packs' creatures, for PREP's roster lines; null when they could not be read. */
+  spawnable: Spawnable | null;
+  quick?: boolean;
+};
 
 // The GM side of a table: the room's owner, its GMs, co-GMs (tabs filtered by scope), or an admin who opened it.
-export function GmApp({ me, initialTab, rules, view, quick = false }: GmAppProps) {
+export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }: GmAppProps) {
   const t = useTranslations("gmApp");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
@@ -105,7 +114,16 @@ export function GmApp({ me, initialTab, rules, view, quick = false }: GmAppProps
         ) : tab === "standings" ? (
           <Standings games={state.games} />
         ) : tab === "prep" ? (
-          <Prep me={me} state={state} codex={codex} send={send} onCall={handleCall} onOpenCodex={handleOpenCodex} />
+          <Prep
+            me={me}
+            state={state}
+            codex={codex}
+            send={send}
+            ruleset={view?.ruleset ?? null}
+            spawnable={spawnable}
+            onCall={handleCall}
+            onOpenCodex={handleOpenCodex}
+          />
         ) : tab === "codex" ? (
           <Codex key={openEntryId ?? ""} me={me} state={state} codex={codex} send={send} initialOpenId={openEntryId} />
         ) : tab === "tests" ? (

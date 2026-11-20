@@ -1,0 +1,130 @@
+"use client";
+import { useTranslations } from "next-intl";
+import { useState } from "react";
+
+import {
+  SceneStatus,
+  type ActionInput,
+  type ActionResult,
+  type CodexEntry,
+  type PrepLine,
+} from "@inconsistable/core-schema";
+
+import { LineText } from "@/components/gm/prep/components/line-text/line-text";
+import { EMPTY_PREP, PREP_ORDER, resolveLine, type LineNames, type PrepWorld } from "@/lib/scene-prep/scene-prep";
+
+type SceneRunProps = {
+  scene: CodexEntry;
+  world: PrepWorld;
+  names: LineNames;
+  act: (a: ActionInput) => Promise<ActionResult>;
+  /** An exit: opens the named scene here. */
+  onOpenScene: (sceneId: string) => void;
+};
+
+// RUN: the scene's prepared lines at the table, one button each, large enough to read and tap at arm's length on the
+// GM's tablet. A tap sends the action the line stands for, through the table's one path: refused as that action is, and
+// in the log and Undo as that action is. Nothing records that a line was sent; a line can be sent again.
+export function SceneRun({ scene, world, names, act, onOpenScene }: SceneRunProps) {
+  const t = useTranslations("prep");
+  const tCodex = useTranslations("codex");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [sent, setSent] = useState<string | null>(null);
+  const prep = scene.prep ?? EMPTY_PREP;
+  const empty = PREP_ORDER.every((k) => prep[k].length === 0);
+  const fightless = !world.state.encounter && prep.roster.length > 0;
+
+  // SEND: the line's action; the status line says what went out, the refusal shows where every refusal does.
+  const handleSend = (id: string, what: string, action: ActionInput) => async () => {
+    setBusy(id);
+    const r = await act(action);
+    setBusy(null);
+    setSent(r.ok ? t("sent", { what }) : null);
+  };
+
+  return (
+    <section className="card stack" aria-label={scene.title} data-mode="run" style={{ minWidth: 0 }}>
+      <div className="row between" style={{ flexWrap: "wrap" }}>
+        <h2 className="head" style={{ overflowWrap: "anywhere" }}>
+          {scene.title}
+        </h2>
+        {scene.status && <span className="chip">{tCodex(`status.${scene.status}`)}</span>}
+      </div>
+      <div className="row" role="group" aria-label={t("sceneStatus")}>
+        {SceneStatus.options.map((s) => (
+          <button
+            key={s}
+            className="btn sm"
+            aria-pressed={scene.status === s}
+            onClick={() => act({ type: "codex.save", id: scene.id, kind: "scene", status: s })}
+          >
+            {t(`setStatus.${s}`)}
+          </button>
+        ))}
+      </div>
+      {sent && (
+        <p className="small" role="status">
+          {sent}
+        </p>
+      )}
+      {empty && <p className="dim">{t("noLines")}</p>}
+      {PREP_ORDER.filter((k) => prep[k].length > 0).map((kind) => (
+        <div key={kind} className="stack" data-kind={kind}>
+          <div className="row between">
+            <h3 className="head">{t(`kind.${kind}`)}</h3>
+            {kind === "roster" && fightless && (
+              <button className="btn" onClick={() => act({ type: "encounter.start" })}>
+                {t("startFight")}
+              </button>
+            )}
+          </div>
+          <ul className="list">
+            {(prep[kind] as PrepLine[]).map((line) => {
+              const resolved = resolveLine({ kind, line, world });
+              const what = line.label ?? t(`kind.${kind}`);
+              return (
+                <li key={line.id} className="row between" style={{ flexWrap: "wrap", alignItems: "start" }}>
+                  <span className="stack" style={{ flex: "1 1 220px", minWidth: 0 }}>
+                    <LineText kind={kind} line={line} names={names} resolved={resolved} large />
+                    {"outcomes" in line && line.outcomes.length > 0 && (
+                      <dl className="stack small" style={{ gap: 4, margin: 0 }}>
+                        {line.outcomes.map((o, i) => (
+                          <div key={i}>
+                            <dt style={{ fontWeight: 700 }}>{o.label}</dt>
+                            <dd style={{ margin: 0 }}>{o.text}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                  </span>
+                  {resolved.state === "open" ? (
+                    <button
+                      className="btn"
+                      aria-label={t("openLine", { what })}
+                      onClick={() => onOpenScene(resolved.sceneId)}
+                    >
+                      {t("open")}
+                    </button>
+                  ) : resolved.state === "ready" ? (
+                    <button
+                      className="btn primary"
+                      aria-label={t("sendLine", { what })}
+                      aria-busy={busy === line.id}
+                      onClick={handleSend(line.id, what, resolved.action)}
+                    >
+                      {t("send")}
+                    </button>
+                  ) : resolved.state === "blocked" ? (
+                    <button className="btn" aria-label={t("sendLine", { what })} disabled>
+                      {t("send")}
+                    </button>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </section>
+  );
+}

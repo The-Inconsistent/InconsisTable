@@ -4,10 +4,14 @@ import { useState, type ChangeEvent } from "react";
 
 import { splitMentions, type ActionInput, type CodexEntry } from "@inconsistable/core-schema";
 
+import type { Ruleset } from "@inconsistable/rules-engine";
+
+import { PrepLines } from "@/components/gm/prep/components/prep-lines/prep-lines";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { MentionTextarea } from "@/components/ui/mention-textarea/mention-textarea";
 import { groupLinks, linkCandidates, PLANNED_TESTS_MAX } from "@/lib/prep/prep";
 import { savePatch } from "@/lib/codex/codex";
+import type { LineNames, PrepWorld } from "@/lib/scene-prep/scene-prep";
 
 type SceneEditorProps = {
   scene: CodexEntry;
@@ -15,6 +19,10 @@ type SceneEditorProps = {
   /** The ruleset's Test ids; a planned id outside it is shown greyed (the ruleset may have changed). */
   testIds: readonly string[];
   canSecrets: boolean;
+  /** What the scene's prepared lines are resolved against, and the names they read. */
+  world: PrepWorld;
+  names: LineNames;
+  ruleset: Ruleset | null;
   act: (a: ActionInput) => Promise<{ ok: boolean }>;
   onCall: (testId: string) => void;
   onOpenCodex: (entryId: string) => void;
@@ -25,7 +33,18 @@ const PICKER_ROWS = 8;
 
 // One scene: its text and GM notes, the entries it links and the Tests it plans. Links and planned Tests are saved as
 // they are changed; the text is saved with SAVE.
-export function SceneEditor({ scene, entries, testIds, canSecrets, act, onCall, onOpenCodex }: SceneEditorProps) {
+export function SceneEditor({
+  scene,
+  entries,
+  testIds,
+  canSecrets,
+  world,
+  names,
+  ruleset,
+  act,
+  onCall,
+  onOpenCodex,
+}: SceneEditorProps) {
   const t = useTranslations("prep");
   const tCodex = useTranslations("codex");
   const [draft, setDraft] = useState({ title: scene.title, body: scene.body, gmNotes: scene.gmNotes });
@@ -145,6 +164,8 @@ export function SceneEditor({ scene, entries, testIds, canSecrets, act, onCall, 
           ))}
         </ul>
       </div>
+
+      <PrepLines scene={scene} world={world} names={names} ruleset={ruleset} act={act} />
 
       <div className="stack">
         <h3 className="head">{t("plannedTests")}</h3>

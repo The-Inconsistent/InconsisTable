@@ -74,7 +74,7 @@ export type ExitLine = z.infer<typeof ExitLine>;
 export const RevealLine = z.object({ ...line, entryId: id });
 export type RevealLine = z.infer<typeof RevealLine>;
 
-// The five kinds, in the order the screens show them. A kind this schema does not know is refused, never dropped.
+// The five kinds of line, as the document keys them. A kind this schema does not know is refused, never dropped.
 export const PREP_KINDS = ["roster", "tests", "pools", "exits", "reveals"] as const;
 export type PrepKind = (typeof PREP_KINDS)[number];
 

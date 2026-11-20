@@ -1370,7 +1370,95 @@
     "planTest": "Plan a Test",
     "unknownTest": "(not in this ruleset)",
     "call": "Call",
-    "unplan": "Stop planning {id}"
+    "unplan": "Stop planning {id}",
+    "lines": "Prepared lines",
+    "noLines": "Nothing prepared for this scene yet.",
+    "kind": {
+      "reveals": "Shown to the party",
+      "tests": "Tests",
+      "pools": "Pools",
+      "roster": "Creatures",
+      "exits": "Where next"
+    },
+    "add": {
+      "reveals": "Add an entry to show",
+      "tests": "Add a Test",
+      "pools": "Add a pool line",
+      "roster": "Add creatures",
+      "exits": "Add an exit"
+    },
+    "missing": {
+      "pack": "Broken: its pack is not attached to this room",
+      "entry": "Broken: what it names is gone",
+      "test": "Broken: the ruleset has no such Test",
+      "actor": "Broken: a listed character is gone",
+      "pool": "Broken: the ruleset has no such pool",
+      "scene": "Broken: the scene is gone"
+    },
+    "blocked": {
+      "noFight": "No fight is running. Start one first.",
+      "visibility": "Creatures arrive hidden; this line asks for another view, which the table can't send yet.",
+      "count": "More than 20 at once; the table can't send that many yet.",
+      "mobCount": "Several mobs at once; the table sends one mob at a time.",
+      "nobody": "No character holds a seat to take it.",
+      "short": "The pool can't pay this."
+    },
+    "summary": {
+      "roster": "{count} × {name}",
+      "mob": "{count} × {name}, a mob of {mob}",
+      "test": "{test} · {who}",
+      "testWith": "{test} · {inputs} · {who}",
+      "party": "everyone seated",
+      "gone": "(gone)",
+      "pool": "{pool} {amount, number, ::sign-always}",
+      "exit": "To {scene}",
+      "reveal": "Show {entry}"
+    },
+    "form": {
+      "creature": "Creature",
+      "visibility": "The table sees",
+      "pool": "Pool",
+      "amount": "Amount",
+      "amountHint": "Positive adds, negative spends. Never 0.",
+      "text": "What it is for",
+      "scene": "Scene",
+      "entry": "Entry",
+      "pick": "Pick…",
+      "label": "Label (optional)",
+      "exitLabel": "Label",
+      "note": "Note for the GM (optional)",
+      "takers": {
+        "party": "Everyone seated",
+        "listed": "Only these"
+      },
+      "outcomes": "What each result means",
+      "outcomeLabel": "Result",
+      "outcomeText": "What happens",
+      "addOutcome": "Add a result",
+      "removeOutcome": "Remove the result {label}"
+    },
+    "saveLine": "Save line",
+    "edit": "Edit",
+    "moveLineUp": "Move this line up",
+    "moveLineDown": "Move this line down",
+    "mode": {
+      "label": "Prepare or run the scene",
+      "prepare": "Prepare",
+      "run": "Run"
+    },
+    "sceneStatus": "Where this scene stands",
+    "setStatus": {
+      "planned": "Planned",
+      "active": "Play this scene",
+      "done": "Done",
+      "skipped": "Skip"
+    },
+    "startFight": "Start a fight",
+    "send": "Send",
+    "open": "Open",
+    "sendLine": "Send {what}",
+    "openLine": "Open {what}",
+    "sent": "Sent: {what}"
   },
   "safety": {
     "card": {

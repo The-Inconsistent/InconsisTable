@@ -22,7 +22,7 @@ var (
 	entryStatuses = []string{"open", "done", "failed", "planned", "active", "skipped"}
 )
 
-// PrepKinds are the document's keys, in the order the screens show them.
+// PrepKinds are the document's keys, the five kinds of line.
 var PrepKinds = []string{"roster", "tests", "pools", "exits", "reveals"}
 
 // prepLine is what every line carries, then its own fields (an exit's own label in the shared one's place).

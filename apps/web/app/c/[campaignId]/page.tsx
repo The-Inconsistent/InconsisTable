@@ -11,8 +11,10 @@ import { PlayerApp } from "@/components/player/player-app/player-app";
 import { TableScreen } from "@/components/screen/table-screen/table-screen";
 import { RoomWorld } from "@/components/ui/room-world/room-world";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
+import { creatureTypes } from "@/lib/creatures/creatures";
 import { PackList, RulesReply, RulesetList, WorldList, type RulesTabData } from "@/lib/library/library";
 import { RULES_PAGE, type RulesView } from "@/lib/rules-reader/rules-reader";
+import type { Spawnable } from "@/lib/scene-prep/scene-prep";
 
 type TableProps = {
   params: Promise<{ campaignId: string }>;
@@ -66,6 +68,37 @@ async function rulesView(campaignId: string): Promise<RulesView | null> {
   }
 }
 
+// The most entries of one creature type a read of the rules route answers (the api's own page limit).
+const SPAWNABLE_PAGE = 500;
+
+// What a scene's roster lines are resolved against (house decision #73): the attached packs and their creatures, read
+// once here as the creature search reads them. Null when a read fails, so no line is called broken for it.
+// ponytail: 500 creatures of a type, beyond them a line is sendable unchecked (complete: false); a key filter on the
+// rules route when a pack holds more.
+async function spawnable(campaignId: string, ruleset: Ruleset | null): Promise<Spawnable | null> {
+  if (!ruleset) return { packs: [], entries: [], complete: true };
+  try {
+    const replies = await Promise.all(
+      creatureTypes(ruleset).map(async (type) => {
+        const res = await apiGet(
+          `/api/campaigns/${campaignId}/rules?type=${encodeURIComponent(type)}&limit=${SPAWNABLE_PAGE}`,
+        );
+        const parsed = RulesReply.safeParse(res.ok ? await res.json() : null);
+        if (!parsed.success) throw new Error("rules read failed");
+        return parsed.data;
+      }),
+    );
+    const packs = replies[0]?.packs ?? [];
+    return {
+      packs: packs.map((p) => ({ slug: p.slug, id: p.id })),
+      entries: replies.flatMap((r) => r.entries.map((e) => ({ pack: e.pack, key: e.key, type: e.type, name: e.name }))),
+      complete: replies.every((r) => r.entries.length >= r.total),
+    };
+  } catch {
+    return null;
+  }
+}
+
 // One table: the GM app (GM, co-GM, or an admin who opened it), the player app, or the table screen, by the caller's
 // seat. The api decides what each seat may do; the app only hides what it can't.
 export default async function Table({ params, searchParams }: TableProps) {
@@ -77,7 +110,7 @@ export default async function Table({ params, searchParams }: TableProps) {
     // The socket proves the key; without it nothing loads. The rules tabs need a seat's cookie, so they stay empty.
     // ponytail: no rules tabs as admin, pass the key through a server-readable cookie if admins need them
     me = { campaignId: p.campaignId, userId: null, campaignOwnerId: null, tableMode: "gm", seat: { kind: "admin" } };
-    return <GmApp me={me} initialTab={asGmTab(query[TAB_PARAM])} rules={null} view={null} />;
+    return <GmApp me={me} initialTab={asGmTab(query[TAB_PARAM])} rules={null} view={null} spawnable={null} />;
   }
   try {
     const res = await apiGet(`/api/campaigns/${campaignId}/me`);
@@ -93,9 +126,17 @@ export default async function Table({ params, searchParams }: TableProps) {
   const seat = me.seat;
   if (seat.kind === "admin" || (seat.kind === "member" && seat.role !== "player")) {
     const [rules, view] = await Promise.all([rulesTab(campaignId), rulesView(campaignId)]);
+    const creatures = view ? await spawnable(campaignId, view.ruleset) : null;
     return (
       <RoomWorld world={view?.first.world ?? null}>
-        <GmApp me={me} initialTab={asGmTab(query[TAB_PARAM])} rules={rules} view={view} quick={query.quick === "1"} />
+        <GmApp
+          me={me}
+          initialTab={asGmTab(query[TAB_PARAM])}
+          rules={rules}
+          view={view}
+          spawnable={creatures}
+          quick={query.quick === "1"}
+        />
       </RoomWorld>
     );
   }

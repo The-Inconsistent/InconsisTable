@@ -1207,7 +1207,7 @@ export function resolveBuild({
   }
 
   // ── what fills each [PLACEHOLDER], once every keyword is known ──
-  const primaris = () => s.keywords.includes(params.keywords.geneSeedSkip);
+  const skipsGeneSeed = () => s.keywords.includes(params.keywords.geneSeedSkip);
   const filled = new Set<string>();
   for (const k of [...s.keywords]) {
     if (!k.startsWith(params.keywords.placeholderMarker)) continue;
@@ -1226,7 +1226,7 @@ export function resolveBuild({
         problem({
           step: "faction",
           severity: "error",
-          what: `${k} repeats ${to}: a Human's two Keywords differ`,
+          what: `${k} repeats ${to}: the two Keywords differ`,
           cite: params.cites.advancedCreation,
         });
       filled.add(k);
@@ -1275,7 +1275,7 @@ export function resolveBuild({
       const so: Origin = { ...fo, path: `subfaction/${sf.id}`, cite: cite(sf) };
       const founder = !sf.traits.length && sf.successorOf ? ix.subFactions.get(sf.successorOf) : undefined;
       for (const t of ownRules(founder?.traits ?? sf.traits))
-        if (!(t.geneSeed && primaris() && !founder)) addRule(t, founder ? { ...so, cite: cite(founder) } : so);
+        if (!(t.geneSeed && skipsGeneSeed() && !founder)) addRule(t, founder ? { ...so, cite: cite(founder) } : so);
     }
   }
 

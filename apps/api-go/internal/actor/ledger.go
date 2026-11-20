@@ -45,12 +45,13 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 		return cs.Result{}, cs.Fail("notLedgerBuilt")
 	}
 	var kind, entityType string
-	var stored *string
+	var stored, storedDraft *string
+	var hasRow bool
 	var fieldRows int
-	err = tx.QueryRow(ctx, `SELECT actor.kind, actor.entity_type, actor_build.build::text,
-			(SELECT count(*) FROM actor_field WHERE actor_field.actor_id = actor.id)
+	err = tx.QueryRow(ctx, `SELECT actor.kind, actor.entity_type, actor_build.build::text, actor_build.draft::text,
+			actor_build.actor_id IS NOT NULL, (SELECT count(*) FROM actor_field WHERE actor_field.actor_id = actor.id)
 		FROM actor LEFT JOIN actor_build ON actor_build.actor_id = actor.id WHERE actor.id = $1 AND actor.campaign_id = $2`,
-		actorID, cid).Scan(&kind, &entityType, &stored, &fieldRows)
+		actorID, cid).Scan(&kind, &entityType, &stored, &storedDraft, &hasRow, &fieldRows)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return cs.Result{}, cs.Fail("characterNotFound")
 	}
@@ -60,8 +61,8 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 	if entityType != "" && entityType != rules.Build.Actor {
 		return cs.Result{}, cs.Fail("notLedgerBuilt")
 	}
-	if stored == nil && fieldRows > 0 {
-		return cs.Result{}, cs.Fail("alreadyBuilt") // filled in another way
+	if !hasRow && fieldRows > 0 {
+		return cs.Result{}, cs.Fail("alreadyBuilt") // filled in another way; a draft alone claims the actor for the ledger
 	}
 
 	// The text as it came, decoded in its key order: the builder reads keys in order, and so does whoever reads it back.
@@ -86,19 +87,33 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 			return cs.Result{}, cs.Fail("buildTierMismatch", cs.Params{"tier": tier, "gameTier": gameTier})
 		}
 	} // a tier that is not a number is the builder's to refuse
-	// The approvals and rulings are the GM's: anyone else's save keeps the stored ones, or none.
+	// The approvals and rulings are the GM's: anyone else's save keeps the stored ones (the draft's, which is newer, else
+	// the build's), or none.
 	if !view.ActorGmSide(c, kind) {
 		gm := any(schema.NewObj())
-		if stored != nil {
-			was, err := schema.DecodeJSON([]byte(*stored))
+		for _, was := range []*string{stored, storedDraft} {
+			if was == nil {
+				continue
+			}
+			doc, err := schema.DecodeJSON([]byte(*was))
 			if err != nil {
 				return cs.Result{}, err
 			}
-			if x, has := was.(*schema.Obj).Get("gm"); has {
+			if x, has := doc.(*schema.Obj).Get("gm"); has {
 				gm = x
 			}
 		}
 		build.Set("gm", gm)
+	}
+	buildText, err := schema.AppendJSON(nil, build)
+	if err != nil {
+		return cs.Result{}, err
+	}
+	// A draft is kept as it is, unresolved: the GM opens it to approve their part, and nothing of the actor changes.
+	if draft, _ := a["draft"].(bool); draft {
+		_, err = tx.Exec(ctx, `INSERT INTO actor_build (actor_id, draft) VALUES ($1, $2)
+			ON CONFLICT (actor_id) DO UPDATE SET draft = EXCLUDED.draft, updated_at = now()`, actorID, string(buildText))
+		return cs.Done(""), err
 	}
 
 	cat, err := catalogue(ctx, tx, cid, rules.Build)
@@ -136,10 +151,6 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 	if err != nil {
 		return cs.Result{}, err
 	}
-	buildText, err := schema.AppendJSON(nil, build)
-	if err != nil {
-		return cs.Result{}, err
-	}
 	sheetText, err := schema.AppendJSON(nil, sheet)
 	if err != nil {
 		return cs.Result{}, err
@@ -147,15 +158,15 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 	// ponytail: like actor_choice the documents are outside the delta log, so Undo takes the field rows back but not
 	// the build, upgrade: the build document in the event log
 	_, err = tx.Exec(ctx, `INSERT INTO actor_build (actor_id, build, sheet) VALUES ($1, $2, $3)
-		ON CONFLICT (actor_id) DO UPDATE SET build = EXCLUDED.build, sheet = EXCLUDED.sheet, updated_at = now()`,
+		ON CONFLICT (actor_id) DO UPDATE SET build = EXCLUDED.build, sheet = EXCLUDED.sheet, draft = NULL, updated_at = now()`,
 		actorID, string(buildText), string(sheetText))
 	return cs.Done(id), err
 }
 
-// LoadLedgers is the room's saved ledger builds and sheets by actor, as stored text (the Seat view decides who reads
-// them).
+// LoadLedgers is the room's saved ledger builds, sheets and drafts by actor, as stored text (the Seat view decides who
+// reads them).
 func LoadLedgers(ctx context.Context, conn core.Conn, campaignID string) (map[string]*cs.ActorLedger, error) {
-	rows, err := conn.Query(ctx, `SELECT b.actor_id::text, b.build::text, b.sheet::text FROM actor_build b
+	rows, err := conn.Query(ctx, `SELECT b.actor_id::text, b.build::text, b.sheet::text, b.draft::text FROM actor_build b
 		JOIN actor ON actor.id = b.actor_id WHERE actor.campaign_id = $1`, campaignID)
 	if err != nil {
 		return nil, err
@@ -163,13 +174,22 @@ func LoadLedgers(ctx context.Context, conn core.Conn, campaignID string) (map[st
 	defer rows.Close()
 	out := map[string]*cs.ActorLedger{}
 	for rows.Next() {
-		var id, build, sheet string
-		if err := rows.Scan(&id, &build, &sheet); err != nil {
+		var id string
+		var build, sheet, draft *string
+		if err := rows.Scan(&id, &build, &sheet, &draft); err != nil {
 			return nil, err
 		}
-		out[id] = &cs.ActorLedger{Build: json.RawMessage(build), Sheet: json.RawMessage(sheet)}
+		out[id] = &cs.ActorLedger{Build: raw(build), Sheet: raw(sheet), Draft: raw(draft)}
 	}
 	return out, rows.Err()
+}
+
+// raw is stored JSON text sent on as it is; nil (sent as null) when the column is NULL.
+func raw(text *string) json.RawMessage {
+	if text == nil {
+		return nil
+	}
+	return json.RawMessage(*text)
 }
 
 // sheetFields is the sheet's numbers and names by the actor field the manifest's build.sheet names for each. A Skill or

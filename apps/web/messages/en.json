@@ -483,7 +483,8 @@
       "notebook": "Notebook",
       "standings": "Standings",
       "run": "Run the table"
-    }
+    },
+    "buildDraft": "Your unfinished build is saved. The GM can open it to approve their part."
   },
   "turnBanner": {
     "yourTurn": "Your turn, {name}",
@@ -580,7 +581,21 @@
     "conditions": "Conditions",
     "none": "None.",
     "turnsLeft": "{count, plural, one {# turn left} other {# turns left}}",
-    "roundsLeft": "{count, plural, one {# round left} other {# rounds left}}"
+    "roundsLeft": "{count, plural, one {# round left} other {# rounds left}}",
+    "ledger": {
+      "talents": "Talents",
+      "abilities": "Abilities",
+      "weapons": "Weapons",
+      "gear": "Gear",
+      "powers": "Powers",
+      "count": "{name} ×{count}",
+      "damage": "Damage {damage} +{ed} ED",
+      "ap": "AP {ap}",
+      "range": "Range {range}",
+      "salvo": "Salvo {salvo}",
+      "armour": "AR {ar}",
+      "power": "DN {dn} · {activation} · {duration} · Range {range}"
+    }
   },
   "breakdown": {
     "hidden": "The parts of this number aren't shown on your phone."
@@ -658,7 +673,15 @@
     "recap": "Recap",
     "recapHint": "What happened this session? Leave empty to skip.",
     "endSessionConfirm": "End session {number}",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "ledger": {
+      "build": "Build",
+      "buildLabel": "Build {name}",
+      "review": "Review build",
+      "reviewLabel": "Review the build of {name}: a draft waits",
+      "open": "Open builder",
+      "openLabel": "Open the builder for {name}"
+    }
   },
   "rulesPanel": {
     "readFailed": "Couldn't read the rules. Check the connection and reload.",
@@ -1584,7 +1607,8 @@
       "homebrewOff": "This table keeps homebrew out.",
       "official": "Official",
       "homebrewIn": "Homebrew, allowed",
-      "homebrewOut": "Homebrew, not offered"
+      "homebrewOut": "Homebrew, not offered",
+      "roomTier": "This is the room's Tier. The GM changes it under Rules, Campaign settings."
     },
     "archetype": {
       "advanced": "Advanced Creation",
@@ -1696,6 +1720,18 @@
       "startOver": "Start over",
       "readyToSave": "The next task puts the save button here: ready.",
       "notReady": "The next task puts the save button here: not ready yet."
+    },
+    "table": {
+      "loading": "Opening the catalogue…",
+      "failed": "The catalogue could not be read. Check the connection and try again.",
+      "retry": "Try again",
+      "save": "Save character",
+      "sendToGm": "Send to the GM",
+      "saveForLater": "Save for later",
+      "sentToGm": "Sent to the GM.",
+      "savedForLater": "Saved for later.",
+      "kept": "Draft saved",
+      "notKept": "Draft not kept"
     }
   }
 }

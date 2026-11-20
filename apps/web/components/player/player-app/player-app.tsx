@@ -29,6 +29,7 @@ import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { RunTable } from "@/components/player/run-table/run-table";
 import { useTable } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
+import { playerEntryOf, usesLedger } from "@/lib/ledger/table";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 
 type PlayerAppProps = { me: Me; view: RulesView | null; quick?: boolean };
@@ -68,6 +69,11 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   };
   const mine = state.actors.filter((a) => held.includes(a.id));
   const character = mine.find((a) => a.id === current) ?? mine[0];
+  // A character the ledger builder builds has an entry while it has no saved build (buying in play comes later).
+  const ruleset = view?.ruleset ?? null;
+  const ledgerEntry = character ? playerEntryOf({ ruleset, actor: character }) : null;
+  const buildEntry =
+    character && (ledgerEntry !== null || (!usesLedger({ ruleset, actor: character }) && needsBuild(character)));
 
   // LEAVE: give up this seat; the character stays at the table for the GM.
   const handleLeave = async () => {
@@ -116,15 +122,16 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
         <DoneButton encounter={state.encounter} held={held} send={send} />
         <TestPrompt state={state} send={send} />
         <h1 className="title sheet-name">{character?.name ?? t("noCharacter")}</h1>
-        {character && needsBuild(character) && (
+        {character && buildEntry && (
           <a
             className="btn primary"
             href={`/c/${me.campaignId}/build/${character.id}`}
             style={{ justifySelf: "start" }}
           >
-            {state.myDraft?.actorId === character.id ? t("continueBuilding") : t("build")}
+            {ledgerEntry === "continue" || state.myDraft?.actorId === character.id ? t("continueBuilding") : t("build")}
           </a>
         )}
+        {ledgerEntry === "continue" && <p className="small dim">{t("buildDraft")}</p>}
         <RequestNotices
           answers={state.requestAnswers}
           actors={state.actors}

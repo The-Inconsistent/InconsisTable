@@ -370,3 +370,107 @@ func TestTheCatalogueIsTheServedPacksRecords(t *testing.T) {
 		p.refused(p.room.GM(), save(hero, dreamBuild), "buildNotReady")
 	})
 }
+
+// The actor's stored draft as text; nil when the row holds none. built says whether it holds a build.
+func (p *play) draftOf(actorID string) (draft *string, built bool) {
+	p.t.Helper()
+	if err := p.tx.QueryRow(context.Background(), `SELECT draft::text, build IS NOT NULL FROM actor_build WHERE actor_id = $1`, actorID).
+		Scan(&draft, &built); err != nil {
+		p.t.Fatal(err)
+	}
+	return draft, built
+}
+
+func draftSave(actorID, build string) map[string]any {
+	a := save(actorID, build)
+	a["draft"] = true
+	return a
+}
+
+func TestALedgerDraftIsStoredUnresolvedForTheGMToOpen(t *testing.T) {
+	db := dbtest.Open(t)
+	lib := importLedger(t, db)
+	dbtest.Tx(t, db, func(tx pgx.Tx) {
+		p := ledgerPlay(t, tx, lib)
+		gm := p.room.GM()
+		hero := p.room.Actor(t, tx, "pc", "Wren", "")
+		ana := p.room.Seat(t, tx, dbtest.User(t, tx, "Ana"), hero)
+		bo := p.room.Seat(t, tx, dbtest.User(t, tx, "Bo"))
+
+		// A player's draft, waiting for the GM's approval: stored as sent, the GM's part (none yet) in place of theirs,
+		// and nothing of the actor written.
+		p.send(ana, draftSave(hero, fmt.Sprintf(rootsBuild, `,"gm":{"approved":["`+oldRite+`"]}`)))
+		draft, built := p.draftOf(hero)
+		if want := fmt.Sprintf(rootsBuild, `,"gm":{}`); draft == nil || *draft != want || built {
+			t.Fatalf("draft %v (built %v)\nwant %s", draft, built, want)
+		}
+		if typ := dbtest.Scalar[string](t, tx, `SELECT entity_type FROM actor WHERE id = $1`, hero); typ != "" {
+			t.Fatalf("a draft typed the actor %q", typ)
+		}
+		if f, r := p.fields(hero), p.resources(hero); len(f) != 0 || len(r) != 0 {
+			t.Fatalf("a draft wrote fields %v, resources %v", f, r)
+		}
+
+		// The GM and the holder receive it; another player does not.
+		for _, seat := range []cs.Ctx{gm, ana, bo} {
+			for _, a := range p.seatView(seat).State.Actors {
+				if a.ID != hero {
+					continue
+				}
+				if seat.UserID == bo.UserID {
+					if a.Ledger != nil {
+						t.Fatalf("another player receives the draft: %+v", a.Ledger)
+					}
+					continue
+				}
+				if a.Ledger == nil || string(a.Ledger.Draft) != *draft || a.Ledger.Build != nil || a.Ledger.Sheet != nil {
+					t.Fatalf("as %s: %+v", seat.Seat.Role, a.Ledger)
+				}
+				if out, _ := json.Marshal(a.Ledger); string(out) != `{"build":null,"sheet":null,"draft":`+*draft+`}` {
+					t.Fatalf("sent %s", out)
+				}
+			}
+		}
+
+		// The GM approves in a draft of their own; the player's next draft keeps the approval.
+		gmPart := `{"approved":["` + oldRite + `"]}`
+		p.send(gm, draftSave(hero, fmt.Sprintf(rootsBuild, `,"gm":`+gmPart)))
+		p.send(ana, draftSave(hero, fmt.Sprintf(rootsBuild, `,"gm":{}`)))
+		if draft, _ := p.draftOf(hero); *draft != fmt.Sprintf(rootsBuild, `,"gm":`+gmPart) {
+			t.Fatalf("the player's draft lost the GM's part: %s", *draft)
+		}
+
+		// The same checks as a save, short of resolving; a draft that is not ready is no refusal.
+		p.refused(ana, draftSave(hero, "not json"), "buildInvalid")
+		p.refused(ana, draftSave(hero, `{"tier":2}`), "buildTierMismatch")
+		p.refused(bo, draftSave(hero, `{"tier":1}`), "notYourCharacter")
+		p.send(ana, draftSave(hero, `{"tier":1,"archetypeId":"lamplighter"}`))
+
+		// A draft alone is no character filled another way: the player's ready save, with the GM's approval kept from
+		// the GM's draft, types the actor, writes its fields, starts its resources and clears the draft.
+		p.send(gm, draftSave(hero, fmt.Sprintf(rootsBuild, `,"gm":`+gmPart)))
+		p.send(ana, save(hero, fmt.Sprintf(rootsBuild, "")))
+		draft, built = p.draftOf(hero)
+		if draft != nil || !built {
+			t.Fatalf("after a ready save: draft %v, built %v", draft, built)
+		}
+		if build, _ := p.stored(hero); build != fmt.Sprintf(rootsBuild, `,"gm":`+gmPart) {
+			t.Fatalf("stored %s", build)
+		}
+		if got := p.fields(hero)["mod.guard"]; got != 3 {
+			t.Fatalf("guard %v", got)
+		}
+		if got := p.resources(hero); len(got) == 0 {
+			t.Fatalf("the first ready save after a draft did not start the resources: %v", got)
+		}
+
+		// A draft of a built character leaves the build and the fields as they are.
+		p.send(gm, draftSave(hero, `{"tier":1}`))
+		if draft, built := p.draftOf(hero); draft == nil || *draft != `{"tier":1}` || !built {
+			t.Fatalf("draft %v, built %v", draft, built)
+		}
+		if got := p.fields(hero)["mod.guard"]; got != 3 {
+			t.Fatalf("guard %v", got)
+		}
+	})
+}

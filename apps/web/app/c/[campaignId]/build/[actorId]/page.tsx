@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
+import { Me } from "@inconsistable/core-schema";
 import { Ruleset } from "@inconsistable/rules-engine";
 
 import { apiGet } from "@/app/server-api";
@@ -13,7 +14,8 @@ type BuildProps = { params: Promise<{ campaignId: string; actorId: string }> };
 const MAX_PICKS = 500;
 
 // BUILD CHARACTER for one actor. The ruleset and the entries a step may pick are read here, on the server, through the
-// seat-scoped rules route (a player is never sent a GM-only entry); the form then runs on the client.
+// seat-scoped rules route (a player is never sent a GM-only entry); the form then runs on the client. A ruleset with a
+// ledger builder also reads the seat, and the client picks the builder once it knows the actor.
 export default async function Build({ params }: BuildProps) {
   const [p, t] = await Promise.all([params, getTranslations("status")]);
   const campaignId = encodeURIComponent(p.campaignId);
@@ -25,6 +27,15 @@ export default async function Build({ params }: BuildProps) {
     if (!room.data.ruleset) return <StatusScreen text={t("noRuleset")} />;
     const ruleset = Ruleset.safeParse(room.data.ruleset.manifest);
     if (!ruleset.success) return <StatusScreen text={t("nosignal")} />;
+
+    // A ledger ruleset (house decision #62): the seat decides whether this user is on the actor's GM side.
+    let me: Me | undefined;
+    if (ruleset.data.build) {
+      const res = await apiGet(`/api/campaigns/${campaignId}/me`);
+      const mine = Me.safeParse(res.ok ? await res.json() : null);
+      if (!mine.success) return <StatusScreen text={t("nosignal")} />;
+      me = mine.data;
+    }
 
     const types = [...new Set(ruleset.data.creation.flatMap((s) => (s.kind === "choose" ? [s.pick] : [])))];
     const replies = await Promise.all(
@@ -40,7 +51,7 @@ export default async function Build({ params }: BuildProps) {
       if (!reply.success) return <StatusScreen text={t("nosignal")} />;
       entries[type] = reply.data.entries;
     }
-    return <Builder campaignId={p.campaignId} actorId={p.actorId} ruleset={ruleset.data} entries={entries} />;
+    return <Builder campaignId={p.campaignId} actorId={p.actorId} ruleset={ruleset.data} entries={entries} me={me} />;
   } catch {
     return <StatusScreen text={t("nosignal")} />;
   }

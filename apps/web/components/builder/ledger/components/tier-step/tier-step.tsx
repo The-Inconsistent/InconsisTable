@@ -6,14 +6,15 @@ import { setTier } from "@/lib/ledger/ledger";
 import { useLedger } from "../../ledger-context";
 
 // TIER: the Tier the character is made at and what it gives to spend, and which sources the campaign lets in. The
-// Tier is the table's: a GM-side seat sets it, a player reads it.
+// Tier is the table's: a GM-side seat sets it, a player reads it. A Tier given from outside (the room's) is only read
+// here: the GM changes it in the campaign's settings.
 export function TierStep() {
   const t = useTranslations("ledgerBuilder.tier");
-  const { params, catalogue, build, resolved, gm, edit } = useLedger();
+  const { params, catalogue, build, resolved, gm, tier, edit } = useLedger();
   const tiers = Array.from({ length: params.tiers.max - params.tiers.min + 1 }, (_, i) => params.tiers.min + i);
   return (
     <div className="stack">
-      {gm ? (
+      {gm && tier === undefined ? (
         <div className="seg lb-tiers" role="group" aria-label={t("pick")}>
           {tiers.map((n) => (
             <button
@@ -28,8 +29,9 @@ export function TierStep() {
           ))}
         </div>
       ) : (
-        <p className="lb-big">{t("tierN", { tier: build.tier })}</p>
+        <p className="lb-big">{t("tierN", { tier: tier ?? build.tier })}</p>
       )}
+      {gm && tier !== undefined && <p className="small dim">{t("roomTier")}</p>}
       <p>
         {resolved ? t("budget", { xp: resolved.budget }) : t("perTier", { xp: params.startingXp.perTier })}
         <span className="small dim"> · {params.startingXp.cite}</span>

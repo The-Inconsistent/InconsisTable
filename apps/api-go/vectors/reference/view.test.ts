@@ -864,7 +864,7 @@ test("pools: a seat with no ruleset in its view receives none", () => {
 });
 
 test("a saved ledger build reaches the GM side and the seat holding the character, nobody else (house decision #63)", () => {
-  const saved = { build: { tier: 1, archetypeId: "lamplighter" }, sheet: { species: "Heron-kin" } };
+  const saved = { build: null, sheet: null, draft: { tier: 1, archetypeId: "lamplighter" } };
   const actors = state.actors.map((a) => (a.id === "lyra" ? { ...a, ledger: saved } : a));
   const withLedger: Snapshot = { ...snapshot, state: { ...state, actors } };
   const ledgerOf = (c: Ctx) =>

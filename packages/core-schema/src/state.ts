@@ -62,12 +62,11 @@ export const LedgerBuildText = z
   .string()
   .refine((s) => new TextEncoder().encode(s).length <= MAX_BUILD_BYTES, "The build is over 64 KB");
 
-// The stored build and the sheet it resolved to, as saved (keys in the order the builder wrote them). The ledger, the
-// pending choices and the problems are not stored: the builder resolves them again from the build.
-export const ActorLedger = z.object({
-  build: z.record(z.string(), z.unknown()),
-  sheet: z.record(z.string(), z.unknown()),
-});
+// The stored build and the sheet it resolved to, and an unfinished draft the GM can open, as saved (keys in the order
+// the builder wrote them). A draft may come before any build; a ready save clears it. The ledger, the pending choices and
+// the problems are not stored: the builder resolves them again from the build.
+const LedgerDocument = z.record(z.string(), z.unknown()).nullable();
+export const ActorLedger = z.object({ build: LedgerDocument, sheet: LedgerDocument, draft: LedgerDocument });
 export type ActorLedger = z.infer<typeof ActorLedger>;
 
 export const Actor = ActorBrief.extend({
@@ -80,8 +79,8 @@ export const Actor = ActorBrief.extend({
   conditions: z.array(z.string()), // active condition ids
   // Their durations, for the conditions this viewer sees (the same visibility as the condition itself).
   conditionTimers: z.array(ConditionTimer),
-  // The saved ledger build and sheet, for the GM side and a seat holding this character; null for everyone else, and
-  // for an actor not built with the ledger builder.
+  // The saved ledger build, sheet and draft, for the GM side and a seat holding this character; null for everyone else,
+  // and for an actor not built with the ledger builder.
   ledger: ActorLedger.nullable(),
 });
 export type Actor = z.infer<typeof Actor>;

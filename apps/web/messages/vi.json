@@ -483,7 +483,8 @@
       "standings": "Xếp hạng",
       "notebook": "Sổ tay",
       "run": "Chạy bàn"
-    }
+    },
+    "buildDraft": "Bản tạo dở dang của bạn đã được lưu. GM có thể mở nó để duyệt phần của GM."
   },
   "turnBanner": {
     "yourTurn": "Đến lượt bạn, {name}",
@@ -580,7 +581,21 @@
     "conditions": "Trạng thái",
     "none": "Không có.",
     "turnsLeft": "{count, plural, other {còn # lượt}}",
-    "roundsLeft": "{count, plural, other {còn # vòng}}"
+    "roundsLeft": "{count, plural, other {còn # vòng}}",
+    "ledger": {
+      "talents": "Talent",
+      "abilities": "Năng lực",
+      "weapons": "Vũ khí",
+      "gear": "Trang bị",
+      "powers": "Quyền năng",
+      "count": "{name} ×{count}",
+      "damage": "Sát thương {damage} +{ed} ED",
+      "ap": "AP {ap}",
+      "range": "Tầm {range}",
+      "salvo": "Salvo {salvo}",
+      "armour": "AR {ar}",
+      "power": "DN {dn} · {activation} · {duration} · Tầm {range}"
+    }
   },
   "breakdown": {
     "hidden": "Các thành phần của chỉ số này không hiện trên điện thoại của bạn."
@@ -658,7 +673,15 @@
     "recap": "Tóm tắt buổi chơi",
     "recapHint": "Buổi này đã xảy ra chuyện gì? Để trống nếu không cần.",
     "endSessionConfirm": "Kết thúc buổi {number}",
-    "cancel": "Hủy"
+    "cancel": "Hủy",
+    "ledger": {
+      "build": "Tạo",
+      "buildLabel": "Tạo {name}",
+      "review": "Xem bản tạo",
+      "reviewLabel": "Xem bản tạo của {name}: có bản nháp đang chờ",
+      "open": "Mở trình tạo",
+      "openLabel": "Mở trình tạo cho {name}"
+    }
   },
   "rulesPanel": {
     "readFailed": "Không đọc được luật. Kiểm tra kết nối rồi tải lại.",
@@ -1584,7 +1607,8 @@
       "homebrewOff": "Bàn này không dùng homebrew.",
       "official": "Chính thức",
       "homebrewIn": "Homebrew, được phép",
-      "homebrewOut": "Homebrew, không hiện"
+      "homebrewOut": "Homebrew, không hiện",
+      "roomTier": "Đây là Tier của phòng. GM đổi nó ở Luật, Thiết lập campaign."
     },
     "archetype": {
       "advanced": "Tạo nâng cao",
@@ -1696,6 +1720,18 @@
       "startOver": "Làm lại",
       "readyToSave": "Bước sau sẽ đặt nút lưu ở đây: sẵn sàng.",
       "notReady": "Bước sau sẽ đặt nút lưu ở đây: chưa sẵn sàng."
+    },
+    "table": {
+      "loading": "Đang mở danh mục…",
+      "failed": "Không đọc được danh mục. Kiểm tra kết nối rồi thử lại.",
+      "retry": "Thử lại",
+      "save": "Lưu nhân vật",
+      "sendToGm": "Gửi cho GM",
+      "saveForLater": "Lưu để làm tiếp",
+      "sentToGm": "Đã gửi cho GM.",
+      "savedForLater": "Đã lưu để làm tiếp.",
+      "kept": "Đã lưu nháp",
+      "notKept": "Chưa giữ nháp"
     }
   }
 }

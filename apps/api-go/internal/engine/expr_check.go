@@ -277,6 +277,15 @@ func (c *checker) call(x CallNode) ExprType {
 	case "at":
 		arity(2, 2)
 		return c.at(x)
+	case "contains":
+		arity(2, 2)
+		t := c.check(x.Args[0], false)
+		list, isList := t.(ListType)
+		if !isList {
+			exprFail("contains() takes a list, got %s", typeName(t))
+		}
+		c.expect(x.Args[1], list.Elem, "contains() argument 2")
+		return boolType
 	case "has":
 		arity(1, 1)
 		if _, isPath := pathOf(x.Args[0]); !isPath {

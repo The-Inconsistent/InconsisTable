@@ -93,7 +93,39 @@ func codexFieldVariant(tag string, extra ...schema.Field) schema.Variant {
 // MaxCodexFields caps the fields one kind of codex entry carries.
 const MaxCodexFields = 20
 
-// codexSchema is the manifest's codex block (house decision #71): the fields each kind of entry carries.
+// Ceilings of a tags and a rows field (house decision #89; rules-engine MAX_TAGS and the rest): a declaration's own
+// maxItems, maxRows and a text column's maxLength may only tighten them.
+const (
+	MaxTags          = 30
+	MaxTagChars      = 60
+	MaxRows          = 30
+	MaxRowColumns    = 8
+	MaxCellChars     = 500
+	maxRowPrefills   = 5
+	maxCodexReminder = 20
+)
+
+func columnVariant(tag string, extra ...schema.Field) schema.Variant {
+	fields := append([]schema.Field{
+		schema.Req("id", idSchema),
+		schema.Req("label", label(60)),
+		schema.Req("type", schema.Literal(tag)),
+	}, extra...)
+	return schema.Variant{Tag: tag, Schema: schema.Object(fields...)}
+}
+
+// rowColumn is one column of a rows field (house decision #89; rules-engine RowColumn).
+var rowColumn = schema.Union("type",
+	columnVariant("int", intShape...),
+	columnVariant("text", schema.Opt("maxLength", schema.Int().Min(1).Max(MaxCellChars))),
+	columnVariant("enum", enumShape...),
+	columnVariant("bool"),
+	columnVariant("ref", refShape...),
+	columnVariant("test"),
+)
+
+// codexSchema is the manifest's codex block (house decision #71): the fields each kind of entry carries, and the
+// reminders its values raise (house decision #89).
 var codexSchema = schema.Object(
 	schema.Req("kinds", schema.PartialRecord(schema.Object(
 		schema.Req("fields", schema.Refined(schema.Record(idSchema, schema.Union("type",
@@ -103,7 +135,30 @@ var codexSchema = schema.Object(
 			codexFieldVariant("bool"),
 			codexFieldVariant("ref", refShape...),
 			codexFieldVariant("entry", schema.Req("kind", schema.Enum(CodexKinds...))),
+			codexFieldVariant("tags",
+				schema.Opt("maxItems", schema.Int().Min(1).Max(MaxTags)),
+				schema.Opt("entities", schema.Array(idSchema).Min(1).Max(10)),
+				schema.Opt("options", schema.Array(idSchema).Min(1).Max(200)),
+				schema.Opt("labels", schema.Record(idSchema, label(MaxTagChars))),
+				schema.Def("writeIn", schema.Bool(), false),
+			),
+			codexFieldVariant("rows",
+				schema.Req("columns", schema.Array(rowColumn).Min(1).Max(MaxRowColumns)),
+				schema.Opt("maxRows", schema.Int().Min(1).Max(MaxRows)),
+				schema.Opt("from", schema.Array(schema.Object(
+					schema.Req("entity", idSchema),
+					schema.Opt("name", idSchema),
+					schema.Opt("values", schema.Record(idSchema, fieldIDSchema)),
+				)).Min(1).Max(maxRowPrefills)),
+				schema.Opt("pick", schema.Object(schema.Req("label", label(40)))),
+			),
 		)), func(v any) bool { return len(v.(map[string]any)) <= MaxCodexFields }, "at most 20 fields")),
+		schema.Opt("reminders", schema.Array(schema.Object(
+			schema.Req("id", idSchema),
+			schema.Req("if", exprSource),
+			schema.Req("text", label(120)),
+			schema.Opt("cite", citeSchema),
+		)).Max(maxCodexReminder)),
 	), CodexKinds...)),
 )
 

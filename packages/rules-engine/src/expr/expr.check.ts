@@ -238,6 +238,14 @@ class Checker {
         this.expect(n, "int", "at() argument 2");
         return member;
       }
+      case "contains": {
+        arity(2, 2);
+        const [list = first(), item = first()] = args;
+        const t = this.check(list);
+        if (typeof t === "string" || !("list" in t)) throw new ExprError(`contains() takes a list, got ${typeName(t)}`);
+        this.expect(item, t.list, "contains() argument 2");
+        return "bool";
+      }
       case "has": {
         arity(1, 1);
         const arg = first();

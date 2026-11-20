@@ -975,6 +975,15 @@ func (c *compiler) run() *CompiledRuleset {
 			reminders[j] = c.expr(*x.If, reminderScopes, boolType, fmt.Sprintf("reminders[%d].if", j))
 		}
 	}
+	// A codex reminder's `if` reads its kind's fields (house decision #89); checked here, evaluated where it is shown.
+	if c.r.Codex != nil {
+		for _, kind := range sortedKeys(c.r.Codex.Kinds) {
+			k := c.r.Codex.Kinds[kind]
+			for j, x := range k.Reminders {
+				c.expr(x.If, []map[string]ExprType{CodexScope(k.Fields, false)}, boolType, fmt.Sprintf("codex.kinds.%s.reminders[%d].if", kind, j))
+			}
+		}
+	}
 	immune := map[string]*CompiledExpr{}
 	for j, x := range c.r.Conditions {
 		if x.Immune != nil {

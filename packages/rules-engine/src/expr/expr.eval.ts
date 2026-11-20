@@ -184,6 +184,12 @@ class Evaluator {
         if (v === undefined || v === null) throw new ExprError(`missing value "${name}[${n}]"`);
         return v;
       }
+      case "contains": {
+        const v = args[0] === undefined ? undefined : this.eval(args[0]);
+        if (!isList(v)) throw new ExprError("contains() of a non-list");
+        const item = args[1] === undefined ? undefined : this.eval(args[1]);
+        return v.some((x) => x === item);
+      }
       case "has": {
         const v = args[0] === undefined ? undefined : this.lookup(args[0]);
         return v !== undefined && v !== null;

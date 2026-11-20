@@ -12,8 +12,22 @@ export type UnaryOp = z.infer<typeof UnaryOp>;
  * `floor`/`ceil` take one integer (a no-op) or two, `floor(a, b)` = a / b rounded down, `ceil(a, b)` rounded up:
  * arithmetic is integer only, so rounding is chosen where the division happens.
  * `at(group, n)` reads the member of a field group whose id ends in the number `n` (`at(form, 3)` is `form.f3`).
+ * `contains(list, x)` is true when an item of the list equals `x` (house decision #89: a codex entry's tags).
  */
-export const FnName = z.enum(["min", "max", "floor", "ceil", "clamp", "abs", "mod", "count", "sum", "has", "at"]);
+export const FnName = z.enum([
+  "min",
+  "max",
+  "floor",
+  "ceil",
+  "clamp",
+  "abs",
+  "mod",
+  "count",
+  "sum",
+  "has",
+  "at",
+  "contains",
+]);
 export type FnName = z.infer<typeof FnName>;
 
 /** The JSON AST. Plain data, so a compiled manifest can be cached as JSONB and evaluated the same on web and api. */

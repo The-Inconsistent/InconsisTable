@@ -36,6 +36,11 @@ export const Id = z
   .string()
   .max(64)
   .regex(/^[a-z][a-zA-Z0-9]*$/, "use camelCase letters and digits");
+/** A pack entry's key, as pack.ts EntryKey has it (it imports this file, so the pattern is repeated here). */
+export const PackKey = z
+  .string()
+  .max(80)
+  .regex(/^[a-z0-9]+([-_.][a-z0-9]+)*$/, "use lowercase letters, digits and - _ .");
 /** Field ids may be dotted (`attr.str`), which nests them in the expression scope (`attr[ctx.ability]`). */
 export const FieldId = z
   .string()
@@ -511,6 +516,27 @@ export type Phase = z.infer<typeof Phase>;
 export const TableVisibility = z.enum(["gm", "party", "owner"]);
 export type TableVisibility = z.infer<typeof TableVisibility>;
 
+/** The most kinds of held record a ruleset declares, and a kind's default and highest `max` (house decision #88). */
+export const MAX_HELD_KINDS = 10;
+export const HELD_DEFAULT_MAX = 20;
+
+/**
+ * A kind of record an actor gains in play (house decision #88): the pack entries of type `entry` an actor of the
+ * `entities` types holds, by key, in its `list` field `field`. What they hold feeds its numbers as a chosen entry's
+ * effects do (house decision #61). With `unseen`, seats other than the holder's and the GM side's see each one's
+ * effects under that word, never its name, key or cite; its field is then `owner` or `gm`.
+ */
+export const HeldKind = z.object({
+  label: z.string().min(1).max(60),
+  entry: Id,
+  field: FieldId,
+  entities: z.array(Id).min(1).max(50),
+  unseen: z.string().min(1).max(60).optional(),
+  max: z.int().min(1).max(50).optional(),
+  cite: Cite.optional(),
+});
+export type HeldKind = z.infer<typeof HeldKind>;
+
 /** The most effects a row applies, inputs a lookup takes, and times one effect repeats (house decision #87). */
 export const MAX_ROW_EFFECTS = 8;
 export const MAX_LOOKUP_INPUTS = 6;
@@ -533,6 +559,8 @@ export const TableEffect = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("condition"), condition: Id, ...effectBase }),
   z.object({ kind: z.literal("resource"), resource: Id, by: ExprSource, ...effectBase }),
   z.object({ kind: z.literal("pool"), pool: Id, by: ExprSource, ...effectBase }),
+  // Grants the target the pack entry `entry` (its key) as a record of kind `held` (house decision #88).
+  z.object({ kind: z.literal("grant"), held: Id, entry: PackKey, ...effectBase }),
 ]);
 export type TableEffect = z.infer<typeof TableEffect>;
 export type TableEffectKind = TableEffect["kind"];
@@ -987,6 +1015,11 @@ export const Ruleset = z.object({
   scoring: Scoring.optional(),
   /** Random tables the GM side rolls or deals from (house decision #49). Absent: the ruleset has none. */
   tables: z.record(Id, RandomTable).optional(),
+  /** Records an actor gains in play (house decision #88), by kind id. Absent: the ruleset has none. */
+  held: z
+    .record(Id, HeldKind)
+    .refine((o) => Object.keys(o).length <= MAX_HELD_KINDS, `at most ${MAX_HELD_KINDS} kinds`)
+    .optional(),
   health: Health.default({ tracks: [], states: [] }),
   /** Steps of the character builder, in order. Empty: the ruleset has no builder and actors are filled by hand. */
   creation: z.array(CreationStep).max(50).default([]),
@@ -1195,13 +1228,49 @@ function lookupProblems({ id, t, r, out }: { id: string; t: RandomTable; r: Rule
           out.push({ path: `${where}.resource`, message: `"${x.resource}" is not a resource an actor carries` });
         else if (hitOnly.has(x.resource))
           out.push({ path: `${where}.resource`, message: `only a hit moves "${x.resource}"` });
-      } else {
+      } else if (x.kind === "pool") {
         const res = r.resources.find((y) => y.id === x.pool);
         if (res === undefined || res.scope === "entity")
           out.push({ path: `${where}.pool`, message: `"${x.pool}" is not a shared pool` });
+      } else if (!Object.hasOwn(r.held ?? {}, x.held)) {
+        out.push({ path: `${where}.held`, message: `unknown held kind "${x.held}"` });
       }
     });
   });
+}
+
+/**
+ * A held kind names a type of pack entry and, on each actor type that holds it, a list field to keep the keys in; a
+ * kind whose name others do not see keeps it in a field only the holder and the GM side read (house decision #88).
+ */
+function heldProblems({
+  r,
+  needCite,
+  out,
+}: {
+  r: Ruleset;
+  needCite: (cite: string | undefined, path: string) => void;
+  out: Problem[];
+}): void {
+  for (const [id, k] of Object.entries(r.held ?? {})) {
+    const path = `held.${id}`;
+    needCite(k.cite, path);
+    const entry = r.entities.find((e) => e.id === k.entry);
+    if (entry === undefined) out.push({ path: `${path}.entry`, message: `unknown entity "${k.entry}"` });
+    else if (entry.base === "actor") out.push({ path: `${path}.entry`, message: `"${k.entry}" is an actor` });
+    k.entities.forEach((e, i) => {
+      const holder = r.entities.find((x) => x.id === e && x.base === "actor");
+      if (holder === undefined) {
+        out.push({ path: `${path}.entities[${i}]`, message: `unknown actor type "${e}"` });
+        return;
+      }
+      const def = own(holder.fields, k.field);
+      if (def === undefined) out.push({ path: `${path}.field`, message: `${e} has no field "${k.field}"` });
+      else if (def.type !== "list") out.push({ path: `${path}.field`, message: `"${k.field}" is not a list field` });
+      else if (k.unseen !== undefined && def.visibility !== "owner" && def.visibility !== "gm")
+        out.push({ path: `${path}.field`, message: "a field holding unseen records is owner or gm" });
+    });
+  }
 }
 
 /** Steps name real actor entities, pack entity types and fields, and no field has two writers. */
@@ -1674,6 +1743,8 @@ function widgetRowProblems({
     out.push({ path: `${path}.steps`, message: "this widget takes no steps" });
   if (spec.ledger && r.build === undefined)
     out.push({ path: `${path}.widget`, message: `"${spec.id}" reads the build's sheet, and the ruleset has no build` });
+  if (spec.held && !Object.values(r.held ?? {}).some((k) => entities.some((e) => k.entities.includes(e.id))))
+    out.push({ path: `${path}.widget`, message: `"${spec.id}" lists held records, and no held kind is for this type` });
   const pathOk = (p: string, takes: string, at: string) => {
     const kinds = entities.map((e) => valueKind({ r, e, path: p })).filter((k) => k !== null);
     if (kinds.length === 0) out.push({ path: at, message: `unknown value "${p}"` });
@@ -1813,6 +1884,7 @@ function semanticProblems(r: Ruleset): Problem[] {
     needCite(t.cite, `tables.${id}`);
     tableProblems({ id, t, r, out });
   }
+  heldProblems({ r, needCite, out });
   if (r.scoring) {
     needCite(r.scoring.cite, "scoring");
     r.scoring.endWhen.forEach((x, i) => needCite(x.cite, `scoring.endWhen[${i}]`));

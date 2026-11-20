@@ -4,6 +4,7 @@ import (
 	"errors"
 	"maps"
 	"math"
+	"slices"
 )
 
 // Lookups (packages/rules-engine/src/lookups.ts; house decision #87): a typed result, the inputs and the target pick
@@ -21,6 +22,10 @@ type (
 		Resource  string
 		Pool      string
 		By        int
+		Held      string
+		Entry     string
+		// Has is a grant of an entry the target already holds, which the api refuses (house decision #88).
+		Has bool
 	}
 	// LookupRefusal is why a typed result cannot be read: Code is tableNotFound, tableResultOut (Min, Max), tableInput
 	// (Input) or unreadable (Detail).
@@ -46,6 +51,8 @@ func (s LookupStep) JSON() map[string]any {
 		return map[string]any{"kind": s.Kind, "condition": s.Condition, "immune": s.Immune}
 	case "resource":
 		return map[string]any{"kind": s.Kind, "resource": s.Resource, "by": s.By}
+	case "grant":
+		return map[string]any{"kind": s.Kind, "held": s.Held, "entry": s.Entry, "has": s.Has}
 	}
 	return map[string]any{"kind": s.Kind, "pool": s.Pool, "by": s.By}
 }
@@ -117,7 +124,7 @@ func (c *CompiledRuleset) ReadLookup(tableID string, result float64, inputs map[
 		if scope == nil {
 			return nil, &LookupRefusal{Code: "unreadable", Detail: "the modifier reads a target"}
 		}
-		n, err := evaluateInt(lookup.Modifier, lookupScope(scope, ctx))
+		n, err := evaluateInt(lookup.Modifier, lookupScope(c.withHeld(scope), ctx))
 		if err != nil {
 			return nil, unreadable(err)
 		}
@@ -133,7 +140,7 @@ func (c *CompiledRuleset) PlanLookup(tableID string, result float64, inputs map[
 	if refused != nil {
 		return nil, nil, refused
 	}
-	full := lookupScope(scope, read.Ctx)
+	full := lookupScope(c.withHeld(scope), read.Ctx)
 	steps := []LookupStep{}
 	effects := c.Lookups[tableID].Effects
 	if read.Entry < 0 || read.Entry >= len(effects) {
@@ -193,6 +200,8 @@ func (c *CompiledRuleset) stepOf(x *CompiledTableEffect, scope, target *Record) 
 		}
 	case "condition":
 		return &LookupStep{Kind: "condition", Condition: d.Condition, Immune: c.ImmuneTo(d.Condition, target)}, nil
+	case "grant":
+		return &LookupStep{Kind: "grant", Held: d.Held, Entry: d.Entry, Has: slices.Contains(c.HeldKeys(d.Held, target), d.Entry)}, nil
 	case "resource":
 		step = LookupStep{Kind: "resource", Resource: d.Resource, By: num(x.By)}
 	default:

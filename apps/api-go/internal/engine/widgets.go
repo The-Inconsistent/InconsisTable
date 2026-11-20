@@ -28,6 +28,8 @@ type WidgetSpec struct {
 	Slots    []WidgetSlot `json:"slots"`
 	Steps    bool         `json:"steps,omitempty"`
 	Ledger   bool         `json:"ledger,omitempty"`
+	// Held reads the records the actor holds (house decision #88) instead of bound values.
+	Held bool `json:"held,omitempty"`
 }
 
 func oneSlot(id, takes string, required bool) WidgetSlot {
@@ -54,6 +56,7 @@ var Widgets = []WidgetSpec{
 	{ID: "cards", Variants: []string{"weapons", "armour", "gear", "powers"}, Slots: []WidgetSlot{}, Ledger: true},
 	{ID: "folds", Variants: []string{"both", "talents", "abilities"}, Slots: []WidgetSlot{}, Ledger: true},
 	{ID: "notes", Variants: []string{}, Slots: []WidgetSlot{listSlot("fields", "text", true)}},
+	{ID: "held", Variants: []string{}, Slots: []WidgetSlot{}, Held: true},
 }
 
 // LayoutTargets is LAYOUT_TARGETS: the layout keys beyond the sheet's sections.
@@ -188,6 +191,16 @@ func (p *problems) widgetRow(r *Ruleset, row *WidgetRow, entities []*EntityType,
 	}
 	if spec.Ledger && r.Build == nil {
 		p.add(path+".widget", `"%s" reads the build's sheet, and the ruleset has no build`, spec.ID)
+	}
+	if spec.Held && !slices.ContainsFunc(entities, func(e *EntityType) bool {
+		for _, k := range r.Held {
+			if slices.Contains(k.Entities, e.ID) {
+				return true
+			}
+		}
+		return false
+	}) {
+		p.add(path+".widget", `"%s" lists held records, and no held kind is for this type`, spec.ID)
 	}
 	pathOk := func(v, takes, at string) {
 		var kinds []string

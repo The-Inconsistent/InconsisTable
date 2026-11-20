@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { compileRuleset } from "../compile.ts";
 import { canonicalJson, sha256Hex } from "../pack-hash.ts";
 import { NOTICE_RESOURCES, SAMPLE_D20, SAMPLE_D20_BEFORE_WIDGETS } from "./sample-d20.ts";
-import { SAMPLE_HARM } from "./sample-harm.ts";
+import { SAMPLE_HARM, SAMPLE_HARM_BEFORE_HELD } from "./sample-harm.ts";
 import { SAMPLE_HARVEST } from "./sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "./sample-no-order.ts";
 import { SAMPLE_POOL } from "./sample-pool.ts";
@@ -18,7 +18,7 @@ const PINNED: Record<string, string> = {
   "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.1": "e166afc269320775b0d1e455a2e7a5b10ca9b9c4f0d96f9fa473addb65b93f08",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
-  "sample-harm@0.1.2": "fab23a29bd0f76bb1829545e6fde33a060d50eb2bc3e344c551de84d4dae5d16",
+  "sample-harm@0.1.3": "eb88d1d6ba450f7140a53b4892dc72258cd290ba1958c55f34a5a11abc042f68",
 };
 
 test("a sample ruleset's normalized manifest changes only with its version", () => {
@@ -43,8 +43,17 @@ test("a Test without marks or offers hashes as it did before they existed (house
   );
 });
 
+test("a ruleset without held records hashes as it did before they existed (house decision #88)", () => {
+  const result = compileRuleset(SAMPLE_HARM_BEFORE_HELD);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "fab23a29bd0f76bb1829545e6fde33a060d50eb2bc3e344c551de84d4dae5d16",
+  );
+});
+
 test("a ruleset without lookups hashes as it did before they existed (house decision #87)", () => {
-  const { tables: _tables, ...rest } = SAMPLE_HARM;
+  const { tables: _tables, ...rest } = SAMPLE_HARM_BEFORE_HELD;
   const before = { ...rest, version: "0.1.1", conditions: rest.conditions?.filter((c) => c.id !== "dazed") };
   const hash = (input: typeof SAMPLE_HARM) => {
     const result = compileRuleset(input);

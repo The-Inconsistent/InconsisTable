@@ -6,9 +6,9 @@ import type { RulesetInput } from "../manifest.ts";
  * a result into (house decision #87): a switch that changes the wounds, surge dice that raise the total, a stacking
  * condition brutes are immune to, applied again for each point of press, an open-ended last line, and a line that
  * sends the GM to a second table. Every name, number and cite is our own invention ("Sample p.N" points at no real
- * book).
+ * book). This is 0.1.2; SAMPLE_HARM, below, adds what a hero holds in play.
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_BEFORE_HELD: RulesetInput = {
   id: "sample-harm",
   version: "0.1.2",
   core: "^0.1.0",
@@ -215,3 +215,103 @@ export const SAMPLE_HARM: RulesetInput = {
     },
   ],
 };
+
+const [hero, ...others] = SAMPLE_HARM_BEFORE_HELD.entities ?? [];
+
+/**
+ * sample-harm 0.1.3 (house decision #88): a hero gains growths in play, pack entries of the type `growth` kept in its
+ * `growths` list, seen by name only by the hero's player and the GM side ("Unseen" to everyone else). The GM steps
+ * through a chain of tables with one hero: the Omen's d6 picks the Lesser or the Greater table; the Lesser's d66 adds
+ * 10 for each growth the hero holds already, and its top line sends the GM on to the Greater; a line of either grants
+ * its growth. Nothing is granted until the last step is applied.
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_BEFORE_HELD,
+  version: "0.1.3",
+  entities: [
+    {
+      ...hero!,
+      fields: { ...hero!.fields, growths: { type: "list", label: "Growths", visibility: "owner" } },
+    },
+    ...others,
+    { id: "growth", label: "Growth", base: "ability", fields: {} },
+  ],
+  layout: {
+    hero: {
+      sections: [
+        { id: "body", label: "Body", show: ["grit", "derived.limit", "res.wounds", "res.strain"] },
+        { id: "growths", label: "Growths", show: [{ widget: "held" }] },
+      ],
+    },
+  },
+  held: {
+    growth: {
+      label: "Growths",
+      entry: "growth",
+      field: "growths",
+      entities: ["hero"],
+      unseen: "Unseen",
+      max: 5,
+      cite: "Sample p.11",
+    },
+  },
+  tables: {
+    ...SAMPLE_HARM_BEFORE_HELD.tables,
+    omen: {
+      title: "Omen",
+      die: "d6",
+      visibility: "gm",
+      cite: "Sample p.11",
+      entries: [
+        { id: "faint", label: "Faint", range: [1, 3], next: "lesser" },
+        { id: "stark", label: "Stark", range: [4, 6], next: "greater" },
+      ],
+    },
+    lesser: {
+      title: "Lesser Growths",
+      die: "d66",
+      visibility: "gm",
+      cite: "Sample p.12",
+      entities: ["hero"],
+      modifier: "count(growths) * 10",
+      entries: [
+        { id: "horn", label: "Horn", range: [11, 36], apply: [{ kind: "grant", held: "growth", entry: "horn" }] },
+        { id: "scales", label: "Scales", range: [41, 56], apply: [{ kind: "grant", held: "growth", entry: "scales" }] },
+        { id: "worse", label: "Worse", range: [61], next: "greater", note: "Roll again on the Greater table" },
+      ],
+    },
+    greater: {
+      title: "Greater Growths",
+      die: "d6",
+      visibility: "gm",
+      cite: "Sample p.13",
+      entities: ["hero"],
+      entries: [
+        { id: "wings", label: "Wings", range: [1, 3], apply: [{ kind: "grant", held: "growth", entry: "wings" }] },
+        {
+          id: "eye",
+          label: "Third Eye",
+          range: [4, 6],
+          apply: [{ kind: "grant", held: "growth", entry: "third-eye" }],
+        },
+      ],
+    },
+  },
+};
+
+/** Growths for SAMPLE_HARM 0.1.3: each adds to a hero's wound limit, which every seat reads (house decision #88). */
+export const SAMPLE_HARM_GROWTHS = [
+  { key: "horn", name: "Horn", value: "1" },
+  { key: "scales", name: "Scales", value: "2" },
+  { key: "wings", name: "Wings", value: "1" },
+  { key: "third-eye", name: "Third Eye", value: "1" },
+].map(({ key, name, value }) => ({
+  key,
+  type: "growth",
+  name,
+  tags: [],
+  cite: "Sample p.14",
+  visibility: "gm",
+  body: {},
+  effects: [{ path: "derived.limit", mode: "add", value, phase: "derived" }],
+}));

@@ -69,6 +69,10 @@ export const Action = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("campaign.attachPack"), packVersionId: id }),
   z.object({ type: z.literal("campaign.detachPack"), packVersionId: id }),
+  // The room's World (house decision #65): a version the caller imported, pinned in a room they run. Independent of the
+  // ruleset (design D4), so it changes at any time, mid-session too.
+  z.object({ type: z.literal("campaign.setWorld"), worldVersionId: id }),
+  z.object({ type: z.literal("campaign.unsetWorld") }),
 
   z.object({ type: z.literal("session.start"), title: SessionTitle.default("") }),
   // `award`: XP to every player character the ledger builder builds, when the ruleset gives it (house decision #64).
@@ -274,6 +278,8 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "campaign.setField": "campaign:update",
   "campaign.attachPack": "campaign:ruleset",
   "campaign.detachPack": "campaign:ruleset",
+  "campaign.setWorld": "campaign:ruleset",
+  "campaign.unsetWorld": "campaign:ruleset",
   "session.start": "session:run",
   "session.end": "session:run",
   "session.edit": "session:run",
@@ -377,6 +383,8 @@ export const AdminEventAction = z.enum([
   "room.open",
   "pack.disable", // notice-and-takedown: the pack stops being served at once (docs/design.md §4.6)
   "pack.enable",
+  "world.disable", // the same for a World (house decision #65)
+  "world.enable",
   "campaign.create", // the admin-key script made a room (actor "admin-key")
   "key.action", // the admin-key script sent a socket action; detail names it
 ]);

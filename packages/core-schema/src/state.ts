@@ -239,6 +239,9 @@ export const LiveState = z.object({
     safety: Safety,
     // Each campaign field of the pinned ruleset at its value in play (house decision #58); {} without a ruleset or fields.
     fields: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])),
+    // The pinned World version (house decision #65), or null. Every seat gets it, so a client reads the room's rules
+    // again when it changes; the World itself is served by GET /api/campaigns/:id/rules.
+    worldVersionId: z.string().nullable(),
   }),
   // Increments inside every action's transaction; a client drops a snapshot older than the one it holds, since two
   // api nodes may deliver broadcasts out of order (docs/design.md §5.6).

@@ -126,6 +126,9 @@ var ActionSchema = schema.Union("type",
 	),
 	variant("campaign.attachPack", schema.Req("packVersionId", id)),
 	variant("campaign.detachPack", schema.Req("packVersionId", id)),
+	// The room's World (house decision #65).
+	variant("campaign.setWorld", schema.Req("worldVersionId", id)),
+	variant("campaign.unsetWorld"),
 
 	variant("session.start", schema.Def("title", sessionTitle, "")),
 	// award: XP to every player character the ledger builder builds (house decision #64).
@@ -329,6 +332,8 @@ var ActionPerms = map[string]string{
 	"campaign.setField":       "campaign:update",
 	"campaign.attachPack":     "campaign:ruleset",
 	"campaign.detachPack":     "campaign:ruleset",
+	"campaign.setWorld":       "campaign:ruleset",
+	"campaign.unsetWorld":     "campaign:ruleset",
 	"session.start":           "session:run",
 	"session.end":             "session:run",
 	"session.edit":            "session:run",

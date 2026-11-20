@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { compileRuleset } from "../compile.ts";
 import { canonicalJson, sha256Hex } from "../pack-hash.ts";
 import { NOTICE_RESOURCES, SAMPLE_D20, SAMPLE_D20_BEFORE_WIDGETS } from "./sample-d20.ts";
+import { SAMPLE_HARM } from "./sample-harm.ts";
 import { SAMPLE_HARVEST } from "./sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "./sample-no-order.ts";
 import { SAMPLE_POOL } from "./sample-pool.ts";
@@ -17,10 +18,11 @@ const PINNED: Record<string, string> = {
   "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.1": "e166afc269320775b0d1e455a2e7a5b10ca9b9c4f0d96f9fa473addb65b93f08",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
+  "sample-harm@0.1.2": "fab23a29bd0f76bb1829545e6fde33a060d50eb2bc3e344c551de84d4dae5d16",
 };
 
 test("a sample ruleset's normalized manifest changes only with its version", () => {
-  for (const fixture of [SAMPLE_D20, SAMPLE_POOL, SAMPLE_HARVEST, SAMPLE_NO_ORDER]) {
+  for (const fixture of [SAMPLE_D20, SAMPLE_POOL, SAMPLE_HARVEST, SAMPLE_NO_ORDER, SAMPLE_HARM]) {
     const key = `${fixture.id}@${fixture.version}`;
     const result = compileRuleset(fixture);
     assert.ok(result.ok, `${key} compiles`);
@@ -38,6 +40,31 @@ test("a Test without marks or offers hashes as it did before they existed (house
   assert.equal(
     sha256Hex(canonicalJson(result.compiled.ruleset)),
     "57e50c011a1f73ee5c2e78f0546956686f5fcec64ecda3dbdda16b71b4803b0c",
+  );
+});
+
+test("a ruleset without lookups hashes as it did before they existed (house decision #87)", () => {
+  const { tables: _tables, ...rest } = SAMPLE_HARM;
+  const before = { ...rest, version: "0.1.1", conditions: rest.conditions?.filter((c) => c.id !== "dazed") };
+  const hash = (input: typeof SAMPLE_HARM) => {
+    const result = compileRuleset(input);
+    assert.ok(result.ok);
+    return sha256Hex(canonicalJson(result.compiled.ruleset));
+  };
+  // 0.1.1 is the sample as the spends layer left it (house decision #84).
+  assert.equal(hash(before), "09609370573de54941facc653194713ce3dd0458e82eafb8fc9f20bd3746555a");
+  // Without the spends layer's resource, spends and convert too, it is 0.1.0 as it was before either.
+  const { spends: _spends, ...older } = before;
+  const harm = older.health?.harm;
+  assert.ok(harm);
+  assert.equal(
+    hash({
+      ...older,
+      version: "0.1.0",
+      resources: older.resources?.filter((r) => r.id !== "resolve"),
+      health: { ...older.health, harm: { ...harm, profiles: harm.profiles.map(({ convert: _convert, ...p }) => p) } },
+    }),
+    "609d21e286fdbea8fcd54621709a1e2831d7b40a8a5b224134e807f1eb5302e7",
   );
 });
 

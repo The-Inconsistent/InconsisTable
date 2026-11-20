@@ -43,6 +43,7 @@ import {
   type ScoredActor,
 } from "../../../packages/rules-engine/src/scoring.ts";
 import { remindersOf, type ReminderActor } from "../../../packages/rules-engine/src/reminders.ts";
+import { planLookup } from "../../../packages/rules-engine/src/lookups.ts";
 import { armedTicks } from "../../../packages/rules-engine/src/primitives/conditions-expire.ts";
 import { toViewerView, type ActorView } from "../../../packages/rules-engine/src/view.ts";
 import { parseDice, rollDice, seededRng } from "../../../packages/rules-engine/src/dice/dice.ts";
@@ -1279,6 +1280,18 @@ function compiledView(c: CompiledRuleset) {
     notices: c.notices.map((n) => ({ ...n, if: exprView(n.if) })),
     reminders: c.reminders.map(exprView),
     immune: mapValues(c.immune, exprView),
+    lookups: mapValues(c.lookups, (l) => ({
+      modifier: exprView(l.modifier),
+      effects: l.effects.map((row) =>
+        row.map((x) => ({
+          when: exprView(x.when),
+          times: exprView(x.times),
+          wounds: exprView(x.wounds),
+          shock: exprView(x.shock),
+          by: exprView(x.by),
+        })),
+      ),
+    })),
   };
 }
 
@@ -1355,6 +1368,51 @@ const TABLES_OK = {
   ]),
 };
 MANIFESTS.push({ ...MINIMAL, tables: TABLES_OK });
+
+// Lookups (house decision #87): inputs, a modifier over the target, an open-ended line, lines past the die, every kind
+// of effect but a hit (harmManifest has no lookup; SAMPLE_HARM's is read by lookupVectors), and a line naming the next.
+const LOOKUP_MANIFEST = {
+  ...MINIMAL,
+  resources: [
+    { id: "hp", label: "H", scope: "entity", max: "10" },
+    { id: "luck", label: "L", scope: "entity", max: "5" },
+    { id: "dread", label: "D", scope: "party", max: "6" },
+  ],
+  conditions: [{ id: "slow", label: "S", duration: "manual", stacking: "stack", maxStacks: 3, immune: "attr.str > 4" }],
+  tables: {
+    look: tbl(
+      "d66",
+      [
+        span("a", 11, 36, {
+          apply: [
+            { kind: "resource", resource: "luck", by: "ctx.on ? 2 : -1" },
+            { kind: "pool", pool: "dread", by: "ctx.n" },
+          ],
+        }),
+        span("b", 41, 56, {
+          apply: [{ kind: "condition", condition: "slow", when: "ctx.on", times: "ctx.n + 1" }],
+          note: "N",
+          cite: "p2",
+          next: "plain",
+        }),
+        span("c", 61, 76, { apply: [{ kind: "pool", pool: "dread", by: "attr.str" }] }),
+        { id: "d", label: "D", range: [81] },
+      ],
+      {
+        visibility: "gm",
+        typedOnly: true,
+        inputs: [
+          { id: "on", label: "On", type: "bool" },
+          { id: "n", label: "N", type: "int", min: 0, max: 3, cite: "p1" },
+        ],
+        modifier: "ctx.n * 10 + attr.dex",
+        entities: ["pc"],
+      },
+    ),
+    plain: tbl("2d6", [span("x", 2, 7), span("y", 8, 12)]),
+  },
+};
+MANIFESTS.push(LOOKUP_MANIFEST);
 
 // House decision #55: campaign fields, the `campaign` root and at().
 const cInt = { type: "int", label: "D", min: 1, max: 5, default: 1, cite: "p1" };
@@ -2232,7 +2290,59 @@ const CRAFTED: object[] = [
   ...offersCrafted(),
   ...reminderCrafted(),
   ...spendCrafted(),
+  ...lookupCrafted(),
 ];
+
+// Lookups (house decision #87): every rule a lookup table can break, one manifest each.
+function lookupCrafted(): object[] {
+  const one = (t: object, over: object = {}) => ({ ...LOOKUP_MANIFEST, ...over, tables: { t } });
+  const line = (apply: object[], over: object = {}) => tbl("d6", [span("a", 1, 6, { apply, ...over })]);
+  const pool = { kind: "pool", pool: "dread", by: "1" };
+  return [
+    one(tbl("d6", [{ id: "a", label: "A", range: [1] }, span("b", 2, 6)])),
+    one(tbl("d6", [span("a", 1, 3), { id: "b", label: "B", range: [4] }])),
+    one(tbl("d6", [span("a", 1, 6), span("b", 7, 8)])),
+    one(tbl("d6", [span("a", 1, 6), span("b", 7, 8)], { modifier: "1" })),
+    one(tbl("d6", [span("a", 1, 6), span("b", 8, 9)], { modifier: "1" })),
+    one(tbl("d66", [...d66Rows, { id: "x", label: "X", range: [71] }], { modifier: "1" })),
+    one(tbl("d66", [...d66Rows, { id: "x", label: "X", range: [81] }], { modifier: "1" })),
+    one(tbl("d66", [...d66Rows, { id: "x", label: "X", range: [76, 72] }], { modifier: "1" })),
+    one(tbl(undefined, [{ id: "a", label: "A", apply: [pool] }])),
+    one({ ...line([pool]), visibility: "owner" }),
+    one({ ...line([pool]), typedOnly: false }),
+    one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "bool", min: 1 }] }),
+    one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "int", min: 3, max: 1 }] }),
+    one({
+      ...line([pool]),
+      inputs: [
+        { id: "x", label: "X", type: "int" },
+        { id: "x", label: "Y", type: "bool" },
+      ],
+    }),
+    one({ ...line([pool]), inputs: [] }),
+    one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "text" }] }),
+    one({ ...line([pool]), entities: ["pc", "nope"] }),
+    one(line([{ kind: "condition", condition: "nope" }])),
+    one(line([{ kind: "resource", resource: "dread", by: "1" }])),
+    one(line([{ kind: "resource", resource: "nope", by: "1" }])),
+    one(line([{ kind: "pool", pool: "luck", by: "1" }])),
+    one(line([{ kind: "harm", wounds: "1" }])),
+    one(line([{ kind: "harm" }])),
+    one(line([{ kind: "nope" }])),
+    one(line([{ kind: "pool", pool: "dread" }])),
+    one(line([pool], { next: "gone" })),
+    one(line([pool], { note: "" })),
+    one(line([])),
+    one(line(Array.from({ length: 9 }, () => pool))),
+    one({ ...line([{ ...pool, by: "true" }]) }),
+    one({ ...line([{ ...pool, when: "1" }]) }),
+    one({ ...line([{ ...pool, times: "ctx.x" }]), inputs: [{ id: "x", label: "X", type: "bool" }] }),
+    one({ ...line([pool]), modifier: "hp > 1" }),
+    one({ ...line([{ ...pool, by: "nope" }]), entities: ["pc"] }),
+    { ...harmManifest(), tables: { t: line([{ kind: "harm", wounds: "1", shock: "2" }]) } },
+    { ...harmManifest(), tables: { t: line([{ kind: "resource", resource: "wounds", by: "1" }]) } },
+  ];
+}
 
 // A Test's marks and offers (house decision #80): one manifest per check.
 function offersCrafted(): object[] {
@@ -3116,6 +3226,49 @@ function reminderVectors() {
   return out;
 }
 
+/** The two lookup manifests lookupVectors reads (house decision #87). */
+const LOOKUP_MANIFESTS: unknown[] = [SAMPLE_HARM, LOOKUP_MANIFEST];
+
+/** Typed results applied to targets of random values (house decision #87): the line, the total and the steps, or why not. */
+function lookupVectors() {
+  const out: unknown[] = [];
+  LOOKUP_MANIFESTS.forEach((manifest, index) => {
+    const r = compileRuleset(manifest);
+    if (!r.ok) throw new Error(`lookup fixture ${index}: ${JSON.stringify(r.problems)}`);
+    const tables = Object.keys(r.compiled.lookups);
+    for (let i = 0; i < 400; i++) {
+      const tableId = rnd(20) === 0 ? "nope" : pick(tables);
+      const d66 = 10 * (1 + rnd(6)) + 1 + rnd(6);
+      const result = pick([d66, d66, d66, 2 + rnd(11), 1 + rnd(6), rnd(80), 2.5]);
+      const inputs: Record<string, unknown> = {};
+      const odd = rnd(8) === 0; // now and then a value the input does not take, or one the table does not declare
+      for (const x of r.compiled.ruleset.tables?.[tableId]?.inputs ?? []) {
+        if (rnd(4) === 0) continue;
+        const fine = x.type === "bool" ? rnd(2) === 0 : (x.min ?? 0) + rnd(1 + (x.max ?? 3) - (x.min ?? 0));
+        inputs[x.id] = odd ? pick([1, "yes", 1.5, 99, true]) : fine;
+      }
+      if (rnd(20) === 0) inputs.nope = true;
+      const fields: Record<string, number> = {};
+      for (const key of ["grit", "hide", "size", "attr.str", "attr.dex"]) if (rnd(12) !== 0) fields[key] = rnd(7);
+      const derived: Record<string, number> = {};
+      for (const key of ["limit", "strainCap"]) if (rnd(12) !== 0) derived[key] = rnd(5);
+      const resources = { wounds: rnd(4) };
+      const scope = actorScope({ fields, derived, resources });
+      out.push({
+        manifest: index,
+        tableId,
+        result,
+        inputs,
+        fields,
+        derived,
+        resources,
+        plan: planLookup({ compiled: r.compiled, tableId, result, inputs, scope }),
+      });
+    }
+  });
+  return out;
+}
+
 /** A condition row's starting count (house decision #81), every combination. */
 function armedVectors() {
   return ConditionDuration.options.flatMap((duration) =>
@@ -3486,6 +3639,8 @@ const vectors = {
   reminderManifests: REMINDER_MANIFESTS,
   reminders: reminderVectors(),
   armed: armedVectors(),
+  lookupManifests: LOOKUP_MANIFESTS,
+  lookups: lookupVectors(),
   views: viewVectors(),
   creationManifest: CREATION_MANIFEST,
   creationEntries: CREATION_ENTRIES,

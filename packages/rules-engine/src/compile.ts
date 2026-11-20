@@ -26,6 +26,7 @@ import {
   type LedgerKind,
   type NoticeWhen,
   type TestOffer,
+  type TableEffect,
 } from "./manifest.ts";
 import { own } from "./own.ts";
 import { declaredPrimitives, opInputKeys } from "./primitives/registry.ts";
@@ -112,6 +113,23 @@ export interface CompiledOffer {
   changes: { pool: string | null; resource: string | null; by: CompiledExpr }[];
 }
 
+/** One effect of a lookup line, its expressions compiled over the target and the inputs (house decision #87). */
+export interface CompiledTableEffect {
+  def: TableEffect;
+  when: CompiledExpr | null;
+  times: CompiledExpr | null;
+  /** The hit's wounds and shock, or the delta of a resource or pool; null where the effect has none. */
+  wounds: CompiledExpr | null;
+  shock: CompiledExpr | null;
+  by: CompiledExpr | null;
+}
+
+/** A table with a die, ready to be read with a typed result: its modifier, and each line's effects by index. */
+export interface CompiledLookup {
+  modifier: CompiledExpr | null;
+  effects: CompiledTableEffect[][];
+}
+
 export interface CompiledTest {
   def: DiceMechanic;
   /** The Test's offers (house decision #80); empty without any. */
@@ -175,6 +193,8 @@ export interface CompiledRuleset {
   reminders: (CompiledExpr | null)[];
   /** Each condition's `immune`, by condition id, for those that have one (house decision #81). */
   immune: Record<string, CompiledExpr>;
+  /** Every table with a die, by table id, as a typed result reads it (house decision #87). */
+  lookups: Record<string, CompiledLookup>;
 }
 
 /** What a reminder's `if` reads beside the combatant's own scope (house decision #81). */
@@ -819,6 +839,8 @@ class Compiler {
     });
     this.spends(actorsOf);
 
+    const lookups = this.lookups(actorsOf);
+
     if (this.problems.length > 0 || scoring === undefined || (ranked !== null && score === null)) return null;
     const b = this.r.build;
     return {
@@ -840,7 +862,43 @@ class Compiler {
       notices,
       reminders,
       immune,
+      lookups,
     };
+  }
+
+  /**
+   * Each table with a die (house decision #87): the modifier and every effect's expressions over the target's scope,
+   * for each actor type the table applies to, with the inputs as `ctx`.
+   */
+  private lookups(
+    actorsOf: (ids: readonly string[] | undefined) => { e: EntityType; ce: CompiledEntity }[],
+  ): Record<string, CompiledLookup> {
+    const out: Record<string, CompiledLookup> = {};
+    for (const [id, t] of Object.entries(this.r.tables ?? {})) {
+      if (t.die === undefined) continue;
+      const ctx: ExprType = { record: Object.fromEntries((t.inputs ?? []).map((x) => [x.id, x.type])) };
+      const scopes = actorsOf(t.entities).map(({ ce }) => ({ ...ce.scope, ctx }));
+      const at = `tables.${id}`;
+      const one = (source: string | undefined, expect: "int" | "bool", path: string) =>
+        source === undefined ? null : this.expr({ source, scopes, expect, path });
+      out[id] = {
+        modifier: one(t.modifier, "int", `${at}.modifier`),
+        effects: t.entries.map((e, i) =>
+          (e.apply ?? []).map((x, j) => {
+            const path = `${at}.entries[${i}].apply[${j}]`;
+            return {
+              def: x,
+              when: one(x.when, "bool", `${path}.when`),
+              times: one(x.times, "int", `${path}.times`),
+              wounds: one(x.kind === "harm" ? x.wounds : undefined, "int", `${path}.wounds`),
+              shock: one(x.kind === "harm" ? x.shock : undefined, "int", `${path}.shock`),
+              by: one(x.kind === "resource" || x.kind === "pool" ? x.by : undefined, "int", `${path}.by`),
+            };
+          }),
+        ),
+      };
+    }
+    return out;
   }
 }
 

@@ -511,23 +511,69 @@ export type Phase = z.infer<typeof Phase>;
 export const TableVisibility = z.enum(["gm", "party", "owner"]);
 export type TableVisibility = z.infer<typeof TableVisibility>;
 
+/** The most effects a row applies, inputs a lookup takes, and times one effect repeats (house decision #87). */
+export const MAX_ROW_EFFECTS = 8;
+export const MAX_LOOKUP_INPUTS = 6;
+export const MAX_EFFECT_TIMES = 20;
+
+const effectBase = {
+  /** Boolean over the inputs (`ctx.<id>`) and the target: the effect applies only when it holds. */
+  when: ExprSource.optional(),
+  /** Integer over the inputs and the target: how many times the effect applies (default 1, at most 20). */
+  times: ExprSource.optional(),
+};
+
 /**
- * One line of a random table. With a `die` it owns the outcomes in `range` (both ends inclusive); without one it has a
- * `weight`. `count` is the copies it adds to a deck that is dealt.
+ * One effect of a lookup row on the target actor (house decision #87), applied through the ordinary operation: a hit
+ * through `health.harm`, a condition as `condition.add`, a resource of the target or a shared pool by delta. Every
+ * amount is an integer expression over the inputs and the target.
+ */
+export const TableEffect = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("harm"), wounds: ExprSource.optional(), shock: ExprSource.optional(), ...effectBase }),
+  z.object({ kind: z.literal("condition"), condition: Id, ...effectBase }),
+  z.object({ kind: z.literal("resource"), resource: Id, by: ExprSource, ...effectBase }),
+  z.object({ kind: z.literal("pool"), pool: Id, by: ExprSource, ...effectBase }),
+]);
+export type TableEffect = z.infer<typeof TableEffect>;
+export type TableEffectKind = TableEffect["kind"];
+
+/** A value the GM sets before applying a lookup, read as `ctx.<id>`: a switch, or a stepper within its bounds. */
+export const TableInput = z.object({
+  id: Id,
+  label: z.string().min(1).max(60),
+  type: z.enum(["bool", "int"]),
+  min: z.int().min(-1000).max(1000).optional(),
+  max: z.int().min(-1000).max(1000).optional(),
+  cite: Cite.optional(),
+});
+export type TableInput = z.infer<typeof TableInput>;
+
+/**
+ * One line of a random table. With a `die` it owns the outcomes in `range` (both ends inclusive; the last line may
+ * leave `to` out and read every total from `from` up); without one it has a `weight`. `count` is the copies it adds to
+ * a deck that is dealt. A lookup's line may `apply` effects to a target, carry the importer's own short `note` and its
+ * page, and name the table the GM goes to `next` (house decision #87).
  */
 export const TableEntry = z.object({
   id: Id,
   label: z.string().min(1).max(80),
-  /** [from, to], both ends inclusive. */
-  range: z.array(z.int().min(-100_000).max(100_000)).min(2).max(2).optional(),
+  /** [from, to], both ends inclusive; [from] on the last line is open-ended. */
+  range: z.array(z.int().min(-100_000).max(100_000)).min(1).max(2).optional(),
   weight: z.int().min(1).max(100).optional(),
   count: z.int().min(1).max(20).optional(),
+  apply: z.array(TableEffect).min(1).max(MAX_ROW_EFFECTS).optional(),
+  note: z.string().min(1).max(200).optional(),
+  cite: Cite.optional(),
+  next: Id.optional(),
 });
 export type TableEntry = z.infer<typeof TableEntry>;
 
 /**
  * A random table (design §3.4): rolled on a `die` whose outcomes the ranges tile exactly, or by weight; or dealt
- * without replacement to characters. Never book text: the labels are the importer's own short words.
+ * without replacement to characters. Never book text: the labels are the importer's own short words. A table with a
+ * die may be a lookup (house decision #87): `typedOnly` takes the GM's typed result and is never rolled, `inputs` are
+ * set before applying, `modifier` is added to the result before a line is read, and `entities` are the actor types it
+ * applies to.
  */
 export const RandomTable = z.object({
   title: z.string().min(1).max(80),
@@ -536,6 +582,10 @@ export const RandomTable = z.object({
   entries: z.array(TableEntry).max(200),
   visibility: TableVisibility,
   cite: Cite.optional(),
+  typedOnly: z.boolean().optional(),
+  inputs: z.array(TableInput).min(1).max(MAX_LOOKUP_INPUTS).optional(),
+  modifier: ExprSource.optional(),
+  entities: z.array(Id).min(1).max(50).optional(),
 });
 export type RandomTable = z.infer<typeof RandomTable>;
 
@@ -1006,7 +1056,9 @@ export const MAX_TABLE_OUTCOMES = 10_000;
  * What a table die can roll: plain `NdX` (the sum, count..count*X) or a single `d66` (11-66, no digit above 6 or
  * below 1). Null for anything else, or for a die with more than MAX_TABLE_OUTCOMES outcomes.
  */
-export function tableDie(notation: string): { min: number; max: number; has: (v: number) => boolean } | null {
+export function tableDie(
+  notation: string,
+): { min: number; max: number; has: (v: number) => boolean; shaped: (v: number) => boolean } | null {
   const parsed = parseDice(notation);
   if (!parsed.ok || parsed.dice.terms.length !== 1) return null;
   const [t] = parsed.dice.terms;
@@ -1014,22 +1066,39 @@ export function tableDie(notation: string): { min: number; max: number; has: (v:
   if (t.keep !== null || t.explode || t.successAt !== null || t.sign !== 1) return null;
   if (t.die === "d66") {
     if (t.count !== 1) return null;
-    return { min: 11, max: 66, has: (v) => v >= 11 && v <= 66 && v % 10 >= 1 && v % 10 <= 6 };
+    const shaped = (v: number) => v % 10 >= 1 && v % 10 <= 6;
+    return { min: 11, max: 66, has: (v) => v >= 11 && v <= 66 && shaped(v), shaped };
   }
   const min = t.count;
   const max = t.count * t.die;
   if (max - min + 1 > MAX_TABLE_OUTCOMES) return null;
-  return { min, max, has: (v) => v >= min && v <= max };
+  return { min, max, has: (v) => v >= min && v <= max, shaped: () => true };
 }
 
-/** A die's ranges tile its outcomes exactly: no gap, no overlap, nothing outside; no die means weights, no ranges. */
-function tableProblems({ id, t, out }: { id: string; t: RandomTable; out: Problem[] }): void {
+/** Whether a table declares anything of a lookup (house decision #87). */
+export function isLookup(t: RandomTable): boolean {
+  return (
+    t.typedOnly !== undefined ||
+    t.inputs !== undefined ||
+    t.modifier !== undefined ||
+    t.entities !== undefined ||
+    t.entries.some((e) => e.apply !== undefined || e.next !== undefined)
+  );
+}
+
+/**
+ * A die's ranges tile its outcomes exactly: no gap, no overlap, nothing outside; no die means weights, no ranges. The
+ * last line may be open-ended, and a table with a modifier may have lines above the die, shaped like it (a d66 line
+ * above 66 still ends its numbers in 1 to 6), which its modified totals reach (house decision #87).
+ */
+function tableProblems({ id, t, r, out }: { id: string; t: RandomTable; r: Ruleset; out: Problem[] }): void {
   const path = `tables.${id}`;
   if (t.entries.length === 0) {
     out.push({ path: `${path}.entries`, message: "a table needs an entry" });
     return;
   }
   duplicates({ ids: t.entries.map((e) => e.id), path: `${path}.entries`, out });
+  lookupProblems({ id, t, r, out });
   if (t.die === undefined) {
     t.entries.forEach((e, i) => {
       if (e.range !== undefined)
@@ -1042,6 +1111,13 @@ function tableProblems({ id, t, out }: { id: string; t: RandomTable; out: Proble
     out.push({ path: `${path}.die`, message: "a table die is plain NdX or d66, with at most 10000 outcomes" });
     return;
   }
+  const above = t.modifier !== undefined; // lines past the die are reached only by a modified total
+  const last = t.entries.length - 1;
+  const top = Math.max(
+    die.max,
+    ...t.entries.map((e) => (above && e.range !== undefined ? (e.range[1] ?? e.range[0] ?? 0) : die.max)),
+  );
+  const counts = (v: number) => v >= die.min && v <= top && die.shaped(v);
   const owner = new Map<number, number>(); // outcome → the first entry that has it
   t.entries.forEach((e, i) => {
     const at = `${path}.entries[${i}]`;
@@ -1050,15 +1126,20 @@ function tableProblems({ id, t, out }: { id: string; t: RandomTable; out: Proble
       out.push({ path: `${at}.range`, message: "an entry of a table with a die needs a range" });
       return;
     }
-    const [lo = 0, hi = 0] = e.range; // the schema holds it to two numbers
+    const [lo = 0] = e.range;
+    if (e.range.length === 1 && i !== last) {
+      out.push({ path: `${at}.range`, message: "only the last entry may leave its upper bound out" });
+      return;
+    }
+    const hi = e.range.length === 1 ? top : (e.range[1] ?? 0);
     if (hi < lo) {
       out.push({ path: `${at}.range`, message: "to is below from" });
-    } else if (lo < die.min || hi > die.max) {
+    } else if (lo < die.min || (!above && hi > die.max)) {
       out.push({ path: `${at}.range`, message: `outside the die (${die.min} to ${die.max})` });
     } else {
       let clash = -1;
       for (let v = lo; v <= hi; v++) {
-        if (!die.has(v)) continue;
+        if (!counts(v)) continue;
         const prev = owner.get(v);
         if (prev === undefined) owner.set(v, i);
         else if (clash < 0) clash = prev;
@@ -1066,11 +1147,61 @@ function tableProblems({ id, t, out }: { id: string; t: RandomTable; out: Proble
       if (clash >= 0) out.push({ path: `${at}.range`, message: `overlaps entries[${clash}]` });
     }
   });
-  for (let v = die.min; v <= die.max; v++) {
-    if (!die.has(v) || owner.has(v)) continue;
+  for (let v = die.min; v <= top; v++) {
+    if (!counts(v) || owner.has(v)) continue;
     out.push({ path: `${path}.entries`, message: `no entry for ${v}` });
     break;
   }
+}
+
+/** A lookup's parts name what the ruleset has, and only a rolled table with a die is one (house decision #87). */
+function lookupProblems({ id, t, r, out }: { id: string; t: RandomTable; r: Ruleset; out: Problem[] }): void {
+  const path = `tables.${id}`;
+  if (!isLookup(t)) return;
+  if (t.die === undefined) out.push({ path: `${path}.die`, message: "a lookup needs a die" });
+  if (t.visibility === "owner") out.push({ path: `${path}.visibility`, message: "a dealt table is not a lookup" });
+  duplicates({ ids: (t.inputs ?? []).map((x) => x.id), path: `${path}.inputs`, out });
+  t.inputs?.forEach((x, i) => {
+    const at = `${path}.inputs[${i}]`;
+    if (x.type === "bool" && (x.min !== undefined || x.max !== undefined))
+      out.push({ path: at, message: "a switch has no bounds" });
+    if (x.min !== undefined && x.max !== undefined && x.max < x.min)
+      out.push({ path: `${at}.max`, message: "max is below min" });
+  });
+  const actors = new Set(r.entities.filter((e) => e.base === "actor").map((e) => e.id));
+  t.entities?.forEach((e, i) => {
+    if (!actors.has(e)) out.push({ path: `${path}.entities[${i}]`, message: `unknown actor type "${e}"` });
+  });
+  const harm = r.health.harm;
+  const hitOnly = new Set([...r.health.tracks.map((x) => x.resource), harm?.wounds, harm?.shock, harm?.mob?.members]);
+  t.entries.forEach((e, i) => {
+    const at = `${path}.entries[${i}]`;
+    if (e.next !== undefined && !Object.hasOwn(r.tables ?? {}, e.next))
+      out.push({ path: `${at}.next`, message: `unknown table "${e.next}"` });
+    e.apply?.forEach((x, j) => {
+      const where = `${at}.apply[${j}]`;
+      if (x.kind === "harm") {
+        if (harm === undefined) out.push({ path: where, message: "a hit needs health.harm" });
+        if (x.wounds === undefined && x.shock === undefined)
+          out.push({ path: where, message: "a hit takes wounds or shock" });
+        if (x.shock !== undefined && harm !== undefined && harm.shock === undefined)
+          out.push({ path: `${where}.shock`, message: "this ruleset has no shock" });
+      } else if (x.kind === "condition") {
+        if (!r.conditions.some((c) => c.id === x.condition))
+          out.push({ path: `${where}.condition`, message: `unknown condition "${x.condition}"` });
+      } else if (x.kind === "resource") {
+        const res = r.resources.find((y) => y.id === x.resource);
+        if (res?.scope !== "entity")
+          out.push({ path: `${where}.resource`, message: `"${x.resource}" is not a resource an actor carries` });
+        else if (hitOnly.has(x.resource))
+          out.push({ path: `${where}.resource`, message: `only a hit moves "${x.resource}"` });
+      } else {
+        const res = r.resources.find((y) => y.id === x.pool);
+        if (res === undefined || res.scope === "entity")
+          out.push({ path: `${where}.pool`, message: `"${x.pool}" is not a shared pool` });
+      }
+    });
+  });
 }
 
 /** Steps name real actor entities, pack entity types and fields, and no field has two writers. */
@@ -1680,7 +1811,7 @@ function semanticProblems(r: Ruleset): Problem[] {
   r.phases?.forEach((x, i) => needCite(x.cite, `phases[${i}]`));
   for (const [id, t] of Object.entries(r.tables ?? {})) {
     needCite(t.cite, `tables.${id}`);
-    tableProblems({ id, t, out });
+    tableProblems({ id, t, r, out });
   }
   if (r.scoring) {
     needCite(r.scoring.cite, "scoring");

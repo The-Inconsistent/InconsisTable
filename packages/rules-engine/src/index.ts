@@ -22,6 +22,8 @@ export {
   type CompiledScoring,
   type CompiledRuleset,
   type CompiledTest,
+  type CompiledLookup,
+  type CompiledTableEffect,
   type CompileResult,
 } from "./compile.ts";
 export {
@@ -84,3 +86,13 @@ export * from "./breakdown.ts";
 export * from "./build/index.ts";
 export * from "./world.ts";
 export * from "./widgets.ts";
+export {
+  immuneTo,
+  lookupInputs,
+  planLookup,
+  readLookup,
+  rowOf,
+  type LookupPlan,
+  type LookupRefusal,
+  type LookupStep,
+} from "./lookups.ts";

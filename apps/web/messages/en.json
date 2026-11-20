@@ -28,6 +28,91 @@
       "felt": "Felt"
     }
   },
+  "world": {
+    "scheme": {
+      "label": "Colours",
+      "name": {
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    },
+    "dev": {
+      "title": "A World's look",
+      "lede": "A stand-in table wearing an invented World. Each control changes one pick; the colour switch in the band is this device's own.",
+      "controls": "Picks",
+      "world": "World",
+      "worlds": {
+        "base": "Base (nothing changed)",
+        "meadow": "Meadow (bright, rounded)",
+        "hoarfrost": "Hoarfrost (cold, square)"
+      },
+      "sets": "Colour sets",
+      "set": {
+        "both": "Both",
+        "light": "Light only",
+        "dark": "Dark only"
+      },
+      "density": "Density",
+      "densityName": {
+        "table": "Table",
+        "tv": "TV"
+      },
+      "baseFace": "base",
+      "tabs": "Sections",
+      "tab": {
+        "fight": "Fight",
+        "sheet": "Sheet",
+        "notes": "Notes"
+      },
+      "round": "Round {round}",
+      "nextTurn": "Next turn",
+      "endFight": "End fight",
+      "yourTurn": "Your turn",
+      "order": "Turn order",
+      "names": {
+        "first": "Ada Marrow",
+        "second": "The Grey Warden"
+      },
+      "firstPlayer": "First",
+      "party": "Party",
+      "foe": "Foe",
+      "acting": "Acting",
+      "bloodied": "Down",
+      "health": "Health {now} of {max}",
+      "cardText": "A short line of running text, to see how the body face reads at arm's length.",
+      "chip": {
+        "ready": "Ready",
+        "hidden": "Hidden",
+        "pressed": "Marked"
+      },
+      "button": {
+        "plain": "Show",
+        "main": "Confirm",
+        "small": "Small",
+        "pressed": "On",
+        "disabled": "Unavailable",
+        "step": "Add one",
+        "sheet": "Open the sheet"
+      },
+      "field": "Name on the card",
+      "fieldValue": "ada marrow",
+      "machine": "seat 3 · health -4 · 21:04:17",
+      "section": {
+        "abilities": "Abilities",
+        "notes": "Notes"
+      },
+      "stat": {
+        "health": "Health",
+        "defence": "Defence",
+        "speed": "Speed"
+      },
+      "notes": "Running text in a section stays as written: never in capitals, whatever the headings do.",
+      "buttons": "Buttons",
+      "sheetTitle": "Where this number comes from",
+      "sheetText": "A bottom sheet rises from the edge, on the card colours."
+    }
+  },
   "roles": {
     "gm": "GM",
     "cogm": "Co-GM",

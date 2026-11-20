@@ -55,7 +55,8 @@ All must pass before you report done: `bun run typecheck`, `bun run lint`, `bun 
 and the smoke test when the api changed. The Husky pre-commit hook runs on commit; never use `--no-verify`.
 
 **A cheaper model runs them.** Do not run the full gates yourself: hand each full run to a Haiku subagent
-(`model: "haiku"`) with the exact commands (or a script), and ask it for nothing but pass or fail per gate, the counts
+(`model: "haiku"`) with the exact commands (`scripts/gates.sh <a free port>` runs them all, the smoke suite included,
+on its own throwaway databases), and ask it for nothing but pass or fail per gate, the counts
 (unit tests, Go packages, smoke cases) and the output of whatever failed. Reading a failure and fixing it stays with
 you, and so does a quick run of one package or one test file while you work on it.
 

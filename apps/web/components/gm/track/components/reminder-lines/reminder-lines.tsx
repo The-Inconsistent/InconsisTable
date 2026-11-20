@@ -5,6 +5,7 @@ import { EncounterReminder, type Encounter } from "@inconsistable/core-schema";
 import type { SidesInitiative } from "@inconsistable/rules-engine";
 
 import type { Run } from "@/components/gm/track/constants";
+import { endingThisTurn } from "@/lib/reminders/reminders";
 
 type ReminderLinesProps = {
   encounter: Encounter;
@@ -20,8 +21,12 @@ export function ReminderLines({ encounter, sides, run }: ReminderLinesProps) {
   const t = useTranslations("reminders");
   const setup = encounter.begun === false && sides !== undefined;
   const lines = encounter.reminders ?? [];
+  // A timed condition that ends with this turn needs no declaration: the count already says it (house decision #81).
+  const ending = endingThisTurn(encounter);
+  const acting = encounter.combatants.find((c) => c.id === encounter.currentId);
   const barring = setup && sides.barred !== undefined && encounter.round <= sides.barred.throughRound;
-  if (!(setup && (sides.setup?.note !== undefined || barring)) && lines.length === 0) return null;
+  if (!(setup && (sides.setup?.note !== undefined || barring)) && lines.length === 0 && ending.length === 0)
+    return null;
   const nameOf = new Map(encounter.combatants.map((c) => [c.actorId, c.name]));
   const bar = (side: string, barred: boolean) => () =>
     run({ type: "rule.op", primitive: "initiative.sides", op: "bar", input: { side, barred } });
@@ -45,7 +50,8 @@ export function ReminderLines({ encounter, sides, run }: ReminderLinesProps) {
       )}
       {EncounterReminder.shape.at.options.map((at) => {
         const due = lines.filter((l) => l.at === at);
-        if (due.length === 0) return null;
+        const endingHere = at === "turnEnd" && ending.length > 0;
+        if (due.length === 0 && !endingHere) return null;
         return (
           <div key={at} className="stack">
             <strong className="small">{t(at)}</strong>
@@ -61,6 +67,14 @@ export function ReminderLines({ encounter, sides, run }: ReminderLinesProps) {
                   {l.cite !== null && <span className="dim small">{l.cite}</span>}
                 </li>
               ))}
+              {endingHere && (
+                <li data-reminder="ending">
+                  <span>
+                    {acting !== undefined && <b>{t("names", { names: acting.name })} </b>}
+                    {t("endsThisTurn", { conditions: ending.join(", ") })}
+                  </span>
+                </li>
+              )}
             </ul>
           </div>
         );

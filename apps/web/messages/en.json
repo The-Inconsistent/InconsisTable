@@ -960,7 +960,8 @@
     "turnStart": "At the start of this turn",
     "turnEnd": "At the end of this turn",
     "roundEnd": "At the end of the round",
-    "names": "{names}:"
+    "names": "{names}:",
+    "endsThisTurn": "{conditions} ends this turn"
   },
   "orderList": {
     "label": "Turn order",

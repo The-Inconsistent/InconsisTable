@@ -1781,6 +1781,40 @@ test("importer: a layout's widget rows import, and an unknown widget or value is
   );
 });
 
+// House decision #90 on the sides fixture: its setup checklist imports and is read back by the GM through the
+// seat-scoped rules route, never by a player; a step counting what the ruleset lacks is refused at its path.
+test("importer: a setup checklist imports, reaches the GM's seat only, and is refused at its path (#90)", async () => {
+  const ownerDevice = await device("checklist-owner");
+  const me = caller(ownerDevice);
+  const bad = structuredClone(SAMPLE_SKIRMISH);
+  bad.checklist = [
+    { id: "a", label: "A", cite: "Sample p.1", done: { count: "entries", kind: "faction", field: "nope" } },
+    { id: "b", label: "B", cite: "Sample p.1", done: { count: "sessions" }, goto: { tab: "party", kind: "npc" } },
+  ];
+  const refused = await me.post<PackReply>("/rulesets", bad);
+  assert.equal(refused.status, 422);
+  assert.deepEqual(
+    refused.body.problems?.map((p) => p.path),
+    ["checklist[0].done.field", "checklist[1].goto.kind"],
+  );
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_SKIRMISH);
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Checklist", rulesetVersionId: rs.body.versionId })
+  ).body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  const playerDevice = await seatPlayer(owner, "checklist-player");
+  type Listed = { checklist?: { id: string; done: { count: string } }[] };
+  const listOf = async (c: ReturnType<typeof caller>) =>
+    ((await c.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset?.manifest as Listed).checklist;
+  assert.deepEqual(
+    (await listOf(me))?.map((s) => [s.id, s.done.count]),
+    SAMPLE_SKIRMISH.checklist?.map((s) => [s.id, s.done.count]),
+  );
+  assert.equal(await listOf(caller(playerDevice)), undefined);
+  owner.socket.close();
+});
+
 test("importer: a ruleset and a pack are stored once, a re-import reports its diff, bad files are refused by path", async () => {
   assert.equal((await post("/rulesets", SAMPLE_D20)).status, 401);
   assert.equal((await post("/packs", SAMPLE_PACK)).status, 401);

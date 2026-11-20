@@ -686,6 +686,18 @@
     "testInProgress": "Đang có Test",
     "rolledCount": "{test}: {reported}/{called} người đã đổ"
   },
+  "checklist": {
+    "title": "Chuẩn bị",
+    "progress": "Xong {done}/{count} bước · đánh dấu theo phòng, không lưu lại",
+    "fold": "Thu gọn",
+    "show": "Xem các bước",
+    "done": "Xong",
+    "toDo": "Chưa xong",
+    "next": "Tiếp theo",
+    "optional": "Tuỳ chọn",
+    "now": "Hiện có: {count}",
+    "goTo": "{step}: đi tới {place}"
+  },
   "gmApp": {
     "campaigns": "← Campaign",
     "tabsLabel": "Tab GM",

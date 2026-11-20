@@ -12,6 +12,8 @@ var NoticeParams = map[string][]string{
 	"poolFull":    {"pool", "lost"},
 	"restSkipped": {"names", "count"},
 	"rule":        {"rule", "name"},
+	// sessionDeleted: what the session awarded stays with the characters (house decision #85).
+	"sessionDeleted": {"number"},
 }
 
 // Notice is one line an accepted action's answer tells the seat that sent it, and no one else. Text is a ruleset's
@@ -31,6 +33,11 @@ func PoolFull(label string, lost float64) Notice {
 // state (house decision #81): names in name order, joined with ", ".
 func RestSkipped(names []string) Notice {
 	return Notice{Code: "restSkipped", Params: Params{"names": strings.Join(names, ", "), "count": len(names)}}
+}
+
+// SessionDeleted is the notice that session number was deleted.
+func SessionDeleted(number int) Notice {
+	return Notice{Code: "sessionDeleted", Params: Params{"number": number}}
 }
 
 // RuleNotice is a ruleset's notice rule raised for one actor.

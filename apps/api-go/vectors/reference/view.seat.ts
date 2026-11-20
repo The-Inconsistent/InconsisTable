@@ -379,6 +379,9 @@ function seatState({
     session: state.session && { ...state.session, notes: sight.session ? state.session.notes : "" },
     tests: seatTests({ tests: state.tests, ctx, sight }),
     testDefs: sight.session || sight.tableRun ? state.testDefs : [],
+    // The GM's journal (house decision #85): the seats that run the room; the notes only to the session side.
+    journal:
+      sight.session || sight.tableRun ? state.journal.map((s) => ({ ...s, notes: sight.session ? s.notes : "" })) : [],
     encounter: seatEncounter({ encounter: state.encounter, views, sight }),
     access: {
       ...state.access,

@@ -142,6 +142,9 @@ var ActionSchema = schema.Union("type",
 		schema.Opt("recap", recap),
 		schema.Opt("notes", schema.String().Max(10_000)),
 	),
+	// No award step, and deleting only the latest ended session (house decision #85).
+	variant("session.abandon", schema.Def("recap", recap, "")),
+	variant("session.delete", schema.Req("sessionId", id)),
 
 	variant("actor.create",
 		schema.Def("kind", schema.Enum(actorKinds...), "pc"),
@@ -357,6 +360,8 @@ var ActionPerms = map[string]string{
 	"session.start":           "session:run",
 	"session.end":             "session:run",
 	"session.edit":            "session:run",
+	"session.abandon":         "session:run",
+	"session.delete":          "session:run",
 	"actor.create":            "character:create",
 	"actor.build":             "character:edit:own",
 	"build.save":              "character:edit:own",

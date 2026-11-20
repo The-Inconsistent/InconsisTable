@@ -37,6 +37,10 @@ export const REFUSALS = {
   sessionNotFound: "Session not found",
   startSessionFirst: "Start a session first",
   sessionPaused: "Start a session to continue",
+  notLatestSession: "Only the latest session can be deleted",
+  endSessionFirst: "End the session before deleting it",
+  recapAtSessionEnd: "A running session's recap is written when it ends",
+  noNextSession: "No next session is set",
   noRuleset: "This game has no ruleset yet",
   // Members, invites
   inviteExpired: "This invite has expired or was already used. Ask your GM for a new one",

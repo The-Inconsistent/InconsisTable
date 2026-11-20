@@ -52,7 +52,7 @@ func TouchesOf(a cs.Action) Touches {
 		return Touches{State: true, Codex: true} // a clock about the deleted entry loses its link
 	case strings.HasPrefix(t, "codex."):
 		return Touches{Codex: true}
-	case t == "session.end" || t == "session.edit":
+	case t == "session.end" || t == "session.edit" || t == "session.abandon" || t == "session.delete":
 		return Touches{State: true, Codex: true} // the recaps ride the codex snapshot
 	case t == "actor.delete":
 		return Touches{State: true, Codex: true} // a deleted character can empty a private handout's audience
@@ -221,6 +221,8 @@ var handlers = map[string]handler{
 	"session.start":      campaign.SessionStart,
 	"session.end":        campaign.SessionEnd,
 	"session.edit":       campaign.SessionEdit,
+	"session.abandon":    campaign.SessionAbandon,
+	"session.delete":     campaign.SessionDelete,
 	// campaign/rules.actions.ts
 	"campaign.setRuleset":   campaign.SetRuleset,
 	"campaign.unpinRuleset": campaign.UnpinRuleset,

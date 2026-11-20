@@ -614,6 +614,73 @@ test("recaps: an ended session's recap reaches every seat, the GM corrects it, n
   for (const c of [owner, ana, screen]) c.socket.close();
 });
 
+test("sessions: end without an award, delete the latest, the journal reaches the GM only (house decision #85)", async () => {
+  const { owner, campaignId } = await newRoom("Journal");
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-jou") } });
+  await ana.until(() => true);
+
+  refused(await owner.send({ type: "session.abandon" }), "noSessionRunning");
+  const one = ok(await owner.send({ type: "session.start", title: "One" })).id!;
+  refused(await owner.send({ type: "session.edit", sessionId: one, recap: "early" }), "recapAtSessionEnd");
+  ok(await owner.send({ type: "session.edit", sessionId: one, notes: "the twist" }));
+  refused(await ana.send({ type: "session.abandon" }), "noPermission");
+  ok(await owner.send({ type: "session.abandon", recap: "Rained off." }));
+  const two = ok(await owner.send({ type: "session.start", title: "Two" })).id!;
+  refused(await owner.send({ type: "session.delete", sessionId: two }), "endSessionFirst");
+  ok(await owner.send({ type: "session.end", recap: "We met." }));
+  refused(await owner.send({ type: "session.delete", sessionId: one }), "notLatestSession");
+  refused(await ana.send({ type: "session.delete", sessionId: two }), "noPermission");
+
+  const gm = await owner.until((s) => s.journal.length === 2 && s.journal[0]!.endedAt !== null);
+  assert.deepEqual(
+    gm.journal.map((s) => [s.id, s.number, s.title, s.recap, s.notes, s.abandoned]),
+    [
+      [two, 2, "Two", "We met.", "", false],
+      [one, 1, "One", "Rained off.", "the twist", true],
+    ],
+    "newest first, the abandoned one marked, the notes the GM's",
+  );
+  const seen = await ana.until((s) => s.session === null);
+  assert.deepEqual(seen.journal, [], "a player receives no journal");
+  assert.ok(!JSON.stringify(seen).includes("the twist"), "nor any GM notes");
+  await eventually(() => ana.codex()?.recaps.length === 2, "the recaps still reach the player");
+
+  const deleted = ok(await owner.send({ type: "session.delete", sessionId: two }));
+  assert.deepEqual(deleted.notices, [{ code: "sessionDeleted", params: { number: 2 } }]);
+  await owner.until((s) => s.journal.length === 1 && s.journal[0]!.id === one);
+  await eventually(() => ana.codex()?.recaps.length === 1, "the deleted session's recap is gone");
+  for (const c of [owner, ana]) c.socket.close();
+});
+
+test("the next session as a calendar file: any seat, 404 until a date is set, 3 hours", async () => {
+  const { owner, campaignId, ownerDevice } = await newRoom("Calendar");
+  const anaDevice = await seatPlayer(owner, "ana-ics");
+  const ics = (cookie?: string) =>
+    get(`/campaigns/${campaignId}/next.ics`, { ...(cookie ? { cookie } : {}), "cf-connecting-ip": nextSocketIp() });
+
+  assert.equal((await ics(anaDevice)).status, 404, "no date yet");
+  ok(
+    await owner.send({
+      type: "campaign.update",
+      nextSessionAt: "2026-12-05T19:30:00+07:00",
+      nextSessionPlace: "Ana's",
+    }),
+  );
+  for (const cookie of [anaDevice, ownerDevice]) {
+    const res = await ics(cookie);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("content-type") ?? "", /^text\/calendar/);
+    const text = await res.text();
+    assert.match(text, /\r\nDTSTART:20261205T123000Z\r\n/);
+    assert.match(text, /\r\nDTEND:20261205T153000Z\r\n/);
+    assert.match(text, /\r\nSUMMARY:Calendar · Session 1\r\n/);
+    assert.match(text, /\r\nLOCATION:Ana's\r\n/);
+  }
+  assert.equal((await ics()).status, 401, "no seat, no file");
+  assert.equal((await ics(await device("stranger-ics"))).status, 401, "a stranger has no seat here");
+  owner.socket.close();
+});
+
 test("invites and guest tokens: revoke, issue, and revoking drops the guest", async () => {
   const { owner, campaignId } = await newRoom("Tokens");
   const anaDevice = await seatPlayer(owner, "ana-tok");

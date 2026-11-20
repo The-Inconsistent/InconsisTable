@@ -85,8 +85,13 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 		return cs.Result{}, cs.Fail("notPlaceable", cs.Params{"name": entry.Name})
 	}
 
+	// The name the creatures take: the caller's, in the entry's place (house decision #75), numbered the same way.
+	base := entry.Name
+	if name := a.Str("name"); name != "" {
+		base = name
+	}
 	rows, err := tx.Query(ctx, `SELECT name FROM actor WHERE campaign_id = $1 AND starts_with(name, $2)`,
-		cid, sliceUnits(entry.Name, maxName-4)+" ")
+		cid, sliceUnits(base, maxName-4)+" ")
 	if err != nil {
 		return cs.Result{}, err
 	}
@@ -96,7 +101,7 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	}
 	count, _ := a["count"].(float64)
 	temporary, _ := a["temporary"].(bool)
-	names := SpawnNames(taken, entry.Name, int(count))
+	names := SpawnNames(taken, base, int(count))
 	body := entry.Body
 	var members map[string]float64
 	// A mob (house decision #66): one actor standing for N members, its start field and members resource at N.
@@ -109,7 +114,7 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 			return cs.Result{}, cs.Fail("noMobsHere", cs.Params{"name": entry.Name})
 		}
 		n := strconv.FormatFloat(mob, 'f', -1, 64)
-		names = []string{sliceUnits(entry.Name, maxName-len(n)-2) + " ×" + n}
+		names = []string{sliceUnits(base, maxName-len(n)-2) + " ×" + n}
 		body = map[string]any{harm.Mob.Start: mob}
 		maps.Copy(body, entry.Body)
 		body[harm.Mob.Start] = mob
@@ -131,7 +136,8 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	if err != nil {
 		return cs.Result{}, err
 	}
-	// A fight is on: the creatures join it, unseen by the table until the GM shows them.
+	// A fight is on: the creatures join it as the caller asked the table to see them, hidden unless it said otherwise.
+	// With no fight nothing is kept of it: a creature's fight settings are made when it joins one (house decision #75).
 	fight, err := turn.Active(ctx, tx, cid)
 	if err != nil {
 		return cs.Result{}, err
@@ -142,7 +148,7 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 		if i := rules.Ruleset.Initiative; i != nil && i.Strategy == "sides" {
 			side = ""
 		}
-		if err := encounter.AddCombatants(ctx, tx, cid, fight.ID, made, side, "hidden"); err != nil {
+		if err := encounter.AddCombatants(ctx, tx, cid, fight.ID, made, side, a.Str("visibility")); err != nil {
 			return cs.Result{}, err
 		}
 	}

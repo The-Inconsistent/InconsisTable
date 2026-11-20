@@ -738,7 +738,7 @@ const VALID: Record<string, Record<string, unknown>> = {
   "actor.build": { actorId: ID, answers: { name: "x", n: 1 } },
   "build.save": { actorId: ID, build: '{"tier":1,"archetypeId":"a"}', draft: true },
   "build.ascend": { kind: "milestone", waivePackage: true },
-  "actor.spawn": { packVersionId: ID, key: "goblin", count: 3, temporary: true },
+  "actor.spawn": { packVersionId: ID, key: "goblin", count: 3, temporary: true, visibility: "bar", name: " Wisps " },
   "draft.save": { body: { actorId: ID, answers: { a: [1, 2] } } },
   "draft.discard": {},
   "actor.rename": { id: ID, name: "New" },
@@ -939,6 +939,15 @@ for (const [kind, sample] of Object.entries(LINES)) {
   }
 }
 for (const count of [0, 1, 50, 51]) prepSave({ roster: [{ ...LINES.roster, count }] });
+// A Test line's taker picked when it is sent (house decision #75).
+for (const takers of ["party", "listed", "pick", "each", ""]) prepSave({ tests: [{ ...LINES.tests, takers }] });
+// actor.spawn (house decision #75): up to 50, every view and hidden when none is said, a name of 1 to 80 trimmed.
+const spawn = { type: "actor.spawn", packVersionId: ID, key: "goblin" };
+for (const count of [1, 20, 21, 49, 50, 51]) record("Action", { ...spawn, count });
+for (const visibility of ["hidden", "bar", "full", "stats", undefined])
+  record("Action", { ...spawn, count: 1, visibility });
+for (const name of ["", " ", " a ", "x".repeat(80), "x".repeat(81), ` ${"x".repeat(80)} `])
+  record("Action", { ...spawn, count: 1, name });
 for (const mob of [1, 2, 500, 501]) prepSave({ roster: [{ ...LINES.roster, mob }] });
 for (const amount of [-1001, -1000, -1, 0, 1, 1000, 1001, 1.5]) prepSave({ pools: [{ ...LINES.pools, amount }] });
 for (const n of [6, 7]) {

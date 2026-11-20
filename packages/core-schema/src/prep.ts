@@ -36,8 +36,9 @@ export const RosterLine = z.object({
 });
 export type RosterLine = z.infer<typeof RosterLine>;
 
-// Who takes a prepared Test: the characters holding a seat when it is sent, or the listed actors.
-export const TestTakers = z.enum(["party", "listed"]);
+// Who takes a prepared Test: the characters holding a seat when it is sent, the listed actors, or the one seated
+// character the GM picks when it is sent (house decision #75).
+export const TestTakers = z.enum(["party", "listed", "pick"]);
 export type TestTakers = z.infer<typeof TestTakers>;
 
 export const TestLine = z.object({

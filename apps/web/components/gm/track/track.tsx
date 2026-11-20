@@ -68,11 +68,12 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
 
   // RUN: sends one action, keeps the api's refusal with where it came from (a combatant's panel, or null for the
   // tracker), and says whether it went through.
-  const runFrom = (from: string | null) => async (action: ActionInput) => {
+  const askFrom = (from: string | null) => async (action: ActionInput) => {
     const r = await send(action);
     setRefusal(afterAnswer({ result: r, from }));
-    return r.ok;
+    return r;
   };
+  const runFrom = (from: string | null) => async (action: ActionInput) => (await askFrom(from)(action)).ok;
   const run = runFrom(null);
 
   // CORRECT: the GM fixes one score of the newest game; the server ranks the game again.
@@ -229,14 +230,21 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
       {/* Clocks need no fight and no session: they sit under the order, always usable. */}
       <ClocksPanel clocks={state.clocks} entries={entries} run={run} />
       <PoolsPanel pools={state.pools} me={me} send={send} />
-      <TablesPanel
-        tables={rules?.tables ?? {}}
-        rolls={state.rolls}
-        dealt={state.dealt}
-        actors={state.actors}
-        hasGm={me.tableMode === "gm"}
-        run={run}
-      />
+      {rules && (
+        <TablesPanel
+          ruleset={rules}
+          compiled={compiled}
+          rolls={state.rolls}
+          dealt={state.dealt}
+          actors={state.actors}
+          fighting={encounter?.combatants.map((c) => c.actorId) ?? []}
+          hasGm={me.tableMode === "gm"}
+          campaign={state.campaign.fields}
+          books={sheet.books}
+          requestPage={sheet.requestPage}
+          ask={askFrom(null)}
+        />
+      )}
       {/* A board game's players, automa included, are characters: there are no creatures to spawn. */}
       {mode === "fight" && <Creatures campaignId={state.campaign.id} send={send} />}
     </>

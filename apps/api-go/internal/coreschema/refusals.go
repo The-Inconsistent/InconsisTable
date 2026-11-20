@@ -197,6 +197,8 @@ var refusals = map[string]string{
 	"noSuchSpend":               "That can't be spent here.",
 	"spendNotNow":               "That can't be done now.",
 	"usedThisRound":             "Already used this round: {detail}.",
+	"noSuchOption":              "The ruleset has no such spawn option: {detail}.",
+	"optionNotHere":             "That option can't be taken here: {detail}.",
 	"spendAsked":                "Already asked for that: wait for the GM or cancel it.",
 	"requestKind":               "Ask for a resource and an amount, or for a spend.",
 	"nothingToUndo":             "Nothing to undo",

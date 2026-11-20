@@ -1384,6 +1384,8 @@
     "noSuchSpend": "Không thể chi khoản đó ở đây.",
     "spendNotNow": "Lúc này chưa làm được việc đó.",
     "usedThisRound": "Đã dùng trong vòng này rồi: {detail}.",
+    "noSuchOption": "Bộ luật không có tuỳ chọn xuất hiện này: {detail}.",
+    "optionNotHere": "Không thể chọn tuỳ chọn đó ở đây: {detail}.",
     "spendAsked": "Đã xin việc đó rồi: chờ GM hoặc huỷ yêu cầu.",
     "requestKind": "Hãy xin một tài nguyên và số lượng, hoặc một khoản chi.",
     "tableNotFound": "Không tìm thấy bảng",

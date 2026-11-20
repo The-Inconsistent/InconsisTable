@@ -277,7 +277,7 @@ func (rc *Context) rebound(actorID string, deltas []engine.Delta) error {
 			fields[d.Target.Field] = d.Value
 		}
 	}
-	start, err := actor.StartingResources(rc.Compiled, b.Entity, fields, rc.characters, rc.campaign, b.Entries)
+	start, err := actor.StartingResources(rc.Compiled, b.Entity, fields, rc.characters, rc.campaign, b.Entries, b.Row.SpawnOptions)
 	if err != nil {
 		return err
 	}

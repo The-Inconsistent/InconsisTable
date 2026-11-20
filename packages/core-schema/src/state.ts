@@ -113,6 +113,8 @@ export const Actor = ActorBrief.extend({
   // The saved ledger build, sheet and draft, for the GM side and a seat holding this character; null for everyone else,
   // and for an actor not built with the ledger builder.
   ledger: ActorLedger.nullable(),
+  // The spawn options it was spawned with (house decision #92), for the GM side; absent for everyone else, and when none.
+  spawnOptions: z.array(z.string()).optional(),
 });
 export type Actor = z.infer<typeof Actor>;
 

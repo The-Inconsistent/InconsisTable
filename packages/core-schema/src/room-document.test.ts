@@ -48,6 +48,22 @@ test("an entry's tags and rows travel as its other field values do (house decisi
   );
 });
 
+test("a roster line's marker and spawn options travel in the document (house decision #92)", () => {
+  const line = { id: "r", pack: "p", key: "k", count: 2, marker: "amber", options: ["hardened", "quick"] };
+  const doc = RoomDocument.parse({
+    ...BASE,
+    codex: [{ id: ID(1), kind: "scene", title: "Gate", prep: { roster: [line] } }],
+  });
+  assert.deepEqual(doc.codex?.[0]?.prep?.roster[0], { ...line, visibility: "hidden", temporary: true });
+  const bad = (over: object) =>
+    RoomDocument.safeParse({
+      ...BASE,
+      codex: [{ id: ID(1), kind: "scene", title: "G", prep: { roster: [{ ...line, ...over }] } }],
+    }).success;
+  assert.equal(bad({ marker: "black" }), false);
+  assert.equal(bad({ options: ["a", "a"] }), false);
+});
+
 test("refused: another format, a key it does not know, a repeated id, a built actor with a type, a list past its cap", () => {
   const refused = (input: unknown) => assert.equal(RoomDocument.safeParse(input).success, false);
   refused({ ...BASE, format: "another-app" });

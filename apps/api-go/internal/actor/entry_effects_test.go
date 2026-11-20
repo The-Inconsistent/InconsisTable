@@ -61,7 +61,7 @@ func TestAChosenEntryRaisesTheNumbersOfThatActorOnly(t *testing.T) {
 		rules := dbtest.Must[*engine.CompiledRuleset](t)(compiled.Load(ctx, tx, room.ID))
 		rows := dbtest.Must[[]Rows](t)(LoadRows(ctx, tx, room.ID))
 		built := dbtest.Must[map[string]*Built](t)(Build(rules, rows, nil))
-		start := dbtest.Must[[]StartingResource](t)(StartingResources(rules, "character", map[string]any{}, 1, nil, built[chosen].Entries))
+		start := dbtest.Must[[]StartingResource](t)(StartingResources(rules, "character", map[string]any{}, 1, nil, built[chosen].Entries, nil))
 		if len(start) != 1 || start[0].Value != 15 {
 			t.Fatalf("starts full at the raised maximum: %+v", start)
 		}

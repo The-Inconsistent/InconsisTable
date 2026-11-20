@@ -12,6 +12,10 @@ export type CombatSide = z.infer<typeof CombatSide>;
 export const CombatVisibility = z.enum(["hidden", "bar", "full"]);
 export type CombatVisibility = z.infer<typeof CombatVisibility>;
 
+// A combatant's marker (house decision #92): the colour of the tag on its miniature, from the platform's closed list.
+export const Marker = z.enum(["red", "amber", "green", "blue", "purple", "white"]);
+export type Marker = z.infer<typeof Marker>;
+
 export const CombatantCondition = z.object({
   id: z.string(), // the condition id of the ruleset
   /** Turns or rounds left for the expiries that count; null when it doesn't count. */
@@ -55,6 +59,8 @@ export const Combatant = z.object({
   members: z.object({ value: z.number().int(), max: z.number().int().nullable() }).nullable(),
   /** The conditions the ruleset lets the seat see on the actor (house decision #67); every one for the combat side. */
   conditions: z.array(CombatantCondition),
+  /** Its marker (house decision #92), to whoever sees the combatant; absent when it has none. */
+  marker: Marker.optional(),
   /** The ids of the spends limited per round it used this round, once per use (house decision #91); absent when none. */
   used: z.array(z.string()).optional(),
   /** Sides order only (house decision #60): holding an action, barred this round, unable to act. Absent otherwise. */
@@ -165,6 +171,8 @@ export const ENCOUNTER_ACTIONS = [
   z.object({ type: z.literal("encounter.move"), combatantId: id, direction: z.enum(["up", "down"]) }),
   z.object({ type: z.literal("encounter.setVisibility"), combatantId: id, visibility: CombatVisibility }),
   z.object({ type: z.literal("encounter.keep"), combatantId: id, keep: z.boolean() }),
+  // Sets or clears a combatant's marker (house decision #92).
+  z.object({ type: z.literal("encounter.mark"), combatantId: id, marker: Marker.nullable() }),
   z.object({ type: z.literal("turn.next") }),
   z.object({ type: z.literal("turn.prev") }),
   // Sets the first player of the round, for a seated ruleset whose first player is set by hand (house decision #36).

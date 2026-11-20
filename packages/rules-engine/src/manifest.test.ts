@@ -274,3 +274,51 @@ test("sides: entities and unableStates are checked", () => {
   );
   assert.deepEqual(problems({ unableStates: ["nope"] }), ['initiative.unableStates[0]: unknown health state "nope"']);
 });
+
+// House decision #71: the fields each kind of codex entry carries.
+test("codex: the block validates, defaults to gm, and is refused where it names what is not there", () => {
+  const r = validateRuleset(SAMPLE_D20);
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  assert.equal(r.ruleset.codex?.kinds.npc?.fields.patron?.visibility, "gm");
+  assert.equal(r.ruleset.codex?.kinds.faction?.fields.standing?.visibility, "gm");
+
+  const withCodex = (codex: unknown) => problems({ ...sample(), codex });
+  const npc = (fields: unknown) => withCodex({ kinds: { npc: { fields } } });
+  assert.ok(withCodex({ kinds: { ship: { fields: {} } } }).some((p) => p.path.startsWith("codex.kinds")));
+  const many = Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`f${i}`, { type: "bool", label: "F" }]));
+  hasProblem(npc(many), "codex.kinds.npc.fields", /at most 20 fields/);
+  assert.deepEqual(npc(Object.fromEntries(Object.entries(many).slice(0, 20))), []);
+  hasProblem(
+    npc({ mine: { type: "text", label: "M", visibility: "owner" } }),
+    "codex.kinds.npc.fields.mine.visibility",
+    /./,
+  );
+  assert.ok(npc({ tags: { type: "list", label: "T" } }).some((p) => p.path.startsWith("codex.kinds.npc.fields.tags")));
+  const words = (over: object) => npc({ mood: { type: "enum", label: "M", values: ["a"], ...over } });
+  hasProblem(words({ labels: { b: "B" } }), "codex.kinds.npc.fields.mood.labels.b", /"b" is not a value/);
+  hasProblem(words({ notes: { c: "C" } }), "codex.kinds.npc.fields.mood.notes.c", /"c" is not a value/);
+  hasProblem(words({ notes: { a: "x".repeat(41) } }), "codex.kinds.npc.fields.mood.notes.a", /./);
+  hasProblem(
+    npc({ boss: { type: "ref", label: "B", entity: "nope" } }),
+    "codex.kinds.npc.fields.boss.entity",
+    /"nope"/,
+  );
+  hasProblem(npc({ n: { type: "int", label: "N", min: 3, max: 1 } }), "codex.kinds.npc.fields.n.max", /below min/);
+});
+
+test("enum labels and notes name the enum's own values, on entity and campaign fields too", () => {
+  const s = sample();
+  const character = s.entities[0];
+  assert.ok(character);
+  character.fields = {
+    ...character.fields,
+    size: { type: "enum", label: "S", values: ["small"], labels: { big: "B" } },
+  };
+  s.campaignFields = {
+    era: { type: "enum", label: "E", values: ["old"], default: "old", notes: { new: "N" }, cite: "p" },
+  };
+  const found = problems(s);
+  hasProblem(found, "entities[0].fields.size.labels.big", /"big" is not a value/);
+  hasProblem(found, "campaignFields.era.notes.new", /"new" is not a value/);
+});

@@ -15,6 +15,24 @@ export function strictestVisibility(list: readonly Visibility[]): Visibility {
   return out;
 }
 
+/** Who sees a codex entry's field: the GM side, or also the party. Undeclared means `gm` (house decision #71). */
+export const CodexFieldVisibility = z.enum(["gm", "party"]);
+export type CodexFieldVisibility = z.infer<typeof CodexFieldVisibility>;
+
+/** The kinds of codex entry: core-schema's `CodexKind`, which the engine cannot import (the vectors hold them equal). */
+export const CodexEntryKind = z.enum([
+  "adventure",
+  "scene",
+  "npc",
+  "location",
+  "faction",
+  "item",
+  "handout",
+  "quest",
+  "lore",
+]);
+export type CodexEntryKind = z.infer<typeof CodexEntryKind>;
+
 export const EditableBy = z.enum(["gm", "owner", "ownerSpendOnly"]);
 export type EditableBy = z.infer<typeof EditableBy>;
 

@@ -51,13 +51,52 @@ func fieldDefVariant(tag string, extra ...schema.Field) schema.Variant {
 	return schema.Variant{Tag: tag, Schema: schema.Object(fields...)}
 }
 
+// enumWords are what the screens show for an enum's values (house decision #71): a word and a short note, by value id.
+var enumWords = []schema.Field{
+	schema.Opt("labels", schema.Record(idSchema, label(60))),
+	schema.Opt("notes", schema.Record(idSchema, label(40))),
+}
+
+var (
+	intShape  = []schema.Field{schema.Opt("min", schema.Int()), schema.Opt("max", schema.Int())}
+	textShape = []schema.Field{schema.Opt("maxLength", schema.Int().Min(1).Max(10_000))}
+	enumShape = append([]schema.Field{schema.Req("values", schema.Array(idSchema).Min(1).Max(200))}, enumWords...)
+	refShape  = []schema.Field{schema.Req("entity", idSchema)}
+)
+
 var fieldDefSchema = schema.Union("type",
-	fieldDefVariant("int", schema.Opt("min", schema.Int()), schema.Opt("max", schema.Int())),
-	fieldDefVariant("text", schema.Opt("maxLength", schema.Int().Min(1).Max(10_000))),
-	fieldDefVariant("enum", schema.Req("values", schema.Array(idSchema).Min(1).Max(200))),
+	fieldDefVariant("int", intShape...),
+	fieldDefVariant("text", textShape...),
+	fieldDefVariant("enum", enumShape...),
 	fieldDefVariant("bool"),
-	fieldDefVariant("ref", schema.Req("entity", idSchema)),
+	fieldDefVariant("ref", refShape...),
 	fieldDefVariant("list", schema.Opt("maxItems", schema.Int().Min(1).Max(500))),
+)
+
+func codexFieldVariant(tag string, extra ...schema.Field) schema.Variant {
+	fields := append([]schema.Field{
+		schema.Req("label", label(80)),
+		schema.Def("visibility", schema.Enum("gm", "party"), "gm"),
+		schema.Opt("cite", citeSchema),
+		schema.Req("type", schema.Literal(tag)),
+	}, extra...)
+	return schema.Variant{Tag: tag, Schema: schema.Object(fields...)}
+}
+
+// MaxCodexFields caps the fields one kind of codex entry carries.
+const MaxCodexFields = 20
+
+// codexSchema is the manifest's codex block (house decision #71): the fields each kind of entry carries.
+var codexSchema = schema.Object(
+	schema.Req("kinds", schema.PartialRecord(schema.Object(
+		schema.Req("fields", schema.Refined(schema.Record(idSchema, schema.Union("type",
+			codexFieldVariant("int", intShape...),
+			codexFieldVariant("text", textShape...),
+			codexFieldVariant("enum", enumShape...),
+			codexFieldVariant("bool"),
+			codexFieldVariant("ref", refShape...),
+		)), func(v any) bool { return len(v.(map[string]any)) <= MaxCodexFields }, "at most 20 fields")),
+	), CodexKinds...)),
 )
 
 func campaignFieldVariant(tag string, extra ...schema.Field) schema.Variant {
@@ -74,7 +113,8 @@ var campaignInt = schema.Int().Min(-1000).Max(1000)
 // campaignFieldSchema is one campaign field of the manifest (house decision #55).
 var campaignFieldSchema = schema.Union("type",
 	campaignFieldVariant("int", schema.Req("min", campaignInt), schema.Req("max", campaignInt), schema.Req("default", campaignInt)),
-	campaignFieldVariant("enum", schema.Req("values", schema.Array(idSchema).Min(1).Max(20)), schema.Req("default", idSchema)),
+	campaignFieldVariant("enum", append(append([]schema.Field{schema.Req("values", schema.Array(idSchema).Min(1).Max(20))},
+		enumWords...), schema.Req("default", idSchema))...),
 	campaignFieldVariant("bool", schema.Req("default", schema.Bool())),
 )
 
@@ -445,6 +485,7 @@ var rulesetSchema = schema.Object(
 		)).Max(50)),
 	)), map[string]any{}),
 	schema.Opt("game", gameSchema),
+	schema.Opt("codex", codexSchema),
 )
 
 // tableSchema is one random table of the manifest (house decision #49).

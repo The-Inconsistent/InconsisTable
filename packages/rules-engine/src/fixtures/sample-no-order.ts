@@ -1,8 +1,9 @@
 import type { RulesetInput } from "../manifest.ts";
 import { SAMPLE_D20 } from "./sample-d20.ts";
 
-const { initiative: _turnOrder, ...withoutOrder } = SAMPLE_D20;
+const { initiative: _turnOrder, codex: _codex, ...withoutOrder } = SAMPLE_D20;
 void _turnOrder;
+void _codex;
 
 /**
  * A placeholder homebrew ruleset written for tests: the sample-d20 characters with no turn order and a four-level

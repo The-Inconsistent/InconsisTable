@@ -40,6 +40,7 @@ const actor = (id: string, kind: Actor["kind"], entity: string, over: Partial<Ac
   derived: {},
   conditions: [],
   conditionTimers: [],
+  ledger: null,
   ...over,
 });
 const actors: Actor[] = [

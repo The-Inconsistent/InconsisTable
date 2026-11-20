@@ -53,6 +53,7 @@ const values = (over: Record<string, unknown> = {}) => ({
     { id: "marked", expiresOn: "manual", expiresAfter: null },
     { id: "unknownCondition", expiresOn: "manual", expiresAfter: null },
   ],
+  ledger: null,
   ...over,
 });
 
@@ -659,6 +660,7 @@ const VALID: Record<string, Record<string, unknown>> = {
   "session.edit": { sessionId: ID, title: "t", recap: "r", notes: "n" },
   "actor.create": { kind: "npc", name: " Keeper ", entityType: "creature" },
   "actor.build": { actorId: ID, answers: { name: "x", n: 1 } },
+  "build.save": { actorId: ID, build: '{"tier":1,"archetypeId":"a"}' },
   "actor.spawn": { packVersionId: ID, key: "goblin", count: 3, temporary: true },
   "draft.save": { body: { actorId: ID, answers: { a: [1, 2] } } },
   "draft.discard": {},
@@ -803,6 +805,10 @@ for (const extra of [
 // A draft just under and just over 64 KB, serialized.
 const pad = (n: number) => ({ type: "draft.save", body: { actorId: ID, answers: { p: "é".repeat(n) } } });
 for (const n of [32_700, 32_730, 32_740, 32_760, 32_800, 40_000]) record("Action", pad(n));
+// A ledger build's text just under and just over 64 KB in UTF-8 (text that is not JSON is the handler's to refuse).
+for (const n of [32_767, 32_768, 32_769, 65_536])
+  record("Action", { type: "build.save", actorId: ID, build: "é".repeat(n) });
+for (const n of [65_535, 65_536, 65_537]) record("Action", { type: "build.save", actorId: ID, build: "x".repeat(n) });
 for (const nextSessionAt of [
   "2026-11-20T19:00:00Z",
   "2026-11-20T19:00Z",

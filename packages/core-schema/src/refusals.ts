@@ -91,6 +91,12 @@ export const REFUSALS = {
   nothingToBuild: "This ruleset has nothing to build for that",
   alreadyBuilt: "Already built. Ask the GM to correct a value",
   buildProblems: "Those answers don't build a character\n{detail}",
+  // The ledger builder (house decision #63). {detail} is the builder's own English: its error, or the first problems and
+  // the choices still to make.
+  notLedgerBuilt: "This ruleset doesn't build that character from its catalogue",
+  buildTierMismatch: "This build is made at Tier {tier}, but the game is at Tier {gameTier}",
+  buildInvalid: "That build can't be read\n{detail}",
+  buildNotReady: "The build isn't finished yet\n{detail}",
   notBuilt: "{name} isn't built for this ruleset yet",
   incomplete: "{name}'s sheet is missing something the rules need ({detail}). Fill it in on the sheet.",
   wholeNumber: "{what} takes a whole number",

@@ -4,6 +4,8 @@ package coreschema
 // live table, and `codex`, the world. The api builds them whole; the Seat view (internal/view) cuts each seat's copy.
 // Field names are the web's, so the JSON is what use-table.ts parses.
 
+import "encoding/json"
+
 type (
 	// CampaignInfo is the room as every seat sees it.
 	CampaignInfo struct {
@@ -53,6 +55,15 @@ type (
 		Derived         map[string]float64 `json:"derived"`
 		Conditions      []string           `json:"conditions"`
 		ConditionTimers []ConditionTimer   `json:"conditionTimers"`
+		// Ledger is the saved ledger build and sheet (house decision #63); nil when the actor has none or the seat may
+		// not read it.
+		Ledger *ActorLedger `json:"ledger"`
+	}
+	// ActorLedger is a saved ledger build and the sheet it resolved to, as stored: JSON text sent on as it is, so its
+	// keys keep the order the builder wrote them in.
+	ActorLedger struct {
+		Build json.RawMessage `json:"build"`
+		Sheet json.RawMessage `json:"sheet"`
 	}
 	// Member is a seated member.
 	Member struct {

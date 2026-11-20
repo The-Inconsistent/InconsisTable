@@ -17,6 +17,7 @@ import {
   ClockVisibility,
   CodexVisibility,
   FieldValue,
+  LedgerBuildText,
   RequestText,
   TableId,
   InviteMode,
@@ -85,6 +86,9 @@ export const Action = z.discriminatedUnion("type", [
   }),
   // The builder's answers by creation step id; the server runs the ruleset's `creation` again before it writes.
   z.object({ type: z.literal("actor.build"), actorId: id, answers: z.record(z.string().max(120), z.unknown()) }),
+  // A character bought with the ledger builder (house decision #63): the server resolves the build, then writes the
+  // sheet's numbers as the actor's fields and stores the build and the sheet.
+  z.object({ type: z.literal("build.save"), actorId: id, build: LedgerBuildText }),
   // N creatures from one attached pack entry, numbered after the ones already at the table.
   z.object({
     type: z.literal("actor.spawn"),
@@ -259,6 +263,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "session.edit": "session:run",
   "actor.create": "character:create",
   "actor.build": "character:edit:own", // a player on a held character; the GM side through OWN_FALLBACK
+  "build.save": "character:edit:own", // the same; the GM's part of the build is the GM side's (house decision #63)
   "actor.spawn": "encounter:run",
   "draft.save": null, // a signed-in member's own draft; the handler checks the caller
   "draft.discard": null,

@@ -138,7 +138,7 @@ func targetOf(a cs.Action) string {
 	switch a.Type() {
 	case "actor.rename":
 		return a.Str("id")
-	case "field.set", "test.report", "actor.build", "phase.done":
+	case "field.set", "test.report", "actor.build", "build.save", "phase.done":
 		return a.Str("actorId")
 	}
 	return ""

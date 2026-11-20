@@ -54,6 +54,22 @@ export const ConditionTimer = z.object({
 });
 export type ConditionTimer = z.infer<typeof ConditionTimer>;
 
+// A character bought with the ledger builder (house decision #63): its build, the builder's input document, as JSON text.
+// Text, so the api reads the keys in the order they were written (the builder reads them in order, and a socket payload
+// reaches the api as a map). The server parses and resolves it before it writes anything.
+export const MAX_BUILD_BYTES = 64 * 1024;
+export const LedgerBuildText = z
+  .string()
+  .refine((s) => new TextEncoder().encode(s).length <= MAX_BUILD_BYTES, "The build is over 64 KB");
+
+// The stored build and the sheet it resolved to, as saved (keys in the order the builder wrote them). The ledger, the
+// pending choices and the problems are not stored: the builder resolves them again from the build.
+export const ActorLedger = z.object({
+  build: z.record(z.string(), z.unknown()),
+  sheet: z.record(z.string(), z.unknown()),
+});
+export type ActorLedger = z.infer<typeof ActorLedger>;
+
 export const Actor = ActorBrief.extend({
   // The ruleset's values. The api filters them per seat with the rules engine's `toViewerView` (a GM seat gets them
   // whole); empty until a ruleset is pinned and the actor has an entity type.
@@ -64,6 +80,9 @@ export const Actor = ActorBrief.extend({
   conditions: z.array(z.string()), // active condition ids
   // Their durations, for the conditions this viewer sees (the same visibility as the condition itself).
   conditionTimers: z.array(ConditionTimer),
+  // The saved ledger build and sheet, for the GM side and a seat holding this character; null for everyone else, and
+  // for an actor not built with the ledger builder.
+  ledger: ActorLedger.nullable(),
 });
 export type Actor = z.infer<typeof Actor>;
 

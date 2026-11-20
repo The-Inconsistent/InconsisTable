@@ -22,6 +22,7 @@ import { FightBar } from "@/components/gm/track/components/fight-bar/fight-bar";
 import { SidesOrder } from "@/components/gm/track/components/sides-order/sides-order";
 import { TablesPanel } from "@/components/gm/track/components/tables-panel/tables-panel";
 import { PhaseBar } from "@/components/gm/track/components/phase-bar/phase-bar";
+import { ReminderLines } from "@/components/gm/track/components/reminder-lines/reminder-lines";
 import { OrderList } from "@/components/gm/track/components/order-list/order-list";
 import { CallForm } from "@/components/gm/tests/components/call-form/call-form";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
@@ -117,6 +118,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
           sides={sides ?? undefined}
         />
       )}
+      {encounter && <ReminderLines encounter={encounter} sides={sides ?? undefined} run={run} />}
       {encounter && <EndNotice encounter={encounter} />}
       {encounter && <PhaseBar encounter={encounter} run={run} />}
       {trackerRefusal && (

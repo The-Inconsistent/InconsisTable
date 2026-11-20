@@ -3588,6 +3588,29 @@ fieldset:disabled select {
   gap: 12px;
 }
 
+/* ---------- Reminder lines under the turn bar (house decision #81): read at arm's length ---------- */
+.reminders {
+  display: grid;
+  gap: 10px;
+  padding: 10px 14px;
+  border-left: 4px solid var(--brass);
+  border-radius: 6px;
+  font-size: var(--fs-name);
+}
+.reminders .reminder-note {
+  margin: 0;
+  font-style: italic;
+}
+.reminders .reminder-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  justify-content: space-between;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* ---------- The end of a game: a quiet notice while it can end, then the results ---------- */
 .end-notice {
   margin: 0;

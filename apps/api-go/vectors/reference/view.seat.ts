@@ -322,8 +322,10 @@ function seatEncounter({
     };
   const seen = encounter.combatants.filter((c) => c.visibility !== "hidden");
   const acting = seen.some((c) => c.id === encounter.currentId);
+  // A reminder line may name a hidden combatant: the combat side's only (house decision #81).
+  const { reminders: _reminders, ...rest } = encounter;
   return {
-    ...encounter,
+    ...rest,
     conditionDefs: [],
     currentId: acting ? encounter.currentId : null,
     // Someone the seat is not sent holds the turn: said, never named (house decision #68).

@@ -123,6 +123,10 @@ type (
 		Build *CompiledBuild
 		// Notices are the notice rules (house decision #79) in the manifest's order; empty without a notices block.
 		Notices []CompiledNotice
+		// Reminders is each of `reminders`' `if` in manifest order, nil where it has none (house decision #81).
+		Reminders []*CompiledExpr
+		// Immune is each condition's `immune`, by condition id, for those that have one (house decision #81).
+		Immune map[string]*CompiledExpr
 	}
 	// CompiledNotice is one notice rule, with who may be told its If by actor type, as a Test's numbers are.
 	CompiledNotice struct {
@@ -898,6 +902,21 @@ func (c *compiler) run() *CompiledRuleset {
 			notices = append(notices, CompiledNotice{n.ID, n.When, n.Entities, when, n.Text, c.seenBy(takers, entities, []*CompiledExpr{when})})
 		}
 	}
+	reminderScopes := withScope(withScope(withScope(actorScopes, "round", intType), "held", boolType), "barred", boolType)
+	reminders := make([]*CompiledExpr, len(c.r.Reminders))
+	for j, x := range c.r.Reminders {
+		if x.If != nil {
+			reminders[j] = c.expr(*x.If, reminderScopes, boolType, fmt.Sprintf("reminders[%d].if", j))
+		}
+	}
+	immune := map[string]*CompiledExpr{}
+	for j, x := range c.r.Conditions {
+		if x.Immune != nil {
+			if e := c.expr(*x.Immune, actorScopes, boolType, fmt.Sprintf("conditions[%d].immune", j)); e != nil {
+				immune[x.ID] = e
+			}
+		}
+	}
 
 	if len(c.problems) > 0 || !scoringOK || (init != nil && init.Def.Strategy == "ranked" && init.Score == nil) {
 		return nil
@@ -910,7 +929,8 @@ func (c *compiler) run() *CompiledRuleset {
 	if b := c.r.Build; b != nil {
 		build = &CompiledBuild{b.Actor, b.Params, b.Kinds}
 	}
-	return &CompiledRuleset{c.r, entities, resources, conditions, tests, init, scoring, healthStates, instantDeath, build, notices}
+	return &CompiledRuleset{c.r, entities, resources, conditions, tests, init, scoring, healthStates, instantDeath, build, notices,
+		reminders, immune}
 }
 
 // CompileRuleset loads a manifest given as decoded JSON: validate it, then compile every expression against its scope,

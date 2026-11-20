@@ -218,11 +218,16 @@ func compiledJSON(c *CompiledRuleset) any {
 		notices[i] = map[string]any{"id": n.ID, "when": n.When, "entities": n.Entities, "if": exprJSON(n.If), "text": n.Text,
 			"visibility": n.Visibility}
 	}
+	immune := map[string]any{}
+	for id, e := range c.Immune {
+		immune[id] = exprJSON(e)
+	}
 	return map[string]any{
 		"notices": notices,
 		"ruleset": c.Ruleset.Normalized, "entities": entities, "resources": resources, "tests": tests,
 		"initiative": initiative,
 		"scoring":    scoring, "healthStates": states, "instantDeath": death, "conditions": sortedKeys(c.Conditions),
+		"reminders": exprsJSON(c.Reminders), "immune": immune,
 	}
 }
 

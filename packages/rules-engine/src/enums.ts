@@ -82,6 +82,10 @@ export type ConditionDuration = z.infer<typeof ConditionDuration>;
 export const ConditionStacking = z.enum(["none", "stack", "refresh"]);
 export type ConditionStacking = z.infer<typeof ConditionStacking>;
 
+/** When a reminder line shows (house decision #81): at a combatant's turn start or end, or when the round completes. */
+export const ReminderAt = z.enum(["turnStart", "turnEnd", "roundEnd"]);
+export type ReminderAt = z.infer<typeof ReminderAt>;
+
 export const CreationKind = z.enum(["choose", "assign", "fields"]);
 export type CreationKind = z.infer<typeof CreationKind>;
 

@@ -266,7 +266,9 @@
     "newPack": "New pack",
     "editFailed": "Couldn't open that for editing.",
     "edit": "Edit",
-    "editRulesetLabel": "Edit ruleset {slug}"
+    "editRulesetLabel": "Edit ruleset {slug}",
+    "worlds": "Worlds",
+    "worldsHint": "A World is a room's look: its colours, typefaces and shapes. Import one as JSON, then wear it from a room's Rules tab."
   },
   "importPanel": {
     "template": "Start from a template",
@@ -287,7 +289,7 @@
     },
     "tooBig": "That file is over 5 MB. Split the pack into two.",
     "notJson": "That isn't a JSON document.",
-    "unknownShape": "Not a ruleset (it needs entities) or a pack (it needs entries).",
+    "unknownShape": "Not a ruleset (it needs entities), a pack (it needs entries) or a World (it needs a theme).",
     "signedOut": "This device lost its identity. Reload the page and retry.",
     "failed": "Couldn't import. Check the connection and retry.",
     "readFailed": "Couldn't read that file.",
@@ -297,7 +299,7 @@
     "moreKeys": "and {count} more",
     "title": "Import",
     "reminder": "Summarize in your own words, with the page. Don't paste text from a book.",
-    "fieldLabel": "Ruleset or pack (JSON)",
+    "fieldLabel": "Ruleset, pack or World (JSON)",
     "placeholder": "Paste JSON here, or choose a file.",
     "importing": "Importing…",
     "import": "Import",
@@ -310,7 +312,24 @@
     "fixThese": "Fix these, then import again",
     "warnSaved": "Saved, but check these descriptions",
     "warnAlso": "Also check these descriptions",
-    "openInForm": "Open in form"
+    "openInForm": "Open in form",
+    "worldNoForm": "A World has no form: import its JSON as it is.",
+    "worldSaved": "Saved the World {slug} {version}. Wear it from a room's Rules tab.",
+    "worldUnchanged": "The World {slug} {version} was already imported. Nothing changed."
+  },
+  "worldList": {
+    "exportFailed": "Couldn't export that World.",
+    "deleteFailed": "Couldn't delete that World.",
+    "empty": "No Worlds yet. Import one above.",
+    "emptyCreatorsOnly": "No Worlds.",
+    "takenDown": "Taken down by an admin. No room wears it.",
+    "export": "Export",
+    "exportLabel": "Export {name}",
+    "keepCopy": "Rooms wearing it keep it.",
+    "delete": "Delete",
+    "keep": "Keep",
+    "deleteLabel": "Delete {name}",
+    "confirmDeleteLabel": "Confirm delete {name}"
   },
   "packList": {
     "exportFailed": "Couldn't export that pack.",
@@ -1202,7 +1221,7 @@
     "lede": {
       "rooms": "The tables you run and the ones you sit at.",
       "characters": "Everyone you play, at every table.",
-      "library": "Your imported rulesets and the packs written for them. Only your rooms use them."
+      "library": "Your imported rulesets, the packs written for them, and the Worlds your rooms can wear. Only your rooms use them."
     },
     "noCharacters": "No characters yet. Accept an invite to a table, or start one in a room you run.",
     "kind": {

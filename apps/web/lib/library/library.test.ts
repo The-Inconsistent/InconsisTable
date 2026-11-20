@@ -3,9 +3,12 @@ import { test } from "node:test";
 
 import { ImportRefusal, PackImported, exportUrl, formatBytes, kindOf, parseErrorAt } from "./library.ts";
 
-test("a document is a pack or a ruleset by its shape", () => {
+test("a document is a pack, a ruleset or a World by its shape", () => {
   assert.equal(kindOf({ id: "p", entries: [] }), "pack");
   assert.equal(kindOf({ id: "r", entities: [] }), "ruleset");
+  assert.equal(kindOf({ id: "w", theme: {} }), "world");
+  // A ruleset or pack that also carries a `theme` stays what its body says.
+  assert.equal(kindOf({ id: "r", entities: [], theme: {} }), "ruleset");
   assert.equal(kindOf({ id: "x" }), null);
   assert.equal(kindOf([]), null);
   assert.equal(kindOf(null), null);

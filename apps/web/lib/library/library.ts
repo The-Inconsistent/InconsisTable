@@ -139,11 +139,34 @@ export const RulesReply = z.object({
 });
 export type RulesReply = z.infer<typeof RulesReply>;
 
-/** What a pasted document is, by its shape: a ruleset has `entities`, a pack has `entries`. */
-export function kindOf(doc: unknown): "ruleset" | "pack" | null {
+/** What importing a World answers (house decision #65). */
+export const WorldImported = z.object({
+  ok: z.literal(true),
+  worldId: z.string(),
+  versionId: z.string(),
+  slug: z.string(),
+  version: z.string(),
+  unchanged: z.boolean(),
+});
+export type WorldImported = z.infer<typeof WorldImported>;
+
+/** The owner's Worlds that are not hidden (`GET /api/worlds`), each with its versions, newest first. */
+export const WorldList = z.array(
+  z.object({
+    id: z.string(),
+    slug: z.string(),
+    disabled: z.boolean(),
+    versions: z.array(z.object({ id: z.string(), version: z.string(), name: z.string(), createdAt: z.string() })),
+  }),
+);
+export type WorldList = z.infer<typeof WorldList>;
+
+/** What a pasted document is, by its shape: a ruleset has `entities`, a pack has `entries`, a World a `theme` alone. */
+export function kindOf(doc: unknown): "ruleset" | "pack" | "world" | null {
   if (typeof doc !== "object" || doc === null || Array.isArray(doc)) return null;
   if ("entries" in doc) return "pack";
   if ("entities" in doc) return "ruleset";
+  if ("theme" in doc) return "world";
   return null;
 }
 
@@ -167,7 +190,7 @@ export function formatBytes(bytes: number, locale = "en"): string {
   return `${new Intl.NumberFormat(locale).format(Math.max(1, Math.round(bytes / 1024)))} KB`;
 }
 
-/** The owner's export route for a ruleset or a pack (newest version, as the importer takes it). */
-export function exportUrl(kind: "ruleset" | "pack", id: string): string {
+/** The owner's export route for a ruleset, a pack or a World (newest version, as the importer takes it). */
+export function exportUrl(kind: "ruleset" | "pack" | "world", id: string): string {
   return `/api/${kind}s/${encodeURIComponent(id)}/export`;
 }

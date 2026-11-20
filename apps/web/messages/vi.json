@@ -266,7 +266,9 @@
     "newPack": "Pack mới",
     "editFailed": "Không mở được để sửa.",
     "edit": "Sửa",
-    "editRulesetLabel": "Sửa ruleset {slug}"
+    "editRulesetLabel": "Sửa ruleset {slug}",
+    "worlds": "World",
+    "worldsHint": "World là diện mạo của một phòng: màu, kiểu chữ và hình dáng. Nhập dưới dạng JSON, rồi khoác nó từ thẻ Luật của phòng."
   },
   "importPanel": {
     "template": "Bắt đầu từ một mẫu",
@@ -287,7 +289,7 @@
     },
     "tooBig": "Tệp này lớn hơn 5 MB. Hãy tách pack làm hai.",
     "notJson": "Đây không phải tài liệu JSON.",
-    "unknownShape": "Không phải bộ luật (cần entities) cũng không phải pack (cần entries).",
+    "unknownShape": "Không phải bộ luật (cần entities), pack (cần entries) hay World (cần theme).",
     "signedOut": "Thiết bị này mất danh tính. Hãy tải lại trang rồi thử lại.",
     "failed": "Không nhập được. Kiểm tra kết nối rồi thử lại.",
     "readFailed": "Không đọc được tệp này.",
@@ -297,7 +299,7 @@
     "moreKeys": "và {count} mục nữa",
     "title": "Nhập",
     "reminder": "Hãy tóm tắt bằng lời của bạn, kèm số trang. Đừng dán nguyên văn từ sách.",
-    "fieldLabel": "Bộ luật hoặc pack (JSON)",
+    "fieldLabel": "Bộ luật, pack hoặc World (JSON)",
     "placeholder": "Dán JSON vào đây, hoặc chọn một tệp.",
     "importing": "Đang nhập…",
     "import": "Nhập",
@@ -310,7 +312,24 @@
     "fixThese": "Sửa các mục này rồi nhập lại",
     "warnSaved": "Đã lưu, nhưng hãy xem lại các mô tả này",
     "warnAlso": "Hãy xem lại cả các mô tả này",
-    "openInForm": "Mở trong form"
+    "openInForm": "Mở trong form",
+    "worldNoForm": "World không có form: hãy nhập nguyên JSON của nó.",
+    "worldSaved": "Đã lưu World {slug} {version}. Khoác nó cho phòng từ thẻ Luật của phòng.",
+    "worldUnchanged": "World {slug} {version} đã được nhập từ trước. Không có gì thay đổi."
+  },
+  "worldList": {
+    "exportFailed": "Không xuất được World này.",
+    "deleteFailed": "Không xóa được World này.",
+    "empty": "Chưa có World nào. Hãy nhập một World ở trên.",
+    "emptyCreatorsOnly": "Chưa có World nào.",
+    "takenDown": "Đã bị admin gỡ. Không phòng nào khoác World này.",
+    "export": "Xuất",
+    "exportLabel": "Xuất {name}",
+    "keepCopy": "Phòng đang khoác vẫn giữ nó.",
+    "delete": "Xóa",
+    "keep": "Giữ",
+    "deleteLabel": "Xóa {name}",
+    "confirmDeleteLabel": "Xác nhận xóa {name}"
   },
   "packList": {
     "exportFailed": "Không xuất được pack này.",
@@ -1202,7 +1221,7 @@
     "lede": {
       "rooms": "Những bàn bạn dẫn và những bàn bạn ngồi chơi.",
       "characters": "Mọi nhân vật bạn đang chơi, ở mọi bàn.",
-      "library": "Bộ luật bạn đã nhập và các pack viết cho chúng. Chỉ phòng của bạn dùng được."
+      "library": "Bộ luật bạn đã nhập, các pack viết cho chúng và những World mà phòng của bạn khoác được. Chỉ phòng của bạn dùng được."
     },
     "noCharacters": "Chưa có nhân vật. Hãy nhận lời mời vào một bàn, hoặc tạo nhân vật trong phòng bạn dẫn.",
     "kind": {

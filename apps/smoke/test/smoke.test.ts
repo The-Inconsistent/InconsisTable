@@ -2320,6 +2320,113 @@ test("a ledger ruleset imports, and its pack's records reach every seat through 
   owner.socket.close();
 });
 
+// House decision #63: the server resolves a ledger build against the room's catalogue, saves the ready one, writes its
+// numbers as fields, and sends the build and the sheet to the GM side and the character's seat.
+test("build.save: a player reads the catalogue and saves a ledger build, which only the GM and that player receive", async () => {
+  const ownerDevice = await device("owner-LedgerSave");
+  const me = caller(ownerDevice);
+  // A derived number from the saved fields, so the seat view shows the build at work.
+  const ruleset = structuredClone(SAMPLE_LEDGER_RULESET);
+  ruleset.entities[0]!.derived = [
+    {
+      id: "toughness",
+      label: "Toughness",
+      expr: "attr.mgt * 10 + skill.lore + armourRating",
+      visibility: "party" as const,
+      cite: "Base p.1",
+    },
+  ];
+  const rs = await me.post<RulesetReply>("/rulesets", ruleset);
+  const pk = await me.post<PackReply>("/packs", SAMPLE_LEDGER_PACK);
+  assert.deepEqual([rs.status, pk.status], [201, 201]);
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "LedgerSave", rulesetVersionId: rs.body.versionId })
+  ).body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const seated = async (name: string) => {
+    const cookie = await seatPlayer(owner, name);
+    const s = await owner.until((x) => x.access.members.some((m) => m.userId === uid(name)));
+    const held = s.access.members.find((m) => m.userId === uid(name))!.characterIds[0]!;
+    const c = connect({ auth: { campaignId, cookie } });
+    await c.until((x) => x.actors.some((a) => a.id === held));
+    return { c, cookie, held };
+  };
+  const ana = await seated("ana-ledger-save");
+  const ben = await seated("ben-ledger-save");
+
+  // The catalogue, for any seat: every kind, the records in their schema's key order. Nobody without a seat.
+  const read = await get(`/campaigns/${campaignId}/catalogue`, cookieOf(ana.cookie));
+  assert.equal(read.status, 200);
+  const catalogue = (await read.json()) as {
+    params: { tiers: { min: number; max: number } };
+    kinds: Record<string, { id: string }[]>;
+    wargear: { id: string }[];
+  };
+  assert.equal(Object.keys(catalogue.kinds).length, 12);
+  assert.deepEqual(catalogue.params.tiers, { min: 1, max: 4 });
+  const records = SAMPLE_LEDGER_PACK.entries.filter((e) => e.type !== "wargear");
+  assert.equal(Object.values(catalogue.kinds).flat().length, records.length);
+  assert.equal(catalogue.wargear.length, SAMPLE_LEDGER_PACK.entries.length - records.length);
+  const wardens = SAMPLE_LEDGER_PACK.entries.find((e) => e.key === "factions.wardens")?.record;
+  assert.equal(
+    JSON.stringify(catalogue.kinds.factions?.find((f) => f.id === "wardens")),
+    JSON.stringify(buildSchemas(SAMPLE_PARAMS).Faction.parse(wardens)),
+  );
+  assert.equal((await get(`/campaigns/${campaignId}/catalogue`)).status, 401);
+  const bare = await newRoom("LedgerBare");
+  const none = await get(`/campaigns/${bare.campaignId}/catalogue`, cookieOf(bare.ownerDevice));
+  assert.equal(none.status, 404);
+  assert.equal(((await none.json()) as { code: string }).code, "noRuleset");
+  bare.owner.socket.close();
+
+  // A build with choices still to make is refused, saying what is missing; another player's character too.
+  const save = (actorId: string, build: unknown) =>
+    ({ type: "build.save", actorId, build: JSON.stringify(build) }) as const;
+  const notReady = await ana.c.send(save(ana.held, { tier: 1, archetypeId: "lamplighter" }));
+  refused(notReady, "buildNotReady");
+  assert.match(notReady.ok ? "" : notReady.error, /background: Choose a Background table/);
+  assert.match(notReady.ok ? "" : notReady.error, /needs Lore 3 \(for the GM to approve\)/);
+  refused(await ana.c.send(save(ana.held, { tier: 2, archetypeId: "lamplighter" })), "buildTierMismatch");
+  refused(await ana.c.send({ type: "build.save", actorId: ana.held, build: "{" }), "buildInvalid");
+
+  // A ready build, its keys in an order of their own: saved, and sent back in that order.
+  const dream = {
+    skills: { Lore: 3, Brawl: 1 },
+    tier: 1,
+    archetypeId: "lamplighter",
+    fills: { "[GUILD]": { id: "ironhand" } },
+    background: {
+      tableId: "warden-roots",
+      roots: "Lowland",
+      deed: "Held the Gate",
+      dream: "A Quiet Hearth",
+      bonus: "dream",
+    },
+    languages: { picks: ["trade-tongue"] },
+    wealth: 1,
+  };
+  refused(await ben.c.send(save(ana.held, dream)), "notYourCharacter");
+  ok(await ana.c.send(save(ana.held, dream)));
+  const saved = JSON.stringify({ ...dream, gm: {} }); // a player's save takes the GM's part, none yet
+  for (const c of [ana.c, owner]) {
+    const s = await c.until((x) => actorIn(x, ana.held)?.ledger != null);
+    const hero = actorIn(s, ana.held)!;
+    assert.equal(JSON.stringify(hero.ledger?.build), saved);
+    assert.equal(hero.ledger?.sheet.species, "Heron-kin");
+    assert.equal(hero.entity, "hero");
+    assert.equal(hero.fields["attr.mgt"], 2);
+    assert.equal(hero.derived.toughness, 2 * 10 + 3 + 2);
+    // Wealth starts at the sheet's value; the ruleset leaves it at the default visibility, gm.
+    assert.equal(hero.resources.wealth, c === owner ? 3 : undefined);
+  }
+  // Ben sees Ana's hero by name and its party numbers, never the build.
+  const benSees = actorIn(await ben.c.until((x) => actorIn(x, ana.held)?.derived.toughness === 25), ana.held);
+  assert.equal(benSees?.ledger, null);
+  for (const c of [owner, ana.c, ben.c]) c.socket.close();
+});
+
 test("builder drafts: only their owner is sent one, a good build deletes it, and the size is capped", async () => {
   const { owner, ana, ben, campaignId } = await buildRoom("Draft");
   const body = { actorId: ana.held, answers: { lineage: ["reedfolk"] } };

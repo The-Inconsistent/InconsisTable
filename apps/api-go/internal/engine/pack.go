@@ -78,6 +78,10 @@ func (p *problems) record(r *Ruleset, entry PackEntry, i int, kind string) *sche
 		p.add(at+".record", `nothing reads a record on a "%s"`, entry.Type)
 		return nil
 	}
+	// One catalogue for every seat, and a saved sheet with no name a player may not read (house decision #63).
+	if entry.Visibility == "gm" {
+		p.add(at+".visibility", "every seat reads a catalogue record")
+	}
 	if size := len(CanonicalJSON(entry.rawRecord)); size > MaxEntryRecordBytes {
 		p.add(at+".record", "%d bytes, over the cap of %d", size, MaxEntryRecordBytes)
 		return nil

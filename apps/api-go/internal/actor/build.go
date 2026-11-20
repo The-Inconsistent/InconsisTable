@@ -128,7 +128,7 @@ func BuildActor(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, lookup
 			return "", err
 		}
 	}
-	id, err := WriteStart(ctx, tx, c, compiled, []StartTarget{{actorID, fields}})
+	id, err := WriteStart(ctx, tx, c, compiled, []StartTarget{{ActorID: actorID, Fields: fields}})
 	if err != nil {
 		return "", err
 	}

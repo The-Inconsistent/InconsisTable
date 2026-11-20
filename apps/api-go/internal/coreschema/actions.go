@@ -55,6 +55,9 @@ const (
 // MaxDraftBytes caps a builder draft, serialized.
 const MaxDraftBytes = 64 * 1024
 
+// MaxBuildBytes caps a ledger build's JSON text, in UTF-8 bytes (house decision #63).
+const MaxBuildBytes = 64 * 1024
+
 var (
 	id            = schema.UUID()
 	userID        = schema.String().Min(1).Max(100)
@@ -76,6 +79,11 @@ var (
 		func(v any) bool { return len(engine.CanonicalJSON(v)) <= MaxDraftBytes },
 		"The draft is over 64 KB",
 	)
+
+	// LedgerBuildText is a ledger build as JSON text: the api decodes it with schema.DecodeJSON, so its keys keep their
+	// order (a socket payload reaches Go as a map).
+	LedgerBuildText = schema.Refined(schema.String(), func(v any) bool { s, _ := v.(string); return len(s) <= MaxBuildBytes },
+		"The build is over 64 KB")
 
 	fieldValue = schema.AnyOf(
 		schema.Int().Min(-2147483648).Max(2147483647),
@@ -134,6 +142,7 @@ var ActionSchema = schema.Union("type",
 		schema.Opt("entityType", schema.String().Min(1).Max(64)),
 	),
 	variant("actor.build", schema.Req("actorId", id), schema.Req("answers", answers)),
+	variant("build.save", schema.Req("actorId", id), schema.Req("build", LedgerBuildText)),
 	variant("actor.spawn",
 		schema.Req("packVersionId", id),
 		schema.Req("key", schema.String().Min(1).Max(80)),
@@ -322,6 +331,7 @@ var ActionPerms = map[string]string{
 	"session.edit":            "session:run",
 	"actor.create":            "character:create",
 	"actor.build":             "character:edit:own",
+	"build.save":              "character:edit:own",
 	"actor.spawn":             "encounter:run",
 	"draft.save":              "",
 	"draft.discard":           "",

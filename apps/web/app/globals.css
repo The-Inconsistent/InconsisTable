@@ -1570,6 +1570,94 @@ summary {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
+/* In play: the XP box, the session's award and the group's Ascension (lb-play). Parchment cards like the builder's. */
+.lb-play-dev {
+  margin-top: calc(var(--gap) * 2);
+}
+.lb-play-grid {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  align-items: start;
+}
+.lb-play-figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.lb-play-figures dt {
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+}
+.lb-play-figures dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.lb-play-figures dd:not(.small) {
+  font-size: var(--fs-num);
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.lb-play > a.btn {
+  justify-self: start;
+}
+.lb-award {
+  margin: 0;
+  padding: 12px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+}
+.lb-award p {
+  margin: 0;
+}
+.lb-award-field input {
+  width: 6em;
+}
+.lb-award-chosen {
+  font-weight: 700;
+}
+.lb-member-head {
+  margin: 0;
+  font-size: var(--fs-small);
+  text-transform: uppercase;
+}
+.lb-member-state {
+  flex: none;
+  font-weight: 700;
+}
+.lb-members > li[data-state="ready"] {
+  box-shadow: inset 4px 0 0 var(--ok);
+  padding-left: 10px;
+}
+.lb-members > li[data-state="short"] {
+  box-shadow: inset 4px 0 0 var(--line);
+  padding-left: 10px;
+}
+.lb-members > li[data-state="gone"] {
+  opacity: 0.8;
+}
+.lb-ascend-ways > .lb-card .btn {
+  justify-self: start;
+}
+.lb-ascend-ways p {
+  margin: 0;
+}
+/* armed: one more press sends it, so it looks unlike any resting button (and its label says so) */
+.lb-ascend-go[data-state="armed"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.lb-waive {
+  min-height: var(--tap);
+  gap: 8px;
+}
+.lb-waive input {
+  width: 22px;
+  height: 22px;
+}
 @media (min-width: 768px) {
   .lb-body {
     grid-template-columns: 200px minmax(0, 1fr);

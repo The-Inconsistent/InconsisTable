@@ -1709,6 +1709,46 @@
       "takeAway": "Lấy bớt",
       "give": "Cho thêm trang bị"
     },
+    "play": {
+      "xp": {
+        "title": "XP",
+        "earned": "XP đã nhận",
+        "earnedNote": "quyết định Rank",
+        "toSpend": "XP để tiêu",
+        "rank": "Rank",
+        "levelUp": "Lên cấp · tiêu {xp} XP",
+        "spend": "Tiêu XP (trình tạo)"
+      },
+      "ascension": {
+        "title": "Ascension",
+        "now": "Cả nhóm Ascend cùng nhau: đang ở Tier {tier}, sau đó là Tier {next}.",
+        "top": "Tier {tier} là cao nhất: không còn gì để Ascend.",
+        "counted": "Ai được tính",
+        "rank": "Rank {rank}",
+        "thisTier": "{earned} / {needed} XP ở Tier này",
+        "ready": "Sẵn sàng",
+        "short": "Thiếu {count}",
+        "gone": "Không được tính",
+        "goneNote": "Đã rời câu chuyện",
+        "nobody": "Không ai trong nhóm được tính cho Ascension.",
+        "experience": "Theo kinh nghiệm",
+        "experienceNote": "Mọi người được tính đều đã nhận {needed} XP ở Tier này.",
+        "experienceWaiting": "{ready} trên {count} sẵn sàng: mở khi mọi người được tính đều đã nhận {needed} XP ở Tier này.",
+        "milestone": "Theo cột mốc",
+        "milestoneNote": "GM quyết định, ở một bước ngoặt của câu chuyện.",
+        "waive": "Bỏ qua Gói Ascension",
+        "confirm": "Xác nhận: mọi người lên Tier {tier}",
+        "armedHint": "Bấm lần nữa để xác nhận. Bấm chỗ khác để hủy.",
+        "busy": "Đang Ascend…"
+      },
+      "session": {
+        "title": "XP mỗi người buổi này",
+        "suggested": "Mức gợi ý",
+        "amount": "XP mỗi người",
+        "range": "Một số nguyên từ 0 đến {max}.",
+        "chosen": "Mỗi nhân vật nhận {xp} XP."
+      }
+    },
     "dev": {
       "title": "Trình tạo theo sổ XP",
       "lede": "Chỉ dùng khi phát triển: trò chơi mẫu tự bịa của engine. Bản dựng chỉ nằm trong trang này và mất khi tải lại.",
@@ -1720,7 +1760,22 @@
       "inPlay": "Trong game ở Tier {tier}",
       "startOver": "Làm lại",
       "readyToSave": "Bước sau sẽ đặt nút lưu ở đây: sẵn sàng.",
-      "notReady": "Bước sau sẽ đặt nút lưu ở đây: chưa sẵn sàng."
+      "notReady": "Bước sau sẽ đặt nút lưu ở đây: chưa sẵn sàng.",
+      "play": {
+        "title": "Trong game",
+        "lede": "Các màn hình bàn chơi cần khi những nhân vật này đã vào game, với số liệu tự bịa. Không gửi gì đi.",
+        "ascension": "Trường hợp Ascension",
+        "cases": {
+          "short": "Có người còn thiếu",
+          "ready": "Mọi người sẵn sàng",
+          "top": "Tier cao nhất",
+          "refusal": "Bị từ chối"
+        },
+        "xp": "Trường hợp ô XP",
+        "xpCases": { "toSpend": "Còn XP để tiêu", "spentAll": "Đã tiêu hết", "notBuilt": "Chưa tạo" },
+        "refusal": "Bị từ chối: một lời từ chối tự bịa, để xem nó hiện ở đâu.",
+        "sent": "Đã bấm: {kind, select, experience {theo kinh nghiệm} other {theo cột mốc}}{waived, select, true {, bỏ qua gói} other {}}."
+      }
     },
     "table": {
       "loading": "Đang mở danh mục…",

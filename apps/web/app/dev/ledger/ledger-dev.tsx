@@ -8,6 +8,8 @@ import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import type { LedgerBuild } from "@/lib/ledger/ledger";
 import { SAMPLE_PARAMS, sampleCatalogue } from "@/lib/ledger/sample";
 
+import { PlayDev } from "./play-dev";
+
 const catalogue = sampleCatalogue();
 // A build begun: an Archetype taken, the rest still to settle.
 const START: LedgerBuild = { tier: 1, archetypeId: "lamplighter" };
@@ -70,6 +72,7 @@ export function LedgerDev() {
           play={play}
           footer={({ ready }) => <span className="small dim">{ready ? t("readyToSave") : t("notReady")}</span>}
         />
+        <PlayDev />
       </main>
     </>
   );

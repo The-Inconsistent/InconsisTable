@@ -862,3 +862,26 @@ test("pools: a seat with no ruleset in its view receives none", () => {
   assert.deepEqual(poolsFor(ctx(member("gm"), "u-gm"), { compiled: false }), []);
   assert.deepEqual(poolsFor(ctx(member("player", [], ["lyra"])), { compiled: false }), []);
 });
+
+test("a saved ledger build reaches the GM side and the seat holding the character, nobody else (house decision #63)", () => {
+  const saved = { build: { tier: 1, archetypeId: "lamplighter" }, sheet: { species: "Heron-kin" } };
+  const actors = state.actors.map((a) => (a.id === "lyra" ? { ...a, ledger: saved } : a));
+  const withLedger: Snapshot = { ...snapshot, state: { ...state, actors } };
+  const ledgerOf = (c: Ctx) =>
+    seatView({ snapshot: withLedger, compiled, ctx: c }).state.actors.find((a) => a.id === "lyra")?.ledger;
+  for (const c of [
+    ctx(member("gm"), "u-gm"),
+    ctx(member("player", [], ["lyra"]), "u-lyra"),
+    ctx({ kind: "token", role: "player", characterIds: ["lyra"] }, null),
+    ctx(member("cogm", ["party"]), "u-co"),
+  ])
+    assert.deepEqual(ledgerOf(c), saved, JSON.stringify(c.seat));
+  // A player who does not hold the character does not receive it, nor does a co-GM off the party, nor the Screen.
+  for (const c of [
+    ctx(member("player", [], ["bran"]), "u-bran"),
+    ctx(member("player"), "u-someone"),
+    ctx(member("cogm", ["combat"]), "u-co"),
+    ctx({ kind: "token", role: "screen", characterIds: [] }, null),
+  ])
+    assert.equal(ledgerOf(c), null, JSON.stringify(c.seat));
+});

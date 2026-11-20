@@ -92,8 +92,14 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	ledgers, err := actor.LoadLedgers(ctx, conn, campaignID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	for _, r := range rows {
-		state.Actors = append(state.Actors, actor.ToLive(built[r.Actor.ID]))
+		live := actor.ToLive(built[r.Actor.ID])
+		live.Ledger = ledgers[r.Actor.ID]
+		state.Actors = append(state.Actors, live)
 	}
 	if state.Tests, err = testcall.Load(ctx, conn, campaignID, sessionID, state.Campaign.TableMode != cs.TableModeGM, compiled, built); err != nil {
 		return nil, nil, nil, err

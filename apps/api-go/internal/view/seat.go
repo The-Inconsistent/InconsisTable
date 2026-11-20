@@ -179,6 +179,7 @@ func seatState(state cs.LiveState, compiled *engine.CompiledRuleset, c cs.Ctx, s
 		out := a
 		if !holds(held, a.ID) && !ActorGmSide(c, a.Kind) {
 			out.OwnerUserID = nil
+			out.Ledger = nil // the saved build and sheet: the GM side and the seat holding the character (house decision #63)
 		}
 		v, seen := views[a.ID]
 		if seen {

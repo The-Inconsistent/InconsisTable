@@ -2,6 +2,7 @@ package actor
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -149,6 +150,26 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 		ON CONFLICT (actor_id) DO UPDATE SET build = EXCLUDED.build, sheet = EXCLUDED.sheet, updated_at = now()`,
 		actorID, string(buildText), string(sheetText))
 	return cs.Done(id), err
+}
+
+// LoadLedgers is the room's saved ledger builds and sheets by actor, as stored text (the Seat view decides who reads
+// them).
+func LoadLedgers(ctx context.Context, conn core.Conn, campaignID string) (map[string]*cs.ActorLedger, error) {
+	rows, err := conn.Query(ctx, `SELECT b.actor_id::text, b.build::text, b.sheet::text FROM actor_build b
+		JOIN actor ON actor.id = b.actor_id WHERE actor.campaign_id = $1`, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]*cs.ActorLedger{}
+	for rows.Next() {
+		var id, build, sheet string
+		if err := rows.Scan(&id, &build, &sheet); err != nil {
+			return nil, err
+		}
+		out[id] = &cs.ActorLedger{Build: json.RawMessage(build), Sheet: json.RawMessage(sheet)}
+	}
+	return out, rows.Err()
 }
 
 // sheetFields is the sheet's numbers and names by the actor field the manifest's build.sheet names for each. A Skill or

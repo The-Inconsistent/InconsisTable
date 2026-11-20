@@ -66,11 +66,21 @@ const actor = (id: string, kind: string, name: string, owner: string | null, ove
   ...values(over),
 });
 
+// A saved ledger build and sheet (house decision #63): the GM side and the seat holding the character read it.
+const ledger = (archetypeId: string) => ({
+  build: { tier: 1, archetypeId, gm: { approved: ["x/y"] } },
+  sheet: { species: "Heron-kin", archetype: archetypeId, attributes: { MGT: 2 } },
+});
+
 const ACTORS = [
-  actor(PC1, "pc", "One", "player1"),
-  actor(PC2, "pc", "Two", null),
+  actor(PC1, "pc", "One", "player1", { ledger: ledger("one") }),
+  actor(PC2, "pc", "Two", null, { ledger: ledger("two") }),
   actor(PAL, "companion", "Pal", "player1", { conditions: ["staggered"], conditionTimers: [] }),
-  actor(NPC, "npc", "Keeper", null, { entity: "creature", fields: { name: "K", level: 2, "attr.con": 12 } }),
+  actor(NPC, "npc", "Keeper", null, {
+    entity: "creature",
+    fields: { name: "K", level: 2, "attr.con": 12 },
+    ledger: ledger("keeper"),
+  }),
   actor(GOB, "creature", "Goblin", null, {
     entity: "creature",
     fields: { name: "G", level: 1, healthState: "ok" },

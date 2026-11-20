@@ -209,6 +209,30 @@ func TestALedgerBuildIsResolvedAndSavedWithItsFieldsResourcesAndDocuments(t *tes
 			t.Fatalf("stored sheet %s", sheet)
 		}
 
+		// The GM and the seat holding the character receive the documents as stored, keys in order; another player not.
+		bo := p.room.Seat(t, tx, dbtest.User(t, tx, "Bo"))
+		for _, seat := range []cs.Ctx{gm, ana, bo} {
+			var got *cs.Actor
+			for _, a := range p.seatView(seat).State.Actors {
+				if a.ID == hero {
+					got = &a
+				}
+			}
+			if seat.UserID == bo.UserID {
+				if got == nil || got.Ledger != nil {
+					t.Fatalf("a player not holding the character: %+v", got)
+				}
+				continue
+			}
+			if got == nil || got.Ledger == nil || string(got.Ledger.Build) != build || string(got.Ledger.Sheet) != sheet {
+				t.Fatalf("as %s: %+v", seat.Seat.Role, got)
+			}
+			// Sent as it is: the socket writes the state with encoding/json.
+			if out, _ := json.Marshal(got.Ledger); !strings.HasPrefix(string(out), `{"build":`+build+`,"sheet":{"species"`) {
+				t.Fatalf("sent %s", out)
+			}
+		}
+
 		// Play changes a resource; a second save replaces the documents and the fields and leaves the resources alone.
 		dbtest.Exec(t, tx, `UPDATE actor_resource SET value = 7 WHERE actor_id = $1 AND resource_id = 'wealth'`, hero)
 		second := fmt.Sprintf(rootsBuild, `,"gm":{"approved":["`+oldRite+`"]}`)

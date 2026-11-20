@@ -296,9 +296,12 @@ function seatState({
       .filter((a) => PARTY_KINDS.has(a.kind) || held.includes(a.id) || sight.combat)
       .map((a) => {
         const v = views.get(a.id);
+        const own = held.includes(a.id) || actorGmSide({ ctx, kind: a.kind });
         return {
           ...a,
-          ownerUserId: held.includes(a.id) || actorGmSide({ ctx, kind: a.kind }) ? a.ownerUserId : null,
+          ownerUserId: own ? a.ownerUserId : null,
+          // The saved ledger build and sheet (house decision #63): the GM side and the seat holding the character.
+          ledger: own ? a.ledger : null,
           ...(v ? copyValues(v) : NO_VALUES),
           // The durations of the conditions the seat sees.
           conditionTimers: a.conditionTimers.filter((t) => v?.conditions.includes(t.id)),

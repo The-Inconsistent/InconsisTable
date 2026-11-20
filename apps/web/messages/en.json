@@ -852,6 +852,8 @@
     "recap": "Recap",
     "recapHint": "What happened this session? Leave empty to skip.",
     "endSessionConfirm": "End session {number}",
+    "abandonSession": "End without an award",
+    "deleteSession": "Delete session {number}",
     "cancel": "Cancel",
     "ledger": {
       "build": "Build",
@@ -1124,6 +1126,10 @@
     "sessionNotFound": "Session not found",
     "startSessionFirst": "Start a session first",
     "sessionPaused": "Start a session to continue",
+    "notLatestSession": "Only the latest session can be deleted",
+    "endSessionFirst": "End the session before deleting it",
+    "recapAtSessionEnd": "A running session's recap is written when it ends",
+    "noNextSession": "No next session is set",
     "noRuleset": "This game has no ruleset yet",
     "inviteExpired": "This invite has expired or was already used. Ask your GM for a new one",
     "inviteNotFound": "Invite not found",
@@ -1660,6 +1666,7 @@
     "label": "What that did",
     "poolFull": "{pool} is full: {lost} lost",
     "restSkipped": "Not rested in their state: {names}",
+    "sessionDeleted": "Session {number} deleted; what it awarded stays",
     "rule": "{name}: {rule}",
     "dismiss": "Dismiss"
   },

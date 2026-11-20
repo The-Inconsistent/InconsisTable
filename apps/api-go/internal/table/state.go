@@ -63,18 +63,27 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 		return nil, nil, nil, err
 	}
 
-	var session cs.Session
-	var startedAt time.Time
-	var endedAt *time.Time
-	err = conn.QueryRow(ctx, `SELECT id::text, number, title, started_at, ended_at, recap, notes FROM session
-		WHERE campaign_id = $1 ORDER BY number DESC LIMIT 1`, campaignID).
-		Scan(&session.ID, &session.Number, &session.Title, &startedAt, &endedAt, &session.Recap, &session.Notes)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	// ponytail: every session with its notes in each snapshot, fine for a campaign's few dozen sessions; page the journal
+	// once a room passes ~200 sessions.
+	sessions, err := conn.Query(ctx, `SELECT id::text, number, title, started_at, ended_at, recap, notes, abandoned FROM session
+		WHERE campaign_id = $1 ORDER BY number DESC`, campaignID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	state.Journal, err = pgx.CollectRows(sessions, func(r pgx.CollectableRow) (cs.JournalSession, error) {
+		var s cs.JournalSession
+		var startedAt time.Time
+		var endedAt *time.Time
+		err := r.Scan(&s.ID, &s.Number, &s.Title, &startedAt, &endedAt, &s.Recap, &s.Notes, &s.Abandoned)
+		s.StartedAt, s.EndedAt = core.ISOTime(startedAt), isoPtr(endedAt)
+		return s, err
+	})
+	if err != nil {
 		return nil, nil, nil, err
 	}
 	var sessionID *string
-	if err == nil && endedAt == nil {
-		session.StartedAt = core.ISOTime(startedAt)
+	if len(state.Journal) > 0 && state.Journal[0].EndedAt == nil {
+		session := state.Journal[0].Session
 		state.Session = &session
 		sessionID = &session.ID
 	}

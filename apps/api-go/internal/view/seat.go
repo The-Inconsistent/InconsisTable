@@ -209,11 +209,27 @@ func seatState(state cs.LiveState, compiled *engine.CompiledRuleset, c cs.Ctx, s
 	if !sight.Session && !sight.TableRun {
 		state.TestDefs = []cs.TestDef{}
 	}
+	state.Journal = seatJournal(state.Journal, sight)
 	state.Encounter = seatEncounter(state.Encounter, views, sight)
 	if !sight.Party && !cs.CanInCampaign(c, "member:invite", "") {
 		state.Access.Invites = []cs.Invite{}
 	}
 	return state
+}
+
+// seatJournal is the GM's journal as one seat receives it (house decision #85): the seats that run the room, as the
+// Test definitions go; the notes only to the session side, so a room without a GM runs it with no notes in it.
+func seatJournal(journal []cs.JournalSession, sight Sight) []cs.JournalSession {
+	if !sight.Session && !sight.TableRun {
+		return []cs.JournalSession{}
+	}
+	out := append([]cs.JournalSession{}, journal...)
+	if !sight.Session {
+		for i := range out {
+			out[i].Notes = ""
+		}
+	}
+	return out
 }
 
 // The Encounter one seat receives. The combat side sees every Combatant. Anyone else gets no hidden Combatant at all,

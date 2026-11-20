@@ -152,6 +152,20 @@ bước 0 đã làm.
    chọn cột.
 6. **Mob:** chưa đưa nội dung Mob vào pack; chờ khối Mob của platform (thiếu 10).
 
+2026-11-20, cho catalogue tạo nhân vật (khoảng 1.400 entry) và wargear (1.271 entry), trước khi chuyển dữ liệu:
+
+7. **Chữ in trong sách** (effect của Talent và power, dòng Background, Ability): pack chỉ mang tên, cite trang và cấu
+   trúc, như pack Threat (mục 3). Thêm một ô `summary` tuỳ chọn cho mỗi entry: tóm tắt ngắn bằng lời người nhập, để
+   trống khi chuyển dữ liệu, điền dần cho những entry bàn hay dùng.
+8. **Đóng gói:** hai pack bên cạnh pack Threat. Pack tạo nhân vật: Species, Archetype, Faction, Keyword, sub-faction,
+   Talent, gói Ascension, Background, option group, discipline, power, ngôn ngữ. Pack wargear riêng, vì wargear còn dùng
+   ngoài lúc tạo nhân vật. Patron, Framework và các bảng tên, ngoại hình chưa đưa vào: builder không đọc chúng.
+9. **Builder:** chuyển nguyên builder của Auspex (`resolveBuild`, 2.498 dòng, 68 test) thành một primitive của platform,
+   đọc dữ liệu theo hình của Auspex, thay vì dựng lại từ các khối chung (giá, điều kiện, grant). Chủ sản phẩm chọn cách
+   này dù nó đặt luật của một game vào code platform, điều ADR 0010 từng từ chối và không game nào khác dùng lại được.
+   Cách làm cụ thể sẽ ghi ở một ADR riêng. Hệ quả: "entry mang effect" (thiếu 4, house decision #61) không còn nằm trên
+   đường của Wrath & Glory; nó vẫn là một khối chung cho ruleset khác.
+
 ## Đã có câu trả lời ở auspex_gm (tra 2026-11-20)
 
 | Câu hỏi | auspex_gm làm gì | Nguồn |
@@ -179,6 +193,9 @@ Platform làm theo đúng các dòng trên. Hai chỗ platform làm khác cách 
 
 1. **ADR 0010** đã merge nhưng còn ghi "proposed": đổi thành "accepted"?
 2. **Bản đồ in có ô lưới** mà Auspex đã hứa: vẫn chưa quyết, ngoài phạm vi P3.
+3. **Builder chạy ở đâu** (theo mục 9 của "Đã chốt"): api viết bằng Go, nên "server quyết định" (nguyên tắc 6) đòi một
+   bản Go của builder, giữ bằng nhau với bản TypeScript qua vector. Làm cả hai ngay, hay chạy trên thiết bị trước (server
+   chỉ kiểm khoảng giá trị của từng ô, như bước nhập tay hiện nay) rồi thêm bản Go sau?
 
 ## Không làm ở P3
 

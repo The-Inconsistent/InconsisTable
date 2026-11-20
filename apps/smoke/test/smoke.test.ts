@@ -1159,6 +1159,96 @@ test("a handout has a layout and a header, read by its player; the room's World 
   ana.socket.close();
 });
 
+test("scene prep: each line is sent as the action it stands for; players and the screen never receive the lines", async () => {
+  const { owner, ana, ben, campaignId, packVersionId } = await buildRoom("PrepLines");
+  const tok = ok(await owner.send({ type: "screen.issue" })).token!;
+  const screen = connect({ auth: { campaignId, token: tok } });
+  await screen.until(() => true);
+  for (const p of [ana, ben]) ok(await p.c.send({ type: "actor.build", actorId: p.held, answers: GOOD_ANSWERS }));
+  const save = async (a: Record<string, unknown>) => ok(await owner.send({ type: "codex.save", ...a } as never)).id!;
+  const well = await save({ kind: "scene", title: "The well" });
+  const keeper = await save({ kind: "npc", title: "Keeper" });
+  // One line of each kind on the sample d20 room (no mobs in its ruleset, so no mob), and one naming a pack it lacks.
+  const prep = {
+    roster: [
+      { id: "r1", pack: BUILD_PACK.id, key: "ember-wisp", count: 2, label: "Wisps" },
+      { id: "r2", pack: "no-such-pack", key: "ember-wisp", count: 1 },
+    ],
+    tests: [
+      {
+        id: "t1",
+        testId: "check",
+        inputs: { ability: "dex", dc: 12 },
+        hideTarget: true,
+        outcomes: [{ label: "Pass", text: "The rope holds." }],
+      },
+    ],
+    pools: [{ id: "p1", pool: "menace", amount: 2, text: "They are heard" }],
+    exits: [{ id: "e1", label: "Down the well", sceneId: well }],
+    reveals: [{ id: "v1", entryId: keeper }],
+  };
+  const yard = await save({ kind: "scene", title: "The yard", prep });
+  const gmYard = () => owner.codex()?.entries.find((e) => e.id === yard);
+  await eventually(() => gmYard()?.prep?.roster.length === 2, "the GM receives the lines");
+  assert.deepEqual(gmYard()?.prep?.roster[1], { ...prep.roster[1], visibility: "hidden", temporary: true });
+  assert.equal(gmYard()?.status, "planned");
+  refused(await ana.c.send({ type: "codex.save", id: yard, kind: "scene", prep: null }), "noPermission");
+  refused(await owner.send({ type: "codex.save", id: keeper, kind: "npc", prep: null }), "sceneOnly");
+  ok(await owner.send({ type: "codex.save", id: yard, kind: "scene", status: "active" }));
+
+  // Shown to the party, the scene reaches the phone and the screen without its lines or where it stands.
+  ok(await owner.send({ type: "codex.reveal", id: yard, visibility: "party", audienceMode: "all", audience: [] }));
+  for (const c of [ana.c, screen]) {
+    await eventually(() => c.codex()?.entries.some((e) => e.id === yard) ?? false, "the scene is shown");
+    const seen = c.codex()?.entries.find((e) => e.id === yard);
+    assert.deepEqual([seen?.prep, seen?.status], [null, null]);
+    assert.ok(!JSON.stringify(c.codex()).includes("Down the well"));
+  }
+
+  // The GM sends the lines as the screen builds them: each is that action, nothing else.
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "actor.spawn", packVersionId, key: "ember-wisp", count: 2, temporary: true }));
+  const fight = await owner.until((s) => (s.encounter?.combatants.filter((c) => c.side === "foe").length ?? 0) === 2);
+  assert.ok(fight.encounter?.combatants.filter((c) => c.side === "foe").every((c) => c.visibility === "hidden"));
+  const seated = fight.actors.filter((a) => [ana.held, ben.held].includes(a.id) && a.entity !== "").map((a) => a.id);
+  assert.equal(seated.length, 2);
+  const line = prep.tests[0]!;
+  ok(
+    await owner.send({
+      type: "test.call",
+      testId: line.testId,
+      actorIds: seated,
+      inputs: line.inputs,
+      hideTarget: line.hideTarget,
+      showOutcome: false,
+    }),
+  );
+  const called = await ana.c.until((s) => s.tests.some((t) => t.testId === "check" && t.status === "open"));
+  assert.equal(called.tests.find((t) => t.testId === "check")?.targets[0]?.target, null, "the target stays hidden");
+  ok(await owner.send({ type: "codex.reveal", id: keeper, visibility: "party", audienceMode: "all", audience: [] }));
+  await eventually(() => ana.c.codex()?.entries.some((e) => e.id === keeper) ?? false, "the keeper is shown");
+  const menace = (s: LiveState) => s.pools.find((p) => p.id === "menace")?.value;
+  const before = menace(await owner.until(() => true))!;
+  ok(
+    await owner.send({
+      type: "rule.op",
+      primitive: "resource.capped",
+      op: "adjustPool",
+      input: { resource: "menace", delta: 2 },
+    }),
+  );
+  await owner.until((s) => menace(s) === before + 2);
+  // Undo takes the last line back as it takes back that action.
+  ok(await owner.send({ type: "event.undo" }));
+  await owner.until((s) => menace(s) === before);
+
+  // Making the next scene active leaves this one done.
+  ok(await owner.send({ type: "codex.save", id: well, kind: "scene", status: "active" }));
+  await eventually(() => gmYard()?.status === "done", "one scene is active at a time");
+  for (const c of [owner, ana.c, ben.c, screen]) c.socket.close();
+});
+
 test("the admin action route seats a known user and refuses anything but housekeeping", async () => {
   const { owner, campaignId } = await newRoom("Seat");
   const act = (body: unknown) => post(`/admin/campaigns/${campaignId}/action`, body, ADMIN);

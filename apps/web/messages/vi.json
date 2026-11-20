@@ -1165,7 +1165,8 @@
     "needSecretsScope": "Ghi chú GM cần quyền bí mật (secrets)",
     "giveTitle": "Hãy đặt tiêu đề cho mục này",
     "pickAudience": "Hãy chọn ai được xem",
-    "onlyQuestStatus": "Chỉ nhiệm vụ mới có trạng thái.",
+    "onlyQuestStatus": "Chỉ nhiệm vụ hoặc cảnh mới có trạng thái.",
+    "wrongStatus": "Trạng thái đó không thuộc loại mục này.",
     "sceneNeedsAdventure": "Một cảnh thuộc về một cuộc phiêu lưu.",
     "adventureHasScenes": "Hãy chuyển hoặc xóa các cảnh của nó trước.",
     "parentOtherKind": "Một mục chỉ nằm trong mục cùng loại",
@@ -1173,6 +1174,7 @@
     "tooDeep": "Các mục lồng nhau tối đa {limit} tầng",
     "onlySceneTests": "Chỉ cảnh mới lên kế hoạch cho Test.",
     "handoutOnly": "Chỉ tài liệu phát tay mới có bố cục và dòng đầu.",
+    "sceneOnly": "Chỉ cảnh mới có các dòng chuẩn bị.",
     "cantLinkThat": "Một cảnh liên kết NPC, địa điểm, phe phái, vật phẩm, tài liệu, tri thức và nhiệm vụ.",
     "noSuchEntryField": "Loại mục này không có trường {field}.",
     "badEntryField": "{field} không nhận giá trị đó: {detail}",
@@ -1335,7 +1337,10 @@
     "status": {
       "open": "Đang mở",
       "done": "Xong",
-      "failed": "Thất bại"
+      "failed": "Thất bại",
+      "planned": "Dự kiến",
+      "active": "Đang chơi",
+      "skipped": "Bỏ qua"
     },
     "kind": {
       "adventure": "Cuộc phiêu lưu",
@@ -1409,7 +1414,95 @@
     "planTest": "Dự kiến một Test",
     "unknownTest": "(không có trong bộ luật này)",
     "call": "Gọi",
-    "unplan": "Bỏ dự kiến {id}"
+    "unplan": "Bỏ dự kiến {id}",
+    "lines": "Các dòng chuẩn bị",
+    "noLines": "Cảnh này chưa chuẩn bị gì.",
+    "kind": {
+      "reveals": "Cho cả nhóm xem",
+      "tests": "Test",
+      "pools": "Quỹ chung",
+      "roster": "Sinh vật",
+      "exits": "Đi tiếp"
+    },
+    "add": {
+      "reveals": "Thêm mục để cho xem",
+      "tests": "Thêm Test",
+      "pools": "Thêm dòng quỹ",
+      "roster": "Thêm sinh vật",
+      "exits": "Thêm lối ra"
+    },
+    "missing": {
+      "pack": "Hỏng: gói của nó không còn gắn vào phòng này",
+      "entry": "Hỏng: thứ nó nhắc tới không còn",
+      "test": "Hỏng: bộ luật không có Test này",
+      "actor": "Hỏng: một nhân vật trong danh sách không còn",
+      "pool": "Hỏng: bộ luật không có quỹ này",
+      "scene": "Hỏng: cảnh đó không còn"
+    },
+    "blocked": {
+      "noFight": "Chưa có trận đánh nào. Hãy bắt đầu một trận trước.",
+      "visibility": "Sinh vật vào trận ở chế độ ẩn; dòng này muốn cách hiện khác, bàn chưa gửi được.",
+      "count": "Hơn 20 cùng lúc; bàn chưa gửi được nhiều vậy.",
+      "mobCount": "Nhiều đám cùng lúc; bàn gửi mỗi lần một đám.",
+      "nobody": "Chưa có nhân vật nào ngồi vào bàn để làm Test này.",
+      "short": "Quỹ không đủ để trả."
+    },
+    "summary": {
+      "roster": "{count} × {name}",
+      "mob": "{count} × {name}, một đám {mob}",
+      "test": "{test} · {who}",
+      "testWith": "{test} · {inputs} · {who}",
+      "party": "mọi người đang ngồi",
+      "gone": "(không còn)",
+      "pool": "{pool} {amount, number, ::sign-always}",
+      "exit": "Tới {scene}",
+      "reveal": "Cho xem {entry}"
+    },
+    "form": {
+      "creature": "Sinh vật",
+      "visibility": "Cả bàn thấy",
+      "pool": "Quỹ",
+      "amount": "Số lượng",
+      "amountHint": "Dương là thêm, âm là tiêu. Không bao giờ là 0.",
+      "text": "Dùng để làm gì",
+      "scene": "Cảnh",
+      "entry": "Mục",
+      "pick": "Chọn…",
+      "label": "Nhãn (tuỳ chọn)",
+      "exitLabel": "Nhãn",
+      "note": "Ghi chú cho GM (tuỳ chọn)",
+      "takers": {
+        "party": "Mọi người đang ngồi",
+        "listed": "Chỉ những người này"
+      },
+      "outcomes": "Mỗi kết quả nghĩa là gì",
+      "outcomeLabel": "Kết quả",
+      "outcomeText": "Chuyện gì xảy ra",
+      "addOutcome": "Thêm kết quả",
+      "removeOutcome": "Bỏ kết quả {label}"
+    },
+    "saveLine": "Lưu dòng",
+    "edit": "Sửa",
+    "moveLineUp": "Đưa dòng này lên",
+    "moveLineDown": "Đưa dòng này xuống",
+    "mode": {
+      "label": "Chuẩn bị hay chạy cảnh",
+      "prepare": "Chuẩn bị",
+      "run": "Chạy"
+    },
+    "sceneStatus": "Cảnh này đang ở đâu",
+    "setStatus": {
+      "planned": "Dự kiến",
+      "active": "Chơi cảnh này",
+      "done": "Xong",
+      "skipped": "Bỏ qua"
+    },
+    "startFight": "Bắt đầu trận đánh",
+    "send": "Gửi",
+    "open": "Mở",
+    "sendLine": "Gửi {what}",
+    "openLine": "Mở {what}",
+    "sent": "Đã gửi: {what}"
   },
   "safety": {
     "card": {

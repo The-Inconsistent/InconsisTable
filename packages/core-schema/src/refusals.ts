@@ -157,7 +157,8 @@ export const REFUSALS = {
   needSecretsScope: "GM notes need the secrets scope",
   giveTitle: "Give the entry a title",
   pickAudience: "Pick who sees it",
-  onlyQuestStatus: "Only a quest has a status.",
+  onlyQuestStatus: "Only a quest or a scene has a status.",
+  wrongStatus: "That status is not one this kind of entry has.",
   sceneNeedsAdventure: "A scene belongs to an adventure.",
   adventureHasScenes: "Move or delete its scenes first.",
   parentOtherKind: "An entry sits under one of its own kind",
@@ -165,6 +166,7 @@ export const REFUSALS = {
   tooDeep: "Entries nest {limit} deep at most",
   onlySceneTests: "Only a scene plans Tests.",
   handoutOnly: "Only a handout has a layout and a header.",
+  sceneOnly: "Only a scene holds prepared lines.",
   cantLinkThat: "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
   // Declared entry fields (house decision #71). {field} is the field's id, then its label.
   noSuchEntryField: "This kind of entry has no field {field}.",

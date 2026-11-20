@@ -411,11 +411,12 @@ func Pre(key string, s Schema, fallback any) Field {
 	return Field{key, s, prefaulted, fallback}
 }
 
-// ObjectSchema is z.object(fields). Unknown keys drop.
+// ObjectSchema is z.object(fields). Unknown keys drop, or are refused when it is strict.
 type ObjectSchema struct {
 	fields  []Field
 	check   func(map[string]any) bool
 	message string
+	strict  bool
 }
 
 // Object is z.object(fields).
@@ -423,7 +424,12 @@ func Object(fields ...Field) *ObjectSchema { return &ObjectSchema{fields: fields
 
 // Refine is .refine(check, message) on the whole object: the check runs only when every field was accepted.
 func (s *ObjectSchema) Refine(check func(map[string]any) bool, message string) *ObjectSchema {
-	return &ObjectSchema{s.fields, check, message}
+	return &ObjectSchema{s.fields, check, message, s.strict}
+}
+
+// Strict is z.strictObject(fields): a key the shape does not name is refused, not dropped.
+func (s *ObjectSchema) Strict() *ObjectSchema {
+	return &ObjectSchema{s.fields, s.check, s.message, true}
 }
 
 // Extend is .extend(fields): a key already there takes the new schema in its place, a new key goes last, as an object
@@ -463,6 +469,13 @@ func (s *ObjectSchema) parse(value any, c *context) any {
 		return nil
 	}
 	before := len(c.issues)
+	if s.strict {
+		for _, k := range keysOf(input, ordered) {
+			if !slices.ContainsFunc(s.fields, func(f Field) bool { return f.key == k }) {
+				c.fail("Unrecognized key: %q", k)
+			}
+		}
+	}
 	out := make(map[string]any, len(s.fields))
 	for _, f := range s.fields {
 		v, present := input[f.key]

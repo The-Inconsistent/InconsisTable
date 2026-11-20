@@ -9,7 +9,7 @@ import {
   BuilderDraftBody,
   CampaignName,
   CodexKind,
-  QuestStatus,
+  EntryStatus,
   CodexText,
   CodexTitle,
   ClockName,
@@ -28,6 +28,7 @@ import {
   SafetyList,
 } from "./state.ts";
 import { ENCOUNTER_ACTIONS } from "./encounter.ts";
+import { ScenePrep } from "./prep.ts";
 import { TestCallAction, TestCloseAction, TestReportAction } from "./test-call.ts";
 
 // Every mutation goes through one socket event: "action" (CLAUDE.md, "The server decides"). These are the core
@@ -192,7 +193,7 @@ export const Action = z.discriminatedUnion("type", [
     title: CodexTitle.optional(),
     body: CodexText.optional(),
     gmNotes: CodexText.optional(),
-    status: QuestStatus.optional(), // a quest only
+    status: EntryStatus.optional(), // a quest's or a scene's, of that kind's set
     plannedTests: z.array(z.string().min(1).max(100)).max(10).optional(), // a scene only: ruleset Test ids
     imageId: id.nullable().optional(), // a picture uploaded to this room; null removes it (house decision #70)
     // The ruleset's declared fields of this kind (house decision #71): a value sets one, null clears it, absent leaves it.
@@ -202,6 +203,7 @@ export const Action = z.discriminatedUnion("type", [
       .optional(),
     layout: HandoutLayout.optional(), // a handout only
     header: HandoutHeader.optional(), // a handout only
+    prep: ScenePrep.nullable().optional(), // a scene only: the whole document replaces the stored one, null clears it
   }),
   // Who reads an entry, and whether the table sees its picture: either may be sent alone.
   z.object({

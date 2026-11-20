@@ -10,16 +10,25 @@ import {
   type LiveState,
   type Me,
 } from "@inconsistable/core-schema";
+import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { SceneEditor } from "@/components/gm/prep/components/scene-editor/scene-editor";
+import { SceneRun } from "@/components/gm/prep/components/scene-run/scene-run";
 import type { Send } from "@/hooks/use-table/use-table";
 import { prepTree, stepIndex } from "@/lib/prep/prep";
+import { lineNames, type PrepWorld, type Spawnable } from "@/lib/scene-prep/scene-prep";
+
+import { PREP_MODES, type PrepMode } from "./constants";
 
 type PrepProps = {
   me: Me;
   state: LiveState;
   codex: Codex | null;
   send: Send;
+  /** The pinned ruleset, for the kinds of line a scene offers. */
+  ruleset: Ruleset | null;
+  /** The attached packs' creatures; null when the page could not read them (no roster line is called broken). */
+  spawnable: Spawnable | null;
   /** CALL on a planned Test: switches to TESTS with that Test selected. */
   onCall: (testId: string) => void;
   /** "Open in CODEX" on a linked entry. */
@@ -28,9 +37,11 @@ type PrepProps = {
 
 // PREP: the GM's adventures as scenes in play order, each scene linked to the NPCs, places and handouts it needs and the
 // Tests it plans (docs/design.md §3.4). Revealing stays in CODEX.
-export function Prep({ me, state, codex, send, onCall, onOpenCodex }: PrepProps) {
+export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpenCodex }: PrepProps) {
   const t = useTranslations("prep");
+  const tCodex = useTranslations("codex");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mode, setMode] = useState<PrepMode>("prepare");
   const [newAdventure, setNewAdventure] = useState("");
   const [sceneFor, setSceneFor] = useState<string | null>(null);
   const [newScene, setNewScene] = useState("");
@@ -39,6 +50,12 @@ export function Prep({ me, state, codex, send, onCall, onOpenCodex }: PrepProps)
   const tree = useMemo(() => prepTree(entries), [entries]);
   const selected = entries.find((e) => e.id === selectedId && e.kind === "scene") ?? null;
   const secrets = canInCampaign({ ctx: me, perm: "codex:read_secret" });
+  // What a scene's lines are resolved against: what this device already holds.
+  const world = useMemo<PrepWorld>(
+    () => ({ state, entries, spawnable: spawnable ?? { packs: [], entries: [], complete: false } }),
+    [state, entries, spawnable],
+  );
+  const names = useMemo(() => lineNames(world), [world]);
 
   // Sends an action and shows its refusal, if any.
   const act = async (a: ActionInput) => {
@@ -114,7 +131,12 @@ export function Prep({ me, state, codex, send, onCall, onOpenCodex }: PrepProps)
         style={{ flex: 1, justifyContent: "space-between", textAlign: "left" }}
       >
         <strong>{s.title}</strong>
-        {s.plannedTests.length > 0 && <span className="chip">{t("testsCount", { count: s.plannedTests.length })}</span>}
+        <span className="row">
+          {s.status === "active" && <span className="chip">{tCodex("status.active")}</span>}
+          {s.plannedTests.length > 0 && (
+            <span className="chip">{t("testsCount", { count: s.plannedTests.length })}</span>
+          )}
+        </span>
       </button>
       {stepButtons(siblings, s)}
     </li>
@@ -184,16 +206,32 @@ export function Prep({ me, state, codex, send, onCall, onOpenCodex }: PrepProps)
           )}
         </div>
         {selected ? (
-          <SceneEditor
-            key={selected.id}
-            scene={selected}
-            entries={entries}
-            testIds={state.testDefs.map((d) => d.id)}
-            canSecrets={secrets}
-            act={act}
-            onCall={onCall}
-            onOpenCodex={onOpenCodex}
-          />
+          <div className="stack" style={{ minWidth: 0 }}>
+            <div className="row" role="group" aria-label={t("mode.label")}>
+              {PREP_MODES.map((m) => (
+                <button key={m} className="btn" aria-pressed={mode === m} onClick={() => setMode(m)}>
+                  {t(`mode.${m}`)}
+                </button>
+              ))}
+            </div>
+            {mode === "run" ? (
+              <SceneRun scene={selected} world={world} names={names} act={act} onOpenScene={setSelectedId} />
+            ) : (
+              <SceneEditor
+                key={selected.id}
+                scene={selected}
+                entries={entries}
+                testIds={state.testDefs.map((d) => d.id)}
+                canSecrets={secrets}
+                world={world}
+                names={names}
+                ruleset={ruleset}
+                act={act}
+                onCall={onCall}
+                onOpenCodex={onOpenCodex}
+              />
+            )}
+          </div>
         ) : (
           <p className="dim">{t("pickScene")}</p>
         )}

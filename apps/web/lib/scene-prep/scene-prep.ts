@@ -4,6 +4,7 @@ import {
   type Actor,
   type CodexEntry,
   type LiveState,
+  type PickLine,
   type PoolLine,
   type PrepKind,
   type RevealLine,
@@ -18,6 +19,7 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { takers } from "@/components/gm/tests/components/call-form/takers";
 import { JOIN_AS } from "@/components/gm/track/constants";
+import { pickableFields, rowsOf } from "@/lib/entry-fields/entry-fields";
 import {
   draftOf,
   missingInputs,
@@ -32,9 +34,16 @@ import {
 // as a hand-made one; nothing here runs by itself.
 
 /** The groups in the order the scene screens show them: shown on entry, Tests, pools, the fight, then where next. */
-export const PREP_ORDER = ["reveals", "tests", "pools", "roster", "exits"] as const satisfies readonly PrepKind[];
+export const PREP_ORDER = [
+  "reveals",
+  "picks",
+  "tests",
+  "pools",
+  "roster",
+  "exits",
+] as const satisfies readonly PrepKind[];
 
-export const EMPTY_PREP: ScenePrep = { roster: [], tests: [], pools: [], exits: [], reveals: [] };
+export const EMPTY_PREP: ScenePrep = { roster: [], tests: [], pools: [], exits: [], reveals: [], picks: [] };
 
 /** The attached packs' spawnable entries the GM's page read, by pack slug and key; `complete` when none was cut off. */
 export type Spawnable = {
@@ -48,10 +57,12 @@ export type PrepWorld = {
   state: Pick<LiveState, "testDefs" | "pools" | "actors" | "encounter" | "access">;
   entries: readonly CodexEntry[];
   spawnable: Spawnable;
+  // The manifest as the GM reads it: which rows fields a pick line may name (house decision #89).
+  ruleset?: Ruleset | null;
 };
 
 /** What a line names that the room no longer has. */
-export type Missing = "pack" | "entry" | "test" | "actor" | "pool" | "scene";
+export type Missing = "pack" | "entry" | "test" | "actor" | "pool" | "scene" | "field";
 /** Why a whole line cannot be sent right now (it is not broken). */
 export type Blocked = "noFight" | "count" | "mobCount" | "nobody" | "short";
 
@@ -62,7 +73,9 @@ export type Resolved =
   // A Test line that lacks inputs its Test asks for: the GM fills them in on the line, for that send only.
   | { state: "fill"; missing: TestInput[] }
   // A `pick` Test line before the GM has chosen who takes it: nothing is built until then (house decision #75).
-  | { state: "pick"; takers: Actor[] };
+  | { state: "pick"; takers: Actor[] }
+  // A pick line (house decision #89): rows the GM reads and ticks; nothing to send.
+  | { state: "read" };
 
 type Line<K extends PrepKind> = ScenePrep[K][number];
 
@@ -173,6 +186,36 @@ function resolveReveal(line: RevealLine, world: PrepWorld): Resolved {
   return { state: "ready", action };
 }
 
+/** The rows field a pick line names, when its entry is still in the room and the field may still be picked. */
+export function pickedField({ line, world }: { line: PickLine; world: PrepWorld }) {
+  const entry = world.entries.find((e) => e.id === line.entryId);
+  const field = entry
+    ? pickableFields({ ruleset: world.ruleset ?? null, kind: entry.kind }).find((f) => f.id === line.field)
+    : undefined;
+  return entry && field ? { entry, def: field.def } : null;
+}
+
+/**
+ * A pick line's rows as the GM reads them (house decision #89): each picked row with its stored row, or none when the
+ * entry no longer holds it (shown broken), and its switch.
+ */
+export function pickedRows({ line, world }: { line: PickLine; world: PrepWorld }) {
+  const picked = pickedField({ line, world });
+  const rows = rowsOf(picked?.entry.fields[line.field]);
+  return line.rows.map((p) => ({ ...p, row: rows.find((r) => r.id === p.rowId) }));
+}
+
+function resolvePick(line: PickLine, world: PrepWorld): Resolved {
+  if (!world.entries.some((e) => e.id === line.entryId)) return { state: "broken", missing: "entry" };
+  return pickedField({ line, world }) ? { state: "read" } : { state: "broken", missing: "field" };
+}
+
+/** A pick line with one row's switch flipped: what the run view saves with the scene's prep. */
+export const withSwitch = ({ line, rowId }: { line: PickLine; rowId: string }): PickLine => ({
+  ...line,
+  rows: line.rows.map((r) => (r.rowId === rowId ? { ...r, on: !r.on } : r)),
+});
+
 /**
  * What sending one line does now: the action it stands for, the scene it opens, or why it can't be sent. `taker` is
  * the seated character the GM picked for a `pick` Test line; `filled`, the inputs the GM filled in on a Test line.
@@ -199,6 +242,8 @@ export function resolveLine<K extends PrepKind>({
       return resolvePool(line as PoolLine, world);
     case "exits":
       return resolveExit(line as ExitLine, world);
+    case "picks":
+      return resolvePick(line as PickLine, world);
     default:
       return resolveReveal(line as RevealLine, world);
   }
@@ -240,6 +285,10 @@ export function fightSteps({ prep, world, sided }: { prep: ScenePrep; world: Pre
 export function offeredKinds({ ruleset, spawnable }: { ruleset: Ruleset | null; spawnable: Spawnable }): PrepKind[] {
   const has: Record<PrepKind, boolean> = {
     reveals: true,
+    // A pick line names a rows field a scene may pick from (house decision #89).
+    picks: Object.values(ruleset?.codex?.kinds ?? {}).some((k) =>
+      Object.values(k?.fields ?? {}).some((f) => f.type === "rows" && f.pick !== undefined),
+    ),
     tests: ruleset !== null && Object.keys(ruleset.tests).length > 0,
     pools: ruleset?.resources.some((r) => r.scope === "party" || r.scope === "gm" || r.scope === "campaign") ?? false,
     roster: ruleset !== null && spawnable.entries.length > 0,
@@ -341,6 +390,8 @@ export function lineSummary({
     return [t("summary.pool", { pool, amount: line.amount }), line.text].filter(Boolean).join(" · ");
   }
   if (kind === "exits" && "sceneId" in line) return t("summary.exit", { scene: names.entry(line.sceneId) ?? "?" });
+  if (kind === "picks" && "rows" in line)
+    return t("summary.picks", { entry: names.entry(line.entryId) ?? "?", count: line.rows.length });
   if ("entryId" in line) return t("summary.reveal", { entry: names.entry(line.entryId) ?? "?" });
   return "";
 }

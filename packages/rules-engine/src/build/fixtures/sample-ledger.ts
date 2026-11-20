@@ -438,3 +438,5 @@ const wargear = new Map<string, Wargear>(SAMPLE_WARGEAR_RAW.map((w) => [w.id, S.
 export const sampleCatalogue = (homebrew = false): BuildCatalogue => ({ creation, wargear, homebrew });
 export const SAMPLE_CREATION = creation;
 export const SAMPLE_WARGEAR = wargear;
+// The records as written, before parsing: the Go twin's vectors (apps/api-go/vectors/ledger.ts) parse them again.
+export const SAMPLE_CREATION_RAW: Record<keyof Creation, unknown[]> = raw;

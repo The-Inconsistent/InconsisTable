@@ -9,6 +9,7 @@ require (
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/zishang520/socket.io/servers/socket/v3 v3.0.6
 	github.com/zishang520/socket.io/v3 v3.0.6
+	golang.org/x/text v0.42.0
 )
 
 require (
@@ -57,6 +58,5 @@ require (
 	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 )

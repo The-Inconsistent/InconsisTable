@@ -222,6 +222,7 @@ var handlers = map[string]handler{
 	"actor.delete":  actor.Delete,
 	"actor.build":   buildActor,
 	"build.save":    saveBuild,
+	"build.ascend":  campaign.Ascend,
 	"draft.save":    actor.Draft,
 	"draft.discard": actor.Draft,
 	// actor/actor.spawn.ts

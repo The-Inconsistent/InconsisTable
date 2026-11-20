@@ -1249,6 +1249,67 @@ test("scene prep: each line is sent as the action it stands for; players and the
   for (const c of [owner, ana.c, ben.c, screen]) c.socket.close();
 });
 
+// The five codex features together (#69 to #73) on one room: what a player receives of each, and nothing of a scene's.
+test("codex entry, all at once: a nested place with a shown picture and a field, a laid-out handout, a prepared scene", async () => {
+  // The d20 fixture declares no place field; this copy adds one, so the nested place can carry one.
+  const ruleset = structuredClone(SAMPLE_D20);
+  ruleset.version = "0.1.3-all";
+  ruleset.codex!.kinds.location = {
+    fields: {
+      district: { type: "text", label: "District", maxLength: 40, visibility: "party", cite: "Sample p.17" },
+    },
+  };
+  const ownerDevice = await device("all-owner");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", ruleset);
+  assert.equal(rs.status, 201);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "All",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  const anaDevice = await seatPlayer(owner, "all-ana");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  await ana.until(() => true);
+  const save = async (a: Record<string, unknown>) => ok(await owner.send({ type: "codex.save", ...a } as never)).id!;
+  const reveal = (id: string) =>
+    owner.send({ type: "codex.reveal", id, visibility: "party", audienceMode: "all", audience: [] });
+
+  const upload = await fetch(`${API}/api/campaigns/${campaignId}/images`, {
+    method: "POST",
+    headers: { "content-type": "image/jpeg", ...SAME_ORIGIN, cookie: ownerDevice, "cf-connecting-ip": nextSocketIp() },
+    body: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 7]),
+  });
+  assert.equal(upload.status, 200);
+  const picture = ((await upload.json()) as { id: string }).id;
+  const town = await save({ kind: "location", title: "Harbour town" });
+  const quay = await save({ kind: "location", title: "Quay", imageId: picture, fields: { district: "Docks" } });
+  ok(await owner.send({ type: "codex.move", id: quay, parentId: town, position: 0 }));
+  const notice = await save({ kind: "handout", title: "Notice", layout: "proclamation", header: "By order" });
+  const scene = await save({ kind: "scene", title: "The quay", prep: { reveals: [{ id: "v1", entryId: notice }] } });
+  ok(await owner.send({ type: "codex.save", id: scene, kind: "scene", status: "active" }));
+  for (const id of [town, quay, notice, scene]) ok(await reveal(id));
+  ok(await owner.send({ type: "codex.reveal", id: quay, imageRevealed: true }));
+
+  const gm = (id: string) => owner.codex()?.entries.find((e) => e.id === id);
+  await eventually(() => gm(scene)?.status === "active", "the GM reads the scene's status");
+  assert.deepEqual(gm(scene)?.prep?.reveals, [{ id: "v1", entryId: notice }]);
+  const seen = (id: string) => ana.codex()?.entries.find((e) => e.id === id);
+  await eventually(() => seen(quay)?.imageRevealed === true && seen(scene) !== undefined, "the player reads them all");
+  const place = seen(quay);
+  assert.deepEqual(
+    [place?.parentId, place?.imageId, place?.fields],
+    [town, picture, { district: "Docks" }],
+    "the nested place, its parent, its shown picture and its party field",
+  );
+  assert.deepEqual([seen(notice)?.layout, seen(notice)?.header], ["proclamation", "By order"]);
+  assert.deepEqual([seen(scene)?.prep, seen(scene)?.status], [null, null], "nothing of the scene's prep or status");
+  owner.socket.close();
+  ana.socket.close();
+});
+
 test("the admin action route seats a known user and refuses anything but housekeeping", async () => {
   const { owner, campaignId } = await newRoom("Seat");
   const act = (body: unknown) => post(`/admin/campaigns/${campaignId}/action`, body, ADMIN);

@@ -435,8 +435,10 @@ type (
 		Phases         []Phase                     `json:"phases"`
 		Scoring        *Scoring                    `json:"scoring"`
 		Tables         map[string]RandomTable      `json:"tables"`
-		Health         Health                      `json:"health"`
-		Creation       []CreationStep              `json:"creation"`
+		// Held is the records an actor gains in play, by kind id (house decision #88); nil when absent.
+		Held     map[string]HeldKind `json:"held"`
+		Health   Health              `json:"health"`
+		Creation []CreationStep      `json:"creation"`
 		// Build is nil when no actor type is built by the ledger builder.
 		Build     *LedgerBuild `json:"build"`
 		Decisions []idAndCite  `json:"decisions"`
@@ -1076,6 +1078,7 @@ func (r *Ruleset) semanticProblems() problems {
 		needCite(t.Cite, "tables."+id)
 		p.table(r, id, &t)
 	}
+	p.held(r, needCite)
 	if s := r.Scoring; s != nil {
 		needCite(s.Cite, "scoring")
 		for i, x := range s.EndWhen {

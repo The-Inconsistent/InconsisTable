@@ -29,6 +29,8 @@ type (
 		Condition string  `json:"condition"`
 		Resource  string  `json:"resource"`
 		Pool      string  `json:"pool"`
+		Held      string  `json:"held"`
+		Entry     string  `json:"entry"`
 		By        *string `json:"by"`
 	}
 	// TableInput is a value the GM sets before applying a lookup, read as ctx.<id>: bool or int.
@@ -281,9 +283,13 @@ func (p *problems) lookup(r *Ruleset, id string, t *RandomTable) {
 				} else if hitOnly[x.Resource] {
 					p.add(where+".resource", `only a hit moves "%s"`, x.Resource)
 				}
-			default:
+			case "pool":
 				if res := resourceByID(r, x.Pool); res == nil || res.Scope == "entity" {
 					p.add(where+".pool", `"%s" is not a shared pool`, x.Pool)
+				}
+			default:
+				if _, known := r.Held[x.Held]; !known {
+					p.add(where+".held", `unknown held kind "%s"`, x.Held)
 				}
 			}
 		}

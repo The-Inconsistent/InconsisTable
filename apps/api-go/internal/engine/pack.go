@@ -231,13 +231,15 @@ func (p *Pack) semanticProblems(r *Ruleset) (found, warnings problems) {
 		}
 		recordIDs[key] = true
 	}
-	// Effects hold for every actor type that picks the entry's type in a choose step.
+	// Effects hold for every actor type that picks the entry's type in a choose step, or holds it as a record of a
+	// held kind (house decision #88).
 	for _, typ := range sortedKeys(withEffects) {
 		list := withEffects[typ]
 		var pool []*EntityType
 		for k := range r.Entities {
 			e := &r.Entities[k]
-			if slices.ContainsFunc(r.Creation, func(s CreationStep) bool { return s.Kind == "choose" && s.Pick == typ && s.Actor == e.ID }) {
+			if slices.ContainsFunc(r.Creation, func(s CreationStep) bool { return s.Kind == "choose" && s.Pick == typ && s.Actor == e.ID }) ||
+				holdsType(r, typ, e.ID) {
 				pool = append(pool, e)
 			}
 		}

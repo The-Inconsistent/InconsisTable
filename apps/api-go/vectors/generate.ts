@@ -21,7 +21,7 @@ import type { ExprScope, ExprType } from "../../../packages/rules-engine/src/exp
 import { typeName } from "../../../packages/rules-engine/src/expr/expr.check.ts";
 import { compileExpr, type CompiledExpr } from "../../../packages/rules-engine/src/expr/expr.ts";
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
-import { SAMPLE_HARM } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
+import { SAMPLE_HARM, SAMPLE_HARM_GROWTHS } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
 import { SAMPLE_SCOPED } from "../../../packages/rules-engine/src/fixtures/sample-scoped.ts";
@@ -1414,6 +1414,23 @@ const LOOKUP_MANIFEST = {
 };
 MANIFESTS.push(LOOKUP_MANIFEST);
 
+// Held records (house decision #88): a kind kept in a list field, granted by a lookup line.
+const HELD_KIND = { label: "M", entry: "mark", field: "marks", entities: ["pc"], unseen: "U", max: 3 };
+const HELD_MANIFEST = {
+  ...MINIMAL,
+  entities: [
+    { ...pcBase, fields: { ...pcBase.fields, marks: { label: "M", type: "list", visibility: "owner" } } },
+    { id: "mark", label: "M", base: "ability", fields: {} },
+  ],
+  held: { mark: HELD_KIND },
+  tables: {
+    t: tbl("d6", [span("a", 1, 6, { apply: [{ kind: "grant", held: "mark", entry: "x-1" }] })], {
+      modifier: "count(marks)",
+    }),
+  },
+};
+MANIFESTS.push(HELD_MANIFEST);
+
 // House decision #55: campaign fields, the `campaign` root and at().
 const cInt = { type: "int", label: "D", min: 1, max: 5, default: 1, cite: "p1" };
 const cEnum = { type: "enum", label: "M", values: ["calm", "tense"], default: "calm", cite: "p1" };
@@ -2291,7 +2308,49 @@ const CRAFTED: object[] = [
   ...reminderCrafted(),
   ...spendCrafted(),
   ...lookupCrafted(),
+  ...heldCrafted(),
 ];
+
+// Held records (house decision #88): every rule a held kind can break, one manifest each.
+function heldCrafted(): object[] {
+  const one = (kind: object, over: object = {}) => ({
+    ...HELD_MANIFEST,
+    ...over,
+    held: { mark: { ...HELD_KIND, ...kind } },
+  });
+  const [pc, mark] = HELD_MANIFEST.entities;
+  const marks = (def: object) => ({ entities: [{ ...pc, fields: { ...pc!.fields, marks: def } }, mark] });
+  return [
+    one({ entry: "pc" }),
+    one({ entry: "nope" }),
+    one({ entities: ["mark", "nope"] }),
+    one({ entities: [] }),
+    one({ field: "hp" }),
+    one({ field: "nope" }),
+    one({ field: "Bad" }),
+    one({}, marks({ label: "M", type: "list", visibility: "party" })),
+    one({ unseen: undefined }, marks({ label: "M", type: "list", visibility: "party" })),
+    one({}, marks({ label: "M", type: "list" })),
+    one({ max: 0 }),
+    one({ max: 51 }),
+    one({ unseen: "" }),
+    one({ label: "x".repeat(61) }),
+    { ...HELD_MANIFEST, held: Object.fromEntries(Array.from({ length: 11 }, (_, i) => [`k${i}`, HELD_KIND])) },
+    { ...HELD_MANIFEST, sources: [{ id: "s", title: "T", license: "private" }] },
+    {
+      ...HELD_MANIFEST,
+      tables: { t: tbl("d6", [span("a", 1, 6, { apply: [{ kind: "grant", held: "nope", entry: "x" }] })]) },
+    },
+    {
+      ...HELD_MANIFEST,
+      tables: { t: tbl("d6", [span("a", 1, 6, { apply: [{ kind: "grant", held: "mark", entry: "Bad Key" }] })]) },
+    },
+    { ...HELD_MANIFEST, tables: { t: tbl("d6", [span("a", 1, 6, { apply: [{ kind: "grant", held: "mark" }] })]) } },
+    { ...HELD_MANIFEST, ...rows({ widget: "held" }) },
+    { ...HELD_MANIFEST, ...rows({ widget: "held", variant: "x" }, { widget: "held", bind: { a: ["hp"] } }) },
+    rows({ widget: "held" }),
+  ];
+}
 
 // Lookups (house decision #87): every rule a lookup table can break, one manifest each.
 function lookupCrafted(): object[] {
@@ -3248,8 +3307,9 @@ function lookupVectors() {
         inputs[x.id] = odd ? pick([1, "yes", 1.5, 99, true]) : fine;
       }
       if (rnd(20) === 0) inputs.nope = true;
-      const fields: Record<string, number> = {};
+      const fields: Record<string, number | string[]> = {};
       for (const key of ["grit", "hide", "size", "attr.str", "attr.dex"]) if (rnd(12) !== 0) fields[key] = rnd(7);
+      if (rnd(3) !== 0) fields.growths = ["horn", "wings", "scales"].filter(() => rnd(2) === 0);
       const derived: Record<string, number> = {};
       for (const key of ["limit", "strainCap"]) if (rnd(12) !== 0) derived[key] = rnd(5);
       const resources = { wounds: rnd(4) };
@@ -3502,6 +3562,7 @@ function packVectors() {
     SAMPLE_D20,
     PACK_RULESET,
     { ...PACK_RULESET, sources: [{ id: "s", title: "T", license: "homebrew" }] },
+    SAMPLE_HARM,
   ];
   const compiled = rulesets.map((m) => {
     const r = compileRuleset(m);
@@ -3559,6 +3620,20 @@ function packVectors() {
   one(0, withEffects(Array.from({ length: 21 }, () => eff)));
   one(0, withEffects({}));
   one(0, withEffects([{ mode: "add" }]));
+  // Effects of an entry type a held kind holds (house decision #88), checked against the holders.
+  const growths = (entries: unknown[]) => ({
+    id: "growths",
+    version: "0.1.0",
+    ruleset: { id: "sample-harm", range: "^0.1.0" },
+    license: "private",
+    sources: [{ id: "sample", title: "Sample Harm Rules", license: "private" }],
+    entries,
+  });
+  const growth = SAMPLE_HARM_GROWTHS[0]!;
+  one(3, growths(SAMPLE_HARM_GROWTHS));
+  one(3, growths([{ ...growth, effects: [{ path: "derived.nope", mode: "add", value: "1", phase: "derived" }] }]));
+  one(3, growths([{ ...growth, effects: [{ path: "hide", mode: "add", value: "1" }] }]));
+  one(3, growths([{ ...growth, type: "nope" }]));
   one(0, {
     ...SAMPLE_PACK_EFFECTS,
     entries: [

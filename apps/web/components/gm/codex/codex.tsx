@@ -14,7 +14,7 @@ import {
 import { EntryEditor } from "@/components/gm/codex/components/entry-editor/entry-editor";
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
 import type { Send } from "@/hooks/use-table/use-table";
-import { filterEntries, type KindFilter } from "@/lib/codex/codex";
+import { filterEntries, treeRows, unfolded, type KindFilter } from "@/lib/codex/codex";
 
 type CodexProps = {
   me: Me;
@@ -36,9 +36,12 @@ export function Codex({ me, state, codex, send, initialOpenId = null }: CodexPro
   const [newKind, setNewKind] = useState<CodexKind>("npc");
   const [newTitle, setNewTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Entries whose insides are hidden; every branch starts open.
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const can = (perm: Parameters<typeof canInCampaign>[0]["perm"]) => canInCampaign({ ctx: me, perm });
   const entries = useMemo(() => codex?.entries ?? [], [codex]);
   const shown = useMemo(() => filterEntries({ entries, kind, query }), [entries, kind, query]);
+  const rows = useMemo(() => unfolded({ rows: treeRows(shown), folded }), [shown, folded]);
   const open = entries.find((e) => e.id === openId) ?? null;
 
   // Sends an action and shows its refusal, if any.
@@ -83,6 +86,13 @@ export function Codex({ me, state, codex, send, initialOpenId = null }: CodexPro
 
   // Deleted entries close the editor.
   const handleDeleted = () => setOpenId(null);
+
+  // The fold button: hides or shows what sits inside an entry.
+  const handleFold = (id: string) => () => {
+    const next = new Set(folded);
+    if (!next.delete(id)) next.add(id);
+    setFolded(next);
+  };
 
   return (
     <div className="stack" style={{ gap: 16 }}>
@@ -142,8 +152,12 @@ export function Codex({ me, state, codex, send, initialOpenId = null }: CodexPro
       <div className="grid" style={{ alignItems: "start" }}>
         <ul className="list" style={{ minWidth: 0 }}>
           {shown.length === 0 && <li className="dim">{entries.length === 0 ? t("empty") : t("noMatch")}</li>}
-          {shown.map((e) => (
-            <li key={e.id}>
+          {rows.map(({ entry: e, depth, inside }) => (
+            <li
+              key={e.id}
+              className={depth > 0 ? "tree-child" : undefined}
+              style={{ marginInlineStart: Math.max(0, depth - 1) * 12 }}
+            >
               <button
                 className="btn"
                 aria-pressed={openId === e.id}
@@ -157,6 +171,16 @@ export function Codex({ me, state, codex, send, initialOpenId = null }: CodexPro
                   <VisibilityBadge entry={e} />
                 </span>
               </button>
+              {inside > 0 && (
+                <button
+                  className="btn sm"
+                  aria-expanded={!folded.has(e.id)}
+                  aria-label={t(folded.has(e.id) ? "unfold" : "fold", { count: inside, title: e.title })}
+                  onClick={handleFold(e.id)}
+                >
+                  {folded.has(e.id) ? "▸" : "▾"} {t("inside", { count: inside })}
+                </button>
+              )}
             </li>
           ))}
         </ul>

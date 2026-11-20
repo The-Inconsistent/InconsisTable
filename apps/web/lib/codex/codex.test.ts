@@ -3,7 +3,7 @@ import { describe, test } from "node:test";
 
 import type { CodexEntry } from "@inconsistable/core-schema";
 
-import { filterEntries, savePatch } from "./codex.ts";
+import { entryPath, filterEntries, parentOptions, savePatch, treeRows, unfolded } from "./codex.ts";
 
 const entry = (over: Partial<CodexEntry>): CodexEntry => ({
   id: "e1",
@@ -58,5 +58,46 @@ describe("savePatch", () => {
   test("gmNotes is omitted when the seat may not read secrets", () => {
     assert.deepEqual(savePatch({ entry: e, draft: { ...same, gmNotes: "" }, canSecrets: false }), {});
     assert.deepEqual(savePatch({ entry: e, draft: { ...same, gmNotes: "" }, canSecrets: true }), { gmNotes: "" });
+  });
+});
+
+describe("the entry tree", () => {
+  const place = (id: string, parentId: string | null, position = 0) =>
+    entry({ id, kind: "location", title: id, parentId, position });
+  // top > (mid > leaf, side); "lost" names a parent the seat was not sent, so it is a root.
+  const tree = [
+    place("top", null),
+    place("side", "top", 1),
+    place("mid", "top", 0),
+    place("leaf", "mid"),
+    place("lost", "gone"),
+  ];
+  const rows = treeRows(tree);
+  const shape = (list: { entry: CodexEntry; depth: number }[]) => list.map((r) => `${r.entry.id}:${r.depth}`);
+
+  test("children follow their parent by position, one level deeper; an unknown parent makes a root", () => {
+    assert.deepEqual(shape(rows), ["top:0", "mid:1", "leaf:2", "side:1", "lost:0"]);
+    assert.deepEqual(
+      rows.map((r) => r.inside),
+      [3, 1, 0, 0, 0],
+    );
+  });
+  test("a folded entry stays, its inside goes", () => {
+    assert.deepEqual(shape(unfolded({ rows, folded: new Set(["mid"]) })), ["top:0", "mid:1", "side:1", "lost:0"]);
+    assert.deepEqual(shape(unfolded({ rows, folded: new Set(["top"]) })), ["top:0", "lost:0"]);
+  });
+  test("the INSIDE picker leaves out the entry, its descendants and other kinds", () => {
+    const all = [...tree, entry({ id: "npc" })];
+    const options = (list: CodexEntry[], e: CodexEntry) =>
+      ids(parentOptions({ entries: list, entry: e }).map((r) => r.entry));
+    assert.deepEqual(options(all, place("mid", "top")), ["top", "side", "lost"]);
+    const scene = entry({ id: "s", kind: "scene" });
+    assert.deepEqual(options([...all, scene, entry({ id: "adv", kind: "adventure" })], scene), ["adv"]);
+  });
+  test("the path is the readable ancestors, root first, and stops on a loop", () => {
+    assert.deepEqual(ids(entryPath({ entries: tree, entry: place("leaf", "mid") })), ["top", "mid"]);
+    assert.deepEqual(ids(entryPath({ entries: tree, entry: place("lost", "gone") })), []);
+    const x = place("x", "y");
+    assert.equal(entryPath({ entries: [x, place("y", "x")], entry: x }).length, 2);
   });
 });

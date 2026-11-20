@@ -404,6 +404,10 @@ type (
 		Links []string `json:"links"`
 		// PlannedTests are the ruleset Test ids a scene plans; the GM side only.
 		PlannedTests []string `json:"plannedTests"`
+		// Layout and Header are a handout's (house decision #72): one of engine.HandoutLayouts and the line above its
+		// body, "" for none. Both are null on every other kind. Seen by whoever sees the entry.
+		Layout *string `json:"layout"`
+		Header *string `json:"header"`
 	}
 	// Codex is the `codex` event.
 	Codex struct {

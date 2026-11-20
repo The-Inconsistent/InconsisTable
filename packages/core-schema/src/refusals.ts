@@ -161,6 +161,7 @@ export const REFUSALS = {
   sceneNeedsAdventure: "A scene belongs to an adventure.",
   adventureHasScenes: "Move or delete its scenes first.",
   onlySceneTests: "Only a scene plans Tests.",
+  handoutOnly: "Only a handout has a layout and a header.",
   cantLinkThat: "A scene links NPCs, locations, factions, items, handouts, lore and quests.",
   // Clocks
   clockNotFound: "Clock not found",

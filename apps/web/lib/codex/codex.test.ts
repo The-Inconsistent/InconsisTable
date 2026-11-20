@@ -19,6 +19,8 @@ const entry = (over: Partial<CodexEntry>): CodexEntry => ({
   position: 0,
   links: [],
   plannedTests: [],
+  layout: null,
+  header: null,
   ...over,
 });
 
@@ -58,5 +60,14 @@ describe("savePatch", () => {
   test("gmNotes is omitted when the seat may not read secrets", () => {
     assert.deepEqual(savePatch({ entry: e, draft: { ...same, gmNotes: "" }, canSecrets: false }), {});
     assert.deepEqual(savePatch({ entry: e, draft: { ...same, gmNotes: "" }, canSecrets: true }), { gmNotes: "" });
+  });
+  test("a handout's layout and header are sent when they changed, and only then", () => {
+    const h = entry({ kind: "handout", layout: "plain", header: "" });
+    const kept = { ...same, layout: "plain" as const, header: "" };
+    assert.deepEqual(savePatch({ entry: h, draft: kept, canSecrets: true }), {});
+    assert.deepEqual(savePatch({ entry: h, draft: { ...kept, layout: "form", header: "No. 4" }, canSecrets: true }), {
+      layout: "form",
+      header: "No. 4",
+    });
   });
 });

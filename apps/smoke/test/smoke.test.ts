@@ -16,7 +16,7 @@ import type {
   Lobby,
   RefusalKey,
 } from "@inconsistable/core-schema";
-import { MAX_PAGE_BYTES } from "@inconsistable/core-schema";
+import { HandoutLayout, MAX_PAGE_BYTES } from "@inconsistable/core-schema";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_HARM } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
@@ -897,6 +897,74 @@ test("a quest has a status; only a quest", async () => {
   const npc = ok(await owner.send({ type: "codex.save", kind: "npc", title: "Ferryman" })).id!;
   refused(await owner.send({ type: "codex.save", id: npc, kind: "npc", status: "open" }), "onlyQuestStatus");
   assert.equal(owner.codex()?.entries.find((e) => e.id === npc)?.status, null);
+  owner.socket.close();
+  ana.socket.close();
+});
+
+test("a handout has a layout and a header, read by its player; the room's World offers and names its layouts", async () => {
+  const ownerDevice = await device("hl-owner");
+  const me = caller(ownerDevice);
+  const { campaignId } = (await me.post<{ campaignId: string }>("/campaigns", { name: "Layouts" })).body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  const anaDevice = await seatPlayer(owner, "hl-ana");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  const seen = (id: string) => ana.codex()?.entries.find((e) => e.id === id);
+
+  // Each of the platform's layouts, saved with a header and read back by the player.
+  const ids: Record<string, string> = {};
+  for (const layout of HandoutLayout.options) {
+    const header = `${layout} header`;
+    const id = ok(
+      await owner.send({ type: "codex.save", kind: "handout", title: layout, body: "Line one", layout, header }),
+    ).id!;
+    ok(await owner.send({ type: "codex.reveal", id, visibility: "party", audienceMode: "all", audience: [] }));
+    await eventually(() => seen(id)?.layout === layout && seen(id)?.header === header, `the player reads ${layout}`);
+    ids[layout] = id;
+  }
+  const bare = ok(await owner.send({ type: "codex.save", kind: "handout", title: "Bare" })).id!;
+  await eventually(() => owner.codex()?.entries.some((e) => e.id === bare) ?? false, "the bare handout");
+  const stored = owner.codex()?.entries.find((e) => e.id === bare);
+  assert.deepEqual([stored?.layout, stored?.header], ["plain", ""], "a handout is plain with no header by default");
+
+  // Only a handout carries them, and only the platform's layouts.
+  const npc = ok(await owner.send({ type: "codex.save", kind: "npc", title: "Ferryman" })).id!;
+  refused(await owner.send({ type: "codex.save", id: npc, kind: "npc", layout: "form" }), "handoutOnly");
+  refused(await owner.send({ type: "codex.save", kind: "lore", title: "L", header: "x" }), "handoutOnly");
+  const unknown = { type: "codex.save", kind: "handout", title: "H", layout: "scroll" };
+  refused((await owner.socket.emitWithAck("action", unknown)) as ActionResult, "badRequest");
+  refused(await owner.send({ type: "codex.save", kind: "handout", title: "H", header: "x".repeat(121) }), "badRequest");
+  await eventually(() => owner.codex()?.entries.some((e) => e.id === npc) ?? false, "the NPC");
+  assert.deepEqual(
+    [
+      owner.codex()?.entries.find((e) => e.id === npc)?.layout,
+      owner.codex()?.entries.find((e) => e.id === npc)?.header,
+    ],
+    [null, null],
+  );
+
+  // A World that offers three of the five under its own names; every seat reads them with the room's rules.
+  type Rules = { world: { handouts: { layouts: string[]; names: Record<string, string> } | null } | null };
+  const pinned = (await me.post<WorldReply>("/worlds", SAMPLE_WORLD)).body.versionId!;
+  ok(await owner.send({ type: "campaign.setWorld", worldVersionId: pinned }));
+  for (const reader of [me, caller(anaDevice)]) {
+    const { body } = await reader.get<Rules>(`/campaigns/${campaignId}/rules`);
+    assert.deepEqual(body.world?.handouts, {
+      layouts: ["proclamation", "transcript", "plain"],
+      names: { proclamation: "Harbour notice", transcript: "Signal log", plain: "Note" },
+    });
+  }
+  // A layout the World does not offer is kept and still read; nothing is rewritten when the World changes.
+  const { handouts: _, ...withoutHandouts } = SAMPLE_WORLD;
+  const plainer = (await me.post<WorldReply>("/worlds", { ...withoutHandouts, version: "0.3.0" })).body.versionId!;
+  ok(await owner.send({ type: "campaign.setWorld", worldVersionId: plainer }));
+  const after = await me.get<Rules>(`/campaigns/${campaignId}/rules`);
+  assert.equal(after.body.world?.handouts, null, "a World without the part");
+  ok(await owner.send({ type: "codex.save", id: ids.tablet!, kind: "handout", body: "Line two" }));
+  await eventually(() => seen(ids.tablet!)?.body === "Line two", "the edit reaches the player");
+  for (const layout of HandoutLayout.options) {
+    assert.deepEqual([seen(ids[layout]!)?.layout, seen(ids[layout]!)?.header], [layout, `${layout} header`]);
+  }
   owner.socket.close();
   ana.socket.close();
 });

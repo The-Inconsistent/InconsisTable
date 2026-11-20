@@ -17,6 +17,8 @@ import {
   ClockVisibility,
   CodexVisibility,
   FieldValue,
+  HandoutHeader,
+  HandoutLayout,
   LedgerBuildText,
   RequestText,
   TableId,
@@ -192,6 +194,8 @@ export const Action = z.discriminatedUnion("type", [
     gmNotes: CodexText.optional(),
     status: QuestStatus.optional(), // a quest only
     plannedTests: z.array(z.string().min(1).max(100)).max(10).optional(), // a scene only: ruleset Test ids
+    layout: HandoutLayout.optional(), // a handout only
+    header: HandoutHeader.optional(), // a handout only
   }),
   z.object({
     type: z.literal("codex.reveal"),

@@ -194,6 +194,8 @@ function hit({ params, state, input }: { params: P; state: RuleState; input: Hit
   if (next !== wRes.value) deltas.push(addTo(id, params.wounds, next - wRes.value));
   if (felled?.condition === undefined) return deltas;
   // Brought down by this hit: `felled.when` read again with the new wounds (the rest of the scope as before).
+  // ponytail: derived values keep their pre-hit numbers, so a limit derived from the wounds themselves is stale here;
+  // derive again with the new wounds if a ruleset needs it.
   const res = scope.res;
   const after: ExprRecord = { ...scope, res: { ...(isRecord(res) ? res : {}), [params.wounds]: next } };
   const nowDown = readBool({ source: felled.when, scope: after, path: `${path}.felled.when` });

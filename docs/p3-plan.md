@@ -57,7 +57,7 @@ Viết thử ruleset bậc 1 và chạy qua validator hiện tại, để danh s
 | 3 | Không có field cấp campaign (Tier) | Mỗi sheet tự ghi Tier | `campaignFields` trong manifest + `campaign_option` (design §5.4) |
 | 4 | Effect chỉ gắn được vào Condition. Bonus từ Species, Talent, giáp, Mutation không có chỗ khai | GM gõ 11 ô `mod.*` | **Đã sửa** (house decision #61): entry của pack mang `effects`; actor đã chọn entry đó trong bước `choose` được áp chúng cùng effect của Condition, theo thứ tự của design §4.4 |
 | 5 | `initiative` chỉ có `ranked` và `seated` | Không khai `initiative`, nên `encounter.start` bị từ chối: chưa có trận | Primitive xếp lượt luân phiên theo phe, có Seize |
-| 6 | `health.tracks` đếm xuống. Wounds và Shock đếm lên và vượt trần | Khai là resource `capped: false` và bốn `health.states`; không có luật khi trúng đòn | Primitive máu đếm lên (Dying, Traumatic Injury, Annihilation, Exhausted đổi Shock thành Wounds) |
+| 6 | `health.tracks` đếm xuống. Wounds và Shock đếm lên và vượt trần | Khai là resource `capped: false` và bốn `health.states`; không có luật khi trúng đòn | **Đã sửa** (house decision #66): khối `health.harm` và primitive `health.harm` (`hit`): Shock của actor đã kiệt thành Wounds, một đòn quá ngưỡng là chết hẳn, Wound khi đã ngã là một chấn thương, hồi máu khi đã ngã dừng ở `healTo`, đòn làm ngã đặt Condition. Bàn chưa vẽ nút (việc sau) |
 | 7 | House decision #23: resource có trần khởi đầu ở trần | Wounds khởi đầu bằng Max Wounds, GM phải kéo về 0 | **Đã sửa** (house decision #52): resource khai giá trị khởi đầu (`start`) |
 | 8 | Sự kiện nghỉ mang tên của engine ("Long rest") | Respite khai là `longRest` | Từ vựng của World (ADR 0010 mục 2) |
 | 9 | `layout` chỉ vẽ sheet; `terms` không ai đọc; Theme theo thiết bị | Sheet là danh sách số | ADR 0010 mục 2 và 3 |
@@ -68,7 +68,7 @@ Viết thử ruleset bậc 1 và chạy qua validator hiện tại, để danh s
 
 | # | Thiếu | Nguồn trong auspex_gm |
 |---|---|---|
-| 10 | Mob: một combatant nhiều thành viên, mỗi thành viên 1 Wound; trần "–" (không bao giờ nhận Shock) | `combatant.adjust`, `threatStatus` |
+| 10 | Mob: một combatant nhiều thành viên, mỗi thành viên 1 Wound; trần "–" (không bao giờ nhận Shock) | **Đã sửa** (house decision #66): `health.harm.mob`, `actor.spawn` với `mob`, op `muster`, `shockless`; combatant mang `members` và `states`. Nguồn: `combatant.adjust`, `threatStatus` |
 | 11 | Hệ quả của Test: Wrath Critical cộng Glory, Corruption nhận DN − Icon (gấp đôi khi Complication) | `corruption.ts`; hiện GM tự bấm |
 | 12 | Luật "hiện như": Corruption của người khác chỉ hiện khi Lost, Mutation hiện "Unseen" nhưng vẫn tính số, Threat ẩn / chỉ thanh máu / đủ chỉ số, lượt của Threat ẩn hiện là "unseen" | `toPlayerView` |
 | 13 | Builder mua bằng XP: bảng giá luỹ tiến, Archetype, Ascension, mua thêm sau khi tạo | `build.ts` (2.498 dòng), `build.test.ts` (68 case) |

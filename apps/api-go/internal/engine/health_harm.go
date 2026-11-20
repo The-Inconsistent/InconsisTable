@@ -341,6 +341,8 @@ func (p harmParams) hit(state *RuleState, in hitInput) ([]Delta, *Refusal) {
 		return deltas, nil
 	}
 	// Brought down by this hit: felled.when read again with the new wounds (the rest of the scope as before).
+	// ponytail: derived values keep their pre-hit numbers, so a limit derived from the wounds themselves is stale here;
+	// derive again with the new wounds if a ruleset needs it.
 	res := map[string]any{}
 	if r, ok := scope.Fields["res"].(*Record); ok {
 		res = maps.Clone(r.Fields)

@@ -805,6 +805,30 @@ func (c *compiler) run() *CompiledRuleset {
 		}
 	}
 
+	// health.harm (house decision #66): checked here, read by the primitive from the manifest's own text.
+	if harm := c.r.Health.Harm; harm != nil {
+		for j, x := range harm.Profiles {
+			_, scopes := c.actorsOf(&x.Entities, entities)
+			path := fmt.Sprintf("health.harm.profiles[%d].", j)
+			check := func(source *string, expect ExprType, at string) {
+				if source != nil {
+					c.expr(*source, scopes, expect, path+at)
+				}
+			}
+			check(x.Shockless, boolType, "shockless")
+			if x.Spent != nil {
+				check(x.Spent.When, boolType, "spent.when")
+			}
+			if x.Felled != nil {
+				check(&x.Felled.When, boolType, "felled.when")
+				check(x.Felled.HealTo, intType, "felled.healTo")
+			}
+			if x.Destroyed != nil {
+				check(&x.Destroyed.Over, intType, "destroyed.over")
+			}
+		}
+	}
+
 	if len(c.problems) > 0 || !scoringOK || (init != nil && init.Def.Strategy == "ranked" && init.Score == nil) {
 		return nil
 	}

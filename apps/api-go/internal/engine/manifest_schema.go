@@ -276,6 +276,30 @@ var healthSchema = schema.Object(
 		schema.Opt("entities", actorTypesSchema),
 	)).Max(20), []any{}),
 	schema.Opt("cite", citeSchema),
+	schema.Opt("harm", harmSchema),
+)
+
+// harmSchema is health.harm (house decision #66).
+var harmSchema = schema.Object(
+	schema.Opt("cite", citeSchema),
+	schema.Req("wounds", idSchema),
+	schema.Opt("shock", idSchema),
+	schema.Opt("mob", schema.Object(schema.Req("members", idSchema), schema.Req("start", fieldIDSchema))),
+	schema.Req("profiles", schema.Array(schema.Object(
+		schema.Req("entities", schema.Array(idSchema).Min(1).Max(50)),
+		schema.Opt("shockless", exprSource),
+		schema.Opt("spent", schema.Object(
+			schema.Opt("when", exprSource),
+			schema.Opt("conditions", schema.Array(idSchema).Max(20)),
+		)),
+		schema.Opt("felled", schema.Object(
+			schema.Req("when", exprSource),
+			schema.Opt("injuries", fieldIDSchema),
+			schema.Opt("condition", idSchema),
+			schema.Opt("healTo", exprSource),
+		)),
+		schema.Opt("destroyed", schema.Object(schema.Req("over", exprSource), schema.Req("field", fieldIDSchema))),
+	)).Min(1).Max(10)),
 )
 
 func stepVariant(tag string, extra ...schema.Field) schema.Variant {

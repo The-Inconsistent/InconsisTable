@@ -1087,6 +1087,108 @@ const withForm = (fields: object, expr: string) =>
   withPc({ fields: { ...pcBase.fields, ...fields }, derived: [{ id: "a", label: "A", expr }] });
 const intField = { label: "F", type: "int" };
 
+// `health.harm` (house decision #66): an invented ruleset with characters that go down, creatures that never take
+// shock, and mobs. Its pieces are spread so each refusal below changes one of them.
+const harmEntities = [
+  { ...pcBase, fields: { ...pcBase.fields, injuries: fieldInt, gone: { label: "G", type: "bool" } } },
+  {
+    id: "foe",
+    label: "Foe",
+    base: "actor",
+    fields: { gone: { label: "G", type: "bool" }, tough: fieldInt },
+    derived: [{ id: "edge", label: "E", expr: "tough * 2" }],
+  },
+  { id: "horde", label: "Horde", base: "actor", fields: { size: fieldInt } },
+  { id: "gear", label: "Gear", base: "item", fields: {} },
+];
+const harmResources = [
+  { id: "hp", label: "H", scope: "entity", max: "10" },
+  { id: "wounds", label: "W", scope: "entity", max: "5", capped: false },
+  { id: "shock", label: "S", scope: "entity", max: "3", capped: false },
+  { id: "members", label: "M", scope: "entity", entities: ["horde"], max: "size" },
+  { id: "luck", label: "L", scope: "party" },
+];
+const harmConditions = [
+  { id: "prone", label: "P", duration: "manual" },
+  { id: "tired", label: "T", duration: "manual" },
+];
+const harmProfiles = [
+  {
+    entities: ["pc"],
+    spent: { when: "res.shock > 3", conditions: ["tired"] },
+    felled: { when: "res.wounds > 5", injuries: "injuries", condition: "prone", healTo: "5" },
+    destroyed: { over: "10", field: "gone" },
+  },
+  { entities: ["foe"], shockless: "tough > 2", destroyed: { over: "derived.edge", field: "gone" } },
+  { entities: ["horde"] },
+];
+const harmBlock = {
+  wounds: "wounds",
+  shock: "shock",
+  mob: { members: "members", start: "size" },
+  profiles: harmProfiles,
+};
+const harmManifest = (harm: object = {}, over: object = {}) => ({
+  ...MINIMAL,
+  entities: harmEntities,
+  resources: harmResources,
+  conditions: harmConditions,
+  health: { harm: { ...harmBlock, ...harm } },
+  ...over,
+});
+const harmProfile = (i: number, over: object) => ({
+  profiles: harmProfiles.map((p, j) => (j === i ? { ...p, ...over } : p)),
+});
+
+// One manifest per rule of the block, in the schema and in the semantic pass.
+function harmCrafted(): object[] {
+  const cited = (x: object) => ({ ...x, cite: "p1" });
+  return [
+    harmManifest(),
+    harmManifest({ shock: undefined, mob: undefined }),
+    harmManifest(
+      {},
+      {
+        sources: [{ id: "s", title: "T", license: "srd" }],
+        resources: harmResources.map(cited),
+        conditions: harmConditions.map(cited),
+        initiative: { strategy: "seated", firstPlayer: "fixed", cite: "p1" },
+      },
+    ),
+    harmManifest({ wounds: "nope" }),
+    harmManifest({ wounds: "luck" }),
+    harmManifest({}, { health: { tracks: [{ resource: "wounds" }], harm: harmBlock } }),
+    harmManifest({ shock: "wounds" }),
+    harmManifest({ mob: { members: "shock", start: "size" } }),
+    harmManifest({ wounds: "hp" }),
+    harmManifest({}, { resources: harmResources.map((r) => (r.id === "members" ? { ...r, capped: false } : r)) }),
+    harmManifest({ mob: { members: "members", start: "nope" } }),
+    harmManifest({ mob: { members: "hp", start: "size" } }),
+    harmManifest(harmProfile(1, { entities: ["foe", "ghost", "gear"] })),
+    harmManifest(harmProfile(2, { entities: ["horde", "pc"] })),
+    harmManifest(harmProfile(1, { entities: ["foe", "foe"] })),
+    harmManifest(harmProfile(0, { felled: { when: "true", injuries: "gone" } })),
+    harmManifest(harmProfile(0, { destroyed: { over: "1", field: "injuries" } })),
+    harmManifest(harmProfile(1, { destroyed: { over: "1", field: "nope" } })),
+    harmManifest(
+      harmProfile(0, { spent: { conditions: ["tired", "ghost"] }, felled: { when: "true", condition: "x" } }),
+    ),
+    harmManifest(harmProfile(1, { shockless: "1" })),
+    harmManifest(harmProfile(0, { spent: { when: "res.nope > 1" } })),
+    harmManifest(harmProfile(0, { felled: { when: "res.wounds" } })),
+    harmManifest(harmProfile(0, { felled: { when: "true", healTo: "true" } })),
+    harmManifest(harmProfile(0, { destroyed: { over: "tough", field: "gone" } })),
+    harmManifest({ profiles: [] }),
+    harmManifest({ profiles: Array.from({ length: 11 }, () => ({ entities: ["pc"] })) }),
+    harmManifest({ wounds: "Bad_Id" }),
+    harmManifest(harmProfile(0, { entities: [] })),
+    harmManifest(harmProfile(0, { felled: {} })),
+    harmManifest(harmProfile(0, { spent: { conditions: Array.from({ length: 21 }, () => "tired") } })),
+    harmManifest({ mob: { members: "members" } }),
+    harmManifest({ profiles: undefined }),
+  ];
+}
+
 // `initiative.sides` (house decision #57): one valid block, then each refusal of the schema and of the semantic pass.
 function sidesCrafted(): object[] {
   const two = sideList(2);
@@ -1703,7 +1805,11 @@ const CRAFTED: object[] = [
     { id: "d", label: "D", expr: "derived.c + derived.a" },
   ),
   ...sidesCrafted(),
+  ...harmCrafted(),
 ];
+
+// `health.harm` with random changes, so the two schemas and semantic passes are held equal beyond the crafted cases.
+MANIFESTS.push(harmManifest());
 
 // The `game` block: a homebrew ruleset needs no cite for gmless or solo, the others do (principle 1).
 // The mutations turn the license to `srd` and the modes around, which reach the cite rule.

@@ -64,7 +64,7 @@ export function OrderList({ encounter, actors, selectedId, onSelect, run }: Orde
                   </span>
                 )}
               </span>
-              <HealthBar combatant={c} />
+              <HealthBar combatant={c} conditions={encounter.conditionDefs} />
             </button>
             <span className="row" style={{ flexWrap: "nowrap" }}>
               {!seated && (

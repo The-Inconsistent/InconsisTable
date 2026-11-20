@@ -9,6 +9,7 @@ import {
   type Ruleset,
 } from "@inconsistable/rules-engine";
 
+import { harmOnly } from "../harm/harm.ts";
 import { leftOf } from "../track/track.ts";
 
 // The sheet's pure side: which rows a ruleset's `layout` puts on a character, who may step a resource, which rests the
@@ -98,20 +99,21 @@ export function stepsOf({ ruleset, resource, gm }: { ruleset: Ruleset; resource:
   inc: boolean;
 } {
   const r = ruleset.resources.find((x) => x.id === resource);
-  // A health track's resource moves only through the track, whose ops need `encounter:run`.
+  // A health track's resource moves only through the track, whose ops need `encounter:run`; a harm one only through a
+  // hit or a muster, for every seat (house decision #66).
   const trackOnly = !gm && ruleset.health.tracks.some((t) => t.resource === resource);
-  if (!r || trackOnly) return { dec: false, inc: false };
+  if (!r || trackOnly || harmOnly(ruleset).has(resource)) return { dec: false, inc: false };
   return stepsFor({ editableBy: r.editableBy, gmSide: gm });
 }
 
 /**
  * Whether a player may ask the GM to spend this resource (house decision #43): a visible, entity-scoped one they cannot
- * change themselves, outside a health track.
+ * change themselves, outside a health track and `health.harm`.
  */
 export function canAskToSpend({ ruleset, resource }: { ruleset: Ruleset; resource: string }): boolean {
   const r = ruleset.resources.find((x) => x.id === resource);
   if (!r || r.scope !== "entity" || r.visibility === "gm") return false;
-  if (ruleset.health.tracks.some((t) => t.resource === resource)) return false;
+  if (ruleset.health.tracks.some((t) => t.resource === resource) || harmOnly(ruleset).has(resource)) return false;
   const { dec, inc } = stepsFor({ editableBy: r.editableBy, gmSide: false });
   return !dec && !inc;
 }

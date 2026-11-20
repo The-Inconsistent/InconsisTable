@@ -11,7 +11,7 @@ import {
   type Me,
 } from "@inconsistable/core-schema";
 
-import type { Ruleset } from "@inconsistable/rules-engine";
+import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { Creatures } from "@/components/gm/creatures/creatures";
 import { AddCombatants } from "@/components/gm/track/components/add-combatants/add-combatants";
@@ -29,7 +29,9 @@ import { EndNotice } from "@/components/ui/end-notice/end-notice";
 import { GameResult } from "@/components/ui/game-result/game-result";
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
+import { harmPadOf } from "@/lib/harm/harm";
 import { gmSideOf } from "@/lib/ledger/table";
+import { rangeOf } from "@/lib/sheet/sheet";
 import { currentOf } from "@/lib/track/track";
 import type { TrackMode } from "@/components/gm/track/constants";
 
@@ -75,6 +77,20 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
   const selected =
     encounter?.combatants.find((c) => c.id === selectedId) ??
     (encounter ? (currentOf(encounter) ?? encounter.combatants[0]) : undefined);
+  const characters = state.actors.filter((x) => x.kind === "pc").length;
+
+  // The selected combatant's hit pad, when the ruleset has `health.harm` and a profile holds its type (#66).
+  const compiled = useMemo(() => {
+    const c = rules ? compileRuleset(rules) : null;
+    return c?.ok ? c.compiled : null;
+  }, [rules]);
+  const selectedActor = selected && actors.get(selected.actorId);
+  const harmPad = selected ? harmPadOf({ ruleset: rules, actor: selectedActor, combatant: selected }) : null;
+  const maxOf = (resource: string) =>
+    compiled && selectedActor
+      ? (rangeOf({ compiled, resource, actor: selectedActor, characters, campaign: state.campaign.fields })?.max ??
+        null)
+      : null;
 
   return (
     <>
@@ -138,6 +154,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                 onCallTest={state.testDefs.length > 0 ? setTestFor : undefined}
                 sides={sides ?? undefined}
                 pools={state.pools}
+                harm={harmPad && { pad: harmPad, maxOf }}
               />
             )}
           </div>
@@ -155,7 +172,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
             key={sheetActor.id}
             actor={sheetActor}
             ruleset={sheet.ruleset}
-            characters={state.actors.filter((x) => x.kind === "pc").length}
+            characters={characters}
             campaign={state.campaign.fields}
             gm={canInCampaign({ ctx: me, perm: gmPermOf(sheetActor.kind) })}
             send={send}

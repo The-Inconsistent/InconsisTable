@@ -158,6 +158,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           <OrderView
             encounter={state.encounter}
             sides={view?.ruleset?.initiative?.strategy === "sides" ? view.ruleset.initiative : undefined}
+            conditions={view?.ruleset?.conditions}
           />
         )}
         {!state.encounter && state.games[0] && <GameResult game={state.games[0]} held={held} />}

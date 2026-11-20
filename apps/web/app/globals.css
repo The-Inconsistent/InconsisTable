@@ -1998,6 +1998,10 @@ summary {
 .keypad {
   gap: 10px;
 }
+/* The harm pad's quick amounts: two rows of four. */
+.harm-amounts {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
 .keypad-out {
   margin: 0;
   min-height: 52px;

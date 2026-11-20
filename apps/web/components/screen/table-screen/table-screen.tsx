@@ -53,6 +53,7 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
           <OrderView
             encounter={state.encounter}
             sides={view?.ruleset?.initiative?.strategy === "sides" ? view.ruleset.initiative : undefined}
+            conditions={view?.ruleset?.conditions}
           />
         )}
         {/* The newest ended game stays up until the next one starts. */}

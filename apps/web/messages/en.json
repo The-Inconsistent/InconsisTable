@@ -415,7 +415,27 @@
     "pageAlt": "Book page {cite}"
   },
   "healthBar": {
-    "label": "{name} health {percent} percent"
+    "label": "{name} health {percent} percent",
+    "count": "{count} standing",
+    "times": "×{count}"
+  },
+  "harmPad": {
+    "label": "Hits on {name}",
+    "count": "{label} of {name}",
+    "track": "Which track",
+    "direction": "Direction",
+    "deal": "Deal +",
+    "heal": "Heal −",
+    "recover": "Recover −",
+    "apply": "{delta, number, ::sign-always} {label} on {name}",
+    "typeLabel": "Amount for {label}",
+    "typePlaceholder": "−3 or +2",
+    "applyTyped": "Apply",
+    "typeHint": "A sign wins over the direction.",
+    "typeRefused": "A whole number, 1 to 100.",
+    "setSize": "Set size",
+    "set": "Set",
+    "addInjury": "One more {label} on {name}"
   },
   "doneButton": {
     "label": "Done: {name}"
@@ -838,7 +858,10 @@
     "howMany": "How many",
     "more": "More creatures",
     "temporary": "Temporary (gone when the encounter ends)",
-    "spawn": "Spawn {count} × {name}"
+    "spawn": "Spawn {count} × {name}",
+    "asMob": "As a mob of",
+    "spawnMob": "Spawn {name} ×{count}",
+    "addedMob": "Added {name} ×{count}"
   },
   "track": {
     "noTurnOrder": "This ruleset has no turn order.",

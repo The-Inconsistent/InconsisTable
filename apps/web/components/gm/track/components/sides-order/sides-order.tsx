@@ -50,7 +50,7 @@ export function SidesOrder({ encounter, sides, actors, selectedId, onSelect }: S
                         </span>
                       )}
                     </span>
-                    <HealthBar combatant={c} />
+                    <HealthBar combatant={c} conditions={encounter.conditionDefs} />
                   </button>
                 </li>
               );

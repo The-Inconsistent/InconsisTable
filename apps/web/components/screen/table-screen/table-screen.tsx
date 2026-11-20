@@ -11,6 +11,7 @@ import { RecapCard } from "@/components/ui/recap-card/recap-card";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { XCardOverlay } from "@/components/ui/xcard/xcard-overlay";
 import { useTable } from "@/hooks/use-table/use-table";
+import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 
 type TableScreenProps = { campaignId: string; view: RulesView | null };
@@ -22,6 +23,7 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
   const { state, codex, online, xcard } = useTable(campaignId);
+  useWorldRefresh({ rendered: view?.first.world?.versionId ?? null, live: state?.campaign.worldVersionId });
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   const revealed = (codex?.entries ?? []).filter((e) => e.audienceMode === "all");
   return (

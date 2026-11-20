@@ -15,6 +15,7 @@ import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { type Send, useTable } from "@/hooks/use-table/use-table";
+import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import {
   type Answers,
   entityFor,
@@ -37,14 +38,17 @@ type BuilderProps = {
   me?: Me | undefined;
   /** The ledger builder's step a link asked for, for a character in play. */
   step?: string | null | undefined;
+  /** The room's World the page was rendered with, null without one. */
+  worldVersionId?: string | null;
 };
 
 // BUILD CHARACTER: waits for the table's first snapshot (it carries this user's draft), then walks the ruleset's creation,
 // or opens the ledger builder for a character it builds.
-export function Builder({ campaignId, actorId, ruleset, entries, me, step }: BuilderProps) {
+export function Builder({ campaignId, actorId, ruleset, entries, me, step, worldVersionId }: BuilderProps) {
   const t = useTranslations("builder");
   const tStatus = useTranslations("status");
   const { state, send } = useTable(campaignId);
+  useWorldRefresh({ rendered: worldVersionId ?? null, live: state?.campaign.worldVersionId });
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   const actor = state.actors.find((a) => a.id === actorId);
   if (!actor) return <StatusScreen text={t("notAtTable")} />;

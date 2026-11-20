@@ -12,8 +12,8 @@ import type { RulesTabData } from "@/lib/library/library";
 
 type RulesPanelProps = { me: Me; send: Send; data: RulesTabData | null; state: LiveState; ruleset: Ruleset | null };
 
-// RULES: the ruleset this room plays and the packs attached to it. The owner pins a ruleset they imported and attaches
-// or detaches their packs; a refusal (characters already use another version, a private pack in the wrong room) shows
+// RULES: the ruleset this room plays, the World it wears and the packs attached to it. The owner pins a ruleset and a
+// World they imported and attaches or detaches their packs; a refusal (characters already use another version, a private pack in the wrong room) shows
 // under the thing that was tapped. Everything imported lives in the library (/library).
 export function RulesPanel({ me, send, data, state, ruleset }: RulesPanelProps) {
   const t = useTranslations("rulesPanel");
@@ -23,6 +23,10 @@ export function RulesPanel({ me, send, data, state, ruleset }: RulesPanelProps) 
     r.versions.map((v) => ({ id: v.id, label: `${r.slug} ${v.version}` })),
   );
   const [pick, setPick] = useState(data?.pinned?.versionId ?? versions[0]?.id ?? "");
+  const worldVersions = (data?.worlds ?? []).flatMap((w) =>
+    w.versions.map((v) => ({ id: v.id, label: `${v.name} ${v.version}` })),
+  );
+  const [worldPick, setWorldPick] = useState(data?.world?.versionId ?? worldVersions[0]?.id ?? "");
   const [busy, setBusy] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -37,9 +41,11 @@ export function RulesPanel({ me, send, data, state, ruleset }: RulesPanelProps) 
 
   // RULESET picker: the version to pin.
   const handlePick = (e: ChangeEvent<HTMLSelectElement>) => setPick(e.target.value);
+  // WORLD picker: the version to wear.
+  const handleWorldPick = (e: ChangeEvent<HTMLSelectElement>) => setWorldPick(e.target.value);
 
   if (!data) return <p className="error">{t("readFailed")}</p>;
-  const { pinned, attached } = data;
+  const { pinned, attached, world } = data;
   const mine = pinned ? data.packs.packs.filter((p) => p.rulesetSlug === pinned.slug) : [];
 
   return (
@@ -89,6 +95,60 @@ export function RulesPanel({ me, send, data, state, ruleset }: RulesPanelProps) 
         {errors.pin && (
           <p className="error" role="alert">
             {errors.pin}
+          </p>
+        )}
+      </section>
+
+      <section className="stack">
+        <h2 className="head">{t("world")}</h2>
+        {world ? (
+          <p>
+            <strong>{world.name}</strong> {canEdit && <span className="chip">{world.version}</span>}
+          </p>
+        ) : (
+          <p className="dim">{t("noWorld")}</p>
+        )}
+        {canEdit && (
+          <div className="row" style={{ alignItems: "end" }}>
+            {worldVersions.length === 0 ? (
+              <p className="dim">{t.rich("importWorldFirst", { link: (chunks) => <a href="/library">{chunks}</a> })}</p>
+            ) : (
+              <>
+                <label>
+                  {t("myWorlds")}
+                  <select id="world-pick" value={worldPick} onChange={handleWorldPick}>
+                    {worldVersions.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="btn primary"
+                  disabled={busy === "world" || worldPick === world?.versionId}
+                  onClick={() =>
+                    act({ key: "world", action: { type: "campaign.setWorld", worldVersionId: worldPick } })
+                  }
+                >
+                  {t("wearWorld")}
+                </button>
+              </>
+            )}
+            {state.campaign.worldVersionId !== null && (
+              <button
+                className="btn"
+                disabled={busy === "world"}
+                onClick={() => act({ key: "world", action: { type: "campaign.unsetWorld" } })}
+              >
+                {t("takeOffWorld")}
+              </button>
+            )}
+          </div>
+        )}
+        {errors.world && (
+          <p className="error" role="alert">
+            {errors.world}
           </p>
         )}
       </section>

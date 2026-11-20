@@ -1,9 +1,10 @@
 /* The second Theme, "felt": a card table. Bottle-green baize, brass thread, ivory playing cards lying flat on it.
    It exists to prove the contract: it re-maps every token lantern.css declares and changes the look of the same markup
    without a component knowing. It is selected by the root class .theme-felt, which the layout sets from the
-   device's Theme cookie (the Theme switch). A World's Theme is built the same way (P2).
+   device's Theme cookie (the Theme switch). On a page wearing a World (a [data-world] wrapper, theme/world.css) none
+   of this applies: the World lies over the base Theme whatever the device picked.
    Beyond the tokens it carries the few rules a token cannot express: the dashed ring on a plate, the seat strip. */
-:root.theme-felt {
+:root.theme-felt:not(:has([data-world])) {
   /* palette: the "wood" names hold the baize here */
   --wood-0: #082a20;
   --wood: #0f3d2e;
@@ -87,7 +88,7 @@
 }
 
 /* A plate on felt is a chip: a dashed ring inside the rim. */
-.theme-felt .btn:not(.sm, .step)::after {
+.theme-felt:not(:has([data-world])) .btn:not(.sm, .step)::after {
   content: "";
   position: absolute;
   inset: 3px;
@@ -97,33 +98,33 @@
   pointer-events: none;
 }
 /* The cards lie flat: no pin, no tilt. */
-.theme-felt .card::after,
-.theme-felt .sheet-card::after {
+.theme-felt:not(:has([data-world])) .card::after,
+.theme-felt:not(:has([data-world])) .sheet-card::after {
   display: none;
 }
-.theme-felt .grid > .card,
-.theme-felt .sheet-card,
-.theme-felt .combatant {
+.theme-felt:not(:has([data-world])) .grid > .card,
+.theme-felt:not(:has([data-world])) .sheet-card,
+.theme-felt:not(:has([data-world])) .combatant {
   transform: none;
 }
 /* The order of play is a strip of seats along the table, the acting one lifted. */
-.theme-felt .seat-strip {
+.theme-felt:not(:has([data-world])) .seat-strip {
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
   padding: 22px 8px 14px;
   scroll-snap-type: x proximity;
 }
-.theme-felt .seat-strip > .combatant {
+.theme-felt:not(:has([data-world])) .seat-strip > .combatant {
   flex: 0 0 min(250px, 72vw);
   scroll-snap-align: center;
 }
 /* On the GM's tablet the order stays a column: each seat carries its controls. */
-.theme-felt .track .seat-strip {
+.theme-felt:not(:has([data-world])) .track .seat-strip {
   display: grid;
   overflow: visible;
   padding: 0;
 }
-.theme-felt .seat-strip > .combatant[data-acting="true"] {
+.theme-felt:not(:has([data-world])) .seat-strip > .combatant[data-acting="true"] {
   transform: translateY(-10px);
 }

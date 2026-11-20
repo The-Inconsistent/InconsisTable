@@ -6,22 +6,29 @@ import { useState, type CSSProperties } from "react";
 import { PageHead } from "@/components/ui/page-head/page-head";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
-import { exportUrl, formatBytes, type PackList as PackListData, type RulesetList } from "@/lib/library/library";
+import {
+  exportUrl,
+  formatBytes,
+  type PackList as PackListData,
+  type RulesetList,
+  type WorldList as WorldListData,
+} from "@/lib/library/library";
 import { newPack, newRuleset, stripNulls, type Doc, type FormKind } from "@/lib/manifest-form/manifest-form";
 
 import { ImportPanel } from "./components/import-panel/import-panel";
 import { ManifestForm } from "./components/manifest-form/manifest-form";
 import { PackList } from "./components/pack-list/pack-list";
+import { WorldList } from "./components/world-list/world-list";
 
 type OpenForm = { kind: FormKind; doc: Doc; editing: boolean; n: number };
 
 // canImport: the caller is a creator (the lobby's canCreate). With sign-in on, an anonymous device is not one, and
 // the api refuses its imports and saves, so neither the importer nor the form is offered.
-type LibraryViewProps = { rulesets: RulesetList; packs: PackListData; canImport: boolean };
+type LibraryViewProps = { rulesets: RulesetList; packs: PackListData; worlds: WorldListData; canImport: boolean };
 
-// MY RULESETS & PACKS: everything the device's user imported. Nothing here is shared; a room can use what its owner
-// imported, and a private pack only in rooms its owner runs as GM.
-export function LibraryView({ rulesets, packs, canImport }: LibraryViewProps) {
+// MY RULESETS, PACKS & WORLDS: everything the device's user imported. Nothing here is shared; a room can use what its
+// owner imported, and a private pack or a World only in rooms its owner runs.
+export function LibraryView({ rulesets, packs, worlds, canImport }: LibraryViewProps) {
   const t = useTranslations("library");
   const tWs = useTranslations("workspace");
   const locale = useLocale();
@@ -161,6 +168,14 @@ export function LibraryView({ rulesets, packs, canImport }: LibraryViewProps) {
           onChanged={handleChanged}
           onEdit={(id) => handleEdit("pack", id)}
         />
+      </section>
+
+      <section className="stack">
+        <h2 className="head">
+          {t("worlds")} <span className="ws-tally">{worlds.length}</span>
+        </h2>
+        <p className="small dim">{t("worldsHint")}</p>
+        <WorldList worlds={worlds} canImport={canImport} onChanged={handleChanged} />
       </section>
     </main>
   );

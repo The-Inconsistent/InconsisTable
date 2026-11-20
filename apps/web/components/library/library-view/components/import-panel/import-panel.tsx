@@ -2,6 +2,8 @@
 import { useTranslations } from "next-intl";
 import { useRef, useState, type ChangeEvent } from "react";
 
+import { validateWorld } from "@inconsistable/rules-engine";
+
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
 import { locate } from "@/lib/json-locate/json-locate";
@@ -11,6 +13,7 @@ import {
   ImportRefusal,
   PackImported,
   RulesetImported,
+  WorldImported,
   kindOf,
   parseErrorAt,
   type Problem,
@@ -23,10 +26,15 @@ type Outcome =
   | { kind: "problems"; problems: Located[]; warnings: Located[] }
   | { kind: "ruleset"; saved: RulesetImported }
   | { kind: "pack"; saved: PackImported }
+  | { kind: "world"; saved: WorldImported }
   | { kind: "error"; message: string };
 
 // A 2xx reply as an outcome, or null when it isn't the shape the api promises.
-function savedOutcome({ kind, body }: { kind: "pack" | "ruleset"; body: unknown }): Outcome | null {
+function savedOutcome({ kind, body }: { kind: "pack" | "ruleset" | "world"; body: unknown }): Outcome | null {
+  if (kind === "world") {
+    const w = WorldImported.safeParse(body);
+    return w.success ? { kind, saved: w.data } : null;
+  }
   if (kind === "pack") {
     const p = PackImported.safeParse(body);
     return p.success ? { kind, saved: p.data } : null;
@@ -56,7 +64,7 @@ function KeyList({ kind, keys }: { kind: "added" | "changed" | "removed"; keys: 
   );
 }
 
-// Paste a ruleset or a pack, or choose its file. The problems come back by path and each one selects its spot in the
+// Paste a ruleset, a pack or a World, or choose its file. The problems come back by path and each one selects its spot in the
 // text; nothing is kept of the file but the rows the api writes.
 export function ImportPanel({ onSaved, autoFocus, onOpenForm }: ImportPanelProps) {
   const t = useTranslations("importPanel");
@@ -118,6 +126,9 @@ export function ImportPanel({ onSaved, autoFocus, onOpenForm }: ImportPanelProps
       });
     }
     const kind = kindOf(doc);
+    // A World has no form: its JSON is imported and exported as it is.
+    if (kind === "world")
+      return setOutcome({ kind: "problems", problems: [{ path: "(root)", message: t("worldNoForm") }], warnings: [] });
     if (!kind || typeof doc !== "object" || doc === null)
       return setOutcome({ kind: "problems", problems: [{ path: "(root)", message: t("unknownShape") }], warnings: [] });
     onOpenForm({ kind, doc: doc as Doc });
@@ -146,11 +157,16 @@ export function ImportPanel({ onSaved, autoFocus, onOpenForm }: ImportPanelProps
         problems: [{ path: "(root)", message: t("unknownShape") }],
         warnings: [],
       });
+    // A World is checked on the device first, so a pair under its floor shows by path before anything is sent.
+    if (kind === "world") {
+      const checked = validateWorld(doc);
+      if (!checked.ok) return setOutcome({ kind: "problems", problems: checked.problems, warnings: [] });
+    }
 
     setBusy(true);
     setOutcome(null);
     try {
-      const res = await fetch(kind === "pack" ? "/api/packs" : "/api/rulesets", {
+      const res = await fetch(`/api/${kind}s`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: text,
@@ -240,6 +256,13 @@ export function ImportPanel({ onSaved, autoFocus, onOpenForm }: ImportPanelProps
           {outcome.saved.unchanged
             ? t("rulesetUnchanged", { slug: outcome.saved.slug, version: outcome.saved.version })
             : t("rulesetSaved", { slug: outcome.saved.slug, version: outcome.saved.version })}
+        </p>
+      )}
+      {outcome?.kind === "world" && (
+        <p className="saved" role="status">
+          {outcome.saved.unchanged
+            ? t("worldUnchanged", { slug: outcome.saved.slug, version: outcome.saved.version })
+            : t("worldSaved", { slug: outcome.saved.slug, version: outcome.saved.version })}
         </p>
       )}
       {outcome?.kind === "pack" && (

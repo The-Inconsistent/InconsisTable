@@ -1,0 +1,574 @@
+/* A World's look (docs/adr/0010, decision 2). A room's wrapper carries [data-world] and the World's picks as data
+   attributes (lib/world/world.ts); its colours arrive in a <style> rendered with the page, declared on the root while the
+   wrapper is there. On such a page felt steps aside (felt.css, motion.css) and the World lies over lantern, whatever the
+   device picked. The wrapper is an ancestor of the table's surface.
+   Under a World every rule here reads the tokens a World sets, and never a surface token as a text colour, so a World
+   can have light cards by day and dark ones by night. The main-action colour (--brass and its steps) paints the main
+   action and its states only; rules and outlines read the line tokens. */
+
+/* ---------- The colour set: the device's pick, among the sets the World brings ---------- */
+html:has([data-world]) {
+  background: var(--paper);
+}
+/* The table is no longer forced dark, and a card no longer forced light: both follow the set the root shows. */
+[data-world] :is(.surface-table, .parchment, .card, .combatant, .bottom-sheet, .sheet-card) {
+  color-scheme: inherit;
+}
+/* A plate in a card is lit and shaded in the card's own colours, so a dark card's buttons carry no cream edge. */
+[data-world] :is(.parchment, .card, .combatant, .bottom-sheet, .sheet-card) {
+  --plate-lit: color-mix(in srgb, var(--parchment-hi) 70%, transparent);
+  --plate-shade: color-mix(in srgb, var(--parchment-line) 60%, transparent);
+}
+/* The TV keeps the World's ink: its far-away type was cream on dark wood, which a light set would lose. */
+[data-world] [data-density="tv"] {
+  --ink: inherit;
+  --ink-2: inherit;
+}
+
+/* ---------- Buttons on the table: plates cut from the page, the main action in brass ---------- */
+[data-world] {
+  --plate: linear-gradient(180deg, light-dark(var(--paper), var(--paper-2)), light-dark(var(--paper-2), var(--paper)));
+  --plate-line: var(--line);
+  --plate-lit: color-mix(in srgb, var(--paper) 45%, transparent);
+  --plate-main: linear-gradient(180deg, var(--brass-hi), var(--brass));
+  --plate-main-ink: var(--brass-ink);
+}
+
+/* ---------- Typefaces: display (headings, labels, buttons, tabs, chips), body (running text, numerals), mono ----------
+   A pick sets --wf-<role> to one of the faces the layout registers; a role the World leaves out keeps the base face.
+   The display stack falls back to the World's body face, then the base, so a letter the display face lacks is drawn in
+   the body face. Cinzel has no Vietnamese at all: on a Vietnamese page its role takes the next face outright. */
+[data-world] {
+  --font-display:
+    var(--wf-display, var(--font-display-face)), var(--wf-body, var(--font-text)), var(--font-display-face),
+    "Iowan Old Style", Georgia, serif;
+  --font-body: var(--wf-body, var(--font-text)), var(--font-text), system-ui, sans-serif;
+  --font-mono: var(--wf-mono, ui-monospace), ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-family: var(--font-body);
+}
+/* Fraunces' soft, wonky axes belong to it alone. */
+[data-world][data-font-display]:not([data-font-display="fraunces"]) {
+  --display-axes: normal;
+}
+[data-font-display="be-vietnam-pro"] {
+  --wf-display: var(--font-text);
+}
+[data-font-display="fraunces"] {
+  --wf-display: var(--font-display-face);
+}
+[data-font-display="literata"] {
+  --wf-display: var(--font-display-felt);
+}
+[data-font-display="cinzel"] {
+  --wf-display: var(--font-cinzel);
+}
+[data-font-display="crimson-pro"] {
+  --wf-display: var(--font-crimson-pro);
+}
+[data-font-display="ibm-plex-mono"] {
+  --wf-display: var(--font-ibm-plex-mono);
+}
+[data-font-body="be-vietnam-pro"] {
+  --wf-body: var(--font-text);
+}
+[data-font-body="fraunces"] {
+  --wf-body: var(--font-display-face);
+}
+[data-font-body="literata"] {
+  --wf-body: var(--font-display-felt);
+}
+[data-font-body="cinzel"] {
+  --wf-body: var(--font-cinzel);
+}
+[data-font-body="crimson-pro"] {
+  --wf-body: var(--font-crimson-pro);
+}
+[data-font-body="ibm-plex-mono"] {
+  --wf-body: var(--font-ibm-plex-mono);
+}
+[data-font-mono="be-vietnam-pro"] {
+  --wf-mono: var(--font-text);
+}
+[data-font-mono="fraunces"] {
+  --wf-mono: var(--font-display-face);
+}
+[data-font-mono="literata"] {
+  --wf-mono: var(--font-display-felt);
+}
+[data-font-mono="cinzel"] {
+  --wf-mono: var(--font-cinzel);
+}
+[data-font-mono="crimson-pro"] {
+  --wf-mono: var(--font-crimson-pro);
+}
+[data-font-mono="ibm-plex-mono"] {
+  --wf-mono: var(--font-ibm-plex-mono);
+}
+[data-world][data-font-body="cinzel"]:lang(vi) {
+  --wf-body: var(--font-text);
+}
+[data-world][data-font-display="cinzel"]:lang(vi) {
+  --wf-display: var(--wf-body, var(--font-display-face));
+}
+[data-world][data-font-mono="cinzel"]:lang(vi) {
+  --wf-mono: ui-monospace;
+}
+
+/* ---------- The table's chrome lies on the band ----------
+   The band, the tabs, the fight bar, the slips under the tabs, the turn banner and a card's back re-declare the
+   semantic names as the band's, as a parchment card re-declares them as its own: text is band-ink on band (a pair every
+   World is held to), and the focus ring is band-ink haloed in band, so it shows on the band in both sets. */
+[data-world]
+  :is(
+    .band,
+    .tabs,
+    .fightbar,
+    .request-bar,
+    .spend-notice,
+    .turn-banner,
+    .game-outcome,
+    .playing-card[data-up="false"]
+  ) {
+  --paper: var(--band);
+  --paper-2: var(--band);
+  --ink: var(--band-ink);
+  --ink-2: var(--band-ink);
+  --line: color-mix(in srgb, var(--band-ink) 35%, var(--band));
+  --plate: var(--band);
+  --plate-line: color-mix(in srgb, var(--band-ink) 35%, var(--band));
+  --plate-lit: color-mix(in srgb, var(--band-ink) 12%, transparent);
+  --focus: var(--band-ink);
+  --focus-halo: var(--band);
+  color: var(--ink);
+}
+[data-world] .band {
+  background: var(--grain-h), var(--band);
+  background-size:
+    360px 120px,
+    auto;
+  border-bottom-color: var(--line);
+  box-shadow:
+    inset 0 1px 0 var(--plate-lit),
+    0 8px 18px rgb(0 0 0 / 0.35);
+}
+[data-world] .band a {
+  color: var(--ink);
+}
+[data-world] .tabs {
+  background: var(--grain-h), var(--band);
+  background-size:
+    360px 120px,
+    auto;
+  border-color: var(--line);
+}
+[data-world] .tab:not([aria-selected="true"]) {
+  background: var(--band);
+  color: var(--ink);
+  border-color: var(--line);
+  box-shadow: inset 0 1px 0 var(--plate-lit);
+}
+[data-world] .fightbar {
+  background: var(--grain-h), var(--band);
+  background-size:
+    360px 120px,
+    auto;
+  border-bottom-color: var(--line);
+}
+[data-world] .fightbar .round {
+  color: var(--ink);
+  text-shadow: none;
+}
+[data-world] :is(.request-bar, .spend-notice) {
+  background: var(--band);
+  border-bottom-color: var(--line);
+}
+/* "Your turn" is the one banner that says now: it takes the main action's colours, which every World is held to
+   (brass-ink on brass), instead of the band's. */
+[data-world] .turn-banner {
+  --ink: var(--brass-ink);
+  background: var(--grain-h), var(--brass);
+  background-size:
+    360px 120px,
+    auto;
+  color: var(--brass-ink);
+  border-color: var(--brass-lo);
+  box-shadow:
+    inset 0 0 0 4px var(--brass),
+    inset 0 0 0 5px color-mix(in srgb, var(--brass-ink) 45%, transparent),
+    0 8px 14px var(--shadow);
+  text-shadow: none;
+}
+[data-world] .game-outcome {
+  background: var(--band);
+  color: var(--ink);
+  border-color: var(--line);
+}
+[data-world] .playing-card[data-up="false"] {
+  background: repeating-linear-gradient(45deg, transparent 0 9px, var(--line) 9px 10px), var(--band);
+  color: var(--ink);
+}
+
+/* ---------- Rules and outlines read the line tokens; brass stays for the main action ---------- */
+[data-world] :is(.mention, .tabs, .tab:not([aria-selected="true"]), .playing-card, .request-bar, .build-bar) {
+  border-color: var(--line);
+}
+[data-world] :is(.lb-banner, .bottom-sheet, .end-notice, .game-mine) {
+  border-color: var(--line);
+}
+[data-world] .outcome-critical,
+[data-world] .outcome-criticalSuccess {
+  border-bottom-color: var(--line);
+}
+/* A chip is the page's second surface in an outline, on the table and in a card; the first player's stays brass. */
+/* The shade in a card's edges and wells is the card's line, not the main action's brass. */
+[data-world] {
+  --card-shade: var(--parchment-line);
+}
+[data-world] .chip:not([data-first="true"], [aria-pressed="true"]) {
+  border-color: var(--line);
+  background: var(--paper-2);
+}
+/* The first player's chip is a state: solid brass under brass-ink, a pair every World is held to. */
+[data-world] .combatant .chip[data-first="true"] {
+  border-color: var(--brass-ink);
+  background: var(--brass);
+  color: var(--brass-ink);
+}
+/* The pin on a card is a plain stud in the card's own line. */
+[data-world] :is(.card, .sheet-card)::after,
+[data-world] :is(.card, .sheet-card):nth-child(even)::after {
+  background: radial-gradient(circle at 35% 30%, var(--paper), var(--line) 55%, var(--ink-2));
+}
+/* The acting slip is lit in the card's own colours, so a dark card stays dark. */
+[data-world] .combatant[data-acting="true"]::before {
+  background: radial-gradient(ellipse at 20% 0%, var(--parchment-hi), var(--parchment) 80%);
+}
+[data-world] .end-notice {
+  color: var(--ink);
+}
+/* The clock is drawn in the page's own surfaces and line; its lit wedges keep the candle. */
+[data-world] .clock-rim {
+  fill: var(--paper-2);
+  stroke: var(--line);
+}
+[data-world] .clock-wedge {
+  fill: var(--paper);
+  stroke: var(--line);
+}
+[data-world] .clock-hub {
+  fill: var(--line);
+}
+/* The health bar: the page's second surface in a line, filled with ok; low health is the accent striped. */
+[data-world] .bar {
+  border-color: var(--line);
+  background: var(--paper-2);
+}
+[data-world] .bar > span {
+  background: var(--ok);
+}
+[data-world] .bar[data-low="true"] > span {
+  background: repeating-linear-gradient(45deg, rgb(0 0 0 / 0.3) 0 4px, transparent 4px 8px), var(--accent);
+}
+
+/* ---------- Textures: the ground the table lies on ----------
+   Each is drawn over the page's own colours (--paper, --paper-2), so it follows the World and both sets; the grain and
+   the shading are neutral, lighter in the light set. A card's fibre turns neutral too, so a cold World's cards are not
+   speckled brown. Every ornament here is original CSS and inline SVG: no image file, no book art. */
+[data-world] {
+  /* lantern's band grain, in a neutral dark: its own is brown, which streaks a cold band */
+  --grain-h: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.55' stitchTiles='stitch' numOctaves='3' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.01 0 0 0 0 0.01 0 0 0 0 0.01 1.27 0 0 0 -0.53'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  --fibre: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' stitchTiles='stitch' numOctaves='2' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.3 0 0 0 0 0.3 0 0 0 0.45 -0.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+  --bg-card: var(--fibre), radial-gradient(ellipse at 30% 0%, var(--parchment-hi), var(--parchment) 70%);
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .11 0 0 0 0 .11 0 0 0 0 .11 -4 0 0 0 1.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='.22'/%3E%3C/svg%3E");
+  --paper-mottle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800' viewBox='0 0 800 800' preserveAspectRatio='none'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0075 .01' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 .11 0 0 0 0 .11 0 0 0 0 .11 -2.6 0 0 0 1.45'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)' opacity='.2'/%3E%3C/svg%3E");
+}
+/* wood: lantern's planks and grain, a candle overhead and a vignette. The grain is tuned for dark wood, so a light set
+   washes it with its own page colour (the first layer) and only darkens the far edge a little. */
+.surface-app:has([data-texture="wood"]),
+[data-texture="wood"] .surface-table {
+  background:
+    linear-gradient(
+      light-dark(color-mix(in srgb, var(--paper) 65%, transparent), transparent),
+      light-dark(color-mix(in srgb, var(--paper) 65%, transparent), transparent)
+    ),
+    var(--grain), var(--planks),
+    linear-gradient(
+      180deg,
+      var(--paper-2),
+      var(--paper) 40%,
+      light-dark(color-mix(in srgb, var(--paper), rgb(0 0 0) 4%), color-mix(in srgb, var(--paper), rgb(0 0 0) 45%))
+    );
+}
+.surface-app:has([data-texture="wood"])::before,
+[data-texture="wood"] .surface-table::before {
+  background:
+    radial-gradient(
+      ellipse 85% 420px at 50% -60px,
+      color-mix(in srgb, var(--candle) 50%, transparent),
+      color-mix(in srgb, var(--candle) 16%, transparent) 55%,
+      transparent 80%
+    ),
+    radial-gradient(ellipse 120% 90% at 50% 40%, transparent 55%, light-dark(rgb(0 0 0 / 0.16), rgb(0 0 0 / 0.55)));
+}
+/* baize: felt's woven cloth, a dotted nap and a soft lamp */
+.surface-app:has([data-texture="baize"]),
+[data-texture="baize"] .surface-table {
+  background:
+    radial-gradient(ellipse at 50% 25%, transparent 35%, light-dark(rgb(0 0 0 / 0.06), rgb(0 0 0 / 0.5)) 100%),
+    repeating-linear-gradient(45deg, rgb(255 255 255 / 0.03) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.07) 0 1px, transparent 1px 3px),
+    radial-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1.6px) 0 0 / 5px 5px,
+    var(--paper);
+}
+.surface-app:has([data-texture="baize"])::before,
+[data-texture="baize"] .surface-table::before {
+  background: radial-gradient(
+    ellipse 90% 380px at 50% -80px,
+    color-mix(in srgb, var(--candle) 22%, transparent),
+    transparent 75%
+  );
+}
+/* paper: a flat printed page under a fine grain, a mottle, two faint stains and a vignette, held still on the screen */
+.surface-app:has([data-texture="paper"]),
+[data-texture="paper"] .surface-table {
+  background: var(--paper);
+}
+.surface-app:has([data-texture="paper"])::before,
+[data-texture="paper"] .surface-table::before {
+  background:
+    radial-gradient(ellipse 60% 40% at 12% 6%, color-mix(in srgb, var(--line) 14%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 45% at 92% 96%, color-mix(in srgb, var(--ink) 6%, transparent), transparent 70%),
+    radial-gradient(
+      ellipse 120% 90% at 50% 45%,
+      transparent 50%,
+      light-dark(color-mix(in srgb, var(--ink) 24%, transparent), rgb(0 0 0 / 0.55)) 100%
+    ),
+    var(--paper-grain), var(--paper-mottle);
+  background-size:
+    auto,
+    auto,
+    auto,
+    240px 240px,
+    100% 100%;
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat, no-repeat;
+}
+
+/* ---------- Corners: buttons, fields and chips ---------- */
+[data-corners="soft"] {
+  --radius-btn: 7px;
+}
+[data-corners="pill"] {
+  --radius-btn: 999px;
+}
+/* square: 2px everywhere a corner is drawn, a radio still round */
+[data-corners="square"] {
+  --radius-btn: 2px;
+}
+[data-corners="square"]
+  :is(
+    .chip,
+    .tab,
+    input:not([type="radio"]),
+    .pick,
+    .found,
+    .problem,
+    .roll-slot,
+    .roll-key,
+    .keypad-out,
+    .derived-list div,
+    .lb-card,
+    .lb-gm,
+    .lb-choice,
+    .badge-offline,
+    .pool-die,
+    .pool-count,
+    .bar,
+    .turn-banner,
+    .end-notice,
+    .game-outcome,
+    .game-mine,
+    .playing-card
+  ) {
+  border-radius: 2px;
+}
+
+/* ---------- Card edges: the outline of a card ---------- */
+/* torn: the base Theme's ragged clip (lantern's --edge), a pin, a slight tilt */
+[data-card-edge="torn"] {
+  --radius-card: 2px;
+}
+/* rounded: felt's card, flat on the table */
+[data-card-edge="rounded"] {
+  --radius-card: 16px;
+  --edge: inset(0 round 16px);
+  --edge-slip: inset(0 round 14px);
+}
+/* square: a printed panel, flat on the table */
+[data-card-edge="square"] {
+  --radius-card: 2px;
+  --edge: inset(0);
+  --edge-slip: inset(0);
+}
+[data-card-edge="rounded"] :is(.card, .sheet-card)::after,
+[data-card-edge="square"] :is(.card, .sheet-card)::after {
+  display: none;
+}
+[data-card-edge="rounded"] :is(.grid > .card, .sheet-card, .combatant:not([data-acting="true"])),
+[data-card-edge="square"] :is(.grid > .card, .sheet-card, .combatant:not([data-acting="true"])) {
+  transform: none;
+}
+
+/* ---------- Card crest: an ornament along a card's top edge ---------- */
+[data-card-crest="none"] :is(.card, .sheet-card)::before {
+  background: var(--bg-card);
+}
+/* spiked: a row of spikes on a rule, in the card's second ink, inside the card's top padding; it takes the pin's place */
+[data-card-crest="spiked"] :is(.card, .sheet-card)::before {
+  background:
+    conic-gradient(from 148deg at 50% 0, var(--ink-2) 0 64deg, transparent 64deg) 0 0 / 8px 8px repeat-x,
+    linear-gradient(var(--ink-2), var(--ink-2)) 0 8px / 100% 2px no-repeat,
+    var(--bg-card);
+}
+[data-card-crest="spiked"] :is(.card, .sheet-card)::after {
+  display: none;
+}
+
+/* ---------- Band edge: the lower edge of a header band ---------- */
+[data-band-edge="straight"] .band {
+  border-bottom-style: solid;
+}
+/* torn: a dry-brush edge in the band's own colour, hanging a few pixels over what follows */
+[data-band-edge="torn"] .band {
+  border-bottom: 0;
+}
+[data-band-edge="torn"] .band::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -9px;
+  height: 10px;
+  background: var(--band);
+  pointer-events: none;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 28' preserveAspectRatio='none'%3E%3Cpath d='M0 0H1200V6.7L1182 9.1L1169 14.6L1150 13.3L1140 7.1L1122 7.6L1104 13.1L1091 5.3L1079 17L1060 15.6L1045 17.4L1037 22.8L1020 17.6L1006 12.4L991 16L970 13.3L953 17.3L932 11.7L919 15.4L914 25.3L903 10.7L885 15.3L862 14.3L846 11L823 16.8L812 6.7L788 10.1L766 8.5L756 11.2L750 17.5L729 23.7L723 5.3L714 19.2L703 25.9L687 13.1L670 8.6L657 16L644 6.8L625 15.5L609 10.7L592 8.9L588 17L572 12.8L555 12.6L531 13.3L506 10.4L485 15.3L463 6L449 14.5L440 23.7L429 5.2L414 17.7L401 6.7L387 8.5L376 16.1L366 20.1L348 14.2L342 26.7L334 16.5L309 8.2L291 12.5L274 8.2L257 15L246 16.1L231 17.6L219 6.7L198 15.4L188 17.5L169 5.9L148 19.9L134 16L126 24.9L108 18L92 11.7L75 7.5L65 13.5L51 5.5L33 15.3L13 11.1L0 10.9Z'/%3E%3C/svg%3E")
+    0 0 / 100% 100% no-repeat;
+}
+
+/* ---------- Heading rule: what follows a section heading ---------- */
+/* none: the heading as the base Theme draws it, its own underline included */
+[data-heading-rule="none"] .head::after {
+  content: none;
+}
+/* line and quill run from the end of the words to the edge, in place of the underline */
+[data-heading-rule="line"] .head,
+[data-heading-rule="quill"] .head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+[data-heading-rule="line"] .head::after {
+  content: "";
+  flex: 1;
+  min-width: 32px;
+  height: 1px;
+  background: var(--line);
+}
+/* quill: a ruled, ticked bar ending in a feather, in the second ink */
+[data-heading-rule="quill"] .head::after {
+  content: "";
+  flex: 1;
+  min-width: 64px;
+  height: 12px;
+  color: var(--ink-2);
+  background:
+    linear-gradient(currentColor, currentColor) 0 4px / calc(100% - 54px) 1px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 21px, currentColor 21px 22px) 0 5px / calc(100% - 54px) 1px no-repeat,
+    linear-gradient(currentColor, currentColor) 0 6px / calc(100% - 54px) 2px no-repeat,
+    linear-gradient(currentColor, currentColor) 100% 0 / 54px 100% no-repeat;
+  mask:
+    linear-gradient(black, black) 0 0 / calc(100% - 54px) 100% no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 16'%3E%3Cpath d='M0 5.5H30L38 3L72 0L58 5L70 4.5L50 9L58 9L38 12.5L30 10.5H0Z'/%3E%3C/svg%3E")
+      100% 0 / 54px 12px no-repeat;
+}
+
+/* ---------- Heading case: headings, labels, buttons, tabs and chips as written, or in tracked capitals ----------
+   Never running text, a field's value or a name: a character's, a combatant's, a page title (which names one). */
+[data-heading-case="normal"] :is(.head, .tab, .btn, .chip) {
+  text-transform: none;
+}
+[data-heading-case="caps"]
+  :is(
+    .head,
+    .step-title,
+    .roll-title,
+    .problems-title,
+    .lb-sub,
+    .tab,
+    .btn,
+    .chip,
+    .state-word,
+    .stat-label,
+    .lb-tag,
+    legend,
+    dt,
+    .fightbar .round,
+    .turn-banner,
+    .badge-offline
+  ) {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+[data-heading-case="caps"] :is(.name, .card-name, .sheet-name, .title, input, select, textarea) {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* ---------- Button frames: how a button is built ----------
+   Each frame states its ground and its ink: the page's surface under ink (the card's inside a card, the band's in the
+   chrome), the main action in brass under brass-ink. A pressed toggle still inverts and carries its check, a disabled
+   one keeps its hatch, so no state rests on the frame. */
+/* plate: lantern's raised plate, lit along its top edge */
+[data-button-frame="plate"] .btn:not(.primary, [aria-pressed="true"], :disabled) {
+  background: var(--plate);
+  box-shadow:
+    inset 0 1px 0 var(--plate-lit),
+    0 2px 0 var(--plate-shade);
+}
+/* flat: felt's chip, a flat disc with a dashed ring inside the rim */
+[data-button-frame="flat"] .btn:not(.primary, [aria-pressed="true"], :disabled) {
+  background: var(--paper-2);
+  box-shadow: none;
+}
+[data-button-frame="flat"] .btn.primary:not([aria-pressed="true"], :disabled) {
+  background: var(--brass);
+  box-shadow: none;
+}
+[data-button-frame="flat"] .btn:not(.sm, .step)::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1.5px dashed currentColor;
+  border-radius: inherit;
+  opacity: 0.5;
+  pointer-events: none;
+}
+/* double: an outline in the second ink with a second, inner frame in the line, on the page's surface */
+[data-button-frame="double"] .btn:not(.primary, [aria-pressed="true"], :disabled) {
+  background: var(--paper);
+  border-color: var(--ink-2);
+  box-shadow:
+    inset 0 0 0 2px var(--paper),
+    inset 0 0 0 3px var(--line);
+}
+[data-button-frame="double"] .btn.primary:not([aria-pressed="true"], :disabled) {
+  background: var(--brass);
+  border-color: var(--brass-ink);
+  box-shadow:
+    inset 0 0 0 2px var(--brass),
+    inset 0 0 0 3px color-mix(in srgb, var(--brass-ink) 55%, transparent);
+}
+[data-button-frame="double"] .btn.sm:not([aria-pressed="true"], :disabled) {
+  box-shadow: none;
+}

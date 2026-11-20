@@ -7,6 +7,9 @@
    the TV sets [data-density="tv"]. */
 :root {
   --font-body: var(--font-text), system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  /* the shade pressed into a card's edges and into the wells cut in it; a World draws it in the card's own line */
+  --card-shade: var(--brass-lo);
   --tap: 52px;
   --tap-key: 68px;
   --gap: 16px;
@@ -57,7 +60,7 @@
 html {
   background: var(--paper);
 }
-html:has(.surface-table) {
+html:has(.surface-table):not(:has([data-world])) {
   color-scheme: dark;
   background: var(--wood-0);
 }
@@ -217,7 +220,7 @@ fieldset {
   border-bottom: 1px solid var(--line);
 }
 .sheet-name {
-  text-shadow: 0 2px 10px rgb(255 170 70 / 0.25);
+  text-shadow: 0 2px 10px color-mix(in srgb, var(--candle) 25%, transparent);
 }
 
 /* ---------- The header beam ---------- */
@@ -238,7 +241,7 @@ fieldset {
   color: var(--band-ink);
   border-bottom: 3px solid var(--brass);
   box-shadow:
-    inset 0 1px 0 rgb(255 215 150 / 0.16),
+    inset 0 1px 0 color-mix(in srgb, var(--brass-hi) 16%, transparent),
     0 2px 0 var(--brass-lo),
     0 8px 18px rgb(0 0 0 / 0.6);
 }
@@ -319,7 +322,7 @@ fieldset {
   border: 1px solid var(--brass-lo);
   border-bottom: 0;
   border-radius: 7px 7px 0 0;
-  box-shadow: inset 0 1px 0 rgb(255 215 150 / 0.2);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--brass-hi) 20%, transparent);
   cursor: pointer;
   transition:
     box-shadow var(--dur-quick) var(--ease-out),
@@ -332,7 +335,7 @@ fieldset {
   border-color: var(--brass-hi);
   box-shadow:
     inset 0 -6px 0 var(--brass-ink),
-    0 -3px 10px rgb(255 182 79 / 0.35);
+    0 -3px 10px color-mix(in srgb, var(--candle) 35%, transparent);
 }
 .tab[aria-selected="true"]::before {
   content: "";
@@ -378,8 +381,8 @@ fieldset {
   clip-path: var(--edge);
   background: var(--bg-card);
   box-shadow:
-    inset 0 0 0 1px rgb(110 70 20 / 0.28),
-    inset 0 0 34px rgb(150 100 40 / 0.3);
+    inset 0 0 0 1px color-mix(in srgb, var(--card-shade) 28%, transparent),
+    inset 0 0 34px color-mix(in srgb, var(--card-shade) 30%, transparent);
 }
 .card {
   display: grid;
@@ -399,7 +402,7 @@ fieldset {
   background: radial-gradient(circle at 35% 30%, var(--brass-hi), var(--brass) 50%, var(--brass-lo));
   box-shadow:
     0 2px 2px rgb(0 0 0 / 0.5),
-    inset 0 0 0 1px rgb(60 35 5 / 0.5);
+    inset 0 0 0 1px color-mix(in srgb, var(--brass-ink) 50%, transparent);
 }
 :is(.card, .sheet-card):nth-child(even)::after {
   background: radial-gradient(
@@ -466,7 +469,7 @@ fieldset {
   border-color: var(--brass-lo);
   color: var(--plate-main-ink);
   box-shadow:
-    inset 0 1px 0 rgb(255 240 191 / 0.8),
+    inset 0 1px 0 color-mix(in srgb, var(--cream) 80%, transparent),
     0 2px 0 var(--brass-lo);
 }
 .btn.sm {
@@ -597,7 +600,7 @@ textarea:focus-visible {
   animation: shake var(--dur-move) var(--ease-out) 1;
 }
 input[type="number"] {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 /* A select drops its native look for a caret painted in the text colour, with room so the text never runs under it. */
 select {
@@ -692,7 +695,7 @@ label {
 }
 .chip {
   border: 1px solid var(--brass);
-  background: rgb(201 154 62 / 0.14);
+  background: color-mix(in srgb, var(--brass) 14%, transparent);
   border-radius: 999px;
   padding: 2px 11px;
   font-size: var(--fs-small);
@@ -709,12 +712,12 @@ label {
 .card .chip,
 .combatant .chip {
   border-color: var(--parchment-line);
-  background: rgb(120 80 30 / 0.1);
+  background: color-mix(in srgb, var(--card-shade) 10%, transparent);
 }
 /* The first player of a seated order: a heavier, filled chip so it reads at arm's length, with the words as well. */
 .combatant .chip[data-first="true"] {
   border: 2px solid var(--brass);
-  background: rgb(201 154 62 / 0.5);
+  background: color-mix(in srgb, var(--brass) 50%, transparent);
   font-size: 1.1em;
   font-weight: 800;
 }
@@ -783,7 +786,7 @@ label {
   overflow-wrap: anywhere;
 }
 .clock-count {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   color: var(--ink-2);
 }
 .clock-face {
@@ -930,7 +933,9 @@ label {
   background: var(--paper);
 }
 .playing-card[data-up="false"] {
-  background: repeating-linear-gradient(45deg, transparent 0 9px, rgb(201 154 62 / 0.22) 9px 10px), var(--wood-2);
+  background:
+    repeating-linear-gradient(45deg, transparent 0 9px, color-mix(in srgb, var(--brass) 22%, transparent) 9px 10px),
+    var(--wood-2);
   color: var(--band-ink, var(--ink));
 }
 .card-back,
@@ -1009,7 +1014,7 @@ textarea.json {
   width: 100%;
   min-height: 260px;
   padding: 10px;
-  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-small);
   line-height: 1.5;
   tab-size: 2;
@@ -1054,7 +1059,7 @@ textarea.json {
   border-left-style: dashed;
 }
 .problem-path {
-  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-small);
   color: var(--ink-2);
   overflow-wrap: anywhere;
@@ -1089,10 +1094,10 @@ summary {
 .roll-card::before {
   box-shadow:
     inset 0 0 0 7px var(--parchment),
-    inset 0 0 0 8px rgb(156 47 35 / 0.8),
+    inset 0 0 0 8px color-mix(in srgb, var(--wax) 80%, transparent),
     inset 0 0 0 10px var(--parchment),
-    inset 0 0 0 11px rgb(156 47 35 / 0.4),
-    inset 0 0 34px rgb(150 100 40 / 0.3);
+    inset 0 0 0 11px color-mix(in srgb, var(--wax) 40%, transparent),
+    inset 0 0 34px color-mix(in srgb, var(--card-shade) 30%, transparent);
 }
 .roll-card::after {
   background: radial-gradient(
@@ -1114,7 +1119,7 @@ summary {
 .roll-result {
   margin: 0;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   font-size: 17px;
 }
 .roll-line {
@@ -1135,15 +1140,15 @@ summary {
   color: var(--ink);
   font-size: 56px;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   cursor: pointer;
-  box-shadow: inset 0 3px 8px rgb(110 70 20 / 0.35);
+  box-shadow: inset 0 3px 8px color-mix(in srgb, var(--card-shade) 35%, transparent);
 }
 .roll-slot[aria-pressed="true"] {
   border-color: var(--accent);
   box-shadow:
     inset 0 -7px 0 var(--accent),
-    inset 0 3px 8px rgb(110 70 20 / 0.35);
+    inset 0 3px 8px color-mix(in srgb, var(--card-shade) 35%, transparent);
 }
 .roll-pad {
   display: grid;
@@ -1265,12 +1270,12 @@ summary {
   text-align: center;
   font-size: 28px;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .points-left {
   font-size: 36px;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   line-height: 1;
 }
 .derived-list {
@@ -1293,7 +1298,7 @@ summary {
   margin: 0;
   font-size: 32px;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .build-bar {
   position: sticky;
@@ -1537,7 +1542,7 @@ summary {
   font-size: var(--fs-num);
   font-weight: 800;
   line-height: 1.1;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .lb-figures [data-state="over"] dd {
   color: var(--accent);
@@ -1568,7 +1573,7 @@ summary {
 .lb-xp {
   flex: none;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 /* In play: the XP box, the session's award and the group's Ascension (lb-play). Parchment cards like the builder's. */
 .lb-play-dev {
@@ -1598,7 +1603,7 @@ summary {
   font-size: var(--fs-num);
   font-weight: 800;
   line-height: 1.1;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .lb-play > a.btn {
   justify-self: start;
@@ -1716,7 +1721,7 @@ summary {
   white-space: nowrap;
   font-size: var(--fs-num);
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .sheet-num.sheet-text {
   font-family: var(--font-body);
@@ -1788,7 +1793,7 @@ summary {
   border-radius: var(--radius-card) var(--radius-card) 0 0;
   /* the last layer is parchment under the sheet's edge: the spring overshoots upward and must not show the page */
   box-shadow:
-    inset 0 0 34px rgb(150 100 40 / 0.3),
+    inset 0 0 34px color-mix(in srgb, var(--card-shade) 30%, transparent),
     0 -8px 18px rgb(0 0 0 / 0.5),
     0 60px 0 var(--parchment-hi);
   /* it rises from the bottom edge when it mounts; there is no exit */
@@ -1829,7 +1834,7 @@ summary {
   align-items: center;
   padding: 10px 14px 10px 18px;
   /* the same filter functions as the acting slip, so the candle glow fades up instead of snapping */
-  filter: drop-shadow(0 0 16px rgb(255 182 79 / 0)) drop-shadow(var(--lift-1));
+  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--candle) 0%, transparent)) drop-shadow(var(--lift-1));
   transform: rotate(-0.3deg);
   transition:
     transform var(--dur-move) var(--ease-spring),
@@ -1842,18 +1847,18 @@ summary {
   clip-path: var(--edge-slip);
   box-shadow:
     inset 6px 0 0 var(--parchment-line),
-    inset 0 0 20px rgb(150 100 40 / 0.28);
+    inset 0 0 20px color-mix(in srgb, var(--card-shade) 28%, transparent);
 }
 .combatant[data-acting="true"] {
   transform: translateX(8px) rotate(0deg);
-  filter: drop-shadow(0 0 16px rgb(255 182 79 / 0.85)) drop-shadow(var(--lift-2));
+  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--candle) 85%, transparent)) drop-shadow(var(--lift-2));
 }
 .combatant[data-acting="true"]::before {
   background: radial-gradient(ellipse at 20% 0%, var(--cream), var(--parchment) 80%);
   box-shadow:
     inset 9px 0 0 var(--accent),
     inset 0 0 0 2px var(--brass),
-    inset 0 0 26px rgb(255 182 79 / 0.45);
+    inset 0 0 26px color-mix(in srgb, var(--candle) 45%, transparent);
 }
 .combatant[data-selected="true"] {
   outline: 3px dashed var(--brass-hi);
@@ -1955,7 +1960,7 @@ summary {
   margin-right: auto;
   animation: tick var(--dur-quick) var(--ease-out); /* remounted by key on a new round */
   color: var(--candle);
-  text-shadow: 0 0 14px rgb(255 182 79 / 0.6);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--candle) 60%, transparent);
 }
 .track {
   display: grid;
@@ -1998,12 +2003,12 @@ summary {
   min-height: 52px;
   padding: 2px 14px;
   border-radius: 8px;
-  background: rgb(110 70 20 / 0.14);
-  box-shadow: inset 0 3px 6px rgb(110 70 20 / 0.3);
+  background: color-mix(in srgb, var(--card-shade) 14%, transparent);
+  box-shadow: inset 0 3px 6px color-mix(in srgb, var(--card-shade) 30%, transparent);
   font-size: 48px;
   font-weight: 800;
   text-align: right;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 /* ---------- Your turn: a glowing lantern plate, the one thing on the phone that is not a card ---------- */
@@ -2019,8 +2024,8 @@ summary {
   text-align: center;
   color: var(--parchment-hi);
   background:
-    radial-gradient(ellipse 70% 120% at 50% 0%, rgb(255 182 79 / 0.35), transparent 70%), var(--grain-h),
-    linear-gradient(180deg, var(--wood-3), var(--wood-2));
+    radial-gradient(ellipse 70% 120% at 50% 0%, color-mix(in srgb, var(--candle) 35%, transparent), transparent 70%),
+    var(--grain-h), linear-gradient(180deg, var(--wood-3), var(--wood-2));
   background-size:
     auto,
     360px 120px,
@@ -2030,7 +2035,7 @@ summary {
   box-shadow:
     inset 0 0 0 4px var(--wood-0),
     inset 0 0 0 5px var(--brass-lo),
-    0 0 26px rgb(255 182 79 / 0.45),
+    0 0 26px color-mix(in srgb, var(--candle) 45%, transparent),
     0 8px 14px var(--shadow);
   text-shadow: 0 1px 3px var(--wood-0);
 }
@@ -2118,7 +2123,7 @@ summary {
   font-size: 14px;
   font-weight: 800;
   background: var(--paper);
-  box-shadow: inset 0 2px 3px rgb(110 70 20 / 0.3);
+  box-shadow: inset 0 2px 3px color-mix(in srgb, var(--card-shade) 30%, transparent);
 }
 .pool-die[data-set="true"] {
   background: var(--ink);
@@ -2144,7 +2149,7 @@ summary {
 }
 .pool-size strong {
   font-size: 32px;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .pool-band {
   display: grid;
@@ -2158,7 +2163,7 @@ summary {
 }
 .pool-faces strong {
   font-size: 32px;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   line-height: 1;
 }
 .pool-band .btn.step {
@@ -2170,10 +2175,10 @@ summary {
   text-align: center;
   font-size: 36px;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   border-radius: 8px;
-  background: rgb(110 70 20 / 0.14);
-  box-shadow: inset 0 3px 6px rgb(110 70 20 / 0.3);
+  background: color-mix(in srgb, var(--card-shade) 14%, transparent);
+  box-shadow: inset 0 3px 6px color-mix(in srgb, var(--card-shade) 30%, transparent);
 }
 .pool-faces-grid {
   display: grid;
@@ -2220,7 +2225,7 @@ summary {
   flex-wrap: wrap;
   gap: 8px;
   align-items: baseline;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .pool-score {
   font-size: 28px;
@@ -2518,7 +2523,7 @@ fieldset:disabled select {
   font-size: var(--fs-small);
   font-weight: 700;
   text-align: center;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .ws-link[aria-current="page"] .ws-count {
   border-color: var(--brass-ink);
@@ -2561,7 +2566,7 @@ fieldset:disabled select {
   font-size: var(--fs-small);
   font-weight: 700;
   color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .card-name {
   font-size: var(--fs-name);
@@ -2576,7 +2581,7 @@ fieldset:disabled select {
 .ws-tile:hover::before {
   box-shadow:
     inset 0 0 0 2px var(--brass),
-    inset 0 0 34px rgb(150 100 40 / 0.3);
+    inset 0 0 34px color-mix(in srgb, var(--card-shade) 30%, transparent);
 }
 /* A session running: a lit dot before the words, so the state never rests on the dot alone. */
 .chip[data-live="true"]::before {
@@ -2587,7 +2592,7 @@ fieldset:disabled select {
   margin-right: 6px;
   border-radius: 50%;
   background: var(--ok);
-  box-shadow: 0 0 0 2px rgb(62 106 42 / 0.25);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--leaf) 25%, transparent);
 }
 .chip[data-status] {
   border-style: dashed;
@@ -2652,7 +2657,7 @@ fieldset:disabled select {
   font-variation-settings: var(--display-axes);
   font-size: var(--fs-name);
   font-weight: 650;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 /* Leaving is kept apart from the rest, behind a dashed rule in the warning colour. */
 .account-delete {
@@ -2985,7 +2990,7 @@ button.chip {
   min-width: 8ch;
   text-align: center;
   font-weight: 650;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 /* ---------- The X-Card ----------
@@ -3214,7 +3219,7 @@ button.chip {
   max-width: 28ch;
 }
 .mf-expr {
-  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-small);
 }
 .mf-hint {
@@ -3276,7 +3281,7 @@ button.chip {
   justify-content: space-between;
 }
 .mf-row-name {
-  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 .mf-key {
@@ -3302,7 +3307,7 @@ button.chip {
   border-left-style: dashed;
 }
 .mf-problems code {
-  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   color: var(--ink-2);
   overflow-wrap: anywhere;
 }

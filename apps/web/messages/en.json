@@ -28,6 +28,91 @@
       "felt": "Felt"
     }
   },
+  "world": {
+    "scheme": {
+      "label": "Colours",
+      "name": {
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    },
+    "dev": {
+      "title": "A World's look",
+      "lede": "A stand-in table wearing an invented World. Each control changes one pick; the colour switch in the band is this device's own.",
+      "controls": "Picks",
+      "world": "World",
+      "worlds": {
+        "base": "Base (nothing changed)",
+        "meadow": "Meadow (bright, rounded)",
+        "hoarfrost": "Hoarfrost (cold, square)"
+      },
+      "sets": "Colour sets",
+      "set": {
+        "both": "Both",
+        "light": "Light only",
+        "dark": "Dark only"
+      },
+      "density": "Density",
+      "densityName": {
+        "table": "Table",
+        "tv": "TV"
+      },
+      "baseFace": "base",
+      "tabs": "Sections",
+      "tab": {
+        "fight": "Fight",
+        "sheet": "Sheet",
+        "notes": "Notes"
+      },
+      "round": "Round {round}",
+      "nextTurn": "Next turn",
+      "endFight": "End fight",
+      "yourTurn": "Your turn",
+      "order": "Turn order",
+      "names": {
+        "first": "Ada Marrow",
+        "second": "The Grey Warden"
+      },
+      "firstPlayer": "First",
+      "party": "Party",
+      "foe": "Foe",
+      "acting": "Acting",
+      "bloodied": "Down",
+      "health": "Health {now} of {max}",
+      "cardText": "A short line of running text, to see how the body face reads at arm's length.",
+      "chip": {
+        "ready": "Ready",
+        "hidden": "Hidden",
+        "pressed": "Marked"
+      },
+      "button": {
+        "plain": "Show",
+        "main": "Confirm",
+        "small": "Small",
+        "pressed": "On",
+        "disabled": "Unavailable",
+        "step": "Add one",
+        "sheet": "Open the sheet"
+      },
+      "field": "Name on the card",
+      "fieldValue": "ada marrow",
+      "machine": "seat 3 · health -4 · 21:04:17",
+      "section": {
+        "abilities": "Abilities",
+        "notes": "Notes"
+      },
+      "stat": {
+        "health": "Health",
+        "defence": "Defence",
+        "speed": "Speed"
+      },
+      "notes": "Running text in a section stays as written: never in capitals, whatever the headings do.",
+      "buttons": "Buttons",
+      "sheetTitle": "Where this number comes from",
+      "sheetText": "A bottom sheet rises from the edge, on the card colours."
+    }
+  },
   "roles": {
     "gm": "GM",
     "cogm": "Co-GM",
@@ -181,7 +266,9 @@
     "newPack": "New pack",
     "editFailed": "Couldn't open that for editing.",
     "edit": "Edit",
-    "editRulesetLabel": "Edit ruleset {slug}"
+    "editRulesetLabel": "Edit ruleset {slug}",
+    "worlds": "Worlds",
+    "worldsHint": "A World is a room's look: its colours, typefaces and shapes. Import one as JSON, then wear it from a room's Rules tab."
   },
   "importPanel": {
     "template": "Start from a template",
@@ -202,7 +289,7 @@
     },
     "tooBig": "That file is over 5 MB. Split the pack into two.",
     "notJson": "That isn't a JSON document.",
-    "unknownShape": "Not a ruleset (it needs entities) or a pack (it needs entries).",
+    "unknownShape": "Not a ruleset (it needs entities), a pack (it needs entries) or a World (it needs a theme).",
     "signedOut": "This device lost its identity. Reload the page and retry.",
     "failed": "Couldn't import. Check the connection and retry.",
     "readFailed": "Couldn't read that file.",
@@ -212,7 +299,7 @@
     "moreKeys": "and {count} more",
     "title": "Import",
     "reminder": "Summarize in your own words, with the page. Don't paste text from a book.",
-    "fieldLabel": "Ruleset or pack (JSON)",
+    "fieldLabel": "Ruleset, pack or World (JSON)",
     "placeholder": "Paste JSON here, or choose a file.",
     "importing": "Importing…",
     "import": "Import",
@@ -225,7 +312,24 @@
     "fixThese": "Fix these, then import again",
     "warnSaved": "Saved, but check these descriptions",
     "warnAlso": "Also check these descriptions",
-    "openInForm": "Open in form"
+    "openInForm": "Open in form",
+    "worldNoForm": "A World has no form: import its JSON as it is.",
+    "worldSaved": "Saved the World {slug} {version}. Wear it from a room's Rules tab.",
+    "worldUnchanged": "The World {slug} {version} was already imported. Nothing changed."
+  },
+  "worldList": {
+    "exportFailed": "Couldn't export that World.",
+    "deleteFailed": "Couldn't delete that World.",
+    "empty": "No Worlds yet. Import one above.",
+    "emptyCreatorsOnly": "No Worlds.",
+    "takenDown": "Taken down by an admin. No room wears it.",
+    "export": "Export",
+    "exportLabel": "Export {name}",
+    "keepCopy": "Rooms wearing it keep it.",
+    "delete": "Delete",
+    "keep": "Keep",
+    "deleteLabel": "Delete {name}",
+    "confirmDeleteLabel": "Confirm delete {name}"
   },
   "packList": {
     "exportFailed": "Couldn't export that pack.",
@@ -694,6 +798,12 @@
     "switchTo": "Switch to this",
     "pin": "Pin this ruleset",
     "unpin": "Unpin",
+    "world": "World",
+    "noWorld": "No World. The table wears each device's own look.",
+    "importWorldFirst": "You haven't imported a World. <link>Import one</link> first.",
+    "myWorlds": "My Worlds",
+    "wearWorld": "Wear this World",
+    "takeOffWorld": "Take it off",
     "packs": "Packs",
     "pinFirst": "Pin a ruleset first: a pack is written for one.",
     "noneAttached": "No pack is attached.",
@@ -1117,7 +1227,7 @@
     "lede": {
       "rooms": "The tables you run and the ones you sit at.",
       "characters": "Everyone you play, at every table.",
-      "library": "Your imported rulesets and the packs written for them. Only your rooms use them."
+      "library": "Your imported rulesets, the packs written for them, and the Worlds your rooms can wear. Only your rooms use them."
     },
     "noCharacters": "No characters yet. Accept an invite to a table, or start one in a room you run.",
     "kind": {
@@ -1135,7 +1245,7 @@
       "dead": "Dead",
       "dismissed": "Dismissed"
     },
-    "importToggle": "Import a ruleset or pack",
+    "importToggle": "Import a ruleset, pack or World",
     "toRooms": "Go to your rooms",
     "loading": "Opening…"
   },

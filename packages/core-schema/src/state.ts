@@ -201,6 +201,10 @@ export type RequestAnswer = z.infer<typeof RequestAnswer>;
 // Seat view can cut them without the ruleset: gm → the GM side, party → every seat, owner → the card's holder (a roll
 // is never `owner`). `label` is the entry's own short name.
 export const TableId = z.string().min(1).max(64);
+/** What the dice showed, typed by the GM (house decision #87); the engine holds it to the table's die. */
+export const TableResult = z.int().min(-100_000).max(100_000);
+/** A lookup's inputs by id: switches and steppers, held to their declarations by the engine (house decision #87). */
+export const LookupInputs = z.record(z.string().max(64), z.union([z.number(), z.boolean()]));
 export const RollRow = z.object({
   id: z.string(),
   tableId: z.string(),

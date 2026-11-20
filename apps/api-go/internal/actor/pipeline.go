@@ -155,6 +155,9 @@ type Apply struct {
 	// Charged marks deltas an op proposed under its own permission (a reset, a charge): a pool delta is then not asked
 	// who may change a pool by hand. False by default, so an unmarked caller is checked as a hand edit. Trusted implies it.
 	Charged bool
+	// ActionID logs the writes under an action already begun, so several calls are one step for Undo (a lookup's
+	// effects, house decision #87); "" starts a new one.
+	ActionID string
 }
 
 // ApplyDeltas is pipeline steps 6-7 of docs/design.md §5.3: every delta is checked against what this seat may write
@@ -262,7 +265,10 @@ func ApplyDeltas(ctx context.Context, tx core.Conn, a Apply) (string, error) {
 		}
 		written = append(written, w)
 	}
-	actionID := core.NewUUID()
+	actionID := a.ActionID
+	if actionID == "" {
+		actionID = core.NewUUID()
+	}
 	logged, err := eventlog.Record(ctx, tx, a.Ctx, actionID, written)
 	if err != nil || !logged {
 		return "", err

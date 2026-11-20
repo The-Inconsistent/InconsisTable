@@ -16,6 +16,7 @@ import { compileRuleset } from "../../../../packages/rules-engine/src/index.ts";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_SKIRMISH } from "../../../../packages/rules-engine/src/fixtures/sample-skirmish.ts";
+import { SAMPLE_HARM } from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { SAMPLE_PACK } from "../../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { Ruleset } from "../../../../packages/rules-engine/src/manifest.ts";
@@ -516,6 +517,32 @@ test("a gm rows or tags field reaches nobody below the GM notes side; a party on
   assert.deepEqual(fieldsOf(gm, "place"), { dangers: [danger] });
   assert.deepEqual(fieldsOf(gm, "band"), { standing: "ally", marks: ["Outsider"] });
   assert.equal(gm.manifest?.codex?.kinds.faction?.reminders?.length, 1);
+});
+
+// House decision #90: the setup checklist is the GM's.
+test("the checklist reaches the side that reads GM notes, never a player or the table screen", () => {
+  const rules = compileRuleset(SAMPLE_SKIRMISH);
+  assert.ok(rules.ok);
+  const listed = (c: Ctx) => seatManifest({ ruleset: rules.compiled.ruleset, ctx: c }).checklist?.length ?? 0;
+  assert.equal(listed(ctx(member("gm"), "u-gm")), 8);
+  assert.equal(listed(ctx(member("player"), "u-x")), 0);
+  assert.equal(listed(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), 0);
+});
+
+// Dropping the checklist leaves what a phone reads from its own manifest: the spends it offers and their ask limit
+// (house decision #84), and the kinds of records an actor holds (#88).
+test("a player's manifest without the checklist still carries spends, requests and held kinds", () => {
+  const rules = compileRuleset(SAMPLE_SKIRMISH);
+  const harm = compileRuleset(SAMPLE_HARM);
+  assert.ok(rules.ok && harm.ok);
+  const ruleset = { ...rules.compiled.ruleset, held: harm.compiled.ruleset.held };
+  const shown = seatManifest({ ruleset, ctx: ctx(member("player"), "u-x") });
+  assert.equal(shown.checklist, undefined);
+  assert.deepEqual(shown.spends, ruleset.spends);
+  assert.equal(shown.spends?.length, 3);
+  assert.deepEqual(shown.requests, { max: 3 });
+  assert.deepEqual(shown.held, ruleset.held);
+  assert.ok(Object.keys(shown.held ?? {}).length > 0);
 });
 
 // House decision #76: a link to another entry reaches a seat only when the seat may read the entry it names.

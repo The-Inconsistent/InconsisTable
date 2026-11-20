@@ -105,12 +105,23 @@ type rulesRuleset struct {
 	Manifest  map[string]any `json:"manifest"`
 }
 
+// rulesWorld is the room's World as its seats read it (house decision #65): the theme as stored.
+type rulesWorld struct {
+	VersionID string          `json:"versionId"`
+	Slug      string          `json:"slug"`
+	Version   string          `json:"version"`
+	Name      string          `json:"name"`
+	Theme     json.RawMessage `json:"theme"`
+}
+
 // Rules is what a seat may read of the room's rules.
 type Rules struct {
 	Ruleset *rulesRuleset `json:"ruleset"`
-	Packs   []rulesPack   `json:"packs"`
-	Entries []rulesEntry  `json:"entries"`
-	Total   int           `json:"total"`
+	// World is the pinned World while it is served (actor.ServedWorld), else nil.
+	World   *rulesWorld  `json:"world"`
+	Packs   []rulesPack  `json:"packs"`
+	Entries []rulesEntry `json:"entries"`
+	Total   int          `json:"total"`
 }
 
 // ReadRules is the pinned ruleset's manifest and the entries of the attached packs, both filtered for the seat. The only
@@ -118,7 +129,8 @@ type Rules struct {
 //   - the caller is a seat of this room (resolved by the route; this takes its Ctx);
 //   - a `gm` entry goes to the combat side only (the Seat view module), `party` and `public` to every seat;
 //   - a pack taken down by an admin is served to nobody;
-//   - a `private` pack is served only while its owner is a GM of this room.
+//   - a `private` pack is served only while its owner is a GM of this room;
+//   - the pinned World only while it is not taken down and its owner runs this room (actor.ServedWorld).
 func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) (*Rules, error) {
 	out := &Rules{Packs: []rulesPack{}, Entries: []rulesEntry{}}
 	var versionID, slug, version string
@@ -140,6 +152,20 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 			return nil, fmt.Errorf("pinned ruleset %s no longer validates", versionID)
 		}
 		out.Ruleset = &rulesRuleset{versionID, slug, version, view.SeatManifest(manifest.Normalized, c)}
+	}
+
+	// Every seat of the room reads the World alike, the table screen included: it holds only a look.
+	var w rulesWorld
+	err = conn.QueryRow(ctx, `SELECT world_version.id::text, world.slug, world_version.version, world_version.document->>'name',
+			world_version.document->'theme'
+		FROM campaign JOIN world_version ON world_version.id = campaign.world_version_id
+		JOIN world ON world.id = world_version.world_id WHERE campaign.id = $1 AND `+actor.ServedWorld("$1"), c.CampaignID).
+		Scan(&w.VersionID, &w.Slug, &w.Version, &w.Name, &w.Theme)
+	switch {
+	case err == nil:
+		out.World = &w
+	case !errors.Is(err, pgx.ErrNoRows):
+		return nil, err
 	}
 
 	rows, err := conn.Query(ctx, `SELECT pack_version.id::text, pack.slug, pack_version.version, pack.license, pack.attribution

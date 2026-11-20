@@ -1271,3 +1271,39 @@ test("a saved ledger build reaches the GM side and the seat holding the characte
   ])
     assert.equal(ledgerOf(c), null, JSON.stringify(c.seat));
 });
+
+// A record a character holds under a kind with an unseen word (house decision #88): the holder and the GM side read its
+// name, key and cite; another player and the table screen read the word and the same effects, and nothing else of it.
+test("a held record's name, key and cite reach only the holder and the GM side", () => {
+  const [character, ...rest] = SAMPLE_D20.entities ?? [];
+  const made = compileRuleset({
+    ...SAMPLE_D20,
+    entities: [
+      { ...character!, fields: { ...character!.fields, marks: { type: "list", label: "Marks", visibility: "owner" } } },
+      ...rest,
+      { id: "mark", label: "Mark", base: "ability", fields: {} },
+    ],
+    held: {
+      mark: { label: "Marks", entry: "mark", field: "marks", entities: ["character"], unseen: "Unseen", cite: "S p.1" },
+    },
+  });
+  assert.ok(made.ok);
+  const effects = [{ path: "derived.defense", mode: "add", value: "1", phase: "derived" }];
+  const record = { kind: "mark", key: "third-eye", name: "Third Eye", cite: "Sample p.31", effects };
+  const marked: Snapshot = {
+    ...snapshot,
+    state: { ...state, actors: state.actors.map((a) => (a.id === "lyra" ? { ...a, held: [record] } : a)) },
+  };
+  const heldOn = (c: Ctx) =>
+    seatView({ snapshot: marked, compiled: made.compiled, ctx: c }).state.actors.find((a) => a.id === "lyra")?.held;
+  assert.deepEqual(heldOn(ctx(member("gm"), "u-gm")), [record]);
+  assert.deepEqual(heldOn(ctx(member("player", [], ["lyra"]), "u-lyra")), [record]);
+  for (const c of [
+    ctx(member("player", [], ["bran"]), "u-bran"),
+    ctx({ kind: "token", role: "screen", characterIds: [] }, null),
+  ]) {
+    assert.deepEqual(heldOn(c), [{ kind: "mark", key: null, name: "Unseen", cite: null, effects }]);
+    const sent = JSON.stringify(seatView({ snapshot: marked, compiled: made.compiled, ctx: c }));
+    for (const secret of ["Third Eye", "third-eye", "Sample p.31"]) assert.ok(!sent.includes(secret), secret);
+  }
+});

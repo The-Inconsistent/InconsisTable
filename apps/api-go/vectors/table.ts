@@ -24,8 +24,11 @@ const ACTION_OUT = join(import.meta.dirname, "../internal/coreschema/testdata/ac
 
 // ---- Seat views ----
 
-// SAMPLE_D20 with spends on a party pool, a gm pool, both, and a resource, for who sees an ask (house decision #84).
+// SAMPLE_D20 with spends on a party pool, a gm pool, both, and a resource, for who sees an ask (house decision #84),
+// and records a character holds (house decision #88): marks only the holder and the GM side read by name, and boons
+// every seat that sees the character reads.
 const cost = (over: object) => ({ amount: "1", ...over });
+const [character, ...entities] = SAMPLE_D20.entities ?? [];
 const VIEW_MANIFEST = {
   ...SAMPLE_D20,
   spends: [
@@ -34,12 +37,50 @@ const VIEW_MANIFEST = {
     { id: "onBoth", label: "On both", cite: "p.1", cost: [cost({ pool: "luck" }), cost({ pool: "menace" })] },
     { id: "onMe", label: "On me", cite: "p.1", cost: [cost({ resource: "focus" })] },
   ],
-};
+  entities: [
+    {
+      ...character!,
+      fields: {
+        ...character!.fields,
+        marks: { type: "list", label: "Marks", visibility: "owner" },
+        boons: { type: "list", label: "Boons", visibility: "party" },
+      },
+    },
+    ...entities,
+    { id: "mark", label: "Mark", base: "ability", fields: {} },
+  ],
+  held: {
+    mark: {
+      label: "Marks",
+      entry: "mark",
+      field: "marks",
+      entities: ["character"],
+      unseen: "Unseen",
+      cite: "Sample p.30",
+    },
+    boon: { label: "Boons", entry: "mark", field: "boons", entities: ["character"], cite: "Sample p.30" },
+  },
+} as const;
+
 const compiled = (() => {
   const r = compileRuleset(VIEW_MANIFEST);
-  if (!r.ok) throw new Error("the view manifest does not compile");
+  if (!r.ok) throw new Error(`the view manifest does not compile: ${JSON.stringify(r.problems)}`);
   return r.compiled;
 })();
+
+// A record of each kind, as the live snapshot carries them.
+const heldRecord = (kind: string, key: string, name: string) => ({
+  kind,
+  key,
+  name,
+  cite: "Sample p.31",
+  effects: [{ path: "derived.defense", mode: "add", value: "1", phase: "derived" }],
+});
+const HELD = [
+  heldRecord("mark", "third-eye", "Third Eye"),
+  heldRecord("boon", "lucky", "Lucky"),
+  heldRecord("gone", "x", "X"),
+];
 
 const U = (n: number) => `0190a000-0000-7000-8000-${String(n).padStart(12, "0")}`;
 const [PC1, PC2, PAL, NPC, GOB, GHOST] = [1, 2, 3, 4, 5, 6].map(U) as [string, string, string, string, string, string];
@@ -66,6 +107,7 @@ const values = (over: Record<string, unknown> = {}) => ({
     { id: "unknownCondition", expiresOn: "manual", expiresAfter: null },
   ],
   ledger: null,
+  held: [],
   ...over,
 });
 
@@ -101,7 +143,7 @@ const draftOnly = (archetypeId: string) => ({
 const playOnly = { build: null, sheet: null, draft: null, xpSpent: 0, xpAtAscension: 25, packageWaived: true };
 
 const ACTORS = [
-  actor(PC1, "pc", "One", "player1", { ledger: ledger("one") }),
+  actor(PC1, "pc", "One", "player1", { ledger: ledger("one"), held: HELD }),
   actor(PC2, "pc", "Two", null, { ledger: draftOnly("two") }),
   actor(PAL, "companion", "Pal", "player1", { conditions: ["staggered"], conditionTimers: [], ledger: playOnly }),
   actor(NPC, "npc", "Keeper", null, {
@@ -112,6 +154,7 @@ const ACTORS = [
   actor(GOB, "creature", "Goblin", null, {
     entity: "creature",
     fields: { name: "G", level: 1, healthState: "ok" },
+    held: HELD,
     resources: { hp: 4 },
     derived: { maxHp: 7 },
   }),
@@ -932,6 +975,7 @@ const VALID: Record<string, Record<string, unknown>> = {
   "safety.xcard": {},
   "table.roll": { tableId: "season", result: 4, actorId: ID, inputs: { on: true, n: 2 } },
   "table.apply": { tableId: "blow", result: 44, actorId: ID, inputs: { past: true, press: 1 } },
+  "held.remove": { actorId: ID, held: "mark", entry: "third-eye" },
   "table.deal": { tableId: "role", actorIds: [ID] },
   "table.reshuffle": { tableId: "role" },
 };

@@ -212,6 +212,7 @@ func seatState(state cs.LiveState, compiled *engine.CompiledRuleset, c cs.Ctx, s
 			out.Entity, out.Fields, out.Resources, out.Derived = "", map[string]any{}, map[string]float64{}, map[string]float64{}
 			out.Conditions = []string{}
 		}
+		out.Held = seatHeld(a, compiled, seen, holds(held, a.ID) || ActorGmSide(c, a.Kind))
 		out.ConditionTimers = []cs.ConditionTimer{}
 		for _, t := range a.ConditionTimers {
 			if seen && slices.Contains(v.Conditions, t.ID) {
@@ -248,6 +249,28 @@ func seatJournal(journal []cs.JournalSession, sight Sight) []cs.JournalSession {
 	if !sight.Session {
 		for i := range out {
 			out[i].Notes = ""
+		}
+	}
+	return out
+}
+
+// seatHeld is the records an actor holds as one seat receives them (house decision #88): none where the seat does not
+// see the actor's values; whole for the seat holding it and the GM side; otherwise a kind with an unseen word shows
+// that word and the effects, never the entry's name, key or cite. A kind the ruleset no longer has is left out.
+func seatHeld(a cs.Actor, compiled *engine.CompiledRuleset, seen, named bool) []cs.HeldRecord {
+	out := []cs.HeldRecord{}
+	if !seen || compiled == nil {
+		return out
+	}
+	for _, r := range a.Held {
+		kind, known := compiled.Ruleset.Held[r.Kind]
+		switch {
+		case !known:
+			continue
+		case kind.Unseen != nil && !named:
+			out = append(out, cs.HeldRecord{Kind: r.Kind, Name: *kind.Unseen, Effects: r.Effects})
+		default:
+			out = append(out, r)
 		}
 	}
 	return out

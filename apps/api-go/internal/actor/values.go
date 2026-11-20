@@ -93,6 +93,8 @@ type Rows struct {
 	Conditions []ConditionRow
 	// Chosen are the entries the actor chose that the attached packs hold, for Build to match against the ruleset.
 	Chosen []ChosenEntry
+	// Held are the served entries its list fields name, for Build to match against the held kinds (house decision #88).
+	Held []HeldEntry
 }
 
 // byActor runs a query whose rows each start with an actor id, and groups what scan reads by that id.
@@ -185,11 +187,101 @@ func LoadRows(ctx context.Context, conn core.Conn, campaignID string) ([]Rows, e
 	if err != nil {
 		return nil, err
 	}
+	// The served entries a text value of a list field names: what Build reads a held kind's records from (house decision
+	// #88), by the same served rule as the chosen ones.
+	held, err := byActor(ctx, conn, `SELECT f.actor_id::text, f.field_id, e.type, e.key, e.name, e.cite, e.effects
+		FROM actor_field f JOIN actor ON actor.id = f.actor_id
+		JOIN campaign_pack ON campaign_pack.campaign_id = actor.campaign_id
+		JOIN pack_entry e ON e.pack_version_id = campaign_pack.pack_version_id AND e.key = f.text_value
+		JOIN pack_version ON pack_version.id = e.pack_version_id JOIN pack ON pack.id = pack_version.pack_id
+		WHERE actor.campaign_id = $1 AND `+ServedPacks("$1")+` ORDER BY f.actor_id, f.field_id, f.ordinal, pack.slug, e.key`, campaignID,
+		func(r pgx.Rows) (string, HeldEntry, error) {
+			var id string
+			var x HeldEntry
+			var effects []byte
+			if err := r.Scan(&id, &x.FieldID, &x.Type, &x.Key, &x.Name, &x.Cite, &effects); err != nil {
+				return "", x, err
+			}
+			return id, x, json.Unmarshal(effects, &x.Effects)
+		})
+	if err != nil {
+		return nil, err
+	}
 	out := make([]Rows, len(actors))
 	for i, a := range actors {
-		out[i] = Rows{a, fields[a.ID], resources[a.ID], conditions[a.ID], chosen[a.ID]}
+		out[i] = Rows{a, fields[a.ID], resources[a.ID], conditions[a.ID], chosen[a.ID], held[a.ID]}
 	}
 	return out, nil
+}
+
+// Held is one record an actor holds: its kind and the served entry it names.
+type Held struct {
+	Kind string
+	HeldEntry
+}
+
+// Record is the held record as the live snapshot carries it, before any seat's filter.
+func (h Held) Record() cs.HeldRecord {
+	effects := make([]cs.HeldEffect, len(h.Effects))
+	for j, e := range h.Effects {
+		effects[j] = cs.HeldEffect{Path: e.Path, Mode: e.Mode, Value: e.Value, Phase: e.Phase}
+	}
+	key := h.Key
+	return cs.HeldRecord{Kind: h.Kind, Key: &key, Name: h.Name, Cite: h.Cite, Effects: effects}
+}
+
+// ServedEntryName is the name of the entry of that type and key among the packs the room is served (house decision
+// #61's rule, the first by pack slug), and false when it is served none.
+func ServedEntryName(ctx context.Context, conn core.Conn, campaignID, typ, key string) (string, bool, error) {
+	var name string
+	err := conn.QueryRow(ctx, `SELECT e.name FROM campaign_pack
+		JOIN pack_entry e ON e.pack_version_id = campaign_pack.pack_version_id
+		JOIN pack_version ON pack_version.id = e.pack_version_id JOIN pack ON pack.id = pack_version.pack_id
+		WHERE campaign_pack.campaign_id = $1 AND e.type = $2 AND e.key = $3 AND `+ServedPacks("$1")+`
+		ORDER BY pack.slug LIMIT 1`, campaignID, typ, key).Scan(&name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	return name, err == nil, err
+}
+
+// HeldEntry is a served pack entry a list field of the actor names by key, with the field that names it.
+type HeldEntry struct {
+	FieldID, Type, Key, Name string
+	Cite                     *string
+	Effects                  []engine.Effect
+}
+
+// HeldIn is the records the actor holds (house decision #88): for each held kind its type has, in kind order, the
+// entries its list field names that the room is served, in the field's order. A key the room is not served adds
+// nothing and is not shown, as a chosen entry no longer served (house decision #61).
+func HeldIn(compiled *engine.CompiledRuleset, entity string, fields map[string]any, served []HeldEntry) []Held {
+	out := []Held{}
+	for _, id := range sortedKinds(compiled.Ruleset.Held) {
+		k := compiled.Ruleset.Held[id]
+		if !slices.Contains(k.Entities, entity) {
+			continue
+		}
+		keys, _ := fields[k.Field].([]any)
+		for _, v := range keys {
+			key, _ := v.(string)
+			i := slices.IndexFunc(served, func(x HeldEntry) bool { return x.FieldID == k.Field && x.Type == k.Entry && x.Key == key })
+			if i < 0 {
+				continue
+			}
+			out = append(out, Held{Kind: id, HeldEntry: served[i]})
+		}
+	}
+	return out
+}
+
+func sortedKinds(m map[string]engine.HeldKind) []string {
+	out := make([]string, 0, len(m))
+	for id := range m {
+		out = append(out, id)
+	}
+	slices.Sort(out)
+	return out
 }
 
 // Bounds are a resource's evaluated limits for one actor. Max is nil when there is no ceiling.
@@ -221,6 +313,8 @@ type Built struct {
 	Conditions []ConditionRow
 	// Entries are the pack entries the actor chose in a choose step of the ruleset (house decision #61).
 	Entries []engine.ActiveEntry
+	// Held are the records it holds (house decision #88); their effects are among Entries too.
+	Held []Held
 	// Bounds holds the resources whose bounds evaluate now.
 	Bounds map[string]Bounds
 	// State is the actor as the ops read it: values with the bounds evaluated now. A resource whose bounds can't be
@@ -360,6 +454,12 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]an
 		}
 		b.Conditions = append(b.Conditions, r.Conditions...)
 		b.Entries = ChosenIn(compiled, r.Chosen)
+		b.Held = HeldIn(compiled, b.Entity, b.Fields, r.Held)
+		for _, h := range b.Held {
+			if len(h.Effects) > 0 {
+				b.Entries = append(b.Entries, engine.ActiveEntry{Type: h.Type, Key: h.Key, Name: h.Name, Effects: h.Effects})
+			}
+		}
 		for _, c := range b.Conditions {
 			var after *float64
 			if c.ExpiresAfter != nil {
@@ -437,6 +537,10 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]an
 
 // ToLive is the actor as the live snapshot carries it, before any seat's filter.
 func ToLive(b *Built) cs.Actor {
+	held := make([]cs.HeldRecord, len(b.Held))
+	for i, h := range b.Held {
+		held[i] = h.Record()
+	}
 	timers := make([]cs.ConditionTimer, len(b.Conditions))
 	for i, c := range b.Conditions {
 		var after *int
@@ -449,7 +553,7 @@ func ToLive(b *Built) cs.Actor {
 	return cs.Actor{
 		ID: b.Row.ID, Kind: b.Row.Kind, Name: b.Row.Name, Status: b.Row.Status, OwnerUserID: b.Row.OwnerUserID,
 		Entity: b.Entity, Fields: b.Fields, Resources: b.Resources, Derived: b.Derived,
-		Conditions: activeIDs(b.Conditions), ConditionTimers: timers,
+		Conditions: activeIDs(b.Conditions), ConditionTimers: timers, Held: held,
 	}
 }
 

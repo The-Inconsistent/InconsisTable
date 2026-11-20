@@ -200,6 +200,7 @@ export const REFUSALS = {
   requestNoPool: "Shared pools aren't at this table yet.",
   noSuchSpend: "That can't be spent here.",
   spendNotNow: "That can't be done now.",
+  usedThisRound: "Already used this round: {detail}.",
   spendAsked: "Already asked for that: wait for the GM or cancel it.",
   requestKind: "Ask for a resource and an amount, or for a spend.",
   // Random tables

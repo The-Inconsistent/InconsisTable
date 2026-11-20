@@ -273,6 +273,8 @@ type (
 		// Members is a mob's members standing; nil for anyone else.
 		Members    *HP                  `json:"members"`
 		Conditions []CombatantCondition `json:"conditions"`
+		// Used is the spends limited per round it used this round, once per use (house decision #91); absent when none.
+		Used []string `json:"used,omitempty"`
 		*CombatantSides
 	}
 	// CombatantState is one health state that holds for a combatant.

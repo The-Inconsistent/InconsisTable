@@ -43,15 +43,16 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 	if c.UserID != nil {
 		myDraft = snapshot.Drafts[*c.UserID]
 	}
+	fielded := seatEntryFields(snapshot.Codex, compiled, sight.Secrets)
 	if sight.All {
 		state := snapshot.State
 		state.MyDraft = myDraft
 		state.Pools = seatPools(state.Pools, compiled, c)
-		return SeatView{state, snapshot.Codex}
+		return SeatView{state, fielded}
 	}
 	state := seatState(snapshot.State, compiled, c, sight)
 	state.MyDraft = myDraft
-	codex := seatCodex(snapshot.Codex, c, sight)
+	codex := seatCodex(fielded, c, sight)
 	state.Clocks = seatClocks(state.Clocks, codex, sight)
 	state.Requests, state.RequestAnswers = seatRequests(state.Requests, state.RequestAnswers, c, sight)
 	state.Rolls, state.Dealt = seatTables(state.Rolls, state.Dealt, c, sight)
@@ -326,6 +327,11 @@ func seatCodex(codex cs.Codex, c cs.Ctx, sight Sight) cs.Codex {
 		// #73): those read every entry, so an exit or a reveal never names one a seat cannot read.
 		if !sight.Secrets && !sight.Codex {
 			e.PlannedTests = []string{}
+			// A picture reaches the table only once it is shown to it (house decision #70).
+			if !e.ImageRevealed {
+				e.ImageID = nil
+			}
+			e.ImageRevealed = e.ImageID != nil
 			e.Prep = nil
 			if e.Kind == "scene" {
 				e.Status = nil
@@ -343,6 +349,14 @@ func seatCodex(codex cs.Codex, c cs.Ctx, sight Sight) cs.Codex {
 		entries = append(entries, e)
 	}
 	return cs.Codex{Entries: entries, Recaps: codex.Recaps}
+}
+
+// ShowsPicture says whether a seat outside the codex side receives the picture's id: the picture route serves it only
+// then, so the route and the view never disagree.
+func ShowsPicture(codex cs.Codex, c cs.Ctx, imageID string) bool {
+	return slices.ContainsFunc(seatCodex(codex, c, SightOf(c)).Entries, func(e cs.CodexEntry) bool {
+		return e.ImageID != nil && *e.ImageID == imageID
+	})
 }
 
 // seatTests is the calls one seat receives. The session side sees them whole. The table screen sees that a Test is open

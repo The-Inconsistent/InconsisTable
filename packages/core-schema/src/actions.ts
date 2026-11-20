@@ -17,6 +17,8 @@ import {
   ClockVisibility,
   CodexVisibility,
   FieldValue,
+  HandoutHeader,
+  HandoutLayout,
   LedgerBuildText,
   RequestText,
   TableId,
@@ -193,14 +195,24 @@ export const Action = z.discriminatedUnion("type", [
     gmNotes: CodexText.optional(),
     status: EntryStatus.optional(), // a quest's or a scene's, of that kind's set
     plannedTests: z.array(z.string().min(1).max(100)).max(10).optional(), // a scene only: ruleset Test ids
+    imageId: id.nullable().optional(), // a picture uploaded to this room; null removes it (house decision #70)
+    // The ruleset's declared fields of this kind (house decision #71): a value sets one, null clears it, absent leaves it.
+    fields: z
+      .record(z.string().min(1).max(64), FieldValue)
+      .refine((o) => Object.keys(o).length <= 20, "At most 20 fields")
+      .optional(),
+    layout: HandoutLayout.optional(), // a handout only
+    header: HandoutHeader.optional(), // a handout only
     prep: ScenePrep.nullable().optional(), // a scene only: the whole document replaces the stored one, null clears it
   }),
+  // Who reads an entry, and whether the table sees its picture: either may be sent alone.
   z.object({
     type: z.literal("codex.reveal"),
     id,
-    visibility: CodexVisibility,
+    visibility: CodexVisibility.optional(),
     audienceMode: AudienceMode.default("all"),
     audience: z.array(id).max(50).default([]),
+    imageRevealed: z.boolean().optional(),
   }),
   z.object({ type: z.literal("codex.delete"), id }),
   // Reorders or reparents; `position` only says where to insert: the server renumbers the siblings 0..n-1.

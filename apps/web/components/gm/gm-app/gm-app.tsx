@@ -125,7 +125,16 @@ export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }:
             onOpenCodex={handleOpenCodex}
           />
         ) : tab === "codex" ? (
-          <Codex key={openEntryId ?? ""} me={me} state={state} codex={codex} send={send} initialOpenId={openEntryId} />
+          <Codex
+            key={openEntryId ?? ""}
+            me={me}
+            state={state}
+            codex={codex}
+            send={send}
+            initialOpenId={openEntryId}
+            ruleset={view?.ruleset ?? null}
+            known={view?.first.entries}
+          />
         ) : tab === "tests" ? (
           <Tests state={state} send={send} testId={callTestId ?? undefined} />
         ) : tab === "rules" ? (

@@ -13,6 +13,7 @@ import {
   BookPage,
   BookServing,
   type Ctx,
+  HandoutLayout,
   type Seat,
 } from "../../../packages/core-schema/src/index.ts";
 import { compileRuleset } from "../../../packages/rules-engine/src/compile.ts";
@@ -435,6 +436,12 @@ const entry = (
   position: 0,
   links: [] as string[],
   plannedTests: [] as string[],
+  imageId: null as string | null,
+  imageRevealed: false,
+  fields: {} as Record<string, unknown>,
+  // A handout's layout and header (house decision #72); null on every other kind.
+  layout: (over.kind ?? "handout") === "handout" ? "tablet" : null,
+  header: (over.kind ?? "handout") === "handout" ? "Read aloud" : null,
   prep: null as unknown,
   ...over,
 });
@@ -443,8 +450,8 @@ const CODEX = {
   entries: [
     entry(U(500), "gm", "all", []),
     entry(U(501), "party", "all", []),
-    entry(U(502), "public", "listed", [PC1, PC2]),
-    entry(U(503), "party", "listed", [PC2]),
+    entry(U(502), "public", "listed", [PC1, PC2], { layout: "transcript", header: "" }),
+    entry(U(503), "party", "listed", [PC2], { layout: "proclamation" }),
     entry(U(504), "gm", "listed", [PC1]),
     // A hidden adventure with a shown scene, a shown adventure, and a quest: a link or a parent to a hidden entry must
     // not reach a seat that can't see it, and planned Tests never reach one without the GM side.
@@ -475,6 +482,25 @@ const CODEX = {
       body: `see @[Hidden one](${U(500)}), @[Shown](${U(501)}) and @[Gone](${U(999)})`,
     }),
     entry(U(509), "party", "all", [], { kind: "quest", status: "done" }),
+    // A tree of places with its middle hidden (house decision #69): below it, a seat that can't read it gets a root.
+    entry(U(510), "party", "all", [], { kind: "location" }),
+    entry(U(511), "gm", "all", [], { kind: "location", parentId: U(510) }),
+    entry(U(512), "party", "all", [], { kind: "location", parentId: U(511) }),
+    entry(U(513), "party", "listed", [PC1], { kind: "location", parentId: U(512), position: 1 }),
+    // Pictures (house decision #70): held back, shown, shown on a hidden entry, shown to a listed reader.
+    entry(U(520), "party", "all", [], { kind: "npc", imageId: U(700) }),
+    entry(U(521), "party", "all", [], { kind: "location", imageId: U(701), imageRevealed: true }),
+    entry(U(522), "gm", "all", [], { kind: "npc", imageId: U(702), imageRevealed: true }),
+    entry(U(523), "party", "listed", [PC1], { imageId: U(703), imageRevealed: true }),
+    entry(U(524), "party", "all", [], { imageRevealed: true }),
+    // Declared fields (house decision #71): a `gm` one reaches only the side that reads GM notes; one the ruleset does
+    // not declare for the kind, or that no longer fits, reaches nobody.
+    entry(U(530), "party", "all", [], {
+      kind: "npc",
+      fields: { mood: "cold", disposition: -2, patron: "ember-wisp", gone: "x", standing: "ally" },
+    }),
+    entry(U(531), "gm", "all", [], { kind: "npc", fields: { mood: "sulky", disposition: 9, patron: "" } }),
+    entry(U(532), "party", "listed", [PC1], { kind: "faction", fields: { standing: "rival" } }),
   ],
   recaps: [
     { sessionId: U(600), number: 2, title: "The bridge", endedAt: "2026-02-01T10:00:00.000Z", recap: "They crossed." },
@@ -670,6 +696,7 @@ const views = SNAPSHOTS.flatMap((snap) =>
         packVisibilities: v.packVisibilities,
         state: v.state,
         codex: v.codex,
+        manifest: v.manifest,
       };
     }),
   ),
@@ -757,12 +784,16 @@ const VALID: Record<string, Record<string, unknown>> = {
     gmNotes: "g",
     status: "failed",
     plannedTests: ["check", "x".repeat(100)],
+    imageId: ID,
+    fields: { mood: "cold", disposition: -2, patron: null, flag: true },
+    layout: "proclamation",
+    header: " Notice ",
     prep: { exits: [{ id: "e", label: " On ", sceneId: ID }] },
   },
   "codex.move": { id: ID, parentId: null, position: 2 },
   "codex.link": { id: ID, targetId: ID },
   "codex.unlink": { id: ID, targetId: ID },
-  "codex.reveal": { id: ID, visibility: "party", audienceMode: "listed", audience: [ID] },
+  "codex.reveal": { id: ID, visibility: "party", audienceMode: "listed", audience: [ID], imageRevealed: true },
   "codex.delete": { id: ID },
   "clock.create": { name: " Ritual ", segments: 6, visibility: "party", entryId: ID },
   "clock.tick": { id: ID, delta: -3 },
@@ -837,6 +868,27 @@ for (const text of ["", " ", "a".repeat(80), "a".repeat(81), ` ${"a".repeat(80)}
   record("Action", { type: "campaign.setSafety", lines: [text], veils: [text], xCard: true });
 }
 record("Action", { type: "safety.suggest", kind: "other", text: "a" });
+// An entry's declared fields (house decision #71): at most 20 keys of 1 to 64 characters, each a field value or null.
+for (const fields of [
+  Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`f${i}`, i])),
+  Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`f${i}`, i])),
+  { "": 1 },
+  { ["x".repeat(64)]: 1 },
+  { ["x".repeat(65)]: 1 },
+  { a: 1.5 },
+  { a: 2 ** 31 },
+  { a: "x".repeat(10_001) },
+  { a: ["x"] },
+  { a: { b: 1 } },
+  [],
+  "x",
+]) {
+  record("Action", { type: "codex.save", kind: "npc", fields });
+}
+// Every handout layout the platform draws, and one it does not (house decision #72).
+for (const layout of [...HandoutLayout.options, "scroll", "PLAIN"]) {
+  record("Action", { type: "codex.save", kind: "handout", title: "H", layout });
+}
 // A reported Test's report carries an outcome id and no dice (house decision #41).
 const reportBase = { type: "test.report", callId: ID, actorId: ID };
 for (const extra of [

@@ -163,7 +163,14 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
         )}
         {!state.encounter && state.games[0] && <GameResult game={state.games[0]} held={held} />}
         {tab === "notebook" ? (
-          <Notebook codex={codex} me={me} safety={state.campaign.safety} send={send} />
+          <Notebook
+            codex={codex}
+            me={me}
+            safety={state.campaign.safety}
+            send={send}
+            ruleset={ruleset}
+            known={view?.first.entries ?? []}
+          />
         ) : tab === "standings" ? (
           <Standings games={state.games} />
         ) : tab === "rules" ? (

@@ -19,6 +19,9 @@ const MaxCampaignFields = 50
 // MaxFields caps the fields and derived values across a manifest.
 const MaxFields = 2000
 
+// CodexKinds are the kinds of codex entry (rules-engine CodexEntryKind; coreschema's list is this one).
+var CodexKinds = []string{"adventure", "scene", "npc", "location", "faction", "item", "handout", "quest", "lore"}
+
 // Problem is one reason a manifest was refused, with the path of the offending entry, as importers read it.
 type Problem struct {
 	Path    string `json:"path"`
@@ -59,17 +62,31 @@ type (
 		MaxLength  *float64 `json:"maxLength"`
 		Values     []string `json:"values"`
 		MaxItems   *float64 `json:"maxItems"`
+		// Labels and Notes are an enum's words for its values (house decision #71); nil when it declares none.
+		Labels map[string]string `json:"labels"`
+		Notes  map[string]string `json:"notes"`
 	}
 	// CampaignFieldDef is one campaign field: an int has Min and Max, an enum Values; Default is a number, a word or a
 	// bool by the type.
 	CampaignFieldDef struct {
-		Type    string   `json:"type"`
-		Label   string   `json:"label"`
-		Cite    *string  `json:"cite"`
-		Min     float64  `json:"min"`
-		Max     float64  `json:"max"`
-		Values  []string `json:"values"`
-		Default any      `json:"default"`
+		Type    string            `json:"type"`
+		Label   string            `json:"label"`
+		Cite    *string           `json:"cite"`
+		Min     float64           `json:"min"`
+		Max     float64           `json:"max"`
+		Values  []string          `json:"values"`
+		Labels  map[string]string `json:"labels"`
+		Notes   map[string]string `json:"notes"`
+		Default any               `json:"default"`
+	}
+	// CodexBlock is the manifest's codex block (house decision #71): the fields each kind of entry carries, by kind.
+	// Its FieldDefs have no EditableBy and are never a list.
+	CodexBlock struct {
+		Kinds map[string]CodexKind `json:"kinds"`
+	}
+	// CodexKind is what one kind of codex entry carries.
+	CodexKind struct {
+		Fields map[string]FieldDef `json:"fields"`
 	}
 	// DerivedDef is one derived value.
 	DerivedDef struct {
@@ -343,6 +360,8 @@ type (
 		Build     *LedgerBuild `json:"build"`
 		Decisions []idAndCite  `json:"decisions"`
 		Game      *GameInfo    `json:"game"`
+		// Codex is nil when entries carry no declared fields (house decision #71).
+		Codex *CodexBlock `json:"codex"`
 	}
 	// LedgerBuild is the manifest's build block (house decision #62). Params is parsed by ValidateRuleset.
 	LedgerBuild struct {
@@ -687,6 +706,41 @@ func (p *problems) campaignFields(r *Ruleset, needCite func(*string, string)) {
 			if !slices.Contains(def.Values, def.Default.(string)) {
 				p.add(path+".default", "the default is not allowed")
 			}
+			p.enumWords(path, def.Values, def.Labels, def.Notes)
+		}
+	}
+}
+
+// enumWords checks that an enum's labels and notes name only its own values.
+func (p *problems) enumWords(path string, values []string, labels, notes map[string]string) {
+	for key, words := range map[string]map[string]string{"labels": labels, "notes": notes} {
+		for _, value := range sortedKeys(words) {
+			if !slices.Contains(values, value) {
+				p.add(path+"."+key+"."+value, `"%s" is not a value`, value)
+			}
+		}
+	}
+}
+
+// codex checks the codex block (house decision #71): a ref names a declared entity, an int range is the right way up,
+// an enum's words name its values.
+func (p *problems) codex(r *Ruleset) {
+	if r.Codex == nil {
+		return
+	}
+	for _, kind := range sortedKeys(r.Codex.Kinds) {
+		fields := r.Codex.Kinds[kind].Fields
+		for _, id := range sortedKeys(fields) {
+			def, path := fields[id], "codex.kinds."+kind+".fields."+id
+			if def.Type == "ref" && r.entity(def.Entity) == nil {
+				p.add(path+".entity", `unknown entity "%s"`, def.Entity)
+			}
+			if def.Type == "int" && def.Min != nil && def.Max != nil && *def.Max < *def.Min {
+				p.add(path+".max", "max is below min")
+			}
+			if def.Type == "enum" {
+				p.enumWords(path, def.Values, def.Labels, def.Notes)
+			}
 		}
 	}
 }
@@ -844,8 +898,12 @@ func (r *Ruleset) semanticProblems() problems {
 			if def.Type == "int" && def.Min != nil && def.Max != nil && *def.Max < *def.Min {
 				p.add(path+".max", "max is below min")
 			}
+			if def.Type == "enum" {
+				p.enumWords(path, def.Values, def.Labels, def.Notes)
+			}
 		}
 	}
+	p.codex(r)
 
 	for i, x := range r.Resources {
 		if x.Entities != nil {

@@ -40,4 +40,9 @@ export const SAMPLE_WORLD: WorldInput = {
     texture: "paper",
     shapes: { corners: "square", cardEdge: "rounded", headingRule: "line", headingCase: "caps" },
   },
+  // Three of the five layouts, in its own order and under its own names (ADR 0012, decision 6).
+  handouts: {
+    layouts: ["proclamation", "transcript", "plain"],
+    names: { proclamation: "Harbour notice", transcript: "Signal log", plain: "Note" },
+  },
 };

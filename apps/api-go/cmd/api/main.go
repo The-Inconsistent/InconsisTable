@@ -15,6 +15,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/admin"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/auth"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/codex"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/pack"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/table"
@@ -118,6 +119,11 @@ func run() error {
 	route(router, "GET", "/api/campaigns/:id/rules", core.Serve(library.Rules))
 	route(router, "GET", "/api/campaigns/:id/catalogue", core.Serve(library.Catalogue))
 
+	// Pictures on codex entries: bytes go by REST, attaching and showing them are actions (house decision #70).
+	pictures := &codex.Pictures{DB: db, Auth: authService}
+	route(router, "POST", "/api/campaigns/:id/images", core.Serve(pictures.Upload))
+	route(router, "GET", "/api/campaigns/:id/images/:imageId", core.Serve(pictures.Serve))
+
 	// Signing in through InconsisID, and the signed-in account's page.
 	signIn := &auth.SignInRoutes{Auth: authService, Sockets: gateway}
 	if signInConfig != nil {
@@ -184,6 +190,8 @@ func guarded(next http.Handler, adminKey *core.Limiter) http.Handler {
 	signedIn := core.NewLimiter(120, time.Minute)
 	// ponytail: per-IP like the rest; per user once the limiter is keyed by device user.
 	imports := core.NewLimiter(20, time.Minute)
+	// Auspex's picture uploads: 20 a minute (per caller there; per IP here, like the imports).
+	uploads := core.NewLimiter(20, time.Minute)
 	webOrigins := core.WebOrigins(os.Getenv("WEB_ORIGIN"))
 
 	tooMany := func(w http.ResponseWriter, message string) {
@@ -210,6 +218,10 @@ func guarded(next http.Handler, adminKey *core.Limiter) http.Handler {
 		}
 		if under(path, "/api/rulesets", "/api/packs", "/api/worlds") && r.Method == http.MethodPost && !imports.Allow(ip) {
 			tooMany(w, "Too many imports. Wait a minute.")
+			return
+		}
+		if under(path, "/api/campaigns") && strings.HasSuffix(path, "/images") && r.Method == http.MethodPost && !uploads.Allow(ip) {
+			tooMany(w, "Too many uploads. Wait a minute.")
 			return
 		}
 		if core.CrossSiteWrite(r, webOrigins) {

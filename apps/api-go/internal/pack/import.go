@@ -27,7 +27,7 @@ const (
 	MaxPackBytesPerUser = 50 * 1024 * 1024
 )
 
-const entryInsertChunk = 1000 // 1000 rows x 10 columns stays well under Postgres' 65535 parameters
+const entryInsertChunk = 1000 // 1000 rows x 12 columns stays well under Postgres' 65535 parameters
 
 // Which ruleset a pack names, read before the pack is checked (the check needs that ruleset).
 var rulesetRef = schema.Object(schema.Req("ruleset", schema.Object(
@@ -99,12 +99,13 @@ func normalize(p *engine.Pack, rulesetVersionID string) normalized {
 // Import checks a pack file as the owner's: against the newest version of the owner's ruleset it names, then in one
 // transaction writes a new immutable version with one row per entry and reports what changed against the previous one.
 // The uploaded file itself is not kept. Refusals (problems by path, quota, a taken-down pack) are *ruleset.Refused.
+// input is decoded with schema.DecodeJSON, so a record keeps its order (engine.ValidatePack).
 func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*Imported, error) {
 	ref, issues := schema.Parse(rulesetRef, input)
 	if len(issues) > 0 {
 		return nil, &ruleset.Refused{Problems: []engine.Problem{{Path: "ruleset.id", Message: "name the ruleset the pack is written for"}}}
 	}
-	slug := ref.(map[string]any)["ruleset"].(map[string]any)["id"].(string)
+	slug := schema.Plain(ref).(map[string]any)["ruleset"].(map[string]any)["id"].(string)
 
 	var rulesetID, rulesetVersionID string
 	var manifestRaw []byte
@@ -256,14 +257,14 @@ func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*I
 
 func insertEntries(ctx context.Context, tx pgx.Tx, versionID string, entries []normalizedEntry) error {
 	var sql strings.Builder
-	sql.WriteString(`INSERT INTO pack_entry (pack_version_id, key, type, name, level, tags, visibility, cite, content_hash, body, effects) VALUES `)
-	args := make([]any, 0, len(entries)*11)
+	sql.WriteString(`INSERT INTO pack_entry (pack_version_id, key, type, name, level, tags, visibility, cite, content_hash, body, effects, record) VALUES `)
+	args := make([]any, 0, len(entries)*12)
 	for i, e := range entries {
 		if i > 0 {
 			sql.WriteByte(',')
 		}
 		n := len(args)
-		fmt.Fprintf(&sql, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", n+1, n+2, n+3, n+4, n+5, n+6, n+7, n+8, n+9, n+10, n+11)
+		fmt.Fprintf(&sql, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", n+1, n+2, n+3, n+4, n+5, n+6, n+7, n+8, n+9, n+10, n+11, n+12)
 		var level *int
 		if v, ok := e.fields["level"].(float64); ok {
 			l := int(v)
@@ -285,7 +286,16 @@ func insertEntries(ctx context.Context, tx pgx.Tx, versionID string, entries []n
 		if err != nil {
 			return err
 		}
-		args = append(args, versionID, e.key, e.fields["type"], e.fields["name"], level, tags, e.fields["visibility"], cite, e.contentHash, body, effects)
+		// The record goes in as the text of its keys in order, into a json column, which keeps that text as it is.
+		var record any
+		if r, ok := e.fields["record"].(*schema.Obj); ok {
+			text, err := schema.AppendJSON(nil, r)
+			if err != nil {
+				return err
+			}
+			record = string(text)
+		}
+		args = append(args, versionID, e.key, e.fields["type"], e.fields["name"], level, tags, e.fields["visibility"], cite, e.contentHash, body, effects, record)
 	}
 	_, err := tx.Exec(ctx, sql.String(), args...)
 	return err
@@ -403,6 +413,8 @@ type exportedEntry struct {
 	Body       map[string]any `json:"body"`
 	// Effects is left out when the entry has none, so an export of an old pack stays as it was.
 	Effects json.RawMessage `json:"effects,omitempty"`
+	// Record is the catalogue record as stored, keys in order (house decision #62); left out when the entry has none.
+	Record json.RawMessage `json:"record,omitempty"`
 }
 
 type exportedPack struct {
@@ -447,7 +459,7 @@ func Export(ctx context.Context, conn core.Conn, userID, packID string) (*export
 	if err != nil {
 		return nil, err
 	}
-	rows, err := conn.Query(ctx, `SELECT key, type, name, level, tags, cite, visibility, body, effects FROM pack_entry
+	rows, err := conn.Query(ctx, `SELECT key, type, name, level, tags, cite, visibility, body, effects, record FROM pack_entry
 		WHERE pack_version_id = $1 ORDER BY type, key`, versionID)
 	if err != nil {
 		return nil, err
@@ -457,10 +469,11 @@ func Export(ctx context.Context, conn core.Conn, userID, packID string) (*export
 	for rows.Next() {
 		var e exportedEntry
 		var level *int32
-		var body, effects []byte
-		if err := rows.Scan(&e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body, &effects); err != nil {
+		var body, effects, record []byte
+		if err := rows.Scan(&e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body, &effects, &record); err != nil {
 			return nil, err
 		}
+		e.Record = record
 		if level != nil {
 			l := int(*level)
 			e.Level = &l

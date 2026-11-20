@@ -22,6 +22,10 @@ import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d
 import { SAMPLE_PACK, SAMPLE_PACK_EFFECTS } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
+import { SAMPLE_LEDGER_RULESET } from "../../../packages/rules-engine/src/fixtures/sample-ledger-ruleset.ts";
+import { SAMPLE_LEDGER_PACK } from "../../../packages/rules-engine/src/fixtures/sample-ledger-pack.ts";
+import { SAMPLE_PARAMS } from "../../../packages/rules-engine/src/build/fixtures/sample-ledger.ts";
+import { buildSchemas } from "../../../packages/rules-engine/src/build/schemas.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
 import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
 
@@ -2266,6 +2270,54 @@ test("a chosen pack entry's effects raise the numbers of the actor that chose it
   assert.equal(served.entries.find((e) => e.key === "shield-arm")?.effects.length, 1);
   assert.equal(served.entries.find((e) => e.key === "reedfolk")?.effects.length, 0);
   for (const c of [owner, ana.c, ben.c]) c.socket.close();
+});
+
+// House decision #62: a ruleset picks the ledger builder for one actor type, and its pack's entries carry records.
+test("a ledger ruleset imports, and its pack's records reach every seat through /rules in their schema's order", async () => {
+  const { owner, ownerDevice, campaignId } = await newRoom("Ledger");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_LEDGER_RULESET);
+  assert.equal(rs.status, 201);
+  ok(await owner.send({ type: "campaign.setRuleset", rulesetVersionId: rs.body.versionId }));
+
+  // A record whose keys arrive in reverse is stored, and served, in its schema's order.
+  const reversed = (e: (typeof SAMPLE_LEDGER_PACK.entries)[number]) =>
+    e.key === "wardens" ? { ...e, record: Object.fromEntries(Object.entries(e.record ?? {}).reverse()) } : e;
+  const gmOnly = { key: "sample-hero", type: "hero", name: "Sample Hero", cite: "Base p.1" }; // no record, gm by default
+  const pack = { ...SAMPLE_LEDGER_PACK, entries: [...SAMPLE_LEDGER_PACK.entries.map(reversed), gmOnly] };
+  const imported = await me.post<PackReply>("/packs", pack);
+  assert.equal(imported.status, 201);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: imported.body.versionId }));
+  const anaDevice = await seatPlayer(owner, "ana-ledger");
+
+  const wardens = SAMPLE_LEDGER_PACK.entries.find((e) => e.key === "wardens")?.record;
+  const expected = JSON.stringify(buildSchemas(SAMPLE_PARAMS).Faction.parse(wardens));
+  for (const [cookie, gm] of [
+    [ownerDevice, true],
+    [anaDevice, false],
+  ] as const) {
+    const res = await get(`/campaigns/${campaignId}/rules?limit=500`, { cookie });
+    assert.equal(res.status, 200);
+    const served = (await res.json()) as { entries: { key: string; record: Record<string, unknown> | null }[] };
+    assert.equal(JSON.stringify(served.entries.find((e) => e.key === "wardens")?.record), expected);
+    assert.equal(served.entries.filter((e) => e.record !== null).length, SAMPLE_LEDGER_PACK.entries.length);
+    const hero = served.entries.find((e) => e.key === "sample-hero");
+    assert.equal(hero !== undefined, gm, "a gm entry reaches the GM side only");
+    if (hero !== undefined) assert.equal(hero.record, null);
+  }
+
+  // A record that names another entry is refused with its path.
+  const [first, ...rest] = SAMPLE_LEDGER_PACK.entries;
+  assert.ok(first?.record !== undefined);
+  const misnamed = { ...first, record: { ...first.record, name: "Someone Else" } };
+  const bad = await me.post<PackReply>("/packs", {
+    ...SAMPLE_LEDGER_PACK,
+    version: "0.2.0",
+    entries: [misnamed, ...rest],
+  });
+  assert.equal(bad.status, 422);
+  assert.ok(bad.body.problems?.some((p) => p.path === "entries[0].record.name"));
+  owner.socket.close();
 });
 
 test("builder drafts: only their owner is sent one, a good build deletes it, and the size is capped", async () => {

@@ -112,6 +112,8 @@ export const RulesEntry = z.object({
   body: z.record(z.string(), z.unknown()),
   /** What an actor that chose the entry gets in its numbers; the builder's preview reads them later. */
   effects: z.array(z.unknown()).optional(),
+  /** The ledger builder's catalogue record (house decision #62), null when the entry has none; nothing reads it yet. */
+  record: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 export type RulesEntry = z.infer<typeof RulesEntry>;
 

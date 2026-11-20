@@ -73,7 +73,7 @@ func (s *Service) ImportRuleset(w http.ResponseWriter, r *http.Request) (any, er
 	if err != nil {
 		return nil, err
 	}
-	body, err := readBody(w, r)
+	body, err := readBody(w, r, false)
 	if err != nil {
 		return nil, refusing(err)
 	}
@@ -120,7 +120,7 @@ func (s *Service) ImportPack(w http.ResponseWriter, r *http.Request) (any, error
 	if err != nil {
 		return nil, err
 	}
-	body, err := readBody(w, r)
+	body, err := readBody(w, r, true)
 	if err != nil {
 		return nil, refusing(err)
 	}

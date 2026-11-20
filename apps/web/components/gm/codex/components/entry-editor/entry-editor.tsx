@@ -4,6 +4,7 @@ import { useState, type ChangeEvent } from "react";
 
 import { QuestStatus, splitMentions, type ActionInput, type Actor, type CodexEntry } from "@inconsistable/core-schema";
 
+import { PictureField } from "@/components/gm/codex/components/entry-editor/components/picture-field/picture-field";
 import { RevealForm } from "@/components/gm/codex/components/reveal-form/reveal-form";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { MentionTextarea } from "@/components/ui/mention-textarea/mention-textarea";
@@ -11,6 +12,7 @@ import { VisibilityBadge } from "@/components/gm/codex/components/visibility-bad
 import { savePatch } from "@/lib/codex/codex";
 
 type EntryEditorProps = {
+  campaignId: string;
   entry: CodexEntry;
   characters: readonly Actor[];
   /** Every entry this seat reads: the `@` picker lists them, a mention in the body opens one. */
@@ -22,7 +24,16 @@ type EntryEditorProps = {
 };
 
 // One entry open: its title, body and (for a seat that may read them) GM notes, who sees it, and delete.
-export function EntryEditor({ entry, characters, entries, onOpenEntry, can, act, onDeleted }: EntryEditorProps) {
+export function EntryEditor({
+  campaignId,
+  entry,
+  characters,
+  entries,
+  onOpenEntry,
+  can,
+  act,
+  onDeleted,
+}: EntryEditorProps) {
   const t = useTranslations("codex");
   const [draft, setDraft] = useState({ title: entry.title, body: entry.body, gmNotes: entry.gmNotes });
   const [confirming, setConfirming] = useState(false);
@@ -131,6 +142,7 @@ export function EntryEditor({ entry, characters, entries, onOpenEntry, can, act,
           )}
         </div>
       )}
+      <PictureField campaignId={campaignId} entry={entry} can={can} act={act} />
       {can.reveal && <RevealForm entry={entry} characters={characters} act={act} />}
     </section>
   );

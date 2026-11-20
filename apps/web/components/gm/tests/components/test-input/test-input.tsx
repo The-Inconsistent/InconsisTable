@@ -1,18 +1,20 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import type { TestInput } from "@/lib/test-inputs/test-inputs";
+import type { TestInput, TestWords } from "@/lib/test-inputs/test-inputs";
 
 type TestInputFieldProps = {
   /** The control's id; unique on the page. */
   id: string;
   input: TestInput;
+  /** The Test's words (house decision #77): the input's label and its options'. */
+  words: TestWords;
   value: string | boolean | undefined;
   onChange: (value: string | boolean) => void;
 };
 
 // One input a Test asks for, as the call form draws it: a switch, a choice list, or a box for a number or a text.
-export function TestInputField({ id, input, value, onChange }: TestInputFieldProps) {
+export function TestInputField({ id, input, words, value, onChange }: TestInputFieldProps) {
   const t = useTranslations("callForm");
   const text = typeof value === "string" ? value : "";
   if (input.type === "bool")
@@ -25,18 +27,18 @@ export function TestInputField({ id, input, value, onChange }: TestInputFieldPro
           onChange={(e) => onChange(e.target.checked)}
           style={{ minHeight: 24 }}
         />
-        {input.id}
+        {words.input(input.id)}
       </label>
     );
   return (
     <label>
-      {input.id}
+      {words.input(input.id)}
       {input.options ? (
         <select id={id} value={text} onChange={(e) => onChange(e.target.value)}>
           <option value="">{t("pick")}</option>
           {input.options.map((o) => (
             <option key={o} value={o}>
-              {o}
+              {words.value(input.id, o)}
             </option>
           ))}
         </select>

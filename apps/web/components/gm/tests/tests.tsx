@@ -15,6 +15,7 @@ type TestsProps = { state: LiveState; send: Send; /** A Test to preselect (PREP'
 export function Tests({ state, send, testId }: TestsProps) {
   const t = useTranslations("tests");
   const names = useMemo(() => new Map(state.actors.map((a) => [a.id, a.name])), [state.actors]);
+  const defs = useMemo(() => new Map(state.testDefs.map((d) => [d.id, d])), [state.testDefs]);
   const open = state.tests.filter((c) => c.status === "open");
   const closed = state.tests.filter((c) => c.status === "closed");
   return (
@@ -30,7 +31,7 @@ export function Tests({ state, send, testId }: TestsProps) {
         {open.length === 0 && <p className="dim">{t("noneOpen")}</p>}
         <div className="grid">
           {open.map((c) => (
-            <CallCard key={c.id} call={c} names={names} send={send} />
+            <CallCard key={c.id} call={c} def={defs.get(c.testId)} names={names} send={send} />
           ))}
         </div>
       </section>
@@ -39,7 +40,7 @@ export function Tests({ state, send, testId }: TestsProps) {
           <h2 className="head">{t("closedThisSession")}</h2>
           <div className="grid">
             {closed.map((c) => (
-              <CallCard key={c.id} call={c} names={names} send={send} />
+              <CallCard key={c.id} call={c} def={defs.get(c.testId)} names={names} send={send} />
             ))}
           </div>
         </section>

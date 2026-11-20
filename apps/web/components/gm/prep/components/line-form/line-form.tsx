@@ -21,6 +21,7 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 import { takers } from "@/components/gm/tests/components/call-form/takers";
 import { canMob } from "@/lib/harm/harm";
 import type { Spawnable } from "@/lib/scene-prep/scene-prep";
+import { testWords } from "@/lib/test-inputs/test-inputs";
 
 import { MAX_OUTCOMES, newLine } from "./constants";
 
@@ -248,6 +249,7 @@ function TestFields({ d, set, state }: FieldsProps & { state: LineFormProps["sta
   const actorIds = (d.actorIds ?? []) as string[];
   const outcomes = (d.outcomes ?? []) as { label: string; text: string }[];
   const roster = takers({ actors: state.actors, def });
+  const words = testWords(def ?? { id: String(d.testId ?? "") });
 
   // One input of the call: a number, a ticked box, or text; an emptied one is left out.
   const handleInput = (id: string, type: string) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -287,7 +289,7 @@ function TestFields({ d, set, state }: FieldsProps & { state: LineFormProps["sta
           {!def && <option value={String(d.testId ?? "")}>{String(d.testId ?? "")}</option>}
           {state.testDefs.map((x) => (
             <option key={x.id} value={x.id}>
-              {x.id}
+              {testWords(x).test}
             </option>
           ))}
         </select>
@@ -303,11 +305,11 @@ function TestFields({ d, set, state }: FieldsProps & { state: LineFormProps["sta
                   onChange={handleInput(input.id, "bool")}
                   style={{ minHeight: 24 }}
                 />
-                {input.id}
+                {words.input(input.id)}
               </label>
             ) : input.options ? (
               <label key={input.id} className="stack">
-                {input.id}
+                {words.input(input.id)}
                 <select
                   id={`line-input-${input.id}`}
                   value={String(inputs[input.id] ?? "")}
@@ -316,14 +318,14 @@ function TestFields({ d, set, state }: FieldsProps & { state: LineFormProps["sta
                   <option value="">{tCall("pick")}</option>
                   {input.options.map((o) => (
                     <option key={o} value={o}>
-                      {o}
+                      {words.value(input.id, o)}
                     </option>
                   ))}
                 </select>
               </label>
             ) : (
               <label key={input.id} className="stack">
-                {input.id}
+                {words.input(input.id)}
                 <input
                   id={`line-input-${input.id}`}
                   inputMode={input.type === "int" ? "numeric" : "text"}

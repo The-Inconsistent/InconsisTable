@@ -5,7 +5,7 @@ import type { TestDef } from "@inconsistable/core-schema";
 import { compileRuleset, Ruleset } from "@inconsistable/rules-engine";
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 
-import { draftOf, missingInputs, toInputs } from "./test-inputs.ts";
+import { draftOf, missingInputs, testWords, toInputs } from "./test-inputs.ts";
 
 // The invented d20 fixture's `check` as the GM's state carries it: a choice of ability and a whole-number target.
 const rules = Ruleset.parse(SAMPLE_D20);
@@ -72,4 +72,39 @@ test("the call form's reading: a whole number, a filled text, extras dropped", (
     ok: true,
     inputs: { ability: "wis", dc: 12 },
   });
+});
+
+// The fixture's own words, as the GM's state carries them (house decision #77).
+const worded: TestDef = {
+  ...check,
+  ...(declared.label ? { label: declared.label } : {}),
+  ...(declared.inputLabels ? { inputLabels: declared.inputLabels } : {}),
+  ...(declared.inputOptionLabels ? { inputOptionLabels: declared.inputOptionLabels } : {}),
+};
+
+test("a Test with every word reads as its label, its inputs' labels and its options' labels", () => {
+  const w = testWords(worded);
+  assert.equal(w.test, "Ability check");
+  assert.equal(w.input("ability"), "Ability");
+  assert.equal(w.input("dc"), "DC");
+  assert.equal(w.value("ability", "dex"), "Dexterity");
+  assert.equal(w.value("dc", 14), "14");
+});
+
+test("a Test with some words falls back, word by word, to the id or the value", () => {
+  const w = testWords({ id: "check", inputLabels: { dc: "DC" }, inputOptionLabels: { ability: { str: "Strength" } } });
+  assert.equal(w.test, "check");
+  assert.equal(w.input("dc"), "DC");
+  assert.equal(w.input("ability"), "ability");
+  assert.equal(w.value("ability", "str"), "Strength");
+  assert.equal(w.value("ability", "wis"), "wis");
+  assert.equal(w.value("pushed", true), "true");
+});
+
+test("a Test with no words, or one the room no longer has, reads as its ids", () => {
+  for (const w of [testWords(check), testWords({ id: "check" })]) {
+    assert.equal(w.test, "check");
+    assert.equal(w.input("ability"), "ability");
+    assert.equal(w.value("ability", "dex"), "dex");
+  }
 });

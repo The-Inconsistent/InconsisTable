@@ -1538,14 +1538,16 @@
       "tests": "Test",
       "pools": "Quỹ chung",
       "roster": "Sinh vật",
-      "exits": "Đi tiếp"
+      "exits": "Đi tiếp",
+      "picks": "Chọn từ một nơi"
     },
     "add": {
       "reveals": "Thêm mục để cho xem",
       "tests": "Thêm Test",
       "pools": "Thêm dòng quỹ",
       "roster": "Thêm sinh vật",
-      "exits": "Thêm lối ra"
+      "exits": "Thêm lối ra",
+      "picks": "Chọn dòng"
     },
     "missing": {
       "pack": "Hỏng: gói của nó không còn gắn vào phòng này",
@@ -1553,7 +1555,9 @@
       "test": "Hỏng: bộ luật không có Test này",
       "actor": "Hỏng: một nhân vật trong danh sách không còn",
       "pool": "Hỏng: bộ luật không có quỹ này",
-      "scene": "Hỏng: cảnh đó không còn"
+      "scene": "Hỏng: cảnh đó không còn",
+      "field": "Hỏng: trường đó không còn chọn được",
+      "row": "Hỏng: dòng này không còn trong mục của nó"
     },
     "blocked": {
       "noFight": "Chưa có trận đánh nào. Hãy bắt đầu một trận trước.",
@@ -1572,7 +1576,8 @@
       "gone": "(không còn)",
       "pool": "{pool} {amount, number, ::sign-always}",
       "exit": "Tới {scene}",
-      "reveal": "Cho xem {entry}"
+      "reveal": "Cho xem {entry}",
+      "picks": "{count, plural, other {# dòng}} của {entry}"
     },
     "form": {
       "creature": "Sinh vật",
@@ -1597,7 +1602,11 @@
       "outcomeLabel": "Kết quả",
       "outcomeText": "Chuyện gì xảy ra",
       "addOutcome": "Thêm kết quả",
-      "removeOutcome": "Bỏ kết quả {label}"
+      "removeOutcome": "Bỏ kết quả {label}",
+      "pickFrom": "Chọn từ",
+      "pickField": "Danh sách nào",
+      "pickRows": "Các dòng của {field}",
+      "noRows": "Mục đó chưa có dòng nào."
     },
     "saveLine": "Lưu dòng",
     "edit": "Sửa",
@@ -1632,7 +1641,9 @@
     "sent": "Đã gửi: {what}",
     "asks": "Khi gửi sẽ hỏi thêm {inputs}.",
     "fillIn": "Test này còn thiếu các mục dưới đây. Chúng chỉ dùng cho lần gửi này.",
-    "fillFor": "Những gì {what} còn thiếu"
+    "fillFor": "Những gì {what} còn thiếu",
+    "pickedRows": "Đã chọn {field}",
+    "switchRow": "{label}: {row}"
   },
   "safety": {
     "card": {
@@ -1678,7 +1689,22 @@
     "clearLabel": "Xoá {label}",
     "gone": "Các gói của phòng này không còn mục đó.",
     "readFailed": "Không đọc được các gói của phòng.",
-    "level": "Cấp {level}"
+    "level": "Cấp {level}",
+    "reminders": "Lời nhắc",
+    "addWord": "Thêm",
+    "wordFor": "Một từ cho {label}",
+    "removeWord": "Bỏ {word}",
+    "wordsFull": "Tối đa {max}",
+    "writeIn": "+ {word}, của riêng bạn",
+    "suggestions": "Gợi ý cho {label}",
+    "addRow": "Thêm dòng",
+    "fillFrom": "Điền một dòng từ {type}",
+    "removeRow": "Bỏ dòng {n}",
+    "row": "Dòng {n}",
+    "rowsFull": "Tối đa {max} dòng",
+    "test": "Test",
+    "noTest": "Không có Test",
+    "filledFrom": "Từ {name}"
   },
   "notebook": {
     "entries": "Đã tiết lộ",

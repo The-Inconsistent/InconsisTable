@@ -5,6 +5,7 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import {
   CombatVisibility,
   ExitLine,
+  PickLine,
   PoolLine,
   RevealLine,
   RosterLine,
@@ -20,6 +21,7 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { takers } from "@/components/gm/tests/components/call-form/takers";
 import { MarkSwitches } from "@/components/gm/tests/components/mark-switches/mark-switches";
+import { pickableFields, rowName, rowsOf } from "@/lib/entry-fields/entry-fields";
 import { canMob } from "@/lib/harm/harm";
 import type { Spawnable } from "@/lib/scene-prep/scene-prep";
 import { testWords } from "@/lib/test-inputs/test-inputs";
@@ -39,7 +41,14 @@ type LineFormProps = {
   onCancel: () => void;
 };
 
-const SCHEMAS = { roster: RosterLine, tests: TestLine, pools: PoolLine, exits: ExitLine, reveals: RevealLine };
+const SCHEMAS = {
+  roster: RosterLine,
+  tests: TestLine,
+  pools: PoolLine,
+  exits: ExitLine,
+  reveals: RevealLine,
+  picks: PickLine,
+};
 
 // One prepared line being written: the pickers for what it names (a creature, a Test and its inputs, a pool, a scene, an
 // entry), how it is sent, and the GM's label and note. SAVE is offered once the line has the shape the api takes.
@@ -115,6 +124,7 @@ export function LineForm({ kind, line, scene, entries, state, ruleset, spawnable
         </label>
       )}
       {kind === "reveals" && <RevealField d={d} set={set} entries={entries} scene={scene} />}
+      {kind === "picks" && <PickFields d={d} set={set} entries={entries} scene={scene} ruleset={ruleset} />}
       <label className="stack">
         {kind === "exits" ? t("form.exitLabel") : t("form.label")}
         <input
@@ -460,5 +470,82 @@ function RevealField({ d, set, entries, scene }: FieldsProps & { entries: readon
           ))}
       </select>
     </label>
+  );
+}
+
+type PickFieldsProps = FieldsProps & { entries: readonly CodexEntry[]; scene: CodexEntry; ruleset: Ruleset | null };
+
+// A pick line (house decision #89): an entry whose kind has a rows field a scene may pick from, that field, and which of
+// its rows apply here, each toggled in or out (a row picked starts with its switch off).
+function PickFields({ d, set, entries, scene, ruleset }: PickFieldsProps) {
+  const t = useTranslations("prep");
+  const tCodex = useTranslations("codex");
+  const offered = entries.filter((e) => e.id !== scene.id && pickableFields({ ruleset, kind: e.kind }).length > 0);
+  const entry = entries.find((e) => e.id === d.entryId);
+  const fields = entry ? pickableFields({ ruleset, kind: entry.kind }) : [];
+  const field = fields.find((f) => f.id === d.field);
+  const picked = (d.rows ?? []) as { rowId: string; on: boolean }[];
+
+  // The entry: its first pickable field is taken, and the rows picked of another entry go.
+  const handleEntry = (e: ChangeEvent<HTMLSelectElement>) => {
+    const next = entries.find((x) => x.id === e.target.value);
+    const first = next ? pickableFields({ ruleset, kind: next.kind })[0] : undefined;
+    set({ entryId: e.target.value, field: first?.id ?? "", rows: [] });
+  };
+
+  // One row in or out of the line.
+  const handleRow = (rowId: string) =>
+    set({
+      rows: picked.some((r) => r.rowId === rowId)
+        ? picked.filter((r) => r.rowId !== rowId)
+        : [...picked, { rowId, on: false }],
+    });
+
+  return (
+    <>
+      <label className="stack">
+        {t("form.pickFrom")}
+        <select id="line-pick-entry" value={String(d.entryId ?? "")} onChange={handleEntry}>
+          <option value="">{t("form.pick")}</option>
+          {offered.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.title} · {tCodex(`kind.${e.kind}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+      {fields.length > 1 && (
+        <label className="stack">
+          {t("form.pickField")}
+          <select
+            id="line-pick-field"
+            value={String(d.field ?? "")}
+            onChange={(e) => set({ field: e.target.value, rows: [] })}
+          >
+            {fields.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.def.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {entry && field && (
+        <div className="row" role="group" aria-label={t("form.pickRows", { field: field.def.label })}>
+          {rowsOf(entry.fields[field.id]).map((row) => (
+            <button
+              key={row.id}
+              type="button"
+              className="btn sm"
+              aria-pressed={picked.some((r) => r.rowId === row.id)}
+              onClick={() => handleRow(row.id)}
+            >
+              {rowName({ def: field.def, row })}
+            </button>
+          ))}
+          {rowsOf(entry.fields[field.id]).length === 0 && <span className="dim small">{t("form.noRows")}</span>}
+        </div>
+      )}
+    </>
   );
 }

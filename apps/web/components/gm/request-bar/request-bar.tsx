@@ -1,28 +1,55 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useId, useState, type FormEvent } from "react";
+import { useId, useMemo, useState, type FormEvent } from "react";
 
-import type { LiveState } from "@inconsistable/core-schema";
+import type { LiveState, SpendRequest } from "@inconsistable/core-schema";
+import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import type { Send } from "@/hooks/use-table/use-table";
 import { REQUEST_NOTE_MAX } from "@/lib/spend-request/spend-request";
+import { costText, inputsText, offersOf, spendOf } from "@/lib/spends/spends";
 
 type RequestBarProps = {
   state: LiveState;
   /** The resource labels of the pinned ruleset; an id stands in when it is not loaded. */
   labels: ReadonlyMap<string, string>;
+  /** The pinned ruleset, for a spend-ask's label and cost (house decision #84). */
+  ruleset: Ruleset | null;
   send: Send;
 };
 
 // A compact bar under the GM's tabs while players are waiting on a spend: who asks for what, Approve or Deny (a reason
 // is optional). Approving spends through the normal delta path, so Undo takes it back.
-export function RequestBar({ state, labels, send }: RequestBarProps) {
+export function RequestBar({ state, labels, ruleset, send }: RequestBarProps) {
   const t = useTranslations("spendRequest");
   const id = useId();
   const [denying, setDenying] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const compiled = useMemo(() => {
+    const c = ruleset === null ? null : compileRuleset(ruleset);
+    return c?.ok ? c.compiled : null;
+  }, [ruleset]);
   if (state.requests.length === 0) return null;
+
+  // A spend-ask in the ruleset's words: its label, its inputs and what it would cost now.
+  const spendText = (q: SpendRequest): string => {
+    const spend = spendOf(compiled, q);
+    const actor = state.actors.find((a) => a.id === q.actorId);
+    const inputs = q.inputs ?? {};
+    const plan =
+      compiled && actor && spend
+        ? offersOf({
+            compiled,
+            table: state,
+            actor,
+            characters: state.actors.filter((a) => a.kind === "pc").length,
+            inputs: { [spend.id]: inputs },
+          }).find((o) => o.spend.id === spend.id)?.plan
+        : null;
+    const cost = plan ? costText({ costs: plan.costs, labels }) : "";
+    return [spend?.label ?? q.spendId ?? "", inputsText({ spend, inputs }), cost].filter((x) => x !== "").join(" · ");
+  };
 
   // APPROVE: spends the amount; a refusal (the resource is gone, the character deleted) stays on the bar.
   const handleApprove = async (requestId: string) => {
@@ -43,25 +70,27 @@ export function RequestBar({ state, labels, send }: RequestBarProps) {
     <section className="request-bar stack" aria-label={t("barTitle")}>
       {state.requests.map((q) => {
         const name = state.actors.find((a) => a.id === q.actorId)?.name ?? "";
-        const label = labels.get(q.resourceId) ?? q.resourceId;
+        const spent = q.spendId !== null;
+        const label = spent ? spendText(q) : (labels.get(q.resourceId ?? "") ?? q.resourceId ?? "");
+        const values = { name, amount: q.amount ?? 0, label };
         return (
           <div key={q.id} className="request-item stack">
             <div className="row request-line">
               <span className="request-text">
-                <strong>{t("asks", { name, amount: q.amount, label })}</strong>
+                <strong>{spent ? t("othersAsk", values) : t("asks", values)}</strong>
                 {q.note && <span className="dim"> {q.note}</span>}
               </span>
               <span className="row">
                 <button
                   className="btn sm primary"
-                  aria-label={t("approveAria", { name, amount: q.amount, label })}
+                  aria-label={spent ? t("spendApproveAria", values) : t("approveAria", values)}
                   onClick={() => handleApprove(q.id)}
                 >
                   {t("approve")}
                 </button>
                 <button
                   className="btn sm"
-                  aria-label={t("denyAria", { name, amount: q.amount, label })}
+                  aria-label={spent ? t("spendDenyAria", values) : t("denyAria", values)}
                   aria-expanded={denying === q.id}
                   onClick={() => setDenying(denying === q.id ? null : q.id)}
                 >

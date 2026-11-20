@@ -14,6 +14,7 @@ import {
 import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { Creatures } from "@/components/gm/creatures/creatures";
+import { SpendButtons } from "@/components/gm/spend-buttons/spend-buttons";
 import { AddCombatants } from "@/components/gm/track/components/add-combatants/add-combatants";
 import { ClocksPanel } from "@/components/gm/track/components/clocks-panel/clocks-panel";
 import { PoolsPanel } from "@/components/gm/track/components/pools-panel/pools-panel";
@@ -168,6 +169,12 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                 sides={sides ?? undefined}
                 pools={state.pools}
                 harm={harmPad && { pad: harmPad, maxOf }}
+                spends={
+                  compiled &&
+                  actors.get(selected.actorId) && (
+                    <SpendButtons compiled={compiled} state={state} actor={actors.get(selected.actorId)!} send={send} />
+                  )
+                }
               />
             )}
           </div>

@@ -17,7 +17,8 @@ import { poolSidesOf, poolSteps } from "@/lib/pools/pools";
 import { YourCards } from "@/components/ui/your-cards/your-cards";
 import { ActionNotices } from "@/components/ui/action-notices/action-notices";
 import { RequestNotices } from "@/components/ui/request-notices/request-notices";
-import { resourceLabels } from "@/lib/spend-request/spend-request";
+import { SpendAsks } from "@/components/ui/spend-asks/spend-asks";
+import { resourceLabels, spendLabels } from "@/lib/spend-request/spend-request";
 import { GameResult } from "@/components/ui/game-result/game-result";
 import { Standings } from "@/components/ui/standings/standings";
 import { OrderView } from "@/components/ui/order-view/order-view";
@@ -149,6 +150,13 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           answers={state.requestAnswers}
           actors={state.actors}
           labels={resourceLabels(view?.ruleset ?? null)}
+          spends={spendLabels(view?.ruleset ?? null)}
+        />
+        <SpendAsks
+          requests={state.requests}
+          actors={state.actors}
+          held={held}
+          spends={spendLabels(view?.ruleset ?? null)}
         />
         <PoolsView pools={state.pools} steps={(pool) => poolSteps({ pool, ...poolSidesOf(me) })} send={send} />
         <ClocksView clocks={state.clocks} />
@@ -211,6 +219,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
               campaign={state.campaign.fields}
               gm={false}
               requests={state.requests}
+              table={state}
               builderHref={`${builderHref}?step=advance`}
               {...{ send, books, requestPage }}
             />

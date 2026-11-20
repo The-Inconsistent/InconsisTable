@@ -139,6 +139,18 @@ const state: LiveState = {
   },
   stateVersion: 1,
   session: { id: "s", number: 1, title: "", startedAt: "", endedAt: null, recap: "", notes: "session notes" },
+  journal: [
+    {
+      id: "s",
+      number: 1,
+      title: "",
+      startedAt: "",
+      endedAt: null,
+      recap: "",
+      notes: "session notes",
+      abandoned: false,
+    },
+  ],
   actors,
   clocks: [],
   requests: [],
@@ -606,6 +618,29 @@ test("a player and the table screen receive a handout's layout and header with t
 test("every seat receives the recaps, whole", () => {
   for (const c of [ctx(member("player"), "u-x"), ctx(member("cogm"), "u-co"), ctx(member("gm"), "u-gm")])
     assert.deepEqual(seatView({ snapshot, compiled, ctx: c }).codex.recaps, codex.recaps);
+});
+
+test("the journal reaches the seats that run the room, the notes the session side; a player gets neither", () => {
+  const journalOf = (c: Ctx) => seatView({ snapshot, compiled, ctx: c }).state.journal;
+  for (const c of [ctx(member("gm"), "u-gm"), ctx(member("cogm", ["session"]), "u-co")])
+    assert.deepEqual(journalOf(c), state.journal);
+  for (const c of [
+    ctx(member("player"), "u-x"),
+    ctx(member("cogm"), "u-co"),
+    ctx({ kind: "token", role: "screen", characterIds: [] }),
+  ])
+    assert.deepEqual(journalOf(c), []);
+  // Without a GM every player runs the room: the list, with no notes in it (house decision #85).
+  const gmless = { ...ctx(member("player"), "u-x"), tableMode: "gmless" as const };
+  const ran = seatView({
+    snapshot: { ...snapshot, state: { ...state, campaign: { ...state.campaign, tableMode: "gmless" } } },
+    compiled,
+    ctx: gmless,
+  }).state.journal;
+  assert.deepEqual(
+    ran,
+    state.journal.map((s) => ({ ...s, notes: "" })),
+  );
 });
 
 test("a co-GM keeps their own characters", () => {

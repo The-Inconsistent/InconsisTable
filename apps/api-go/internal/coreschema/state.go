@@ -38,6 +38,11 @@ type (
 		Recap     string  `json:"recap"`
 		Notes     string  `json:"notes"`
 	}
+	// JournalSession is one session of the GM's journal (house decision #85); Abandoned when it ended without an award.
+	JournalSession struct {
+		Session
+		Abandoned bool `json:"abandoned"`
+	}
 	// ConditionTimer is what is left of an active condition's count.
 	ConditionTimer struct {
 		ID           string `json:"id"`
@@ -162,7 +167,9 @@ type (
 		Campaign     CampaignInfo `json:"campaign"`
 		StateVersion int64        `json:"stateVersion"`
 		Session      *Session     `json:"session"`
-		Actors       []Actor      `json:"actors"`
+		// Journal is every session of the room, newest first, for the seats that run it (house decision #85).
+		Journal []JournalSession `json:"journal"`
+		Actors  []Actor          `json:"actors"`
 		// MyDraft is the receiving user's builder draft, decoded JSON; nil for every other seat.
 		MyDraft any        `json:"myDraft"`
 		Tests   []TestCall `json:"tests"`

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign/eventlog"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/request"
@@ -118,6 +119,11 @@ func SessionStart(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.
 	if _, err := tx.Exec(ctx, `UPDATE campaign SET next_session_at = NULL WHERE id = $1`, cid); err != nil {
 		return cs.Result{}, err
 	}
+	// A Test called last session and left open is over (house decision #85; Auspex rules-flow §11.143).
+	if _, err := tx.Exec(ctx, `UPDATE test_call SET status = 'closed', closed_at = now() WHERE campaign_id = $1 AND status = 'open'`,
+		cid); err != nil {
+		return cs.Result{}, err
+	}
 	if _, _, _, err := ruleset.RestActors(ctx, tx, c, "sessionStart", ""); err != nil {
 		return cs.Result{}, err
 	}
@@ -148,8 +154,76 @@ func SessionEnd(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	return cs.Done(""), request.CancelPending(ctx, tx, c.CampaignID)
 }
 
-// SessionEdit is session.edit: a session's title, recap or notes, only those sent.
+// SessionAbandon is session.abandon: the running session ends with no award step and no resets, for one never played
+// or left open (house decision #85, Auspex campaign.actions.ts session.abandon). Logged in the session it ends.
+func SessionAbandon(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
+	id, err := eventlog.RunningSessionID(ctx, tx, c.CampaignID)
+	if err != nil {
+		return cs.Result{}, err
+	}
+	if id == nil {
+		return cs.Result{}, cs.Fail("noSessionRunning")
+	}
+	if err := eventlog.LogEvent(ctx, tx, c, "session.abandon", map[string]any{"sessionId": *id}); err != nil {
+		return cs.Result{}, err
+	}
+	_, err = tx.Exec(ctx, `UPDATE session SET ended_at = now(), recap = $2, abandoned = true WHERE id = $1`, *id, a.Str("recap"))
+	return cs.Done(""), err
+}
+
+// SessionDelete is session.delete: only the room's latest session, so the numbering stays unbroken, and only once it
+// has ended. What it awarded stays with the characters; its log rows stay in the room's log, no longer under a session
+// (the foreign key sets them null), as do its fights, Test calls and results (house decision #85).
+func SessionDelete(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
+	var id string
+	var number int
+	var ended bool
+	err := tx.QueryRow(ctx, `SELECT id::text, number, ended_at IS NOT NULL FROM session WHERE campaign_id = $1
+		ORDER BY number DESC LIMIT 1`, c.CampaignID).Scan(&id, &number, &ended)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return cs.Result{}, cs.Fail("sessionNotFound")
+	}
+	if err != nil {
+		return cs.Result{}, err
+	}
+	if id != a.Str("sessionId") {
+		var other bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM session WHERE id = $1 AND campaign_id = $2)`,
+			a.Str("sessionId"), c.CampaignID).Scan(&other); err != nil {
+			return cs.Result{}, err
+		}
+		if !other {
+			return cs.Result{}, cs.Fail("sessionNotFound")
+		}
+		return cs.Result{}, cs.Fail("notLatestSession")
+	}
+	if !ended {
+		return cs.Result{}, cs.Fail("endSessionFirst")
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM session WHERE id = $1`, id); err != nil {
+		return cs.Result{}, err
+	}
+	cs.Notify(ctx, cs.SessionDeleted(number))
+	return cs.Done(""), nil
+}
+
+// SessionEdit is session.edit: a session's title, recap or notes, only those sent. A running session's recap is
+// written when it ends (Auspex rules-flow §11.153).
 func SessionEdit(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
+	if _, sent := a["recap"]; sent {
+		var running bool
+		err := tx.QueryRow(ctx, `SELECT ended_at IS NULL FROM session WHERE id = $1 AND campaign_id = $2`, a.Str("sessionId"),
+			c.CampaignID).Scan(&running)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return cs.Result{}, cs.Fail("sessionNotFound")
+		}
+		if err != nil {
+			return cs.Result{}, err
+		}
+		if running {
+			return cs.Result{}, cs.Fail("recapAtSessionEnd")
+		}
+	}
 	found, wrote, err := patch(ctx, tx, "session", "id = $1 AND campaign_id = $2", []any{a.Str("sessionId"), c.CampaignID}, a,
 		[][2]string{{"title", "title"}, {"recap", "recap"}, {"notes", "notes"}}, nil)
 	if err != nil {

@@ -40,7 +40,8 @@ export const Combatant = z.object({
   states: z.array(z.object({ id: z.string(), label: z.string() })),
   /** A mob's members standing (house decision #66); null for anyone else. */
   members: z.object({ value: z.number().int(), max: z.number().int().nullable() }).nullable(),
-  conditions: z.array(CombatantCondition), // GM side only
+  /** The conditions the ruleset lets the seat see on the actor (house decision #67); every one for the combat side. */
+  conditions: z.array(CombatantCondition),
   /** Sides order only (house decision #60): holding an action, barred this round, unable to act. Absent otherwise. */
   held: z.boolean().optional(),
   barred: z.boolean().optional(),

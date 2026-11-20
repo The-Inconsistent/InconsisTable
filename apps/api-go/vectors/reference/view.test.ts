@@ -554,8 +554,11 @@ test("a Combatant's conditions are the ones the seat sees on its actor", () => {
   assert.deepEqual(conditions(ctx(member("gm"), "u-gm")), ["dazed", "marked"]);
   assert.deepEqual(conditions(ctx(member("cogm", ["combat", "party"]), "u-co")), ["dazed", "marked"]);
   assert.deepEqual(conditions(ctx(member("cogm", ["combat"]), "u-co")), ["dazed"]);
-  assert.deepEqual(conditions(ctx(member("cogm", ["party"]), "u-co")), []); // the marks stay on the combat side
-  assert.deepEqual(conditions(ctx(member("player", [], ["lyra"]), "u-lyra")), []);
+  // Off the combat side too (house decision #67): the party scope reads a Character whole, a player what the table may.
+  assert.deepEqual(conditions(ctx(member("cogm", ["party"]), "u-co")), ["dazed", "marked"]);
+  assert.deepEqual(conditions(ctx(member("player", [], ["lyra"]), "u-lyra")), ["dazed"]);
+  assert.deepEqual(conditions(ctx(member("player", [], ["bran"]), "u-bran")), ["dazed"]);
+  assert.deepEqual(conditions(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), ["dazed"]);
 });
 
 // Two characters called, the target number and the outcome shown or the Test revealed.

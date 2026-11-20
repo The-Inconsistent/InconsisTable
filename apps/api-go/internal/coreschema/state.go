@@ -196,7 +196,7 @@ type (
 		EditableBy string   `json:"editableBy"`
 	}
 
-	// CombatantCondition is a condition on a combatant, GM side only.
+	// CombatantCondition is a condition on a combatant, sent where the seat sees it on the actor (house decision #67).
 	CombatantCondition struct {
 		ID        string `json:"id"`
 		Left      *int   `json:"left"`

@@ -1874,7 +1874,7 @@ test("test.call / test.report / test.close: a hidden target stays on the GM side
   // Half built (no level, which the vigour formula reads): the refusal names what is missing, not "isn't built".
   const half = ok(await owner.send({ type: "actor.create", kind: "npc", name: "Half" })).id!;
   await equip(half, "character", { fields: { "attr.con": 10, "attr.dex": 14, diary: "" } });
-  refused(await owner.send(call({ actorIds: [half] })), /Half's sheet is missing something.*level/);
+  refused(await owner.send(call({ actorIds: [half] })), /Half's sheet is missing something.*\(Level\)/);
   const session = await coGm({ owner, campaignId, name: "co-session-TestReport", scopes: ["session"] });
   ok(await session.send({ type: "test.close", callId: ok(await session.send(call({ actorIds: [hero] }))).id! }));
   session.socket.close();
@@ -2845,7 +2845,18 @@ test("encounter: a full round of turns, seat views, undo of a turn, and the end 
   assert.equal(bar.hp, null);
   assert.ok(Math.abs((bar.bar ?? -1) - 4 / 7) < 1e-9);
   assert.deepEqual(enc.combatants.find((c) => c.actorId === w2)?.hp, { value: 5, max: 7 });
-  assert.ok(enc.combatants.every((c) => c.conditions.length === 0 && !c.keep));
+  // The GM's mark stays home; a combatant's conditions are the ones the ruleset lets the table see (#67): every one
+  // the GM reads here but `marked`, which is `gm`.
+  assert.ok(enc.combatants.every((c) => !c.keep));
+  const gmSide = (await owner.until((x) => x.stateVersion >= seen.stateVersion)).encounter!;
+  for (const c of enc.combatants) {
+    const all = gmSide.combatants.find((x) => x.id === c.id)!.conditions;
+    assert.deepEqual(
+      c.conditions,
+      all.filter((x) => x.id !== "marked"),
+    );
+  }
+  assert.ok(enc.combatants.some((c) => c.conditions.length > 0));
   assert.equal(enc.round, 2);
   assert.equal(enc.combatants.find((c) => c.id === enc.currentId)?.actorId, pcA); // A holds this turn: Ana's banner
   assert.equal((await ben.c.until((s) => s.encounter?.round === 2)).encounter?.combatants.length, 5);
@@ -3984,6 +3995,11 @@ test("health.harm: hit down, scarred, healed, destroyed, a mob thinned and muste
     );
     assert.deepEqual(cb(v, hero).states, [{ id: "hurt", label: "Hurt" }]);
     assert.equal(cb(v, hero).hp, null);
+    // The condition the felling hit laid is `party` in the ruleset, so every seat reads it on the combatant (#67).
+    assert.deepEqual(
+      cb(v, hero).conditions.map((x) => x.id),
+      ["down"],
+    );
   }
   for (const c of [owner, ana, screen]) c.socket.close();
 });

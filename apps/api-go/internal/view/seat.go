@@ -217,7 +217,8 @@ func seatState(state cs.LiveState, compiled *engine.CompiledRuleset, c cs.Ctx, s
 
 // The Encounter one seat receives. The combat side sees every Combatant. Anyone else gets no hidden Combatant at all,
 // the turn passes over a hidden one without naming it, a bar Combatant carries its fraction and no numbers, and the GM's
-// own marks (keep, conditions) stay home. Health numbers are sent only where the seat may see that actor's resource.
+// own mark (keep) stays home. Health numbers are sent only where the seat may see that actor's resource, and a
+// Combatant's conditions are the ones the ruleset lets the seat see on that actor (house decision #67).
 func seatEncounter(e *cs.Encounter, views map[string]engine.ActorView, sight Sight) *cs.Encounter {
 	if e == nil {
 		return nil
@@ -231,18 +232,21 @@ func seatEncounter(e *cs.Encounter, views map[string]engine.ActorView, sight Sig
 		}
 		return cb.HP
 	}
+	conditionsOf := func(cb cs.Combatant) []cs.CombatantCondition {
+		conditions := []cs.CombatantCondition{}
+		for _, x := range cb.Conditions {
+			if slices.Contains(views[cb.ActorID].Conditions, x.ID) {
+				conditions = append(conditions, x)
+			}
+		}
+		return conditions
+	}
 	out := *e
 	if sight.Combat {
 		out.Combatants = make([]cs.Combatant, len(e.Combatants))
 		for i, cb := range e.Combatants {
 			cb.HP = hpOf(cb)
-			conditions := []cs.CombatantCondition{}
-			for _, x := range cb.Conditions {
-				if slices.Contains(views[cb.ActorID].Conditions, x.ID) {
-					conditions = append(conditions, x)
-				}
-			}
-			cb.Conditions = conditions
+			cb.Conditions = conditionsOf(cb)
 			out.Combatants[i] = cb
 		}
 		return &out
@@ -273,7 +277,7 @@ func seatEncounter(e *cs.Encounter, views map[string]engine.ActorView, sight Sig
 	for i, cb := range seen {
 		cb.Ord = i // renumbered over what the seat sees, so a gap never shows where a hidden one sits
 		cb.Keep = false
-		cb.Conditions = []cs.CombatantCondition{}
+		cb.Conditions = conditionsOf(cb)
 		if cb.Visibility == "full" {
 			cb.HP = hpOf(cb)
 		} else {

@@ -78,3 +78,4 @@ export { PRIMITIVES, runOp, type RunOpResult } from "./primitives/registry.ts";
 export * from "./scoring.ts";
 export * from "./view.ts";
 export * from "./breakdown.ts";
+export * from "./build/index.ts";

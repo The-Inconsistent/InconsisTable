@@ -15,6 +15,8 @@ import type {
   LiveState,
   Lobby,
   RefusalKey,
+  RoomImportRefusal,
+  RoomImportReply,
 } from "@inconsistable/core-schema";
 import { HandoutLayout, MAX_PAGE_BYTES } from "@inconsistable/core-schema";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
@@ -30,6 +32,7 @@ import { SAMPLE_PARAMS } from "../../../packages/rules-engine/src/build/fixtures
 import { buildSchemas } from "../../../packages/rules-engine/src/build/schemas.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
 import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
+import { d20Document, IDS, ROOM_D20 } from "../../api-go/vectors/room-documents.ts";
 
 // Spelled out, not imported from the api: this suite is the black-box spec any api implementation has to pass.
 const MAX_NEW_CHARACTERS_PER_INVITE = 50;
@@ -4534,4 +4537,78 @@ test("scene prep: START THE FIGHT starts it, seats the party and places each ros
   assert.deepEqual(seen.get("Vermin ×6")?.members, { value: 6, max: 6 });
   assert.ok(!JSON.stringify(v).includes("Ogre 1"));
   for (const c of [owner, ana]) c.socket.close();
+
+// House decision #74: a room document comes in over REST, whole or not at all, and its room is played like any other.
+test("room document: a creator imports it, the GM reads all of it, an invited player only what is theirs", async () => {
+  const ownerDevice = await device("roomdoc-owner");
+  const me = caller(ownerDevice);
+  const doc = d20Document();
+  assert.equal((await me.post("/campaigns/import", doc)).status, 422, "nothing it expects is imported yet");
+  assert.equal((await me.post("/rulesets", ROOM_D20)).status, 201);
+  assert.equal((await me.post("/packs", SAMPLE_PACK)).status, 201);
+  assert.equal((await me.post("/worlds", SAMPLE_WORLD)).status, 201);
+
+  assert.equal((await post("/campaigns/import", doc)).status, 401);
+  const plain = await device("roomdoc-plain");
+  await withDb((c) => c.query("update app_user set role = 'user' where id = $1", [uid("roomdoc-plain")]));
+  assert.equal((await post("/campaigns/import", doc, cookieOf(plain))).status, 403);
+
+  // A dangling reference is refused by its path, and makes nothing.
+  const dangling = d20Document();
+  dangling.codex![6]!.prep!.reveals![0]!.entryId = "00000000-0000-4000-8000-000000000999";
+  const refused = await me.post<RoomImportRefusal>("/campaigns/import", dangling);
+  assert.equal(refused.status, 422);
+  assert.deepEqual([refused.body.path, refused.body.code], ["codex[6].prep.reveals[0].entryId", "roomNoSuchEntry"]);
+  const dry = await me.post<RoomImportReply>("/campaigns/import?dryRun=1", doc);
+  assert.equal(dry.status, 200);
+  assert.equal(dry.body.campaignId, null);
+  assert.deepEqual(dry.body.counts.entries, {
+    location: 2,
+    npc: 1,
+    handout: 1,
+    quest: 1,
+    adventure: 1,
+    scene: 2,
+    lore: 1,
+    faction: 1,
+  });
+  assert.ok(dry.body.expects.every((e) => e.imported));
+  const lobby = (await (await get("/lobby", cookieOf(ownerDevice))).json()) as Lobby;
+  assert.equal(lobby.mine.length, 0, "neither the refusal nor the dry run made a room");
+
+  const made = await me.post<RoomImportReply>("/campaigns/import", doc);
+  assert.equal(made.status, 201);
+  const campaignId = made.body.campaignId!;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  const s = await owner.until((x) => x.campaign.name === "Harbour Watch");
+  assert.equal(s.access.members.length, 1, "no seat comes with it");
+  const mara = s.actors.find((a) => a.name === "Mara")!;
+  assert.equal(mara.resources.hp, 8);
+  await eventually(() => owner.codex()?.entries.length === 10, "the GM reads every entry");
+  const gm = (title: string) => owner.codex()!.entries.find((e) => e.title === title)!;
+  assert.equal(gm("Quay").parentId, gm("Harbour town").id);
+  assert.deepEqual(gm("Trouble on the quay").prep?.reveals, [{ id: "v1", entryId: gm("Notice").id }]);
+  assert.deepEqual(gm("Trouble on the quay").prep?.tests[0]?.actorIds, [mara.id]);
+  assert.match(gm("Notice").body, new RegExp(`\\(${gm("Quay").id}\\)`), "the mention points at the room's entry");
+  assert.ok(!JSON.stringify(owner.codex()).includes(IDS.quay), "no id of the document is left");
+
+  // Mara's player joins by invite, as in any room, and reads her handout and the shown picture, never the GM's.
+  const code = ok(await owner.send({ type: "invite.create", mode: "character", actorId: mara.id })).token!;
+  const maraDevice = await device("roomdoc-mara");
+  const accepted = await post(
+    `/invites/${code}/accept`,
+    {},
+    { ...cookieOf(maraDevice), "cf-connecting-ip": nextSocketIp() },
+  );
+  assert.equal(accepted.status, 200);
+  const player = connect({ auth: { campaignId, cookie: maraDevice } });
+  await eventually(() => player.codex()?.entries.some((e) => e.title === "Notice") ?? false, "Mara reads her notice");
+  const seen = (title: string) => player.codex()!.entries.find((e) => e.title === title);
+  assert.equal(seen("Quay")?.imageRevealed, true);
+  assert.deepEqual(seen("Quay")?.fields, { district: "Docks" });
+  assert.equal(seen("Old tides"), undefined, "a GM entry stays the GM's");
+  assert.equal(seen("Harbourmaster Oyle")?.gmNotes, "");
+  assert.equal(seen("Trouble on the quay"), undefined, "an unrevealed scene stays home");
+  owner.socket.close();
+  player.socket.close();
 });

@@ -1,5 +1,5 @@
 import type { Viewport } from "next";
-import { Be_Vietnam_Pro, Fraunces, Literata } from "next/font/google";
+import { Be_Vietnam_Pro, Cinzel, Crimson_Pro, Fraunces, IBM_Plex_Mono, Literata } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
@@ -35,13 +35,37 @@ const display = Fraunces({
   axes: ["SOFT", "WONK", "opsz"],
   variable: "--font-display-face",
 });
-// Literata, felt's display face. Only fetched when the felt Theme uses it. Covers Vietnamese.
+// Literata, felt's display face and a World's pick for any role (the variable font, so it serves as body text too).
+// Only fetched when a page uses it. Covers Vietnamese.
 const feltDisplay = Literata({
   subsets: ["latin", "latin-ext", "vietnamese"],
-  weight: ["600"],
   variable: "--font-display-felt",
   preload: false,
 });
+// The faces only a World picks (WORLD_TYPEFACES; theme/world.css maps each pick to one), fetched only when a page uses
+// them. Cinzel, inscriptional capitals, has no Vietnamese: no metric fallback of its own, so a missing letter falls to
+// the World's body face next in the stack, and a Vietnamese page sets its display text in that face outright.
+const cinzel = Cinzel({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-cinzel",
+  preload: false,
+  adjustFontFallback: false,
+});
+// Crimson Pro, an old-style book serif, with its italic. Covers Vietnamese.
+const crimsonPro = Crimson_Pro({
+  subsets: ["latin", "latin-ext", "vietnamese"],
+  style: ["normal", "italic"],
+  variable: "--font-crimson-pro",
+  preload: false,
+});
+// IBM Plex Mono, for printed-out and machine text. Covers Vietnamese.
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin", "latin-ext", "vietnamese"],
+  weight: ["400", "700"],
+  variable: "--font-ibm-plex-mono",
+  preload: false,
+});
+const FONT_VARIABLES = [text, display, feltDisplay, cinzel, crimsonPro, plexMono].map((f) => f.variable).join(" ");
 
 export async function generateMetadata() {
   const t = await getTranslations("meta");
@@ -84,12 +108,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   return (
     // suppressHydrationWarning: the motion script adds its class before React hydrates
     // ponytail: a Theme switch rewrites the class and drops "motion" until the next full load, entrances then just show
-    <html
-      lang={locale}
-      className={`${text.variable} ${display.variable} ${feltDisplay.variable} ${theme}`.trim()}
-      data-scheme={scheme}
-      suppressHydrationWarning
-    >
+    <html lang={locale} className={`${FONT_VARIABLES} ${theme}`.trim()} data-scheme={scheme} suppressHydrationWarning>
       <body className="surface-app">
         <Script id="motion" strategy="beforeInteractive">
           {MOTION_SCRIPT}

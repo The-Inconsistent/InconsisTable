@@ -61,7 +61,14 @@ const cardScope = lantern.find((r) => r.selector.split(",").some((s) => s.trim()
 assert.ok(lanternRoot && feltRoot && cardScope, "lantern :root, felt's root and the .parchment scope exist");
 
 // Properties next/font injects on <html>; they are not the Theme's to declare.
-const FONT_VARS = new Set(["--font-text", "--font-display-face", "--font-display-felt"]);
+const FONT_VARS = new Set([
+  "--font-text",
+  "--font-display-face",
+  "--font-display-felt",
+  "--font-cinzel",
+  "--font-crimson-pro",
+  "--font-ibm-plex-mono",
+]);
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(new URL(dir, WEB), { recursive: true, encoding: "utf8" })

@@ -22,12 +22,91 @@ html:has([data-world]) {
 
 /* ---------- Buttons on the table: plates cut from the page, the main action in brass ---------- */
 [data-world] {
-  font-family: var(--font-body);
   --plate: linear-gradient(180deg, light-dark(var(--paper), var(--paper-2)), light-dark(var(--paper-2), var(--paper)));
   --plate-line: var(--line);
   --plate-lit: color-mix(in srgb, var(--paper) 45%, transparent);
   --plate-main: linear-gradient(180deg, var(--brass-hi), var(--brass));
   --plate-main-ink: var(--brass-ink);
+}
+
+/* ---------- Typefaces: display (headings, labels, buttons, tabs, chips), body (running text, numerals), mono ----------
+   A pick sets --wf-<role> to one of the faces the layout registers; a role the World leaves out keeps the base face.
+   The display stack falls back to the World's body face, then the base, so a letter the display face lacks is drawn in
+   the body face. Cinzel has no Vietnamese at all: on a Vietnamese page its role takes the next face outright. */
+[data-world] {
+  --font-display:
+    var(--wf-display, var(--font-display-face)), var(--wf-body, var(--font-text)), var(--font-display-face),
+    "Iowan Old Style", Georgia, serif;
+  --font-body: var(--wf-body, var(--font-text)), var(--font-text), system-ui, sans-serif;
+  --font-mono: var(--wf-mono, ui-monospace), ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-family: var(--font-body);
+}
+/* Fraunces' soft, wonky axes belong to it alone. */
+[data-world][data-font-display]:not([data-font-display="fraunces"]) {
+  --display-axes: normal;
+}
+[data-font-display="be-vietnam-pro"] {
+  --wf-display: var(--font-text);
+}
+[data-font-display="fraunces"] {
+  --wf-display: var(--font-display-face);
+}
+[data-font-display="literata"] {
+  --wf-display: var(--font-display-felt);
+}
+[data-font-display="cinzel"] {
+  --wf-display: var(--font-cinzel);
+}
+[data-font-display="crimson-pro"] {
+  --wf-display: var(--font-crimson-pro);
+}
+[data-font-display="ibm-plex-mono"] {
+  --wf-display: var(--font-ibm-plex-mono);
+}
+[data-font-body="be-vietnam-pro"] {
+  --wf-body: var(--font-text);
+}
+[data-font-body="fraunces"] {
+  --wf-body: var(--font-display-face);
+}
+[data-font-body="literata"] {
+  --wf-body: var(--font-display-felt);
+}
+[data-font-body="cinzel"] {
+  --wf-body: var(--font-cinzel);
+}
+[data-font-body="crimson-pro"] {
+  --wf-body: var(--font-crimson-pro);
+}
+[data-font-body="ibm-plex-mono"] {
+  --wf-body: var(--font-ibm-plex-mono);
+}
+[data-font-mono="be-vietnam-pro"] {
+  --wf-mono: var(--font-text);
+}
+[data-font-mono="fraunces"] {
+  --wf-mono: var(--font-display-face);
+}
+[data-font-mono="literata"] {
+  --wf-mono: var(--font-display-felt);
+}
+[data-font-mono="cinzel"] {
+  --wf-mono: var(--font-cinzel);
+}
+[data-font-mono="crimson-pro"] {
+  --wf-mono: var(--font-crimson-pro);
+}
+[data-font-mono="ibm-plex-mono"] {
+  --wf-mono: var(--font-ibm-plex-mono);
+}
+[data-world][data-font-body="cinzel"]:lang(vi) {
+  --wf-body: var(--font-text);
+}
+[data-world][data-font-display="cinzel"]:lang(vi) {
+  --wf-display: var(--wf-body, var(--font-display-face));
+}
+[data-world][data-font-mono="cinzel"]:lang(vi) {
+  --wf-mono: ui-monospace;
 }
 
 /* ---------- The table's chrome lies on the band ----------

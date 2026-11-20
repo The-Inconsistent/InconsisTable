@@ -7,6 +7,7 @@
    the TV sets [data-density="tv"]. */
 :root {
   --font-body: var(--font-text), system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
   --tap: 52px;
   --tap-key: 68px;
   --gap: 16px;
@@ -597,7 +598,7 @@ textarea:focus-visible {
   animation: shake var(--dur-move) var(--ease-out) 1;
 }
 input[type="number"] {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 /* A select drops its native look for a caret painted in the text colour, with room so the text never runs under it. */
 select {
@@ -783,7 +784,7 @@ label {
   overflow-wrap: anywhere;
 }
 .clock-count {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   color: var(--ink-2);
 }
 .clock-face {
@@ -1009,7 +1010,7 @@ textarea.json {
   width: 100%;
   min-height: 260px;
   padding: 10px;
-  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-small);
   line-height: 1.5;
   tab-size: 2;
@@ -1054,7 +1055,7 @@ textarea.json {
   border-left-style: dashed;
 }
 .problem-path {
-  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-small);
   color: var(--ink-2);
   overflow-wrap: anywhere;
@@ -1114,7 +1115,7 @@ summary {
 .roll-result {
   margin: 0;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   font-size: 17px;
 }
 .roll-line {
@@ -1135,7 +1136,7 @@ summary {
   color: var(--ink);
   font-size: 56px;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   cursor: pointer;
   box-shadow: inset 0 3px 8px rgb(110 70 20 / 0.35);
 }
@@ -1265,12 +1266,12 @@ summary {
   text-align: center;
   font-size: 28px;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .points-left {
   font-size: 36px;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   line-height: 1;
 }
 .derived-list {
@@ -1293,7 +1294,7 @@ summary {
   margin: 0;
   font-size: 32px;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .build-bar {
   position: sticky;
@@ -1537,7 +1538,7 @@ summary {
   font-size: var(--fs-num);
   font-weight: 800;
   line-height: 1.1;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .lb-figures [data-state="over"] dd {
   color: var(--accent);
@@ -1568,7 +1569,7 @@ summary {
 .lb-xp {
   flex: none;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 /* In play: the XP box, the session's award and the group's Ascension (lb-play). Parchment cards like the builder's. */
 .lb-play-dev {
@@ -1598,7 +1599,7 @@ summary {
   font-size: var(--fs-num);
   font-weight: 800;
   line-height: 1.1;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .lb-play > a.btn {
   justify-self: start;
@@ -1716,7 +1717,7 @@ summary {
   white-space: nowrap;
   font-size: var(--fs-num);
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .sheet-num.sheet-text {
   font-family: var(--font-body);
@@ -2003,7 +2004,7 @@ summary {
   font-size: 48px;
   font-weight: 800;
   text-align: right;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 /* ---------- Your turn: a glowing lantern plate, the one thing on the phone that is not a card ---------- */
@@ -2144,7 +2145,7 @@ summary {
 }
 .pool-size strong {
   font-size: 32px;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .pool-band {
   display: grid;
@@ -2158,7 +2159,7 @@ summary {
 }
 .pool-faces strong {
   font-size: 32px;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   line-height: 1;
 }
 .pool-band .btn.step {
@@ -2170,7 +2171,7 @@ summary {
   text-align: center;
   font-size: 36px;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   border-radius: 8px;
   background: rgb(110 70 20 / 0.14);
   box-shadow: inset 0 3px 6px rgb(110 70 20 / 0.3);
@@ -2220,7 +2221,7 @@ summary {
   flex-wrap: wrap;
   gap: 8px;
   align-items: baseline;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .pool-score {
   font-size: 28px;
@@ -2518,7 +2519,7 @@ fieldset:disabled select {
   font-size: var(--fs-small);
   font-weight: 700;
   text-align: center;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .ws-link[aria-current="page"] .ws-count {
   border-color: var(--brass-ink);
@@ -2561,7 +2562,7 @@ fieldset:disabled select {
   font-size: var(--fs-small);
   font-weight: 700;
   color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .card-name {
   font-size: var(--fs-name);
@@ -2652,7 +2653,7 @@ fieldset:disabled select {
   font-variation-settings: var(--display-axes);
   font-size: var(--fs-name);
   font-weight: 650;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 /* Leaving is kept apart from the rest, behind a dashed rule in the warning colour. */
 .account-delete {
@@ -2985,7 +2986,7 @@ button.chip {
   min-width: 8ch;
   text-align: center;
   font-weight: 650;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 /* ---------- The X-Card ----------
@@ -3214,7 +3215,7 @@ button.chip {
   max-width: 28ch;
 }
 .mf-expr {
-  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-small);
 }
 .mf-hint {
@@ -3276,7 +3277,7 @@ button.chip {
   justify-content: space-between;
 }
 .mf-row-name {
-  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 .mf-key {
@@ -3302,7 +3303,7 @@ button.chip {
   border-left-style: dashed;
 }
 .mf-problems code {
-  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   color: var(--ink-2);
   overflow-wrap: anywhere;
 }

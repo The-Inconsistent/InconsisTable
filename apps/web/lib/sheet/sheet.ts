@@ -8,6 +8,7 @@ import {
   type LayoutRow,
   type ResetEvent,
   type Ruleset,
+  withLists,
 } from "@inconsistable/rules-engine";
 
 import { harmOnly } from "../harm/harm.ts";
@@ -183,12 +184,15 @@ export function rangeOf({
   campaign?: Readonly<Record<string, number | string | boolean>>;
 }): { min: number; max: number | null } | null {
   try {
-    const scope = actorScope({
-      fields: actor.fields,
-      derived: actor.derived,
-      resources: actor.resources,
-      party: { characters },
-      campaign,
+    const scope = withLists({
+      ruleset: compiled.ruleset,
+      scope: actorScope({
+        fields: actor.fields,
+        derived: actor.derived,
+        resources: actor.resources,
+        party: { characters },
+        campaign,
+      }),
     });
     const { min, max } = resourceBounds({ compiled, resource, scope });
     return { min, max };

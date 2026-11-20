@@ -447,7 +447,23 @@
     "label": "{name} health {percent} percent",
     "count": "{count} standing",
     "times": "×{count}",
-    "stacked": "{label} ({count})"
+    "stacked": "{label} ({count})",
+    "held": "{label}: {item}"
+  },
+  "heldList": {
+    "listFor": "{label} of {name}",
+    "none": "Nothing held",
+    "end": "End",
+    "endAria": "End {item} for {name}",
+    "endAll": "End all",
+    "endAllAria": "End all {label} for {name}",
+    "add": "Add",
+    "addAria": "Add to {label} for {name}",
+    "item": "What {name} holds up",
+    "picks": "Quick picks",
+    "pickAria": "Add {item} to {label} for {name}",
+    "noPicks": "No quick picks in the attached packs.",
+    "readFailed": "The quick picks could not be read."
   },
   "harmPad": {
     "label": "Hits on {name}",
@@ -1367,6 +1383,7 @@
     "requestNoPool": "Shared pools aren't at this table yet.",
     "noSuchSpend": "That can't be spent here.",
     "spendNotNow": "That can't be done now.",
+    "usedThisRound": "Already used this round: {detail}.",
     "spendAsked": "Already asked for that: wait for the GM or cancel it.",
     "requestKind": "Ask for a resource and an amount, or for a spend.",
     "tableNotFound": "Table not found",
@@ -1773,7 +1790,10 @@
     "spendApproved": "Approved: {label} for {name}.",
     "spendDenied": "Denied: {label} for {name}.",
     "spendDeniedWhy": "Denied: {label} for {name}. {reason}",
-    "spendDoAria": "{label} for {name}"
+    "spendDoAria": "{label} for {name}",
+    "usedThisRound": "{label}: used this round",
+    "openTable": "Open {title}",
+    "openTableAria": "Open the {title} table for {name}"
   },
   "clocks": {
     "title": "Clocks",

@@ -7,7 +7,7 @@ import type { CompiledRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import type { Send } from "@/hooks/use-table/use-table";
 import { resourceLabels } from "@/lib/spend-request/spend-request";
-import { costText, defaultInputs, inputMax, offersOf, spendWorld } from "@/lib/spends/spends";
+import { costText, defaultInputs, inputMax, offersOf, shown, spendWorld, usedUp } from "@/lib/spends/spends";
 
 type SpendButtonsProps = {
   ruleset: Ruleset;
@@ -15,21 +15,25 @@ type SpendButtonsProps = {
   state: LiveState;
   actor: Actor;
   send: Send;
+  /** Opens one of the ruleset's tables in the tables panel (house decision #91); absent where there is none. */
+  onTable?: (tableId: string) => void;
 };
 
 // The GM side's one-tap spends for one character (house decision #84): each spend the server would take now, with its
 // cost, and a number for each input. A tap is spend.do: the cost and the effect as one action, which Undo takes back.
-export function SpendButtons({ ruleset, compiled, state, actor, send }: SpendButtonsProps) {
+// A spend used up this round stays, disabled with the reason; one that opens a table next offers it (house decision #91).
+export function SpendButtons({ ruleset, compiled, state, actor, send, onTable }: SpendButtonsProps) {
   const t = useTranslations("spendRequest");
   const id = useId();
   const [picked, setPicked] = useState<Record<string, Record<string, number>>>({});
   const [error, setError] = useState<string | null>(null);
   const table = state;
   const characters = state.actors.filter((a) => a.kind === "pc").length;
-  const listed = offersOf({ ruleset, compiled, table, actor, characters }).filter((o) => o.plan !== null);
+  const offers = offersOf({ ruleset, compiled, table, actor, characters });
+  const listed = offers.filter(shown);
   if (listed.length === 0) return null;
   const chosen = offersOf({ ruleset, compiled, table, actor, characters, inputs: picked });
-  const world = spendWorld({ compiled, table, actor, characters });
+  const world = spendWorld({ ruleset, compiled, table, actor, characters });
   const labels = resourceLabels(ruleset);
 
   // SPEND: does it now, as the GM side; a refusal shows under the buttons.
@@ -44,10 +48,31 @@ export function SpendButtons({ ruleset, compiled, state, actor, send }: SpendBut
   return (
     <div className="stack spend-buttons" role="group" aria-label={t("spendsFor", { name: actor.name })}>
       <div className="row">
-        {listed.map(({ spend }) => {
+        {listed.map((offer) => {
+          const { spend } = offer;
           const inputs = { ...defaultInputs(spend), ...picked[spend.id] };
           const plan = chosen.find((o) => o.spend.id === spend.id)?.plan ?? null;
           const cost = plan === null ? "" : costText({ costs: plan.costs, labels });
+          const tableId = spend.then?.table;
+          const next = tableId === undefined ? undefined : ruleset.tables?.[tableId];
+          const openNext = next && tableId !== undefined && onTable && (
+            <button
+              className="btn sm"
+              aria-label={t("openTableAria", { title: next.title, name: actor.name })}
+              onClick={() => onTable(tableId)}
+            >
+              {t("openTable", { title: next.title })}
+            </button>
+          );
+          if (usedUp(offer))
+            return (
+              <span key={spend.id} className="row spend-one">
+                <button className="btn sm" disabled>
+                  {t("usedThisRound", { label: spend.label })}
+                </button>
+                {openNext}
+              </span>
+            );
           return (
             <span key={spend.id} className="row spend-one">
               {Object.entries(spend.inputs ?? {}).map(([name, def]) => (
@@ -72,6 +97,7 @@ export function SpendButtons({ ruleset, compiled, state, actor, send }: SpendBut
               >
                 {cost ? `${spend.label} · ${cost}` : spend.label}
               </button>
+              {openNext}
             </span>
           );
         })}

@@ -33,6 +33,7 @@ import { useTable } from "@/hooks/use-table/use-table";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import { needsBuild } from "@/lib/builder/builder";
 import { playerEntryOf, usesLedger, xpToSpendOf } from "@/lib/ledger/table";
+import { heldChips } from "@/lib/held/held";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 
 type PlayerAppProps = { me: Me; view: RulesView | null; quick?: boolean };
@@ -171,6 +172,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
             encounter={state.encounter}
             sides={view?.ruleset?.initiative?.strategy === "sides" ? view.ruleset.initiative : undefined}
             conditions={view?.ruleset?.conditions}
+            heldOf={(id) => heldChips({ ruleset: view?.ruleset, actor: state.actors.find((a) => a.id === id) })}
           />
         )}
         {!state.encounter && state.games[0] && <GameResult game={state.games[0]} held={held} />}

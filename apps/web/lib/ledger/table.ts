@@ -17,6 +17,7 @@ import {
   type LedgerCreation,
   type LedgerWargear,
   type Ruleset,
+  withLists,
 } from "@inconsistable/rules-engine";
 
 import type { LedgerBuild, LedgerPlay } from "./ledger";
@@ -162,7 +163,8 @@ export function ascensionMembersOf({
   const isGone = (a: (typeof actors)[number]) => {
     if (!compiled) return false;
     try {
-      const scope = actorScope({ fields: a.fields, derived: a.derived, resources: a.resources, campaign: inPlay });
+      const fields = actorScope({ fields: a.fields, derived: a.derived, resources: a.resources, campaign: inPlay });
+      const scope = withLists({ ruleset: compiled.ruleset, scope: fields });
       return healthStatesOf({ compiled, entity: a.entity, scope }).some((id) => goneStates.includes(id));
     } catch {
       return false;

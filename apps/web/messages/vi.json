@@ -447,7 +447,23 @@
     "label": "HP của {name}: {percent} phần trăm",
     "count": "còn {count}",
     "times": "×{count}",
-    "stacked": "{label} ({count})"
+    "stacked": "{label} ({count})",
+    "held": "{label}: {item}"
+  },
+  "heldList": {
+    "listFor": "{label} của {name}",
+    "none": "Không giữ gì",
+    "end": "Dừng",
+    "endAria": "Dừng {item} cho {name}",
+    "endAll": "Dừng hết",
+    "endAllAria": "Dừng hết {label} cho {name}",
+    "add": "Thêm",
+    "addAria": "Thêm vào {label} cho {name}",
+    "item": "Thứ {name} đang giữ",
+    "picks": "Chọn nhanh",
+    "pickAria": "Thêm {item} vào {label} cho {name}",
+    "noPicks": "Các pack đã gắn không có lựa chọn nhanh nào.",
+    "readFailed": "Không đọc được các lựa chọn nhanh."
   },
   "harmPad": {
     "label": "Đòn đánh vào {name}",
@@ -1367,6 +1383,7 @@
     "requestNoPool": "Bàn này chưa có pool chung.",
     "noSuchSpend": "Không thể chi khoản đó ở đây.",
     "spendNotNow": "Lúc này chưa làm được việc đó.",
+    "usedThisRound": "Đã dùng trong vòng này rồi: {detail}.",
     "spendAsked": "Đã xin việc đó rồi: chờ GM hoặc huỷ yêu cầu.",
     "requestKind": "Hãy xin một tài nguyên và số lượng, hoặc một khoản chi.",
     "tableNotFound": "Không tìm thấy bảng",
@@ -1773,7 +1790,10 @@
     "spendApproved": "Đã duyệt: {label} cho {name}.",
     "spendDenied": "Đã từ chối: {label} cho {name}.",
     "spendDeniedWhy": "Đã từ chối: {label} cho {name}. {reason}",
-    "spendDoAria": "{label} cho {name}"
+    "spendDoAria": "{label} cho {name}",
+    "usedThisRound": "{label}: đã dùng trong vòng này",
+    "openTable": "Mở {title}",
+    "openTableAria": "Mở bảng {title} cho {name}"
   },
   "clocks": {
     "title": "Đồng hồ",

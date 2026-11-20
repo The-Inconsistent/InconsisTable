@@ -82,25 +82,28 @@ export function ImportRoom() {
         <div className="stack">
           <h3 className="head">{reply.name}</h3>
           <Expects expects={reply.expects} />
-          <p className="small">{t("makes")}</p>
+          <p className="small">{t("makesTable")}</p>
           <div className="row small" style={{ flexWrap: "wrap" }}>
             {ActorKind.options.map((kind) =>
               reply.counts.actors[kind] ? (
-                <span key={`a/${kind}`} className="chip">
+                <span key={kind} className="chip">
                   {t("count", { kind: tActor(kind), count: reply.counts.actors[kind] })}
                 </span>
               ) : null,
             )}
+            <span className="chip">{t("sessions", { count: reply.counts.sessions })}</span>
+            <span className="chip">{t("clocks", { count: reply.counts.clocks })}</span>
+          </div>
+          <p className="small">{t("makesCodex")}</p>
+          <div className="row small" style={{ flexWrap: "wrap" }}>
             {CodexKind.options.map((kind) =>
               reply.counts.entries[kind] ? (
-                <span key={`e/${kind}`} className="chip">
+                <span key={kind} className="chip">
                   {t("count", { kind: tEntry(kind), count: reply.counts.entries[kind] })}
                 </span>
               ) : null,
             )}
             <span className="chip">{t("pictures", { count: reply.counts.pictures })}</span>
-            <span className="chip">{t("sessions", { count: reply.counts.sessions })}</span>
-            <span className="chip">{t("clocks", { count: reply.counts.clocks })}</span>
           </div>
           <div className="row">
             <button type="button" className="btn primary" onClick={handleConfirm} disabled={busy} aria-busy={busy}>
@@ -113,8 +116,14 @@ export function ImportRoom() {
         <div className="stack" role="alert">
           {refusal?.name && <h3 className="head">{refusal.name}</h3>}
           {refusal?.expects && <Expects expects={refusal.expects} />}
-          <p className="error">{refusal ? tr(refusal) : t("failed")}</p>
-          {refusal?.path && <p className="small">{t("at", { path: refusal.path })}</p>}
+          <p className="error">
+            {refusal ? tr(refusal) : t("failed")}
+            {refusal?.path && (
+              <span className="small" style={{ display: "block" }}>
+                {t("at", { path: refusal.path })}
+              </span>
+            )}
+          </p>
         </div>
       )}
       {failed && (

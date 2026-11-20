@@ -75,11 +75,12 @@ type Options struct {
 // Import reads a document and applies it in one transaction, committed unless it is a dry run. On a problem the answer
 // still carries what was read of the document (its name, what it expects), for the refusal to show.
 func Import(ctx context.Context, db *pgxpool.Pool, owner campaign.Owner, body any, opts Options) (Answer, error) {
-	doc, err := Read(body)
+	doc, err := read(body) // a document whose ids dangle was still read: its name goes with the refusal
+	answer := Answer{Name: doc.str("room", "name")}
 	if err != nil {
-		return Answer{}, err
+		return answer, err
 	}
-	answer := Answer{Name: doc.str("room", "name"), Counts: countsOf(doc)}
+	answer.Counts = countsOf(doc)
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return answer, err
@@ -90,7 +91,7 @@ func Import(ctx context.Context, db *pgxpool.Pool, owner campaign.Owner, body an
 	if err != nil {
 		return answer, err
 	}
-	id, err := Apply(ctx, tx, owner, doc, versions, opts.TableMode)
+	id, err := apply(ctx, tx, owner, doc, versions, opts.TableMode)
 	if err != nil || opts.DryRun {
 		return answer, err
 	}
@@ -139,9 +140,9 @@ func sortedKeys(v any) []string {
 	return slices.Sorted(maps.Keys(m))
 }
 
-// Read checks a document whole before anything is written: its format and version first, then its shape and caps,
+// read checks a document whole before anything is written: its format and version first, then its shape and caps,
 // then that every id it uses names something in it.
-func Read(body any) (doc, error) {
+func read(body any) (doc, error) {
 	m, _ := body.(map[string]any)
 	if m["format"] != cs.RoomFormat {
 		return nil, problem("roomNotDocument", nil, "format")
@@ -319,9 +320,9 @@ func (im *importer) run(action map[string]any, path ...any) (string, error) {
 	return result.ID, err
 }
 
-// Apply makes the room in tx, in the order house decision #74 sets: the room, its sessions, the versions it expects,
+// apply makes the room in tx, in the order house decision #74 sets: the room, its sessions, the versions it expects,
 // campaign fields and pools, pictures, actors, the codex in two passes, clocks, and how the table sits.
-func Apply(ctx context.Context, tx pgx.Tx, owner campaign.Owner, d doc, v versions, tableMode string) (string, error) {
+func apply(ctx context.Context, tx pgx.Tx, owner campaign.Owner, d doc, v versions, tableMode string) (string, error) {
 	id, err := campaign.NewRoom(ctx, tx, d.str("room", "name"), &owner, nil, nil)
 	if err != nil {
 		return "", err

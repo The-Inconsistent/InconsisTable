@@ -53,7 +53,10 @@ func (s *Service) Import(w http.ResponseWriter, r *http.Request) (any, error) {
 			out["params"] = refusal.Params
 		}
 		if answer.Name != "" {
-			out["name"], out["expects"] = answer.Name, answer.Expects
+			out["name"] = answer.Name
+		}
+		if answer.Expects != nil {
+			out["expects"] = answer.Expects
 		}
 		return nil, &core.HTTPError{Status: http.StatusUnprocessableEntity, Body: out}
 	}

@@ -10,6 +10,10 @@ export const REQUEST_NOTE_MAX = 140;
 export const resourceLabels = (ruleset: Ruleset | null): ReadonlyMap<string, string> =>
   new Map((ruleset?.resources ?? []).map((r) => [r.id, r.label]));
 
+/** The ruleset's spend labels by id (house decision #84); empty while the ruleset is not loaded. */
+export const spendLabels = (ruleset: Ruleset | null): ReadonlyMap<string, string> =>
+  new Map((ruleset?.spends ?? []).map((s) => [s.id, s.label]));
+
 /** An amount held inside what the server takes. */
 export const clampAmount = (n: number): number => Math.min(REQUEST_AMOUNT.max, Math.max(REQUEST_AMOUNT.min, n));
 

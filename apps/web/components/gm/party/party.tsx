@@ -18,12 +18,13 @@ import {
   type Member,
   type SessionRecap,
 } from "@inconsistable/core-schema";
-import type { Ruleset } from "@inconsistable/rules-engine";
+import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { AscensionPanel } from "@/components/builder/ledger/play/ascension-panel/ascension-panel";
 import { SessionAward } from "@/components/builder/ledger/play/session-award/session-award";
 import { Recaps } from "@/components/gm/party/recaps";
 import { SafetyPanel } from "@/components/gm/party/safety-panel";
+import { SpendButtons } from "@/components/gm/spend-buttons/spend-buttons";
 import { DraftRecap as DraftRecapButton } from "@/components/ui/draft-recap/draft-recap";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import type { DraftRecap, RequestPage, Send } from "@/hooks/use-table/use-table";
@@ -86,6 +87,10 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
     state.access.members.find((m) => m.characterIds.includes(actorId))?.name ??
     (state.access.guests.some((g) => g.actorId === actorId) ? t("guest") : null);
   const actorNames = useMemo(() => new Map(state.actors.map((a) => [a.id, a.name])), [state.actors]);
+  const compiled = useMemo(() => {
+    const c = sheet.ruleset ? compileRuleset(sheet.ruleset) : null;
+    return c?.ok ? c.compiled : null;
+  }, [sheet.ruleset]);
   // A ruleset with no creation steps (a board game) has nothing to build: a new character takes its only actor type
   // at once, so the server gives it its starting resources (house decision #23), and its sheet is open from the start.
   const builds = (sheet.ruleset?.creation.length ?? 0) > 0;
@@ -405,6 +410,9 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
                       </button>
                     )}
                   </span>
+                  {compiled && can("request:resolve") && (
+                    <SpendButtons compiled={compiled} state={state} actor={a} send={send} />
+                  )}
                   {sheet.ruleset && sheetOf === a.id && (
                     <div className="card" style={{ width: "100%" }}>
                       <SheetView

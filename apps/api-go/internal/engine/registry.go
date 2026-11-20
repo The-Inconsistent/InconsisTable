@@ -142,7 +142,7 @@ var opInputKeys = map[string][]string{
 	"initiative.seated.next":         {},
 	"initiative.seated.remove":       {"id"},
 	"initiative.seated.start":        {"ids"},
-	"initiative.sides.bar":           {"barred", "id"},
+	"initiative.sides.bar":           {"barred", "id", "side"},
 	"initiative.sides.begin":         {},
 	"initiative.sides.hold":          {},
 	"initiative.sides.interrupt":     {"id"},

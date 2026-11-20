@@ -2292,6 +2292,11 @@ summary {
 .w-cell + .w-cell {
   border-left: 1px solid var(--line);
 }
+/* The first cell of each line, when the cells wrap, has no rule before it. */
+.w-cells[data-n="2"] > .w-cell:nth-child(2n + 1),
+.w-cells[data-n="3"] > .w-cell:nth-child(3n + 1) {
+  border-left: 0;
+}
 .w-cell[data-total] {
   background: var(--paper-2);
 }

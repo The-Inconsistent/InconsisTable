@@ -24,7 +24,7 @@ export function Frame({ row, env, mark, total }: { row: SheetRow; env: WidgetEnv
 /** Framed cells side by side, at most three to a line. */
 export function Cells({ count, children }: { count: number; children: ReactNode }) {
   return (
-    <div className="w-cells" style={{ "--n": Math.min(count, 3) } as CSSProperties}>
+    <div className="w-cells" data-n={Math.min(count, 3)} style={{ "--n": Math.min(count, 3) } as CSSProperties}>
       {children}
     </div>
   );

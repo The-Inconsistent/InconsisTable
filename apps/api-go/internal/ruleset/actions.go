@@ -2,7 +2,6 @@ package ruleset
 
 import (
 	"context"
-	"math"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
@@ -118,36 +117,9 @@ func ConditionAdd(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.
 	if !known {
 		return cs.Result{}, cs.Fail("noCondition", cs.Params{"condition": condition})
 	}
-	expiresAfter := a["expiresAfter"] // a whole number, or absent
-	rowID := core.NewUUID()
-	row := map[string]any{"conditionId": condition, "stacks": 1.0, "source": source, "expiresOn": def.Duration, "expiresAfter": expiresAfter}
-	for _, had := range b.Conditions {
-		if had.ConditionID != condition {
-			continue
-		}
-		if def.Stacking == "none" {
-			return cs.Done(""), nil // applying it again does nothing
-		}
-		rowID = had.ID
-		left := any(nil)
-		if had.ExpiresAfter != nil {
-			left = float64(*had.ExpiresAfter)
-		}
-		row = map[string]any{"conditionId": had.ConditionID, "stacks": float64(had.Stacks), "source": had.Source,
-			"expiresOn": had.ExpiresOn, "expiresAfter": left}
-		if def.Stacking == "stack" {
-			most := 100.0
-			if def.MaxStacks != nil {
-				most = *def.MaxStacks
-			}
-			row["stacks"] = math.Min(float64(had.Stacks)+1, most)
-		} else {
-			if source != "" {
-				row["source"] = source
-			}
-			row["expiresAfter"] = expiresAfter
-		}
-		break
+	rowID, row, changes := actor.ConditionApplied(def, b.Conditions, source, def.Duration, a["expiresAfter"])
+	if !changes {
+		return cs.Done(""), nil // applying it again does nothing
 	}
 	return applied(rc, ctx, []engine.Delta{{Target: conditionTarget(actorID, rowID), Kind: "set", Value: row}}, false)
 }

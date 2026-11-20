@@ -113,8 +113,11 @@ type DeltaTarget struct {
 	Resource  string `json:"resource,omitempty"`
 	Field     string `json:"field,omitempty"`
 	Condition string `json:"condition,omitempty"`
-	Turn      string `json:"turn,omitempty"`
-	Test      string `json:"test,omitempty"`
+	// ApplyCondition names a condition of the manifest, with "add" of 1 only: applied once more as condition.add does
+	// (its stacking rule; no count, expiring manual). The pipeline turns it into a write on the row (house decision #66).
+	ApplyCondition string `json:"applyCondition,omitempty"`
+	Turn           string `json:"turn,omitempty"`
+	Test           string `json:"test,omitempty"`
 	// Pool is a shared pool's resource id (scope party, gm or campaign), used with "add" only.
 	Pool string `json:"pool,omitempty"`
 	// Clock is a room clock's id: a counted target with no actor, written by internal/clock (not a ruleset primitive,
@@ -184,7 +187,7 @@ func (p TargetPattern) matches(t DeltaTarget) bool {
 		return p.Kind == "resource" && named(t.Resource)
 	case t.Field != "":
 		return p.Kind == "field" && named(t.Field)
-	case t.Condition != "":
+	case t.Condition != "" || t.ApplyCondition != "":
 		return p.Kind == "condition"
 	case t.Turn != "":
 		return p.Kind == "turn" && p.Name == t.Turn
@@ -205,6 +208,7 @@ func (t DeltaTarget) json() string {
 	add("resource", t.Resource)
 	add("field", t.Field)
 	add("condition", t.Condition)
+	add("applyCondition", t.ApplyCondition)
 	add("turn", t.Turn)
 	add("test", t.Test)
 	add("pool", t.Pool)

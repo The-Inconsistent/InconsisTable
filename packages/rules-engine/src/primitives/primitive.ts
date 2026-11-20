@@ -14,12 +14,15 @@ import {
 /**
  * Where a delta writes. An actor's resource, field or condition row, the encounter's turn state, or the open Test
  * call, or a shared pool (`pool`: a resource of scope party, gm or campaign, used with `add` only). A `condition` target names the row (`ConditionState.id`): `add` changes its `expiresAfter`, `set` with
- * `null` removes the row.
+ * `null` removes the row. An `applyCondition` target names a condition of the manifest, with `add` of 1 only: it is
+ * applied once more as `condition.add` applies it (its stacking rule; no count, expiring `manual`), and the api writes
+ * the row it makes, so the log and Undo see an ordinary condition row (house decision #66).
  */
 export const DeltaTarget = z.union([
   z.strictObject({ actorId: z.string().min(1), resource: z.string().min(1) }),
   z.strictObject({ actorId: z.string().min(1), field: z.string().min(1) }),
   z.strictObject({ actorId: z.string().min(1), condition: z.string().min(1) }),
+  z.strictObject({ actorId: z.string().min(1), applyCondition: z.string().min(1) }),
   z.strictObject({ turn: TurnKey }),
   z.strictObject({ test: TestKey }),
   z.strictObject({ pool: z.string().min(1) }),
@@ -197,7 +200,7 @@ function matches(target: DeltaTarget, pattern: TargetPattern): boolean {
   if ("resource" in target)
     return "resource" in pattern && (pattern.resource === "*" || pattern.resource === target.resource);
   if ("field" in target) return "field" in pattern && (pattern.field === "*" || pattern.field === target.field);
-  if ("condition" in target) return "condition" in pattern;
+  if ("condition" in target || "applyCondition" in target) return "condition" in pattern;
   if ("turn" in target) return "turn" in pattern && pattern.turn === target.turn;
   if ("pool" in target) return "pool" in pattern && (pattern.pool === "*" || pattern.pool === target.pool);
   return "test" in pattern && pattern.test === target.test;

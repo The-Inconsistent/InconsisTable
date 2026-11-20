@@ -2,6 +2,7 @@ package actor
 
 import (
 	"context"
+	"math"
 	"slices"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign/eventlog"
@@ -104,6 +105,42 @@ func FieldTypeOf(compiled *engine.CompiledRuleset, b *Built, field string, sampl
 	return InferFieldType(samples...)
 }
 
+// ConditionApplied is a condition applied once more, as condition.add applies it: a new row, or the row the actor holds
+// stacked or refreshed as the manifest says. changes is false when applying it again does nothing (stacking "none").
+func ConditionApplied(def *engine.Condition, held []ConditionRow, source, expiresOn string, expiresAfter any) (rowID string, row map[string]any, changes bool) {
+	rowID = core.NewUUID()
+	row = map[string]any{"conditionId": def.ID, "stacks": 1.0, "source": source, "expiresOn": expiresOn, "expiresAfter": expiresAfter}
+	for _, had := range held {
+		if had.ConditionID != def.ID {
+			continue
+		}
+		if def.Stacking == "none" {
+			return "", nil, false
+		}
+		rowID = had.ID
+		left := any(nil)
+		if had.ExpiresAfter != nil {
+			left = float64(*had.ExpiresAfter)
+		}
+		row = map[string]any{"conditionId": had.ConditionID, "stacks": float64(had.Stacks), "source": had.Source,
+			"expiresOn": had.ExpiresOn, "expiresAfter": left}
+		if def.Stacking == "stack" {
+			most := 100.0
+			if def.MaxStacks != nil {
+				most = *def.MaxStacks
+			}
+			row["stacks"] = math.Min(float64(had.Stacks)+1, most)
+		} else {
+			if source != "" {
+				row["source"] = source
+			}
+			row["expiresAfter"] = expiresAfter
+		}
+		break
+	}
+	return rowID, row, true
+}
+
 // Apply is what ApplyDeltas writes: deltas against the actors as built. Trusted skips editableBy, for the values the
 // engine's own creation or a pack entry decided, and for what a table event's rules reset or expire (house decision
 // #53); the types still apply.
@@ -184,6 +221,23 @@ func ApplyDeltas(ctx context.Context, tx core.Conn, a Apply) (string, error) {
 				editableBy, visibility, what = def.EditableBy, def.Visibility, def.Label
 				write.FieldType = def.Type
 			}
+		case t.ApplyCondition != "":
+			// An op applies a condition (house decision #66): written as the row condition.add would write, so the log
+			// and Undo see an ordinary condition row.
+			def, known := a.Compiled.Conditions[t.ApplyCondition]
+			if !known {
+				return "", cs.Fail("noCondition", cs.Params{"condition": t.ApplyCondition})
+			}
+			if delta.Kind != "add" || delta.Value != 1.0 {
+				return "", cs.Fail("cannotWrite")
+			}
+			rowID, row, changes := ConditionApplied(def, b.Conditions, "", "manual", nil)
+			if !changes {
+				continue
+			}
+			delta = engine.Delta{Target: engine.DeltaTarget{ActorID: t.ActorID, Condition: rowID}, Kind: "set", Value: row}
+			write.Delta = delta
+			visibility, what = def.Visibility, "the "+def.Label+" condition"
 		default:
 			what = "the " + t.Condition + " condition"
 			if cond, known := a.Compiled.Conditions[t.Condition]; known {

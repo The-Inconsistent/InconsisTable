@@ -60,11 +60,13 @@ import { canonicalJson, contentHash, diffHashes, sha256Hex } from "../../../pack
 import type {
   ActorState,
   ConditionState,
+  Delta,
   RuleState,
   ResourceState,
+  TargetPattern,
   TurnState,
 } from "../../../packages/rules-engine/src/primitives/primitive.ts";
-import { charge } from "../../../packages/rules-engine/src/primitives/primitive.ts";
+import { charge, checkDeltas } from "../../../packages/rules-engine/src/primitives/primitive.ts";
 import { PRIMITIVES, runOp } from "../../../packages/rules-engine/src/primitives/registry.ts";
 import { firstOf, nextFirst, sequence } from "../../../packages/rules-engine/src/primitives/initiative-seated.ts";
 import { poolSize } from "../../../packages/rules-engine/src/primitives/dice-pool-successes.ts";
@@ -824,6 +826,30 @@ function chargeVectors() {
         return { state, pool, amount, ...("delta" in r ? { delta: r.delta } : { code: r.code, message: r.message }) };
       }),
     ),
+  );
+}
+
+// Every delta target shape, the condition an op applies among them (house decision #66), against every target pattern:
+// which a pattern lets through, and the target as the refusal prints it.
+function deltaCheckVectors() {
+  const deltas: Delta[] = [
+    { target: { actorId: "a", resource: "hp" }, kind: "add", value: -2 },
+    { target: { actorId: "a", field: "gone" }, kind: "set", value: true },
+    { target: { actorId: "a", condition: "row1" }, kind: "set", value: null },
+    { target: { actorId: "a", applyCondition: "prone" }, kind: "add", value: 1 },
+    { target: { turn: "round" }, kind: "set", value: 2 },
+    { target: { test: "outcome" }, kind: "set", value: "success" },
+    { target: { pool: "luck" }, kind: "add", value: -1 },
+  ];
+  const patterns: TargetPattern[][] = [
+    [],
+    [{ resource: "*" }],
+    [{ resource: "hp" }, { field: "gone" }],
+    [{ condition: "*" }],
+    [{ field: "*" }, { turn: "round" }, { test: "outcome" }, { pool: "*" }],
+  ];
+  return deltas.flatMap((d) =>
+    patterns.map((targets) => ({ deltas: [d], targets, refusal: checkDeltas({ deltas: [d], targets }) })),
   );
 }
 
@@ -2746,6 +2772,7 @@ const vectors = {
   dice: diceVectors(),
   ops: opVectors(),
   charge: chargeVectors(),
+  deltaChecks: deltaCheckVectors(),
   typeScope,
   checks: checkVectors(exprSources),
   manifests: MANIFESTS,

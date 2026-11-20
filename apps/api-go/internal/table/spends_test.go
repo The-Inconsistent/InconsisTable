@@ -190,7 +190,7 @@ var harmSpends = []any{
 		"run": []any{map[string]any{"primitive": "health.harm", "op": "hit", "input": map[string]any{"actorId": "ctx.self", "shock": "-grit"}}}},
 	map[string]any{"id": "endure", "label": "Endure", "cite": "Fixture p.9", "entities": []any{"hero"}, "cost": []any{},
 		"inputs": map[string]any{"marks": map[string]any{"label": "Marks", "min": 1, "max": "grit * 2"}},
-		"run": []any{map[string]any{"primitive": "health.harm", "op": "convert", "input": map[string]any{"actorId": "ctx.self", "amount": "ctx.marks"}}}},
+		"run":    []any{map[string]any{"primitive": "health.harm", "op": "convert", "input": map[string]any{"actorId": "ctx.self", "amount": "ctx.marks"}}}},
 }
 
 func TestAPersonalSpendAndAConversionAreOneActionEach(t *testing.T) {

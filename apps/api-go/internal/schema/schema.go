@@ -318,14 +318,18 @@ func (s enumSchema) parse(value any, c *context) any {
 	return value
 }
 
-type literalSchema struct{ want string }
+type literalSchema struct{ want any }
 
-// Literal is z.literal(want).
-func Literal(want string) Schema { return literalSchema{want} }
+// Literal is z.literal(want), for a string or a boolean.
+func Literal(want any) Schema { return literalSchema{want} }
 
 func (s literalSchema) parse(value any, c *context) any {
 	if value != s.want {
-		c.abort(`Invalid input: expected "%s"`, s.want)
+		if text, ok := s.want.(string); ok {
+			c.abort(`Invalid input: expected "%s"`, text)
+		} else {
+			c.abort("Invalid input: expected %v", s.want)
+		}
 	}
 	return value
 }
@@ -379,6 +383,7 @@ const (
 	required presence = iota
 	optional
 	defaulted
+	prefaulted
 )
 
 // Field is one key of an object.
@@ -400,6 +405,12 @@ func Def(key string, s Schema, fallback any) Field {
 	return Field{key, s, defaulted, fallback}
 }
 
+// Pre is .prefault(fallback): an absent key reads the fallback through the schema, so its own defaults fill in. Give an
+// Obj, not a Go map, where the parse is ordered.
+func Pre(key string, s Schema, fallback any) Field {
+	return Field{key, s, prefaulted, fallback}
+}
+
 // ObjectSchema is z.object(fields). Unknown keys drop.
 type ObjectSchema struct {
 	fields  []Field
@@ -415,8 +426,38 @@ func (s *ObjectSchema) Refine(check func(map[string]any) bool, message string) *
 	return &ObjectSchema{s.fields, check, message}
 }
 
+// Extend is .extend(fields): a key already there takes the new schema in its place, a new key goes last, as an object
+// spread places them.
+func (s *ObjectSchema) Extend(fields ...Field) *ObjectSchema {
+	out := slices.Clone(s.fields)
+	for _, f := range fields {
+		if i := slices.IndexFunc(out, func(g Field) bool { return g.key == f.key }); i >= 0 {
+			out[i] = f
+		} else {
+			out = append(out, f)
+		}
+	}
+	return &ObjectSchema{fields: out}
+}
+
+// Omit is .omit({ keys }).
+func (s *ObjectSchema) Omit(keys ...string) *ObjectSchema {
+	return &ObjectSchema{fields: slices.DeleteFunc(slices.Clone(s.fields), func(f Field) bool {
+		return slices.Contains(keys, f.key)
+	})}
+}
+
+// mapOf reads an object as a map, and whether it came as an Obj, whose order the answer keeps.
+func mapOf(value any) (input map[string]any, ordered *Obj, ok bool) {
+	if o, isObj := value.(*Obj); isObj && o != nil {
+		return o.vals, o, true
+	}
+	input, ok = value.(map[string]any)
+	return input, nil, ok
+}
+
 func (s *ObjectSchema) parse(value any, c *context) any {
-	input, ok := value.(map[string]any)
+	input, ordered, ok := mapOf(value)
 	if !ok {
 		c.wrongType("object", value)
 		return nil
@@ -430,6 +471,8 @@ func (s *ObjectSchema) parse(value any, c *context) any {
 			c.at(f.key, func() { out[f.key] = f.schema.parse(v, c) })
 		case f.presence == defaulted:
 			out[f.key] = f.fallback
+		case f.presence == prefaulted:
+			c.at(f.key, func() { out[f.key] = f.schema.parse(f.fallback, c) })
 		case f.presence == required:
 			c.at(f.key, func() { f.schema.parse(Undefined, c) })
 		}
@@ -437,7 +480,43 @@ func (s *ObjectSchema) parse(value any, c *context) any {
 	if s.check != nil && len(c.issues) == before && !s.check(out) {
 		c.fail("%s", s.message)
 	}
-	return out
+	if ordered == nil {
+		return out
+	}
+	// zod writes the fields in the shape's order.
+	o := NewObj()
+	for _, f := range s.fields {
+		if v, set := out[f.key]; set {
+			o.Set(f.key, v)
+		}
+	}
+	return o
+}
+
+// keysOf are the keys to walk: an Obj's in order, a map's as they come.
+func keysOf(input map[string]any, ordered *Obj) []string {
+	if ordered != nil {
+		return ordered.keys
+	}
+	keys := make([]string, 0, len(input))
+	for k := range input {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// answer is a record's result: an Obj in the input's order when the input was one.
+func answer(out map[string]any, ordered *Obj) any {
+	if ordered == nil {
+		return out
+	}
+	o := NewObj()
+	for _, k := range ordered.keys {
+		if v, set := out[k]; set {
+			o.Set(k, v)
+		}
+	}
+	return o
 }
 
 type recordSchema struct{ key, value Schema }
@@ -446,13 +525,14 @@ type recordSchema struct{ key, value Schema }
 func Record(key, value Schema) Schema { return recordSchema{key, value} }
 
 func (s recordSchema) parse(value any, c *context) any {
-	input, ok := value.(map[string]any)
+	input, ordered, ok := mapOf(value)
 	if !ok {
 		c.wrongType("record", value)
 		return nil
 	}
 	out := make(map[string]any, len(input))
-	for key, v := range input {
+	for _, key := range keysOf(input, ordered) {
+		v := input[key]
 		if key == "__proto__" {
 			continue
 		}
@@ -465,7 +545,7 @@ func (s recordSchema) parse(value any, c *context) any {
 			out[key] = s.value.parse(v, c)
 		})
 	}
-	return out
+	return answer(out, ordered)
 }
 
 type partialRecordSchema struct {
@@ -477,7 +557,7 @@ type partialRecordSchema struct {
 func PartialRecord(value Schema, keys ...string) Schema { return partialRecordSchema{keys, value} }
 
 func (s partialRecordSchema) parse(value any, c *context) any {
-	input, ok := value.(map[string]any)
+	input, ordered, ok := mapOf(value)
 	if !ok {
 		c.wrongType("record", value)
 		return nil
@@ -489,7 +569,7 @@ func (s partialRecordSchema) parse(value any, c *context) any {
 		}
 	}
 	var unknown []string
-	for key := range input {
+	for _, key := range keysOf(input, ordered) {
 		if !slices.Contains(s.keys, key) {
 			unknown = append(unknown, key)
 		}
@@ -502,7 +582,7 @@ func (s partialRecordSchema) parse(value any, c *context) any {
 	default:
 		c.fail("Unrecognized keys: %s", quoted(unknown, `"`, ", "))
 	}
-	return out
+	return answer(out, ordered)
 }
 
 // Variant is one member of a discriminated union.
@@ -520,7 +600,7 @@ type unionSchema struct {
 func Union(key string, variants ...Variant) Schema { return unionSchema{key, variants} }
 
 func (s unionSchema) parse(value any, c *context) any {
-	input, ok := value.(map[string]any)
+	input, _, ok := mapOf(value)
 	if !ok {
 		c.wrongType("object", value)
 		return nil

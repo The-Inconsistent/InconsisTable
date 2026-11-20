@@ -1,5 +1,37 @@
 package schema
 
+import "math"
+
+// FloatSchema is z.number() that need not be whole, with its bounds.
+type FloatSchema struct {
+	positive bool
+	max      *float64
+}
+
+// Float is z.number().
+func Float() *FloatSchema { return &FloatSchema{} }
+
+// Positive is .positive(): above 0.
+func (s *FloatSchema) Positive() *FloatSchema { return &FloatSchema{true, s.max} }
+
+// Max is .max(n).
+func (s *FloatSchema) Max(n float64) *FloatSchema { return &FloatSchema{s.positive, &n} }
+
+func (s *FloatSchema) parse(value any, c *context) any {
+	n, ok := value.(float64)
+	if !ok || math.IsInf(n, 0) || math.IsNaN(n) {
+		c.wrongType("number", value)
+		return nil
+	}
+	if s.positive && n <= 0 {
+		c.fail("Too small: expected number to be >0")
+	}
+	if s.max != nil && n > *s.max {
+		c.fail("Too big: expected number to be <=%v", *s.max)
+	}
+	return n
+}
+
 type unknownSchema struct{}
 
 // Unknown is z.unknown(): anything passes, as it came.

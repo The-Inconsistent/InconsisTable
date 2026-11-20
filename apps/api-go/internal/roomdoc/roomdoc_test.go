@@ -268,7 +268,7 @@ func (r *room) entries() {
 	for _, e := range doc(r.parsed).list("codex") {
 		kind := e["kind"].(string)
 		row := r.query(`SELECT id::text, body, gm_notes, visibility, audience_mode, coalesce(parent_id::text, ''), position,
-			planned_tests, status, fields, layout, header, prep, coalesce(image_id::text, ''), image_revealed
+			planned_tests, status, fields, layout, header, prep, coalesce(image_id::text, ''), image_revealed, revealed_at
 			FROM codex_entry WHERE campaign_id = $1 AND title = $2`, r.id, e["title"])[0]
 		id := row[0].(string)
 		got := map[string]any{"body": r.text(row[1].(string)), "gmNotes": r.text(row[2].(string)), "visibility": row[3],
@@ -331,6 +331,20 @@ func (r *room) entries() {
 		}
 		if position, has := e["position"]; has {
 			want["position"], got["position"] = position, row[6]
+		}
+		// A revealed entry keeps the document's time, or takes the import's; a sealed one has none (house decision #86).
+		got["revealedAt"], want["revealedAt"] = nil, nil
+		if at, stamped := row[15].(time.Time); stamped {
+			got["revealedAt"] = "import"
+			if given, has := e["revealedAt"].(string); has {
+				got["revealedAt"] = at.UTC().Format(time.RFC3339)
+				if parsed, err := time.Parse(time.RFC3339, given); err == nil {
+					want["revealedAt"] = parsed.UTC().Format(time.RFC3339)
+				}
+			}
+		}
+		if want["revealedAt"] == nil && want["visibility"] != "gm" {
+			want["revealedAt"] = "import"
 		}
 		r.equal("entry "+e["title"].(string), want, got)
 	}

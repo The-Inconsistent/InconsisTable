@@ -349,6 +349,8 @@ export const CodexEntry = z.object({
   // The entry's picture; another seat than the codex side gets it only once it is shown to the table (house decision #70).
   imageId: z.string().nullable(),
   imageRevealed: z.boolean(),
+  // When the entry was last revealed to the party or to a reader; null while sealed (house decision #86).
+  revealedAt: z.string().nullable(),
   // The ruleset's declared fields of this kind that hold a value and that the seat may see (house decision #71).
   fields: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])),
   layout: HandoutLayout.nullable(), // a handout's; null on every other kind. Seen by whoever sees the entry

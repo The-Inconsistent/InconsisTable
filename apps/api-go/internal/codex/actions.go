@@ -146,10 +146,11 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 		if !c.HasGM() {
 			visibility = "party"
 		}
-		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, visibility, position, fields, layout, header, prep)
+		// An entry made the party's (a room without a GM) reaches the party as it is made: that is its reveal.
+		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, visibility, position, fields, layout, header, prep, revealed_at)
 			VALUES ($1, $2, $3, coalesce($4, ''), coalesce($5, ''), $6, coalesce($7::text[], '{}'), $8,
 				(SELECT coalesce(max(position) + 1, 0) FROM codex_entry WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NULL),
-				$9::jsonb, $10, $11, $12::jsonb)
+				$9::jsonb, $10, $11, $12::jsonb, CASE WHEN $8 = 'gm' THEN NULL ELSE now() END)
 			RETURNING id::text`, cid, kind, *title, body, notes, status, planned, visibility, setFields, layout, header, prepJSON).Scan(&id)
 		if err != nil || !imageSent {
 			return cs.Done(id), err
@@ -340,7 +341,9 @@ func Reveal(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 			return cs.Result{}, cs.Fail("characterNotFound")
 		}
 	}
-	if _, err := tx.Exec(ctx, `UPDATE codex_entry SET visibility = $2, audience_mode = $3 WHERE id = $1`,
+	// The time it reached the party or a reader; sealed, it has none (house decision #86).
+	if _, err := tx.Exec(ctx, `UPDATE codex_entry SET visibility = $2, audience_mode = $3,
+		revealed_at = CASE WHEN $2 = 'gm' THEN NULL ELSE now() END WHERE id = $1`,
 		id, a.Str("visibility"), a.Str("audienceMode")); err != nil {
 		return cs.Result{}, err
 	}
@@ -364,18 +367,29 @@ func Delete(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	if err != nil {
 		return cs.Result{}, err
 	}
-	var scenes bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM codex_entry WHERE parent_id = $1 AND kind = 'scene')`, id).Scan(&scenes); err != nil {
+	rows, err := tx.Query(ctx, `SELECT id::text FROM codex_entry WHERE parent_id = $1 AND kind = 'scene'`, id)
+	if err != nil {
 		return cs.Result{}, err
 	}
-	if scenes {
+	scenes, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return cs.Result{}, err
+	}
+	if withScenes, _ := a["withScenes"].(bool); len(scenes) > 0 && !withScenes {
 		return cs.Result{}, cs.Fail("adventureHasScenes")
+	}
+	// With the flag its scenes go first, each as codex.delete deletes one; what pointed at them stays, unlinked (Auspex
+	// rules-flow §11.163, house decision #86).
+	for _, scene := range scenes {
+		if _, err := Delete(ctx, tx, c, cs.Action{"type": "codex.delete", "id": scene}); err != nil {
+			return cs.Result{}, err
+		}
 	}
 	var parent *string
 	if err := tx.QueryRow(ctx, `SELECT parent_id::text FROM codex_entry WHERE id = $1`, id).Scan(&parent); err != nil {
 		return cs.Result{}, err
 	}
-	rows, err := tx.Query(ctx, `SELECT id::text FROM codex_entry WHERE parent_id = $1 ORDER BY position, created_at, id`, id)
+	rows, err = tx.Query(ctx, `SELECT id::text FROM codex_entry WHERE parent_id = $1 ORDER BY position, created_at, id`, id)
 	if err != nil {
 		return cs.Result{}, err
 	}

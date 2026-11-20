@@ -217,6 +217,7 @@ const entry = (id: string, over: Partial<CodexEntry> = {}): CodexEntry => ({
   plannedTests: [],
   imageId: null,
   imageRevealed: false,
+  revealedAt: null,
   fields: {},
   layout: (over.kind ?? "handout") === "handout" ? "plain" : null,
   header: (over.kind ?? "handout") === "handout" ? "" : null,
@@ -641,6 +642,20 @@ test("the journal reaches the seats that run the room, the notes the session sid
     ran,
     state.journal.map((s) => ({ ...s, notes: "" })),
   );
+});
+
+test("an entry's reveal time goes with the entry, to the seats that read it (house decision #86)", () => {
+  const stamped = {
+    ...snapshot,
+    codex: { ...codex, entries: codex.entries.map((e) => ({ ...e, revealedAt: `2026-03-01T10:00:00.000Z#${e.id}` })) },
+  };
+  const timesOf = (c: Ctx) =>
+    seatView({ snapshot: stamped, compiled, ctx: c }).codex.entries.map((e) => [e.id, e.revealedAt]);
+  assert.deepEqual(timesOf(ctx(member("player"), "u-x")), [["open", "2026-03-01T10:00:00.000Z#open"]]);
+  assert.deepEqual(timesOf(ctx(member("player", [], ["lyra"]), "u-lyra")), [
+    ["open", "2026-03-01T10:00:00.000Z#open"],
+    ["for-lyra", "2026-03-01T10:00:00.000Z#for-lyra"],
+  ]);
 });
 
 test("a co-GM keeps their own characters", () => {

@@ -268,7 +268,7 @@ function make(params: BuildParams) {
     z.object({ kind: z.literal("either"), of: z.array(z.union([RequirementOne, RequirementAll])).min(2) }),
   ]);
 
-  // Something a record gives. Every form is structured; `story` is a narrative benefit the GM runs, by `id` and `label`.
+  // Something a record gives. Every form is structured; `story` is a narrative benefit the GM runs, in the importer's own words.
   const grantOne = z.union([
     z.object({ talent: id }),
     z.object({ keyword }),
@@ -330,7 +330,7 @@ function make(params: BuildParams) {
     z.object({ onlyDisciplines: ids, untilTier: Tier.min(params.tiers.min + 1).optional() }),
     z.object({ noArmour: z.literal(true) }),
     z.object({ choose: Scaled, fromDisciplines: ids, random: z.boolean().default(false) }),
-    z.object({ story: z.object({ id: z.string().min(1).max(200), label: z.string().min(1).max(120) }) }),
+    z.object({ story: z.string().min(1).max(120) }),
   ]);
   // Several grants as one option of a choice; `requires` limits the option to some characters.
   const grantAll = z.object({ all: z.array(grantOne).min(1), requires: z.array(RequirementOne).optional() });

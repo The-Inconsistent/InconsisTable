@@ -496,14 +496,14 @@ test("the homebrew gate follows the sources' official flag", () => {
   );
 });
 
-test("a gm requirement and a story grant put their id in the approval path, not their wording", () => {
+test("a gm requirement is approved by its id, not its wording, and a story grant by where it sits", () => {
   const r = run({ tier: 1, archetypeId: "oathkeeper" });
   const req = r.problems.find((p) => p.what.startsWith("Oath Witness"));
   assert.ok(req?.path?.endsWith("/requires/oath-witness"));
   assert.equal(req?.what, "Oath Witness: Swore before a witness");
   const story = r.problems.find((p) => p.what === "Owes an old debt");
   assert.equal(story?.severity, "gm");
-  assert.equal(story?.path, "archetype/oathkeeper/0/old-debt");
+  assert.equal(story?.path, "archetype/oathkeeper/0");
   // rewording the label moves nothing
   const reworded = resolveBuild({
     params,

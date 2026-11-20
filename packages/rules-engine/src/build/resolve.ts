@@ -608,14 +608,7 @@ export function resolveBuild({
         );
       return void s.xpDiscounts.disciplines.push({ id: disc, multiplier: d.multiplier });
     }
-    if ("story" in g)
-      return problem({
-        step: o.step,
-        severity: "gm",
-        path: `${o.path}/${g.story.id}`,
-        what: g.story.label,
-        cite: o.cite,
-      });
+    if ("story" in g) return problem({ step: o.step, severity: "gm", path: o.path, what: g.story, cite: o.cite });
     // Corruption the build gives is counted. A rolled amount is the table's to roll, and a loss the GM's to take, so
     // both stay listed.
     const fixedCorruption = "corruption" in g ? Scaled.safeParse(g.corruption) : null;

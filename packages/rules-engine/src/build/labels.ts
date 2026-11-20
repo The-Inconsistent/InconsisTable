@@ -82,7 +82,7 @@ export function describeGrant(g: Grant): string {
   if ("followers" in g) return `${amount(g.followers)} ${g.kind}${g.threatId ? ` (${g.threatId})` : ""}`;
   if ("bonusDice" in g) return `+${amount(g.bonusDice)} bonus dice ${g.when}`;
   if ("chosenTrait" in g) return `+${amount(g.chosenTrait)} to the chosen Trait`;
-  if ("story" in g) return g.story.label;
+  if ("story" in g) return g.story;
   return JSON.stringify(g).slice(0, 120);
 }
 

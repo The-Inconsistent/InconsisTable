@@ -261,7 +261,7 @@ const raw = {
       skills: { Command: 1 },
       keywords: ["WARDEN"],
       abilities: [{ name: "Sworn Word" }],
-      grants: [{ story: { id: "old-debt", label: "Owes an old debt" } }, { talent: "oath-witness" }],
+      grants: [{ story: "Owes an old debt" }, { talent: "oath-witness" }],
     },
     {
       ...base("wayfarer", "Wayfarer"),

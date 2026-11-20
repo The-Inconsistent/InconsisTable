@@ -260,6 +260,29 @@ func ParseParams(input any) (*Params, error) {
 	if len(issues) > 0 {
 		return nil, errors.New(schema.Prettify(issues))
 	}
+	p, err := decodeParams(out)
+	if err != nil {
+		return nil, err
+	}
+	if why := p.refinements(); len(why) > 0 {
+		return nil, fmt.Errorf("ledger params: %v", why)
+	}
+	p.vocab = vocabOf(p)
+	p.schemas = buildSchemas(p)
+	return p, nil
+}
+
+// ParamsSchema is BuildParams, superRefine included, for a schema that holds params (a ruleset's build block): each
+// refinement is an issue at the params' own path, as zod reports it. ParseParams then builds the Params from its output.
+var ParamsSchema = schema.SuperRefined(paramsSchema, func(out any) []string {
+	p, err := decodeParams(out)
+	if err != nil {
+		return nil // out is the right kind at every depth, which decodes; nothing else reaches here
+	}
+	return p.refinements()
+})
+
+func decodeParams(out any) (*Params, error) {
 	raw, err := schema.AppendJSON(nil, out)
 	if err != nil {
 		return nil, err
@@ -268,6 +291,11 @@ func ParseParams(input any) (*Params, error) {
 	if err := json.Unmarshal(raw, p); err != nil {
 		return nil, err
 	}
+	return p, nil
+}
+
+// refinements is BuildParams' superRefine, in its order; it compiles movementTrait on the way.
+func (p *Params) refinements() []string {
 	attrs := make([]string, len(p.Vocabulary.Attributes))
 	for i, a := range p.Vocabulary.Attributes {
 		attrs[i] = a.ID
@@ -303,15 +331,11 @@ func ParseParams(input any) (*Params, error) {
 	if p.Tiers.Max < p.Tiers.Min {
 		why = append(why, "tiers.max is below tiers.min")
 	}
+	var err error
 	if p.movement, err = regexp.Compile(p.MovementTrait); err != nil {
 		why = append(why, "movementTrait is not a regular expression")
 	}
-	if len(why) > 0 {
-		return nil, fmt.Errorf("ledger params: %v", why)
-	}
-	p.vocab = vocabOf(p)
-	p.schemas = buildSchemas(p)
-	return p, nil
+	return why
 }
 
 // vocab is the vocabularies as lookups.

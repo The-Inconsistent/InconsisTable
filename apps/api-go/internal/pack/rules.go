@@ -94,6 +94,8 @@ type rulesEntry struct {
 	Body       map[string]any `json:"body"`
 	// Effects is what an actor that chose the entry gets in its numbers; [] when none.
 	Effects json.RawMessage `json:"effects"`
+	// Record is the ledger builder's catalogue record, keys in order (house decision #62); null when none.
+	Record json.RawMessage `json:"record"`
 }
 
 type rulesRuleset struct {
@@ -180,7 +182,7 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 		return nil, err
 	}
 	args = append(args, query.Limit, query.Offset)
-	entries, err := conn.Query(ctx, `SELECT pack_version_id::text, key, type, name, level, tags, cite, visibility, body, effects FROM pack_entry
+	entries, err := conn.Query(ctx, `SELECT pack_version_id::text, key, type, name, level, tags, cite, visibility, body, effects, record FROM pack_entry
 		WHERE `+where+fmt.Sprintf(` ORDER BY type ASC, name ASC, key ASC LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, err
@@ -190,8 +192,8 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 		var e rulesEntry
 		var packVersion string
 		var level *int32
-		var body []byte
-		if err := entries.Scan(&packVersion, &e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body, &e.Effects); err != nil {
+		var body, record []byte
+		if err := entries.Scan(&packVersion, &e.Key, &e.Type, &e.Name, &level, &e.Tags, &e.Cite, &e.Visibility, &body, &e.Effects, &record); err != nil {
 			return nil, err
 		}
 		e.Pack = slugOf[packVersion]
@@ -202,6 +204,7 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 		if err := json.Unmarshal(body, &e.Body); err != nil {
 			return nil, err
 		}
+		e.Record = record
 		out.Entries = append(out.Entries, e)
 	}
 	return out, entries.Err()

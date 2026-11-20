@@ -11,6 +11,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/schema"
 )
 
 // LoneSurrogate finds a \uD800-\uDFFF escape in raw JSON that does not form a valid pair, and returns its offset. Go's
@@ -58,8 +59,9 @@ func LoneSurrogate(raw []byte) (int, bool) {
 
 // readBody reads an importer's JSON body, up to engine.MaxPackBytes, as express's json({limit}) did for the importer
 // routes: a request that is not JSON has an empty object as its body, so the importer is what refuses it. A lone
-// surrogate is refused here, before the decoder can replace it.
-func readBody(w http.ResponseWriter, r *http.Request) (any, error) {
+// surrogate is refused here, before the decoder can replace it. ordered decodes objects with schema.DecodeJSON, in
+// their order, for a pack whose records the ledger builder reads in order (house decision #62).
+func readBody(w http.ResponseWriter, r *http.Request, ordered bool) (any, error) {
 	contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if contentType != "application/json" {
 		return map[string]any{}, nil
@@ -79,11 +81,16 @@ func readBody(w http.ResponseWriter, r *http.Request) (any, error) {
 		return nil, &ruleset.Refused{Problems: []engine.Problem{{Path: "(root)", Message: "a string holds an unpaired UTF-16 surrogate escape (\\uD800 to \\uDFFF); write the character itself"}}}
 	}
 	var body any
-	if err := json.Unmarshal(raw, &body); err != nil {
+	if ordered {
+		body, err = schema.DecodeJSON(raw)
+	} else {
+		err = json.Unmarshal(raw, &body)
+	}
+	if err != nil {
 		return nil, malformed()
 	}
 	switch body.(type) {
-	case map[string]any, []any:
+	case map[string]any, *schema.Obj, []any:
 		return body, nil
 	}
 	return nil, malformed()

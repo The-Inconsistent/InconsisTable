@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine/ledger"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/schema"
 )
 
@@ -304,8 +305,31 @@ type (
 		Tables         map[string]RandomTable      `json:"tables"`
 		Health         Health                      `json:"health"`
 		Creation       []CreationStep              `json:"creation"`
-		Decisions      []idAndCite                 `json:"decisions"`
-		Game           *GameInfo                   `json:"game"`
+		// Build is nil when no actor type is built by the ledger builder.
+		Build     *LedgerBuild `json:"build"`
+		Decisions []idAndCite  `json:"decisions"`
+		Game      *GameInfo    `json:"game"`
+	}
+	// LedgerBuild is the manifest's build block (house decision #62). Params is parsed by ValidateRuleset.
+	LedgerBuild struct {
+		Actor  string            `json:"actor"`
+		Params *ledger.Params    `json:"-"`
+		Kinds  map[string]string `json:"kinds"`
+		Sheet  struct {
+			Attributes   map[string]string `json:"attributes"`
+			Skills       map[string]string `json:"skills"`
+			Mods         map[string]string `json:"mods"`
+			ArmourRating string            `json:"armourRating"`
+			Powered      string            `json:"powered"`
+			Speed        string            `json:"speed"`
+			Species      string            `json:"species"`
+			Archetype    string            `json:"archetype"`
+			Keywords     string            `json:"keywords"`
+			Wealth       *string           `json:"wealth"`
+			Corruption   *string           `json:"corruption"`
+		} `json:"sheet"`
+		Tier string  `json:"tier"`
+		XP   *string `json:"xp"`
 	}
 	// GameInfo is the manifest's `game` block: what the game is and how a table can sit for it.
 	GameInfo struct {
@@ -645,6 +669,7 @@ func (r *Ruleset) semanticProblems() problems {
 	p.duplicates("creation", idsOf(r.Creation, func(x CreationStep) string { return x.ID }))
 	p.duplicates("decisions", idsOf(r.Decisions, idOf))
 	p.creation(r)
+	p.build(r)
 
 	for i, e := range r.Entities {
 		p.duplicates(fmt.Sprintf("entities[%d].derived", i), idsOf(e.Derived, func(d DerivedDef) string { return d.ID }))
@@ -799,6 +824,12 @@ func ValidateRuleset(input any) (*Ruleset, []Problem) {
 	r := &Ruleset{Normalized: parsed.(map[string]any)}
 	if err := json.Unmarshal(raw, r); err != nil {
 		panic(err)
+	}
+	if r.Build != nil {
+		// The schema has run ledger.ParamsSchema, refinements included, so these parse.
+		if r.Build.Params, err = ledger.ParseParams(r.Normalized["build"].(map[string]any)["params"]); err != nil {
+			panic(err)
+		}
 	}
 	if found := r.semanticProblems(); len(found) > 0 {
 		return nil, found

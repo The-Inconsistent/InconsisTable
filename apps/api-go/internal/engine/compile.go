@@ -5,6 +5,8 @@ import (
 	"maps"
 	"slices"
 	"strings"
+
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine/ledger"
 )
 
 var visibilityRank = map[string]int{"public": 0, "party": 1, "owner": 2, "gm": 3}
@@ -103,6 +105,16 @@ type (
 		HealthStates []CompiledHealthState
 		// InstantDeath goes by the track's resource id.
 		InstantDeath map[string]*CompiledExpr
+		// Build is the ledger builder's actor type, parsed params and catalogue kinds (house decision #62), for
+		// ledger.Resolve without parsing again; nil when the ruleset has none.
+		Build *CompiledBuild
+	}
+	// CompiledBuild is what a caller hands the ledger builder.
+	CompiledBuild struct {
+		Actor  string
+		Params *ledger.Params
+		// Kinds is the entity type that holds each kind of record, by kind (LedgerKinds).
+		Kinds map[string]string
 	}
 )
 
@@ -800,7 +812,11 @@ func (c *compiler) run() *CompiledRuleset {
 	for i := range c.r.Conditions {
 		conditions[c.r.Conditions[i].ID] = &c.r.Conditions[i]
 	}
-	return &CompiledRuleset{c.r, entities, resources, conditions, tests, init, scoring, healthStates, instantDeath}
+	var build *CompiledBuild
+	if b := c.r.Build; b != nil {
+		build = &CompiledBuild{b.Actor, b.Params, b.Kinds}
+	}
+	return &CompiledRuleset{c.r, entities, resources, conditions, tests, init, scoring, healthStates, instantDeath, build}
 }
 
 // CompileRuleset loads a manifest given as decoded JSON: validate it, then compile every expression against its scope,

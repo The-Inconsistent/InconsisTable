@@ -31,7 +31,9 @@ import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
 import type { CampaignField, FieldDef, Ruleset } from "../../../packages/rules-engine/src/manifest.ts";
 import { runCreation, type EntryLookup } from "../../../packages/rules-engine/src/creation.ts";
 import { checkCampaignValue, checkFieldValue } from "../../../packages/rules-engine/src/field-value.ts";
-import { validatePack, type PackEntry } from "../../../packages/rules-engine/src/pack.ts";
+import { MAX_ENTRY_RECORD_BYTES, validatePack, type PackEntry } from "../../../packages/rules-engine/src/pack.ts";
+import { SAMPLE_LEDGER_PACK } from "../../../packages/rules-engine/src/fixtures/sample-ledger-pack.ts";
+import { SAMPLE_LEDGER_RULESET } from "../../../packages/rules-engine/src/fixtures/sample-ledger-ruleset.ts";
 import {
   endMet,
   rankResults,
@@ -1797,7 +1799,134 @@ function manifestVectors() {
     decisions: Array.from({ length: 300 }, (_, i) => ({ id: `d${i}`, text: "é".repeat(999) })),
   });
   one({ ...(SAMPLE_D20 as object), terms: { __proto__x: "a", ["__proto__"]: "b" } });
+  // The ledger builder's block (house decision #62): every check, then random changes on a stream of their own, so
+  // the cases above and every generator after this one stay as they were.
+  for (const change of LEDGER_CHANGES) {
+    const m = structuredClone(SAMPLE_LEDGER_RULESET) as Mutable;
+    change(m);
+    one(m);
+  }
+  const saved = seed;
+  seed = 62;
+  const strings = [...MANIFEST_STRINGS, ...allStrings(SAMPLE_LEDGER_RULESET, [])];
+  for (let i = 0; i < 600; i++) one(mutate(SAMPLE_LEDGER_RULESET, strings));
+  seed = saved;
   return cases;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the changes break the shape on purpose
+type Mutable = Record<string, any>;
+
+/** One change per check of the build block, the first none at all. */
+const LEDGER_CHANGES: ((m: Mutable) => void)[] = [
+  () => {},
+  (m) => (m.build.params.startingXp.perTier = -1),
+  (m) => (m.build.params.tiers = { min: 3, max: 2 }),
+  (m) => (m.build.params.vocabulary.mods = [{ key: "guard" }]),
+  (m) => (m.build.strategy = "steps"),
+  (m) => (m.build.actor = "wargear"),
+  (m) => (m.build.actor = "nope"),
+  (m) => (m.build.kinds.powers = "nope"),
+  (m) => (m.build.kinds.languages = "hero"),
+  (m) => (m.build.kinds.wargear = "keyword"),
+  (m) => delete m.build.kinds["sub-factions"],
+  (m) => delete m.build.sheet.attributes.MGT,
+  (m) => (m.build.sheet.skills.Juggle = "skill.lore"),
+  (m) => (m.build.sheet.mods.grit = "nope"),
+  (m) => (m.build.sheet.mods["Bad Key!".repeat(10)] = "nope"),
+  (m) => (m.build.sheet.attributes.AGI = "species"),
+  (m) => (m.build.sheet.species = "xp"),
+  (m) => (m.build.sheet.archetype = "keywords"),
+  (m) => (m.build.sheet.keywords = "speed"),
+  (m) => (m.build.sheet.powered = "attr.mgt"),
+  (m) => (m.resources[0].entities = ["wargear"]),
+  (m) => (m.resources[1].scope = "party"),
+  (m) => (m.build.sheet.corruption = "nope"),
+  (m) => (m.build.tier = "rank"),
+  (m) => (m.campaignFields.tier = { type: "bool", label: "Tier", default: false, cite: "Base p.2" }),
+  (m) => (m.campaignFields.tier.max = 5),
+  (m) => (m.campaignFields.tier.min = 0),
+  (m) => (m.build.xp = "species"),
+  (m) => (m.build.xp = "nope"),
+  (m) => {
+    delete m.build.xp;
+    delete m.build.sheet.wealth;
+    delete m.build.sheet.corruption;
+  },
+  (m) => delete m.build.cite,
+  (m) => {
+    m.creation = [{ id: "name", actor: "hero", kind: "fields", label: "Name", fields: ["species"], cite: "Base p.1" }];
+  },
+];
+
+/**
+ * Packs with catalogue records (house decision #62), against the ledger ruleset and one without build. The input is
+ * read by Go in its key order, and each record answered is compared as text, so its key order is held equal.
+ */
+function ledgerPackVectors() {
+  const rulesets = [SAMPLE_LEDGER_RULESET, SAMPLE_D20];
+  const compiled = rulesets.map((m) => {
+    const r = compileRuleset(m);
+    if (!r.ok) throw new Error(JSON.stringify(r.problems));
+    return r.compiled.ruleset;
+  });
+  const cases: unknown[] = [];
+  const one = (rulesetIndex: number, input: unknown) => {
+    const r = validatePack({ input, ruleset: compiled[rulesetIndex] as Ruleset });
+    cases.push({
+      ruleset: rulesetIndex,
+      input,
+      ok: r.ok,
+      ...(r.ok
+        ? {
+            pack: r.pack,
+            hashes: r.pack.entries.map(contentHash),
+            records: r.pack.entries.map((e) => (e.record === undefined ? null : JSON.stringify(e.record))),
+          }
+        : { problems: r.problems }),
+    });
+  };
+  const pack = () => structuredClone(SAMPLE_LEDGER_PACK) as Mutable;
+  const at = (p: Mutable, key: string) => p.entries.find((e: Mutable) => e.key === key);
+  const reversed = (o: Mutable): Mutable => Object.fromEntries(Object.entries(o).reverse());
+  one(0, SAMPLE_LEDGER_PACK);
+  // Keys arrive in another order than the schemas', inner records (partial records of Attributes) included.
+  const shuffled = pack();
+  for (const e of shuffled.entries) {
+    e.record = reversed(e.record);
+    for (const [k, v] of Object.entries(e.record))
+      if (typeof v === "object" && v !== null && !Array.isArray(v)) e.record[k] = reversed(v as Mutable);
+  }
+  one(0, shuffled);
+  const changes: ((p: Mutable) => void)[] = [
+    (p) => p.entries.push({ key: "x", type: "hero", name: "X", cite: "Base p.1", record: { id: "x" } }),
+    (p) => delete at(p, "factions.wardens").record,
+    (p) => (at(p, "factions.wardens").record = []),
+    (p) => (at(p, "factions.wardens").record = "x"),
+    // Not page 0: the Go twin words a refused .positive() as ">=1" where zod says ">0" (reported, left as it is).
+    (p) => Object.assign(at(p, "factions.wardens").record, { page: "x", source: "nope" }),
+    (p) => delete at(p, "factions.wardens").record.name,
+    (p) => Object.assign(at(p, "factions.wardens"), { key: "old-wardens", name: "Wardens of Old" }),
+    // The key is free of the record's id; an id is unique within its type only.
+    (p) => (at(p, "factions.wardens").key = "anything-else"),
+    (p) => p.entries.push({ ...at(p, "factions.wardens"), key: "factions.wardens-again" }),
+    (p) => {
+      const wardens = at(p, "factions.wardens");
+      p.entries.push({ ...wardens, key: "talents.wardens", type: "talent", record: { ...wardens.record, xp: 1 } });
+    },
+    (p) => (at(p, "factions.wardens").record.summary = "x".repeat(MAX_ENTRY_RECORD_BYTES)),
+    (p) => (at(p, "factions.wardens").record.summary = "é".repeat(MAX_ENTRY_RECORD_BYTES / 2)),
+    (p) => (at(p, "wargear.lantern-staff").record.weapon.range = "far"),
+    (p) => (p.entries = p.entries.filter((e: Mutable) => e.type === "talent")),
+  ];
+  for (const change of changes) {
+    const p = pack();
+    change(p);
+    one(0, p);
+  }
+  one(1, { ...SAMPLE_PACK, entries: [{ ...SAMPLE_PACK.entries[0], record: { id: "reedfolk" } }] });
+  one(1, SAMPLE_PACK);
+  return { rulesets, cases };
 }
 
 function genFieldValue(def: FieldDef): FieldValue | undefined {
@@ -2492,6 +2621,7 @@ const vectors = {
   creationEntries: CREATION_ENTRIES,
   creation: creationVectors(),
   packs: packVectors(),
+  ledgerPacks: ledgerPackVectors(),
   diffs: diffVectors(),
   seats: seatVectors(),
   poolSizes: poolSizeVectors(),

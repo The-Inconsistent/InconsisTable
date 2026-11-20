@@ -164,3 +164,28 @@ func (s refinedSchema) parse(value any, c *context) any {
 	}
 	return out
 }
+
+type superRefinedSchema struct {
+	inner Schema
+	check func(any) []string
+}
+
+// SuperRefined is .superRefine((v, ctx) => …) the way zod runs it: skipped when the inner value was the wrong kind, as
+// RefinedSoft is, and each message it returns an issue at the value's own path.
+func SuperRefined(inner Schema, check func(any) []string) Schema {
+	return superRefinedSchema{inner, check}
+}
+
+func (s superRefinedSchema) parse(value any, c *context) any {
+	before := len(c.issues)
+	out := s.inner.parse(value, c)
+	for _, issue := range c.issues[before:] {
+		if issue.hard {
+			return out
+		}
+	}
+	for _, message := range s.check(out) {
+		c.fail("%s", message)
+	}
+	return out
+}

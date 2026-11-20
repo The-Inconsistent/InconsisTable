@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/schema"
 )
 
 // Stored hashes must match TypeScript's byte for byte, so this prints exactly what JSON.stringify prints.
@@ -100,6 +102,8 @@ func CanonicalJSON(value any) string {
 			parts[i] = CanonicalJSON(e)
 		}
 		return "[" + strings.Join(parts, ",") + "]"
+	case *schema.Obj:
+		return CanonicalJSON(x.Map())
 	case map[string]any:
 		keys := make([]string, 0, len(x))
 		for k := range x {

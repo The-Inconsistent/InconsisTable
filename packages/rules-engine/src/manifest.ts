@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { BuildParams } from "./build/params.ts";
 import { MAX_SIDES, parseDice } from "./dice/dice.ts";
 import {
   ConditionDuration,
@@ -526,6 +527,61 @@ export const CreationStep = z.discriminatedUnion("kind", [
 ]);
 export type CreationStep = z.infer<typeof CreationStep>;
 
+/**
+ * The kinds of catalogue record the ledger builder reads, named as the keys of its `Creation` (build/schemas.ts), plus
+ * `wargear`.
+ */
+export const LEDGER_KINDS = [
+  "keywords",
+  "factions",
+  "sub-factions",
+  "species",
+  "backgrounds",
+  "option-groups",
+  "archetypes",
+  "talents",
+  "packages",
+  "disciplines",
+  "powers",
+  "languages",
+  "wargear",
+] as const;
+export type LedgerKind = (typeof LEDGER_KINDS)[number];
+
+const VocabName = z.string().min(1).max(60);
+
+/**
+ * The ledger builder picked for one actor type (docs/adr/0011, house decision #62): its parameters, the entity type
+ * that holds each kind of catalogue record, and the fields and resources the resolved sheet lands in.
+ */
+export const LedgerBuild = z.object({
+  strategy: z.literal("ledger"),
+  /** The actor entity type it builds. */
+  actor: Id,
+  params: BuildParams,
+  kinds: z.object(Object.fromEntries(LEDGER_KINDS.map((k) => [k, Id])) as Record<LedgerKind, typeof Id>),
+  sheet: z.object({
+    /** By the ids, names and keys of `params.vocabulary`: one field each. */
+    attributes: z.record(VocabName, FieldId),
+    skills: z.record(VocabName, FieldId),
+    mods: z.record(VocabName, FieldId),
+    armourRating: FieldId,
+    powered: FieldId,
+    speed: FieldId,
+    species: FieldId,
+    archetype: FieldId,
+    keywords: FieldId,
+    wealth: Id.optional(),
+    corruption: Id.optional(),
+  }),
+  /** The campaign field the builder reads as the Tier. */
+  tier: Id,
+  /** The XP earned in play. */
+  xp: FieldId.optional(),
+  cite: Cite,
+});
+export type LedgerBuild = z.infer<typeof LedgerBuild>;
+
 /** A layout hint for the sheet: sections listing field, derived or resource paths. Never HTML. */
 export const Layout = z.object({
   sections: z
@@ -587,6 +643,8 @@ export const Ruleset = z.object({
   health: Health.default({ tracks: [], states: [] }),
   /** Steps of the character builder, in order. Empty: the ruleset has no builder and actors are filled by hand. */
   creation: z.array(CreationStep).max(50).default([]),
+  /** One actor type built by the ledger builder (house decision #62). Absent: none. */
+  build: LedgerBuild.optional(),
   decisions: z.array(Decision).max(200).default([]),
   layout: z.record(Id, Layout).default({}),
   game: GameInfo.optional(),
@@ -773,6 +831,84 @@ function creationProblems(r: Ruleset, out: Problem[]): void {
   });
 }
 
+/**
+ * The ledger builder's block names what the manifest declares (house decision #62): an actor type, one catalogue entity
+ * per kind, a field of the fitting type for every Attribute, Skill and mod of its vocabulary, and a campaign Tier
+ * within its tiers.
+ */
+function buildProblems(r: Ruleset, out: Problem[]): void {
+  const b = r.build;
+  if (b === undefined) return;
+  const entities = new Map<string, EntityType>();
+  for (const e of r.entities) if (!entities.has(e.id)) entities.set(e.id, e);
+  const actor = entities.get(b.actor);
+  if (actor?.base !== "actor") out.push({ path: "build.actor", message: `"${b.actor}" is not an actor entity` });
+  const holds = new Map<string, LedgerKind>(); // entity id → the kind it holds
+  for (const kind of LEDGER_KINDS) {
+    const id = b.kinds[kind];
+    const path = `build.kinds.${kind}`;
+    const e = entities.get(id);
+    if (e === undefined) out.push({ path, message: `unknown entity "${id}"` });
+    else if (e.base === "actor") out.push({ path, message: `"${id}" is an actor entity, not a catalogue` });
+    const other = holds.get(id);
+    if (other !== undefined) out.push({ path, message: `"${id}" already holds the ${other}` });
+    else holds.set(id, kind);
+  }
+  if (r.creation.some((s) => s.actor === b.actor))
+    out.push({ path: "creation", message: "an actor type the ledger builder builds takes no creation steps" });
+  const tier = r.campaignFields === undefined ? undefined : own(r.campaignFields, b.tier);
+  const { min, max } = b.params.tiers;
+  if (tier === undefined) out.push({ path: "build.tier", message: `unknown campaign field "${b.tier}"` });
+  else if (tier.type !== "int") out.push({ path: "build.tier", message: `"${b.tier}" is ${tier.type}, not int` });
+  else if (tier.min < min || tier.max > max)
+    out.push({
+      path: "build.tier",
+      message: `"${b.tier}" runs ${tier.min} to ${tier.max}, outside the tiers ${min} to ${max}`,
+    });
+  if (actor?.base !== "actor") return;
+
+  const named = new Map<string, string>(); // field id → the path that first names it
+  const field = (id: string, path: string, type: FieldDef["type"]) => {
+    const def = own(actor.fields, id);
+    if (def === undefined) out.push({ path, message: `${actor.id} has no field "${id}"` });
+    else if (def.type !== type) out.push({ path, message: `"${id}" is ${def.type}, not ${type}` });
+    const prev = named.get(id);
+    if (prev !== undefined) out.push({ path, message: `"${id}" is already named at ${prev}` });
+    else named.set(id, path);
+  };
+  const v = b.params.vocabulary;
+  const groups = [
+    ["attributes", v.attributes.map((a) => a.id)],
+    ["skills", v.skills.map((s) => s.name)],
+    ["mods", v.mods.map((m) => m.key)],
+  ] as const;
+  for (const [group, names] of groups) {
+    const record = b.sheet[group];
+    for (const name of names)
+      if (own(record, name) === undefined)
+        out.push({ path: `build.sheet.${group}`, message: `no field for "${name}"` });
+    for (const key of Object.keys(record).sort()) {
+      const path = `build.sheet.${group}.${key}`;
+      const id = own(record, key);
+      if (!names.includes(key)) out.push({ path, message: `"${key}" is not in the vocabulary` });
+      else if (id !== undefined) field(id, path, "int");
+    }
+  }
+  for (const key of ["armourRating", "powered", "speed"] as const) field(b.sheet[key], `build.sheet.${key}`, "int");
+  for (const key of ["species", "archetype"] as const) field(b.sheet[key], `build.sheet.${key}`, "text");
+  field(b.sheet.keywords, "build.sheet.keywords", "list");
+  // The last declaration wins, as everywhere a resource is looked up by id.
+  const resources = new Map(r.resources.map((x) => [x.id, x]));
+  for (const key of ["wealth", "corruption"] as const) {
+    const id = b.sheet[key];
+    if (id === undefined) continue;
+    const res = resources.get(id);
+    if (res === undefined || res.scope !== "entity" || (res.entities !== undefined && !res.entities.includes(actor.id)))
+      out.push({ path: `build.sheet.${key}`, message: `"${id}" is not an entity resource the ${actor.id} carries` });
+  }
+  if (b.xp !== undefined) field(b.xp, "build.xp", "int");
+}
+
 /** Every face range fits the die, bands never overlap, and `shift` names a band. */
 function poolProblems({ t, path, out }: { t: PoolSuccesses; path: string; out: Problem[] }): void {
   const range = (f: FaceRange, at: string) => {
@@ -938,6 +1074,7 @@ function semanticProblems(r: Ruleset): Problem[] {
   duplicates({ ids: r.creation.map((x) => x.id), path: "creation", out });
   duplicates({ ids: r.decisions.map((x) => x.id), path: "decisions", out });
   creationProblems(r, out);
+  buildProblems(r, out);
 
   const entityIds = new Set(r.entities.map((e) => e.id));
   r.entities.forEach((e, i) => {

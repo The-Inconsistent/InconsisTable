@@ -77,6 +77,34 @@ func (o *Obj) Map() map[string]any {
 	return out
 }
 
+// Plain is v with every Obj turned into a Go map, at every depth, for code that reads keys and not their order.
+func Plain(v any) any {
+	switch x := v.(type) {
+	case *Obj:
+		if x == nil {
+			return nil
+		}
+		out := make(map[string]any, len(x.keys))
+		for _, k := range x.keys {
+			out[k] = Plain(x.vals[k])
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, item := range x {
+			out[k] = Plain(item)
+		}
+		return out
+	case []any:
+		out := make([]any, len(x))
+		for i, item := range x {
+			out[i] = Plain(item)
+		}
+		return out
+	}
+	return v
+}
+
 // An array index is a canonical decimal below 2^32 - 1; JavaScript lists those keys first, in numeric order.
 func arrayIndex(key string) (uint64, bool) {
 	if key == "" || len(key) > 10 || (key[0] == '0' && len(key) > 1) {

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine/ledger"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/schema"
 )
 
@@ -320,6 +321,47 @@ var creationStepSchema = schema.Union("kind",
 	stepVariant("fields", schema.Req("fields", schema.Array(fieldIDSchema).Min(1).Max(50))),
 )
 
+// LedgerKinds are the kinds of catalogue record the ledger builder reads, named as the keys of its Creation, plus
+// wargear (manifest.ts LEDGER_KINDS).
+var LedgerKinds = []string{
+	"keywords", "factions", "sub-factions", "species", "backgrounds", "option-groups", "archetypes", "talents",
+	"packages", "disciplines", "powers", "languages", "wargear",
+}
+
+func ledgerKindsSchema() schema.Schema {
+	fields := make([]schema.Field, len(LedgerKinds))
+	for i, k := range LedgerKinds {
+		fields[i] = schema.Req(k, idSchema)
+	}
+	return schema.Object(fields...)
+}
+
+var vocabName = label(60)
+
+// buildSchema is the manifest's build block: the ledger builder picked for one actor type (house decision #62).
+var buildSchema = schema.Object(
+	schema.Req("strategy", schema.Literal("ledger")),
+	schema.Req("actor", idSchema),
+	schema.Req("params", ledger.ParamsSchema),
+	schema.Req("kinds", ledgerKindsSchema()),
+	schema.Req("sheet", schema.Object(
+		schema.Req("attributes", schema.Record(vocabName, fieldIDSchema)),
+		schema.Req("skills", schema.Record(vocabName, fieldIDSchema)),
+		schema.Req("mods", schema.Record(vocabName, fieldIDSchema)),
+		schema.Req("armourRating", fieldIDSchema),
+		schema.Req("powered", fieldIDSchema),
+		schema.Req("speed", fieldIDSchema),
+		schema.Req("species", fieldIDSchema),
+		schema.Req("archetype", fieldIDSchema),
+		schema.Req("keywords", fieldIDSchema),
+		schema.Opt("wealth", idSchema),
+		schema.Opt("corruption", idSchema),
+	)),
+	schema.Req("tier", idSchema),
+	schema.Opt("xp", fieldIDSchema),
+	schema.Req("cite", citeSchema),
+)
+
 var sourceSchema = schema.Object(
 	schema.Req("id", idSchema),
 	schema.Req("title", label(200)),
@@ -358,6 +400,7 @@ var rulesetSchema = schema.Object(
 	schema.Opt("tables", schema.Record(idSchema, tableSchema)),
 	schema.Def("health", healthSchema, map[string]any{"tracks": []any{}, "states": []any{}}),
 	schema.Def("creation", schema.Array(creationStepSchema).Max(50), []any{}),
+	schema.Opt("build", buildSchema),
 	schema.Def("decisions", schema.Array(schema.Object(
 		schema.Req("id", idSchema),
 		schema.Req("text", schema.String().Min(1).Max(1000)),

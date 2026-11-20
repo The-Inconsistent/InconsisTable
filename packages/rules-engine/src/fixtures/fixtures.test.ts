@@ -13,7 +13,7 @@ import { SAMPLE_POOL } from "./sample-pool.ts";
 // the sample's version, then the hash here. The hash is the one the importer compares (apps/api-go internal/ruleset/import.go).
 const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9cb58c5d";
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.7": "a474e29260b3f073aaa08b5bfc39b4c385d1663e5fa0ee0af184d1872e3a7ff5",
+  "sample-d20@0.1.7": "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf",
   "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.1": "e166afc269320775b0d1e455a2e7a5b10ca9b9c4f0d96f9fa473addb65b93f08",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",

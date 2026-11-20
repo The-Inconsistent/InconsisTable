@@ -293,9 +293,10 @@ export const SAMPLE_D20: RulesetInput = {
           id: "vigour",
           label: "Vigour",
           show: [
-            { widget: "track", bind: { value: "res.hp" } },
+            // A phone may not work out a bound whose formula reads a field it is not sent: the limit is bound.
+            { widget: "track", bind: { value: "res.hp", max: "derived.maxHp" } },
             "res.tempHp",
-            { widget: "track", label: "Focus", bind: { value: "res.focus" } },
+            { widget: "track", bind: { value: "res.focus" } },
           ],
         },
         {

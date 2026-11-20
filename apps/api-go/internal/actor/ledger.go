@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"unicode/utf16"
 
@@ -46,12 +47,19 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 	}
 	var kind, entityType string
 	var stored, storedDraft *string
-	var hasRow bool
-	var fieldRows int
+	var hasRow, packageWaived bool
+	var fieldRows, xpAtAscension int
+	var xpEarned *int32
+	xpField := ""
+	if rules.Ruleset.Build.XP != nil {
+		xpField = *rules.Ruleset.Build.XP
+	}
 	err = tx.QueryRow(ctx, `SELECT actor.kind, actor.entity_type, actor_build.build::text, actor_build.draft::text,
-			actor_build.actor_id IS NOT NULL, (SELECT count(*) FROM actor_field WHERE actor_field.actor_id = actor.id)
+			actor_build.actor_id IS NOT NULL, (SELECT count(*) FROM actor_field WHERE actor_field.actor_id = actor.id),
+			coalesce(actor_build.xp_at_ascension, 0), coalesce(actor_build.package_waived, false),
+			(SELECT int_value FROM actor_field WHERE actor_field.actor_id = actor.id AND field_id = $3 LIMIT 1)
 		FROM actor LEFT JOIN actor_build ON actor_build.actor_id = actor.id WHERE actor.id = $1 AND actor.campaign_id = $2`,
-		actorID, cid).Scan(&kind, &entityType, &stored, &storedDraft, &hasRow, &fieldRows)
+		actorID, cid, xpField).Scan(&kind, &entityType, &stored, &storedDraft, &hasRow, &fieldRows, &xpAtAscension, &packageWaived, &xpEarned)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return cs.Result{}, cs.Fail("characterNotFound")
 	}
@@ -78,11 +86,34 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 	if err != nil {
 		return cs.Result{}, err
 	}
-	if tier, isNumber := get(build, "tier").(float64); isNumber {
-		if room, set := campaign[rules.Ruleset.Build.Tier].(float64); !set || room != tier {
+	roomTier, tierSet := campaign[rules.Ruleset.Build.Tier].(float64)
+	// A made character (one with a stored build; a draft makes none) keeps its Tier, and only the GM side changes its
+	// creation choices (house decision #64). A draft is held to the same, so a player cannot park a changed creation.
+	var made *schema.Obj
+	if stored != nil {
+		doc, err := schema.DecodeJSON([]byte(*stored))
+		if err != nil {
+			return cs.Result{}, err
+		}
+		made = doc.(*schema.Obj)
+		was, _ := get(made, "tier").(float64)
+		if tier, isNumber := get(build, "tier").(float64); !isNumber || tier != was {
+			return cs.Result{}, cs.Fail("buildMadeAtTier", cs.Params{"tier": was})
+		}
+		if !view.ActorGmSide(c, kind) {
+			changed, err := creationChanged(rules.Build.Params, made, build)
+			if err != nil {
+				return cs.Result{}, cs.Fail("buildInvalid", cs.Params{"detail": cut(err.Error())})
+			}
+			if changed {
+				return cs.Result{}, cs.Fail("creationLocked")
+			}
+		}
+	} else if tier, isNumber := get(build, "tier").(float64); isNumber {
+		if !tierSet || roomTier != tier {
 			var gameTier any = "unset"
-			if set {
-				gameTier = room
+			if tierSet {
+				gameTier = roomTier
 			}
 			return cs.Result{}, cs.Fail("buildTierMismatch", cs.Params{"tier": tier, "gameTier": gameTier})
 		}
@@ -105,22 +136,40 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 		}
 		build.Set("gm", gm)
 	}
-	buildText, err := schema.AppendJSON(nil, build)
-	if err != nil {
-		return cs.Result{}, err
-	}
 	// A draft is kept as it is, unresolved: the GM opens it to approve their part, and nothing of the actor changes.
 	if draft, _ := a["draft"].(bool); draft {
+		buildText, err := schema.AppendJSON(nil, build)
+		if err != nil {
+			return cs.Result{}, err
+		}
 		_, err = tx.Exec(ctx, `INSERT INTO actor_build (actor_id, draft) VALUES ($1, $2)
 			ON CONFLICT (actor_id) DO UPDATE SET draft = EXCLUDED.draft, updated_at = now()`, actorID, string(buildText))
 		return cs.Done(""), err
 	}
 
+	// A made character is in play: priced against the XP it has earned at the room's Tier now, its purchase history the
+	// one the server stamped, never the client's (house decision #64).
+	var play *ledger.Play
+	var history *schema.Obj
+	if made != nil {
+		history, _ = get(advancementOf(made), "boughtIn").(*schema.Obj)
+		if history == nil {
+			history = schema.NewObj()
+		}
+		setHistory(build, history)
+		play = &ledger.Play{Tier: get(made, "tier").(float64), XPAtAscension: new(float64(xpAtAscension)), PackageWaived: packageWaived}
+		if tierSet {
+			play.Tier = roomTier
+		}
+		if xpEarned != nil {
+			play.XPEarned = float64(*xpEarned)
+		}
+	}
 	cat, err := catalogue(ctx, tx, cid, rules.Build)
 	if err != nil {
 		return cs.Result{}, err
 	}
-	resolved, err := ledger.Resolve(rules.Build.Params, cat, build, nil)
+	resolved, err := ledger.Resolve(rules.Build.Params, cat, build, play)
 	if err != nil {
 		return cs.Result{}, cs.Fail("buildInvalid", cs.Params{"detail": cut(err.Error())})
 	}
@@ -128,6 +177,21 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 		return cs.Result{}, cs.Fail("buildNotReady", cs.Params{"detail": notReady(resolved)})
 	}
 	sheet, _ := resolved.Sheet.(*schema.Obj)
+	xpSpent := 0
+	if resolved.Advancement != nil {
+		xpSpent = int(resolved.Advancement.Spent)
+	}
+	if made != nil {
+		stamped, err := stampHistory(ctx, tx, cid, resolved, history)
+		if err != nil {
+			return cs.Result{}, err
+		}
+		setHistory(build, stamped)
+	}
+	buildText, err := schema.AppendJSON(nil, build)
+	if err != nil {
+		return cs.Result{}, err
+	}
 
 	if _, err := tx.Exec(ctx, `UPDATE actor SET entity_type = $1,
 		ruleset_version_id = (SELECT ruleset_version_id FROM campaign WHERE id = $3) WHERE id = $2`,
@@ -157,10 +221,74 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 	}
 	// ponytail: like actor_choice the documents are outside the delta log, so Undo takes the field rows back but not
 	// the build, upgrade: the build document in the event log
-	_, err = tx.Exec(ctx, `INSERT INTO actor_build (actor_id, build, sheet) VALUES ($1, $2, $3)
-		ON CONFLICT (actor_id) DO UPDATE SET build = EXCLUDED.build, sheet = EXCLUDED.sheet, draft = NULL, updated_at = now()`,
-		actorID, string(buildText), string(sheetText))
+	// ponytail: nothing gained in play lives on the sheet document yet, so it is replaced whole, upgrade: keep what play
+	// added (Auspex keepPlay) when requisition and upgrades are ported
+	_, err = tx.Exec(ctx, `INSERT INTO actor_build (actor_id, build, sheet, xp_spent) VALUES ($1, $2, $3, $4)
+		ON CONFLICT (actor_id) DO UPDATE SET build = EXCLUDED.build, sheet = EXCLUDED.sheet, xp_spent = EXCLUDED.xp_spent,
+			draft = NULL, updated_at = now()`,
+		actorID, string(buildText), string(sheetText), xpSpent)
 	return cs.Done(id), err
+}
+
+// creationChanged says whether next changes the creation part of the made build (creationKey): what only the GM side
+// changes once a character is made. Both are parsed by the build's schema first, as the TypeScript compares them.
+func creationChanged(p *ledger.Params, made, next *schema.Obj) (bool, error) {
+	was, err := ledger.ParseRecord(p.Schemas().CharacterBuild, made)
+	if err != nil {
+		return false, err
+	}
+	now, err := ledger.ParseRecord(p.Schemas().CharacterBuild, next)
+	if err != nil {
+		return false, err
+	}
+	return ledger.CreationKey(was) != ledger.CreationKey(now), nil
+}
+
+func advancementOf(build *schema.Obj) *schema.Obj {
+	adv, _ := get(build, "advancement").(*schema.Obj)
+	return adv
+}
+
+// setHistory puts the purchase history in the build's advancement, in the place the client's had, keeping the build's
+// key order. A build without an advancement buys nothing in play, and one that sent no history and has none gains no key.
+func setHistory(build, history *schema.Obj) {
+	if adv := advancementOf(build); adv != nil && (adv.Has("boughtIn") || history.Len() > 0) {
+		adv.Set("boughtIn", history)
+	}
+}
+
+// stampHistory is the purchase history after a save (Auspex stampHistory, house decision #64): the stored stamp of every
+// advancement purchase the resolved ledger still names, in the stored order, then each new one stamped with the room's
+// highest session number (the open session, else the last one); with no session yet a new one stays unstamped. A
+// purchase taken back loses its stamp. Only a save that bought something new asks for the session.
+func stampHistory(ctx context.Context, tx core.Conn, campaignID string, r *ledger.ResolvedBuild, stored *schema.Obj) (*schema.Obj, error) {
+	keys := []string{}
+	for _, row := range r.Ledger {
+		if row.Pool == "advancement" && row.Key != "" && !slices.Contains(keys, row.Key) {
+			keys = append(keys, row.Key)
+		}
+	}
+	out := schema.NewObj()
+	for _, k := range stored.Keys() {
+		if slices.Contains(keys, k) {
+			v, _ := stored.Get(k)
+			out.Set(k, v)
+		}
+	}
+	fresh := slices.DeleteFunc(slices.Clone(keys), out.Has)
+	if len(fresh) == 0 {
+		return out, nil
+	}
+	var latest *int32
+	if err := tx.QueryRow(ctx, `SELECT max(number) FROM session WHERE campaign_id = $1`, campaignID).Scan(&latest); err != nil {
+		return nil, err
+	}
+	if latest != nil {
+		for _, k := range fresh {
+			out.Set(k, float64(*latest))
+		}
+	}
+	return out, nil
 }
 
 // LoadLedgers is the room's saved ledger builds, sheets and drafts by actor, as stored text (the Seat view decides who

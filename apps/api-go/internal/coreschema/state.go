@@ -397,7 +397,7 @@ type (
 		Audience     []string `json:"audience"`
 		// Status is open, done or failed on a quest and null on every other kind.
 		Status *string `json:"status"`
-		// ParentID is the adventure a scene belongs to; Position orders siblings (an adventure's scenes, adventures).
+		// ParentID is the entry it sits under (its own kind; a scene's adventure); Position orders siblings.
 		ParentID *string `json:"parentId"`
 		Position int     `json:"position"`
 		// Links are the entries a scene points at.

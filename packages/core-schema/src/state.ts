@@ -320,8 +320,10 @@ export const CodexEntry = z.object({
   audienceMode: AudienceMode,
   audience: z.array(z.string()), // actor ids, when audienceMode is "listed"
   status: QuestStatus.nullable(), // a quest's; null on every other kind. Seen by whoever sees the entry
-  parentId: z.string().nullable(), // a scene's adventure; null for a seat that can't see the adventure
-  position: z.number().int(), // order among siblings (an adventure's scenes, the adventures)
+  // The entry it sits under: one of its own kind, a scene's adventure (house decision #69). Null for a root, and for a
+  // seat that can't read the parent, to whom the entry is a root.
+  parentId: z.string().nullable(),
+  position: z.number().int(), // order among siblings (same kind, same parent)
   links: z.array(z.string()), // entries a scene points at, only those the seat can also see
   plannedTests: z.array(z.string()), // a scene's planned ruleset Test ids; GM side only
   // The entry's picture; another seat than the codex side gets it only once it is shown to the table (house decision #70).

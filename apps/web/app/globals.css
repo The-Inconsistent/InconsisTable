@@ -172,6 +172,27 @@ a {
 span.mention {
   cursor: default;
 }
+/* A codex entry's path, root first: "Top › Middle". */
+.entry-path {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.entry-path > li + li::before {
+  content: "›";
+  margin-inline-end: 4px;
+  color: var(--ink-2);
+}
+/* A codex entry inside another, indented by its depth (set inline) under a dotted rule. */
+.tree-child {
+  border-inline-start: 1px dotted var(--line);
+  padding-inline-start: 8px;
+}
 /* An entry's picture: never wider than its column, never taller than most of a phone's screen. */
 .entry-picture {
   display: block;

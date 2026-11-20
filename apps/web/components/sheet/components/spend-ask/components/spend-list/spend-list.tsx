@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 
 import type { Actor, LiveState, SpendRequest } from "@inconsistable/core-schema";
-import type { CompiledRuleset } from "@inconsistable/rules-engine";
+import type { CompiledRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import type { Send } from "@/hooks/use-table/use-table";
 import {
@@ -18,7 +18,9 @@ import {
 } from "@/lib/spends/spends";
 
 type SpendListProps = {
-  compiled: CompiledRuleset;
+  ruleset: Ruleset;
+  /** For resource bounds only; a player's manifest may not compile. */
+  compiled: CompiledRuleset | null;
   actor: Actor;
   table: Pick<LiveState, "pools" | "encounter" | "campaign">;
   characters: number;
@@ -31,14 +33,14 @@ type SpendListProps = {
 
 // SPENDS (house decision #84): what this character may ask the GM to spend now, each with its cost and the numbers it
 // takes; an ask waits here with a cancel until the GM answers. Only the spends the server would take now are listed.
-export function SpendList({ compiled, actor, table, characters, labels, requests, send }: SpendListProps) {
+export function SpendList({ ruleset, compiled, actor, table, characters, labels, requests, send }: SpendListProps) {
   const t = useTranslations("spendRequest");
   const id = useId();
   const [picked, setPicked] = useState<Record<string, Record<string, number>>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const listed = offersOf({ compiled, table, actor, characters }).filter((o) => o.plan !== null);
-  const chosen = offersOf({ compiled, table, actor, characters, inputs: picked });
+  const listed = offersOf({ ruleset, compiled, table, actor, characters }).filter((o) => o.plan !== null);
+  const chosen = offersOf({ ruleset, compiled, table, actor, characters, inputs: picked });
   const waiting = askedFor({ requests, actorId: actor.id });
   const world = spendWorld({ compiled, table, actor, characters });
   if (listed.length === 0 && waiting.length === 0) return null;
@@ -64,7 +66,7 @@ export function SpendList({ compiled, actor, table, characters, labels, requests
       <h2 className="head">{t("spends")}</h2>
       {waiting.map((q) => {
         const label =
-          `${spendOf(compiled, q)?.label ?? q.spendId ?? ""} ${inputsText({ spend: spendOf(compiled, q), inputs: q.inputs ?? {} })}`.trim();
+          `${spendOf(ruleset, q)?.label ?? q.spendId ?? ""} ${inputsText({ spend: spendOf(ruleset, q), inputs: q.inputs ?? {} })}`.trim();
         return (
           <div key={q.id} className="spend-waiting row" role="status">
             <span>{t("spendWaiting", { label })}</span>

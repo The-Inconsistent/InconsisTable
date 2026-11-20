@@ -410,8 +410,8 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
                       </button>
                     )}
                   </span>
-                  {compiled && can("request:resolve") && (
-                    <SpendButtons compiled={compiled} state={state} actor={a} send={send} />
+                  {sheet.ruleset && can("request:resolve") && (
+                    <SpendButtons ruleset={sheet.ruleset} compiled={compiled} state={state} actor={a} send={send} />
                   )}
                   {sheet.ruleset && sheetOf === a.id && (
                     <div className="card" style={{ width: "100%" }}>

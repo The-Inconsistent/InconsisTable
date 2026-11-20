@@ -34,12 +34,13 @@ export function RequestBar({ state, labels, ruleset, send }: RequestBarProps) {
 
   // A spend-ask in the ruleset's words: its label, its inputs and what it would cost now.
   const spendText = (q: SpendRequest): string => {
-    const spend = spendOf(compiled, q);
+    const spend = spendOf(ruleset, q);
     const actor = state.actors.find((a) => a.id === q.actorId);
     const inputs = q.inputs ?? {};
     const plan =
-      compiled && actor && spend
+      ruleset && actor && spend
         ? offersOf({
+            ruleset,
             compiled,
             table: state,
             actor,

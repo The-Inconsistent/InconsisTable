@@ -253,8 +253,11 @@ export function SheetView({
         </section>
       ))}
       {sections.length === 0 && <p className="dim">{t("nothing")}</p>}
-      {!gm && table && compiled && (
-        <SpendList labels={resourceLabels(ruleset)} {...{ compiled, actor, table, characters, requests, send }} />
+      {!gm && table && (
+        <SpendList
+          labels={resourceLabels(ruleset)}
+          {...{ ruleset, compiled, actor, table, characters, requests, send }}
+        />
       )}
       <LedgerLines sheet={actor.ledger?.sheet} skip={ledgerLaidOut(models)} {...{ ruleset, books, requestPage }} />
       {build?.xp && ledger && (

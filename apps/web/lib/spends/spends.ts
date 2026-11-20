@@ -9,12 +9,15 @@ import {
   type CompiledRuleset,
   type PlannedCost,
   type RuleState,
+  type Ruleset,
   type Spend,
   type SpendPlan,
 } from "@inconsistable/rules-engine";
 
 // The pure side of spends (house decision #84): what a character may spend now, read as the server reads it, and the
 // words a spend or an ask is shown with. The server still decides; this is the preview that hides what it would refuse.
+// It reads the seat's own manifest, which may not compile (a player's leaves out the `gm` resources other blocks name):
+// a compiled ruleset only gives a resource its bounds, and without one a resource reads from 0.
 
 type Table = Pick<LiveState, "pools" | "encounter" | "campaign">;
 
@@ -25,7 +28,7 @@ export function spendWorld({
   actor,
   characters,
 }: {
-  compiled: CompiledRuleset;
+  compiled: CompiledRuleset | null;
   table: Table;
   actor: Actor;
   characters: number;
@@ -40,6 +43,7 @@ export function spendWorld({
   const resources: Record<string, ActorState["resources"][string]> = {};
   for (const [id, value] of Object.entries(actor.resources)) {
     try {
+      if (compiled === null) throw new Error("no bounds");
       const { min, max } = resourceBounds({ compiled, resource: id, scope });
       resources[id] = { value, min, max };
     } catch {
@@ -64,26 +68,28 @@ export function spendWorld({
 
 /** The spends this actor's type may spend, each read now with the given inputs (each input's min when not given). */
 export function offersOf({
+  ruleset,
   compiled,
   table,
   actor,
   characters,
   inputs = {},
 }: {
-  compiled: CompiledRuleset;
+  ruleset: Ruleset;
+  compiled: CompiledRuleset | null;
   table: Table;
   actor: Actor;
   characters: number;
   inputs?: Readonly<Record<string, Readonly<Record<string, number>>>>;
 }): { spend: Spend; plan: SpendPlan | null }[] {
-  const spends = (compiled.ruleset.spends ?? []).filter(
+  const spends = (ruleset.spends ?? []).filter(
     (s) => actor.entity !== null && (s.entities === undefined || s.entities.includes(actor.entity)),
   );
   if (spends.length === 0) return [];
   const world = spendWorld({ compiled, table, actor, characters });
   return spends.map((spend) => {
     const picked = { ...defaultInputs(spend), ...inputs[spend.id] };
-    const r = planSpend({ ruleset: compiled.ruleset, spendId: spend.id, ...world, inputs: picked });
+    const r = planSpend({ ruleset, spendId: spend.id, ...world, inputs: picked });
     return { spend, plan: "code" in r ? null : r };
   });
 }
@@ -108,8 +114,8 @@ export const inputsText = ({ spend, inputs }: { spend: Spend | undefined; inputs
     .join(", ");
 
 /** The spend an ask names, by its id. */
-export const spendOf = (compiled: CompiledRuleset | null, q: Pick<SpendRequest, "spendId">): Spend | undefined =>
-  q.spendId === null ? undefined : compiled?.ruleset.spends?.find((s) => s.id === q.spendId);
+export const spendOf = (ruleset: Ruleset | null, q: Pick<SpendRequest, "spendId">): Spend | undefined =>
+  q.spendId === null ? undefined : ruleset?.spends?.find((s) => s.id === q.spendId);
 
 /** The pending spend-asks for one character. */
 export const askedFor = ({ requests, actorId }: { requests: readonly SpendRequest[]; actorId: string }) =>

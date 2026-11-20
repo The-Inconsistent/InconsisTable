@@ -170,6 +170,8 @@ const ACTORS = [
     entity: "creature",
     fields: { name: "K", level: 2, "attr.con": 12 },
     ledger: ledger("keeper"),
+    // House decision #92: the GM side's only.
+    spawnOptions: ["hardened", "quick"],
   }),
   actor(GOB, "creature", "Goblin", null, {
     entity: "creature",
@@ -793,6 +795,8 @@ const BASE_SNAPSHOTS: {
           unable: i === 3,
           // House decision #91: the uses limited per round travel with the combatant, a hidden one's with it.
           ...(i % 2 === 0 ? { used: ["channel"] } : {}),
+          // House decision #92: a marker goes to whoever sees the combatant.
+          ...(i < 3 ? { marker: ["red", "white", "blue"][i] } : {}),
         })),
         begun: true,
         lastSide: "wardens",
@@ -978,6 +982,7 @@ const VALID: Record<string, Record<string, unknown>> = {
   "encounter.move": { combatantId: ID, direction: "up" },
   "encounter.setVisibility": { combatantId: ID, visibility: "full" },
   "encounter.keep": { combatantId: ID, keep: true },
+  "encounter.mark": { combatantId: ID, marker: "amber" },
   "turn.next": {},
   "turn.prev": {},
   "turn.first": { combatantId: ID },
@@ -1184,6 +1189,26 @@ for (const visibility of ["hidden", "bar", "full", "stats", undefined])
 for (const name of ["", " ", " a ", "x".repeat(80), "x".repeat(81), ` ${"x".repeat(80)} `])
   record("Action", { ...spawn, count: 1, name });
 for (const mob of [1, 2, 500, 501]) prepSave({ roster: [{ ...LINES.roster, mob }] });
+// House decision #92: a spawn's and a roster line's options (ids, each once, at most 10) and marker; encounter.mark.
+const OPTION_LISTS = [
+  [],
+  ["a"],
+  ["a", "b"],
+  ["a", "a"],
+  [""],
+  ["x".repeat(65)],
+  Array.from({ length: 11 }, (_, i) => `o${i}`),
+  "a",
+];
+for (const options of OPTION_LISTS) {
+  record("Action", { ...spawn, count: 1, options });
+  prepSave({ roster: [{ ...LINES.roster, options }] });
+}
+for (const marker of ["red", "amber", "green", "blue", "purple", "white", "black", "", null, undefined]) {
+  record("Action", { ...spawn, count: 1, marker });
+  prepSave({ roster: [{ ...LINES.roster, marker }] });
+  record("Action", { type: "encounter.mark", combatantId: ID, marker });
+}
 for (const amount of [-1001, -1000, -1, 0, 1, 1000, 1001, 1.5]) prepSave({ pools: [{ ...LINES.pools, amount }] });
 for (const n of [6, 7]) {
   const outcomes = Array.from({ length: n }, () => ({ label: "x".repeat(40), text: "y".repeat(500) }));

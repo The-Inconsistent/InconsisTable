@@ -255,6 +255,7 @@ var handlers = map[string]handler{
 	"encounter.move":          encounter.Action,
 	"encounter.setVisibility": encounter.Action,
 	"encounter.keep":          encounter.Action,
+	"encounter.mark":          encounter.Action,
 	"turn.next":               encounter.Action,
 	"turn.prev":               encounter.Action,
 	"turn.first":              encounter.Action,

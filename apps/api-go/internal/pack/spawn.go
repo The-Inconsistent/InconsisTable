@@ -15,6 +15,7 @@ import (
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter/turn"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
@@ -49,6 +50,22 @@ func SpawnNames(existing []string, base string, count int) []string {
 		names[i] = stem + " " + strconv.FormatFloat(last+float64(i)+1, 'f', -1, 64)
 	}
 	return names
+}
+
+// spawnRoom is what a spawn reads of the room (house decision #92): the campaign's values, its active characters, and
+// party.seated, the active characters held by a member's seat. It is read at spawn and fixed there.
+func spawnRoom(ctx context.Context, tx core.Conn, cid string, rules *engine.CompiledRuleset) (engine.SpawnRoom, error) {
+	campaign, err := actor.LoadCampaign(ctx, tx, cid, rules)
+	if err != nil {
+		return engine.SpawnRoom{}, err
+	}
+	room := engine.SpawnRoom{Campaign: campaign}
+	err = tx.QueryRow(ctx, `SELECT
+		(SELECT count(*) FROM actor WHERE campaign_id = $1 AND kind = 'pc' AND status = 'active'),
+		(SELECT count(DISTINCT a.id) FROM membership_character mc JOIN membership m ON m.id = mc.membership_id
+			JOIN actor a ON a.id = mc.actor_id WHERE m.campaign_id = $1 AND a.campaign_id = $1 AND a.kind = 'pc' AND a.status = 'active')`,
+		cid).Scan(&room.Characters, &room.Seated)
+	return room, err
 }
 
 // Spawn is actor.spawn: N creatures from one entry of a pack attached to this room. A pack version never changes, so
@@ -107,10 +124,28 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	if named && count == 1 && !slices.Contains(taken, base) {
 		names = []string{base}
 	}
-	body := entry.Body
+	// The options it takes and the adjustments fixed now, read from the entry and the room (house decision #92).
+	mob, isMob := a["mob"].(float64)
+	options := []string{}
+	if list, ok := a["options"].([]any); ok {
+		for _, v := range list {
+			if s, ok := v.(string); ok {
+				options = append(options, s)
+			}
+		}
+	}
+	room, err := spawnRoom(ctx, tx, cid, rules)
+	if err != nil {
+		return cs.Result{}, err
+	}
+	plan, refusal := engine.PlanSpawn(rules.Ruleset, entry.Type, entry.Body, options, room, isMob)
+	if refusal != nil {
+		return cs.Result{}, cs.Fail(refusal.Code, cs.Params{"detail": refusal.Message})
+	}
+	body := plan.Fields
 	var members map[string]float64
 	// A mob (house decision #66): one actor standing for N members, its start field and members resource at N.
-	if mob, isMob := a["mob"].(float64); isMob {
+	if isMob {
 		if count > 1 {
 			return cs.Result{}, cs.Fail("badRequest", cs.Params{"detail": "a mob is one actor: spawn it with a count of 1"})
 		}
@@ -121,7 +156,7 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 		n := strconv.FormatFloat(mob, 'f', -1, 64)
 		names = []string{sliceUnits(base, maxName-len(n)-2) + " ×" + n}
 		body = map[string]any{harm.Mob.Start: mob}
-		maps.Copy(body, entry.Body)
+		maps.Copy(body, plan.Fields)
 		body[harm.Mob.Start] = mob
 		members = map[string]float64{harm.Mob.Members: mob}
 	}
@@ -129,13 +164,13 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	targets := []actor.StartTarget{}
 	for _, name := range names {
 		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO actor (campaign_id, kind, entity_type, name, temporary, ruleset_version_id)
-			VALUES ($1, 'creature', $2, $3, $4, (SELECT ruleset_version_id FROM campaign WHERE id = $1)) RETURNING id::text`,
-			cid, entry.Type, name, temporary).Scan(&id); err != nil {
+		if err := tx.QueryRow(ctx, `INSERT INTO actor (campaign_id, kind, entity_type, name, temporary, ruleset_version_id, spawn_options)
+			VALUES ($1, 'creature', $2, $3, $4, (SELECT ruleset_version_id FROM campaign WHERE id = $1), $5) RETURNING id::text`,
+			cid, entry.Type, name, temporary, plan.Options).Scan(&id); err != nil {
 			return cs.Result{}, err
 		}
 		made = append(made, id)
-		targets = append(targets, actor.StartTarget{ActorID: id, Fields: body, Resources: members})
+		targets = append(targets, actor.StartTarget{ActorID: id, Fields: body, Resources: members, Add: plan.Resources})
 	}
 	id, err := actor.WriteStart(ctx, tx, c, rules, targets)
 	if err != nil {
@@ -155,6 +190,12 @@ func Spawn(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 		}
 		if err := encounter.AddCombatants(ctx, tx, cid, fight.ID, made, side, a.Str("visibility")); err != nil {
 			return cs.Result{}, err
+		}
+		if marker := a.Str("marker"); marker != "" {
+			if _, err := tx.Exec(ctx, `UPDATE combatant SET marker = $1 WHERE encounter_id = $2 AND actor_id = ANY($3::uuid[])`,
+				marker, fight.ID, made); err != nil {
+				return cs.Result{}, err
+			}
 		}
 	}
 	return cs.Done(id), nil

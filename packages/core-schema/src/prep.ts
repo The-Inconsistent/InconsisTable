@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { CombatVisibility } from "./encounter.ts";
+import { CombatVisibility, Marker } from "./encounter.ts";
 import { TestInputs } from "./test-call.ts";
 
 // A scene's prepared lines (ADR 0012 decision 3, house decision #73): each line is an action the table already has,
@@ -23,8 +23,15 @@ const line = {
   note: z.string().max(500).optional(),
 };
 
+// The ruleset's spawn options a spawn takes (house decision #92): ids, each once.
+export const SpawnOptionIds = z
+  .array(z.string().min(1).max(64))
+  .max(10)
+  .refine((ids) => new Set(ids).size === ids.length, "An option is listed twice");
+
 // A pack entry by the pack's slug and the entry's key, durable across the pack's versions: the attached version is
-// found when the line is sent. `mob` makes each one a mob of that many (house decision #66).
+// found when the line is sent. `mob` makes each one a mob of that many (house decision #66); `marker` and `options`
+// go with the spawn (house decision #92).
 export const RosterLine = z.object({
   ...line,
   pack: z.string().min(1).max(64),
@@ -33,6 +40,8 @@ export const RosterLine = z.object({
   mob: z.int().min(2).max(500).optional(),
   visibility: CombatVisibility.default("hidden"),
   temporary: z.boolean().default(true),
+  marker: Marker.optional(),
+  options: SpawnOptionIds.optional(),
 });
 export type RosterLine = z.infer<typeof RosterLine>;
 

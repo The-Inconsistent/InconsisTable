@@ -391,11 +391,13 @@ function seatState({
     // Everyone sees the party by name and what the seat holds; the rest of the cast is for the combat side.
     actors: state.actors
       .filter((a) => PARTY_KINDS.has(a.kind) || held.includes(a.id) || sight.combat)
-      .map((a) => {
+      .map(({ spawnOptions, ...a }) => {
         const v = views.get(a.id);
         const own = held.includes(a.id) || actorGmSide({ ctx, kind: a.kind });
         return {
           ...a,
+          // The spawn options it was spawned with (house decision #92): the GM side and the seat holding it.
+          ...(own && spawnOptions !== undefined && spawnOptions.length > 0 ? { spawnOptions } : {}),
           ownerUserId: own ? a.ownerUserId : null,
           // The saved ledger build and sheet, and their play figures (house decisions #63, #64): the GM side and the
           // seat holding the character.

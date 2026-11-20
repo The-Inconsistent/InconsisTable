@@ -203,6 +203,8 @@ func seatState(state cs.LiveState, compiled *engine.CompiledRuleset, c cs.Ctx, s
 			out.OwnerUserID = nil
 			// The saved build, sheet and play figures: the GM side and the seat holding the character (house decisions #63, #64).
 			out.Ledger = nil
+			// The spawn options it was spawned with: the GM side and a seat holding it (house decision #92).
+			out.SpawnOptions = nil
 		}
 		v, seen := views[a.ID]
 		if seen {

@@ -1094,7 +1094,8 @@ test("entry fields: the ruleset declares them, the GM sets them, a player and th
   assert.equal(fieldsOf(ana, npc)?.home, undefined);
   ok(await owner.send({ type: "codex.reveal", id: quay, visibility: "party", audienceMode: "all", audience: [] }));
   await eventually(() => fieldsOf(ana, npc)?.home === quay, "the party's link once the place is readable");
-  assert.equal(fieldsOf(screen, npc)?.home, quay);
+  // Each seat gets its own broadcast: the screen's may land after the player's.
+  await eventually(() => fieldsOf(screen, npc)?.home === quay, "the screen's link once the place is readable");
   assert.equal(fieldsOf(ana, band)?.seat, undefined);
   ok(await owner.send({ type: "codex.reveal", id: quay, visibility: "gm", audienceMode: "all", audience: [] }));
   await eventually(() => fieldsOf(ana, npc)?.home === undefined, "the link goes with the place");

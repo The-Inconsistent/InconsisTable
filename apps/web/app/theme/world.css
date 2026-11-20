@@ -1,0 +1,174 @@
+/* A World's look (docs/adr/0010, decision 2). A room's wrapper carries [data-world] and the World's picks as data
+   attributes (lib/world/world.ts); its colours arrive in a <style> rendered with the page, declared on the root while the
+   wrapper is there. On such a page felt steps aside (felt.css, motion.css) and the World lies over lantern, whatever the
+   device picked. The wrapper is an ancestor of the table's surface.
+   Under a World every rule here reads the tokens a World sets, and never a surface token as a text colour, so a World
+   can have light cards by day and dark ones by night. The main-action colour (--brass and its steps) paints the main
+   action and its states only; rules and outlines read the line tokens. */
+
+/* ---------- The colour set: the device's pick, among the sets the World brings ---------- */
+html:has([data-world]) {
+  background: var(--paper);
+}
+/* The table is no longer forced dark, and a card no longer forced light: both follow the set the root shows. */
+[data-world] :is(.surface-table, .parchment, .card, .combatant, .bottom-sheet, .sheet-card) {
+  color-scheme: inherit;
+}
+/* The TV keeps the World's ink: its far-away type was cream on dark wood, which a light set would lose. */
+[data-world] [data-density="tv"] {
+  --ink: inherit;
+  --ink-2: inherit;
+}
+
+/* ---------- Buttons on the table: plates cut from the page, the main action in brass ---------- */
+[data-world] {
+  font-family: var(--font-body);
+  --plate: linear-gradient(180deg, light-dark(var(--paper), var(--paper-2)), light-dark(var(--paper-2), var(--paper)));
+  --plate-line: var(--line);
+  --plate-lit: color-mix(in srgb, var(--paper) 45%, transparent);
+  --plate-main: linear-gradient(180deg, var(--brass-hi), var(--brass));
+  --plate-main-ink: var(--brass-ink);
+}
+
+/* ---------- The table's chrome lies on the band ----------
+   The band, the tabs, the fight bar, the slips under the tabs, the turn banner and a card's back re-declare the
+   semantic names as the band's, as a parchment card re-declares them as its own: text is band-ink on band (a pair every
+   World is held to), and the focus ring is band-ink haloed in band, so it shows on the band in both sets. */
+[data-world]
+  :is(
+    .band,
+    .tabs,
+    .fightbar,
+    .request-bar,
+    .spend-notice,
+    .turn-banner,
+    .game-outcome,
+    .playing-card[data-up="false"]
+  ) {
+  --paper: var(--band);
+  --paper-2: var(--band);
+  --ink: var(--band-ink);
+  --ink-2: var(--band-ink);
+  --line: color-mix(in srgb, var(--band-ink) 35%, var(--band));
+  --plate: var(--band);
+  --plate-line: color-mix(in srgb, var(--band-ink) 35%, var(--band));
+  --plate-lit: color-mix(in srgb, var(--band-ink) 12%, transparent);
+  --focus: var(--band-ink);
+  --focus-halo: var(--band);
+  color: var(--ink);
+}
+[data-world] .band {
+  background: var(--grain-h), var(--band);
+  background-size:
+    360px 120px,
+    auto;
+  border-bottom-color: var(--line);
+  box-shadow:
+    inset 0 1px 0 var(--plate-lit),
+    0 8px 18px rgb(0 0 0 / 0.35);
+}
+[data-world] .band a {
+  color: var(--ink);
+}
+[data-world] .tabs {
+  background: var(--grain-h), var(--band);
+  background-size:
+    360px 120px,
+    auto;
+  border-color: var(--line);
+}
+[data-world] .tab:not([aria-selected="true"]) {
+  background: var(--band);
+  color: var(--ink);
+  border-color: var(--line);
+  box-shadow: inset 0 1px 0 var(--plate-lit);
+}
+[data-world] .fightbar {
+  background: var(--grain-h), var(--band);
+  background-size:
+    360px 120px,
+    auto;
+  border-bottom-color: var(--line);
+}
+[data-world] .fightbar .round {
+  color: var(--ink);
+  text-shadow: none;
+}
+[data-world] :is(.request-bar, .spend-notice) {
+  background: var(--band);
+  border-bottom-color: var(--line);
+}
+[data-world] .turn-banner {
+  background: var(--grain-h), var(--band);
+  background-size:
+    360px 120px,
+    auto;
+  color: var(--ink);
+  border-color: var(--line);
+  box-shadow:
+    inset 0 0 0 4px var(--band),
+    inset 0 0 0 5px var(--line),
+    0 8px 14px var(--shadow);
+  text-shadow: none;
+}
+[data-world] .game-outcome {
+  background: var(--band);
+  color: var(--ink);
+  border-color: var(--line);
+}
+[data-world] .playing-card[data-up="false"] {
+  background: repeating-linear-gradient(45deg, transparent 0 9px, var(--line) 9px 10px), var(--band);
+  color: var(--ink);
+}
+
+/* ---------- Rules and outlines read the line tokens; brass stays for the main action ---------- */
+[data-world] :is(.mention, .tabs, .tab:not([aria-selected="true"]), .playing-card, .request-bar, .build-bar) {
+  border-color: var(--line);
+}
+[data-world] :is(.lb-banner, .bottom-sheet, .end-notice, .game-mine) {
+  border-color: var(--line);
+}
+[data-world] .outcome-critical,
+[data-world] .outcome-criticalSuccess {
+  border-bottom-color: var(--line);
+}
+/* A chip is the page's second surface in an outline, on the table and in a card; the first player's stays brass. */
+[data-world] .chip:not([data-first="true"]) {
+  border-color: var(--line);
+  background: var(--paper-2);
+}
+/* The pin on a card is a plain stud in the card's own line. */
+[data-world] :is(.card, .sheet-card)::after,
+[data-world] :is(.card, .sheet-card):nth-child(even)::after {
+  background: radial-gradient(circle at 35% 30%, var(--paper), var(--line) 55%, var(--ink-2));
+}
+/* The acting slip is lit in the card's own colours, so a dark card stays dark. */
+[data-world] .combatant[data-acting="true"]::before {
+  background: radial-gradient(ellipse at 20% 0%, var(--parchment-hi), var(--parchment) 80%);
+}
+[data-world] .end-notice {
+  color: var(--ink);
+}
+/* The clock is drawn in the page's own surfaces and line; its lit wedges keep the candle. */
+[data-world] .clock-rim {
+  fill: var(--paper-2);
+  stroke: var(--line);
+}
+[data-world] .clock-wedge {
+  fill: var(--paper);
+  stroke: var(--line);
+}
+[data-world] .clock-hub {
+  fill: var(--line);
+}
+/* The health bar: the page's second surface in a line, filled with ok; low health is the accent striped. */
+[data-world] .bar {
+  border-color: var(--line);
+  background: var(--paper-2);
+}
+[data-world] .bar > span {
+  background: var(--ok);
+}
+[data-world] .bar[data-low="true"] > span {
+  background: repeating-linear-gradient(45deg, rgb(0 0 0 / 0.3) 0 4px, transparent 4px 8px), var(--accent);
+}

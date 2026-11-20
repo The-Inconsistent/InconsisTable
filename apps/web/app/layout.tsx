@@ -5,13 +5,21 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import Script from "next/script";
 
-import { THEME_COOKIE, resolveTheme, themeClass } from "@/lib/theme/theme";
+import {
+  SCHEME_COOKIE,
+  THEME_COOKIE,
+  resolveScheme,
+  resolveTheme,
+  schemeAttribute,
+  themeClass,
+} from "@/lib/theme/theme";
 import { TOKENS } from "@/lib/tokens/tokens";
 
 import "./theme/lantern.css";
 import "./theme/motion.css";
 import "./globals.css";
 import "./theme/felt.css";
+import "./theme/world.css";
 
 // Be Vietnam Pro: one body face for both languages, with a Vietnamese subset. (Atkinson Hyperlegible Next, which reads
 // well at a distance, has no Vietnamese subset on Google Fonts, so a Vietnamese mark would fall to the system face.)
@@ -67,14 +75,19 @@ type RootLayoutProps = { children: React.ReactNode };
 export default async function RootLayout({ children }: RootLayoutProps) {
   const locale = await getLocale();
   // Each device picks its Theme (the switch beside the language one); felt proves a World can re-map the tokens.
-  // ponytail: a device-wide pick, upgrade: the World a room belongs to picks its Theme (P2).
-  const theme = themeClass(resolveTheme((await cookies()).get(THEME_COOKIE)?.value));
+  // Inside a room whose World is on the page, the World's look replaces it (theme/world.css, lib/world).
+  // ponytail: no room wears its World yet, upgrade: the room page wraps its table in worldLook() of its pinned World.
+  const jar = await cookies();
+  const theme = themeClass(resolveTheme(jar.get(THEME_COOKIE)?.value));
+  // The colour set a World's room shows on this device, when the World brings both (theme/world.css reads it).
+  const scheme = schemeAttribute(resolveScheme(jar.get(SCHEME_COOKIE)?.value));
   return (
     // suppressHydrationWarning: the motion script adds its class before React hydrates
     // ponytail: a Theme switch rewrites the class and drops "motion" until the next full load, entrances then just show
     <html
       lang={locale}
       className={`${text.variable} ${display.variable} ${feltDisplay.variable} ${theme}`.trim()}
+      data-scheme={scheme}
       suppressHydrationWarning
     >
       <body className="surface-app">

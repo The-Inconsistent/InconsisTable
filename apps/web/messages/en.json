@@ -28,6 +28,16 @@
       "felt": "Felt"
     }
   },
+  "world": {
+    "scheme": {
+      "label": "Colours",
+      "name": {
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    }
+  },
   "roles": {
     "gm": "GM",
     "cogm": "Co-GM",

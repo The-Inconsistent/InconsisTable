@@ -28,6 +28,16 @@
       "felt": "Nỉ xanh"
     }
   },
+  "world": {
+    "scheme": {
+      "label": "Màu",
+      "name": {
+        "system": "Theo máy",
+        "light": "Sáng",
+        "dark": "Tối"
+      }
+    }
+  },
   "roles": {
     "gm": "GM",
     "cogm": "Co-GM",

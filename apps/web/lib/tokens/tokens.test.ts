@@ -52,10 +52,13 @@ const lantern = rulesOf(read("app/theme/lantern.css"));
 const felt = rulesOf(read("app/theme/felt.css"));
 const globals = rulesOf(read("app/globals.css"));
 const motion = rulesOf(read("app/theme/motion.css"));
+const world = rulesOf(read("app/theme/world.css"));
 const lanternRoot = lantern.find((r) => r.selector === ":root");
-const feltRoot = felt.find((r) => r.selector === ":root.theme-felt");
+// felt steps aside on a page that wears a World (theme/world.css)
+const FELT_ROOT = ":root.theme-felt:not(:has([data-world]))";
+const feltRoot = felt.find((r) => r.selector === FELT_ROOT);
 const cardScope = lantern.find((r) => r.selector.split(",").some((s) => s.trim() === ".parchment"));
-assert.ok(lanternRoot && feltRoot && cardScope, "lantern :root, felt :root.theme-felt and the .parchment scope exist");
+assert.ok(lanternRoot && feltRoot && cardScope, "lantern :root, felt's root and the .parchment scope exist");
 
 // Properties next/font injects on <html>; they are not the Theme's to declare.
 const FONT_VARS = new Set(["--font-text", "--font-display-face", "--font-display-felt"]);
@@ -67,7 +70,13 @@ function sourceFiles(dir: string): string[] {
 }
 
 test("every var(--x) the app uses is declared by the base Theme", () => {
-  const declared = new Set([...customProps(lantern), ...customProps(motion), ...customProps(globals), ...FONT_VARS]);
+  const declared = new Set([
+    ...customProps(lantern),
+    ...customProps(motion),
+    ...customProps(globals),
+    ...customProps(world),
+    ...FONT_VARS,
+  ]);
   const missing: string[] = [];
   for (const file of [...sourceFiles("app/"), ...sourceFiles("components/")]) {
     const text = file.endsWith(".css") ? strip(read(file)) : read(file);
@@ -90,7 +99,7 @@ test("felt re-maps every token the base Theme declares", () => {
 
 test("motion.css declares the duration and easing tokens; felt and the TV re-map durations only", () => {
   const motionRoot = motion.find((r) => r.selector === ":root");
-  const motionFelt = motion.find((r) => r.selector === ":root.theme-felt");
+  const motionFelt = motion.find((r) => r.selector === FELT_ROOT);
   const motionTv = motion.find((r) => r.selector === '[data-density="tv"]');
   assert.ok(motionRoot && motionFelt && motionTv, "motion :root, felt and tv rules exist");
   const declared = customProps([motionRoot]);
@@ -116,7 +125,7 @@ test("motion.css declares the duration and easing tokens; felt and the TV re-map
 
 test("rules read durations and easings from the tokens: no literal time or cubic-bezier outside a keyframe", () => {
   const literal = /(?<![\w.-])\d*\.?\d+m?s\b|cubic-bezier/;
-  const found = [...lantern, ...felt, ...globals, ...motion].flatMap((r) =>
+  const found = [...lantern, ...felt, ...globals, ...motion, ...world].flatMap((r) =>
     [...r.decls]
       .filter(([prop, value]) => !prop.startsWith("--") && literal.test(value))
       .map(([prop, value]) => `${r.selector} { ${prop}: ${value} }`),

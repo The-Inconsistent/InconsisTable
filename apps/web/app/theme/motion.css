@@ -25,7 +25,7 @@
   /* an overshoot spring: settles past 1 and back */
   --ease-spring: linear(0, 0.18, 0.56, 0.9, 1.06, 1.08, 1.04, 1.01, 1, 0.995, 1);
 }
-:root.theme-felt {
+:root.theme-felt:not(:has([data-world])) {
   --dur-move: 220ms;
   --dur-scene: 360ms;
 }
@@ -36,7 +36,7 @@
   --dur-move: 390ms;
   --dur-scene: 630ms;
 }
-:root.theme-felt [data-density="tv"] {
+:root.theme-felt:not(:has([data-world])) [data-density="tv"] {
   --dur-move: 330ms;
   --dur-scene: 540ms;
 }
@@ -123,9 +123,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root,
-  :root.theme-felt,
+  :root.theme-felt:not(:has([data-world])),
   [data-density="tv"],
-  :root.theme-felt [data-density="tv"] {
+  :root.theme-felt:not(:has([data-world])) [data-density="tv"] {
     --dur-move: 1ms;
     --dur-scene: 1ms;
     --stagger: 0ms;

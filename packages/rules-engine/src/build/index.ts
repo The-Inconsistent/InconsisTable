@@ -16,6 +16,7 @@ export {
   type Wargear as LedgerWargear,
 } from "./schemas.ts";
 export { resolveBuild } from "./resolve.ts";
+export { creationKey } from "./creation-key.ts";
 export { meets, outOfReach, wargearMatches, type BuildCtx } from "./requirements.ts";
 export {
   buildReady,

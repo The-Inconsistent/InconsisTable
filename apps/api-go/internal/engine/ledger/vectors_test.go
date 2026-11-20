@@ -32,8 +32,13 @@ type vectorFile struct {
 		Creation json.RawMessage `json:"creation"`
 		Wargear  json.RawMessage `json:"wargear"`
 	} `json:"catalogues"`
-	Resolve []resolveCase `json:"resolve"`
-	Meets   []struct {
+	Resolve      []resolveCase `json:"resolve"`
+	CreationKeys []struct {
+		Params int             `json:"params"`
+		Build  json.RawMessage `json:"build"`
+		Key    string          `json:"key"`
+	} `json:"creationKeys"`
+	Meets []struct {
 		Ctx json.RawMessage `json:"ctx"`
 		Req json.RawMessage `json:"req"`
 		Why json.RawMessage `json:"why"`
@@ -131,6 +136,24 @@ func TestJavaScriptBehaviourMatches(t *testing.T) {
 		}
 		if got := stringify(value, true); got != c.NoLabel {
 			t.Errorf("JSON.stringify without labels: Go %s, JavaScript %s", got, c.NoLabel)
+		}
+	}
+}
+
+// creationKey on builds as sent, with their keys reversed, with an advance/ choice or another advancement and GM's part
+// (each the same key), and with a creation change (another).
+func TestCreationKeyMatchesTheTypeScript(t *testing.T) {
+	v := loadVectors(t)
+	if len(v.CreationKeys) < 1000 {
+		t.Fatalf("only %d creationKey vectors", len(v.CreationKeys))
+	}
+	for i, c := range v.CreationKeys {
+		build, err := ParseRecord(params[c.Params].Schemas().CharacterBuild, decoded(c.Build))
+		if err != nil {
+			t.Fatalf("case %d: %v", i, err)
+		}
+		if got := CreationKey(build); got != c.Key {
+			t.Fatalf("case %d: Go %s\nTypeScript %s", i, got, c.Key)
 		}
 	}
 }

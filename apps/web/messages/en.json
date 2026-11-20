@@ -446,7 +446,8 @@
   "healthBar": {
     "label": "{name} health {percent} percent",
     "count": "{count} standing",
-    "times": "×{count}"
+    "times": "×{count}",
+    "stacked": "{label} ({count})"
   },
   "harmPad": {
     "label": "Hits on {name}",
@@ -822,6 +823,7 @@
     "revokeGuest": "Revoke guest",
     "restParty": "{rest} for the whole party",
     "restPartyButton": "{rest} (party)",
+    "restSkipped": "Not rested in their state: {names}",
     "newCharacter": "New character name",
     "add": "Add",
     "seats": "Seats",
@@ -949,6 +951,16 @@
     "begin": "Begin round 1",
     "endTurn": "End {name}'s turn",
     "newRound": "Begin round {round}"
+  },
+  "reminders": {
+    "label": "Reminders",
+    "barSides": "Bar a whole side",
+    "barSide": "Bar all {side}",
+    "freeSide": "Free all {side}",
+    "turnStart": "At the start of this turn",
+    "turnEnd": "At the end of this turn",
+    "roundEnd": "At the end of the round",
+    "names": "{names}:"
   },
   "orderList": {
     "label": "Turn order",
@@ -1194,7 +1206,9 @@
     "noField": "{name} has no field \"{field}\"",
     "noCondition": "No condition \"{condition}\" in this ruleset",
     "lacksCondition": "{name} doesn't have that condition",
+    "conditionImmune": "{name} is immune to {condition}",
     "noRest": "No rest called \"{event}\"",
+    "restRefused": "{name} can't rest while {state}",
     "noOperation": "No operation \"{primitive}.{op}\"",
     "opNoPermission": "\"{primitive}.{op}\" declares no permission",
     "notRunThisWay": "\"{primitive}\" isn't run this way",

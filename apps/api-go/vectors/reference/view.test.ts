@@ -950,11 +950,22 @@ test("requests: the answering side sees every pending request, a player their ow
       actorId: "lyra",
       resourceId: "luck",
       amount: 1,
+      spendId: null,
+      inputs: null,
       note: "",
       createdAt: "2026-01-01T00:00:00.000Z",
     }) as const;
   const answer = (id: string, userId: string) =>
-    ({ id, userId, actorId: "lyra", resourceId: "luck", amount: 1, status: "denied", reason: "no" }) as const;
+    ({
+      id,
+      userId,
+      actorId: "lyra",
+      resourceId: "luck",
+      amount: 1,
+      spendId: null,
+      status: "denied",
+      reason: "no",
+    }) as const;
   const withRequests: Snapshot = {
     ...snapshot,
     state: {
@@ -973,6 +984,52 @@ test("requests: the answering side sees every pending request, a player their ow
   assert.deepEqual(seen(ctx(member("player", [], ["lyra"]), "u-lyra")), ["a", "y"]);
   assert.deepEqual(seen(ctx(member("player", [], ["kael"]), "u-kael")), ["b", "x"]);
   assert.deepEqual(seen(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), ["", ""]);
+});
+
+test("a spend-ask reaches every seat that receives each pool it costs, and one on no pool only its asker (#84)", () => {
+  const spendCompiled = (() => {
+    const cost = (over: object) => ({ amount: "1", ...over });
+    const r = compileRuleset({
+      ...SAMPLE_D20,
+      spends: [
+        { id: "onParty", label: "P", cite: "p.1", cost: [cost({ pool: "luck" })] },
+        { id: "onGm", label: "G", cite: "p.1", cost: [cost({ pool: "menace" })] },
+        { id: "onMe", label: "M", cite: "p.1", cost: [cost({ resource: "focus" })] },
+      ],
+    });
+    assert.ok(r.ok);
+    return r.compiled;
+  })();
+  const pool = (id: string, scope: "party" | "gm", visibility: "party" | "gm") =>
+    ({ id, label: id, scope, value: 2, min: 0, max: 6, capped: true, visibility, editableBy: "gm" }) as const;
+  const ask = (id: string, spendId: string) =>
+    ({
+      id,
+      userId: "u-lyra",
+      actorId: "lyra",
+      resourceId: null,
+      amount: null,
+      spendId,
+      inputs: null,
+      note: "",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    }) as const;
+  const asked: Snapshot = {
+    ...snapshot,
+    state: {
+      ...state,
+      pools: [pool("luck", "party", "party"), pool("menace", "gm", "gm")],
+      requests: [ask("p", "onParty"), ask("g", "onGm"), ask("m", "onMe"), ask("x", "gone")],
+    },
+  };
+  const seen = (c: Ctx) =>
+    seatView({ snapshot: asked, compiled: spendCompiled, ctx: c })
+      .state.requests.map((q) => q.id)
+      .join("");
+  assert.equal(seen(ctx(member("gm"), "u-gm")), "pgmx");
+  assert.equal(seen(ctx(member("player", [], ["lyra"]), "u-lyra")), "pgmx");
+  assert.equal(seen(ctx(member("player", [], ["kael"]), "u-kael")), "p");
+  assert.equal(seen(ctx({ kind: "token", role: "screen", characterIds: [] }, null)), "p");
 });
 
 // Without a GM nobody is on the GM side (docs/adr/0009-table-modes.md): no seat receives a `gm` entry, a note for the

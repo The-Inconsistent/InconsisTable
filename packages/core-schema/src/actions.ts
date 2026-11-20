@@ -31,6 +31,9 @@ import { CombatVisibility, ENCOUNTER_ACTIONS } from "./encounter.ts";
 import { ScenePrep } from "./prep.ts";
 import { TestApplyOfferAction, TestCallAction, TestCloseAction, TestReportAction } from "./test-call.ts";
 
+/** The numbers a spend's asker picks, by input name (house decision #84). */
+export const SpendInputs = z.record(z.string().min(1).max(64), z.number().int().min(-1000).max(1000));
+
 // Every mutation goes through one socket event: "action" (CLAUDE.md, "The server decides"). These are the core
 // actions; ruleset actions (res.adjust, turn.op, rule.op, test.*) are declared by the engine's primitives instead.
 
@@ -263,13 +266,23 @@ export const Action = z.discriminatedUnion("type", [
   z.object({ type: z.literal("clock.delete"), id }),
 
   // Spend requests (house decision #43): a player asks, the GM side answers. Approval spends through the resource delta
-  // path, so it is clamped and logged for undo. `actorId` is absent for a shared pool (not at the table yet).
+  // path, so it is clamped and logged for undo. A request names a resource and an amount, or a spend of the ruleset
+  // and its inputs (house decision #84); the api refuses one with both or neither.
   z.object({
     type: z.literal("request.send"),
     actorId: id.optional(),
-    resourceId: z.string().min(1).max(64),
-    amount: z.number().int().min(1).max(99),
+    resourceId: z.string().min(1).max(64).optional(),
+    amount: z.number().int().min(1).max(99).optional(),
+    spendId: z.string().min(1).max(64).optional(),
+    inputs: SpendInputs.optional(),
     note: RequestText.optional(),
+  }),
+  // A spend done at once by the side that runs the table (house decision #84): its costs and ops as one action.
+  z.object({
+    type: z.literal("spend.do"),
+    spendId: z.string().min(1).max(64),
+    actorId: id,
+    inputs: SpendInputs.optional(),
   }),
   z.object({ type: z.literal("request.cancel"), id }),
   z.object({ type: z.literal("request.approve"), id }),
@@ -376,6 +389,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "clock.update": "clock:run",
   "clock.delete": "clock:run",
   "request.send": "request:send",
+  "spend.do": "request:resolve", // and each op it runs asks its own permission
   "request.cancel": "request:send",
   "request.approve": "request:resolve",
   "request.deny": "request:resolve",

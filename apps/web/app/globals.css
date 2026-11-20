@@ -1333,6 +1333,200 @@ summary {
   box-shadow: inset 4px 0 0 var(--accent);
 }
 
+/* ---------- The ledger builder (lb-): a character bought with XP, one step at a time ----------
+   Phone first: the steps scroll along the top, the XP bar stays at the bottom edge, every list row is a 56px toggle
+   that says in words whether it is taken or closed. From 768px the steps become a rail beside the step. It reuses
+   .mf-tabs, .found, .stepper, .build-bar and .bottom-sheet; only what they don't cover is here. */
+.lb-page {
+  padding-bottom: 160px; /* the sticky XP bar never covers the last row */
+}
+.lb-body {
+  display: grid;
+  gap: var(--gap);
+  min-width: 0;
+}
+.lb-steps {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--paper);
+}
+.lb-panel {
+  min-width: 0;
+}
+.lb-next {
+  justify-self: start;
+}
+.lb-sub {
+  margin: 0;
+  font-size: var(--fs-name);
+  font-weight: 650;
+}
+.lb-big {
+  margin: 0;
+  font-size: var(--fs-num);
+  font-weight: 800;
+}
+.lb-banner {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 4px solid var(--brass);
+  background: var(--paper-2);
+}
+.lb-tools {
+  align-items: stretch;
+}
+.lb-search {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.lb-search input,
+.lb-field input,
+.lb-field select {
+  width: 100%;
+}
+.lb-rows > li {
+  display: block;
+}
+.lb-row {
+  align-items: flex-start;
+}
+.lb-row:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.lb-row-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.lb-row-state {
+  flex: none;
+  font-weight: 700;
+}
+.lb-why {
+  color: var(--accent);
+}
+.lb-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: var(--fs-small);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.lb-issue-list > li {
+  justify-content: flex-start;
+  padding: 6px 10px;
+  border-left: 4px solid var(--line);
+}
+.lb-issue-list > li[data-kind="error"] {
+  border-left-color: var(--accent);
+}
+.lb-issue-list > li[data-kind="gm"] {
+  border-left-color: var(--brass);
+}
+.lb-issue-text {
+  flex: 1 1 200px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.lb-card,
+.lb-gm {
+  gap: 10px;
+  padding: 12px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+}
+.lb-card-name {
+  margin: 0;
+  font-size: var(--fs-name);
+}
+.lb-card p {
+  margin: 0;
+}
+.lb-choice {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.lb-choice legend {
+  padding: 0 4px;
+}
+.lb-plain-list {
+  margin: 0;
+  padding-left: 20px;
+}
+.lb-taken > .lb-row-text {
+  flex: 1 1 160px;
+}
+.lb-rating .stepper .btn {
+  min-height: var(--tap);
+}
+.lb-mods {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+.lb-bar {
+  z-index: 3;
+}
+.lb-figures {
+  display: flex;
+  gap: 16px;
+  margin: 0;
+}
+.lb-figures dt {
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+}
+.lb-figures dd {
+  margin: 0;
+  font-size: var(--fs-num);
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.lb-figures [data-state="over"] dd {
+  color: var(--accent);
+}
+.lb-status {
+  flex: 1 1 160px;
+  margin: 0;
+  font-weight: 700;
+}
+.lb-ledger-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.lb-ledger-rows > li {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.lb-xp {
+  flex: none;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+@media (min-width: 768px) {
+  .lb-body {
+    grid-template-columns: 200px minmax(0, 1fr);
+    align-items: start;
+  }
+  .lb-steps {
+    top: 16px;
+    background: none;
+  }
+}
+
 /* ---------- SHEET: a character as the ruleset lays it out ----------
    One parchment card per section. The numbers are the biggest thing on the phone, so they read at arm's length; a
    number you can tap to see where it comes from is drawn as a button, the rest as plain rows. */

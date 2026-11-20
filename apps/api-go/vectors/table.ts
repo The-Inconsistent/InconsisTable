@@ -497,10 +497,17 @@ const CODEX = {
     // not declare for the kind, or that no longer fits, reaches nobody.
     entry(U(530), "party", "all", [], {
       kind: "npc",
-      fields: { mood: "cold", disposition: -2, patron: "ember-wisp", gone: "x", standing: "ally" },
+      fields: { mood: "cold", disposition: -2, patron: "ember-wisp", gone: "x", standing: "ally", home: U(510) },
     }),
     entry(U(531), "gm", "all", [], { kind: "npc", fields: { mood: "sulky", disposition: 9, patron: "" } }),
-    entry(U(532), "party", "listed", [PC1], { kind: "faction", fields: { standing: "rival" } }),
+    entry(U(532), "party", "listed", [PC1], { kind: "faction", fields: { standing: "rival", seat: U(510) } }),
+    // Links between entries (house decision #76): a party link to a hidden place, to a place only one reader reads, to
+    // an entry deleted, and to an entry of another kind; only a link to an entry the seat receives reaches it.
+    entry(U(533), "party", "all", [], { kind: "npc", fields: { home: U(511), mood: "warm" } }),
+    entry(U(534), "party", "all", [], { kind: "npc", fields: { home: U(513) } }),
+    entry(U(535), "party", "all", [], { kind: "npc", fields: { home: U(999) } }),
+    entry(U(536), "gm", "all", [], { kind: "npc", fields: { home: U(532) } }),
+    entry(U(537), "gm", "all", [], { kind: "faction", fields: { seat: U(511) } }),
   ],
   recaps: [
     { sessionId: U(600), number: 2, title: "The bridge", endedAt: "2026-02-01T10:00:00.000Z", recap: "They crossed." },

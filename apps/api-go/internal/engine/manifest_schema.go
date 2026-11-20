@@ -51,10 +51,15 @@ func fieldDefVariant(tag string, extra ...schema.Field) schema.Variant {
 	return schema.Variant{Tag: tag, Schema: schema.Object(fields...)}
 }
 
-// enumWords are what the screens show for an enum's values (house decision #71): a word and a short note, by value id.
+// EnumTones are how a screen may draw an enum's value (house decision #76; rules-engine EnumTone).
+var EnumTones = []string{"good", "bad"}
+
+// enumWords are what the screens show for an enum's values (house decision #71): a word, a short note and a tone (house
+// decision #76), by value id.
 var enumWords = []schema.Field{
 	schema.Opt("labels", schema.Record(idSchema, label(60))),
 	schema.Opt("notes", schema.Record(idSchema, label(40))),
+	schema.Opt("tones", schema.Record(idSchema, schema.Enum(EnumTones...))),
 }
 
 var (
@@ -95,6 +100,7 @@ var codexSchema = schema.Object(
 			codexFieldVariant("enum", enumShape...),
 			codexFieldVariant("bool"),
 			codexFieldVariant("ref", refShape...),
+			codexFieldVariant("entry", schema.Req("kind", schema.Enum(CodexKinds...))),
 		)), func(v any) bool { return len(v.(map[string]any)) <= MaxCodexFields }, "at most 20 fields")),
 	), CodexKinds...)),
 )

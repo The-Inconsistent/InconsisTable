@@ -42,6 +42,9 @@ export function checkFieldValue({ def, value }: { def: FieldDef | CodexField; va
     case "ref":
       // ponytail: only the shape; whether the key exists in a pack is checked where entries are known (the importer).
       return typeof value === "string" && value.length > 0 && value.length <= 120 ? null : "expected an entry key";
+    case "entry":
+      // Only the shape; the server checks the id names an entry of the room and of the kind (house decision #76).
+      return z.uuid().safeParse(value).success ? null : "expected an entry id";
     case "list": {
       if (!Array.isArray(value) || value.some((v) => typeof v !== "string")) return "expected a list of text";
       const cap = Math.min(def.maxItems ?? MAX_LIST_ITEMS, MAX_LIST_ITEMS);

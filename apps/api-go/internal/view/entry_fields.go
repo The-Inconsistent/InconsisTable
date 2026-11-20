@@ -34,6 +34,37 @@ func seatEntryFields(codex cs.Codex, compiled *engine.CompiledRuleset, secrets b
 	return cs.Codex{Entries: entries, Recaps: codex.Recaps}
 }
 
+// The links between entries (house decision #76; seatEntryLinks in vectors/reference/view.seat.ts) a seat receives, run
+// on the codex as the seat receives it: an `entry` field stays only while it names an entry of the field's kind that the
+// seat also receives. The side that reads every entry keeps every link whose target exists; anyone else loses one to an
+// entry hidden from them, so nothing names it.
+//
+// ponytail: a link whose target was deleted stays stored and reaches nobody, as a value the ruleset no longer declares;
+// the compatible upgrade (house decision #51) is where it would be carried or cleared.
+func seatEntryLinks(codex cs.Codex, compiled *engine.CompiledRuleset) cs.Codex {
+	if compiled == nil || compiled.Ruleset.Codex == nil {
+		return codex
+	}
+	kinds := make(map[string]string, len(codex.Entries))
+	for _, e := range codex.Entries {
+		kinds[e.ID] = e.Kind
+	}
+	entries := make([]cs.CodexEntry, len(codex.Entries))
+	for i, e := range codex.Entries {
+		defs := compiled.Ruleset.Codex.Kinds[e.Kind].Fields
+		fields := map[string]any{}
+		for id, value := range e.Fields {
+			def, declared := defs[id]
+			if target, _ := value.(string); !declared || def.Type != "entry" || kinds[target] == def.Kind {
+				fields[id] = value
+			}
+		}
+		e.Fields = fields
+		entries[i] = e
+	}
+	return cs.Codex{Entries: entries, Recaps: codex.Recaps}
+}
+
 // The codex block as a seat may read it (house decision #71): the side that reads GM notes every field, anyone else the
 // `party` ones. Independent of the actor definitions: a co-GM with `combat` but not `codex.secrets` reads no `gm` one.
 func seatCodexDefs(manifest map[string]any, secrets bool) map[string]any {

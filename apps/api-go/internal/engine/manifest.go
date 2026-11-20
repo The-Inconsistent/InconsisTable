@@ -62,9 +62,13 @@ type (
 		MaxLength  *float64 `json:"maxLength"`
 		Values     []string `json:"values"`
 		MaxItems   *float64 `json:"maxItems"`
-		// Labels and Notes are an enum's words for its values (house decision #71); nil when it declares none.
+		// Labels and Notes are an enum's words for its values (house decision #71), Tones its good or bad ones (house
+		// decision #76); nil when it declares none.
 		Labels map[string]string `json:"labels"`
 		Notes  map[string]string `json:"notes"`
+		Tones  map[string]string `json:"tones"`
+		// Kind is the codex entry kind an `entry` field links to (house decision #76).
+		Kind string `json:"kind"`
 	}
 	// CampaignFieldDef is one campaign field: an int has Min and Max, an enum Values; Default is a number, a word or a
 	// bool by the type.
@@ -77,6 +81,7 @@ type (
 		Values  []string          `json:"values"`
 		Labels  map[string]string `json:"labels"`
 		Notes   map[string]string `json:"notes"`
+		Tones   map[string]string `json:"tones"`
 		Default any               `json:"default"`
 	}
 	// CodexBlock is the manifest's codex block (house decision #71): the fields each kind of entry carries, by kind.
@@ -706,14 +711,15 @@ func (p *problems) campaignFields(r *Ruleset, needCite func(*string, string)) {
 			if !slices.Contains(def.Values, def.Default.(string)) {
 				p.add(path+".default", "the default is not allowed")
 			}
-			p.enumWords(path, def.Values, def.Labels, def.Notes)
+			p.enumWords(path, def.Values, def.Labels, def.Notes, def.Tones)
 		}
 	}
 }
 
-// enumWords checks that an enum's labels and notes name only its own values.
-func (p *problems) enumWords(path string, values []string, labels, notes map[string]string) {
-	for key, words := range map[string]map[string]string{"labels": labels, "notes": notes} {
+// enumWords checks that an enum's labels, notes and tones name only its own values.
+func (p *problems) enumWords(path string, values []string, labels, notes, tones map[string]string) {
+	for i, words := range []map[string]string{labels, notes, tones} {
+		key := [...]string{"labels", "notes", "tones"}[i]
 		for _, value := range sortedKeys(words) {
 			if !slices.Contains(values, value) {
 				p.add(path+"."+key+"."+value, `"%s" is not a value`, value)
@@ -739,7 +745,7 @@ func (p *problems) codex(r *Ruleset) {
 				p.add(path+".max", "max is below min")
 			}
 			if def.Type == "enum" {
-				p.enumWords(path, def.Values, def.Labels, def.Notes)
+				p.enumWords(path, def.Values, def.Labels, def.Notes, def.Tones)
 			}
 		}
 	}
@@ -899,7 +905,7 @@ func (r *Ruleset) semanticProblems() problems {
 				p.add(path+".max", "max is below min")
 			}
 			if def.Type == "enum" {
-				p.enumWords(path, def.Values, def.Labels, def.Notes)
+				p.enumWords(path, def.Values, def.Labels, def.Notes, def.Tones)
 			}
 		}
 	}

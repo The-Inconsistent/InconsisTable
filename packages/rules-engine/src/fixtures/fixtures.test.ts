@@ -12,7 +12,7 @@ import { SAMPLE_POOL } from "./sample-pool.ts";
 // a sample (or an engine default) changed under the same version breaks `bun run seed` on every local database. Bump
 // the sample's version, then the hash here. The hash is the one the importer compares (apps/api-go internal/ruleset/import.go).
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.3": "ed6ec8736e93d4445951c4e2dadce6f2fa1902cf30852ada3b5809228073c5e5",
+  "sample-d20@0.1.4": "8e41f01ddc5cba93cc02c8869ae7702daca884840f7459b26535857364a2647a",
   "sample-pool@0.1.2": "57e50c011a1f73ee5c2e78f0546956686f5fcec64ecda3dbdda16b71b4803b0c",
   "sample-harvest@0.1.1": "e166afc269320775b0d1e455a2e7a5b10ca9b9c4f0d96f9fa473addb65b93f08",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
@@ -35,5 +35,25 @@ test("a ruleset without a codex block hashes as it did before the block existed 
   assert.equal(
     sha256Hex(canonicalJson(result.compiled.ruleset)),
     "6e20d1e785dcfe5c6eae0d1bebf163bf41c00b438fea68b79453493244c0defa",
+  );
+});
+
+test("a codex block without links or tones hashes as it did before they existed (house decision #76)", () => {
+  const codex = structuredClone(SAMPLE_D20.codex);
+  assert.ok(codex?.kinds.npc && codex.kinds.faction);
+  const { home: _home, ...npc } = codex.kinds.npc.fields;
+  const { seat: _seat, ...faction } = codex.kinds.faction.fields;
+  const mood = npc.mood;
+  assert.ok(mood?.type === "enum");
+  delete mood.tones;
+  const result = compileRuleset({
+    ...SAMPLE_D20,
+    version: "0.1.3",
+    codex: { kinds: { npc: { fields: npc }, faction: { fields: faction } } },
+  });
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "ed6ec8736e93d4445951c4e2dadce6f2fa1902cf30852ada3b5809228073c5e5",
   );
 });

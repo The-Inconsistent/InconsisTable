@@ -4,13 +4,20 @@ import type { Combatant } from "@inconsistable/core-schema";
 
 import { drawnOf } from "@/lib/harm/harm";
 
-type HealthBarProps = { combatant: Pick<Combatant, "name" | "bar" | "hp" | "states" | "members"> };
+type HealthBarProps = {
+  combatant: Pick<Combatant, "name" | "bar" | "hp" | "states" | "members" | "conditions">;
+  /** The ruleset's conditions, for their labels. Given, the conditions the seat was sent are drawn too (#67). */
+  conditions?: readonly { id: string; label: string }[];
+};
 
-// A combatant's health: a bar from its fraction, the numbers only where the seat was sent them, then the ruleset's
-// states that hold and a mob's count as chips. Nothing when the seat was sent none of it.
-export function HealthBar({ combatant: c }: HealthBarProps) {
+// A combatant's health: a bar from its fraction, the numbers only where the seat was sent them, then a mob's count, the
+// ruleset's states that hold and the conditions it carries as chips. Nothing when the seat was sent none of it.
+export function HealthBar({ combatant: c, conditions: defs }: HealthBarProps) {
   const t = useTranslations("healthBar");
   const { percent, numbers, states, count } = drawnOf(c);
+  const conditions = defs
+    ? c.conditions.map((k) => ({ id: k.id, label: defs.find((d) => d.id === k.id)?.label ?? k.id }))
+    : [];
   return (
     <>
       {percent !== null && (
@@ -32,7 +39,7 @@ export function HealthBar({ combatant: c }: HealthBarProps) {
           )}
         </span>
       )}
-      {(states.length > 0 || count !== null) && (
+      {(states.length > 0 || count !== null || conditions.length > 0) && (
         <span className="row small health-states">
           {count !== null && (
             <span className="chip" data-count="true" aria-label={t("count", { count })}>
@@ -42,6 +49,11 @@ export function HealthBar({ combatant: c }: HealthBarProps) {
           {states.map((s) => (
             <span key={s.id} className="chip" data-health-state={s.id}>
               {s.label}
+            </span>
+          ))}
+          {conditions.map((k) => (
+            <span key={k.id} className="chip" data-condition={k.id}>
+              {k.label}
             </span>
           ))}
         </span>

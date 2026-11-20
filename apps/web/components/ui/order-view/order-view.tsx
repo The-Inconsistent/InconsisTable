@@ -10,13 +10,20 @@ import { HealthBar } from "@/components/ui/health-bar/health-bar";
 import { groupBySide, markOf } from "@/lib/sides/sides";
 import { phaseOf, stateKey } from "@/lib/track/track";
 
-/** `sides`: the seat's manifest `initiative` for a sides fight; without it the side ids word themselves. */
-type OrderViewProps = { encounter: Encounter; sides?: SidesInitiative };
+/**
+ * `sides`: the seat's manifest `initiative` for a sides fight; without it the side ids word themselves.
+ * `conditions`: the seat's manifest conditions, for the labels of the ones a combatant carries.
+ */
+type OrderViewProps = {
+  encounter: Encounter;
+  sides?: SidesInitiative;
+  conditions?: readonly { id: string; label: string }[];
+};
 
 // The turn order as a seat that doesn't run the fight sees it (the table screen, a phone): who acts, in order, with the
 // health the seat was sent. The acting row is marked by an edge and by the word ACTING, not by colour alone.
 // A sides fight (its snapshot carries `begun`) is grouped by side, each row marked with its turn.
-export function OrderView({ encounter, sides }: OrderViewProps) {
+export function OrderView({ encounter, sides, conditions = [] }: OrderViewProps) {
   const t = useTranslations("orderView");
   const tState = useTranslations("combatState");
   const phase = phaseOf(encounter);
@@ -43,7 +50,7 @@ export function OrderView({ encounter, sides }: OrderViewProps) {
                 <li key={c.id} className="combatant" data-acting={c.id === encounter.currentId}>
                   <span className="who" style={{ cursor: "default" }}>
                     <span className="name">{c.name}</span>
-                    <HealthBar combatant={c} />
+                    <HealthBar combatant={c} conditions={conditions} />
                   </span>
                   <TurnMark mark={markOf({ encounter, combatant: c, sides })} />
                 </li>
@@ -67,7 +74,7 @@ export function OrderView({ encounter, sides }: OrderViewProps) {
                       {t("first")}
                     </span>
                   )}
-                  <HealthBar combatant={c} />
+                  <HealthBar combatant={c} conditions={conditions} />
                 </span>
                 {done && <span className="chip">{t("done")}</span>}
                 {word && (

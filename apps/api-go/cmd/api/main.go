@@ -18,6 +18,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/codex"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/pack"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/roomdoc"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/table"
 )
 
@@ -107,6 +108,8 @@ func run() error {
 	route(router, "GET", "/api/packs/:id/export", core.Serve(library.Export))
 	route(router, "POST", "/api/packs/:id/hide", core.Serve(library.Hide))
 	route(router, "POST", "/api/worlds", core.Serve(library.ImportWorld))
+	// A room document as a new room of the caller's (house decision #74).
+	route(router, "POST", "/api/campaigns/import", core.Serve((&roomdoc.Service{DB: db, Auth: authService}).Import))
 	route(router, "GET", "/api/worlds", core.Serve(library.Worlds))
 	route(router, "GET", "/api/worlds/:id/export", core.Serve(library.ExportWorld))
 	route(router, "POST", "/api/worlds/:id/hide", core.Serve(library.HideWorld))
@@ -216,7 +219,7 @@ func guarded(next http.Handler, adminKey *core.Limiter) http.Handler {
 			tooMany(w, slowDown)
 			return
 		}
-		if under(path, "/api/rulesets", "/api/packs", "/api/worlds") && r.Method == http.MethodPost && !imports.Allow(ip) {
+		if under(path, "/api/rulesets", "/api/packs", "/api/worlds", "/api/campaigns/import") && r.Method == http.MethodPost && !imports.Allow(ip) {
 			tooMany(w, "Too many imports. Wait a minute.")
 			return
 		}

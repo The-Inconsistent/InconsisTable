@@ -17,7 +17,7 @@ var jpeg = []byte{0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 'p', 'i', 'c'}
 
 func put(t *testing.T, tx pgx.Tx, room dbtest.Room) string {
 	t.Helper()
-	id, err := upload(context.Background(), tx, room.GM(), "image/jpeg", jpeg)
+	id, err := StorePicture(context.Background(), tx, room.GM(), "image/jpeg", jpeg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,25 +52,25 @@ func TestUploadKeepsToTheRoomsLimits(t *testing.T) {
 	dbtest.Tx(t, db, func(tx pgx.Tx) {
 		ctx, room := context.Background(), dbtest.NewRoom(t, tx)
 		player := room.Seat(t, tx, dbtest.User(t, tx, "Player"))
-		if _, err := upload(ctx, tx, player, "image/jpeg", jpeg); code(err) != "noPermission" {
+		if _, err := StorePicture(ctx, tx, player, "image/jpeg", jpeg); code(err) != "noPermission" {
 			t.Fatalf("a player uploaded a picture into a room with a GM: %v", err)
 		}
-		if _, err := upload(ctx, tx, room.GM(), "image/webp", jpeg); code(err) != "pictureNotPicture" {
+		if _, err := StorePicture(ctx, tx, room.GM(), "image/webp", jpeg); code(err) != "pictureNotPicture" {
 			t.Fatalf("jpeg bytes sent as webp: %v", err)
 		}
-		if _, err := upload(ctx, tx, room.GM(), "image/gif", jpeg); code(err) != "pictureType" {
+		if _, err := StorePicture(ctx, tx, room.GM(), "image/gif", jpeg); code(err) != "pictureType" {
 			t.Fatalf("a gif: %v", err)
 		}
 		dbtest.Exec(t, tx, `INSERT INTO image (campaign_id, mime, bytes, size)
 			SELECT $1, 'image/jpeg', '\xffd8ff00'::bytea, 4 FROM generate_series(1, $2)`, room.ID, image.MaxCount-1)
 		put(t, tx, room)
-		if _, err := upload(ctx, tx, room.GM(), "image/jpeg", jpeg); code(err) != "picturesFull" {
+		if _, err := StorePicture(ctx, tx, room.GM(), "image/jpeg", jpeg); code(err) != "picturesFull" {
 			t.Fatalf("the 201st picture: %v", err)
 		}
 		other := dbtest.NewRoom(t, tx)
 		dbtest.Exec(t, tx, `INSERT INTO image (campaign_id, mime, bytes, size) VALUES ($1, 'image/jpeg', '\xffd8ff00'::bytea, $2)`,
 			other.ID, image.MaxRoomBytes-len(jpeg)+1)
-		if _, err := upload(ctx, tx, other.GM(), "image/jpeg", jpeg); code(err) != "picturesTooHeavy" {
+		if _, err := StorePicture(ctx, tx, other.GM(), "image/jpeg", jpeg); code(err) != "picturesTooHeavy" {
 			t.Fatalf("past 100 MB: %v", err)
 		}
 	})
@@ -138,7 +138,7 @@ func TestPictureWithoutAGMIsShownAtOnce(t *testing.T) {
 		dbtest.Exec(t, tx, `UPDATE campaign SET table_mode = 'gmless' WHERE id = $1`, room.ID)
 		c := room.Seat(t, tx, dbtest.User(t, tx, "Player"))
 		c.TableMode = cs.TableModeGMLess
-		picture, err := upload(context.Background(), tx, c, "image/jpeg", jpeg)
+		picture, err := StorePicture(context.Background(), tx, c, "image/jpeg", jpeg)
 		if err != nil {
 			t.Fatal(err)
 		}

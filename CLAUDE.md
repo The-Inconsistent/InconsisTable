@@ -27,7 +27,7 @@ These rules decide reviews. Breaking one blocks a merge.
 6. **The server decides.** One mutation path. Counters take deltas and are clamped on the server. Players see only what
    the table's view lets them see. The only writes outside it are owner-scoped REST: a user importing
    and exporting their own rulesets and packs (`/api/rulesets`, `/api/packs`, the pack library), creating a room,
-   the admin console, and
+   the admin console, a seat that may write the codex uploading a picture into its room (house decision #70), and
    a user's own sign-in, sign-out and sign-in methods (house decision #35).
 7. **Shortcuts are marked:** `// ponytail: <ceiling>, <upgrade path>`.
 8. **It serves a real table.** Readable at arm's length, no chat, phones never pull players away from the table. Each

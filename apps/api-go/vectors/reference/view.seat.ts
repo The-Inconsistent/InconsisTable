@@ -6,6 +6,7 @@ import {
   type BuilderDraftBody,
   type Clock,
   type Codex,
+  type CodexEntry,
   type Ctx,
   type DealtRow,
   type Encounter,
@@ -362,6 +363,11 @@ function seatState({
   };
 }
 
+const shownPicture = (e: CodexEntry) => {
+  const imageId = e.imageRevealed ? e.imageId : null;
+  return { imageId, imageRevealed: imageId !== null };
+};
+
 // The entries a seat sees: the codex and secrets sides read all of them; anyone else only what is revealed to them, and a reader
 // never learns who else an entry was shown to.
 function seatCodex({ codex, ctx, sight }: { codex: Codex; ctx: Ctx; sight: Sight }): Codex {
@@ -384,6 +390,8 @@ function seatCodex({ codex, ctx, sight }: { codex: Codex; ctx: Ctx; sight: Sight
       parentId: e.parentId !== null && ids.has(e.parentId) ? e.parentId : null,
       links: e.links.filter((l) => ids.has(l)),
       plannedTests: sight.secrets || sight.codex ? e.plannedTests : [],
+      // A picture reaches the table only once it is shown to it (house decision #70).
+      ...(sight.secrets || sight.codex ? {} : shownPicture(e)),
     })),
   };
 }

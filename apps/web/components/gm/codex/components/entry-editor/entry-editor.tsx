@@ -5,20 +5,23 @@ import { useState, type ChangeEvent } from "react";
 import { QuestStatus, splitMentions, type ActionInput, type Actor, type CodexEntry } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
+import { PictureField } from "@/components/gm/codex/components/entry-editor/components/picture-field/picture-field";
 import {
   EntryFieldsForm,
   type FieldsDraft,
 } from "@/components/gm/codex/components/entry-fields-form/entry-fields-form";
 import { RevealForm } from "@/components/gm/codex/components/reveal-form/reveal-form";
+import { EntryPath } from "@/components/ui/entry-path/entry-path";
 import { EntryFields } from "@/components/ui/entry-fields/entry-fields";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { MentionTextarea } from "@/components/ui/mention-textarea/mention-textarea";
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
-import { savePatch } from "@/lib/codex/codex";
+import { parentOptions, savePatch } from "@/lib/codex/codex";
 import { declaredFields, fieldsPatch, type EntryFieldValue } from "@/lib/entry-fields/entry-fields";
 import type { RulesEntry } from "@/lib/library/library";
 
 type EntryEditorProps = {
+  campaignId: string;
   entry: CodexEntry;
   characters: readonly Actor[];
   /** Every entry this seat reads: the `@` picker lists them, a mention in the body opens one. */
@@ -29,13 +32,12 @@ type EntryEditorProps = {
   onDeleted: () => void;
   /** The manifest as this seat reads it: the entry's declared fields (house decision #71). */
   ruleset: Ruleset | null;
-  campaignId: string;
   /** Pack entries this seat already read, to name a ref. */
   known: readonly RulesEntry[];
 };
 
-// One entry open: its title, its declared fields, body and (for a seat that may read them) GM notes, who sees it, and
-// delete.
+// One entry open: its title, where it sits, its declared fields, body and (for a seat that may read them) GM notes, who
+// sees it, and delete.
 export function EntryEditor(props: EntryEditorProps) {
   const { entry, characters, entries, onOpenEntry, can, act, onDeleted, ruleset, campaignId, known } = props;
   const t = useTranslations("codex");
@@ -51,6 +53,7 @@ export function EntryEditor(props: EntryEditorProps) {
   const fields = fieldsPatch({ entry, draft: fieldsDraft });
   const hasMention = splitMentions(draft.body).some((p) => "id" in p);
   const dirty = (Object.keys(patch).length > 0 || fields !== null) && draft.title.trim() !== "";
+  const parents = parentOptions({ entries, entry });
 
   // A text field of the draft.
   const handleField = (field: keyof typeof draft) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -72,6 +75,15 @@ export function EntryEditor(props: EntryEditorProps) {
     if (status.success) await act({ type: "codex.save", id: entry.id, kind: entry.kind, status: status.data });
   };
 
+  // INSIDE moves the entry as soon as a parent is picked, to the end of its new siblings; a refusal shows above.
+  const handleParent = async (e: ChangeEvent<HTMLSelectElement>) => {
+    const parentId = e.target.value || null;
+    const position = entries.filter(
+      (s) => s.kind === entry.kind && s.parentId === parentId && s.id !== entry.id,
+    ).length;
+    await act({ type: "codex.move", id: entry.id, parentId, position });
+  };
+
   // DELETE, after the confirm step.
   const handleDelete = async () => {
     if ((await act({ type: "codex.delete", id: entry.id })).ok) onDeleted();
@@ -83,6 +95,7 @@ export function EntryEditor(props: EntryEditorProps) {
         <span className="dim small">{t(`kind.${entry.kind}`)}</span>
         <VisibilityBadge entry={entry} />
       </div>
+      <EntryPath entries={entries} entry={entry} onOpen={onOpenEntry} />
       {entry.status && (
         <label className="stack">
           {t("statusLabel")}
@@ -105,6 +118,20 @@ export function EntryEditor(props: EntryEditorProps) {
           disabled={!can.write}
         />
       </label>
+      {(parents.length > 0 || entry.parentId !== null) && (
+        <label className="stack">
+          {t("insideLabel")}
+          <select id="codex-parent" value={entry.parentId ?? ""} onChange={handleParent} disabled={!can.write}>
+            <option value="">{t("insideNone")}</option>
+            {parents.map(({ entry: p, depth }) => (
+              <option key={p.id} value={p.id}>
+                {" ".repeat(depth * 3)}
+                {p.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {can.write ? (
         <EntryFieldsForm
           ruleset={ruleset}
@@ -170,6 +197,7 @@ export function EntryEditor(props: EntryEditorProps) {
           )}
         </div>
       )}
+      <PictureField campaignId={campaignId} entry={entry} can={can} act={act} />
       {can.reveal && <RevealForm entry={entry} characters={characters} act={act} />}
     </section>
   );

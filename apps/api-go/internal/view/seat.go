@@ -325,6 +325,11 @@ func seatCodex(codex cs.Codex, c cs.Ctx, sight Sight) cs.Codex {
 		e.Links = links
 		if !sight.Secrets && !sight.Codex {
 			e.PlannedTests = []string{}
+			// A picture reaches the table only once it is shown to it (house decision #70).
+			if !e.ImageRevealed {
+				e.ImageID = nil
+			}
+			e.ImageRevealed = e.ImageID != nil
 		}
 		if !sight.Secrets && !sight.Codex {
 			audience := []string{}
@@ -338,6 +343,14 @@ func seatCodex(codex cs.Codex, c cs.Ctx, sight Sight) cs.Codex {
 		entries = append(entries, e)
 	}
 	return cs.Codex{Entries: entries, Recaps: codex.Recaps}
+}
+
+// ShowsPicture says whether a seat outside the codex side receives the picture's id: the picture route serves it only
+// then, so the route and the view never disagree.
+func ShowsPicture(codex cs.Codex, c cs.Ctx, imageID string) bool {
+	return slices.ContainsFunc(seatCodex(codex, c, SightOf(c)).Entries, func(e cs.CodexEntry) bool {
+		return e.ImageID != nil && *e.ImageID == imageID
+	})
 }
 
 // seatTests is the calls one seat receives. The session side sees them whole. The table screen sees that a Test is open

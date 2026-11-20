@@ -112,9 +112,10 @@ func TestSceneParentsAndMove(t *testing.T) {
 			t.Fatal("a scene can be taken out of its adventure")
 		}
 
-		refuses(t, tx, room, Move, move(npc, adv, 0), "sceneNeedsAdventure")
-		refuses(t, tx, room, Move, move(adv2, adv, 0), "sceneNeedsAdventure")
+		refuses(t, tx, room, Move, move(npc, adv, 0), "parentOtherKind")
+		refuses(t, tx, room, Move, move(adv2, s2, 0), "parentOtherKind")
 		refuses(t, tx, room, Move, move(s2, s3, 0), "sceneNeedsAdventure")
+		refuses(t, tx, room, Move, move(s2, npc, 0), "sceneNeedsAdventure")
 		refuses(t, tx, room, Move, move(s2, foreign, 0), "entryNotFound")
 		refuses(t, tx, room, Move, move(foreign, nil, 0), "entryNotFound")
 

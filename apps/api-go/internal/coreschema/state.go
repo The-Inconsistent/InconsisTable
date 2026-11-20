@@ -397,13 +397,16 @@ type (
 		Audience     []string `json:"audience"`
 		// Status is open, done or failed on a quest and null on every other kind.
 		Status *string `json:"status"`
-		// ParentID is the adventure a scene belongs to; Position orders siblings (an adventure's scenes, adventures).
+		// ParentID is the entry it sits under (its own kind; a scene's adventure); Position orders siblings.
 		ParentID *string `json:"parentId"`
 		Position int     `json:"position"`
 		// Links are the entries a scene points at.
 		Links []string `json:"links"`
 		// PlannedTests are the ruleset Test ids a scene plans; the GM side only.
 		PlannedTests []string `json:"plannedTests"`
+		// ImageID is the entry's picture; ImageRevealed says the table sees it (house decision #70).
+		ImageID       *string `json:"imageId"`
+		ImageRevealed bool    `json:"imageRevealed"`
 		// Fields are the ruleset's declared fields of the entry's kind (house decision #71): stored whole as loaded,
 		// filtered to what is declared, valid and seen by the Seat view.
 		Fields map[string]any `json:"fields"`

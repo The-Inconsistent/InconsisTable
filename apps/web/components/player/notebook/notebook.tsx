@@ -1,13 +1,16 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { CodexKind, type Codex, type CodexEntry, type Me, type Safety } from "@inconsistable/core-schema";
+import { CodexKind, type Codex, type Me, type Safety } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { SafetySection } from "@/components/player/notebook/safety-section";
 import { EntryFieldChips, EntryFields } from "@/components/ui/entry-fields/entry-fields";
+import { EntryPath } from "@/components/ui/entry-path/entry-path";
+import { EntryPicture } from "@/components/ui/entry-picture/entry-picture";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import type { Send } from "@/hooks/use-table/use-table";
+import { treeRows, type TreeRow } from "@/lib/codex/codex";
 import type { RulesEntry } from "@/lib/library/library";
 
 type NotebookProps = {
@@ -22,7 +25,8 @@ type NotebookProps = {
 };
 
 // The phone's notebook: open quests first, then what the GM revealed by kind and tapped open (closed quests with their
-// outcome under Quest), each with the fields the party sees, then the recaps, newest first.
+// outcome under Quest), each with the fields the party sees, then the recaps, newest first. An entry sits indented under
+// its parent when the phone reads it.
 export function Notebook({ codex, me, safety, send, ruleset, known }: NotebookProps) {
   const t = useTranslations("notebook");
   const tKind = useTranslations("codex.kind");
@@ -47,13 +51,20 @@ export function Notebook({ codex, me, safety, send, ruleset, known }: NotebookPr
     el.open = true;
     el.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
-  const card = (e: CodexEntry) => (
-    <details key={e.id} id={`entry-${e.id}`} className="card">
+  const card = ({ entry: e, depth }: TreeRow) => (
+    <details
+      key={e.id}
+      id={`entry-${e.id}`}
+      className={depth > 0 ? "card tree-child" : "card"}
+      style={{ marginInlineStart: depth * 12 }}
+    >
       <summary>
         <strong>{e.title}</strong>
         {e.status && e.status !== "open" && <span className="chip">{tStatus(e.status)}</span>}
         <EntryFieldChips ruleset={ruleset} entry={e} />
       </summary>
+      <EntryPath entries={entries} entry={e} onOpen={handleOpen} />
+      <EntryPicture campaignId={me.campaignId} entry={e} />
       <EntryFields ruleset={ruleset} entry={e} campaignId={me.campaignId} known={known} enumChips={false} />
       <p style={{ whiteSpace: "pre-wrap" }}>
         <MentionText body={e.body} entries={entries} onOpen={handleOpen} />
@@ -65,7 +76,7 @@ export function Notebook({ codex, me, safety, send, ruleset, known }: NotebookPr
       {openQuests.length > 0 && (
         <section className="stack">
           <h2 className="head">{t("openQuests")}</h2>
-          {openQuests.map(card)}
+          {treeRows(openQuests).map(card)}
         </section>
       )}
       {CodexKind.options.map((kind) => {
@@ -74,7 +85,7 @@ export function Notebook({ codex, me, safety, send, ruleset, known }: NotebookPr
           ofKind.length > 0 && (
             <section key={kind} className="stack">
               <h2 className="head">{tKind(kind)}</h2>
-              {ofKind.map(card)}
+              {treeRows(ofKind).map(card)}
             </section>
           )
         );

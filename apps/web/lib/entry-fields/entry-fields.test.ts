@@ -23,6 +23,8 @@ const npc = (fields: CodexEntry["fields"]): CodexEntry => ({
   position: 0,
   links: [],
   plannedTests: [],
+  imageId: null,
+  imageRevealed: false,
   fields,
 });
 

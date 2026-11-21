@@ -1,6 +1,7 @@
 import type { Actor, HeldRecord } from "@inconsistable/core-schema";
 import type { Ruleset, WidgetRow, WidgetVariant } from "@inconsistable/rules-engine";
 
+import { cardKinds, itemLines, type ItemLine } from "../items/items.ts";
 import { sheetLinesOf, type LedgerSheetLines } from "../ledger/table.ts";
 
 // The rows a layout row draws for one character (house decision #83): a path becomes a value row, a widget row a model
@@ -10,6 +11,7 @@ import { sheetLinesOf, type LedgerSheetLines } from "../ledger/table.ts";
 export type SheetActor = Pick<Actor, "entity" | "fields" | "resources" | "derived"> & {
   ledger?: Actor["ledger"] | undefined;
   held?: Actor["held"] | undefined;
+  items?: Actor["items"] | undefined;
 };
 
 /** One kind of record an actor holds, as the `held` widget lists it (house decision #88). */
@@ -103,7 +105,14 @@ export type WidgetModel =
   | { widget: "sum"; label: string | null; parts: SheetRow[]; total: SheetRow }
   | { widget: "track"; label: string | null; value: SheetRow; max: SheetRow | null }
   | { widget: "pips"; label: string | null; value: SheetRow; steps: PipStep[] }
-  | { widget: "cards"; variant: WidgetVariant<"cards">; label: string | null; lines: LedgerSheetLines }
+  | {
+      widget: "cards";
+      variant: WidgetVariant<"cards">;
+      label: string | null;
+      lines: LedgerSheetLines;
+      /** The items of the kinds this variant draws (house decision #95), beside the saved build's lines. */
+      items: ItemLine[];
+    }
   | { widget: "folds"; variant: WidgetVariant<"folds">; label: string | null; lines: LedgerSheetLines }
   | { widget: "notes"; label: string | null; fields: SheetRow[] }
   | { widget: "held"; label: string | null; groups: HeldGroup[] };
@@ -174,7 +183,8 @@ export function widgetOf({
       const l = lines();
       const variant = (["armour", "gear", "powers"] as const).find((v) => v === row.variant) ?? "weapons";
       const has = l && (variant === "armour" ? l.armour !== null : l[variant].length > 0);
-      return l && has ? { widget: "cards", variant, label, lines: l } : null;
+      const items = itemLines({ ruleset, items: actor.items ?? [], kinds: cardKinds({ ruleset, variant }) });
+      return l && (has || items.length > 0) ? { widget: "cards", variant, label, lines: l, items } : null;
     }
     case "folds": {
       const l = lines();

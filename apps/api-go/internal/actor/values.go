@@ -97,6 +97,8 @@ type Rows struct {
 	Chosen []ChosenEntry
 	// Held are the served entries its list fields name, for Build to match against the held kinds (house decision #88).
 	Held []HeldEntry
+	// Items are the items it holds (house decision #95).
+	Items []ItemRow
 }
 
 // byActor runs a query whose rows each start with an actor id, and groups what scan reads by that id.
@@ -209,9 +211,13 @@ func LoadRows(ctx context.Context, conn core.Conn, campaignID string) ([]Rows, e
 	if err != nil {
 		return nil, err
 	}
+	items, err := loadItems(ctx, conn, campaignID)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]Rows, len(actors))
 	for i, a := range actors {
-		out[i] = Rows{a, fields[a.ID], resources[a.ID], conditions[a.ID], chosen[a.ID], held[a.ID]}
+		out[i] = Rows{a, fields[a.ID], resources[a.ID], conditions[a.ID], chosen[a.ID], held[a.ID], items[a.ID]}
 	}
 	return out, nil
 }
@@ -317,6 +323,8 @@ type Built struct {
 	Entries []engine.ActiveEntry
 	// Held are the records it holds (house decision #88); their effects are among Entries too.
 	Held []Held
+	// Items are the items it holds (house decision #95); their effects are among Entries too.
+	Items []ItemRow
 	// Bounds holds the resources whose bounds evaluate now.
 	Bounds map[string]Bounds
 	// State is the actor as the ops read it: values with the bounds evaluated now. A resource whose bounds can't be
@@ -457,6 +465,8 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]an
 		b.Conditions = append(b.Conditions, r.Conditions...)
 		b.Entries = ChosenIn(compiled, r.Chosen)
 		b.Held = HeldIn(compiled, b.Entity, b.Fields, r.Held)
+		b.Items = r.Items
+		b.Entries = append(b.Entries, ItemEntries(compiled, r.Items)...)
 		for _, h := range b.Held {
 			if len(h.Effects) > 0 {
 				b.Entries = append(b.Entries, engine.ActiveEntry{Type: h.Type, Key: h.Key, Name: h.Name, Effects: h.Effects})
@@ -540,6 +550,10 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]an
 
 // ToLive is the actor as the live snapshot carries it, before any seat's filter.
 func ToLive(b *Built) cs.Actor {
+	items := make([]cs.ActorItem, len(b.Items))
+	for i, x := range b.Items {
+		items[i] = x.Live()
+	}
 	held := make([]cs.HeldRecord, len(b.Held))
 	for i, h := range b.Held {
 		held[i] = h.Record()
@@ -556,7 +570,7 @@ func ToLive(b *Built) cs.Actor {
 	return cs.Actor{
 		ID: b.Row.ID, Kind: b.Row.Kind, Name: b.Row.Name, Status: b.Row.Status, OwnerUserID: b.Row.OwnerUserID,
 		Entity: b.Entity, Fields: b.Fields, Resources: b.Resources, Derived: b.Derived,
-		Conditions: activeIDs(b.Conditions), ConditionTimers: timers, Held: held, SpawnOptions: b.Row.SpawnOptions,
+		Conditions: activeIDs(b.Conditions), ConditionTimers: timers, Held: held, SpawnOptions: b.Row.SpawnOptions, Items: items,
 	}
 }
 

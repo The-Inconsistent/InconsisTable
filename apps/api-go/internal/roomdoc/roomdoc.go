@@ -227,6 +227,21 @@ func references(d doc) error {
 			}
 		}
 	}
+	// An item is fitted to another item of its own character, and a GIVE names a codex entry (house decision #95).
+	for i, a := range d.list("actors") {
+		items := map[string]bool{}
+		for _, x := range doc(a).list("items") {
+			items[x["id"].(string)] = true
+		}
+		for j, x := range doc(a).list("items") {
+			if to, has := x["fittedTo"].(string); has && (!items[to] || to == x["id"]) {
+				return problem("roomNoSuchItem", nil, "actors", i, "items", j, "fittedTo")
+			}
+			if e, has := x["entryId"].(string); has && !entries[e] {
+				return problem("roomNoSuchEntry", nil, "actors", i, "items", j, "entryId")
+			}
+		}
+	}
 	for i, c := range d.list("clocks") {
 		if e, has := c["entryId"].(string); has && !entries[e] {
 			return problem("roomNoSuchEntry", nil, "clocks", i, "entryId")
@@ -333,7 +348,7 @@ func apply(ctx context.Context, tx pgx.Tx, owner campaign.Owner, d doc, v versio
 	// Pools come after the actors: a pool's limits may count the party, and before any character exists such a pool
 	// holds only its minimum.
 	for _, step := range []func() error{im.sessions, im.settings, func() error { return im.pin(v) }, im.campaignValues,
-		im.pictures, im.actorRows, im.pools, im.codexRows, im.codexWhole, im.sessionMentions, im.clocks} {
+		im.pictures, im.actorRows, im.pools, im.codexRows, im.codexWhole, im.items, im.sessionMentions, im.clocks} {
 		if err := step(); err != nil {
 			return "", err
 		}

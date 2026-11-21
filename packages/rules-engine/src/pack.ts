@@ -177,6 +177,8 @@ function semanticProblems({ pack, ruleset }: { pack: Pack; ruleset: Ruleset }): 
     const pickers = new Set([
       ...ruleset.creation.flatMap((c) => (c.kind === "choose" && c.pick === type ? [c.actor] : [])),
       ...Object.values(ruleset.held ?? {}).flatMap((k) => (k.entry === type ? k.entities : [])),
+      // and an item kind's holders (house decision #95)
+      ...(ruleset.items?.kinds ?? []).flatMap((k) => (k.entry === type ? k.entities : [])),
     ]);
     const pool = ruleset.entities.filter((e) => pickers.has(e.id));
     if (pool.length === 0) {

@@ -1503,6 +1503,30 @@ const HELD_MANIFEST = {
 };
 MANIFESTS.push(HELD_MANIFEST);
 
+// Items (house decision #95): a host kind, a fitted kind with a slot and a GM's tag, a counted kind, and GIVE.
+const ITEMS_MANIFEST = {
+  ...MINIMAL,
+  entities: [pcBase, { id: "gear", label: "G", base: "item", fields: { slot: { label: "S", type: "text" } } }],
+  codex: { kinds: { item: { fields: { of: { label: "O", type: "ref", entity: "gear" } } } } },
+  items: {
+    kinds: [
+      { id: "tool", label: "T", entry: "gear", tag: "tool", entities: ["pc"], card: "weapons", unique: true, max: 5 },
+      {
+        id: "addon",
+        label: "A",
+        entry: "gear",
+        tag: "addon",
+        entities: ["pc"],
+        fits: { to: ["tool"], max: 2, slot: "slot", gmTag: "pair" },
+      },
+      { id: "shot", label: "S", entry: "gear", tag: "shot", entities: ["pc"], stacks: true, spend: true },
+      { id: "kit", label: "K", entry: "gear", entities: ["pc"], card: "gear" },
+    ],
+    give: { ref: "of", loose: "kit" },
+  },
+};
+MANIFESTS.push(ITEMS_MANIFEST);
+
 // House decision #55: campaign fields, the `campaign` root and at().
 const cInt = { type: "int", label: "D", min: 1, max: 5, default: 1, cite: "p1" };
 const cEnum = { type: "enum", label: "M", values: ["calm", "tense"], default: "calm", cite: "p1" };
@@ -2527,7 +2551,47 @@ const CRAFTED: object[] = [
     { adjust: [{ add: {}, cite: "p.1" }], budget: { lines: [], switches: [{ id: "Bad", label: "", by: "1" }] } },
     { options: [{ id: "x", label: "X", cite: "p.1", entities: [] }], adjust: [{ add: { a: "1" }, extra: 1 }] },
   ].map((spawn) => ({ ...SAMPLE_SKIRMISH, spawn })),
+  ...itemCrafted(),
 ];
+
+// Items (house decision #95): every rule an items block can break, one manifest each.
+function itemCrafted(): object[] {
+  const kinds = ITEMS_MANIFEST.items.kinds;
+  const kind = (i: number, over: object) => ({
+    ...ITEMS_MANIFEST,
+    items: { ...ITEMS_MANIFEST.items, kinds: kinds.map((k, j) => (j === i ? { ...k, ...over } : k)) },
+  });
+  const give = (g: object | undefined) => ({ ...ITEMS_MANIFEST, items: { kinds, give: g } });
+  return [
+    kind(0, { entry: "pc" }),
+    kind(0, { entry: "nope" }),
+    kind(0, { entities: ["gear", "nope"] }),
+    kind(0, { entities: [] }),
+    kind(0, { card: "powers" }),
+    kind(0, { max: 0 }),
+    kind(0, { max: 201 }),
+    kind(0, { spend: true }),
+    kind(1, { id: "tool" }),
+    kind(1, { fits: { to: ["nope"], max: 1 } }),
+    kind(1, { fits: { to: ["tool"], max: 0 } }),
+    kind(1, { fits: { to: ["tool"], max: 1, slot: "nope" } }),
+    kind(1, { fits: { to: [], max: 1 } }),
+    kind(2, { fits: { to: ["tool"], max: 1 } }),
+    kind(0, { tag: "" }),
+    kind(0, { label: "x".repeat(61) }),
+    give({ ref: "nope", loose: "kit" }),
+    give({ ref: "of", loose: "shot" }),
+    give({ ref: "of", loose: "nope" }),
+    give({ ref: "of" }),
+    {
+      ...give({ ref: "of", loose: "kit" }),
+      codex: { kinds: { item: { fields: { of: { label: "O", type: "int" } } } } },
+    },
+    { ...ITEMS_MANIFEST, items: { kinds: [] } },
+    { ...ITEMS_MANIFEST, items: { kinds: Array.from({ length: 21 }, (_, i) => ({ ...kinds[3], id: `k${i}` })) } },
+    { ...ITEMS_MANIFEST, sources: [{ id: "s", title: "T", license: "private" }] },
+  ];
+}
 
 // Held records (house decision #88): every rule a held kind can break, one manifest each.
 function heldCrafted(): object[] {
@@ -3148,6 +3212,7 @@ function ledgerPackVectors() {
   // Keys arrive in another order than the schemas', inner records (partial records of Attributes) included.
   const shuffled = pack();
   for (const e of shuffled.entries) {
+    if (e.record === undefined) continue; // the stores carry no record (house decision #95)
     e.record = reversed(e.record);
     for (const [k, v] of Object.entries(e.record))
       if (typeof v === "object" && v !== null && !Array.isArray(v)) e.record[k] = reversed(v as Mutable);
@@ -3955,6 +4020,7 @@ function packVectors() {
     PACK_RULESET,
     { ...PACK_RULESET, sources: [{ id: "s", title: "T", license: "homebrew" }] },
     SAMPLE_HARM,
+    ITEMS_MANIFEST,
   ];
   const compiled = rulesets.map((m) => {
     const r = compileRuleset(m);
@@ -4026,6 +4092,17 @@ function packVectors() {
   one(3, growths([{ ...growth, effects: [{ path: "derived.nope", mode: "add", value: "1", phase: "derived" }] }]));
   one(3, growths([{ ...growth, effects: [{ path: "hide", mode: "add", value: "1" }] }]));
   one(3, growths([{ ...growth, type: "nope" }]));
+  // Effects of an entry type an item kind holds (house decision #95), checked against the holders.
+  const items = (effects: unknown[]) => ({
+    id: "items",
+    version: "0.1.0",
+    ruleset: { id: "m", range: "^1.0.0" },
+    license: "original",
+    entries: [{ key: "a", type: "gear", name: "A", tags: ["tool"], effects }],
+  });
+  one(4, items([{ path: "derived.a", mode: "add", value: "1", phase: "derived" }]));
+  one(4, items([{ path: "attr.str", mode: "add", value: "1" }]));
+  one(4, items([{ path: "derived.nope", mode: "add", value: "1", phase: "derived" }]));
   one(0, {
     ...SAMPLE_PACK_EFFECTS,
     entries: [

@@ -2529,6 +2529,30 @@ summary {
   justify-content: space-between;
   gap: 10px;
 }
+/* An item a character carries (house decision #95): its name and what is fitted to it, then its buttons, which wrap
+   under it on a phone rather than push the line past the screen. */
+.item-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+.item-line > .stack {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.item-actions,
+.item-fitted,
+.item-give .row {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.item-edit,
+.item-add {
+  flex: 1 1 100%;
+  gap: 6px;
+}
 .w-folds {
   display: flex;
   flex-direction: column;

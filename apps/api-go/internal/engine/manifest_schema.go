@@ -659,6 +659,7 @@ var rulesetSchema = schema.Object(
 	schema.Opt("tables", schema.Record(idSchema, tableSchema)),
 	schema.Opt("held", schema.Refined(schema.Record(idSchema, heldKindSchema),
 		func(v any) bool { return len(v.(map[string]any)) <= MaxHeldKinds }, "at most 10 kinds")),
+	schema.Opt("items", itemsSchema),
 	schema.Def("health", healthSchema, map[string]any{"tracks": []any{}, "states": []any{}}),
 	schema.Def("creation", schema.Array(creationStepSchema).Max(50), []any{}),
 	schema.Opt("build", buildSchema),

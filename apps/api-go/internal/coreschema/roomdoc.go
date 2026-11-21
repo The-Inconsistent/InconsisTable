@@ -28,6 +28,7 @@ const (
 	roomMaxActorFields     = 200
 	roomMaxActorResources  = 100
 	roomMaxActorConditions = 50
+	roomMaxActorItems      = 200
 	roomMaxCodex           = 1000
 	roomMaxLinks           = 100
 	roomMaxAudience        = 50
@@ -55,6 +56,18 @@ var (
 		schema.Opt("hash", schema.String().Min(1).Max(128)),
 	).Strict()
 
+	roomItem = schema.Object(
+		schema.Req("id", id),
+		schema.Req("kind", roomKey),
+		schema.Opt("entry", schema.String().Min(1).Max(80)),
+		schema.Opt("name", schema.String().Trim().Min(1).Max(120)),
+		schema.Opt("note", schema.String().Max(200)),
+		schema.Opt("quantity", schema.Int().Min(1).Max(999)),
+		schema.Opt("fittedTo", id),
+		schema.Opt("source", schema.Enum("give", "hand", "acquire")),
+		schema.Opt("entryId", id),
+	).Strict()
+
 	roomActor = schema.RefinedSoft(schema.Object(
 		schema.Req("id", id),
 		schema.Req("kind", schema.Enum(actorKinds...)),
@@ -64,6 +77,7 @@ var (
 		schema.Opt("resources", capped(schema.Record(roomKey, roomAmount), roomMaxActorResources, "resources")),
 		schema.Opt("build", LedgerBuildText),
 		schema.Opt("conditions", schema.Array(roomKey).Max(roomMaxActorConditions)),
+		schema.Opt("items", schema.Array(roomItem).Max(roomMaxActorItems)),
 	).Strict(), func(v any) bool {
 		a, _ := v.(map[string]any)
 		_, built := a["build"]

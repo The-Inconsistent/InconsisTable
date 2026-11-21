@@ -435,6 +435,35 @@
     "range": "từ {min} đến {max}",
     "onePerLine": "mỗi dòng một mục"
   },
+  "whisper": {
+    "open": "Thì thầm",
+    "openUnseen": "Thì thầm · {count}",
+    "openLabel": "Thì thầm với nhân vật, {count, plural, =0 {không có trả lời mới} other {# trả lời mới}}",
+    "title": "Thì thầm",
+    "to": "Thì thầm với",
+    "all": "Tất cả",
+    "text": "Một dòng gửi họ",
+    "send": "Gửi",
+    "counter": "{used}/{max}",
+    "noCharacters": "Bàn chưa có nhân vật nào.",
+    "thisSession": "Buổi này",
+    "none": "Buổi này chưa có lời thì thầm nào.",
+    "toNames": "Gửi {names}",
+    "takeBack": "Rút lại",
+    "takeBackLabel": "Rút lại lời thì thầm gửi {names}",
+    "read": "Đã đọc",
+    "unread": "Chưa đọc",
+    "gone": "(không còn)",
+    "sheetTitle": "GM thì thầm với bạn",
+    "fromGm": "Từ GM",
+    "forName": "Gửi {name}",
+    "more": "{count, plural, other {Còn # lời sau lời này}}",
+    "reply": "Trả lời của bạn",
+    "replyPlaceholder": "Một dòng gửi lại GM",
+    "changeReply": "Đổi câu trả lời",
+    "replied": "Bạn đã trả lời: {reply}",
+    "notebook": "Lời thì thầm"
+  },
   "bottomSheet": {
     "close": "Đóng",
     "closeLabel": "Đóng {title}"
@@ -1435,7 +1464,12 @@
     "heldNoEntry": "Các gói của phòng này không có {entry}.",
     "heldAlready": "{name} đã có {entry}: hãy gieo lại trên bảng này.",
     "heldFull": "{name} đã có đủ số {kind} tối đa.",
-    "heldNotHeld": "{name} không có thứ đó."
+    "heldNotHeld": "{name} không có thứ đó.",
+    "whispersNeedGm": "Không có GM thì không có lời thì thầm.",
+    "whisperRecipient": "Chỉ thì thầm tới nhân vật của phòng này.",
+    "whisperLimit": "Đã có {max} lời thì thầm; hãy xoá bớt trước.",
+    "whisperGone": "Lời thì thầm đó không còn nữa.",
+    "whisperNotToThem": "Lời thì thầm đó không gửi tới nhân vật này."
   },
   "workspace": {
     "skip": "Bỏ qua, tới nội dung trang",

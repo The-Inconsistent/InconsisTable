@@ -587,6 +587,24 @@ const STATE = {
       editableBy: "owner",
     },
   ],
+  // Whispers (house decision #93): one to two seats' characters, each with a reply; one to a companion, unread.
+  whispers: [
+    {
+      id: U(950),
+      text: "You hear a voice.",
+      createdAt: "2026-11-01T10:00:00.000Z",
+      readers: [
+        { actorId: PC1, reply: "Mine", repliedAt: "2026-11-01T10:01:00.000Z", readAt: "2026-11-01T10:01:00.000Z" },
+        { actorId: PC2, reply: "Theirs", repliedAt: "2026-11-01T10:02:00.000Z", readAt: "2026-11-01T10:00:30.000Z" },
+      ],
+    },
+    {
+      id: U(951),
+      text: "The pet is restless.",
+      createdAt: "2026-11-01T09:00:00.000Z",
+      readers: [{ actorId: PAL, reply: null, repliedAt: null, readAt: null }],
+    },
+  ],
 };
 
 const entry = (
@@ -1041,6 +1059,10 @@ const VALID: Record<string, Record<string, unknown>> = {
   "held.remove": { actorId: ID, held: "mark", entry: "third-eye" },
   "table.deal": { tableId: "role", actorIds: [ID] },
   "table.reshuffle": { tableId: "role" },
+  "whisper.send": { to: [ID], text: " Psst " },
+  "whisper.reply": { whisperId: ID, actorId: ID, text: " Yes " },
+  "whisper.read": { whisperId: ID, actorId: ID },
+  "whisper.delete": { id: ID },
 };
 
 const LONG_KEYS = new Set(["recap", "notes", "body", "gmNotes", "value"]);
@@ -1100,6 +1122,15 @@ for (const text of ["", " ", "a".repeat(80), "a".repeat(81), ` ${"a".repeat(80)}
   record("Action", { type: "campaign.setSafety", lines: [text], veils: [text], xCard: true });
 }
 record("Action", { type: "safety.suggest", kind: "other", text: "a" });
+// A whisper is 1 to 500 characters to 1 to 30 characters, each once; a reply 1 to 200 (house decision #93).
+for (const n of [499, 500, 501]) record("Action", { type: "whisper.send", to: [ID], text: ` ${"w".repeat(n)} ` });
+for (const n of [199, 200, 201]) {
+  record("Action", { type: "whisper.reply", whisperId: ID, actorId: ID, text: ` ${"r".repeat(n)} ` });
+}
+for (const n of [29, 30, 31]) {
+  record("Action", { type: "whisper.send", to: Array.from({ length: n }, (_, i) => U(2000 + i)), text: "a" });
+}
+record("Action", { type: "whisper.send", to: [ID, ID], text: "a" });
 // An entry's declared fields (house decision #71): at most 20 keys of 1 to 64 characters, each a field value or null.
 for (const fields of [
   Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`f${i}`, i])),

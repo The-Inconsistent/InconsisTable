@@ -15,6 +15,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/request"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/schema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/whisper"
 )
 
 // The room's actions (apps/api/src/campaign/campaign.actions.ts). Starting and ending a session apply the ruleset's
@@ -72,6 +73,10 @@ func Archive(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Resul
 			return cs.Result{}, err
 		}
 	}
+	// Archiving ends the running session, so its whispers go as at any session's end (house decision #93).
+	if err := whisper.Clear(ctx, tx, c.CampaignID); err != nil {
+		return cs.Result{}, err
+	}
 	return cs.Done(""), request.CancelPending(ctx, tx, c.CampaignID)
 }
 
@@ -127,7 +132,8 @@ func SessionStart(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.
 	if _, _, _, err := ruleset.RestActors(ctx, tx, c, "sessionStart", ""); err != nil {
 		return cs.Result{}, err
 	}
-	return cs.Done(id), nil
+	// Whispers last one session (house decision #93; Auspex rules-flow §11.164).
+	return cs.Done(id), whisper.Clear(ctx, tx, cid)
 }
 
 // SessionEnd is session.end. The sessionEnd resets and the award's XP (house decision #64) are written before the
@@ -151,6 +157,9 @@ func SessionEnd(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	if tag.RowsAffected() == 0 {
 		return cs.Result{}, cs.Fail("noSessionRunning")
 	}
+	if err := whisper.Clear(ctx, tx, c.CampaignID); err != nil {
+		return cs.Result{}, err
+	}
 	return cs.Done(""), request.CancelPending(ctx, tx, c.CampaignID)
 }
 
@@ -167,8 +176,10 @@ func SessionAbandon(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (c
 	if err := eventlog.LogEvent(ctx, tx, c, "session.abandon", map[string]any{"sessionId": *id}); err != nil {
 		return cs.Result{}, err
 	}
-	_, err = tx.Exec(ctx, `UPDATE session SET ended_at = now(), recap = $2, abandoned = true WHERE id = $1`, *id, a.Str("recap"))
-	return cs.Done(""), err
+	if _, err = tx.Exec(ctx, `UPDATE session SET ended_at = now(), recap = $2, abandoned = true WHERE id = $1`, *id, a.Str("recap")); err != nil {
+		return cs.Result{}, err
+	}
+	return cs.Done(""), whisper.Clear(ctx, tx, c.CampaignID)
 }
 
 // SessionDelete is session.delete: only the room's latest session, so the numbering stays unbroken, and only once it

@@ -14,6 +14,7 @@ import { RulesPanel } from "@/components/gm/rules/rules-panel";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { SetupChecklist } from "@/components/gm/setup-checklist/setup-checklist";
 import { Track } from "@/components/gm/track/track";
+import { WhisperButton } from "@/components/gm/whisper-button/whisper-button";
 import { ActionNotices } from "@/components/ui/action-notices/action-notices";
 import { TableModePicker } from "@/components/player/run-table/table-mode-picker";
 import { Tests } from "@/components/gm/tests/tests";
@@ -92,6 +93,11 @@ export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }:
         <strong>{state.campaign.name}</strong>
         <span className="row">
           {state.session && <span className="chip">{tTable("session", { number: state.session.number })}</span>}
+          {/* Whispers need a GM (house decision #93); the side that runs the session sends them. */}
+          {state.campaign.tableMode === "gm" &&
+            canInCampaign({ ctx: { ...me, tableMode: "gm" }, perm: "session:run" }) && (
+              <WhisperButton campaignId={me.campaignId} state={state} send={send} />
+            )}
           <SettingsMenu />
         </span>
       </header>

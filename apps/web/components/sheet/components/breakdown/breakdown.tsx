@@ -7,6 +7,7 @@ import type { BreakdownLine } from "@inconsistable/rules-engine";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
+import { BreakdownLines } from "@/components/ui/breakdown-lines/breakdown-lines";
 import { Cite } from "@/components/ui/cite/cite";
 import type { RequestPage } from "@/hooks/use-table/use-table";
 
@@ -24,8 +25,6 @@ type BreakdownProps = {
   children?: ReactNode;
 };
 
-const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
-
 // "Why is Defense 5?": each source with what it adds or takes away and the page that says so (docs/design.md §4.4).
 export function Breakdown({
   label,
@@ -41,21 +40,7 @@ export function Breakdown({
   const t = useTranslations("breakdown");
   return (
     <BottomSheet title={`${label} ${total}`} onClose={onClose}>
-      {lines ? (
-        <ul className="list">
-          {lines.map((l, i) => (
-            <li key={`${l.source}-${i}`}>
-              <span className="stack" style={{ gap: 2 }}>
-                <strong>{l.override ? t("override", { source: l.source }) : l.source}</strong>
-                {l.cite && <Cite cite={l.cite} {...{ ruleset, books, requestPage }} />}
-              </span>
-              <strong className="sheet-num">{i === 0 ? l.amount : signed(l.amount)}</strong>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="dim">{t("hidden")}</p>
-      )}
+      {lines ? <BreakdownLines {...{ lines, ruleset, books, requestPage }} /> : <p className="dim">{t("hidden")}</p>}
       {!lines && cite && <Cite {...{ cite, ruleset, books, requestPage }} />}
       {children}
     </BottomSheet>

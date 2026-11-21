@@ -2202,6 +2202,30 @@
       "body": "Body"
     }
   },
+  "strike": {
+    "open": "STRIKE",
+    "close": "CLOSE",
+    "heading": "{strike} · {name}",
+    "guideFor": "Strike guide for {name}",
+    "kinds": "Kind of strike",
+    "means": "Strike with",
+    "noMeans": "{name} has nothing to strike with.",
+    "target": "Target",
+    "noTarget": "No one in the fight this strike can land on.",
+    "less": "Less {label}",
+    "more": "More {label}",
+    "linesOf": "What makes {name}",
+    "total": "Total the dice made",
+    "totalLabel": "Total for {strike}",
+    "nothing": "= Nothing",
+    "outcomeOnly": "= {outcome}: nothing to apply",
+    "outcome": "= {outcome}: {harm} on {name}",
+    "change": "{by, number, ::sign-always} {label}",
+    "apply": "APPLY",
+    "notes": "After the strike",
+    "openTable": "OPEN {title}",
+    "readFailed": "Couldn't read what this strike is made with."
+  },
   "tables": {
     "title": "Tables",
     "gm": "GM only",

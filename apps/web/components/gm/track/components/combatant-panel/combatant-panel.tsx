@@ -48,6 +48,8 @@ type CombatantPanelProps = {
   spends?: ReactNode;
   /** What the actor holds up, with its quick picks, end one and end all (house decision #91). */
   held?: ReactNode;
+  /** The strike guide for this combatant as the attacker (house decision #99); absent where it has no strike. */
+  strike?: ReactNode;
 };
 
 // A refusal shown in the panel is brought into view when it appears: on a phone the panel's controls sit far below.
@@ -71,6 +73,7 @@ export function CombatantPanel({
   refusal = null,
   spends,
   held,
+  strike,
 }: CombatantPanelProps) {
   const t = useTranslations("combatantPanel");
   const tSave = useTranslations("deathSave");
@@ -161,6 +164,7 @@ export function CombatantPanel({
       )}
 
       {sides && <SideActions encounter={encounter} combatant={c} sides={sides} pools={pools} run={run} />}
+      {strike}
       {spends}
       {held}
 

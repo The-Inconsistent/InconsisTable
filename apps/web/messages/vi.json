@@ -2202,6 +2202,30 @@
       "body": "Nội dung"
     }
   },
+  "strike": {
+    "open": "RA ĐÒN",
+    "close": "ĐÓNG",
+    "heading": "{strike} · {name}",
+    "guideFor": "Hướng dẫn ra đòn cho {name}",
+    "kinds": "Loại đòn",
+    "means": "Ra đòn bằng",
+    "noMeans": "{name} không có gì để ra đòn.",
+    "target": "Mục tiêu",
+    "noTarget": "Không ai trong trận mà đòn này có thể trúng.",
+    "less": "Bớt {label}",
+    "more": "Thêm {label}",
+    "linesOf": "Những gì tạo nên {name}",
+    "total": "Tổng xúc xắc ra",
+    "totalLabel": "Tổng cho {strike}",
+    "nothing": "= Không có gì",
+    "outcomeOnly": "= {outcome}: không có gì để áp dụng",
+    "outcome": "= {outcome}: {harm} lên {name}",
+    "change": "{by, number, ::sign-always} {label}",
+    "apply": "ÁP DỤNG",
+    "notes": "Sau đòn",
+    "openTable": "MỞ {title}",
+    "readFailed": "Không đọc được thứ dùng để ra đòn."
+  },
   "tables": {
     "title": "Bảng ngẫu nhiên",
     "gm": "Chỉ GM",

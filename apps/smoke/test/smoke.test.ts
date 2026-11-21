@@ -27,6 +27,7 @@ import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/samp
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
 import { SAMPLE_SKIRMISH } from "../../../packages/rules-engine/src/fixtures/sample-skirmish.ts";
+import { SAMPLE_SKIRMISH_PACK } from "../../../packages/rules-engine/src/fixtures/sample-skirmish-pack.ts";
 import { SAMPLE_LEDGER_RULESET } from "../../../packages/rules-engine/src/fixtures/sample-ledger-ruleset.ts";
 import { SAMPLE_LEDGER_PACK } from "../../../packages/rules-engine/src/fixtures/sample-ledger-pack.ts";
 import { SAMPLE_WORLD } from "../../../packages/rules-engine/src/fixtures/sample-world.ts";
@@ -1010,6 +1011,46 @@ test("once a round: a second use refused, free next round; a held list raises th
   assert.equal(called.tests.find((t) => t.id === id)?.targets[0]?.target, 14);
   ok(await ana.send({ type: "field.set", actorId: lyra, field: "wards", value: [] }));
   await ana.until((s) => actorIn(s, lyra)?.derived.wardLoad === 0);
+  ana.socket.close();
+});
+
+test("spawn options and the table's scaling, fixed at spawn; a marker a player's phone sees (#92)", async () => {
+  const ownerDevice = await device("owner-Raid");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_SKIRMISH);
+  const pk = await me.post<PackReply>("/packs", SAMPLE_SKIRMISH_PACK);
+  assert.deepEqual([rs.status, pk.status], [201, 201]);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Raid",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  ok(await owner.send({ type: "campaign.setField", fieldId: "peril", value: 3 }));
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-Raid") } });
+  ok(await owner.send({ type: "actor.create", kind: "pc", name: "Unseated" }));
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  const spawn = (key: string, more: Record<string, unknown>) =>
+    owner.send({ type: "actor.spawn", packVersionId: pk.body.versionId, key, count: 1, ...more } as ActionInput);
+
+  refused(await spawn("iron-warden", { options: ["nope"] }), "noSuchOption");
+  refused(await spawn("ash-hound", { options: ["hardened"] }), /"Hardened" is not for this entry/);
+  ok(await spawn("iron-warden", { options: ["scaled", "quick"], marker: "red", visibility: "full", name: "Warden" }));
+  // One seated character and a peril of 3, added once to the entry's level 2; its Spite starts from its grudge of 2, + 1.
+  const gm = await owner.until((s) => s.actors.some((a) => a.name === "Warden" && a.resources.spite !== undefined));
+  const warden = gm.actors.find((a) => a.name === "Warden")!;
+  assert.deepEqual([warden.fields.level, warden.resources.spite], [6, 3]);
+  assert.deepEqual(warden.spawnOptions, ["scaled", "quick"]);
+  const seen = await ana.until((s) => s.encounter?.combatants.some((c) => c.name === "Warden") === true);
+  assert.equal(seen.encounter?.combatants.find((c) => c.name === "Warden")?.marker, "red");
+  assert.ok(!seen.actors.some((a) => a.spawnOptions !== undefined), "a player is not told the options");
+  const combatant = gm.encounter?.combatants.find((c) => c.actorId === warden.id);
+  ok(await owner.send({ type: "encounter.mark", combatantId: combatant!.id, marker: "white" }));
+  await ana.until((s) => s.encounter?.combatants.find((c) => c.name === "Warden")?.marker === "white");
+  refused(await ana.send({ type: "encounter.mark", combatantId: combatant!.id, marker: null }), "noPermission");
   ana.socket.close();
 });
 

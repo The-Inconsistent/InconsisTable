@@ -205,6 +205,7 @@ export function planAdventures({
           ...(Object.keys(fields).length ? { fields } : {}),
           ...(e.layout ? { layout: e.layout } : {}),
           ...(e.header ? { header: e.header } : {}),
+          ...(e.source ? { source: e.source } : {}),
           ...(e.plannedTests?.length ? { plannedTests: e.plannedTests } : {}),
           ...(p ? { prep: p } : {}),
           ...(pic && got[pic.id] ? { imageId: got[pic.id] } : {}),

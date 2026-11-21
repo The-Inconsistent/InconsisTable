@@ -445,6 +445,11 @@ func (ex *exporter) codex(entries []cs.CodexEntry, pictures bool) []any {
 		if pictures && e.ImageRevealed {
 			x["imageRevealed"] = true
 		}
+		// The pack entry it was made from (house decision #97), as stored; the import checks it is served and reads its
+		// page again.
+		if e.Source != nil {
+			x["source"] = e.Source
+		}
 		if e.RevealedAt != nil && e.Visibility != "gm" {
 			x["revealedAt"] = *e.RevealedAt
 		}

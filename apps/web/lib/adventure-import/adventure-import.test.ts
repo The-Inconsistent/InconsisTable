@@ -45,7 +45,12 @@ const DOC: RoomDocumentInput = {
       visibility: "party",
     },
     { id: I.notice, kind: "handout", title: "Notice", layout: "proclamation", header: "By order" },
-    { id: I.lore, kind: "lore", title: "Old tides" },
+    {
+      id: I.lore,
+      kind: "lore",
+      title: "Old tides",
+      source: { entity: "legend", key: "tide-song", cite: "Sample p.9" },
+    },
     { id: I.road, kind: "adventure", title: "The Salt Road" },
     { id: I.hill, kind: "scene", title: "The hill", parentId: I.road, position: 1 },
     {
@@ -148,6 +153,13 @@ test("the steps, run, are the table's ordinary actions with the room's ids", () 
   assert.ok(dock && dock.type === "codex.save" && dock.imageId === "room-pic");
   const notice = saves.find((a) => a.type === "codex.save" && a.id === made("Notice"));
   assert.ok(notice && notice.type === "codex.save" && notice.layout === "proclamation" && notice.header === "By order");
+  // Where an entry came from is kept (house decision #97): codex.save takes it, checked against the room's packs.
+  const tides = saves.find((a) => a.type === "codex.save" && a.id === made("Old tides"));
+  assert.deepEqual(tides && tides.type === "codex.save" && tides.source, {
+    entity: "legend",
+    key: "tide-song",
+    cite: "Sample p.9",
+  });
 });
 
 test("a made entry's link field names the made entry; one not brought is left out", () => {

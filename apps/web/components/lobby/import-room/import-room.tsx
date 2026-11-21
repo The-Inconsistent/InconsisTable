@@ -37,28 +37,38 @@ export function ImportRoom() {
   const [result, setResult] = useState<RoomImport | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [fresh, setFresh] = useState(false);
 
-  // A file picked: its dry run, at once.
-  const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
-    const picked = e.target.files?.[0] ?? null;
-    setFile(picked);
+  // The dry run of a file, as a fresh start or not (house decision #103).
+  const check = async (picked: File | null, asFresh: boolean) => {
     setResult(null);
     setFailed(false);
     if (!picked) return;
     setBusy(true);
     try {
-      setResult(await importRoom({ file: picked, dryRun: true }));
+      setResult(await importRoom({ file: picked, dryRun: true, fresh: asFresh }));
     } catch {
       setFailed(true);
     }
     setBusy(false);
+  };
+  // A file picked: its dry run, at once.
+  const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0] ?? null;
+    setFile(picked);
+    void check(picked, fresh);
+  };
+  // FRESH START switched: the dry run again, since it changes what the room holds.
+  const handleFresh = (e: ChangeEvent<HTMLInputElement>) => {
+    setFresh(e.target.checked);
+    void check(file, e.target.checked);
   };
   // IMPORT: the document for real; the new room opens on success, a refusal shows in place of the dry run.
   const handleConfirm = async () => {
     if (!file) return;
     setBusy(true);
     try {
-      const r = await importRoom({ file, dryRun: false });
+      const r = await importRoom({ file, dryRun: false, fresh });
       if (r.ok && r.reply.campaignId) return router.push(`/c/${r.reply.campaignId}`);
       setResult(r);
     } catch {
@@ -76,6 +86,10 @@ export function ImportRoom() {
       <label>
         {t("file")}
         <input type="file" accept="application/json,.json" onChange={handleFile} disabled={busy} />
+      </label>
+      <label className="row small">
+        <input type="checkbox" checked={fresh} onChange={handleFresh} disabled={busy} />
+        {t("fresh")}
       </label>
       {busy && !reply && <p className="small">{t("checking")}</p>}
       {reply && (

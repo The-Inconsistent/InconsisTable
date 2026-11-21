@@ -13,6 +13,7 @@ import {
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { PackAdder } from "@/components/gm/codex/components/pack-adder/pack-adder";
+import { ImportAdventure } from "@/components/gm/prep/components/import-adventure/import-adventure";
 import { SceneEditor } from "@/components/gm/prep/components/scene-editor/scene-editor";
 import { SceneRun } from "@/components/gm/prep/components/scene-run/scene-run";
 import type { Send } from "@/hooks/use-table/use-table";
@@ -174,6 +175,9 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
             />
             <button className="btn primary">{t("newAdventure")}</button>
           </form>
+          {canInCampaign({ ctx: me, perm: "codex:write" }) && (
+            <ImportAdventure campaignId={me.campaignId} entries={entries} actors={state.actors} send={send} />
+          )}
           {tree.adventures.length === 0 && tree.loose.length === 0 && <p className="dim">{t("empty")}</p>}
           {tree.adventures.map(({ adventure, scenes }) => (
             <section key={adventure.id} className="card stack" aria-label={adventure.title}>

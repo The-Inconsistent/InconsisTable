@@ -56,7 +56,7 @@ export function FightLog({ log, actors, ruleset }: FightLogProps) {
           {r.turns.map((turn, i) => (
             <div key={`${turn.actorId ?? "-"}-${i}`} className="stack fight-log-turn">
               <span className="small dim">{turn.name === null ? t("between") : t("turnOf", { name: turn.name })}</span>
-              <ol className="fight-log-lines">
+              <ul className="fight-log-lines">
                 {turn.lines.map((l) => {
                   const text = l.parts.map(words).join("; ");
                   return (
@@ -71,7 +71,7 @@ export function FightLog({ log, actors, ruleset }: FightLogProps) {
                     </li>
                   );
                 })}
-              </ol>
+              </ul>
             </div>
           ))}
         </div>

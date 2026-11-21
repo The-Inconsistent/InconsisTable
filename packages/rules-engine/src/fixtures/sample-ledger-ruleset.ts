@@ -85,13 +85,38 @@ export const SAMPLE_LEDGER_ITEMS = {
     { id: "kit", label: "Kit", entry: "wargear", entities: ["hero"], card: "gear", cite: "Base p.40" },
   ],
   give: { ref: "of", loose: "kit" },
+  // House decision #102: a hero procures gear by a Test against its rating, eased by every tag it shares with the
+  // hero past the first; once a session for gear and once for stores; a miss topped up with coin, up to 3; stores
+  // come three at a time, and a weapon that names its stores comes with one.
+  acquire: {
+    test: "procure",
+    inputs: {
+      dn: [
+        { label: "Base", value: "8" },
+        { label: "Rating", value: "item.rating" },
+        { label: "Matched tags", value: "-max(0, overlap(item.tags, keywords) - 1)" },
+      ],
+      bonus: [{ label: "Push", value: "ctx.push" }],
+    },
+    picks: { push: { label: "Push", min: 0, max: "2" } },
+    if: 'overlap(item.tags, keywords) > 0 || contains(item.tags, "open")',
+    limits: [
+      { kinds: ["arms", "fittings", "kit"], max: 1 },
+      { kinds: ["stores"], max: 1 },
+    ],
+    topUp: { resource: "coin", max: "3" },
+    quantity: "3",
+    load: { field: "loads", quantity: "1" },
+    cite: "Base p.43",
+  },
 } satisfies ItemsBlock;
 
 export const SAMPLE_LEDGER_RULESET: RulesetInput = {
   id: "sample-ledger",
   // 0.1.1: the hero's Guard, gear with a slot, stores, the item codex field and the items block (house decision #95).
   // 0.1.2: the GM's override of the Guard, and what a build over a hand-made sheet keeps (house decision #96).
-  version: "0.1.2",
+  // 0.1.3: procuring gear by a Test, coin to top a miss up, a gear rating and the stores a weapon loads (#102).
+  version: "0.1.3",
   core: "^0.1.0",
   sources: [{ id: "base", title: "Sample Ledger Rules", license: "private" }],
   campaignFields: { tier: { type: "int", label: "Tier", min: 1, max: 4, default: 1, cite: "Base p.2" } },
@@ -128,10 +153,19 @@ export const SAMPLE_LEDGER_RULESET: RulesetInput = {
       label: k,
       base: "item" as const,
       ...(k === "wargear" && {
-        fields: { slot: { type: "text" as const, label: "Slot", visibility: "party" as const } },
+        fields: {
+          slot: { type: "text" as const, label: "Slot", visibility: "party" as const },
+          rating: { type: "int" as const, label: "Rating", visibility: "party" as const },
+          loads: { type: "text" as const, label: "Loads", visibility: "party" as const },
+        },
       }),
     })),
-    { id: "supply", label: "Supply", base: "item" },
+    {
+      id: "supply",
+      label: "Supply",
+      base: "item",
+      fields: { rating: { type: "int", label: "Rating", visibility: "party" } },
+    },
   ],
   codex: {
     kinds: { item: { fields: { of: { type: "ref", label: "Gear", entity: "wargear", visibility: "gm" } } } },
@@ -140,7 +174,29 @@ export const SAMPLE_LEDGER_RULESET: RulesetInput = {
   resources: [
     { id: "wealth", label: "Wealth", scope: "entity", entities: ["hero"], cite: "Base p.8" },
     { id: "corruption", label: "Corruption", scope: "entity", cite: "Base p.21" },
+    {
+      id: "coin",
+      label: "Coin",
+      scope: "entity",
+      entities: ["hero"],
+      start: "5",
+      visibility: "party",
+      editableBy: "ownerSpendOnly",
+      cite: "Base p.9",
+    },
   ],
+  tests: {
+    procure: {
+      kind: "sumVsTarget",
+      label: "Procure",
+      dice: "1d20",
+      target: "ctx.dn",
+      modifier: "ctx.bonus",
+      inputs: { dn: "int", bonus: "int" },
+      entities: ["hero"],
+      cite: "Base p.43",
+    },
+  },
   // Out of play for good: what leaves a hero out of the Ascension count.
   health: { states: [{ id: "lost", label: "Lost", when: "res.corruption >= 10", entities: ["hero"] }] },
   build: {

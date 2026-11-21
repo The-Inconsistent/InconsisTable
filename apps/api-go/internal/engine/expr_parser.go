@@ -202,7 +202,7 @@ var infixBP = map[string]int{
 const prefixBP = 8
 
 var exprFunctions = []string{"min", "max", "floor", "ceil", "clamp", "abs", "mod", "count", "sum", "has", "at",
-	"contains"}
+	"contains", "overlap"}
 
 type parser struct {
 	tokens []token

@@ -21,27 +21,44 @@ export const ledgerEntry = (kind: LedgerKind, record: RawRecord) => ({
   record,
 });
 
-type RawGear = RawRecord & { kind: string; upgrade?: { slot: string } };
+type RawGear = RawRecord & { kind: string; value?: number; keywords?: string[]; upgrade?: { slot: string } };
 
 // What each piece of gear gives in play (house decision #95): a Guard the holder carries, or one a fitting gives.
 const GUARD = [{ path: "derived.guard", mode: "add", value: "1", phase: "derived" }] as const;
-const GEAR_EFFECTS: Record<string, typeof GUARD> = { lens: GUARD, "sight-lens": GUARD };
+// House decision #102: the Sight Lens also sharpens the weapon it is fitted to.
+const SHARPER = [{ path: "host.ed", mode: "add", value: "1", phase: "base" }] as const;
+const GEAR_EFFECTS: Record<string, readonly { path: string; mode: string; value: string; phase: string }[]> = {
+  lens: GUARD,
+  "sight-lens": [...GUARD, ...SHARPER],
+};
+// The stores a weapon loads (house decision #102).
+const LOADS: Record<string, string> = { sling: "supply.pellets" };
 
 /**
  * A piece of gear as an item (house decision #95): tagged with its kind, so the items block tells arms from fittings
- * and kit, its slot in the body, and its effects.
+ * and kit, and with its record's keywords (house decision #102: what a hero matches); its slot, its rating and the
+ * stores it loads in the body, and its effects.
  */
 const gearEntry = (r: RawGear) => ({
   ...ledgerEntry("wargear", r),
-  tags: [r.kind],
-  ...(r.upgrade && { body: { slot: r.upgrade.slot } }),
+  tags: [r.kind, ...(r.keywords ?? [])],
+  body: {
+    rating: r.value ?? 0,
+    ...(r.upgrade && { slot: r.upgrade.slot }),
+    ...(LOADS[r.id] !== undefined && { loads: LOADS[r.id] }),
+  },
   ...(GEAR_EFFECTS[r.id] !== undefined && { effects: [...GEAR_EFFECTS[r.id]!] }),
 });
+
+// Stores any hero may procure (house decision #102).
+const STORE = { tags: ["open"], body: { rating: 1 } };
 
 export const SAMPLE_LEDGER_PACK: PackInput = {
   id: "sample-ledger-catalogue",
   // 0.1.1: gear tagged by kind with slots and effects, stores, and a pair only the GM fits (house decision #95).
-  version: "0.1.1",
+  // 0.1.2: gear tagged with its keywords, a rating, the stores the sling loads, a Sight Lens that sharpens its host,
+  // and stores open to any hero, rated (house decision #102).
+  version: "0.1.2",
   ruleset: { id: "sample-ledger", range: "^0.1.0" },
   license: "private",
   entries: [
@@ -75,7 +92,7 @@ export const SAMPLE_LEDGER_PACK: PackInput = {
       rarity: "Scarce",
       upgrade: { slot: "sight", fits: { weapon: "ranged" }, mods: [] },
     } as RawGear),
-    { key: "supply.pellets", type: "supply", name: "Pellets", cite: "Base p.42", visibility: "public" },
-    { key: "supply.oil", type: "supply", name: "Lamp Oil", cite: "Base p.42", visibility: "public" },
+    { key: "supply.pellets", type: "supply", name: "Pellets", cite: "Base p.42", visibility: "public", ...STORE },
+    { key: "supply.oil", type: "supply", name: "Lamp Oil", cite: "Base p.42", visibility: "public", ...STORE },
   ],
 };

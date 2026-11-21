@@ -1639,6 +1639,11 @@
   "codex": {
     "search": "Search title and text",
     "newEntry": "New entry",
+    "fromPack": "Add from a pack",
+    "fromPackType": "Type",
+    "fromPackHint": "Names, numbers and the page come with it, and the entries inside it. Write the words yourself.",
+    "fromPackMade": "Added {name}{count, plural, =0 {} one { and the entry inside it} other { and the # entries inside it}}.",
+    "madeFrom": "Made from {key}",
     "kindLabel": "Kind",
     "titleLabel": "Title",
     "create": "Create",
@@ -1744,6 +1749,7 @@
     "newAdventure": "New adventure",
     "sceneTitle": "Scene title",
     "newScene": "New scene",
+    "sceneFromPack": "Scene from a pack",
     "create": "Create",
     "cancel": "Cancel",
     "empty": "No adventures yet. Name one, then add its scenes.",
@@ -1940,7 +1946,13 @@
     "rowsFull": "{max} rows at most",
     "test": "Test",
     "noTest": "No Test",
-    "filledFrom": "From {name}"
+    "filledFrom": "From {name}",
+    "roll": "Roll",
+    "typed": "I rolled",
+    "rollInto": "Roll {label}",
+    "typedInto": "Type the dice you rolled for {label}",
+    "typedOn": "What you rolled on {title}",
+    "useTyped": "Use"
   },
   "notebook": {
     "entries": "Revealed",

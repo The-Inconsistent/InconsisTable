@@ -91,9 +91,18 @@ export function RowChips({
 }
 
 /** The lines an entry's values raise (house decision #89), in the ruleset's words with its cite. */
-export function EntryReminders({ ruleset, entry }: { ruleset: Ruleset | null; entry: CodexEntry }) {
+export function EntryReminders({
+  ruleset,
+  entry,
+  campaign,
+}: {
+  ruleset: Ruleset | null;
+  entry: CodexEntry;
+  /** The campaign fields in play, which a reminder may read (house decision #97). */
+  campaign?: Readonly<Record<string, string | number | boolean>>;
+}) {
   const t = useTranslations("entryFields");
-  const lines = entryReminders({ ruleset, entry });
+  const lines = entryReminders({ ruleset, entry, campaign });
   if (lines.length === 0) return null;
   return (
     <ul className="list" aria-label={t("reminders")} data-field="reminders">

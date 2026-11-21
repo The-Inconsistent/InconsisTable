@@ -3816,6 +3816,22 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
   // The waived package lets the next purchase through at the new Tier.
   ok(await ana.c.send(save(ana.held, { ...bought, advancement: { skills: { Brawl: 3 } } })));
 
+  // House decision #96: the GM's override of the Guard reaches the phone, and clearing it brings the number back.
+  const guardOf = (s: LiveState) => actorIn(s, ana.held)?.derived.guard;
+  const worked = guardOf(await ana.c.until((x) => guardOf(x) !== undefined));
+  const setGuard = (value: number | null) =>
+    ({ type: "field.set", actorId: ana.held, field: "guardSet", value }) as const;
+  refused(await ana.c.send(setGuard(9)), "gmOnly");
+  ok(await owner.send(setGuard(9)));
+  await ana.c.until((x) => guardOf(x) === 9);
+  ok(await owner.send(setGuard(null)));
+  await ana.c.until((x) => guardOf(x) === worked);
+  // The Tier raised by hand by two is read as two advances, and the answer says so; lowering it says nothing.
+  const raised = ok(await owner.send({ type: "campaign.setField", fieldId: "tier", value: 4 }));
+  assert.deepEqual(raised.notices, [{ code: "advanced", params: { field: "Tier", from: 2, to: 4, steps: 2 } }]);
+  const lowered = ok(await owner.send({ type: "campaign.setField", fieldId: "tier", value: 2 }));
+  assert.equal(lowered.notices?.length ?? 0, 0);
+
   // House decision #95: items a character holds. GIVE then TAKE BACK, a fit over the limit refused, stores spent to
   // nothing from the phone. In this room, which already holds the ledger ruleset and pack.
   const itemsOf = (s: LiveState) => actorIn(s, ana.held)?.items ?? [];

@@ -156,6 +156,9 @@ test("the validator checks a spend's limit and the table it opens next (house de
     'spends[0].then.table: unknown table "nope"',
     'spends[0].then.inputs.extra: "nope" is not an input of the spend',
   ]);
+  assert.deepEqual(problems({ then: { table: "backlash", inputs: { extra: "push", heat: "push" } } }), [
+    'spends[0].then.inputs.heat: "heat" is not an input of the table',
+  ]);
   assert.equal(problems({ limit: { per: "turn", max: 1 } }).length, 1);
   assert.equal(problems({ limit: { per: "round", max: 0 } }).length, 1);
 });

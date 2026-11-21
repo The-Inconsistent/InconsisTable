@@ -2821,6 +2821,11 @@ function spendCrafted(): object[] {
       limit: { per: "round", max: 11 },
       then: { table: "backlash", inputs: { extra: "n" } },
     }),
+    // The key names one of the table's inputs, the value one of the spend's (house decision #91).
+    spend({
+      inputs: { n: { label: "N", min: 0, max: "1" } },
+      then: { table: "backlash", inputs: { extra: "n", nope: "n", spare: "gone" } },
+    }),
     {
       ...SAMPLE_SKIRMISH,
       entities: SAMPLE_SKIRMISH.entities.map((e) => ({

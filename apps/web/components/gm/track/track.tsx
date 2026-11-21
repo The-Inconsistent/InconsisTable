@@ -38,7 +38,7 @@ import { gmSideOf } from "@/lib/ledger/table";
 import { heldChips } from "@/lib/held/held";
 import { rangeOf } from "@/lib/sheet/sheet";
 import { currentOf } from "@/lib/track/track";
-import { tableCardId, type TrackMode } from "@/components/gm/track/constants";
+import { tableCardId, type OpenedTable, type TrackMode } from "@/components/gm/track/constants";
 
 type TrackProps = {
   me: Me;
@@ -56,6 +56,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
   const t = useTranslations("track");
   const [sheetOf, setSheetOf] = useState<string | null>(null);
   const [testFor, setTestFor] = useState<string | null>(null); // the actor a Test is being called for
+  const [opened, setOpened] = useState<OpenedTable | null>(null); // the table a spend opened last
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [refusal, setRefusal] = useState<Refusal | null>(null);
   const encounter = state.encounter;
@@ -97,9 +98,11 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
   // What each combatant holds up, for its row (house decision #91).
   const heldOf = (actorId: string) => heldChips({ ruleset: rules, actor: actors.get(actorId) });
 
-  // OPEN TABLE: a spend's next table (house decision #91), brought into view in the tables panel and focused.
-  const handleOpenTable = (tableId: string) => {
-    const card = document.getElementById(tableCardId(tableId));
+  // OPEN TABLE: a spend's next table (house decision #91), opened in the tables panel for the spender with the spend's
+  // inputs, brought into view and focused.
+  const handleOpenTable = (open: Omit<OpenedTable, "n">) => {
+    setOpened((was) => ({ ...open, n: (was?.n ?? 0) + 1 }));
+    const card = document.getElementById(tableCardId(open.tableId));
     card?.scrollIntoView({ block: "center" });
     card?.focus();
   };
@@ -270,6 +273,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
           books={sheet.books}
           requestPage={sheet.requestPage}
           ask={askFrom(null)}
+          opened={opened}
         />
       )}
       {/* A board game's players, automa included, are characters: there are no creatures to spawn. */}

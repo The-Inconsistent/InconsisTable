@@ -7,7 +7,8 @@ import type { CompiledRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import type { Send } from "@/hooks/use-table/use-table";
 import { resourceLabels } from "@/lib/spend-request/spend-request";
-import { costText, defaultInputs, inputMax, offersOf, shown, spendWorld, usedUp } from "@/lib/spends/spends";
+import type { OpenedTable } from "@/components/gm/track/constants";
+import { costText, defaultInputs, inputMax, nextTable, offersOf, shown, spendWorld, usedUp } from "@/lib/spends/spends";
 
 type SpendButtonsProps = {
   ruleset: Ruleset;
@@ -15,8 +16,8 @@ type SpendButtonsProps = {
   state: LiveState;
   actor: Actor;
   send: Send;
-  /** Opens one of the ruleset's tables in the tables panel (house decision #91); absent where there is none. */
-  onTable?: (tableId: string) => void;
+  /** Opens a spend's next table in the tables panel for this actor (house decision #91); absent where there is none. */
+  onTable?: (open: Omit<OpenedTable, "n">) => void;
 };
 
 // The GM side's one-tap spends for one character (house decision #84): each spend the server would take now, with its
@@ -53,13 +54,12 @@ export function SpendButtons({ ruleset, compiled, state, actor, send, onTable }:
           const inputs = { ...defaultInputs(spend), ...picked[spend.id] };
           const plan = chosen.find((o) => o.spend.id === spend.id)?.plan ?? null;
           const cost = plan === null ? "" : costText({ costs: plan.costs, labels });
-          const tableId = spend.then?.table;
-          const next = tableId === undefined ? undefined : ruleset.tables?.[tableId];
-          const openNext = next && tableId !== undefined && onTable && (
+          const next = nextTable({ ruleset, spend, inputs });
+          const openNext = next && onTable && (
             <button
               className="btn sm"
               aria-label={t("openTableAria", { title: next.title, name: actor.name })}
-              onClick={() => onTable(tableId)}
+              onClick={() => onTable({ tableId: next.tableId, actorId: actor.id, inputs: next.inputs })}
             >
               {t("openTable", { title: next.title })}
             </button>

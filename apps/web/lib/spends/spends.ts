@@ -117,6 +117,32 @@ export const usedUp = (o: { refusal: Refusal | null }) => o.refusal?.code === "u
 export const defaultInputs = (spend: Spend): Record<string, number> =>
   Object.fromEntries(Object.entries(spend.inputs ?? {}).map(([name, def]) => [name, def.min]));
 
+/**
+ * The table a spend opens next (house decision #91), with each spend input its `then` names carried onto the table's
+ * input: a number on a stepper, held to its bounds, or a switch, on when not 0. Null without one.
+ */
+export function nextTable({
+  ruleset,
+  spend,
+  inputs,
+}: {
+  ruleset: Ruleset;
+  spend: Spend;
+  inputs: Readonly<Record<string, number>>;
+}): { tableId: string; title: string; inputs: Record<string, number | boolean> } | null {
+  const then = spend.then;
+  const table = then === undefined ? undefined : ruleset.tables?.[then.table];
+  if (then === undefined || table === undefined) return null;
+  const carried: Record<string, number | boolean> = {};
+  for (const x of table.inputs ?? []) {
+    const from = then.inputs?.[x.id];
+    const v = from === undefined ? undefined : (inputs[from] ?? spend.inputs?.[from]?.min);
+    if (v === undefined) continue;
+    carried[x.id] = x.type === "bool" ? v !== 0 : Math.max(x.min ?? -Infinity, Math.min(x.max ?? Infinity, v));
+  }
+  return { tableId: then.table, title: table.title, inputs: carried };
+}
+
 /** A cost in the ruleset's words: "2 Momentum, 1 Resolve"; empty for a free spend. */
 export const costText = ({ costs, labels }: { costs: readonly PlannedCost[]; labels: ReadonlyMap<string, string> }) =>
   costs

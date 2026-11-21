@@ -5,7 +5,7 @@ import type { Actor, LiveState } from "@inconsistable/core-schema";
 import { compileRuleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_SKIRMISH } from "../../../../packages/rules-engine/src/fixtures/sample-skirmish.ts";
-import { costText, inputsText, offersOf, shown, usedUp } from "./spends.ts";
+import { costText, inputsText, nextTable, offersOf, shown, usedUp } from "./spends.ts";
 
 const compiled = (() => {
   const r = compileRuleset(SAMPLE_SKIRMISH);
@@ -71,4 +71,23 @@ test("a cost and an ask's inputs read in the ruleset's words", () => {
   const labels = new Map([["momentum", "Momentum"]]);
   assert.equal(costText({ costs: [{ pool: "momentum", amount: 2, byRun: false }], labels }), "2 Momentum");
   assert.equal(inputsText({ spend: compiled.ruleset.spends?.[0], inputs: { dice: 2 } }), "Dice 2");
+});
+
+test("a use opens its table with the spend's inputs carried onto the table's (house decision #91)", () => {
+  const channel = SAMPLE_SKIRMISH.spends?.find((s) => s.id === "channel");
+  assert.ok(channel);
+  const ruleset = compiled.ruleset;
+  const opened = (inputs: Record<string, number>) => nextTable({ ruleset, spend: channel, inputs });
+  assert.deepEqual(opened({ push: 2 }), { tableId: "backlash", title: "Backlash", inputs: { extra: 2 } });
+  // A push not picked carries the spend input's min; one past the table's bounds is held to them.
+  assert.deepEqual(opened({})?.inputs, { extra: 0 });
+  assert.deepEqual(opened({ push: 5 })?.inputs, { extra: 2 });
+  // A switch is on when the number is not 0; a spend without `then` opens nothing.
+  const tables = {
+    backlash: { ...ruleset.tables!.backlash!, inputs: [{ id: "extra", label: "Extra", type: "bool" as const }] },
+  };
+  assert.deepEqual(nextTable({ ruleset: { ...ruleset, tables }, spend: channel, inputs: { push: 1 } })?.inputs, {
+    extra: true,
+  });
+  assert.equal(nextTable({ ruleset, spend: { ...channel, then: undefined }, inputs: {} }), null);
 });

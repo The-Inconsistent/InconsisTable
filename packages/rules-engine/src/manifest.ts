@@ -2062,10 +2062,13 @@ function spendProblems({
     if (s.then !== undefined) {
       if (r.tables?.[s.then.table] === undefined)
         out.push({ path: `${path}.then.table`, message: `unknown table "${s.then.table}"` });
+      const table = r.tables?.[s.then.table];
       for (const key of Object.keys(s.then.inputs ?? {}).sort()) {
         const from = s.then.inputs?.[key] ?? "";
         if (s.inputs?.[from] === undefined)
           out.push({ path: `${path}.then.inputs.${key}`, message: `"${from}" is not an input of the spend` });
+        if (table !== undefined && !(table.inputs ?? []).some((x) => x.id === key))
+          out.push({ path: `${path}.then.inputs.${key}`, message: `"${key}" is not an input of the table` });
       }
     }
   });

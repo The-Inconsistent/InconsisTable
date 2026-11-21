@@ -786,12 +786,17 @@ func (p *problems) spends(r *Ruleset, actorTypes func(*[]string, string)) {
 			p.add(path+".clearOn", "an event is listed twice")
 		}
 		if s.Then != nil {
-			if _, known := r.Tables[s.Then.Table]; !known {
+			table, hasTable := r.Tables[s.Then.Table]
+			if !hasTable {
 				p.add(path+".then.table", `unknown table "%s"`, s.Then.Table)
 			}
 			for _, key := range sortedKeys(s.Then.Inputs) {
 				if _, known := s.Inputs[s.Then.Inputs[key]]; !known {
 					p.add(path+".then.inputs."+key, `"%s" is not an input of the spend`, s.Then.Inputs[key])
+				}
+				// The key names one of the table's inputs (house decision #91).
+				if hasTable && !slices.ContainsFunc(table.Inputs, func(x TableInput) bool { return x.ID == key }) {
+					p.add(path+".then.inputs."+key, `"%s" is not an input of the table`, key)
 				}
 			}
 		}

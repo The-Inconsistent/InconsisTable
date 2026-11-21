@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 import type { Encounter } from "@inconsistable/core-schema";
 
-import { turnAlertsOn } from "@/components/ui/alerts-switch/alerts-switch";
+import { buzz } from "@/components/ui/alerts-switch/alerts-switch";
 import { phoneLineOf } from "@/lib/sides/sides";
 
 type TurnBannerProps = { encounter: Encounter | null; held: readonly string[] };
@@ -18,17 +18,9 @@ export function TurnBanner({ encounter, held }: TurnBannerProps) {
   const mine = encounter?.paused === false && acting !== undefined && held.includes(acting.actorId);
   const turnKey = mine ? `${encounter?.id}:${encounter?.round}:${acting.id}` : null;
 
-  // Syncs with the device: vibrate once per turn start. Guarded: not every browser has it, and Chrome ignores it
-  // before the first tap on the page.
+  // Syncs with the device: vibrate once per turn start.
   useEffect(() => {
-    if (
-      turnKey !== null &&
-      typeof navigator !== "undefined" &&
-      "vibrate" in navigator &&
-      navigator.userActivation?.hasBeenActive &&
-      turnAlertsOn()
-    )
-      navigator.vibrate(200);
+    if (turnKey !== null) buzz();
   }, [turnKey]);
 
   // A sides fight (its snapshot carries `begun`): one quiet line for the seat's own character when it is not acting.

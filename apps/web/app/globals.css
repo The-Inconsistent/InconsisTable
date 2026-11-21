@@ -2677,6 +2677,19 @@ summary {
   display: none;
 }
 
+/* A whisper (house decision #93): the GM's line, large enough to read at arm's length, kept as typed. */
+.whisper-text {
+  margin: 0;
+  font-size: var(--fs-name);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.whisper-readers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 /* ---------- Turn order: parchment slips. The acting one is pulled out of line and lit by a candle. ---------- */
 .order {
   list-style: none;

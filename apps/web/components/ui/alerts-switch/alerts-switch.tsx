@@ -17,6 +17,18 @@ const stored = (): boolean => {
 /** Whether this device buzzes and flashes when a turn starts (the root class, set from storage on load). */
 export const turnAlertsOn = (): boolean => !document.documentElement.classList.contains(QUIET);
 
+/** The phone's one buzz (a turn starting, a whisper arriving), when alerts are on. Guarded: not every browser has it,
+ * and Chrome ignores it before the first tap on the page. */
+export const buzz = () => {
+  if (
+    typeof navigator !== "undefined" &&
+    "vibrate" in navigator &&
+    navigator.userActivation?.hasBeenActive &&
+    turnAlertsOn()
+  )
+    navigator.vibrate(200);
+};
+
 const subscribe = (onChange: () => void) => {
   const observer = new MutationObserver(onChange);
   observer.observe(document.documentElement, { attributeFilter: ["class"] });

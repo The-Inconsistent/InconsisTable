@@ -26,6 +26,8 @@ type Row struct {
 	Status      string
 	OwnerUserID *string
 	EntityType  string
+	// SpawnOptions are the spawn options it was spawned with (house decision #92).
+	SpawnOptions []string
 }
 
 // FieldRow is one actor_field row.
@@ -117,14 +119,14 @@ func byActor[T any](ctx context.Context, conn core.Conn, sql, campaignID string,
 
 // LoadRows reads every actor of the campaign with its value rows. Five queries, each scoped to the campaign.
 func LoadRows(ctx context.Context, conn core.Conn, campaignID string) ([]Rows, error) {
-	rows, err := conn.Query(ctx, `SELECT id::text, kind, name, status, owner_user_id, entity_type FROM actor
+	rows, err := conn.Query(ctx, `SELECT id::text, kind, name, status, owner_user_id, entity_type, spawn_options FROM actor
 		WHERE campaign_id = $1 ORDER BY created_at, id`, campaignID)
 	if err != nil {
 		return nil, err
 	}
 	actors, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (Row, error) {
 		var a Row
-		err := r.Scan(&a.ID, &a.Kind, &a.Name, &a.Status, &a.OwnerUserID, &a.EntityType)
+		err := r.Scan(&a.ID, &a.Kind, &a.Name, &a.Status, &a.OwnerUserID, &a.EntityType, &a.SpawnOptions)
 		return a, err
 	})
 	if err != nil {
@@ -469,7 +471,8 @@ func Build(compiled *engine.CompiledRuleset, rows []Rows, campaign map[string]an
 			b.State.Conditions = append(b.State.Conditions, engine.ConditionState{ID: c.ID, ConditionID: c.ConditionID, ExpiresOn: c.ExpiresOn, ExpiresAfter: after})
 		}
 		values := engine.ActorValues{
-			Fields: b.Fields, Resources: b.Resources, Conditions: activeIDs(b.Conditions), Entries: b.Entries, Characters: characters, Campaign: campaign,
+			Fields: b.Fields, Resources: b.Resources, Conditions: activeIDs(b.Conditions), Entries: b.Entries, Options: b.Row.SpawnOptions,
+			Characters: characters, Campaign: campaign,
 		}
 		var exprErr engine.ExprError
 		derived, err := compiled.DeriveValues(b.Entity, values)
@@ -553,7 +556,7 @@ func ToLive(b *Built) cs.Actor {
 	return cs.Actor{
 		ID: b.Row.ID, Kind: b.Row.Kind, Name: b.Row.Name, Status: b.Row.Status, OwnerUserID: b.Row.OwnerUserID,
 		Entity: b.Entity, Fields: b.Fields, Resources: b.Resources, Derived: b.Derived,
-		Conditions: activeIDs(b.Conditions), ConditionTimers: timers, Held: held,
+		Conditions: activeIDs(b.Conditions), ConditionTimers: timers, Held: held, SpawnOptions: b.Row.SpawnOptions,
 	}
 }
 

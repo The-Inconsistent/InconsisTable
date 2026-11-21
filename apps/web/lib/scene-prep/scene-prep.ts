@@ -48,21 +48,24 @@ export const EMPTY_PREP: ScenePrep = { roster: [], tests: [], pools: [], exits: 
 /** The attached packs' spawnable entries the GM's page read, by pack slug and key; `complete` when none was cut off. */
 export type Spawnable = {
   packs: { slug: string; id: string }[];
-  entries: { pack: string; key: string; type: string; name: string }[];
+  /** An entry's body is read for its spawn options and the budget (house decision #92); absent where not read. */
+  entries: { pack: string; key: string; type: string; name: string; body?: Readonly<Record<string, unknown>> }[];
   complete: boolean;
 };
 
 /** What a line is resolved against: everything the GM's device already holds. */
 export type PrepWorld = {
-  state: Pick<LiveState, "testDefs" | "pools" | "actors" | "encounter" | "access">;
+  state: Pick<LiveState, "testDefs" | "pools" | "actors" | "encounter" | "access" | "campaign">;
   entries: readonly CodexEntry[];
   spawnable: Spawnable;
   // The manifest as the GM reads it: which rows fields a pick line may name (house decision #89).
   ruleset?: Ruleset | null;
+  /** The pinned ruleset's spawn option ids (house decision #92); absent when the ruleset is not read yet. */
+  options?: readonly string[];
 };
 
 /** What a line names that the room no longer has. */
-export type Missing = "pack" | "entry" | "test" | "actor" | "pool" | "scene" | "field";
+export type Missing = "pack" | "entry" | "test" | "actor" | "pool" | "scene" | "field" | "option";
 /** Why a whole line cannot be sent right now (it is not broken). */
 export type Blocked = "noFight" | "count" | "mobCount" | "nobody" | "short";
 
@@ -95,6 +98,9 @@ function rosterAction(line: RosterLine, world: PrepWorld): Resolved {
   if (!pack) return { state: "broken", missing: "pack" };
   const known = world.spawnable.entries.some((e) => e.pack === line.pack && e.key === line.key);
   if (!known && world.spawnable.complete) return { state: "broken", missing: "entry" };
+  // An option the ruleset no longer has breaks the line, as a missing entry does (house decision #92).
+  if (world.options !== undefined && (line.options ?? []).some((o) => !world.options?.includes(o)))
+    return { state: "broken", missing: "option" };
   if (line.mob !== undefined && line.count > 1) return { state: "blocked", reason: "mobCount" };
   if (line.count > MAX_SPAWN) return { state: "blocked", reason: "count" };
   const name = line.label?.trim();
@@ -107,6 +113,8 @@ function rosterAction(line: RosterLine, world: PrepWorld): Resolved {
     visibility: line.visibility,
     ...(line.mob === undefined ? {} : { mob: line.mob }),
     ...(name ? { name } : {}),
+    ...(line.options === undefined || line.options.length === 0 ? {} : { options: line.options }),
+    ...(line.marker === undefined ? {} : { marker: line.marker }),
   };
   return { state: "ready", action };
 }

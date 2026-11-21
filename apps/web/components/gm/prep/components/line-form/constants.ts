@@ -10,6 +10,10 @@ import type { Spawnable } from "@/lib/scene-prep/scene-prep";
 
 export const MAX_OUTCOMES = MAX_TEST_OUTCOMES;
 
+// The room a roster line's spawn options are offered against: by type only, their `when` is read when the line is sent
+// (house decision #92).
+export const NO_ROOM = { campaign: {}, characters: 0, seated: 0 };
+
 // A line's id inside its scene's document. Not crypto.randomUUID: a LAN table is served over plain HTTP, where it is
 // missing; uniqueness only matters within one scene.
 export const lineId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;

@@ -161,7 +161,18 @@ export const d20Document = (): RoomDocumentInput => ({
       links: [IDS.quay, IDS.npc],
       plannedTests: ["check"],
       prep: {
-        roster: [{ id: "r1", pack: "sample-bestiary", key: "ember-wisp", count: 2, label: "Wisps" }],
+        // A roster line carries its marker and spawn options (house decision #92).
+        roster: [
+          {
+            id: "r1",
+            pack: "sample-bestiary",
+            key: "ember-wisp",
+            count: 2,
+            label: "Wisps",
+            marker: "amber",
+            options: ["hardened"],
+          },
+        ],
         tests: [
           { id: "t1", testId: "check", inputs: { ability: "dex", dc: 12 }, takers: "listed", actorIds: [IDS.mara] },
         ],

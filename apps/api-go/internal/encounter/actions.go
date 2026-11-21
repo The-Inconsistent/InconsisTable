@@ -146,6 +146,9 @@ func Action(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 		return setColumn(ctx, tx, cid, a.Str("combatantId"), `UPDATE combatant SET visibility = $1 WHERE id = $2`, a["visibility"])
 	case "encounter.keep":
 		return setColumn(ctx, tx, cid, a.Str("combatantId"), `UPDATE combatant SET keep = $1 WHERE id = $2`, a["keep"])
+	// A marker is a combatant's fight setting, like its view: set or cleared, not logged (house decision #92).
+	case "encounter.mark":
+		return setColumn(ctx, tx, cid, a.Str("combatantId"), `UPDATE combatant SET marker = $1 WHERE id = $2`, a["marker"])
 	case "turn.next", "turn.prev", "phase.done":
 		return turnStep(ctx, tx, c, a)
 	case "turn.first":

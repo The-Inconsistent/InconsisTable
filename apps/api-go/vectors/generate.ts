@@ -75,6 +75,8 @@ import type {
 import { charge, checkDeltas } from "../../../packages/rules-engine/src/primitives/primitive.ts";
 import { opInputKeys, PRIMITIVES, runOp } from "../../../packages/rules-engine/src/primitives/registry.ts";
 import { planSpend } from "../../../packages/rules-engine/src/spend.ts";
+import { budgetOf, planSpawn, type SpawnRoom } from "../../../packages/rules-engine/src/spawn.ts";
+import { SAMPLE_SKIRMISH_PACK } from "../../../packages/rules-engine/src/fixtures/sample-skirmish-pack.ts";
 import { firstOf, nextFirst, sequence } from "../../../packages/rules-engine/src/primitives/initiative-seated.ts";
 import { poolSize } from "../../../packages/rules-engine/src/primitives/dice-pool-successes.ts";
 import { LAYOUT_TARGETS, WIDGETS } from "../../../packages/rules-engine/src/widgets.ts";
@@ -1071,6 +1073,56 @@ function spendVectors() {
 }
 
 const isRefusalLike = (v: object): v is { code: string; message: string } => "code" in v && "message" in v;
+
+// Spawns (house decision #92): planSpawn and budgetOf on the skirmish fixture's foes, varied around their edges.
+function spawnVectors() {
+  const r = compileRuleset(SAMPLE_SKIRMISH);
+  if (!r.ok) throw new Error(JSON.stringify(r.problems));
+  const ruleset = r.compiled.ruleset;
+  let seed = 92;
+  const rnd = (n: number) => (((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 2 ** 32) * n) | 0;
+  const one = <T>(items: readonly T[]): T => items[rnd(items.length)] as T;
+  const bodies: Record<string, FieldValue>[] = [
+    ...SAMPLE_SKIRMISH_PACK.entries.map((e) => e.body as Record<string, FieldValue>),
+    {},
+    { kind: "boss", level: 4 },
+    { kind: "brute", level: null, grudge: 1 },
+    { kind: "nope", level: 2, "attr.dex": 9 },
+  ];
+  const optionSets = [
+    [],
+    ["scaled"],
+    ["hardened"],
+    ["quick", "scaled"],
+    ["hardened", "quick", "scaled"],
+    ["nope"],
+    ["quick", "nope"],
+  ];
+  const rooms: SpawnRoom[] = [
+    { campaign: { peril: 1 }, characters: 0, seated: 0 },
+    { campaign: { peril: 3 }, characters: 4, seated: 2 },
+    { campaign: { peril: 5 }, characters: 2, seated: 2 },
+    { campaign: {}, characters: 1, seated: 1 },
+  ];
+  const cases: unknown[] = [];
+  for (let i = 0; i < 400; i++) {
+    const entity = one(["creature", "creature", "creature", "character"]);
+    const values = one(bodies);
+    const options = one(optionSets);
+    const room = one(rooms);
+    const mob = rnd(4) === 0;
+    const plan = planSpawn({ ruleset, entity, values, options, room, mob });
+    cases.push({ entity, values, options, room, mob, ...(isRefusalLike(plan) ? plan : { plan }) });
+  }
+  const budgets: unknown[] = [];
+  for (let i = 0; i < 150; i++) {
+    const picks = Array.from({ length: rnd(5) }, () => ({ values: one(bodies), count: 1 + rnd(8), mob: rnd(3) === 0 }));
+    const room = one(rooms);
+    const switches = one([[], ["fortified"], ["nope"]]);
+    budgets.push({ picks, room, switches, lines: budgetOf({ ruleset, picks, room, switches }) });
+  }
+  return { ruleset: SAMPLE_SKIRMISH, cases, budgets };
+}
 
 // The keys each op's input takes, which a spend's run may name (house decision #84); Go keeps a table of its own.
 const opKeyVectors = () =>
@@ -2451,6 +2503,30 @@ const CRAFTED: object[] = [
   ...lookupCrafted(),
   ...heldCrafted(),
   ...checklistCrafted(),
+  // House decision #92: spawn blocks the schema, the semantic pass or the compiler refuses.
+  ...[
+    {
+      options: [
+        { id: "x", label: "X", cite: "p.1", entities: ["gear"], when: "level" },
+        { id: "x", label: "X", cite: "p.1", effects: [{ path: "nope", mode: "add", value: "1" }] },
+      ],
+      adjust: [{ option: "y", add: { name: "1", level: "true" }, cite: "p.1" }],
+      budget: { lines: [{ id: "a", label: "A", cost: "ctx.nope", budget: "level" }] },
+    },
+    {
+      options: [
+        { id: "x", label: "X", cite: "p.1", when: "level", effects: [{ path: "nope", mode: "add", value: "1" }] },
+      ],
+      adjust: [{ add: { level: "ctx.count" }, cite: "p.1" }],
+      budget: {
+        cite: "p.1",
+        lines: [{ id: "a", label: "A", cost: "ctx.budget", budget: "level" }],
+        switches: [{ id: "s", label: "S", by: "party.seated > 1" }],
+      },
+    },
+    { adjust: [{ add: {}, cite: "p.1" }], budget: { lines: [], switches: [{ id: "Bad", label: "", by: "1" }] } },
+    { options: [{ id: "x", label: "X", cite: "p.1", entities: [] }], adjust: [{ add: { a: "1" }, extra: 1 }] },
+  ].map((spawn) => ({ ...SAMPLE_SKIRMISH, spawn })),
 ];
 
 // Held records (house decision #88): every rule a held kind can break, one manifest each.
@@ -3169,6 +3245,8 @@ function deriveVectors() {
         }
         const resources = Object.fromEntries(ce.resources.filter(() => rnd(6) !== 0).map((id) => [id, rnd(31) - 5]));
         const conditions = conditionIds.filter(() => rnd(3) === 0);
+        // House decision #92: the spawn options an actor took run with its conditions.
+        const options = (c.ruleset.spawn?.options ?? []).map((o) => o.id).filter(() => rnd(2) === 0);
         const characters = rnd(7);
         const declared = Object.keys(c.ruleset.campaignFields ?? {}).length > 0;
         const stored = declared ? genStored(c) : undefined;
@@ -3177,6 +3255,7 @@ function deriveVectors() {
           fields,
           resources,
           conditions,
+          options,
           party: { characters },
           ...(campaign === undefined ? {} : { campaign }),
         };
@@ -3196,6 +3275,7 @@ function deriveVectors() {
           fields,
           resources,
           conditions,
+          options,
           characters,
           base,
           derived,
@@ -4011,6 +4091,7 @@ const vectors = {
   ops: opVectors(),
   charge: chargeVectors(),
   spends: spendVectors(),
+  spawns: spawnVectors(),
   opInputKeys: opKeyVectors(),
   deltaChecks: deltaCheckVectors(),
   typeScope,

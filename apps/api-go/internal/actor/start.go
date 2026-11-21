@@ -24,12 +24,12 @@ type StartingResource struct {
 // StartingResources is the entity's resources at the start: the resource's own `start` when it declares one, else full
 // when it has a ceiling, else at its floor (house decision #23). A resource whose bounds can't be evaluated yet (a field it reads is unset) is left out, as is
 // everything when the derived values can't be computed.
-func StartingResources(compiled *engine.CompiledRuleset, entity string, fields map[string]any, characters float64, campaign map[string]any, entries []engine.ActiveEntry) ([]StartingResource, error) {
+func StartingResources(compiled *engine.CompiledRuleset, entity string, fields map[string]any, characters float64, campaign map[string]any, entries []engine.ActiveEntry, options []string) ([]StartingResource, error) {
 	ce, ok := compiled.Entities[entity]
 	if !ok {
 		return nil, nil
 	}
-	values := engine.ActorValues{Fields: fields, Resources: map[string]float64{}, Conditions: []string{}, Characters: characters, Campaign: campaign, Entries: entries}
+	values := engine.ActorValues{Fields: fields, Resources: map[string]float64{}, Conditions: []string{}, Characters: characters, Campaign: campaign, Entries: entries, Options: options}
 	var exprErr engine.ExprError
 	derived, err := compiled.DeriveValues(entity, values)
 	if errors.As(err, &exprErr) {
@@ -84,6 +84,8 @@ type StartTarget struct {
 	Fields  map[string]any
 	// Resources are starting values decided elsewhere (a ledger sheet's Wealth), over the ones the ruleset gives.
 	Resources map[string]float64
+	// Add is added to the starting value of each resource the actor gets: a spawn adjustment (house decision #92).
+	Add map[string]float64
 	// FieldsOnly writes the fields and leaves every resource as it is (a ledger build saved again).
 	FieldsOnly bool
 }
@@ -128,7 +130,7 @@ func WriteStart(ctx context.Context, tx core.Conn, c cs.Ctx, compiled *engine.Co
 		if t.FieldsOnly {
 			continue
 		}
-		start, err := StartingResources(compiled, b.Entity, t.Fields, characters, campaign, b.Entries)
+		start, err := StartingResources(compiled, b.Entity, t.Fields, characters, campaign, b.Entries, b.Row.SpawnOptions)
 		if err != nil {
 			return "", err
 		}
@@ -146,6 +148,7 @@ func WriteStart(ctx context.Context, tx core.Conn, c cs.Ctx, compiled *engine.Co
 			if decided, ok := t.Resources[r.Resource]; ok {
 				value = decided
 			}
+			value += t.Add[r.Resource]
 			deltas = append(deltas, engine.Delta{Target: engine.DeltaTarget{ActorID: t.ActorID, Resource: r.Resource}, Kind: "set", Value: value})
 		}
 	}

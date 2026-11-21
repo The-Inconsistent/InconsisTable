@@ -40,7 +40,9 @@ var (
 	audienceModes    = []string{"all", "listed"}
 	combatSides      = []string{"party", "foe", "other"}
 	combatVisibility = []string{"hidden", "bar", "full"}
-	clockVisibility  = []string{"gm", "party"}
+	// Markers are a combatant's marker colours (encounter.ts Marker, house decision #92).
+	Markers         = []string{"red", "amber", "green", "blue", "purple", "white"}
+	clockVisibility = []string{"gm", "party"}
 )
 
 // maxSpawn is core-schema's MAX_SPAWN: the creatures one actor.spawn places.
@@ -173,6 +175,9 @@ var ActionSchema = schema.Union("type",
 		// How the table sees them in a running fight, and a name in the entry's place (house decision #75).
 		schema.Def("visibility", schema.Enum(combatVisibility...), "hidden"),
 		schema.Opt("name", schema.String().Trim().Min(1).Max(80)),
+		// The ruleset's spawn options it takes, and its marker when it joins a fight (house decision #92).
+		schema.Def("options", spawnOptionIDs, []any{}),
+		schema.Opt("marker", schema.Enum(Markers...)),
 	),
 	variant("draft.save", schema.Req("body", BuilderDraftBody)),
 	variant("draft.discard"),
@@ -215,6 +220,7 @@ var ActionSchema = schema.Union("type",
 	variant("encounter.move", schema.Req("combatantId", id), schema.Req("direction", schema.Enum("up", "down"))),
 	variant("encounter.setVisibility", schema.Req("combatantId", id), schema.Req("visibility", schema.Enum(combatVisibility...))),
 	variant("encounter.keep", schema.Req("combatantId", id), schema.Req("keep", schema.Bool())),
+	variant("encounter.mark", schema.Req("combatantId", id), schema.Req("marker", schema.Nullable(schema.Enum(Markers...)))),
 	variant("turn.next"),
 	variant("turn.prev"),
 	variant("turn.first", schema.Req("combatantId", id)),
@@ -410,6 +416,7 @@ var ActionPerms = map[string]string{
 	"encounter.move":          "encounter:run",
 	"encounter.setVisibility": "encounter:run",
 	"encounter.keep":          "encounter:run",
+	"encounter.mark":          "encounter:run",
 	"turn.next":               "encounter:run",
 	"turn.prev":               "encounter:run",
 	"turn.first":              "encounter:run",

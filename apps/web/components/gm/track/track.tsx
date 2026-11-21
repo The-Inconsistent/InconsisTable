@@ -26,6 +26,7 @@ import { TablesPanel } from "@/components/gm/track/components/tables-panel/table
 import { PhaseBar } from "@/components/gm/track/components/phase-bar/phase-bar";
 import { ReminderLines } from "@/components/gm/track/components/reminder-lines/reminder-lines";
 import { OrderList } from "@/components/gm/track/components/order-list/order-list";
+import { RowShortcuts } from "@/components/gm/track/components/row-shortcuts/row-shortcuts";
 import { CallForm } from "@/components/gm/tests/components/call-form/call-form";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { EndNotice } from "@/components/ui/end-notice/end-notice";
@@ -97,6 +98,8 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
 
   // What each combatant holds up, for its row (house decision #91).
   const heldOf = (actorId: string) => heldChips({ ruleset: rules, actor: actors.get(actorId) });
+  // Its tag and steppers, beside its row (house decision #92).
+  const shortcutsOf = (actorId: string) => <RowShortcuts ruleset={rules} actor={actors.get(actorId)} run={run} />;
 
   // OPEN TABLE: a spend's next table (house decision #91), opened in the tables panel for the spender with the spend's
   // inputs, brought into view and focused.
@@ -161,6 +164,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                   selectedId={selected?.id}
                   onSelect={handleSelect}
                   heldOf={heldOf}
+                  shortcutsOf={shortcutsOf}
                 />
               ) : (
                 <OrderList
@@ -170,6 +174,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                   onSelect={handleSelect}
                   run={run}
                   heldOf={heldOf}
+                  shortcutsOf={shortcutsOf}
                 />
               )}
             </div>
@@ -277,7 +282,9 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
         />
       )}
       {/* A board game's players, automa included, are characters: there are no creatures to spawn. */}
-      {mode === "fight" && <Creatures campaignId={state.campaign.id} send={send} />}
+      {mode === "fight" && (
+        <Creatures campaignId={state.campaign.id} send={send} state={state} ruleset={rules ?? null} />
+      )}
     </>
   );
 }

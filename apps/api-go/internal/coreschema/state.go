@@ -68,6 +68,8 @@ type (
 		// Ledger is the saved ledger build and sheet, and the unfinished draft (house decision #63); nil when the actor
 		// has none or the seat may not read it.
 		Ledger *ActorLedger `json:"ledger"`
+		// SpawnOptions are the spawn options it was spawned with (house decision #92): the GM side's; absent when none.
+		SpawnOptions []string `json:"spawnOptions,omitempty"`
 	}
 	// HeldRecord is one record an actor holds: its kind, the entry's key, name and cite, and its effects. Key and Cite
 	// are nil where the seat may not read them.
@@ -273,6 +275,8 @@ type (
 		// Members is a mob's members standing; nil for anyone else.
 		Members    *HP                  `json:"members"`
 		Conditions []CombatantCondition `json:"conditions"`
+		// Marker is its marker colour (house decision #92); absent when it has none.
+		Marker string `json:"marker,omitempty"`
 		// Used is the spends limited per round it used this round, once per use (house decision #91); absent when none.
 		Used []string `json:"used,omitempty"`
 		*CombatantSides

@@ -140,7 +140,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 		return nil, err
 	}
 	rows, err := conn.Query(ctx, `SELECT c.id::text, c.actor_id::text, actor.name, c.side, c.ord, c.initiative_score,
-		c.visibility, c.keep, c.done, c.held, c.barred FROM combatant c JOIN actor ON actor.id = c.actor_id
+		c.visibility, c.keep, c.done, c.held, c.barred, c.marker FROM combatant c JOIN actor ON actor.id = c.actor_id
 		WHERE c.encounter_id = $1 AND actor.campaign_id = $2 ORDER BY c.ord, c.id`, e.ID, campaignID)
 	if err != nil {
 		return nil, err
@@ -152,8 +152,12 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 	combatants, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (cs.Combatant, error) {
 		var c cs.Combatant
 		var isDone, isHeld, isBarred bool
-		if err := r.Scan(&c.ID, &c.ActorID, &c.Name, &c.Side, &c.Ord, &c.Initiative, &c.Visibility, &c.Keep, &isDone, &isHeld, &isBarred); err != nil {
+		var marker *string
+		if err := r.Scan(&c.ID, &c.ActorID, &c.Name, &c.Side, &c.Ord, &c.Initiative, &c.Visibility, &c.Keep, &isDone, &isHeld, &isBarred, &marker); err != nil {
 			return c, err
+		}
+		if marker != nil {
+			c.Marker = *marker
 		}
 		sideOf[c.ActorID] = c.Side
 		if isHeld {

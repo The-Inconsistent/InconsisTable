@@ -1,6 +1,7 @@
 import {
   byOrder,
   compileEntryEffects,
+  spawnSourceId,
   type ActiveEntry,
   type CompiledEffect,
   type CompiledEntity,
@@ -24,6 +25,8 @@ export interface ActorValues {
   conditions?: readonly string[];
   /** The pack entries the actor chose (house decision #61); their effects apply with the conditions', in §4.4 order. */
   entries?: readonly ActiveEntry[];
+  /** The spawn options the actor took (house decision #92); their effects apply with the conditions'. */
+  options?: readonly string[];
   party?: { characters: number };
   /** The campaign's field values (`campaign.danger`), as `campaignValues` gives them. */
   campaign?: Readonly<Record<string, number | string | boolean>>;
@@ -121,7 +124,7 @@ function activeEffects({
 }): CompiledEffect[] {
   // ponytail: an effect applies once per active condition, whatever its stacks; per-stack scaling when a ruleset
   // declares one.
-  const active = new Set(values.conditions ?? []);
+  const active = new Set([...(values.conditions ?? []), ...(values.options ?? []).map(spawnSourceId)]);
   const fromConditions = ce.effects.filter((e) => active.has(e.sourceId));
   const fromEntries = compileEntryEffects({ compiled, entity, entries: values.entries ?? [] });
   // ponytail: entry effects compile on every call; cache by entry when a profile shows it.
@@ -149,10 +152,12 @@ export function applyBaseEffects({
   for (const eff of activeEffects({ compiled, entity, ce, values })) {
     if (eff.phase !== "base") continue;
     const current = own(fields, eff.target);
-    if (typeof current !== "number") continue; // an unset field has nothing to modify
+    // An unset field has nothing to modify; an override needs nothing and sets it (house decision #92).
+    if (typeof current !== "number" && eff.mode !== "override") continue;
     const scope = actorScope({ fields, resources: values.resources, party: values.party, campaign: values.campaign });
     if (eff.when !== null && !evaluateBool({ expr: eff.when, scope })) continue;
-    fields[eff.target] = applyMode({ mode: eff.mode, current, value: evaluateInt({ expr: eff.value, scope }) });
+    const value = evaluateInt({ expr: eff.value, scope });
+    fields[eff.target] = applyMode({ mode: eff.mode, current: typeof current === "number" ? current : value, value });
   }
   for (const [id, def] of Object.entries(ce.def.fields)) {
     const v = own(fields, id);

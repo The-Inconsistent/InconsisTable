@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { compileRuleset } from "@inconsistable/rules-engine";
+import type { Actor } from "@inconsistable/core-schema";
+import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_HARM, SAMPLE_HARM_ARMS } from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { entryTypesOf, isPlan, meansOf, previewStrike, strikesFor, targetsOf } from "./strike.ts";
@@ -36,9 +37,9 @@ test("the guide offers each type's strikes, the means it holds that the packs ha
     strikesFor({ ruleset, actor: hal }).map((s) => s.id),
     ["blow"],
   );
-  assert.deepEqual(entryTypesOf(blow), ["arm"]);
+  assert.deepEqual(entryTypesOf({ ruleset, strike: blow }), ["arm"]);
   assert.deepEqual(
-    meansOf({ strike: blow, actor: hal, entries }).map((m) => [m.source, m.ref, m.name]),
+    meansOf({ ruleset, strike: blow, actor: hal, entries }).map((m) => [m.source, m.ref, m.name]),
     [
       [0, "maul", "Maul"],
       [0, "sling", "Sling"],
@@ -51,7 +52,7 @@ test("the guide offers each type's strikes, the means it holds that the packs ha
 });
 
 test("the preview is the engine's answer: wounds over the soak, a member off a swarm", () => {
-  const [maul] = meansOf({ strike: blow, actor: hal, entries });
+  const [maul] = meansOf({ ruleset, strike: blow, actor: hal, entries });
   const preview = (target: typeof ogre, total: number | null) =>
     previewStrike({
       compiled,
@@ -88,5 +89,26 @@ test("the preview is the engine's answer: wounds over the soak, a member off a s
       campaign: {},
     }),
     null,
+  );
+});
+
+test("a held item of the strike's kind is a means, read from its loaded entry; a hand-written one is not", () => {
+  const items = { kinds: [{ id: "arms", label: "Arms", entry: "arm", entities: ["hero"] }] } as Ruleset["items"];
+  const carried = { ...blow, means: [{ from: "items" as const, kind: "arms" }] };
+  const item = (id: string, kind: string, entry: string | null, name: string) =>
+    ({ id, kind, entry, name }) as NonNullable<Actor["items"]>[number];
+  const holder = {
+    ...hal,
+    items: [
+      item("i1", "arms", "sling", "Sling"),
+      item("i2", "arms", null, "Stick"),
+      item("i3", "gear", "maul", "Maul"),
+      item("i4", "arms", "gone", "gone"),
+    ],
+  };
+  assert.deepEqual(entryTypesOf({ ruleset: { items }, strike: carried }), ["arm"]);
+  assert.deepEqual(
+    meansOf({ ruleset: { items }, strike: carried, actor: holder, entries }).map((m) => [m.source, m.ref, m.name]),
+    [[0, "i1", "Sling"]],
   );
 });

@@ -183,6 +183,27 @@ test("a strike's declaration is refused at its path", () => {
     assert.ok(paths.includes(want), `${want}\nin\n${paths.join("\n")}`);
 });
 
+test("a strike's means may be a held item of a kind an attacker holds (house decision #95)", () => {
+  const kind = { id: "arms", label: "Arms", entry: "arm", entities: ["hero"], card: "weapons", cite: "Sample p.17" };
+  const withItems = (means: NonNullable<RulesetInput["strikes"]>[number]["means"], entities?: string[]) => {
+    const r = structuredClone(SAMPLE_HARM) as RulesetInput & { strikes: NonNullable<RulesetInput["strikes"]> };
+    r.items = { kinds: [kind as never] };
+    r.strikes[0] = { ...r.strikes[0]!, means, ...(entities ? { entities } : {}) };
+    return compileRuleset(r);
+  };
+  assert.ok(withItems([{ from: "items", kind: "arms" }]).ok);
+  const problems = (r: ReturnType<typeof compileRuleset>) =>
+    r.ok ? [] : r.problems.map((p) => `${p.path}: ${p.message}`);
+  assert.deepEqual(problems(withItems([{ from: "items", kind: "nope" }])), [
+    'strikes[0].means[0].kind: unknown item kind "nope"',
+  ]);
+  assert.ok(
+    problems(withItems([{ from: "items", kind: "arms" }], ["brute"])).includes(
+      'strikes[0].means[0].kind: no attacker holds "arms"',
+    ),
+  );
+});
+
 test("a strike's expressions are checked over every attacker and target", () => {
   const bad = structuredClone(SAMPLE_HARM) as RulesetInput & { strikes: NonNullable<RulesetInput["strikes"]> };
   bad.strikes[0]!.pool.expr = "grit"; // only a hero has grit

@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
@@ -122,9 +123,10 @@ func side(rc *ruleset.Context, id string) (*actor.Built, error) {
 	return b, nil
 }
 
-// meansOf is the picked means as it stands, and its name for the log: a line of the attacker's saved sheet, or a pack
-// entry the room is served whose key the attacker's list field holds. Nil for none picked; the engine refuses a means
-// the strike does not take, or a missing one it needs.
+// meansOf is the picked means as it stands, and its name for the log: a line of the attacker's saved sheet, a pack
+// entry the room is served whose key the attacker's list field holds, or an item of the kind the attacker holds whose
+// entry the room is served (a hand-written item has no values to strike with). Nil for none picked; the engine refuses
+// a means the strike does not take, or a missing one it needs.
 func meansOf(ctx context.Context, tx core.Conn, campaignID string, s *engine.Strike, b *actor.Built, pick map[string]any) (map[string]any, any, error) {
 	if pick == nil {
 		return nil, nil, nil
@@ -164,13 +166,18 @@ func meansOf(ctx context.Context, tx core.Conn, campaignID string, s *engine.Str
 		}
 		return line, line["name"], nil
 	}
-	keys, _ := b.Fields[m.Field].([]any)
-	held := false
-	for _, k := range keys {
-		held = held || k == ref
-	}
-	if !held {
-		return nil, nil, missing
+	entryType, key := m.Entry, ref
+	if m.From == "items" {
+		i := slices.IndexFunc(b.Items, func(x actor.ItemRow) bool { return x.ID == ref && x.Kind == m.Kind && x.Served })
+		if i < 0 {
+			return nil, nil, missing
+		}
+		entryType, key = *b.Items[i].EntryType, *b.Items[i].EntryKey
+	} else {
+		keys, _ := b.Fields[m.Field].([]any)
+		if !slices.Contains(keys, any(ref)) {
+			return nil, nil, missing
+		}
 	}
 	var name string
 	var body []byte
@@ -178,7 +185,7 @@ func meansOf(ctx context.Context, tx core.Conn, campaignID string, s *engine.Str
 		JOIN pack_entry e ON e.pack_version_id = campaign_pack.pack_version_id
 		JOIN pack_version ON pack_version.id = e.pack_version_id JOIN pack ON pack.id = pack_version.pack_id
 		WHERE campaign_pack.campaign_id = $1 AND e.type = $2 AND e.key = $3 AND `+actor.ServedPacks("$1")+`
-		ORDER BY pack.slug LIMIT 1`, campaignID, m.Entry, ref).Scan(&name, &body)
+		ORDER BY pack.slug LIMIT 1`, campaignID, entryType, key).Scan(&name, &body)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil, missing
 	}

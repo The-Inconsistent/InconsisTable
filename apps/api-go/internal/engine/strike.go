@@ -12,13 +12,15 @@ import (
 // client cannot apply a hit the strike does not give.
 
 type (
-	// StrikeMeans is where a strike's means come from: From "ledger" (Lines of the saved sheet) or "list" (the pack
-	// entries of type Entry whose keys the attacker's list field Field holds).
+	// StrikeMeans is where a strike's means come from: From "ledger" (Lines of the saved sheet), "list" (the pack
+	// entries of type Entry whose keys the attacker's list field Field holds) or "items" (the items of kind Kind the
+	// attacker holds, house decision #95).
 	StrikeMeans struct {
 		From  string `json:"from"`
 		Lines string `json:"lines"`
 		Field string `json:"field"`
 		Entry string `json:"entry"`
+		Kind  string `json:"kind"`
 	}
 	// StrikeAdd is one addition to a figure, applied when When holds.
 	StrikeAdd struct {
@@ -166,6 +168,18 @@ func (p *problems) strikes(r *Ruleset, actorTypes func(*[]string, string), needC
 			if m.From == "ledger" {
 				if r.Build == nil {
 					p.add(at, "the ruleset has no build")
+				}
+				continue
+			}
+			if m.From == "items" {
+				kind := r.Items.Kind(m.Kind)
+				if kind == nil {
+					p.add(at+".kind", `unknown item kind "%s"`, m.Kind)
+				} else if !slices.ContainsFunc(kind.Entities, func(id string) bool {
+					e := r.entity(id)
+					return e != nil && e.Base == "actor" && (s.Entities == nil || slices.Contains(*s.Entities, id))
+				}) {
+					p.add(at+".kind", `no attacker holds "%s"`, m.Kind)
 				}
 				continue
 			}

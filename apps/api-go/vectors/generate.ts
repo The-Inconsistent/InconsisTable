@@ -3094,6 +3094,17 @@ function strikeCrafted(): object[] {
       ],
     }),
     strike({ means: undefined }),
+    // A held item as the means (house decision #95): a kind the ruleset declares and an attacker holds.
+    ...[["hero"], ["brute"]].map((entities) => ({
+      ...strike({
+        means: [
+          { from: "items", kind: "arms" },
+          { from: "items", kind: "nope" },
+        ],
+      }),
+      items: { kinds: [{ id: "arms", label: "Arms", entry: "arm", entities, card: "weapons", cite: "Sample p.17" }] },
+    })),
+    strike({ means: [{ from: "items" }, { from: "items", kind: "Bad" }] }),
     strike({
       inputs: [
         { id: "aim", label: "A", type: "bool", min: 0 },

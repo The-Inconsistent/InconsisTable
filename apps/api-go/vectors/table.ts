@@ -138,6 +138,23 @@ const ITEMS = [
     tags: [],
     effects: [],
   },
+  // Fitted to a line of the saved build (house decision #102), with an effect on its host's card.
+  {
+    id: "i3",
+    kind: "fittings",
+    entry: "sight",
+    name: "Sight",
+    cite: "Sample p.41",
+    note: "",
+    quantity: null,
+    fittedTo: null,
+    fittedLine: "weapons/Staff",
+    source: "acquire",
+    entryId: null,
+    rev: 5,
+    tags: ["upgrade"],
+    effects: [{ path: "host.ed", mode: "add", value: "1", phase: "base" }],
+  },
 ];
 
 const U = (n: number) => `0190a000-0000-7000-8000-${String(n).padStart(12, "0")}`;
@@ -340,6 +357,19 @@ const STATE = {
     { id: U(704), name: "Storm", segments: 2, filled: 1, visibility: "party", entryId: U(503), position: 5 },
   ],
   requests: [
+    // An acquisition asked for (house decision #102): the asker and the answering side read it, nobody else.
+    {
+      id: U(810),
+      userId: "player1",
+      actorId: PC1,
+      resourceId: null,
+      amount: null,
+      spendId: null,
+      inputs: { push: 1 },
+      note: "",
+      createdAt: "2026-11-01T09:04:00.000Z",
+      acquire: { type: "gear", entry: "rope", line: "weapons/Axe" },
+    },
     {
       id: U(800),
       userId: "player1",
@@ -439,6 +469,12 @@ const STATE = {
     call(U(201), { showTarget: true, secretInputs: [], showOutcome: true }),
     call(U(202), { status: "closed", revealed: true, showModifier: false }),
     call(U(203), { targets: [{ actorId: PC2, modifier: 1, target: 9, pool: null, report: report(4) }], called: 1 }),
+    // A call made for an acquisition (house decision #102): its taker's seat reads what it asks, the table screen does not.
+    call(U(205), {
+      targets: [{ actorId: PC2, modifier: 0, target: 11, pool: null, report: null }],
+      called: 1,
+      acquire: { name: "Rope", kind: "kit", inputs: { dn: { total: 11, parts: [{ label: "Base", value: 11 }] } } },
+    }),
     call(U(204), { status: "closed", targets: [] }),
   ],
   testDefs: [

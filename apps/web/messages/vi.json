@@ -2202,6 +2202,65 @@
       "body": "Nội dung"
     }
   },
+  "fightLog": {
+    "title": "NHẬT KÝ",
+    "empty": "Trận này chưa có gì.",
+    "roundHead": "Vòng {round}",
+    "between": "Giữa các lượt",
+    "turnOf": "Lượt của {name}",
+    "strike": "{attacker} đánh {target}: {outcome} ({total})",
+    "strikeWith": "{attacker} đánh {target} bằng {means}: {outcome} ({total})",
+    "change": "{name}: {by, number, ::sign-always} {label}",
+    "pool": "{by, number, ::sign-always} {label}",
+    "set": "{name}: {label} {value}",
+    "conditionOn": "{name}: +{label}",
+    "conditionOff": "{name}: −{label}",
+    "acts": "{name} hành động",
+    "ends": "Hết lượt của {name}",
+    "round": "Bắt đầu vòng {round}",
+    "undone": "(đã hoàn tác)"
+  },
+  "command": {
+    "label": "LỆNH ›",
+    "aria": "Lệnh",
+    "placeholder": "ogre đánh 3 · +dazed hal · tiếp · lùi",
+    "willSend": "Enter: {order}",
+    "words": {
+      "hit": "đánh hit dmg",
+      "heal": "hồi heal",
+      "shock": "sốc shock",
+      "recover": "hồisốc recover rec",
+      "next": "tiếp next",
+      "hold": "giữ hold",
+      "back": "lùi back",
+      "begin": "bắtđầu begin",
+      "mob": "đám mob",
+      "reveal": "hiện reveal show",
+      "hide": "ẩn hide"
+    },
+    "said": {
+      "change": "{name}: {by, number, ::sign-always} {label}",
+      "conditionOn": "{name} nhận {label}",
+      "conditionOff": "{name} mất {label}",
+      "next": "lượt tiếp theo",
+      "hold": "giữ hành động",
+      "back": "LÙI LƯỢT",
+      "begin": "bắt đầu trận",
+      "mob": "{name} còn {members} thành viên",
+      "reveal": "cho bàn thấy {name}",
+      "hide": "giấu {name} khỏi bàn",
+      "pool": "{label} {by, number, ::sign-always}"
+    },
+    "why": {
+      "unknown": "Không phải lệnh: thử một cái tên và đánh 3, +một trạng thái, tiếp, giữ, lùi hoặc bắtđầu.",
+      "noTarget": "Ai? Gõ một cái tên hoặc chọn một người trong trận.",
+      "noMatch": "Không ai trong trận tên là {words}.",
+      "ambiguous": "Ai trong số này? {names}",
+      "noCondition": "Bộ luật này không có trạng thái {words}.",
+      "needsCount": "Bao nhiêu? Gõ đám và một con số.",
+      "notHere": "Trận của trò chơi này không có lệnh đó."
+    }
+  },
   "strike": {
     "open": "RA ĐÒN",
     "close": "ĐÓNG",

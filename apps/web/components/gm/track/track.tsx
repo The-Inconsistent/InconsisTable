@@ -18,6 +18,8 @@ import { SpendButtons } from "@/components/gm/spend-buttons/spend-buttons";
 import { HeldListEditor } from "@/components/ui/held-list/held-list";
 import { StrikeGuide } from "@/components/ui/strike-guide/strike-guide";
 import { AddCombatants } from "@/components/gm/track/components/add-combatants/add-combatants";
+import { CommandLine } from "@/components/gm/track/components/command-line/command-line";
+import { FightLog } from "@/components/gm/track/components/fight-log/fight-log";
 import { ClocksPanel } from "@/components/gm/track/components/clocks-panel/clocks-panel";
 import { PoolsPanel } from "@/components/gm/track/components/pools-panel/pools-panel";
 import { CombatantPanel } from "@/components/gm/track/components/combatant-panel/combatant-panel";
@@ -124,6 +126,25 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
         null)
       : null;
 
+  // What an order on the command line can name and do (house decision #100).
+  const resourceLabel = (id: string) => rules?.resources.find((r) => r.id === id)?.label ?? id;
+  const harmDef = rules?.health.harm;
+  const commandTable = encounter && {
+    fighters: encounter.combatants.map((c) => ({ combatantId: c.id, actorId: c.actorId, name: c.name })),
+    selected: selected ? { combatantId: selected.id, actorId: selected.actorId, name: selected.name } : null,
+    conditions: encounter.conditionDefs.map((d) => ({ id: d.id, label: d.label })),
+    pools: state.pools.map((p) => ({ id: p.id, label: p.label })),
+    harm: harmDef
+      ? {
+          wounds: { id: harmDef.wounds, label: resourceLabel(harmDef.wounds) },
+          shock: harmDef.shock ? { id: harmDef.shock, label: resourceLabel(harmDef.shock) } : null,
+          mob: harmDef.mob !== undefined,
+        }
+      : null,
+    track: encounter.health ? { id: encounter.health.resource, label: resourceLabel(encounter.health.resource) } : null,
+    sides: sides !== null,
+  };
+
   return (
     <>
       {noTurnOrder ? (
@@ -154,6 +175,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
       )}
       {encounter ? (
         <fieldset disabled={encounter.paused} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+          {commandTable && <CommandLine table={commandTable} run={run} />}
           <div className="track">
             <div className="stack">
               {encounter.combatants.length === 0 && <p className="dim">{t("nobody", { mode })}</p>}
@@ -248,6 +270,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
       ) : (
         !noTurnOrder && <p className="dim">{state.session ? t("noFight", { mode }) : t("startSession", { mode })}</p>
       )}
+      {encounter && <FightLog log={encounter.log ?? []} actors={actors} ruleset={rules ?? null} />}
       {!encounter && state.games[0] && <GameResult game={state.games[0]} onCorrect={handleCorrect} />}
       {sheet.ruleset && sheetActor && (
         <BottomSheet title={t("sheetOf", { name: sheetActor.name })} onClose={() => setSheetOf(null)}>

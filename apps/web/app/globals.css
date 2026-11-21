@@ -1224,6 +1224,26 @@ label {
   margin: 0;
   padding-left: 1.2em;
 }
+/* The command line and the fight's log (house decision #100). */
+.command-input .input {
+  flex: 1;
+  min-width: 0;
+}
+.command-said {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.command-why {
+  overflow-wrap: anywhere;
+}
+.fight-log-lines {
+  margin: 0;
+  padding-left: 1.2em;
+  overflow-wrap: anywhere;
+}
+.fight-log-lines li[data-state="undone"] {
+  color: var(--ink-2);
+}
 /* A chain of tables (house decision #88): the steps taken so far, in order, wrapping on a phone. */
 .table-trail {
   flex-wrap: wrap;

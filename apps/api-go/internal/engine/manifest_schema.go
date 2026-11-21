@@ -728,6 +728,7 @@ var rulesetSchema = schema.Object(
 	)).Max(maxChecklistSteps)),
 	schema.Opt("spawn", spawnSchema),
 	schema.Opt("strikes", schema.Array(strikeSchema).Max(MaxStrikes)),
+	schema.Opt("generators", schema.Array(generatorSchema).Max(maxGenerators)),
 )
 
 // The setup checklist (house decision #90; rules-engine CHECKLIST_TABS, CHECKLIST_PREP_KINDS, ChecklistCount).

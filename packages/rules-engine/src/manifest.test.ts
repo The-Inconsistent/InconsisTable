@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { compileRuleset } from "./compile.ts";
-import { SAMPLE_D20 } from "./fixtures/sample-d20.ts";
+import { SAMPLE_D20_0_1_9 as SAMPLE_D20 } from "./fixtures/sample-d20.ts";
 import { SAMPLE_NO_ORDER } from "./fixtures/sample-no-order.ts";
 import { SAMPLE_SKIRMISH } from "./fixtures/sample-skirmish.ts";
 import { MAX_FIELDS, MAX_MANIFEST_BYTES, validateRuleset, type FieldDef, type RulesetInput } from "./manifest.ts";

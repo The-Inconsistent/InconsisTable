@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { compileRuleset } from "../compile.ts";
 import { actorScope, deriveValues, resourceBounds, type FieldValue } from "../derived.ts";
-import { SAMPLE_HARM, SAMPLE_HARM_BEFORE_STRIKES } from "../fixtures/sample-harm.ts";
+import { SAMPLE_HARM_BEFORE_GENERATORS as SAMPLE_HARM, SAMPLE_HARM_BEFORE_STRIKES } from "../fixtures/sample-harm.ts";
 import { HealthHarmParams } from "./health-harm.ts";
 import type { ActorState, Delta, ResourceState, RuleState } from "./primitive.ts";
 import { applyDeltas, deltas, refusal } from "./test-helpers.ts";

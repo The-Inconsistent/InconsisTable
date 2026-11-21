@@ -15,10 +15,11 @@ import type {
   LiveState,
   Lobby,
   RefusalKey,
+  RoomDocumentInput,
   RoomImportRefusal,
   RoomImportReply,
 } from "@inconsistable/core-schema";
-import { HandoutLayout, MAX_PAGE_BYTES } from "@inconsistable/core-schema";
+import { HandoutLayout, MAX_PAGE_BYTES, RoomDocument } from "@inconsistable/core-schema";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import {
@@ -44,6 +45,7 @@ import { buildSchemas } from "../../../packages/rules-engine/src/build/schemas.t
 import { FIXTURE_RULESET } from "./fixture.ts";
 import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
 import { d20Document, IDS, ROOM_D20 } from "../../api-go/vectors/room-documents.ts";
+import { adventuresIn, planAdventures } from "../../web/lib/adventure-import/adventure-import.ts";
 
 // Spelled out, not imported from the api: this suite is the black-box spec any api implementation has to pass.
 const MAX_NEW_CHARACTERS_PER_INVITE = 50;
@@ -5858,6 +5860,123 @@ test("room document: a creator imports it, the GM reads all of it, an invited pl
   assert.equal(seen("Trouble on the quay"), undefined, "an unrevealed scene stays home");
   owner.socket.close();
   player.socket.close();
+});
+
+// House decision #103: the owner running a room exports it as its document, which imports as the same room, or fresh
+// for a new group; nobody else exports it.
+test("room document: exported by its owner, imported back as the same room, and fresh", async () => {
+  const ownerDevice = await device("roomexport-owner");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", ROOM_D20);
+  assert.equal(rs.status, 201);
+  const bestiary = await me.post<{ versionId: string }>("/packs", SAMPLE_PACK);
+  assert.equal(bestiary.status, 201);
+  assert.equal((await me.post("/worlds", SAMPLE_WORLD)).status, 201);
+  const made = await me.post<RoomImportReply>("/campaigns/import", d20Document());
+  assert.equal(made.status, 201);
+  const campaignId = made.body.campaignId!;
+  const headers = { ...cookieOf(ownerDevice), "cf-connecting-ip": nextSocketIp() };
+
+  const res = await get(`/campaigns/${campaignId}/export`, headers);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("content-disposition"), 'attachment; filename="harbour-watch.room.json"');
+  const exported = (await res.json()) as RoomDocumentInput;
+  assert.equal(exported.images?.length, 1);
+  assert.equal(exported.codex?.length, 10);
+  const bare = (await (await get(`/campaigns/${campaignId}/export?pictures=0`, headers)).json()) as RoomDocumentInput;
+  assert.equal(bare.images, undefined);
+  assert.ok(
+    bare.codex!.every((e) => e.imageId === undefined),
+    "no entry names a picture left out",
+  );
+
+  // Imported back: the same room to its GM, with the document's own ids gone.
+  const again = await me.post<RoomImportReply>("/campaigns/import", exported);
+  assert.equal(again.status, 201);
+  assert.deepEqual(again.body.counts, made.body.counts);
+  const copy = connect({ auth: { campaignId: again.body.campaignId!, cookie: ownerDevice } });
+  const s = await copy.until((x) => x.actors.some((a) => a.name === "Mara"));
+  assert.equal(s.actors.find((a) => a.name === "Mara")!.resources.hp, 8);
+  assert.equal(s.journal.length, 2);
+  await eventually(() => copy.codex()?.entries.length === 10, "every entry comes back");
+  const entry = (title: string) => copy.codex()!.entries.find((e) => e.title === title)!;
+  assert.equal(entry("Quay").parentId, entry("Harbour town").id);
+  assert.equal(entry("Harbourmaster Oyle").revealedAt, "2026-03-01T18:30:00.000Z");
+  assert.ok(!JSON.stringify(copy.codex()).includes(campaignId), "nothing of the first room is left");
+
+  // Fresh: no sessions, nothing revealed, Mara back to her start; the dry run says so first.
+  const dry = await me.post<RoomImportReply>("/campaigns/import?fresh=1&dryRun=1", exported);
+  assert.equal(dry.body.counts.sessions, 0);
+  const fresh = await me.post<RoomImportReply>("/campaigns/import?fresh=1", exported);
+  assert.equal(fresh.status, 201);
+  const anew = connect({ auth: { campaignId: fresh.body.campaignId!, cookie: ownerDevice } });
+  const f = await anew.until((x) => x.actors.some((a) => a.name === "Mara"));
+  assert.equal(f.journal.length, 0);
+  assert.notEqual(f.actors.find((a) => a.name === "Mara")!.resources.hp, 8);
+  await eventually(() => anew.codex()?.entries.length === 10, "the fresh room has every entry");
+  assert.ok(anew.codex()!.entries.every((e) => e.visibility === "gm" && e.revealedAt === null));
+
+  // A player of the room is refused; a device with no seat there finds no room.
+  const player = await seatPlayer(copy, "roomexport-player");
+  const asPlayer = { ...cookieOf(player), "cf-connecting-ip": nextSocketIp() };
+  assert.equal((await get(`/campaigns/${again.body.campaignId}/export`, asPlayer)).status, 403);
+  assert.equal((await get(`/campaigns/${campaignId}/export`, asPlayer)).status, 404);
+
+  // One adventure into a running room (rule 11): sliced as the GM's browser slices it, sent as ordinary actions and one
+  // picture upload; the room's own man of the same name is used, not made again.
+  const room = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Dockside",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const target = room.body.campaignId;
+  const gm = connect({ auth: { campaignId: target, cookie: ownerDevice } });
+  await gm.until(() => true);
+  ok(await gm.send({ type: "campaign.attachPack", packVersionId: bestiary.body.versionId }));
+  const oyle = ok(await gm.send({ type: "codex.save", kind: "npc", title: "harbourmaster oyle" })).id!;
+  const docOf = RoomDocument.parse(exported);
+  const road = adventuresIn(docOf).find((a) => a.title === "The Salt Road")!;
+  await eventually(() => gm.codex()?.entries.length === 1, "the room's own man");
+  const plan = planAdventures({
+    doc: docOf,
+    picked: [road.id],
+    room: { entries: gm.codex()!.entries, actors: (await gm.until(() => true)).actors },
+  });
+  assert.deepEqual(
+    plan.link.map((l) => l.to),
+    [oyle],
+  );
+  const ids: Record<string, string> = {};
+  for (const step of plan.steps) {
+    if (step.kind === "picture") {
+      const res = await fetch(`${API}/api/campaigns/${target}/images`, {
+        method: "POST",
+        headers: {
+          "content-type": step.mime,
+          ...SAME_ORIGIN,
+          ...cookieOf(ownerDevice),
+          "cf-connecting-ip": nextSocketIp(),
+        },
+        body: Buffer.from(step.base64, "base64"),
+      });
+      assert.equal(res.status, 200);
+      ids[step.imageId] = ((await res.json()) as { id: string }).id;
+      continue;
+    }
+    const r = ok(await gm.send(step.action(ids)));
+    if (step.makes) ids[step.makes] = r.id!;
+  }
+  await eventually(() => gm.codex()?.entries.some((e) => e.title === "Trouble on the quay") ?? false, "the scene came");
+  const got = (title: string) => gm.codex()!.entries.filter((e) => e.title.toLowerCase() === title.toLowerCase());
+  assert.equal(got("Harbourmaster Oyle").length, 1, "linked, not made again");
+  assert.equal(got("Trouble on the quay")[0]!.parentId, got("The Salt Road")[0]!.id);
+  assert.equal(got("Trouble on the quay")[0]!.status, "planned");
+  assert.ok(got("Trouble on the quay")[0]!.links.includes(oyle));
+  assert.ok(got("Quay")[0]!.imageId, "the place's picture came");
+  assert.ok(
+    gm.codex()!.entries.every((e) => e.visibility === "gm"),
+    "everything arrives sealed",
+  );
+  for (const c of [copy, anew, gm]) c.socket.close();
 });
 
 // House decision #81 on the invented sides fixture: reminder lines reach the combat side only, a whole side is barred

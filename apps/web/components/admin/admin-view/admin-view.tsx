@@ -12,24 +12,42 @@ import {
   type FormEvent,
 } from "react";
 
+import { ADMIN_TABS, type AdminTab } from "@/components/admin/admin-view/constants";
+import { RoomControls } from "@/components/admin/admin-view/components/room-controls/room-controls";
+import { UsersTab } from "@/components/admin/admin-view/components/users-tab/users-tab";
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import {
   ADMIN_PARAM,
+  adminFetch,
   AdminCampaigns,
+  AdminUsers,
   filterCampaigns,
   sortByLastPlayed,
   storeAdminKey,
   storedAdminKey,
   type AdminCampaign,
+  type AdminUser,
 } from "@/lib/admin/admin";
 
-type LedgerProps = { campaigns: AdminCampaign[]; onForget: () => void };
+type LedgerProps = {
+  campaigns: AdminCampaign[];
+  onForget: () => void;
+  /** Reads the rooms again after a room's step. */
+  onReload: () => void;
+};
 
-// The admin ledger: every campaign on the platform, filterable, each with OPEN AS ADMIN. Opening goes to the table as
-// the unseated admin; the api logs it when the table connects (with the admin key, never a seat).
-function Ledger({ campaigns, onForget }: LedgerProps) {
+// The admin ledger: every campaign on the platform, filterable, each with OPEN AS ADMIN and MANAGE (house decision
+// #94), and the Users tab. Opening goes to the table as the unseated admin; the api logs it when the table connects
+// (with the admin key, never a seat).
+function Ledger({ campaigns, onForget, onReload }: LedgerProps) {
   const t = useTranslations("admin");
+  const [tab, setTab] = useState<AdminTab>("rooms");
+  const [users, setUsers] = useState<AdminUser[] | null>(null);
+  const [usersError, setUsersError] = useState(false);
+  const [managing, setManaging] = useState<string | null>(null);
+  const manageDialog = useRef<HTMLDialogElement>(null);
+  const managed = campaigns.find((c) => c.id === managing);
   const locale = useLocale();
   const [query, setQuery] = useState("");
   // The rows follow the filter a beat behind the field, inside a transition, so they travel to their new places.
@@ -43,6 +61,33 @@ function Ledger({ campaigns, onForget }: LedgerProps) {
   );
   const date = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "medium" }), [locale]);
 
+  // The users and their seats, read again on each call (the api logs each read).
+  const loadUsers = async () => {
+    try {
+      const res = await adminFetch("/api/admin/users");
+      const parsed = AdminUsers.safeParse(res?.ok ? await res.json() : null);
+      setUsersError(!parsed.success);
+      if (parsed.success) setUsers(parsed.data);
+    } catch {
+      setUsersError(true);
+    }
+  };
+  // A tab of the console; the Users tab reads the list as it opens.
+  const handleTab = (next: AdminTab) => {
+    setTab(next);
+    if (next === "users") void loadUsers();
+  };
+  // MANAGE: the room's controls, with the known users to seat as GM.
+  const handleManage = (c: AdminCampaign) => {
+    setManaging(c.id);
+    if (users === null) void loadUsers();
+    manageDialog.current?.showModal();
+  };
+  // A room's step or a user's removal changed seats: both lists are read again.
+  const handleChanged = () => {
+    onReload();
+    void loadUsers();
+  };
   // Asks first: the dialog says the opening is logged.
   const handleAsk = (c: AdminCampaign) => {
     setTarget(c);
@@ -68,53 +113,94 @@ function Ledger({ campaigns, onForget }: LedgerProps) {
           </button>
         </span>
       </header>
-      <main className="page">
-        <label className="stack ledger-search">
-          {t("filter")}
-          <input type="search" value={query} onChange={handleFilter} maxLength={100} />
-        </label>
-        {rows.length === 0 ? (
-          <p className="dim">{t("empty")}</p>
-        ) : (
-          <div className="ledger-wrap">
-            <table className="ledger">
-              <thead>
-                <tr>
-                  <th scope="col">{t("name")}</th>
-                  <th scope="col">{t("owner")}</th>
-                  <th scope="col">{t("ruleset")}</th>
-                  <th scope="col">{t("lastPlayed")}</th>
-                  <th scope="col">
-                    <span className="sr-only">{t("actions")}</span>
-                  </th>
-                </tr>
-              </thead>
-              {/* the rows rise as a run when the ledger opens; once filtered, a row that comes back rises alone */}
-              <tbody className={filtered ? undefined : "rise-list"}>
-                {rows.map((c, i) => (
-                  <ViewTransition key={c.id} enter="rise" exit="fade" update="row">
-                    <tr style={{ "--i": i } as CSSProperties}>
-                      <th scope="row">
-                        {c.name}
-                        {c.archived && <span className="dim"> ({t("archived")})</span>}
-                      </th>
-                      <td>{c.ownerName ?? t("noOwner")}</td>
-                      <td>{c.ruleset ? `${c.ruleset} ${c.rulesetVersion}` : t("noRuleset")}</td>
-                      <td>{c.lastPlayedAt ? date.format(new Date(c.lastPlayedAt)) : t("never")}</td>
-                      <td>
-                        <button type="button" className="btn sm" onClick={() => handleAsk(c)}>
-                          {t("open")}
-                          <span className="sr-only"> {c.name}</span>
-                        </button>
-                      </td>
-                    </tr>
-                  </ViewTransition>
-                ))}
-              </tbody>
-            </table>
+      <nav className="tabs" role="tablist" aria-label={t("tabsLabel")}>
+        {ADMIN_TABS.map((name) => (
+          <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => handleTab(name)}>
+            {t(`tabs.${name}`)}
+          </button>
+        ))}
+      </nav>
+      {tab === "users" ? (
+        <main className="page">
+          {usersError && (
+            <p className="error" role="alert">
+              {t("usersFailed")}
+            </p>
+          )}
+          {users === null ? (
+            !usersError && <p className="dim">{t("loading")}</p>
+          ) : (
+            <UsersTab users={users} onChanged={handleChanged} />
+          )}
+        </main>
+      ) : (
+        <main className="page">
+          <label className="stack ledger-search">
+            {t("filter")}
+            <input type="search" value={query} onChange={handleFilter} maxLength={100} />
+          </label>
+          {rows.length === 0 ? (
+            <p className="dim">{t("empty")}</p>
+          ) : (
+            <div className="ledger-wrap">
+              <table className="ledger">
+                <thead>
+                  <tr>
+                    <th scope="col">{t("name")}</th>
+                    <th scope="col">{t("owner")}</th>
+                    <th scope="col">{t("ruleset")}</th>
+                    <th scope="col">{t("lastPlayed")}</th>
+                    <th scope="col">
+                      <span className="sr-only">{t("actions")}</span>
+                    </th>
+                  </tr>
+                </thead>
+                {/* the rows rise as a run when the ledger opens; once filtered, a row that comes back rises alone */}
+                <tbody className={filtered ? undefined : "rise-list"}>
+                  {rows.map((c, i) => (
+                    <ViewTransition key={c.id} enter="rise" exit="fade" update="row">
+                      <tr style={{ "--i": i } as CSSProperties}>
+                        <th scope="row">
+                          {c.name}
+                          {c.archived && <span className="dim"> ({t("archived")})</span>}
+                        </th>
+                        <td>{c.ownerName ?? t("noOwner")}</td>
+                        <td>{c.ruleset ? `${c.ruleset} ${c.rulesetVersion}` : t("noRuleset")}</td>
+                        <td>{c.lastPlayedAt ? date.format(new Date(c.lastPlayedAt)) : t("never")}</td>
+                        <td>
+                          <span className="row">
+                            <button type="button" className="btn sm" onClick={() => handleAsk(c)}>
+                              {t("open")}
+                              <span className="sr-only"> {c.name}</span>
+                            </button>
+                            <button type="button" className="btn sm" onClick={() => handleManage(c)}>
+                              {t("manage")}
+                              <span className="sr-only"> {c.name}</span>
+                            </button>
+                          </span>
+                        </td>
+                      </tr>
+                    </ViewTransition>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </main>
+      )}
+      <dialog ref={manageDialog} className="ledger-confirm" aria-labelledby="admin-manage-title">
+        <div className="stack">
+          <div className="row between">
+            <h2 className="head" id="admin-manage-title">
+              {managed?.name ?? t("room.gone")}
+            </h2>
+            <button type="button" className="btn sm" onClick={() => manageDialog.current?.close()} autoFocus>
+              {t("close")}
+            </button>
           </div>
-        )}
-      </main>
+          {managed && <RoomControls key={managed.id} campaign={managed} users={users} onChanged={handleChanged} />}
+        </div>
+      </dialog>
       <dialog ref={dialog} className="ledger-confirm" aria-labelledby="admin-confirm-title">
         <h2 className="head" id="admin-confirm-title">
           {t("confirmTitle", { name: target?.name ?? "" })}
@@ -178,7 +264,14 @@ export function AdminView() {
     setGate({ kind: "locked", error: null });
   };
 
-  if (gate.kind === "open") return <Ledger campaigns={gate.campaigns} onForget={handleForget} />;
+  // A room's step changed it: the rooms are read again with the tab's key.
+  const handleReload = () => {
+    const key = storedAdminKey();
+    if (key) void unlock(key);
+  };
+
+  if (gate.kind === "open")
+    return <Ledger campaigns={gate.campaigns} onForget={handleForget} onReload={handleReload} />;
   return (
     <>
       <header className="band">

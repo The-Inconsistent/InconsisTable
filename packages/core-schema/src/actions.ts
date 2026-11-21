@@ -479,6 +479,9 @@ export const AdminAction = z.enum([
   "campaign.unarchive",
   "campaign.delete",
   "campaign.transfer",
+  // The running session ended with no award, the last ended one deleted (house decision #94).
+  "session.abandon",
+  "session.delete",
 ] as const satisfies readonly ActionType[]);
 export type AdminAction = z.infer<typeof AdminAction>;
 export const ADMIN_ACTIONS: ReadonlySet<ActionType> = new Set(AdminAction.options);
@@ -493,6 +496,8 @@ export const AdminEventAction = z.enum([
   "world.enable",
   "campaign.create", // the admin-key script made a room (actor "admin-key")
   "key.action", // the admin-key script sent a socket action; detail names it
+  "user.list", // the console read the users list (house decision #94)
+  "user.unseat", // the console removed a user from one room; target_user_id names them, detail what was refused
 ]);
 export type AdminEventAction = z.infer<typeof AdminEventAction>;
 

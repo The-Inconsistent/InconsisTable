@@ -120,6 +120,8 @@ func run() error {
 	route(router, "POST", "/api/admin/packs/:id/disable", core.Serve(console.DisablePack))
 	route(router, "POST", "/api/admin/worlds/:id/disable", core.Serve(console.DisableWorld))
 	route(router, "GET", "/api/admin/events", core.Serve(console.Events))
+	route(router, "GET", "/api/admin/users", core.Serve(console.Users))
+	route(router, "DELETE", "/api/admin/users/:id/seats", core.Serve(console.RemoveSeats))
 	route(router, "GET", "/api/campaigns/:id/rules", core.Serve(library.Rules))
 	route(router, "GET", "/api/campaigns/:id/catalogue", core.Serve(library.Catalogue))
 

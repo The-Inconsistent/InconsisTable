@@ -20,6 +20,7 @@ type TestPromptProps = { state: LiveState; send: Send };
 // modal). The state is already this seat's own: a hidden target number is not in it.
 export function TestPrompt({ state, send }: TestPromptProps) {
   const t = useTranslations("testPrompt");
+  const tA = useTranslations("sheet.acquire");
   const names = useMemo(() => new Map(state.actors.map((a) => [a.id, a.name])), [state.actors]);
   const open = state.tests.filter((c) => c.status === "open");
   // The newest closed call is kept for a moment so the result doesn't vanish the instant the GM closes.
@@ -89,6 +90,15 @@ export function TestPrompt({ state, send }: TestPromptProps) {
                     ? t("rollPool", { pool: target.pool ?? t("your"), dice: call.dice, who })
                     : t("roll", { dice: call.dice, who })}
               </h2>
+              {call.acquire && (
+                <p className="small" data-acquire="true">
+                  {t("acquiring", { item: call.acquire.name })}
+                  {Object.values(call.acquire.inputs)
+                    .flatMap((v) => v.parts)
+                    .map((p) => ` · ${tA("part", { label: p.label, value: p.value })}`)
+                    .join("")}
+                </p>
+              )}
               {target.report ? (
                 <p
                   className={`roll-result ${call.outcomes ? "" : outcomeClass(target.report.outcome)}`.trim()}

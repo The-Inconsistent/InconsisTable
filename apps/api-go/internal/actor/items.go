@@ -27,13 +27,15 @@ type ItemRow struct {
 	FittedTo, CodexEntryID *string
 	// FittedLine is the saved build's line it is fitted to (house decision #102), nil when none.
 	FittedLine *string
-	Ordinal    int
-	Rev        int64
-	Served     bool
-	EntryName  string
-	Cite       *string
-	Tags       []string
-	Effects    []engine.Effect
+	// Profile is the entry record's weapon or armour, the numbers a card draws (house decision #102); nil without one.
+	Profile   json.RawMessage
+	Ordinal   int
+	Rev       int64
+	Served    bool
+	EntryName string
+	Cite      *string
+	Tags      []string
+	Effects   []engine.Effect
 }
 
 // Label is the item's name: the served entry's, else the hand-written one, else the entry's key.
@@ -50,9 +52,9 @@ func (r ItemRow) Label() string {
 // itemSelect reads every column of an item and its served entry (the first by pack slug, house decision #61's rule).
 const itemSelect = `SELECT i.actor_id::text, i.id::text, i.kind, i.entry_type, i.entry_key, i.name, i.note, i.source, i.quantity,
 		i.fitted_to::text, i.codex_entry_id::text, i.ordinal, i.rev, i.fitted_line, e.key IS NOT NULL, coalesce(e.name, ''), e.cite,
-		coalesce(e.tags, '{}'), coalesce(e.effects, '[]')
+		coalesce(e.tags, '{}'), coalesce(e.effects, '[]'), coalesce(e.record->'weapon', e.record->'armour')::text
 	FROM actor_item i JOIN actor ON actor.id = i.actor_id
-	LEFT JOIN LATERAL (SELECT e.key, e.name, e.cite, e.tags, e.effects FROM campaign_pack
+	LEFT JOIN LATERAL (SELECT e.key, e.name, e.cite, e.tags, e.effects, e.record FROM campaign_pack
 		JOIN pack_entry e ON e.pack_version_id = campaign_pack.pack_version_id
 		JOIN pack_version ON pack_version.id = e.pack_version_id JOIN pack ON pack.id = pack_version.pack_id
 		WHERE e.type = i.entry_type AND e.key = i.entry_key AND ` + "%s" + ` ORDER BY pack.slug LIMIT 1) e ON true`
@@ -61,8 +63,12 @@ func scanItem(r pgx.Row) (string, ItemRow, error) {
 	var actorID string
 	var x ItemRow
 	var effects []byte
+	var profile *string
 	err := r.Scan(&actorID, &x.ID, &x.Kind, &x.EntryType, &x.EntryKey, &x.Name, &x.Note, &x.Source, &x.Quantity,
-		&x.FittedTo, &x.CodexEntryID, &x.Ordinal, &x.Rev, &x.FittedLine, &x.Served, &x.EntryName, &x.Cite, &x.Tags, &effects)
+		&x.FittedTo, &x.CodexEntryID, &x.Ordinal, &x.Rev, &x.FittedLine, &x.Served, &x.EntryName, &x.Cite, &x.Tags, &effects, &profile)
+	if profile != nil {
+		x.Profile = json.RawMessage(*profile)
+	}
 	if err != nil {
 		return "", x, err
 	}
@@ -129,7 +135,15 @@ func (r ItemRow) Live() cs.ActorItem {
 		tags = r.Tags
 	}
 	return cs.ActorItem{ID: r.ID, Kind: r.Kind, Entry: r.EntryKey, Name: r.Label(), Cite: cite, Note: r.Note,
-		Quantity: r.Quantity, FittedTo: r.FittedTo, FittedLine: r.FittedLine, Source: r.Source, EntryID: r.CodexEntryID, Rev: r.Rev, Tags: tags, Effects: effects}
+		Quantity: r.Quantity, FittedTo: r.FittedTo, FittedLine: r.FittedLine, Profile: profileOf(r), Source: r.Source, EntryID: r.CodexEntryID, Rev: r.Rev, Tags: tags, Effects: effects}
+}
+
+// profileOf is what a seat reads of the entry's profile: a served entry's only.
+func profileOf(r ItemRow) json.RawMessage {
+	if !r.Served {
+		return nil
+	}
+	return r.Profile
 }
 
 // The logged value of an item row: what Undo compares and puts back (nil for no row).

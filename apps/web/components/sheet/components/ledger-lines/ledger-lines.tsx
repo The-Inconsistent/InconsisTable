@@ -2,11 +2,13 @@
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-import type { BookSource } from "@inconsistable/core-schema";
+import type { ActorItem, BookSource } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
+import { CardNumbers, type CardValues } from "@/components/sheet/components/card-numbers/card-numbers";
 import { Cite } from "@/components/ui/cite/cite";
 import type { RequestPage } from "@/hooks/use-table/use-table";
+import { withFitted } from "@/lib/items/items";
 import { sheetLinesOf } from "@/lib/ledger/table";
 
 type LedgerLinesProps = {
@@ -17,15 +19,35 @@ type LedgerLinesProps = {
   requestPage: RequestPage;
   /** The kinds of line the layout already draws through its widgets (`weapons`, `armour`, `talents` ...). */
   skip?: ReadonlySet<string>;
+  /** The items the character holds, for what is fitted to a weapon or the armour (house decision #102). */
+  items?: readonly ActorItem[];
+  /** Takes a fitted item off its line; absent where the seat may not. */
+  onTakeOff?: (item: ActorItem, host: string) => void;
 };
 
-type Line = { key: string; name: string; cite?: string | undefined; numbers?: string; summary?: string | undefined };
+type Line = {
+  key: string;
+  name: string;
+  cite?: string | undefined;
+  numbers?: string;
+  summary?: string | undefined;
+  /** A weapon or the armour: its numbers with what is fitted to its line, and those items. */
+  card?: CardValues;
+  fitted?: ActorItem[];
+};
 
 // What a character bought with the ledger builder carries that its field rows do not: talents, abilities, weapons,
 // gear and powers. Each line is a name, its cite, its numbers and the importer's summary; never the books' wording,
 // which is not in the data. Read-only.
-export function LedgerLines({ sheet, ruleset, books, requestPage, skip }: LedgerLinesProps) {
+export function LedgerLines({ sheet, ruleset, books, requestPage, skip, items = [], onTakeOff }: LedgerLinesProps) {
   const t = useTranslations("sheet.ledger");
+  const ti = useTranslations("sheet.items");
+  // A line's numbers with what is fitted to it, as the server names a line (`<card>/<name>`).
+  const fittedOn = (ref: string) => items.filter((x) => x.fittedLine === ref);
+  const carded = (ref: string, card: CardValues) => {
+    const fitted = fittedOn(ref);
+    return { card: withFitted({ card, fitted }), fitted };
+  };
   const read = sheetLinesOf(sheet);
   if (!read) return null;
   const drop = (kind: string) => skip?.has(kind) ?? false;
@@ -53,15 +75,7 @@ export function LedgerLines({ sheet, ruleset, books, requestPage, skip }: Ledger
       lines: lines.weapons.map((w, i) => ({
         key: `w-${i}`,
         name: w.count && w.count > 1 ? t("count", { name: w.name, count: w.count }) : w.name,
-        numbers: [
-          t("damage", { damage: w.damage, ed: String(w.ed) }),
-          w.ap ? t("ap", { ap: w.ap }) : null,
-          t("range", { range: w.range.join(" / ") }),
-          w.salvo !== undefined && w.salvo !== null ? t("salvo", { salvo: w.salvo }) : null,
-          ...w.traits,
-        ]
-          .filter((x) => x !== null)
-          .join(" · "),
+        ...carded(`weapons/${w.name}`, w),
       })),
     },
     {
@@ -73,7 +87,7 @@ export function LedgerLines({ sheet, ruleset, books, requestPage, skip }: Ledger
               {
                 key: "armour",
                 name: lines.armour.name,
-                numbers: [t("armour", { ar: lines.armour.ar }), ...lines.armour.traits].join(" · "),
+                ...carded(`armour/${lines.armour.name}`, lines.armour),
               },
             ]
           : []),
@@ -104,6 +118,21 @@ export function LedgerLines({ sheet, ruleset, books, requestPage, skip }: Ledger
               <span className="stack" style={{ gap: 2 }}>
                 <strong>{l.name}</strong>
                 {l.numbers && <span className="small">{l.numbers}</span>}
+                {l.card && <CardNumbers card={l.card} />}
+                {l.fitted?.map((x) => (
+                  <span key={x.id} className="row small item-fitted">
+                    <span>{ti("fitted", { name: x.name })}</span>
+                    {onTakeOff && (
+                      <button
+                        className="btn sm"
+                        onClick={() => onTakeOff(x, l.name)}
+                        aria-label={ti("takeOffLabel", { name: x.name, host: l.name })}
+                      >
+                        {ti("takeOff")}
+                      </button>
+                    )}
+                  </span>
+                ))}
                 {l.summary && <span className="small dim">{l.summary}</span>}
               </span>
               {cite(l.cite)}

@@ -119,6 +119,8 @@ export const ActorItem = z.object({
   fittedTo: z.string().nullable(),
   // The saved build's line it is fitted to, `<card>/<name>` (house decision #102); absent when none.
   fittedLine: z.string().optional(),
+  // The entry record's weapon or armour, the numbers its card draws (house decision #102); absent without one.
+  profile: z.record(z.string(), z.unknown()).optional(),
   source: ItemSource,
   entryId: z.string().nullable(),
   rev: z.number(),
@@ -240,7 +242,13 @@ export const SpendRequest = z.object({
   createdAt: z.string(),
   // An acquisition asked for (house decision #102): the pack entry, and the item or build line it is fitted to.
   acquire: z
-    .object({ type: z.string(), entry: z.string(), to: z.string().optional(), line: z.string().optional() })
+    .object({
+      type: z.string(),
+      entry: z.string(),
+      name: z.string(),
+      to: z.string().optional(),
+      line: z.string().optional(),
+    })
     .optional(),
 });
 export type SpendRequest = z.infer<typeof SpendRequest>;

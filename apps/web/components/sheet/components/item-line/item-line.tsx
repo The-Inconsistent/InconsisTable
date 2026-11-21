@@ -5,10 +5,14 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import type { ActionInput, ActorItem } from "@inconsistable/core-schema";
 
 import type { WidgetEnv } from "@/components/sheet/widgets/types";
+import { CardNumbers } from "@/components/sheet/components/card-numbers/card-numbers";
 import { Cite } from "@/components/ui/cite/cite";
-import { hostsOf, type ItemLine as Line } from "@/lib/items/items";
+import { hostsOf, lineHostsOf, withFitted, type ItemLine as Line } from "@/lib/items/items";
 
 type ItemLineProps = { line: Line; env: WidgetEnv };
+
+// A host select's value for a line of the saved build, beside an item's id.
+const LINE = "line:";
 
 // One item a character holds (house decision #95): its name, a counted kind's quantity, what is fitted to it, the GM's
 // note and its page. The holder spends a counted one and fits or takes off what it may; the GM side also tops up,
@@ -29,12 +33,13 @@ export function ItemLine({ line, env }: ItemLineProps) {
     return result.ok;
   };
   const handleAdjust = (by: number) => () => run({ type: "item.adjust", itemId: item.id, by });
-  // A fitted item comes off; a loose one goes on the host picked.
+  // A fitted item comes off; a loose one goes on the host picked: an item, or a line of the saved build (#102).
   const handleFit = (x: ActorItem, to: string | null) => run({ type: "item.fit", itemId: x.id, to });
   const handlePickHost = async (e: ChangeEvent<HTMLSelectElement>) => {
     const to = e.target.value;
     e.target.value = "";
-    if (to !== "") await handleFit(item, to);
+    if (to.startsWith(LINE)) await run({ type: "item.fit", itemId: item.id, to: null, line: to.slice(LINE.length) });
+    else if (to !== "") await handleFit(item, to);
   };
   const handleTakeBack = () => item.entryId !== null && run({ type: "item.take", entryId: item.entryId });
   const handleSave = async (e: FormEvent) => {
@@ -56,7 +61,14 @@ export function ItemLine({ line, env }: ItemLineProps) {
     setEditing((open) => !open);
   };
 
-  const hosts = item.fittedTo === null ? hostsOf({ ruleset: env.ruleset, items, item, gm: env.gm }) : [];
+  const loose = item.fittedTo === null && item.fittedLine === undefined;
+  const hosts = loose ? hostsOf({ ruleset: env.ruleset, items, item, gm: env.gm }) : [];
+  const lines = loose ? lineHostsOf({ ruleset: env.ruleset, actor: env.actor, item, gm: env.gm }) : [];
+  // A weapon or an armour shows its entry's numbers, with what is fitted to it (house decision #102).
+  const card =
+    item.profile && (kind?.card === "weapons" || kind?.card === "armour")
+      ? withFitted({ card: item.profile, fitted })
+      : null;
   return (
     <li className="w-kit item-line" data-item={item.kind}>
       <span className="stack" style={{ gap: 2 }}>
@@ -73,6 +85,7 @@ export function ItemLine({ line, env }: ItemLineProps) {
             </button>
           </span>
         ))}
+        {card && <CardNumbers card={card} />}
         {item.note && <span className="small dim">{item.note}</span>}
         {item.cite && <Cite cite={item.cite} ruleset={env.ruleset} books={env.books} requestPage={env.requestPage} />}
       </span>
@@ -87,7 +100,7 @@ export function ItemLine({ line, env }: ItemLineProps) {
             +
           </button>
         )}
-        {hosts.length > 0 && (
+        {hosts.length + lines.length > 0 && (
           <select
             className="input sm"
             defaultValue=""
@@ -98,6 +111,11 @@ export function ItemLine({ line, env }: ItemLineProps) {
             {hosts.map((h) => (
               <option key={h.id} value={h.id}>
                 {h.name}
+              </option>
+            ))}
+            {lines.map((l) => (
+              <option key={l.ref} value={LINE + l.ref}>
+                {t("buildLine", { name: l.name })}
               </option>
             ))}
           </select>

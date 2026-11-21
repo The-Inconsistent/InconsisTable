@@ -3,7 +3,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import type { OfferState, TestCall, TestDef, TestTargetState } from "@inconsistable/core-schema";
-import type { AdvantageMode } from "@inconsistable/rules-engine";
+import { ACQUIRE_OFFERS, type AdvantageMode } from "@inconsistable/rules-engine";
 
 import { OutcomePad } from "@/components/ui/outcome-pad/outcome-pad";
 import { PoolOutcome } from "@/components/ui/pool-outcome/pool-outcome";
@@ -45,6 +45,12 @@ export function CallCard({ call, def, names, send }: CallCardProps) {
     o.changes
       .map((c) => t("offerChange", { by: format.number(c.by, { signDisplay: "always" }), label: c.label }))
       .join(", ");
+
+  // An offer's words: an acquisition's grant (house decision #102) names the item it grants, then what it costs.
+  const offerText = (o: OfferState): string =>
+    [Object.values<string>(ACQUIRE_OFFERS).includes(o.id) ? t("grant", { item: o.label }) : o.label, changesText(o)]
+      .filter((x) => x !== "")
+      .join(" · ");
 
   // An offer of a taker's result: applied once through the ordinary writes; the server refuses a second tap.
   const handleOffer = (actorId: string, offerId: string) => async () => {
@@ -182,7 +188,7 @@ export function CallCard({ call, def, names, send }: CallCardProps) {
                     }
                     onClick={handleOffer(target.actorId, o.id)}
                   >
-                    {o.label} · {changesText(o)}
+                    {offerText(o)}
                     {o.applied && <span className="chip">{t("applied")}</span>}
                   </button>
                 ))}

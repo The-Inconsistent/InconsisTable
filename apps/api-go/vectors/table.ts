@@ -116,6 +116,7 @@ const ITEMS = [
     source: "give",
     entryId: null,
     rev: 3,
+    tags: ["weapon"],
     effects: [],
   },
   {
@@ -130,6 +131,7 @@ const ITEMS = [
     source: "hand",
     entryId: null,
     rev: 4,
+    tags: [],
     effects: [],
   },
 ];

@@ -660,6 +660,28 @@ export const ITEM_DEFAULT_MAX = 60;
 export const ITEM_CARDS = ["weapons", "armour", "gear"] as const;
 
 /**
+ * The values of a `cards` variant a fitting's effect may change on its host (house decision #102), as `host.<value>`:
+ * a weapon's numbers, an armour's rating. A gear line has none.
+ */
+export const CARD_VALUES: Readonly<Record<(typeof ITEM_CARDS)[number], readonly string[]>> = {
+  weapons: ["damage", "ed", "ap", "salvo"],
+  armour: ["ar"],
+  gear: [],
+};
+export const HOST_PREFIX = "host.";
+
+/** The host values a fitting of entry type `type` may change: the card values of every kind its kinds fit to. */
+export function hostValuesOf({ items, type }: { items: ItemsBlock | undefined; type: string }): string[] {
+  const kinds = items?.kinds ?? [];
+  const hosts = kinds.filter((k) => k.entry === type).flatMap((k) => k.fits?.to ?? []);
+  return [
+    ...new Set(
+      kinds.filter((k) => hosts.includes(k.id)).flatMap((k) => (k.card === undefined ? [] : CARD_VALUES[k.card])),
+    ),
+  ];
+}
+
+/**
  * A kind of item an actor holds in play (house decision #95): the pack entries of type `entry` (carrying `tag`, when
  * given; the first kind in the list that matches an entry is its kind) held by the `entities` actor types, one row per
  * item. `stacks`: a quantity, one row per entry or hand-written name, and a row whose quantity reaches 0 is gone;
@@ -695,9 +717,47 @@ export type ItemKind = z.infer<typeof ItemKind>;
  * Items actors hold in play (house decision #95). `give`: the codex `item` field (a `ref`) that names the pack entry a
  * GIVE hands over, and the kind an item entry without one is given as, by its title.
  */
+/** One labelled part of a number an acquisition works out (house decision #102): the breakdown shows each. */
+export const AcquirePart = z.object({ label: z.string().min(1).max(60), value: ExprSource });
+export type AcquirePart = z.infer<typeof AcquirePart>;
+
+/** The offers an acquisition's call carries, beside the Test's own (house decision #102). */
+export const ACQUIRE_OFFERS = { grant: "acquire", topUp: "acquireTopUp" } as const;
+
+/**
+ * Acquiring an item by a Test (house decision #102): the Test rolled, each of its inputs the sum of labelled parts
+ * read over the asking actor's scope, `item` (the entry's declared fields and its `tags`) and `ctx` (the asker's
+ * picks); `if` whether it may be asked; `limits` how many Tests of some kinds an actor takes in one session;
+ * `topUp` the resource a failed roll may be topped up with, one per point short, at most `max`; `quantity` how many of
+ * a counted kind it grants; `load` the counted item an entry's field names, granted with it.
+ */
+export const ItemAcquire = z.object({
+  test: Id,
+  /** The kinds that may be acquired; absent: every kind. */
+  kinds: z.array(Id).min(1).max(MAX_ITEM_KINDS).optional(),
+  inputs: z
+    .record(Id, z.array(AcquirePart).min(1).max(6))
+    .refine((o) => Object.keys(o).length <= 6, "at most 6 inputs"),
+  picks: z
+    .record(Id, z.object({ label: z.string().min(1).max(60), min: z.int().min(-1000).max(1000), max: ExprSource }))
+    .refine((o) => Object.keys(o).length <= 3, "at most 3 picks")
+    .optional(),
+  if: ExprSource.optional(),
+  limits: z
+    .array(z.object({ kinds: z.array(Id).min(1).max(MAX_ITEM_KINDS), max: z.int().min(1).max(10) }))
+    .max(10)
+    .optional(),
+  topUp: z.object({ resource: Id, max: ExprSource.optional() }).optional(),
+  quantity: ExprSource.optional(),
+  load: z.object({ field: FieldId, quantity: ExprSource }).optional(),
+  cite: Cite.optional(),
+});
+export type ItemAcquire = z.infer<typeof ItemAcquire>;
+
 export const ItemsBlock = z.object({
   kinds: z.array(ItemKind).min(1).max(MAX_ITEM_KINDS),
   give: z.object({ ref: Id, loose: Id }).optional(),
+  acquire: ItemAcquire.optional(),
 });
 export type ItemsBlock = z.infer<typeof ItemsBlock>;
 
@@ -1799,6 +1859,77 @@ function itemProblems({
     const loose = items.kinds.find((k) => k.id === items.give?.loose);
     if (loose === undefined) out.push({ path: "items.give.loose", message: `unknown item kind "${items.give.loose}"` });
     else if (loose.stacks) out.push({ path: "items.give.loose", message: "a counted kind is not given" });
+  }
+  if (items.acquire) acquireProblems({ r, items, acquire: items.acquire, needCite, out });
+}
+
+/** The kinds an acquisition may grant (house decision #102): its `kinds`, else every kind. */
+export const acquiredKinds = (items: ItemsBlock, acquire: ItemAcquire): ItemKind[] =>
+  items.kinds.filter((k) => acquire.kinds === undefined || acquire.kinds.includes(k.id));
+
+function acquireProblems({
+  r,
+  items,
+  acquire,
+  needCite,
+  out,
+}: {
+  r: Ruleset;
+  items: ItemsBlock;
+  acquire: ItemAcquire;
+  needCite: (cite: string | undefined, path: string) => void;
+  out: Problem[];
+}): void {
+  const path = "items.acquire";
+  needCite(acquire.cite, path);
+  const known = (ids: readonly string[], at: string) =>
+    ids.forEach((id, j) => {
+      if (!items.kinds.some((k) => k.id === id))
+        out.push({ path: `${at}[${j}]`, message: `unknown item kind "${id}"` });
+    });
+  if (acquire.kinds) known(acquire.kinds, `${path}.kinds`);
+  acquire.limits?.forEach((l, i) => known(l.kinds, `${path}.limits[${i}].kinds`));
+  const test = own(r.tests, acquire.test);
+  if (test === undefined) out.push({ path: `${path}.test`, message: `unknown test "${acquire.test}"` });
+  else if (test.kind === "reported")
+    out.push({ path: `${path}.test`, message: "a reported Test has no number to reach" });
+  else {
+    for (const [name, type] of Object.entries(test.inputs).sort(([a], [b]) => (a < b ? -1 : 1))) {
+      if (type !== "int") out.push({ path: `${path}.test`, message: `the Test's input "${name}" is not a number` });
+      else if (!Object.hasOwn(acquire.inputs, name))
+        out.push({ path: `${path}.inputs`, message: `the Test's input "${name}" is not set` });
+    }
+    for (const name of Object.keys(acquire.inputs).sort()) {
+      if (!Object.hasOwn(test.inputs, name))
+        out.push({ path: `${path}.inputs.${name}`, message: `"${name}" is not an input of the Test` });
+    }
+    for (const id of Object.values(ACQUIRE_OFFERS)) {
+      if (test.offers?.some((o) => o.id === id))
+        out.push({ path: `${path}.test`, message: `the Test's offer "${id}" is the acquisition's` });
+    }
+  }
+  const kinds = acquiredKinds(items, acquire);
+  for (const type of new Set(kinds.map((k) => k.entry))) {
+    const entry = r.entities.find((e) => e.id === type);
+    if (entry !== undefined && Object.hasOwn(entry.fields, "tags"))
+      out.push({ path: `${path}.kinds`, message: `${type} has a field "tags", which is the entry's own` });
+  }
+  if (acquire.topUp) {
+    const res = r.resources.find((x) => x.id === acquire.topUp?.resource);
+    const holders = [...new Set(kinds.flatMap((k) => k.entities))];
+    if (res === undefined || res.scope !== "entity")
+      out.push({ path: `${path}.topUp.resource`, message: `"${acquire.topUp.resource}" is not an entity resource` });
+    else if (holders.some((h) => res.entities !== undefined && !res.entities.includes(h)))
+      out.push({ path: `${path}.topUp.resource`, message: `not every holder carries "${res.id}"` });
+  }
+  if (acquire.load) {
+    const field = acquire.load.field;
+    for (const type of new Set(kinds.filter((x) => !x.stacks).map((k) => k.entry))) {
+      const entry = r.entities.find((e) => e.id === type);
+      if (entry !== undefined && own(entry.fields, field) === undefined)
+        out.push({ path: `${path}.load.field`, message: `${type} has no field "${field}"` });
+    }
+    if (!items.kinds.some((k) => k.stacks)) out.push({ path: `${path}.load`, message: "no counted kind to load" });
   }
 }
 

@@ -182,6 +182,11 @@ export const RefusalCode = z.enum([
   "noSuchStrike",
   "strikeNotFor",
   "noMeans",
+  // Acquiring an item by a Test (house decision #102).
+  "noAcquire",
+  "itemNotAnItem",
+  "acquireNotFor",
+  "acquireNotNow",
 ]);
 export type RefusalCode = z.infer<typeof RefusalCode>;
 

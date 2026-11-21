@@ -13,6 +13,7 @@ export type UnaryOp = z.infer<typeof UnaryOp>;
  * arithmetic is integer only, so rounding is chosen where the division happens.
  * `at(group, n)` reads the member of a field group whose id ends in the number `n` (`at(form, 3)` is `form.f3`).
  * `contains(list, x)` is true when an item of the list equals `x` (house decision #89: a codex entry's tags).
+ * `overlap(a, b)` is how many distinct items of `a` the list `b` also holds (house decision #102: matched tags).
  */
 export const FnName = z.enum([
   "min",
@@ -27,6 +28,7 @@ export const FnName = z.enum([
   "has",
   "at",
   "contains",
+  "overlap",
 ]);
 export type FnName = z.infer<typeof FnName>;
 

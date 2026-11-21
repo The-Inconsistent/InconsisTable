@@ -47,6 +47,53 @@ type ItemsBlock struct {
 		Ref   string `json:"ref"`
 		Loose string `json:"loose"`
 	} `json:"give"`
+	Acquire *ItemAcquire `json:"acquire"`
+}
+
+// AcquirePart is one labelled part of a number an acquisition works out (house decision #102).
+type AcquirePart struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+}
+
+// ItemAcquire is acquiring an item by a Test (manifest.ts ItemAcquire, house decision #102).
+type ItemAcquire struct {
+	Test   string                   `json:"test"`
+	Kinds  *[]string                `json:"kinds"`
+	Inputs map[string][]AcquirePart `json:"inputs"`
+	Picks  map[string]SpendInput    `json:"picks"`
+	If     *string                  `json:"if"`
+	Limits []struct {
+		Kinds []string `json:"kinds"`
+		Max   int      `json:"max"`
+	} `json:"limits"`
+	TopUp *struct {
+		Resource string  `json:"resource"`
+		Max      *string `json:"max"`
+	} `json:"topUp"`
+	Quantity *string `json:"quantity"`
+	Load     *struct {
+		Field    string `json:"field"`
+		Quantity string `json:"quantity"`
+	} `json:"load"`
+	Cite *string `json:"cite"`
+}
+
+// The offers an acquisition's call carries beside the Test's own (manifest.ts ACQUIRE_OFFERS).
+const (
+	AcquireGrantOffer = "acquire"
+	AcquireTopUpOffer = "acquireTopUp"
+)
+
+// AcquiredKinds are the kinds an acquisition may grant: its Kinds, else every kind (manifest.ts acquiredKinds).
+func (b *ItemsBlock) AcquiredKinds() []*ItemKind {
+	var out []*ItemKind
+	for i := range b.Kinds {
+		if a := b.Acquire; a != nil && (a.Kinds == nil || slices.Contains(*a.Kinds, b.Kinds[i].ID)) {
+			out = append(out, &b.Kinds[i])
+		}
+	}
+	return out
 }
 
 // MaxOrDefault is how many of the kind an actor may hold.
@@ -108,9 +155,34 @@ var itemKindSchema = schema.Object(
 	schema.Opt("cite", citeSchema),
 )
 
+// acquireSchema is manifest.ts ItemAcquire (house decision #102).
+var acquireSchema = schema.Object(
+	schema.Req("test", idSchema),
+	schema.Opt("kinds", schema.Array(idSchema).Min(1).Max(MaxItemKinds)),
+	schema.Req("inputs", schema.Refined(schema.Record(idSchema, schema.Array(schema.Object(
+		schema.Req("label", label(60)),
+		schema.Req("value", exprSource),
+	)).Min(1).Max(6)), func(v any) bool { return len(v.(map[string]any)) <= 6 }, "at most 6 inputs")),
+	schema.Opt("picks", schema.Refined(schema.Record(idSchema, schema.Object(
+		schema.Req("label", label(60)),
+		schema.Req("min", schema.Int().Min(-1000).Max(1000)),
+		schema.Req("max", exprSource),
+	)), func(v any) bool { return len(v.(map[string]any)) <= 3 }, "at most 3 picks")),
+	schema.Opt("if", exprSource),
+	schema.Opt("limits", schema.Array(schema.Object(
+		schema.Req("kinds", schema.Array(idSchema).Min(1).Max(MaxItemKinds)),
+		schema.Req("max", schema.Int().Min(1).Max(10)),
+	)).Max(10)),
+	schema.Opt("topUp", schema.Object(schema.Req("resource", idSchema), schema.Opt("max", exprSource))),
+	schema.Opt("quantity", exprSource),
+	schema.Opt("load", schema.Object(schema.Req("field", fieldIDSchema), schema.Req("quantity", exprSource))),
+	schema.Opt("cite", citeSchema),
+)
+
 var itemsSchema = schema.Object(
 	schema.Req("kinds", schema.Array(itemKindSchema).Min(1).Max(MaxItemKinds)),
 	schema.Opt("give", schema.Object(schema.Req("ref", idSchema), schema.Req("loose", idSchema))),
+	schema.Opt("acquire", acquireSchema),
 )
 
 // items checks the block (manifest.ts itemProblems).
@@ -176,6 +248,99 @@ func (p *problems) items(r *Ruleset, needCite func(*string, string)) {
 			p.add("items.give.loose", `unknown item kind "%s"`, g.Loose)
 		case loose.Counted():
 			p.add("items.give.loose", "a counted kind is not given")
+		}
+	}
+	if b.Acquire != nil {
+		p.acquire(r, b, b.Acquire, needCite)
+	}
+}
+
+// acquire checks the acquisition (manifest.ts acquireProblems, house decision #102).
+func (p *problems) acquire(r *Ruleset, b *ItemsBlock, a *ItemAcquire, needCite func(*string, string)) {
+	const path = "items.acquire"
+	needCite(a.Cite, path)
+	known := func(ids []string, at string) {
+		for j, id := range ids {
+			if b.Kind(id) == nil {
+				p.add(fmt.Sprintf("%s[%d]", at, j), `unknown item kind "%s"`, id)
+			}
+		}
+	}
+	if a.Kinds != nil {
+		known(*a.Kinds, path+".kinds")
+	}
+	for i, l := range a.Limits {
+		known(l.Kinds, fmt.Sprintf("%s.limits[%d].kinds", path, i))
+	}
+	test, has := r.Tests[a.Test]
+	switch {
+	case !has:
+		p.add(path+".test", `unknown test "%s"`, a.Test)
+	case test.Kind == "reported":
+		p.add(path+".test", "a reported Test has no number to reach")
+	default:
+		for _, name := range sortedKeys(test.Inputs) {
+			if test.Inputs[name] != "int" {
+				p.add(path+".test", `the Test's input "%s" is not a number`, name)
+			} else if _, set := a.Inputs[name]; !set {
+				p.add(path+".inputs", `the Test's input "%s" is not set`, name)
+			}
+		}
+		for _, name := range sortedKeys(a.Inputs) {
+			if _, is := test.Inputs[name]; !is {
+				p.add(path+".inputs."+name, `"%s" is not an input of the Test`, name)
+			}
+		}
+		for _, id := range []string{AcquireGrantOffer, AcquireTopUpOffer} {
+			if slices.ContainsFunc(test.Offers, func(o TestOffer) bool { return o.ID == id }) {
+				p.add(path+".test", `the Test's offer "%s" is the acquisition's`, id)
+			}
+		}
+	}
+	kinds := b.AcquiredKinds()
+	types := func(counted bool) []string {
+		var out []string
+		for _, k := range kinds {
+			if (counted || !k.Counted()) && !slices.Contains(out, k.Entry) {
+				out = append(out, k.Entry)
+			}
+		}
+		return out
+	}
+	for _, typ := range types(true) {
+		if entry := entityByID(r, typ); entry != nil {
+			if _, has := entry.Fields["tags"]; has {
+				p.add(path+".kinds", `%s has a field "tags", which is the entry's own`, typ)
+			}
+		}
+	}
+	if t := a.TopUp; t != nil {
+		res := resourceByID(r, t.Resource)
+		holders := []string{}
+		for _, k := range kinds {
+			for _, h := range k.Entities {
+				if !slices.Contains(holders, h) {
+					holders = append(holders, h)
+				}
+			}
+		}
+		switch {
+		case res == nil || res.Scope != "entity":
+			p.add(path+".topUp.resource", `"%s" is not an entity resource`, t.Resource)
+		case res.Entities != nil && slices.ContainsFunc(holders, func(h string) bool { return !slices.Contains(*res.Entities, h) }):
+			p.add(path+".topUp.resource", `not every holder carries "%s"`, res.ID)
+		}
+	}
+	if l := a.Load; l != nil {
+		for _, typ := range types(false) {
+			if entry := entityByID(r, typ); entry != nil {
+				if _, has := entry.Fields[l.Field]; !has {
+					p.add(path+".load.field", `%s has no field "%s"`, typ, l.Field)
+				}
+			}
+		}
+		if !slices.ContainsFunc(b.Kinds, func(k ItemKind) bool { return k.Counted() }) {
+			p.add(path+".load", "no counted kind to load")
 		}
 	}
 }

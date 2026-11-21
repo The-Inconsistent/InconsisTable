@@ -563,6 +563,10 @@ func (c *compiler) entryEffects(entities map[string]*CompiledEntity, entries []A
 	for i, entry := range entries {
 		for j := range entry.Effects {
 			eff := &entry.Effects[j]
+			if strings.HasPrefix(eff.Path, HostPrefix) {
+				c.hostEffect(eff, entry.Type, pathOf(i, j))
+				continue
+			}
 			noHost := fmt.Sprintf(`%s has no integer "%s"`, strings.Join(ids, ", "), eff.Path)
 			// The entry's own visibility is who may read its page; what it adds to a number is the same for every seat.
 			out = append(out, c.effect(entities, eff, pathOf(i, j), EntrySourceID(entry), "public", pool, noHost)...)
@@ -1111,6 +1115,7 @@ func (c *compiler) run() *CompiledRuleset {
 		}
 	}
 	c.spends(entities)
+	c.acquire(entities)
 	c.spawn()
 	c.strikes(entities)
 

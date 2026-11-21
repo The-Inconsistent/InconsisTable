@@ -1181,6 +1181,44 @@ label {
   margin: 0;
   padding-left: 1.2em;
 }
+/* The strike guide (house decision #99): the means as chips, the numbers side by side with their lines, the total. */
+.strike-guide {
+  border-top: 1px solid var(--line);
+  padding-top: var(--gap);
+}
+.strike-head {
+  justify-content: space-between;
+  align-items: baseline;
+}
+.strike-means {
+  flex-wrap: wrap;
+}
+.strike-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--gap);
+}
+.strike-figure {
+  min-width: 0;
+}
+.strike-figure-head {
+  justify-content: space-between;
+  align-items: baseline;
+}
+.strike-num {
+  font-size: var(--fs-title);
+  font-weight: 800;
+  line-height: 1.1;
+}
+.strike-outcome {
+  font-size: var(--fs-title);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.strike-notes {
+  margin: 0;
+  padding-left: 1.2em;
+}
 /* A chain of tables (house decision #88): the steps taken so far, in order, wrapping on a phone. */
 .table-trail {
   flex-wrap: wrap;

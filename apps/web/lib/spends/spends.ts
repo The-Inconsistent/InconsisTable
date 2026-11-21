@@ -127,8 +127,9 @@ export function nextTable({
   inputs,
 }: {
   ruleset: Ruleset;
-  spend: Spend;
-  inputs: Readonly<Record<string, number>>;
+  /** A spend, or anything else with its `then` (a strike, house decision #99). */
+  spend: Pick<Spend, "then"> & { inputs?: Spend["inputs"] };
+  inputs: Readonly<Record<string, number | boolean>>;
 }): { tableId: string; title: string; inputs: Record<string, number | boolean> } | null {
   const then = spend.then;
   const table = then === undefined ? undefined : ruleset.tables?.[then.table];
@@ -138,7 +139,8 @@ export function nextTable({
     const from = then.inputs?.[x.id];
     const v = from === undefined ? undefined : (inputs[from] ?? spend.inputs?.[from]?.min);
     if (v === undefined) continue;
-    carried[x.id] = x.type === "bool" ? v !== 0 : Math.max(x.min ?? -Infinity, Math.min(x.max ?? Infinity, v));
+    const n = Number(v);
+    carried[x.id] = x.type === "bool" ? n !== 0 : Math.max(x.min ?? -Infinity, Math.min(x.max ?? Infinity, n));
   }
   return { tableId: then.table, title: table.title, inputs: carried };
 }

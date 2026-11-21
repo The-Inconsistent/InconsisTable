@@ -649,7 +649,48 @@ var rulesetSchema = schema.Object(
 	)).Max(MaxNotices)),
 	schema.Opt("spends", schema.Array(spendSchema).Max(50)),
 	schema.Opt("requests", schema.Object(schema.Req("max", schema.Int().Min(1).Max(20)))),
+	schema.Opt("checklist", schema.Array(schema.Object(
+		schema.Req("id", idSchema),
+		schema.Req("label", label(80)),
+		schema.Opt("cite", citeSchema),
+		schema.Req("done", checklistCount),
+		schema.Opt("goto", schema.Object(
+			schema.Req("tab", schema.Enum(ChecklistTabs...)),
+			schema.Opt("kind", schema.Enum(CodexKinds...)),
+		)),
+		schema.Opt("note", label(200)),
+		schema.Opt("optional", schema.Bool()),
+	)).Max(maxChecklistSteps)),
 )
+
+// The setup checklist (house decision #90; rules-engine CHECKLIST_TABS, CHECKLIST_PREP_KINDS, ChecklistCount).
+const maxChecklistSteps = 30
+
+// ChecklistTabs are the places of the GM's app a step's GO TO may open.
+var ChecklistTabs = []string{"track", "prep", "codex", "party", "tests", "map", "rules"}
+
+var (
+	checklistPrepKinds = []string{"roster", "tests", "pools", "exits", "reveals", "picks"}
+	atLeast            = schema.Opt("min", schema.Int().Min(1).Max(100))
+	checklistCount     = schema.Union("count",
+		countVariant("entries",
+			schema.Req("kind", schema.Enum(CodexKinds...)),
+			schema.Opt("field", idSchema),
+			schema.Opt("equals", schema.AnyOf(schema.String().Min(1).Max(120), schema.Int(), schema.Bool())),
+			schema.Opt("prep", schema.Enum(checklistPrepKinds...)),
+			atLeast),
+		countVariant("actors", schema.Req("entity", idSchema), schema.Opt("built", schema.Bool()), atLeast),
+		countVariant("campaignField", schema.Req("field", idSchema)),
+		countVariant("pool", schema.Req("pool", idSchema), atLeast),
+		countVariant("sessions", atLeast),
+		countVariant("packs", schema.Opt("slug", schema.String().Min(1).Max(64)), atLeast),
+		countVariant("safety"),
+	)
+)
+
+func countVariant(tag string, extra ...schema.Field) schema.Variant {
+	return schema.Variant{Tag: tag, Schema: schema.Object(append([]schema.Field{schema.Req("count", schema.Literal(tag))}, extra...)...)}
+}
 
 // layoutPath is a layout row that names a value; layoutRows a layout's list of rows, each a path or a widget row
 // (house decision #83, manifest.ts WidgetRow).

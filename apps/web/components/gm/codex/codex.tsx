@@ -26,6 +26,8 @@ type CodexProps = {
   send: Send;
   /** The entry open on arrival (PREP's "Open in CODEX"). */
   initialOpenId?: string | null;
+  /** The kind listed on arrival (a checklist step's GO TO, house decision #90). */
+  initialKind?: CodexKind | null;
   /** The manifest as this seat reads it: the fields each kind of entry carries (house decision #71). */
   ruleset?: Ruleset | null;
   /** Pack entries this seat already read, to name a ref field's entry. */
@@ -42,11 +44,12 @@ export function Codex({
   codex,
   send,
   initialOpenId = null,
+  initialKind = null,
   ruleset = null,
   known = NO_ENTRIES,
 }: CodexProps) {
   const t = useTranslations("codex");
-  const [kind, setKind] = useState<KindFilter>("all");
+  const [kind, setKind] = useState<KindFilter>(initialKind ?? "all");
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(initialOpenId);
   const [adding, setAdding] = useState(false);

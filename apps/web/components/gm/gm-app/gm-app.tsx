@@ -2,7 +2,8 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-import { canInCampaign, type Me } from "@inconsistable/core-schema";
+import { canInCampaign, type CodexKind, type Me } from "@inconsistable/core-schema";
+import type { ChecklistStep } from "@inconsistable/rules-engine";
 
 import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
 import { Codex } from "@/components/gm/codex/codex";
@@ -11,6 +12,7 @@ import { Prep } from "@/components/gm/prep/prep";
 import { RequestBar } from "@/components/gm/request-bar/request-bar";
 import { RulesPanel } from "@/components/gm/rules/rules-panel";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
+import { SetupChecklist } from "@/components/gm/setup-checklist/setup-checklist";
 import { Track } from "@/components/gm/track/track";
 import { ActionNotices } from "@/components/ui/action-notices/action-notices";
 import { TableModePicker } from "@/components/player/run-table/table-mode-picker";
@@ -22,6 +24,7 @@ import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useTable } from "@/hooks/use-table/use-table";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
+import { checklistRoom } from "@/lib/checklist/checklist";
 import type { RulesTabData } from "@/lib/library/library";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 import type { Spawnable } from "@/lib/scene-prep/scene-prep";
@@ -53,6 +56,8 @@ export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }:
 
   const [callTestId, setCallTestId] = useState<string | null>(null);
   const [openEntryId, setOpenEntryId] = useState<string | null>(null);
+  const [codexKind, setCodexKind] = useState<CodexKind | null>(null);
+  const checklist = view?.ruleset?.checklist ?? [];
 
   // PREP's CALL: opens TESTS with that Test selected (held in state, not the URL).
   const handleCall = (testId: string) => {
@@ -63,7 +68,15 @@ export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }:
   // PREP's "Open in CODEX": opens CODEX with that entry open.
   const handleOpenCodex = (entryId: string) => {
     setOpenEntryId(entryId);
+    setCodexKind(null);
     setTab("codex");
+  };
+
+  // A checklist step's GO TO (house decision #90): its tab, the codex listing its kind.
+  const handleGo = (goto: NonNullable<ChecklistStep["goto"]>) => {
+    setOpenEntryId(null);
+    setCodexKind(goto.kind ?? null);
+    setTab(goto.tab);
   };
 
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
@@ -101,6 +114,13 @@ export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }:
       <main className="page">
         {tab === "party" ? (
           <div className="stack" style={{ gap: 24 }}>
+            {checklist.length > 0 && (
+              <SetupChecklist
+                steps={checklist}
+                room={checklistRoom({ state, entries: codex?.entries ?? [], packs: view?.first.packs ?? [] })}
+                onGo={handleGo}
+              />
+            )}
             <TableModePicker me={me} state={state} ruleset={view?.ruleset ?? null} send={send} />
             <Party
               me={me}
@@ -135,7 +155,8 @@ export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }:
           />
         ) : tab === "codex" ? (
           <Codex
-            key={openEntryId ?? ""}
+            key={`${openEntryId ?? ""}/${codexKind ?? ""}`}
+            initialKind={codexKind}
             me={me}
             state={state}
             codex={codex}

@@ -2433,6 +2433,7 @@ const CRAFTED: object[] = [
   ...spendCrafted(),
   ...lookupCrafted(),
   ...heldCrafted(),
+  ...checklistCrafted(),
 ];
 
 // Held records (house decision #88): every rule a held kind can break, one manifest each.
@@ -2524,6 +2525,75 @@ function lookupCrafted(): object[] {
     one({ ...line([{ ...pool, by: "nope" }]), entities: ["pc"] }),
     { ...harmManifest(), tables: { t: line([{ kind: "harm", wounds: "1", shock: "2" }]) } },
     { ...harmManifest(), tables: { t: line([{ kind: "resource", resource: "wounds", by: "1" }]) } },
+  ];
+}
+
+// The setup checklist (house decision #90): one valid list using every count, then each refusal.
+function checklistCrafted(): object[] {
+  const base = {
+    entities: [pcBase, { id: "kin", label: "K", base: "ability", fields: {} }],
+    resources: [
+      { id: "hp", label: "H", scope: "entity", max: "10" },
+      { id: "luck", label: "L", scope: "party", max: "3" },
+    ],
+    campaignFields: { tier: { type: "int", label: "T", min: 1, max: 5, default: 1 } },
+    codex: {
+      kinds: {
+        lore: {
+          fields: {
+            frame: { type: "text", label: "F" },
+            mood: { type: "enum", label: "M", values: ["a", "b"] },
+            kinds: { type: "tags", label: "K", writeIn: true },
+          },
+        },
+      },
+    },
+  };
+  const step = (done: object, over: object = {}) => ({ id: "s", label: "S", done, ...over });
+  const list = (...steps: object[]) => ({ ...base, checklist: steps.map((s, i) => ({ id: `s${i}`, ...s })) });
+  return [
+    list(
+      step({ count: "entries", kind: "lore", field: "kinds" }, { goto: { tab: "codex", kind: "lore" }, note: "N" }),
+      step({ count: "entries", kind: "lore", field: "mood", equals: "a", min: 2 }, { optional: true }),
+      step({ count: "entries", kind: "scene", prep: "roster" }, { goto: { tab: "prep" } }),
+      step({ count: "actors", entity: "pc", min: 3 }, { goto: { tab: "party" } }),
+      step({ count: "campaignField", field: "tier" }),
+      step({ count: "pool", pool: "luck", min: 1 }),
+      step({ count: "sessions" }),
+      step({ count: "packs", slug: "sample-bestiary" }),
+      step({ count: "safety" }, { cite: "p1" }),
+    ),
+    { ...base, checklist: [] },
+    list(step({ count: "nothing" })),
+    list(step({ count: "entries", kind: "ship" })),
+    list(step({ count: "entries", kind: "lore", field: "nope" })),
+    list(step({ count: "entries", kind: "npc", field: "frame" })),
+    list(step({ count: "entries", kind: "lore", equals: "a" })),
+    list(step({ count: "entries", kind: "lore", field: "mood", equals: "c" })),
+    list(step({ count: "entries", kind: "lore", field: "frame", equals: 3 })),
+    list(step({ count: "entries", kind: "lore", field: "mood", equals: 1.5 })),
+    list(step({ count: "entries", kind: "lore", prep: "roster" })),
+    list(step({ count: "entries", kind: "scene", prep: "hazards" })),
+    list(step({ count: "actors", entity: "ghost" })),
+    list(step({ count: "actors", entity: "kin" })),
+    list(step({ count: "actors", entity: "pc", built: true })),
+    list(step({ count: "actors" })),
+    list(step({ count: "campaignField", field: "era" })),
+    list(step({ count: "pool", pool: "hp" })),
+    list(step({ count: "pool", pool: "gold" })),
+    list(step({ count: "sessions", min: 0 })),
+    list(step({ count: "sessions", min: 101 })),
+    list(step({ count: "packs", slug: "" })),
+    list(step({ count: "safety", min: 1 })),
+    list(step({ count: "sessions" }, { goto: { tab: "settings" } })),
+    list(step({ count: "sessions" }, { goto: { tab: "prep", kind: "npc" } })),
+    list(step({ count: "sessions" }, { goto: { tab: "codex", kind: "ship" } })),
+    list(step({ count: "sessions" }, { label: "" })),
+    list(step({ count: "sessions" }, { note: "x".repeat(201) })),
+    list(step({ count: "sessions" }), step({ count: "safety" }, { id: "s0" })),
+    { ...base, checklist: Array.from({ length: 31 }, (_, i) => step({ count: "sessions" }, { id: `s${i}` })) },
+    // Outside homebrew every step cites its page.
+    { ...list(step({ count: "sessions" })), sources: [{ id: "s", title: "T", license: "private" }] },
   ];
 }
 

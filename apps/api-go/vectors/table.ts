@@ -1103,6 +1103,17 @@ const VALID: Record<string, Record<string, unknown>> = {
     source: { entity: "site", key: "old-mill", cite: "Sample p.60" },
   },
   "codex.fromPack": { kind: "location", entity: "site", key: "old-mill", parentId: ID },
+  "codex.generate": {
+    generatorId: "warren",
+    values: {
+      rooms: { value: 2 },
+      origin: { rows: ["built", "monks"] },
+      keeper: { key: "rat" },
+      name: { value: " N " },
+    },
+    each: [{ chamber: { rows: ["pit"] } }],
+    parentId: ID,
+  },
   "codex.move": { id: ID, parentId: null, position: 2 },
   "codex.link": { id: ID, targetId: ID },
   "codex.unlink": { id: ID, targetId: ID },

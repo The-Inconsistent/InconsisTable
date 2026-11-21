@@ -87,6 +87,12 @@ var (
 	tableResult  = schema.Int().Min(-100_000).Max(100_000)
 	lookupInputs = schema.Record(schema.String().Max(64), schema.AnyOf(schema.Number(-math.MaxFloat64, math.MaxFloat64), schema.Bool()))
 	answers      = schema.Record(schema.String().Max(120), schema.Unknown())
+	// generateValues is a generator run's answers by step id (house decision #98; actions.ts GenerateValues).
+	generateValues = schema.Refined(schema.Record(schema.String().Min(1).Max(64), schema.Object(
+		schema.Opt("rows", schema.Array(schema.String().Min(1).Max(64)).Min(1).Max(8)),
+		schema.Opt("key", schema.String().Min(1).Max(80)),
+		schema.Opt("value", schema.AnyOf(schema.Number(-math.MaxFloat64, math.MaxFloat64), schema.String().Max(200))),
+	)), func(v any) bool { return len(v.(map[string]any)) <= 20 }, "At most 20 steps")
 
 	// BuilderDraftBody is the character being built and the answers so far, read and written whole.
 	BuilderDraftBody = schema.Refined(
@@ -309,6 +315,13 @@ var ActionSchema = schema.Union("type",
 		schema.Req("key", schema.String().Min(1).Max(80)),
 		schema.Opt("parentId", id),
 	),
+	// A generator's confirmed run (house decision #98).
+	variant("codex.generate",
+		schema.Req("generatorId", schema.String().Min(1).Max(64)),
+		schema.Req("values", generateValues),
+		schema.Def("each", schema.Array(generateValues).Max(60), []any{}),
+		schema.Opt("parentId", id),
+	),
 	variant("codex.move",
 		schema.Req("id", id),
 		schema.Req("parentId", schema.Nullable(id)),
@@ -484,6 +497,7 @@ var ActionPerms = map[string]string{
 	"screen.revoke":           "token:issue",
 	"codex.save":              "codex:write",
 	"codex.fromPack":          "codex:write",
+	"codex.generate":          "codex:write",
 	"codex.reveal":            "codex:reveal",
 	"codex.delete":            "codex:write",
 	"scene.begin":             "codex:write",

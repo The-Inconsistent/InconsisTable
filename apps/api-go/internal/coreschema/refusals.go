@@ -316,4 +316,11 @@ var refusals = map[string]string{
 	"fromPackNotFor":  "This kind of entry is not made from that type.",
 	"fromPackNoEntry": "That pack entry is not served to this room.",
 	"fromPackTooMany": "That entry holds more than {limit} entries: add the ones inside it one by one.",
+	// A generator's confirmed run (house decision #98).
+	"noSuchGenerator": "This room's ruleset has no such generator.",
+	"generateMissing": "{step} needs its answer.",
+	"generateRow":     "{step}: that line is not on its table.",
+	"generatePick":    "{step}: that entry is not one this step picks.",
+	"generateValue":   "{step}: that value is out of bounds.",
+	"generateCount":   "This run makes {count} entries inside it.",
 }

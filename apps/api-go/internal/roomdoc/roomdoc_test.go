@@ -574,7 +574,7 @@ func TestADryRunLeavesNothing(t *testing.T) {
 		answer.Counts.Pictures != 1 || answer.Counts.Sessions != 2 || answer.Counts.Clocks != 1 {
 		t.Errorf("answer: %+v", answer)
 	}
-	if want := []Expect{{"ruleset", "sample-d20", "0.1.9-room", true}, {"pack", "sample-bestiary", "0.1.0", true},
+	if want := []Expect{{"ruleset", "sample-d20", "0.1.10-room", true}, {"pack", "sample-bestiary", "0.1.0", true},
 		{"world", "sample-tidewater", "0.1.0", true}}; !reflect.DeepEqual(answer.Expects, want) {
 		t.Errorf("expects: %+v", answer.Expects)
 	}

@@ -9,6 +9,7 @@ import { XpBox } from "@/components/builder/ledger/play/xp-box/xp-box";
 import { Breakdown } from "@/components/sheet/components/breakdown/breakdown";
 import { ItemsBox } from "@/components/sheet/components/items-box/items-box";
 import { LedgerLines } from "@/components/sheet/components/ledger-lines/ledger-lines";
+import { OverrideField } from "@/components/sheet/components/override-field/override-field";
 import { SpendList } from "@/components/sheet/components/spend-ask/components/spend-list/spend-list";
 import { SpendAsk } from "@/components/sheet/components/spend-ask/spend-ask";
 import { SheetWidget } from "@/components/sheet/widgets/sheet-widget/sheet-widget";
@@ -324,7 +325,18 @@ export function SheetView({
           cite={opened.cite}
           {...{ ruleset, books, requestPage }}
           onClose={() => setOpen(null)}
-        />
+        >
+          {gm && openedDef?.override && (
+            <OverrideField
+              key={openedDef.id}
+              actor={actor}
+              label={openedDef.label}
+              field={openedDef.override}
+              send={send}
+              onError={setError}
+            />
+          )}
+        </Breakdown>
       )}
     </div>
   );

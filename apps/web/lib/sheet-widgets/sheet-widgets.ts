@@ -1,4 +1,4 @@
-import type { Actor } from "@inconsistable/core-schema";
+import type { Actor, HeldRecord } from "@inconsistable/core-schema";
 import type { Ruleset, WidgetRow, WidgetVariant } from "@inconsistable/rules-engine";
 
 import { sheetLinesOf, type LedgerSheetLines } from "../ledger/table.ts";
@@ -9,7 +9,33 @@ import { sheetLinesOf, type LedgerSheetLines } from "../ledger/table.ts";
 
 export type SheetActor = Pick<Actor, "entity" | "fields" | "resources" | "derived"> & {
   ledger?: Actor["ledger"] | undefined;
+  held?: Actor["held"] | undefined;
 };
+
+/** One kind of record an actor holds, as the `held` widget lists it (house decision #88). */
+export type HeldGroup = { kind: string; label: string; records: HeldRecord[] };
+
+/** What one effect of a held record does, for the sheet to word: the label of what it changes, and its amount when
+ * that is a whole number (anything else is shown as the importer wrote it). */
+export function effectOf({
+  ruleset,
+  entity,
+  effect,
+}: {
+  ruleset: Ruleset;
+  entity: string;
+  effect: HeldRecord["effects"][number];
+}): { label: string; by: number | null; mode: string; value: string } {
+  const e = ruleset.entities.find((x) => x.id === entity);
+  const id = effect.path.startsWith("derived.") ? effect.path.slice("derived.".length) : effect.path;
+  const label =
+    e?.derived.find((d) => d.id === id)?.label ??
+    (e && Object.hasOwn(e.fields, id) ? e.fields[id]?.label : undefined) ??
+    ruleset.resources.find((r) => r.id === id)?.label ??
+    id;
+  const n = Number(effect.value);
+  return { label, by: effect.mode === "add" && Number.isInteger(n) ? n : null, mode: effect.mode, value: effect.value };
+}
 
 export type SheetRow = {
   kind: "field" | "derived" | "resource";
@@ -79,7 +105,8 @@ export type WidgetModel =
   | { widget: "pips"; label: string | null; value: SheetRow; steps: PipStep[] }
   | { widget: "cards"; variant: WidgetVariant<"cards">; label: string | null; lines: LedgerSheetLines }
   | { widget: "folds"; variant: WidgetVariant<"folds">; label: string | null; lines: LedgerSheetLines }
-  | { widget: "notes"; label: string | null; fields: SheetRow[] };
+  | { widget: "notes"; label: string | null; fields: SheetRow[] }
+  | { widget: "held"; label: string | null; groups: HeldGroup[] };
 
 const pathsOf = (v: string | readonly string[] | undefined): readonly string[] =>
   v === undefined ? [] : typeof v === "string" ? [v] : v;
@@ -158,6 +185,13 @@ export function widgetOf({
     case "notes": {
       const fields = many("fields");
       return fields.length > 0 ? { widget: "notes", label, fields } : null;
+    }
+    case "held": {
+      const groups = Object.entries(ruleset.held ?? {}).flatMap(([kind, k]) => {
+        const records = (actor.held ?? []).filter((r) => r.kind === kind);
+        return records.length > 0 ? [{ kind, label: k.label, records }] : [];
+      });
+      return groups.length > 0 ? { widget: "held", label, groups } : null;
     }
     default:
       return null;

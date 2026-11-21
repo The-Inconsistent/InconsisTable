@@ -315,6 +315,7 @@ var handlers = map[string]handler{
 	// randomtable/randomtable.go
 	"table.roll":      randomtable.Roll,
 	"table.apply":     randomtable.Apply,
+	"held.remove":     ruleset.HeldRemove,
 	"table.deal":      randomtable.Deal,
 	"table.reshuffle": randomtable.Reshuffle,
 }

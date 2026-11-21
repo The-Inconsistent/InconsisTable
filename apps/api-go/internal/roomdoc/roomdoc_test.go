@@ -359,13 +359,23 @@ func (r *room) actors() {
 		if entity, has := a["entityType"]; has {
 			r.equal("actor type", entity, row[2])
 		}
-		fields := map[string]any{}
-		for _, x := range r.query(`SELECT field_id, coalesce(int_value::text, text_value) FROM actor_field WHERE actor_id = $1`, id) {
-			fields[x[0].(string)] = x[1]
+		fields := map[string][]any{}
+		for _, x := range r.query(`SELECT field_id, coalesce(int_value::text, text_value) FROM actor_field WHERE actor_id = $1
+			ORDER BY field_id, ordinal`, id) {
+			fields[x[0].(string)] = append(fields[x[0].(string)], x[1])
 		}
 		given, _ := a["fields"].(map[string]any)
 		for key, want := range given {
-			r.equal("field "+key, fmt.Sprint(want), fields[key])
+			// A list field is a row per item, in order: a held kind's records among them (house decision #88).
+			if _, isList := want.([]any); isList {
+				r.equal("field "+key, fmt.Sprint(want), fmt.Sprint(fields[key]))
+				continue
+			}
+			var got any
+			if len(fields[key]) > 0 {
+				got = fields[key][0]
+			}
+			r.equal("field "+key, fmt.Sprint(want), got)
 		}
 		resources := map[string]any{}
 		for _, x := range r.query(`SELECT resource_id, value FROM actor_resource WHERE actor_id = $1`, id) {
@@ -612,6 +622,15 @@ func TestARefusedDocumentNamesItsPathAndLeavesNothing(t *testing.T) {
 		{"a pool it cannot hold", "d20", func(d map[string]any) { d["pools"] = map[string]any{"luck": 5.0} }, "pools.luck", "roomValueClamped"},
 		{"no such pool", "d20", func(d map[string]any) { d["pools"] = map[string]any{"gold": 5.0} }, "pools.gold", "unknownPool"},
 		{"a field out of range", "d20", func(d map[string]any) { at(d, 99.0, "actors", 0, "fields", "level") }, "actors[0].fields", "fieldInvalid"},
+		{"a held record the room is not served", "d20", func(d map[string]any) {
+			at(d, []any{"coil-rope", "nope"}, "actors", 0, "fields", "charms")
+		}, "actors[0].fields.charms", "heldNoEntry"},
+		{"a held record twice", "d20", func(d map[string]any) {
+			at(d, []any{"coil-rope", "coil-rope"}, "actors", 0, "fields", "charms")
+		}, "actors[0].fields.charms", "heldAlready"},
+		{"more held records than the kind's max", "d20", func(d map[string]any) {
+			at(d, []any{"coil-rope", "coil-rope", "coil-rope"}, "actors", 0, "fields", "charms")
+		}, "actors[0].fields.charms", "heldFull"},
 		{"a resource past its max", "d20", func(d map[string]any) { at(d, 99.0, "actors", 0, "resources", "hp") }, "actors[0].resources.hp", "roomValueClamped"},
 		{"no such condition", "d20", func(d map[string]any) { at(d, []any{"cursed"}, "actors", 0, "conditions") }, "actors[0].conditions[0]", "noCondition"},
 		{"no such type", "d20", func(d map[string]any) { at(d, "dragon", "actors", 1, "entityType") }, "actors[1].entityType", "noSuchEntity"},

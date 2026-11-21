@@ -16,6 +16,20 @@ export const ROOM_D20: RulesetInput = (() => {
   ruleset.codex!.kinds.location = {
     fields: { district: { type: "text", label: "District", maxLength: 40, visibility: "party", cite: "Sample p.17" } },
   };
+  // Charms a character holds in play (house decision #88): gear by key, only the holder and the GM side read by name.
+  const character = ruleset.entities![0]!;
+  character.fields = { ...character.fields, charms: { type: "list", label: "Charms", visibility: "owner" } };
+  ruleset.held = {
+    charm: {
+      label: "Charms",
+      entry: "gear",
+      field: "charms",
+      entities: ["character"],
+      unseen: "Unseen",
+      max: 2,
+      cite: "Sample p.18",
+    },
+  };
   return ruleset;
 })();
 export { SAMPLE_LEDGER_PACK, SAMPLE_LEDGER_RULESET, SAMPLE_PACK, SAMPLE_WORLD };
@@ -65,7 +79,16 @@ export const d20Document = (): RoomDocumentInput => ({
       kind: "pc",
       name: "Mara",
       entityType: "character",
-      fields: { name: "Mara", level: 2, "attr.str": 10, "attr.dex": 14, "attr.con": 12, guard: 11, size: "medium" },
+      fields: {
+        name: "Mara",
+        level: 2,
+        "attr.str": 10,
+        "attr.dex": 14,
+        "attr.con": 12,
+        guard: 11,
+        size: "medium",
+        charms: ["coil-rope"],
+      },
       resources: { hp: 8, tempHp: 2 },
       conditions: ["marked"],
     },

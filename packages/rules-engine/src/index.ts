@@ -87,6 +87,7 @@ export * from "./build/index.ts";
 export * from "./world.ts";
 export * from "./widgets.ts";
 export {
+  heldKeys,
   immuneTo,
   lookupInputs,
   planLookup,

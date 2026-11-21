@@ -1,5 +1,5 @@
 import type { CompiledRuleset, CompiledTableEffect } from "./compile.ts";
-import { ExprError, type ExprRecord } from "./expr/expr.ast.ts";
+import { ExprError, type ExprRecord, type ExprValue } from "./expr/expr.ast.ts";
 import { evaluateBool, evaluateInt } from "./expr/expr.ts";
 import { MAX_EFFECT_TIMES, tableDie, type RandomTable, type TableEntry } from "./manifest.ts";
 import { own } from "./own.ts";
@@ -13,7 +13,8 @@ export type LookupStep =
   | { kind: "harm"; wounds: number; shock: number }
   | { kind: "condition"; condition: string; immune: boolean }
   | { kind: "resource"; resource: string; by: number }
-  | { kind: "pool"; pool: string; by: number };
+  | { kind: "pool"; pool: string; by: number }
+  | { kind: "grant"; held: string; entry: string; has: boolean };
 
 export type LookupRefusal =
   | { code: "tableNotFound" }
@@ -103,7 +104,7 @@ export function readLookup({
   if (lookup.modifier !== null) {
     if (scope === null) return { ok: false, code: "unreadable", detail: "the modifier reads a target" };
     try {
-      total += evaluateInt({ expr: lookup.modifier, scope: { ...scope, ctx: read.ctx } });
+      total += evaluateInt({ expr: lookup.modifier, scope: { ...withHeld({ compiled, scope }), ctx: read.ctx } });
     } catch (e) {
       if (e instanceof ExprError) return { ok: false, code: "unreadable", detail: e.message };
       throw e;
@@ -128,7 +129,7 @@ export function planLookup(args: {
   if (!read.ok) return read;
   const { compiled, tableId, scope } = args;
   const effects = own(compiled.lookups, tableId)?.effects[read.entry] ?? [];
-  const full = { ...scope, ctx: read.ctx };
+  const full = { ...withHeld({ compiled, scope }), ctx: read.ctx };
   const steps: LookupStep[] = [];
   try {
     for (const x of effects) {
@@ -180,7 +181,54 @@ function stepOf({
       const by = int(x.by);
       return by === 0 ? null : { kind: "pool", pool: d.pool, by };
     }
+    case "grant":
+      return {
+        kind: "grant",
+        held: d.held,
+        entry: d.entry,
+        has: heldKeys({ compiled, held: d.held, scope: target }).includes(d.entry),
+      };
   }
+}
+
+/**
+ * The scope with each held kind's list field read as empty where it is unset (house decision #88): an actor that holds
+ * nothing yet counts 0 records, as it holds none.
+ */
+export function withHeld({ compiled, scope }: { compiled: CompiledRuleset; scope: ExprRecord }): ExprRecord {
+  let out = scope;
+  for (const k of Object.values(compiled.ruleset.held ?? {})) out = setIfAbsent({ at: out, path: k.field.split(".") });
+  return out;
+}
+
+function setIfAbsent({ at, path }: { at: ExprRecord; path: readonly string[] }): ExprRecord {
+  const [head = "", ...rest] = path;
+  const had = own(at, head);
+  if (rest.length === 0) return had === undefined ? { ...at, [head]: [] } : at;
+  if (had !== undefined && !isRecord(had)) return at;
+  return { ...at, [head]: setIfAbsent({ at: had ?? {}, path: rest }) };
+}
+
+/** The keys of the records of a kind the actor holds, read from the kind's list field in its scope (house decision #88). */
+export function heldKeys({
+  compiled,
+  held,
+  scope,
+}: {
+  compiled: CompiledRuleset;
+  held: string;
+  scope: ExprRecord;
+}): string[] {
+  const field = own(compiled.ruleset.held ?? {}, held)?.field;
+  let at: ExprValue | null | undefined = scope;
+  for (const part of (field ?? "").split(".")) {
+    at = isRecord(at) ? own(at, part) : undefined;
+  }
+  return Array.isArray(at) ? at.filter((k): k is string => typeof k === "string") : [];
+}
+
+function isRecord(v: ExprValue | null | undefined): v is ExprRecord {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
 /** Whether the actor is immune to the condition (house decision #81); a value it cannot read makes it not immune. */

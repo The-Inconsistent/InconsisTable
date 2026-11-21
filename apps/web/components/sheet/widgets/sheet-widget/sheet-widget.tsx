@@ -5,6 +5,7 @@ import { Cards } from "../cards/cards";
 import { Folds } from "../folds/folds";
 import { Frames } from "../frames/frames";
 import { Grid } from "../grid/grid";
+import { Held } from "../held/held";
 import { Notes } from "../notes/notes";
 import { Pips } from "../pips/pips";
 import { Strip } from "../strip/strip";
@@ -35,6 +36,8 @@ export function SheetWidget({ model, env }: { model: WidgetModel; env: WidgetEnv
         return <Folds model={model} env={env} />;
       case "notes":
         return <Notes fields={model.fields} env={env} />;
+      case "held":
+        return <Held model={model} env={env} />;
     }
   };
   return (

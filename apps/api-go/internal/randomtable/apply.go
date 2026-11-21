@@ -3,6 +3,7 @@ package randomtable
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
@@ -42,7 +43,7 @@ func Apply(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	}
 	actionID, wrote := core.NewUUID(), false
 	for _, s := range steps {
-		deltas, err := stepDeltas(ctx, rc, actorID, name, t.Title, s)
+		deltas, err := stepDeltas(ctx, tx, rc, c.CampaignID, actorID, name, t.Title, s)
 		if err != nil {
 			return cs.Result{}, err
 		}
@@ -70,6 +71,49 @@ func Apply(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	return r, nil
 }
 
+// grantDeltas is a grant step (house decision #88): the entry's key added to the end of the kind's list field, the
+// write field.set makes. Refused for an actor type the kind is not for, an entry the room is not served, one the actor
+// holds already (the GM rolls again on that table, as the source app has it), or a kind already at its max.
+func grantDeltas(ctx context.Context, tx core.Conn, rc *ruleset.Context, campaignID, actorID, name string, s engine.LookupStep) ([]engine.Delta, error) {
+	kind := rc.Compiled.Ruleset.Held[s.Held]
+	b := rc.Built[actorID]
+	if !slices.Contains(kind.Entities, b.Entity) {
+		return nil, cs.Fail("heldNotFor", cs.Params{"name": name, "kind": kind.Label})
+	}
+	entry, served, err := actor.ServedEntryName(ctx, tx, campaignID, kind.Entry, s.Entry)
+	if err != nil {
+		return nil, err
+	}
+	if !served {
+		return nil, cs.Fail("heldNoEntry", cs.Params{"entry": s.Entry})
+	}
+	keys := heldList(b.Fields[kind.Field])
+	if slices.Contains(keys, s.Entry) {
+		return nil, cs.Fail("heldAlready", cs.Params{"name": name, "entry": entry})
+	}
+	if len(keys) >= kind.MaxOrDefault() {
+		return nil, cs.Fail("heldFull", cs.Params{"name": name, "kind": kind.Label})
+	}
+	next := make([]any, 0, len(keys)+1)
+	for _, k := range keys {
+		next = append(next, k)
+	}
+	next = append(next, s.Entry)
+	return []engine.Delta{{Target: engine.DeltaTarget{ActorID: actorID, Field: kind.Field}, Kind: "set", Value: next}}, nil
+}
+
+// heldList is a list field's value as keys.
+func heldList(v any) []string {
+	items, _ := v.([]any)
+	out := []string{}
+	for _, item := range items {
+		if s, ok := item.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 // applies says whether any line of the table has effects to apply.
 func applies(t *engine.RandomTable) bool {
 	for _, e := range t.Entries {
@@ -82,7 +126,7 @@ func applies(t *engine.RandomTable) bool {
 
 // stepDeltas are the writes one step makes, through the operation it stands for. A condition the target is immune to
 // (now, after the steps before it) is nothing, with a notice.
-func stepDeltas(ctx context.Context, rc *ruleset.Context, actorID, name, source string, s engine.LookupStep) ([]engine.Delta, error) {
+func stepDeltas(ctx context.Context, tx core.Conn, rc *ruleset.Context, campaignID, actorID, name, source string, s engine.LookupStep) ([]engine.Delta, error) {
 	switch s.Kind {
 	case "harm":
 		return rc.Run(ctx, ruleset.Run{Primitive: "health.harm", Op: "hit",
@@ -108,6 +152,8 @@ func stepDeltas(ctx context.Context, rc *ruleset.Context, actorID, name, source 
 		return []engine.Delta{*delta}, nil
 	case "resource":
 		return []engine.Delta{{Target: engine.DeltaTarget{ActorID: actorID, Resource: s.Resource}, Kind: "add", Value: float64(s.By)}}, nil
+	case "grant":
+		return grantDeltas(ctx, tx, rc, campaignID, actorID, name, s)
 	}
 	return []engine.Delta{{Target: engine.DeltaTarget{Pool: s.Pool}, Kind: "add", Value: float64(s.By)}}, nil
 }

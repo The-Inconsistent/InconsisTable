@@ -214,6 +214,13 @@ export const REFUSALS = {
   tableNoApply: "Nothing on that table can be applied.",
   tableNotFor: "That table doesn't apply to {name}.",
   tableNeedsTarget: "Pick who the table is for first: it reads their values.",
+  // Held records
+  noHeldKind: "This ruleset has no records of the kind {held}.",
+  heldNotFor: "{name} can't hold {kind}.",
+  heldNoEntry: "This room's packs have no {entry}.",
+  heldAlready: "{name} already has {entry}: roll again on this table.",
+  heldFull: "{name} holds as many {kind} as they can.",
+  heldNotHeld: "{name} doesn't hold that.",
   // Undo
   nothingToUndo: "Nothing to undo",
   nothingToTurnBack: "Nothing to turn back: no turn has started or ended in this fight this session.",

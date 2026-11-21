@@ -62,9 +62,28 @@ type (
 		Derived         map[string]float64 `json:"derived"`
 		Conditions      []string           `json:"conditions"`
 		ConditionTimers []ConditionTimer   `json:"conditionTimers"`
+		// Held is the records the actor holds (house decision #88): for a seat that may not read a kind's names, each one
+		// under the kind's unseen word with its effects and no key or cite.
+		Held []HeldRecord `json:"held"`
 		// Ledger is the saved ledger build and sheet, and the unfinished draft (house decision #63); nil when the actor
 		// has none or the seat may not read it.
 		Ledger *ActorLedger `json:"ledger"`
+	}
+	// HeldRecord is one record an actor holds: its kind, the entry's key, name and cite, and its effects. Key and Cite
+	// are nil where the seat may not read them.
+	HeldRecord struct {
+		Kind    string       `json:"kind"`
+		Key     *string      `json:"key"`
+		Name    string       `json:"name"`
+		Cite    *string      `json:"cite"`
+		Effects []HeldEffect `json:"effects"`
+	}
+	// HeldEffect is one effect of a held record, as the sheet words it.
+	HeldEffect struct {
+		Path  string `json:"path"`
+		Mode  string `json:"mode"`
+		Value string `json:"value"`
+		Phase string `json:"phase"`
 	}
 	// ActorLedger is a saved ledger build and the sheet it resolved to, and a draft not yet resolved, as stored: JSON
 	// text sent on as it is, so its keys keep the order the builder wrote them in. A part not stored is nil (null).

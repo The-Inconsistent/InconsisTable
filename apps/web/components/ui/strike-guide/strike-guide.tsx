@@ -140,9 +140,18 @@ export function StrikeGuide(props: StrikeGuideProps) {
     plan !== null && !isPlan(plan)
       ? tr({ code: plan.code, message: plan.message, params: { detail: plan.message, strike: strike.id } })
       : null;
+  // A mob's wounds are members lost (house decision #66), said as its members going down.
+  const members = harm?.mob?.members;
+  const mob = members !== undefined && target?.resources[members] !== undefined;
   const harmWords = (h: { wounds: number; shock: number }) =>
     [
-      ...(h.wounds !== 0 ? [t("change", { by: h.wounds, label: label(harm?.wounds) })] : []),
+      ...(h.wounds !== 0
+        ? [
+            mob
+              ? t("change", { by: -h.wounds, label: label(members) })
+              : t("change", { by: h.wounds, label: label(harm?.wounds) }),
+          ]
+        : []),
       ...(h.shock !== 0 ? [t("change", { by: h.shock, label: label(harm?.shock) })] : []),
     ].join(", ");
 

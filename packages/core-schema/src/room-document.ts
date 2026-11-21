@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { NextSessionPlace, SessionTitle } from "./actions.ts";
-import { ScenePrep } from "./prep.ts";
+import { ScenePrep, SpawnOptionIds } from "./prep.ts";
 import {
   ActorKind,
   ActorName,
@@ -97,6 +97,8 @@ export const RoomActor = z
     build: LedgerBuildText.optional(), // what build.save takes; never a draft. `fields` beside it: what it does not write
     conditions: z.array(Key).max(ROOM_LIMITS.actorConditions).optional(),
     items: z.array(RoomItem).max(ROOM_LIMITS.actorItems).optional(),
+    // The spawn options it was spawned with (house decision #92), fixed then: the import does not read their `when`.
+    spawnOptions: SpawnOptionIds.optional(),
   })
   .refine(
     (a) => a.build === undefined || a.entityType === undefined,
@@ -135,6 +137,7 @@ export const RoomSession = z.strictObject({
   title: SessionTitle.optional(),
   recap: z.string().max(10_000).optional(),
   notes: z.string().max(10_000).optional(),
+  abandoned: z.boolean().optional(), // ended without its award (session.abandon, house decision #85)
 });
 
 export const RoomClock = z

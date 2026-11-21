@@ -6,6 +6,8 @@ import { dirname, join } from "node:path";
 import { z } from "zod";
 
 import { RoomDocument, ROOM_LIMITS } from "../../../packages/core-schema/src/room-document.ts";
+import { SAMPLE_SKIRMISH } from "../../../packages/rules-engine/src/fixtures/sample-skirmish.ts";
+import { SAMPLE_SKIRMISH_PACK } from "../../../packages/rules-engine/src/fixtures/sample-skirmish-pack.ts";
 import {
   bareDocument,
   d20Document,
@@ -89,6 +91,14 @@ const cases: [string, unknown][] = [
   ["an item", { ...base, actors: [{ ...actor(1), items: [{ id: uuid(1), kind: "k", name: " Rope ", quantity: 2 }] }] }],
   ["an item with a stray key", { ...base, actors: [{ ...actor(1), items: [{ id: uuid(1), kind: "k", weight: 2 }] }] }],
   ["too many items", { ...base, actors: [{ ...actor(1), items: times(201, (i) => ({ id: uuid(i), kind: "k" })) }] }],
+  ["an abandoned session", { ...base, sessions: [{ title: "Cut short", abandoned: true }] }],
+  ["abandoned not a flag", { ...base, sessions: [{ abandoned: "yes" }] }],
+  [
+    "spawn options",
+    { ...base, actors: [{ ...actor(1), entityType: "creature", spawnOptions: ["hardened", "swift"] }] },
+  ],
+  ["a spawn option twice", { ...base, actors: [{ ...actor(1), spawnOptions: ["hardened", "hardened"] }] }],
+  ["too many spawn options", { ...base, actors: [{ ...actor(1), spawnOptions: times(11, (i) => `o${i}`) }] }],
   ["too many conditions", { ...base, actors: [{ ...actor(1), conditions: times(51, (i) => `c${i}`) }] }],
   ["too many entry fields", { ...base, codex: [{ ...entry(1), fields: keyed(ROOM_LIMITS.entryFields + 1, () => 1) }] }],
   ["too many readers", { ...base, codex: [{ ...entry(1), audience: times(ROOM_LIMITS.audience + 1, uuid) }] }],
@@ -116,6 +126,8 @@ writeFileSync(
       world: SAMPLE_WORLD,
       ledgerRuleset: SAMPLE_LEDGER_RULESET,
       ledgerPack: SAMPLE_LEDGER_PACK,
+      skirmishRuleset: SAMPLE_SKIRMISH,
+      skirmishPack: SAMPLE_SKIRMISH_PACK,
     },
     ids: IDS,
   }),

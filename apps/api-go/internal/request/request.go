@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign/eventlog"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
@@ -31,7 +32,11 @@ const (
 // Load is the campaign's pending requests, oldest first, whole. The Seat view decides what each seat gets.
 func Load(ctx context.Context, conn core.Conn, campaignID string) ([]cs.SpendRequest, error) {
 	rows, err := conn.Query(ctx, `SELECT id::text, user_id, actor_id::text, resource_id, amount, spend_id, inputs, note, created_at,
-			acquire_type, acquire_key, acquire_host
+			acquire_type, acquire_key, acquire_host, coalesce((SELECT e.name FROM campaign_pack
+				JOIN pack_entry e ON e.pack_version_id = campaign_pack.pack_version_id
+				JOIN pack_version ON pack_version.id = e.pack_version_id JOIN pack ON pack.id = pack_version.pack_id
+				WHERE e.type = spend_request.acquire_type AND e.key = spend_request.acquire_key AND `+actor.ServedPacks("$1")+`
+				ORDER BY pack.slug LIMIT 1), acquire_key)
 		FROM spend_request WHERE campaign_id = $1 AND status = 'pending' ORDER BY created_at, id`, campaignID)
 	if err != nil {
 		return nil, err
@@ -39,13 +44,13 @@ func Load(ctx context.Context, conn core.Conn, campaignID string) ([]cs.SpendReq
 	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (cs.SpendRequest, error) {
 		var q cs.SpendRequest
 		var at time.Time
-		var acquireType, acquireKey, acquireHost *string
+		var acquireType, acquireKey, acquireHost, acquireName *string
 		err := r.Scan(&q.ID, &q.UserID, &q.ActorID, &q.ResourceID, &q.Amount, &q.SpendID, &q.Inputs, &q.Note, &at,
-			&acquireType, &acquireKey, &acquireHost)
+			&acquireType, &acquireKey, &acquireHost, &acquireName)
 		q.CreatedAt = core.ISOTime(at)
 		if acquireKey != nil && acquireType != nil {
 			ask := askOf(waiting{acquireType: *acquireType, acquireKey: *acquireKey, acquireHost: deref(acquireHost)})
-			q.Acquire = &cs.RequestAcquire{Type: ask.Type, Entry: ask.Key, To: ask.To, Line: ask.Line}
+			q.Acquire = &cs.RequestAcquire{Type: ask.Type, Entry: ask.Key, Name: deref(acquireName), To: ask.To, Line: ask.Line}
 		}
 		return q, err
 	})

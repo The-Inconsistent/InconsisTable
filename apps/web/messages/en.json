@@ -871,6 +871,7 @@
     "report": "Report {label}"
   },
   "testPrompt": {
+    "acquiring": "To acquire {item}",
     "reportedResult": "Result: {label}",
     "pickResult": "What came up for {who}?",
     "waiting": "Waiting for the GM",
@@ -979,6 +980,7 @@
       "power": "DN {dn} · {activation} · {duration} · Range {range}"
     },
     "widget": {
+      "with": "with {list}",
       "rating": "Rating",
       "heldAdd": "{by, number, ::sign-always} {label}",
       "heldOther": "{label}: {mode} {value}",
@@ -1026,7 +1028,23 @@
       "fromPacks": "From the packs",
       "orName": "Or a name of your own",
       "quantity": "How many",
-      "add": "Add"
+      "add": "Add",
+      "with": "with {list}",
+      "buildLine": "{name} (the build's)"
+    },
+    "acquire": {
+      "title": "Acquire",
+      "open": "Acquire an item",
+      "close": "Close",
+      "kind": "Kind",
+      "pick": "From the packs",
+      "total": "{label}: {total}",
+      "part": "{label} {value, number, ::sign-always}",
+      "host": "Fit it to",
+      "loose": "Keep it loose",
+      "ask": "Ask the GM",
+      "asking": "Waiting on the GM: {name}",
+      "cancel": "Cancel the ask"
     },
     "override": {
       "title": "The GM's override",
@@ -1344,6 +1362,7 @@
     "offers": "What {name}'s result offers",
     "offerChange": "{by} {label}",
     "offerApply": "Apply {offer} for {name}: {changes}",
+    "grant": "Grant {item}",
     "applied": "Applied",
     "offerDone": "{offer}, applied"
   },
@@ -2097,6 +2116,8 @@
   },
   "spendRequest": {
     "ask": "Ask to spend",
+    "acquires": "{name} asks to acquire {item}",
+    "acquireOn": "{name} asks to acquire {item}, fitted to {host}",
     "askAria": "Ask the GM to spend {label}",
     "amount": "How much {label} to spend",
     "less": "Ask for less {label}",

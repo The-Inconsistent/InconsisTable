@@ -32,6 +32,12 @@ export function RequestBar({ state, labels, ruleset, send }: RequestBarProps) {
   }, [ruleset]);
   if (state.requests.length === 0) return null;
 
+  // The name of an item a character holds, for what an acquired fitting goes on.
+  const itemName = (actorId: string | null, itemId: string | undefined) =>
+    itemId === undefined
+      ? undefined
+      : state.actors.find((a) => a.id === actorId)?.items?.find((x) => x.id === itemId)?.name;
+
   // A spend-ask in the ruleset's words: its label, its inputs and what it would cost now.
   const spendText = (q: SpendRequest): string => {
     const spend = spendOf(ruleset, q);
@@ -71,14 +77,27 @@ export function RequestBar({ state, labels, ruleset, send }: RequestBarProps) {
     <section className="request-bar stack" aria-label={t("barTitle")}>
       {state.requests.map((q) => {
         const name = state.actors.find((a) => a.id === q.actorId)?.name ?? "";
-        const spent = q.spendId !== null;
-        const label = spent ? spendText(q) : (labels.get(q.resourceId ?? "") ?? q.resourceId ?? "");
+        const spent = q.spendId !== null || q.acquire !== undefined;
+        const label = q.acquire
+          ? q.acquire.name
+          : q.spendId !== null
+            ? spendText(q)
+            : (labels.get(q.resourceId ?? "") ?? q.resourceId ?? "");
         const values = { name, amount: q.amount ?? 0, label };
+        // An acquisition (house decision #102): the entry, and what a fitting goes on.
+        const host = q.acquire?.line?.split("/").slice(1).join("/") ?? itemName(q.actorId, q.acquire?.to);
+        const asks = q.acquire
+          ? host
+            ? t("acquireOn", { name, item: q.acquire.name, host })
+            : t("acquires", { name, item: q.acquire.name })
+          : spent
+            ? t("othersAsk", values)
+            : t("asks", values);
         return (
           <div key={q.id} className="request-item stack">
             <div className="row request-line">
               <span className="request-text">
-                <strong>{spent ? t("othersAsk", values) : t("asks", values)}</strong>
+                <strong>{asks}</strong>
                 {q.note && <span className="dim"> {q.note}</span>}
               </span>
               <span className="row">

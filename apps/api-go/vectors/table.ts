@@ -368,7 +368,7 @@ const STATE = {
       inputs: { push: 1 },
       note: "",
       createdAt: "2026-11-01T09:04:00.000Z",
-      acquire: { type: "gear", entry: "rope", line: "weapons/Axe" },
+      acquire: { type: "gear", entry: "rope", name: "Rope", line: "weapons/Axe" },
     },
     {
       id: U(800),

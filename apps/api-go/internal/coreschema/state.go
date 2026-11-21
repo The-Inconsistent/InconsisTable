@@ -95,12 +95,14 @@ type (
 		Quantity *int    `json:"quantity"`
 		FittedTo *string `json:"fittedTo"`
 		// FittedLine is the line of the saved build it is fitted to (`<card>/<name>`, house decision #102); absent when none.
-		FittedLine *string      `json:"fittedLine,omitempty"`
-		Source     string       `json:"source"`
-		EntryID    *string      `json:"entryId"`
-		Rev        int64        `json:"rev"`
-		Tags       []string     `json:"tags"`
-		Effects    []HeldEffect `json:"effects"`
+		FittedLine *string `json:"fittedLine,omitempty"`
+		// Profile is the entry record's weapon or armour, the numbers its card draws (house decision #102).
+		Profile json.RawMessage `json:"profile,omitempty"`
+		Source  string          `json:"source"`
+		EntryID *string         `json:"entryId"`
+		Rev     int64           `json:"rev"`
+		Tags    []string        `json:"tags"`
+		Effects []HeldEffect    `json:"effects"`
 	}
 	// HeldEffect is one effect of a held record, as the sheet words it.
 	HeldEffect struct {
@@ -168,8 +170,10 @@ type (
 	RequestAcquire struct {
 		Type  string `json:"type"`
 		Entry string `json:"entry"`
-		To    string `json:"to,omitempty"`
-		Line  string `json:"line,omitempty"`
+		// Name is the entry's name as the room is served it, its key when it is served none.
+		Name string `json:"name"`
+		To   string `json:"to,omitempty"`
+		Line string `json:"line,omitempty"`
 	}
 	// RollRow is one roll on a random table (house decision #49): what came up, as the seat that may see it reads it.
 	// Visibility is the table's, so the Seat view can cut it; Label is the entry's own short name.

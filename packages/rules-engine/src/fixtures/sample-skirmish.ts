@@ -1,5 +1,5 @@
 import type { FieldDef, RulesetInput } from "../manifest.ts";
-import { CODEX_0_1_7, SAMPLE_D20 } from "./sample-d20.ts";
+import { CODEX_0_1_7, SAMPLE_D20_0_1_8 } from "./sample-d20.ts";
 
 /** The creature's own fields of house decision #92: its kind and the grudge its Spite starts from. */
 const CREATURE_FIELDS: Record<string, FieldDef> = {
@@ -26,7 +26,7 @@ const CREATURE_FIELDS: Record<string, FieldDef> = {
  * Every name, number and cite is our own invention.
  */
 export const SAMPLE_SKIRMISH: RulesetInput = {
-  ...SAMPLE_D20,
+  ...SAMPLE_D20_0_1_8,
   id: "sample-skirmish",
   version: "0.1.6",
   codex: {
@@ -51,7 +51,7 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
   },
   // House decision #91: anyone may hold wards up, each raising the target of its own checks by 2, ended by hand.
   // House decision #92: a creature is of a kind (a note each, shown on its tracker row) and carries a grudge.
-  entities: SAMPLE_D20.entities.map((e) =>
+  entities: SAMPLE_D20_0_1_8.entities.map((e) =>
     e.base !== "actor"
       ? e
       : {
@@ -77,7 +77,7 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
         },
   ),
   resources: [
-    ...(SAMPLE_D20.resources ?? []),
+    ...(SAMPLE_D20_0_1_8.resources ?? []),
     { id: "momentum", label: "Momentum", cite: "Sample p.15", scope: "party", max: "6", visibility: "party" },
     { id: "pressure", label: "Pressure", cite: "Sample p.15", scope: "gm", max: "6" },
     {
@@ -106,8 +106,8 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
   ],
   // The tracker row names a creature's kind (its tag) and its Spite (a stepper) (house decision #92).
   layout: {
-    ...SAMPLE_D20.layout,
-    sheet: { sections: SAMPLE_D20.layout?.sheet?.sections ?? [], trackerRow: ["kind", "res.spite"] },
+    ...SAMPLE_D20_0_1_8.layout,
+    sheet: { sections: SAMPLE_D20_0_1_8.layout?.sheet?.sections ?? [], trackerRow: ["kind", "res.spite"] },
   },
   // House decision #92: two options a foe may be spawned with, one scaling it to the table, and a budget.
   spawn: {
@@ -152,8 +152,8 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
     },
   },
   tests: {
-    ...SAMPLE_D20.tests,
-    check: { ...SAMPLE_D20.tests?.check, target: "ctx.dc + derived.wardLoad" } as NonNullable<
+    ...SAMPLE_D20_0_1_8.tests,
+    check: { ...SAMPLE_D20_0_1_8.tests?.check, target: "ctx.dc + derived.wardLoad" } as NonNullable<
       RulesetInput["tests"]
     >[string],
   },
@@ -174,7 +174,7 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
     },
   },
   conditions: [
-    ...(SAMPLE_D20.conditions ?? []),
+    ...(SAMPLE_D20_0_1_8.conditions ?? []),
     {
       id: "burning",
       label: "Burning",
@@ -216,8 +216,8 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
   ],
   rests: [{ event: "longRest", refusedIn: ["downed"], cite: "Sample p.20" }],
   health: {
-    ...SAMPLE_D20.health,
-    states: [...(SAMPLE_D20.health?.states ?? []), { id: "downed", label: "Downed", when: "res.hp <= 0" }],
+    ...SAMPLE_D20_0_1_8.health,
+    states: [...(SAMPLE_D20_0_1_8.health?.states ?? []), { id: "downed", label: "Downed", when: "res.hp <= 0" }],
   },
   initiative: {
     strategy: "sides",
@@ -361,7 +361,7 @@ export const SAMPLE_SKIRMISH_BEFORE_SPAWN: RulesetInput = (() => {
   return {
     ...before,
     version: "0.1.5",
-    layout: SAMPLE_D20.layout,
+    layout: SAMPLE_D20_0_1_8.layout,
     campaignFields,
     resources: before.resources?.filter((x) => x.id !== "spite"),
     entities: before.entities.map((e) => {
@@ -378,8 +378,8 @@ export const SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND: RulesetInput = (() => {
   return {
     ...before,
     version: "0.1.4",
-    entities: SAMPLE_D20.entities,
-    tests: SAMPLE_D20.tests,
+    entities: SAMPLE_D20_0_1_8.entities,
+    tests: SAMPLE_D20_0_1_8.tests,
     resources: before.resources?.filter((x) => x.id !== "nerve"),
     spends: before.spends?.filter((x) => x.id !== "channel"),
   };

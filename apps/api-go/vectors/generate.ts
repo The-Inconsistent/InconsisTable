@@ -2644,6 +2644,7 @@ const CRAFTED: object[] = [
     { options: [{ id: "x", label: "X", cite: "p.1", entities: [] }], adjust: [{ add: { a: "1" }, extra: 1 }] },
   ].map((spawn) => ({ ...SAMPLE_SKIRMISH, spawn })),
   ...itemCrafted(),
+  ...entryFromCrafted(),
 ];
 
 // Items (house decision #95): every rule an items block can break, one manifest each.
@@ -2682,6 +2683,83 @@ function itemCrafted(): object[] {
     { ...ITEMS_MANIFEST, items: { kinds: [] } },
     { ...ITEMS_MANIFEST, items: { kinds: Array.from({ length: 21 }, (_, i) => ({ ...kinds[3], id: `k${i}` })) } },
     { ...ITEMS_MANIFEST, sources: [{ id: "s", title: "T", license: "private" }] },
+  ];
+}
+
+// Entries made from pack entries, rolled fields and a reminder reading the campaign (house decision #97): one valid
+// manifest using every key, then each refusal by its path.
+function entryFromCrafted(): object[] {
+  const base = {
+    entities: [
+      pcBase,
+      {
+        id: "site",
+        label: "S",
+        base: "item",
+        fields: {
+          within: { type: "ref", label: "W", entity: "site" },
+          other: { type: "ref", label: "O", entity: "pc" },
+          peril: { type: "int", label: "P" },
+          mood: { type: "enum", label: "M", values: ["a", "b"] },
+          checks: { type: "list", label: "C" },
+          note: { type: "text", label: "N" },
+        },
+      },
+    ],
+    campaignFields: { season: { type: "int", label: "S", min: 1, max: 5, default: 1 } },
+    tables: {
+      first: { title: "F", die: "1d6", visibility: "gm", entries: [{ id: "a", label: "A", range: [1, 6] }] },
+      dealt: { title: "D", visibility: "owner", entries: [{ id: "a", label: "A" }] },
+    },
+  };
+  const kinds = (over: object) => ({ ...base, codex: { kinds: over } });
+  const place = (from: object, fields: object = {}) =>
+    kinds({ location: { fields: { peril: { type: "int", label: "P" }, ...fields }, from: [from] } });
+  const scene = (from: object) => kinds({ scene: { fields: {}, from: [from] } });
+  return [
+    kinds({
+      location: {
+        fields: {
+          peril: { type: "int", label: "P" },
+          name: { type: "text", label: "N", roll: { tables: ["first", "first"], join: " " } },
+          mood: { type: "enum", label: "M", values: ["a", "b", "c"] },
+        },
+        from: [{ entity: "site", name: "name", values: { peril: "peril", mood: "mood" }, children: "within" }],
+        titleRoll: { tables: ["first"] },
+      },
+      scene: {
+        fields: {},
+        from: [{ entity: "site", tests: { field: "checks", inputs: { dc: "peril" } }, roster: "checks" }],
+      },
+      lore: {
+        fields: { from: { type: "int", label: "F" } },
+        reminders: [{ id: "r", if: "fields.from > campaign.season", text: "T" }],
+      },
+    }),
+    place({ entity: "nope" }),
+    kinds({ location: { fields: {}, from: [{ entity: "site" }, { entity: "site" }] } }),
+    place({ entity: "site", name: "peril" }),
+    place({ entity: "site", values: { nope: "peril" } }),
+    place({ entity: "site", values: { peril: "nope" } }),
+    place({ entity: "site", values: { peril: "note" } }),
+    place({ entity: "site", values: { m: "mood" } }, { m: { type: "enum", label: "M", values: ["a"] } }),
+    place({ entity: "site", children: "other" }),
+    place({ entity: "site", children: "peril" }),
+    scene({ entity: "site", children: "within" }),
+    place({ entity: "site", tests: { field: "checks" } }),
+    place({ entity: "site", roster: "checks" }),
+    scene({ entity: "site", tests: { field: "peril" } }),
+    scene({ entity: "site", roster: "note" }),
+    scene({ entity: "site", tests: { field: "checks", inputs: { dc: "within" } } }),
+    scene({ entity: "site", tests: { field: "checks", inputs: { dc: "nope" } } }),
+    kinds({ npc: { fields: { look: { type: "text", label: "L", roll: { tables: ["nope", "dealt"] } } } } }),
+    kinds({ npc: { fields: {}, titleRoll: { tables: [] } } }),
+    kinds({ npc: { fields: {}, titleRoll: { tables: ["first"], join: "x".repeat(11) } } }),
+    kinds({ lore: { fields: {}, reminders: [{ id: "r", if: "campaign.era > 1", text: "T" }] } }),
+    {
+      ...kinds({ lore: { fields: {}, reminders: [{ id: "r", if: "campaign.season > 1", text: "T" }] } }),
+      campaignFields: undefined,
+    },
   ];
 }
 

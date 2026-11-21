@@ -45,14 +45,15 @@ const npc = (fields: CodexEntry["fields"]): CodexEntry => ({
   layout: null,
   header: null,
   prep: null,
+  source: null,
 });
 
 test("the declared fields of a kind, in order; none without a block or a ruleset", () => {
   assert.deepEqual(
     declaredFields({ ruleset, kind: "npc" }).map((f) => f.id),
-    ["mood", "disposition", "patron", "home"],
+    ["mood", "disposition", "patron", "home", "look"],
   );
-  assert.deepEqual(declaredFields({ ruleset, kind: "lore" }), []);
+  assert.deepEqual(declaredFields({ ruleset, kind: "adventure" }), []);
   assert.deepEqual(declaredFields({ ruleset: null, kind: "npc" }), []);
 });
 

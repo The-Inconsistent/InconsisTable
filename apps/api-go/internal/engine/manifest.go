@@ -95,6 +95,28 @@ type (
 		// Chips and Picks are a list's (house decision #91): its items show as chips, its quick picks name an entity type.
 		Chips bool        `json:"chips"`
 		Picks *FieldPicks `json:"picks"`
+		// Roll is the tables a codex text field's editor rolls into it (house decision #97).
+		Roll *FieldRoll `json:"roll"`
+	}
+	// FieldRoll is tables whose rolled lines fill a text field or an entry's title, labels joined by Join (house decision
+	// #97; rules-engine FieldRoll).
+	FieldRoll struct {
+		Tables []string `json:"tables"`
+		Join   *string  `json:"join"`
+	}
+	// EntryPrefill is how a pack entry of Entity makes a codex entry of a kind (house decision #97; rules-engine
+	// EntryPrefill): a row's prefill mapping, the ref field whose entries come along nested, and for a scene the list
+	// fields of Test ids and pack keys that become prepared lines.
+	EntryPrefill struct {
+		Entity   string            `json:"entity"`
+		Name     *string           `json:"name"`
+		Values   map[string]string `json:"values"`
+		Children *string           `json:"children"`
+		Tests    *struct {
+			Field  string            `json:"field"`
+			Inputs map[string]string `json:"inputs"`
+		} `json:"tests"`
+		Roster *string `json:"roster"`
 	}
 	// RowColumn is one column of a `rows` field: an entry field's type, or `test` (house decision #89).
 	RowColumn struct {
@@ -155,6 +177,10 @@ type (
 	CodexKind struct {
 		Fields    map[string]FieldDef `json:"fields"`
 		Reminders []CodexReminder     `json:"reminders"`
+		// From is the pack entry types an entry of this kind is made from, TitleRoll the tables rolled into its title
+		// (house decision #97).
+		From      []EntryPrefill `json:"from"`
+		TitleRoll *FieldRoll     `json:"titleRoll"`
 	}
 	// DerivedDef is one derived value.
 	DerivedDef struct {
@@ -1209,8 +1235,93 @@ func (p *problems) codex(r *Ruleset) {
 			if def.Type == "rows" {
 				p.rows(r, &def, path)
 			}
+			if def.Type == "text" && def.Roll != nil {
+				p.roll(r, def.Roll, path+".roll")
+			}
 		}
-		p.duplicates("codex.kinds."+kind+".reminders", idsOf(r.Codex.Kinds[kind].Reminders, func(x CodexReminder) string { return x.ID }))
+		k := r.Codex.Kinds[kind]
+		p.duplicates("codex.kinds."+kind+".reminders", idsOf(k.Reminders, func(x CodexReminder) string { return x.ID }))
+		if k.TitleRoll != nil {
+			p.roll(r, k.TitleRoll, "codex.kinds."+kind+".titleRoll")
+		}
+		p.entryFrom(r, kind, &k)
+	}
+}
+
+// roll checks a field's roll (house decision #97; rollProblems in manifest.ts): its tables exist and are rolled, not
+// dealt.
+func (p *problems) roll(r *Ruleset, roll *FieldRoll, path string) {
+	for i, id := range roll.Tables {
+		t, has := r.Tables[id]
+		switch {
+		case !has:
+			p.add(fmt.Sprintf("%s.tables[%d]", path, i), `unknown table "%s"`, id)
+		case t.Visibility == "owner":
+			p.add(fmt.Sprintf("%s.tables[%d]", path, i), `"%s" is dealt, never rolled`, id)
+		}
+	}
+}
+
+// entryFrom checks how a kind is made from pack entries (house decision #97; entryFromProblems in manifest.ts).
+func (p *problems) entryFrom(r *Ruleset, kind string, k *CodexKind) {
+	seen := map[string]bool{}
+	for i, f := range k.From {
+		at := fmt.Sprintf("codex.kinds.%s.from[%d]", kind, i)
+		if seen[f.Entity] {
+			p.add(at+".entity", `"%s" fills entries twice`, f.Entity)
+		}
+		seen[f.Entity] = true
+		entity := r.entity(f.Entity)
+		if entity == nil {
+			p.add(at+".entity", `unknown entity "%s"`, f.Entity)
+			continue
+		}
+		if f.Name != nil {
+			if def, has := k.Fields[*f.Name]; !has || def.Type != "text" {
+				p.add(at+".name", `"%s" is not a text field of %s`, *f.Name, kind)
+			}
+		}
+		for _, to := range sortedKeys(f.Values) {
+			fieldID := f.Values[to]
+			def, declared := k.Fields[to]
+			field, has := entity.Fields[fieldID]
+			switch {
+			case !declared:
+				p.add(at+".values."+to, `"%s" is not a field of %s`, to, kind)
+			case !has:
+				p.add(at+".values."+to, `"%s" is not a field of "%s"`, fieldID, f.Entity)
+			case !fitsColumn(&RowColumn{Type: def.Type, Values: def.Values, Entity: def.Entity}, &field):
+				p.add(at+".values."+to, `"%s" does not fit the field`, fieldID)
+			}
+		}
+		if f.Children != nil {
+			ref, has := entity.Fields[*f.Children]
+			switch {
+			case !has || ref.Type != "ref" || ref.Entity != f.Entity:
+				p.add(at+".children", `"%s" is not a ref to "%s"`, *f.Children, f.Entity)
+			case kind == "scene":
+				p.add(at+".children", "a scene sits under an adventure, not a scene")
+			}
+		}
+		list := func(id, path string) {
+			if kind != "scene" {
+				p.add(path, "only a scene holds prepared lines")
+			} else if def, has := entity.Fields[id]; !has || def.Type != "list" {
+				p.add(path, `"%s" is not a list field of "%s"`, id, f.Entity)
+			}
+		}
+		if f.Tests != nil {
+			list(f.Tests.Field, at+".tests.field")
+			for _, input := range sortedKeys(f.Tests.Inputs) {
+				fieldID := f.Tests.Inputs[input]
+				if def := entity.Fields[fieldID]; !slices.Contains([]string{"int", "text", "enum", "bool"}, def.Type) {
+					p.add(at+".tests.inputs."+input, `"%s" is not a value field of "%s"`, fieldID, f.Entity)
+				}
+			}
+		}
+		if f.Roster != nil {
+			list(*f.Roster, at+".roster")
+		}
 	}
 }
 

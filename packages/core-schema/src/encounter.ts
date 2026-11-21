@@ -37,6 +37,33 @@ export const EncounterReminder = z.object({
 });
 export type EncounterReminder = z.infer<typeof EncounterReminder>;
 
+/**
+ * One logged action of the running fight (house decision #100), for the GM's log: the round and the actor acting it
+ * left, whether Undo or TURN BACK took it back, the strike it was (house decision #99) and its writes as logged.
+ */
+export const FightLogLine = z.object({
+  id: z.string(),
+  round: z.number().int(),
+  actorId: z.string().nullable(),
+  undone: z.boolean(),
+  strike: z
+    .object({
+      strikeId: z.string(),
+      attackerId: z.string(),
+      targetId: z.string(),
+      means: z.string().nullable(),
+      total: z.number(),
+      outcome: z.string(),
+      wounds: z.number(),
+      shock: z.number(),
+    })
+    .optional(),
+  writes: z.array(
+    z.object({ target: z.record(z.string(), z.string()), kind: z.string(), before: z.unknown(), after: z.unknown() }),
+  ),
+});
+export type FightLogLine = z.infer<typeof FightLogLine>;
+
 export const Combatant = z.object({
   id: z.string(),
   actorId: z.string(),
@@ -113,6 +140,8 @@ export const Encounter = z.object({
       later: z.number().int(),
     })
     .optional(),
+  /** The running fight's logged actions, newest first, at most 40 (house decision #100): the combat side's only. */
+  log: z.array(FightLogLine).optional(),
   /** Sides order only (house decision #60), absent otherwise: whether the fight has begun (a setup opens it not begun). */
   begun: z.boolean().optional(),
   /** The side that acted last, and the side that acted out of turn this round; side ids, so public. */

@@ -212,6 +212,9 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 	if out.TurnBack, err = turnBackOf(ctx, conn, campaignID, built); err != nil {
 		return nil, err
 	}
+	if out.Log, err = eventlog.FightLog(ctx, conn, campaignID); err != nil {
+		return nil, err
+	}
 	if compiled == nil {
 		return out, nil
 	}

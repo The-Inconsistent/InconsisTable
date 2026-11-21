@@ -289,6 +289,34 @@ type (
 		Round int    `json:"round"`
 		Later int    `json:"later"`
 	}
+	// FightLogWrite is one logged write of an action, as the log holds it (eventlog.Written).
+	FightLogWrite struct {
+		Target map[string]string `json:"target"`
+		Kind   string            `json:"kind"`
+		Before any               `json:"before"`
+		After  any               `json:"after"`
+	}
+	// FightLogStrike is the strike an action was (house decision #99), as strike.apply logged it.
+	FightLogStrike struct {
+		StrikeID   string  `json:"strikeId"`
+		AttackerID string  `json:"attackerId"`
+		TargetID   string  `json:"targetId"`
+		Means      *string `json:"means"`
+		Total      float64 `json:"total"`
+		Outcome    string  `json:"outcome"`
+		Wounds     float64 `json:"wounds"`
+		Shock      float64 `json:"shock"`
+	}
+	// FightLogLine is one logged action of the running fight (house decision #100): the round and the actor acting it
+	// left, whether Undo or TURN BACK took it back, the strike it was, and its writes.
+	FightLogLine struct {
+		ID      string          `json:"id"`
+		Round   int             `json:"round"`
+		ActorID *string         `json:"actorId"`
+		Undone  bool            `json:"undone"`
+		Strike  *FightLogStrike `json:"strike,omitempty"`
+		Writes  []FightLogWrite `json:"writes"`
+	}
 	// HP is a combatant's health numbers.
 	HP struct {
 		Value float64  `json:"value"`
@@ -373,6 +401,8 @@ type (
 		Reminders []EncounterReminder `json:"reminders,omitempty"`
 		// TurnBack is what TURN BACK would take back (house decision #82); the combat side's only, nil with nothing to take.
 		TurnBack *EncounterTurnBack `json:"turnBack,omitempty"`
+		// Log is the running fight's logged actions, newest first (house decision #100); the combat side's only.
+		Log []FightLogLine `json:"log,omitempty"`
 		*EncounterSides
 	}
 	// EncounterSides is the encounter's part of a sides order (house decision #60); nil for any other order.

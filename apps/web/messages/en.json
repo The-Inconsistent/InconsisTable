@@ -945,7 +945,10 @@
     "showMore": "Show more ({left} left)"
   },
   "party": {
-    "xp": { "line": "{xp} XP · Rank {rank}", "toSpend": "{xp} XP to spend" },
+    "xp": {
+      "line": "{xp} XP · Rank {rank}",
+      "toSpend": "{xp} XP to spend"
+    },
     "ascension": "Ascension · Tier {tier}",
     "guest": "Guest",
     "qrFailed": "Couldn't draw the QR code. Try again",
@@ -1529,7 +1532,30 @@
     "whisperRecipient": "Whisper only to this room's characters.",
     "whisperLimit": "{max} whispers already; delete some first.",
     "whisperGone": "That whisper is gone.",
-    "whisperNotToThem": "That whisper isn't to that character."
+    "whisperNotToThem": "That whisper isn't to that character.",
+    "noItems": "This ruleset has no items.",
+    "noItemKind": "This ruleset has no item kind {kind}.",
+    "itemNotFor": "{name} can't hold {kind}.",
+    "itemNotFound": "That item is gone: look again.",
+    "itemNoEntry": "This room's packs have no {entry}.",
+    "itemNotAnItem": "{entry} isn't one of {kind}.",
+    "itemEntryOrName": "Pick the item from the packs or write its name: one of the two.",
+    "itemGiven": "{item} was given already: take it back first.",
+    "itemNotGiven": "{item} isn't with anyone.",
+    "itemCounted": "{item} is counted, not given: add it by hand.",
+    "itemAlready": "{name} already has {item}.",
+    "itemsFull": "{name} holds as many {kind} as they can ({max}).",
+    "itemChanged": "That line has changed since you opened it; look again.",
+    "itemNoFit": "{item} isn't fitted to anything.",
+    "itemFitsNot": "{item} doesn't fit {host}.",
+    "itemFitFull": "{host} already has {max} fitted.",
+    "itemSlotTaken": "{host} already has a {slot}: {other}.",
+    "itemFitGm": "{item} is the GM's to fit.",
+    "itemFitted": "{item} is fitted already: take it off first.",
+    "itemNotFitted": "{item} isn't fitted.",
+    "itemNotCounted": "{item} isn't counted.",
+    "itemOnlySpend": "Only the GM adds to {item}.",
+    "roomNoSuchItem": "No such item of this character in this document."
   },
   "workspace": {
     "skip": "Skip to the page",
@@ -2365,7 +2391,11 @@
       "wealthLess": "Buy one less Wealth",
       "wealthMore": "Buy one more Wealth",
       "wealthBought": "{count} Wealth bought",
-      "held": { "picks": "Taken free", "bought": "Bought", "learned": "Learned in play" }
+      "held": {
+        "picks": "Taken free",
+        "bought": "Bought",
+        "learned": "Learned in play"
+      }
     },
     "gm": {
       "title": "The GM's rulings",
@@ -2437,9 +2467,18 @@
         "title": "Play",
         "lede": "The screens a table needs once these characters are in play, on invented figures. Nothing is sent.",
         "ascension": "Ascension case",
-        "cases": { "short": "Someone short", "ready": "Everyone ready", "top": "Top Tier", "refusal": "A refusal" },
+        "cases": {
+          "short": "Someone short",
+          "ready": "Everyone ready",
+          "top": "Top Tier",
+          "refusal": "A refusal"
+        },
         "xp": "XP box case",
-        "xpCases": { "toSpend": "XP to spend", "spentAll": "All spent", "notBuilt": "Not built" },
+        "xpCases": {
+          "toSpend": "XP to spend",
+          "spentAll": "All spent",
+          "notBuilt": "Not built"
+        },
         "refusal": "Refused: an invented refusal, to see where one shows.",
         "sent": "Pressed: {kind, select, experience {by experience} other {by milestone}}{waived, select, true {, package waived} other {}}."
       }

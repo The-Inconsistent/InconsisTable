@@ -424,6 +424,8 @@ function seatState({
           // The saved ledger build and sheet, and their play figures (house decisions #63, #64): the GM side and the
           // seat holding the character.
           ledger: own ? a.ledger : null,
+          // The items it holds, as its saved build's lines (house decision #95).
+          items: own ? (a.items ?? []) : [],
           ...(v ? copyValues(v) : NO_VALUES),
           // The durations of the conditions the seat sees.
           conditionTimers: a.conditionTimers.filter((t) => v?.conditions.includes(t.id)),

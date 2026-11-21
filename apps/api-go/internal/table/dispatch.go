@@ -18,6 +18,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/game"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/item"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/pack"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/randomtable"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/request"
@@ -315,9 +316,16 @@ var handlers = map[string]handler{
 	"safety.suggest":     safety.Suggest,
 	"safety.xcard":       safety.XCard,
 	// randomtable/randomtable.go
-	"table.roll":      randomtable.Roll,
-	"table.apply":     randomtable.Apply,
-	"held.remove":     ruleset.HeldRemove,
+	"table.roll":  randomtable.Roll,
+	"table.apply": randomtable.Apply,
+	"held.remove": ruleset.HeldRemove,
+	// item/item.go (house decision #95)
+	"item.give":       item.Give,
+	"item.take":       item.Take,
+	"item.add":        item.Add,
+	"item.edit":       item.Edit,
+	"item.fit":        item.Fit,
+	"item.adjust":     item.Adjust,
 	"table.deal":      randomtable.Deal,
 	"table.reshuffle": randomtable.Reshuffle,
 	// whisper/whisper.go (house decision #93)

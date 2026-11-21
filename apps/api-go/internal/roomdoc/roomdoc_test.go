@@ -393,6 +393,20 @@ func (r *room) actors() {
 		}
 		slices.Sort(conditions)
 		r.equal("conditions", sorted(a["conditions"]), conditions)
+		// Items (house decision #95): each in order, its entry or name, its quantity, the host's entry it is fitted to, and
+		// the codex item a GIVE handed over by its title.
+		gotItems := []string{}
+		for _, x := range r.query(`SELECT i.kind || ' ' || coalesce(i.entry_key, i.name) || ' x' || coalesce(i.quantity::text, '-')
+				|| ' on ' || coalesce(h.entry_key, '-') || ' from ' || coalesce(e.title, '-') || ' ' || i.source || ' ' || i.note
+			FROM actor_item i LEFT JOIN actor_item h ON h.id = i.fitted_to LEFT JOIN codex_entry e ON e.id = i.codex_entry_id
+			WHERE i.actor_id = $1 ORDER BY i.ordinal`, id) {
+			gotItems = append(gotItems, x[0].(string))
+		}
+		wantItems := []string{}
+		for _, x := range doc(a).list("items") {
+			wantItems = append(wantItems, itemLine(doc(r.parsed), a, x))
+		}
+		r.equal("items", wantItems, gotItems)
 		if build, has := a["build"].(string); has {
 			var stored string
 			if err := r.db.QueryRow(context.Background(), `SELECT build::text FROM actor_build WHERE actor_id = $1`, id).Scan(&stored); err != nil {
@@ -657,6 +671,21 @@ func TestARefusedDocumentNamesItsPathAndLeavesNothing(t *testing.T) {
 		{"a field beside a build that does not fit", "ledger", func(d map[string]any) {
 			at(d, map[string]any{"xp": "lots"}, "actors", 0, "fields")
 		}, "actors[0].fields.xp", "fieldInvalid"},
+		{"an item of a kind the ruleset lacks", "ledger", func(d map[string]any) { at(d, "trinkets", "actors", 0, "items", 1, "kind") },
+			"actors[0].items[1].kind", "noItemKind"},
+		{"an item the room is not served", "ledger", func(d map[string]any) { at(d, "wargear.nope", "actors", 0, "items", 1, "entry") },
+			"actors[0].items[1].entry", "itemNoEntry"},
+		{"an entry of another kind", "ledger", func(d map[string]any) { at(d, "wargear.rope", "actors", 0, "items", 1, "entry") },
+			"actors[0].items[1].entry", "itemNotAnItem"},
+		{"a second of a unique entry", "ledger", func(d map[string]any) {
+			at(d, "wargear.hunting-bow", "actors", 0, "items", 3, "entry")
+		}, "actors[0].items[3].entry", "itemAlready"},
+		{"a fit to an item it does not fit", "ledger", func(d map[string]any) {
+			at(d, "00000000-0000-4000-8000-000000000044", "actors", 0, "items", 0, "fittedTo")
+		}, "actors[0].items[0].fittedTo", "itemFitsNot"},
+		{"a fit to an item not in the document", "ledger", func(d map[string]any) {
+			at(d, "00000000-0000-4000-8000-000000000999", "actors", 0, "items", 0, "fittedTo")
+		}, "actors[0].items[0].fittedTo", "roomNoSuchItem"},
 		{"a typed actor without a ruleset", "bare", func(d map[string]any) {
 			d["actors"] = []any{map[string]any{"id": "00000000-0000-4000-8000-000000000050", "kind": "pc", "name": "Lone", "entityType": "character"}}
 		}, "actors[0].entityType", "noRuleset"},

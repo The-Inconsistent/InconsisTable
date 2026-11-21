@@ -945,7 +945,10 @@
     "showMore": "Xem thêm (còn {left})"
   },
   "party": {
-    "xp": { "line": "{xp} XP · Rank {rank}", "toSpend": "còn {xp} XP để tiêu" },
+    "xp": {
+      "line": "{xp} XP · Rank {rank}",
+      "toSpend": "còn {xp} XP để tiêu"
+    },
     "ascension": "Ascension · Tier {tier}",
     "guest": "Khách",
     "qrFailed": "Không vẽ được mã QR. Hãy thử lại",
@@ -1529,7 +1532,30 @@
     "whisperRecipient": "Chỉ thì thầm tới nhân vật của phòng này.",
     "whisperLimit": "Đã có {max} lời thì thầm; hãy xoá bớt trước.",
     "whisperGone": "Lời thì thầm đó không còn nữa.",
-    "whisperNotToThem": "Lời thì thầm đó không gửi tới nhân vật này."
+    "whisperNotToThem": "Lời thì thầm đó không gửi tới nhân vật này.",
+    "noItems": "Bộ luật này không có vật phẩm.",
+    "noItemKind": "Bộ luật này không có loại vật phẩm {kind}.",
+    "itemNotFor": "{name} không thể giữ {kind}.",
+    "itemNotFound": "Vật phẩm đó không còn: xem lại.",
+    "itemNoEntry": "Các gói của phòng này không có {entry}.",
+    "itemNotAnItem": "{entry} không thuộc {kind}.",
+    "itemEntryOrName": "Chọn vật phẩm từ gói hoặc tự viết tên: chỉ một trong hai.",
+    "itemGiven": "{item} đã được trao: lấy lại trước đã.",
+    "itemNotGiven": "{item} không ở với ai.",
+    "itemCounted": "{item} được đếm, không trao: hãy thêm bằng tay.",
+    "itemAlready": "{name} đã có {item}.",
+    "itemsFull": "{name} đã giữ đủ {kind} ({max}).",
+    "itemChanged": "Dòng đó đã đổi từ lúc bạn mở; xem lại.",
+    "itemNoFit": "{item} không gắn vào thứ gì.",
+    "itemFitsNot": "{item} không gắn vừa {host}.",
+    "itemFitFull": "{host} đã gắn đủ {max} món.",
+    "itemSlotTaken": "{host} đã có {slot}: {other}.",
+    "itemFitGm": "Chỉ GM gắn được {item}.",
+    "itemFitted": "{item} đã được gắn: tháo ra trước đã.",
+    "itemNotFitted": "{item} chưa được gắn.",
+    "itemNotCounted": "{item} không được đếm.",
+    "itemOnlySpend": "Chỉ GM thêm được {item}.",
+    "roomNoSuchItem": "Tài liệu này không có vật phẩm đó của nhân vật."
   },
   "workspace": {
     "skip": "Bỏ qua, tới nội dung trang",
@@ -2365,7 +2391,11 @@
       "wealthLess": "Mua bớt một Wealth",
       "wealthMore": "Mua thêm một Wealth",
       "wealthBought": "Đã mua {count} Wealth",
-      "held": { "picks": "Đã lấy miễn phí", "bought": "Đã mua", "learned": "Học trong game" }
+      "held": {
+        "picks": "Đã lấy miễn phí",
+        "bought": "Đã mua",
+        "learned": "Học trong game"
+      }
     },
     "gm": {
       "title": "Quyết định của GM",
@@ -2444,7 +2474,11 @@
           "refusal": "Bị từ chối"
         },
         "xp": "Trường hợp ô XP",
-        "xpCases": { "toSpend": "Còn XP để tiêu", "spentAll": "Đã tiêu hết", "notBuilt": "Chưa tạo" },
+        "xpCases": {
+          "toSpend": "Còn XP để tiêu",
+          "spentAll": "Đã tiêu hết",
+          "notBuilt": "Chưa tạo"
+        },
         "refusal": "Bị từ chối: một lời từ chối tự bịa, để xem nó hiện ở đâu.",
         "sent": "Đã bấm: {kind, select, experience {theo kinh nghiệm} other {theo cột mốc}}{waived, select, true {, bỏ qua gói} other {}}."
       }

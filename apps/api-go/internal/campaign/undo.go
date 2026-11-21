@@ -122,6 +122,23 @@ func undoAction(ctx context.Context, tx core.Conn, c cs.Ctx, sessionID, actionID
 			return err
 		}
 		t := logged.Target
+		if t.Item != "" {
+			// An item row is set whole (house decision #95), undone only while it holds what the step left.
+			current, err := actor.ItemValue(ctx, tx, cid, t.Item)
+			if err != nil {
+				return err
+			}
+			inverse, refused := eventlog.Invert(logged, current)
+			if refused != nil {
+				return refused
+			}
+			w, err := actor.WriteDelta(ctx, tx, actor.Write{CampaignID: cid, Delta: *inverse})
+			if err != nil {
+				return err
+			}
+			written = append(written, w)
+			continue
+		}
 		if t.Clock != "" {
 			w, skip, err := undoClock(ctx, tx, cid, logged)
 			if err != nil {

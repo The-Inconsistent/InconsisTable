@@ -98,6 +98,32 @@ export const HeldRecord = z.object({
 });
 export type HeldRecord = z.infer<typeof HeldRecord>;
 
+/** Where an item an actor holds came from (house decision #95). */
+export const ItemSource = z.enum(["give", "hand", "acquire"]);
+export type ItemSource = z.infer<typeof ItemSource>;
+
+/**
+ * An item an actor holds in play (house decision #95): its kind, the pack entry it names (`entry`, its key; null for a
+ * hand-written one), its name (the entry's, or the hand-written one) and cite, the GM's note, a counted kind's quantity,
+ * the item it is fitted to, where it came from, the codex item a GIVE handed over, its revision (EDIT CARRIED compares
+ * it), and the entry's effects as the sheet words them.
+ */
+export const ActorItem = z.object({
+  id: z.string(),
+  kind: z.string(),
+  entry: z.string().nullable(),
+  name: z.string(),
+  cite: z.string().nullable(),
+  note: z.string(),
+  quantity: z.number().nullable(),
+  fittedTo: z.string().nullable(),
+  source: ItemSource,
+  entryId: z.string().nullable(),
+  rev: z.number(),
+  effects: HeldRecord.shape.effects,
+});
+export type ActorItem = z.infer<typeof ActorItem>;
+
 export const Actor = ActorBrief.extend({
   // The ruleset's values. The api filters them per seat with the rules engine's `toViewerView` (a GM seat gets them
   // whole); empty until a ruleset is pinned and the actor has an entity type.
@@ -110,6 +136,9 @@ export const Actor = ActorBrief.extend({
   conditionTimers: z.array(ConditionTimer),
   // The records it holds (house decision #88), as this seat may read them; absent from an older api.
   held: z.array(HeldRecord).optional(),
+  // The items it holds (house decision #95), for the seat holding it and the GM side; empty for everyone else, as the
+  // saved build's lines are. Absent from an older api.
+  items: z.array(ActorItem).optional(),
   // The saved ledger build, sheet and draft, for the GM side and a seat holding this character; null for everyone else,
   // and for an actor not built with the ledger builder.
   ledger: ActorLedger.nullable(),

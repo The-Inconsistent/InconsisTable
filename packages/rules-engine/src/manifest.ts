@@ -1391,6 +1391,69 @@ export const ChecklistStep = z.object({
 });
 export type ChecklistStep = z.infer<typeof ChecklistStep>;
 
+// Generators (house decision #98): ordered steps the GM runs in prep, ending in entries the server makes.
+export const MAX_GENERATORS = 20;
+export const MAX_GENERATOR_STEPS = 12;
+export const MAX_EACH_STEPS = 8;
+/** The most nested entries one run makes, and the longest chain a roll step follows through lines' `next`. */
+export const MAX_GENERATED = 60;
+export const MAX_CHAIN = 8;
+
+const generatorStepBase = {
+  id: Id,
+  label: z.string().min(1).max(80),
+  /** A boolean over the earlier steps (`steps.<id>`) and the campaign: the step is asked only while it holds. */
+  when: ExprSource.optional(),
+};
+
+/**
+ * One step of a generator (house decision #98): a roll on a table of the ruleset (ROLL or I ROLLED; a line's `next`
+ * goes on to that table within the step), a pick of a served pack entry of a type (`filter` a boolean over the entry's
+ * fields as `entry.<field>` and the earlier steps), or a value the GM sets: a bounded number, one of a few choices, or
+ * a short text. Expressions read a roll as its last line's id, a pick as its key, a value as itself.
+ */
+export const GeneratorStep = z.discriminatedUnion("kind", [
+  z.object({ ...generatorStepBase, kind: z.literal("roll"), table: Id }),
+  z.object({ ...generatorStepBase, kind: z.literal("pick"), entity: Id, filter: ExprSource.optional() }),
+  z.object({
+    ...generatorStepBase,
+    kind: z.literal("number"),
+    min: z.int().min(-1000).max(1000),
+    max: z.int().min(-1000).max(1000),
+  }),
+  z.object({
+    ...generatorStepBase,
+    kind: z.literal("choice"),
+    options: z.array(Id).min(1).max(20),
+    labels: z.record(Id, z.string().min(1).max(60)).optional(),
+  }),
+  z.object({ ...generatorStepBase, kind: z.literal("text"), maxLength: z.int().min(1).max(200).optional() }),
+]);
+export type GeneratorStep = z.infer<typeof GeneratorStep>;
+
+/**
+ * What one made entry takes (house decision #98): its title from a step, its declared fields from steps, and with
+ * `from` (a pick step) the mapping its kind's `from` gives that pick's pack entry (house decision #97).
+ */
+export const GeneratedEntry = z.object({
+  title: Id,
+  from: Id.optional(),
+  fields: z.record(Id, Id).optional(),
+});
+export type GeneratedEntry = z.infer<typeof GeneratedEntry>;
+
+export const Generator = z.object({
+  id: Id,
+  label: z.string().min(1).max(80),
+  cite: Cite.optional(),
+  steps: z.array(GeneratorStep).min(1).max(MAX_GENERATOR_STEPS),
+  /** Steps asked `times` over (an integer over the steps above, 0 to 60), each round making one nested entry. */
+  each: z.object({ times: ExprSource, steps: z.array(GeneratorStep).min(1).max(MAX_EACH_STEPS) }).optional(),
+  /** One entry of `kind`, and with `each` one entry of the same kind under it per round. */
+  make: GeneratedEntry.extend({ kind: CodexEntryKind, each: GeneratedEntry.optional() }),
+});
+export type Generator = z.infer<typeof Generator>;
+
 export const Ruleset = z.object({
   id: RulesetId,
   version: SemVer,
@@ -1437,6 +1500,8 @@ export const Ruleset = z.object({
   game: GameInfo.optional(),
   /** The fields codex entries carry, per kind (house decision #71). Absent: none. */
   codex: CodexBlock.optional(),
+  /** Generators the GM runs in prep (house decision #98). Absent: none. */
+  generators: z.array(Generator).max(MAX_GENERATORS).optional(),
   /** What an action's answer tells its sender about an actor (house decision #79). Absent: none. */
   notices: z.array(NoticeRule).max(MAX_NOTICES).optional(),
   /** What players may ask the GM to spend, and the GM do in one tap (house decision #84). Absent: none. */
@@ -2854,7 +2919,85 @@ function semanticProblems(r: Ruleset): Problem[] {
       out.push({ path: `checklist[${i}].goto.kind`, message: "only the codex tab takes a kind" });
   });
   duplicates({ ids: (r.checklist ?? []).map((s) => s.id), path: "checklist", out });
+  r.generators?.forEach((g, i) => {
+    needCite(g.cite, `generators[${i}]`);
+    generatorProblems({ r, g, path: `generators[${i}]`, out });
+  });
+  duplicates({ ids: (r.generators ?? []).map((g) => g.id), path: "generators", out });
   return out;
+}
+
+/** Whether a step's answer fits a codex field: words in text, a number in an int, a choice in an enum, a pick in a ref. */
+function stepFills(s: GeneratorStep, def: CodexField): boolean {
+  switch (def.type) {
+    case "text":
+      return s.kind !== "number";
+    case "int":
+      return s.kind === "number";
+    case "enum":
+      return s.kind === "choice" && s.options.every((o) => def.values.includes(o));
+    case "ref":
+      return s.kind === "pick" && s.entity === def.entity;
+    default:
+      return false;
+  }
+}
+
+/**
+ * A generator's steps name what the ruleset has, its ids are unique, and what it makes reads steps it has and fills
+ * fields its kind declares (house decision #98). Its expressions are checked when the ruleset compiles.
+ */
+function generatorProblems({ r, g, path, out }: { r: Ruleset; g: Generator; path: string; out: Problem[] }): void {
+  const push = (at: string, message: string) => out.push({ path: at, message });
+  duplicates({ ids: g.steps.map((s) => s.id), path: `${path}.steps`, out });
+  const top = new Set(g.steps.map((s) => s.id));
+  g.each?.steps.forEach((s, j) => {
+    if (top.has(s.id)) push(`${path}.each.steps[${j}].id`, `duplicate id "${s.id}"`);
+  });
+  if (g.each !== undefined) duplicates({ ids: g.each.steps.map((s) => s.id), path: `${path}.each.steps`, out });
+  const stepChecks = (steps: readonly GeneratorStep[], at: string) =>
+    steps.forEach((s, j) => {
+      const sp = `${at}[${j}]`;
+      if (s.kind === "roll") {
+        const t = own(r.tables ?? {}, s.table);
+        if (t === undefined) push(`${sp}.table`, `unknown table "${s.table}"`);
+        else if (t.visibility === "owner") push(`${sp}.table`, `"${s.table}" is dealt, never rolled`);
+      }
+      if (s.kind === "pick" && !r.entities.some((e) => e.id === s.entity))
+        push(`${sp}.entity`, `unknown entity "${s.entity}"`);
+      if (s.kind === "number" && s.max < s.min) push(`${sp}.max`, "max is below min");
+      if (s.kind === "choice") {
+        s.options.forEach((o, k) => {
+          if (s.options.indexOf(o) !== k) push(`${sp}.options[${k}]`, `"${o}" is there twice`);
+        });
+        enumWordProblems({ def: { values: s.options, labels: s.labels }, path: sp, out });
+      }
+    });
+  stepChecks(g.steps, `${path}.steps`);
+  if (g.each !== undefined) stepChecks(g.each.steps, `${path}.each.steps`);
+  const kind = r.codex?.kinds[g.make.kind];
+  const made = (m: GeneratedEntry, steps: readonly GeneratorStep[], at: string) => {
+    const step = (id: string) => steps.find((s) => s.id === id);
+    if (step(m.title) === undefined) push(`${at}.title`, `"${m.title}" is not a step`);
+    if (m.from !== undefined) {
+      const s = step(m.from);
+      if (s?.kind !== "pick" || !(kind?.from ?? []).some((f) => f.entity === s.entity))
+        push(`${at}.from`, `"${m.from}" is not a pick of a type ${g.make.kind} is made from`);
+    }
+    for (const [f, id] of Object.entries(m.fields ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+      const def = own(kind?.fields ?? {}, f);
+      const s = step(id);
+      if (def === undefined) push(`${at}.fields.${f}`, `"${f}" is not a field of ${g.make.kind}`);
+      else if (s === undefined) push(`${at}.fields.${f}`, `"${id}" is not a step`);
+      else if (!stepFills(s, def)) push(`${at}.fields.${f}`, `"${id}" can't fill "${f}"`);
+    }
+  };
+  made(g.make, g.steps, `${path}.make`);
+  if (g.make.each !== undefined) made(g.make.each, [...g.steps, ...(g.each?.steps ?? [])], `${path}.make.each`);
+  if (g.each !== undefined && g.make.each === undefined) push(`${path}.make`, "each round needs what it makes");
+  if (g.each === undefined && g.make.each !== undefined) push(`${path}.make.each`, "nothing repeats");
+  if (g.make.each !== undefined && g.make.kind === "scene")
+    push(`${path}.make.each`, "a scene sits under an adventure, not a scene");
 }
 
 /** A checklist step counts what the ruleset declares (house decision #90). */

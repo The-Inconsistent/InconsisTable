@@ -8,11 +8,13 @@ import {
   NOTICE_RESOURCES,
   SAMPLE_D20,
   SAMPLE_D20_0_1_8,
+  SAMPLE_D20_0_1_9,
   SAMPLE_D20_BEFORE_WIDGETS,
 } from "./sample-d20.ts";
 import { SAMPLE_DUEL } from "./sample-duel.ts";
 import {
   SAMPLE_HARM,
+  SAMPLE_HARM_BEFORE_GENERATORS,
   SAMPLE_HARM_BEFORE_HELD,
   SAMPLE_HARM_BEFORE_SHOWS,
   SAMPLE_HARM_BEFORE_STRIKES,
@@ -33,12 +35,12 @@ import {
 const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9cb58c5d";
 const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf";
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.9": "78ddf8b683a8baaeac8047da45e459b204fb3fa167d6c96113d73ebb2a8f3c96",
+  "sample-d20@0.1.10": "a425b9fb13540762c37cb12a90bb07b1f718c9b678873f373e32dd99a8058df7",
   "sample-skirmish@0.1.6": "3bd2616956f07492f61b671bc86f2cfceaf9fa5336ce29ffac37ff8c27da8b6d",
   "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.1": "e166afc269320775b0d1e455a2e7a5b10ca9b9c4f0d96f9fa473addb65b93f08",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
-  "sample-harm@0.1.5": "f6a6542841fe98f3afb81e222ccfe23143f6632929dd19a345b8e5880bedceec",
+  "sample-harm@0.1.6": "c7e19354792885f3b496d296d0ab4725987b0e440733083c796be6113e66a561",
   "sample-duel@0.1.0": "509f85209788bc47bdd6722b2772e741248a4a35876b1e16d5c8c3e1a782a09f",
 };
 
@@ -244,4 +246,14 @@ test("a ruleset without entries from packs or rolled fields hashes as it did bef
     sha256Hex(canonicalJson(result.compiled.ruleset)),
     "d8016ed3e9769e73b8493a54d050377ab60869ccbddf67c18204bf47a2ab32a5",
   );
+});
+
+test("a ruleset without generators hashes as it did before them (house decision #98)", () => {
+  const hash = (x: unknown) => {
+    const result = compileRuleset(x);
+    assert.ok(result.ok);
+    return sha256Hex(canonicalJson(result.compiled.ruleset));
+  };
+  assert.equal(hash(SAMPLE_D20_0_1_9), "78ddf8b683a8baaeac8047da45e459b204fb3fa167d6c96113d73ebb2a8f3c96");
+  assert.equal(hash(SAMPLE_HARM_BEFORE_GENERATORS), "f6a6542841fe98f3afb81e222ccfe23143f6632929dd19a345b8e5880bedceec");
 });

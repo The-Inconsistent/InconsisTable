@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { codexReminders, partyReadsReminder } from "./codex.ts";
 import { compileRuleset } from "./compile.ts";
 import { checkFieldValue, fitRows } from "./field-value.ts";
-import { SAMPLE_D20 } from "./fixtures/sample-d20.ts";
+import { SAMPLE_D20_0_1_9 as SAMPLE_D20 } from "./fixtures/sample-d20.ts";
 import { SAMPLE_SKIRMISH } from "./fixtures/sample-skirmish.ts";
 import type { CodexField, CodexKindDef, RulesetInput } from "./manifest.ts";
 

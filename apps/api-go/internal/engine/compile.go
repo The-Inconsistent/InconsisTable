@@ -1098,6 +1098,10 @@ func (c *compiler) run() *CompiledRuleset {
 			}
 		}
 	}
+	// A generator's when, filter and each.times read the steps above them (house decision #98).
+	for i := range c.r.Generators {
+		c.generatorExprs(&c.r.Generators[i], fmt.Sprintf("generators[%d]", i))
+	}
 	immune := map[string]*CompiledExpr{}
 	for j, x := range c.r.Conditions {
 		if x.Immune != nil {

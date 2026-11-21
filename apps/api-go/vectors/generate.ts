@@ -45,6 +45,7 @@ import {
 } from "../../../packages/rules-engine/src/scoring.ts";
 import { remindersOf, type ReminderActor } from "../../../packages/rules-engine/src/reminders.ts";
 import { planLookup } from "../../../packages/rules-engine/src/lookups.ts";
+import { checkRun, type GeneratorRun } from "../../../packages/rules-engine/src/generators.ts";
 import { armedTicks } from "../../../packages/rules-engine/src/primitives/conditions-expire.ts";
 import { toViewerView, type ActorView } from "../../../packages/rules-engine/src/view.ts";
 import { parseDice, rollDice, seededRng } from "../../../packages/rules-engine/src/dice/dice.ts";
@@ -2645,6 +2646,7 @@ const CRAFTED: object[] = [
   ].map((spawn) => ({ ...SAMPLE_SKIRMISH, spawn })),
   ...itemCrafted(),
   ...entryFromCrafted(),
+  ...generatorCrafted(),
 ];
 
 // Items (house decision #95): every rule an items block can break, one manifest each.
@@ -2684,6 +2686,231 @@ function itemCrafted(): object[] {
     { ...ITEMS_MANIFEST, items: { kinds: Array.from({ length: 21 }, (_, i) => ({ ...kinds[3], id: `k${i}` })) } },
     { ...ITEMS_MANIFEST, sources: [{ id: "s", title: "T", license: "private" }] },
   ];
+}
+
+// Generators (house decision #98): one valid manifest using every step kind, then each refusal by its path.
+function generatorCrafted(): object[] {
+  const base = {
+    entities: [pcBase, { id: "site", label: "S", base: "item", fields: { level: { type: "int", label: "L" } } }],
+    campaignFields: { season: { type: "int", label: "S", min: 1, max: 5, default: 1 } },
+    tables: {
+      first: {
+        title: "F",
+        die: "1d6",
+        visibility: "gm",
+        entries: [{ id: "a", label: "A", range: [1, 6], next: "second" }],
+      },
+      second: { title: "S", die: "1d6", visibility: "gm", entries: [{ id: "b", label: "B", range: [1, 6] }] },
+      dealt: { title: "D", visibility: "owner", entries: [{ id: "a", label: "A" }] },
+    },
+    codex: {
+      kinds: {
+        location: {
+          fields: {
+            name: { type: "text", label: "N" },
+            n: { type: "int", label: "N" },
+            mood: { type: "enum", label: "M", values: ["a", "b"] },
+            at: { type: "ref", label: "A", entity: "site" },
+            on: { type: "bool", label: "O" },
+          },
+          from: [{ entity: "site" }],
+        },
+      },
+    },
+  };
+  const roll = { id: "r", label: "R", kind: "roll", table: "first" };
+  const gen = (over: object) => ({
+    ...base,
+    generators: [{ id: "g", label: "G", steps: [roll], make: { kind: "location", title: "r" }, ...over }],
+  });
+  return [
+    gen({
+      steps: [
+        roll,
+        { id: "n", label: "N", kind: "number", min: 1, max: 3, when: 'steps.r == "b"' },
+        { id: "m", label: "M", kind: "choice", options: ["a", "b"], labels: { a: "Ay" } },
+        {
+          id: "p",
+          label: "P",
+          kind: "pick",
+          entity: "site",
+          filter: 'entry.level >= campaign.season && steps.m != "b"',
+        },
+        { id: "t", label: "T", kind: "text", maxLength: 20 },
+      ],
+      each: { times: "steps.n", steps: [{ id: "e", label: "E", kind: "roll", table: "second" }] },
+      make: {
+        kind: "location",
+        title: "t",
+        from: "p",
+        fields: { name: "r", n: "n", mood: "m", at: "p" },
+        each: { title: "e", fields: { name: "t" } },
+      },
+    }),
+    gen({ steps: [roll, { ...roll }] }),
+    gen({ each: { times: "1", steps: [{ ...roll }] }, make: { kind: "location", title: "r", each: { title: "r" } } }),
+    gen({
+      steps: [
+        { ...roll, table: "nope" },
+        { ...roll, id: "d", table: "dealt" },
+      ],
+    }),
+    gen({ steps: [roll, { id: "p", label: "P", kind: "pick", entity: "ghost" }] }),
+    gen({ steps: [roll, { id: "n", label: "N", kind: "number", min: 3, max: 1 }] }),
+    gen({ steps: [roll, { id: "m", label: "M", kind: "choice", options: ["a", "a"], labels: { z: "Z" } }] }),
+    gen({ make: { kind: "location", title: "nope" } }),
+    gen({ make: { kind: "location", title: "r", from: "r" } }),
+    gen({ make: { kind: "npc", title: "r", fields: { name: "r" } } }),
+    gen({ make: { kind: "location", title: "r", fields: { name: "nope", on: "r", n: "r", mood: "r", at: "r" } } }),
+    gen({ each: { times: "1", steps: [{ ...roll, id: "e" }] } }),
+    gen({ make: { kind: "location", title: "r", each: { title: "r" } } }),
+    gen({
+      each: { times: "1", steps: [{ ...roll, id: "e" }] },
+      make: { kind: "scene", title: "r", each: { title: "e" } },
+    }),
+    gen({
+      steps: [
+        { ...roll, when: "steps.later == 1" },
+        { id: "later", label: "L", kind: "number", min: 1, max: 2 },
+      ],
+    }),
+    gen({ steps: [roll, { id: "p", label: "P", kind: "pick", entity: "site", filter: "entry.nope > 1" }] }),
+    gen({ steps: [roll, { id: "p", label: "P", kind: "pick", entity: "site", filter: "entry.level" }] }),
+    gen({
+      each: { times: "steps.r", steps: [{ ...roll, id: "e" }] },
+      make: { kind: "location", title: "r", each: { title: "e" } },
+    }),
+    gen({ steps: [roll, { id: "t", label: "T", kind: "text", maxLength: 201 }] }),
+    gen({ steps: [roll, { id: "s", label: "S", kind: "nope" }] }),
+    { ...gen({}), generators: [gen({}).generators[0], gen({}).generators[0]] },
+    { ...gen({}), sources: [{ id: "s", title: "T", license: "private" }] },
+  ];
+}
+
+// SAMPLE_D20 with a second generator using a text, a choice, a pick skipped by `when` and made `from`, and a person of
+// a choice's mood (house decision #98).
+const GENERATOR_MANIFESTS: unknown[] = [
+  {
+    ...SAMPLE_D20,
+    generators: [
+      ...(SAMPLE_D20.generators ?? []),
+      {
+        id: "charter",
+        label: "A charter",
+        cite: "Sample p.92",
+        steps: [
+          { id: "name", label: "Name", kind: "text", maxLength: 20 },
+          {
+            id: "mood",
+            label: "Mood",
+            kind: "choice",
+            options: ["warm", "wary", "cold"],
+            labels: { warm: "Warm" },
+          },
+          {
+            id: "charter",
+            label: "Charter",
+            kind: "pick",
+            entity: "charter",
+            when: 'steps.mood != "cold"',
+            filter: "entry.seasonFrom <= campaign.season",
+          },
+        ],
+        make: { kind: "lore", title: "name", from: "charter", fields: { charter: "charter" } },
+      },
+      {
+        id: "person",
+        label: "A person",
+        cite: "Sample p.92",
+        steps: [{ id: "mood", label: "Mood", kind: "choice", options: ["warm", "cold"] }],
+        make: { kind: "npc", title: "mood", fields: { mood: "mood", look: "mood" } },
+      },
+    ],
+  },
+  SAMPLE_HARM,
+];
+
+function generatorRunVectors(): object[] {
+  const served = [
+    { entity: "creature", key: "wisp", name: "Ember Wisp", body: { level: 1 } },
+    { entity: "creature", key: "rat", name: "Rat", body: { level: 0, guard: 9 } },
+    { entity: "charter", key: "lantern", name: "Lantern Charter", body: { seasonFrom: 2, seasonTo: 3 } },
+    { entity: "charter", key: "dawn", name: "Dawn Charter", body: { seasonFrom: 4 } },
+  ];
+  const lookup = (entity: string, key: string) => served.find((e) => e.entity === entity && e.key === key);
+  const rulesets = GENERATOR_MANIFESTS.map((m) => {
+    const r = compileRuleset(m);
+    if (!r.ok) throw new Error(`a generator manifest does not compile: ${JSON.stringify(r.problems)}`);
+    return r.compiled.ruleset;
+  });
+  const warren = (values: object, each: object[] = [{ chamber: { rows: ["pit"] } }]) => ({
+    manifest: 0,
+    generator: "warren",
+    run: { values: { rooms: { value: 1 }, origin: { rows: ["burrowed"] }, keeper: { key: "rat" }, ...values }, each },
+  });
+  const charter = (values: object, campaign: object = { season: 3 }) => ({
+    manifest: 0,
+    generator: "charter",
+    run: {
+      values: { name: { value: " The Pact " }, mood: { value: "warm" }, charter: { key: "lantern" }, ...values },
+      each: [],
+    },
+    campaign,
+  });
+  const cases = [
+    warren({}),
+    warren({ rooms: { value: 2 } }, [{ chamber: { rows: ["pit"] } }, { chamber: { rows: ["vault"] } }]),
+    warren({ origin: { rows: ["built", "smiths"] } }),
+    warren({ origin: { rows: ["built"] } }),
+    warren({ origin: { rows: ["built", "pit"] } }),
+    warren({ origin: { rows: ["burrowed", "smiths"] } }),
+    warren({ origin: { rows: ["forged"] } }),
+    warren({ origin: { rows: [] } }),
+    warren({ origin: { rows: Array.from({ length: 9 }, () => "built") } }),
+    warren({ origin: { key: "burrowed" } }),
+    warren({ origin: { rows: ["flooded"] } }),
+    warren({ origin: { rows: ["flooded"] }, keeper: { key: "wisp" } }),
+    warren({ keeper: { key: "ghost" } }),
+    warren({ keeper: { key: "lantern" } }),
+    warren({ keeper: {} }),
+    warren({ rooms: { value: 0 } }, []),
+    warren({ rooms: { value: 7 } }),
+    warren({ rooms: { value: 1.5 } }),
+    warren({ rooms: { value: "1" } }),
+    warren({ rooms: { value: -0 } }, []),
+    warren({}, []),
+    warren({}, [{ chamber: { rows: ["pit"] } }, { chamber: { rows: ["pit"] } }]),
+    warren({}, [{ chamber: { rows: ["gone"] } }]),
+    warren({}, [{}]),
+    charter({}),
+    charter({ name: { value: "   " } }),
+    charter({ name: { value: "x".repeat(21) } }),
+    charter({ name: { value: "é".repeat(20) } }),
+    charter({ mood: { value: "cold" }, charter: { key: "nope" } }),
+    charter({ mood: { value: "grim" } }),
+    charter({ charter: { key: "dawn" } }),
+    charter({ charter: { key: "dawn" } }, { season: 5 }),
+    charter({}, {}),
+    charter({ name: { value: 3 } }),
+    { manifest: 0, generator: "person", run: { values: { mood: { value: "cold" } }, each: [] } },
+    { manifest: 1, generator: "portent", run: { values: { sign: { rows: ["crow"] } }, each: [] } },
+    { manifest: 1, generator: "portent", run: { values: { sign: { rows: ["crow"] } }, each: [{}] } },
+  ];
+  return cases.map((c) => {
+    const ruleset = rulesets[c.manifest]!;
+    const generator = ruleset.generators!.find((g) => g.id === c.generator)!;
+    return {
+      ...c,
+      served,
+      result: checkRun({
+        ruleset,
+        generator,
+        run: c.run as GeneratorRun,
+        served: lookup,
+        campaign: ("campaign" in c ? c.campaign : {}) as Record<string, number>,
+      }),
+    };
+  });
 }
 
 // Entries made from pack entries, rolled fields and a reminder reading the campaign (house decision #97): one valid
@@ -4448,6 +4675,8 @@ const vectors = {
   armed: armedVectors(),
   lookupManifests: LOOKUP_MANIFESTS,
   lookups: lookupVectors(),
+  generatorManifests: GENERATOR_MANIFESTS,
+  generatorRuns: generatorRunVectors(),
   views: viewVectors(),
   creationManifest: CREATION_MANIFEST,
   creationEntries: CREATION_ENTRIES,

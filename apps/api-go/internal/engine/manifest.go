@@ -543,6 +543,8 @@ type (
 		Notices []NoticeRule `json:"notices"`
 		// Checklist is the setup checklist (house decision #90); nil when absent.
 		Checklist []ChecklistStep `json:"checklist"`
+		// Generators are what the GM runs in prep (house decision #98); nil when absent.
+		Generators []Generator `json:"generators"`
 		// Layout is read for its widget rows (house decision #83).
 		Layout map[string]LayoutDef `json:"layout"`
 		// Spends is what players may ask the GM to spend (house decision #84); Requests.Max caps pending asks per user.
@@ -1729,6 +1731,12 @@ func (r *Ruleset) semanticProblems() problems {
 		}
 	}
 	p.duplicates("checklist", idsOf(r.Checklist, func(s ChecklistStep) string { return s.ID }))
+	for i := range r.Generators {
+		path := fmt.Sprintf("generators[%d]", i)
+		needCite(r.Generators[i].Cite, path)
+		p.generator(r, &r.Generators[i], path)
+	}
+	p.duplicates("generators", idsOf(r.Generators, func(g Generator) string { return g.ID }))
 	return p
 }
 

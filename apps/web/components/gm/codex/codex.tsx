@@ -6,6 +6,7 @@ import {
   CodexKind,
   canInCampaign,
   type ActionInput,
+  type BookSource,
   type Codex as CodexSnapshot,
   type LiveState,
   type Me,
@@ -13,10 +14,12 @@ import {
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { EntryEditor } from "@/components/gm/codex/components/entry-editor/entry-editor";
+import { PackAdder } from "@/components/gm/codex/components/pack-adder/pack-adder";
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
 import { EntryFieldChips } from "@/components/ui/entry-fields/entry-fields";
-import type { Send } from "@/hooks/use-table/use-table";
+import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { filterEntries, treeRows, unfolded, type KindFilter } from "@/lib/codex/codex";
+import { fromKinds } from "@/lib/entry-fields/entry-fields";
 import type { RulesEntry } from "@/lib/library/library";
 
 type CodexProps = {
@@ -32,6 +35,9 @@ type CodexProps = {
   ruleset?: Ruleset | null;
   /** Pack entries this seat already read, to name a ref field's entry. */
   known?: readonly RulesEntry[];
+  /** Books a GM tablet serves, for the page an entry made from a pack entry cites. */
+  books?: readonly BookSource[];
+  requestPage?: RequestPage;
 };
 
 const NO_ENTRIES: readonly RulesEntry[] = [];
@@ -47,12 +53,16 @@ export function Codex({
   initialKind = null,
   ruleset = null,
   known = NO_ENTRIES,
+  books,
+  requestPage,
 }: CodexProps) {
   const t = useTranslations("codex");
   const [kind, setKind] = useState<KindFilter>(initialKind ?? "all");
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(initialOpenId);
   const [adding, setAdding] = useState(false);
+  const [fromPack, setFromPack] = useState(false);
+  const packKinds = useMemo(() => fromKinds(ruleset), [ruleset]);
   const [newKind, setNewKind] = useState<CodexKind>("npc");
   const [newTitle, setNewTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -136,7 +146,23 @@ export function Codex({
             {t("newEntry")}
           </button>
         )}
+        {can("codex:write") && packKinds.length > 0 && (
+          <button className="btn" onClick={() => setFromPack(!fromPack)} aria-expanded={fromPack}>
+            {t("fromPack")}
+          </button>
+        )}
       </div>
+      {fromPack && (
+        <PackAdder
+          kinds={packKinds}
+          initialKind={kind === "all" ? undefined : kind}
+          campaignId={me.campaignId}
+          ruleset={ruleset}
+          act={act}
+          onMade={(ids) => ids[0] && setOpenId(ids[0])}
+          onClose={() => setFromPack(false)}
+        />
+      )}
       {adding && (
         <form className="card row" onSubmit={handleCreate}>
           <select id="codex-new-kind" aria-label={t("kindLabel")} value={newKind} onChange={handleNewKind}>
@@ -225,6 +251,9 @@ export function Codex({
             onDeleted={handleDeleted}
             ruleset={ruleset}
             known={known}
+            campaign={state.campaign.fields}
+            books={books}
+            requestPage={requestPage}
           />
         )}
       </div>

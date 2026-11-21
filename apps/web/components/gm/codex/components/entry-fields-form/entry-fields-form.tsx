@@ -2,9 +2,10 @@
 import { useTranslations } from "next-intl";
 import { useState, type ChangeEvent } from "react";
 
-import type { CodexEntry } from "@inconsistable/core-schema";
+import type { ActionInput, ActionResult, CodexEntry } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
+import { RollInto } from "@/components/gm/codex/components/roll-into/roll-into";
 import { PackEntrySheet } from "@/components/ui/pack-entry-sheet/pack-entry-sheet";
 import { usePackEntry } from "@/hooks/use-pack-entry/use-pack-entry";
 import {
@@ -39,6 +40,8 @@ type EntryFieldsFormProps = {
   /** Every entry this seat reads: what a link field offers (house decision #76). */
   entries: readonly CodexEntry[];
   onOpenEntry: (entryId: string) => void;
+  /** Sends an action: a text field the ruleset rolls on its tables offers ROLL and I ROLLED (house decision #97). */
+  act?: (a: ActionInput) => Promise<ActionResult>;
 };
 
 // The declared fields of an entry's kind in the GM's editor (house decision #71), each from its declaration: an enum as
@@ -54,6 +57,7 @@ export function EntryFieldsForm({
   entryId,
   entries,
   onOpenEntry,
+  act,
 }: EntryFieldsFormProps) {
   const t = useTranslations("entryFields");
   const [picked, setPicked] = useState<readonly RulesEntry[]>([]);
@@ -112,16 +116,28 @@ export function EntryFieldsForm({
             );
           case "text":
             return (
-              <label key={id} className="stack">
-                {def.label}
-                <input
-                  id={inputId}
-                  value={typeof value === "string" ? value : ""}
-                  onChange={handleText(id)}
-                  maxLength={def.maxLength ?? 10_000}
-                  disabled={disabled}
-                />
-              </label>
+              <div key={id} className="stack">
+                <label className="stack">
+                  {def.label}
+                  <input
+                    id={inputId}
+                    value={typeof value === "string" ? value : ""}
+                    onChange={handleText(id)}
+                    maxLength={def.maxLength ?? 10_000}
+                    disabled={disabled}
+                  />
+                </label>
+                {def.roll && act && (
+                  <RollInto
+                    roll={def.roll}
+                    ruleset={ruleset}
+                    label={def.label}
+                    act={act}
+                    disabled={disabled}
+                    onRolled={(text) => onChange({ id, value: text.slice(0, def.maxLength ?? 10_000) || null })}
+                  />
+                )}
+              </div>
             );
           case "int":
             return (

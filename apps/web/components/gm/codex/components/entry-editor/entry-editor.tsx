@@ -7,7 +7,9 @@ import {
   QuestStatus,
   splitMentions,
   type ActionInput,
+  type ActionResult,
   type Actor,
+  type BookSource,
   type CodexEntry,
 } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
@@ -19,6 +21,8 @@ import {
 } from "@/components/gm/codex/components/entry-fields-form/entry-fields-form";
 import { ItemGive } from "@/components/gm/codex/components/item-give/item-give";
 import { RevealForm } from "@/components/gm/codex/components/reveal-form/reveal-form";
+import { RollInto } from "@/components/gm/codex/components/roll-into/roll-into";
+import { Cite } from "@/components/ui/cite/cite";
 import { EntryFields, EntryReminders } from "@/components/ui/entry-fields/entry-fields";
 import { EntryPath } from "@/components/ui/entry-path/entry-path";
 import { HandoutDoc } from "@/components/ui/handout-doc/handout-doc";
@@ -26,6 +30,7 @@ import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { MentionTextarea } from "@/components/ui/mention-textarea/mention-textarea";
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
 import { useRoomHandouts } from "@/components/ui/room-handouts/room-handouts";
+import type { RequestPage } from "@/hooks/use-table/use-table";
 import { parentOptions, savePatch, type EntryDraft } from "@/lib/codex/codex";
 import { declaredFields, fieldsPatch, type EntryFieldValue } from "@/lib/entry-fields/entry-fields";
 import { offeredLayouts } from "@/lib/handout/handout";
@@ -39,18 +44,24 @@ type EntryEditorProps = {
   entries: readonly CodexEntry[];
   onOpenEntry: (entryId: string) => void;
   can: { write: boolean; secrets: boolean; reveal: boolean };
-  act: (a: ActionInput) => Promise<{ ok: boolean }>;
+  act: (a: ActionInput) => Promise<ActionResult>;
   onDeleted: () => void;
   /** The manifest as this seat reads it: the entry's declared fields (house decision #71). */
   ruleset: Ruleset | null;
   /** Pack entries this seat already read, to name a ref. */
   known: readonly RulesEntry[];
+  /** The campaign fields in play, which a kind's reminders may read (house decision #97). */
+  campaign?: Readonly<Record<string, string | number | boolean>>;
+  /** Books a GM tablet serves: the page an entry made from a pack entry cites opens through them. */
+  books?: readonly BookSource[];
+  requestPage?: RequestPage;
 };
 
 // One entry open: its title, where it sits, its declared fields, a handout's layout and header, body and (for a seat that
 // may read them) GM notes, who sees it, and delete.
 export function EntryEditor(props: EntryEditorProps) {
-  const { entry, characters, entries, onOpenEntry, can, act, onDeleted, ruleset, campaignId, known } = props;
+  const { entry, characters, entries, onOpenEntry, can, act, onDeleted, ruleset, campaignId, known, campaign } = props;
+  const titleRoll = ruleset?.codex?.kinds[entry.kind]?.titleRoll;
   const t = useTranslations("codex");
   const tHandout = useTranslations("handout");
   const handouts = useRoomHandouts();
@@ -148,6 +159,27 @@ export function EntryEditor(props: EntryEditorProps) {
           disabled={!can.write}
         />
       </label>
+      {titleRoll && can.write && (
+        <RollInto
+          roll={titleRoll}
+          ruleset={ruleset}
+          label={t("titleLabel")}
+          act={act}
+          disabled={false}
+          onRolled={(title) => title && setDraft({ ...draft, title: title.slice(0, 200) })}
+        />
+      )}
+      {entry.source && (
+        <p className="row small dim" data-field="source">
+          <span>{t("madeFrom", { key: entry.source.key })}</span>
+          {entry.source.cite &&
+            (ruleset && props.books && props.requestPage ? (
+              <Cite cite={entry.source.cite} ruleset={ruleset} books={props.books} requestPage={props.requestPage} />
+            ) : (
+              <span>{entry.source.cite}</span>
+            ))}
+        </p>
+      )}
       {(parents.length > 0 || entry.parentId !== null) && (
         <label className="stack">
           {t("insideLabel")}
@@ -162,7 +194,7 @@ export function EntryEditor(props: EntryEditorProps) {
           </select>
         </label>
       )}
-      {can.write && <EntryReminders ruleset={ruleset} entry={entry} />}
+      {can.write && <EntryReminders ruleset={ruleset} entry={entry} campaign={campaign} />}
       {can.write ? (
         <EntryFieldsForm
           ruleset={ruleset}
@@ -175,6 +207,7 @@ export function EntryEditor(props: EntryEditorProps) {
           entryId={entry.id}
           entries={entries}
           onOpenEntry={onOpenEntry}
+          act={act}
         />
       ) : (
         <EntryFields

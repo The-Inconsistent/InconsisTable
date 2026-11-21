@@ -30,7 +30,8 @@ const (
 
 // Load is the campaign's pending requests, oldest first, whole. The Seat view decides what each seat gets.
 func Load(ctx context.Context, conn core.Conn, campaignID string) ([]cs.SpendRequest, error) {
-	rows, err := conn.Query(ctx, `SELECT id::text, user_id, actor_id::text, resource_id, amount, spend_id, inputs, note, created_at
+	rows, err := conn.Query(ctx, `SELECT id::text, user_id, actor_id::text, resource_id, amount, spend_id, inputs, note, created_at,
+			acquire_type, acquire_key, acquire_host
 		FROM spend_request WHERE campaign_id = $1 AND status = 'pending' ORDER BY created_at, id`, campaignID)
 	if err != nil {
 		return nil, err
@@ -38,8 +39,14 @@ func Load(ctx context.Context, conn core.Conn, campaignID string) ([]cs.SpendReq
 	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (cs.SpendRequest, error) {
 		var q cs.SpendRequest
 		var at time.Time
-		err := r.Scan(&q.ID, &q.UserID, &q.ActorID, &q.ResourceID, &q.Amount, &q.SpendID, &q.Inputs, &q.Note, &at)
+		var acquireType, acquireKey, acquireHost *string
+		err := r.Scan(&q.ID, &q.UserID, &q.ActorID, &q.ResourceID, &q.Amount, &q.SpendID, &q.Inputs, &q.Note, &at,
+			&acquireType, &acquireKey, &acquireHost)
 		q.CreatedAt = core.ISOTime(at)
+		if acquireKey != nil && acquireType != nil {
+			ask := askOf(waiting{acquireType: *acquireType, acquireKey: *acquireKey, acquireHost: deref(acquireHost)})
+			q.Acquire = &cs.RequestAcquire{Type: ask.Type, Entry: ask.Key, To: ask.To, Line: ask.Line}
+		}
 		return q, err
 	})
 	if out == nil {
@@ -78,8 +85,11 @@ func Send(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	}
 	actorID, resource := a.Str("actorId"), a.Str("resourceId")
 	_, hasAmount := a["amount"]
-	// One form or the other: a resource and an amount, or a spend (house decision #84).
-	if spending := a.Str("spendId") != ""; spending && (resource != "" || hasAmount) || !spending && (resource == "" || !hasAmount) {
+	_, acquiring := a["acquire"].(map[string]any)
+	// One form of three: a resource and an amount, a spend (house decision #84), or an acquisition (#102).
+	spending, resourcing := a.Str("spendId") != "", resource != "" || hasAmount
+	if forms := len(slices.DeleteFunc([]bool{spending, resourcing, acquiring}, func(b bool) bool { return !b })); forms != 1 ||
+		resourcing && (resource == "" || !hasAmount) {
 		return cs.Result{}, cs.Fail("requestKind")
 	}
 	if actorID == "" {
@@ -98,8 +108,11 @@ func Send(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	if r := rc.Compiled.Ruleset.Requests; r != nil {
 		max = int(r.Max)
 	}
-	if a.Str("spendId") != "" {
+	if spending {
 		return sendSpend(ctx, tx, c, rc, a, max)
+	}
+	if acquiring {
+		return sendAcquire(ctx, tx, c, a, max)
 	}
 	b, ok := rc.Built[actorID]
 	if !ok {
@@ -195,18 +208,21 @@ func CancelPending(ctx context.Context, tx core.Conn, campaignID string) error {
 // waiting is one pending request: a resource and an amount, or a spend and its inputs.
 type waiting struct {
 	actorID, resource, spendID string
-	amount                     int
-	inputs                     map[string]any
+	// An acquisition (house decision #102): the entry asked for and its host.
+	acquireType, acquireKey, acquireHost string
+	amount                               int
+	inputs                               map[string]any
 }
 
 // The pending request of this room, locked, or the refusal.
 func pending(ctx context.Context, tx core.Conn, campaignID, id string) (waiting, error) {
 	var status string
-	var actor, resource, spend *string
+	var actor, resource, spend, acquireType, acquireKey, acquireHost *string
 	var amount *int
 	var w waiting
-	err := tx.QueryRow(ctx, `SELECT status, actor_id::text, resource_id, amount, spend_id, inputs FROM spend_request
-		WHERE id = $1 AND campaign_id = $2 FOR UPDATE`, id, campaignID).Scan(&status, &actor, &resource, &amount, &spend, &w.inputs)
+	err := tx.QueryRow(ctx, `SELECT status, actor_id::text, resource_id, amount, spend_id, inputs, acquire_type, acquire_key,
+			acquire_host FROM spend_request WHERE id = $1 AND campaign_id = $2 FOR UPDATE`, id, campaignID).
+		Scan(&status, &actor, &resource, &amount, &spend, &w.inputs, &acquireType, &acquireKey, &acquireHost)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return w, cs.Fail("requestNotFound")
 	}
@@ -216,7 +232,8 @@ func pending(ctx context.Context, tx core.Conn, campaignID, id string) (waiting,
 	if status != "pending" {
 		return w, cs.Fail("requestAnswered")
 	}
-	for to, from := range map[*string]*string{&w.actorID: actor, &w.resource: resource, &w.spendID: spend} {
+	for to, from := range map[*string]*string{&w.actorID: actor, &w.resource: resource, &w.spendID: spend,
+		&w.acquireType: acquireType, &w.acquireKey: acquireKey, &w.acquireHost: acquireHost} {
 		if from != nil {
 			*to = *from
 		}
@@ -237,9 +254,12 @@ func Approve(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resul
 		return cs.Result{}, err
 	}
 	var actionID string
-	if w.spendID != "" {
+	switch {
+	case w.acquireKey != "":
+		actionID, err = callAcquire(ctx, tx, c, askOf(w))
+	case w.spendID != "":
 		actionID, err = doSpend(ctx, tx, c, w.spendID, w.actorID, w.inputs)
-	} else {
+	default:
 		actionID, err = spend(ctx, tx, c, w.actorID, w.resource, w.amount)
 	}
 	if err != nil {

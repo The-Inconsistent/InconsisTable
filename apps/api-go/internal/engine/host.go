@@ -38,6 +38,21 @@ func HostValuesOf(b *ItemsBlock, typ string) []string {
 	return out
 }
 
+// CardKind is the kind a line of the saved build counts as when an item is fitted to it (house decision #102): the
+// first kind whose card is the line's (`weapons`, `armour`) and that the actor's type holds. Nil when none.
+func (b *ItemsBlock) CardKind(card, entity string) *ItemKind {
+	if b == nil {
+		return nil
+	}
+	for i := range b.Kinds {
+		k := &b.Kinds[i]
+		if k.Card != nil && *k.Card == card && slices.Contains(k.Entities, entity) {
+			return k
+		}
+	}
+	return nil
+}
+
 // hostEffect checks an entry's effect on its host's card: a value of a host's card, added or overridden by a number
 // that reads nothing. It never changes the actor, so it compiles to no actor effect.
 func (c *compiler) hostEffect(eff *Effect, typ, path string) {

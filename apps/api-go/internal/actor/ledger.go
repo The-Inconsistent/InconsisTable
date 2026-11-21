@@ -227,11 +227,16 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 			}
 		}
 	}
-	id, err := WriteStart(ctx, tx, c, rules, []StartTarget{target})
+	sheetText, err := schema.AppendJSON(nil, sheet)
 	if err != nil {
 		return cs.Result{}, err
 	}
-	sheetText, err := schema.AppendJSON(nil, sheet)
+	// A fitting on a line the new sheet no longer gives goes with it, as the source app drops a fitted upgrade with the
+	// weapon a rebuild takes away (its build.ts 2402-2411); one the sheet still gives stays fitted (house decision #102).
+	if target.Extra, err = droppedFittings(ctx, tx, actorID, LinesOf(sheetText)); err != nil {
+		return cs.Result{}, err
+	}
+	id, err := WriteStart(ctx, tx, c, rules, []StartTarget{target})
 	if err != nil {
 		return cs.Result{}, err
 	}

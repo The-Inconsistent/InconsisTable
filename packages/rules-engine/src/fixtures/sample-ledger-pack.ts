@@ -80,18 +80,22 @@ export const SAMPLE_LEDGER_PACK: PackInput = {
       } as RawGear),
       tags: ["upgrade", "pair"],
     },
-    // A second fitting for the sight slot, so a slot taken is a refusal of its own.
-    gearEntry({
-      id: "long-sight",
-      name: "Long Sight",
-      source: "base",
-      page: 41,
-      category: "Kit",
-      kind: "upgrade",
-      value: 3,
-      rarity: "Scarce",
-      upgrade: { slot: "sight", fits: { weapon: "ranged" }, mods: [] },
-    } as RawGear),
+    // A second fitting for the sight slot, so a slot taken is a refusal of its own; open to any hero who procures it
+    // (house decision #102).
+    {
+      ...gearEntry({
+        id: "long-sight",
+        name: "Long Sight",
+        source: "base",
+        page: 41,
+        category: "Kit",
+        kind: "upgrade",
+        value: 3,
+        rarity: "Scarce",
+        upgrade: { slot: "sight", fits: { weapon: "ranged" }, mods: [] },
+      } as RawGear),
+      tags: ["upgrade", "open"],
+    },
     { key: "supply.pellets", type: "supply", name: "Pellets", cite: "Base p.42", visibility: "public", ...STORE },
     { key: "supply.oil", type: "supply", name: "Lamp Oil", cite: "Base p.42", visibility: "public", ...STORE },
   ],

@@ -394,8 +394,15 @@ func TestAFreshStart(t *testing.T) {
 	var items, builds int
 	_ = db.QueryRow(context.Background(), `SELECT count(*) FROM actor_item i JOIN actor a ON a.id = i.actor_id WHERE a.campaign_id = $1`, ledger).Scan(&items)
 	_ = db.QueryRow(context.Background(), `SELECT count(*) FROM actor_build b JOIN actor a ON a.id = b.actor_id WHERE a.campaign_id = $1`, ledger).Scan(&builds)
-	if items != 4 || builds != 1 {
+	if items != 5 || builds != 1 {
 		t.Errorf("a fresh start keeps builds and items: %d %d", builds, items)
+	}
+	// A fitting on a line of the build stays on it (house decision #102).
+	var onLine int
+	_ = db.QueryRow(context.Background(), `SELECT count(*) FROM actor_item i JOIN actor a ON a.id = i.actor_id
+		WHERE a.campaign_id = $1 AND i.fitted_line = 'weapons/Lantern Staff'`, ledger).Scan(&onLine)
+	if onLine != 1 {
+		t.Errorf("a fitting on the build's line: %d", onLine)
 	}
 	// The dry run honours it.
 	answer, err := Import(context.Background(), db, owner, v.document(t, "d20"), Options{DryRun: true, Fresh: true})

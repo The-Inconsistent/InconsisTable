@@ -495,6 +495,13 @@ var OwnFallback = map[string]string{
 	"phase:done:own":     "encounter:run",
 }
 
+// AdminActions is the housekeeping an admin may send at a room from the console (ADMIN_ACTIONS in actions.ts): seat a
+// user, remove one, archive, unarchive, delete, hand on, end the running session with no award, delete the last one.
+var AdminActions = []string{
+	"member.seat", "member.remove", "campaign.archive", "campaign.unarchive", "campaign.delete", "campaign.transfer",
+	"session.abandon", "session.delete",
+}
+
 // ArchivedOpen holds the actions an archived room still takes: unarchive, delete, leaving, and revoking access.
 var ArchivedOpen = []string{
 	"campaign.unarchive", "campaign.delete", "seat.leave", "token.revoke", "invite.revoke", "screen.revoke", "member.remove",

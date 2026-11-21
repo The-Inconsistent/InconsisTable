@@ -86,3 +86,30 @@ test("an unknown derived value, or one that cannot be worked out, has no breakdo
   assert.equal(breakdownOf({ compiled, entity: "character", derivedId: "nope", values, total: 1 }), null);
   assert.equal(breakdownOf({ compiled, entity: "character", derivedId: "defense", values, total: 1 }), null);
 });
+
+test("a condition that sets an unset field the formula reads is credited with the value, not a null breakdown", () => {
+  const input = structuredClone(SAMPLE_D20);
+  input.conditions = [
+    ...(input.conditions ?? []),
+    {
+      id: "steeled",
+      label: "Steeled",
+      cite: "Sample p.9",
+      duration: "manual",
+      visibility: "party",
+      effects: [{ path: "guard", mode: "override", value: "13", phase: "base", cite: "Sample p.9" }],
+    },
+  ];
+  const compiled = compile(input);
+  const { guard: _guard, ...fields } = HERO.fields;
+  const values = { ...HERO, fields, conditions: ["steeled"] };
+  const total = deriveValues({ compiled, entity: "character", values }).defense ?? 0;
+  const lines = breakdownOf({ compiled, entity: "character", derivedId: "defense", values, total });
+  assert.deepEqual(
+    lines?.map((l) => [l.source, l.amount]),
+    [
+      ["Defense", 0],
+      ["Steeled", total],
+    ],
+  );
+});

@@ -248,7 +248,8 @@ func gmView(t *testing.T, db *pgxpool.Pool, owner campaign.Owner, id string) any
 }
 
 // A room built through the table's actions, exported and imported, is the same room to its GM: three rooms, between
-// them every part a document carries (a spawned foe's options, an abandoned session, a build with items, a picture).
+// them every part a document carries (a spawned foe's options, an abandoned session, an entry made from a pack entry, a
+// build with items, a picture).
 func TestTheGMSeesTheSameRoom(t *testing.T) {
 	db := dbtest.Open(t)
 	v := load(t)
@@ -265,7 +266,9 @@ func TestTheGMSeesTheSameRoom(t *testing.T) {
 	d20 := imported(t, db, owner, v.document(t, "d20"), Options{})
 	act(t, db, owner, d20,
 		map[string]any{"type": "session.start", "title": "Cut short"},
-		map[string]any{"type": "session.abandon", "recap": "The storm came in."})
+		map[string]any{"type": "session.abandon", "recap": "The storm came in."},
+		// An entry made from a pack entry keeps where it came from (house decision #97).
+		map[string]any{"type": "codex.fromPack", "kind": "npc", "entity": "creature", "key": "ember-wisp"})
 	ledger := imported(t, db, owner, v.document(t, "ledger"), Options{})
 
 	var skirmish string
@@ -341,7 +344,8 @@ func TestAnExportLeavesNothingDangling(t *testing.T) {
 }
 
 // A fresh start (house decision #103): no sessions, nothing revealed, scenes planned and picks off, every resource and
-// pool at its start, no conditions, no next session or safety lines; builds, fields, held records and items stay.
+// pool at its start, no conditions, no next session or safety lines; builds, fields, held records, items and where an
+// entry came from stay.
 func TestAFreshStart(t *testing.T) {
 	db := dbtest.Open(t)
 	v := load(t)
@@ -381,6 +385,10 @@ func TestAFreshStart(t *testing.T) {
 	}
 	if n := count(`SELECT count(*) FROM actor_field f JOIN actor a ON a.id = f.actor_id WHERE a.campaign_id = $1 AND f.field_id = 'charms'`); n != 1 {
 		t.Errorf("held charms: %d", n)
+	}
+	// Where an entry came from is prep, not play (house decision #97).
+	if n := count(`SELECT count(*) FROM codex_entry WHERE campaign_id = $1 AND source->>'key' = 'ember-wisp'`); n != 1 {
+		t.Errorf("an entry's source: %d", n)
 	}
 	ledger := imported(t, db, owner, v.document(t, "ledger"), Options{Fresh: true})
 	var items, builds int

@@ -27,7 +27,7 @@ var (
 		"player": {"codex:read", "request:send", "safety:signal", "seat:leave", "pool:adjust"},
 		"screen": {"codex:read"},
 	}
-	ownGrants = map[string][]string{"player": {"character:edit:own", "test:report:own", "phase:done:own"}}
+	ownGrants = map[string][]string{"player": {"character:edit:own", "test:report:own", "phase:done:own", "whisper:receive:own"}}
 	// The scopes that unlock a GM permission for a co-GM. Reading the revealed codex and leaving need none.
 	cogmScopesFor = map[string][]string{
 		"member:invite":      {"party"},

@@ -160,6 +160,23 @@ const state: LiveState = {
   rolls: [],
   dealt: [],
   pools: [],
+  whispers: [
+    {
+      id: "w1",
+      text: "psst",
+      createdAt: "",
+      readers: [
+        { actorId: "lyra", reply: "mine", repliedAt: "", readAt: "" },
+        { actorId: "bran", reply: "his", repliedAt: "", readAt: null },
+      ],
+    },
+    {
+      id: "w2",
+      text: "only Bran",
+      createdAt: "",
+      readers: [{ actorId: "bran", reply: null, repliedAt: null, readAt: null }],
+    },
+  ],
   myDraft: null,
   tests: [sum, pool],
   testDefs: [{ id: "check", dice: "1d20", advantage: true, pool: null, outcomes: null, inputs: [] }],
@@ -679,6 +696,28 @@ test("a player and the table screen receive a handout's layout and header with t
 test("every seat receives the recaps, whole", () => {
   for (const c of [ctx(member("player"), "u-x"), ctx(member("cogm"), "u-co"), ctx(member("gm"), "u-gm")])
     assert.deepEqual(seatView({ snapshot, compiled, ctx: c }).codex.recaps, codex.recaps);
+});
+
+test("a whisper reaches the GM side whole, its reader's seat with only that reader, nobody else", () => {
+  const whispersOf = (c: Ctx) => seatView({ snapshot, compiled, ctx: c }).state.whispers;
+  for (const c of [ctx(member("gm"), "u-gm"), ctx(member("cogm", ["session"]), "u-co")])
+    assert.deepEqual(whispersOf(c), state.whispers);
+  // Lyra's seat sees w1 with Lyra's reply only: never Bran's reply, name or existence, and never w2.
+  assert.deepEqual(whispersOf(ctx(member("player", [], ["lyra"]), "u-lyra")), [
+    { ...state.whispers[0]!, readers: [state.whispers[0]!.readers[0]!] },
+  ]);
+  assert.deepEqual(
+    whispersOf(ctx({ kind: "token", role: "player", characterIds: ["bran"] })).map((w) =>
+      w.readers.map((r) => r.actorId),
+    ),
+    [["bran"], ["bran"]],
+  );
+  for (const c of [
+    ctx(member("player"), "u-x"),
+    ctx(member("cogm"), "u-co"),
+    ctx({ kind: "token", role: "screen", characterIds: [] }),
+  ])
+    assert.deepEqual(whispersOf(c), []);
 });
 
 test("the journal reaches the seats that run the room, the notes the session side; a player gets neither", () => {

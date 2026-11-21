@@ -262,6 +262,29 @@ export const DealtRow = z.object({
 });
 export type DealtRow = z.infer<typeof DealtRow>;
 
+// A whisper (house decision #93): the GM's private line to chosen characters, one reply per reader (a new one replaces
+// it), a read mark per reader. Readers are characters; a seat receives only the readers it holds.
+export const WHISPER_MAX = 500;
+export const WHISPER_REPLY_MAX = 200;
+export const WHISPER_TO_MAX = 30;
+export const MAX_WHISPERS = 100;
+export const WhisperText = z.string().trim().min(1).max(WHISPER_MAX);
+export const WhisperReplyText = z.string().trim().min(1).max(WHISPER_REPLY_MAX);
+export const WhisperReader = z.object({
+  actorId: z.string(),
+  reply: z.string().nullable(),
+  repliedAt: z.string().nullable(),
+  readAt: z.string().nullable(),
+});
+export type WhisperReader = z.infer<typeof WhisperReader>;
+export const Whisper = z.object({
+  id: z.string(),
+  text: z.string(),
+  createdAt: z.string(),
+  readers: z.array(WhisperReader),
+});
+export type Whisper = z.infer<typeof Whisper>;
+
 export const LiveState = z.object({
   campaign: z.object({
     id: z.string(),
@@ -318,6 +341,9 @@ export const LiveState = z.object({
   }),
   // The shared pools in manifest order; each seat gets the ones it may see (the api's Seat view module).
   pools: z.array(PoolState),
+  // This session's whispers, newest first (house decision #93): the side that runs the session gets every one; a seat
+  // the ones to a character it holds, with only those readers; anyone else none.
+  whispers: z.array(Whisper),
 });
 export type LiveState = z.infer<typeof LiveState>;
 

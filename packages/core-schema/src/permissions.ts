@@ -22,6 +22,7 @@ export const Permission = z.enum([
   "test:call",
   "test:report:own",
   "phase:done:own",
+  "whisper:receive:own",
   "codex:read",
   "codex:write",
   "codex:read_secret",
@@ -82,7 +83,7 @@ export const SEAT_GRANTS: Record<SeatRole, ReadonlySet<Permission>> = {
 export const OWN_GRANTS: Record<SeatRole, ReadonlySet<Permission>> = {
   gm: new Set(),
   cogm: new Set(),
-  player: new Set<Permission>(["character:edit:own", "test:report:own", "phase:done:own"]),
+  player: new Set<Permission>(["character:edit:own", "test:report:own", "phase:done:own", "whisper:receive:own"]),
   screen: new Set(),
 };
 

@@ -1435,7 +1435,12 @@
     "heldNoEntry": "Các gói của phòng này không có {entry}.",
     "heldAlready": "{name} đã có {entry}: hãy gieo lại trên bảng này.",
     "heldFull": "{name} đã có đủ số {kind} tối đa.",
-    "heldNotHeld": "{name} không có thứ đó."
+    "heldNotHeld": "{name} không có thứ đó.",
+    "whispersNeedGm": "Không có GM thì không có lời thì thầm.",
+    "whisperRecipient": "Chỉ thì thầm tới nhân vật của phòng này.",
+    "whisperLimit": "Đã có {max} lời thì thầm; hãy xoá bớt trước.",
+    "whisperGone": "Lời thì thầm đó không còn nữa.",
+    "whisperNotToThem": "Lời thì thầm đó không gửi tới nhân vật này."
   },
   "workspace": {
     "skip": "Bỏ qua, tới nội dung trang",

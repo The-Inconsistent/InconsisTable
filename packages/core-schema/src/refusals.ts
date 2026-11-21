@@ -224,6 +224,12 @@ export const REFUSALS = {
   heldAlready: "{name} already has {entry}: roll again on this table.",
   heldFull: "{name} holds as many {kind} as they can.",
   heldNotHeld: "{name} doesn't hold that.",
+  // Whispers (house decision #93)
+  whispersNeedGm: "Without a GM there are no whispers.",
+  whisperRecipient: "Whisper only to this room's characters.",
+  whisperLimit: "{max} whispers already; delete some first.",
+  whisperGone: "That whisper is gone.",
+  whisperNotToThem: "That whisper isn't to that character.",
   // Undo
   nothingToUndo: "Nothing to undo",
   nothingToTurnBack: "Nothing to turn back: no turn has started or ended in this fight this session.",

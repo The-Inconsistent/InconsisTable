@@ -16,6 +16,7 @@ import {
   type PoolState,
   type RequestAnswer,
   type SpendRequest,
+  type Whisper,
 } from "../../../../packages/core-schema/src/index.ts";
 import {
   checkFieldValue,
@@ -200,12 +201,33 @@ export function seatView({
       clocks: seatClocks({ clocks: state.clocks, codex, sight }),
       ...seatRequests({ requests: state.requests, answers: state.requestAnswers, ctx, sight, ruleset, pools }),
       ...seatTables({ rolls: state.rolls, dealt: state.dealt, ctx, sight }),
+      whispers: seatWhispers({ whispers: state.whispers, ctx, sight }),
     },
     codex,
     manifest,
     packVisibilities,
   };
 }
+
+// The whispers a seat receives (house decision #93): the side that runs the session with a GM (the one that sends them)
+// gets every one. Anyone else gets only whispers to a character it holds, with only those readers: never another
+// reader's reply, name or existence. The screen holds none, so it gets none.
+const seatWhispers = ({
+  whispers,
+  ctx,
+  sight,
+}: {
+  whispers: readonly Whisper[];
+  ctx: Ctx;
+  sight: Sight;
+}): Whisper[] => {
+  if (sight.tables) return [...whispers];
+  const held = heldBy(ctx);
+  return whispers.flatMap((w) => {
+    const readers = w.readers.filter((r) => held.includes(r.actorId));
+    return readers.length > 0 ? [{ ...w, readers }] : [];
+  });
+};
 
 // The pools a seat receives (house decision #59). The GM side (a room with a GM, a seat that runs the table; the same
 // notion as the pool write path) gets every pool. Anyone else gets `public` ones, `party` ones, and `owner` ones only for

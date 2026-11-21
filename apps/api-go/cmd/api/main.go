@@ -17,6 +17,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/codex"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
+	charlib "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/library"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/pack"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/roomdoc"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/table"
@@ -115,6 +116,15 @@ func run() error {
 	// The room's document, for its owner running it and for the admin key (house decision #103).
 	route(router, "GET", "/api/campaigns/:id/export", core.Serve(roomDocs.Export))
 	route(router, "GET", "/api/admin/campaigns/:id/export", core.Serve(roomDocs.AdminExport))
+	// The character library: a user's own characters outside any room (house decision #104).
+	characters := &charlib.Service{DB: db, Auth: authService}
+	route(router, "GET", "/api/library", core.Serve(characters.List))
+	route(router, "POST", "/api/library", core.Serve(characters.Create))
+	route(router, "POST", "/api/library/from-room", core.Serve(characters.FromRoom))
+	route(router, "GET", "/api/library/:id", core.Serve(characters.Get))
+	route(router, "GET", "/api/library/:id/rules", core.Serve(characters.Rules))
+	route(router, "PATCH", "/api/library/:id", core.Serve(characters.Patch))
+	route(router, "DELETE", "/api/library/:id", core.Serve(characters.Delete))
 	route(router, "GET", "/api/worlds", core.Serve(library.Worlds))
 	route(router, "GET", "/api/worlds/:id/export", core.Serve(library.ExportWorld))
 	route(router, "POST", "/api/worlds/:id/hide", core.Serve(library.HideWorld))
@@ -218,7 +228,7 @@ func guarded(next http.Handler, adminKey *core.Limiter) http.Handler {
 			tooMany(w, slowDown)
 			return
 		}
-		if under(path, "/api/lobby", "/api/me", "/api/account", "/api/campaigns", "/api/admin", "/api/rulesets", "/api/packs", "/api/worlds") && !signedIn.Allow(ip) {
+		if under(path, "/api/lobby", "/api/me", "/api/account", "/api/campaigns", "/api/admin", "/api/rulesets", "/api/packs", "/api/worlds", "/api/library") && !signedIn.Allow(ip) {
 			tooMany(w, slowDown)
 			return
 		}

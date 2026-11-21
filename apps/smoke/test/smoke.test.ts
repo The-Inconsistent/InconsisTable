@@ -44,7 +44,7 @@ import { SAMPLE_PARAMS } from "../../../packages/rules-engine/src/build/fixtures
 import { buildSchemas } from "../../../packages/rules-engine/src/build/schemas.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
 import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
-import { d20Document, IDS, ROOM_D20 } from "../../api-go/vectors/room-documents.ts";
+import { d20Document, IDS, LEDGER_BUILD, ROOM_D20 } from "../../api-go/vectors/room-documents.ts";
 import { adventuresIn, planAdventures } from "../../web/lib/adventure-import/adventure-import.ts";
 
 // Spelled out, not imported from the api: this suite is the black-box spec any api implementation has to pass.
@@ -5976,6 +5976,89 @@ test("room document: exported by its owner, imported back as the same room, and 
     "everything arrives sealed",
   );
   for (const c of [copy, anew, gm]) c.socket.close();
+});
+
+// House decision #104: the character library, a user's own characters outside any room. Made, autosaved at its
+// revision, saved ready; nobody else reads or writes it; brought into a room as an ordinary build.save draft; a room's
+// built character saved back to it.
+test("character library: create, autosave, into a room and back, another user refused", async () => {
+  const ownerDevice = await device("library-owner");
+  const me = caller(ownerDevice);
+  const headers = {
+    ...cookieOf(ownerDevice),
+    ...SAME_ORIGIN,
+    "content-type": "application/json",
+    "cf-connecting-ip": nextSocketIp(),
+  };
+  const patch = (path: string, body: unknown, h: Record<string, string> = headers) =>
+    fetch(`${API}/api${path}`, { method: "PATCH", headers: h, body: JSON.stringify(body) });
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_LEDGER_RULESET);
+  const pk = await me.post<PackReply>("/packs", SAMPLE_LEDGER_PACK);
+  assert.deepEqual([rs.status, pk.status], [201, 201]);
+
+  type Card = { id: string; rev: number; done: boolean; name: string };
+  const made = await me.post<Card>("/library", { rulesetVersionId: rs.body.versionId, name: "Wren" });
+  assert.equal(made.status, 201);
+  const id = made.body.id;
+  const draft = JSON.stringify({ tier: 1, archetypeId: "lamplighter" });
+  const kept = await patch(`/library/${id}`, { rev: 1, build: draft });
+  assert.equal(kept.status, 200);
+  assert.equal(((await kept.json()) as Card).rev, 2);
+  const stale = await patch(`/library/${id}`, { rev: 1, name: "Other tab" });
+  assert.equal(stale.status, 409, "a save at a revision since passed is refused");
+  const ready = await patch(`/library/${id}`, { rev: 2, build: LEDGER_BUILD, done: true });
+  assert.equal(ready.status, 200);
+  assert.equal(((await ready.json()) as Card).done, true);
+  const list = await me.get<Card[]>("/library");
+  assert.deepEqual(
+    list.body.map((c) => [c.name, c.done]),
+    [["Wren", true]],
+  );
+
+  // Someone else finds nothing; a write without the page's own origin is refused.
+  const stranger = await device("library-stranger");
+  const them = caller(stranger);
+  assert.equal((await them.get(`/library/${id}`)).status, 404);
+  assert.equal((await them.get<Card[]>("/library")).body.length, 0);
+  assert.equal(
+    (await patch(`/library/${id}`, { rev: 3, name: "Mine" }, { ...headers, ...cookieOf(stranger) })).status,
+    404,
+  );
+  const { "sec-fetch-site": _site, ...crossSite } = headers;
+  assert.equal(
+    (await patch(`/library/${id}`, { rev: 3, name: "x" }, { ...crossSite, origin: "https://elsewhere.example" }))
+      .status,
+    403,
+  );
+
+  // Into a room's builder: the library's build as the seat's draft, through the room's own build.save.
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Lamplight", rulesetVersionId: rs.body.versionId })
+  ).body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  ok(await owner.send({ type: "campaign.setField", fieldId: "tier", value: 1 }));
+  const player = await seatPlayer(owner, "library-player");
+  const s = await owner.until((x) => x.access.members.some((m) => m.userId === uid("library-player")));
+  const held = s.access.members.find((m) => m.userId === uid("library-player"))!.characterIds[0]!;
+  const seat = connect({ auth: { campaignId, cookie: player } });
+  await seat.until((x) => x.actors.some((a) => a.id === held));
+  const entry = (await me.get<{ build: string }>(`/library/${id}`)).body;
+  ok(await seat.send({ type: "build.save", actorId: held, build: entry.build, draft: true }));
+  const drafted = await seat.until((x) => x.actors.find((a) => a.id === held)?.ledger?.draft != null);
+  assert.equal(drafted.actors.find((a) => a.id === held)!.ledger!.draft!["archetypeId"], "lamplighter");
+  ok(await seat.send({ type: "build.save", actorId: held, build: entry.build }));
+  await seat.until((x) => x.actors.find((a) => a.id === held)?.ledger?.build != null);
+
+  // Back: the player saves the built character to their own library; the GM, who does not hold it, cannot.
+  const asPlayer = caller(player);
+  const saved = await asPlayer.post<Card>("/library/from-room", { campaignId, actorId: held });
+  assert.equal(saved.status, 201);
+  assert.equal(saved.body.done, true);
+  const refusedGm = await me.post<{ code: string }>("/library/from-room", { campaignId, actorId: held });
+  assert.equal(refusedGm.body.code, "libraryNotYours");
+  for (const c of [owner, seat]) c.socket.close();
 });
 
 // House decision #81 on the invented sides fixture: reminder lines reach the combat side only, a whole side is barred

@@ -360,6 +360,13 @@ export const REFUSALS = {
   roomExportOwnerOnly: "Only the room's owner, running it, exports it.",
   roomExportTooLarge:
     "With its pictures this room is over 100 MB, more than an import takes. Export it without pictures.",
+  libraryNeedsAccount: "Your character library needs an account: sign in first.",
+  libraryNotFound: "Character not found",
+  libraryFull: "You keep at most {cap} characters. Delete one first.",
+  libraryChanged: "This character was saved elsewhere since you opened it. Open it again.",
+  libraryNotEditable: "Its ruleset or packs are not yours: edit this character in a room that has them.",
+  libraryNotYours: "Only a character you play goes to your library.",
+  libraryNotBuilt: "Only a saved, built character goes to your library.",
 } as const;
 
 export type RefusalKey = keyof typeof REFUSALS;

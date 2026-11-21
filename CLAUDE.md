@@ -28,8 +28,9 @@ These rules decide reviews. Breaking one blocks a merge.
    the table's view lets them see. The only writes outside it are owner-scoped REST: a user importing
    and exporting their own rulesets and packs (`/api/rulesets`, `/api/packs`, the pack library), creating a room,
    a user importing a room document as a new room they own (house decision #74), the admin console, a seat that may
-   write the codex uploading a picture into its room (house decision #70), and a user's own sign-in, sign-out and
-   sign-in methods (house decision #35).
+   write the codex uploading a picture into its room (house decision #70), a user keeping their own characters in the
+   character library (`/api/library`, house decision #104; one goes into a room only as an ordinary `build.save`
+   draft), and a user's own sign-in, sign-out and sign-in methods (house decision #35).
 7. **Shortcuts are marked:** `// ponytail: <ceiling>, <upgrade path>`.
 8. **It serves a real table.** Readable at arm's length, no chat, phones never pull players away from the table. Each
    World gets a look made with care.
@@ -60,6 +61,7 @@ apps/api-go/         the api, in Go (docs/adr/0008-go-api.md). cmd/api is main (
   actor/ codex/ encounter/ game/ testcall/   actors and value rows, codex entries, combat, ended games, called Tests
   ruleset/ pack/     imported rulesets and packs (owner-scoped REST import), versions, quota, export, takedown
   admin/             OPEN AS ADMIN housekeeping (admin key), the admin event log
+  library/           the character library: a user's own characters outside any room (owner-scoped REST)
   table/             the socket: gateway (queue, per-seat views, book relay, kicks), dispatch (authorize), loaders
   view/              the Seat view: what each seat receives
   engine/ coreschema/ schema/   the Go twins of packages/rules-engine and core-schema, and of the zod behaviour they use
@@ -121,7 +123,9 @@ bun run seed                # sample data through the running api (idempotent); 
   default. With sign-in on (`IDP_SIGN_IN`), a signed-in browser is the account's user instead (`__Host-it_session`,
   `deviceUser` reads it first), and that user's role is `creator` only when the ID token says so. With sign-in on, an
   anonymous device is never a `creator` (`auth.DeviceCreates`, house decision #33): it joins rooms through invites and QR
-  but cannot start rooms or import. `creator` gates both. Admin is the shared `ADMIN_KEY` (header `x-admin-key`, or
+  but cannot start rooms or import. `creator` gates both. The character library (`/api/library`, owner-scoped REST
+  writes, house decision #104) is any signed-in account's, and every device's on a deployment without sign-in; with
+  sign-in on, an anonymous device keeps none. Admin is the shared `ADMIN_KEY` (header `x-admin-key`, or
   the socket `adminKey`), never a user; the token's `admin` role grants nothing yet. The room owner is
   `campaign.owner_user_id`, not a role. The LAN stack (`deploy/compose.yaml`) is never public; the public one is the VPS
   stack (`deploy/vps/`), always with sign-in on (`docs/deploy.md`).

@@ -8,6 +8,8 @@ export interface BreakdownLine {
   source: string;
   amount: number;
   cite: string | null;
+  /** The GM's override over the worked-out value (house decision #96): the last line, by what it changes. */
+  override?: boolean;
 }
 
 /**
@@ -38,6 +40,21 @@ export function breakdownOf({
   const ce = own(compiled.entities, entity);
   const def = ce?.def.derived.find((d) => d.id === derivedId);
   if (def === undefined) return null;
+  // An override set: the worked-out value's lines, then the override by what it changes (house decision #96).
+  const set = def.override === undefined ? undefined : own(values.fields, def.override);
+  if (def.override !== undefined && typeof set === "number") {
+    const { [def.override]: _set, ...fields } = values.fields;
+    const worked = { ...values, fields };
+    let workedOut: number;
+    try {
+      workedOut = deriveValues({ compiled, entity, values: worked })[derivedId] ?? 0;
+    } catch {
+      return null;
+    }
+    const lines = breakdownOf({ compiled, entity, derivedId, values: worked, total: workedOut, viewer, actorId });
+    const label = own(ce?.def.fields ?? {}, def.override)?.label ?? def.override;
+    return lines && [...lines, { source: label, amount: set - workedOut, cite: null, override: true }];
+  }
   const visible = [...new Set(values.conditions ?? [])].filter((id) => {
     const cond = own(compiled.conditions, id);
     return (

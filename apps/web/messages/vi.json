@@ -1646,6 +1646,7 @@
     "search": "Tìm trong tên và nội dung",
     "newEntry": "Mục mới",
     "fromPack": "Thêm từ gói",
+    "generate": "Tạo ngẫu nhiên…",
     "fromPackType": "Kiểu",
     "fromPackHint": "Tên, số và trang sách đi kèm, cùng các mục bên trong. Phần lời bạn tự viết.",
     "fromPackMade": "Đã thêm {name}{count, plural, =0 {} other { và # mục bên trong}}.",
@@ -1959,6 +1960,24 @@
     "typedInto": "Nhập kết quả xúc xắc bạn gieo cho {label}",
     "typedOn": "Kết quả bạn gieo trên {title}",
     "useTyped": "Dùng"
+  },
+  "generators": {
+    "roll": "Gieo",
+    "rollOn": "Tiếp: gieo {title}",
+    "typed": "Tôi đã gieo",
+    "typedOn": "Kết quả bạn gieo trên {title}",
+    "useTyped": "Dùng",
+    "change": "Đổi",
+    "search": "Tìm {label}",
+    "results": "Các mục cho {label}",
+    "noMatch": "Không có mục nào hợp bước này.",
+    "readFailed": "Không đọc được các gói của phòng.",
+    "choose": "Chọn",
+    "roundsLater": "Trả lời các bước trên để biết có bao nhiêu vòng tiếp theo.",
+    "round": "Vòng {n} trên {count}",
+    "confirm": "Xác nhận và tạo",
+    "cancel": "Hủy",
+    "hint": "Chưa có gì được tạo cho tới khi bạn xác nhận. Phần lời bạn tự viết sau."
   },
   "notebook": {
     "entries": "Đã tiết lộ",

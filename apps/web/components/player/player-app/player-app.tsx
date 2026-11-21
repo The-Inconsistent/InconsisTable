@@ -11,6 +11,7 @@ import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { DoneButton } from "@/components/player/done-button/done-button";
 import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
+import { WhisperSheet } from "@/components/player/whisper-sheet/whisper-sheet";
 import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
 import { PoolsView } from "@/components/ui/pools-view/pools-view";
 import { poolSidesOf, poolSteps } from "@/lib/pools/pools";
@@ -111,6 +112,15 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
       </header>
       <XCardOverlay signal={xcard} />
       <TransferOffer me={me} state={state} send={send} />
+      <WhisperSheet
+        whispers={state.whispers}
+        actors={state.actors}
+        several={held.length > 1}
+        waiting={state.tests.some(
+          (c) => c.status === "open" && c.targets.some((tg) => held.includes(tg.actorId) && tg.report === null),
+        )}
+        send={send}
+      />
       {mine.length > 1 && (
         <nav className="tabs" role="tablist" aria-label={t("charactersLabel")}>
           {mine.map((a) => (
@@ -179,6 +189,8 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
         {tab === "notebook" ? (
           <Notebook
             codex={codex}
+            whispers={state.whispers}
+            actors={state.actors}
             me={me}
             safety={state.campaign.safety}
             send={send}

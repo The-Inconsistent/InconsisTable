@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useState, type SyntheticEvent } from "react";
 
-import { CodexKind, type Codex, type Me, type Safety } from "@inconsistable/core-schema";
+import { CodexKind, type Actor, type Codex, type Me, type Safety, type Whisper } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { SafetySection } from "@/components/player/notebook/safety-section";
@@ -11,12 +11,16 @@ import { EntryPath } from "@/components/ui/entry-path/entry-path";
 import { EntryPicture } from "@/components/ui/entry-picture/entry-picture";
 import { HandoutDoc } from "@/components/ui/handout-doc/handout-doc";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
+import { WhisperReply } from "@/components/ui/whisper-reply/whisper-reply";
 import type { Send } from "@/hooks/use-table/use-table";
 import { newestRevealed, treeRows, type TreeRow } from "@/lib/codex/codex";
 import type { RulesEntry } from "@/lib/library/library";
 
 type NotebookProps = {
   codex: Codex | null;
+  /** This session's whispers to the seat's characters (house decision #93), newest first. */
+  whispers: readonly Whisper[];
+  actors: readonly Actor[];
   me: Me;
   safety: Safety;
   send: Send;
@@ -26,23 +30,45 @@ type NotebookProps = {
   known: readonly RulesEntry[];
 };
 
-// The phone's notebook: open quests first, then what the GM revealed by kind and tapped open (closed quests with their
-// outcome under Quest), each with the fields the party sees, then the recaps, newest first. An entry sits indented under
-// its parent when the phone reads it.
-export function Notebook({ codex, me, safety, send, ruleset, known }: NotebookProps) {
+// The phone's notebook: this session's whispers to reread and answer, open quests, then what the GM revealed by kind and
+// tapped open (closed quests with their outcome under Quest), each with the fields the party sees, then the recaps,
+// newest first. An entry sits indented under its parent when the phone reads it.
+export function Notebook({ codex, whispers, actors, me, safety, send, ruleset, known }: NotebookProps) {
   const t = useTranslations("notebook");
   const tKind = useTranslations("codex.kind");
   const tStatus = useTranslations("codex.status");
   const tRecaps = useTranslations("recaps");
+  const tWhisper = useTranslations("whisper");
   // The cards opened so far: only those read a ref field's name the page doesn't hold (no read per closed card).
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const entries = codex?.entries ?? [];
   const recaps = codex?.recaps ?? [];
   const safetySection = <SafetySection me={me} safety={safety} send={send} />;
+  const whisperSection = whispers.length > 0 && (
+    <section className="stack">
+      <h2 className="head">{tWhisper("notebook")}</h2>
+      {whispers.map((w) => (
+        <article key={w.id} className="card stack">
+          <span className="small dim">{tWhisper("fromGm")}</span>
+          <p className="whisper-text">{w.text}</p>
+          {w.readers.map((r) => (
+            <div key={r.actorId} className="stack">
+              {w.readers.length > 1 && (
+                <span className="small dim">
+                  {tWhisper("forName", { name: actors.find((a) => a.id === r.actorId)?.name ?? "" })}
+                </span>
+              )}
+              <WhisperReply whisperId={w.id} reader={r} send={send} />
+            </div>
+          ))}
+        </article>
+      ))}
+    </section>
+  );
   if (!entries.length && !recaps.length)
     return (
       <div className="stack">
-        <p className="dim">{t("nothing")}</p>
+        {whisperSection || <p className="dim">{t("nothing")}</p>}
         {safetySection}
       </div>
     );
@@ -102,6 +128,7 @@ export function Notebook({ codex, me, safety, send, ruleset, known }: NotebookPr
   );
   return (
     <div className="stack">
+      {whisperSection}
       {openQuests.length > 0 && (
         <section className="stack">
           <h2 className="head">{t("openQuests")}</h2>

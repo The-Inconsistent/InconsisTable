@@ -26,7 +26,11 @@ import {
   SAMPLE_HARM_ARMS,
   SAMPLE_HARM_GROWTHS,
 } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
-import { SAMPLE_PACK, SAMPLE_PACK_EFFECTS } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
+import {
+  SAMPLE_ATLAS,
+  SAMPLE_PACK,
+  SAMPLE_PACK_EFFECTS,
+} from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
@@ -1418,7 +1422,7 @@ test("entry fields: the ruleset declares them, the GM sets them, a player and th
     const manifest = (await c.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset?.manifest as Defs;
     return Object.keys(manifest?.codex?.kinds[kind]?.fields ?? {}).sort();
   };
-  assert.deepEqual(await defsOf(me, "npc"), ["disposition", "home", "mood", "patron"]);
+  assert.deepEqual(await defsOf(me, "npc"), ["disposition", "home", "look", "mood", "patron"]);
   assert.deepEqual(await defsOf(me, "faction"), ["marks", "seat", "standing"]);
   assert.deepEqual(await defsOf(caller(anaDevice), "npc"), ["disposition", "home", "mood"]);
   assert.deepEqual(await defsOf(caller(anaDevice), "faction"), []);
@@ -1578,6 +1582,86 @@ test("tags, rows, a scene's picks with their switch and a reminder; a player rea
   await eventually(() => fieldsOf(bo, road)?.log !== undefined, "the party's road log");
   assert.deepEqual(fieldsOf(bo, road), { log });
   for (const c of [owner, ana, owner2, bo]) c.socket.close();
+});
+
+// House decision #97 on the invented fixtures: a place made from a pack entry brings the places inside it, nested, each
+// keeping its key and page (which a player is not sent); a scene made from a GM-only pack entry brings its checks and its
+// foes, refused to a seat that does not read it; one Undo takes the whole creation back.
+test("entries made from pack entries: a place with the ones inside it, a scene with its lines, undone whole (#97)", async () => {
+  const ownerDevice = await device("fp-owner");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const bestiary = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  const atlas = await me.post<PackReply>("/packs", SAMPLE_ATLAS);
+  assert.equal(atlas.status, 201, JSON.stringify(atlas.body));
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Fp", rulesetVersionId: rs.body.versionId })
+  ).body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  for (const pk of [bestiary, atlas])
+    ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  ok(await owner.send({ type: "session.start" }));
+  const anaDevice = await seatPlayer(owner, "fp-ana");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  await ana.until(() => true);
+  const entryOf = (c: typeof owner, id: string) => c.codex()?.entries.find((e) => e.id === id);
+
+  const made = ok(await owner.send({ type: "codex.fromPack", kind: "location", entity: "site", key: "old-mill" }));
+  assert.equal(made.ids?.length, 3);
+  const [mill, cellar, well] = made.ids!;
+  await eventually(() => entryOf(owner, well!) !== undefined, "the three places");
+  assert.equal(entryOf(owner, mill!)?.title, "Old Mill");
+  assert.deepEqual(entryOf(owner, mill!)?.fields, { peril: 2 });
+  assert.equal(entryOf(owner, cellar!)?.parentId, mill);
+  assert.equal(entryOf(owner, well!)?.parentId, cellar);
+  assert.deepEqual(entryOf(owner, well!)?.source, { entity: "site", key: "cellar-well", cite: "Sample p.61" });
+  ok(await owner.send({ type: "codex.reveal", id: mill!, visibility: "party", audienceMode: "all", audience: [] }));
+  await eventually(() => entryOf(ana, mill!) !== undefined, "revealed");
+  assert.equal(entryOf(ana, mill!)?.source, null);
+  refused(await owner.send({ type: "codex.fromPack", kind: "npc", entity: "site", key: "old-mill" }), "fromPackNotFor");
+  refused(
+    await owner.send({ type: "codex.fromPack", kind: "location", entity: "site", key: "nope" }),
+    "fromPackNoEntry",
+  );
+  refused(
+    await ana.send({ type: "codex.fromPack", kind: "scene", entity: "incident", key: "bridge-toll" }),
+    "noPermission",
+  );
+
+  // The scene, under an adventure: two prepared checks, the second without the DC its Test does not take, and the two
+  // foes as one roster line of the bestiary's creature.
+  const adventure = ok(await owner.send({ type: "codex.save", kind: "adventure", title: "The road" })).id!;
+  const scene = ok(
+    await owner.send({
+      type: "codex.fromPack",
+      kind: "scene",
+      entity: "incident",
+      key: "bridge-toll",
+      parentId: adventure,
+    }),
+  ).id!;
+  await eventually(() => entryOf(owner, scene)?.prep !== undefined, "the scene");
+  const prep = entryOf(owner, scene)?.prep;
+  assert.equal(entryOf(owner, scene)?.parentId, adventure);
+  assert.deepEqual(
+    prep?.tests.map((l) => [l.testId, l.inputs]),
+    [
+      ["check", { dc: 12 }],
+      ["gambit", {}],
+    ],
+  );
+  assert.deepEqual(
+    prep?.roster.map((l) => [l.pack, l.key, l.count]),
+    [["sample-bestiary", "ember-wisp", 2]],
+  );
+
+  // One Undo takes the scene back whole; the next the three places.
+  ok(await owner.send({ type: "event.undo" }));
+  await eventually(() => entryOf(owner, scene) === undefined, "the scene undone");
+  ok(await owner.send({ type: "event.undo" }));
+  await eventually(() => made.ids!.every((id) => entryOf(owner, id) === undefined), "the places undone");
+  for (const c of [owner, ana]) c.socket.close();
 });
 
 test("a handout has a layout and a header, read by its player; the room's World offers and names its layouts", async () => {

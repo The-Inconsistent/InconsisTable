@@ -116,6 +116,10 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	if err != nil {
 		return cs.Result{}, err
 	}
+	source, sourceSent, err := checkSource(ctx, tx, c, kind, a)
+	if err != nil {
+		return cs.Result{}, err
+	}
 	// Unsent fields leave the column alone: {} merged, nothing cleared.
 	setFields, clearFields := "{}", []string{}
 	if fields != nil {
@@ -147,11 +151,11 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 			visibility = "party"
 		}
 		// An entry made the party's (a room without a GM) reaches the party as it is made: that is its reveal.
-		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, visibility, position, fields, layout, header, prep, revealed_at)
+		err := tx.QueryRow(ctx, `INSERT INTO codex_entry (campaign_id, kind, title, body, gm_notes, status, planned_tests, visibility, position, fields, layout, header, prep, revealed_at, source)
 			VALUES ($1, $2, $3, coalesce($4, ''), coalesce($5, ''), $6, coalesce($7::text[], '{}'), $8,
 				(SELECT coalesce(max(position) + 1, 0) FROM codex_entry WHERE campaign_id = $1 AND kind = $2 AND parent_id IS NULL),
-				$9::jsonb, $10, $11, $12::jsonb, CASE WHEN $8 = 'gm' THEN NULL ELSE now() END)
-			RETURNING id::text`, cid, kind, *title, body, notes, status, planned, visibility, setFields, layout, header, prepJSON).Scan(&id)
+				$9::jsonb, $10, $11, $12::jsonb, CASE WHEN $8 = 'gm' THEN NULL ELSE now() END, $13::jsonb)
+			RETURNING id::text`, cid, kind, *title, body, notes, status, planned, visibility, setFields, layout, header, prepJSON, source).Scan(&id)
 		if err != nil || !imageSent {
 			return cs.Done(id), err
 		}
@@ -160,8 +164,9 @@ func Save(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	_, err = tx.Exec(ctx, `UPDATE codex_entry SET title = coalesce($2, title), body = coalesce($3, body),
 		gm_notes = coalesce($4, gm_notes), status = coalesce($5, status), planned_tests = coalesce($6::text[], planned_tests),
 		fields = (fields || $7::jsonb) - $8::text[], layout = coalesce($9, layout), header = coalesce($10, header),
-		prep = CASE WHEN $11 THEN $12::jsonb ELSE prep END
-		WHERE id = $1`, id, title, body, notes, status, planned, setFields, clearFields, layout, header, prepSent, prepJSON)
+		prep = CASE WHEN $11 THEN $12::jsonb ELSE prep END, source = CASE WHEN $13 THEN $14::jsonb ELSE source END
+		WHERE id = $1`, id, title, body, notes, status, planned, setFields, clearFields, layout, header, prepSent, prepJSON,
+		sourceSent, source)
 	if err != nil || !imageSent {
 		return cs.Done(id), err
 	}

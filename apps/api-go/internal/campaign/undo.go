@@ -11,6 +11,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign/eventlog"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/clock"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/codex"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter/turn"
@@ -23,6 +24,7 @@ type skipped struct {
 	ActorID string `json:"actorId,omitempty"`
 	Turn    string `json:"turn,omitempty"`
 	Pool    string `json:"pool,omitempty"`
+	EntryID string `json:"entryId,omitempty"`
 	Reason  string `json:"reason"`
 }
 
@@ -149,6 +151,21 @@ func undoAction(ctx context.Context, tx core.Conn, c cs.Ctx, sessionID, actionID
 			}
 			if w != nil {
 				written = append(written, *w)
+			}
+			continue
+		}
+		if t.Entry != "" {
+			// An entry the action made (house decision #97) goes as codex.delete takes one; one already deleted is passed
+			// over. The log is newest first, so the entries inside a made one go before it.
+			_, err := codex.Delete(ctx, tx, c, cs.Action{"type": "codex.delete", "id": t.Entry})
+			var refusal *cs.Error
+			switch {
+			case errors.As(err, &refusal) && refusal.Code == "entryNotFound":
+				passed = append(passed, skipped{EntryID: t.Entry, Reason: "deleted"})
+			case err != nil:
+				return err
+			default:
+				written = append(written, eventlog.Written{Target: t, Kind: "create", Before: true, After: nil})
 			}
 			continue
 		}

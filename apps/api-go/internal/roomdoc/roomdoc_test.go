@@ -268,12 +268,12 @@ func (r *room) entries() {
 	for _, e := range doc(r.parsed).list("codex") {
 		kind := e["kind"].(string)
 		row := r.query(`SELECT id::text, body, gm_notes, visibility, audience_mode, coalesce(parent_id::text, ''), position,
-			planned_tests, status, fields, layout, header, prep, coalesce(image_id::text, ''), image_revealed, revealed_at
-			FROM codex_entry WHERE campaign_id = $1 AND title = $2`, r.id, e["title"])[0]
+			planned_tests, status, fields, layout, header, prep, coalesce(image_id::text, ''), image_revealed, revealed_at,
+			source FROM codex_entry WHERE campaign_id = $1 AND title = $2`, r.id, e["title"])[0]
 		id := row[0].(string)
 		got := map[string]any{"body": r.text(row[1].(string)), "gmNotes": r.text(row[2].(string)), "visibility": row[3],
 			"audienceMode": row[4], "plannedTests": or(row[7], []any{}), "status": row[8], "fields": row[9], "layout": row[10],
-			"header": row[11], "prep": row[12], "imageRevealed": row[14]}
+			"header": row[11], "prep": row[12], "imageRevealed": row[14], "source": row[16]}
 		// A link field holds the row made for the document's entry (house decision #76).
 		if fields, has := got["fields"].(map[string]any); has {
 			for key, v := range fields {
@@ -322,7 +322,8 @@ func (r *room) entries() {
 		want := map[string]any{"body": or(e["body"], ""), "gmNotes": or(e["gmNotes"], ""), "visibility": or(e["visibility"], "gm"),
 			"audienceMode": or(e["audienceMode"], "all"), "audience": sorted(e["audience"]), "links": sorted(e["links"]),
 			"plannedTests": or(e["plannedTests"], []any{}), "status": or(e["status"], statuses[kind]), "fields": or(e["fields"], map[string]any{}),
-			"layout": nil, "header": nil, "prep": e["prep"], "imageRevealed": or(e["imageRevealed"], false)}
+			"layout": nil, "header": nil, "prep": e["prep"], "imageRevealed": or(e["imageRevealed"], false),
+			"source": e["source"]}
 		if kind == "handout" {
 			want["layout"], want["header"] = or(e["layout"], "plain"), or(e["header"], "")
 		}
@@ -573,7 +574,7 @@ func TestADryRunLeavesNothing(t *testing.T) {
 		answer.Counts.Pictures != 1 || answer.Counts.Sessions != 2 || answer.Counts.Clocks != 1 {
 		t.Errorf("answer: %+v", answer)
 	}
-	if want := []Expect{{"ruleset", "sample-d20", "0.1.8-room", true}, {"pack", "sample-bestiary", "0.1.0", true},
+	if want := []Expect{{"ruleset", "sample-d20", "0.1.9-room", true}, {"pack", "sample-bestiary", "0.1.0", true},
 		{"world", "sample-tidewater", "0.1.0", true}}; !reflect.DeepEqual(answer.Expects, want) {
 		t.Errorf("expects: %+v", answer.Expects)
 	}
@@ -662,6 +663,12 @@ func TestARefusedDocumentNamesItsPathAndLeavesNothing(t *testing.T) {
 		{"a row cell that does not fit", "d20", func(d map[string]any) {
 			at(d, map[string]any{"dangers": []any{map[string]any{"id": "d1", "values": map[string]any{"threat": 99.0}}}}, "codex", 1, "fields")
 		}, "codex[1].fields", "badEntryField"},
+		{"a source the packs do not serve", "d20", func(d map[string]any) {
+			at(d, map[string]any{"entity": "creature", "key": "gone"}, "codex", 2, "source")
+		}, "codex[2].source", "fromPackNoEntry"},
+		{"a source of a type the kind is not made from", "d20", func(d map[string]any) {
+			at(d, map[string]any{"entity": "gear", "key": "coil-rope"}, "codex", 2, "source")
+		}, "codex[2].source", "fromPackNotFor"},
 		{"an undeclared entry field", "d20", func(d map[string]any) { at(d, map[string]any{"rank": 1.0}, "codex", 2, "fields") }, "codex[2].fields", "noSuchEntryField"},
 		{"a scene under a place", "d20", func(d map[string]any) { at(d, "00000000-0000-4000-8000-000000000010", "codex", 6, "parentId") }, "codex[6].parentId", "sceneNeedsAdventure"},
 		{"a bad build", "ledger", func(d map[string]any) { at(d, `{"tier":1}`, "actors", 0, "build") }, "actors[0].build", ""},

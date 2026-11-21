@@ -17,6 +17,7 @@ import {
   ClockVisibility,
   CodexFieldValue,
   CodexVisibility,
+  EntrySource,
   FieldValue,
   HandoutHeader,
   HandoutLayout,
@@ -245,6 +246,17 @@ export const Action = z.discriminatedUnion("type", [
     layout: HandoutLayout.optional(), // a handout only
     header: HandoutHeader.optional(), // a handout only
     prep: ScenePrep.nullable().optional(), // a scene only: the whole document replaces the stored one, null clears it
+    // The pack entry it was made from (house decision #97): served to this room as one of its kind's `from` types; null forgets it.
+    source: EntrySource.nullable().optional(),
+  }),
+  // Makes an entry of `kind` from a served pack entry (house decision #97), with the entries inside it and, for a scene,
+  // its prepared lines, as one logged action; `parentId` puts it under an entry of the room. Answers the new ids, root first.
+  z.object({
+    type: z.literal("codex.fromPack"),
+    kind: CodexKind,
+    entity: z.string().min(1).max(64),
+    key: z.string().min(1).max(80),
+    parentId: id.optional(),
   }),
   // Who reads an entry, and whether the table sees its picture: either may be sent alone.
   z.object({
@@ -487,6 +499,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "screen.issue": "token:issue",
   "screen.revoke": "token:issue",
   "codex.save": "codex:write",
+  "codex.fromPack": "codex:write", // and the pack entry read as the seat reads it (house decision #97)
   "codex.reveal": "codex:reveal",
   "codex.delete": "codex:write",
   "scene.begin": "codex:write", // as making a scene active with codex.save; each reveal then asks codex:reveal
@@ -614,4 +627,6 @@ export type Notice = z.infer<typeof Notice>;
 
 /** What `table.roll` drew or read and `table.apply` applied (house decision #87): the line, the dice, and the total. */
 export type RollAnswer = { entryId: string; value: number; total: number };
-export type ActionResult = { ok: true; id?: string; token?: string; notices?: Notice[]; roll?: RollAnswer } | Refused;
+// `ids`: every entry codex.fromPack made, root first (house decision #97).
+export type ActionResult =
+  { ok: true; id?: string; ids?: string[]; token?: string; notices?: Notice[]; roll?: RollAnswer } | Refused;

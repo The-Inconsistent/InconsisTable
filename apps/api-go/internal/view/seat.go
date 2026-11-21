@@ -428,6 +428,7 @@ func seatCodex(codex cs.Codex, c cs.Ctx, sight Sight) cs.Codex {
 			}
 			e.ImageRevealed = e.ImageID != nil
 			e.Prep = nil
+			e.Source = nil // the pack entry it was made from (house decision #97)
 			if e.Kind == "scene" {
 				e.Status = nil
 			}

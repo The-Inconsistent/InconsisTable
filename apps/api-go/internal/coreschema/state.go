@@ -572,6 +572,9 @@ type (
 		Header *string `json:"header"`
 		// Prep is a scene's prepared lines as stored (ScenePrep), the codex and secrets sides only; nil when none.
 		Prep any `json:"prep"`
+		// Source is the pack entry it was made from ({entity, key, cite}), the codex and secrets sides only; nil when
+		// none (house decision #97).
+		Source any `json:"source"`
 	}
 	// Codex is the `codex` event.
 	Codex struct {

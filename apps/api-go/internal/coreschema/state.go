@@ -97,6 +97,7 @@ type (
 		Source   string       `json:"source"`
 		EntryID  *string      `json:"entryId"`
 		Rev      int64        `json:"rev"`
+		Tags     []string     `json:"tags"`
 		Effects  []HeldEffect `json:"effects"`
 	}
 	// HeldEffect is one effect of a held record, as the sheet words it.

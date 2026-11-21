@@ -117,12 +117,16 @@ func (r ItemRow) Live() cs.ActorItem {
 			effects = append(effects, cs.HeldEffect{Path: e.Path, Mode: e.Mode, Value: e.Value, Phase: e.Phase})
 		}
 	}
+	tags := []string{}
 	var cite *string
 	if r.Served {
 		cite = r.Cite
 	}
+	if r.Served && r.Tags != nil {
+		tags = r.Tags
+	}
 	return cs.ActorItem{ID: r.ID, Kind: r.Kind, Entry: r.EntryKey, Name: r.Label(), Cite: cite, Note: r.Note,
-		Quantity: r.Quantity, FittedTo: r.FittedTo, Source: r.Source, EntryID: r.CodexEntryID, Rev: r.Rev, Effects: effects}
+		Quantity: r.Quantity, FittedTo: r.FittedTo, Source: r.Source, EntryID: r.CodexEntryID, Rev: r.Rev, Tags: tags, Effects: effects}
 }
 
 // The logged value of an item row: what Undo compares and puts back (nil for no row).

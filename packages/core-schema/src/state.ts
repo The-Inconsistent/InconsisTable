@@ -120,6 +120,8 @@ export const ActorItem = z.object({
   source: ItemSource,
   entryId: z.string().nullable(),
   rev: z.number(),
+  // The entry's tags (a kind's GM-only fitting reads one); empty for a hand-written item.
+  tags: z.array(z.string()),
   effects: HeldRecord.shape.effects,
 });
 export type ActorItem = z.infer<typeof ActorItem>;

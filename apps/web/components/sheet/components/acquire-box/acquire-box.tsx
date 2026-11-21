@@ -47,7 +47,8 @@ export function AcquireBox({ ruleset, compiled, actor, table, characters, reques
   const refused =
     plan && "code" in plan ? tr({ code: plan.code, message: plan.message, params: refusalParams(plan) }) : null;
   const ready = plan && !("code" in plan) ? plan : null;
-  const fitting = ready && kind?.fits !== undefined && entry !== null;
+  // What a fitting goes on follows the kind the entry is granted as, not the kind picked to search by.
+  const fitting = ready && ruleset.items?.kinds.find((k) => k.id === ready.kind)?.fits !== undefined;
   const items = actor.items ?? [];
   const asItem = entry && { kind: ready?.kind ?? kindId, tags: entry.tags };
   const itemHosts =

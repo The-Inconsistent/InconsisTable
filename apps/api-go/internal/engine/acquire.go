@@ -177,7 +177,7 @@ func PlanAcquire(r *Ruleset, actor *ActorState, item AcquireItem, picks map[stri
 			if refusal != nil {
 				return nil, refusal
 			}
-			in.Parts = append(in.Parts, AcquirePartValue{part.Label, v})
+			in.Parts = append(in.Parts, AcquirePartValue{part.Label, v + 0}) // a negated 0 reads as 0
 			in.Total += v
 		}
 		plan.Inputs[name] = in

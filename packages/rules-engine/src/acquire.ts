@@ -127,7 +127,7 @@ export function planAcquire({
     for (const [j, p] of list.entries()) {
       const value = readInt(p.value, scope, `${path}.inputs.${name}[${j}].value`);
       if (typeof value !== "number") return value;
-      parts.push({ label: p.label, value });
+      parts.push({ label: p.label, value: value + 0 }); // a negated 0 reads as 0
     }
     inputs[name] = { total: parts.reduce((s, p) => s + p.value, 0), parts };
   }

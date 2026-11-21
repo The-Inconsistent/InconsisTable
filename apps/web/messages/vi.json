@@ -1333,6 +1333,7 @@
     "closedThisSession": "Đã đóng trong buổi này"
   },
   "callCard": {
+    "acquiring": "Để kiếm {item}",
     "waiting": "Đang chờ",
     "total": "tổng {total}",
     "outcome": {

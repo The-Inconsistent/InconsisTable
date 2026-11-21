@@ -363,6 +363,9 @@ func sheetFields(b *engine.LedgerBuild, sheet *schema.Obj) map[string]any {
 	return out
 }
 
+// NotReady is a buildNotReady refusal's detail, for a build resolved outside a room (the character library).
+func NotReady(r *ledger.ResolvedBuild) string { return notReady(r) }
+
 // BuildWrites is the actor fields a saved build writes: what a room document leaves to the build (house decision #103).
 func BuildWrites(b *engine.LedgerBuild) map[string]bool {
 	out := map[string]bool{}

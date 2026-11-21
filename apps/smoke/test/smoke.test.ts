@@ -42,6 +42,8 @@ import { SAMPLE_LEDGER_PACK } from "../../../packages/rules-engine/src/fixtures/
 import { SAMPLE_WORLD } from "../../../packages/rules-engine/src/fixtures/sample-world.ts";
 import { SAMPLE_PARAMS } from "../../../packages/rules-engine/src/build/fixtures/sample-ledger.ts";
 import { buildSchemas } from "../../../packages/rules-engine/src/build/schemas.ts";
+import { breakdownOf } from "../../../packages/rules-engine/src/breakdown.ts";
+import { compileRuleset } from "../../../packages/rules-engine/src/compile.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
 import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
 import { d20Document, IDS, LEDGER_BUILD, ROOM_D20 } from "../../api-go/vectors/room-documents.ts";
@@ -3985,7 +3987,26 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
     ({ type: "field.set", actorId: ana.held, field: "guardSet", value }) as const;
   refused(await ana.c.send(setGuard(9)), "gmOnly");
   ok(await owner.send(setGuard(9)));
-  await ana.c.until((x) => guardOf(x) === 9);
+  const overridden = actorIn(await ana.c.until((x) => guardOf(x) === 9), ana.held)!;
+  // House decision #101: the manifest the phone is served compiles, so it shows the parts of the Guard it may see.
+  const phoneRules = await get(`/campaigns/${campaignId}/rules`, cookieOf(ana.cookie));
+  const { ruleset: served } = (await phoneRules.json()) as { ruleset: { manifest: unknown } };
+  const phone = compileRuleset(served.manifest);
+  assert.ok(phone.ok, JSON.stringify(phone.ok ? [] : phone.problems));
+  const parts = breakdownOf({
+    compiled: phone.compiled,
+    entity: "hero",
+    derivedId: "guard",
+    values: { fields: overridden.fields, conditions: overridden.conditions },
+    total: 9,
+  });
+  assert.deepEqual(
+    parts?.map((l) => [l.source, l.amount]),
+    [
+      ["Guard", worked],
+      ["Guard set by the GM", 9 - (worked ?? 0)],
+    ],
+  );
   ok(await owner.send(setGuard(null)));
   await ana.c.until((x) => guardOf(x) === worked);
   // The Tier raised by hand by two is read as two advances, and the answer says so; lowering it says nothing.

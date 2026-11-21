@@ -108,8 +108,8 @@ export interface Preview {
 
 /**
  * What the answers make: the creation run on this device (the same engine the server runs), then the entity's derived
- * values. A manifest the seat sees only in part (hidden definitions removed) may not compile, and then there are no
- * numbers to show, never wrong ones.
+ * values. A manifest the seat sees only in part compiles (house decision #101); one that does not shows no numbers,
+ * never wrong ones.
  */
 export function previewBuild({
   ruleset,

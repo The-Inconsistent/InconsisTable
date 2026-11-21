@@ -4870,6 +4870,84 @@ test("health.harm: hit down, scarred, healed, destroyed, a mob thinned and muste
   for (const c of [owner, ana, screen]) c.socket.close();
 });
 
+// Lookups (house decision #87) on sample-harm's Telling Blow: the GM types the result, the switch, the surge dice and
+// the press; the server reads the line and applies it as one action, skips a condition its target is immune to, and
+// never rolls a typed-only table. Any table also takes a typed result (I ROLLED).
+test("lookups: a typed result applies its line as one undoable action, and I ROLLED on any table", async () => {
+  const ownerDevice = await device("owner-Lookup");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_HARM);
+  const pk = await me.post<PackReply>("/packs", HARM_PACK);
+  assert.deepEqual([rs.status, pk.status], [201, 201]);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Lookup",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-Lookup") } });
+  const hero = (await owner.until((s) => s.actors.some((a) => a.kind === "pc"))).actors.find(
+    (a) => a.kind === "pc",
+  )!.id;
+  await equip(hero, "hero", { fields: { grit: 2 }, resources: { wounds: 0, strain: 0 } });
+  ok(await owner.send({ type: "actor.rename", id: hero, name: "Hal" }));
+  await owner.until((s) => actorIn(s, hero)?.entity === "hero");
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(
+    await owner.send({ type: "actor.spawn", packVersionId: pk.body.versionId, key: "ogre", count: 1, temporary: true }),
+  );
+  const ogre = (await owner.until((s) => s.actors.some((a) => a.kind === "creature"))).actors.find(
+    (a) => a.kind === "creature",
+  )!;
+  const blow = (actorId: string, result: number, inputs: Record<string, number | boolean> = {}) =>
+    ({ type: "table.apply", tableId: "blow", result, actorId, inputs }) as ActionInput;
+  const dazed = async (actorId: string) =>
+    (
+      await query<{ stacks: number }>(
+        "SELECT stacks FROM actor_condition WHERE actor_id = $1 AND condition_id = 'dazed'",
+        [actorId],
+      )
+    ).reduce((n, r) => n + r.stacks, 0);
+
+  // Refused: the app never rolls a typed-only table, a result off the die, a bad input, a player, a table with no effects.
+  refused(await owner.send({ type: "table.roll", tableId: "blow" }), "tableTypedOnly");
+  refused(await owner.send(blow(hero, 17)), "tableResultOut");
+  refused(await owner.send(blow(hero, 44, { surge: 9 })), "tableInput");
+  refused(await ana.send(blow(hero, 44)), "noPermission");
+  refused(await owner.send({ type: "table.apply", tableId: "aftermath", result: 4, actorId: hero }), "tableNoApply");
+
+  // 44 past the hide with one press: Reel, 2 wounds and Dazed twice, in one action Undo takes back whole.
+  const reel = ok(await owner.send(blow(hero, 44, { past: true, press: 1 })));
+  assert.deepEqual(reel.roll, { entryId: "reel", value: 44, total: 44 });
+  await owner.until((s) => actorIn(s, hero)?.resources.wounds === 2);
+  assert.equal(await dazed(hero), 2);
+  ok(await owner.send({ type: "event.undo" }));
+  await owner.until((s) => actorIn(s, hero)?.resources.wounds === 0);
+  assert.equal(await dazed(hero), 0);
+
+  // Three surge dice lift 36 to 66: the open-ended Ruin line, which names the Aftermath table.
+  const ruin = ok(await owner.send(blow(hero, 36, { surge: 3 })));
+  assert.deepEqual(ruin.roll, { entryId: "ruin", value: 36, total: 66 });
+  await owner.until((s) => actorIn(s, hero)?.resources.wounds === 1);
+
+  // The Ogre is immune to Dazed: its wounds land, the condition is left out, and the answer says so.
+  const immune = ok(await owner.send(blow(ogre.id, 44, { past: true, press: 2 })));
+  assert.deepEqual(immune.notices, [{ code: "conditionSkipped", params: { name: ogre.name, condition: "Dazed" } }]);
+  await owner.until((s) => actorIn(s, ogre.id)?.resources.wounds === 2);
+  assert.equal(await dazed(ogre.id), 0);
+
+  // I ROLLED on a plain table: the typed 5 reads Scar and is logged as a roll; a 7 is off a d6.
+  const typed = ok(await owner.send({ type: "table.roll", tableId: "aftermath", result: 5 }));
+  assert.deepEqual(typed.roll, { entryId: "scar", value: 5, total: 5 });
+  const rolled = await owner.until((s) => s.rolls.length === 1);
+  assert.deepEqual([rolled.rolls[0]!.label, rolled.rolls[0]!.value], ["Scar", 5]);
+  refused(await owner.send({ type: "table.roll", tableId: "aftermath", result: 7 }), "tableResultOut");
+  for (const c of [owner, ana]) c.socket.close();
+});
+
 // START THE FIGHT on a prepared scene (house decision #75): the actions the Run view builds, sent one by one as it
 // sends them, each its own action. A hidden line, a bar line under a name, and a mob at full under a name.
 test("scene prep: START THE FIGHT starts it, seats the party and places each roster line at its view", async () => {

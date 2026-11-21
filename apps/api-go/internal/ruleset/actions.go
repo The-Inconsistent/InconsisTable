@@ -175,37 +175,15 @@ func ConditionAdd(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.
 	if err != nil {
 		return cs.Result{}, err
 	}
-	actorID, condition, source := a.Str("actorId"), a.Str("condition"), a.Str("source")
-	b, refused := entityActor(rc, actorID)
-	if refused != nil {
-		return cs.Result{}, refused
-	}
-	def, known := rc.Compiled.Conditions[condition]
-	if !known {
-		return cs.Result{}, cs.Fail("noCondition", cs.Params{"condition": condition})
-	}
-	if rc.Compiled.ImmuneTo(condition, b.Scope) {
-		return cs.Result{}, cs.Fail("conditionImmune", cs.Params{"name": b.Row.Name, "condition": def.Label})
-	}
-	// Armed from the holder's next turn when added during its own (house decision #81).
-	t, err := rc.Turn(ctx)
-	if err != nil {
-		return cs.Result{}, err
-	}
 	var typed *float64
 	if n, given := a["expiresAfter"].(float64); given {
 		typed = &n
 	}
-	acting := t != nil && t.CurrentID != nil && *t.CurrentID == actorID
-	var expiresAfter any
-	if ticks := engine.ArmedTicks(def, acting, typed); ticks != nil {
-		expiresAfter = *ticks
+	delta, err := rc.ConditionDelta(ctx, a.Str("actorId"), a.Str("condition"), a.Str("source"), typed)
+	if err != nil || delta == nil {
+		return cs.Done(""), err // applying it again does nothing
 	}
-	rowID, row, changes := actor.ConditionApplied(def, b.Conditions, source, def.Duration, expiresAfter)
-	if !changes {
-		return cs.Done(""), nil // applying it again does nothing
-	}
-	return applied(rc, ctx, []engine.Delta{{Target: conditionTarget(actorID, rowID), Kind: "set", Value: row}}, false)
+	return applied(rc, ctx, []engine.Delta{*delta}, false)
 }
 
 // ConditionRemove is condition.remove: every row of that condition on the actor.

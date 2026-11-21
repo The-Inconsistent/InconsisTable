@@ -2,33 +2,51 @@
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
-import type { Actor, DealtRow, RollRow } from "@inconsistable/core-schema";
-import type { RandomTable } from "@inconsistable/rules-engine";
+import type { ActionInput, ActionResult, Actor, BookSource, DealtRow, RollRow } from "@inconsistable/core-schema";
+import type { CompiledRuleset, Ruleset } from "@inconsistable/rules-engine";
 
-import type { Run } from "@/components/gm/track/constants";
+import { TableLookup } from "@/components/gm/track/components/tables-panel/components/table-lookup/table-lookup";
+import type { RequestPage } from "@/hooks/use-table/use-table";
+import { isLookupTable, targetsOf, typedOf } from "@/lib/lookup/lookup";
 
 type TablesPanelProps = {
-  tables: Readonly<Record<string, RandomTable>>;
+  ruleset: Ruleset;
+  compiled: CompiledRuleset | null;
   rolls: readonly RollRow[];
   dealt: readonly DealtRow[];
   actors: readonly Actor[];
+  /** The fight's combatants' actors, in its order: a lookup's targets list them first. */
+  fighting: readonly string[];
   /** Whether a GM runs the room: without one a `gm` table keeps nothing from anyone, so it is not used. */
   hasGm: boolean;
-  run: Run;
+  campaign: Readonly<Record<string, unknown>>;
+  books: readonly BookSource[];
+  requestPage: RequestPage;
+  /** Sends one action and answers with the server's reply; the tracker shows a refusal itself. */
+  ask: (a: ActionInput) => Promise<ActionResult>;
 };
 
 // The ruleset's random tables, at hand on TRACK (house decision #49). Roll shows what came up, big; Deal gives each
 // ticked character one card from the table's deck, never the same card twice; Reshuffle takes the cards back and asks
-// first, because nobody can undo a deal. The app rolls and deals only here (CLAUDE.md, principle 5).
-export function TablesPanel({ tables, rolls, dealt, actors, hasGm, run }: TablesPanelProps) {
+// first, because nobody can undo a deal. The app rolls and deals only here (CLAUDE.md, principle 5). Any table with a
+// die also takes the number the GM rolled (I ROLLED), and a lookup applies its line to the target picked at the top,
+// which stays picked when a line sends the GM on to another table (house decision #87).
+export function TablesPanel(props: TablesPanelProps) {
+  const { ruleset, compiled, rolls, dealt, actors, fighting, hasGm, campaign, books, requestPage, ask } = props;
   const t = useTranslations("tables");
   const [dealing, setDealing] = useState<string | null>(null);
   const [picked, setPicked] = useState<readonly string[]>([]);
   const [reshuffling, setReshuffling] = useState<string | null>(null);
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const [targetId, setTargetId] = useState("");
   const characters = actors.filter((a) => a.kind === "pc" || a.kind === "companion");
   const names = new Map(actors.map((a) => [a.id, a.name]));
-  const list = Object.entries(tables);
+  const list = Object.entries(ruleset.tables ?? {});
   if (list.length === 0) return null;
+  const run = async (a: ActionInput) => (await ask(a)).ok;
+  const lookups = compiled !== null && list.some(([, x]) => isLookupTable(x));
+  const targets = targetsOf({ actors, fighting });
+  const target = actors.find((a) => a.id === targetId);
 
   // DEAL: opens the picker with everyone who holds no card of the table ticked.
   const handleOpenDeal = (id: string) => {
@@ -51,16 +69,56 @@ export function TablesPanel({ tables, rolls, dealt, actors, hasGm, run }: Tables
     await run({ type: "table.reshuffle", tableId: id });
   };
 
+  // I ROLLED: logs the number the GM's own dice showed on a plain table, and clears it once it lands.
+  const handleTyped = (id: string) => async (e: FormEvent) => {
+    e.preventDefault();
+    const result = typedOf(typed[id] ?? "");
+    if (result === null) return;
+    if (await run({ type: "table.roll", tableId: id, result })) setTyped((was) => ({ ...was, [id]: "" }));
+  };
+
+  // NEXT: a line names another table; its card comes into view with the same target, and nothing is rolled.
+  const handleNext = (id: string) => {
+    const card = document.getElementById(`table-${id}`);
+    card?.scrollIntoView({ behavior: "smooth", block: "start" });
+    card?.querySelector("input")?.focus({ preventScroll: true });
+  };
+
   return (
     <section className="stack tables-panel" aria-label={t("title")}>
       <h2 className="head">{t("title")}</h2>
+      {lookups && (
+        <label className="row table-target">
+          <span>{t("target")}</span>
+          <select className="input" value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+            <option value="">{t("pickTarget")}</option>
+            {targets.fighting.length > 0 && (
+              <optgroup label={t("fighting")}>
+                {targets.fighting.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            <optgroup label={t("others")}>
+              {targets.others.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+        </label>
+      )}
       <ul className="table-list rise-list">
         {list.map(([id, table], i) => {
           const last = rolls.find((r) => r.tableId === id);
           const held = dealt.filter((d) => d.tableId === id);
           const usable = hasGm || table.visibility !== "gm";
+          const lookup = compiled !== null && isLookupTable(table);
           return (
-            <li key={id} className="card table-card" style={{ "--i": i } as React.CSSProperties}>
+            <li key={id} id={`table-${id}`} className="card table-card" style={{ "--i": i } as React.CSSProperties}>
               <div className="row table-head">
                 <h3 className="head">{table.title}</h3>
                 <span className="chip">{t(table.visibility)}</span>
@@ -70,6 +128,12 @@ export function TablesPanel({ tables, rolls, dealt, actors, hasGm, run }: Tables
                 <p className="dim" role="status">
                   {t("noGm")}
                 </p>
+              ) : lookup ? (
+                <TableLookup
+                  {...{ tableId: id, table, compiled, ruleset, target, campaign, books, requestPage, ask }}
+                  characters={characters.length}
+                  onNext={handleNext}
+                />
               ) : (
                 <>
                   <div className="row">
@@ -87,11 +151,20 @@ export function TablesPanel({ tables, rolls, dealt, actors, hasGm, run }: Tables
                       {t("deal")}
                     </button>
                   </div>
-                  {last && (
-                    <output className="table-result" key={last.id}>
-                      <span className="table-face">{last.label}</span>
-                      <span className="dim">{t("rolled", { value: last.value })}</span>
-                    </output>
+                  {table.die && table.visibility !== "owner" && (
+                    <form className="row" onSubmit={handleTyped(id)}>
+                      <input
+                        className="input table-typed"
+                        inputMode="numeric"
+                        value={typed[id] ?? ""}
+                        onChange={(e) => setTyped((was) => ({ ...was, [id]: e.target.value }))}
+                        aria-label={t("typedLabel", { title: table.title })}
+                        placeholder={t("typed")}
+                      />
+                      <button className="btn" disabled={typedOf(typed[id] ?? "") === null}>
+                        {t("logTyped")}
+                      </button>
+                    </form>
                   )}
                   {dealing === id && (
                     <form className="stack table-deal" onSubmit={handleDeal(id)}>
@@ -142,6 +215,12 @@ export function TablesPanel({ tables, rolls, dealt, actors, hasGm, run }: Tables
                     </button>
                   )}
                 </>
+              )}
+              {last && (
+                <output className="table-result" key={last.id}>
+                  <span className="table-face">{last.label}</span>
+                  <span className="dim">{t("rolled", { value: last.value })}</span>
+                </output>
               )}
             </li>
           );

@@ -1161,6 +1161,26 @@ label {
   justify-content: space-between;
   gap: 12px;
 }
+/* A lookup (house decision #87): the number typed, the inputs, the line it reads and what it does. */
+.table-target select {
+  flex: 1;
+  min-width: 0;
+}
+.table-typed,
+.table-typed .input {
+  max-width: 9ch;
+}
+.table-input {
+  justify-content: space-between;
+}
+.table-line {
+  display: grid;
+  gap: 4px;
+}
+.table-steps {
+  margin: 0;
+  padding-left: 1.2em;
+}
 .rolls-before {
   display: flex;
   gap: var(--gap);

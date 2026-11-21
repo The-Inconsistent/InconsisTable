@@ -66,7 +66,7 @@ const add = (resource: string, value: number): Delta => ({ target: { actorId: "a
 test("the sample compiles, and a ruleset without the block keeps its shape", () => {
   assert.equal(C.ruleset.health.harm?.profiles.length, 3);
   const { spends: _spends, ...rest } = SAMPLE_HARM; // its spends run the block's ops
-  const without = compileRuleset({ ...rest, health: { states: [] } });
+  const without = compileRuleset({ ...rest, health: { states: [] }, tables: undefined });
   assert.ok(without.ok && !("harm" in without.compiled.ruleset.health));
 });
 

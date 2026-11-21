@@ -930,7 +930,8 @@ const VALID: Record<string, Record<string, unknown>> = {
   "campaign.setSafety": { lines: [" Line one ", "Line two"], veils: [], xCard: false },
   "safety.suggest": { kind: "veil", text: " Veil one " },
   "safety.xcard": {},
-  "table.roll": { tableId: "season" },
+  "table.roll": { tableId: "season", result: 4, actorId: ID, inputs: { on: true, n: 2 } },
+  "table.apply": { tableId: "blow", result: 44, actorId: ID, inputs: { past: true, press: 1 } },
   "table.deal": { tableId: "role", actorIds: [ID] },
   "table.reshuffle": { tableId: "role" },
 };

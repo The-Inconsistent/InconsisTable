@@ -7,10 +7,12 @@ package randomtable
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign/eventlog"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
@@ -61,7 +63,9 @@ func logEvent(ctx context.Context, tx core.Conn, c cs.Ctx, kind string, payload 
 	return id, err
 }
 
-// Roll is table.roll: one draw, logged as a `table.roll` event. A table that is dealt (`owner`) is not rolled.
+// Roll is table.roll: one draw, logged as a `table.roll` event. A table that is dealt (`owner`) is not rolled. A typed
+// `result` is the GM's own roll (I ROLLED), which a `typedOnly` table needs; a table with a die reads the line its total
+// reaches, with the inputs and, when it has a modifier, the target actor (house decision #87).
 func Roll(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	tableID := a.Str("tableId")
 	t, err := tableOf(ctx, tx, c.CampaignID, tableID)
@@ -74,12 +78,98 @@ func Roll(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	if err := checkGM(c, t); err != nil {
 		return cs.Result{}, err
 	}
-	index, value, err := t.Roll(draw)
+	result, typed := a["result"].(float64)
+	if !typed && t.TypedOnly != nil && *t.TypedOnly {
+		return cs.Result{}, cs.Fail("tableTypedOnly")
+	}
+	if t.Die == nil {
+		if typed {
+			return cs.Result{}, cs.Fail("badRequest", cs.Params{"detail": "a table without a die is drawn by weight"})
+		}
+		index, value, err := t.Roll(draw)
+		if err != nil {
+			return cs.Result{}, err
+		}
+		return logRoll(ctx, tx, c, tableID, t.Entries[index].ID, value, value)
+	}
+	if !typed {
+		_, value, err := t.Roll(draw)
+		if err != nil {
+			return cs.Result{}, err
+		}
+		result = float64(value)
+	}
+	var scope *engine.Record
+	var name string
+	if t.Modifier != nil {
+		_, b, err := lookupTarget(ctx, tx, c, t, a.Str("actorId"))
+		if err != nil {
+			return cs.Result{}, err
+		}
+		scope, name = b.Scope, b.Row.Name
+	}
+	inputs, _ := a["inputs"].(map[string]any)
+	compiled, err := ruleset.LoadCompiled(ctx, tx, c.CampaignID)
 	if err != nil {
 		return cs.Result{}, err
 	}
-	id, err := logEvent(ctx, tx, c, "table.roll", map[string]any{"tableId": tableID, "entryId": t.Entries[index].ID, "value": value})
-	return cs.Done(id), err
+	read, refused := compiled.ReadLookup(tableID, result, inputs, scope)
+	if refused != nil {
+		return cs.Result{}, refusal(refused, name)
+	}
+	return logRoll(ctx, tx, c, tableID, t.Entries[read.Entry].ID, int(result), read.Total)
+}
+
+// logRoll logs one roll and answers with it.
+func logRoll(ctx context.Context, tx core.Conn, c cs.Ctx, tableID, entryID string, value, total int) (cs.Result, error) {
+	payload := map[string]any{"tableId": tableID, "entryId": entryID, "value": value}
+	if total != value {
+		payload["total"] = total
+	}
+	id, err := logEvent(ctx, tx, c, "table.roll", payload)
+	r := cs.Done(id)
+	r.Roll = &cs.RollAnswer{EntryID: entryID, Value: value, Total: total}
+	return r, err
+}
+
+// lookupTarget is the room's ruleset context and the actor a lookup reads, or the refusal: an actor of this room the
+// ruleset has a type for, of a type the table applies to, whose values the rules can read.
+func lookupTarget(ctx context.Context, tx core.Conn, c cs.Ctx, t *engine.RandomTable, actorID string) (*ruleset.Context, *actor.Built, error) {
+	if actorID == "" {
+		return nil, nil, cs.Fail("tableNeedsTarget")
+	}
+	rc, err := ruleset.Open(ctx, tx, c)
+	if err != nil {
+		return nil, nil, err
+	}
+	b := rc.Built[actorID]
+	switch {
+	case b == nil:
+		return nil, nil, cs.Fail("characterNotFound")
+	case b.Entity == "":
+		return nil, nil, cs.Fail("notBuilt", cs.Params{"name": b.Row.Name})
+	case t.Entities != nil && !slices.Contains(*t.Entities, b.Entity):
+		return nil, nil, cs.Fail("tableNotFor", cs.Params{"name": b.Row.Name})
+	case b.Scope == nil:
+		return nil, nil, cs.Fail("incomplete", cs.Params{"name": b.Row.Name, "detail": b.Problem})
+	}
+	return rc, b, nil
+}
+
+// refusal words the engine's reason a typed result cannot be read; a value the target lacks is its sheet's gap.
+func refusal(r *engine.LookupRefusal, name string) error {
+	switch r.Code {
+	case "tableResultOut":
+		return cs.Fail("tableResultOut", cs.Params{"min": r.Min, "max": r.Max})
+	case "tableInput":
+		return cs.Fail("tableInput", cs.Params{"input": r.Input})
+	case "unreadable":
+		if name == "" {
+			return cs.Fail("tableNeedsTarget")
+		}
+		return cs.Fail("incomplete", cs.Params{"name": name, "detail": r.Detail})
+	}
+	return cs.Fail("tableNotFound")
 }
 
 // Deal is table.deal: each listed character gets one card from the table's deck, uniformly at random, never one that is

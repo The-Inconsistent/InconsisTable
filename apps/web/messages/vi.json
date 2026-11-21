@@ -1357,7 +1357,13 @@
     "tableDealOnly": "Bảng này để chia, không để gieo.",
     "tableNoGm": "Phòng này không có GM, nên không có gì chỉ dành cho GM.",
     "tableShort": "Không còn đủ bài để chia.",
-    "tableHeld": "Đã có người cầm một lá của bảng này."
+    "tableHeld": "Đã có người cầm một lá của bảng này.",
+    "tableTypedOnly": "Hãy nhập số xúc xắc ra: ứng dụng không bao giờ gieo bảng này.",
+    "tableResultOut": "Bảng đó đọc từ {min} đến {max}.",
+    "tableInput": "Bảng đó không nhận {input} như vậy.",
+    "tableNoApply": "Bảng đó không có gì để áp dụng.",
+    "tableNotFor": "Bảng đó không dùng cho {name}.",
+    "tableNeedsTarget": "Hãy chọn bảng dành cho ai trước: bảng đọc chỉ số của họ."
   },
   "workspace": {
     "skip": "Bỏ qua, tới nội dung trang",
@@ -1678,6 +1684,7 @@
     "sceneBegun": "Đã bắt đầu {title}: {revealed, plural, =0 {chưa tiết lộ gì} other {đã tiết lộ # mục}}",
     "revealSkipped": "Chưa tiết lộ: {line}",
     "rule": "{name}: {rule}",
+    "conditionSkipped": "{name} miễn nhiễm với {condition}: bỏ qua",
     "dismiss": "Đóng"
   },
   "spendRequest": {
@@ -1942,7 +1949,25 @@
     "aCard": "Một lá bài",
     "tapToLook": "Chạm để xem",
     "tapToHide": "Chạm để úp lại",
-    "recentRolls": "Các lần gieo gần đây"
+    "recentRolls": "Các lần gieo gần đây",
+    "typed": "Tôi đã gieo",
+    "typedOnly": "Nhập số xúc xắc ra",
+    "typedLabel": "Số xúc xắc ra trên {title}",
+    "logTyped": "Ghi lại",
+    "target": "Cho",
+    "pickTarget": "Chọn người áp dụng",
+    "fighting": "Trong trận",
+    "others": "Những người khác",
+    "less": "Bớt {label}",
+    "more": "Thêm {label}",
+    "reads": "Tổng {total}",
+    "effects": "Tác dụng",
+    "change": "{by, number, ::sign-always} {label}",
+    "immune": "{label}: miễn nhiễm, bỏ qua",
+    "times": "{step} ×{count}",
+    "nothing": "Dòng này không thay đổi gì",
+    "apply": "Áp dụng cho {name}",
+    "next": "Sang {title}"
   },
   "pools": {
     "title": "Pool chung",

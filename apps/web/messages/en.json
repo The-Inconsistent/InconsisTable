@@ -1357,7 +1357,13 @@
     "tableDealOnly": "That table is dealt, not rolled.",
     "tableNoGm": "Nobody runs this room as GM, so nothing can be GM-only.",
     "tableShort": "Not enough left to deal.",
-    "tableHeld": "Someone already holds a card from that table."
+    "tableHeld": "Someone already holds a card from that table.",
+    "tableTypedOnly": "Type what the dice show: the app never rolls this table.",
+    "tableResultOut": "That table reads {min} to {max}.",
+    "tableInput": "That table can't take {input} set like that.",
+    "tableNoApply": "Nothing on that table can be applied.",
+    "tableNotFor": "That table doesn't apply to {name}.",
+    "tableNeedsTarget": "Pick who the table is for first: it reads their values."
   },
   "workspace": {
     "skip": "Skip to the page",
@@ -1678,6 +1684,7 @@
     "sceneBegun": "{title} begun: {revealed, plural, =0 {nothing revealed} one {# entry revealed} other {# entries revealed}}",
     "revealSkipped": "Not revealed: {line}",
     "rule": "{name}: {rule}",
+    "conditionSkipped": "{name} is immune to {condition}: left out",
     "dismiss": "Dismiss"
   },
   "spendRequest": {
@@ -1942,7 +1949,25 @@
     "aCard": "A card",
     "tapToLook": "Tap to look",
     "tapToHide": "Tap to hide",
-    "recentRolls": "Recent rolls"
+    "recentRolls": "Recent rolls",
+    "typed": "I rolled",
+    "typedOnly": "Type what the dice show",
+    "typedLabel": "What the dice show on {title}",
+    "logTyped": "Log it",
+    "target": "For",
+    "pickTarget": "Pick who it is for",
+    "fighting": "In the fight",
+    "others": "Everyone else",
+    "less": "Less {label}",
+    "more": "More {label}",
+    "reads": "Total {total}",
+    "effects": "What it does",
+    "change": "{by, number, ::sign-always} {label}",
+    "immune": "{label}: immune, left out",
+    "times": "{step} ×{count}",
+    "nothing": "This line changes nothing",
+    "apply": "Apply to {name}",
+    "next": "Go to {title}"
   },
   "pools": {
     "title": "Pools",

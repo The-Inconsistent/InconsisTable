@@ -222,7 +222,21 @@ func compiledJSON(c *CompiledRuleset) any {
 	for id, e := range c.Immune {
 		immune[id] = exprJSON(e)
 	}
+	lookups := map[string]any{}
+	for id, l := range c.Lookups {
+		effects := make([]any, len(l.Effects))
+		for i, row := range l.Effects {
+			list := make([]any, len(row))
+			for j, x := range row {
+				list[j] = map[string]any{"when": exprJSON(x.When), "times": exprJSON(x.Times), "wounds": exprJSON(x.Wounds),
+					"shock": exprJSON(x.Shock), "by": exprJSON(x.By)}
+			}
+			effects[i] = list
+		}
+		lookups[id] = map[string]any{"modifier": exprJSON(l.Modifier), "effects": effects}
+	}
 	return map[string]any{
+		"lookups": lookups,
 		"notices": notices,
 		"ruleset": c.Ruleset.Normalized, "entities": entities, "resources": resources, "tests": tests,
 		"initiative": initiative,

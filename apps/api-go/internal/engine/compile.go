@@ -127,6 +127,19 @@ type (
 		Reminders []*CompiledExpr
 		// Immune is each condition's `immune`, by condition id, for those that have one (house decision #81).
 		Immune map[string]*CompiledExpr
+		// Lookups is every table with a die, by table id, as a typed result reads it (house decision #87).
+		Lookups map[string]*CompiledLookup
+	}
+	// CompiledLookup is a table with a die: its modifier, and each line's effects by index (compile.ts CompiledLookup).
+	CompiledLookup struct {
+		Modifier *CompiledExpr
+		Effects  [][]CompiledTableEffect
+	}
+	// CompiledTableEffect is one effect of a lookup line, its expressions compiled over the target and the inputs; nil
+	// where the effect has none.
+	CompiledTableEffect struct {
+		Def                            *TableEffect
+		When, Times, Wounds, Shock, By *CompiledExpr
 	}
 	// CompiledNotice is one notice rule, with who may be told its If by actor type, as a Test's numbers are.
 	CompiledNotice struct {
@@ -972,6 +985,8 @@ func (c *compiler) run() *CompiledRuleset {
 	}
 	c.spends(entities)
 
+	lookups := c.lookups(entities)
+
 	if len(c.problems) > 0 || !scoringOK || (init != nil && init.Def.Strategy == "ranked" && init.Score == nil) {
 		return nil
 	}
@@ -984,7 +999,46 @@ func (c *compiler) run() *CompiledRuleset {
 		build = &CompiledBuild{b.Actor, b.Params, b.Kinds}
 	}
 	return &CompiledRuleset{c.r, entities, resources, conditions, tests, init, scoring, healthStates, instantDeath, build, notices,
-		reminders, immune}
+		reminders, immune, lookups}
+}
+
+// lookups compiles each table with a die (compile.ts Compiler.lookups): the modifier and every effect's expressions
+// over the target's scope, for each actor type the table applies to, with the inputs as `ctx`.
+func (c *compiler) lookups(entities map[string]*CompiledEntity) map[string]*CompiledLookup {
+	out := map[string]*CompiledLookup{}
+	for _, id := range sortedKeys(c.r.Tables) {
+		t := c.r.Tables[id]
+		if t.Die == nil {
+			continue
+		}
+		ctx := map[string]ExprType{}
+		for _, x := range t.Inputs {
+			ctx[x.ID] = Scalar(x.Type)
+		}
+		_, actorScopes := c.actorsOf(t.Entities, entities)
+		scopes := withScope(actorScopes, "ctx", RecordType{ctx})
+		at := "tables." + id
+		one := func(source *string, expect ExprType, path string) *CompiledExpr {
+			if source == nil {
+				return nil
+			}
+			return c.expr(*source, scopes, expect, path)
+		}
+		compiled := &CompiledLookup{Modifier: one(t.Modifier, intType, at+".modifier"), Effects: make([][]CompiledTableEffect, len(t.Entries))}
+		for i, e := range t.Entries {
+			compiled.Effects[i] = []CompiledTableEffect{}
+			for j := range e.Apply {
+				x := &t.Entries[i].Apply[j]
+				path := fmt.Sprintf("%s.entries[%d].apply[%d]", at, i, j)
+				compiled.Effects[i] = append(compiled.Effects[i], CompiledTableEffect{Def: x,
+					When: one(x.When, boolType, path+".when"), Times: one(x.Times, intType, path+".times"),
+					Wounds: one(x.Wounds, intType, path+".wounds"), Shock: one(x.Shock, intType, path+".shock"),
+					By: one(x.By, intType, path+".by")})
+			}
+		}
+		out[id] = compiled
+	}
+	return out
 }
 
 // CompileRuleset loads a manifest given as decoded JSON: validate it, then compile every expression against its scope,

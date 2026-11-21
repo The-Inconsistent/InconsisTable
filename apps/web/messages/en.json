@@ -923,6 +923,32 @@
       "write": "Write",
       "edit": "Edit",
       "notWritten": "{fields}: not written yet."
+    },
+    "items": {
+      "carried": "Carried",
+      "none": "Nothing carried.",
+      "count": "{name} ×{count}",
+      "fitted": "+ {name}",
+      "takeOff": "Take off",
+      "takeOffLabel": "Take {name} off {host}",
+      "spendLabel": "Spend one {name}",
+      "addOneLabel": "Add one {name}",
+      "fitTo": "Fit to…",
+      "fitLabel": "Fit {name} to",
+      "takeBack": "Take back",
+      "takeBackLabel": "Take back {name}",
+      "edit": "Edit",
+      "editLabel": "Edit carried: {name}",
+      "name": "Name",
+      "note": "Note",
+      "save": "Save",
+      "remove": "Remove",
+      "addByHand": "Add by hand",
+      "kind": "Kind",
+      "fromPacks": "From the packs",
+      "orName": "Or a name of your own",
+      "quantity": "How many",
+      "add": "Add"
     }
   },
   "breakdown": {
@@ -1659,6 +1685,15 @@
     "audience": {
       "all": "Everyone",
       "listed": "Chosen characters"
+    },
+    "give": {
+      "title": "Holder",
+      "with": "With {name}",
+      "nobody": "Nobody holds it.",
+      "giveTo": "Give to",
+      "pick": "Pick a character…",
+      "give": "Give",
+      "takeBack": "Take back"
     }
   },
   "handout": {

@@ -239,6 +239,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
             gm={canInCampaign({ ctx: me, perm: gmPermOf(sheetActor.kind) })}
             send={send}
             books={sheet.books}
+            campaignId={state.campaign.id}
             requestPage={sheet.requestPage}
             builderHref={
               gmSideOf({ me, kind: sheetActor.kind })

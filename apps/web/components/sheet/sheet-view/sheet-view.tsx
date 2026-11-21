@@ -7,6 +7,7 @@ import { breakdownOf, campaignValues, compileRuleset, type Ruleset } from "@inco
 
 import { XpBox } from "@/components/builder/ledger/play/xp-box/xp-box";
 import { Breakdown } from "@/components/sheet/components/breakdown/breakdown";
+import { ItemsBox } from "@/components/sheet/components/items-box/items-box";
 import { LedgerLines } from "@/components/sheet/components/ledger-lines/ledger-lines";
 import { SpendList } from "@/components/sheet/components/spend-ask/components/spend-list/spend-list";
 import { SpendAsk } from "@/components/sheet/components/spend-ask/spend-ask";
@@ -17,6 +18,7 @@ import { HeldListEditor } from "@/components/ui/held-list/held-list";
 import { ResourceRow } from "@/components/ui/resource-row/resource-row";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { heldLists } from "@/lib/held/held";
+import { boxKinds } from "@/lib/items/items";
 import { rankOf } from "@/lib/ledger/play";
 import { xpEarnedOf } from "@/lib/ledger/table";
 import { ledgerLaidOut } from "@/lib/sheet-widgets/sheet-widgets";
@@ -53,6 +55,8 @@ type SheetViewProps = {
   requestPage: RequestPage;
   /** This character's builder, for the seat that holds it or a GM-side seat; the XP box links there. */
   builderHref?: string | null;
+  /** The room, for the GM's ADD BY HAND to search its packs (house decision #95). */
+  campaignId?: string | null;
 };
 
 // SHEET: one character as the ruleset's layout lays it out. Every value is the server's, already cut down to what this
@@ -69,6 +73,7 @@ export function SheetView({
   books,
   requestPage,
   builderHref = null,
+  campaignId = null,
 }: SheetViewProps) {
   const t = useTranslations("sheet");
   const tDuration = useTranslations("duration");
@@ -277,6 +282,9 @@ export function SheetView({
         </section>
       )}
       <LedgerLines sheet={actor.ledger?.sheet} skip={ledgerLaidOut(models)} {...{ ruleset, books, requestPage }} />
+      {actor.items !== undefined && (
+        <ItemsBox env={env} kinds={boxKinds({ ruleset, drawn: ledgerLaidOut(models) })} campaignId={campaignId} />
+      )}
       {build?.xp && ledger && (
         <XpBox
           earned={earned}

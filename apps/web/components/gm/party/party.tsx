@@ -424,6 +424,7 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
                         gm={canInCampaign({ ctx: me, perm: gmPermOf(a.kind) })}
                         send={send}
                         books={sheet.books}
+                        campaignId={state.campaign.id}
                         requestPage={sheet.requestPage}
                         builderHref={
                           gmSideOf({ me, kind: a.kind }) ? `/c/${state.campaign.id}/build/${a.id}?step=advance` : null

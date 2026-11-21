@@ -923,6 +923,32 @@
       "write": "Viết",
       "edit": "Sửa",
       "notWritten": "{fields}: chưa viết."
+    },
+    "items": {
+      "carried": "Mang theo",
+      "none": "Không mang gì.",
+      "count": "{name} ×{count}",
+      "fitted": "+ {name}",
+      "takeOff": "Tháo ra",
+      "takeOffLabel": "Tháo {name} khỏi {host}",
+      "spendLabel": "Dùng một {name}",
+      "addOneLabel": "Thêm một {name}",
+      "fitTo": "Gắn vào…",
+      "fitLabel": "Gắn {name} vào",
+      "takeBack": "Lấy lại",
+      "takeBackLabel": "Lấy lại {name}",
+      "edit": "Sửa",
+      "editLabel": "Sửa đồ mang theo: {name}",
+      "name": "Tên",
+      "note": "Ghi chú",
+      "save": "Lưu",
+      "remove": "Bỏ",
+      "addByHand": "Thêm bằng tay",
+      "kind": "Loại",
+      "fromPacks": "Từ các gói",
+      "orName": "Hoặc tự đặt tên",
+      "quantity": "Bao nhiêu",
+      "add": "Thêm"
     }
   },
   "breakdown": {
@@ -1659,6 +1685,15 @@
     "audience": {
       "all": "Mọi người",
       "listed": "Nhân vật được chọn"
+    },
+    "give": {
+      "title": "Người giữ",
+      "with": "Đang ở với {name}",
+      "nobody": "Không ai giữ.",
+      "giveTo": "Trao cho",
+      "pick": "Chọn nhân vật…",
+      "give": "Trao",
+      "takeBack": "Lấy lại"
     }
   },
   "handout": {

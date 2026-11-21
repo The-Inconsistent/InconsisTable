@@ -1587,6 +1587,77 @@ test("tags, rows, a scene's picks with their switch and a reminder; a player rea
 // House decision #97 on the invented fixtures: a place made from a pack entry brings the places inside it, nested, each
 // keeping its key and page (which a player is not sent); a scene made from a GM-only pack entry brings its checks and its
 // foes, refused to a seat that does not read it; one Undo takes the whole creation back.
+// House decision #98 on the invented fixtures: sample-d20's warren (a number, a roll that goes on to a second table, a
+// filtered pick, a chamber per round) confirmed as one action and undone whole; a forged line and a count that does not
+// match refused; a player is sent no generator; and sample-harm's one-step portent made into one flat entry.
+test("a confirmed generator run makes a place with its chambers; a forged one is refused (#98)", async () => {
+  const ownerDevice = await device("gn-owner");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const bestiary = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Gn", rulesetVersionId: rs.body.versionId })
+  ).body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: bestiary.body.versionId }));
+  ok(await owner.send({ type: "session.start" }));
+  const anaDevice = await seatPlayer(owner, "gn-ana");
+  const entryOf = (id: string) => owner.codex()?.entries.find((e) => e.id === id);
+  type Answers = Record<string, { rows?: string[]; key?: string; value?: number | string }>;
+  const chambers: Answers[] = [{ chamber: { rows: ["pit"] } }, { chamber: { rows: ["roots"] } }];
+  const run = (values: Answers = {}, each: Answers[] = chambers) => ({
+    type: "codex.generate" as const,
+    generatorId: "warren",
+    values: { rooms: { value: 2 }, origin: { rows: ["built", "monks"] }, keeper: { key: "ember-wisp" }, ...values },
+    each,
+  });
+  refused(await owner.send(run({ origin: { rows: ["built", "forged"] } })), "generateRow");
+  refused(await owner.send(run({}, [{ chamber: { rows: ["pit"] } }])), "generateCount");
+  refused(await owner.send(run({ keeper: { key: "nobody" } })), "generatePick");
+  const made = ok(await owner.send(run()));
+  assert.equal(made.ids?.length, 3);
+  await eventually(() => entryOf(made.ids![2]!) !== undefined, "the warren and its chambers");
+  assert.equal(entryOf(made.id!)?.title, "Warren of the monks");
+  assert.deepEqual(entryOf(made.id!)?.fields, { keeper: "ember-wisp", peril: 2 });
+  assert.deepEqual(
+    made.ids!.slice(1).map((id) => [entryOf(id)?.title, entryOf(id)?.parentId]),
+    [
+      ["Bone pit", made.id],
+      ["Root hall", made.id],
+    ],
+  );
+  ok(await owner.send({ type: "event.undo" }));
+  await eventually(() => made.ids!.every((id) => entryOf(id) === undefined), "undone whole");
+  type Generators = { generators?: unknown[] };
+  const generatorsOf = async (c: ReturnType<typeof caller>) =>
+    ((await c.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset?.manifest as Generators).generators;
+  assert.equal((await generatorsOf(me))?.length, 1);
+  assert.equal(await generatorsOf(caller(anaDevice)), undefined);
+
+  // The second shape: one roll, one flat entry.
+  const harm = await me.post<RulesetReply>("/rulesets", SAMPLE_HARM);
+  const second = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Gn2", rulesetVersionId: harm.body.versionId })
+  ).body;
+  const owner2 = connect({ auth: { campaignId: second.campaignId, cookie: ownerDevice } });
+  await owner2.until(() => true);
+  const portent = ok(
+    await owner2.send({
+      type: "codex.generate",
+      generatorId: "portent",
+      values: { sign: { rows: ["moon"] } },
+      each: [],
+    }),
+  );
+  assert.deepEqual(portent.ids, [portent.id]);
+  await eventually(
+    () => owner2.codex()?.entries.find((e) => e.id === portent.id)?.title === "A red moon",
+    "the portent",
+  );
+  for (const c of [owner, owner2]) c.socket.close();
+});
+
 test("entries made from pack entries: a place with the ones inside it, a scene with its lines, undone whole (#97)", async () => {
   const ownerDevice = await device("fp-owner");
   const me = caller(ownerDevice);
@@ -1845,6 +1916,7 @@ test("codex entry, all at once: a nested place with a shown picture and a field,
   // The d20 fixture declares no place field; this copy adds one, so the nested place can carry one.
   const ruleset = structuredClone(SAMPLE_D20);
   ruleset.version = "0.1.4-all";
+  delete ruleset.generators; // the warren (house decision #98) reads the place fields this copy replaces
   ruleset.codex!.kinds.location = {
     fields: {
       district: { type: "text", label: "District", maxLength: 40, visibility: "party", cite: "Sample p.17" },

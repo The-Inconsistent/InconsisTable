@@ -31,6 +31,8 @@ type Encounter struct {
 	Begun         bool
 	LastSide      *string
 	OutOfTurnSide *string
+	// Used is the uses of spends limited per round (house decision #91), each engine.UsedKey.
+	Used []string
 }
 
 // Combatant is one combatant row, as the turn reads it.
@@ -57,8 +59,8 @@ func (c Combatant) flag(key string) bool {
 func Active(ctx context.Context, conn core.Conn, campaignID string) (*Encounter, error) {
 	var e Encounter
 	err := conn.QueryRow(ctx, `SELECT id::text, round, current_combatant_id::text, first_combatant_id::text, phase_id,
-		begun, last_side, out_of_turn_side FROM encounter WHERE campaign_id = $1 AND active`, campaignID).
-		Scan(&e.ID, &e.Round, &e.CurrentCombatantID, &e.FirstCombatantID, &e.PhaseID, &e.Begun, &e.LastSide, &e.OutOfTurnSide)
+		begun, last_side, out_of_turn_side, used FROM encounter WHERE campaign_id = $1 AND active`, campaignID).
+		Scan(&e.ID, &e.Round, &e.CurrentCombatantID, &e.FirstCombatantID, &e.PhaseID, &e.Begun, &e.LastSide, &e.OutOfTurnSide, &e.Used)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -117,7 +119,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string) (*Turn, error)
 			Round: float64(e.Round), CurrentID: actorOf(rows, e.CurrentCombatantID), Order: []string{},
 			FirstID: actorOf(rows, e.FirstCombatantID),
 			SideOf:  map[string]string{}, Begun: &e.Begun, LastSide: e.LastSide, OutOfTurnSide: e.OutOfTurnSide,
-			Held: []string{}, Barred: []string{},
+			Held: []string{}, Barred: []string{}, Used: e.Used,
 		},
 		PhaseID: e.PhaseID,
 		Done:    []string{},
@@ -154,7 +156,12 @@ const (
 	OutOfTurnSide = "outOfTurnSide"
 	Held          = "held"
 	Barred        = "barred"
+	// Used is the uses of spends limited per round (house decision #91).
+	Used = "used"
 )
+
+// maxUsed bounds the `used` list: one round's uses of every combatant.
+const maxUsed = 500
 
 func optional(id *string) any {
 	if id == nil {
@@ -190,6 +197,8 @@ func Read(ctx context.Context, conn core.Conn, campaignID, key string) (any, err
 		return anyList(t.Held), nil
 	case Barred:
 		return anyList(t.Barred), nil
+	case Used:
+		return anyList(t.Used), nil
 	case Begun:
 		return t.Begun == nil || *t.Begun, nil
 	case LastSide:
@@ -257,6 +266,19 @@ func Write(ctx context.Context, tx core.Conn, campaignID, key string, value any)
 		}
 		_, err := tx.Exec(ctx, `UPDATE encounter SET `+column+` = $1 WHERE id = $2`, value, e.ID)
 		return optional(was), value, err
+	case Used:
+		list, isList := value.([]any)
+		now := []string{}
+		for _, v := range list {
+			if s, ok := v.(string); ok && len(s) <= 200 {
+				now = append(now, s)
+			}
+		}
+		if !isList || len(now) != len(list) || len(now) > maxUsed {
+			return nil, nil, cs.Fail("badInput", cs.Params{"detail": "used is a list of uses"})
+		}
+		_, err := tx.Exec(ctx, `UPDATE encounter SET used = $1 WHERE id = $2`, now, e.ID)
+		return anyList(e.Used), anyList(now), err
 	}
 	rows, err := Ordered(ctx, tx, e.ID)
 	if err != nil {

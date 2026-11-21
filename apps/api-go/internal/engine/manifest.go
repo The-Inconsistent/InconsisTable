@@ -92,6 +92,9 @@ type (
 		MaxRows *float64     `json:"maxRows"`
 		From    []RowPrefill `json:"from"`
 		Pick    *RowPick     `json:"pick"`
+		// Chips and Picks are a list's (house decision #91): its items show as chips, its quick picks name an entity type.
+		Chips bool        `json:"chips"`
+		Picks *FieldPicks `json:"picks"`
 	}
 	// RowColumn is one column of a `rows` field: an entry field's type, or `test` (house decision #89).
 	RowColumn struct {
@@ -124,6 +127,10 @@ type (
 		If   string  `json:"if"`
 		Text string  `json:"text"`
 		Cite *string `json:"cite"`
+	}
+	// FieldPicks is where a list's quick picks come from: pack entries of an entity type.
+	FieldPicks struct {
+		Entity string `json:"entity"`
 	}
 	// CampaignFieldDef is one campaign field: an int has Min and Max, an enum Values; Default is a number, a word or a
 	// bool by the type.
@@ -410,6 +417,19 @@ type (
 		If       *string               `json:"if"`
 		Run      []SpendStep           `json:"run"`
 		ClearOn  []string              `json:"clearOn"`
+		// Limit and Then are house decision #91: at most Max uses a round, and the table offered next.
+		Limit *SpendLimit `json:"limit"`
+		Then  *SpendThen  `json:"then"`
+	}
+	// SpendLimit is how often a spend may be done per actor (house decision #91).
+	SpendLimit struct {
+		Per string  `json:"per"`
+		Max float64 `json:"max"`
+	}
+	// SpendThen is the table a spend offers next, and which spend inputs fill the table's inputs.
+	SpendThen struct {
+		Table  string            `json:"table"`
+		Inputs map[string]string `json:"inputs"`
 	}
 	// HealthState is one display state of the health block.
 	HealthState struct {
@@ -764,6 +784,30 @@ func (p *problems) spends(r *Ruleset, actorTypes func(*[]string, string)) {
 		}
 		if len(s.ClearOn) != len(slices.Compact(slices.Sorted(slices.Values(s.ClearOn)))) {
 			p.add(path+".clearOn", "an event is listed twice")
+		}
+		if s.Then != nil {
+			table, hasTable := r.Tables[s.Then.Table]
+			if !hasTable {
+				p.add(path+".then.table", `unknown table "%s"`, s.Then.Table)
+			}
+			for _, key := range sortedKeys(s.Then.Inputs) {
+				if _, known := s.Inputs[s.Then.Inputs[key]]; !known {
+					p.add(path+".then.inputs."+key, `"%s" is not an input of the spend`, s.Then.Inputs[key])
+				}
+				// The key names one of the table's inputs (house decision #91).
+				if hasTable && !slices.ContainsFunc(table.Inputs, func(x TableInput) bool { return x.ID == key }) {
+					p.add(path+".then.inputs."+key, `"%s" is not an input of the table`, key)
+				}
+			}
+		}
+	}
+	// A list's quick picks name an entity type (house decision #91).
+	for i, e := range r.Entities {
+		for _, id := range sortedKeys(e.Fields) {
+			f := e.Fields[id]
+			if f.Type == "list" && f.Picks != nil && !slices.ContainsFunc(r.Entities, func(x EntityType) bool { return x.ID == f.Picks.Entity }) {
+				p.add(fmt.Sprintf("entities[%d].fields.%s.picks.entity", i, id), `unknown entity "%s"`, f.Picks.Entity)
+			}
 		}
 	}
 }

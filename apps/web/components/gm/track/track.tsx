@@ -15,6 +15,7 @@ import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { Creatures } from "@/components/gm/creatures/creatures";
 import { SpendButtons } from "@/components/gm/spend-buttons/spend-buttons";
+import { HeldListEditor } from "@/components/ui/held-list/held-list";
 import { AddCombatants } from "@/components/gm/track/components/add-combatants/add-combatants";
 import { ClocksPanel } from "@/components/gm/track/components/clocks-panel/clocks-panel";
 import { PoolsPanel } from "@/components/gm/track/components/pools-panel/pools-panel";
@@ -34,9 +35,10 @@ import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { harmPadOf } from "@/lib/harm/harm";
 import { afterAnswer, afterSelect, refusalAt, type Refusal } from "@/lib/refusal/refusal";
 import { gmSideOf } from "@/lib/ledger/table";
+import { heldChips } from "@/lib/held/held";
 import { rangeOf } from "@/lib/sheet/sheet";
 import { currentOf } from "@/lib/track/track";
-import type { TrackMode } from "@/components/gm/track/constants";
+import { tableCardId, type OpenedTable, type TrackMode } from "@/components/gm/track/constants";
 
 type TrackProps = {
   me: Me;
@@ -54,6 +56,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
   const t = useTranslations("track");
   const [sheetOf, setSheetOf] = useState<string | null>(null);
   const [testFor, setTestFor] = useState<string | null>(null); // the actor a Test is being called for
+  const [opened, setOpened] = useState<OpenedTable | null>(null); // the table a spend opened last
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [refusal, setRefusal] = useState<Refusal | null>(null);
   const encounter = state.encounter;
@@ -90,6 +93,18 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
   const handleSelect = (id: string) => {
     setRefusal(afterSelect({ refusal, was: selected?.id, now: id }));
     setSelectedId(id);
+  };
+
+  // What each combatant holds up, for its row (house decision #91).
+  const heldOf = (actorId: string) => heldChips({ ruleset: rules, actor: actors.get(actorId) });
+
+  // OPEN TABLE: a spend's next table (house decision #91), opened in the tables panel for the spender with the spend's
+  // inputs, brought into view and focused.
+  const handleOpenTable = (open: Omit<OpenedTable, "n">) => {
+    setOpened((was) => ({ ...open, n: (was?.n ?? 0) + 1 }));
+    const card = document.getElementById(tableCardId(open.tableId));
+    card?.scrollIntoView({ block: "center" });
+    card?.focus();
   };
 
   // The selected combatant's hit pad, when the ruleset has `health.harm` and a profile holds its type (#66).
@@ -145,6 +160,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                   actors={actors}
                   selectedId={selected?.id}
                   onSelect={handleSelect}
+                  heldOf={heldOf}
                 />
               ) : (
                 <OrderList
@@ -153,6 +169,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                   selectedId={selected?.id}
                   onSelect={handleSelect}
                   run={run}
+                  heldOf={heldOf}
                 />
               )}
             </div>
@@ -178,6 +195,19 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                       compiled={compiled}
                       state={state}
                       actor={actors.get(selected.actorId)!}
+                      send={send}
+                      onTable={handleOpenTable}
+                    />
+                  )
+                }
+                held={
+                  sheet.ruleset &&
+                  selectedActor && (
+                    <HeldListEditor
+                      ruleset={sheet.ruleset}
+                      actor={selectedActor}
+                      campaignId={state.campaign.id}
+                      gm
                       send={send}
                     />
                   )
@@ -243,6 +273,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
           books={sheet.books}
           requestPage={sheet.requestPage}
           ask={askFrom(null)}
+          opened={opened}
         />
       )}
       {/* A board game's players, automa included, are characters: there are no creatures to spawn. */}

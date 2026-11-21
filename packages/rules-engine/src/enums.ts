@@ -118,6 +118,8 @@ export const TurnKey = z.enum([
   "outOfTurnSide",
   "held",
   "barred",
+  // House decision #91: the uses of a spend limited per round, each "<round>:<actorId>:<spendId>".
+  "used",
 ]);
 export type TurnKey = z.infer<typeof TurnKey>;
 
@@ -171,6 +173,8 @@ export const RefusalCode = z.enum([
   "noConvertHere",
   "noSuchSpend",
   "spendNotNow",
+  // A spend limited per round (house decision #91).
+  "usedThisRound",
 ]);
 export type RefusalCode = z.infer<typeof RefusalCode>;
 

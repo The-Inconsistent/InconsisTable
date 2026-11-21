@@ -6,6 +6,7 @@ import type { Actor, Combatant, Encounter } from "@inconsistable/core-schema";
 
 import type { Run } from "@/components/gm/track/constants";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
+import type { HeldOf } from "@/lib/held/held";
 import { stateKey } from "@/lib/track/track";
 
 type OrderListProps = {
@@ -14,11 +15,13 @@ type OrderListProps = {
   selectedId: string | undefined;
   onSelect: (id: string) => void;
   run: Run;
+  /** What each combatant holds up (house decision #91), as chips on its row. */
+  heldOf?: HeldOf;
 };
 
 // The turn order. Each row is a big target that selects the combatant for the panel beside it; the number beside it is
 // what the GM types from the dice (blank clears it), and the arrows settle a tie one place at a time.
-export function OrderList({ encounter, actors, selectedId, onSelect, run }: OrderListProps) {
+export function OrderList({ encounter, actors, selectedId, onSelect, run, heldOf }: OrderListProps) {
   const t = useTranslations("orderList");
   const tState = useTranslations("combatState");
   const tSide = useTranslations("combatSide");
@@ -64,7 +67,7 @@ export function OrderList({ encounter, actors, selectedId, onSelect, run }: Orde
                   </span>
                 )}
               </span>
-              <HealthBar combatant={c} conditions={encounter.conditionDefs} />
+              <HealthBar combatant={c} conditions={encounter.conditionDefs} held={heldOf?.(c.actorId)} />
             </button>
             <span className="row" style={{ flexWrap: "nowrap" }}>
               {!seated && (

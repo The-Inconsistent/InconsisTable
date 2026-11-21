@@ -6,6 +6,7 @@ import type { ActionInput, ActionResult, Actor, BookSource, DealtRow, RollRow } 
 import type { CompiledRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import { TableLookup } from "@/components/gm/track/components/tables-panel/components/table-lookup/table-lookup";
+import { tableCardId, type OpenedTable } from "@/components/gm/track/constants";
 import type { RequestPage } from "@/hooks/use-table/use-table";
 import { isLookupTable, targetsOf, typedOf } from "@/lib/lookup/lookup";
 
@@ -24,6 +25,8 @@ type TablesPanelProps = {
   requestPage: RequestPage;
   /** Sends one action and answers with the server's reply; the tracker shows a refusal itself. */
   ask: (a: ActionInput) => Promise<ActionResult>;
+  /** The table a spend opened last (house decision #91): its actor becomes the target, its inputs the table's. */
+  opened: OpenedTable | null;
 };
 
 // The ruleset's random tables, at hand on TRACK (house decision #49). Roll shows what came up, big; Deal gives each
@@ -32,7 +35,7 @@ type TablesPanelProps = {
 // die also takes the number the GM rolled (I ROLLED), and a lookup applies its line to the target picked at the top,
 // which stays picked when a line sends the GM on to another table (house decision #87).
 export function TablesPanel(props: TablesPanelProps) {
-  const { ruleset, compiled, rolls, dealt, actors, fighting, hasGm, campaign, books, requestPage, ask } = props;
+  const { ruleset, compiled, rolls, dealt, actors, fighting, hasGm, campaign, books, requestPage, ask, opened } = props;
   const t = useTranslations("tables");
   const [dealing, setDealing] = useState<string | null>(null);
   const [picked, setPicked] = useState<readonly string[]>([]);
@@ -41,6 +44,15 @@ export function TablesPanel(props: TablesPanelProps) {
   const [targetId, setTargetId] = useState("");
   // The chain so far (house decision #88): each table the GM stepped through and the line that sent them on.
   const [trail, setTrail] = useState<readonly { title: string; label: string }[]>([]);
+  // A spend's OPEN <table> picks its actor as the target and starts a new chain, as PICK does.
+  const [openedSeen, setOpenedSeen] = useState(opened);
+  if (opened !== openedSeen) {
+    setOpenedSeen(opened);
+    if (opened !== null) {
+      setTargetId(opened.actorId);
+      setTrail([]);
+    }
+  }
   const characters = actors.filter((a) => a.kind === "pc" || a.kind === "companion");
   const names = new Map(actors.map((a) => [a.id, a.name]));
   const list = Object.entries(ruleset.tables ?? {});
@@ -83,7 +95,7 @@ export function TablesPanel(props: TablesPanelProps) {
   // nothing is rolled or granted.
   const handleNext = (id: string, from: { title: string; label: string }) => {
     setTrail((was) => [...was, from]);
-    const card = document.getElementById(`table-${id}`);
+    const card = document.getElementById(tableCardId(id));
     card?.scrollIntoView({ behavior: "smooth", block: "start" });
     card?.querySelector("input")?.focus({ preventScroll: true });
   };
@@ -140,7 +152,13 @@ export function TablesPanel(props: TablesPanelProps) {
           const usable = hasGm || table.visibility !== "gm";
           const lookup = compiled !== null && isLookupTable(table);
           return (
-            <li key={id} id={`table-${id}`} className="card table-card" style={{ "--i": i } as React.CSSProperties}>
+            <li
+              key={id}
+              id={tableCardId(id)}
+              tabIndex={-1}
+              className="card table-card"
+              style={{ "--i": i } as React.CSSProperties}
+            >
               <div className="row table-head">
                 <h3 className="head">{table.title}</h3>
                 <span className="chip">{t(table.visibility)}</span>
@@ -152,6 +170,9 @@ export function TablesPanel(props: TablesPanelProps) {
                 </p>
               ) : lookup ? (
                 <TableLookup
+                  // Opened by a spend, the lookup starts again from the spend's inputs.
+                  key={opened?.tableId === id ? opened.n : 0}
+                  start={opened?.tableId === id ? opened.inputs : undefined}
                   {...{ tableId: id, table, compiled, ruleset, target, campaign, books, requestPage, ask }}
                   characters={characters.length}
                   onNext={handleNext}

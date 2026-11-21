@@ -28,7 +28,16 @@ export interface PlannedStep {
 export interface SpendPlan {
   costs: PlannedCost[];
   run: PlannedStep[];
+  /**
+   * The turn's `used` list once this spend is done (house decision #91): the current round's uses and this one. Absent
+   * for a spend without a limit, or one done outside a fight the actor is in.
+   */
+  used?: string[];
 }
+
+/** One use of a spend limited per round, as the turn's `used` list holds it (house decision #91). */
+export const usedKey = ({ round, actorId, spendId }: { round: number; actorId: string; spendId: string }): string =>
+  `${round}:${actorId}:${spendId}`;
 
 function read(source: string, scope: ExprRecord, path: string): { v: ExprValue } | Refusal {
   try {
@@ -59,7 +68,8 @@ function fightOf(state: RuleState, id: string): ExprRecord {
 /**
  * What a spend costs and runs for one actor now, or why not: `noSuchSpend` (none by that id, or not for this actor's
  * type), `badInput` (an input missing, unknown or out of its range), `spendNotNow` (`if` does not hold), `cannotPay`
- * (a cost the pool or the resource could not cover in full, `byRun` ones included). A cost that reads 0 is dropped.
+ * (a cost the pool or the resource could not cover in full, `byRun` ones included), `usedThisRound` (its `limit` is
+ * reached this round, house decision #91). A cost that reads 0 is dropped.
  */
 export function planSpend({
   ruleset,
@@ -103,6 +113,15 @@ export function planSpend({
     if (isRefusal(r)) return r;
     if (r.v !== true) return refuse("spendNotNow", `"${spend.label}" cannot be done now`);
   }
+  let used: string[] | undefined;
+  const t = state.turn;
+  if (spend.limit !== undefined && t !== null && t.order.includes(actor.id)) {
+    const key = usedKey({ round: t.round, actorId: actor.id, spendId });
+    const now = (t.used ?? []).filter((u) => u.startsWith(`${t.round}:`));
+    if (now.filter((u) => u === key).length >= spend.limit.max)
+      return refuse("usedThisRound", `"${spend.label}", round ${t.round}`);
+    used = [...now, key];
+  }
   const costs: PlannedCost[] = [];
   const owed = new Map<string, number>();
   for (const [j, c] of spend.cost.entries()) {
@@ -141,5 +160,5 @@ export function planSpend({
     }
     run.push({ primitive: step.primitive, op: step.op, input });
   }
-  return { costs, run };
+  return used === undefined ? { costs, run } : { costs, run, used };
 }

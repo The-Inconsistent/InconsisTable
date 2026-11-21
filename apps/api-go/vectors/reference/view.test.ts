@@ -539,7 +539,7 @@ test("a player's manifest without the checklist still carries spends, requests a
   const shown = seatManifest({ ruleset, ctx: ctx(member("player"), "u-x") });
   assert.equal(shown.checklist, undefined);
   assert.deepEqual(shown.spends, ruleset.spends);
-  assert.equal(shown.spends?.length, 3);
+  assert.equal(shown.spends?.length, 4);
   assert.deepEqual(shown.requests, { max: 3 });
   assert.deepEqual(shown.held, ruleset.held);
   assert.ok(Object.keys(shown.held ?? {}).length > 0);

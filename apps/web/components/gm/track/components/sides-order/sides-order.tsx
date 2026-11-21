@@ -7,6 +7,7 @@ import type { SidesInitiative } from "@inconsistable/rules-engine";
 import { SideLine } from "@/components/ui/order-view/components/side-line/side-line";
 import { TurnMark } from "@/components/ui/order-view/components/turn-mark/turn-mark";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
+import type { HeldOf } from "@/lib/held/held";
 import { groupBySide, markOf } from "@/lib/sides/sides";
 import { stateKey } from "@/lib/track/track";
 
@@ -16,11 +17,13 @@ type SidesOrderProps = {
   actors: ReadonlyMap<string, Actor>;
   selectedId: string | undefined;
   onSelect: (id: string) => void;
+  /** What each combatant holds up (house decision #91), as chips on its row. */
+  heldOf?: HeldOf;
 };
 
 // The order of a sides fight: where it stands, then one group per side in the ruleset's order. Each row is a big target
 // that selects the combatant for the panel beside it and carries its turn mark.
-export function SidesOrder({ encounter, sides, actors, selectedId, onSelect }: SidesOrderProps) {
+export function SidesOrder({ encounter, sides, actors, selectedId, onSelect, heldOf }: SidesOrderProps) {
   const tState = useTranslations("combatState");
   const tVisibility = useTranslations("combatVisibility");
   return (
@@ -50,7 +53,7 @@ export function SidesOrder({ encounter, sides, actors, selectedId, onSelect }: S
                         </span>
                       )}
                     </span>
-                    <HealthBar combatant={c} conditions={encounter.conditionDefs} />
+                    <HealthBar combatant={c} conditions={encounter.conditionDefs} held={heldOf?.(c.actorId)} />
                   </button>
                 </li>
               );

@@ -13,8 +13,10 @@ import { SpendAsk } from "@/components/sheet/components/spend-ask/spend-ask";
 import { SheetWidget } from "@/components/sheet/widgets/sheet-widget/sheet-widget";
 import type { WidgetEnv } from "@/components/sheet/widgets/types";
 import { Cite } from "@/components/ui/cite/cite";
+import { HeldListEditor } from "@/components/ui/held-list/held-list";
 import { ResourceRow } from "@/components/ui/resource-row/resource-row";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
+import { heldLists } from "@/lib/held/held";
 import { rankOf } from "@/lib/ledger/play";
 import { xpEarnedOf } from "@/lib/ledger/table";
 import { ledgerLaidOut } from "@/lib/sheet-widgets/sheet-widgets";
@@ -258,6 +260,11 @@ export function SheetView({
           labels={resourceLabels(ruleset)}
           {...{ ruleset, compiled, actor, table, characters, requests, send }}
         />
+      )}
+      {!gm && table && heldLists({ ruleset, actor }).some((l) => l.owner) && (
+        <section className="stack sheet-card">
+          <HeldListEditor ruleset={ruleset} actor={actor} campaignId={table.campaign.id} gm={false} send={send} />
+        </section>
       )}
       <LedgerLines sheet={actor.ledger?.sheet} skip={ledgerLaidOut(models)} {...{ ruleset, books, requestPage }} />
       {build?.xp && ledger && (

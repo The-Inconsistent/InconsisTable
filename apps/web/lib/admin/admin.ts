@@ -10,9 +10,60 @@ export const AdminCampaign = z.object({
   rulesetVersion: z.string().nullable(),
   lastPlayedAt: z.string().nullable(),
   archived: z.boolean(),
+  tableMode: z.string(),
+  // The room's last session, running while endedAt is null (house decision #94).
+  latestSession: z.object({ id: z.uuid(), number: z.number().int(), endedAt: z.string().nullable() }).nullable(),
+  gms: z.array(z.string()),
 });
 export type AdminCampaign = z.infer<typeof AdminCampaign>;
 export const AdminCampaigns = z.array(AdminCampaign);
+
+// GET /api/admin/users: the most recently seen users and their seats (Users in apps/api-go/internal/admin/users.go).
+export const AdminUser = z.object({
+  id: z.string(),
+  name: z.string(),
+  role: z.string(),
+  account: z.boolean(),
+  lastSeenAt: z.string(),
+  seats: z.array(
+    z.object({
+      campaignId: z.uuid(),
+      campaignName: z.string(),
+      role: z.string(),
+      owner: z.boolean(),
+      characters: z.array(z.string()),
+    }),
+  ),
+});
+export type AdminUser = z.infer<typeof AdminUser>;
+export const AdminUsers = z.array(AdminUser);
+
+// DELETE /api/admin/users/:id/seats: the rooms left, and those kept with the refusal that kept them.
+const SeatRef = z.object({ campaignId: z.uuid(), campaignName: z.string() });
+export const Unseated = z.object({
+  removed: z.array(SeatRef),
+  kept: z.array(SeatRef.extend({ code: z.string() })),
+});
+export type Unseated = z.infer<typeof Unseated>;
+
+// GET /api/admin/events?campaignId=: one room's rows of the admin log, newest first.
+export const AdminEvents = z.array(
+  z.object({
+    id: z.string(),
+    action: z.string(),
+    targetUserId: z.string().nullable(),
+    detail: z.string(),
+    createdAt: z.string(),
+  }),
+);
+export type AdminEvents = z.infer<typeof AdminEvents>;
+
+/** A call to an admin route with the tab's key; null when there is none. */
+export async function adminFetch(path: string, init: RequestInit = {}): Promise<Response | null> {
+  const key = storedAdminKey();
+  if (!key) return null;
+  return fetch(path, { ...init, headers: { ...init.headers, "x-admin-key": key }, cache: "no-store" });
+}
 
 // The admin key lives in the tab's sessionStorage only: closing the tab forgets it. Read by the admin page (REST calls,
 // header `x-admin-key`) and by the table socket when a room is opened as admin (`?admin=1`).

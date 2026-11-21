@@ -324,6 +324,43 @@ export const Action = z.discriminatedUnion("type", [
     held: z.string().min(1).max(64),
     entry: z.string().min(1).max(80),
   }),
+  // Items an actor holds (house decision #95). GIVE: the GM hands a codex item to a character, no Test; TAKE BACK undoes
+  // it, its fitted items coming loose.
+  z.object({ type: z.literal("item.give"), entryId: id, actorId: id }),
+  z.object({ type: z.literal("item.take"), entryId: id }),
+  // ADD BY HAND: a pack entry (`entry`, its key) or a hand-written name, of a kind the ruleset declares; a counted kind
+  // takes a quantity and adds to the row it already has.
+  z.object({
+    type: z.literal("item.add"),
+    actorId: id,
+    kind: z.string().min(1).max(64),
+    entry: z.string().min(1).max(80).optional(),
+    name: z.string().trim().min(1).max(120).optional(),
+    note: z.string().max(200).default(""),
+    quantity: z.int().min(1).max(999).default(1),
+  }),
+  // EDIT CARRIED: rewrite a line's note (and a hand-written one's name), or remove it; refused when `rev` is not the
+  // line's revision now (the screen read an older one).
+  z.object({
+    type: z.literal("item.edit"),
+    itemId: id,
+    rev: z.int().min(1),
+    name: z.string().trim().min(1).max(120).optional(),
+    note: z.string().max(200).optional(),
+    remove: z.boolean().default(false),
+  }),
+  // Fit an item to another the same actor holds, or take it off (`to: null`).
+  z.object({ type: z.literal("item.fit"), itemId: id, to: id.nullable() }),
+  // A counted item's quantity by a delta: the holder spends (a negative one), the GM sets either way; at 0 it is gone.
+  z.object({
+    type: z.literal("item.adjust"),
+    itemId: id,
+    by: z
+      .int()
+      .min(-999)
+      .max(999)
+      .refine((n) => n !== 0, "a change of 0 changes nothing"),
+  }),
   z.object({
     type: z.literal("table.deal"),
     tableId: TableId,
@@ -445,6 +482,13 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "table.roll": "session:run",
   "table.apply": "encounter:run", // a lookup changes its target as the fight's own writes do (house decision #87)
   "held.remove": "character:edit:any",
+  "item.give": "character:edit:any",
+  "item.take": "character:edit:any",
+  "item.add": "character:edit:any",
+  "item.edit": "character:edit:any",
+  // The holder's seat or the GM side: the handler asks character:edit:own of the item's holder (house decision #95).
+  "item.fit": null,
+  "item.adjust": null,
   "table.deal": "session:run",
   "table.reshuffle": "session:run",
   "whisper.send": "session:run", // the side that runs the session; without a GM the handler refuses (whispersNeedGm)

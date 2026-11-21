@@ -57,6 +57,11 @@ export const IDS = {
   guild: id(19),
   picture: id(30),
   wren: id(40),
+  lanternEntry: id(41),
+  bow: id(42),
+  lens: id(43),
+  pellets: id(44),
+  staff: id(45),
 } as const;
 
 export const d20Document = (): RoomDocumentInput => ({
@@ -250,10 +255,28 @@ export const ledgerDocument = (): RoomDocumentInput => ({
   version: 1,
   room: { name: "Lamplight" },
   expects: {
-    ruleset: { slug: "sample-ledger", version: "0.1.0" },
-    packs: [{ slug: "sample-ledger-catalogue", version: "0.1.0" }],
+    ruleset: { slug: "sample-ledger", version: "0.1.1" },
+    packs: [{ slug: "sample-ledger-catalogue", version: "0.1.1" }],
   },
   campaignFields: { tier: 1 },
-  actors: [{ id: IDS.wren, kind: "pc", name: "Wren", build: LEDGER_BUILD, fields: { xp: 12 } }],
-  codex: [{ id: IDS.npc, kind: "npc", title: "The lamplighter", visibility: "party" }],
+  actors: [
+    {
+      id: IDS.wren,
+      kind: "pc",
+      name: "Wren",
+      build: LEDGER_BUILD,
+      fields: { xp: 12 },
+      // Items she holds (house decision #95): a bow with a lens fitted, stores, and a staff a GIVE handed her.
+      items: [
+        { id: IDS.lens, kind: "fittings", entry: "wargear.sight-lens", fittedTo: IDS.bow, source: "acquire" },
+        { id: IDS.bow, kind: "arms", entry: "wargear.hunting-bow", note: "her father's" },
+        { id: IDS.pellets, kind: "stores", entry: "supply.pellets", quantity: 3 },
+        { id: IDS.staff, kind: "arms", entry: "wargear.lantern-staff", source: "give", entryId: IDS.lanternEntry },
+      ],
+    },
+  ],
+  codex: [
+    { id: IDS.npc, kind: "npc", title: "The lamplighter", visibility: "party" },
+    { id: IDS.lanternEntry, kind: "item", title: "The old staff", fields: { of: "wargear.lantern-staff" } },
+  ],
 });

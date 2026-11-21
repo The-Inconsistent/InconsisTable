@@ -102,6 +102,38 @@ const HELD = [
   heldRecord("gone", "x", "X"),
 ];
 
+// Items a character holds (house decision #95), one with the GM's private note, fitted to the other.
+const ITEMS = [
+  {
+    id: "i1",
+    kind: "arms",
+    entry: "staff",
+    name: "Staff",
+    cite: "Sample p.40",
+    note: "",
+    quantity: null,
+    fittedTo: null,
+    source: "give",
+    entryId: null,
+    rev: 3,
+    effects: [],
+  },
+  {
+    id: "i2",
+    kind: "fittings",
+    entry: null,
+    name: "Old Lens",
+    cite: null,
+    note: "cracked: the GM knows",
+    quantity: null,
+    fittedTo: "i1",
+    source: "hand",
+    entryId: null,
+    rev: 4,
+    effects: [],
+  },
+];
+
 const U = (n: number) => `0190a000-0000-7000-8000-${String(n).padStart(12, "0")}`;
 const [PC1, PC2, PAL, NPC, GOB, GHOST] = [1, 2, 3, 4, 5, 6].map(U) as [string, string, string, string, string, string];
 const [CB1, CB2, CB3, CB4, CB5] = [11, 12, 13, 14, 15].map(U) as [string, string, string, string, string];
@@ -128,6 +160,7 @@ const values = (over: Record<string, unknown> = {}) => ({
   ],
   ledger: null,
   held: [],
+  items: [],
   ...over,
 });
 
@@ -163,7 +196,7 @@ const draftOnly = (archetypeId: string) => ({
 const playOnly = { build: null, sheet: null, draft: null, xpSpent: 0, xpAtAscension: 25, packageWaived: true };
 
 const ACTORS = [
-  actor(PC1, "pc", "One", "player1", { ledger: ledger("one"), held: HELD }),
+  actor(PC1, "pc", "One", "player1", { ledger: ledger("one"), held: HELD, items: ITEMS }),
   actor(PC2, "pc", "Two", null, { ledger: draftOnly("two") }),
   actor(PAL, "companion", "Pal", "player1", { conditions: ["staggered"], conditionTimers: [], ledger: playOnly }),
   actor(NPC, "npc", "Keeper", null, {
@@ -1057,6 +1090,12 @@ const VALID: Record<string, Record<string, unknown>> = {
   "table.roll": { tableId: "season", result: 4, actorId: ID, inputs: { on: true, n: 2 } },
   "table.apply": { tableId: "blow", result: 44, actorId: ID, inputs: { past: true, press: 1 } },
   "held.remove": { actorId: ID, held: "mark", entry: "third-eye" },
+  "item.give": { entryId: ID, actorId: ID },
+  "item.take": { entryId: ID },
+  "item.add": { actorId: ID, kind: "stores", name: " Odd Shot ", quantity: 3 },
+  "item.edit": { itemId: ID, rev: 2, note: "worn", remove: false },
+  "item.fit": { itemId: ID, to: null },
+  "item.adjust": { itemId: ID, by: -1 },
   "table.deal": { tableId: "role", actorIds: [ID] },
   "table.reshuffle": { tableId: "role" },
   "whisper.send": { to: [ID], text: " Psst " },

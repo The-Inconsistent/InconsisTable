@@ -65,6 +65,9 @@ type (
 		// Held is the records the actor holds (house decision #88): for a seat that may not read a kind's names, each one
 		// under the kind's unseen word with its effects and no key or cite.
 		Held []HeldRecord `json:"held"`
+		// Items is what it holds in play (house decision #95): whole for the seat holding it and the GM side, empty for
+		// everyone else.
+		Items []ActorItem `json:"items"`
 		// Ledger is the saved ledger build and sheet, and the unfinished draft (house decision #63); nil when the actor
 		// has none or the seat may not read it.
 		Ledger *ActorLedger `json:"ledger"`
@@ -79,6 +82,22 @@ type (
 		Name    string       `json:"name"`
 		Cite    *string      `json:"cite"`
 		Effects []HeldEffect `json:"effects"`
+	}
+	// ActorItem is one item an actor holds (state.ts ActorItem): Entry is the pack entry's key (nil for a hand-written
+	// one), Quantity a counted kind's, FittedTo the item it is fitted to, EntryID the codex item a GIVE handed over.
+	ActorItem struct {
+		ID       string       `json:"id"`
+		Kind     string       `json:"kind"`
+		Entry    *string      `json:"entry"`
+		Name     string       `json:"name"`
+		Cite     *string      `json:"cite"`
+		Note     string       `json:"note"`
+		Quantity *int         `json:"quantity"`
+		FittedTo *string      `json:"fittedTo"`
+		Source   string       `json:"source"`
+		EntryID  *string      `json:"entryId"`
+		Rev      int64        `json:"rev"`
+		Effects  []HeldEffect `json:"effects"`
 	}
 	// HeldEffect is one effect of a held record, as the sheet words it.
 	HeldEffect struct {

@@ -83,6 +83,8 @@ func Parse(payload []byte) (Written, error) {
 // DescribeTarget is a target in words, for a refusal the GM reads.
 func DescribeTarget(t engine.DeltaTarget) string {
 	switch {
+	case t.Item != "":
+		return "that item"
 	case t.Clock != "":
 		return "that clock"
 	case t.Resource != "":

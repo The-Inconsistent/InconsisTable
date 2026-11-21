@@ -18,6 +18,8 @@ import {
 } from "../../../packages/core-schema/src/index.ts";
 import { compileRuleset } from "../../../packages/rules-engine/src/compile.ts";
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+import { SAMPLE_SKIRMISH } from "../../../packages/rules-engine/src/fixtures/sample-skirmish.ts";
+import type { RulesetInput } from "../../../packages/rules-engine/src/manifest.ts";
 
 const VIEW_OUT = join(import.meta.dirname, "../internal/coreschema/testdata/views.json");
 const ACTION_OUT = join(import.meta.dirname, "../internal/coreschema/testdata/actions.json");
@@ -26,11 +28,26 @@ const ACTION_OUT = join(import.meta.dirname, "../internal/coreschema/testdata/ac
 
 // SAMPLE_D20 with spends on a party pool, a gm pool, both, and a resource, for who sees an ask (house decision #84),
 // and records a character holds (house decision #88): marks only the holder and the GM side read by name, and boons
-// every seat that sees the character reads.
+// every seat that sees the character reads. Its codex has sample-skirmish's party road log and two reminders on a
+// person (house decision #89): one reads only a `party` field, one a `gm` field, so a seat without the GM's notes is
+// sent the first and never the second.
 const cost = (over: object) => ({ amount: "1", ...over });
 const [character, ...entities] = SAMPLE_D20.entities ?? [];
-const VIEW_MANIFEST = {
+const VIEW_MANIFEST: RulesetInput = {
   ...SAMPLE_D20,
+  codex: {
+    kinds: {
+      ...SAMPLE_D20.codex?.kinds,
+      quest: SAMPLE_SKIRMISH.codex?.kinds.quest,
+      npc: {
+        fields: SAMPLE_D20.codex?.kinds.npc?.fields ?? {},
+        reminders: [
+          { id: "chilly", if: 'fields.mood == "cold"', text: "Chilly" },
+          { id: "backed", if: "has(fields.patron)", text: "Backed" },
+        ],
+      },
+    },
+  },
   spends: [
     { id: "onParty", label: "On the party", cite: "p.1", cost: [cost({ pool: "luck" })] },
     { id: "onGm", label: "On the GM", cite: "p.1", cost: [cost({ pool: "menace" })] },
@@ -60,7 +77,7 @@ const VIEW_MANIFEST = {
     },
     boon: { label: "Boons", entry: "mark", field: "boons", entities: ["character"], cite: "Sample p.30" },
   },
-} as const;
+};
 
 const compiled = (() => {
   const r = compileRuleset(VIEW_MANIFEST);
@@ -661,6 +678,42 @@ const CODEX = {
     entry(U(535), "party", "all", [], { kind: "npc", fields: { home: U(999) } }),
     entry(U(536), "gm", "all", [], { kind: "npc", fields: { home: U(532) } }),
     entry(U(537), "gm", "all", [], { kind: "faction", fields: { seat: U(511) } }),
+    // Tags and rows (house decision #89): a party place's gm dangers and a faction's gm marks reach only the side that
+    // reads GM notes; a quest's party road log reaches whoever reads the quest; a stored row keeps what still fits.
+    entry(U(538), "party", "all", [], {
+      kind: "location",
+      fields: {
+        dangers: [
+          {
+            id: "d1",
+            from: { entity: "creature", key: "ember-wisp", cite: "Sample p.40" },
+            values: {
+              name: "Ember Wisp",
+              threat: 1,
+              strength: "fierce",
+              check: { testId: "check", inputs: { dc: 12 } },
+            },
+          },
+          { id: "d2", values: { name: "Loose stones", threat: 99, gone: "x", effect: "Slide" } },
+          { id: "d1", values: {} },
+        ],
+      },
+    }),
+    entry(U(539), "party", "all", [], {
+      kind: "faction",
+      fields: { standing: "ally", marks: ["Outsider", "Reedfolk"], seat: U(510) },
+    }),
+    entry(U(540), "party", "all", [], {
+      kind: "quest",
+      fields: {
+        log: [
+          { id: "l1", values: { day: "Day 1", what: "Crossed the ford" } },
+          { id: "l2", values: { when: "x" } },
+        ],
+      },
+    }),
+    entry(U(541), "gm", "all", [], { kind: "quest", fields: { log: [{ id: "l1", values: { day: "Day 9" } }] } }),
+    entry(U(542), "party", "all", [], { kind: "faction", fields: { marks: ["a", "a"] } }),
   ],
   recaps: [
     { sessionId: U(600), number: 2, title: "The bridge", endedAt: "2026-02-01T10:00:00.000Z", recap: "They crossed." },
@@ -1049,6 +1102,13 @@ for (const fields of [
   { a: "x".repeat(10_001) },
   { a: ["x"] },
   { a: { b: 1 } },
+  // A rows field's rows (house decision #89): objects, at most 30; their shape is the declaration's to check.
+  { a: [{ id: "r", values: { n: 1 } }] },
+  { a: [{}] },
+  { a: Array.from({ length: 30 }, () => ({})) },
+  { a: Array.from({ length: 31 }, () => ({})) },
+  { a: [{ id: "r" }, "x"] },
+  { a: [[1]] },
   [],
   "x",
 ]) {
@@ -1089,6 +1149,7 @@ const LINES: Record<string, Record<string, unknown>> = {
   pools: { id: "p", pool: "menace", amount: -3, text: "Spend" },
   exits: { id: "e", label: "Down", sceneId: ID },
   reveals: { id: "v", entryId: ID },
+  picks: { id: "k", entryId: ID, field: "dangers", rows: [{ rowId: "a", on: true }, { rowId: "b" }] },
 };
 const prepSave = (prep: unknown) => record("Action", { type: "codex.save", id: ID, kind: "scene", prep });
 for (const prep of [null, {}, { roster: [] }, { hazards: [] }, { roster: [], extra: 1 }, [], "x", 1]) prepSave(prep);
@@ -1128,6 +1189,20 @@ for (const label of ["", "x".repeat(40), "x".repeat(41)])
 for (const label of ["", " ", " a ", "x".repeat(80), "x".repeat(81)]) prepSave({ exits: [{ ...LINES.exits, label }] });
 for (const id of ["", "x".repeat(40), "x".repeat(41)]) prepSave({ reveals: [{ ...LINES.reveals, id }] });
 prepSave({ roster: [{ ...LINES.roster, id: "same" }], reveals: [{ ...LINES.reveals, id: "same" }] });
+// A pick line's rows (house decision #89): up to 30, each once, a switch off when it does not say.
+for (const n of [30, 31]) {
+  prepSave({ picks: [{ ...LINES.picks, rows: Array.from({ length: n }, (_, i) => ({ rowId: `r${i}` })) }] });
+}
+for (const rows of [
+  [{ rowId: "a" }, { rowId: "a", on: true }],
+  [{ rowId: "" }],
+  [{ rowId: "x".repeat(41) }],
+  [{ rowId: "a", on: "yes" }],
+  [{ rowId: "a", extra: 1 }],
+  [{}],
+])
+  prepSave({ picks: [{ ...LINES.picks, rows }] });
+for (const field of ["", "x".repeat(64), "x".repeat(65)]) prepSave({ picks: [{ ...LINES.picks, field }] });
 // Just under and just over 32 KB, serialized: forty pool lines of a long text, with a note that tips it.
 for (const n of [370, 380, 383, 384, 385, 386, 390, 400]) {
   prepSave({ pools: Array.from({ length: 40 }, (_, i) => ({ ...LINES.pools, id: `p${i}`, text: "é".repeat(n) })) });

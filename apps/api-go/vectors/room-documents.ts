@@ -12,9 +12,12 @@ import { SAMPLE_LEDGER_RULESET } from "../../../packages/rules-engine/src/fixtur
 // The d20 fixture with a place field, so the nested place can carry one (as the smoke suite's codex test does).
 export const ROOM_D20: RulesetInput = (() => {
   const ruleset = structuredClone(SAMPLE_D20);
-  ruleset.version = "0.1.3-room";
+  ruleset.version = "0.1.8-room";
   ruleset.codex!.kinds.location = {
-    fields: { district: { type: "text", label: "District", maxLength: 40, visibility: "party", cite: "Sample p.17" } },
+    fields: {
+      ...ruleset.codex!.kinds.location?.fields,
+      district: { type: "text", label: "District", maxLength: 40, visibility: "party", cite: "Sample p.17" },
+    },
   };
   // Charms a character holds in play (house decision #88): gear by key, only the holder and the GM side read by name.
   const character = ruleset.entities![0]!;
@@ -67,7 +70,7 @@ export const d20Document = (): RoomDocumentInput => ({
     safety: { lines: ["Drowning"], veils: ["Spiders"], xCard: true },
   },
   expects: {
-    ruleset: { slug: "sample-d20", version: "0.1.3-room" },
+    ruleset: { slug: "sample-d20", version: "0.1.8-room" },
     packs: [{ slug: "sample-bestiary", version: "0.1.0" }],
     world: { slug: "sample-tidewater", version: "0.1.0" },
   },
@@ -109,7 +112,18 @@ export const d20Document = (): RoomDocumentInput => ({
       body: "Wet stones below @[Harbour town](" + IDS.town + ").",
       parentId: IDS.town,
       position: 0,
-      fields: { district: "Docks" },
+      // A danger a creature filled and one written by hand (house decision #89); the quay scene picks both.
+      fields: {
+        district: "Docks",
+        dangers: [
+          {
+            id: "d1",
+            from: { entity: "creature", key: "ember-wisp", cite: "Sample p.40" },
+            values: { name: "Ember Wisp", threat: 1, check: { testId: "check", inputs: { ability: "dex", dc: 12 } } },
+          },
+          { id: "d2", values: { name: "Slick stones", strength: "faint", effect: "A slip" } },
+        ],
+      },
       imageId: IDS.picture,
       imageRevealed: true,
       visibility: "party",
@@ -154,6 +168,7 @@ export const d20Document = (): RoomDocumentInput => ({
         pools: [{ id: "p1", pool: "luck", amount: 1, text: "For the crate" }],
         exits: [{ id: "e1", label: "Up the hill", sceneId: IDS.hill }],
         reveals: [{ id: "v1", entryId: IDS.notice }],
+        picks: [{ id: "k1", entryId: IDS.quay, field: "dangers", rows: [{ rowId: "d1", on: true }, { rowId: "d2" }] }],
       },
     },
     { id: IDS.hill, kind: "scene", title: "The hill road", parentId: IDS.road, position: 1, status: "planned" },
@@ -164,7 +179,12 @@ export const d20Document = (): RoomDocumentInput => ({
       body: "Twice a day.",
       gmNotes: "Not on the night of the storm.",
     },
-    { id: IDS.guild, kind: "faction", title: "The Salt Guild", fields: { standing: "rival", seat: IDS.town } },
+    {
+      id: IDS.guild,
+      kind: "faction",
+      title: "The Salt Guild",
+      fields: { standing: "rival", seat: IDS.town, marks: ["Reedfolk", "Outsider"] },
+    },
   ],
   sessions: [
     { title: "Arrival", recap: "The crew came ashore at @[Harbour town](" + IDS.town + ").", notes: "Slow start." },

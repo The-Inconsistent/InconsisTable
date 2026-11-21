@@ -11,6 +11,7 @@ const LINES = {
   pools: { id: "p", pool: "menace", amount: -2 },
   exits: { id: "e", label: "Down", sceneId: ID },
   reveals: { id: "v", entryId: ID },
+  picks: { id: "k", entryId: ID, field: "dangers", rows: [{ rowId: "d1" }] },
 } as const;
 
 test("every kind of line parses, with its defaults", () => {
@@ -24,7 +25,8 @@ test("every kind of line parses, with its defaults", () => {
     outcomes: [],
   });
   assert.deepEqual(p.pools[0], { ...LINES.pools, text: "" });
-  assert.deepEqual(ScenePrep.parse({}), { roster: [], tests: [], pools: [], exits: [], reveals: [] });
+  assert.deepEqual(p.picks[0], { ...LINES.picks, rows: [{ rowId: "d1", on: false }] });
+  assert.deepEqual(ScenePrep.parse({}), { roster: [], tests: [], pools: [], exits: [], reveals: [], picks: [] });
 });
 
 test("limits: lines of a kind, an amount of 0, a shared id, an unknown kind, the size", () => {
@@ -39,6 +41,10 @@ test("limits: lines of a kind, an amount of 0, a shared id, an unknown kind, the
   });
   assert.ok(ScenePrep.safeParse(long(300)).success);
   assert.ok(!ScenePrep.safeParse(long(450)).success);
+  const picked = (rows: unknown) => ScenePrep.safeParse({ picks: [{ ...LINES.picks, rows }] }).success;
+  assert.ok(picked(Array.from({ length: 30 }, (_, i) => ({ rowId: `r${i}` }))));
+  assert.ok(!picked(Array.from({ length: 31 }, (_, i) => ({ rowId: `r${i}` }))));
+  assert.ok(!picked([{ rowId: "a" }, { rowId: "a", on: true }]));
 });
 
 test("codex.save takes prep, null, or nothing", () => {

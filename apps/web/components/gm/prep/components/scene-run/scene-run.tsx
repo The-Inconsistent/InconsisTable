@@ -7,11 +7,13 @@ import {
   type ActionInput,
   type ActionResult,
   type CodexEntry,
+  type PickLine,
   type PrepLine,
   type RosterLine,
 } from "@inconsistable/core-schema";
 
 import { LineText } from "@/components/gm/prep/components/line-text/line-text";
+import { PickedRows } from "@/components/gm/prep/components/scene-run/components/picked-rows/picked-rows";
 import { TestInputField } from "@/components/gm/tests/components/test-input/test-input";
 import { useSummaryWords } from "@/hooks/use-summary-words/use-summary-words";
 import {
@@ -21,6 +23,8 @@ import {
   lineName,
   PREP_ORDER,
   resolveLine,
+  withLine,
+  withSwitch,
   type FightStep,
   type LineNames,
   type PrepWorld,
@@ -92,6 +96,18 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
     const r = await act({ type: "scene.undoBegin", beginId: begun.beginId });
     setBegun(null);
     setSent(r.ok ? t("sent", { what }) : null);
+  };
+
+  // A picked row's switch (house decision #89): an ordinary save of the scene's prep with the row flipped.
+  const handleSwitch = (line: PickLine) => async (rowId: string) => {
+    setBusy(line.id);
+    await act({
+      type: "codex.save",
+      id: scene.id,
+      kind: "scene",
+      prep: withLine({ prep, kind: "picks", line: withSwitch({ line, rowId }) }),
+    });
+    setBusy(null);
   };
 
   // An input a Test line lacked, filled in on the line.
@@ -170,6 +186,9 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
                 <li key={line.id} className="row between" style={{ flexWrap: "wrap", alignItems: "start" }}>
                   <span className="stack" style={{ flex: "1 1 220px", minWidth: 0 }}>
                     <LineText kind={kind} line={line} names={names} resolved={resolved} large />
+                    {kind === "picks" && "rows" in line && (
+                      <PickedRows line={line} world={world} onSwitch={handleSwitch(line)} busy={busy !== null} />
+                    )}
                     {"outcomes" in line && line.outcomes.length > 0 && (
                       <dl className="stack small" style={{ gap: 4, margin: 0 }}>
                         {line.outcomes.map((o, i) => (

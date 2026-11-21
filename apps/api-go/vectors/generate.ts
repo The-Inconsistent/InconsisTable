@@ -31,7 +31,7 @@ import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sam
 import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
 import type { CampaignField, CodexField, FieldDef, Ruleset } from "../../../packages/rules-engine/src/manifest.ts";
 import { runCreation, type EntryLookup } from "../../../packages/rules-engine/src/creation.ts";
-import { checkCampaignValue, checkFieldValue } from "../../../packages/rules-engine/src/field-value.ts";
+import { checkCampaignValue, checkFieldValue, fitRows } from "../../../packages/rules-engine/src/field-value.ts";
 import { MAX_ENTRY_RECORD_BYTES, validatePack, type PackEntry } from "../../../packages/rules-engine/src/pack.ts";
 import { SAMPLE_LEDGER_PACK } from "../../../packages/rules-engine/src/fixtures/sample-ledger-pack.ts";
 import { SAMPLE_LEDGER_RULESET } from "../../../packages/rules-engine/src/fixtures/sample-ledger-ruleset.ts";
@@ -213,6 +213,8 @@ const FIXED_EXPR = [
   "clamp()", "min()", "max()", "min(rolls)", "max(rolls)", "min(empty)", "min(7)", "min(1,2)", "min(tags)", "sum(rolls)", "sum(tags)",
   "sum()", "sum(empty)", "count(tags)", "count(name)", "count()", "has(attr.str)", "has(attr.nope)", "has(res.gone)", "has(missing)",
   "has()", "has(1)", "has(missing.a.b)", "has(rolls[99])", "has(rolls[1/0])", "ready ? 1 : 2", "ready ? 1 : off ? 2 : 3",
+  'contains(tags, "loud")', 'contains(tags, "Loud")', "contains(tags, name)", "contains(rolls, 9)", "contains(rolls, 5)", "contains(empty, 1)",
+  'contains(name, "A")', "contains(tags)", 'contains(missing, "a")', "contains(tags, 1/0)", 'contains(tags, "loud") && !contains(tags, "shy")',
   "off ? 1 : off ? 2 : 3", "zero ? 1 : 2", "true || nope", "false && nope", "false || nope", "1 && true", "frac + 1", "frac",
   "frac == frac", "nope(1)", "toString(1)", "min", "attr.", "attr.1", '"a\\b"', '"unterminated', "1.5", "1a", "9007199254740992",
   "99999999999999999999999999999999999999999999", "é", "😀", "a😀", '"😀"', "😀 + 1", '"é" + 1', '1 + "😀" +', " 1", "﻿1",
@@ -1132,7 +1134,8 @@ const TYPED_SOURCES = [
   "ready ? 1 : \"x\"", "1 ? 2 : 3", "name == \"a\"", "name == 1", "tags == tags", "1 == \"a\"", "-ready", "!1", "1 + ready", "ready && 1", "1 < 2", "ready < 1", "min()", "min(1)",
   "min(rolls)", "min(tags)", "min(1,2,3)", "min(1,ready)", "floor()", "floor(1)", "floor(1,2)", "floor(1,2,3)", "ceil(ready)", "clamp(1,2)", "clamp(1,2,3)", "clamp(1,2,ready)",
   "abs()", "abs(1,2)", "abs(ready)", "mod(1)", "mod(name)", "count()", "count(tags)", "count(name)", "sum(rolls)", "sum(tags)", "sum()", "has()", "has(1)", "has(res.gone)",
-  "has(nope)", "has(attr[name])", "has(1,2)", "has(rolls[0])", "attr[name] + 1", "attr.str + attr[name]", "res.hp + res.gone + res.hp", "attr.str > 1 && has(res.hp)",
+  "has(nope)", "has(attr[name])", "has(1,2)", "has(rolls[0])", "contains(tags, name)", "contains(tags, 1)", "contains(rolls, 1)",
+  "contains(rolls, name)", "contains(name, name)", "contains(tags)", "contains(tags, name, name)", "contains(nope, 1)", "attr[name] + 1", "attr.str + attr[name]", "res.hp + res.gone + res.hp", "attr.str > 1 && has(res.hp)",
   "ready ? attr.str : attr.dex", "tags[attr.str]", "constructor", "attr.constructor", "toString",
   "at(form, 1)", "at(form, attr.str)", "at(forms, 1)", "at(form, name)", "at(form, \"a\")", "at(form)", "at(form, 1, 2)", "at()", "at(1, 2)", "at(name, 1)", "at(tags, 1)",
   "at(badmix, 1)", "at(bare, 1)", "at(twin, 1)", "at(zeros, 1)", "at(hug, 1)", "at(empty, 1)", "at(nope, 1)", "at(deep.g, 1)", "at(deep, 1)", "at(derived, 1)", "at(book, 1)",
@@ -1585,6 +1588,7 @@ function codexCrafted(): object[] {
     codex({ m: enumDef({ tones: { a: "good", b: "bad" } }) }),
     codex({ m: enumDef({ tones: { c: "good" } }) }),
     codex({ m: enumDef({ tones: { a: "warn" } }) }),
+    ...listCrafted(),
     { entities: [{ ...pcBase, fields: { ...pcBase.fields, e: enumDef({ tones: { a: "bad", z: "good" } }) } }] },
     { entities: [{ ...pcBase, fields: { ...pcBase.fields, e: { type: "entry", label: "E", kind: "npc" } } }] },
     {
@@ -1596,6 +1600,126 @@ function codexCrafted(): object[] {
     {
       campaignFields: { era: { type: "enum", label: "E", values: ["a"], default: "a", notes: { b: "B" }, cite: "p1" } },
     },
+  ];
+}
+
+// Tags, rows and a kind's reminders (house decision #89): one valid block, then each refusal.
+function listCrafted(): object[] {
+  const kin = {
+    id: "kin",
+    label: "Kin",
+    base: "entry",
+    fields: {
+      bite: { type: "int", label: "B" },
+      mood: { type: "enum", label: "M", values: ["a", "b"] },
+      note: { type: "text", label: "N" },
+      boss: { type: "ref", label: "R", entity: "kin" },
+      on: { type: "bool", label: "O" },
+    },
+  };
+  const entities = [pcBase, kin];
+  const rows = (over: object = {}) => ({
+    type: "rows",
+    label: "R",
+    columns: [
+      { id: "name", label: "N", type: "text", maxLength: 80 },
+      { id: "dc", label: "D", type: "int", min: 1, max: 20 },
+      { id: "how", label: "H", type: "enum", values: ["a", "b", "c"], labels: { a: "A" }, tones: { c: "bad" } },
+      { id: "on", label: "O", type: "bool" },
+      { id: "who", label: "W", type: "ref", entity: "kin" },
+      { id: "test", label: "T", type: "test" },
+    ],
+    from: [{ entity: "kin", name: "name", values: { dc: "bite", how: "mood", who: "boss", on: "on" } }],
+    pick: { label: "Seen" },
+    ...over,
+  });
+  const tags = (over: object = {}) => ({ type: "tags", label: "T", entities: ["kin"], writeIn: true, ...over });
+  const kind = (fields: object, reminders?: object[]) => ({
+    entities,
+    codex: { kinds: { location: { fields, ...(reminders === undefined ? {} : { reminders }) } } },
+  });
+  const col = (c: object) => rows({ columns: [{ id: "name", label: "N", type: "text" }, c], from: undefined });
+  const fill = (f: object) => rows({ from: [f] });
+  return [
+    kind(
+      {
+        dangers: rows(),
+        size: { type: "int", label: "S" },
+        words: tags({ options: ["x", "y"], labels: { x: "X" }, maxItems: 5, visibility: "party" }),
+      },
+      [
+        { id: "mix", if: 'contains(fields.words, "x") && fields.size > 1', text: "Mind the mix", cite: "p1" },
+        { id: "some", if: "has(fields.size)", text: "Sized" },
+      ],
+    ),
+    kind({ words: tags({ entities: undefined, writeIn: undefined }) }),
+    kind({ words: tags({ entities: undefined, options: ["x"], writeIn: false }) }),
+    kind({ words: tags({ entities: ["nope", "kin"] }) }),
+    kind({ words: tags({ options: ["x"], labels: { y: "Y", x: "x".repeat(61) } }) }),
+    kind({ words: tags({ maxItems: 31 }) }),
+    kind({ words: tags({ maxItems: 0 }) }),
+    kind({ words: tags({ entities: [] }) }),
+    kind({ words: tags({ options: ["Bad_Id"] }) }),
+    kind({ words: tags({ writeIn: "yes" }) }),
+    kind({ dangers: rows({ columns: [] }) }),
+    kind({
+      dangers: rows({ columns: Array.from({ length: 9 }, (_, i) => ({ id: `c${i}`, label: "C", type: "bool" })) }),
+    }),
+    kind({
+      dangers: rows({
+        from: undefined,
+        columns: [
+          { id: "a", label: "A", type: "bool" },
+          { id: "a", label: "B", type: "int" },
+        ],
+      }),
+    }),
+    kind({ dangers: col({ id: "e", label: "E", type: "entry", kind: "npc" }) }),
+    kind({ dangers: col({ id: "e", label: "E", type: "tags" }) }),
+    kind({ dangers: col({ id: "e", label: "E", type: "text", maxLength: 501 }) }),
+    kind({ dangers: col({ id: "e", label: "E", type: "ref", entity: "nope" }) }),
+    kind({ dangers: col({ id: "e", label: "E", type: "int", min: 5, max: 1 }) }),
+    kind({ dangers: col({ id: "e", label: "E", type: "enum", values: ["a"], notes: { b: "B" } }) }),
+    kind({ dangers: col({ id: "Bad", label: "E", type: "bool" }) }),
+    kind({ dangers: col({ id: "e", label: "x".repeat(61), type: "bool" }) }),
+    kind({ dangers: rows({ maxRows: 31 }) }),
+    kind({ dangers: rows({ pick: { label: "" } }) }),
+    kind({ dangers: rows({ pick: {} }) }),
+    kind({ dangers: rows({ from: [] }) }),
+    kind({ dangers: fill({ entity: "nope" }) }),
+    kind({ dangers: rows({ from: [{ entity: "kin" }, { entity: "kin" }] }) }),
+    kind({ dangers: fill({ entity: "kin", name: "dc" }) }),
+    kind({ dangers: fill({ entity: "kin", name: "gone" }) }),
+    kind({
+      dangers: fill({ entity: "kin", values: { gone: "bite", dc: "nope", how: "note", name: "bite", test: "note" } }),
+    }),
+    kind({ dangers: fill({ entity: "kin", values: { dc: "Bad.Field" } }) }),
+    kind({
+      dangers: rows({
+        columns: [
+          { id: "how", label: "H", type: "enum", values: ["a"] },
+          { id: "who", label: "W", type: "ref", entity: "pc" },
+        ],
+        from: [{ entity: "kin", values: { how: "mood", who: "boss" } }],
+      }),
+    }),
+    kind({ dangers: rows(), size: { type: "int", label: "S" } }, [
+      { id: "r", if: "count(fields.dangers) > 0", text: "T" },
+    ]),
+    kind({ size: { type: "int", label: "S" } }, [{ id: "r", if: "fields.size", text: "T" }]),
+    kind({ size: { type: "int", label: "S" } }, [{ id: "r", if: "fields.nope == 1", text: "T" }]),
+    kind({ size: { type: "int", label: "S" } }, [
+      { id: "r", if: "true", text: "T" },
+      { id: "r", if: "true", text: "U" },
+    ]),
+    kind({ size: { type: "int", label: "S" } }, [{ id: "r", if: "true", text: "" }]),
+    kind({ size: { type: "int", label: "S" } }, [{ id: "r", if: "true", text: "x".repeat(121) }]),
+    kind({ size: { type: "int", label: "S" } }, [{ id: "r", text: "T" }]),
+    kind(
+      { size: { type: "int", label: "S" } },
+      Array.from({ length: 21 }, (_, i) => ({ id: `r${i}`, if: "true", text: "T" })),
+    ),
+    kind({ words: tags() }, [{ id: "r", if: "contains(fields.words, 1)", text: "T" }]),
   ];
 }
 
@@ -3108,7 +3232,73 @@ function fieldValueVectors() {
     Array.from({ length: 500 }, () => "a"), Array.from({ length: 501 }, () => "a"), {}, { a: 1 },
     "0193a1b2-c3d4-7e5f-8a6b-9c0d1e2f3a4b", "0193A1B2-C3D4-7E5F-8A6B-9C0D1E2F3A4B", "0193a1b2-c3d4-7e5f-8a6b-9c0d1e2f3a4", "0193a1b2-c3d4-9e5f-8a6b-9c0d1e2f3a4b", "00000000-0000-0000-0000-000000000000",
   ];
-  return defs.flatMap((def) => values.map((value) => ({ def, value, why: checkFieldValue({ def, value }) })));
+  // House decision #89: a tags field and a rows field, with values of their own shapes.
+  const tags: CodexField[] = [
+    { label: "T", visibility: "gm", type: "tags", writeIn: true },
+    { label: "T", visibility: "gm", type: "tags", maxItems: 2, options: ["a"], writeIn: false },
+  ];
+  const rows: CodexField[] = [
+    {
+      label: "R",
+      visibility: "gm",
+      type: "rows",
+      maxRows: 3,
+      columns: [
+        { id: "name", label: "N", type: "text", maxLength: 5 },
+        { id: "dc", label: "D", type: "int", min: 1, max: 20 },
+        { id: "how", label: "H", type: "enum", values: ["low", "high"] },
+        { id: "on", label: "O", type: "bool" },
+        { id: "who", label: "W", type: "ref", entity: "kin" },
+        { id: "test", label: "T", type: "test" },
+      ],
+      from: [{ entity: "kin", name: "name" }],
+    },
+    { label: "R", visibility: "party", type: "rows", columns: [{ id: "note", label: "N", type: "text" }] },
+  ];
+  const row = (extra: Record<string, unknown>) => ({ id: "r1", values: {}, ...extra });
+  // prettier-ignore
+  const shaped: unknown[] = [
+    [], ["a"], ["a", "b"], ["a", "a"], ["A", "a"], [" "], [""], ["x".repeat(60)], ["x".repeat(61)], ["a", "b", "c"], Array.from({ length: 31 }, (_, i) => `w${i}`), [1], "a",
+    [row({})], [row({}), row({})], [row({}), row({ id: "r2" }), row({ id: "r3" }), row({ id: "r4" })], Array.from({ length: 31 }, (_, i) => row({ id: `r${i}` })),
+    [{ id: "r1" }], [{ values: {} }], [row({ id: "" })], [row({ id: "x".repeat(41) })], [row({ extra: 1 })], [row({ values: [] })], [row({ values: null })],
+    [row({ values: { name: "abcde", dc: 20, how: "low", on: true, who: "elf", test: { testId: "check", inputs: { dc: 12, hard: true, how: "x" } } } })],
+    [row({ values: { name: "abcdef" } })], [row({ values: { dc: 21 } })], [row({ values: { dc: 1.5 } })], [row({ values: { how: "mid" } })], [row({ values: { on: 1 } })],
+    [row({ values: { who: "" } })], [row({ values: { nope: 1, dc: 99 } })], [row({ values: { zz: 1, dc: 99 } })], [row({ values: { note: "x".repeat(500) } })], [row({ values: { note: "x".repeat(501) } })],
+    [row({ values: { test: { testId: "check" } } })], [row({ values: { test: { testId: "" } } })], [row({ values: { test: { testId: "c", extra: 1 } } })],
+    [row({ values: { test: { testId: "c", inputs: [] } } })], [row({ values: { test: { testId: "c", inputs: { a: null } } } })], [row({ values: { test: { testId: "c", inputs: { a: "x".repeat(101) } } } })],
+    [row({ values: { test: "check" } })], [row({ from: { entity: "kin", key: "elf", cite: "Sample p.1" } })], [row({ from: { entity: "kin", key: "elf" } })],
+    [row({ from: { entity: "gear", key: "elf" } })], [row({ from: { entity: "kin", key: "" } })], [row({ from: { entity: "kin", key: "elf", cite: "" } })],
+    [row({ from: { entity: "kin", key: "elf", page: 1 } })], [row({ from: null })], [row({}), row({})],
+  ];
+  const typed = [...tags, ...rows].flatMap((def) =>
+    [...values, ...shaped].map((value) => ({ def, value, why: checkFieldValue({ def, value }) })),
+  );
+  return [
+    ...defs.flatMap((def) => values.map((value) => ({ def, value, why: checkFieldValue({ def, value }) }))),
+    ...typed,
+  ];
+}
+
+/** A stored rows value as each declaration now fits it (house decision #89): what the Seat view sends. */
+function fitRowsVectors() {
+  const def: Extract<CodexField, { type: "rows" }> = {
+    label: "R",
+    visibility: "gm",
+    type: "rows",
+    maxRows: 2,
+    columns: [
+      { id: "dc", label: "D", type: "int", max: 10 },
+      { id: "how", label: "H", type: "enum", values: ["low"] },
+    ],
+    from: [{ entity: "kin" }],
+  };
+  // prettier-ignore
+  const values: unknown[] = [
+    null, "x", [], [1, null, { id: 3 }], [{ id: "a", values: { dc: 4, how: "low", gone: 1 } }],
+    [{ id: "a", values: { dc: 40, how: "high" }, from: { entity: "kin", key: "elf" } }, { id: "a", values: {} }, { id: "b", from: { entity: "old", key: "x" } }],
+    [{ id: "a", values: [] }, { id: "b", values: { dc: 1 } }, { id: "c", values: { dc: 2 } }], [{ id: "", values: {} }, { id: "x".repeat(41) }],
+  ];
+  return values.map((value) => ({ def, value, fit: fitRows({ def, value }) }));
 }
 
 function campaignValueVectors() {
@@ -3285,8 +3475,24 @@ function reminderVectors() {
   return out;
 }
 
-/** The two lookup manifests lookupVectors reads (house decision #87). */
-const LOOKUP_MANIFESTS: unknown[] = [SAMPLE_HARM, LOOKUP_MANIFEST];
+// SAMPLE_HARM with its horn granted only to a hero without one: contains() (house decision #89) over a held list field
+// (#88), which reads as empty where it is unset.
+const lesser = SAMPLE_HARM.tables!.lesser!;
+const HELD_CONTAINS = {
+  ...SAMPLE_HARM,
+  tables: {
+    ...SAMPLE_HARM.tables,
+    lesser: {
+      ...lesser,
+      entries: lesser.entries.map((x) =>
+        x.id === "horn" ? { ...x, apply: x.apply?.map((a) => ({ ...a, when: '!contains(growths, "horn")' })) } : x,
+      ),
+    },
+  },
+};
+
+/** The lookup manifests lookupVectors reads (house decision #87). */
+const LOOKUP_MANIFESTS: unknown[] = [SAMPLE_HARM, LOOKUP_MANIFEST, HELD_CONTAINS];
 
 /** Typed results applied to targets of random values (house decision #87): the line, the total and the steps, or why not. */
 function lookupVectors() {
@@ -3708,6 +3914,7 @@ const vectors = {
   derive: deriveVectors(),
   entryDerive: entryDeriveVectors(),
   fieldValues: fieldValueVectors(),
+  fitRows: fitRowsVectors(),
   campaignValueChecks: campaignValueVectors(),
   scoringManifests: SCORING_MANIFESTS,
   scoring: scoringVectors(),

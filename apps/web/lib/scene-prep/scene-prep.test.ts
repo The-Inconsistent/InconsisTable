@@ -13,10 +13,12 @@ import {
   lineName,
   lineNames,
   offeredKinds,
+  pickedRows,
   resolveLine,
   stepLine,
   withLine,
   withoutLine,
+  withSwitch,
   type PrepWorld,
   type Spawnable,
   type SummaryWords,
@@ -337,13 +339,14 @@ describe("what a scene offers follows the ruleset and the packs", () => {
     const d20 = Ruleset.parse(SAMPLE_D20);
     assert.deepEqual(offeredKinds({ ruleset: d20, spawnable: SPAWNABLE }), [
       "reveals",
+      "picks",
       "tests",
       "pools",
       "roster",
       "exits",
     ]);
     const none = { packs: [], entries: [], complete: true };
-    assert.deepEqual(offeredKinds({ ruleset: d20, spawnable: none }), ["reveals", "tests", "pools", "exits"]);
+    assert.deepEqual(offeredKinds({ ruleset: d20, spawnable: none }), ["reveals", "picks", "tests", "pools", "exits"]);
   });
   test("a ruleset with no pool and no Test offers neither; no ruleset offers exits and reveals only", () => {
     const harvest = Ruleset.parse(SAMPLE_HARVEST);
@@ -363,4 +366,34 @@ test("lines are added, replaced, moved and removed by id", () => {
   assert.deepEqual(stepLine({ prep: p, kind: "reveals", id: "b", step: -1 }).reveals, [b, { ...a, note: "x" }]);
   assert.equal(stepLine({ prep: p, kind: "reveals", id: "a", step: -1 }), p);
   assert.deepEqual(withoutLine({ prep: p, kind: "reveals", id: "a" }).reveals, [b]);
+});
+
+// House decision #89: a scene's pick of a place's rows, read and ticked, never sent.
+test("a pick line is read, not sent; a gone entry, an unpickable field and a gone row show broken", () => {
+  const d20 = Ruleset.parse(SAMPLE_D20);
+  const PLACE = "00000000-0000-4000-8000-0000000000d1";
+  const place = { ...entry(PLACE, "location"), fields: { dangers: [{ id: "d1", values: { name: "Mud" } }] } };
+  const w: PrepWorld = { ...world(), entries: [entry(SCENE, "scene"), place as CodexEntry], ruleset: d20 };
+  const line = {
+    id: "k",
+    entryId: PLACE,
+    field: "dangers",
+    rows: [
+      { rowId: "d1", on: false },
+      { rowId: "d9", on: true },
+    ],
+  };
+  assert.deepEqual(resolveLine({ kind: "picks", line, world: w }), { state: "read" });
+  assert.deepEqual(
+    pickedRows({ line, world: w }).map((r) => [r.rowId, r.on, r.row?.values.name]),
+    [
+      ["d1", false, "Mud"],
+      ["d9", true, undefined],
+    ],
+  );
+  assert.deepEqual(withSwitch({ line, rowId: "d1" }).rows[0], { rowId: "d1", on: true });
+  const broken = (missing: string) => ({ state: "broken", missing });
+  assert.deepEqual(resolveLine({ kind: "picks", line: { ...line, entryId: GONE }, world: w }), broken("entry"));
+  assert.deepEqual(resolveLine({ kind: "picks", line: { ...line, field: "district" }, world: w }), broken("field"));
+  assert.deepEqual(resolveLine({ kind: "picks", line, world: { ...w, ruleset: null } }), broken("field"));
 });

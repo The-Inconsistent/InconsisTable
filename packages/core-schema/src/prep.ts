@@ -75,8 +75,24 @@ export type ExitLine = z.infer<typeof ExitLine>;
 export const RevealLine = z.object({ ...line, entryId: id });
 export type RevealLine = z.infer<typeof RevealLine>;
 
-// The five kinds of line, as the document keys them. A kind this schema does not know is refused, never dropped.
-export const PREP_KINDS = ["roster", "tests", "pools", "exits", "reveals"] as const;
+export const MAX_PICKED_ROWS = 30;
+
+// Rows a scene picks from another entry's `rows` field (house decision #89), each with the one switch the field's
+// `pick` names (on by the GM's tap during play, through an ordinary save of the prep). Never sent as an action.
+export const PickLine = z.object({
+  ...line,
+  entryId: id,
+  field: z.string().min(1).max(64),
+  rows: z
+    .array(z.object({ rowId: z.string().min(1).max(40), on: z.boolean().default(false) }))
+    .max(MAX_PICKED_ROWS)
+    .refine((rows) => new Set(rows.map((r) => r.rowId)).size === rows.length, "A row is picked twice")
+    .default([]),
+});
+export type PickLine = z.infer<typeof PickLine>;
+
+// The six kinds of line, as the document keys them. A kind this schema does not know is refused, never dropped.
+export const PREP_KINDS = ["roster", "tests", "pools", "exits", "reveals", "picks"] as const;
 export type PrepKind = (typeof PREP_KINDS)[number];
 
 const lines = <T extends z.ZodType>(schema: T) => z.array(schema).max(MAX_PREP_LINES).default([]);
@@ -88,6 +104,7 @@ export const ScenePrep = z
     pools: lines(PoolLine),
     exits: lines(ExitLine),
     reveals: lines(RevealLine),
+    picks: lines(PickLine),
   })
   .refine((p) => {
     const ids = PREP_KINDS.flatMap((k) => p[k].map((l) => l.id));

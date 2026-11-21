@@ -12,8 +12,14 @@ import {
   fieldsPatch,
   linkedEntry,
   linkOptions,
+  entryReminders,
   listChips,
+  prefillRow,
+  rowChips,
+  rowName,
   shownFields,
+  tagSuggestions,
+  tagToAdd,
 } from "./entry-fields.ts";
 
 const ruleset = Ruleset.parse(SAMPLE_D20);
@@ -139,5 +145,93 @@ test("one entry is read from the rules route by type and key", () => {
   assert.equal(
     entryUrl({ campaignId: "c 1", type: "creature", key: "ember-wisp" }),
     "/api/campaigns/c%201/rules?type=creature&key=ember-wisp&limit=1",
+  );
+});
+
+// House decision #89: tags and rows on the d20 sample's faction and place.
+const dangers = ruleset.codex?.kinds.location?.fields.dangers;
+const marks = ruleset.codex?.kinds.faction?.fields.marks;
+const kinded = (kind: CodexEntry["kind"], fields: CodexEntry["fields"]): CodexEntry => ({ ...npc(fields), kind });
+
+test("a row reads as chips: text, a number by its column, an enum by its label and tone, a Test in its words", () => {
+  assert.ok(dangers?.type === "rows");
+  const row = {
+    id: "d1",
+    values: { name: "Wisp", threat: 3, strength: "fierce", check: { testId: "check", inputs: { dc: 12 } } },
+  };
+  assert.deepEqual(
+    rowChips({ ruleset, def: dangers, row }).map((c) => [c.text, c.tone, c.broken ?? false]),
+    [
+      ["Wisp", null, false],
+      ["Threat 3", null, false],
+      ["Fierce", "bad", false],
+      ["Ability check · DC 12", null, false],
+    ],
+  );
+  const gone = { id: "d2", values: { check: { testId: "gone", inputs: {} } } };
+  assert.deepEqual(rowChips({ ruleset, def: dangers, row: gone })[0], {
+    key: "check",
+    text: "gone",
+    tone: null,
+    broken: true,
+  });
+  assert.equal(rowName({ def: dangers, row }), "Wisp");
+  assert.equal(rowName({ def: dangers, row: gone }), "d2");
+});
+
+test("a row filled from a pack entry takes its name and mapped values, and keeps its key and cite", () => {
+  assert.ok(dangers?.type === "rows");
+  const wisp = {
+    pack: "sample",
+    key: "ember-wisp",
+    type: "creature",
+    name: "Ember Wisp",
+    level: 1,
+    tags: [],
+    cite: "Sample p.40",
+    visibility: "gm",
+    body: { level: 1, guard: 11 },
+  };
+  assert.deepEqual(prefillRow({ def: dangers, entry: wisp, id: "r" }), {
+    id: "r",
+    from: { entity: "creature", key: "ember-wisp", cite: "Sample p.40" },
+    values: { name: "Ember Wisp", threat: 1 },
+  });
+});
+
+test("a tags field suggests its pack names ranked, adds an exact one on Enter, and a write-in only where allowed", () => {
+  assert.ok(marks?.type === "tags");
+  const names = ["Reedfolk", "Hill reed", "Stonekin"];
+  const found = tagSuggestions({ def: marks, names, picked: ["Stonekin"], q: "reed" });
+  assert.deepEqual(
+    found.map((s) => s.word),
+    ["Reedfolk", "Hill reed"],
+  );
+  assert.equal(tagToAdd({ def: marks, suggestions: found, q: "reedfolk" }), "Reedfolk");
+  assert.equal(tagToAdd({ def: marks, suggestions: found, q: "Outsider" }), "Outsider");
+  assert.equal(tagToAdd({ def: { ...marks, writeIn: false }, suggestions: found, q: "Outsider" }), null);
+});
+
+test("lists show a tags field's words and how many rows a field holds; a save sends a list only when it changed", () => {
+  const band = kinded("faction", { standing: "ally", marks: ["Reedfolk", "Outsider"] });
+  assert.deepEqual(
+    listChips({ ruleset, entry: band }).map((c) => c.label),
+    ["Ally", "Reedfolk · Outsider"],
+  );
+  const place = kinded("location", {
+    dangers: [
+      { id: "a", values: {} },
+      { id: "b", values: {} },
+    ],
+  });
+  assert.deepEqual(
+    listChips({ ruleset, entry: place }).map((c) => c.label),
+    ["Dangers 2"],
+  );
+  assert.equal(fieldsPatch({ entry: band, draft: { marks: ["Reedfolk", "Outsider"] } }), null);
+  assert.deepEqual(fieldsPatch({ entry: band, draft: { marks: ["Reedfolk"] } }), { marks: ["Reedfolk"] });
+  assert.deepEqual(
+    entryReminders({ ruleset, entry: band }).map((r) => r.id),
+    ["outsiderAlly"],
   );
 });

@@ -294,8 +294,10 @@ func (r *room) entries() {
 			for _, line := range doc(prep).list("exits") {
 				line["sceneId"] = r.back(line["sceneId"].(string))
 			}
-			for _, line := range doc(prep).list("reveals") {
-				line["entryId"] = r.back(line["entryId"].(string))
+			for _, kind := range []string{"reveals", "picks"} {
+				for _, line := range doc(prep).list(kind) {
+					line["entryId"] = r.back(line["entryId"].(string))
+				}
 			}
 			for _, line := range doc(prep).list("tests") {
 				ids := []any{}
@@ -557,7 +559,7 @@ func TestADryRunLeavesNothing(t *testing.T) {
 		answer.Counts.Pictures != 1 || answer.Counts.Sessions != 2 || answer.Counts.Clocks != 1 {
 		t.Errorf("answer: %+v", answer)
 	}
-	if want := []Expect{{"ruleset", "sample-d20", "0.1.3-room", true}, {"pack", "sample-bestiary", "0.1.0", true},
+	if want := []Expect{{"ruleset", "sample-d20", "0.1.8-room", true}, {"pack", "sample-bestiary", "0.1.0", true},
 		{"world", "sample-tidewater", "0.1.0", true}}; !reflect.DeepEqual(answer.Expects, want) {
 		t.Errorf("expects: %+v", answer.Expects)
 	}
@@ -637,6 +639,15 @@ func TestARefusedDocumentNamesItsPathAndLeavesNothing(t *testing.T) {
 		{"a link to an entry it does not hold", "d20", func(d map[string]any) {
 			at(d, map[string]any{"mood": "wary", "home": "00000000-0000-4000-8000-000000009999"}, "codex", 2, "fields")
 		}, "codex[2].fields.home", "roomNoSuchEntry"},
+		{"a pick of an entry it does not hold", "d20", func(d map[string]any) {
+			at(d, "00000000-0000-4000-8000-000000000999", "codex", 6, "prep", "picks", 0, "entryId")
+		}, "codex[6].prep.picks[0].entryId", "roomNoSuchEntry"},
+		{"a row filled from an entry the packs do not serve", "d20", func(d map[string]any) {
+			at(d, map[string]any{"dangers": []any{map[string]any{"id": "d1", "from": map[string]any{"entity": "creature", "key": "gone"}, "values": map[string]any{}}}}, "codex", 1, "fields")
+		}, "codex[1].fields", "badEntryField"},
+		{"a row cell that does not fit", "d20", func(d map[string]any) {
+			at(d, map[string]any{"dangers": []any{map[string]any{"id": "d1", "values": map[string]any{"threat": 99.0}}}}, "codex", 1, "fields")
+		}, "codex[1].fields", "badEntryField"},
 		{"an undeclared entry field", "d20", func(d map[string]any) { at(d, map[string]any{"rank": 1.0}, "codex", 2, "fields") }, "codex[2].fields", "noSuchEntryField"},
 		{"a scene under a place", "d20", func(d map[string]any) { at(d, "00000000-0000-4000-8000-000000000010", "codex", 6, "parentId") }, "codex[6].parentId", "sceneNeedsAdventure"},
 		{"a bad build", "ledger", func(d map[string]any) { at(d, `{"tier":1}`, "actors", 0, "build") }, "actors[0].build", ""},

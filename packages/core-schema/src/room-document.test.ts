@@ -18,7 +18,34 @@ test("a room document needs only its format, version and name; a scene's prep ke
     pools: [],
     exits: [],
     reveals: [{ id: "v", entryId: ID(2) }],
+    picks: [],
   });
+});
+
+test("an entry's tags and rows travel as its other field values do (house decision #89)", () => {
+  const rows = [{ id: "d1", from: { entity: "creature", key: "wisp" }, values: { threat: 2 } }];
+  const doc = RoomDocument.parse({
+    ...BASE,
+    codex: [
+      { id: ID(1), kind: "location", title: "Ford", fields: { dangers: rows, marks: ["a", "b"] } },
+      {
+        id: ID(2),
+        kind: "scene",
+        title: "Crossing",
+        prep: { picks: [{ id: "k", entryId: ID(1), field: "dangers", rows: [{ rowId: "d1" }] }] },
+      },
+    ],
+  });
+  assert.deepEqual(doc.codex?.[0]?.fields, { dangers: rows, marks: ["a", "b"] });
+  assert.deepEqual(doc.codex?.[1]?.prep?.picks, [
+    { id: "k", entryId: ID(1), field: "dangers", rows: [{ rowId: "d1", on: false }] },
+  ]);
+  const many = Array.from({ length: 31 }, (_, i) => ({ id: `r${i}` }));
+  assert.equal(
+    RoomDocument.safeParse({ ...BASE, codex: [{ id: ID(1), kind: "location", title: "x", fields: { d: many } }] })
+      .success,
+    false,
+  );
 });
 
 test("refused: another format, a key it does not know, a repeated id, a built actor with a type, a list past its cap", () => {

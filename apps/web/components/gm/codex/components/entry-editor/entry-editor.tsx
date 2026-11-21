@@ -18,7 +18,7 @@ import {
   type FieldsDraft,
 } from "@/components/gm/codex/components/entry-fields-form/entry-fields-form";
 import { RevealForm } from "@/components/gm/codex/components/reveal-form/reveal-form";
-import { EntryFields } from "@/components/ui/entry-fields/entry-fields";
+import { EntryFields, EntryReminders } from "@/components/ui/entry-fields/entry-fields";
 import { EntryPath } from "@/components/ui/entry-path/entry-path";
 import { HandoutDoc } from "@/components/ui/handout-doc/handout-doc";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
@@ -161,6 +161,7 @@ export function EntryEditor(props: EntryEditorProps) {
           </select>
         </label>
       )}
+      {can.write && <EntryReminders ruleset={ruleset} entry={entry} />}
       {can.write ? (
         <EntryFieldsForm
           ruleset={ruleset}

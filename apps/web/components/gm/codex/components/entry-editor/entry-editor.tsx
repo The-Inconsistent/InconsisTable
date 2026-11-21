@@ -17,6 +17,7 @@ import {
   EntryFieldsForm,
   type FieldsDraft,
 } from "@/components/gm/codex/components/entry-fields-form/entry-fields-form";
+import { ItemGive } from "@/components/gm/codex/components/item-give/item-give";
 import { RevealForm } from "@/components/gm/codex/components/reveal-form/reveal-form";
 import { EntryFields, EntryReminders } from "@/components/ui/entry-fields/entry-fields";
 import { EntryPath } from "@/components/ui/entry-path/entry-path";
@@ -288,6 +289,9 @@ export function EntryEditor(props: EntryEditorProps) {
         </div>
       )}
       <PictureField campaignId={campaignId} entry={entry} can={can} act={act} />
+      {entry.kind === "item" && can.write && ruleset?.items?.give && (
+        <ItemGive entry={entry} characters={characters} act={act} />
+      )}
       {can.reveal && <RevealForm entry={entry} characters={characters} act={act} />}
     </section>
   );

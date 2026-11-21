@@ -47,6 +47,20 @@ export type StrikeMeansPick = z.infer<typeof StrikeMeansPick>;
 /** The total the table typed for a strike: the engine's bounds (rules-engine STRIKE_TOTAL_MIN, STRIKE_TOTAL_MAX). */
 export const StrikeTotal = z.int().min(-1000).max(1000);
 
+/**
+ * One step's answer in a generator's run (house decision #98): a roll's lines (its table's, then each line's `next`), a
+ * pick's key, or a value set by hand; the server reads the one its step's kind takes.
+ */
+export const GenerateStepValue = z.object({
+  rows: z.array(z.string().min(1).max(64)).min(1).max(8).optional(),
+  key: z.string().min(1).max(80).optional(),
+  value: z.union([z.number(), z.string().max(200)]).optional(),
+});
+export const GenerateValues = z
+  .record(z.string().min(1).max(64), GenerateStepValue)
+  .refine((o) => Object.keys(o).length <= 20, "At most 20 steps");
+export const MAX_GENERATED_ENTRIES = 60;
+
 /** The numbers a spend's asker picks, by input name (house decision #84). */
 export const SpendInputs = z.record(z.string().min(1).max(64), z.number().int().min(-1000).max(1000));
 
@@ -256,6 +270,15 @@ export const Action = z.discriminatedUnion("type", [
     kind: CodexKind,
     entity: z.string().min(1).max(64),
     key: z.string().min(1).max(80),
+    parentId: id.optional(),
+  }),
+  // A generator's run the GM confirmed (house decision #98): each step's answer by id, and one set per round of `each`;
+  // the server checks it against the declaration and makes its entries as one logged action. Answers the ids, root first.
+  z.object({
+    type: z.literal("codex.generate"),
+    generatorId: z.string().min(1).max(64),
+    values: GenerateValues,
+    each: z.array(GenerateValues).max(MAX_GENERATED_ENTRIES).default([]),
     parentId: id.optional(),
   }),
   // Who reads an entry, and whether the table sees its picture: either may be sent alone.
@@ -500,6 +523,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "screen.revoke": "token:issue",
   "codex.save": "codex:write",
   "codex.fromPack": "codex:write", // and the pack entry read as the seat reads it (house decision #97)
+  "codex.generate": "codex:write", // and each pick read as the seat reads it (house decision #98)
   "codex.reveal": "codex:reveal",
   "codex.delete": "codex:write",
   "scene.begin": "codex:write", // as making a scene active with codex.save; each reveal then asks codex:reveal
@@ -627,6 +651,6 @@ export type Notice = z.infer<typeof Notice>;
 
 /** What `table.roll` drew or read and `table.apply` applied (house decision #87): the line, the dice, and the total. */
 export type RollAnswer = { entryId: string; value: number; total: number };
-// `ids`: every entry codex.fromPack made, root first (house decision #97).
+// `ids`: every entry codex.fromPack or codex.generate made, root first (house decisions #97, #98).
 export type ActionResult =
   { ok: true; id?: string; ids?: string[]; token?: string; notices?: Notice[]; roll?: RollAnswer } | Refused;

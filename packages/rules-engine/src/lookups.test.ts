@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { compileRuleset, type CompiledRuleset } from "./compile.ts";
 import { actorScope, applyBaseEffects } from "./derived.ts";
-import { SAMPLE_HARM, SAMPLE_HARM_BEFORE_STRIKES } from "./fixtures/sample-harm.ts";
+import { SAMPLE_HARM_BEFORE_GENERATORS as SAMPLE_HARM, SAMPLE_HARM_BEFORE_STRIKES } from "./fixtures/sample-harm.ts";
 import { SAMPLE_SKIRMISH } from "./fixtures/sample-skirmish.ts";
 import { planLookup, readLookup, rowOf, withLists } from "./lookups.ts";
 import { validateRuleset, type RulesetInput } from "./manifest.ts";

@@ -475,7 +475,7 @@ const codex0_1_8 = SAMPLE_D20_0_1_8.codex?.kinds ?? {};
  * its checks and its foes, a charter whose season is checked against the campaign's), and a person's name and look
  * rolled on two tables each. Every name, number and page is invented.
  */
-export const SAMPLE_D20: RulesetInput = {
+export const SAMPLE_D20_0_1_9: RulesetInput = {
   ...SAMPLE_D20_0_1_8,
   version: "0.1.9",
   entities: [
@@ -598,4 +598,88 @@ export const SAMPLE_D20: RulesetInput = {
       },
     },
   },
+};
+
+const codex0_1_9 = SAMPLE_D20_0_1_9.codex?.kinds ?? {};
+
+/**
+ * 0.1.10 (house decision #98): a warren generator. The GM sets how many chambers, rolls what made the warren (a built
+ * one goes on to its builders' table), picks a creature to keep it (a flooded warren only a creature of level 1 or
+ * more), and rolls each chamber; the warren is made as a place with its keeper, and its chambers inside it. Invented.
+ */
+export const SAMPLE_D20: RulesetInput = {
+  ...SAMPLE_D20_0_1_9,
+  version: "0.1.10",
+  tables: {
+    ...SAMPLE_D20_0_1_9.tables,
+    warren: {
+      title: "Warrens",
+      die: "1d6",
+      visibility: "gm",
+      cite: "Sample p.90",
+      entries: [
+        { id: "flooded", label: "Flooded warren", range: [1, 2] },
+        { id: "burrowed", label: "Burrowed warren", range: [3, 4] },
+        { id: "built", label: "Built warren", range: [5, 6], next: "builders" },
+      ],
+    },
+    builders: {
+      title: "Builders",
+      die: "1d6",
+      visibility: "gm",
+      cite: "Sample p.90",
+      entries: [
+        { id: "smiths", label: "Warren of the smiths", range: [1, 3] },
+        { id: "monks", label: "Warren of the monks", range: [4, 6] },
+      ],
+    },
+    chamber: {
+      title: "Chambers",
+      die: "1d6",
+      visibility: "gm",
+      cite: "Sample p.91",
+      entries: [
+        { id: "roots", label: "Root hall", range: [1, 2] },
+        { id: "vault", label: "Dripping vault", range: [3, 4] },
+        { id: "pit", label: "Bone pit", range: [5, 6] },
+      ],
+    },
+  },
+  codex: {
+    kinds: {
+      ...codex0_1_9,
+      location: {
+        ...codex0_1_9.location!,
+        fields: {
+          ...codex0_1_9.location?.fields,
+          keeper: { type: "ref", label: "Keeper", entity: "creature", cite: "Sample p.90" },
+        },
+      },
+    },
+  },
+  generators: [
+    {
+      id: "warren",
+      label: "A warren",
+      cite: "Sample p.90",
+      steps: [
+        { id: "rooms", label: "Chambers", kind: "number", min: 1, max: 6 },
+        { id: "origin", label: "What made it", kind: "roll", table: "warren" },
+        {
+          id: "keeper",
+          label: "Its keeper",
+          kind: "pick",
+          entity: "creature",
+          filter: 'steps.origin != "flooded" || entry.level >= 1',
+        },
+      ],
+      each: { times: "steps.rooms", steps: [{ id: "chamber", label: "Chamber", kind: "roll", table: "chamber" }] },
+      make: {
+        kind: "location",
+        title: "origin",
+        fields: { keeper: "keeper", peril: "rooms" },
+        each: { title: "chamber" },
+      },
+    },
+  ],
 };

@@ -7,6 +7,7 @@ import type { CompiledRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import { TableLookup } from "@/components/gm/track/components/tables-panel/components/table-lookup/table-lookup";
 import { tableCardId, type OpenedTable } from "@/components/gm/track/constants";
+import { TableTrail, type TrailStep } from "@/components/ui/table-trail/table-trail";
 import type { RequestPage } from "@/hooks/use-table/use-table";
 import { isLookupTable, targetsOf, typedOf } from "@/lib/lookup/lookup";
 
@@ -43,7 +44,7 @@ export function TablesPanel(props: TablesPanelProps) {
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [targetId, setTargetId] = useState("");
   // The chain so far (house decision #88): each table the GM stepped through and the line that sent them on.
-  const [trail, setTrail] = useState<readonly { title: string; label: string }[]>([]);
+  const [trail, setTrail] = useState<readonly TrailStep[]>([]);
   // A spend's OPEN <table> picks its actor as the target and starts a new chain, as PICK does.
   const [openedSeen, setOpenedSeen] = useState(opened);
   if (opened !== openedSeen) {
@@ -133,18 +134,7 @@ export function TablesPanel(props: TablesPanelProps) {
           </select>
         </label>
       )}
-      {trail.length > 0 && (
-        <div className="row table-trail">
-          <ol className="row" aria-label={t("trail")}>
-            {trail.map((s, i) => (
-              <li key={i}>{t("trailStep", s)}</li>
-            ))}
-          </ol>
-          <button className="btn sm" onClick={() => setTrail([])}>
-            {t("trailClear")}
-          </button>
-        </div>
-      )}
+      <TableTrail steps={trail} onClear={() => setTrail([])} />
       <ul className="table-list rise-list">
         {list.map(([id, table], i) => {
           const last = rolls.find((r) => r.tableId === id);

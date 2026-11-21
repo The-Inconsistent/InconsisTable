@@ -14,6 +14,7 @@ import {
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { EntryEditor } from "@/components/gm/codex/components/entry-editor/entry-editor";
+import { GeneratorWizard } from "@/components/gm/codex/components/generator-wizard/generator-wizard";
 import { PackAdder } from "@/components/gm/codex/components/pack-adder/pack-adder";
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
 import { EntryFieldChips } from "@/components/ui/entry-fields/entry-fields";
@@ -63,6 +64,10 @@ export function Codex({
   const [adding, setAdding] = useState(false);
   const [fromPack, setFromPack] = useState(false);
   const packKinds = useMemo(() => fromKinds(ruleset), [ruleset]);
+  // The generator being run (house decision #98); the served manifest carries them to the GM side only.
+  const generators = ruleset?.generators ?? [];
+  const [generating, setGenerating] = useState<string | null>(null);
+  const generator = generators.find((g) => g.id === generating) ?? null;
   const [newKind, setNewKind] = useState<CodexKind>("npc");
   const [newTitle, setNewTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -151,7 +156,36 @@ export function Codex({
             {t("fromPack")}
           </button>
         )}
+        {can("codex:write") && generators.length > 0 && (
+          <select
+            aria-label={t("generate")}
+            value={generating ?? ""}
+            onChange={(e) => setGenerating(e.target.value || null)}
+          >
+            <option value="">{t("generate")}</option>
+            {generators.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
+      {ruleset && generator && (
+        <GeneratorWizard
+          key={generator.id}
+          generator={generator}
+          ruleset={ruleset}
+          campaignId={me.campaignId}
+          campaign={state.campaign.fields}
+          act={act}
+          onMade={(ids) => {
+            setGenerating(null);
+            if (ids[0]) setOpenId(ids[0]);
+          }}
+          onClose={() => setGenerating(null)}
+        />
+      )}
       {fromPack && (
         <PackAdder
           kinds={packKinds}

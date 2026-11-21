@@ -441,7 +441,7 @@ const blow14 = SAMPLE_HARM_BEFORE_SHOWS.strikes![0]!;
  * struck with one it carries. The guide shows the damage to roll: the arm's damage, its edge dice more, and the
  * attacker's might more for a close arm; and the arm's traits, a text beside it, which one note reads.
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_BEFORE_GENERATORS: RulesetInput = {
   ...SAMPLE_HARM_BEFORE_SHOWS,
   version: "0.1.5",
   entities: [
@@ -476,6 +476,37 @@ export const SAMPLE_HARM: RulesetInput = {
         ...(blow14.notes ?? []),
         { text: "A brutal arm: the target is knocked down", when: 'ctx.means.traits == "Brutal"', cite: "Sample p.16" },
       ],
+    },
+  ],
+};
+
+/**
+ * sample-harm 0.1.6 (house decision #98), the second shape of a generator: one roll on a table of signs, made into one
+ * lore entry with no codex block at all. Invented like the rest.
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_BEFORE_GENERATORS,
+  version: "0.1.6",
+  tables: {
+    ...SAMPLE_HARM_BEFORE_GENERATORS.tables,
+    sign: {
+      title: "Signs",
+      die: "d6",
+      visibility: "gm",
+      cite: "Sample p.15",
+      entries: [
+        { id: "crow", label: "A crow at dusk", range: [1, 3] },
+        { id: "moon", label: "A red moon", range: [4, 6] },
+      ],
+    },
+  },
+  generators: [
+    {
+      id: "portent",
+      label: "A portent",
+      cite: "Sample p.15",
+      steps: [{ id: "sign", label: "The sign", kind: "roll", table: "sign" }],
+      make: { kind: "lore", title: "sign" },
     },
   ],
 };

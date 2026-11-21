@@ -3,6 +3,7 @@ import {
   PRIVATE_TEXT_WARN_CHARS,
   compileRuleset,
   formatPath,
+  importProblems,
   validatePack,
   validateRuleset,
   type Problem,
@@ -162,7 +163,8 @@ export function check({ kind, doc, target }: { kind: FormKind; doc: unknown; tar
     const r = compileRuleset(doc);
     if (!r.ok) return { problems: r.problems, warnings: [] };
     const v = validateRuleset(doc);
-    return { problems: [], warnings: [], ruleset: v.ok ? v.ruleset : undefined };
+    const refused = v.ok ? importProblems(v.ruleset) : [];
+    return { problems: refused, warnings: [], ruleset: v.ok && refused.length === 0 ? v.ruleset : undefined };
   }
   if (target) {
     const r = validatePack({ input: doc, ruleset: target });

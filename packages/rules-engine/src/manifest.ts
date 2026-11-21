@@ -1604,10 +1604,9 @@ export function isLookup(t: RandomTable): boolean {
  */
 function tableProblems({ id, t, r, out }: { id: string; t: RandomTable; r: Ruleset; out: Problem[] }): void {
   const path = `tables.${id}`;
-  if (t.entries.length === 0) {
-    out.push({ path: `${path}.entries`, message: "a table needs an entry" });
-    return;
-  }
+  // A seat's copy of a table it may not read has no entry and still compiles (house decision #101); an import refuses
+  // one (`importProblems`).
+  if (t.entries.length === 0) return;
   duplicates({ ids: t.entries.map((e) => e.id), path: `${path}.entries`, out });
   lookupProblems({ id, t, r, out });
   if (t.die === undefined) {
@@ -3046,6 +3045,16 @@ function checklistProblems({ r, done, path, out }: { r: Ruleset; done: Checklist
  * Size caps, schema, then the rules a schema can't say: cites (unless homebrew), the field cap, unique ids and
  * references. Expressions are checked by `compileRuleset`, which runs this first.
  */
+/**
+ * What an import refuses beyond what compiles: a table with no entry, which only a seat's copy of a table it may not
+ * read has (house decision #101). Run on a ruleset that compiled.
+ */
+export function importProblems(r: Ruleset): Problem[] {
+  return Object.entries(r.tables ?? {}).flatMap(([id, t]) =>
+    t.entries.length === 0 ? [{ path: `tables.${id}.entries`, message: "a table needs an entry" }] : [],
+  );
+}
+
 export function validateRuleset(input: unknown): ValidateResult {
   const size = byteSize(input);
   if (size === null) return { ok: false, problems: [{ path: "(root)", message: "not a JSON document" }] };

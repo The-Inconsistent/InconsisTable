@@ -199,6 +199,30 @@ export const RowPrefill = z.object({
 export type RowPrefill = z.infer<typeof RowPrefill>;
 
 /**
+ * Tables whose rolled lines fill a text field, or an entry's title, in the GM's editor (house decision #97): each table
+ * in order, the lines' labels joined by `join` (a space when it does not say). A prep aid: nothing is saved by a roll.
+ */
+export const FieldRoll = z.object({
+  tables: z.array(Id).min(1).max(4),
+  join: z.string().max(10).optional(),
+});
+export type FieldRoll = z.infer<typeof FieldRoll>;
+
+/**
+ * How a pack entry of `entity` makes a codex entry of a kind (house decision #97): the mapping a row's prefill has
+ * (`name` a text field that also takes the entry's name, `values` a field id to the entity field it takes; the title
+ * always takes the name), plus `children`, a ref field of the entity naming its own type, whose served entries come
+ * along nested under it; and for a scene, `tests`, a list field of Test ids that become prepared Test lines with
+ * `inputs` taken from the entity's fields, and `roster`, a list field of pack keys that become roster lines.
+ */
+export const EntryPrefill = RowPrefill.extend({
+  children: FieldId.optional(),
+  tests: z.object({ field: FieldId, inputs: z.record(Id, FieldId).optional() }).optional(),
+  roster: FieldId.optional(),
+});
+export type EntryPrefill = z.infer<typeof EntryPrefill>;
+
+/**
  * A field a kind of codex entry carries (ADR 0012 decision 2, house decision #71): an entity field's types and shapes,
  * seen by the GM side or the party; no `editableBy` (only the codex writers write it) and no list. Two types are the
  * codex's own (house decision #89): `tags`, short words suggested by pack entries' names or fixed options, written in
@@ -206,7 +230,8 @@ export type RowPrefill = z.infer<typeof RowPrefill>;
  */
 export const CodexField = z.discriminatedUnion("type", [
   z.object({ ...codexFieldBase, ...intShape }),
-  z.object({ ...codexFieldBase, ...textShape }),
+  /** `roll`: tables the GM's editor rolls into it (house decision #97). */
+  z.object({ ...codexFieldBase, ...textShape, roll: FieldRoll.optional() }),
   z.object({ ...codexFieldBase, ...enumShape }),
   z.object({ ...codexFieldBase, type: z.literal("bool") }),
   z.object({ ...codexFieldBase, ...refShape }),
@@ -259,6 +284,10 @@ export const CodexBlock = z.object({
         .record(Id, CodexField)
         .refine((o) => Object.keys(o).length <= MAX_CODEX_FIELDS, `at most ${MAX_CODEX_FIELDS} fields`),
       reminders: z.array(CodexReminder).max(MAX_CODEX_REMINDERS).optional(),
+      /** The pack entry types an entry of this kind is made from, and how (house decision #97). */
+      from: z.array(EntryPrefill).min(1).max(MAX_ROW_PREFILLS).optional(),
+      /** Tables the GM's editor rolls into an entry's title (house decision #97). */
+      titleRoll: FieldRoll.optional(),
     }),
   ),
 });
@@ -2050,9 +2079,78 @@ function codexProblems({ r, entityIds, out }: { r: Ruleset; entityIds: ReadonlyS
       if (def.type === "enum") enumWordProblems({ def, path, out });
       if (def.type === "tags") tagsProblems({ def, entityIds, path, out });
       if (def.type === "rows") rowsProblems({ def, r, path, out });
+      if (def.type === "text" && def.roll !== undefined) rollProblems({ roll: def.roll, r, path: `${path}.roll`, out });
     }
     duplicates({ ids: (k.reminders ?? []).map((x) => x.id), path: `codex.kinds.${kind}.reminders`, out });
+    if (k.titleRoll !== undefined) rollProblems({ roll: k.titleRoll, r, path: `codex.kinds.${kind}.titleRoll`, out });
+    entryFromProblems({ kind, k, r, out });
   }
+}
+
+/** A field's roll names tables of the ruleset that are rolled, not dealt (house decision #97). */
+function rollProblems({ roll, r, path, out }: { roll: FieldRoll; r: Ruleset; path: string; out: Problem[] }): void {
+  roll.tables.forEach((id, i) => {
+    const t = own(r.tables ?? {}, id);
+    if (t === undefined) out.push({ path: `${path}.tables[${i}]`, message: `unknown table "${id}"` });
+    else if (t.visibility === "owner")
+      out.push({ path: `${path}.tables[${i}]`, message: `"${id}" is dealt, never rolled` });
+  });
+}
+
+/**
+ * Each way a kind is made from a pack entry (house decision #97) names a declared entity once; its mapping fits the
+ * kind's fields as a row's prefill fits its columns; `children` is a ref of the entity to its own type, and never on a
+ * scene (a scene sits under an adventure); `tests` and `roster` are list fields of the entity, on a scene only.
+ */
+function entryFromProblems({ kind, k, r, out }: { kind: string; k: CodexKindDef; r: Ruleset; out: Problem[] }): void {
+  const seen = new Set<string>();
+  k.from?.forEach((f, i) => {
+    const at = `codex.kinds.${kind}.from[${i}]`;
+    if (seen.has(f.entity)) out.push({ path: `${at}.entity`, message: `"${f.entity}" fills entries twice` });
+    seen.add(f.entity);
+    const entity = r.entities.find((e) => e.id === f.entity);
+    if (entity === undefined) {
+      out.push({ path: `${at}.entity`, message: `unknown entity "${f.entity}"` });
+      return;
+    }
+    const of = (id: string) => own(entity.fields, id);
+    if (f.name !== undefined && own(k.fields, f.name)?.type !== "text")
+      out.push({ path: `${at}.name`, message: `"${f.name}" is not a text field of ${kind}` });
+    for (const [to, fieldId] of Object.entries(f.values ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+      const def = own(k.fields, to);
+      const field = of(fieldId);
+      if (def === undefined) out.push({ path: `${at}.values.${to}`, message: `"${to}" is not a field of ${kind}` });
+      else if (field === undefined)
+        out.push({ path: `${at}.values.${to}`, message: `"${fieldId}" is not a field of "${f.entity}"` });
+      else if (!fitsColumn(def, field))
+        out.push({ path: `${at}.values.${to}`, message: `"${fieldId}" does not fit the field` });
+    }
+    if (f.children !== undefined) {
+      const ref = of(f.children);
+      if (ref?.type !== "ref" || ref.entity !== f.entity)
+        out.push({ path: `${at}.children`, message: `"${f.children}" is not a ref to "${f.entity}"` });
+      else if (kind === "scene")
+        out.push({ path: `${at}.children`, message: "a scene sits under an adventure, not a scene" });
+    }
+    const list = (id: string, path: string) => {
+      if (kind !== "scene") out.push({ path, message: "only a scene holds prepared lines" });
+      else if (of(id)?.type !== "list") out.push({ path, message: `"${id}" is not a list field of "${f.entity}"` });
+    };
+    if (f.tests !== undefined) {
+      list(f.tests.field, `${at}.tests.field`);
+      for (const [input, fieldId] of Object.entries(f.tests.inputs ?? {}).sort(([a], [b]) =>
+        a < b ? -1 : a > b ? 1 : 0,
+      )) {
+        const t = of(fieldId)?.type;
+        if (t !== "int" && t !== "text" && t !== "enum" && t !== "bool")
+          out.push({
+            path: `${at}.tests.inputs.${input}`,
+            message: `"${fieldId}" is not a value field of "${f.entity}"`,
+          });
+      }
+    }
+    if (f.roster !== undefined) list(f.roster, `${at}.roster`);
+  });
 }
 
 /** A tags field's suggestions name declared entities, its labels its options, and something can be entered. */
@@ -2076,9 +2174,9 @@ function tagsProblems({
 }
 
 /** Whether an entity field's values fit a column: the same type, an enum's values among the column's, a ref's entity. */
-function fitsColumn(col: RowColumn, field: FieldDef): boolean {
+function fitsColumn(col: { type: string; values?: readonly string[]; entity?: string }, field: FieldDef): boolean {
   if (col.type !== field.type) return false;
-  if (col.type === "enum" && field.type === "enum") return field.values.every((v) => col.values.includes(v));
+  if (col.type === "enum" && field.type === "enum") return field.values.every((v) => col.values?.includes(v));
   if (col.type === "ref" && field.type === "ref") return field.entity === col.entity;
   return true;
 }

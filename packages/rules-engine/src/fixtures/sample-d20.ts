@@ -46,7 +46,7 @@ export const CODEX_0_1_7: NonNullable<RulesetInput["codex"]> = {
   },
 };
 
-export const SAMPLE_D20: RulesetInput = {
+export const SAMPLE_D20_0_1_8: RulesetInput = {
   id: "sample-d20",
   version: "0.1.8",
   core: "^0.1.0",
@@ -457,13 +457,145 @@ const WIDGET_DERIVED = new Set(["mightMod", "graceMod", "gritMod"]);
  * values the widgets added. The rulesets built on it before then keep their pinned hashes (fixtures.test.ts).
  */
 export const SAMPLE_D20_BEFORE_WIDGETS: RulesetInput = {
-  ...SAMPLE_D20,
+  ...SAMPLE_D20_0_1_8,
   version: "0.1.6",
-  entities: SAMPLE_D20.entities.map((e) => {
+  entities: SAMPLE_D20_0_1_8.entities.map((e) => {
     if (e.id !== "character") return e;
     const { strain: _strain, ...fields } = e.fields ?? {};
     return { ...e, fields, derived: e.derived?.filter((d) => !WIDGET_DERIVED.has(d.id)) };
   }),
-  layout: { sheet: SAMPLE_D20.layout?.sheet ?? { sections: [] } },
+  layout: { sheet: SAMPLE_D20_0_1_8.layout?.sheet ?? { sections: [] } },
   codex: CODEX_0_1_7,
+};
+
+const codex0_1_8 = SAMPLE_D20_0_1_8.codex?.kinds ?? {};
+
+/**
+ * 0.1.9 (house decision #97): entries made from pack entries (a place with the places inside it, a scene that brings
+ * its checks and its foes, a charter whose season is checked against the campaign's), and a person's name and look
+ * rolled on two tables each. Every name, number and page is invented.
+ */
+export const SAMPLE_D20: RulesetInput = {
+  ...SAMPLE_D20_0_1_8,
+  version: "0.1.9",
+  entities: [
+    ...SAMPLE_D20_0_1_8.entities,
+    {
+      id: "site",
+      label: "Site",
+      base: "item",
+      fields: {
+        within: { type: "ref", label: "Within", entity: "site", visibility: "public" },
+        peril: { type: "int", label: "Peril", min: 0, max: 10, visibility: "public" },
+      },
+    },
+    {
+      id: "incident",
+      label: "Incident",
+      base: "item",
+      fields: {
+        checks: { type: "list", label: "Checks", maxItems: 6, visibility: "public" },
+        dc: { type: "int", label: "DC", min: 1, max: 30, visibility: "public" },
+        foes: { type: "list", label: "Foes", maxItems: 10, visibility: "public" },
+      },
+    },
+    {
+      id: "charter",
+      label: "Charter",
+      base: "ability",
+      fields: {
+        seasonFrom: { type: "int", label: "From season", min: 1, max: 5, visibility: "public" },
+        seasonTo: { type: "int", label: "To season", min: 1, max: 5, visibility: "public" },
+      },
+    },
+  ],
+  campaignFields: { season: { type: "int", label: "Season", min: 1, max: 5, default: 1, cite: "Sample p.21" } },
+  tables: {
+    forename: {
+      title: "Forenames",
+      die: "1d6",
+      visibility: "gm",
+      cite: "Sample p.30",
+      entries: [
+        { id: "ash", label: "Ash", range: [1, 2] },
+        { id: "bryn", label: "Bryn", range: [3, 4] },
+        { id: "cael", label: "Cael", range: [5, 6] },
+      ],
+    },
+    surname: {
+      title: "Surnames",
+      die: "1d6",
+      visibility: "gm",
+      cite: "Sample p.30",
+      entries: [
+        { id: "reed", label: "Reed", range: [1, 3] },
+        { id: "vane", label: "Vane", range: [4, 6] },
+      ],
+    },
+    hue: {
+      title: "Eye hues",
+      die: "1d6",
+      visibility: "gm",
+      cite: "Sample p.33",
+      entries: [
+        { id: "grey", label: "Grey eyes", range: [1, 3] },
+        { id: "amber", label: "Amber eyes", range: [4, 6] },
+      ],
+    },
+    scar: {
+      title: "Marks",
+      die: "1d6",
+      visibility: "gm",
+      cite: "Sample p.33",
+      entries: [
+        { id: "none", label: "no mark", range: [1, 4] },
+        { id: "burn", label: "a burn on one hand", range: [5, 6] },
+      ],
+    },
+  },
+  codex: {
+    kinds: {
+      ...codex0_1_8,
+      npc: {
+        fields: {
+          ...codex0_1_8.npc?.fields,
+          look: {
+            type: "text",
+            label: "Look",
+            maxLength: 200,
+            roll: { tables: ["hue", "scar"], join: ", " },
+            cite: "Sample p.33",
+          },
+        },
+        titleRoll: { tables: ["forename", "surname"] },
+      },
+      location: {
+        fields: {
+          ...codex0_1_8.location?.fields,
+          peril: { type: "int", label: "Peril", min: 0, max: 10, cite: "Sample p.18" },
+        },
+        from: [{ entity: "site", values: { peril: "peril" }, children: "within" }],
+      },
+      scene: {
+        fields: {},
+        from: [{ entity: "incident", tests: { field: "checks", inputs: { dc: "dc" } }, roster: "foes" }],
+      },
+      lore: {
+        fields: {
+          charter: { type: "text", label: "Charter", maxLength: 120, visibility: "party", cite: "Sample p.21" },
+          seasonFrom: { type: "int", label: "From season", min: 1, max: 5, cite: "Sample p.21" },
+          seasonTo: { type: "int", label: "To season", min: 1, max: 5, cite: "Sample p.21" },
+        },
+        from: [{ entity: "charter", name: "charter", values: { seasonFrom: "seasonFrom", seasonTo: "seasonTo" } }],
+        reminders: [
+          {
+            id: "offSeason",
+            if: "fields.seasonFrom > campaign.season || fields.seasonTo < campaign.season",
+            text: "Written for another season: a hint only, the season stays as it is",
+            cite: "Sample p.21",
+          },
+        ],
+      },
+    },
+  },
 };

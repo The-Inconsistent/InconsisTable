@@ -1094,7 +1094,7 @@ func (c *compiler) run() *CompiledRuleset {
 		for _, kind := range sortedKeys(c.r.Codex.Kinds) {
 			k := c.r.Codex.Kinds[kind]
 			for j, x := range k.Reminders {
-				c.expr(x.If, []map[string]ExprType{CodexScope(k.Fields, false)}, boolType, fmt.Sprintf("codex.kinds.%s.reminders[%d].if", kind, j))
+				c.expr(x.If, []map[string]ExprType{CodexScope(k.Fields, false, c.r.CampaignFields)}, boolType, fmt.Sprintf("codex.kinds.%s.reminders[%d].if", kind, j))
 			}
 		}
 	}

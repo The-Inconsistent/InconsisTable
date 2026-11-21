@@ -100,9 +100,14 @@ func seatCodexDefs(manifest map[string]any, secrets bool) map[string]any {
 			if raw, err := json.Marshal(k); err == nil {
 				_ = json.Unmarshal(raw, &typed)
 			}
+			// The campaign fields every seat reads (house decision #97).
+			var campaign map[string]engine.CampaignFieldDef
+			if raw, err := json.Marshal(manifest["campaignFields"]); err == nil {
+				_ = json.Unmarshal(raw, &campaign)
+			}
 			reminders := []any{}
 			for i, r := range declared {
-				if i < len(typed.Reminders) && engine.PartyReadsReminder(typed, typed.Reminders[i]) {
+				if i < len(typed.Reminders) && engine.PartyReadsReminder(typed, typed.Reminders[i], campaign) {
 					reminders = append(reminders, r)
 				}
 			}

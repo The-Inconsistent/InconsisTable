@@ -987,7 +987,7 @@ class Compiler {
     for (const kind of Object.keys(this.r.codex?.kinds ?? {}).sort()) {
       const k = own(this.r.codex?.kinds ?? {}, kind);
       k?.reminders?.forEach((x, j) => {
-        const scope = codexScope({ fields: k.fields });
+        const scope = codexScope({ fields: k.fields, campaign: this.r.campaignFields });
         this.expr({ source: x.if, scopes: [scope], expect: "bool", path: `codex.kinds.${kind}.reminders[${j}].if` });
       });
     }

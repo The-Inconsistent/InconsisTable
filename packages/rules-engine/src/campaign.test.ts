@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { compileRuleset } from "./compile.ts";
 import { campaignValues, deriveValues } from "./derived.ts";
 import { checkCampaignValue } from "./field-value.ts";
-import { SAMPLE_D20 } from "./fixtures/sample-d20.ts";
+import { SAMPLE_D20_0_1_8 as SAMPLE_D20 } from "./fixtures/sample-d20.ts";
 import { SAMPLE_TIERED } from "./fixtures/sample-tiered.ts";
 import { validateRuleset, type CampaignField, type RulesetInput } from "./manifest.ts";
 import type { Problem } from "./problem.ts";

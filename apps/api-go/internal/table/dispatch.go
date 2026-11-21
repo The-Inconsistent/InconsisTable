@@ -24,6 +24,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/safety"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/testcall"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/whisper"
 )
 
 // Result is an accepted action's ack (coreschema.Result), what every feature's handler returns.
@@ -138,7 +139,7 @@ func targetOf(a cs.Action) string {
 	switch a.Type() {
 	case "actor.rename":
 		return a.Str("id")
-	case "field.set", "test.report", "actor.build", "build.save", "phase.done":
+	case "field.set", "test.report", "actor.build", "build.save", "phase.done", "whisper.reply", "whisper.read":
 		return a.Str("actorId")
 	}
 	return ""
@@ -319,6 +320,11 @@ var handlers = map[string]handler{
 	"held.remove":     ruleset.HeldRemove,
 	"table.deal":      randomtable.Deal,
 	"table.reshuffle": randomtable.Reshuffle,
+	// whisper/whisper.go (house decision #93)
+	"whisper.send":   whisper.Send,
+	"whisper.reply":  whisper.Reply,
+	"whisper.read":   whisper.Read,
+	"whisper.delete": whisper.Delete,
 }
 
 // clearing runs h, then cancels the pending asks of the spends that clear on event (house decision #84).

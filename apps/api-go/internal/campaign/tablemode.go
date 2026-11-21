@@ -86,6 +86,8 @@ func SetTableMode(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.
 		`UPDATE membership SET role = 'player', scopes = '{}' WHERE campaign_id = $1 AND role <> 'player'`,
 		// An invite to a GM seat no longer has a seat to give.
 		`UPDATE invite SET revoked_at = now() WHERE campaign_id = $1 AND revoked_at IS NULL AND role <> 'player'`,
+		// Without a GM there are no whispers (house decision #93); one sent between sessions goes now.
+		`DELETE FROM whisper WHERE campaign_id = $1`,
 	} {
 		if _, err := tx.Exec(ctx, statement, cid); err != nil {
 			return cs.Result{}, err

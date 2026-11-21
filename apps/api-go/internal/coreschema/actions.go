@@ -57,6 +57,14 @@ const (
 	SafetyLineMax  = 80
 )
 
+// Whispers (state.ts, house decision #93): the text, a reply, the readers of one, and the whispers one room holds.
+const (
+	WhisperMax      = 500
+	WhisperReplyMax = 200
+	WhisperToMax    = 30
+	MaxWhispers     = 100
+)
+
 // MaxDraftBytes caps a builder draft, serialized.
 const MaxDraftBytes = 64 * 1024
 
@@ -358,6 +366,18 @@ var ActionSchema = schema.Union("type",
 		schema.Req("actorIds", schema.UniqueList(id, 1, 20, "a character is listed twice")),
 	),
 	variant("table.reshuffle", schema.Req("tableId", tableID)),
+
+	variant("whisper.send",
+		schema.Req("to", schema.UniqueList(id, 1, WhisperToMax, "a character is listed twice")),
+		schema.Req("text", schema.String().Trim().Min(1).Max(WhisperMax)),
+	),
+	variant("whisper.reply",
+		schema.Req("whisperId", id),
+		schema.Req("actorId", id),
+		schema.Req("text", schema.String().Trim().Min(1).Max(WhisperReplyMax)),
+	),
+	variant("whisper.read", schema.Req("whisperId", id), schema.Req("actorId", id)),
+	variant("whisper.delete", schema.Req("id", id)),
 )
 
 // ParseAction reads a socket payload as an Action, or the issues that refuse it.
@@ -462,6 +482,10 @@ var ActionPerms = map[string]string{
 	"held.remove":             "character:edit:any",
 	"table.deal":              "session:run",
 	"table.reshuffle":         "session:run",
+	"whisper.send":            "session:run",
+	"whisper.delete":          "session:run",
+	"whisper.reply":           "whisper:receive:own",
+	"whisper.read":            "whisper:receive:own",
 }
 
 // OwnFallback is the GM-side permission that also satisfies an :own one: a GM renames any character.

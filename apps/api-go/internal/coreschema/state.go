@@ -213,6 +213,22 @@ type (
 		Access    Access     `json:"access"`
 		// Pools are the shared pools in manifest order, each seat the ones it may see (house decision #59).
 		Pools []PoolState `json:"pools"`
+		// Whispers are this session's, newest first (house decision #93); each seat the ones to a character it holds.
+		Whispers []Whisper `json:"whispers"`
+	}
+	// Whisper is the GM's private line to chosen characters (house decision #93), with each reader's reply and read mark.
+	Whisper struct {
+		ID        string          `json:"id"`
+		Text      string          `json:"text"`
+		CreatedAt string          `json:"createdAt"`
+		Readers   []WhisperReader `json:"readers"`
+	}
+	// WhisperReader is one addressed character: its one reply (the latest) and when it read the whisper.
+	WhisperReader struct {
+		ActorID   string  `json:"actorId"`
+		Reply     *string `json:"reply"`
+		RepliedAt *string `json:"repliedAt"`
+		ReadAt    *string `json:"readAt"`
 	}
 	// PoolState is a shared pool as a seat sees it. Max is nil when the pool has none; Capped says whether the value
 	// stops there.

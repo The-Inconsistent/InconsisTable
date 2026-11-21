@@ -26,6 +26,9 @@ import {
   TableResult,
   LookupInputs,
   InviteMode,
+  WHISPER_TO_MAX,
+  WhisperReplyText,
+  WhisperText,
   SafetyKind,
   SafetyLine,
   SafetyList,
@@ -331,6 +334,21 @@ export const Action = z.discriminatedUnion("type", [
       .refine((ids) => new Set(ids).size === ids.length, "a character is listed twice"),
   }),
   z.object({ type: z.literal("table.reshuffle"), tableId: TableId }),
+
+  // Whispers (house decision #93): the GM's line to chosen characters; a reader's one reply, which a new one replaces;
+  // a reader's read mark; the GM takes one back. Only in a room with a GM.
+  z.object({
+    type: z.literal("whisper.send"),
+    to: z
+      .array(id)
+      .min(1)
+      .max(WHISPER_TO_MAX)
+      .refine((ids) => new Set(ids).size === ids.length, "a character is listed twice"),
+    text: WhisperText,
+  }),
+  z.object({ type: z.literal("whisper.reply"), whisperId: id, actorId: id, text: WhisperReplyText }),
+  z.object({ type: z.literal("whisper.read"), whisperId: id, actorId: id }),
+  z.object({ type: z.literal("whisper.delete"), id }),
 ]);
 export type Action = z.infer<typeof Action>;
 export type ActionInput = z.input<typeof Action>; // what clients send: defaulted fields optional
@@ -429,6 +447,10 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "held.remove": "character:edit:any",
   "table.deal": "session:run",
   "table.reshuffle": "session:run",
+  "whisper.send": "session:run", // the side that runs the session; without a GM the handler refuses (whispersNeedGm)
+  "whisper.delete": "session:run",
+  "whisper.reply": "whisper:receive:own", // the seat holding that reader, never the GM side
+  "whisper.read": "whisper:receive:own",
 };
 
 // `:own` permissions that a GM-side permission also satisfies: a GM renames any character.

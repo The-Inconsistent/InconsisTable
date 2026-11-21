@@ -57,7 +57,32 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 	state.Pools = seatPools(state.Pools, compiled, c)
 	state.Requests, state.RequestAnswers = seatRequests(state.Requests, state.RequestAnswers, c, sight, compiled, state.Pools)
 	state.Rolls, state.Dealt = seatTables(state.Rolls, state.Dealt, c, sight)
+	state.Whispers = seatWhispers(state.Whispers, c, sight)
 	return SeatView{state, codex}
+}
+
+// The whispers a seat receives (view.seat.ts seatWhispers, house decision #93): the side that runs the session with a
+// GM (the one that sends them) gets every one. Anyone else gets only whispers to a character it holds, with only those
+// readers: never another reader's reply, name or existence. The screen holds none, so it gets none.
+func seatWhispers(whispers []cs.Whisper, c cs.Ctx, sight Sight) []cs.Whisper {
+	if sight.Tables {
+		return whispers
+	}
+	held := HeldBy(c)
+	out := []cs.Whisper{}
+	for _, w := range whispers {
+		mine := []cs.WhisperReader{}
+		for _, r := range w.Readers {
+			if holds(held, r.ActorID) {
+				mine = append(mine, r)
+			}
+		}
+		if len(mine) > 0 {
+			w.Readers = mine
+			out = append(out, w)
+		}
+	}
+	return out
 }
 
 // The pools a seat receives (house decision #59). The GM side (a room with a GM, a seat that runs the table; the same

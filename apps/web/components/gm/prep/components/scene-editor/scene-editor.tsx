@@ -7,11 +7,13 @@ import { splitMentions, type ActionInput, type CodexEntry } from "@inconsistable
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { PrepLines } from "@/components/gm/prep/components/prep-lines/prep-lines";
+import { BudgetLines } from "@/components/ui/budget-lines/budget-lines";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { MentionTextarea } from "@/components/ui/mention-textarea/mention-textarea";
 import { groupLinks, linkCandidates, PLANNED_TESTS_MAX } from "@/lib/prep/prep";
 import { savePatch } from "@/lib/codex/codex";
-import type { LineNames, PrepWorld } from "@/lib/scene-prep/scene-prep";
+import { EMPTY_PREP, type LineNames, type PrepWorld } from "@/lib/scene-prep/scene-prep";
+import { rosterPicks, spawnRoom } from "@/lib/spawn/spawn";
 import { testWords } from "@/lib/test-inputs/test-inputs";
 
 type SceneEditorProps = {
@@ -55,6 +57,10 @@ export function SceneEditor({
   const groups = groupLinks({ entry: scene, entries });
   const candidates = linkCandidates({ entry: scene, entries, query }).slice(0, PICKER_ROWS);
   const addable = testIds.filter((id) => !scene.plannedTests.includes(id));
+  // The roster's entries by pack and key, for the budget (house decision #92).
+  const bodies = new Map(
+    world.spawnable.entries.flatMap((e) => (e.body ? [[`${e.pack}/${e.key}`, e.body] as const] : [])),
+  );
 
   // A text field of the draft.
   const handleField = (field: keyof typeof draft) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -167,6 +173,11 @@ export function SceneEditor({
       </div>
 
       <PrepLines scene={scene} world={world} names={names} ruleset={ruleset} act={act} />
+      <BudgetLines
+        ruleset={ruleset}
+        picks={rosterPicks({ prep: scene.prep ?? EMPTY_PREP, bodies })}
+        room={spawnRoom(world.state)}
+      />
 
       <div className="stack">
         <h3 className="head">{t("plannedTests")}</h3>

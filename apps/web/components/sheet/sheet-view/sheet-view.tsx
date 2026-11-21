@@ -74,6 +74,7 @@ export function SheetView({
   const tDuration = useTranslations("duration");
   const tReset = useTranslations("resetEvent");
   const tRest = useTranslations("rest");
+  const tOptions = useTranslations("spawnOptions");
   const format = useFormatter();
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +84,10 @@ export function SheetView({
   }, [ruleset]);
   const inPlay = campaign ?? (compiled ? campaignValues({ compiled, stored: {} }) : undefined);
   const sections = sectionsOf({ ruleset, actor });
+  // The spawn options it was spawned with, by their labels (house decision #92); the GM side is the one sent them.
+  const spawnedWith = (actor.spawnOptions ?? []).map(
+    (id) => ruleset.spawn?.options?.find((o) => o.id === id)?.label ?? id,
+  );
   const conditions = actor.conditions.flatMap((id) => ruleset.conditions.find((c) => c.id === id) ?? []);
   const rests = restsOf(ruleset);
   // XP, for a seat that receives this character's ledger, when the ruleset keeps XP (house decision #64).
@@ -225,6 +230,11 @@ export function SheetView({
             </button>
           ))}
         </div>
+      )}
+      {spawnedWith.length > 0 && (
+        <p className="small" data-spawn-options="true">
+          {tOptions("line", { list: format.list(spawnedWith) })}
+        </p>
       )}
       {error && (
         <p className="error" role="alert">

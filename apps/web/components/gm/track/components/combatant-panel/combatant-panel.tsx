@@ -22,6 +22,7 @@ import {
   type TrackMode,
 } from "@/components/gm/track/constants";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
+import { MarkerPicker } from "@/components/ui/marker-swatch/marker-swatch";
 import type { HarmPad as HarmPadOf } from "@/lib/harm/harm";
 import { amountOf, leftOf, pressKey } from "@/lib/track/track";
 
@@ -233,6 +234,11 @@ export function CombatantPanel({
             </button>
           ))}
         </div>
+        <MarkerPicker
+          value={c.marker ?? null}
+          onPick={(marker) => run({ type: "encounter.mark", combatantId: c.id, marker })}
+          name={c.name}
+        />
         {c.side !== "party" && (
           <label className="row" style={{ display: "flex", minHeight: 44 }}>
             <input type="checkbox" checked={c.keep} onChange={handleKeep} style={{ minHeight: 24 }} />

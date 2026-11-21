@@ -91,7 +91,9 @@ async function spawnable(campaignId: string, ruleset: Ruleset | null): Promise<S
     const packs = replies[0]?.packs ?? [];
     return {
       packs: packs.map((p) => ({ slug: p.slug, id: p.id })),
-      entries: replies.flatMap((r) => r.entries.map((e) => ({ pack: e.pack, key: e.key, type: e.type, name: e.name }))),
+      entries: replies.flatMap((r) =>
+        r.entries.map((e) => ({ pack: e.pack, key: e.key, type: e.type, name: e.name, body: e.body })),
+      ),
       complete: replies.every((r) => r.entries.length >= r.total),
     };
   } catch {

@@ -6,6 +6,7 @@ import {
   CombatVisibility,
   ExitLine,
   PickLine,
+  Marker,
   PoolLine,
   RevealLine,
   RosterLine,
@@ -22,11 +23,14 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 import { takers } from "@/components/gm/tests/components/call-form/takers";
 import { MarkSwitches } from "@/components/gm/tests/components/mark-switches/mark-switches";
 import { pickableFields, rowName, rowsOf } from "@/lib/entry-fields/entry-fields";
+import { MarkerPicker } from "@/components/ui/marker-swatch/marker-swatch";
+import { SpawnOptions } from "@/components/ui/spawn-options/spawn-options";
 import { canMob } from "@/lib/harm/harm";
 import type { Spawnable } from "@/lib/scene-prep/scene-prep";
+import { optionsFor } from "@/lib/spawn/spawn";
 import { testWords } from "@/lib/test-inputs/test-inputs";
 
-import { MAX_OUTCOMES, newLine } from "./constants";
+import { MAX_OUTCOMES, NO_ROOM, newLine } from "./constants";
 
 type LineFormProps = {
   kind: PrepKind;
@@ -167,6 +171,17 @@ function RosterFields({ d, set, ruleset, spawnable }: FieldsProps & { ruleset: R
   const value = `${String(d.pack ?? "")}/${String(d.key ?? "")}`;
   const picked = spawnable.entries.find((e) => `${e.pack}/${e.key}` === value);
   const mobbable = picked !== undefined && canMob({ ruleset, type: picked.type });
+  // The spawn options its type may take and its marker (house decision #92); an option's `when` is read when it is sent.
+  const offered =
+    picked === undefined ? [] : optionsFor({ ruleset, type: picked.type, room: NO_ROOM, mob: d.mob !== undefined });
+  const options = Array.isArray(d.options) ? d.options.filter((o): o is string => typeof o === "string") : [];
+  const marker = Marker.safeParse(d.marker);
+
+  // OPTIONS: the line keeps the ids picked, none when empty.
+  const handleOptions = (ids: string[]) => {
+    const { options: _old, ...rest } = d;
+    set(ids.length === 0 ? { ...rest, options: undefined } : { ...rest, options: ids });
+  };
 
   // The creature picker: the pack's slug and the entry's key are what the line keeps.
   const handlePick = (e: ChangeEvent<HTMLSelectElement>) => {
@@ -237,6 +252,17 @@ function RosterFields({ d, set, ruleset, spawnable }: FieldsProps & { ruleset: R
           </select>
         </label>
       </div>
+      <SpawnOptions
+        options={offered}
+        value={options}
+        onChange={handleOptions}
+        name={picked?.name ?? String(d.key ?? "")}
+      />
+      <MarkerPicker
+        value={marker.success ? marker.data : null}
+        onPick={(m) => set({ marker: m ?? undefined })}
+        name={picked?.name ?? String(d.key ?? "")}
+      />
       <label className="row" style={{ minHeight: 44 }}>
         <input
           type="checkbox"

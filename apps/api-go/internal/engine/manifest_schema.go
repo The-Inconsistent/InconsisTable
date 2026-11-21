@@ -193,6 +193,7 @@ var entityTypeSchema = schema.Object(
 		schema.Req("expr", exprSource),
 		schema.Def("visibility", visibilityEnum, "gm"),
 		schema.Opt("cite", citeSchema),
+		schema.Opt("override", fieldIDSchema),
 	)), []any{}),
 )
 
@@ -615,6 +616,10 @@ var buildSchema = schema.Object(
 		schema.Req("max", schema.Int().Min(1).Max(1000)),
 		schema.Req("suggested", schema.Array(schema.Int().Min(0)).Max(6)),
 		schema.Req("cite", citeSchema),
+	)),
+	schema.Opt("keep", schema.Object(
+		schema.Def("fields", schema.Array(fieldIDSchema).Max(50), []any{}),
+		schema.Def("resources", schema.Array(idSchema).Max(20), []any{}),
 	)),
 	schema.Req("cite", citeSchema),
 )

@@ -143,4 +143,23 @@ func (p *problems) build(r *Ruleset) {
 			p.add(fmt.Sprintf("build.gone[%d]", i), `unknown health state "%s"`, id)
 		}
 	}
+	// What a build over a hand-made sheet keeps is the actor's own (house decision #96).
+	if k := b.Keep; k != nil {
+		for i, id := range k.Fields {
+			if _, has := actor.Fields[id]; !has {
+				p.add(fmt.Sprintf("build.keep.fields[%d]", i), `%s has no field "%s"`, actor.ID, id)
+			}
+		}
+		for i, id := range k.Resources {
+			var found *Resource
+			for j := range r.Resources {
+				if r.Resources[j].ID == id {
+					found = &r.Resources[j]
+				}
+			}
+			if found == nil || found.Scope != "entity" || (found.Entities != nil && !slices.Contains(*found.Entities, actor.ID)) {
+				p.add(fmt.Sprintf("build.keep.resources[%d]", i), `"%s" is not an entity resource the %s carries`, id, actor.ID)
+			}
+		}
+	}
 }

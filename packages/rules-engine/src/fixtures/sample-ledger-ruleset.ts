@@ -90,7 +90,8 @@ export const SAMPLE_LEDGER_ITEMS = {
 export const SAMPLE_LEDGER_RULESET: RulesetInput = {
   id: "sample-ledger",
   // 0.1.1: the hero's Guard, gear with a slot, stores, the item codex field and the items block (house decision #95).
-  version: "0.1.1",
+  // 0.1.2: the GM's override of the Guard, and what a build over a hand-made sheet keeps (house decision #96).
+  version: "0.1.2",
   core: "^0.1.0",
   sources: [{ id: "base", title: "Sample Ledger Rules", license: "private" }],
   campaignFields: { tier: { type: "int", label: "Tier", min: 1, max: 4, default: 1, cite: "Base p.2" } },
@@ -110,8 +111,17 @@ export const SAMPLE_LEDGER_RULESET: RulesetInput = {
         archetype: { type: "text", label: "Archetype", visibility: "party" },
         keywords: { type: "list", label: "Keywords", visibility: "party" },
         xp: int("XP"),
+        guardSet: { type: "int", label: "Guard set by the GM", visibility: "party" },
       },
-      derived: [{ id: "guard", label: "Guard", expr: "armourRating + mod.guard", visibility: "party" as const }],
+      derived: [
+        {
+          id: "guard",
+          label: "Guard",
+          expr: "armourRating + mod.guard",
+          visibility: "party" as const,
+          override: "guardSet",
+        },
+      ],
     },
     ...LEDGER_KINDS.map((k) => ({
       id: SAMPLE_LEDGER_KINDS[k],
@@ -156,6 +166,7 @@ export const SAMPLE_LEDGER_RULESET: RulesetInput = {
     ascension: { xp: 20, cite: "Base p.30" },
     gone: ["lost"],
     award: { max: 50, suggested: [5, 10, 20], cite: "Base p.31" },
+    keep: { fields: ["armourRating"], resources: ["wealth"] },
     cite: "Base p.1",
   },
 };

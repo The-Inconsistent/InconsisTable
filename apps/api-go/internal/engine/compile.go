@@ -28,6 +28,8 @@ type (
 		Expr                  *CompiledExpr
 		// Deps holds the derived ids it reads.
 		Deps []string
+		// Override is the int field whose value, when set, replaces the worked-out one (house decision #96); "" when none.
+		Override string
 	}
 	// CompiledEffect is one effect, attached to each entity it applies to.
 	CompiledEffect struct {
@@ -462,8 +464,18 @@ func (c *compiler) entity(e *EntityType, index int) *CompiledEntity {
 	carriedIDs, carried := c.carried(e)
 	for _, id := range order {
 		expr, def := exprs[id], e.Derived[defs[id]]
-		inputs := make([]string, len(expr.Refs))
-		for i, ref := range expr.Refs {
+		refs := expr.Refs
+		override := ""
+		if def.Override != nil {
+			override = *def.Override
+			refs = append(slices.Clone(refs), override)
+			if f, has := e.Fields[override]; !has || f.Type != "int" {
+				c.problems.add(fmt.Sprintf("entities[%d].derived[%d].override", index, firstDerived(e, def.ID)),
+					`"%s" is not an int field of %s`, override, e.ID)
+			}
+		}
+		inputs := make([]string, len(refs))
+		for i, ref := range refs {
 			inputs[i] = pathVisibility(ref, e, carried, visibility)
 		}
 		taint := strictestVisibility(inputs)
@@ -472,7 +484,7 @@ func (c *compiler) entity(e *EntityType, index int) *CompiledEntity {
 				`declared "%s" but reads "%s" values`, def.Visibility, taint)
 		}
 		visibility[id] = def.Visibility
-		derived = append(derived, CompiledDerived{id, def.Label, def.Visibility, expr, deps[id]})
+		derived = append(derived, CompiledDerived{id, def.Label, def.Visibility, expr, deps[id], override})
 	}
 	return &CompiledEntity{Def: e, Resources: carriedIDs, Derived: derived, Scope: scope}
 }

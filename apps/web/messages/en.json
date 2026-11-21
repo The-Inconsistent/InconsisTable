@@ -1646,6 +1646,7 @@
     "search": "Search title and text",
     "newEntry": "New entry",
     "fromPack": "Add from a pack",
+    "generate": "Generate…",
     "fromPackType": "Type",
     "fromPackHint": "Names, numbers and the page come with it, and the entries inside it. Write the words yourself.",
     "fromPackMade": "Added {name}{count, plural, =0 {} one { and the entry inside it} other { and the # entries inside it}}.",
@@ -1959,6 +1960,24 @@
     "typedInto": "Type the dice you rolled for {label}",
     "typedOn": "What you rolled on {title}",
     "useTyped": "Use"
+  },
+  "generators": {
+    "roll": "Roll",
+    "rollOn": "Go on: roll {title}",
+    "typed": "I rolled",
+    "typedOn": "What you rolled on {title}",
+    "useTyped": "Use",
+    "change": "Change",
+    "search": "Search for {label}",
+    "results": "Entries for {label}",
+    "noMatch": "Nothing fits this step.",
+    "readFailed": "Couldn't read the room's packs.",
+    "choose": "Choose",
+    "roundsLater": "Answer the steps above to see how many rounds follow.",
+    "round": "Round {n} of {count}",
+    "confirm": "Confirm and make",
+    "cancel": "Cancel",
+    "hint": "Nothing is made until you confirm. Write the words yourself afterwards."
   },
   "notebook": {
     "entries": "Revealed",

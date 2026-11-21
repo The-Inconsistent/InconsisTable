@@ -20,6 +20,7 @@ import {
 } from "../../../../packages/core-schema/src/index.ts";
 import {
   checkFieldValue,
+  compileRuleset,
   fitRows,
   partyReadsReminder,
   toViewerView,
@@ -29,6 +30,7 @@ import {
   type Ruleset,
   type Viewer,
 } from "../../../../packages/rules-engine/src/index.ts";
+import { compilable } from "./view.compiles.ts";
 import { actorGmSide, heldBy, readableEntryVisibilities, sightOf, type Sight } from "./view.sight.ts";
 import { seatTests } from "./view.tests.ts";
 
@@ -61,9 +63,8 @@ const NO_VALUES = { entity: "", fields: {}, resources: {}, derived: {}, conditio
 /**
  * The manifest as a seat may read it. A seat that sees `gm` values reads all of it; any other seat gets the definitions
  * of fields, derived values, resources and conditions whose visibility is not `gm` (fail-closed: a definition that
- * declares none is `gm`). The values themselves are filtered per actor in `seatView`.
- * ponytail: a visible condition's effect formulas are shown as written, even where they name a `gm` field; strip or
- * redact them if a ruleset needs that secret kept
+ * declares none is `gm`). The values themselves are filtered per actor in `seatView`. What is left is cut until it
+ * compiles (house decision #101): a part that names a definition the seat may not read goes with it.
  */
 export function seatManifest({ ruleset, ctx }: { ruleset: Ruleset; ctx: Ctx }): Ruleset {
   const defs = seatCodexDefinitions({ ruleset: seatDefinitions({ ruleset, ctx }), secrets: sightOf(ctx).secrets });
@@ -74,13 +75,17 @@ export function seatManifest({ ruleset, ctx }: { ruleset: Ruleset; ctx: Ctx }): 
     sightOf(ctx).secrets || (defs.checklist === undefined && defs.generators === undefined) ? defs : unlisted;
   // The entries of a `gm` or `owner` table are what a roll or a deal keeps secret: only the side that runs the table
   // with a GM reads them. Anyone else still sees the table's title (a deal can be run without a GM).
-  if (shown.tables === undefined || sightOf(ctx).tables) return shown;
-  return {
-    ...shown,
-    tables: Object.fromEntries(
-      Object.entries(shown.tables).map(([id, t]) => [id, t.visibility === "party" ? t : { ...t, entries: [] }]),
-    ),
-  };
+  const served =
+    shown.tables === undefined || sightOf(ctx).tables
+      ? shown
+      : {
+          ...shown,
+          tables: Object.fromEntries(
+            Object.entries(shown.tables).map(([id, t]) => [id, t.visibility === "party" ? t : { ...t, entries: [] }]),
+          ),
+        };
+  // Only a manifest that compiles is cut to compile for a seat: a room always pins one (an import compiles it).
+  return compileRuleset(ruleset).ok ? compilable(served) : served;
 }
 
 /**

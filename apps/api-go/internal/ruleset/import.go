@@ -55,6 +55,9 @@ func LockImport(ctx context.Context, tx pgx.Tx, userID string) error {
 // immutable).
 func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*Imported, error) {
 	compiled, problems := engine.CompileRuleset(input)
+	if len(problems) == 0 {
+		problems = engine.ImportProblems(compiled.Ruleset)
+	}
 	if len(problems) > 0 {
 		return nil, &Refused{Problems: problems}
 	}

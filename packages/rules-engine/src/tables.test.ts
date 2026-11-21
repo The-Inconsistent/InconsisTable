@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { SAMPLE_D20_0_1_8 as SAMPLE_D20 } from "./fixtures/sample-d20.ts";
 import { SAMPLE_HARVEST } from "./fixtures/sample-harvest.ts";
-import { tableDie, validateRuleset, type RulesetInput } from "./manifest.ts";
+import { importProblems, tableDie, validateRuleset, type RulesetInput } from "./manifest.ts";
 import type { Problem } from "./problem.ts";
 
 // Random tables (house decision #49): ranges tile the die, weights stand without one, a rule entry cites its page.
@@ -116,7 +116,10 @@ test("a table without a die has weights and no ranges, and bounds hold", () => {
       JSON.stringify(bad),
     );
   }
-  assert.deepEqual(keys(problems(withTables(table(undefined, [])))), ["tables.t.entries | a table needs an entry"]);
+  // A seat's copy of a table it may not read validates without an entry; an import refuses one (house decision #101).
+  const empty = validateRuleset(withTables(table(undefined, [])));
+  assert.ok(empty.ok);
+  assert.deepEqual(keys(importProblems(empty.ruleset)), ["tables.t.entries | a table needs an entry"]);
   const dup = table(undefined, [
     { id: "a", label: "A" },
     { id: "a", label: "B" },

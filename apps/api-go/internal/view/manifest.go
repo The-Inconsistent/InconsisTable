@@ -4,15 +4,15 @@ import (
 	"maps"
 
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 )
 
 // SeatManifest is the manifest as a seat may read it, from the normalized manifest (decoded JSON, defaults applied). A
 // seat that sees `gm` values reads all of it; any other seat gets the definitions of fields, derived values, resources
 // and conditions whose visibility is not `gm` (fail-closed: a definition that declares none is `gm`). The values
-// themselves are filtered per actor in Of. The input is never written to.
+// themselves are filtered per actor in Of. What is left is cut until it compiles (house decision #101): a part that
+// names a definition the seat may not read goes with it. The input is never written to.
 //
-// ponytail: a visible condition's effect formulas are shown as written, even where they name a `gm` field; strip or
-// redact them if a ruleset needs that secret kept.
 // ponytail: the manifest is not split per entity kind; a co-GM with `party` or `combat` reads every definition.
 func SeatManifest(manifest map[string]any, c cs.Ctx) map[string]any {
 	sight := SightOf(c)
@@ -29,7 +29,11 @@ func SeatManifest(manifest map[string]any, c cs.Ctx) map[string]any {
 		out = maps.Clone(out)
 		out["tables"] = seatTableDefs(tables)
 	}
-	return out
+	// Only a manifest that compiles is cut to compile for a seat: a room always pins one (an import compiles it).
+	if _, problems := engine.CompileRuleset(manifest); len(problems) > 0 {
+		return out
+	}
+	return compilable(out)
 }
 
 func seatDefinitions(manifest map[string]any, sight Sight, c cs.Ctx) map[string]any {

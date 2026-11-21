@@ -6,7 +6,8 @@ import { dirname, join } from "node:path";
 
 import { z } from "zod";
 
-import { seatView, type Snapshot } from "./reference/view.ts";
+import { seatManifest, seatView, type Snapshot } from "./reference/view.ts";
+import { CRAFTED_SEAT_CUTS, SAMPLE_RULESETS } from "./reference/samples.ts";
 import {
   Action,
   BookAck,
@@ -23,6 +24,7 @@ import type { RulesetInput } from "../../../packages/rules-engine/src/manifest.t
 
 const VIEW_OUT = join(import.meta.dirname, "../internal/coreschema/testdata/views.json");
 const ACTION_OUT = join(import.meta.dirname, "../internal/coreschema/testdata/actions.json");
+const SERVED_OUT = join(import.meta.dirname, "../internal/coreschema/testdata/served-manifests.json");
 
 // ---- Seat views ----
 
@@ -1017,6 +1019,25 @@ writeFileSync(
     views,
   }),
 );
+
+// ---- Every sample's manifest as each seat is served it (house decision #101) ----
+
+// Each served manifest must compile: the generator stops on one that does not, and Go must cut the same parts.
+const SERVED_FIXTURES: Record<string, RulesetInput> = { ...SAMPLE_RULESETS, ...CRAFTED_SEAT_CUTS, view: VIEW_MANIFEST };
+const servedManifests = Object.entries(SERVED_FIXTURES).flatMap(([fixture, input]) => {
+  const c = compileRuleset(input);
+  if (!c.ok) throw new Error(`${fixture} does not compile: ${JSON.stringify(c.problems)}`);
+  return SEATS.flatMap(({ name, userId, seat }) =>
+    (["gm", "gmless"] as const).map((tableMode) => {
+      const ctx: Ctx = { campaignId: U(100), userId, campaignOwnerId: "owner", tableMode, seat };
+      const manifest = seatManifest({ ruleset: c.compiled.ruleset, ctx });
+      const served = compileRuleset(manifest);
+      if (!served.ok) throw new Error(`${fixture}, ${name} (${tableMode}): ${JSON.stringify(served.problems)}`);
+      return { fixture, seatName: name, ctx, manifest };
+    }),
+  );
+});
+writeFileSync(SERVED_OUT, JSON.stringify({ inputs: SERVED_FIXTURES, manifests: servedManifests }));
 
 // ---- Actions and book schemas ----
 

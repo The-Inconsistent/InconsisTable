@@ -19,8 +19,8 @@ import {
 
 // The pure side of spends (house decision #84): what a character may spend now, read as the server reads it, and the
 // words a spend or an ask is shown with. The server still decides; this is the preview that hides what it would refuse.
-// It reads the seat's own manifest, which may not compile (a player's leaves out the `gm` resources other blocks name):
-// a compiled ruleset only gives a resource its bounds, and without one a resource reads from 0.
+// It reads the seat's own manifest, which compiles (house decision #101: the parts naming a `gm` resource are cut with
+// it): a compiled ruleset only gives a resource its bounds, and without one a resource reads from 0.
 
 type Table = Pick<LiveState, "pools" | "encounter" | "campaign">;
 

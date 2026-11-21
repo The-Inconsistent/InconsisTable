@@ -120,12 +120,25 @@ func (t *RandomTable) IsLookup() bool {
 	return false
 }
 
+// ImportProblems is what an import refuses beyond what compiles: a table with no entry, which only a seat's copy of a
+// table it may not read has (house decision #101; manifest.ts importProblems). Run on a ruleset that compiled.
+func ImportProblems(r *Ruleset) []Problem {
+	var out []Problem
+	for _, id := range sortedKeys(r.Tables) {
+		if len(r.Tables[id].Entries) == 0 {
+			out = append(out, Problem{Path: "tables." + id + ".entries", Message: "a table needs an entry"})
+		}
+	}
+	return out
+}
+
 // A die's ranges tile its outcomes exactly: no gap, no overlap, nothing outside; no die means weights, no ranges. The
 // last line may be open-ended, and a table with a modifier may have lines above the die, shaped like it.
 func (p *problems) table(r *Ruleset, id string, t *RandomTable) {
 	path := "tables." + id
+	// A seat's copy of a table it may not read has no entry and still compiles (house decision #101); an import refuses
+	// one (ImportProblems).
 	if len(t.Entries) == 0 {
-		p.add(path+".entries", "a table needs an entry")
 		return
 	}
 	p.duplicates(path+".entries", idsOf(t.Entries, func(e TableEntry) string { return e.ID }))

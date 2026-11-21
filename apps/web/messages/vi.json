@@ -949,10 +949,18 @@
       "orName": "Hoặc tự đặt tên",
       "quantity": "Bao nhiêu",
       "add": "Thêm"
+    },
+    "override": {
+      "title": "GM ghi đè",
+      "value": "Đặt {label} thành",
+      "hint": "Để trống: con số tính được quay lại.",
+      "set": "Đặt",
+      "clear": "Xoá"
     }
   },
   "breakdown": {
-    "hidden": "Các thành phần của chỉ số này không hiện trên điện thoại của bạn."
+    "hidden": "Các thành phần của chỉ số này không hiện trên điện thoại của bạn.",
+    "override": "{source}: GM ghi đè"
   },
   "rulesReader": {
     "failed": "Không đọc được luật. Kiểm tra kết nối rồi thử lại.",
@@ -1581,7 +1589,8 @@
     "itemNotFitted": "{item} chưa được gắn.",
     "itemNotCounted": "{item} không được đếm.",
     "itemOnlySpend": "Chỉ GM thêm được {item}.",
-    "roomNoSuchItem": "Tài liệu này không có vật phẩm đó của nhân vật."
+    "roomNoSuchItem": "Tài liệu này không có vật phẩm đó của nhân vật.",
+    "keepSheetGm": "Chỉ GM lưu được bản dựng đè lên tờ nhân vật làm tay."
   },
   "workspace": {
     "skip": "Bỏ qua, tới nội dung trang",
@@ -1939,7 +1948,8 @@
     "revealSkipped": "Chưa tiết lộ: {line}",
     "rule": "{name}: {rule}",
     "conditionSkipped": "{name} miễn nhiễm với {condition}: bỏ qua",
-    "dismiss": "Đóng"
+    "dismiss": "Đóng",
+    "advanced": "{field} tăng từ {from} lên {to}: tính là {steps} lần thăng tiến; mọi bộ đếm bắt đầu lại"
   },
   "spendRequest": {
     "ask": "Xin tiêu",
@@ -2529,6 +2539,10 @@
       "savedForLater": "Đã lưu để làm tiếp.",
       "kept": "Đã lưu nháp",
       "notKept": "Chưa giữ nháp"
+    },
+    "overrides": {
+      "title": "Ghi đè",
+      "hint": "Lưu ngay; bản dựng không được lưu cùng."
     }
   }
 }

@@ -41,6 +41,8 @@ export interface CompiledDerived {
   visibility: Visibility;
   /** Derived ids it reads. */
   deps: string[];
+  /** The int field whose value, when set, replaces the worked-out one (house decision #96); null when none. */
+  override: string | null;
 }
 
 /** What an actor holds from a pack: the entry it chose and what it adds (house decision #61). */
@@ -440,9 +442,15 @@ class Compiler {
     for (const id of order) {
       const c = compiled.get(id);
       if (c === undefined) continue;
-      const inputs = c.expr.refs.map((ref) =>
+      const override = c.def.override;
+      const inputs = [...c.expr.refs, ...(override === undefined ? [] : [override])].map((ref) =>
         pathVisibility({ ref, entity: e, resources: carried, derived: visibility }),
       );
+      if (override !== undefined && own(e.fields, override)?.type !== "int")
+        this.problems.push({
+          path: `entities[${index}].derived[${e.derived.indexOf(c.def)}].override`,
+          message: `"${override}" is not an int field of ${e.id}`,
+        });
       const taint = strictestVisibility(inputs);
       if (VISIBILITY_RANK[c.def.visibility] < VISIBILITY_RANK[taint]) {
         const j = e.derived.indexOf(c.def);
@@ -452,7 +460,14 @@ class Compiler {
         });
       }
       visibility.set(id, c.def.visibility);
-      derived.push({ id, label: c.def.label, expr: c.expr, visibility: c.def.visibility, deps: c.deps });
+      derived.push({
+        id,
+        label: c.def.label,
+        expr: c.expr,
+        visibility: c.def.visibility,
+        deps: c.deps,
+        override: c.def.override ?? null,
+      });
     }
     return { def: e, resources: [...carried.keys()], derived, effects: [], scope };
   }

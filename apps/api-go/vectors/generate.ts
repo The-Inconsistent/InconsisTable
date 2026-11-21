@@ -1527,6 +1527,19 @@ const ITEMS_MANIFEST = {
 };
 MANIFESTS.push(ITEMS_MANIFEST);
 
+// A GM's override of a derived value (house decision #96): set, it replaces the worked-out number.
+const OVERRIDE_MANIFEST = {
+  ...MINIMAL,
+  entities: [
+    {
+      ...pcBase,
+      fields: { ...pcBase.fields, aSet: { label: "A", type: "int", visibility: "public" } },
+      derived: [{ id: "a", label: "A", expr: "attr.str", visibility: "public", override: "aSet" }],
+    },
+  ],
+};
+MANIFESTS.push(OVERRIDE_MANIFEST);
+
 // House decision #55: campaign fields, the `campaign` root and at().
 const cInt = { type: "int", label: "D", min: 1, max: 5, default: 1, cite: "p1" };
 const cEnum = { type: "enum", label: "M", values: ["calm", "tense"], default: "calm", cite: "p1" };
@@ -3154,6 +3167,16 @@ const LEDGER_CHANGES: ((m: Mutable) => void)[] = [
     delete m.build.award;
   },
   (m) => (m.build.gone = ["nope", "lost", "lost"]),
+  // What a build over a hand-made sheet keeps (house decision #96).
+  (m) => (m.build.keep = { fields: ["nope", "armourRating"], resources: ["corruption", "nope"] }),
+  (m) => (m.build.keep = {}),
+  (m) => (m.build.keep = { fields: Array.from({ length: 51 }, () => "xp") }),
+  (m) => delete m.build.keep,
+  // The GM's override of a derived value (house decision #96).
+  (m) => (m.entities[0].derived[0].override = "species"),
+  (m) => (m.entities[0].derived[0].override = "nope"),
+  (m) => (m.entities[0].fields.guardSet.visibility = "gm"),
+  (m) => delete m.entities[0].derived[0].override,
   (m) => (m.build.gone = Array.from({ length: 11 }, () => "lost")),
   (m) => (m.build.gone = []),
   (m) => {

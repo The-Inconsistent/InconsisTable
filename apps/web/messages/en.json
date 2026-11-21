@@ -949,10 +949,18 @@
       "orName": "Or a name of your own",
       "quantity": "How many",
       "add": "Add"
+    },
+    "override": {
+      "title": "The GM's override",
+      "value": "{label} set to",
+      "hint": "Blank: the worked-out number returns.",
+      "set": "Set",
+      "clear": "Clear"
     }
   },
   "breakdown": {
-    "hidden": "The parts of this number aren't shown on your phone."
+    "hidden": "The parts of this number aren't shown on your phone.",
+    "override": "{source}: the GM's override"
   },
   "rulesReader": {
     "failed": "Couldn't read the rules. Check the connection and try again.",
@@ -1581,7 +1589,8 @@
     "itemNotFitted": "{item} isn't fitted.",
     "itemNotCounted": "{item} isn't counted.",
     "itemOnlySpend": "Only the GM adds to {item}.",
-    "roomNoSuchItem": "No such item of this character in this document."
+    "roomNoSuchItem": "No such item of this character in this document.",
+    "keepSheetGm": "Only the GM saves a build over a sheet made by hand."
   },
   "workspace": {
     "skip": "Skip to the page",
@@ -1939,7 +1948,8 @@
     "revealSkipped": "Not revealed: {line}",
     "rule": "{name}: {rule}",
     "conditionSkipped": "{name} is immune to {condition}: left out",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "advanced": "{field} raised from {from} to {to}: counted as {steps} advance(s); every count starts again"
   },
   "spendRequest": {
     "ask": "Ask to spend",
@@ -2529,6 +2539,10 @@
       "savedForLater": "Saved for later.",
       "kept": "Draft saved",
       "notKept": "Draft not kept"
+    },
+    "overrides": {
+      "title": "Overrides",
+      "hint": "Saved at once; the build is not saved with them."
     }
   }
 }

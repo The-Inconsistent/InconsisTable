@@ -162,6 +162,8 @@ type (
 		Label      string `json:"label"`
 		Expr       string `json:"expr"`
 		Visibility string `json:"visibility"`
+		// Override names the int field holding a GM's override (house decision #96); nil when the value is never overridden.
+		Override *string `json:"override"`
 	}
 	// EntityType is one kind of actor or entry.
 	EntityType struct {
@@ -643,6 +645,11 @@ type (
 			Max       float64   `json:"max"`
 			Suggested []float64 `json:"suggested"`
 		} `json:"award"`
+		// Keep is what a build over a hand-made sheet keeps (house decision #96); nil when such a build is refused.
+		Keep *struct {
+			Fields    []string `json:"fields"`
+			Resources []string `json:"resources"`
+		} `json:"keep"`
 	}
 	// GameInfo is the manifest's `game` block: what the game is and how a table can sit for it.
 	GameInfo struct {

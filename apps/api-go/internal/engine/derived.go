@@ -284,6 +284,12 @@ func (c *CompiledRuleset) DeriveValues(entity string, values ActorValues) (map[s
 		out[eff.Target] = next
 		live.Fields[eff.Target] = next
 	}
+	// A GM's override replaces the worked-out value, effects and all (derived.ts; house decision #96).
+	for _, d := range ce.Derived {
+		if set, isNumber := values.Fields[d.Override].(float64); d.Override != "" && isNumber {
+			out[d.ID] = set
+		}
+	}
 	return out, nil
 }
 

@@ -19,6 +19,8 @@ var NoticeParams = map[string][]string{
 	"revealSkipped": {"line", "reason"},
 	// conditionSkipped answers table.apply (house decision #87).
 	"conditionSkipped": {"name", "condition"},
+	// advanced answers campaign.setField raising the field an advance follows (house decision #96).
+	"advanced": {"field", "from", "to", "steps"},
 }
 
 // SceneBegun is the notice that a scene began and revealed that many entries.
@@ -58,6 +60,12 @@ func SessionDeleted(number int) Notice {
 // ConditionSkipped is the notice that a lookup left out a condition its target is immune to (house decision #87).
 func ConditionSkipped(name, condition string) Notice {
 	return Notice{Code: "conditionSkipped", Params: Params{"name": name, "condition": condition}}
+}
+
+// Advanced is the notice that the field an advance follows was raised by hand from one value to another: that many
+// steps, each read as an advance (house decision #96).
+func Advanced(field string, from, to float64) Notice {
+	return Notice{Code: "advanced", Params: Params{"field": field, "from": from, "to": to, "steps": to - from}}
 }
 
 // RuleNotice is a ruleset's notice rule raised for one actor.

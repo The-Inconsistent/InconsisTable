@@ -271,6 +271,11 @@ export const DerivedDef = z.object({
   expr: ExprSource,
   visibility: Visibility.default("gm"),
   cite: Cite.optional(),
+  /**
+   * An int field of the same entity that holds a GM's override (house decision #96): set, it replaces the worked-out
+   * value; unset, the value is worked out. Absent: the value is never overridden.
+   */
+  override: FieldId.optional(),
 });
 export type DerivedDef = z.infer<typeof DerivedDef>;
 
@@ -975,6 +980,13 @@ export const LedgerBuild = z.object({
   gone: z.array(Id).max(10).optional(),
   /** The XP a session's end may give, and the amounts the GM is offered. Absent: a session's end gives none. */
   award: z.object({ max: z.int().min(1).max(1000), suggested: z.array(z.int().min(0)).max(6), cite: Cite }).optional(),
+  /**
+   * What a build saved over a hand-made sheet keeps (house decision #96): fields of `actor` the build would write, and
+   * resources it would start, left as they were set by hand. Absent: such a build is refused (`alreadyBuilt`).
+   */
+  keep: z
+    .object({ fields: z.array(FieldId).max(50).default([]), resources: z.array(Id).max(20).default([]) })
+    .optional(),
   cite: Cite,
 });
 export type LedgerBuild = z.infer<typeof LedgerBuild>;
@@ -1743,6 +1755,19 @@ function buildProblems(r: Ruleset, out: Problem[]): void {
   b.gone?.forEach((id, i) => {
     if (!r.health.states.some((s) => s.id === id && (s.entities === undefined || s.entities.includes(actor.id))))
       out.push({ path: `build.gone[${i}]`, message: `unknown health state "${id}"` });
+  });
+  // What a build over a hand-made sheet keeps is the actor's own (house decision #96).
+  b.keep?.fields.forEach((id, i) => {
+    if (own(actor.fields, id) === undefined)
+      out.push({ path: `build.keep.fields[${i}]`, message: `${actor.id} has no field "${id}"` });
+  });
+  b.keep?.resources.forEach((id, i) => {
+    const res = r.resources.findLast((x) => x.id === id);
+    if (res === undefined || res.scope !== "entity" || (res.entities !== undefined && !res.entities.includes(actor.id)))
+      out.push({
+        path: `build.keep.resources[${i}]`,
+        message: `"${id}" is not an entity resource the ${actor.id} carries`,
+      });
   });
 }
 

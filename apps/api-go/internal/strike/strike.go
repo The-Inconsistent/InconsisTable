@@ -127,7 +127,7 @@ func side(rc *ruleset.Context, id string) (*actor.Built, error) {
 // entry the room is served whose key the attacker's list field holds, or an item of the kind the attacker holds whose
 // entry the room is served (a hand-written item has no values to strike with). Nil for none picked; the engine refuses
 // a means the strike does not take, or a missing one it needs.
-func meansOf(ctx context.Context, tx core.Conn, campaignID string, s *engine.Strike, b *actor.Built, pick map[string]any) (map[string]any, any, error) {
+func meansOf(ctx context.Context, tx core.Conn, campaignID string, s *engine.Strike, b *actor.Built, pick map[string]any) (map[string]any, *string, error) {
 	if pick == nil {
 		return nil, nil, nil
 	}
@@ -164,7 +164,8 @@ func meansOf(ctx context.Context, tx core.Conn, campaignID string, s *engine.Str
 		if line == nil {
 			return nil, nil, missing
 		}
-		return line, line["name"], nil
+		name, _ := line["name"].(string)
+		return line, &name, nil
 	}
 	entryType, key := m.Entry, ref
 	if m.From == "items" {
@@ -196,7 +197,7 @@ func meansOf(ctx context.Context, tx core.Conn, campaignID string, s *engine.Str
 	if err := json.Unmarshal(body, &values); err != nil {
 		return nil, nil, err
 	}
-	return values, name, nil
+	return values, &name, nil
 }
 
 // logStrike writes the strike as an event of its own beside the hit's writes, under the same action: not a delta, so

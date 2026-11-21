@@ -374,8 +374,8 @@ function seatEncounter({
   const seen = encounter.combatants.filter((c) => c.visibility !== "hidden");
   const acting = seen.some((c) => c.id === encounter.currentId);
   // A reminder line may name a hidden combatant: the combat side's only (house decision #81), and so may the step TURN
-  // BACK would take (house decision #82).
-  const { reminders: _reminders, turnBack: _turnBack, ...rest } = encounter;
+  // BACK would take (house decision #82), and the fight's log (house decision #100).
+  const { reminders: _reminders, turnBack: _turnBack, log: _log, ...rest } = encounter;
   return {
     ...rest,
     conditionDefs: [],

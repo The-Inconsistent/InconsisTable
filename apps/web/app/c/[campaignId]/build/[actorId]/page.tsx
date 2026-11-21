@@ -68,6 +68,7 @@ export default async function Build({ params, searchParams }: BuildProps) {
           me={me}
           step={step}
           worldVersionId={world?.versionId ?? null}
+          packs={room.data.packs.map((pack) => pack.slug)}
         />
       </RoomWorld>
     );

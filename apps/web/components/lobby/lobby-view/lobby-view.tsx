@@ -10,6 +10,7 @@ import { AccountBar } from "@/components/lobby/account-bar/account-bar";
 import { GamePicker } from "@/components/lobby/game-picker/game-picker";
 import { ImportRoom } from "@/components/lobby/import-room/import-room";
 import { QuickGame } from "@/components/lobby/quick-game/quick-game";
+import { YourCharacters } from "@/components/lobby/your-characters/your-characters";
 import { PageHead } from "@/components/ui/page-head/page-head";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import type { AuthMe } from "@/lib/api-reply/api-reply";
@@ -213,6 +214,7 @@ export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps)
       )}
       <Section title={t("yourCampaigns")} games={lobby.mine} empty={t("emptyMine")} />
       <Section title={t("wherePlay")} games={lobby.seated} empty={t("emptySeated")} />
+      <YourCharacters rulesets={rulesets} />
       {lobby.archived.length > 0 && (
         <details className="stack ws-fold">
           <summary className="head">

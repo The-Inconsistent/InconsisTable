@@ -21,7 +21,11 @@ import type {
 import { HandoutLayout, MAX_PAGE_BYTES } from "@inconsistable/core-schema";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
-import { SAMPLE_HARM, SAMPLE_HARM_GROWTHS } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
+import {
+  SAMPLE_HARM,
+  SAMPLE_HARM_ARMS,
+  SAMPLE_HARM_GROWTHS,
+} from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { SAMPLE_PACK, SAMPLE_PACK_EFFECTS } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
@@ -5312,6 +5316,80 @@ test("health.harm: hit down, scarred, healed, destroyed, a mob thinned and muste
     );
   }
   for (const c of [owner, ana, screen]) c.socket.close();
+});
+
+// Strikes (house decision #99) on sample-harm's blow: the GM picks the arm and the target, types the total the dice
+// made, and the server works out what it does: a creature takes the total over its soak as wounds, a swarm loses one
+// member; a tie on a brute applies nothing; a player's seat is refused; Undo takes a strike back.
+test("strikes: a typed total lands on a creature and on a swarm as the strike gives, and Undo takes it back", async () => {
+  const ownerDevice = await device("owner-Strike");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_HARM);
+  const pk = await me.post<PackReply>("/packs", {
+    ...HARM_PACK,
+    id: "sample-harm-arms",
+    entries: [
+      { ...HARM_PACK.entries[0]!, body: { hide: 3, arms: ["claw"] } },
+      { ...HARM_PACK.entries[1]!, body: { arms: ["claw"] } },
+      ...SAMPLE_HARM_ARMS,
+    ],
+  });
+  assert.deepEqual([rs.status, pk.status], [201, 201]);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Strike",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-Strike") } });
+  const hero = (await owner.until((s) => s.actors.some((a) => a.kind === "pc"))).actors.find(
+    (a) => a.kind === "pc",
+  )!.id;
+  // Grit 2: might 2, guard 2, toughness 3.
+  await equip(hero, "hero", { fields: { grit: 2 }, resources: { wounds: 0, strain: 0 } });
+  ok(await owner.send({ type: "actor.rename", id: hero, name: "Hal" }));
+  await owner.until((s) => actorIn(s, hero)?.entity === "hero");
+  ok(await owner.send({ type: "field.set", actorId: hero, field: "arms", value: ["maul", "sling"] }));
+
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: [hero], side: "party", visibility: "full" }));
+  const spawn = { type: "actor.spawn", packVersionId: pk.body.versionId, count: 1, temporary: true } as const;
+  ok(await owner.send({ ...spawn, key: "ogre" }));
+  ok(await owner.send({ ...spawn, key: "rats", mob: 6 }));
+  const fight = await owner.until((s) => s.encounter?.combatants.length === 3);
+  const idOf = (prefix: string) => fight.actors.find((a) => a.name.startsWith(prefix))!.id;
+  const [ogre, rats] = [idOf("Ogre"), idOf("Rats")];
+  assert.deepEqual(actorIn(fight, ogre)?.fields.arms, ["claw"]); // copied from its pack entry
+  const strike = (attackerId: string, targetId: string, ref: string, total: number, inputs = {}) =>
+    ({
+      type: "strike.apply",
+      strikeId: "blow",
+      attackerId,
+      means: { source: 0, ref },
+      targetId,
+      inputs,
+      total,
+    }) as ActionInput;
+
+  // The Ogre (hide 3) soaks 3 against a maul: a total of 7 is 4 wounds.
+  ok(await owner.send(strike(hero, ogre, "maul", 7, { aim: true })));
+  await owner.until((s) => actorIn(s, ogre)?.resources.wounds === 4);
+  // A tie on a brute is strain it never takes: nothing to apply. A player's seat is refused.
+  refused(await owner.send(strike(hero, ogre, "maul", 3)), "strikeNoHarm");
+  refused(await ana.send(strike(hero, ogre, "maul", 9)), "noPermission");
+  refused(await owner.send(strike(hero, ogre, "claw", 9)), "noSuchMeans");
+  // The swarm loses one member to a total over its soak, however high; the Ogre's claw on Hal is wounds again.
+  ok(await owner.send(strike(hero, rats, "sling", 9)));
+  let s = await owner.until((x) => actorIn(x, rats)?.resources.members === 5);
+  ok(await owner.send(strike(ogre, hero, "claw", 5)));
+  s = await owner.until((x) => actorIn(x, hero)?.resources.wounds === 3);
+  ok(await owner.send({ type: "event.undo" }));
+  s = await owner.until((x) => actorIn(x, hero)?.resources.wounds === 0);
+  assert.equal(actorIn(s, rats)?.resources.members, 5);
+  for (const c of [owner, ana]) c.socket.close();
 });
 
 // Lookups (house decision #87) on sample-harm's Telling Blow: the GM types the result, the switch, the surge dice and

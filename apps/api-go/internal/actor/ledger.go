@@ -363,6 +363,15 @@ func sheetFields(b *engine.LedgerBuild, sheet *schema.Obj) map[string]any {
 	return out
 }
 
+// BuildWrites is the actor fields a saved build writes: what a room document leaves to the build (house decision #103).
+func BuildWrites(b *engine.LedgerBuild) map[string]bool {
+	out := map[string]bool{}
+	for field := range sheetFields(b, schema.NewObj()) {
+		out[field] = true
+	}
+	return out
+}
+
 // notReady is a buildNotReady refusal's detail: the first problems (a GM's question marked as such), then the first
 // choices still to make by path, and how many more there are.
 func notReady(r *ledger.ResolvedBuild) string {

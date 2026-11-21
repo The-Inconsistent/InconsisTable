@@ -66,10 +66,12 @@ type Answer struct {
 	Counts     Counts   `json:"counts"`
 }
 
-// Options are the importer's choices: a dry run, and how the table sits ("" is with a GM).
+// Options are the importer's choices: a dry run, how the table sits ("" is with a GM), and a fresh start.
 type Options struct {
 	DryRun    bool
 	TableMode string
+	// Fresh imports the room as a new group would start it (house decision #103): see fresh.
+	Fresh bool
 }
 
 // Import reads a document and applies it in one transaction, committed unless it is a dry run. On a problem the answer
@@ -79,6 +81,9 @@ func Import(ctx context.Context, db *pgxpool.Pool, owner campaign.Owner, body an
 	answer := Answer{Name: doc.str("room", "name")}
 	if err != nil {
 		return answer, err
+	}
+	if opts.Fresh {
+		doc = fresh(doc)
 	}
 	answer.Counts = countsOf(doc)
 	tx, err := db.Begin(ctx)
@@ -377,7 +382,12 @@ func (im *importer) sessions() error {
 		if err != nil {
 			return err
 		}
-		if _, err := im.run(map[string]any{"type": "session.end", "recap": doc(s).str("recap")}, "sessions", i, "recap"); err != nil {
+		// An abandoned session ends without its award, as session.abandon ends one (house decision #85).
+		end := "session.end"
+		if abandoned, _ := s["abandoned"].(bool); abandoned {
+			end = "session.abandon"
+		}
+		if _, err := im.run(map[string]any{"type": end, "recap": doc(s).str("recap")}, "sessions", i, "recap"); err != nil {
 			return err
 		}
 		if notes := doc(s).str("notes"); notes != "" {
@@ -536,6 +546,9 @@ func (im *importer) actorRows() error {
 			return err
 		}
 		im.actors[doc(a).str("id")] = id
+		if err := im.spawnOptions(i, a, id); err != nil {
+			return err
+		}
 	}
 	for i, a := range actors {
 		id := im.actors[doc(a).str("id")]
@@ -575,6 +588,36 @@ func (im *importer) actorRows() error {
 		}
 	}
 	return nil
+}
+
+// spawnOptions keeps the spawn options a spawned actor was made with (house decision #92): each one the ruleset declares
+// for the actor's type. Their `when` was read at the spawn and is not read again, as the adjustments made then are not.
+func (im *importer) spawnOptions(i int, a map[string]any, id string) error {
+	options := strs(a["spawnOptions"])
+	if len(options) == 0 {
+		return nil
+	}
+	rules, err := compiled.Load(im.ctx, im.tx, im.gm.CampaignID)
+	if err != nil {
+		return err
+	}
+	entity := doc(a).str("entityType")
+	for j, option := range options {
+		var declared *engine.SpawnOption
+		if rules != nil && rules.Ruleset.Spawn != nil {
+			if at := slices.IndexFunc(rules.Ruleset.Spawn.Options, func(o engine.SpawnOption) bool { return o.ID == option }); at >= 0 {
+				declared = &rules.Ruleset.Spawn.Options[at]
+			}
+		}
+		if declared == nil {
+			return problem("noSuchOption", cs.Params{"detail": option}, "actors", i, "spawnOptions", j)
+		}
+		if entity == "" || (declared.Entities != nil && !slices.Contains(*declared.Entities, entity)) {
+			return problem("optionNotHere", cs.Params{"detail": declared.Label}, "actors", i, "spawnOptions", j)
+		}
+	}
+	_, err = im.tx.Exec(im.ctx, `UPDATE actor SET spawn_options = $2 WHERE id = $1`, id, options)
+	return err
 }
 
 // held holds the records a document's actor holds (house decision #88), kept in a held kind's list field and written

@@ -323,4 +323,7 @@ var refusals = map[string]string{
 	"generatePick":    "{step}: that entry is not one this step picks.",
 	"generateValue":   "{step}: that value is out of bounds.",
 	"generateCount":   "This run makes {count} entries inside it.",
+	// A room exported (house decision #103).
+	"roomExportOwnerOnly": "Only the room's owner, running it, exports it.",
+	"roomExportTooLarge":  "With its pictures this room is over 100 MB, more than an import takes. Export it without pictures.",
 }

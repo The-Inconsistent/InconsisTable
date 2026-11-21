@@ -357,6 +357,9 @@ export const REFUSALS = {
   generatePick: "{step}: that entry is not one this step picks.",
   generateValue: "{step}: that value is out of bounds.",
   generateCount: "This run makes {count} entries inside it.",
+  roomExportOwnerOnly: "Only the room's owner, running it, exports it.",
+  roomExportTooLarge:
+    "With its pictures this room is over 100 MB, more than an import takes. Export it without pictures.",
 } as const;
 
 export type RefusalKey = keyof typeof REFUSALS;

@@ -12,7 +12,7 @@ import { SAMPLE_LEDGER_RULESET } from "../../../packages/rules-engine/src/fixtur
 // The d20 fixture with a place field, so the nested place can carry one (as the smoke suite's codex test does).
 export const ROOM_D20: RulesetInput = (() => {
   const ruleset = structuredClone(SAMPLE_D20);
-  ruleset.version = "0.1.9-room";
+  ruleset.version = "0.1.10-room";
   ruleset.codex!.kinds.location = {
     fields: {
       ...ruleset.codex!.kinds.location?.fields,
@@ -77,7 +77,7 @@ export const d20Document = (): RoomDocumentInput => ({
     safety: { lines: ["Drowning"], veils: ["Spiders"], xCard: true },
   },
   expects: {
-    ruleset: { slug: "sample-d20", version: "0.1.9-room" },
+    ruleset: { slug: "sample-d20", version: "0.1.10-room" },
     packs: [{ slug: "sample-bestiary", version: "0.1.0" }],
     world: { slug: "sample-tidewater", version: "0.1.0" },
   },

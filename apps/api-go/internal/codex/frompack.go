@@ -125,33 +125,57 @@ func FromPack(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 			return cs.Result{}, cs.Fail("fromPackTooMany", cs.Params{"limit": maxFromPack})
 		}
 	}
-	secrets := cs.CanInCampaign(c, "codex:read_secret", "")
 	ids := make([]string, 0, len(tree))
 	for _, n := range tree {
-		save := cs.Action{"type": "codex.save", "kind": kind, "title": n.entry.Name,
-			"source": map[string]any{"entity": entity, "key": n.entry.Key}}
-		if fields := mapped(rules, kind, how, n.entry, secrets); len(fields) > 0 {
-			save["fields"] = fields
-		}
-		if kind == "scene" {
-			prep, err := scenePrep(ctx, tx, c, rules, how, n.entry)
-			if err != nil {
-				return cs.Result{}, err
-			}
-			save["prep"] = prep
-		}
-		made, err := Save(ctx, tx, c, save)
+		save, err := saveFrom(ctx, tx, c, rules, kind, how, n.entry)
 		if err != nil {
 			return cs.Result{}, err
 		}
+		parent := ""
 		if n.parent >= 0 {
-			if _, err := Move(ctx, tx, c, cs.Action{"id": made.ID, "parentId": ids[n.parent], "position": float64(10_000)}); err != nil {
-				return cs.Result{}, err
-			}
+			parent = ids[n.parent]
 		}
-		ids = append(ids, made.ID)
+		id, err := makeUnder(ctx, tx, c, save, parent)
+		if err != nil {
+			return cs.Result{}, err
+		}
+		ids = append(ids, id)
 	}
 	// Each child's move checked the depth it reached; under a parent the whole branch is checked again there.
+	return logMade(ctx, tx, c, a, ids)
+}
+
+// saveFrom is the codex.save that makes an entry of kind from a served pack entry (house decision #97): its name, its
+// key and page, the fields its kind maps, and a scene's prepared lines.
+func saveFrom(ctx context.Context, tx core.Conn, c cs.Ctx, rules *engine.CompiledRuleset, kind string, how *engine.EntryPrefill, e pack.StoredEntry) (cs.Action, error) {
+	save := cs.Action{"type": "codex.save", "kind": kind, "title": e.Name,
+		"source": map[string]any{"entity": how.Entity, "key": e.Key}}
+	if fields := mapped(rules, kind, how, e, cs.CanInCampaign(c, "codex:read_secret", "")); len(fields) > 0 {
+		save["fields"] = fields
+	}
+	if kind == "scene" {
+		prep, err := scenePrep(ctx, tx, c, rules, how, e)
+		if err != nil {
+			return nil, err
+		}
+		save["prep"] = prep
+	}
+	return save, nil
+}
+
+// makeUnder makes an entry by codex.save and, under parent when there is one, moves it last there by codex.move.
+func makeUnder(ctx context.Context, tx core.Conn, c cs.Ctx, save cs.Action, parent string) (string, error) {
+	made, err := Save(ctx, tx, c, save)
+	if err != nil || parent == "" {
+		return made.ID, err
+	}
+	_, err = Move(ctx, tx, c, cs.Action{"id": made.ID, "parentId": parent, "position": float64(10_000)})
+	return made.ID, err
+}
+
+// logMade puts the root of what an action made under its `parentId` when it names one, and logs every entry made as one
+// action Undo takes back (house decision #97). Answers the ids, root first.
+func logMade(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, ids []string) (cs.Result, error) {
 	if parent, has := a["parentId"].(string); has {
 		if _, err := Move(ctx, tx, c, cs.Action{"id": ids[0], "parentId": parent, "position": float64(10_000)}); err != nil {
 			return cs.Result{}, err

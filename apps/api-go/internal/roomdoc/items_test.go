@@ -14,6 +14,9 @@ func itemLine(d doc, a, x map[string]any) string {
 		quantity = fmt.Sprint(q)
 	}
 	host := "-"
+	if line, onLine := x["fittedLine"].(string); onLine {
+		host = line // a line of the saved build (house decision #102)
+	}
 	for _, y := range doc(a).list("items") {
 		if y["id"] == x["fittedTo"] {
 			host = doc(y).str("entry")

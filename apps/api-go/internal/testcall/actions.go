@@ -92,17 +92,26 @@ type target struct {
 }
 
 func callTest(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
+	inputs, _ := a["inputs"].(map[string]any)
+	hideTarget, _ := a["hideTarget"].(bool)
+	showOutcome, _ := a["showOutcome"].(bool)
+	callID, err := CallTest(ctx, tx, c, a.Str("testId"), inputs, idList(a["actorIds"]), hideTarget, showOutcome)
+	return cs.Done(callID), err
+}
+
+// CallTest is test.call: the Test called for the actors with the inputs, each target worked out now and kept, as one logged
+// event. An acquisition (house decision #102) calls it the same way.
+func CallTest(ctx context.Context, tx core.Conn, c cs.Ctx, testID string, inputs map[string]any, actorIDs []string,
+	hideTarget, showOutcome bool) (string, error) {
 	cid := c.CampaignID
 	rules, err := compiled.Load(ctx, tx, cid)
 	if err != nil {
-		return cs.Result{}, err
+		return "", err
 	}
-	testID := a.Str("testId")
 	test, err := testOf(rules, testID)
 	if err != nil {
-		return cs.Result{}, err
+		return "", err
 	}
-	inputs, _ := a["inputs"].(map[string]any)
 	inputs = maps.Clone(inputs)
 	if inputs == nil {
 		inputs = map[string]any{}
@@ -114,54 +123,53 @@ func callTest(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 		}
 	}
 	if bad := CheckInputs(test, inputs); bad != "" {
-		return cs.Result{}, cs.Fail("testProblem", cs.Params{"detail": bad})
+		return "", cs.Fail("testProblem", cs.Params{"detail": bad})
 	}
 	rows, err := actor.LoadRows(ctx, tx, cid)
 	if err != nil {
-		return cs.Result{}, err
+		return "", err
 	}
 	campaign, err := actor.LoadCampaign(ctx, tx, cid, rules)
 	if err != nil {
-		return cs.Result{}, err
+		return "", err
 	}
 	built, err := actor.Build(rules, rows, campaign)
 	if err != nil {
-		return cs.Result{}, err
+		return "", err
 	}
 	// Computed now, for each character, and kept: what the phone shows must not move under a player's hand.
 	targets := []target{}
-	for _, actorID := range idList(a["actorIds"]) {
+	for _, actorID := range actorIDs {
 		if slices.ContainsFunc(targets, func(t target) bool { return t.ActorID == actorID }) {
 			continue
 		}
 		b := built[actorID]
 		switch {
 		case b == nil:
-			return cs.Result{}, cs.Fail("characterNotFound")
+			return "", cs.Fail("characterNotFound")
 		case b.Entity == "":
-			return cs.Result{}, cs.Fail("notBuilt", cs.Params{"name": b.Row.Name})
+			return "", cs.Fail("notBuilt", cs.Params{"name": b.Row.Name})
 		case b.Scope == nil:
-			return cs.Result{}, cs.Fail("incomplete", cs.Params{"name": b.Row.Name, "detail": b.Problem})
+			return "", cs.Fail("incomplete", cs.Params{"name": b.Row.Name, "detail": b.Problem})
 		case test.Def.Entities != nil && !slices.Contains(*test.Def.Entities, b.Entity):
 			// The Test names the actor types that take it (house decision #50).
-			return cs.Result{}, cs.Fail("testNotForType", cs.Params{"name": b.Row.Name})
+			return "", cs.Fail("testNotForType", cs.Params{"name": b.Row.Name})
 		}
 		r, problem, err := EvaluateCall(test, b.Scope, inputs)
 		if err != nil {
-			return cs.Result{}, err
+			return "", err
 		}
 		if problem != "" {
-			return cs.Result{}, cs.Fail("callProblem", cs.Params{"name": b.Row.Name, "detail": problem})
+			return "", cs.Fail("callProblem", cs.Params{"name": b.Row.Name, "detail": problem})
 		}
 		targets = append(targets, target{actorID, r.Modifier, r.Target, r.Pool})
 	}
-	hideTarget, _ := a["hideTarget"].(bool)
 	if !c.HasGM() {
 		// Without a GM any seat calls a Test, for characters, and nothing in it is kept from the table
 		// (docs/adr/0009-table-modes.md, p2-plan decision 3).
 		for _, t := range targets {
 			if kind := built[t.ActorID].Row.Kind; kind != "pc" && kind != "companion" {
-				return cs.Result{}, cs.Fail("testCharactersOnly")
+				return "", cs.Fail("testCharactersOnly")
 			}
 		}
 		ids := make([]string, len(targets))
@@ -171,35 +179,34 @@ func callTest(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 		// A number read from an owner or gm field is not the table's to see, so such a Test is not called without a GM.
 		if test.Def.Kind != "reported" {
 			if hideTarget {
-				return cs.Result{}, cs.Fail("testTargetShown")
+				return "", cs.Fail("testTargetShown")
 			}
 			if !everyoneMay(test.TargetVisibility, ids, built, true) || !everyoneMay(test.ModifierVisibility, ids, built, true) {
-				return cs.Result{}, cs.Fail("testTableOnly")
+				return "", cs.Fail("testTableOnly")
 			}
 		}
 	}
 	sessionID, err := eventlog.RunningSessionID(ctx, tx, cid)
 	if err != nil {
-		return cs.Result{}, err
+		return "", err
 	}
 	inputsJSON, err := json.Marshal(inputs)
 	if err != nil {
-		return cs.Result{}, err
+		return "", err
 	}
-	showOutcome, _ := a["showOutcome"].(bool)
 	var callID string
 	if err := tx.QueryRow(ctx, `INSERT INTO test_call (campaign_id, session_id, test_id, inputs, hide_target, show_outcome, created_by_user_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id::text`, cid, sessionID, testID, inputsJSON, hideTarget, showOutcome, c.UserID).
 		Scan(&callID); err != nil {
-		return cs.Result{}, err
+		return "", err
 	}
 	for _, t := range targets {
 		if _, err := tx.Exec(ctx, `INSERT INTO test_call_target (call_id, actor_id, modifier, target, pool) VALUES ($1, $2, $3, $4, $5)`,
 			callID, t.ActorID, int64(t.Modifier), int64(t.Target), intOrNil(t.Pool)); err != nil {
-			return cs.Result{}, err
+			return "", err
 		}
 	}
-	return cs.Done(callID), logEvent(ctx, tx, c, "test.call", map[string]any{
+	return callID, logEvent(ctx, tx, c, "test.call", map[string]any{
 		"callId": callID, "testId": testID, "inputs": inputs, "hideTarget": hideTarget, "targets": targets,
 	})
 }

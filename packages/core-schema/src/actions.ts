@@ -63,6 +63,8 @@ export const MAX_GENERATED_ENTRIES = 60;
 
 /** The numbers a spend's asker picks, by input name (house decision #84). */
 export const SpendInputs = z.record(z.string().min(1).max(64), z.number().int().min(-1000).max(1000));
+/** A line of a saved build an item is fitted to, `<card>/<name>` (house decision #102). */
+export const LineRef = z.string().min(3).max(130);
 
 // Every mutation goes through one socket event: "action" (CLAUDE.md, "The server decides"). These are the core
 // actions; ruleset actions (res.adjust, turn.op, rule.op, test.*) are declared by the engine's primitives instead.
@@ -336,6 +338,15 @@ export const Action = z.discriminatedUnion("type", [
     spendId: z.string().min(1).max(64).optional(),
     inputs: SpendInputs.optional(),
     note: RequestText.optional(),
+    // Acquiring a served pack entry by a Test (house decision #102), fitted at once to an item or a build line.
+    acquire: z
+      .object({
+        type: z.string().min(1).max(64),
+        entry: z.string().min(1).max(80),
+        to: id.optional(),
+        line: LineRef.optional(),
+      })
+      .optional(),
   }),
   // A spend done at once by the side that runs the table (house decision #84): its costs and ops as one action.
   z.object({
@@ -412,7 +423,7 @@ export const Action = z.discriminatedUnion("type", [
     remove: z.boolean().default(false),
   }),
   // Fit an item to another the same actor holds, or take it off (`to: null`).
-  z.object({ type: z.literal("item.fit"), itemId: id, to: id.nullable() }),
+  z.object({ type: z.literal("item.fit"), itemId: id, to: id.nullable(), line: LineRef.optional() }),
   // A counted item's quantity by a delta: the holder spends (a negative one), the GM sets either way; at 0 it is gone.
   z.object({
     type: z.literal("item.adjust"),

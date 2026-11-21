@@ -338,6 +338,9 @@ func (ex *exporter) items(rows []actor.ItemRow) []any {
 		if x.FittedTo != nil {
 			item["fittedTo"] = *x.FittedTo
 		}
+		if x.FittedLine != nil {
+			item["fittedLine"] = *x.FittedLine // a line of the saved build (house decision #102)
+		}
 		if x.Source != "hand" {
 			item["source"] = x.Source
 		}

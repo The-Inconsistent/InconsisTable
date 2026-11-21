@@ -64,6 +64,7 @@ var (
 		schema.Opt("note", schema.String().Max(200)),
 		schema.Opt("quantity", schema.Int().Min(1).Max(999)),
 		schema.Opt("fittedTo", id),
+		schema.Opt("fittedLine", lineRef), // a line of the character's saved build (house decision #102)
 		schema.Opt("source", schema.Enum("give", "hand", "acquire")),
 		schema.Opt("entryId", id),
 	).Strict()

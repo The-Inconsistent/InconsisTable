@@ -64,6 +64,7 @@ export const IDS = {
   lens: id(43),
   pellets: id(44),
   staff: id(45),
+  longSight: id(46),
 } as const;
 
 export const d20Document = (): RoomDocumentInput => ({
@@ -258,8 +259,8 @@ export const ledgerDocument = (): RoomDocumentInput => ({
   version: 1,
   room: { name: "Lamplight" },
   expects: {
-    ruleset: { slug: "sample-ledger", version: "0.1.2" },
-    packs: [{ slug: "sample-ledger-catalogue", version: "0.1.1" }],
+    ruleset: { slug: "sample-ledger", version: "0.1.3" },
+    packs: [{ slug: "sample-ledger-catalogue", version: "0.1.2" }],
   },
   campaignFields: { tier: 1 },
   actors: [
@@ -269,12 +270,15 @@ export const ledgerDocument = (): RoomDocumentInput => ({
       name: "Wren",
       build: LEDGER_BUILD,
       fields: { xp: 12 },
-      // Items she holds (house decision #95): a bow with a lens fitted, stores, and a staff a GIVE handed her.
+      // Items she holds (house decision #95): a bow with a lens fitted, stores, a staff a GIVE handed her, and a sight on
+      // the staff her build gives.
       items: [
         { id: IDS.lens, kind: "fittings", entry: "wargear.sight-lens", fittedTo: IDS.bow, source: "acquire" },
         { id: IDS.bow, kind: "arms", entry: "wargear.hunting-bow", note: "her father's" },
         { id: IDS.pellets, kind: "stores", entry: "supply.pellets", quantity: 3 },
         { id: IDS.staff, kind: "arms", entry: "wargear.lantern-staff", source: "give", entryId: IDS.lanternEntry },
+        // A fitting on the staff her build gives (house decision #102).
+        { id: IDS.longSight, kind: "fittings", entry: "wargear.long-sight", fittedLine: "weapons/Lantern Staff" },
       ],
     },
   ],

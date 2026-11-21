@@ -415,6 +415,17 @@ export const HandoutLayout = z.enum(["plain", "tablet", "form", "transcript", "p
 export type HandoutLayout = z.infer<typeof HandoutLayout>;
 export const HandoutHeader = z.string().max(120);
 
+/**
+ * The pack entry an entry was made from (house decision #97): its type and key, found among the room's served packs
+ * as a ref is, and its page, which the server reads from the served entry (a cite sent with it is not trusted).
+ */
+export const EntrySource = z.object({
+  entity: z.string().min(1).max(64),
+  key: z.string().min(1).max(80),
+  cite: z.string().min(1).max(40).optional(),
+});
+export type EntrySource = z.infer<typeof EntrySource>;
+
 export const CodexEntry = z.object({
   id: z.string(),
   kind: CodexKind,
@@ -448,6 +459,7 @@ export const CodexEntry = z.object({
   layout: HandoutLayout.nullable(), // a handout's; null on every other kind. Seen by whoever sees the entry
   header: HandoutHeader.nullable(), // a handout's line above its body, "" for none; null on every other kind
   prep: ScenePrep.nullable(), // a scene's prepared lines; the codex and secrets sides only (house decision #73)
+  source: EntrySource.nullable(), // the pack entry it was made from; the codex and secrets sides only (house decision #97)
 });
 export type CodexEntry = z.infer<typeof CodexEntry>;
 

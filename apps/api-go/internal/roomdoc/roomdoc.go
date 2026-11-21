@@ -777,6 +777,10 @@ func (im *importer) codexWhole() error {
 		if err := save(firstKey(e, "layout", "header"), "layout", "header"); err != nil {
 			return err
 		}
+		// The pack entry it was made from, served to the room as a ref is; its page is read again (house decision #97).
+		if err := save("source", "source"); err != nil {
+			return err
+		}
 		for j, target := range strs(e["links"]) {
 			if _, err := im.run(map[string]any{"type": "codex.link", "id": id, "targetId": im.entries[target]}, "codex", i, "links", j); err != nil {
 				return err

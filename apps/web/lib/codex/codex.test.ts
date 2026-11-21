@@ -26,6 +26,7 @@ const entry = (over: Partial<CodexEntry>): CodexEntry => ({
   layout: null,
   header: null,
   prep: null,
+  source: null,
   ...over,
 });
 

@@ -253,6 +253,7 @@ export const REFUSALS = {
   itemNotFitted: "{item} isn't fitted.",
   itemNotCounted: "{item} isn't counted.",
   itemOnlySpend: "Only the GM adds to {item}.",
+  keepSheetGm: "Only the GM saves a build over a sheet made by hand.",
   // Undo
   nothingToUndo: "Nothing to undo",
   nothingToTurnBack: "Nothing to turn back: no turn has started or ended in this fight this session.",

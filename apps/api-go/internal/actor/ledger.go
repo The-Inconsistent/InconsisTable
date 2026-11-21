@@ -69,8 +69,18 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 	if entityType != "" && entityType != rules.Build.Actor {
 		return cs.Result{}, cs.Fail("notLedgerBuilt")
 	}
-	if !hasRow && fieldRows > 0 {
-		return cs.Result{}, cs.Fail("alreadyBuilt") // filled in another way; a draft alone claims the actor for the ledger
+	// Filled in another way (a draft alone claims the actor for the ledger): refused, unless the GM side saves a ready
+	// build over it that keeps what the ruleset marks (house decision #96; the source app's keepSheet).
+	handMade := !hasRow && fieldRows > 0
+	if handMade {
+		keepSheet, _ := a["keepSheet"].(bool)
+		draft, _ := a["draft"].(bool)
+		if !keepSheet || draft || rules.Ruleset.Build.Keep == nil {
+			return cs.Result{}, cs.Fail("alreadyBuilt")
+		}
+		if !view.ActorGmSide(c, kind) {
+			return cs.Result{}, cs.Fail("keepSheetGm")
+		}
 	}
 
 	// The text as it came, decoded in its key order: the builder reads keys in order, and so does whoever reads it back.
@@ -200,6 +210,12 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 	}
 	// Play changes the resources after the first save, so only the first one starts them.
 	target := StartTarget{ActorID: actorID, Fields: sheetFields(rules.Ruleset.Build, sheet), FieldsOnly: stored != nil}
+	if handMade {
+		for _, f := range rules.Ruleset.Build.Keep.Fields {
+			delete(target.Fields, f)
+		}
+		target.KeepResources = rules.Ruleset.Build.Keep.Resources
+	}
 	if stored == nil {
 		target.Resources = map[string]float64{}
 		for _, r := range []struct {

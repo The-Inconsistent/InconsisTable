@@ -38,11 +38,14 @@ func SetField(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 	if err := writeCampaignField(ctx, tx, c, rules, id, before[id], value); err != nil {
 		return cs.Result{}, err
 	}
-	// Raising the ledger's Tier by hand starts the next Tier's count as an Ascension does, with no XP and no waive
-	// (house decision #64); lowering it changes neither.
+	// Raising the ledger's Tier by hand is read as that many advances (house decisions #64, #96; the source app's
+	// campaign.update, rules-flow §11.55): the next Tier's count starts as an Ascension starts it, with no XP and no
+	// waive, once whatever the rise (it sets a count, so a second step changes nothing more), and the builder offers one
+	// advance's slot per step raised from each character's own Tier. The answer says so. Lowering it changes neither.
 	if b := rules.Ruleset.Build; b != nil && id == b.Tier {
 		was, _ := before[id].(float64)
 		if now, _ := value.(float64); now > was {
+			cs.Notify(ctx, cs.Advanced(rules.Ruleset.CampaignFields[id].Label, was, now))
 			return cs.Done(""), markAscension(ctx, tx, cid, b, false)
 		}
 	}

@@ -24,6 +24,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/request"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/safety"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/strike"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/testcall"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/whisper"
 )
@@ -333,6 +334,8 @@ var handlers = map[string]handler{
 	"whisper.reply":  whisper.Reply,
 	"whisper.read":   whisper.Read,
 	"whisper.delete": whisper.Delete,
+	// strike/strike.go
+	"strike.apply": strike.Apply,
 }
 
 // clearing runs h, then cancels the pending asks of the spends that clear on event (house decision #84).

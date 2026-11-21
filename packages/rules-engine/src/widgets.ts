@@ -34,6 +34,8 @@ export type WidgetSpec = {
   readonly ledger?: boolean;
   /** Reads the records the actor holds (the ruleset's `held` block, house decision #88) instead of bound values. */
   readonly held?: boolean;
+  /** Its variant names one of the ruleset's strike kinds (house decision #99) instead of one of `variants`. */
+  readonly strike?: boolean;
 };
 
 const one = (id: string, takes: SlotTakes, required: boolean, about: string): WidgetSlot => ({
@@ -156,6 +158,16 @@ export const WIDGETS = [
     variants: [],
     slots: [],
     held: true,
+  },
+  {
+    id: "strike",
+    about:
+      "The strike guide for one of the ruleset's strike kinds (house decision #99), the variant naming it: pick the " +
+      "means and the target, set the inputs, read the pool and the number to beat line by line, type the total the " +
+      "dice made, see what it does, and the notes after.",
+    variants: [],
+    slots: [],
+    strike: true,
   },
 ] as const satisfies readonly WidgetSpec[];
 

@@ -16,6 +16,7 @@ import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 import { Creatures } from "@/components/gm/creatures/creatures";
 import { SpendButtons } from "@/components/gm/spend-buttons/spend-buttons";
 import { HeldListEditor } from "@/components/ui/held-list/held-list";
+import { StrikeGuide } from "@/components/ui/strike-guide/strike-guide";
 import { AddCombatants } from "@/components/gm/track/components/add-combatants/add-combatants";
 import { ClocksPanel } from "@/components/gm/track/components/clocks-panel/clocks-panel";
 import { PoolsPanel } from "@/components/gm/track/components/pools-panel/pools-panel";
@@ -201,6 +202,26 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                       state={state}
                       actor={actors.get(selected.actorId)!}
                       send={send}
+                      onTable={handleOpenTable}
+                    />
+                  )
+                }
+                strike={
+                  sheet.ruleset &&
+                  compiled &&
+                  selectedActor && (
+                    <StrikeGuide
+                      key={selectedActor.id}
+                      ruleset={sheet.ruleset}
+                      compiled={compiled}
+                      attacker={selectedActor}
+                      fighting={encounter.combatants.flatMap((x) => actors.get(x.actorId) ?? [])}
+                      campaignId={state.campaign.id}
+                      characters={characters}
+                      campaign={state.campaign.fields}
+                      books={sheet.books}
+                      requestPage={sheet.requestPage}
+                      run={runFrom(selected.id)}
                       onTable={handleOpenTable}
                     />
                   )

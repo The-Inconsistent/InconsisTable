@@ -708,6 +708,7 @@ var rulesetSchema = schema.Object(
 		schema.Opt("optional", schema.Bool()),
 	)).Max(maxChecklistSteps)),
 	schema.Opt("spawn", spawnSchema),
+	schema.Opt("strikes", schema.Array(strikeSchema).Max(MaxStrikes)),
 )
 
 // The setup checklist (house decision #90; rules-engine CHECKLIST_TABS, CHECKLIST_PREP_KINDS, ChecklistCount).
@@ -789,16 +790,95 @@ var tableSchema = schema.Object(
 	schema.Req("visibility", schema.Enum("gm", "party", "owner")),
 	schema.Opt("cite", citeSchema),
 	schema.Opt("typedOnly", schema.Bool()),
-	schema.Opt("inputs", schema.Array(schema.Object(
-		schema.Req("id", idSchema),
-		schema.Req("label", label(60)),
-		schema.Req("type", schema.Enum("bool", "int")),
-		schema.Opt("min", schema.Int().Min(-1000).Max(1000)),
-		schema.Opt("max", schema.Int().Min(-1000).Max(1000)),
-		schema.Opt("cite", citeSchema),
-	)).Min(1).Max(MaxLookupInputs)),
+	schema.Opt("inputs", schema.Array(tableInputSchema).Min(1).Max(MaxLookupInputs)),
 	schema.Opt("modifier", exprSource),
 	schema.Opt("entities", schema.Array(idSchema).Min(1).Max(50)),
+)
+
+// tableInputSchema is a value set before applying a lookup or a strike (manifest.ts TableInput).
+var tableInputSchema = schema.Object(
+	schema.Req("id", idSchema),
+	schema.Req("label", label(60)),
+	schema.Req("type", schema.Enum("bool", "int")),
+	schema.Opt("min", schema.Int().Min(-1000).Max(1000)),
+	schema.Opt("max", schema.Int().Min(-1000).Max(1000)),
+	schema.Opt("cite", citeSchema),
+)
+
+// Strikes (manifest.ts Strike, house decision #99).
+const (
+	MaxStrikes      = 20
+	maxStrikeValues = 20
+	maxStrikeShows  = 6
+)
+
+var (
+	// StrikeLedgerLines are the saved sheet's lists a strike's means may come from (STRIKE_LEDGER_LINES).
+	StrikeLedgerLines  = []string{"weapons", "powers"}
+	strikeFigureSchema = schema.Object(
+		schema.Req("label", label(60)),
+		schema.Req("expr", exprSource),
+		schema.Opt("cite", citeSchema),
+		strikeAdds,
+	)
+	strikeAdds = schema.Opt("adds", schema.Array(schema.Object(
+		schema.Req("label", label(60)),
+		schema.Req("by", exprSource),
+		schema.Opt("when", exprSource),
+		schema.Opt("cite", citeSchema),
+	)).Max(10))
+	strikeShowSchema = schema.Object(
+		schema.Req("id", idSchema),
+		schema.Req("label", label(60)),
+		schema.Req("expr", exprSource),
+		schema.Opt("cite", citeSchema),
+		strikeAdds,
+	)
+	strikeSchema = schema.Object(
+		schema.Req("id", idSchema),
+		schema.Req("label", label(80)),
+		schema.Opt("cite", citeSchema),
+		schema.Opt("entities", actorTypesSchema),
+		schema.Opt("targets", actorTypesSchema),
+		schema.Opt("means", schema.Array(schema.Union("from",
+			schema.Variant{Tag: "ledger", Schema: schema.Object(
+				schema.Req("from", schema.Literal("ledger")),
+				schema.Req("lines", schema.Enum(StrikeLedgerLines...)),
+			)},
+			schema.Variant{Tag: "list", Schema: schema.Object(
+				schema.Req("from", schema.Literal("list")),
+				schema.Req("field", fieldIDSchema),
+				schema.Req("entry", idSchema),
+			)},
+			schema.Variant{Tag: "items", Schema: schema.Object(
+				schema.Req("from", schema.Literal("items")),
+				schema.Req("kind", idSchema),
+			)},
+		)).Min(1).Max(4)),
+		schema.Opt("values", schema.Refined(schema.Record(idSchema, schema.Object(
+			schema.Req("key", label(64)),
+			schema.Req("type", schema.Enum("int", "bool", "text")),
+		)), func(v any) bool { return len(v.(map[string]any)) <= maxStrikeValues }, "at most 20 values")),
+		schema.Opt("inputs", schema.Array(tableInputSchema).Min(1).Max(MaxLookupInputs)),
+		schema.Req("pool", strikeFigureSchema),
+		schema.Req("beat", strikeFigureSchema),
+		schema.Opt("soak", strikeFigureSchema),
+		schema.Opt("shows", schema.Array(strikeShowSchema).Max(maxStrikeShows)),
+		schema.Req("outcomes", schema.Array(schema.Object(
+			schema.Req("id", idSchema),
+			schema.Req("label", label(60)),
+			schema.Req("when", exprSource),
+			schema.Opt("wounds", exprSource),
+			schema.Opt("shock", exprSource),
+			schema.Opt("cite", citeSchema),
+		)).Min(1).Max(10)),
+		schema.Opt("notes", schema.Array(schema.Object(
+			schema.Req("text", label(200)),
+			schema.Opt("when", exprSource),
+			schema.Opt("cite", citeSchema),
+		)).Max(10)),
+		schema.Opt("then", schema.Object(schema.Req("table", idSchema), schema.Opt("inputs", schema.Record(idSchema, idSchema)))),
+	)
 )
 
 // gameSchema is the manifest's `game` block: what the game is and how a table can sit for it.

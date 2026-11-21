@@ -4,7 +4,13 @@ import { test } from "node:test";
 import { compileRuleset } from "../compile.ts";
 import { canonicalJson, sha256Hex } from "../pack-hash.ts";
 import { CODEX_0_1_7, NOTICE_RESOURCES, SAMPLE_D20, SAMPLE_D20_BEFORE_WIDGETS } from "./sample-d20.ts";
-import { SAMPLE_HARM, SAMPLE_HARM_BEFORE_HELD } from "./sample-harm.ts";
+import { SAMPLE_DUEL } from "./sample-duel.ts";
+import {
+  SAMPLE_HARM,
+  SAMPLE_HARM_BEFORE_HELD,
+  SAMPLE_HARM_BEFORE_SHOWS,
+  SAMPLE_HARM_BEFORE_STRIKES,
+} from "./sample-harm.ts";
 import { SAMPLE_HARVEST } from "./sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "./sample-no-order.ts";
 import { SAMPLE_POOL } from "./sample-pool.ts";
@@ -26,11 +32,20 @@ const PINNED: Record<string, string> = {
   "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.1": "e166afc269320775b0d1e455a2e7a5b10ca9b9c4f0d96f9fa473addb65b93f08",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
-  "sample-harm@0.1.3": "eb88d1d6ba450f7140a53b4892dc72258cd290ba1958c55f34a5a11abc042f68",
+  "sample-harm@0.1.5": "f6a6542841fe98f3afb81e222ccfe23143f6632929dd19a345b8e5880bedceec",
+  "sample-duel@0.1.0": "509f85209788bc47bdd6722b2772e741248a4a35876b1e16d5c8c3e1a782a09f",
 };
 
 test("a sample ruleset's normalized manifest changes only with its version", () => {
-  for (const fixture of [SAMPLE_D20, SAMPLE_POOL, SAMPLE_HARVEST, SAMPLE_NO_ORDER, SAMPLE_HARM, SAMPLE_SKIRMISH]) {
+  for (const fixture of [
+    SAMPLE_D20,
+    SAMPLE_POOL,
+    SAMPLE_HARVEST,
+    SAMPLE_NO_ORDER,
+    SAMPLE_HARM,
+    SAMPLE_SKIRMISH,
+    SAMPLE_DUEL,
+  ]) {
     const key = `${fixture.id}@${fixture.version}`;
     const result = compileRuleset(fixture);
     assert.ok(result.ok, `${key} compiles`);
@@ -186,6 +201,24 @@ test("a ruleset without once-a-round uses or chips hashes as it did before they 
   assert.equal(
     sha256Hex(canonicalJson(result.compiled.ruleset)),
     "036bb829436a6a414e79117a233627bd7779fd636eae2c71df8a96904446f934",
+  );
+});
+
+test("a ruleset without strikes hashes as it did before they existed (house decision #99)", () => {
+  const result = compileRuleset(SAMPLE_HARM_BEFORE_STRIKES);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "eb88d1d6ba450f7140a53b4892dc72258cd290ba1958c55f34a5a11abc042f68",
+  );
+});
+
+test("a strike without further numbers, text values or held items as means hashes as it did before they existed (house decision #99)", () => {
+  const result = compileRuleset(SAMPLE_HARM_BEFORE_SHOWS);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "1a36605600dd4eb2f7872d6cb5a4ca7ed39173bffdae09772c9d06d143227a46",
   );
 });
 

@@ -1108,6 +1108,7 @@ func (c *compiler) run() *CompiledRuleset {
 	}
 	c.spends(entities)
 	c.spawn()
+	c.strikes(entities)
 
 	lookups := c.lookups(entities)
 

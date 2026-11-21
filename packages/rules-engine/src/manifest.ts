@@ -1152,6 +1152,121 @@ export const SpawnBlock = z.object({
 });
 export type SpawnBlock = z.infer<typeof SpawnBlock>;
 
+/**
+ * The most strike kinds a ruleset declares, the most values one reads of its means, and the most further numbers it
+ * shows (house decision #99).
+ */
+export const MAX_STRIKES = 20;
+export const MAX_STRIKE_VALUES = 20;
+export const MAX_STRIKE_SHOWS = 6;
+/** The lists of the saved build's sheet a strike's means may come from. */
+export const STRIKE_LEDGER_LINES = ["weapons", "powers"] as const;
+/** The names a strike's `ctx` gives its own values; an input may not take one. */
+export const STRIKE_CTX_ROOTS: ReadonlySet<string> = new Set([
+  "means",
+  "target",
+  "attackerMob",
+  "targetMob",
+  "pool",
+  "beat",
+  "soak",
+  "total",
+  "outcome",
+]);
+
+/**
+ * Where a strike's means come from (house decision #99): a list of the attacker's saved build sheet (`ledger`), the
+ * pack entries of type `entry` whose keys the attacker's list field `field` holds (a held kind's records, a creature's
+ * attacks copied from its pack entry), or the items of kind `kind` the attacker holds (`items`, house decision #95),
+ * read from their pack entries.
+ */
+export const StrikeMeans = z.discriminatedUnion("from", [
+  z.object({ from: z.literal("ledger"), lines: z.enum(STRIKE_LEDGER_LINES) }),
+  z.object({ from: z.literal("list"), field: FieldId, entry: Id }),
+  z.object({ from: z.literal("items"), kind: Id }),
+]);
+export type StrikeMeans = z.infer<typeof StrikeMeans>;
+
+/**
+ * A number the strike guide shows (house decision #99): the base expression, then each addition whose `when` holds and
+ * whose amount is not 0, each a line of the breakdown with its label and page.
+ */
+export const StrikeFigure = z.object({
+  label: z.string().min(1).max(60),
+  expr: ExprSource,
+  cite: Cite.optional(),
+  adds: z
+    .array(
+      z.object({
+        label: z.string().min(1).max(60),
+        by: ExprSource,
+        when: ExprSource.optional(),
+        cite: Cite.optional(),
+      }),
+    )
+    .max(10)
+    .optional(),
+});
+export type StrikeFigure = z.infer<typeof StrikeFigure>;
+
+/** A further number the guide shows (house decision #99), a figure with an id: a weapon's damage, say. It decides nothing. */
+export const StrikeShow = StrikeFigure.extend({ id: Id });
+export type StrikeShow = z.infer<typeof StrikeShow>;
+
+/** What a typed total does (house decision #99): the first outcome whose `when` holds, and the hit it applies. */
+export const StrikeOutcome = z.object({
+  id: Id,
+  label: z.string().min(1).max(60),
+  when: ExprSource,
+  wounds: ExprSource.optional(),
+  shock: ExprSource.optional(),
+  cite: Cite.optional(),
+});
+export type StrikeOutcome = z.infer<typeof StrikeOutcome>;
+
+/**
+ * A kind of strike a game has (house decision #99): an attacker of the `entities` types, with one of its means, on a
+ * target of the `targets` types. `pool` is what to roll, `beat` the number to beat and `soak` what the target takes off;
+ * each reads the attacker's scope plus `ctx`: the inputs, `ctx.means.<value>`, `ctx.target` (the target's scope) and
+ * `ctx.attackerMob` / `ctx.targetMob` (a mob's members, 0 for anyone else). The outcomes also read `ctx.pool`,
+ * `ctx.beat`, `ctx.soak` and `ctx.total` (the typed total); the notes also `ctx.outcome`. `shows` are further numbers
+ * the guide draws with their lines, in the figures' scope; nothing reads them. The app never rolls: the total is typed,
+ * and an outcome's hit goes through `health.harm`'s `hit`.
+ */
+export const Strike = z.object({
+  id: Id,
+  label: z.string().min(1).max(80),
+  cite: Cite.optional(),
+  /** The actor types that strike this way; absent: every actor type. */
+  entities: ActorTypes,
+  /** The actor types it may land on; absent: every type a harm profile holds (every actor type without harm). */
+  targets: ActorTypes,
+  means: z.array(StrikeMeans).min(1).max(4).optional(),
+  /**
+   * What it reads of a means, as `ctx.means.<id>`: the means' `key`, 0, false or "" where the means has none. A `text`
+   * value (a weapon's traits) is shown beside the means; an expression that wants a number cannot read it.
+   */
+  values: z
+    .record(Id, z.object({ key: z.string().min(1).max(64), type: z.enum(["int", "bool", "text"]) }))
+    .refine((o) => Object.keys(o).length <= MAX_STRIKE_VALUES, `at most ${MAX_STRIKE_VALUES} values`)
+    .optional(),
+  inputs: z.array(TableInput).min(1).max(MAX_LOOKUP_INPUTS).optional(),
+  pool: StrikeFigure,
+  beat: StrikeFigure,
+  soak: StrikeFigure.optional(),
+  /** Further numbers the guide shows after the soak, each with its lines; they decide nothing. */
+  shows: z.array(StrikeShow).max(MAX_STRIKE_SHOWS).optional(),
+  outcomes: z.array(StrikeOutcome).min(1).max(10),
+  /** Short lines shown after the strike, the ruleset's own words: they change nothing. */
+  notes: z
+    .array(z.object({ text: z.string().min(1).max(200), when: ExprSource.optional(), cite: Cite.optional() }))
+    .max(10)
+    .optional(),
+  /** The random table the guide offers next, and which strike inputs fill which of its inputs (#91's shape). */
+  then: z.object({ table: Id, inputs: z.record(Id, Id).optional() }).optional(),
+});
+export type Strike = z.infer<typeof Strike>;
+
 /** How a table can sit for a game (docs/adr/0009-table-modes.md): with a GM, without one, or one player alone. */
 export const GameMode = z.enum(["gm", "gmless", "solo"]);
 export type GameMode = z.infer<typeof GameMode>;
@@ -1303,6 +1418,8 @@ export const Ruleset = z.object({
   checklist: z.array(ChecklistStep).max(MAX_CHECKLIST_STEPS).optional(),
   /** Spawn options, adjustments fixed at spawn, and the encounter budget (house decision #92). Absent: none. */
   spawn: SpawnBlock.optional(),
+  /** The kinds of strike the GM's guide offers (house decision #99). Absent: none. */
+  strikes: z.array(Strike).max(MAX_STRIKES).optional(),
 });
 export type Ruleset = z.infer<typeof Ruleset>;
 export type RulesetInput = z.input<typeof Ruleset>;
@@ -2158,7 +2275,15 @@ function widgetRowProblems({
     out.push({ path: `${path}.widget`, message: `unknown widget "${row.widget}"` });
     return;
   }
-  if (row.variant !== undefined && !spec.variants.includes(row.variant))
+  if (spec.strike) {
+    // A strike widget's variant names one of the ruleset's strike kinds (house decision #99).
+    const s = (r.strikes ?? []).find((x) => x.id === row.variant);
+    if (row.variant === undefined)
+      out.push({ path: `${path}.variant`, message: "a strike widget names a strike kind" });
+    else if (s === undefined) out.push({ path: `${path}.variant`, message: `unknown strike "${row.variant}"` });
+    else if (s.entities !== undefined && entities.some((e) => !s.entities?.includes(e.id)))
+      out.push({ path: `${path}.variant`, message: `not every type here strikes with "${row.variant}"` });
+  } else if (row.variant !== undefined && !spec.variants.includes(row.variant))
     out.push({ path: `${path}.variant`, message: `unknown variant "${row.variant}"` });
   const variant = row.variant ?? spec.variants[0];
   if (spec.steps && row.steps === undefined) out.push({ path: `${path}.steps`, message: "this widget needs steps" });
@@ -2331,6 +2456,97 @@ function spawnProblems({
   }
 }
 
+/** The actor types a strike may land on (house decision #99): its `targets`, or every type a harm profile holds. */
+export function strikeTargets(r: Pick<Ruleset, "entities" | "health">, s: Pick<Strike, "targets">): string[] {
+  if (s.targets !== undefined) return [...s.targets];
+  const actors = r.entities.filter((e) => e.base === "actor").map((e) => e.id);
+  const harm = r.health.harm;
+  return harm === undefined ? actors : actors.filter((id) => harm.profiles.some((p) => p.entities.includes(id)));
+}
+
+/**
+ * `strikes` (house decision #99): ids, cites, actor types, where the means come from, the inputs, what an outcome
+ * applies and the table it opens next. Its expressions are `compileRuleset`'s.
+ */
+function strikeProblems({
+  r,
+  actorTypes,
+  needCite,
+  out,
+}: {
+  r: Ruleset;
+  actorTypes: (ids: readonly string[] | undefined, path: string) => void;
+  needCite: (cite: string | undefined, path: string) => void;
+  out: Problem[];
+}): void {
+  const strikes = r.strikes ?? [];
+  duplicates({ ids: strikes.map((s) => s.id), path: "strikes", out });
+  const harm = r.health.harm;
+  strikes.forEach((s, i) => {
+    const path = `strikes[${i}]`;
+    needCite(s.cite, path);
+    actorTypes(s.entities, `${path}.entities`);
+    actorTypes(s.targets, `${path}.targets`);
+    const attackers = r.entities.filter((e) => e.base === "actor" && (s.entities?.includes(e.id) ?? true));
+    s.means?.forEach((m, j) => {
+      const at = `${path}.means[${j}]`;
+      if (m.from === "ledger") {
+        if (r.build === undefined) out.push({ path: at, message: "the ruleset has no build" });
+        return;
+      }
+      if (m.from === "items") {
+        const kind = r.items?.kinds.find((k) => k.id === m.kind);
+        if (kind === undefined) out.push({ path: `${at}.kind`, message: `unknown item kind "${m.kind}"` });
+        else if (!attackers.some((e) => kind.entities.includes(e.id)))
+          out.push({ path: `${at}.kind`, message: `no attacker holds "${m.kind}"` });
+        return;
+      }
+      if (!attackers.some((e) => own(e.fields, m.field)?.type === "list"))
+        out.push({ path: `${at}.field`, message: `"${m.field}" is not a list field of an attacker` });
+      if (!r.entities.some((e) => e.id === m.entry))
+        out.push({ path: `${at}.entry`, message: `unknown entity "${m.entry}"` });
+    });
+    if (s.values !== undefined && s.means === undefined)
+      out.push({ path: `${path}.values`, message: "values are read from a means" });
+    duplicates({ ids: (s.inputs ?? []).map((x) => x.id), path: `${path}.inputs`, out });
+    s.inputs?.forEach((x, j) => {
+      const at = `${path}.inputs[${j}]`;
+      if (STRIKE_CTX_ROOTS.has(x.id)) out.push({ path: `${at}.id`, message: `"${x.id}" is reserved` });
+      if (x.type === "bool" && (x.min !== undefined || x.max !== undefined))
+        out.push({ path: at, message: "a switch has no bounds" });
+      if (x.min !== undefined && x.max !== undefined && x.max < x.min)
+        out.push({ path: `${at}.max`, message: "max is below min" });
+    });
+    duplicates({ ids: (s.shows ?? []).map((x) => x.id), path: `${path}.shows`, out });
+    duplicates({ ids: s.outcomes.map((o) => o.id), path: `${path}.outcomes`, out });
+    let hits = false;
+    s.outcomes.forEach((o, j) => {
+      const at = `${path}.outcomes[${j}]`;
+      if (o.wounds === undefined && o.shock === undefined) return;
+      hits = true;
+      if (harm === undefined) out.push({ path: at, message: "a hit needs health.harm" });
+      else if (o.shock !== undefined && harm.shock === undefined)
+        out.push({ path: `${at}.shock`, message: "this ruleset has no shock" });
+    });
+    if (hits && harm !== undefined)
+      s.targets?.forEach((id, j) => {
+        if (r.entities.some((e) => e.id === id) && !harm.profiles.some((p) => p.entities.includes(id)))
+          out.push({ path: `${path}.targets[${j}]`, message: `"${id}" has no harm profile` });
+      });
+    if (s.then !== undefined) {
+      const table = r.tables?.[s.then.table];
+      if (table === undefined) out.push({ path: `${path}.then.table`, message: `unknown table "${s.then.table}"` });
+      for (const key of Object.keys(s.then.inputs ?? {}).sort()) {
+        const from = s.then.inputs?.[key] ?? "";
+        if (!(s.inputs ?? []).some((x) => x.id === from))
+          out.push({ path: `${path}.then.inputs.${key}`, message: `"${from}" is not an input of the strike` });
+        if (table !== undefined && !(table.inputs ?? []).some((x) => x.id === key))
+          out.push({ path: `${path}.then.inputs.${key}`, message: `"${key}" is not an input of the table` });
+      }
+    }
+  });
+}
+
 function semanticProblems(r: Ruleset): Problem[] {
   const out: Problem[] = [];
   // CLAUDE.md principle 1: every rule entry cites its printed page, unless the whole ruleset is homebrew.
@@ -2487,6 +2703,7 @@ function semanticProblems(r: Ruleset): Problem[] {
   r.spends?.forEach((s, i) => needCite(s.cite, `spends[${i}]`));
   spendProblems({ r, actorTypes, out });
   spawnProblems({ r, actorTypes, needCite, out });
+  strikeProblems({ r, actorTypes, needCite, out });
 
   for (const [id, t] of Object.entries(r.tests)) {
     actorTypes(t.entities, `tests.${id}.entities`);

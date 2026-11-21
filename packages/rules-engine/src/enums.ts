@@ -178,6 +178,10 @@ export const RefusalCode = z.enum([
   // Spawn options (house decision #92).
   "noSuchOption",
   "optionNotHere",
+  // Strikes (house decision #99).
+  "noSuchStrike",
+  "strikeNotFor",
+  "noMeans",
 ]);
 export type RefusalCode = z.infer<typeof RefusalCode>;
 

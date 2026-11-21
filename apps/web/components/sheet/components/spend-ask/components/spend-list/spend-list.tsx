@@ -21,7 +21,7 @@ import {
 
 type SpendListProps = {
   ruleset: Ruleset;
-  /** For resource bounds only; a player's manifest may not compile. */
+  /** For resource bounds only; null before the manifest compiles (a seat's always does: house decision #101). */
   compiled: CompiledRuleset | null;
   actor: Actor;
   table: Pick<LiveState, "pools" | "encounter" | "campaign">;

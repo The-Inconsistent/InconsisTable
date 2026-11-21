@@ -49,7 +49,9 @@ func ledgerVectors(t *testing.T) (manifest map[string]any, input json.RawMessage
 	}
 	want = map[string]string{}
 	for i, e := range entries.Entries {
-		want[e.Key] = *shuffled.Records[i]
+		if shuffled.Records[i] != nil { // the stores carry no record (house decision #95)
+			want[e.Key] = *shuffled.Records[i]
+		}
 	}
 	return v.LedgerPacks.Rulesets[0], shuffled.Input, want
 }
@@ -98,7 +100,8 @@ func TestEntryRecordsKeepTheirOrderThroughImportServeAndExport(t *testing.T) {
 		return out
 	}
 	first := stored(imported.VersionID)
-	if len(first) != len(want)+1 || first["sample-hero"] != nil {
+	// The hero and the two stores (house decision #95) carry no record.
+	if len(first) != len(want)+3 || first["sample-hero"] != nil {
 		t.Fatalf("stored %d entries, the hero's record %v", len(first), first["sample-hero"])
 	}
 	for key, text := range want {
@@ -120,7 +123,7 @@ func TestEntryRecordsKeepTheirOrderThroughImportServeAndExport(t *testing.T) {
 	}
 
 	loaded, err := LoadServedEntries(ctx, db, campaignID, ServedOptions{})
-	if err != nil || len(loaded) != len(want)+1 {
+	if err != nil || len(loaded) != len(want)+3 {
 		t.Fatalf("loaded %d entries, %v", len(loaded), err)
 	}
 	for _, e := range loaded {
@@ -154,6 +157,9 @@ func TestEntryRecordsKeepTheirOrderThroughImportServeAndExport(t *testing.T) {
 		records := 0
 		heroServed := false
 		for _, e := range read.Entries {
+			if _, recorded := want[e.Key]; !recorded && e.Key != "sample-hero" {
+				continue // a store, which carries no record (house decision #95)
+			}
 			if e.Key == "sample-hero" {
 				heroServed = true
 				if string(e.Record) != "null" {

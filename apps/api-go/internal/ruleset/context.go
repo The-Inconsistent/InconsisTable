@@ -322,6 +322,9 @@ func (rc *Context) ApplyRuled(ctx context.Context, deltas []engine.Delta) (strin
 // cache key and tells a repeat import from a changed one.
 func CheckRuleset(input any) (normalized *engine.Ruleset, hash string, problems []engine.Problem) {
 	rules, problems := engine.CompileRuleset(input)
+	if len(problems) == 0 {
+		problems = engine.ImportProblems(rules.Ruleset)
+	}
 	if len(problems) > 0 {
 		return nil, "", problems
 	}

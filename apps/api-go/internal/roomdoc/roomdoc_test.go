@@ -107,6 +107,8 @@ func library(t *testing.T, db *pgxpool.Pool, v vectors, skip ...string) campaign
 	}
 	must(ruleset.Import(ctx, db, owner.UserID, v.fixture(t, "ledgerRuleset")))
 	must(pack.Import(ctx, db, owner.UserID, v.fixture(t, "ledgerPack")))
+	must(ruleset.Import(ctx, db, owner.UserID, v.fixture(t, "skirmishRuleset")))
+	must(pack.Import(ctx, db, owner.UserID, v.fixture(t, "skirmishPack")))
 	return owner
 }
 

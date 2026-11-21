@@ -173,6 +173,9 @@
       "cancel": "Huỷ",
       "archive": "Lưu trữ",
       "archived": "Đã lưu trữ: phòng chỉ còn đọc.",
+      "export": "Xuất",
+      "exportWithoutPictures": "Xuất không kèm ảnh",
+      "exported": "Đã xuất thành {name}.",
       "unarchive": "Bỏ lưu trữ",
       "unarchived": "Đã bỏ lưu trữ.",
       "typeName": "Gõ {name} để xoá phòng này cùng mọi thứ trong đó",
@@ -266,10 +269,31 @@
     "creating": "Đang tạo…",
     "importRoom": "Nhập một phòng"
   },
+  "importAdventure": {
+    "open": "Nhập cuộc phiêu lưu",
+    "tooLarge": "Tệp này vượt 100 MB. Hãy xuất lại không kèm ảnh.",
+    "notADocument": "Tệp này không phải tài liệu phòng.",
+    "noAdventures": "Tài liệu phòng này không có cuộc phiêu lưu nào.",
+    "from": "Từ {name}",
+    "pick": "Các cuộc phiêu lưu sẽ mang vào",
+    "scenes": "{count, plural, other {# cảnh}}",
+    "comesAsPrep": "Vào như phần chuẩn bị: các cảnh ở trạng thái dự kiến, mọi mục đều kín. Mục nào phòng này đã có cùng loại và tên thì dùng nguyên, không tạo lại.",
+    "willMake": "{count, plural, other {Tạo # mục:}}",
+    "willLink": "{count, plural, other {Dùng # mục phòng đã có:}}",
+    "pictures": "{count, plural, other {Tải lên # ảnh.}}",
+    "dropped": "{count, plural, other {# dòng hoặc liên kết trỏ tới thứ không được mang vào nên bị bỏ.}}",
+    "import": "{count, plural, =0 {Nhập} other {Nhập # cuộc phiêu lưu}}",
+    "cancel": "Hủy",
+    "progress": "Đang gửi {done} trên {total}…",
+    "finished": "Đã nhập: gửi {total} bước.",
+    "stopped": "Dừng sau {done} trên {total}: {why} Những gì đã tạo vẫn giữ như phần chuẩn bị thường.",
+    "pictureFailed": "Một ảnh không tải lên được."
+  },
   "importRoom": {
     "title": "Nhập một phòng",
     "lede": "Tài liệu phòng sẽ thành một phòng mới do bạn sở hữu và điều hành với vai GM. Người chơi vào bằng lời mời, như mọi phòng khác.",
     "file": "Tài liệu phòng (.json)",
+    "fresh": "Bắt đầu mới: không phiên nào, không gì được tiết lộ, thương tổn và quỹ đã tiêu về lại như ban đầu, không có lịch phiên tới hay giới hạn. Dành cho một nhóm mới.",
     "checking": "Đang đọc tài liệu…",
     "noRuleset": "Không có bộ luật, gói hay Thế giới nào.",
     "what": {
@@ -1053,6 +1077,12 @@
       "openLabel": "Mở trình tạo cho {name}"
     }
   },
+  "roomExport": {
+    "title": "Xuất",
+    "lede": "Phòng này dưới dạng tài liệu phòng: một bản sao lưu, hoặc một bản để nhập thành phòng mới (bắt đầu mới cho một nhóm mới). Nó ghi bộ luật, gói và Thế giới nó cần; người nhập phải có sẵn của riêng họ.",
+    "export": "Xuất",
+    "withoutPictures": "Xuất không kèm ảnh"
+  },
   "rulesPanel": {
     "readFailed": "Không đọc được luật. Kiểm tra kết nối rồi tải lại.",
     "ruleset": "Bộ luật",
@@ -1518,6 +1548,8 @@
     "generatePick": "{step}: mục đó không phải mục bước này chọn.",
     "generateValue": "{step}: giá trị đó nằm ngoài giới hạn.",
     "generateCount": "Lượt này tạo {count} mục bên trong.",
+    "roomExportOwnerOnly": "Chỉ chủ phòng, khi đang điều hành phòng, mới xuất được phòng.",
+    "roomExportTooLarge": "Kèm ảnh, phòng này vượt 100 MB, quá mức một lần nhập nhận. Hãy xuất không kèm ảnh.",
     "clockNotFound": "Không tìm thấy đồng hồ",
     "clockLimit": "Phòng này đã có số đồng hồ tối đa.",
     "pictureType": "Hãy gửi một ảnh WebP hoặc JPEG",

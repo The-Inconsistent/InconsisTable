@@ -210,6 +210,7 @@ var refusals = map[string]string{
 	"itemNotFitted":             "{item} isn't fitted.",
 	"itemNotCounted":            "{item} isn't counted.",
 	"itemOnlySpend":             "Only the GM adds to {item}.",
+	"keepSheetGm":               "Only the GM saves a build over a sheet made by hand.",
 	"requestNotFound":           "Request not found",
 	"requestAnswered":           "That request was already answered.",
 	"requestLimit":              "You have too many requests waiting.",

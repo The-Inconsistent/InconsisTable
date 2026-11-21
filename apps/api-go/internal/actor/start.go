@@ -3,6 +3,7 @@ package actor
 import (
 	"context"
 	"errors"
+	"slices"
 	"sort"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
@@ -88,6 +89,8 @@ type StartTarget struct {
 	Add map[string]float64
 	// FieldsOnly writes the fields and leaves every resource as it is (a ledger build saved again).
 	FieldsOnly bool
+	// KeepResources are left as they are while the rest start (a build over a hand-made sheet, house decision #96).
+	KeepResources []string
 }
 
 // WriteStart writes the starting fields and resources of actors that already exist. One log entry for the lot, so one
@@ -144,6 +147,9 @@ func WriteStart(ctx context.Context, tx core.Conn, c cs.Ctx, compiled *engine.Co
 		}
 		patched[t.ActorID] = &copied
 		for _, r := range start {
+			if slices.Contains(t.KeepResources, r.Resource) {
+				continue
+			}
 			value := r.Value
 			if decided, ok := t.Resources[r.Resource]; ok {
 				value = decided

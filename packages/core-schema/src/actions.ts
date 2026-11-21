@@ -119,7 +119,14 @@ export const Action = z.discriminatedUnion("type", [
   // A character bought with the ledger builder (house decision #63): the server resolves the build, then writes the
   // sheet's numbers as the actor's fields and stores the build and the sheet.
   // `draft: true` stores the build unresolved, for the GM to open; nothing of the actor changes (house decision #63).
-  z.object({ type: z.literal("build.save"), actorId: id, build: LedgerBuildText, draft: z.boolean().default(false) }),
+  // `keepSheet`: the GM side saves a ready build over a sheet made by hand, keeping what `build.keep` marks (#96).
+  z.object({
+    type: z.literal("build.save"),
+    actorId: id,
+    build: LedgerBuildText,
+    draft: z.boolean().default(false),
+    keepSheet: z.boolean().default(false),
+  }),
   // The group Ascends one Tier together (house decision #64): `experience` once every character has earned the XP in
   // this Tier, `milestone` at the GM's word, awarding it. `waivePackage` waives this Ascension's package.
   z.object({
@@ -562,6 +569,7 @@ export const NoticeCode = z.enum([
   "sceneBegun",
   "revealSkipped",
   "conditionSkipped",
+  "advanced",
 ]);
 export type NoticeCode = z.infer<typeof NoticeCode>;
 /** The params each code carries, which its words may name. */
@@ -573,6 +581,8 @@ export const NOTICE_PARAMS = {
   sceneBegun: ["title", "revealed"], // the scene begun and how many of its reveal lines went out (house decision #86)
   revealSkipped: ["line", "reason"], // a scene's reveal line the begin skipped: its label or id, and the refusal code
   conditionSkipped: ["name", "condition"], // a lookup left out a condition its target is immune to (house decision #87)
+  // the advance field raised by hand counts as that many advances, from and to (house decision #96)
+  advanced: ["field", "from", "to", "steps"],
 } as const satisfies Record<NoticeCode, readonly string[]>;
 export const Notice = z.object({
   code: NoticeCode,

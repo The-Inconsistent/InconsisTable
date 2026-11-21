@@ -4067,6 +4067,65 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
   ok(await ana.c.send({ type: "item.adjust", itemId: pellets, by: -1 }));
   await ana.c.until((x) => named(x, "Pellets") === undefined);
   refused(await ana.c.send({ type: "item.adjust", itemId: pellets, by: -1 }), "itemNotFound");
+
+  // House decision #102: acquiring by a Test. The phone asks for the Hunting Bow (8 + its rating 3, one keyword
+  // shared); Ben's phone does not see the ask; the GM calls it; the phone reports 15 + 1 pushed; the GM grants it once.
+  const ask = (entry: string, push = 0) =>
+    ({
+      type: "request.send",
+      actorId: ana.held,
+      acquire: { type: entry.split(".")[0]!, entry },
+      inputs: { push },
+    }) as const;
+  refused(await ben.c.send(ask("wargear.hunting-bow")), "notYourCharacter");
+  refused(await ana.c.send(ask("wargear.sling")), "acquireNotNow");
+  const bowAsk = ok(await ana.c.send(ask("wargear.hunting-bow", 1))).id!;
+  await owner.until((x) => x.requests.some((q) => q.id === bowAsk && q.acquire?.name === "Hunting Bow"));
+  assert.equal((await ben.c.until((x) => x.actors.length > 0)).requests.length, 0);
+  const bowCall = ok(await owner.send({ type: "request.approve", id: bowAsk })).id!;
+  const phoneCall = await ana.c.until((x) => x.tests.some((c) => c.id === bowCall));
+  const called = phoneCall.tests.find((c) => c.id === bowCall)!;
+  assert.equal(called.acquire?.name, "Hunting Bow");
+  assert.equal(called.targets[0]?.target, 11);
+  const reportFace = (callId: string, face: number) =>
+    ana.c.send({ type: "test.report", callId, actorId: ana.held, roll: { kind: "faces", faces: [face] } });
+  ok(await reportFace(bowCall, 15));
+  await owner.until((x) => x.tests.find((c) => c.id === bowCall)?.targets[0]?.offers?.[0]?.id === "acquire");
+  const grant = (callId: string, offerId: string) =>
+    ({ type: "test.applyOffer", callId, actorId: ana.held, offerId }) as const;
+  ok(await owner.send(grant(bowCall, "acquire")));
+  refused(await owner.send(grant(bowCall, "acquire")), "offerApplied");
+  const bow = named(await ana.c.until((x) => named(x, "Hunting Bow") !== undefined), "Hunting Bow")!;
+  assert.equal(bow.source, "acquire");
+  assert.equal(bow.profile?.damage, 4); // its entry's numbers reach the phone
+  refused(await ana.c.send(ask("wargear.lantern-staff")), "acquireLimit"); // gear once a session
+
+  // Stores are a limit of their own: 7 against 9 misses by 2, topped up with 2 of Ana's 5 coin.
+  const storeCall = ok(
+    await owner.send({ type: "request.approve", id: ok(await ana.c.send(ask("supply.pellets"))).id! }),
+  ).id!;
+  ok(await reportFace(storeCall, 7));
+  const topUp = await owner.until(
+    (x) => x.tests.find((c) => c.id === storeCall)?.targets[0]?.offers?.[0]?.id === "acquireTopUp",
+  );
+  assert.deepEqual(
+    topUp.tests.find((c) => c.id === storeCall)?.targets[0]?.offers?.[0]?.changes.map((c) => [c.resource, c.by]),
+    [["coin", -2]],
+  );
+  refused(await owner.send(grant(storeCall, "acquire")), "offerNotOffered");
+  ok(await owner.send(grant(storeCall, "acquireTopUp")));
+  s = await ana.c.until((x) => named(x, "Pellets")?.quantity === 3);
+  assert.equal(actorIn(s, ana.held)?.resources.coin, 3);
+
+  // A fitting on the staff the build gives (not the one a GIVE handed over): the line is named by card and name.
+  ok(
+    await ana.c.send({ type: "item.fit", itemId: named(s, "Bone Charm")!.id, to: null, line: "weapons/Lantern Staff" }),
+  );
+  s = await ana.c.until((x) => named(x, "Bone Charm")?.fittedLine === "weapons/Lantern Staff");
+  refused(
+    await ana.c.send({ type: "item.fit", itemId: named(s, "Sight Lens")!.id, to: null, line: "weapons/Nope" }),
+    "itemFitted",
+  );
   for (const c of [owner, ana.c, ben.c]) c.socket.close();
 });
 

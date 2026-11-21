@@ -1826,6 +1826,99 @@ test("the admin action route seats a known user and refuses anything but houseke
   owner.socket.close();
 });
 
+// The admin key from an address of its own: the key's window (20 a minute an address) is the suite's otherwise.
+const ownIp = () => ({ ...ADMIN, "cf-connecting-ip": nextSocketIp() });
+
+test("the admin's users: the list with seats, and a removal from every room but one they own (house decision #94)", async () => {
+  const one = await newRoom("Users one");
+  const two = await newRoom("Users two");
+  const anaDevice = await seatPlayer(one.owner, "ana-users");
+  const ana = connect({ auth: { campaignId: one.campaignId, cookie: anaDevice } });
+  await ana.until(() => true);
+  ok(
+    (await (
+      await post(
+        `/admin/campaigns/${two.campaignId}/action`,
+        { type: "member.seat", userId: uid("ana-users") },
+        ownIp(),
+      )
+    ).json()) as ActionResult,
+  );
+  // A room Ana owns keeps her.
+  const own = await post("/campaigns", { name: "Users own" }, cookieOf(anaDevice));
+  const ownId = ((await own.json()) as { campaignId: string }).campaignId;
+
+  assert.equal((await get("/admin/users")).status, 401);
+  const users = (await (await get("/admin/users", ownIp())).json()) as {
+    id: string;
+    name: string;
+    role: string;
+    account: boolean;
+    seats: { campaignId: string; role: string; owner: boolean; characters: string[] }[];
+  }[];
+  const row = users.find((u) => u.id === uid("ana-users"))!;
+  assert.equal(row.account, false, "a device, not an account");
+  assert.deepEqual(
+    row.seats.map((s) => [s.campaignId, s.role, s.owner, s.characters]).sort(),
+    [
+      [one.campaignId, "player", false, ["ana-users"]],
+      [two.campaignId, "gm", false, []],
+      [ownId, "gm", true, []],
+    ].sort(),
+  );
+  assert.ok(!JSON.stringify(row).includes("@"), "no email travels");
+
+  const del = (id: string, headers: Record<string, string> = ownIp()) =>
+    fetch(`${API}/api/admin/users/${encodeURIComponent(id)}/seats`, {
+      method: "DELETE",
+      headers: { ...SAME_ORIGIN, ...headers },
+    });
+  assert.equal((await del(uid("ana-users"), {})).status, 401);
+  assert.equal((await del("nobody-at-all")).status, 404);
+  const kicked = dropped(ana);
+  const res = await del(uid("ana-users"));
+  assert.equal(res.status, 200);
+  const out = (await res.json()) as { removed: { campaignId: string }[]; kept: { campaignId: string; code: string }[] };
+  assert.deepEqual(out.removed.map((r) => r.campaignId).sort(), [one.campaignId, two.campaignId].sort());
+  assert.deepEqual(out.kept, [{ campaignId: ownId, campaignName: "Users own", code: "ownerNotRemovable" }]);
+  await kicked;
+  await one.owner.until((s) => !s.access.members.some((m) => m.userId === uid("ana-users")));
+  const events = (await (await get(`/admin/events?campaignId=${one.campaignId}`, ownIp())).json()) as {
+    action: string;
+    targetUserId: string;
+  }[];
+  assert.ok(
+    events.some((e) => e.action === "user.unseat" && e.targetUserId === uid("ana-users")),
+    "logged per room",
+  );
+  for (const c of [one.owner, two.owner]) c.socket.close();
+});
+
+test("the admin ends a room's session without an award and deletes the last one", async () => {
+  const { owner, campaignId } = await newRoom("Admin session");
+  const act = async (body: unknown) =>
+    (await (await post(`/admin/campaigns/${campaignId}/action`, body, ownIp())).json()) as ActionResult;
+  refused(await act({ type: "session.abandon" }), "noSessionRunning");
+  const id = ok(await owner.send({ type: "session.start", title: "Left open" })).id!;
+  const room = async () =>
+    (
+      (await (await get("/admin/campaigns", ownIp())).json()) as {
+        id: string;
+        latestSession: { id: string; number: number; endedAt: string | null } | null;
+        gms: string[];
+      }[]
+    ).find((c) => c.id === campaignId)!;
+  const running = await room();
+  assert.deepEqual([running.latestSession?.id, running.latestSession?.endedAt], [id, null]);
+  assert.equal(running.gms.length, 1, "the owner's GM seat");
+  refused(await act({ type: "session.delete", sessionId: id }), "endSessionFirst");
+  ok(await act({ type: "session.abandon" }));
+  await owner.until((s) => s.session === null);
+  ok(await act({ type: "session.delete", sessionId: id }));
+  assert.equal((await room()).latestSession, null);
+  owner.socket.close();
+});
+
 test("accepting an invite moves the state version", async () => {
   const { owner } = await newRoom("InviteVersion");
   const code = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;

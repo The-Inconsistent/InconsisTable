@@ -33,8 +33,12 @@ const ActionReply = z.discriminatedUnion("ok", [
   z.object({
     ok: z.literal(true),
     id: z.string().optional(),
+    // Every entry codex.fromPack or codex.generate made, root first (house decisions #97, #98).
+    ids: z.array(z.string()).optional(),
     token: z.string().optional(),
     notices: z.array(Notice).optional(),
+    // The line table.roll read (house decision #87), which a rolled field fills from (house decision #97).
+    roll: z.object({ entryId: z.string(), value: z.number(), total: z.number() }).optional(),
   }),
   z.object({ ok: z.literal(false), error: z.string(), ...Refusal }),
 ]) satisfies z.ZodType<ActionResult>;

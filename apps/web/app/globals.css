@@ -1181,7 +1181,8 @@ label {
   margin: 0;
   padding-left: 1.2em;
 }
-/* The strike guide (house decision #99): the means as chips, the numbers side by side with their lines, the total. */
+/* The strike guide (house decision #99): the means as chips with their text values, the numbers side by side with
+   their lines, the total. */
 .strike-guide {
   border-top: 1px solid var(--line);
   padding-top: var(--gap);
@@ -1192,6 +1193,10 @@ label {
 }
 .strike-means {
   flex-wrap: wrap;
+}
+.strike-means-text {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 .strike-figures {
   display: grid;

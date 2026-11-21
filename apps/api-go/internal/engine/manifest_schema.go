@@ -809,6 +809,7 @@ var tableInputSchema = schema.Object(
 const (
 	MaxStrikes      = 20
 	maxStrikeValues = 20
+	maxStrikeShows  = 6
 )
 
 var (
@@ -818,12 +819,20 @@ var (
 		schema.Req("label", label(60)),
 		schema.Req("expr", exprSource),
 		schema.Opt("cite", citeSchema),
-		schema.Opt("adds", schema.Array(schema.Object(
-			schema.Req("label", label(60)),
-			schema.Req("by", exprSource),
-			schema.Opt("when", exprSource),
-			schema.Opt("cite", citeSchema),
-		)).Max(10)),
+		strikeAdds,
+	)
+	strikeAdds = schema.Opt("adds", schema.Array(schema.Object(
+		schema.Req("label", label(60)),
+		schema.Req("by", exprSource),
+		schema.Opt("when", exprSource),
+		schema.Opt("cite", citeSchema),
+	)).Max(10))
+	strikeShowSchema = schema.Object(
+		schema.Req("id", idSchema),
+		schema.Req("label", label(60)),
+		schema.Req("expr", exprSource),
+		schema.Opt("cite", citeSchema),
+		strikeAdds,
 	)
 	strikeSchema = schema.Object(
 		schema.Req("id", idSchema),
@@ -848,12 +857,13 @@ var (
 		)).Min(1).Max(4)),
 		schema.Opt("values", schema.Refined(schema.Record(idSchema, schema.Object(
 			schema.Req("key", label(64)),
-			schema.Req("type", schema.Enum("int", "bool")),
+			schema.Req("type", schema.Enum("int", "bool", "text")),
 		)), func(v any) bool { return len(v.(map[string]any)) <= maxStrikeValues }, "at most 20 values")),
 		schema.Opt("inputs", schema.Array(tableInputSchema).Min(1).Max(MaxLookupInputs)),
 		schema.Req("pool", strikeFigureSchema),
 		schema.Req("beat", strikeFigureSchema),
 		schema.Opt("soak", strikeFigureSchema),
+		schema.Opt("shows", schema.Array(strikeShowSchema).Max(maxStrikeShows)),
 		schema.Req("outcomes", schema.Array(schema.Object(
 			schema.Req("id", idSchema),
 			schema.Req("label", label(60)),

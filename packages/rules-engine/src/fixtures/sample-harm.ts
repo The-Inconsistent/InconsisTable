@@ -323,7 +323,7 @@ const [hero13, brute13, swarm13, ...rest13] = SAMPLE_HARM_BEFORE_STRIKES.entitie
  * over the soak as wounds, or 1 strain on a total equal to it (none for a brute, which takes no strain). Two notes, and
  * the Telling Blow table at hand. A hero lays the guide out for its phone's turn.
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_BEFORE_SHOWS: RulesetInput = {
   ...SAMPLE_HARM_BEFORE_STRIKES,
   version: "0.1.4",
   entities: [
@@ -433,10 +433,60 @@ export const SAMPLE_HARM: RulesetInput = {
   ],
 };
 
-/** Arms for SAMPLE_HARM 0.1.4 (house decision #99): what a blow reads of the means it is struck with. */
+const [hero14, ...rest14] = SAMPLE_HARM_BEFORE_SHOWS.entities ?? [];
+const blow14 = SAMPLE_HARM_BEFORE_SHOWS.strikes![0]!;
+
+/**
+ * sample-harm 0.1.5 (house decision #99): a hero carries arms as items too (house decision #95), and a blow may be
+ * struck with one it carries. The guide shows the damage to roll: the arm's damage, its edge dice more, and the
+ * attacker's might more for a close arm; and the arm's traits, a text beside it, which one note reads.
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_BEFORE_SHOWS,
+  version: "0.1.5",
+  entities: [
+    hero14!,
+    ...rest14.map((e) =>
+      e.id === "arm" ? { ...e, fields: { ...e.fields, traits: { type: "text", label: "Traits", maxLength: 80 } } } : e,
+    ),
+  ] as RulesetInput["entities"],
+  items: {
+    kinds: [
+      { id: "carried", label: "Carried arms", entry: "arm", entities: ["hero"], card: "weapons", cite: "Sample p.17" },
+    ],
+  },
+  strikes: [
+    {
+      ...blow14,
+      means: [...(blow14.means ?? []), { from: "items", kind: "carried" }],
+      values: { ...blow14.values, traits: { key: "traits", type: "text" } },
+      shows: [
+        {
+          id: "damage",
+          label: "Damage",
+          expr: "ctx.means.damage",
+          cite: "Sample p.16",
+          adds: [
+            { label: "Edge dice", by: "ctx.means.edge", cite: "Sample p.16" },
+            { label: "Might", when: "ctx.means.close", by: "derived.might", cite: "Sample p.16" },
+          ],
+        },
+      ],
+      notes: [
+        ...(blow14.notes ?? []),
+        { text: "A brutal arm: the target is knocked down", when: 'ctx.means.traits == "Brutal"', cite: "Sample p.16" },
+      ],
+    },
+  ],
+};
+
+/**
+ * Arms for SAMPLE_HARM (house decision #99): what a blow reads of the means it is struck with, and since 0.1.5 its
+ * traits.
+ */
 export const SAMPLE_HARM_ARMS = [
-  { key: "maul", name: "Maul", body: { damage: 4, edge: 1, pierce: 0, close: true } },
-  { key: "sling", name: "Sling", body: { damage: 3, edge: 0, pierce: -1, close: false } },
+  { key: "maul", name: "Maul", body: { damage: 4, edge: 1, pierce: 0, close: true, traits: "Brutal" } },
+  { key: "sling", name: "Sling", body: { damage: 3, edge: 0, pierce: -1, close: false, traits: "Far, Light" } },
   { key: "claw", name: "Claw", body: { damage: 3, edge: 1, pierce: -1, close: true } },
 ].map(({ key, name, body }) => ({ key, type: "arm", name, tags: [], cite: "Sample p.17", visibility: "gm", body }));
 

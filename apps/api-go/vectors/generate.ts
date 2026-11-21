@@ -1115,8 +1115,9 @@ function strikeVectors() {
       ? one([{ cut: 2 }, { cut: 3 }, { cut: "3" }, {}, null])
       : one([
           { damage: 4, edge: 1, pierce: 0, close: true },
-          { damage: 3, edge: 0, pierce: -1, close: false },
-          { damage: 3, edge: 1, pierce: -2, close: "yes" },
+          { damage: 4, edge: 1, pierce: 0, close: true, traits: "Brutal" },
+          { damage: 3, edge: 0, pierce: -1, close: false, traits: "Far, Light" },
+          { damage: 3, edge: 1, pierce: -2, close: "yes", traits: 3 },
           { pierce: 1.5 },
           {},
           null,
@@ -3105,6 +3106,14 @@ function strikeCrafted(): object[] {
       items: { kinds: [{ id: "arms", label: "Arms", entry: "arm", entities, card: "weapons", cite: "Sample p.17" }] },
     })),
     strike({ means: [{ from: "items" }, { from: "items", kind: "Bad" }] }),
+    // Further numbers and text values (sample-harm 0.1.5).
+    strike({ shows: [blow.shows![0], { ...blow.shows![0], label: "Again" }] }),
+    strike({ shows: Array.from({ length: 7 }, (_, i) => ({ ...blow.shows![0], id: `n${i}` })) }),
+    strike({
+      shows: [{ id: "Bad", label: "", expr: "ctx.means.traits", adds: [{ label: "X", by: "1", when: "ctx.far" }] }],
+    }),
+    strike({ pool: { label: "P", expr: "derived.might", adds: [{ label: "T", by: "ctx.means.traits" }] } }),
+    strike({ values: { traits: { key: "traits", type: "list" } } }),
     strike({
       inputs: [
         { id: "aim", label: "A", type: "bool", min: 0 },

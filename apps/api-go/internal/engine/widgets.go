@@ -30,6 +30,8 @@ type WidgetSpec struct {
 	Ledger   bool         `json:"ledger,omitempty"`
 	// Held reads the records the actor holds (house decision #88) instead of bound values.
 	Held bool `json:"held,omitempty"`
+	// Strike names one of the ruleset's strike kinds in its variant (house decision #99) instead of one of Variants.
+	Strike bool `json:"strike,omitempty"`
 }
 
 func oneSlot(id, takes string, required bool) WidgetSlot {
@@ -57,6 +59,7 @@ var Widgets = []WidgetSpec{
 	{ID: "folds", Variants: []string{"both", "talents", "abilities"}, Slots: []WidgetSlot{}, Ledger: true},
 	{ID: "notes", Variants: []string{}, Slots: []WidgetSlot{listSlot("fields", "text", true)}},
 	{ID: "held", Variants: []string{}, Slots: []WidgetSlot{}, Held: true},
+	{ID: "strike", Variants: []string{}, Slots: []WidgetSlot{}, Strike: true},
 }
 
 // LayoutTargets is LAYOUT_TARGETS: the layout keys beyond the sheet's sections.
@@ -174,7 +177,24 @@ func (p *problems) widgetRow(r *Ruleset, row *WidgetRow, entities []*EntityType,
 		p.add(path+".widget", `unknown widget "%s"`, row.Widget)
 		return
 	}
-	if row.Variant != nil && !slices.Contains(spec.Variants, *row.Variant) {
+	if spec.Strike {
+		// A strike widget's variant names one of the ruleset's strike kinds (house decision #99).
+		var s *Strike
+		for i := range r.Strikes {
+			if row.Variant != nil && r.Strikes[i].ID == *row.Variant {
+				s = &r.Strikes[i]
+				break
+			}
+		}
+		switch {
+		case row.Variant == nil:
+			p.add(path+".variant", "a strike widget names a strike kind")
+		case s == nil:
+			p.add(path+".variant", `unknown strike "%s"`, *row.Variant)
+		case s.Entities != nil && slices.ContainsFunc(entities, func(e *EntityType) bool { return !slices.Contains(*s.Entities, e.ID) }):
+			p.add(path+".variant", `not every type here strikes with "%s"`, *row.Variant)
+		}
+	} else if row.Variant != nil && !slices.Contains(spec.Variants, *row.Variant) {
 		p.add(path+".variant", `unknown variant "%s"`, *row.Variant)
 	}
 	variant := ""

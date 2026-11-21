@@ -12,8 +12,10 @@ import { codexScope } from "./codex.ts";
 import type { ExprScope, ExprType } from "./expr/expr.ast.ts";
 import { compileExpr, type CompiledExpr } from "./expr/expr.ts";
 import {
+  strikeTargets,
   validateRuleset,
   type Condition,
+  type StrikeFigure,
   type Effect,
   type EntityType,
   type FieldDef,
@@ -771,6 +773,62 @@ class Compiler {
     );
   }
 
+  /**
+   * `strikes` (house decision #99): every expression in the scope of each attacker type, with `ctx` holding the inputs,
+   * the means' values, the target's scope for each target type and the mobs' sizes; the outcomes also read the figures
+   * and the typed total, the notes the outcome too. Read by `planStrike` from the manifest's own text.
+   */
+  private strikes(actorsOf: (ids: readonly string[] | undefined) => { ce: CompiledEntity }[]): void {
+    this.r.strikes?.forEach((s, i) => {
+      const path = `strikes[${i}]`;
+      const targets = actorsOf(strikeTargets(this.r, s)).map(({ ce }) => ce.scope);
+      const values = Object.fromEntries(
+        Object.entries(s.values ?? {}).map(([k, v]): [string, ExprType] => [k, v.type === "bool" ? "bool" : "int"]),
+      );
+      const base: Record<string, ExprType> = {
+        ...Object.fromEntries((s.inputs ?? []).map((x) => [x.id, x.type])),
+        means: { record: values },
+        attackerMob: "int",
+        targetMob: "int",
+      };
+      const scopes = (extra: Record<string, ExprType>) =>
+        actorsOf(s.entities).flatMap(({ ce }) =>
+          targets.map((t) => ({ ...ce.scope, ctx: { record: { ...base, target: { record: t }, ...extra } } })),
+        );
+      const figures = scopes({});
+      const figure = (f: StrikeFigure | undefined, at: string) => {
+        if (f === undefined) return;
+        this.expr({ source: f.expr, scopes: figures, expect: "int", path: `${at}.expr` });
+        f.adds?.forEach((a, j) => {
+          if (a.when !== undefined)
+            this.expr({ source: a.when, scopes: figures, expect: "bool", path: `${at}.adds[${j}].when` });
+          this.expr({ source: a.by, scopes: figures, expect: "int", path: `${at}.adds[${j}].by` });
+        });
+      };
+      figure(s.pool, `${path}.pool`);
+      figure(s.beat, `${path}.beat`);
+      figure(s.soak, `${path}.soak`);
+      const read: Record<string, ExprType> = {
+        pool: "int",
+        beat: "int",
+        ...(s.soak === undefined ? {} : { soak: "int" as const }),
+        total: "int",
+      };
+      const typed = scopes(read);
+      s.outcomes.forEach((o, j) => {
+        const at = `${path}.outcomes[${j}]`;
+        this.expr({ source: o.when, scopes: typed, expect: "bool", path: `${at}.when` });
+        if (o.wounds !== undefined) this.expr({ source: o.wounds, scopes: typed, expect: "int", path: `${at}.wounds` });
+        if (o.shock !== undefined) this.expr({ source: o.shock, scopes: typed, expect: "int", path: `${at}.shock` });
+      });
+      const after = scopes({ ...read, outcome: "text" });
+      s.notes?.forEach((n, j) => {
+        if (n.when !== undefined)
+          this.expr({ source: n.when, scopes: after, expect: "bool", path: `${path}.notes[${j}].when` });
+      });
+    });
+  }
+
   /** What a spawn reads of the room: `campaign`, and `party` with `seated` (house decision #92). */
   private roomScope(): Record<string, ExprType> {
     return { party: SPAWN_PARTY_SCOPE, ...this.campaignRoot() };
@@ -945,6 +1003,7 @@ class Compiler {
     });
     this.spends(actorsOf);
     this.spawn();
+    this.strikes(actorsOf);
 
     const lookups = this.lookups(actorsOf);
 

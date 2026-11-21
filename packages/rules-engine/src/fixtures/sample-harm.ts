@@ -225,7 +225,7 @@ const [hero, ...others] = SAMPLE_HARM_BEFORE_HELD.entities ?? [];
  * 10 for each growth the hero holds already, and its top line sends the GM on to the Greater; a line of either grants
  * its growth. Nothing is granted until the last step is applied.
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_BEFORE_STRIKES: RulesetInput = {
   ...SAMPLE_HARM_BEFORE_HELD,
   version: "0.1.3",
   entities: [
@@ -298,6 +298,147 @@ export const SAMPLE_HARM: RulesetInput = {
     },
   },
 };
+
+const arms = { type: "list", label: "Arms", visibility: "party" } as const;
+const strikeNumbers = (
+  might: string,
+  guard: string,
+  toughness: string,
+  cite: string,
+  visibility: "party" | "gm" = "party",
+) =>
+  [
+    { id: "might", label: "Might", expr: might, visibility, cite },
+    { id: "guard", label: "Guard", expr: guard, visibility, cite },
+    { id: "toughness", label: "Toughness", expr: toughness, visibility, cite },
+  ] as const;
+const [hero13, brute13, swarm13, ...rest13] = SAMPLE_HARM_BEFORE_STRIKES.entities ?? [];
+
+/**
+ * sample-harm 0.1.4 (house decision #99): a blow struck with one of the attacker's arms, pack entries of the type `arm`
+ * kept in its `arms` list (a hero's picked, a brute's or a swarm's copied from its pack entry). The dice are the
+ * attacker's might, one more when aiming and half a swarm's members more; the number to beat is the target's guard,
+ * one more while the attacker is hurt and the far shots called for an arm that is not close; the target's toughness,
+ * less the arm's pierce, soaks the total. A swarm loses a member to a total over its soak; anyone else takes the total
+ * over the soak as wounds, or 1 strain on a total equal to it (none for a brute, which takes no strain). Two notes, and
+ * the Telling Blow table at hand. A hero lays the guide out for its phone's turn.
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_BEFORE_STRIKES,
+  version: "0.1.4",
+  entities: [
+    {
+      ...hero13!,
+      fields: { ...hero13!.fields, arms },
+      derived: [...(hero13!.derived ?? []), ...strikeNumbers("grit", "grit / 2 + 1", "grit + 1", "Sample p.15")],
+    },
+    {
+      ...brute13!,
+      fields: { ...brute13!.fields, arms },
+      derived: [...(brute13!.derived ?? []), ...strikeNumbers("hide", "2", "hide", "Sample p.16", "gm")],
+    },
+    {
+      ...swarm13!,
+      fields: { ...swarm13!.fields, arms },
+      derived: [...(swarm13!.derived ?? []), ...strikeNumbers("1", "1", "1", "Sample p.16")],
+    },
+    ...rest13,
+    {
+      id: "arm",
+      label: "Arm",
+      base: "item",
+      fields: {
+        damage: { type: "int", label: "Damage", min: 0, max: 20 },
+        edge: { type: "int", label: "Edge", min: 0, max: 5 },
+        pierce: { type: "int", label: "Pierce", min: -5, max: 0 },
+        close: { type: "bool", label: "Close" },
+      },
+    },
+  ],
+  layout: {
+    hero: {
+      sections: SAMPLE_HARM_BEFORE_STRIKES.layout?.hero?.sections ?? [],
+      phoneTurn: [{ widget: "strike", variant: "blow" }],
+    },
+  },
+  strikes: [
+    {
+      id: "blow",
+      label: "Blow",
+      cite: "Sample p.15",
+      means: [{ from: "list", field: "arms", entry: "arm" }],
+      values: {
+        damage: { key: "damage", type: "int" },
+        edge: { key: "edge", type: "int" },
+        pierce: { key: "pierce", type: "int" },
+        close: { key: "close", type: "bool" },
+      },
+      inputs: [
+        { id: "aim", label: "Aim", type: "bool", cite: "Sample p.15" },
+        { id: "far", label: "Far shots", type: "int", min: 0, max: 3, cite: "Sample p.15" },
+      ],
+      pool: {
+        label: "Might",
+        expr: "derived.might",
+        cite: "Sample p.15",
+        adds: [
+          { label: "Aim", when: "ctx.aim", by: "1", cite: "Sample p.15" },
+          { label: "Swarm", when: "ctx.attackerMob > 0", by: "(ctx.attackerMob + 1) / 2", cite: "Sample p.16" },
+        ],
+      },
+      beat: {
+        label: "Guard",
+        expr: "ctx.target.derived.guard",
+        cite: "Sample p.15",
+        adds: [
+          { label: "Hurt", when: "res.wounds > 0", by: "1", cite: "Sample p.15" },
+          { label: "Far", when: "!ctx.means.close", by: "ctx.far", cite: "Sample p.15" },
+        ],
+      },
+      soak: {
+        label: "Toughness",
+        expr: "ctx.target.derived.toughness",
+        cite: "Sample p.16",
+        adds: [{ label: "Pierce", by: "ctx.means.pierce", cite: "Sample p.16" }],
+      },
+      outcomes: [
+        {
+          id: "thinned",
+          label: "Thinned",
+          when: "ctx.targetMob > 0 && ctx.total > ctx.soak",
+          wounds: "1",
+          cite: "Sample p.16",
+        },
+        {
+          id: "wounded",
+          label: "Wounded",
+          when: "ctx.targetMob == 0 && ctx.total > ctx.soak",
+          wounds: "ctx.total - ctx.soak",
+          cite: "Sample p.16",
+        },
+        {
+          id: "strained",
+          label: "Strained",
+          when: "ctx.targetMob == 0 && ctx.total == ctx.soak",
+          shock: "ctx.target.derived.strainCap > 0 ? 1 : 0",
+          cite: "Sample p.16",
+        },
+      ],
+      notes: [
+        { text: "A six on the edge die: read the Telling Blow table", cite: "Sample p.16" },
+        { text: "A brute shrugs off strain", when: "ctx.target.derived.strainCap == 0", cite: "Sample p.16" },
+      ],
+      then: { table: "blow", inputs: { past: "aim" } },
+    },
+  ],
+};
+
+/** Arms for SAMPLE_HARM 0.1.4 (house decision #99): what a blow reads of the means it is struck with. */
+export const SAMPLE_HARM_ARMS = [
+  { key: "maul", name: "Maul", body: { damage: 4, edge: 1, pierce: 0, close: true } },
+  { key: "sling", name: "Sling", body: { damage: 3, edge: 0, pierce: -1, close: false } },
+  { key: "claw", name: "Claw", body: { damage: 3, edge: 1, pierce: -1, close: true } },
+].map(({ key, name, body }) => ({ key, type: "arm", name, tags: [], cite: "Sample p.17", visibility: "gm", body }));
 
 /** Growths for SAMPLE_HARM 0.1.3: each adds to a hero's wound limit, which every seat reads (house decision #88). */
 export const SAMPLE_HARM_GROWTHS = [

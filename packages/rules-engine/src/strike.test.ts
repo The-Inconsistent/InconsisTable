@@ -1,0 +1,195 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { compileRuleset } from "./compile.ts";
+import type { ExprRecord } from "./expr/expr.ast.ts";
+import { SAMPLE_DUEL } from "./fixtures/sample-duel.ts";
+import { SAMPLE_HARM } from "./fixtures/sample-harm.ts";
+import type { RulesetInput } from "./manifest.ts";
+import { isRefusal } from "./primitives/primitive.ts";
+import { planStrike, type StrikePlan } from "./strike.ts";
+
+const compiled = (input: RulesetInput) => {
+  const r = compileRuleset(input);
+  if (!r.ok) throw new Error(JSON.stringify(r.problems));
+  return r.compiled.ruleset;
+};
+const HARM = compiled(SAMPLE_HARM);
+const DUEL = compiled(SAMPLE_DUEL);
+
+const hero = (over: { grit?: number; wounds?: number } = {}): ExprRecord => {
+  const grit = over.grit ?? 4;
+  return {
+    grit,
+    derived: { might: grit, guard: Math.floor(grit / 2) + 1, toughness: grit + 1, strainCap: grit, limit: grit + 3 },
+    res: { wounds: over.wounds ?? 0, strain: 0, resolve: 2 },
+    party: { characters: 2 },
+  };
+};
+const brute: ExprRecord = {
+  hide: 5,
+  derived: { might: 5, guard: 2, toughness: 5, strainCap: 0, limit: 5 },
+  res: { wounds: 0, strain: 0 },
+  party: { characters: 2 },
+};
+const swarm = (members: number): ExprRecord => ({
+  size: 6,
+  derived: { might: 1, guard: 1, toughness: 1, strainCap: 2, limit: 1 },
+  res: { wounds: 0, strain: 0, members },
+  party: { characters: 2 },
+});
+const maul = { damage: 4, edge: 1, pierce: 0, close: true };
+const sling = { damage: 3, edge: 0, pierce: -1, close: false };
+
+const blow = (over: Partial<Parameters<typeof planStrike>[0]> = {}) =>
+  planStrike({
+    ruleset: HARM,
+    strikeId: "blow",
+    attacker: { entity: "hero", scope: hero() },
+    target: { entity: "brute", scope: brute },
+    means: maul,
+    inputs: {},
+    total: null,
+    ...over,
+  });
+const plan = (r: ReturnType<typeof planStrike>): StrikePlan => {
+  assert.ok(!isRefusal(r), JSON.stringify(r));
+  return r;
+};
+
+test("the pool and the number to beat come with their lines, the base first", () => {
+  const p = plan(blow({ attacker: { entity: "hero", scope: hero({ wounds: 1 }) }, inputs: { aim: true } }));
+  assert.deepEqual(p.pool, {
+    total: 5,
+    lines: [
+      { source: "Might", amount: 4, cite: "Sample p.15" },
+      { source: "Aim", amount: 1, cite: "Sample p.15" },
+    ],
+  });
+  assert.deepEqual(p.beat, {
+    total: 3,
+    lines: [
+      { source: "Guard", amount: 2, cite: "Sample p.15" },
+      { source: "Hurt", amount: 1, cite: "Sample p.15" },
+    ],
+  });
+  assert.deepEqual(p.soak?.total, 5);
+  assert.equal(p.outcome, null);
+  assert.equal(p.harm, null);
+});
+
+test("a far shot adds only for an arm that is not close, and a swarm attacking adds half its members", () => {
+  const far = plan(blow({ means: sling, inputs: { far: 2 } }));
+  assert.equal(far.beat.total, 4);
+  assert.deepEqual(far.soak?.lines.at(-1), { source: "Pierce", amount: -1, cite: "Sample p.16" });
+  assert.equal(plan(blow({ inputs: { far: 2 } })).beat.total, 2);
+  const mob = plan(blow({ attacker: { entity: "swarm", scope: swarm(5) }, target: { entity: "hero", scope: hero() } }));
+  assert.deepEqual(mob.pool.lines.at(-1), { source: "Swarm", amount: 3, cite: "Sample p.16" });
+});
+
+test("a total over the soak is that many wounds, equal is one strain, less is nothing", () => {
+  const on = (total: number, target = { entity: "hero", scope: hero() }) => plan(blow({ target, total }));
+  assert.deepEqual(on(8).harm, { wounds: 3, shock: 0 });
+  assert.equal(on(8).outcome?.id, "wounded");
+  assert.deepEqual(on(5).harm, { wounds: 0, shock: 1 });
+  assert.equal(on(4).outcome, null);
+  assert.equal(on(4).harm, null);
+  // A brute takes no strain: the line holds, and it applies nothing.
+  const tie = on(5, { entity: "brute", scope: brute });
+  assert.equal(tie.outcome?.id, "strained");
+  assert.equal(tie.harm, null);
+  assert.deepEqual(
+    tie.notes.map((n) => n.text),
+    ["A six on the edge die: read the Telling Blow table", "A brute shrugs off strain"],
+  );
+});
+
+test("a swarm loses one member to a total over its soak, whatever the total", () => {
+  const p = plan(blow({ target: { entity: "swarm", scope: swarm(6) }, total: 9 }));
+  assert.equal(p.outcome?.id, "thinned");
+  assert.deepEqual(p.harm, { wounds: 1, shock: 0 });
+  assert.equal(plan(blow({ target: { entity: "swarm", scope: swarm(6) }, total: 1 })).outcome, null);
+});
+
+test("a duel's lunge is one roll against the parry, a hit doing the blade's flat cut and no soak", () => {
+  const duelist = (skill: number, parry: number): ExprRecord => ({
+    skill,
+    parry,
+    blades: [],
+    derived: { limit: 5 },
+    res: { cuts: 0 },
+    party: { characters: 2 },
+  });
+  const lunge = (total: number) =>
+    plan(
+      planStrike({
+        ruleset: DUEL,
+        strikeId: "lunge",
+        attacker: { entity: "duelist", scope: duelist(3, 10) },
+        target: { entity: "duelist", scope: duelist(2, 14) },
+        means: { cut: 3 },
+        inputs: {},
+        total,
+      }),
+    );
+  assert.equal(lunge(14).soak, null);
+  assert.deepEqual(lunge(14).harm, { wounds: 3, shock: 0 });
+  assert.equal(lunge(13).outcome?.id, "miss");
+  assert.equal(lunge(13).harm, null);
+  assert.equal(lunge(14).pool.total, 3);
+});
+
+test("refusals: an unknown strike, a type it is not for, a missing means, a bad input or total", () => {
+  const code = (r: ReturnType<typeof planStrike>) => (isRefusal(r) ? r.code : "ok");
+  assert.equal(code(blow({ strikeId: "nope" })), "noSuchStrike");
+  assert.equal(code(blow({ target: { entity: "arm", scope: {} } })), "strikeNotFor");
+  assert.equal(code(blow({ means: null })), "noMeans");
+  assert.equal(code(blow({ inputs: { far: 4 } })), "badInput");
+  assert.equal(code(blow({ inputs: { aim: 1 } })), "badInput");
+  assert.equal(code(blow({ inputs: { nope: 1 } })), "badInput");
+  assert.equal(code(blow({ total: 1.5 })), "badInput");
+  assert.equal(code(blow({ total: 1001 })), "badInput");
+  const { derived: _derived, ...bare } = brute;
+  assert.equal(code(blow({ target: { entity: "brute", scope: bare } })), "wrongState");
+});
+
+test("a strike's declaration is refused at its path", () => {
+  const bad = structuredClone(SAMPLE_HARM) as RulesetInput & { strikes: NonNullable<RulesetInput["strikes"]> };
+  const s = bad.strikes[0]!;
+  s.inputs = [...(s.inputs ?? []), { id: "total", label: "T", type: "bool", min: 1 }];
+  s.means = [
+    { from: "ledger", lines: "weapons" },
+    { from: "list", field: "grit", entry: "nope" },
+  ];
+  s.outcomes = [...s.outcomes, { id: "x", label: "X", when: "ctx.nope", shock: "1" }];
+  s.then = { table: "blow", inputs: { press: "nope", nope: "aim" } };
+  s.targets = ["arm"];
+  bad.strikes.push({ ...s, id: "blow", cite: undefined });
+  const r = compileRuleset(bad);
+  assert.ok(!r.ok);
+  const paths = r.problems.map((p) => `${p.path}: ${p.message}`);
+  for (const want of [
+    'strikes[1].id: duplicate id "blow"',
+    "strikes[0].means[0]: the ruleset has no build",
+    'strikes[0].means[1].field: "grit" is not a list field of an attacker',
+    'strikes[0].means[1].entry: unknown entity "nope"',
+    'strikes[0].inputs[2].id: "total" is reserved',
+    "strikes[0].inputs[2]: a switch has no bounds",
+    'strikes[0].targets[0]: "arm" is not an actor entity',
+    'strikes[0].then.inputs.nope: "nope" is not an input of the table',
+    'strikes[0].then.inputs.press: "nope" is not an input of the strike',
+    "strikes[1].cite: a rule entry needs a cite",
+  ])
+    assert.ok(paths.includes(want), `${want}\nin\n${paths.join("\n")}`);
+});
+
+test("a strike's expressions are checked over every attacker and target", () => {
+  const bad = structuredClone(SAMPLE_HARM) as RulesetInput & { strikes: NonNullable<RulesetInput["strikes"]> };
+  bad.strikes[0]!.pool.expr = "grit"; // only a hero has grit
+  bad.strikes[0]!.outcomes[0]!.when = 'ctx.outcome == "x"'; // only a note reads the outcome
+  const r = compileRuleset(bad);
+  assert.ok(!r.ok);
+  const paths = r.problems.map((p) => p.path);
+  assert.ok(paths.includes("strikes[0].pool.expr"));
+  assert.ok(paths.includes("strikes[0].outcomes[0].when"));
+});

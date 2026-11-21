@@ -526,6 +526,8 @@ type (
 		} `json:"requests"`
 		// Spawn is the spawn options, adjustments and encounter budget (house decision #92); nil when absent.
 		Spawn *SpawnBlock `json:"spawn"`
+		// Strikes are the kinds of strike the GM's guide offers (house decision #99); nil when absent.
+		Strikes []Strike `json:"strikes"`
 	}
 	// SpawnOption is one option a spawned actor may take (manifest.ts SpawnOption).
 	SpawnOption struct {
@@ -1553,6 +1555,7 @@ func (r *Ruleset) semanticProblems() problems {
 	}
 	p.spends(r, actorTypes)
 	p.spawn(r, actorTypes, needCite)
+	p.strikes(r, actorTypes, needCite)
 
 	for _, id := range sortedKeys(r.Tests) {
 		t := r.Tests[id]

@@ -26,6 +26,20 @@ type Catalogue struct {
 // LoadCatalogue reads the room's catalogue for the ruleset's build block. Every record is GM-free (pack validation
 // refuses a `gm` one), so there is one catalogue for every seat.
 func LoadCatalogue(ctx context.Context, conn core.Conn, campaignID string, b *engine.CompiledBuild) (*Catalogue, error) {
+	return loadCatalogue(ctx, conn, b, `JOIN campaign_pack ON campaign_pack.pack_version_id = pack_entry.pack_version_id
+		WHERE `+actor.ServedPacks("$1"), campaignID)
+}
+
+// LoadOwnCatalogue is the catalogue of these pack versions, of the ones the user owns and an admin has not taken down:
+// what a library character outside any room is built against (house decision #104). Nothing from another user's pack
+// reaches anyone without a seat (principle 4).
+func LoadOwnCatalogue(ctx context.Context, conn core.Conn, userID string, versionIDs []string, b *engine.CompiledBuild) (*Catalogue, error) {
+	return loadCatalogue(ctx, conn, b, `WHERE pack.owner_user_id = $1 AND pack.disabled_at IS NULL
+		AND pack_entry.pack_version_id = ANY($3::uuid[])`, userID, versionIDs)
+}
+
+// loadCatalogue reads the records of the pack entries `where` picks ($1 and from $3 on are the args; $2 is the types).
+func loadCatalogue(ctx context.Context, conn core.Conn, b *engine.CompiledBuild, where string, args ...any) (*Catalogue, error) {
 	kindOf := map[string]string{} // entity type → its kind
 	types := []string{}
 	out := &Catalogue{Kinds: map[string][]any{}, Wargear: []any{}}
@@ -36,13 +50,13 @@ func LoadCatalogue(ctx context.Context, conn core.Conn, campaignID string, b *en
 			out.Kinds[kind] = []any{}
 		}
 	}
+	params := append([]any{args[0], types}, args[1:]...)
 	// pack_entry.id is uuidv7, written in the pack's order at import, so it orders a pack's entries as its file does.
 	rows, err := conn.Query(ctx, `SELECT pack_entry.type, pack_entry.record::text FROM pack_entry
-		JOIN campaign_pack ON campaign_pack.pack_version_id = pack_entry.pack_version_id
 		JOIN pack_version ON pack_version.id = pack_entry.pack_version_id
 		JOIN pack ON pack.id = pack_version.pack_id
-		WHERE `+actor.ServedPacks("$1")+` AND pack_entry.record IS NOT NULL AND pack_entry.type = ANY($2)
-		ORDER BY pack.slug ASC, pack_entry.id ASC`, campaignID, types)
+		`+where+` AND pack_entry.record IS NOT NULL AND pack_entry.type = ANY($2)
+		ORDER BY pack.slug ASC, pack_entry.id ASC`, params...)
 	if err != nil {
 		return nil, err
 	}

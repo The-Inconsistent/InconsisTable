@@ -20,7 +20,7 @@ import { HeldListEditor } from "@/components/ui/held-list/held-list";
 import { ResourceRow } from "@/components/ui/resource-row/resource-row";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { heldLists } from "@/lib/held/held";
-import { boxKinds } from "@/lib/items/items";
+import { boxKinds, itemEntries } from "@/lib/items/items";
 import { rankOf } from "@/lib/ledger/play";
 import { xpEarnedOf } from "@/lib/ledger/table";
 import { ledgerLaidOut } from "@/lib/sheet-widgets/sheet-widgets";
@@ -218,6 +218,8 @@ export function SheetView({
             fields: actor.fields,
             resources: actor.resources,
             conditions: actor.conditions,
+            // What the items it holds add, each named (house decision #95, #102).
+            entries: itemEntries({ ruleset, items: actor.items ?? [] }),
             party: { characters },
             campaign: inPlay,
           },

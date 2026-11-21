@@ -1,5 +1,12 @@
 import type { Actor, ActorItem } from "@inconsistable/core-schema";
-import { withFittings, type ItemKind, type Ruleset } from "@inconsistable/rules-engine";
+import {
+  HOST_PREFIX,
+  withFittings,
+  type ActiveEntry,
+  type Effect,
+  type ItemKind,
+  type Ruleset,
+} from "@inconsistable/rules-engine";
 
 // Items a character holds (house decision #95), as the sheet draws them: loose ones by kind, each with what is fitted
 // to it; a kind whose `card` a layout's `cards` widget draws is drawn there, beside the saved build's lines.
@@ -56,6 +63,22 @@ export function hostsOf({
   return items.filter(
     (x) => x.id !== item.id && x.fittedTo === null && x.fittedLine === undefined && fits.to.includes(x.kind),
   );
+}
+
+/**
+ * The items whose effects are in the actor's numbers, as the breakdown names them (the server's actor.ItemEntries):
+ * every entry's but a fitting's while it is loose; an effect on a host's card changes no number of the actor.
+ */
+export function itemEntries({ ruleset, items }: { ruleset: Ruleset; items: readonly ActorItem[] }): ActiveEntry[] {
+  const ids = new Set(items.map((x) => x.id));
+  return items.flatMap((x) => {
+    const kind = ruleset.items?.kinds.find((k) => k.id === x.kind);
+    const fitted = x.fittedLine !== undefined || (x.fittedTo !== null && ids.has(x.fittedTo));
+    const effects = x.effects.filter((e) => !e.path.startsWith(HOST_PREFIX)) as unknown as Effect[];
+    if (kind === undefined || x.entry === null || effects.length === 0 || (kind.fits !== undefined && !fitted))
+      return [];
+    return [{ type: kind.entry, key: x.entry, name: x.name, effects }];
+  });
 }
 
 /** A line of the saved build an item may be fitted to (house decision #102): `weapons/<name>` or `armour/<name>`. */

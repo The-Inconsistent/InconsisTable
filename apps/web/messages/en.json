@@ -1333,6 +1333,7 @@
     "closedThisSession": "Closed this session"
   },
   "callCard": {
+    "acquiring": "To acquire {item}",
     "waiting": "Waiting",
     "total": "total {total}",
     "outcome": {

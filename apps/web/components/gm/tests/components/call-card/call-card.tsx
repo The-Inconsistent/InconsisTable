@@ -122,6 +122,7 @@ export function CallCard({ call, def, names, send }: CallCardProps) {
           <span className="chip">{t("rolledCount", { reported: call.reported, called: call.called })}</span>
         </span>
       </div>
+      {call.acquire && <p className="small">{t("acquiring", { item: call.acquire.name })}</p>}
       {inputs && (
         <p className="dim small">
           {inputs}

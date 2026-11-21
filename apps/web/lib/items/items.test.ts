@@ -5,7 +5,7 @@ import type { ActorItem } from "@inconsistable/core-schema";
 import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_LEDGER_RULESET } from "../../../../packages/rules-engine/src/fixtures/sample-ledger-ruleset.ts";
-import { boxKinds, buildLines, cardKinds, hostsOf, itemLines, lineHostsOf, withFitted } from "./items.ts";
+import { boxKinds, buildLines, cardKinds, hostsOf, itemEntries, itemLines, lineHostsOf, withFitted } from "./items.ts";
 
 const ruleset = (() => {
   const r = compileRuleset(SAMPLE_LEDGER_RULESET);
@@ -85,6 +85,28 @@ test("a fitting is offered the build's lines of a kind it fits, and an item fitt
   assert.deepEqual(
     itemLines({ ruleset, items: [...ITEMS, onLine], kinds: new Set(["fittings"]) }).map((l) => l.item.id),
     ["loose"],
+  );
+});
+
+test("the breakdown names an item's effects: a fitting's only while fitted, never its host's card", () => {
+  const effect = (path: string) => ({ path, mode: "add", value: "1", phase: "derived" });
+  const lens = (id: string, more: Partial<ActorItem>) => ({
+    ...item(id, "fittings"),
+    entry: "wargear.sight-lens",
+    effects: [effect("derived.guard"), effect("host.ed")],
+    ...more,
+  });
+  const entries = itemEntries({
+    ruleset,
+    items: [
+      lens("loose", {}),
+      lens("onLine", { fittedLine: "weapons/Staff" }),
+      { ...item("note", "kit"), effects: [] },
+    ],
+  });
+  assert.deepEqual(
+    entries.map((e) => [e.name, e.effects.map((x) => x.path)]),
+    [["onLine", ["derived.guard"]]],
   );
 });
 

@@ -193,6 +193,7 @@ export const SAMPLE_LEDGER_RULESET: RulesetInput = {
       target: "ctx.dn",
       modifier: "ctx.bonus",
       inputs: { dn: "int", bonus: "int" },
+      inputLabels: { dn: "Number to beat", bonus: "Push" },
       entities: ["hero"],
       cite: "Base p.43",
     },

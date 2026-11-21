@@ -91,13 +91,16 @@ export function TestPrompt({ state, send }: TestPromptProps) {
                     : t("roll", { dice: call.dice, who })}
               </h2>
               {call.acquire && (
-                <p className="small" data-acquire="true">
-                  {t("acquiring", { item: call.acquire.name })}
-                  {Object.values(call.acquire.inputs)
-                    .flatMap((v) => v.parts)
-                    .map((p) => ` · ${tA("part", { label: p.label, value: p.value })}`)
-                    .join("")}
-                </p>
+                <div className="stack small" data-acquire="true" style={{ gap: 2 }}>
+                  <b>{t("acquiring", { item: call.acquire.name })}</b>
+                  {Object.entries(call.acquire.inputs).map(([input, v]) => (
+                    <span key={input}>
+                      {tA("total", { label: input, total: v.total })}
+                      {" · "}
+                      {v.parts.map((p) => tA("part", { label: p.label, value: p.value })).join(", ")}
+                    </span>
+                  ))}
+                </div>
               )}
               {target.report ? (
                 <p

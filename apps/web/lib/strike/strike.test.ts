@@ -5,7 +5,7 @@ import type { Actor } from "@inconsistable/core-schema";
 import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_HARM, SAMPLE_HARM_ARMS } from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
-import { entryTypesOf, isPlan, meansOf, previewStrike, strikesFor, targetsOf } from "./strike.ts";
+import { entryTypesOf, isPlan, meansOf, meansTexts, previewStrike, strikesFor, targetsOf } from "./strike.ts";
 
 const made = compileRuleset(SAMPLE_HARM);
 if (!made.ok) throw new Error(JSON.stringify(made.problems));
@@ -75,7 +75,7 @@ test("the preview is the engine's answer: wounds over the soak, a member off a s
   const before = preview(ogre, null);
   assert.ok(isPlan(before));
   assert.equal(before.outcome, null); // nothing typed yet: the numbers and the notes only
-  assert.equal(before.notes.length, 2);
+  assert.equal(before.notes.length, 3); // the edge die, a brute without strain, a brutal maul
   assert.equal(
     previewStrike({
       compiled,
@@ -110,5 +110,29 @@ test("a held item of the strike's kind is a means, read from its loaded entry; a
   assert.deepEqual(
     meansOf({ ruleset: { items }, strike: carried, actor: holder, entries }).map((m) => [m.source, m.ref, m.name]),
     [[0, "i1", "Sling"]],
+  );
+});
+
+test("a means' text values are shown beside it, and the further numbers come with the plan", () => {
+  const [maul, sling] = meansOf({ ruleset, strike: blow, actor: hal, entries });
+  assert.deepEqual(meansTexts({ strike: blow, means: maul }), ["Brutal"]);
+  assert.deepEqual(meansTexts({ strike: blow, means: sling }), ["Far, Light"]);
+  assert.deepEqual(meansTexts({ strike: blow, means: { source: 0, ref: "x", name: "X", values: { traits: 3 } } }), []);
+  assert.deepEqual(meansTexts({ strike: blow, means: undefined }), []);
+  const p = previewStrike({
+    compiled,
+    strike: blow,
+    attacker: hal,
+    target: ogre,
+    means: maul,
+    inputs: {},
+    total: null,
+    characters: 2,
+    campaign: {},
+  });
+  assert.ok(isPlan(p));
+  assert.deepEqual(
+    p.shows.map((s) => [s.id, s.total]),
+    [["damage", 9]],
   );
 });

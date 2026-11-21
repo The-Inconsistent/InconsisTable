@@ -36,6 +36,11 @@ type (
 		Cite  *string     `json:"cite"`
 		Adds  []StrikeAdd `json:"adds"`
 	}
+	// StrikeShow is a further number the guide shows (manifest.ts StrikeShow): a figure with an id.
+	StrikeShow struct {
+		ID string `json:"id"`
+		StrikeFigure
+	}
 	// StrikeOutcome is what a typed total does when When holds.
 	StrikeOutcome struct {
 		ID     string  `json:"id"`
@@ -69,6 +74,7 @@ type (
 		Pool     StrikeFigure           `json:"pool"`
 		Beat     StrikeFigure           `json:"beat"`
 		Soak     *StrikeFigure          `json:"soak"`
+		Shows    []StrikeShow           `json:"shows"`
 		Outcomes []StrikeOutcome        `json:"outcomes"`
 		Notes    []StrikeNote           `json:"notes"`
 		Then     *SpendThen             `json:"then"`
@@ -84,6 +90,11 @@ type (
 	StrikeFigureRead struct {
 		Total float64      `json:"total"`
 		Lines []StrikeLine `json:"lines"`
+	}
+	// StrikeShowRead is a further number worked out, with its id.
+	StrikeShowRead struct {
+		ID string `json:"id"`
+		StrikeFigureRead
 	}
 	// StrikeResult is the outcome a typed total reads.
 	StrikeResult struct {
@@ -106,6 +117,7 @@ type (
 		Pool    StrikeFigureRead  `json:"pool"`
 		Beat    StrikeFigureRead  `json:"beat"`
 		Soak    *StrikeFigureRead `json:"soak"`
+		Shows   []StrikeShowRead  `json:"shows"`
 		Outcome *StrikeResult     `json:"outcome"`
 		Harm    *StrikeHarm       `json:"harm"`
 		Notes   []StrikeNoteRead  `json:"notes"`
@@ -214,6 +226,7 @@ func (p *problems) strikes(r *Ruleset, actorTypes func(*[]string, string), needC
 				p.add(at+".max", "max is below min")
 			}
 		}
+		p.duplicates(path+".shows", idsOf(s.Shows, func(x StrikeShow) string { return x.ID }))
 		p.duplicates(path+".outcomes", idsOf(s.Outcomes, func(o StrikeOutcome) string { return o.ID }))
 		hits := false
 		for j, o := range s.Outcomes {
@@ -263,10 +276,7 @@ func (c *compiler) strikes(entities map[string]*CompiledEntity) {
 		_, attackers := c.actorsOf(s.Entities, entities)
 		values := map[string]ExprType{}
 		for k, v := range s.Values {
-			values[k] = intType
-			if v.Type == "bool" {
-				values[k] = boolType
-			}
+			values[k] = Scalar(v.Type)
 		}
 		base := map[string]ExprType{"means": RecordType{values}, "attackerMob": intType, "targetMob": intType}
 		for _, x := range s.Inputs {
@@ -302,6 +312,9 @@ func (c *compiler) strikes(entities map[string]*CompiledEntity) {
 		figure(&s.Pool, path+".pool")
 		figure(&s.Beat, path+".beat")
 		figure(s.Soak, path+".soak")
+		for j := range s.Shows {
+			figure(&s.Shows[j].StrikeFigure, fmt.Sprintf("%s.shows[%d]", path, j))
+		}
 		read := map[string]ExprType{"pool": intType, "beat": intType, "total": intType}
 		if s.Soak != nil {
 			read["soak"] = intType
@@ -370,14 +383,19 @@ func (r *Ruleset) strikeMembers(scope *Record) float64 {
 	return n
 }
 
-// MeansValues is strike.ts meansValues: each declared value's key, 0 or false where the means has none of that type.
+// MeansValues is strike.ts meansValues: each declared value's key, 0, false or "" where the means has none of that type.
 func MeansValues(values map[string]StrikeValue, means map[string]any) map[string]any {
 	out := map[string]any{}
 	for id, v := range values {
 		x := means[v.Key]
-		if v.Type == "bool" {
+		switch v.Type {
+		case "bool":
 			b, _ := x.(bool)
 			out[id] = b
+			continue
+		case "text":
+			text, _ := x.(string)
+			out[id] = text
 			continue
 		}
 		n, isNumber := x.(float64)
@@ -432,7 +450,7 @@ func (c *CompiledRuleset) PlanStrike(strikeID string, attacker, target StrikeSid
 		return withCtx(mine, all)
 	}
 	figures := scope(nil)
-	plan := &StrikePlan{Notes: []StrikeNoteRead{}}
+	plan := &StrikePlan{Shows: []StrikeShowRead{}, Notes: []StrikeNoteRead{}}
 	pool, refusal := figureOf(&s.Pool, figures, path+".pool")
 	if refusal != nil {
 		return nil, refusal
@@ -448,6 +466,13 @@ func (c *CompiledRuleset) PlanStrike(strikeID string, attacker, target StrikeSid
 			return nil, refusal
 		}
 		read["soak"] = plan.Soak.Total
+	}
+	for j := range s.Shows {
+		show, refusal := figureOf(&s.Shows[j].StrikeFigure, figures, fmt.Sprintf("%s.shows[%d]", path, j))
+		if refusal != nil {
+			return nil, refusal
+		}
+		plan.Shows = append(plan.Shows, StrikeShowRead{ID: s.Shows[j].ID, StrikeFigureRead: *show})
 	}
 	if total != nil {
 		read["total"] = *total

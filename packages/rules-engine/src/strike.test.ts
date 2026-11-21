@@ -87,6 +87,30 @@ test("a far shot adds only for an arm that is not close, and a swarm attacking a
   assert.deepEqual(mob.pool.lines.at(-1), { source: "Swarm", amount: 3, cite: "Sample p.16" });
 });
 
+test("a further number comes with its lines, and a text value reaches the notes (sample-harm 0.1.5)", () => {
+  const close = plan(blow({ means: { ...maul, traits: "Brutal" } }));
+  assert.deepEqual(close.shows, [
+    {
+      id: "damage",
+      total: 9,
+      lines: [
+        { source: "Damage", amount: 4, cite: "Sample p.16" },
+        { source: "Edge dice", amount: 1, cite: "Sample p.16" },
+        { source: "Might", amount: 4, cite: "Sample p.16" },
+      ],
+    },
+  ]);
+  assert.ok(close.notes.some((n) => n.text.startsWith("A brutal arm")));
+  const far = plan(blow({ means: { ...sling, traits: "Far, Light" } }));
+  assert.deepEqual(far.shows[0], {
+    id: "damage",
+    total: 3,
+    lines: [{ source: "Damage", amount: 3, cite: "Sample p.16" }],
+  });
+  assert.ok(!far.notes.some((n) => n.text.startsWith("A brutal arm")));
+  assert.deepEqual(plan(blow({ means: { damage: 2 } })).shows[0]?.total, 2); // no traits: "", no edge, not close
+});
+
 test("a total over the soak is that many wounds, equal is one strain, less is nothing", () => {
   const on = (total: number, target = { entity: "hero", scope: hero() }) => plan(blow({ target, total }));
   assert.deepEqual(on(8).harm, { wounds: 3, shock: 0 });
@@ -202,6 +226,23 @@ test("a strike's means may be a held item of a kind an attacker holds (house dec
       'strikes[0].means[0].kind: no attacker holds "arms"',
     ),
   );
+});
+
+test("a further number's id is its own, at most six, and a text value is never a number", () => {
+  const bad = structuredClone(SAMPLE_HARM) as RulesetInput & { strikes: NonNullable<RulesetInput["strikes"]> };
+  const s = bad.strikes[0]!;
+  const show = s.shows![0]!;
+  const paths = () => {
+    const r = compileRuleset(bad);
+    return r.ok ? [] : r.problems.map((p) => p.path);
+  };
+  s.shows = [show, { ...show, label: "Again" }];
+  assert.ok(paths().includes("strikes[0].shows[1].id"));
+  s.shows = Array.from({ length: 7 }, (_, i) => ({ ...show, id: `n${i}` }));
+  assert.ok(paths().includes("strikes[0].shows"));
+  s.shows = [show];
+  s.pool = { ...s.pool, adds: [{ label: "Traits", by: "ctx.means.traits" }] };
+  assert.ok(paths().includes("strikes[0].pool.adds[0].by"));
 });
 
 test("a strike's expressions are checked over every attacker and target", () => {

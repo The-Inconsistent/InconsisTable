@@ -23,6 +23,8 @@ export interface StrikePlan {
   beat: StrikeFigureRead;
   /** Null for a strike without a soak. */
   soak: StrikeFigureRead | null;
+  /** The further numbers the strike shows, in its order; empty when it shows none. */
+  shows: (StrikeFigureRead & { id: string })[];
   /** The first outcome whose `when` holds for the typed total; null without a total or when none holds. */
   outcome: { id: string; label: string; cite: string | null } | null;
   /** The hit the outcome applies; null when it applies none. */
@@ -89,19 +91,20 @@ function membersOf(ruleset: Pick<Ruleset, "health">, scope: ExprRecord): number 
   return typeof v === "number" ? v : 0;
 }
 
-/** What the strike reads of a means: each declared value's key, 0 or false where the means has none of that type. */
+/** What the strike reads of a means: each declared value's key, 0, false or "" where the means has none of that type. */
 export function meansValues({
   values,
   means,
 }: {
-  values: Readonly<Record<string, { key: string; type: "int" | "bool" }>>;
+  values: Readonly<Record<string, { key: string; type: "int" | "bool" | "text" }>>;
   means: Readonly<Record<string, unknown>>;
 }): ExprRecord {
   const out: Record<string, ExprValue> = {};
   for (const [id, v] of Object.entries(values)) {
     const x = own(means, v.key);
-    out[id] =
-      v.type === "bool" ? (typeof x === "boolean" ? x : false) : typeof x === "number" && Number.isInteger(x) ? x : 0;
+    if (v.type === "bool") out[id] = typeof x === "boolean" ? x : false;
+    else if (v.type === "text") out[id] = typeof x === "string" ? x : "";
+    else out[id] = typeof x === "number" && Number.isInteger(x) ? x : 0;
   }
   return out;
 }
@@ -162,6 +165,12 @@ export function planStrike({
   if (isRefusal(beat)) return beat;
   const soak = s.soak === undefined ? null : figureOf(s.soak, figures, `${path}.soak`);
   if (soak !== null && isRefusal(soak)) return soak;
+  const shows: StrikePlan["shows"] = [];
+  for (const [j, f] of (s.shows ?? []).entries()) {
+    const read = figureOf(f, figures, `${path}.shows[${j}]`);
+    if (isRefusal(read)) return read;
+    shows.push({ id: f.id, ...read });
+  }
   const typed = scope({
     pool: pool.total,
     beat: beat.total,
@@ -196,5 +205,5 @@ export function planStrike({
     }
     notes.push({ text: n.text, cite: n.cite ?? null });
   }
-  return { pool, beat, soak, outcome, harm, notes };
+  return { pool, beat, soak, shows, outcome, harm, notes };
 }

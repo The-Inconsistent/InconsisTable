@@ -12,7 +12,7 @@ import type { RequestPage } from "@/hooks/use-table/use-table";
 import { RulesReply, type RulesEntry } from "@/lib/library/library";
 import { typedOf } from "@/lib/lookup/lookup";
 import { nextTable } from "@/lib/spends/spends";
-import { entryTypesOf, isPlan, meansOf, previewStrike, strikesFor, targetsOf } from "@/lib/strike/strike";
+import { entryTypesOf, isPlan, meansOf, meansTexts, previewStrike, strikesFor, targetsOf } from "@/lib/strike/strike";
 
 type StrikeGuideProps = {
   ruleset: Ruleset;
@@ -56,6 +56,7 @@ export function StrikeGuide(props: StrikeGuideProps) {
 
   const means = meansOf({ ruleset, strike, actor: attacker, entries });
   const chosen = means.find((m) => `${m.source}:${m.ref}` === pick) ?? means[0];
+  const texts = meansTexts({ strike, means: chosen });
   const targets = targetsOf({ ruleset, strike, attackerId: attacker.id, fighting });
   const target = targets.find((a) => a.id === targetId) ?? targets[0];
   const total = typedOf(typed);
@@ -127,8 +128,8 @@ export function StrikeGuide(props: StrikeGuideProps) {
     );
 
   // One number the guide shows, with its lines.
-  const figure = (f: StrikeFigureRead, name: string) => (
-    <div className="stack strike-figure">
+  const figure = (f: StrikeFigureRead, name: string, key = name) => (
+    <div key={key} className="stack strike-figure">
       <span className="row strike-figure-head">
         <span className="small">{name}</span>
         <strong className="strike-num">{f.total}</strong>
@@ -202,6 +203,7 @@ export function StrikeGuide(props: StrikeGuideProps) {
             ))}
           </div>
         ))}
+      {texts.length > 0 && <p className="small strike-means-text">{texts.join(" · ")}</p>}
       {targets.length === 0 ? (
         <p className="dim">{t("noTarget")}</p>
       ) : (
@@ -263,6 +265,7 @@ export function StrikeGuide(props: StrikeGuideProps) {
             {figure(plan.pool, strike.pool.label)}
             {figure(plan.beat, strike.beat.label)}
             {plan.soak && strike.soak && figure(plan.soak, strike.soak.label)}
+            {plan.shows.map((f, j) => figure(f, strike.shows?.[j]?.label ?? f.id, `show:${f.id}`))}
           </div>
           <form className="stack strike-total" onSubmit={handleApply}>
             <label className="stack table-typed">

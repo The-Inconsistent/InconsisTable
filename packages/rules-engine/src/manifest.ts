@@ -1152,9 +1152,13 @@ export const SpawnBlock = z.object({
 });
 export type SpawnBlock = z.infer<typeof SpawnBlock>;
 
-/** The most strike kinds a ruleset declares, and the most values one reads of its means (house decision #99). */
+/**
+ * The most strike kinds a ruleset declares, the most values one reads of its means, and the most further numbers it
+ * shows (house decision #99).
+ */
 export const MAX_STRIKES = 20;
 export const MAX_STRIKE_VALUES = 20;
+export const MAX_STRIKE_SHOWS = 6;
 /** The lists of the saved build's sheet a strike's means may come from. */
 export const STRIKE_LEDGER_LINES = ["weapons", "powers"] as const;
 /** The names a strike's `ctx` gives its own values; an input may not take one. */
@@ -1205,6 +1209,10 @@ export const StrikeFigure = z.object({
 });
 export type StrikeFigure = z.infer<typeof StrikeFigure>;
 
+/** A further number the guide shows (house decision #99), a figure with an id: a weapon's damage, say. It decides nothing. */
+export const StrikeShow = StrikeFigure.extend({ id: Id });
+export type StrikeShow = z.infer<typeof StrikeShow>;
+
 /** What a typed total does (house decision #99): the first outcome whose `when` holds, and the hit it applies. */
 export const StrikeOutcome = z.object({
   id: Id,
@@ -1221,8 +1229,9 @@ export type StrikeOutcome = z.infer<typeof StrikeOutcome>;
  * target of the `targets` types. `pool` is what to roll, `beat` the number to beat and `soak` what the target takes off;
  * each reads the attacker's scope plus `ctx`: the inputs, `ctx.means.<value>`, `ctx.target` (the target's scope) and
  * `ctx.attackerMob` / `ctx.targetMob` (a mob's members, 0 for anyone else). The outcomes also read `ctx.pool`,
- * `ctx.beat`, `ctx.soak` and `ctx.total` (the typed total); the notes also `ctx.outcome`. The app never rolls: the
- * total is typed, and an outcome's hit goes through `health.harm`'s `hit`.
+ * `ctx.beat`, `ctx.soak` and `ctx.total` (the typed total); the notes also `ctx.outcome`. `shows` are further numbers
+ * the guide draws with their lines, in the figures' scope; nothing reads them. The app never rolls: the total is typed,
+ * and an outcome's hit goes through `health.harm`'s `hit`.
  */
 export const Strike = z.object({
   id: Id,
@@ -1233,15 +1242,20 @@ export const Strike = z.object({
   /** The actor types it may land on; absent: every type a harm profile holds (every actor type without harm). */
   targets: ActorTypes,
   means: z.array(StrikeMeans).min(1).max(4).optional(),
-  /** What it reads of a means, as `ctx.means.<id>`: the means' `key`, 0 or false where the means has none. */
+  /**
+   * What it reads of a means, as `ctx.means.<id>`: the means' `key`, 0, false or "" where the means has none. A `text`
+   * value (a weapon's traits) is shown beside the means; an expression that wants a number cannot read it.
+   */
   values: z
-    .record(Id, z.object({ key: z.string().min(1).max(64), type: z.enum(["int", "bool"]) }))
+    .record(Id, z.object({ key: z.string().min(1).max(64), type: z.enum(["int", "bool", "text"]) }))
     .refine((o) => Object.keys(o).length <= MAX_STRIKE_VALUES, `at most ${MAX_STRIKE_VALUES} values`)
     .optional(),
   inputs: z.array(TableInput).min(1).max(MAX_LOOKUP_INPUTS).optional(),
   pool: StrikeFigure,
   beat: StrikeFigure,
   soak: StrikeFigure.optional(),
+  /** Further numbers the guide shows after the soak, each with its lines; they decide nothing. */
+  shows: z.array(StrikeShow).max(MAX_STRIKE_SHOWS).optional(),
   outcomes: z.array(StrikeOutcome).min(1).max(10),
   /** Short lines shown after the strike, the ruleset's own words: they change nothing. */
   notes: z
@@ -2503,6 +2517,7 @@ function strikeProblems({
       if (x.min !== undefined && x.max !== undefined && x.max < x.min)
         out.push({ path: `${at}.max`, message: "max is below min" });
     });
+    duplicates({ ids: (s.shows ?? []).map((x) => x.id), path: `${path}.shows`, out });
     duplicates({ ids: s.outcomes.map((o) => o.id), path: `${path}.outcomes`, out });
     let hits = false;
     s.outcomes.forEach((o, j) => {

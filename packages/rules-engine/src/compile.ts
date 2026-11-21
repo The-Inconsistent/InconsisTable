@@ -783,7 +783,7 @@ class Compiler {
       const path = `strikes[${i}]`;
       const targets = actorsOf(strikeTargets(this.r, s)).map(({ ce }) => ce.scope);
       const values = Object.fromEntries(
-        Object.entries(s.values ?? {}).map(([k, v]): [string, ExprType] => [k, v.type === "bool" ? "bool" : "int"]),
+        Object.entries(s.values ?? {}).map(([k, v]): [string, ExprType] => [k, v.type]),
       );
       const base: Record<string, ExprType> = {
         ...Object.fromEntries((s.inputs ?? []).map((x) => [x.id, x.type])),
@@ -808,6 +808,7 @@ class Compiler {
       figure(s.pool, `${path}.pool`);
       figure(s.beat, `${path}.beat`);
       figure(s.soak, `${path}.soak`);
+      s.shows?.forEach((f, j) => figure(f, `${path}.shows[${j}]`));
       const read: Record<string, ExprType> = {
         pool: "int",
         beat: "int",

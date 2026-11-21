@@ -2,6 +2,7 @@ import type { Actor, StrikeMeansPick } from "@inconsistable/core-schema";
 import {
   actorScope,
   campaignValues,
+  meansValues,
   planStrike,
   strikeTargets,
   type CompiledRuleset,
@@ -75,6 +76,16 @@ export function meansOf({
     });
   });
 }
+
+/** A means' text values (a weapon's traits), in the strike's order, the empty ones left out: shown beside the means. */
+export const meansTexts = ({ strike, means }: { strike: Strike; means: StrikeMeansOption | undefined }): string[] => {
+  if (means === undefined) return [];
+  const read = meansValues({ values: strike.values ?? {}, means: means.values });
+  return Object.entries(strike.values ?? {}).flatMap(([id, v]) => {
+    const text = read[id];
+    return v.type === "text" && typeof text === "string" && text !== "" ? [text] : [];
+  });
+};
 
 /** Who a strike may land on: the fight's combatants, the attacker left out, of a type the strike takes. */
 export function targetsOf<A extends Pick<Actor, "id" | "entity">>({

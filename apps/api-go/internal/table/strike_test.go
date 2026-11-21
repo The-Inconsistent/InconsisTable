@@ -25,7 +25,7 @@ const strikeParts = `{
 		"pierce": {"type": "int", "label": "Pierce"}, "close": {"type": "bool", "label": "Close"}}},
 	"strikes": [{
 		"id": "blow", "label": "Blow", "cite": "Fixture p.15",
-		"means": [{"from": "list", "field": "arms", "entry": "arm"}],
+		"means": [{"from": "list", "field": "arms", "entry": "arm"}, {"from": "items", "kind": "carried"}],
 		"values": {"damage": {"key": "damage", "type": "int"}, "edge": {"key": "edge", "type": "int"},
 			"pierce": {"key": "pierce", "type": "int"}, "close": {"key": "close", "type": "bool"}},
 		"inputs": [{"id": "aim", "label": "Aim", "type": "bool"}, {"id": "far", "label": "Far shots", "type": "int", "min": 0, "max": 3}],
@@ -42,7 +42,9 @@ const strikeParts = `{
 			{"id": "strained", "label": "Strained", "when": "ctx.targetMob == 0 && ctx.total == ctx.soak",
 				"shock": "ctx.target.derived.strainCap > 0 ? 1 : 0"}],
 		"notes": [{"text": "A six on the edge die: read the Telling Blow table"}]
-	}]
+	}],
+	"items": {"kinds": [{"id": "carried", "label": "Carried arms", "entry": "arm", "entities": ["hero", "brute"],
+		"card": "weapons", "cite": "Fixture p.17"}]}
 }`
 
 func newStrikePlay(t *testing.T, tx pgx.Tx) *play {
@@ -65,6 +67,7 @@ func newStrikePlay(t *testing.T, tx pgx.Tx) *play {
 	}
 	m["entities"] = append(entities, parts["arm"])
 	m["strikes"] = parts["strikes"]
+	m["items"] = parts["items"]
 	out, err := json.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
@@ -222,6 +225,55 @@ func TestTurnBackTakesAStrikeBack(t *testing.T) {
 		p.send(gm, turnBack)
 		if w := p.res(ogre, "wounds"); w != 0 {
 			t.Fatalf("after TURN BACK: want 0, got %d", w)
+		}
+	})
+}
+
+// carry gives an actor an item of the carried kind: an arm of the pack by key, or one written by hand with no entry.
+func (p *play) carry(id, key, name string) string {
+	var entryType, entryKey any
+	if key != "" {
+		entryType, entryKey = "arm", key
+	}
+	return dbtest.Scalar[string](p.t, p.tx, `INSERT INTO actor_item (actor_id, kind, entry_type, entry_key, name, source, ordinal)
+		VALUES ($1, 'carried', $2, $3, $4, 'hand', (SELECT count(*) FROM actor_item WHERE actor_id = $1)) RETURNING id::text`,
+		id, entryType, entryKey, name)
+}
+
+// A held item is a means (house decision #95): its entry's values strike as an arm in the list would; a hand-written
+// item, another's item, or one of the wrong kind is no means.
+func TestAStrikeWithAHeldItemAsItsMeans(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		p := newStrikePlay(t, tx)
+		gm := p.room.GM()
+		hal := p.hero("Hal", 0, 0) // grit 2: toughness 3
+		ogre := p.brute("Ogre", 5)
+		sling := p.carry(hal, "sling", "")
+		stick := p.carry(hal, "", "Stick")
+		claw := p.carry(ogre, "claw", "")
+		p.fight([]string{hal}, []string{ogre})
+		held := func(attacker, target, item string, total int) map[string]any {
+			a := strikeOf(attacker, target, "", total, map[string]any{})
+			a["means"] = map[string]any{"source": 1.0, "ref": item}
+			return a
+		}
+		// Ogre's held claw pierces 1: Hal soaks 2, so a total of 6 is 4 wounds.
+		p.send(gm, held(ogre, hal, claw, 6))
+		if w := p.res(hal, "wounds"); w != 4 {
+			t.Fatalf("Hal's wounds: want 4, got %d", w)
+		}
+		p.refused(gm, held(hal, ogre, stick, 9), "noSuchMeans")
+		p.refused(gm, held(hal, ogre, claw, 9), "noSuchMeans")
+		p.refused(gm, held(hal, ogre, "sling", 9), "noSuchMeans")
+		// The sling Hal holds pierces 1 too: Ogre soaks 4, so 9 is 5 wounds; the log names the item's entry.
+		p.send(gm, held(hal, ogre, sling, 9))
+		if w := p.res(ogre, "wounds"); w != 5 {
+			t.Fatalf("Ogre's wounds: want 5, got %d", w)
+		}
+		means := dbtest.Scalar[string](t, tx, `SELECT payload->>'means' FROM session_event WHERE campaign_id = $1 AND type = 'strike'
+			ORDER BY id DESC LIMIT 1`, p.room.ID)
+		if means != "Sling" {
+			t.Fatalf("the logged means: want Sling, got %q", means)
 		}
 	})
 }

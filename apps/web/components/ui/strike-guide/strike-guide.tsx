@@ -54,7 +54,7 @@ export function StrikeGuide(props: StrikeGuideProps) {
   const strike = kinds.find((k) => k.id === kindId) ?? kinds[0];
   if (strike === undefined) return null;
 
-  const means = meansOf({ strike, actor: attacker, entries });
+  const means = meansOf({ ruleset, strike, actor: attacker, entries });
   const chosen = means.find((m) => `${m.source}:${m.ref}` === pick) ?? means[0];
   const targets = targetsOf({ ruleset, strike, attackerId: attacker.id, fighting });
   const target = targets.find((a) => a.id === targetId) ?? targets[0];
@@ -79,7 +79,7 @@ export function StrikeGuide(props: StrikeGuideProps) {
     setOpen(true);
     try {
       const read = await Promise.all(
-        entryTypesOf(strike).map(async (type) => {
+        entryTypesOf({ ruleset, strike }).map(async (type) => {
           const path = `/api/campaigns/${encodeURIComponent(campaignId)}/rules?type=${encodeURIComponent(type)}&limit=${ENTRIES}`;
           const res = await fetch(path);
           const parsed = RulesReply.safeParse(await res.json());

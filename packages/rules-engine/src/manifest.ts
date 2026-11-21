@@ -1171,13 +1171,15 @@ export const STRIKE_CTX_ROOTS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Where a strike's means come from (house decision #99): a list of the attacker's saved build sheet (`ledger`), or the
+ * Where a strike's means come from (house decision #99): a list of the attacker's saved build sheet (`ledger`), the
  * pack entries of type `entry` whose keys the attacker's list field `field` holds (a held kind's records, a creature's
- * attacks copied from its pack entry).
+ * attacks copied from its pack entry), or the items of kind `kind` the attacker holds (`items`, house decision #95),
+ * read from their pack entries.
  */
 export const StrikeMeans = z.discriminatedUnion("from", [
   z.object({ from: z.literal("ledger"), lines: z.enum(STRIKE_LEDGER_LINES) }),
   z.object({ from: z.literal("list"), field: FieldId, entry: Id }),
+  z.object({ from: z.literal("items"), kind: Id }),
 ]);
 export type StrikeMeans = z.infer<typeof StrikeMeans>;
 
@@ -2476,6 +2478,13 @@ function strikeProblems({
       const at = `${path}.means[${j}]`;
       if (m.from === "ledger") {
         if (r.build === undefined) out.push({ path: at, message: "the ruleset has no build" });
+        return;
+      }
+      if (m.from === "items") {
+        const kind = r.items?.kinds.find((k) => k.id === m.kind);
+        if (kind === undefined) out.push({ path: `${at}.kind`, message: `unknown item kind "${m.kind}"` });
+        else if (!attackers.some((e) => kind.entities.includes(e.id)))
+          out.push({ path: `${at}.kind`, message: `no attacker holds "${m.kind}"` });
         return;
       }
       if (!attackers.some((e) => own(e.fields, m.field)?.type === "list"))

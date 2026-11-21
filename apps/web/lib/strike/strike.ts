@@ -25,24 +25,33 @@ export const strikesFor = ({ ruleset, actor }: { ruleset: Ruleset; actor: Pick<A
   actor.entity === "" ? [] : (ruleset.strikes ?? []).filter((s) => s.entities?.includes(actor.entity) ?? true);
 
 /** The pack entry types a strike's means are read from, which the guide loads when it opens. */
-export const entryTypesOf = (strike: Strike): string[] => [
-  ...new Set((strike.means ?? []).flatMap((m) => (m.from === "list" ? [m.entry] : []))),
+export const entryTypesOf = ({ ruleset, strike }: { ruleset: Pick<Ruleset, "items">; strike: Strike }): string[] => [
+  ...new Set(
+    (strike.means ?? []).flatMap((m) => {
+      if (m.from === "list") return [m.entry];
+      if (m.from === "items") return (ruleset.items?.kinds ?? []).filter((k) => k.id === m.kind).map((k) => k.entry);
+      return [];
+    }),
+  ),
 ];
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /**
- * The means the attacker has now, source by source: each line of its saved sheet's list (its index the ref), and each
- * key its list field holds that names a loaded entry of the source's type (the key the ref). A key no loaded entry has
- * is left out, as the server would refuse it.
+ * The means the attacker has now, source by source: each line of its saved sheet's list (its index the ref), each key
+ * its list field holds that names a loaded entry of the source's type (the key the ref), and each item of the source's
+ * kind it holds whose entry is loaded (the item's id the ref). A key or an item no loaded entry has is left out, as the
+ * server would refuse it.
  */
 export function meansOf({
+  ruleset,
   strike,
   actor,
   entries,
 }: {
+  ruleset: Pick<Ruleset, "items">;
   strike: Strike;
-  actor: Pick<Actor, "fields" | "ledger">;
+  actor: Pick<Actor, "fields" | "ledger" | "items">;
   entries: readonly Pick<RulesEntry, "key" | "type" | "name" | "body">[];
 }): StrikeMeansOption[] {
   return (strike.means ?? []).flatMap((m, source): StrikeMeansOption[] => {
@@ -51,6 +60,13 @@ export function meansOf({
       return (Array.isArray(lines) ? lines : []).flatMap((line, i) =>
         isRecord(line) ? [{ source, ref: String(i), name: String(line.name ?? i + 1), values: line }] : [],
       );
+    }
+    if (m.from === "items") {
+      const type = ruleset.items?.kinds.find((k) => k.id === m.kind)?.entry;
+      return (actor.items ?? []).flatMap((item) => {
+        const e = item.kind === m.kind ? entries.find((x) => x.type === type && x.key === item.entry) : undefined;
+        return e === undefined ? [] : [{ source, ref: item.id, name: item.name, values: e.body }];
+      });
     }
     const keys = actor.fields[m.field];
     return (Array.isArray(keys) ? keys : []).flatMap((key) => {

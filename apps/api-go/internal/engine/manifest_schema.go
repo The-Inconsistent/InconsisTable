@@ -841,6 +841,10 @@ var (
 				schema.Req("field", fieldIDSchema),
 				schema.Req("entry", idSchema),
 			)},
+			schema.Variant{Tag: "items", Schema: schema.Object(
+				schema.Req("from", schema.Literal("items")),
+				schema.Req("kind", idSchema),
+			)},
 		)).Min(1).Max(4)),
 		schema.Opt("values", schema.Refined(schema.Record(idSchema, schema.Object(
 			schema.Req("key", label(64)),

@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { compileRuleset } from "./compile.ts";
 import { SAMPLE_D20 } from "./fixtures/sample-d20.ts";
 import { SAMPLE_HARM } from "./fixtures/sample-harm.ts";
-import { checkRun, type GeneratorRun, type ServedLookup } from "./generators.ts";
+import { askedSteps, checkRun, pickFits, roundsOf, type GeneratorRun, type ServedLookup } from "./generators.ts";
 import type { Ruleset, RulesetInput } from "./manifest.ts";
 
 // Generators (house decision #98) on the invented fixtures: sample-d20's warren, and sample-harm's one-step portent.
@@ -62,4 +62,16 @@ test("the second shape: one roll made into one flat entry", () => {
     checkRun({ ruleset: harm, generator: portent, run: { values: { sign: { rows: ["moon"] } }, each }, served });
   assert.deepEqual(go([]), { ok: true, root: { title: "A red moon", fields: {}, from: null }, each: [] });
   assert.deepEqual(go([{}]), { ok: false, code: "generateCount", params: { count: 0 } });
+});
+
+test("the wizard reads the rounds asked and which entries a pick offers, before anything is checked", () => {
+  assert.equal(roundsOf({ ruleset: d20, generator: warren, answers: {} }), null);
+  assert.equal(roundsOf({ ruleset: d20, generator: warren, answers: { rooms: { value: 3 } } }), 3);
+  assert.deepEqual(askedSteps({ ruleset: d20, steps: warren.steps, answers: {} }), [true, true, true]);
+  const keeper = warren.steps[2]!;
+  const fits = (rows: string[], body: Record<string, unknown>) =>
+    pickFits({ ruleset: d20, step: keeper, before: warren.steps.slice(0, 2), answers: { origin: { rows } }, body });
+  assert.equal(fits(["flooded"], { level: 0 }), false);
+  assert.equal(fits(["flooded"], { level: 2 }), true);
+  assert.equal(fits(["built", "smiths"], { level: 0 }), true);
 });

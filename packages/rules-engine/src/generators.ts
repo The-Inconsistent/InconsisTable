@@ -312,3 +312,97 @@ export function checkRun({
     throw e;
   }
 }
+
+// What the GM's wizard reads while a run is under way, before anything is checked (the server checks the confirm).
+
+/** A step's answer as an expression reads it, or undefined while it has none. */
+function exprOf(s: GeneratorStep, v: StepValue | undefined): ExprValue | undefined {
+  if (s.kind === "roll") return v?.rows?.at(-1);
+  if (s.kind === "pick") return v?.key;
+  if (s.kind === "text") return typeof v?.value === "string" ? v.value.trim() : undefined;
+  return v?.value;
+}
+
+function answersRecord({
+  steps,
+  answers,
+  campaign,
+}: {
+  steps: readonly GeneratorStep[];
+  answers: Readonly<Record<string, StepValue>>;
+  campaign: Readonly<Record<string, string | number | boolean>>;
+}): ExprRecord {
+  const values: Record<string, ExprValue> = {};
+  for (const s of steps) {
+    const v = exprOf(s, own(answers, s.id));
+    if (v !== undefined) values[s.id] = v;
+  }
+  return { steps: values, campaign };
+}
+
+/** Whether each step of a round is asked: its `when` holds over the answers above it (true without one). */
+export function askedSteps({
+  ruleset,
+  steps,
+  above = [],
+  answers,
+  campaign = {},
+}: {
+  ruleset: Ruleset;
+  steps: readonly GeneratorStep[];
+  above?: readonly GeneratorStep[];
+  answers: Readonly<Record<string, StepValue>>;
+  campaign?: Readonly<Record<string, string | number | boolean>>;
+}): boolean[] {
+  const all = [...above, ...steps];
+  return steps.map((s, j) => {
+    if (s.when === undefined) return true;
+    const before = [...above, ...steps.slice(0, j)];
+    return holds(s.when, scopeOf({ r: ruleset, before }), answersRecord({ steps: all, answers, campaign }));
+  });
+}
+
+/** Whether a served entry meets a pick step's filter over the answers above it. */
+export function pickFits({
+  ruleset,
+  step,
+  before,
+  answers,
+  campaign = {},
+  body,
+}: {
+  ruleset: Ruleset;
+  step: GeneratorStep;
+  before: readonly GeneratorStep[];
+  answers: Readonly<Record<string, StepValue>>;
+  campaign?: Readonly<Record<string, string | number | boolean>>;
+  body: Readonly<Record<string, unknown>>;
+}): boolean {
+  if (step.kind !== "pick" || step.filter === undefined) return true;
+  const record = { ...answersRecord({ steps: before, answers, campaign }), entry: bodyRecord(body) };
+  return holds(step.filter, scopeOf({ r: ruleset, before, entity: step.entity }), record);
+}
+
+/** How many rounds of `each` the answers so far ask for (0 to 60), or null while it cannot be read. */
+export function roundsOf({
+  ruleset,
+  generator: g,
+  answers,
+  campaign = {},
+}: {
+  ruleset: Ruleset;
+  generator: Generator;
+  answers: Readonly<Record<string, StepValue>>;
+  campaign?: Readonly<Record<string, string | number | boolean>>;
+}): number | null {
+  if (g.each === undefined) return 0;
+  const res = compileExpr({ source: g.each.times, scope: scopeOf({ r: ruleset, before: g.steps }), expect: "int" });
+  if (!res.ok) return null;
+  try {
+    const n = evaluateInt({ expr: res.expr, scope: answersRecord({ steps: g.steps, answers, campaign }) });
+    return Number.isInteger(n) && n >= 0 && n <= MAX_GENERATED ? n : null;
+  } catch (e) {
+    if (e instanceof ExprError) return null;
+    throw e;
+  }
+}

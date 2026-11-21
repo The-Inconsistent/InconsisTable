@@ -1826,12 +1826,24 @@ test("the admin action route seats a known user and refuses anything but houseke
   owner.socket.close();
 });
 
-// The admin key from an address of its own: the key's window (20 a minute an address) is the suite's otherwise.
-const ownIp = () => ({ ...ADMIN, "cf-connecting-ip": nextSocketIp() });
+// An address of its own, so these calls take nothing from the windows the rest of the suite shares (the admin key's
+// 20 a minute, the signed-in routes' 120); the admin key from one.
+const elsewhere = () => ({ "cf-connecting-ip": nextSocketIp() });
+const ownIp = () => ({ ...ADMIN, ...elsewhere() });
+// newRoom from an address of its own.
+async function roomAway(name: string) {
+  const ownerDevice = await device(`owner-${name}`);
+  const res = await post("/campaigns", { name }, { ...cookieOf(ownerDevice), ...elsewhere() });
+  assert.equal(res.status, 201);
+  const { campaignId } = (await res.json()) as { campaignId: string };
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until((s) => s.campaign.name === name);
+  return { owner, campaignId };
+}
 
 test("the admin's users: the list with seats, and a removal from every room but one they own (house decision #94)", async () => {
-  const one = await newRoom("Users one");
-  const two = await newRoom("Users two");
+  const one = await roomAway("Users one");
+  const two = await roomAway("Users two");
   const anaDevice = await seatPlayer(one.owner, "ana-users");
   const ana = connect({ auth: { campaignId: one.campaignId, cookie: anaDevice } });
   await ana.until(() => true);
@@ -1845,10 +1857,10 @@ test("the admin's users: the list with seats, and a removal from every room but 
     ).json()) as ActionResult,
   );
   // A room Ana owns keeps her.
-  const own = await post("/campaigns", { name: "Users own" }, cookieOf(anaDevice));
+  const own = await post("/campaigns", { name: "Users own" }, { ...cookieOf(anaDevice), ...elsewhere() });
   const ownId = ((await own.json()) as { campaignId: string }).campaignId;
 
-  assert.equal((await get("/admin/users")).status, 401);
+  assert.equal((await get("/admin/users", elsewhere())).status, 401);
   const users = (await (await get("/admin/users", ownIp())).json()) as {
     id: string;
     name: string;
@@ -1873,7 +1885,7 @@ test("the admin's users: the list with seats, and a removal from every room but 
       method: "DELETE",
       headers: { ...SAME_ORIGIN, ...headers },
     });
-  assert.equal((await del(uid("ana-users"), {})).status, 401);
+  assert.equal((await del(uid("ana-users"), elsewhere())).status, 401);
   assert.equal((await del("nobody-at-all")).status, 404);
   const kicked = dropped(ana);
   const res = await del(uid("ana-users"));
@@ -1895,7 +1907,7 @@ test("the admin's users: the list with seats, and a removal from every room but 
 });
 
 test("the admin ends a room's session without an award and deletes the last one", async () => {
-  const { owner, campaignId } = await newRoom("Admin session");
+  const { owner, campaignId } = await roomAway("Admin session");
   const act = async (body: unknown) =>
     (await (await post(`/admin/campaigns/${campaignId}/action`, body, ownIp())).json()) as ActionResult;
   refused(await act({ type: "session.abandon" }), "noSessionRunning");

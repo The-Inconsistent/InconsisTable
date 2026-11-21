@@ -141,6 +141,16 @@ func appliedOffers(ctx context.Context, conn core.Conn, callIDs []string) (map[s
 // (house decision #79).
 func applyOffer(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	cid, callID, actorID, offerID := c.CampaignID, a.Str("callId"), a.Str("actorId"), a.Str("offerId")
+	if offerID == engine.AcquireGrantOffer || offerID == engine.AcquireTopUpOffer {
+		var here bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM test_call WHERE id = $1 AND campaign_id = $2)`, callID, cid).Scan(&here); err != nil {
+			return cs.Result{}, err
+		}
+		if !here {
+			return cs.Result{}, cs.Fail("testNotHere")
+		}
+		return applyAcquire(ctx, tx, c, callID, actorID, offerID)
+	}
 	var testID string
 	var rawInputs []byte
 	err := tx.QueryRow(ctx, `SELECT test_id, inputs FROM test_call WHERE id = $1 AND campaign_id = $2`, callID, cid).

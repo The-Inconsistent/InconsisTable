@@ -78,6 +78,7 @@ import { charge, checkDeltas } from "../../../packages/rules-engine/src/primitiv
 import { opInputKeys, PRIMITIVES, runOp } from "../../../packages/rules-engine/src/primitives/registry.ts";
 import { planSpend } from "../../../packages/rules-engine/src/spend.ts";
 import { planStrike } from "../../../packages/rules-engine/src/strike.ts";
+import { planAcquire, type AcquireItem } from "../../../packages/rules-engine/src/acquire.ts";
 import { budgetOf, planSpawn, type SpawnRoom } from "../../../packages/rules-engine/src/spawn.ts";
 import { SAMPLE_SKIRMISH_PACK } from "../../../packages/rules-engine/src/fixtures/sample-skirmish-pack.ts";
 import { firstOf, nextFirst, sequence } from "../../../packages/rules-engine/src/primitives/initiative-seated.ts";
@@ -220,6 +221,7 @@ const FIXED_EXPR = [
   "has()", "has(1)", "has(missing.a.b)", "has(rolls[99])", "has(rolls[1/0])", "ready ? 1 : 2", "ready ? 1 : off ? 2 : 3",
   'contains(tags, "loud")', 'contains(tags, "Loud")', "contains(tags, name)", "contains(rolls, 9)", "contains(rolls, 5)", "contains(empty, 1)",
   'contains(name, "A")', "contains(tags)", 'contains(missing, "a")', "contains(tags, 1/0)", 'contains(tags, "loud") && !contains(tags, "shy")',
+  "overlap(tags, tags)", "overlap(tags, empty)", "overlap(empty, tags)", "overlap(rolls, rolls)", "overlap(tags)", "overlap(name, tags)", "overlap(tags, name)",
   "off ? 1 : off ? 2 : 3", "zero ? 1 : 2", "true || nope", "false && nope", "false || nope", "1 && true", "frac + 1", "frac",
   "frac == frac", "nope(1)", "toString(1)", "min", "attr.", "attr.1", '"a\\b"', '"unterminated', "1.5", "1a", "9007199254740992",
   "99999999999999999999999999999999999999999999", "é", "😀", "a😀", '"😀"', "😀 + 1", '"é" + 1', '1 + "😀" +', " 1", "﻿1",
@@ -1153,6 +1155,79 @@ function strikeVectors() {
   return { rulesets: [SAMPLE_HARM, SAMPLE_DUEL], cases };
 }
 
+// Acquiring by a Test (house decision #102): what planAcquire answers for ACQUIRE_MANIFEST and the ledger sample on
+// actors, entries and picks around their edges.
+function acquireVectors() {
+  const compiled = (input: unknown) => {
+    const r = compileRuleset(input);
+    if (!r.ok) throw new Error(JSON.stringify(r.problems));
+    return r.compiled.ruleset;
+  };
+  const rulesets = [compiled(ACQUIRE_MANIFEST), compiled(SAMPLE_LEDGER_RULESET)];
+  let seed = 102;
+  const r = (n: number) => (((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 2 ** 32) * n) | 0;
+  const one = <T>(items: readonly T[]): T => items[r(items.length)] as T;
+  const items: AcquireItem[][] = [
+    [
+      { type: "gear", key: "a", name: "Axe", tags: ["tool", "x"], body: { rating: 2 } },
+      { type: "gear", key: "b", name: "Bow", tags: ["tool", "x", "y", "y"], body: { rating: 4, loads: "c" } },
+      { type: "gear", key: "c", name: "Bolts", tags: ["shot", "x"], body: { rating: 1 } },
+      { type: "gear", key: "d", name: "Dial", tags: ["addon", "y"], body: { rating: 3, slot: "s" } },
+      { type: "gear", key: "e", name: "Bag", tags: ["z"], body: { rating: 0, loads: "" } },
+      { type: "gear", key: "f", name: "Flute", tags: ["x"], body: {} },
+      { type: "nope", key: "g", name: "Gone", tags: ["x"], body: {} },
+    ],
+    SAMPLE_LEDGER_PACK.entries
+      .filter((e) => e.type === "wargear" || e.type === "supply")
+      .map((e) => ({ type: e.type, key: e.key, name: e.name, tags: e.tags ?? [], body: e.body ?? {} })),
+  ];
+  const actors: ActorState[][] = [
+    [
+      { id: "p", entity: "pc", fields: {}, resources: {}, scope: { attr: { str: 2 }, words: ["x", "y"] } },
+      { id: "p", entity: "pc", fields: {}, resources: {}, scope: { attr: { str: 0 }, words: [] } },
+      { id: "p", entity: "pc", fields: {}, resources: {}, scope: { attr: { str: 1 }, words: ["y"] } },
+      { id: "p", entity: "pc", fields: {}, resources: {} },
+      { id: "p", entity: "other", fields: {}, resources: {}, scope: {} },
+      { id: "p", entity: "pc", fields: {}, resources: {}, scope: { attr: { str: 1 } } },
+    ],
+    [
+      { id: "h", entity: "hero", fields: {}, resources: {}, scope: { keywords: ["WARDEN", "BOW"] } },
+      { id: "h", entity: "hero", fields: {}, resources: {}, scope: { keywords: ["TOOL"] } },
+      { id: "h", entity: "hero", fields: {}, resources: {}, scope: { keywords: [] } },
+    ],
+  ];
+  const picks: Record<string, unknown>[] = [
+    {},
+    { push: 0 },
+    { push: 0 },
+    { push: 0 },
+    { push: 1 },
+    { push: 1 },
+    { push: 2 },
+    { push: 3 },
+    { push: -1 },
+    { push: -2 },
+    { push: 1.5 },
+    { push: 1, x: 1 },
+  ];
+  const cases: unknown[] = [];
+  for (let i = 0; i < 600; i++) {
+    const ruleset = r(2);
+    const actor = one(actors[ruleset] ?? []);
+    const item = one(items[ruleset] ?? []);
+    const picked = one(picks);
+    const plan = planAcquire({ ruleset: rulesets[ruleset] as Ruleset, actor, item, picks: picked });
+    cases.push({
+      ruleset,
+      actor: { ...actor, resources: [] },
+      item,
+      picks: picked,
+      ...(isRefusalLike(plan) ? plan : { plan }),
+    });
+  }
+  return { rulesets: [ACQUIRE_MANIFEST, SAMPLE_LEDGER_RULESET], cases };
+}
+
 // Spawns (house decision #92): planSpawn and budgetOf on the skirmish fixture's foes, varied around their edges.
 function spawnVectors() {
   const r = compileRuleset(SAMPLE_SKIRMISH);
@@ -1283,7 +1358,7 @@ const TYPED_SOURCES = [
   "min(rolls)", "min(tags)", "min(1,2,3)", "min(1,ready)", "floor()", "floor(1)", "floor(1,2)", "floor(1,2,3)", "ceil(ready)", "clamp(1,2)", "clamp(1,2,3)", "clamp(1,2,ready)",
   "abs()", "abs(1,2)", "abs(ready)", "mod(1)", "mod(name)", "count()", "count(tags)", "count(name)", "sum(rolls)", "sum(tags)", "sum()", "has()", "has(1)", "has(res.gone)",
   "has(nope)", "has(attr[name])", "has(1,2)", "has(rolls[0])", "contains(tags, name)", "contains(tags, 1)", "contains(rolls, 1)",
-  "contains(rolls, name)", "contains(name, name)", "contains(tags)", "contains(tags, name, name)", "contains(nope, 1)", "attr[name] + 1", "attr.str + attr[name]", "res.hp + res.gone + res.hp", "attr.str > 1 && has(res.hp)",
+  "contains(rolls, name)", "contains(name, name)", "contains(tags)", "contains(tags, name, name)", "contains(nope, 1)", "overlap(tags, tags)", "overlap(tags, rolls)", "overlap(tags)", "overlap(name, tags)", "overlap(rolls, rolls) + 1", "attr[name] + 1", "attr.str + attr[name]", "res.hp + res.gone + res.hp", "attr.str > 1 && has(res.hp)",
   "ready ? attr.str : attr.dex", "tags[attr.str]", "constructor", "attr.constructor", "toString",
   "at(form, 1)", "at(form, attr.str)", "at(forms, 1)", "at(form, name)", "at(form, \"a\")", "at(form)", "at(form, 1, 2)", "at()", "at(1, 2)", "at(name, 1)", "at(tags, 1)",
   "at(badmix, 1)", "at(bare, 1)", "at(twin, 1)", "at(zeros, 1)", "at(hug, 1)", "at(empty, 1)", "at(nope, 1)", "at(deep.g, 1)", "at(deep, 1)", "at(derived, 1)", "at(book, 1)",
@@ -1605,6 +1680,47 @@ const ITEMS_MANIFEST = {
   },
 };
 MANIFESTS.push(ITEMS_MANIFEST);
+
+// Acquiring an item by a Test (house decision #102): a rating and a tag overlap read into the Test's two inputs, a pick,
+// a guard, limits, a top-up, a counted kind's quantity and the stores an entry loads; a fitting that changes its host.
+const ACQUIRE_MANIFEST = {
+  ...ITEMS_MANIFEST,
+  entities: [
+    { ...pcBase, fields: { ...pcBase.fields, words: { label: "W", type: "list" } } },
+    {
+      id: "gear",
+      label: "G",
+      base: "item",
+      fields: { slot: { label: "S", type: "text" }, rating: fieldInt, loads: { label: "L", type: "text" } },
+    },
+  ],
+  resources: [...MINIMAL.resources, { id: "coin", label: "C", scope: "entity", max: "20" }],
+  tests: { get: { ...sumTest, target: "ctx.dn", modifier: "ctx.bonus", inputs: { dn: "int", bonus: "int" } } },
+  items: {
+    ...ITEMS_MANIFEST.items,
+    acquire: {
+      test: "get",
+      inputs: {
+        dn: [
+          { label: "Base", value: "5" },
+          { label: "Rating", value: "item.rating" },
+          { label: "Matched", value: "-max(0, overlap(item.tags, words) - 1)" },
+        ],
+        bonus: [{ label: "Push", value: "ctx.push" }],
+      },
+      picks: { push: { label: "P", min: -1, max: "attr.str" } },
+      if: "overlap(item.tags, words) > 0",
+      limits: [
+        { kinds: ["tool", "kit"], max: 1 },
+        { kinds: ["shot"], max: 2 },
+      ],
+      topUp: { resource: "coin", max: "item.rating" },
+      quantity: "item.rating + 1",
+      load: { field: "loads", quantity: "2" },
+    },
+  },
+};
+MANIFESTS.push(ACQUIRE_MANIFEST);
 
 // A GM's override of a derived value (house decision #96): set, it replaces the worked-out number.
 const OVERRIDE_MANIFEST = {
@@ -2647,7 +2763,68 @@ const CRAFTED: object[] = [
   ...itemCrafted(),
   ...entryFromCrafted(),
   ...generatorCrafted(),
+  ...acquireCrafted(),
 ];
+
+// Acquiring by a Test (house decision #102): every rule the acquisition can break, one manifest each.
+function acquireCrafted(): object[] {
+  const a = ACQUIRE_MANIFEST.items.acquire;
+  const acquire = (over: object) => ({
+    ...ACQUIRE_MANIFEST,
+    items: { ...ACQUIRE_MANIFEST.items, acquire: { ...a, ...over } },
+  });
+  const test = (over: object) => ({ ...ACQUIRE_MANIFEST, tests: { get: { ...ACQUIRE_MANIFEST.tests.get, ...over } } });
+  return [
+    acquire({ test: "nope" }),
+    acquire({ kinds: ["tool", "nope"] }),
+    acquire({ kinds: [] }),
+    acquire({ limits: [{ kinds: ["nope"], max: 1 }] }),
+    acquire({ limits: [{ kinds: ["tool"], max: 0 }] }),
+    acquire({ inputs: { dn: a.inputs.dn } }),
+    acquire({ inputs: { ...a.inputs, extra: [{ label: "E", value: "1" }] } }),
+    acquire({ inputs: { ...a.inputs, dn: [] } }),
+    acquire({ inputs: { ...a.inputs, dn: [{ label: "R", value: "item.nope" }] } }),
+    acquire({ inputs: { ...a.inputs, dn: [{ label: "R", value: "ctx.nope" }] } }),
+    acquire({ inputs: { ...a.inputs, dn: [{ label: "R", value: "item.tags" }] } }),
+    acquire({ if: "1" }),
+    acquire({ picks: { push: { label: "P", min: 0, max: "ctx.push" } } }),
+    acquire({
+      picks: {
+        a: { label: "A", min: 0, max: "1" },
+        b: { label: "B", min: 0, max: "1" },
+        c: { label: "C", min: 0, max: "1" },
+        d: { label: "D", min: 0, max: "1" },
+      },
+    }),
+    acquire({ topUp: { resource: "nope" } }),
+    acquire({ topUp: { resource: "coin", max: "true" } }),
+    acquire({ quantity: "item.slot" }),
+    acquire({ load: { field: "nope", quantity: "1" } }),
+    acquire({ load: { field: "loads", quantity: "words" } }),
+    acquire({ cite: "" }),
+    { ...acquire({}), sources: [{ id: "s", title: "T", license: "private" }] },
+    test({
+      kind: "reported",
+      outcomes: [
+        { id: "a", label: "A" },
+        { id: "b", label: "B" },
+      ],
+    }),
+    test({ inputs: { dn: "int", bonus: "text" } }),
+    test({ offers: [{ id: "acquire", label: "A", when: "true", changes: [{ resource: "coin", by: "1" }] }] }),
+    {
+      ...acquire({}),
+      entities: [
+        ACQUIRE_MANIFEST.entities[0],
+        {
+          ...ACQUIRE_MANIFEST.entities[1],
+          fields: { ...ACQUIRE_MANIFEST.entities[1]?.fields, tags: { label: "T", type: "list" } },
+        },
+      ],
+    },
+    { ...acquire({}), resources: [...MINIMAL.resources, { id: "coin", label: "C", scope: "party", max: "20" }] },
+  ];
+}
 
 // Items (house decision #95): every rule an items block can break, one manifest each.
 function itemCrafted(): object[] {
@@ -3729,6 +3906,18 @@ function ledgerPackVectors() {
     (p) => (at(p, "factions.wardens").record.summary = "é".repeat(MAX_ENTRY_RECORD_BYTES / 2)),
     (p) => (at(p, "wargear.lantern-staff").record.weapon.range = "far"),
     (p) => (p.entries = p.entries.filter((e: Mutable) => e.type === "talent")),
+    // A fitting's effect on its host's card (house decision #102): a value of the card, added or overridden, read of
+    // nothing.
+    ...[
+      { path: "host.ap", mode: "override", value: "-2" },
+      { path: "host.ar", mode: "add", value: "1" },
+      { path: "host.nope", mode: "add", value: "1" },
+      { path: "host.damage", mode: "multiply", value: "2" },
+      { path: "host.damage", mode: "add", value: "armourRating" },
+      { path: "host.damage", mode: "add", value: "1", when: "true" },
+      { path: "host.damage", mode: "add", value: "1", when: "1" },
+    ].map((eff) => (p: Mutable) => (at(p, "wargear.sight-lens").effects = [eff])),
+    (p) => (at(p, "wargear.lantern-staff").effects = [{ path: "host.damage", mode: "add", value: "1" }]),
   ];
   for (const change of changes) {
     const p = pack();
@@ -4656,6 +4845,7 @@ const vectors = {
   charge: chargeVectors(),
   spends: spendVectors(),
   strikes: strikeVectors(),
+  acquire: acquireVectors(),
   spawns: spawnVectors(),
   opInputKeys: opKeyVectors(),
   deltaChecks: deltaCheckVectors(),

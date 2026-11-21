@@ -190,6 +190,12 @@ class Evaluator {
         const item = args[1] === undefined ? undefined : this.eval(args[1]);
         return v.some((x) => x === item);
       }
+      case "overlap": {
+        const a = args[0] === undefined ? undefined : this.eval(args[0]);
+        const b = args[1] === undefined ? undefined : this.eval(args[1]);
+        if (!isList(a) || !isList(b)) throw new ExprError("overlap() of a non-list");
+        return new Set(a.filter((x) => b.includes(x))).size;
+      }
       case "has": {
         const v = args[0] === undefined ? undefined : this.lookup(args[0]);
         return v !== undefined && v !== null;

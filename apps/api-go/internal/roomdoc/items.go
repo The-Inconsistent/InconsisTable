@@ -3,6 +3,7 @@ package roomdoc
 import (
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -106,12 +107,32 @@ func (im *importer) items() error {
 			}
 			ids[doc(x).str("id")], kinds[doc(x).str("id")] = id, kind.ID
 		}
+		lines, err := actor.SheetLines(im.ctx, im.tx, actorID)
+		if err != nil {
+			return err
+		}
 		for j, x := range list {
+			kind := rules.Ruleset.Items.Kind(doc(x).str("kind"))
+			// A fitting on a line of the character's saved build (house decision #102): the build came in first.
+			if line, onLine := x["fittedLine"].(string); onLine {
+				card, host, _ := strings.Cut(line, "/")
+				lineKind := rules.Ruleset.Items.CardKind(card, entity)
+				_, both := x["fittedTo"].(string)
+				switch {
+				case both || kind.Fits == nil || lineKind == nil || !slices.Contains(kind.Fits.To, lineKind.ID):
+					return problem("itemFitsNot", cs.Params{"item": doc(x).str("kind"), "host": host}, at(j, "fittedLine")...)
+				case !slices.Contains(lines, line):
+					return problem("roomNoSuchItem", nil, at(j, "fittedLine")...)
+				}
+				if _, err := im.tx.Exec(im.ctx, `UPDATE actor_item SET fitted_line = $2 WHERE id = $1`, ids[doc(x).str("id")], line); err != nil {
+					return err
+				}
+				continue
+			}
 			to, fitted := x["fittedTo"].(string)
 			if !fitted {
 				continue
 			}
-			kind := rules.Ruleset.Items.Kind(doc(x).str("kind"))
 			if kind.Fits == nil || !slices.Contains(kind.Fits.To, kinds[to]) {
 				return problem("itemFitsNot", cs.Params{"item": doc(x).str("kind"), "host": kinds[to]}, at(j, "fittedTo")...)
 			}

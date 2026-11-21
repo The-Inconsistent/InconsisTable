@@ -127,6 +127,9 @@ var (
 // spendInputs is actions.ts SpendInputs: the numbers a spend's asker picks (house decision #84).
 var spendInputs = schema.Record(schema.String().Min(1).Max(64), schema.Int().Min(-1000).Max(1000))
 
+// lineRef names a line of a saved build an item is fitted to, `<card>/<name>` (house decision #102).
+var lineRef = schema.String().Min(3).Max(130)
+
 func variant(tag string, fields ...schema.Field) schema.Variant {
 	return schema.Variant{Tag: tag, Schema: schema.Object(append([]schema.Field{schema.Req("type", schema.Literal(tag))}, fields...)...)}
 }
@@ -364,6 +367,13 @@ var ActionSchema = schema.Union("type",
 		schema.Opt("spendId", schema.String().Min(1).Max(64)),
 		schema.Opt("inputs", spendInputs),
 		schema.Opt("note", requestText),
+		// Acquiring a served pack entry by a Test (house decision #102), fitted at once to an item or a build line.
+		schema.Opt("acquire", schema.Object(
+			schema.Req("type", schema.String().Min(1).Max(64)),
+			schema.Req("entry", schema.String().Min(1).Max(80)),
+			schema.Opt("to", id),
+			schema.Opt("line", lineRef),
+		)),
 	),
 	variant("spend.do",
 		schema.Req("spendId", schema.String().Min(1).Max(64)),
@@ -396,7 +406,7 @@ var ActionSchema = schema.Union("type",
 	variant("item.edit", schema.Req("itemId", id), schema.Req("rev", schema.Int().Min(1)),
 		schema.Opt("name", schema.String().Trim().Min(1).Max(120)), schema.Opt("note", schema.String().Max(200)),
 		schema.Def("remove", schema.Bool(), false)),
-	variant("item.fit", schema.Req("itemId", id), schema.Req("to", schema.Nullable(id))),
+	variant("item.fit", schema.Req("itemId", id), schema.Req("to", schema.Nullable(id)), schema.Opt("line", lineRef)),
 	variant("item.adjust", schema.Req("itemId", id), schema.Req("by", schema.Refined(schema.Int().Min(-999).Max(999),
 		func(v any) bool { return v.(float64) != 0 }, "a change of 0 changes nothing"))),
 	variant("table.deal",

@@ -246,6 +246,14 @@ class Checker {
         this.expect(item, t.list, "contains() argument 2");
         return "bool";
       }
+      case "overlap": {
+        arity(2, 2);
+        const [a = first(), b = first()] = args;
+        const t = this.check(a);
+        if (typeof t === "string" || !("list" in t)) throw new ExprError(`overlap() takes a list, got ${typeName(t)}`);
+        this.expect(b, t, "overlap() argument 2");
+        return "int";
+      }
       case "has": {
         arity(1, 1);
         const arg = first();

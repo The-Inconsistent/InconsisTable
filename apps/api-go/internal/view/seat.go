@@ -476,6 +476,7 @@ func seatTests(tests []cs.TestCall, c cs.Ctx, sight Sight) []cs.TestCall {
 			call.Inputs = map[string]any{}
 			call.ShowTarget, call.ShowModifier, call.ShowOutcome, call.Revealed = false, false, false, false
 			call.Targets = []cs.TestTargetState{}
+			call.Acquire = nil // what a seat asks to acquire is not the room's screen's (house decision #102)
 			out = append(out, call)
 		}
 		return out

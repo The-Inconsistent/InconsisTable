@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -120,7 +121,7 @@ func (r *room) set(itemID string, value map[string]any) {
 // value is an item row as it is logged, with changes applied.
 func value(actorID string, x actor.ItemRow, change map[string]any) map[string]any {
 	v := map[string]any{"actorId": actorID, "kind": x.Kind, "entryType": str(x.EntryType), "entryKey": str(x.EntryKey),
-		"name": x.Name, "note": x.Note, "quantity": num(x.Quantity), "fittedTo": str(x.FittedTo), "source": x.Source,
+		"name": x.Name, "note": x.Note, "quantity": num(x.Quantity), "fittedTo": str(x.FittedTo), "fittedLine": str(x.FittedLine), "source": x.Source,
 		"codexEntryId": str(x.CodexEntryID), "ordinal": float64(x.Ordinal)}
 	for k, x := range change {
 		v[k] = x
@@ -149,7 +150,7 @@ func (r *room) add(b *actor.Built, fields map[string]any) {
 		ordinal = max(ordinal, x.Ordinal+1)
 	}
 	v := map[string]any{"actorId": b.Row.ID, "entryType": nil, "entryKey": nil, "name": "", "note": "", "quantity": nil,
-		"fittedTo": nil, "codexEntryId": nil, "ordinal": float64(ordinal)}
+		"fittedTo": nil, "fittedLine": nil, "codexEntryId": nil, "ordinal": float64(ordinal)}
 	for k, x := range fields {
 		v[k] = x
 	}
@@ -400,10 +401,11 @@ func Edit(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 	return r.write()
 }
 
-// Fit is item.fit: an item of a kind that fits is fitted to another item its holder holds, or taken off (to null), by
-// the holder's seat or the GM side. Refused for a kind that is not fitted, a host of a kind it does not fit (or one
-// fitted itself, or the item itself), an item fitted already, an entry tagged as the GM's from another seat, a second
-// of the same entry on one host, a host at the kind's max, and a slot taken.
+// Fit is item.fit: an item of a kind that fits is fitted to another item its holder holds, or to a weapon or the armour
+// its saved build gives (`line`, house decision #102), or taken off (to null), by the holder's seat or the GM side.
+// Refused for a kind that is not fitted, a host of a kind it does not fit (or one fitted itself, or the item itself),
+// an item fitted already, an entry tagged as the GM's from another seat, a second of the same entry on one host, a host
+// at the kind's max, and a slot taken.
 func Fit(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	r, err := open(ctx, tx, c)
 	if err != nil {
@@ -417,59 +419,120 @@ func Fit(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, e
 	if kind == nil || kind.Fits == nil {
 		return cs.Result{}, cs.Fail("itemNoFit", cs.Params{"item": x.Label()})
 	}
-	to, _ := a["to"].(string)
-	if to == "" {
-		if x.FittedTo == nil {
+	to, line := a.Str("to"), a.Str("line")
+	if to == "" && line == "" {
+		if x.FittedTo == nil && x.FittedLine == nil {
 			return cs.Result{}, cs.Fail("itemNotFitted", cs.Params{"item": x.Label()})
 		}
-		r.set(x.ID, value(b.Row.ID, x, map[string]any{"fittedTo": nil}))
+		r.set(x.ID, value(b.Row.ID, x, map[string]any{"fittedTo": nil, "fittedLine": nil}))
 		return r.write()
 	}
-	if x.FittedTo != nil {
+	if x.FittedTo != nil || x.FittedLine != nil {
 		return cs.Result{}, cs.Fail("itemFitted", cs.Params{"item": x.Label()})
 	}
-	i := slices.IndexFunc(b.Items, func(y actor.ItemRow) bool { return y.ID == to })
-	if i < 0 {
-		return cs.Result{}, cs.Fail("itemNotFound")
+	host, err := r.hostOf(b, kind, x.ID, x.Label(), to, line)
+	if err != nil {
+		return cs.Result{}, err
 	}
-	host := b.Items[i]
-	if host.ID == x.ID || host.FittedTo != nil || !slices.Contains(kind.Fits.To, host.Kind) {
-		return cs.Result{}, cs.Fail("itemFitsNot", cs.Params{"item": x.Label(), "host": host.Label()})
-	}
-	if kind.Fits.GMTag != nil && slices.Contains(x.Tags, *kind.Fits.GMTag) && !view.ActorGmSide(c, b.Row.Kind) {
-		return cs.Result{}, cs.Fail("itemFitGm", cs.Params{"item": x.Label()})
-	}
-	on := []actor.ItemRow{}
-	for _, y := range b.Items {
-		if y.FittedTo != nil && *y.FittedTo == host.ID {
-			on = append(on, y)
-		}
-	}
-	for _, y := range on {
-		if x.EntryKey != nil && y.EntryKey != nil && *y.EntryKey == *x.EntryKey {
-			return cs.Result{}, cs.Fail("itemAlready", cs.Params{"name": host.Label(), "item": x.Label()})
-		}
-	}
-	if len(on) >= kind.Fits.Max {
-		return cs.Result{}, cs.Fail("itemFitFull", cs.Params{"host": host.Label(), "max": kind.Fits.Max})
-	}
-	if slot := kind.Fits.Slot; slot != nil {
-		mine, err := r.slotOf(x, *slot)
-		if err != nil {
+	slot := ""
+	if kind.Fits.Slot != nil {
+		if slot, err = r.slotOf(x, *kind.Fits.Slot); err != nil {
 			return cs.Result{}, err
 		}
-		for _, y := range on {
-			theirs, err := r.slotOf(y, *slot)
-			if err != nil {
-				return cs.Result{}, err
+	}
+	if err := r.canFit(b, kind, fitting{Key: x.EntryKey, Label: x.Label(), Tags: x.Tags, Slot: slot}, host); err != nil {
+		return cs.Result{}, err
+	}
+	r.set(x.ID, value(b.Row.ID, x, host.Change))
+	return r.write()
+}
+
+// host is what an item is fitted to: a loose item of the holder's, or a line of its saved build, with the items fitted
+// to it now and the change that fits an item there.
+type host struct {
+	Label  string
+	On     []actor.ItemRow
+	Change map[string]any
+}
+
+// hostOf is the item `to` or the build line `line` (`<card>/<name>`) of b, as a host of kind's items, or the refusal:
+// itemNotFound for one b does not hold, itemFitsNot for one of a kind it does not fit, fitted itself, or the item.
+func (r *room) hostOf(b *actor.Built, kind *engine.ItemKind, itemID, label, to, line string) (host, error) {
+	if to != "" && line != "" {
+		return host{}, cs.Fail("itemFitsNot", cs.Params{"item": label, "host": line})
+	}
+	if to != "" {
+		i := slices.IndexFunc(b.Items, func(y actor.ItemRow) bool { return y.ID == to })
+		if i < 0 {
+			return host{}, cs.Fail("itemNotFound")
+		}
+		h := b.Items[i]
+		if h.ID == itemID || h.FittedTo != nil || h.FittedLine != nil || !slices.Contains(kind.Fits.To, h.Kind) {
+			return host{}, cs.Fail("itemFitsNot", cs.Params{"item": label, "host": h.Label()})
+		}
+		out := host{Label: h.Label(), Change: map[string]any{"fittedTo": h.ID, "fittedLine": nil}}
+		for _, y := range b.Items {
+			if y.FittedTo != nil && *y.FittedTo == h.ID {
+				out.On = append(out.On, y)
 			}
-			if mine != "" && theirs == mine {
-				return cs.Result{}, cs.Fail("itemSlotTaken", cs.Params{"host": host.Label(), "slot": mine, "other": y.Label()})
+		}
+		return out, nil
+	}
+	lines, err := actor.SheetLines(r.ctx, r.tx, b.Row.ID)
+	if err != nil {
+		return host{}, err
+	}
+	if !slices.Contains(lines, line) {
+		return host{}, cs.Fail("itemNotFound")
+	}
+	card, name, _ := strings.Cut(line, "/")
+	lineKind := r.items.CardKind(card, b.Entity)
+	if lineKind == nil || !slices.Contains(kind.Fits.To, lineKind.ID) {
+		return host{}, cs.Fail("itemFitsNot", cs.Params{"item": label, "host": name})
+	}
+	out := host{Label: name, Change: map[string]any{"fittedTo": nil, "fittedLine": line}}
+	for _, y := range b.Items {
+		if y.FittedLine != nil && *y.FittedLine == line {
+			out.On = append(out.On, y)
+		}
+	}
+	return out, nil
+}
+
+// fitting is the item to be fitted: its entry's key (nil for a hand-written one), its label, tags and slot.
+type fitting struct {
+	Key   *string
+	Label string
+	Tags  []string
+	Slot  string
+}
+
+// canFit refuses fitting x to h: an entry tagged as the GM's from another seat, a second of the same entry on the host,
+// a host at the kind's max, a slot taken.
+func (r *room) canFit(b *actor.Built, kind *engine.ItemKind, x fitting, h host) error {
+	if kind.Fits.GMTag != nil && slices.Contains(x.Tags, *kind.Fits.GMTag) && !view.ActorGmSide(r.c, b.Row.Kind) {
+		return cs.Fail("itemFitGm", cs.Params{"item": x.Label})
+	}
+	for _, y := range h.On {
+		if x.Key != nil && y.EntryKey != nil && *y.EntryKey == *x.Key {
+			return cs.Fail("itemAlready", cs.Params{"name": h.Label, "item": x.Label})
+		}
+	}
+	if len(h.On) >= kind.Fits.Max {
+		return cs.Fail("itemFitFull", cs.Params{"host": h.Label, "max": kind.Fits.Max})
+	}
+	if kind.Fits.Slot != nil && x.Slot != "" {
+		for _, y := range h.On {
+			theirs, err := r.slotOf(y, *kind.Fits.Slot)
+			if err != nil {
+				return err
+			}
+			if theirs == x.Slot {
+				return cs.Fail("itemSlotTaken", cs.Params{"host": h.Label, "slot": x.Slot, "other": y.Label()})
 			}
 		}
 	}
-	r.set(x.ID, value(b.Row.ID, x, map[string]any{"fittedTo": host.ID}))
-	return r.write()
+	return nil
 }
 
 // slotOf is the text of the entry's slot field, "" for a hand-written item or an entry that leaves it unset.

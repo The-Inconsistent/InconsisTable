@@ -117,6 +117,10 @@ export const ActorItem = z.object({
   note: z.string(),
   quantity: z.number().nullable(),
   fittedTo: z.string().nullable(),
+  // The saved build's line it is fitted to, `<card>/<name>` (house decision #102); absent when none.
+  fittedLine: z.string().optional(),
+  // The entry record's weapon or armour, the numbers its card draws (house decision #102); absent without one.
+  profile: z.record(z.string(), z.unknown()).optional(),
   source: ItemSource,
   entryId: z.string().nullable(),
   rev: z.number(),
@@ -236,6 +240,16 @@ export const SpendRequest = z.object({
   inputs: z.record(z.string(), z.number().int()).nullable(),
   note: z.string(),
   createdAt: z.string(),
+  // An acquisition asked for (house decision #102): the pack entry, and the item or build line it is fitted to.
+  acquire: z
+    .object({
+      type: z.string(),
+      entry: z.string(),
+      name: z.string(),
+      to: z.string().optional(),
+      line: z.string().optional(),
+    })
+    .optional(),
 });
 export type SpendRequest = z.infer<typeof SpendRequest>;
 // The GM side's answer to a request, sent to the player who asked so the phone can say so.

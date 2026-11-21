@@ -25,6 +25,8 @@ export function seatTests({ tests, ctx, sight }: { tests: readonly TestCall[]; c
         showOutcome: false,
         revealed: false,
         targets: [],
+        // What a seat asks to acquire is not the room's screen's (house decision #102).
+        acquire: undefined,
       }));
   }
   return tests.flatMap((c) => {

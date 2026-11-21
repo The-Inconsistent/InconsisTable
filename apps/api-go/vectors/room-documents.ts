@@ -12,13 +12,15 @@ import { SAMPLE_LEDGER_RULESET } from "../../../packages/rules-engine/src/fixtur
 // The d20 fixture with a place field, so the nested place can carry one (as the smoke suite's codex test does).
 export const ROOM_D20: RulesetInput = (() => {
   const ruleset = structuredClone(SAMPLE_D20);
-  ruleset.version = "0.1.8-room";
+  ruleset.version = "0.1.9-room";
   ruleset.codex!.kinds.location = {
     fields: {
       ...ruleset.codex!.kinds.location?.fields,
       district: { type: "text", label: "District", maxLength: 40, visibility: "party", cite: "Sample p.17" },
     },
   };
+  // A person may be made from a creature of the bestiary (house decision #97), so an entry carries where it came from.
+  ruleset.codex!.kinds.npc = { ...ruleset.codex!.kinds.npc!, from: [{ entity: "creature" }] };
   // Charms a character holds in play (house decision #88): gear by key, only the holder and the GM side read by name.
   const character = ruleset.entities![0]!;
   character.fields = { ...character.fields, charms: { type: "list", label: "Charms", visibility: "owner" } };
@@ -75,7 +77,7 @@ export const d20Document = (): RoomDocumentInput => ({
     safety: { lines: ["Drowning"], veils: ["Spiders"], xCard: true },
   },
   expects: {
-    ruleset: { slug: "sample-d20", version: "0.1.8-room" },
+    ruleset: { slug: "sample-d20", version: "0.1.9-room" },
     packs: [{ slug: "sample-bestiary", version: "0.1.0" }],
     world: { slug: "sample-tidewater", version: "0.1.0" },
   },
@@ -140,6 +142,7 @@ export const d20Document = (): RoomDocumentInput => ({
       body: "Counts every crate twice.",
       gmNotes: "Owes the guild; see @[The Salt Guild](" + IDS.guild + ").",
       fields: { mood: "wary", disposition: 1, home: IDS.quay },
+      source: { entity: "creature", key: "ember-wisp", cite: "Sample p.40" },
       visibility: "party",
       revealedAt: "2026-03-01T19:30:00+01:00", // kept, as the same instant
     },

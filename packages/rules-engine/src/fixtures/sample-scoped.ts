@@ -1,5 +1,5 @@
 import type { RulesetInput } from "../manifest.ts";
-import { SAMPLE_D20 } from "./sample-d20.ts";
+import { SAMPLE_D20_0_1_8 } from "./sample-d20.ts";
 
 /**
  * A placeholder ruleset written for tests: the sample-d20 actors with a Test and a health state that only characters
@@ -7,11 +7,11 @@ import { SAMPLE_D20 } from "./sample-d20.ts";
  * type. Every name, number and cite is our own invention.
  */
 export const SAMPLE_SCOPED: RulesetInput = {
-  ...SAMPLE_D20,
+  ...SAMPLE_D20_0_1_8,
   id: "sample-scoped",
   version: "0.1.0",
   tests: {
-    ...SAMPLE_D20.tests,
+    ...SAMPLE_D20_0_1_8.tests,
     brace: {
       kind: "sumVsTarget",
       dice: "1d20",
@@ -23,7 +23,7 @@ export const SAMPLE_SCOPED: RulesetInput = {
     },
   },
   resources: [
-    ...(SAMPLE_D20.resources ?? []),
+    ...(SAMPLE_D20_0_1_8.resources ?? []),
     {
       id: "strain",
       label: "Strain",
@@ -36,9 +36,9 @@ export const SAMPLE_SCOPED: RulesetInput = {
     },
   ],
   health: {
-    ...SAMPLE_D20.health,
+    ...SAMPLE_D20_0_1_8.health,
     states: [
-      ...(SAMPLE_D20.health?.states ?? []),
+      ...(SAMPLE_D20_0_1_8.health?.states ?? []),
       { id: "guarded", label: "Guarded", when: "derived.defense > 12", entities: ["character"] },
     ],
   },

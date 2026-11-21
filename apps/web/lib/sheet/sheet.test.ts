@@ -208,7 +208,10 @@ test("the time left on a condition reads off its timer, or is empty without a co
 test("a bound that reads the campaign is worked out from the campaign's values in play", () => {
   const tiered = Ruleset.parse({
     ...SAMPLE_D20,
-    campaignFields: { danger: { type: "int", label: "Danger", min: 1, max: 5, default: 1, cite: "Sample p.14" } },
+    campaignFields: {
+      ...SAMPLE_D20.campaignFields,
+      danger: { type: "int", label: "Danger", min: 1, max: 5, default: 1, cite: "Sample p.14" },
+    },
     resources: (SAMPLE_D20.resources ?? []).map((r) =>
       r.id === "hp" ? { ...r, max: "derived.maxHp + campaign.danger" } : r,
     ),

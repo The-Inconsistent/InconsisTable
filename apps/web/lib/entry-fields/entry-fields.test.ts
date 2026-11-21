@@ -10,12 +10,14 @@ import {
   entryUrl,
   enumWords,
   fieldsPatch,
+  fromKinds,
   linkedEntry,
   linkOptions,
   entryReminders,
   listChips,
   prefillRow,
   rowChips,
+  rolledText,
   rowName,
   shownFields,
   tagSuggestions,
@@ -45,14 +47,15 @@ const npc = (fields: CodexEntry["fields"]): CodexEntry => ({
   layout: null,
   header: null,
   prep: null,
+  source: null,
 });
 
 test("the declared fields of a kind, in order; none without a block or a ruleset", () => {
   assert.deepEqual(
     declaredFields({ ruleset, kind: "npc" }).map((f) => f.id),
-    ["mood", "disposition", "patron", "home"],
+    ["mood", "disposition", "patron", "home", "look"],
   );
-  assert.deepEqual(declaredFields({ ruleset, kind: "lore" }), []);
+  assert.deepEqual(declaredFields({ ruleset, kind: "adventure" }), []);
   assert.deepEqual(declaredFields({ ruleset: null, kind: "npc" }), []);
 });
 
@@ -233,5 +236,32 @@ test("lists show a tags field's words and how many rows a field holds; a save se
   assert.deepEqual(
     entryReminders({ ruleset, entry: band }).map((r) => r.id),
     ["outsiderAlly"],
+  );
+});
+
+test("a charter's season is checked against the campaign's, read only with the campaign (house decision #97)", () => {
+  const charter = { ...npc({ seasonFrom: 2, seasonTo: 3 }), kind: "lore" as const };
+  assert.deepEqual(entryReminders({ ruleset, entry: charter }), []);
+  const at = (season: number) => entryReminders({ ruleset, entry: charter, campaign: { season } }).map((r) => r.id);
+  assert.deepEqual(at(1), ["offSeason"]);
+  assert.deepEqual(at(2), []);
+  assert.deepEqual(at(4), ["offSeason"]);
+});
+
+test("rolled lines fill a field in the declared order, joined as declared (house decision #97)", () => {
+  const rolled = [
+    { tableId: "hue", entryId: "amber" },
+    { tableId: "scar", entryId: "burn" },
+  ];
+  assert.equal(rolledText({ ruleset, rolled, join: ", " }), "Amber eyes, a burn on one hand");
+  assert.equal(rolledText({ ruleset, rolled: [{ tableId: "forename", entryId: "ash" }] }), "Ash");
+  assert.equal(rolledText({ ruleset, rolled: [{ tableId: "gone", entryId: "x" }] }), "");
+  assert.deepEqual(
+    fromKinds(ruleset).map((k) => [k.kind, k.entities]),
+    [
+      ["scene", ["incident"]],
+      ["location", ["site"]],
+      ["lore", ["charter"]],
+    ],
   );
 });

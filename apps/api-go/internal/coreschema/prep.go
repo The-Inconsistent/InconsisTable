@@ -47,6 +47,13 @@ func prepLine(fields ...schema.Field) *schema.ObjectSchema {
 	).Extend(fields...)
 }
 
+// EntrySource is the pack entry a codex entry was made from (house decision #97; core-schema state.ts EntrySource).
+var EntrySource = schema.Object(
+	schema.Req("entity", schema.String().Min(1).Max(64)),
+	schema.Req("key", schema.String().Min(1).Max(80)),
+	schema.Opt("cite", schema.String().Min(1).Max(40)),
+)
+
 // ScenePrep is the whole document; a kind it does not know is refused, never dropped.
 var ScenePrep = schema.Refined(
 	schema.Refined(

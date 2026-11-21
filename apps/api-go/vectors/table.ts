@@ -36,7 +36,7 @@ const [character, ...entities] = SAMPLE_D20.entities ?? [];
 const VIEW_MANIFEST: RulesetInput = {
   ...SAMPLE_D20,
   // The sides fixture's checklist reaches the side that reads GM notes only (house decision #90).
-  campaignFields: SAMPLE_SKIRMISH.campaignFields,
+  campaignFields: { ...SAMPLE_D20.campaignFields, ...SAMPLE_SKIRMISH.campaignFields },
   checklist: SAMPLE_SKIRMISH.checklist?.filter((s) => s.done.count !== "pool"),
   codex: {
     kinds: {
@@ -47,6 +47,8 @@ const VIEW_MANIFEST: RulesetInput = {
         reminders: [
           { id: "chilly", if: 'fields.mood == "cold"', text: "Chilly" },
           { id: "backed", if: "has(fields.patron)", text: "Backed" },
+          // Reads only the campaign, which every seat reads (house decision #97): the party is sent it.
+          { id: "late", if: "campaign.season > 3", text: "Late" },
         ],
       },
     },
@@ -698,13 +700,15 @@ const entry = (
   layout: (over.kind ?? "handout") === "handout" ? "tablet" : null,
   header: (over.kind ?? "handout") === "handout" ? "Read aloud" : null,
   prep: null as unknown,
+  source: null as unknown,
   ...over,
 });
 
 const CODEX = {
   entries: [
     entry(U(500), "gm", "all", []),
-    entry(U(501), "party", "all", []),
+    // Made from a pack entry (house decision #97): where it came from reaches the codex and secrets sides only.
+    entry(U(501), "party", "all", [], { source: { entity: "site", key: "old-mill", cite: "Sample p.60" } }),
     entry(U(502), "public", "listed", [PC1, PC2], { layout: "transcript", header: "" }),
     entry(U(503), "party", "listed", [PC2], { layout: "proclamation" }),
     entry(U(504), "gm", "listed", [PC1]),
@@ -1096,7 +1100,9 @@ const VALID: Record<string, Record<string, unknown>> = {
     layout: "proclamation",
     header: " Notice ",
     prep: { exits: [{ id: "e", label: " On ", sceneId: ID }] },
+    source: { entity: "site", key: "old-mill", cite: "Sample p.60" },
   },
+  "codex.fromPack": { kind: "location", entity: "site", key: "old-mill", parentId: ID },
   "codex.move": { id: ID, parentId: null, position: 2 },
   "codex.link": { id: ID, targetId: ID },
   "codex.unlink": { id: ID, targetId: ID },

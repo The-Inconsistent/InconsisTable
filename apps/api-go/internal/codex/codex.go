@@ -14,8 +14,8 @@ import (
 // Load is the campaign's codex, whole: every entry with its audience. The Seat view decides what each seat gets.
 func Load(ctx context.Context, conn core.Conn, campaignID string) (cs.Codex, error) {
 	rows, err := conn.Query(ctx, `SELECT id::text, kind, title, body, gm_notes, visibility, audience_mode, status,
-		parent_id::text, position, planned_tests, image_id::text, image_revealed, fields, layout, header, prep, revealed_at
-		FROM codex_entry WHERE campaign_id = $1 ORDER BY created_at`, campaignID)
+		parent_id::text, position, planned_tests, image_id::text, image_revealed, fields, layout, header, prep, revealed_at,
+		source FROM codex_entry WHERE campaign_id = $1 ORDER BY created_at`, campaignID)
 	if err != nil {
 		return cs.Codex{}, err
 	}
@@ -24,7 +24,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string) (cs.Codex, err
 		var revealedAt *time.Time
 		err := r.Scan(&e.ID, &e.Kind, &e.Title, &e.Body, &e.GMNotes, &e.Visibility, &e.AudienceMode, &e.Status,
 			&e.ParentID, &e.Position, &e.PlannedTests, &e.ImageID, &e.ImageRevealed, &e.Fields, &e.Layout, &e.Header, &e.Prep,
-			&revealedAt)
+			&revealedAt, &e.Source)
 		if revealedAt != nil {
 			at := core.ISOTime(*revealedAt)
 			e.RevealedAt = &at

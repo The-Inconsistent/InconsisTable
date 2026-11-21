@@ -15,6 +15,7 @@ import {
   CodexText,
   CodexTitle,
   CodexVisibility,
+  EntrySource,
   EntryStatus,
   FieldValue,
   HandoutHeader,
@@ -124,6 +125,8 @@ export const RoomEntry = z.strictObject({
   imageId: LocalId.optional(),
   imageRevealed: z.boolean().optional(),
   // When it was last revealed; kept for a revealed entry, ignored on a sealed one (house decision #86).
+  // The pack entry it was made from (house decision #97): checked against the room's packs as a ref is; its page is read again.
+  source: EntrySource.optional(),
   revealedAt: z.iso.datetime({ offset: true }).optional(),
 });
 export type RoomEntry = z.infer<typeof RoomEntry>;

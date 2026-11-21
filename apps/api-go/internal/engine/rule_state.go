@@ -137,6 +137,9 @@ type DeltaTarget struct {
 	// Item is an actor_item row's id (house decision #95): `set` to the whole row, nil removing it, written by
 	// internal/actor for the item actions (not a ruleset primitive either, so no TypeScript twin).
 	Item string `json:"item,omitempty"`
+	// Entry is a codex entry an action made, logged as "create" so Undo deletes it (house decision #97); like Clock it
+	// has no TypeScript twin.
+	Entry string `json:"entry,omitempty"`
 }
 
 // Delta is one proposed change. Value is a float64, string, bool, []string or nil.

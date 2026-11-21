@@ -131,7 +131,7 @@ var codexSchema = schema.Object(
 	schema.Req("kinds", schema.PartialRecord(schema.Object(
 		schema.Req("fields", schema.Refined(schema.Record(idSchema, schema.Union("type",
 			codexFieldVariant("int", intShape...),
-			codexFieldVariant("text", textShape...),
+			codexFieldVariant("text", append(slices.Clone(textShape), schema.Opt("roll", fieldRoll))...),
 			codexFieldVariant("enum", enumShape...),
 			codexFieldVariant("bool"),
 			codexFieldVariant("ref", refShape...),
@@ -160,7 +160,26 @@ var codexSchema = schema.Object(
 			schema.Req("text", label(120)),
 			schema.Opt("cite", citeSchema),
 		)).Max(maxCodexReminder)),
+		// How an entry of this kind is made from a pack entry, and the tables rolled into its title (house decision #97).
+		schema.Opt("from", schema.Array(schema.Object(
+			schema.Req("entity", idSchema),
+			schema.Opt("name", idSchema),
+			schema.Opt("values", schema.Record(idSchema, fieldIDSchema)),
+			schema.Opt("children", fieldIDSchema),
+			schema.Opt("tests", schema.Object(
+				schema.Req("field", fieldIDSchema),
+				schema.Opt("inputs", schema.Record(idSchema, fieldIDSchema)),
+			)),
+			schema.Opt("roster", fieldIDSchema),
+		)).Min(1).Max(maxRowPrefills)),
+		schema.Opt("titleRoll", fieldRoll),
 	), CodexKinds...)),
+)
+
+// fieldRoll is tables rolled into a codex text field or an entry's title (house decision #97; rules-engine FieldRoll).
+var fieldRoll = schema.Object(
+	schema.Req("tables", schema.Array(idSchema).Min(1).Max(4)),
+	schema.Opt("join", schema.String().Max(10)),
 )
 
 func campaignFieldVariant(tag string, extra ...schema.Field) schema.Variant {

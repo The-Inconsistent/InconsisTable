@@ -1,16 +1,16 @@
 import type { RulesetInput } from "../manifest.ts";
-import { SAMPLE_D20 } from "./sample-d20.ts";
+import { SAMPLE_D20_0_1_8 } from "./sample-d20.ts";
 
 /**
  * A placeholder ruleset written for tests: sample-d20 plus one campaign field, a danger tier read by a character value
  * and by a creature's pick among five numbered forms. Every name and number is our own invention.
  */
 export const SAMPLE_TIERED: RulesetInput = {
-  ...SAMPLE_D20,
+  ...SAMPLE_D20_0_1_8,
   id: "sample-tiered",
   version: "0.1.0",
   campaignFields: { danger: { type: "int", label: "Danger", min: 1, max: 5, default: 1, cite: "Sample p.14" } },
-  entities: SAMPLE_D20.entities.map((e) => {
+  entities: SAMPLE_D20_0_1_8.entities.map((e) => {
     if (e.id === "character") {
       return {
         ...e,

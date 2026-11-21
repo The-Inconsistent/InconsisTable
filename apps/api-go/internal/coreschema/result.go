@@ -2,9 +2,11 @@ package coreschema
 
 // Result is an accepted action's ack: {ok: true}, with the id it made or the token it issued when it has one.
 type Result struct {
-	OK    bool   `json:"ok"`
-	ID    string `json:"id,omitempty"`
-	Token string `json:"token,omitempty"`
+	OK bool   `json:"ok"`
+	ID string `json:"id,omitempty"`
+	// IDs is every entry codex.fromPack made, root first (house decision #97).
+	IDs   []string `json:"ids,omitempty"`
+	Token string   `json:"token,omitempty"`
 	// Notices is what the answer tells its sender (house decision #79), absent when there is none.
 	Notices []Notice `json:"notices,omitempty"`
 	// Roll is what table.roll drew or read and table.apply applied (house decision #87), absent otherwise.

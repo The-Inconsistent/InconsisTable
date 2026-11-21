@@ -12,9 +12,11 @@ import {
 } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
+import { PackAdder } from "@/components/gm/codex/components/pack-adder/pack-adder";
 import { SceneEditor } from "@/components/gm/prep/components/scene-editor/scene-editor";
 import { SceneRun } from "@/components/gm/prep/components/scene-run/scene-run";
 import type { Send } from "@/hooks/use-table/use-table";
+import { fromKinds } from "@/lib/entry-fields/entry-fields";
 import { prepTree, stepIndex } from "@/lib/prep/prep";
 import { lineNames, type PrepWorld, type Spawnable } from "@/lib/scene-prep/scene-prep";
 
@@ -45,6 +47,9 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
   const [newAdventure, setNewAdventure] = useState("");
   const [sceneFor, setSceneFor] = useState<string | null>(null);
   const [newScene, setNewScene] = useState("");
+  // The adventure a scene is being made for from a pack entry (house decision #97).
+  const [packFor, setPackFor] = useState<string | null>(null);
+  const sceneKinds = useMemo(() => fromKinds(ruleset).filter((k) => k.kind === "scene"), [ruleset]);
   const [error, setError] = useState<string | null>(null);
   const entries = useMemo(() => codex?.entries ?? [], [codex]);
   const tree = useMemo(() => prepTree(entries), [entries]);
@@ -197,10 +202,27 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
                     {t("cancel")}
                   </button>
                 </form>
+              ) : packFor === adventure.id ? (
+                <PackAdder
+                  kinds={sceneKinds}
+                  parentId={adventure.id}
+                  campaignId={me.campaignId}
+                  ruleset={ruleset}
+                  act={act}
+                  onMade={(ids) => ids[0] && setSelectedId(ids[0])}
+                  onClose={() => setPackFor(null)}
+                />
               ) : (
-                <button className="btn" style={{ justifySelf: "start" }} onClick={() => setSceneFor(adventure.id)}>
-                  {t("newScene")}
-                </button>
+                <div className="row">
+                  <button className="btn" onClick={() => setSceneFor(adventure.id)}>
+                    {t("newScene")}
+                  </button>
+                  {sceneKinds.length > 0 && (
+                    <button className="btn" onClick={() => setPackFor(adventure.id)}>
+                      {t("sceneFromPack")}
+                    </button>
+                  )}
+                </div>
               )}
             </section>
           ))}

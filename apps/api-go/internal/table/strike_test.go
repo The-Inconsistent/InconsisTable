@@ -277,3 +277,38 @@ func TestAStrikeWithAHeldItemAsItsMeans(t *testing.T) {
 		}
 	})
 }
+
+// The fight's log (house decision #100): the GM side reads the running fight's actions newest first, each with its
+// round, who was acting, whether it was taken back and the strike it was; a player's seat reads none of it.
+func TestTheFightLogTellsTheGMWhatHappened(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		p := newStrikePlay(t, tx)
+		gm := p.room.GM()
+		hal := p.hero("Hal", 0, 0)
+		ogre := p.brute("Ogre", 5)
+		p.arm(hal, "maul")
+		p.fight([]string{hal}, []string{ogre})
+		p.send(gm, map[string]any{"type": "rule.op", "primitive": "initiative.seated", "op": "next", "input": map[string]any{}})
+		p.send(gm, strikeOf(hal, ogre, "maul", 8, map[string]any{}))
+		p.send(gm, hit(ogre, 1, 0))
+		p.send(gm, undo)
+		log := p.seatView(gm).State.Encounter.Log
+		if len(log) != 3 {
+			t.Fatalf("want 3 lines, got %d: %+v", len(log), log)
+		}
+		last, strike, step := log[0], log[1], log[2]
+		if !last.Undone || strike.Undone || step.Undone {
+			t.Fatalf("taken back: want only the newest, got %v %v %v", last.Undone, strike.Undone, step.Undone)
+		}
+		if strike.Strike == nil || strike.Strike.Outcome != "wounded" || strike.Strike.Means == nil || *strike.Strike.Means != "Maul" {
+			t.Fatalf("the strike line: %+v", strike.Strike)
+		}
+		if strike.ActorID == nil || *strike.ActorID != hal || strike.Round != 1 {
+			t.Fatalf("the strike was taken in round 1 on Hal's turn, got round %d by %v", strike.Round, strike.ActorID)
+		}
+		player := p.room.Seat(t, tx, dbtest.User(t, tx, "Player"), hal)
+		if got := p.seatView(player).State.Encounter.Log; got != nil {
+			t.Fatalf("a player's seat reads the log: %+v", got)
+		}
+	})
+}

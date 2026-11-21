@@ -67,6 +67,7 @@ const world = (over: Partial<PrepWorld["state"]> = {}, spawnable = SPAWNABLE): P
     actors: [actor(ANA), actor(BEN)],
     encounter: {} as never,
     access: { members: [{ characterIds: [ANA] }], guests: [{ actorId: BEN }] } as never,
+    campaign: { fields: {} } as never,
     ...over,
   },
   entries: [entry(SCENE, "scene"), entry(NPC, "npc")],
@@ -106,6 +107,23 @@ describe("each kind of line becomes the action the table already has", () => {
     assert.deepEqual(resolveLine({ kind: "roster", line: shown.roster[1]!, world: world() }), {
       state: "ready",
       action: { ...spawn, count: 50, visibility: "full" },
+    });
+  });
+  test("roster: its marker and options go with the spawn; an option the ruleset no longer has breaks it (#92)", () => {
+    const [line] = ScenePrep.parse({
+      roster: [{ id: "o", pack: "sample", key: "ember-wisp", count: 1, marker: "amber", options: ["quick"] }],
+    }).roster;
+    assert.ok(line);
+    const spawn = { type: "actor.spawn", packVersionId: "pv-1", key: "ember-wisp", temporary: true };
+    const ready = { ...spawn, count: 1, visibility: "hidden", options: ["quick"], marker: "amber" };
+    assert.deepEqual(resolveLine({ kind: "roster", line, world: { ...world(), options: ["quick", "scaled"] } }), {
+      state: "ready",
+      action: ready,
+    });
+    assert.deepEqual(resolveLine({ kind: "roster", line, world: world() }), { state: "ready", action: ready });
+    assert.deepEqual(resolveLine({ kind: "roster", line, world: { ...world(), options: ["scaled"] } }), {
+      state: "broken",
+      missing: "option",
     });
   });
   test("test: test.call of the seated characters, with the line's inputs and hidden target", () => {

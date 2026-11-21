@@ -450,6 +450,37 @@
     "stacked": "{label} ({count})",
     "held": "{label}: {item}"
   },
+  "marker": {
+    "label": "Marker",
+    "none": "None",
+    "red": "Red",
+    "amber": "Amber",
+    "green": "Green",
+    "blue": "Blue",
+    "purple": "Purple",
+    "white": "White",
+    "swatch": "{colour} marker",
+    "pick": "Marker for {name}"
+  },
+  "spawnOptions": {
+    "title": "Options",
+    "line": "Spawned with: {list}",
+    "pick": "Options for {name}"
+  },
+  "budget": {
+    "title": "Encounter budget",
+    "line": "{label}: {used} of {budget}",
+    "unread": "{label}: {used}",
+    "over": "over",
+    "switches": "Budget switches",
+    "seated": "{count, plural, one {# seated character} other {# seated characters}}"
+  },
+  "rowShortcuts": {
+    "less": "Decrease {label} of {name}",
+    "more": "Increase {label} of {name}",
+    "tag": "{label}: show its note",
+    "note": "{label}: {note}"
+  },
   "heldList": {
     "listFor": "{label} of {name}",
     "none": "Nothing held",
@@ -1588,7 +1619,8 @@
       "pool": "Broken: the ruleset has no such pool",
       "scene": "Broken: the scene is gone",
       "field": "Broken: that field can no longer be picked",
-      "row": "Broken: this row is gone from its entry"
+      "row": "Broken: this row is gone from its entry",
+      "option": "Broken: the ruleset has no such spawn option"
     },
     "blocked": {
       "noFight": "No fight is running. Start one first.",

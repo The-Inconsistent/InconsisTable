@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import type { FocusEvent, KeyboardEvent } from "react";
+import type { FocusEvent, KeyboardEvent, ReactNode } from "react";
 
 import type { Actor, Combatant, Encounter } from "@inconsistable/core-schema";
 
@@ -17,11 +17,13 @@ type OrderListProps = {
   run: Run;
   /** What each combatant holds up (house decision #91), as chips on its row. */
   heldOf?: HeldOf;
+  /** A row's shortcuts beside its button: its tag and steppers (house decision #92). */
+  shortcutsOf?: (actorId: string) => ReactNode;
 };
 
 // The turn order. Each row is a big target that selects the combatant for the panel beside it; the number beside it is
 // what the GM types from the dice (blank clears it), and the arrows settle a tie one place at a time.
-export function OrderList({ encounter, actors, selectedId, onSelect, run, heldOf }: OrderListProps) {
+export function OrderList({ encounter, actors, selectedId, onSelect, run, heldOf, shortcutsOf }: OrderListProps) {
   const t = useTranslations("orderList");
   const tState = useTranslations("combatState");
   const tSide = useTranslations("combatSide");
@@ -69,6 +71,7 @@ export function OrderList({ encounter, actors, selectedId, onSelect, run, heldOf
               </span>
               <HealthBar combatant={c} conditions={encounter.conditionDefs} held={heldOf?.(c.actorId)} />
             </button>
+            {shortcutsOf?.(c.actorId)}
             <span className="row" style={{ flexWrap: "nowrap" }}>
               {!seated && (
                 <input

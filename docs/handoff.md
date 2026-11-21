@@ -66,7 +66,7 @@ Do not reopen these.
 1. **Check out the branch.** Run `git fetch origin claude/p0-skeleton && git checkout claude/p0-skeleton`, then
    `bun install`.
 2. **Identity.** There is no auth provider: the web proxy gives each browser an `it_device` cookie and the api makes the
-   user on first sight (`docs/house-decisions.md`, "No accounts until a provider is chosen"). Nothing to set up. For the
+   user on its first write (`docs/house-decisions.md`, "No accounts until a provider is chosen"). Nothing to set up. For the
    admin page, set `ADMIN_KEY` (32+ characters) in `apps/api-go/.env`. Don't print or commit env files.
 3. **Aspire.** Stop the compose Postgres first, since both use port 5435. Then run `aspire run`.
    - The AppHost has never run, so fix whatever breaks in `aspire-apphost/` and commit the fix.

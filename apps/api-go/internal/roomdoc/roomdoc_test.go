@@ -686,7 +686,7 @@ func TestTheRouteIsForCreators(t *testing.T) {
 		t.Errorf("no device: %d", w.Code)
 	}
 	device := auth.DeviceCookie + "=" + auth.NewSecret()
-	user, err := s.Auth.DeviceUser(context.Background(), device)
+	user, err := s.Auth.EnsureDeviceUser(context.Background(), device)
 	if err != nil || user == nil {
 		t.Fatal(err)
 	}

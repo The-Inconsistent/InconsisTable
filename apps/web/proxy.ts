@@ -6,7 +6,7 @@ const YEAR_S = 365 * 24 * 3600;
 
 // Gives every device its identity: no `it_device` cookie (or a malformed one) gets a fresh secret. It is also put on
 // this very request, so the server components that render next read it. The api trusts a well-formed secret and makes
-// the user on first sight. Nothing is blocked here.
+// the user on its first write, so a visit that only looks leaves no row. Nothing is blocked here.
 // ponytail: a lost cookie is a lost identity, swap in a provider's session here
 export default function proxy(req: NextRequest) {
   if (isDeviceSecret(req.cookies.get(DEVICE_COOKIE)?.value)) return NextResponse.next();

@@ -24,7 +24,7 @@ type Service struct {
 // is 422 with the refusal, its path, and what was read of the document.
 func (s *Service) Import(w http.ResponseWriter, r *http.Request) (any, error) {
 	ctx := r.Context()
-	user, err := s.Auth.DeviceUser(ctx, core.CookieHeader(r))
+	user, err := s.Auth.EnsureDeviceUser(ctx, core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}

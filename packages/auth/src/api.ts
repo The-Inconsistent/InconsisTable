@@ -4,7 +4,7 @@ export type { PlatformRole, SignInProvider } from "./role.ts";
 export { PLATFORM_ROLES, SIGN_IN_PROVIDERS } from "./role.ts";
 
 // Identity without an account: each device is an anonymous user, named by a random secret in the `it_device` cookie.
-// The web proxy mints it, the api trusts a well-formed one and creates the user on first sight (auth.service.ts).
+// The web proxy mints it, the api trusts a well-formed one and makes the user on its first write (EnsureDeviceUser).
 // ponytail: a lost cookie is a lost identity, sign in through the identity provider to keep one (house decision #33)
 export const DEVICE_COOKIE = "it_device";
 

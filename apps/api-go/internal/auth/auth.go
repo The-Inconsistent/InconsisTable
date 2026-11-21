@@ -128,9 +128,8 @@ func (s *Service) SessionLive(ctx context.Context, tokenHash string) (bool, erro
 	return live, err
 }
 
-// DeviceUser is the caller: a signed-in session first, else the device's user. The device user is made on first sight
-// of a well-formed secret; it is nil for a missing or malformed secret. Two first requests at once make one user: the
-// loser of the device insert undoes the user it just made and reads the winner's.
+// DeviceUser is the caller: a signed-in session first, else the device's user. It writes nothing: it is nil for a
+// missing or malformed secret, and for a device that has no user yet (EnsureDeviceUser makes it).
 func (s *Service) DeviceUser(ctx context.Context, cookieHeader string) (*User, error) {
 	session, err := s.SessionOf(ctx, cookieHeader)
 	if err != nil {
@@ -143,25 +142,50 @@ func (s *Service) DeviceUser(ctx context.Context, cookieHeader string) (*User, e
 	if !IsDeviceSecret(secret) {
 		return nil, nil
 	}
-	tokenHash := Hash(secret)
-	find := func() (*User, error) {
-		var u User
-		var role string
-		err := s.DB.QueryRow(ctx, `SELECT app_user.id, app_user.name, app_user.role FROM device
-			JOIN app_user ON app_user.id = device.user_id WHERE device.token_hash = $1`, tokenHash).Scan(&u.UserID, &u.Name, &role)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		u.Creator = DeviceCreates(role, s.SignIn)
-		return &u, nil
+	return s.deviceUser(ctx, Hash(secret))
+}
+
+func (s *Service) deviceUser(ctx context.Context, tokenHash string) (*User, error) {
+	var u User
+	var role string
+	err := s.DB.QueryRow(ctx, `SELECT app_user.id, app_user.name, app_user.role FROM device
+		JOIN app_user ON app_user.id = device.user_id WHERE device.token_hash = $1`, tokenHash).Scan(&u.UserID, &u.Name, &role)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
 	}
-	known, err := find()
+	if err != nil {
+		return nil, err
+	}
+	u.Creator = DeviceCreates(role, s.SignIn)
+	return &u, nil
+}
+
+// Visitor is the caller of a read that shows a new device an empty state: DeviceUser, else, for a well-formed secret
+// with no user yet, the user it would become, with no id, so owner-scoped reads find nothing. Never write as it.
+func (s *Service) Visitor(ctx context.Context, cookieHeader string) (*User, error) {
+	user, err := s.DeviceUser(ctx, cookieHeader)
+	if user != nil || err != nil {
+		return user, err
+	}
+	if secret, _ := ReadCookie(cookieHeader, DeviceCookie); !IsDeviceSecret(secret) {
+		return nil, nil
+	}
+	return &User{Name: defaultName, Creator: DeviceCreates("creator", s.SignIn)}, nil
+}
+
+// EnsureDeviceUser is DeviceUser for a write: the device's user is made on its first write, so a visit that only looks
+// leaves no row. Two first writes at once make one user: the loser of the device insert undoes the user it just made
+// and reads the winner's.
+func (s *Service) EnsureDeviceUser(ctx context.Context, cookieHeader string) (*User, error) {
+	known, err := s.DeviceUser(ctx, cookieHeader)
 	if known != nil || err != nil {
 		return known, err
 	}
+	secret, _ := ReadCookie(cookieHeader, DeviceCookie)
+	if !IsDeviceSecret(secret) {
+		return nil, nil
+	}
+	tokenHash := Hash(secret)
 	err = core.InTx(ctx, s.DB, func(tx pgx.Tx) error {
 		var id string
 		if err := tx.QueryRow(ctx, `INSERT INTO app_user (id, name) VALUES (uuidv7()::text, $1) RETURNING id`, defaultName).Scan(&id); err != nil {
@@ -179,7 +203,7 @@ func (s *Service) DeviceUser(ctx context.Context, cookieHeader string) (*User, e
 	if err != nil {
 		return nil, err
 	}
-	return find()
+	return s.deviceUser(ctx, tokenHash)
 }
 
 // RenameUser sets the name other seats see.

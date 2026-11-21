@@ -123,7 +123,7 @@ func (s *Service) Create(w http.ResponseWriter, r *http.Request) (any, error) {
 		}
 		return core.Created{Body: map[string]string{"campaignId": id}}, nil
 	}
-	user, err := s.Auth.DeviceUser(ctx, core.CookieHeader(r))
+	user, err := s.Auth.EnsureDeviceUser(ctx, core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +205,7 @@ ORDER BY a.name ASC`
 // characters their seats hold.
 func (s *Service) Lobby(_ http.ResponseWriter, r *http.Request) (any, error) {
 	ctx := r.Context()
-	user, err := s.Auth.DeviceUser(ctx, core.CookieHeader(r))
+	user, err := s.Auth.Visitor(ctx, core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (s *Service) Lobby(_ http.ResponseWriter, r *http.Request) (any, error) {
 // Rename is PATCH /api/me: the name this device's user goes by at every table.
 func (s *Service) Rename(w http.ResponseWriter, r *http.Request) (any, error) {
 	ctx := r.Context()
-	user, err := s.Auth.DeviceUser(ctx, core.CookieHeader(r))
+	user, err := s.Auth.EnsureDeviceUser(ctx, core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}

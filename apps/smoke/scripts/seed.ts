@@ -29,7 +29,7 @@ async function call({ method, path, body, cookie }: { method: string; path: stri
   return json as Record<string, unknown>;
 }
 
-// A person: a device cookie, its user made on first sight and given a name.
+// A person: a device cookie, its user made by its first write, which names it.
 async function person({ secret = deviceSecret(), name }: { secret?: string; name: string }) {
   const cookie = `${DEVICE_COOKIE}=${secret}`;
   await call({ method: "PATCH", path: "/me", body: { name }, cookie });

@@ -25,6 +25,8 @@ type TableLookupProps = {
   onNext: (tableId: string, from: { title: string; label: string }) => void;
   /** A line applied: the chain that led to it is done. */
   onApplied: () => void;
+  /** The inputs it starts with: a spend's, carried over when the spend opened this table (house decision #91). */
+  start?: Readonly<Record<string, number | boolean>>;
 };
 
 // A lookup on the GM's tables panel (house decision #87): the number the dice showed (ROLL fills it in when the
@@ -44,11 +46,12 @@ export function TableLookup(props: TableLookupProps) {
     ask,
     onNext,
     onApplied,
+    start,
   } = props;
   const t = useTranslations("tables");
   const te = useTranslations("errors");
   const [typed, setTyped] = useState("");
-  const [inputs, setInputs] = useState<Record<string, number | boolean>>({});
+  const [inputs, setInputs] = useState<Record<string, number | boolean>>({ ...start });
   const result = typedOf(typed);
   const plan = previewOf({ compiled, tableId, result, inputs, target, characters, campaign });
   const entry = plan?.ok ? table.entries[plan.entry] : undefined;

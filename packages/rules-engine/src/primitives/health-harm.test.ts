@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { compileRuleset } from "../compile.ts";
 import { actorScope, deriveValues, resourceBounds, type FieldValue } from "../derived.ts";
-import { SAMPLE_HARM } from "../fixtures/sample-harm.ts";
+import { SAMPLE_HARM, SAMPLE_HARM_BEFORE_STRIKES } from "../fixtures/sample-harm.ts";
 import { HealthHarmParams } from "./health-harm.ts";
 import type { ActorState, Delta, ResourceState, RuleState } from "./primitive.ts";
 import { applyDeltas, deltas, refusal } from "./test-helpers.ts";
@@ -65,7 +65,7 @@ const add = (resource: string, value: number): Delta => ({ target: { actorId: "a
 
 test("the sample compiles, and a ruleset without the block keeps its shape", () => {
   assert.equal(C.ruleset.health.harm?.profiles.length, 3);
-  const { spends: _spends, ...rest } = SAMPLE_HARM; // its spends run the block's ops
+  const { spends: _spends, ...rest } = SAMPLE_HARM_BEFORE_STRIKES; // its spends run the block's ops
   const without = compileRuleset({ ...rest, health: { states: [] }, tables: undefined });
   assert.ok(without.ok && !("harm" in without.compiled.ruleset.health));
 });

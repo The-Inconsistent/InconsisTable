@@ -21,9 +21,14 @@ type Service struct {
 
 // caller is the library's user: anyone with an account, or, on a deployment without sign-in, any device (each one is a
 // user and a creator there). With sign-in on, an anonymous device keeps no library (libraryNeedsAccount): its players
-// are guests of the rooms they join, as the source app's QR guests are, and its storage would be anyone's.
-func (s *Service) caller(r *http.Request) (*auth.User, error) {
-	user, err := s.Auth.DeviceUser(r.Context(), core.CookieHeader(r))
+// are guests of the rooms they join, as the source app's QR guests are, and its storage would be anyone's. A write makes
+// a new device's user; a read answers it as a Visitor, with no id, so it owns nothing yet.
+func (s *Service) caller(r *http.Request, write bool) (*auth.User, error) {
+	who := s.Auth.Visitor
+	if write {
+		who = s.Auth.EnsureDeviceUser
+	}
+	user, err := who(r.Context(), core.CookieHeader(r))
 	if err != nil {
 		return nil, err
 	}
@@ -82,16 +87,19 @@ func body(w http.ResponseWriter, r *http.Request, s schema.Schema) (map[string]a
 
 // List is GET /api/library: the caller's characters, the last edited first.
 func (s *Service) List(_ http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.caller(r, false)
 	if err != nil {
 		return nil, err
+	}
+	if user.UserID == "" {
+		return []Card{}, nil
 	}
 	return List(r.Context(), s.DB, user.UserID)
 }
 
 // Create is POST /api/library `{ rulesetVersionId, name? }`: a new character with one of the caller's own rulesets.
 func (s *Service) Create(w http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.caller(r, true)
 	if err != nil {
 		return nil, err
 	}
@@ -113,13 +121,16 @@ func (s *Service) Create(w http.ResponseWriter, r *http.Request) (any, error) {
 
 // Get is GET /api/library/:id: one of the caller's characters whole.
 func (s *Service) Get(_ http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.caller(r, false)
 	if err != nil {
 		return nil, err
 	}
 	id, err := characterID(r)
 	if err != nil {
 		return nil, err
+	}
+	if user.UserID == "" {
+		return nil, notFound(errNotFound)
 	}
 	e, err := Get(r.Context(), s.DB, user.UserID, id)
 	return e, notFound(err)
@@ -128,13 +139,16 @@ func (s *Service) Get(_ http.ResponseWriter, r *http.Request) (any, error) {
 // Rules is GET /api/library/:id/rules: the manifest and catalogue the builder outside a room reads, for a character
 // whose ruleset and packs are all the caller's own (libraryNotEditable otherwise: it is edited in a room).
 func (s *Service) Rules(_ http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.caller(r, false)
 	if err != nil {
 		return nil, err
 	}
 	id, err := characterID(r)
 	if err != nil {
 		return nil, err
+	}
+	if user.UserID == "" {
+		return nil, notFound(errNotFound)
 	}
 	out, err := Rules(r.Context(), s.DB, user.UserID, id)
 	return out, notFound(err)
@@ -143,7 +157,7 @@ func (s *Service) Rules(_ http.ResponseWriter, r *http.Request) (any, error) {
 // Patch is PATCH /api/library/:id `{ rev, name?, build?, done? }`: an autosave (a draft) or a save (done, resolved
 // ready), at the revision the caller read; another one is 409 libraryChanged.
 func (s *Service) Patch(w http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.caller(r, true)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +188,7 @@ func (s *Service) Patch(w http.ResponseWriter, r *http.Request) (any, error) {
 
 // Delete is DELETE /api/library/:id.
 func (s *Service) Delete(_ http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.caller(r, true)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +205,7 @@ func (s *Service) Delete(_ http.ResponseWriter, r *http.Request) (any, error) {
 // FromRoom is POST /api/library/from-room `{ campaignId, actorId }`: SAVE TO MY LIBRARY, a copy of a built character
 // the caller's seat holds in that room. No seat there is 404.
 func (s *Service) FromRoom(w http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.caller(r, true)
 	if err != nil {
 		return nil, err
 	}

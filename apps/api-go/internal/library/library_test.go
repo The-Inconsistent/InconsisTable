@@ -77,7 +77,7 @@ func person(t *testing.T, db *pgxpool.Pool) user {
 	t.Helper()
 	ctx := context.Background()
 	cookie := auth.DeviceCookie + "=" + auth.NewSecret()
-	u, err := (&auth.Service{DB: db}).DeviceUser(ctx, cookie)
+	u, err := (&auth.Service{DB: db}).EnsureDeviceUser(ctx, cookie)
 	if err != nil || u == nil {
 		t.Fatal(err)
 	}
@@ -271,6 +271,32 @@ func TestWhoKeepsALibrary(t *testing.T) {
 	if code, body := (caller{t, signIn, me}).do("GET", "/api/library", nil); code != http.StatusForbidden || body["code"] != "libraryNeedsAccount" {
 		t.Errorf("anonymous with sign-in: %d %v", code, body)
 	}
+}
+
+// A new device reads an empty library without becoming a user; its first write makes one.
+func TestANewDevicesFirstWrite(t *testing.T) {
+	db := dbtest.Open(t)
+	ctx := context.Background()
+	a := &auth.Service{DB: db}
+	fresh := caller{t, &Service{DB: db, Auth: a}, user{cookie: auth.DeviceCookie + "=" + auth.NewSecret()}}
+	missing := "/api/library/" + core.NewUUID()
+	if code, body := fresh.do("GET", "/api/library", nil); code != http.StatusOK || len(body["list"].([]any)) != 0 {
+		t.Errorf("list: %d %v", code, body)
+	}
+	if code, _ := fresh.do("GET", missing, nil); code != http.StatusNotFound {
+		t.Errorf("get: %d", code)
+	}
+	if u, err := a.DeviceUser(ctx, fresh.u.cookie); u != nil || err != nil {
+		t.Fatalf("a read made a user: %v %v", u, err)
+	}
+	if code, _ := fresh.do("DELETE", missing, nil); code != http.StatusNotFound {
+		t.Errorf("delete: %d", code)
+	}
+	u, err := a.DeviceUser(ctx, fresh.u.cookie)
+	if u == nil || err != nil {
+		t.Fatalf("the write made no user: %v", err)
+	}
+	t.Cleanup(func() { _, _ = db.Exec(ctx, `DELETE FROM app_user WHERE id = $1`, u.UserID) })
 }
 
 // SAVE TO MY LIBRARY copies a built character the caller's seat holds, without the GM's part; the copy goes back into a

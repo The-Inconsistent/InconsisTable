@@ -288,6 +288,8 @@ export const CodexBlock = z.object({
       from: z.array(EntryPrefill).min(1).max(MAX_ROW_PREFILLS).optional(),
       /** Tables the GM's editor rolls into an entry's title (house decision #97). */
       titleRoll: FieldRoll.optional(),
+      /** The fields an entry of this kind needs filled before it is ready for the table (house decision #107). */
+      ready: z.array(Id).min(1).max(MAX_CODEX_FIELDS).optional(),
     }),
   ),
 });
@@ -2279,6 +2281,13 @@ function codexProblems({ r, entityIds, out }: { r: Ruleset; entityIds: ReadonlyS
     duplicates({ ids: (k.reminders ?? []).map((x) => x.id), path: `codex.kinds.${kind}.reminders`, out });
     if (k.titleRoll !== undefined) rollProblems({ roll: k.titleRoll, r, path: `codex.kinds.${kind}.titleRoll`, out });
     entryFromProblems({ kind, k, r, out });
+    const seenReady = new Set<string>();
+    k.ready?.forEach((id, i) => {
+      const at = `codex.kinds.${kind}.ready[${i}]`;
+      if (own(k.fields, id) === undefined) out.push({ path: at, message: `unknown field "${id}"` });
+      else if (seenReady.has(id)) out.push({ path: at, message: `duplicate id "${id}"` });
+      seenReady.add(id);
+    });
   }
 }
 

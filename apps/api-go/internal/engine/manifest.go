@@ -181,6 +181,8 @@ type (
 		// (house decision #97).
 		From      []EntryPrefill `json:"from"`
 		TitleRoll *FieldRoll     `json:"titleRoll"`
+		// Ready is the fields an entry of this kind needs filled before it is ready for the table (house decision #107).
+		Ready []string `json:"ready"`
 	}
 	// DerivedDef is one derived value.
 	DerivedDef struct {
@@ -1247,6 +1249,16 @@ func (p *problems) codex(r *Ruleset) {
 			p.roll(r, k.TitleRoll, "codex.kinds."+kind+".titleRoll")
 		}
 		p.entryFrom(r, kind, &k)
+		seenReady := map[string]bool{}
+		for i, id := range k.Ready {
+			at := fmt.Sprintf("codex.kinds.%s.ready[%d]", kind, i)
+			if _, ok := k.Fields[id]; !ok {
+				p.add(at, `unknown field "%s"`, id)
+			} else if seenReady[id] {
+				p.add(at, `duplicate id "%s"`, id)
+			}
+			seenReady[id] = true
+		}
 	}
 }
 

@@ -852,6 +852,8 @@
     "recap": "Tóm tắt buổi chơi",
     "recapHint": "Buổi này đã xảy ra chuyện gì? Để trống nếu không cần.",
     "endSessionConfirm": "Kết thúc buổi {number}",
+    "abandonSession": "Kết thúc không thưởng",
+    "deleteSession": "Xóa buổi {number}",
     "cancel": "Hủy",
     "ledger": {
       "build": "Tạo",
@@ -1124,6 +1126,10 @@
     "sessionNotFound": "Không tìm thấy buổi chơi",
     "startSessionFirst": "Hãy bắt đầu một buổi chơi trước",
     "sessionPaused": "Hãy bắt đầu một buổi chơi để tiếp tục",
+    "notLatestSession": "Chỉ xóa được buổi chơi gần nhất",
+    "endSessionFirst": "Hãy kết thúc buổi chơi trước khi xóa",
+    "recapAtSessionEnd": "Tóm tắt của buổi đang chơi được viết khi kết thúc buổi",
+    "noNextSession": "Chưa hẹn buổi chơi tới",
     "noRuleset": "Campaign này chưa có bộ luật",
     "inviteExpired": "Lời mời này đã hết hạn hoặc đã được dùng. Hãy xin GM một lời mời mới",
     "inviteNotFound": "Không tìm thấy lời mời",
@@ -1660,6 +1666,7 @@
     "label": "Kết quả vừa rồi",
     "poolFull": "{pool} đã đầy: mất {lost}",
     "restSkipped": "Không được nghỉ vì đang ở trạng thái đó: {names}",
+    "sessionDeleted": "Đã xóa buổi {number}; phần thưởng của buổi đó vẫn giữ",
     "rule": "{name}: {rule}",
     "dismiss": "Đóng"
   },

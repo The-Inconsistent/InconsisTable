@@ -93,6 +93,10 @@ export const Action = z.discriminatedUnion("type", [
     recap: z.string().max(10_000).optional(),
     notes: z.string().max(10_000).optional(),
   }),
+  // Ends the running session with no award step: one never played, or left open (house decision #85).
+  z.object({ type: z.literal("session.abandon"), recap: z.string().max(10_000).default("") }),
+  // Deletes the room's latest session once it has ended; what it awarded stays with the characters (house decision #85).
+  z.object({ type: z.literal("session.delete"), sessionId: id }),
 
   // `entityType` is an entity of the pinned ruleset (docs/design.md §5.4); the api refuses an unknown one.
   z.object({
@@ -308,6 +312,8 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "session.start": "session:run",
   "session.end": "session:run",
   "session.edit": "session:run",
+  "session.abandon": "session:run",
+  "session.delete": "session:run",
   "actor.create": "character:create",
   "actor.build": "character:edit:own", // a player on a held character; the GM side through OWN_FALLBACK
   "build.save": "character:edit:own", // the same; the GM's part of the build is the GM side's (house decision #63)
@@ -426,13 +432,14 @@ export type Refused = { ok: false; error: string } & Partial<RefusalBody>;
  * own lines by code, which the screen words, and a ruleset's line (`rule`) with its words, the actor's name filled in,
  * in `text`. They are neither state nor log.
  */
-export const NoticeCode = z.enum(["poolFull", "restSkipped", "rule"]);
+export const NoticeCode = z.enum(["poolFull", "restSkipped", "rule", "sessionDeleted"]);
 export type NoticeCode = z.infer<typeof NoticeCode>;
 /** The params each code carries, which its words may name. */
 export const NOTICE_PARAMS = {
   poolFull: ["pool", "lost"], // the pool's label and how much of the change it could not take
   restSkipped: ["names", "count"], // who a rest of everyone left out, in name order joined with ", ", and how many
   rule: ["rule", "name"], // the rule's id and the actor's name
+  sessionDeleted: ["number"], // the deleted session's number; what it awarded stays (house decision #85)
 } as const satisfies Record<NoticeCode, readonly string[]>;
 export const Notice = z.object({
   code: NoticeCode,

@@ -127,6 +127,11 @@ export const Session = z.object({
 });
 export type Session = z.infer<typeof Session>;
 
+// One session of the GM's journal (house decision #85): every session of the room, newest first; `abandoned` when it
+// ended without an award (session.abandon).
+export const JournalSession = Session.extend({ abandoned: z.boolean() });
+export type JournalSession = z.infer<typeof JournalSession>;
+
 // A builder draft is one JSON document read and written whole (docs/p1-plan.md decision 4): the character being built
 // and the answers so far, by creation step id. Capped at 64 KB serialized.
 export const MAX_DRAFT_BYTES = 64 * 1024;
@@ -248,6 +253,9 @@ export const LiveState = z.object({
   // api nodes may deliver broadcasts out of order (docs/design.md §5.6).
   stateVersion: z.number().int(),
   session: Session.nullable(),
+  // Every session of the room, newest first: the seats that run the room only, the notes the session side's
+  // (house decision #85); [] for every other seat.
+  journal: z.array(JournalSession),
   actors: z.array(Actor),
   // The receiving user's own builder draft, under the ruleset this room has pinned; null for every other seat.
   myDraft: BuilderDraftBody.nullable(),

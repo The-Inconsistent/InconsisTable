@@ -76,6 +76,7 @@ func run() error {
 	route(router, "GET", "/api/lobby", core.Serve(rooms.Lobby))
 	route(router, "PATCH", "/api/me", core.Serve(rooms.Rename))
 	route(router, "GET", "/api/campaigns/:id/me", core.Serve(rooms.Me))
+	route(router, "GET", "/api/campaigns/:id/next.ics", core.Serve(rooms.NextIcs))
 	route(router, "POST", "/api/join", core.Serve(rooms.Join))
 	route(router, "GET", "/api/guest", core.Serve(rooms.Guest))
 	router.NoRoute(func(c *gin.Context) {

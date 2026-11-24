@@ -192,6 +192,14 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
     if (r.ok) setRecap(null);
   };
 
+  // END WITHOUT AN AWARD: the recap typed so far, no award step (house decision #85).
+  const handleAbandon = async () => {
+    const r = await act({ type: "session.abandon", recap: recap ?? "" });
+    if (r.ok) setRecap(null);
+  };
+  // The latest session, offered for deleting between sessions (the journal reaches only the seats that run the room).
+  const latest = state.journal[0];
+
   // ASCEND: the whole group, one Tier; a refusal stays in the panel.
   const handleAscend = async ({ kind, waivePackage }: { kind: AscendKind; waivePackage: boolean }) => {
     setAscending(true);
@@ -262,6 +270,9 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
                 )}
                 <div className="row">
                   <button className="btn primary">{t("endSessionConfirm", { number: state.session.number })}</button>
+                  <button type="button" className="btn" onClick={handleAbandon}>
+                    {t("abandonSession")}
+                  </button>
                   <button type="button" className="btn" onClick={() => setRecap(null)}>
                     {t("cancel")}
                   </button>
@@ -269,9 +280,16 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
               </form>
             )
           ) : (
-            <button className="btn primary" onClick={() => act({ type: "session.start" })}>
-              {t("startSession")}
-            </button>
+            <>
+              <button className="btn primary" onClick={() => act({ type: "session.start" })}>
+                {t("startSession")}
+              </button>
+              {latest && (
+                <button className="btn" onClick={() => act({ type: "session.delete", sessionId: latest.id })}>
+                  {t("deleteSession", { number: latest.number })}
+                </button>
+              )}
+            </>
           )}
         </section>
       )}

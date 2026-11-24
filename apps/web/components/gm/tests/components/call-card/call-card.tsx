@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-import type { TestCall, TestTargetState } from "@inconsistable/core-schema";
+import type { TestCall, TestDef, TestTargetState } from "@inconsistable/core-schema";
 import type { AdvantageMode } from "@inconsistable/rules-engine";
 
 import { OutcomePad } from "@/components/ui/outcome-pad/outcome-pad";
@@ -12,17 +12,25 @@ import { RollPad } from "@/components/ui/roll-pad/roll-pad";
 import type { Send } from "@/hooks/use-table/use-table";
 import { outcomeLabel } from "@/lib/outcome-label/outcome-label";
 import { outcomeClass, outcomeKey, signed } from "@/lib/roll-slots/roll-slots";
+import { testWords } from "@/lib/test-inputs/test-inputs";
 
-type CallCardProps = { call: TestCall; names: ReadonlyMap<string, string>; send: Send };
+type CallCardProps = {
+  call: TestCall;
+  /** The called Test as the ruleset declares it, for its words; undefined when the room no longer has it. */
+  def: TestDef | undefined;
+  names: ReadonlyMap<string, string>;
+  send: Send;
+};
 
 // One called Test on the GM's tablet: who was called, what they rolled, and the buttons to report for someone or close.
-export function CallCard({ call, names, send }: CallCardProps) {
+export function CallCard({ call, def, names, send }: CallCardProps) {
   const t = useTranslations("callCard");
   const [reporting, setReporting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const open = call.status === "open";
+  const words = testWords(def ?? { id: call.testId });
   const inputs = Object.entries(call.inputs)
-    .map(([k, v]) => `${k} ${String(v)}`)
+    .map(([k, v]) => `${words.input(k)} ${words.value(k, v)}`)
     .join(", ");
 
   // A reported roll in one line, GM side: the die, the modifier, the total and the outcome the server resolved.
@@ -79,10 +87,10 @@ export function CallCard({ call, names, send }: CallCardProps) {
   };
 
   return (
-    <article className="card call-card" aria-label={t("label", { id: call.testId })}>
+    <article className="card call-card" aria-label={t("label", { id: words.test })}>
       <div className="row between call-head">
         <strong>
-          {call.testId} <span className="dim">{call.outcomes ? t("reportedTag") : call.dice}</span>
+          {words.test} <span className="dim">{call.outcomes ? t("reportedTag") : call.dice}</span>
         </strong>
         <span className="row">
           <span className="chip">{open ? t("statusOpen") : call.revealed ? t("statusShown") : t("statusClosed")}</span>

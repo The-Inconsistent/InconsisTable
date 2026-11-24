@@ -18,7 +18,14 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { takers } from "@/components/gm/tests/components/call-form/takers";
 import { JOIN_AS } from "@/components/gm/track/constants";
-import { draftOf, missingInputs, toInputs, type InputDraft, type TestInput } from "@/lib/test-inputs/test-inputs";
+import {
+  draftOf,
+  missingInputs,
+  testWords,
+  toInputs,
+  type InputDraft,
+  type TestInput,
+} from "@/lib/test-inputs/test-inputs";
 
 // A scene's prepared lines on the GM's screen (house decision #73): what each line stands for, whether it can be sent,
 // and which kinds a scene offers. Sending a line is the action it stands for, built here and sent through the same path
@@ -268,6 +275,7 @@ export type LineNames = {
   pool: (id: string) => string | undefined;
   entry: (id: string) => string | undefined;
   actor: (id: string) => string | undefined;
+  test: (id: string) => TestDef | undefined;
 };
 
 /** The lookups behind LineNames, built once per render of a scene. */
@@ -276,11 +284,13 @@ export function lineNames({ state, entries, spawnable }: PrepWorld): LineNames {
   const pools = new Map(state.pools.map((p) => [p.id, p.label]));
   const titles = new Map(entries.map((e) => [e.id, e.title]));
   const actors = new Map(state.actors.map((a) => [a.id, a.name]));
+  const tests = new Map(state.testDefs.map((d) => [d.id, d]));
   return {
     creature: (pack, key) => creatures.get(`${pack}/${key}`),
     pool: (id) => pools.get(id),
     entry: (id) => titles.get(id),
     actor: (id) => actors.get(id),
+    test: (id) => tests.get(id),
   };
 }
 
@@ -306,16 +316,22 @@ export function lineSummary({
       : t("summary.mob", { count: line.count, name, mob: line.mob });
   }
   if (kind === "tests" && "testId" in line) {
+    // In the Test's words (house decision #77), each input in the order the Test declares them.
+    const def = names.test(line.testId);
+    const words = testWords(def ?? { id: line.testId });
+    const order = def?.inputs.map((i) => i.id) ?? [];
+    const rank = (id: string) => (order.includes(id) ? order.indexOf(id) : order.length);
     const inputs = Object.entries(line.inputs)
-      .map(([k, v]) => `${k} ${String(v)}`)
+      .sort(([a], [b]) => rank(a) - rank(b))
+      .map(([k, v]) => `${words.input(k)} ${words.value(k, v)}`)
       .join(", ");
     const who =
       line.takers === "listed"
         ? line.actorIds.map((id) => names.actor(id) ?? t("summary.gone")).join(", ")
         : t(`summary.${line.takers}`);
     return inputs === ""
-      ? t("summary.test", { test: line.testId, who })
-      : t("summary.testWith", { test: line.testId, inputs, who });
+      ? t("summary.test", { test: words.test, who })
+      : t("summary.testWith", { test: words.test, inputs, who });
   }
   if (kind === "pools" && "pool" in line) {
     const pool = names.pool(line.pool) ?? line.pool;

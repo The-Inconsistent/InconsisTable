@@ -12,6 +12,7 @@ import { MentionTextarea } from "@/components/ui/mention-textarea/mention-textar
 import { groupLinks, linkCandidates, PLANNED_TESTS_MAX } from "@/lib/prep/prep";
 import { savePatch } from "@/lib/codex/codex";
 import type { LineNames, PrepWorld } from "@/lib/scene-prep/scene-prep";
+import { testWords } from "@/lib/test-inputs/test-inputs";
 
 type SceneEditorProps = {
   scene: CodexEntry;
@@ -173,10 +174,11 @@ export function SceneEditor({
         <ul className="list">
           {scene.plannedTests.map((id) => {
             const known = testIds.includes(id);
+            const name = testWords(names.test(id) ?? { id }).test;
             return (
               <li key={id} className="row between">
                 <span className={known ? undefined : "dim"}>
-                  <strong>{id}</strong>
+                  <strong>{name}</strong>
                   {!known && <span className="small"> {t("unknownTest")}</span>}
                 </span>
                 <span className="row">
@@ -187,7 +189,7 @@ export function SceneEditor({
                   )}
                   <button
                     className="btn sm"
-                    aria-label={t("unplan", { id })}
+                    aria-label={t("unplan", { id: name })}
                     onClick={() => setPlanned(scene.plannedTests.filter((p) => p !== id))}
                   >
                     {t("remove")}
@@ -202,7 +204,7 @@ export function SceneEditor({
             <option value="">{t("planTest")}</option>
             {addable.map((id) => (
               <option key={id} value={id}>
-                {id}
+                {testWords(names.test(id) ?? { id }).test}
               </option>
             ))}
           </select>

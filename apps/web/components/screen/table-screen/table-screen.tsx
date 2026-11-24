@@ -15,6 +15,7 @@ import { XCardOverlay } from "@/components/ui/xcard/xcard-overlay";
 import { useTable } from "@/hooks/use-table/use-table";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
+import { testWords } from "@/lib/test-inputs/test-inputs";
 
 type TableScreenProps = { campaignId: string; view: RulesView | null };
 
@@ -66,7 +67,14 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
           .map((c) => (
             <section key={c.id} className="card" role="status">
               <strong>{t("testInProgress")}</strong>
-              <span>{t("rolledCount", { test: c.testId, reported: c.reported, called: c.called })}</span>
+              <span>
+                {t("rolledCount", {
+                  // The Test's label from the ruleset this screen already reads (house decision #77), else its id.
+                  test: testWords({ ...view?.ruleset?.tests[c.testId], id: c.testId }).test,
+                  reported: c.reported,
+                  called: c.called,
+                })}
+              </span>
             </section>
           ))}
         {revealed.map((e) => (

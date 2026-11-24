@@ -3176,6 +3176,20 @@ test("actor.spawn: the GM places numbered creatures from an attached pack, as ro
   const named = await owner.until((x) => x.actors.filter((a) => a.kind === "creature").length === 57);
   const names = named.actors.map((a) => a.name);
   assert.ok(["Cinder 1", "Cinder 2", "Ember Wisp 6", "Ember Wisp 55"].every((n) => names.includes(n)));
+
+  // One alone under a name takes it bare; once that name is carried, the next is numbered after the highest; one
+  // without a name is numbered as before (house decision #78).
+  ok(await owner.send(spawn({ count: 1, name: "Brute" })));
+  ok(await owner.send(spawn({ count: 1, name: "Brute" })));
+  ok(await owner.send(spawn({ count: 1, name: "Cinder" })));
+  ok(await owner.send(spawn({ count: 1, name: "Cinder" })));
+  ok(await owner.send(spawn({ count: 1 })));
+  const lone = await owner.until((x) => x.actors.filter((a) => a.kind === "creature").length === 62);
+  const loneNames = lone.actors.map((a) => a.name);
+  assert.ok(
+    ["Brute", "Brute 1", "Cinder", "Cinder 3", "Ember Wisp 56"].every((n) => loneNames.includes(n)),
+    loneNames.join(", "),
+  );
   for (const c of [owner, ana.c, ben.c]) c.socket.close();
 });
 

@@ -53,7 +53,7 @@ func TouchesOf(a cs.Action) Touches {
 		return Touches{} // a deleted game has nothing left to broadcast; the gateway kicks the room instead
 	case t == "codex.delete":
 		return Touches{State: true, Codex: true} // a clock about the deleted entry loses its link
-	case t == "codex.fromPack" || t == "event.undo" || t == "event.turnBack":
+	case t == "codex.fromPack" || t == "codex.generate" || t == "event.undo" || t == "event.turnBack":
 		return Touches{State: true, Codex: true} // logged for Undo, which deletes the entries it made (house decision #97)
 	case strings.HasPrefix(t, "codex.") || strings.HasPrefix(t, "scene."):
 		return Touches{Codex: true}
@@ -296,6 +296,7 @@ var handlers = map[string]handler{
 	// codex/codex.actions.ts
 	"codex.save":     codex.Save,
 	"codex.fromPack": codex.FromPack,
+	"codex.generate": codex.Generate,
 	"codex.reveal":   codex.Reveal,
 	"codex.delete":   codex.Delete,
 	"codex.move":     codex.Move,

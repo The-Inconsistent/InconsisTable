@@ -9,6 +9,7 @@ import {
 } from "./enums.ts";
 import type { BuildParams } from "./build/params.ts";
 import { codexScope } from "./codex.ts";
+import { generatorExprProblems } from "./generators.ts";
 import type { ExprScope, ExprType } from "./expr/expr.ast.ts";
 import { compileExpr, type CompiledExpr } from "./expr/expr.ts";
 import {
@@ -991,6 +992,10 @@ class Compiler {
         this.expr({ source: x.if, scopes: [scope], expect: "bool", path: `codex.kinds.${kind}.reminders[${j}].if` });
       });
     }
+    // A generator's `when`, `filter` and `each.times` read the steps above them (house decision #98).
+    this.r.generators?.forEach((g, i) =>
+      this.problems.push(...generatorExprProblems({ r: this.r, g, path: `generators[${i}]` })),
+    );
     const immune: Record<string, CompiledExpr> = {};
     this.r.conditions.forEach((c, j) => {
       if (c.immune === undefined) return;

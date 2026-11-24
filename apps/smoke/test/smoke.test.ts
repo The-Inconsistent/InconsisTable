@@ -654,6 +654,44 @@ test("sessions: end without an award, delete the latest, the journal reaches the
   for (const c of [owner, ana]) c.socket.close();
 });
 
+test("whispers: one reaches only its reader, the reply only the GM, a new reply replaces it (house decision #93)", async () => {
+  const { owner, campaignId } = await newRoom("Whispers");
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-whi") } });
+  const ben = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ben-whi") } });
+  const held = (name: string) =>
+    owner.until((s) => s.access.members.some((m) => m.userId === uid(name) && m.characterIds.length === 1));
+  const anaChar = (await held("ana-whi")).access.members.find((m) => m.userId === uid("ana-whi"))!.characterIds[0]!;
+  const benChar = (await held("ben-whi")).access.members.find((m) => m.userId === uid("ben-whi"))!.characterIds[0]!;
+  await Promise.all([ana.until(() => true), ben.until(() => true)]);
+
+  refused(await ana.send({ type: "whisper.send", to: [anaChar], text: "to myself" }), "noPermission");
+  const id = ok(await owner.send({ type: "whisper.send", to: [anaChar], text: "The cellar door is unlocked." })).id!;
+  const seen = await ana.until((s) => s.whispers.length === 1);
+  assert.deepEqual(seen.whispers[0]!.readers, [{ actorId: anaChar, reply: null, repliedAt: null, readAt: null }]);
+  await ben.until((s) => s.stateVersion >= seen.stateVersion);
+  assert.deepEqual((await ben.until(() => true)).whispers, [], "another player's seat receives nothing");
+
+  refused(await ben.send({ type: "whisper.reply", whisperId: id, actorId: benChar, text: "me?" }), "whisperNotToThem");
+  refused(
+    await ben.send({ type: "whisper.reply", whisperId: id, actorId: anaChar, text: "as Ana" }),
+    "notYourCharacter",
+  );
+  ok(await ana.send({ type: "whisper.reply", whisperId: id, actorId: anaChar, text: "On my way" }));
+  ok(await ana.send({ type: "whisper.reply", whisperId: id, actorId: anaChar, text: "Actually, wait" }));
+  const gm = await owner.until((s) => s.whispers[0]?.readers[0]?.reply === "Actually, wait");
+  assert.ok(gm.whispers[0]!.readers[0]!.readAt !== null, "replying marks it read");
+  const benNow = await ben.until((s) => s.stateVersion >= gm.stateVersion);
+  assert.ok(!JSON.stringify(benNow).includes("Actually, wait"), "the reply reaches no other player");
+
+  ok(await owner.send({ type: "session.start" }));
+  await ana.until((s) => s.whispers.length === 0);
+  const again = ok(await owner.send({ type: "whisper.send", to: [anaChar, benChar], text: "Both" })).id!;
+  await ben.until((s) => s.whispers[0]?.id === again && s.whispers[0].readers.length === 1);
+  ok(await owner.send({ type: "whisper.delete", id: again }));
+  await ana.until((s) => s.whispers.length === 0);
+  for (const c of [owner, ana, ben]) c.socket.close();
+});
+
 test("the next session as a calendar file: any seat, 404 until a date is set, 3 hours", async () => {
   const { owner, campaignId, ownerDevice } = await newRoom("Calendar");
   const anaDevice = await seatPlayer(owner, "ana-ics");

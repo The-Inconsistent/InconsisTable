@@ -435,6 +435,35 @@
     "range": "{min} to {max}",
     "onePerLine": "one per line"
   },
+  "whisper": {
+    "open": "Whisper",
+    "openUnseen": "Whisper · {count}",
+    "openLabel": "Whisper to characters, {count, plural, =0 {no new replies} one {# new reply} other {# new replies}}",
+    "title": "Whisper",
+    "to": "Whisper to",
+    "all": "All",
+    "text": "One line to them",
+    "send": "Send",
+    "counter": "{used}/{max}",
+    "noCharacters": "No characters at the table yet.",
+    "thisSession": "This session",
+    "none": "No whispers this session.",
+    "toNames": "To {names}",
+    "takeBack": "Take back",
+    "takeBackLabel": "Take back the whisper to {names}",
+    "read": "Read",
+    "unread": "Not read",
+    "gone": "(gone)",
+    "sheetTitle": "A whisper from the GM",
+    "fromGm": "From the GM",
+    "forName": "To {name}",
+    "more": "{count, plural, one {# more after this} other {# more after this}}",
+    "reply": "Your reply",
+    "replyPlaceholder": "One line back to the GM",
+    "changeReply": "Change your reply",
+    "replied": "You replied: {reply}",
+    "notebook": "Whispers"
+  },
   "bottomSheet": {
     "close": "Close",
     "closeLabel": "Close {title}"
@@ -1435,7 +1464,12 @@
     "heldNoEntry": "This room's packs have no {entry}.",
     "heldAlready": "{name} already has {entry}: roll again on this table.",
     "heldFull": "{name} holds as many {kind} as they can.",
-    "heldNotHeld": "{name} doesn't hold that."
+    "heldNotHeld": "{name} doesn't hold that.",
+    "whispersNeedGm": "Without a GM there are no whispers.",
+    "whisperRecipient": "Whisper only to this room's characters.",
+    "whisperLimit": "{max} whispers already; delete some first.",
+    "whisperGone": "That whisper is gone.",
+    "whisperNotToThem": "That whisper isn't to that character."
   },
   "workspace": {
     "skip": "Skip to the page",

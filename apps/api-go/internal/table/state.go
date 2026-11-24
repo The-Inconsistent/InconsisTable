@@ -21,6 +21,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/testcall"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/whisper"
 )
 
 // Loaded is both snapshots, whole, with the ruleset they were built under: the input of a Seat view.
@@ -145,6 +146,9 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 		return nil, nil, nil, err
 	}
 	if state.Access, err = loadAccess(ctx, conn, campaignID); err != nil {
+		return nil, nil, nil, err
+	}
+	if state.Whispers, err = whisper.Load(ctx, conn, campaignID); err != nil {
 		return nil, nil, nil, err
 	}
 	// ponytail: every draft in the room is reloaded on each broadcast, load only connected users' drafts if it shows.

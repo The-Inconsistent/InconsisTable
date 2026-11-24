@@ -14,6 +14,7 @@ import type { Send } from "@/hooks/use-table/use-table";
 import type { LedgerBuild as LedgerBuildDoc } from "@/lib/ledger/ledger";
 import { catalogueOf, gmSideOf, playOf, roomTier, startingBuild } from "@/lib/ledger/table";
 
+import { LedgerOverrides } from "./components/ledger-overrides/ledger-overrides";
 import type { DraftNote } from "./constants";
 
 type LedgerBuildProps = {
@@ -61,6 +62,7 @@ export function LedgerBuild({ campaignId, ruleset, actor, me, send, campaign, st
             onRetry={() => setRead(readCatalogue(campaignId))}
           />
         </Suspense>
+        {gmSideOf({ me, kind: actor.kind }) && <LedgerOverrides ruleset={ruleset} actor={actor} send={send} />}
       </main>
     </>
   );

@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 
 import type { BookSource } from "@inconsistable/core-schema";
 import type { BreakdownLine } from "@inconsistable/rules-engine";
@@ -19,12 +20,24 @@ type BreakdownProps = {
   books: readonly BookSource[];
   requestPage: RequestPage;
   onClose: () => void;
+  /** What the GM side may do to the number: its override (house decision #96). */
+  children?: ReactNode;
 };
 
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 
 // "Why is Defense 5?": each source with what it adds or takes away and the page that says so (docs/design.md §4.4).
-export function Breakdown({ label, total, lines, cite, ruleset, books, requestPage, onClose }: BreakdownProps) {
+export function Breakdown({
+  label,
+  total,
+  lines,
+  cite,
+  ruleset,
+  books,
+  requestPage,
+  onClose,
+  children,
+}: BreakdownProps) {
   const t = useTranslations("breakdown");
   return (
     <BottomSheet title={`${label} ${total}`} onClose={onClose}>
@@ -33,7 +46,7 @@ export function Breakdown({ label, total, lines, cite, ruleset, books, requestPa
           {lines.map((l, i) => (
             <li key={`${l.source}-${i}`}>
               <span className="stack" style={{ gap: 2 }}>
-                <strong>{l.source}</strong>
+                <strong>{l.override ? t("override", { source: l.source }) : l.source}</strong>
                 {l.cite && <Cite cite={l.cite} {...{ ruleset, books, requestPage }} />}
               </span>
               <strong className="sheet-num">{i === 0 ? l.amount : signed(l.amount)}</strong>
@@ -44,6 +57,7 @@ export function Breakdown({ label, total, lines, cite, ruleset, books, requestPa
         <p className="dim">{t("hidden")}</p>
       )}
       {!lines && cite && <Cite {...{ cite, ruleset, books, requestPage }} />}
+      {children}
     </BottomSheet>
   );
 }

@@ -199,6 +199,11 @@ export function deriveValues({
     if (eff.when !== null && !evaluateBool({ expr: eff.when, scope })) continue;
     derived[eff.target] = applyMode({ mode: eff.mode, current, value: evaluateInt({ expr: eff.value, scope }) });
   }
+  // A GM's override replaces the worked-out value, effects and all (house decision #96).
+  for (const d of ce.derived) {
+    const set = d.override === null ? undefined : own(values.fields, d.override);
+    if (typeof set === "number") derived[d.id] = set;
+  }
   return derived;
 }
 

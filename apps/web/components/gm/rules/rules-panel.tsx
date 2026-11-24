@@ -7,6 +7,7 @@ import { canInCampaign, type ActionInput, type LiveState, type Me } from "@incon
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { CampaignSettings } from "@/components/gm/rules/campaign-settings/campaign-settings";
+import { RoomExport } from "@/components/gm/rules/room-export/room-export";
 import type { Send } from "@/hooks/use-table/use-table";
 import type { RulesTabData } from "@/lib/library/library";
 
@@ -237,6 +238,8 @@ export function RulesPanel({ me, send, data, state, ruleset }: RulesPanelProps) 
           <p className="small">{t.rich("libraryNote", { link: (chunks) => <a href="/library">{chunks}</a> })}</p>
         )}
       </section>
+
+      <RoomExport me={me} />
     </div>
   );
 }

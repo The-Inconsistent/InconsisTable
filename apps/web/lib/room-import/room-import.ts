@@ -14,10 +14,21 @@ export function readRoomImport({ status, body }: { status: number; body: unknown
 
 /**
  * IMPORT A ROOM: sends the file as it is, so the page never parses a large document itself; the api reads it whole.
- * A dry run applies it and rolls it back.
+ * A dry run applies it and rolls it back. A fresh start imports it as a new group would start it (house decision #103).
  */
-export async function importRoom({ file, dryRun }: { file: Blob; dryRun: boolean }): Promise<RoomImport> {
-  const res = await fetch(`/api/campaigns/import${dryRun ? "?dryRun=1" : ""}`, {
+export async function importRoom({
+  file,
+  dryRun,
+  fresh = false,
+}: {
+  file: Blob;
+  dryRun: boolean;
+  fresh?: boolean;
+}): Promise<RoomImport> {
+  const query = new URLSearchParams();
+  if (dryRun) query.set("dryRun", "1");
+  if (fresh) query.set("fresh", "1");
+  const res = await fetch(`/api/campaigns/import${query.size ? `?${query}` : ""}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: file,

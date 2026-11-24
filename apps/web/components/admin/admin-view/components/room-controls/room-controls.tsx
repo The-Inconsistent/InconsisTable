@@ -73,6 +73,30 @@ export function RoomControls({ campaign: c, users, onChanged }: RoomControlsProp
     if (confirming === "abandon") void act({ type: "session.abandon" }, t("abandoned", { number }));
     else void act({ type: "session.delete", sessionId: session.id }, t("sessionDeleted", { number }));
   };
+  // EXPORT: the room's document (house decision #103). The key goes in a header, so the file is fetched here and handed to
+  // the browser as a download under the name the api gives it.
+  const handleExport = async (pictures: boolean) => {
+    setBusy(true);
+    try {
+      const res = await adminFetch(`/api/admin/campaigns/${c.id}/export${pictures ? "" : "?pictures=0"}`);
+      if (!res?.ok) {
+        const body = (await res?.json().catch(() => null)) as { code?: string; message?: string } | null;
+        setLine({ ok: false, text: body ? refusal({ code: body.code, message: body.message ?? "" }) : t("failed") });
+      } else {
+        const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "room.room.json";
+        const url = URL.createObjectURL(await res.blob());
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = name;
+        link.click();
+        URL.revokeObjectURL(url);
+        setLine({ ok: true, text: t("exported", { name }) });
+      }
+    } catch {
+      setLine({ ok: false, text: t("failed") });
+    }
+    setBusy(false);
+  };
   // EVENT LOG: this room's rows of the admin log.
   const handleEvents = async () => {
     try {
@@ -149,6 +173,14 @@ export function RoomControls({ campaign: c, users, onChanged }: RoomControlsProp
         )}
         <button className="btn sm" onClick={handleEvents}>
           {t("eventLog")}
+        </button>
+      </div>
+      <div className="row" style={{ flexWrap: "wrap" }}>
+        <button className="btn sm" disabled={busy} onClick={() => void handleExport(true)}>
+          {t("export")}
+        </button>
+        <button className="btn sm" disabled={busy} onClick={() => void handleExport(false)}>
+          {t("exportWithoutPictures")}
         </button>
       </div>
       {c.archived && (

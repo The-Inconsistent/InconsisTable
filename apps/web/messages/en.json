@@ -173,6 +173,9 @@
       "cancel": "Cancel",
       "archive": "Archive",
       "archived": "Archived: the room is read-only.",
+      "export": "Export",
+      "exportWithoutPictures": "Export without pictures",
+      "exported": "Exported as {name}.",
       "unarchive": "Unarchive",
       "unarchived": "Unarchived.",
       "typeName": "Type {name} to delete this room and everything in it",
@@ -266,10 +269,31 @@
     "creating": "Creating…",
     "importRoom": "Import a room"
   },
+  "importAdventure": {
+    "open": "Import adventure",
+    "tooLarge": "That file is over 100 MB. Export it again without pictures.",
+    "notADocument": "That file is not a room document.",
+    "noAdventures": "That room document has no adventures.",
+    "from": "From {name}",
+    "pick": "Adventures to bring",
+    "scenes": "{count, plural, one {# scene} other {# scenes}}",
+    "comesAsPrep": "Comes in as prep: scenes planned, every entry sealed. An entry this room already has by kind and name is used as it is, not made again.",
+    "willMake": "{count, plural, one {Makes # entry:} other {Makes # entries:}}",
+    "willLink": "{count, plural, one {Uses # this room has:} other {Uses # this room has:}}",
+    "pictures": "{count, plural, one {Uploads # picture.} other {Uploads # pictures.}}",
+    "dropped": "{count, plural, one {# line or link names something not brought and is left out.} other {# lines or links name something not brought and are left out.}}",
+    "import": "{count, plural, =0 {Import adventures} one {Import # adventure} other {Import # adventures}}",
+    "cancel": "Cancel",
+    "progress": "Sending {done} of {total}…",
+    "finished": "Imported: {total} steps sent.",
+    "stopped": "Stopped after {done} of {total}: {why} What was made stays as ordinary prep.",
+    "pictureFailed": "A picture did not upload."
+  },
   "importRoom": {
     "title": "Import a room",
     "lede": "A room document becomes a new room you own and run as GM. Players join it by invite, as in any room.",
     "file": "Room document (.json)",
+    "fresh": "Fresh start: no sessions, nothing revealed, harm and spent pools back to their start, no next session or limits. For a new group.",
     "checking": "Reading the document…",
     "noRuleset": "No ruleset, pack or World.",
     "what": {
@@ -1053,6 +1077,12 @@
       "openLabel": "Open the builder for {name}"
     }
   },
+  "roomExport": {
+    "title": "Export",
+    "lede": "This room as a room document: a backup, or a copy to import as a new room (fresh for a new group). It names the ruleset, packs and World it expects; whoever imports it needs their own.",
+    "export": "Export",
+    "withoutPictures": "Export without pictures"
+  },
   "rulesPanel": {
     "readFailed": "Couldn't read the rules. Check the connection and reload.",
     "ruleset": "Ruleset",
@@ -1518,6 +1548,8 @@
     "generatePick": "{step}: that entry is not one this step picks.",
     "generateValue": "{step}: that value is out of bounds.",
     "generateCount": "This run makes {count} entries inside it.",
+    "roomExportOwnerOnly": "Only the room's owner, running it, exports it.",
+    "roomExportTooLarge": "With its pictures this room is over 100 MB, more than an import takes. Export it without pictures.",
     "clockNotFound": "Clock not found",
     "clockLimit": "This room has as many clocks as it can hold.",
     "pictureType": "Send a WebP or JPEG picture",

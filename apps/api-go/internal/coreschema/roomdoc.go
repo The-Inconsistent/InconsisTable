@@ -78,6 +78,7 @@ var (
 		schema.Opt("build", LedgerBuildText),
 		schema.Opt("conditions", schema.Array(roomKey).Max(roomMaxActorConditions)),
 		schema.Opt("items", schema.Array(roomItem).Max(roomMaxActorItems)),
+		schema.Opt("spawnOptions", spawnOptionIDs),
 	).Strict(), func(v any) bool {
 		a, _ := v.(map[string]any)
 		_, built := a["build"]
@@ -113,6 +114,7 @@ var (
 		schema.Opt("title", sessionTitle),
 		schema.Opt("recap", recap),
 		schema.Opt("notes", schema.String().Max(10_000)),
+		schema.Opt("abandoned", schema.Bool()),
 	).Strict()
 
 	roomClock = schema.RefinedSoft(schema.Object(

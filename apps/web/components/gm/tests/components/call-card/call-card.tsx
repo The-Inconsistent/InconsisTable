@@ -1,8 +1,8 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 
-import type { TestCall, TestDef, TestTargetState } from "@inconsistable/core-schema";
+import type { OfferState, TestCall, TestDef, TestTargetState } from "@inconsistable/core-schema";
 import type { AdvantageMode } from "@inconsistable/rules-engine";
 
 import { OutcomePad } from "@/components/ui/outcome-pad/outcome-pad";
@@ -25,13 +25,32 @@ type CallCardProps = {
 // One called Test on the GM's tablet: who was called, what they rolled, and the buttons to report for someone or close.
 export function CallCard({ call, def, names, send }: CallCardProps) {
   const t = useTranslations("callCard");
+  const format = useFormatter();
   const [reporting, setReporting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const open = call.status === "open";
   const words = testWords(def ?? { id: call.testId });
+  // A mark (house decision #80) reads as its word when it is on, and not at all when it is off.
+  const marks = new Map((def?.marks ?? []).map((m) => [m.id, m.label]));
   const inputs = Object.entries(call.inputs)
-    .map(([k, v]) => `${words.input(k)} ${words.value(k, v)}`)
+    .flatMap(([k, v]) => {
+      const mark = marks.get(k);
+      if (mark === undefined) return [`${words.input(k)} ${words.value(k, v)}`];
+      return v === true ? [mark] : [];
+    })
     .join(", ");
+
+  // What an offer changes, in the ruleset's words: "+1 Menace, +6 Spare".
+  const changesText = (o: OfferState): string =>
+    o.changes
+      .map((c) => t("offerChange", { by: format.number(c.by, { signDisplay: "always" }), label: c.label }))
+      .join(", ");
+
+  // An offer of a taker's result: applied once through the ordinary writes; the server refuses a second tap.
+  const handleOffer = (actorId: string, offerId: string) => async () => {
+    const r = await send({ type: "test.applyOffer", callId: call.id, actorId, offerId });
+    setError(r.ok ? null : r.error);
+  };
 
   // A reported roll in one line, GM side: the die, the modifier, the total and the outcome the server resolved.
   const resultText = (target: TestTargetState): string => {
@@ -139,6 +158,35 @@ export function CallCard({ call, def, names, send }: CallCardProps) {
               >
                 {target.report ? t("change") : t("report")}
               </button>
+            )}
+            {target.offers && target.offers.length > 0 && (
+              <div
+                className="row"
+                style={{ flexBasis: "100%" }}
+                role="group"
+                aria-label={t("offers", { name: names.get(target.actorId) ?? t("aCharacter") })}
+              >
+                {target.offers.map((o) => (
+                  <button
+                    key={o.id}
+                    className="btn sm"
+                    disabled={o.applied}
+                    aria-label={
+                      o.applied
+                        ? t("offerDone", { offer: o.label })
+                        : t("offerApply", {
+                            offer: o.label,
+                            name: names.get(target.actorId) ?? t("aCharacter"),
+                            changes: changesText(o),
+                          })
+                    }
+                    onClick={handleOffer(target.actorId, o.id)}
+                  >
+                    {o.label} · {changesText(o)}
+                    {o.applied && <span className="chip">{t("applied")}</span>}
+                  </button>
+                ))}
+              </div>
             )}
             {open && reporting === target.actorId && (
               <div style={{ flexBasis: "100%" }}>

@@ -1148,6 +1148,11 @@ function compiledView(c: CompiledRuleset) {
       start: exprView(r.start),
     })),
     tests: mapValues(c.tests, (t) => ({
+      offers: t.offers.map((o) => ({
+        id: o.def.id,
+        when: exprView(o.when),
+        changes: o.changes.map((x) => ({ pool: x.pool, resource: x.resource, by: exprView(x.by) })),
+      })),
       modifier: exprView(t.modifier),
       target: exprView(t.target),
       pool: exprView(t.pool),
@@ -2076,7 +2081,76 @@ const CRAFTED: object[] = [
   ...harmCrafted(),
   ...codexCrafted(),
   ...noticesCrafted(),
+  ...offersCrafted(),
 ];
+
+// A Test's marks and offers (house decision #80): one manifest per check.
+function offersCrafted(): object[] {
+  const pools = [
+    { id: "hp", label: "H", scope: "entity", max: "10" },
+    { id: "dread", label: "D", scope: "party", max: "5" },
+  ];
+  const offer = (over: object = {}) => ({
+    id: "o",
+    label: "Shaken",
+    when: "!result.passed && ctx.fear",
+    changes: [{ pool: "dread", by: "1" }],
+    ...over,
+  });
+  const test = (over: object = {}, base: object = poolTest) => ({
+    resources: pools,
+    tests: { t: { ...base, marks: { fear: { label: "Fear" } }, offers: [offer()], ...over } },
+  });
+  const gain = "max(0, result.target - result.total) * (result.flags.complication ? 2 : 1) + attr.str";
+  return [
+    test(),
+    test({ offers: [offer(), offer({ id: "g", when: "result.margin < 0", changes: [{ resource: "hp", by: gain }] })] }),
+    test({}, sumTest),
+    test(
+      { offers: [offer({ when: 'result.outcome == "a" && result.natural > 1 && result.shifts == 0' })] },
+      reportedTest(["a", "b"]),
+    ),
+    test({ marks: {} }),
+    test({ marks: { fear: { label: "" } } }),
+    test({ marks: Object.fromEntries(Array.from({ length: 11 }, (_, i) => [`m${i}`, { label: "M" }])) }),
+    test({ inputs: { fear: "bool" } }),
+    test({ offers: [offer(), offer()] }),
+    test({ offers: Array.from({ length: 11 }, (_, i) => offer({ id: `o${i}` })) }),
+    test({ offers: [offer({ changes: [] })] }),
+    test({ offers: [offer({ changes: [{ by: "1" }] })] }),
+    test({ offers: [offer({ changes: [{ pool: "dread", resource: "hp", by: "1" }] })] }),
+    test({ offers: [offer({ changes: [{ pool: "nope", by: "1" }] })] }),
+    test({ offers: [offer({ changes: [{ pool: "hp", by: "1" }] })] }),
+    test({ offers: [offer({ changes: [{ resource: "dread", by: "1" }] })] }),
+    test({ offers: [offer({ changes: [{ resource: "nope", by: "1" }] })] }),
+    test({ offers: [offer({ when: "1" })] }),
+    test({ offers: [offer({ when: "attr.str > 1" })] }),
+    test({ offers: [offer({ when: "result.nope" })] }),
+    test({ offers: [offer({ changes: [{ pool: "dread", by: "result.passed" }] })] }),
+    test({ offers: [offer({ label: "x".repeat(61) })] }),
+    {
+      ...test(),
+      entities: [pcBase, { ...pcBase, id: "npc" }],
+      resources: [...pools, { id: "grit", label: "G", scope: "entity", entities: ["pc"], max: "3" }],
+      tests: { t: { ...poolTest, offers: [offer({ when: "true", changes: [{ resource: "grit", by: "1" }] })] } },
+    },
+    withFields({ "result.x": fieldInt }),
+    { ...withFields({ "result.x": fieldInt }), ...test() },
+    {
+      sources: [{ id: "s", title: "T", license: "srd" }],
+      resources: pools.map((x) => ({ ...x, cite: "p1" })),
+      initiative: undefined,
+      tests: {
+        t: {
+          ...poolTest,
+          cite: "p1",
+          marks: { fear: { label: "F" } },
+          offers: [offer(), offer({ id: "c", cite: "p2" })],
+        },
+      },
+    },
+  ];
+}
 
 // The notices block (house decision #79): one manifest per check.
 function noticesCrafted(): object[] {

@@ -19,6 +19,7 @@ import {
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { takers } from "@/components/gm/tests/components/call-form/takers";
+import { MarkSwitches } from "@/components/gm/tests/components/mark-switches/mark-switches";
 import { canMob } from "@/lib/harm/harm";
 import type { Spawnable } from "@/lib/scene-prep/scene-prep";
 import { testWords } from "@/lib/test-inputs/test-inputs";
@@ -268,6 +269,12 @@ function TestFields({ d, set, state }: FieldsProps & { state: LineFormProps["sta
     set({ inputs: v === undefined ? rest : { ...rest, [id]: v } });
   };
 
+  // A mark of the Test (house decision #80): kept only while it is on.
+  const handleMark = (id: string, on: boolean) => {
+    const { [id]: _old, ...rest } = inputs;
+    set({ inputs: on ? { ...rest, [id]: true } : rest });
+  };
+
   // WHO: one character in or out of the listed takers.
   const handleWho = (id: string) =>
     set({ actorIds: actorIds.includes(id) ? actorIds.filter((x) => x !== id) : [...actorIds, id] });
@@ -294,6 +301,14 @@ function TestFields({ d, set, state }: FieldsProps & { state: LineFormProps["sta
           ))}
         </select>
       </label>
+      {def && (
+        <MarkSwitches
+          marks={def.marks ?? []}
+          on={(id) => inputs[id] === true}
+          onChange={handleMark}
+          idPrefix="line-mark"
+        />
+      )}
       {def && def.inputs.length > 0 && (
         <div className="row" style={{ alignItems: "end" }}>
           {def.inputs.map((input) =>

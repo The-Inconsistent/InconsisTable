@@ -257,9 +257,10 @@ var handlers = map[string]handler{
 	"turn.first":              encounter.Action,
 	"phase.done":              encounter.Action,
 	// test-call/test-call.actions.ts
-	"test.call":   testcall.Action,
-	"test.report": testcall.Action,
-	"test.close":  testcall.Action,
+	"test.call":       testcall.Action,
+	"test.report":     testcall.Action,
+	"test.close":      testcall.Action,
+	"test.applyOffer": testcall.Action,
 	// game/game.actions.ts
 	"game.end":   game.End,
 	"result.set": game.SetResult,

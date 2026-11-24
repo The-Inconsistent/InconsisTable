@@ -265,6 +265,38 @@ const testWords = {
   inputOptionLabels: z.record(Id, z.record(z.string().min(1).max(60), z.string().min(1).max(60))).optional(),
 };
 
+export const MAX_OFFERS = 10;
+export const MAX_MARKS = 10;
+
+/** One write an offer makes: to a shared pool, or to a resource of the taker, by an integer expression. */
+export const OfferChange = z.object({ pool: Id.optional(), resource: Id.optional(), by: ExprSource });
+export type OfferChange = z.infer<typeof OfferChange>;
+
+/**
+ * What a called Test's result offers the GM (house decision #80): when `when` holds for a taker's resolved report (read
+ * as `result.*` and the call's `ctx.*`), one tap applies `changes` through the ordinary writes, once.
+ */
+export const TestOffer = z.object({
+  id: Id,
+  label: z.string().min(1).max(60),
+  when: ExprSource,
+  changes: z.array(OfferChange).min(1).max(5),
+  cite: Cite.optional(),
+});
+export type TestOffer = z.infer<typeof TestOffer>;
+
+/**
+ * A Test's marks and offers (house decision #80): a mark is a yes-or-no the GM sets when calling, read as `ctx.<id>`
+ * like an input and never filled in by a taker; false when the call leaves it out.
+ */
+const testOutcomes = {
+  marks: z
+    .record(Id, z.object({ label: z.string().min(1).max(60), cite: Cite.optional() }))
+    .refine((o) => Object.keys(o).length <= MAX_MARKS, `at most ${MAX_MARKS} marks`)
+    .optional(),
+  offers: z.array(TestOffer).max(MAX_OFFERS).optional(),
+};
+
 // What every kind of Test declares: the number it is compared with, how a tie goes, and what the GM fills in to call it.
 const testBase = {
   target: ExprSource,
@@ -276,6 +308,7 @@ const testBase = {
   entities: ActorTypes,
   cite: Cite.optional(),
   ...testWords,
+  ...testOutcomes,
 };
 
 /**
@@ -357,6 +390,7 @@ export const ReportedTest = z.object({
   entities: ActorTypes,
   cite: Cite.optional(),
   ...testWords,
+  ...testOutcomes,
 });
 export type ReportedTest = z.infer<typeof ReportedTest>;
 
@@ -1142,6 +1176,62 @@ function enumWordProblems({
 }
 
 /** A Test's words name only its own inputs, and an input's option words only that input's declared options. */
+/** A Test's marks and offers (house decision #80): a mark is not also an input; each change names what it writes. */
+function testOutcomeProblems({
+  r,
+  id,
+  t,
+  needCite,
+  out,
+}: {
+  r: Ruleset;
+  id: string;
+  t: DiceMechanic;
+  needCite: (cite: string | undefined, path: string) => void;
+  out: Problem[];
+}): void {
+  const path = `tests.${id}`;
+  for (const key of Object.keys(t.marks ?? {})) {
+    if (Object.hasOwn(t.inputs, key)) out.push({ path: `${path}.marks.${key}`, message: `"${key}" is also an input` });
+  }
+  const offers = t.offers ?? [];
+  duplicates({ ids: offers.map((o) => o.id), path: `${path}.offers`, out });
+  const takers = r.entities.filter(
+    (e) => e.base === "actor" && (t.entities === undefined || t.entities.includes(e.id)),
+  );
+  // An offer reads the result as `result`, so a taker's field cannot be called that.
+  if (offers.length > 0) {
+    for (const e of takers) {
+      if (Object.keys(e.fields).some((f) => f.split(".")[0] === "result"))
+        out.push({ path: `${path}.offers`, message: `"result" is a field of "${e.id}"` });
+    }
+  }
+  offers.forEach((o, i) => {
+    needCite(o.cite, `${path}.offers[${i}]`);
+    o.changes.forEach((c, j) => {
+      const at = `${path}.offers[${i}].changes[${j}]`;
+      if ((c.pool === undefined) === (c.resource === undefined)) {
+        out.push({ path: at, message: "a change names one pool or one resource" });
+        return;
+      }
+      const named = c.pool ?? c.resource ?? "";
+      const res = r.resources.find((x) => x.id === named);
+      const key = c.pool === undefined ? "resource" : "pool";
+      if (res === undefined) out.push({ path: `${at}.${key}`, message: `unknown resource "${named}"` });
+      else if (c.pool !== undefined && res.scope === "entity")
+        out.push({ path: `${at}.pool`, message: `"${named}" is not a shared pool` });
+      else if (c.resource !== undefined && res.scope !== "entity")
+        out.push({ path: `${at}.resource`, message: `"${named}" must be an entity-scoped resource` });
+      else if (c.resource !== undefined) {
+        for (const e of takers) {
+          if (res.entities !== undefined && !res.entities.includes(e.id))
+            out.push({ path: `${at}.resource`, message: `"${e.id}" does not carry "${named}"` });
+        }
+      }
+    });
+  });
+}
+
 function testWordProblems({ t, path, out }: { t: DiceMechanic; path: string; out: Problem[] }): void {
   for (const key of Object.keys(t.inputLabels ?? {}).sort()) {
     if (t.inputs[key] === undefined)
@@ -1431,6 +1521,7 @@ function semanticProblems(r: Ruleset): Problem[] {
         out.push({ path: `tests.${id}.inputOptions.${key}`, message: "options are only for text inputs" });
     }
     testWordProblems({ t, path: `tests.${id}`, out });
+    testOutcomeProblems({ r, id, t, needCite, out });
     if (t.kind === "poolSuccesses") {
       poolProblems({ t, path: `tests.${id}`, out });
       continue;

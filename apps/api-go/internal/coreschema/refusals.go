@@ -312,4 +312,8 @@ var refusals = map[string]string{
 	"roomNoSuchPicture":         "No such picture in this document.",
 	"roomPictureEncoding":       "This picture is not base64.",
 	"roomValueClamped":          "The room would hold {now} here, not {value}.",
+	// An entry made from a pack entry (house decision #97).
+	"fromPackNotFor":  "This kind of entry is not made from that type.",
+	"fromPackNoEntry": "That pack entry is not served to this room.",
+	"fromPackTooMany": "That entry holds more than {limit} entries: add the ones inside it one by one.",
 }

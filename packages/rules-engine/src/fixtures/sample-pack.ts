@@ -75,3 +75,47 @@ export const SAMPLE_PACK_EFFECTS: PackInput = {
     },
   ],
 };
+
+/**
+ * Entries sample-d20 0.1.9 makes codex entries from (house decision #97): a place three deep, a GM-only scene that
+ * brings two checks and two of the bestiary's foes, and a charter written for two seasons. Invented like the rest.
+ */
+export const SAMPLE_ATLAS: PackInput = {
+  ...SAMPLE_PACK,
+  id: "sample-atlas",
+  entries: [
+    { key: "old-mill", type: "site", name: "Old Mill", cite: "Sample p.60", visibility: "party", body: { peril: 2 } },
+    {
+      key: "mill-cellar",
+      type: "site",
+      name: "Mill Cellar",
+      cite: "Sample p.61",
+      visibility: "party",
+      body: { within: "old-mill", peril: 4 },
+    },
+    {
+      key: "cellar-well",
+      type: "site",
+      name: "Cellar Well",
+      cite: "Sample p.61",
+      visibility: "party",
+      body: { within: "mill-cellar" },
+    },
+    {
+      key: "bridge-toll",
+      type: "incident",
+      name: "Bridge Toll",
+      cite: "Sample p.70",
+      visibility: "gm",
+      body: { checks: ["check", "gambit"], dc: 12, foes: ["ember-wisp", "ember-wisp"] },
+    },
+    {
+      key: "lantern-charter",
+      type: "charter",
+      name: "Lantern Charter",
+      cite: "Sample p.80",
+      visibility: "public",
+      body: { seasonFrom: 2, seasonTo: 3 },
+    },
+  ],
+};

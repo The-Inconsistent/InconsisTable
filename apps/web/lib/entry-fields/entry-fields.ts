@@ -1,4 +1,4 @@
-import type { CodexEntry, CodexKind, TestInputs } from "@inconsistable/core-schema";
+import { CodexKind, type CodexEntry, type TestInputs } from "@inconsistable/core-schema";
 import {
   checkFieldValue,
   codexReminders,
@@ -274,9 +274,46 @@ export const pickableFields = ({ ruleset, kind }: { ruleset: Ruleset | null; kin
   declaredFields({ ruleset, kind }).flatMap(({ id, def }) => (def.type === "rows" && def.pick ? [{ id, def }] : []));
 
 /** The reminders an entry's values raise (house decision #89), as the ruleset words them. */
-export const entryReminders = ({ ruleset, entry }: { ruleset: Ruleset | null; entry: CodexEntry }) =>
-  codexReminders({ kind: ruleset?.codex?.kinds[entry.kind], fields: entry.fields });
+// `campaign` is the campaign fields in play, which a reminder may read (house decision #97).
+export const entryReminders = ({
+  ruleset,
+  entry,
+  campaign,
+}: {
+  ruleset: Ruleset | null;
+  entry: CodexEntry;
+  campaign?: Readonly<Record<string, string | number | boolean>>;
+}) =>
+  codexReminders({
+    kind: ruleset?.codex?.kinds[entry.kind],
+    fields: entry.fields,
+    campaignFields: ruleset?.campaignFields,
+    campaign,
+  });
 
 /** The seat-scoped rules route narrowed to one entry, which a ref field names by its type and key. */
 export const entryUrl = ({ campaignId, type, key }: { campaignId: string; type: string; key: string }) =>
   `/api/campaigns/${encodeURIComponent(campaignId)}/rules?${new URLSearchParams({ type, key, limit: "1" })}`;
+
+/** The kinds a ruleset makes from pack entries, with the types each is made from (house decision #97). */
+export const fromKinds = (ruleset: Ruleset | null): { kind: CodexKind; entities: string[] }[] =>
+  CodexKind.options.flatMap((kind) => {
+    const from = ruleset?.codex?.kinds[kind]?.from;
+    return from ? [{ kind, entities: from.map((f) => f.entity) }] : [];
+  });
+
+/** The words rolled lines fill a field with: each table's line label, in the declared order, joined as declared. */
+export function rolledText({
+  ruleset,
+  rolled,
+  join,
+}: {
+  ruleset: Ruleset | null;
+  rolled: readonly { tableId: string; entryId: string }[];
+  join?: string;
+}): string {
+  return rolled
+    .map(({ tableId, entryId }) => ruleset?.tables?.[tableId]?.entries.find((e) => e.id === entryId)?.label ?? "")
+    .filter((label) => label !== "")
+    .join(join ?? " ");
+}

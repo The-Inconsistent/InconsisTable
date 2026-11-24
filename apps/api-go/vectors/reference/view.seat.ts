@@ -94,7 +94,11 @@ function seatCodexDefinitions({ ruleset, secrets }: { ruleset: Ruleset; secrets:
       fields: Object.fromEntries(Object.entries(k.fields).filter(([, f]) => f.visibility === "party")),
       ...(k.reminders === undefined
         ? {}
-        : { reminders: k.reminders.filter((reminder) => partyReadsReminder({ kind: k, reminder })) }),
+        : {
+            reminders: k.reminders.filter((reminder) =>
+              partyReadsReminder({ kind: k, reminder, campaign: ruleset.campaignFields }),
+            ),
+          }),
     },
   ]);
   return { ...ruleset, codex: { kinds: Object.fromEntries(kinds) } };
@@ -504,6 +508,8 @@ function seatCodex({ codex, ctx, sight }: { codex: Codex; ctx: Ctx; sight: Sight
       ...(sight.secrets || sight.codex ? {} : shownPicture(e)),
       // A scene's prepared lines and where it stands: the codex and secrets sides only (house decision #73).
       prep: sight.secrets || sight.codex ? e.prep : null,
+      // The pack entry it was made from: the codex and secrets sides only (house decision #97).
+      source: sight.secrets || sight.codex ? e.source : null,
       status: sight.secrets || sight.codex || e.kind !== "scene" ? e.status : null,
     })),
   };

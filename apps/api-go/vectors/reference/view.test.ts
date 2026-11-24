@@ -241,6 +241,7 @@ const entry = (id: string, over: Partial<CodexEntry> = {}): CodexEntry => ({
   layout: (over.kind ?? "handout") === "handout" ? "plain" : null,
   header: (over.kind ?? "handout") === "handout" ? "" : null,
   prep: null,
+  source: null,
   ...over,
 });
 const codex: Codex = {
@@ -501,7 +502,7 @@ test("a gm entry field reaches only the side that reads GM notes; the player and
   assert.deepEqual(defs(ctx(member("player"), "u-x"), "npc"), ["disposition", "home", "mood"]);
   assert.deepEqual(defs(ctx({ kind: "token", role: "screen", characterIds: [] }, null), "faction"), []);
   assert.deepEqual(defs(ctx(member("cogm", ["combat"]), "u-co"), "npc"), ["disposition", "home", "mood"]);
-  assert.deepEqual(defs(ctx(member("gm"), "u-gm"), "npc"), ["disposition", "home", "mood", "patron"]);
+  assert.deepEqual(defs(ctx(member("gm"), "u-gm"), "npc"), ["disposition", "home", "look", "mood", "patron"]);
 });
 
 // House decision #89: tags and rows follow their field's visibility, and a reminder goes where every field it reads goes.

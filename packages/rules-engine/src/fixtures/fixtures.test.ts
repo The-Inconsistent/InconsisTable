@@ -3,7 +3,13 @@ import { test } from "node:test";
 
 import { compileRuleset } from "../compile.ts";
 import { canonicalJson, sha256Hex } from "../pack-hash.ts";
-import { CODEX_0_1_7, NOTICE_RESOURCES, SAMPLE_D20, SAMPLE_D20_BEFORE_WIDGETS } from "./sample-d20.ts";
+import {
+  CODEX_0_1_7,
+  NOTICE_RESOURCES,
+  SAMPLE_D20,
+  SAMPLE_D20_0_1_8,
+  SAMPLE_D20_BEFORE_WIDGETS,
+} from "./sample-d20.ts";
 import { SAMPLE_DUEL } from "./sample-duel.ts";
 import {
   SAMPLE_HARM,
@@ -27,7 +33,7 @@ import {
 const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9cb58c5d";
 const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf";
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.8": "d8016ed3e9769e73b8493a54d050377ab60869ccbddf67c18204bf47a2ab32a5",
+  "sample-d20@0.1.9": "78ddf8b683a8baaeac8047da45e459b204fb3fa167d6c96113d73ebb2a8f3c96",
   "sample-skirmish@0.1.6": "3bd2616956f07492f61b671bc86f2cfceaf9fa5336ce29ffac37ff8c27da8b6d",
   "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.1": "e166afc269320775b0d1e455a2e7a5b10ca9b9c4f0d96f9fa473addb65b93f08",
@@ -179,7 +185,7 @@ test("a codex block without tags, rows or reminders hashes as it did before they
     assert.ok(result.ok);
     return sha256Hex(canonicalJson(result.compiled.ruleset));
   };
-  assert.equal(hash({ ...SAMPLE_D20, version: "0.1.7", codex: CODEX_0_1_7 }), PINNED_0_1_7);
+  assert.equal(hash({ ...SAMPLE_D20_0_1_8, version: "0.1.7", codex: CODEX_0_1_7 }), PINNED_0_1_7);
   assert.equal(
     hash({ ...SAMPLE_SKIRMISH_BEFORE_CHECKLIST, version: "0.1.2", codex: CODEX_0_1_7 }),
     "bf150933537f5ec88178be2b24a4b2fdd1db2fe8e32d0f744d0cbc169295a41d",
@@ -228,5 +234,14 @@ test("a ruleset without spawn options, adjustments or a budget hashes as it did 
   assert.equal(
     sha256Hex(canonicalJson(result.compiled.ruleset)),
     "9cd49772844ad39f62972811e3e371c92a864a41766f0a559b1ce58e7ebccaa5",
+  );
+});
+
+test("a ruleset without entries from packs or rolled fields hashes as it did before them (house decision #97)", () => {
+  const result = compileRuleset(SAMPLE_D20_0_1_8);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "d8016ed3e9769e73b8493a54d050377ab60869ccbddf67c18204bf47a2ab32a5",
   );
 });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { SAMPLE_D20 } from "./fixtures/sample-d20.ts";
+import { SAMPLE_D20_0_1_8 as SAMPLE_D20 } from "./fixtures/sample-d20.ts";
 import { SAMPLE_HARVEST } from "./fixtures/sample-harvest.ts";
 import { tableDie, validateRuleset, type RulesetInput } from "./manifest.ts";
 import type { Problem } from "./problem.ts";

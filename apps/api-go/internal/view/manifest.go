@@ -17,6 +17,11 @@ import (
 func SeatManifest(manifest map[string]any, c cs.Ctx) map[string]any {
 	sight := SightOf(c)
 	out := seatCodexDefs(seatDefinitions(manifest, sight, c), sight.Secrets)
+	// The setup checklist is the GM's (house decision #90): only the side that reads GM notes is sent it.
+	if _, has := out["checklist"]; has && !sight.Secrets {
+		out = maps.Clone(out)
+		delete(out, "checklist")
+	}
 	if tables, has := manifest["tables"].(map[string]any); has && !sight.Tables {
 		out = maps.Clone(out)
 		out["tables"] = seatTableDefs(tables)

@@ -24,6 +24,7 @@ import {
   Visibility,
 } from "./enums.ts";
 import { MAX_EXPR_LENGTH } from "./expr/expr.ast.ts";
+import { checkFieldValue } from "./field-value.ts";
 import { own } from "./own.ts";
 import { formatPath, type Problem } from "./problem.ts";
 import { LAYOUT_TARGETS, MAX_PIP_STEPS, MAX_PIPS_PER_STEP, type WidgetSpec, widgetSpec } from "./widgets.ts";
@@ -1059,6 +1060,53 @@ export const NoticeRule = z.object({
 });
 export type NoticeRule = z.infer<typeof NoticeRule>;
 
+export const MAX_CHECKLIST_STEPS = 30;
+/** The kinds of prepared line a checklist step may ask a scene to hold (core-schema PREP_KINDS, which it can't import). */
+export const CHECKLIST_PREP_KINDS = ["roster", "tests", "pools", "exits", "reveals", "picks"] as const;
+/** The places of the GM's app a checklist step's GO TO may open (house decision #90): a tab, the codex at a kind. */
+export const CHECKLIST_TABS = ["track", "prep", "codex", "party", "tests", "map", "rules"] as const;
+
+const atLeast = { min: z.int().min(1).max(100).optional() };
+
+/**
+ * What a checklist step counts (house decision #90), from a closed list of things the platform holds for any game:
+ * entries of a codex kind (with a field set or equal to a value, or a scene with prepared lines of a kind), actors of a
+ * type (with a saved build), a campaign field set, a pool (at a value), sessions started, packs attached (by slug),
+ * safety lines set. `min`: how many are enough (one when it does not say; for a pool, that it exists).
+ */
+export const ChecklistCount = z.discriminatedUnion("count", [
+  z.object({
+    count: z.literal("entries"),
+    kind: CodexEntryKind,
+    field: Id.optional(),
+    equals: z.union([z.string().min(1).max(120), z.int(), z.boolean()]).optional(),
+    prep: z.enum(CHECKLIST_PREP_KINDS).optional(),
+    ...atLeast,
+  }),
+  z.object({ count: z.literal("actors"), entity: Id, built: z.boolean().optional(), ...atLeast }),
+  z.object({ count: z.literal("campaignField"), field: Id }),
+  z.object({ count: z.literal("pool"), pool: Id, ...atLeast }),
+  z.object({ count: z.literal("sessions"), ...atLeast }),
+  z.object({ count: z.literal("packs"), slug: z.string().min(1).max(64).optional(), ...atLeast }),
+  z.object({ count: z.literal("safety") }),
+]);
+export type ChecklistCount = z.infer<typeof ChecklistCount>;
+
+/**
+ * One step of the setup checklist (house decision #90), in the book's order: its words, its page, what ticks it, where
+ * GO TO takes the GM and a short note; an `optional` step is never the next one.
+ */
+export const ChecklistStep = z.object({
+  id: Id,
+  label: z.string().min(1).max(80),
+  cite: Cite.optional(),
+  done: ChecklistCount,
+  goto: z.object({ tab: z.enum(CHECKLIST_TABS), kind: CodexEntryKind.optional() }).optional(),
+  note: z.string().min(1).max(200).optional(),
+  optional: z.boolean().optional(),
+});
+export type ChecklistStep = z.infer<typeof ChecklistStep>;
+
 export const Ruleset = z.object({
   id: RulesetId,
   version: SemVer,
@@ -1109,6 +1157,8 @@ export const Ruleset = z.object({
   spends: z.array(Spend).max(50).optional(),
   /** `max`: pending requests per user. Absent: the platform's five (house decision #43). */
   requests: z.object({ max: z.int().min(1).max(20) }).optional(),
+  /** The setup checklist the GM works through (house decision #90). Absent: none. */
+  checklist: z.array(ChecklistStep).max(MAX_CHECKLIST_STEPS).optional(),
 });
 export type Ruleset = z.infer<typeof Ruleset>;
 export type RulesetInput = z.input<typeof Ruleset>;
@@ -2189,7 +2239,56 @@ function semanticProblems(r: Ruleset): Problem[] {
     actorTypes(n.entities, `notices[${i}].entities`);
   });
   duplicates({ ids: (r.notices ?? []).map((n) => n.id), path: "notices", out });
+  r.checklist?.forEach((s, i) => {
+    needCite(s.cite, `checklist[${i}]`);
+    checklistProblems({ r, done: s.done, path: `checklist[${i}].done`, out });
+    if (s.goto?.kind !== undefined && s.goto.tab !== "codex")
+      out.push({ path: `checklist[${i}].goto.kind`, message: "only the codex tab takes a kind" });
+  });
+  duplicates({ ids: (r.checklist ?? []).map((s) => s.id), path: "checklist", out });
   return out;
+}
+
+/** A checklist step counts what the ruleset declares (house decision #90). */
+function checklistProblems({ r, done, path, out }: { r: Ruleset; done: ChecklistCount; path: string; out: Problem[] }) {
+  switch (done.count) {
+    case "entries": {
+      const defs = r.codex?.kinds[done.kind]?.fields ?? {};
+      const def = done.field === undefined ? undefined : own(defs, done.field);
+      if (done.field !== undefined && def === undefined)
+        out.push({ path: `${path}.field`, message: `"${done.field}" is not a field of ${done.kind}` });
+      if (done.equals !== undefined && done.field === undefined)
+        out.push({ path: `${path}.equals`, message: "equals needs a field" });
+      if (done.equals !== undefined && def !== undefined) {
+        const why = checkFieldValue({ def, value: done.equals });
+        if (why !== null) out.push({ path: `${path}.equals`, message: why });
+      }
+      if (done.prep !== undefined && done.kind !== "scene")
+        out.push({ path: `${path}.prep`, message: "only a scene holds prepared lines" });
+      return;
+    }
+    case "actors": {
+      const e = r.entities.find((x) => x.id === done.entity);
+      if (e === undefined) out.push({ path: `${path}.entity`, message: `unknown entity "${done.entity}"` });
+      else if (e.base !== "actor")
+        out.push({ path: `${path}.entity`, message: `"${done.entity}" is not an actor entity` });
+      else if (done.built === true && r.build?.actor !== done.entity)
+        out.push({ path: `${path}.built`, message: `"${done.entity}" has no build` });
+      return;
+    }
+    case "campaignField":
+      if (r.campaignFields === undefined || own(r.campaignFields, done.field) === undefined)
+        out.push({ path: `${path}.field`, message: `unknown campaign field "${done.field}"` });
+      return;
+    case "pool": {
+      const res = r.resources.find((x) => x.id === done.pool);
+      if (res === undefined || res.scope === "entity")
+        out.push({ path: `${path}.pool`, message: `"${done.pool}" is not a shared pool` });
+      return;
+    }
+    default:
+      return;
+  }
 }
 
 /**

@@ -686,6 +686,18 @@
     "testInProgress": "Test in progress",
     "rolledCount": "{test}: {reported} of {called} have rolled"
   },
+  "checklist": {
+    "title": "Setting up",
+    "progress": "{done} of {count} steps done · ticked from the room, never stored",
+    "fold": "Fold away",
+    "show": "Show steps",
+    "done": "Done",
+    "toDo": "To do",
+    "next": "Next",
+    "optional": "Optional",
+    "now": "Now: {count}",
+    "goTo": "{step}: go to {place}"
+  },
   "gmApp": {
     "campaigns": "← Campaigns",
     "tabsLabel": "GM tabs",

@@ -491,6 +491,8 @@ type (
 		Codex *CodexBlock `json:"codex"`
 		// Notices is what an action's answer tells its sender about an actor (house decision #79); nil when absent.
 		Notices []NoticeRule `json:"notices"`
+		// Checklist is the setup checklist (house decision #90); nil when absent.
+		Checklist []ChecklistStep `json:"checklist"`
 		// Layout is read for its widget rows (house decision #83).
 		Layout map[string]LayoutDef `json:"layout"`
 		// Spends is what players may ask the GM to spend (house decision #84); Requests.Max caps pending asks per user.
@@ -498,6 +500,27 @@ type (
 		Requests *struct {
 			Max float64 `json:"max"`
 		} `json:"requests"`
+	}
+	// ChecklistStep is one step of the setup checklist (house decision #90; rules-engine ChecklistStep).
+	ChecklistStep struct {
+		ID   string         `json:"id"`
+		Cite *string        `json:"cite"`
+		Done ChecklistCount `json:"done"`
+		Goto *struct {
+			Tab  string  `json:"tab"`
+			Kind *string `json:"kind"`
+		} `json:"goto"`
+	}
+	// ChecklistCount is what a step counts, one flat struct read by Count.
+	ChecklistCount struct {
+		Count  string  `json:"count"`
+		Kind   string  `json:"kind"`
+		Field  *string `json:"field"`
+		Equals any     `json:"equals"`
+		Prep   *string `json:"prep"`
+		Entity string  `json:"entity"`
+		Built  *bool   `json:"built"`
+		Pool   string  `json:"pool"`
 	}
 	// TestMark is a yes-or-no the GM sets when calling a Test, read as ctx.<id>.
 	TestMark struct {
@@ -1440,7 +1463,66 @@ func (r *Ruleset) semanticProblems() problems {
 		actorTypes(n.Entities, fmt.Sprintf("notices[%d].entities", i))
 	}
 	p.duplicates("notices", idsOf(r.Notices, func(n NoticeRule) string { return n.ID }))
+	for i, s := range r.Checklist {
+		path := fmt.Sprintf("checklist[%d]", i)
+		needCite(s.Cite, path)
+		p.checklist(r, &s.Done, path+".done")
+		if s.Goto != nil && s.Goto.Kind != nil && s.Goto.Tab != "codex" {
+			p.add(path+".goto.kind", "only the codex tab takes a kind")
+		}
+	}
+	p.duplicates("checklist", idsOf(r.Checklist, func(s ChecklistStep) string { return s.ID }))
 	return p
+}
+
+// checklist checks that a checklist step counts what the ruleset declares (house decision #90; checklistProblems in
+// manifest.ts).
+func (p *problems) checklist(r *Ruleset, done *ChecklistCount, path string) {
+	switch done.Count {
+	case "entries":
+		var def *FieldDef
+		if r.Codex != nil && done.Field != nil {
+			if d, has := r.Codex.Kinds[done.Kind].Fields[*done.Field]; has {
+				def = &d
+			}
+		}
+		if done.Field != nil && def == nil {
+			p.add(path+".field", `"%s" is not a field of %s`, *done.Field, done.Kind)
+		}
+		if done.Equals != nil && done.Field == nil {
+			p.add(path+".equals", "equals needs a field")
+		}
+		if done.Equals != nil && def != nil {
+			if why := CheckFieldValue(def, done.Equals); why != "" {
+				p.add(path+".equals", "%s", why)
+			}
+		}
+		if done.Prep != nil && done.Kind != "scene" {
+			p.add(path+".prep", "only a scene holds prepared lines")
+		}
+	case "actors":
+		e := r.entity(done.Entity)
+		switch {
+		case e == nil:
+			p.add(path+".entity", `unknown entity "%s"`, done.Entity)
+		case e.Base != "actor":
+			p.add(path+".entity", `"%s" is not an actor entity`, done.Entity)
+		case done.Built != nil && *done.Built && (r.Build == nil || r.Build.Actor != done.Entity):
+			p.add(path+".built", `"%s" has no build`, done.Entity)
+		}
+	case "campaignField":
+		if _, has := r.CampaignFields[*done.Field]; !has {
+			p.add(path+".field", `unknown campaign field "%s"`, *done.Field)
+		}
+	case "pool":
+		shared := false
+		for _, res := range r.Resources {
+			shared = shared || (res.ID == done.Pool && res.Scope != "entity")
+		}
+		if !shared {
+			p.add(path+".pool", `"%s" is not a shared pool`, done.Pool)
+		}
+	}
 }
 
 // ValidateRuleset takes a manifest as decoded JSON: size cap, schema, then the rules a schema can't say.

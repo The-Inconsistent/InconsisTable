@@ -65,7 +65,10 @@ const NO_VALUES = { entity: "", fields: {}, resources: {}, derived: {}, conditio
  * redact them if a ruleset needs that secret kept
  */
 export function seatManifest({ ruleset, ctx }: { ruleset: Ruleset; ctx: Ctx }): Ruleset {
-  const shown = seatCodexDefinitions({ ruleset: seatDefinitions({ ruleset, ctx }), secrets: sightOf(ctx).secrets });
+  const defs = seatCodexDefinitions({ ruleset: seatDefinitions({ ruleset, ctx }), secrets: sightOf(ctx).secrets });
+  // The setup checklist is the GM's (house decision #90): only the side that reads GM notes is sent it.
+  const { checklist: _checklist, ...unlisted } = defs;
+  const shown = sightOf(ctx).secrets || defs.checklist === undefined ? defs : unlisted;
   // The entries of a `gm` or `owner` table are what a roll or a deal keeps secret: only the side that runs the table
   // with a GM reads them. Anyone else still sees the table's title (a deal can be run without a GM).
   if (shown.tables === undefined || sightOf(ctx).tables) return shown;

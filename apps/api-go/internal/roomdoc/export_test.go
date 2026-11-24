@@ -413,7 +413,7 @@ func TestTheExportRoute(t *testing.T) {
 	ctx := context.Background()
 	device := func() (string, string) {
 		cookie := auth.DeviceCookie + "=" + auth.NewSecret()
-		user, err := s.Auth.DeviceUser(ctx, cookie)
+		user, err := s.Auth.EnsureDeviceUser(ctx, cookie)
 		if err != nil || user == nil {
 			t.Fatal(err)
 		}

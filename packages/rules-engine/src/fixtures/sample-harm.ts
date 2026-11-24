@@ -2,12 +2,15 @@ import type { RulesetInput } from "../manifest.ts";
 
 /**
  * A placeholder ruleset written for tests of `health.harm` (house decision #66): heroes whose wounds count up until
- * they fall, brutes that never take strain, and swarms that stand for many members. Every name, number and cite is our
- * own invention ("Sample p.N" points at no real book).
+ * they fall, brutes that never take strain, and swarms that stand for many members. Since 0.1.2 a lookup the GM types
+ * a result into (house decision #87): a switch that changes the wounds, surge dice that raise the total, a stacking
+ * condition brutes are immune to, applied again for each point of press, an open-ended last line, and a line that
+ * sends the GM to a second table. Every name, number and cite is our own invention ("Sample p.N" points at no real
+ * book).
  */
 export const SAMPLE_HARM: RulesetInput = {
   id: "sample-harm",
-  version: "0.1.1",
+  version: "0.1.2",
   core: "^0.1.0",
   sources: [{ id: "sample", title: "Sample Harm Rules", license: "private", pageOffset: 0 }],
   entities: [
@@ -91,7 +94,67 @@ export const SAMPLE_HARM: RulesetInput = {
   conditions: [
     { id: "down", label: "Down", cite: "Sample p.4", duration: "manual", visibility: "party" },
     { id: "winded", label: "Winded", cite: "Sample p.4", duration: "manual", visibility: "party" },
+    {
+      id: "dazed",
+      label: "Dazed",
+      cite: "Sample p.4",
+      duration: "manual",
+      stacking: "stack",
+      maxStacks: 3,
+      visibility: "party",
+      immune: "derived.strainCap == 0",
+    },
   ],
+  tables: {
+    blow: {
+      title: "Telling Blow",
+      die: "d66",
+      visibility: "gm",
+      cite: "Sample p.8",
+      typedOnly: true,
+      entities: ["hero", "brute"],
+      inputs: [
+        { id: "past", label: "Past the hide", type: "bool", cite: "Sample p.8" },
+        { id: "surge", label: "Surge dice", type: "int", min: 0, max: 4, cite: "Sample p.8" },
+        { id: "press", label: "Press", type: "int", min: 0, max: 3, cite: "Sample p.9" },
+      ],
+      modifier: "ctx.surge * 10",
+      entries: [
+        { id: "graze", label: "Graze", range: [11, 36], apply: [{ kind: "harm", wounds: "ctx.past ? 2 : 1" }] },
+        {
+          id: "reel",
+          label: "Reel",
+          range: [41, 56],
+          apply: [
+            { kind: "harm", wounds: "2", when: "ctx.past" },
+            { kind: "harm", wounds: "1", when: "!ctx.past" },
+            { kind: "condition", condition: "dazed", when: "ctx.past" },
+            { kind: "condition", condition: "dazed", when: "ctx.past", times: "ctx.press" },
+          ],
+          note: "The foe staggers back a step",
+          cite: "Sample p.9",
+        },
+        {
+          id: "ruin",
+          label: "Ruin",
+          range: [61],
+          apply: [{ kind: "harm", wounds: "ctx.past ? 4 : 1" }],
+          cite: "Sample p.9",
+          next: "aftermath",
+        },
+      ],
+    },
+    aftermath: {
+      title: "Aftermath",
+      die: "d6",
+      visibility: "gm",
+      cite: "Sample p.10",
+      entries: [
+        { id: "limp", label: "Limp", range: [1, 3] },
+        { id: "scar", label: "Scar", range: [4, 6] },
+      ],
+    },
+  },
   initiative: { strategy: "seated", firstPlayer: "fixed", cite: "Sample p.7" },
   health: {
     states: [

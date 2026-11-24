@@ -1,0 +1,113 @@
+package randomtable
+
+import (
+	"context"
+	"errors"
+
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
+	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
+)
+
+// Apply is table.apply (house decision #87): the GM's typed result, the inputs and the target pick a line, never the
+// client, and the line's effects run in order through the ordinary writes: a hit through health.harm's hit op, a
+// condition as condition.add writes it, a resource or pool by a clamped delta. Each step reads the target as the steps
+// before it left it, and every write is logged under one action, so one Undo (or TURN BACK) takes the whole line back.
+// A refusal of any step refuses the whole line; a condition the target is immune to is left out and the answer says so.
+func Apply(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
+	tableID := a.Str("tableId")
+	t, err := tableOf(ctx, tx, c.CampaignID, tableID)
+	if err != nil {
+		return cs.Result{}, err
+	}
+	if !applies(t) {
+		return cs.Result{}, cs.Fail("tableNoApply")
+	}
+	if err := checkGM(c, t); err != nil {
+		return cs.Result{}, err
+	}
+	actorID := a.Str("actorId")
+	rc, b, err := lookupTarget(ctx, tx, c, t, actorID)
+	if err != nil {
+		return cs.Result{}, err
+	}
+	name := b.Row.Name
+	result, _ := a["result"].(float64)
+	inputs, _ := a["inputs"].(map[string]any)
+	read, steps, refused := rc.Compiled.PlanLookup(tableID, result, inputs, b.Scope)
+	if refused != nil {
+		return cs.Result{}, refusal(refused, name)
+	}
+	actionID, wrote := core.NewUUID(), false
+	for _, s := range steps {
+		deltas, err := stepDeltas(ctx, rc, actorID, name, t.Title, s)
+		if err != nil {
+			return cs.Result{}, err
+		}
+		if len(deltas) == 0 {
+			continue
+		}
+		// The table's own permission (encounter:run) authorises a pool change, as a Test offer's does.
+		id, err := actor.ApplyDeltas(ctx, tx, actor.Apply{Ctx: c, Compiled: rc.Compiled, Built: rc.Built, Deltas: deltas,
+			Pools: rc.Pools, Charged: true, ActionID: actionID})
+		if err != nil {
+			return cs.Result{}, err
+		}
+		if id != "" {
+			wrote = true
+			if rc, err = ruleset.Open(ctx, tx, c); err != nil { // the next step reads what this one wrote
+				return cs.Result{}, err
+			}
+		}
+	}
+	r := cs.Result{OK: true}
+	if wrote {
+		r.ID = actionID
+	}
+	r.Roll = &cs.RollAnswer{EntryID: t.Entries[read.Entry].ID, Value: int(result), Total: read.Total}
+	return r, nil
+}
+
+// applies says whether any line of the table has effects to apply.
+func applies(t *engine.RandomTable) bool {
+	for _, e := range t.Entries {
+		if len(e.Apply) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// stepDeltas are the writes one step makes, through the operation it stands for. A condition the target is immune to
+// (now, after the steps before it) is nothing, with a notice.
+func stepDeltas(ctx context.Context, rc *ruleset.Context, actorID, name, source string, s engine.LookupStep) ([]engine.Delta, error) {
+	switch s.Kind {
+	case "harm":
+		return rc.Run(ctx, ruleset.Run{Primitive: "health.harm", Op: "hit",
+			Input: map[string]any{"actorId": actorID, "wounds": float64(s.Wounds), "shock": float64(s.Shock)}})
+	case "condition":
+		label := s.Condition
+		if def := rc.Compiled.Conditions[s.Condition]; def != nil {
+			label = def.Label
+		}
+		if s.Immune {
+			cs.Notify(ctx, cs.ConditionSkipped(name, label))
+			return nil, nil
+		}
+		delta, err := rc.ConditionDelta(ctx, actorID, s.Condition, source, nil)
+		var refused *cs.Error
+		if errors.As(err, &refused) && refused.Code == "conditionImmune" {
+			cs.Notify(ctx, cs.ConditionSkipped(name, label))
+			return nil, nil
+		}
+		if err != nil || delta == nil {
+			return nil, err
+		}
+		return []engine.Delta{*delta}, nil
+	case "resource":
+		return []engine.Delta{{Target: engine.DeltaTarget{ActorID: actorID, Resource: s.Resource}, Kind: "add", Value: float64(s.By)}}, nil
+	}
+	return []engine.Delta{{Target: engine.DeltaTarget{Pool: s.Pool}, Kind: "add", Value: float64(s.By)}}, nil
+}

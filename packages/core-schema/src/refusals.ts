@@ -208,6 +208,12 @@ export const REFUSALS = {
   tableNoGm: "Nobody runs this room as GM, so nothing can be GM-only.",
   tableShort: "Not enough left to deal.",
   tableHeld: "Someone already holds a card from that table.",
+  tableTypedOnly: "Type what the dice show: the app never rolls this table.",
+  tableResultOut: "That table reads {min} to {max}.",
+  tableInput: "That table can't take {input} set like that.",
+  tableNoApply: "Nothing on that table can be applied.",
+  tableNotFor: "That table doesn't apply to {name}.",
+  tableNeedsTarget: "Pick who the table is for first: it reads their values.",
   // Undo
   nothingToUndo: "Nothing to undo",
   nothingToTurnBack: "Nothing to turn back: no turn has started or ended in this fight this session.",

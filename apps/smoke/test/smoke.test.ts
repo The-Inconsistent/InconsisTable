@@ -1277,12 +1277,19 @@ test("scenes: a begin sends its reveals and can be taken back, an exit begins th
     "the notice is the GM's",
   );
   await eventually(() => statusOf(gate) === "active", "the begun scene is active");
+  await eventually(
+    () => owner.codex()?.latestBegin?.id === begun.id && owner.codex()?.latestBegin?.sceneId === gate,
+    "the GM side carries the latest begin",
+  );
+  assert.deepEqual(new Set(owner.codex()?.latestBegin?.revealed), new Set([keeper, map]));
+  assert.equal(ana.codex()?.latestBegin, null, "a player never gets it");
 
   refused(await ana.send({ type: "scene.undoBegin", beginId: begun.id! }), "noPermission");
   ok(await owner.send({ type: "scene.undoBegin", beginId: begun.id! }));
   await eventually(() => !anaSees(keeper) && !anaSees(map), "taking it back seals them again");
   assert.ok(anaSees(known), "an entry revealed before the begin stays revealed");
   await eventually(() => statusOf(gate) === "planned", "the scene goes back to where it stood");
+  await eventually(() => owner.codex()?.latestBegin === null, "the taken-back begin leaves the payload");
   refused(await owner.send({ type: "scene.undoBegin", beginId: begun.id! }), "notLatestBegin");
 
   // An exit is scene.begin of the scene it names: the one being played goes to done.
@@ -1293,6 +1300,7 @@ test("scenes: a begin sends its reveals and can be taken back, an exit begins th
   refused(await owner.send({ type: "scene.undoBegin", beginId: again }), "notLatestBegin");
   ok(await owner.send({ type: "codex.save", id: hall, kind: "scene", status: "done" }));
   refused(await owner.send({ type: "scene.undoBegin", beginId: inside.id! }), "sceneNotActive");
+  await eventually(() => owner.codex()?.latestBegin === null, "a begun scene that is done is not offered back");
   refused(await owner.send({ type: "scene.begin", sceneId: keeper }), "notAScene");
 
   refused(await owner.send({ type: "codex.delete", id: adv }), "adventureHasScenes");

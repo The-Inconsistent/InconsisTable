@@ -3,6 +3,7 @@ package codex
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -69,7 +70,32 @@ func Load(ctx context.Context, conn core.Conn, campaignID string) (cs.Codex, err
 	if err != nil {
 		return cs.Codex{}, err
 	}
-	return cs.Codex{Entries: entries, Recaps: recaps}, nil
+	begin, err := loadLatestBegin(ctx, conn, campaignID)
+	if err != nil {
+		return cs.Codex{}, err
+	}
+	return cs.Codex{Entries: entries, Recaps: recaps, LatestBegin: begin}, nil
+}
+
+// loadLatestBegin is the room's latest scene begin, nil unless its scene is still active: the one scene.undoBegin takes
+// back (house decision #105).
+func loadLatestBegin(ctx context.Context, conn core.Conn, campaignID string) (*cs.LatestBegin, error) {
+	var b cs.LatestBegin
+	var active bool
+	err := conn.QueryRow(ctx, `SELECT b.id::text, b.scene_id::text, b.revealed::text[], coalesce(e.status, '') = 'active'
+		FROM scene_begin b JOIN codex_entry e ON e.id = b.scene_id
+		WHERE b.campaign_id = $1 ORDER BY b.created_at DESC, b.id DESC LIMIT 1`, campaignID).
+		Scan(&b.ID, &b.SceneID, &b.Revealed, &active)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !active) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if b.Revealed == nil {
+		b.Revealed = []string{}
+	}
+	return &b, nil
 }
 
 // loadLinks is each scene's linked entry ids, in the order they were made.

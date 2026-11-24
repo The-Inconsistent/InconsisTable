@@ -3,6 +3,7 @@ import {
   type ActionInput,
   type Actor,
   type CodexEntry,
+  type LatestBegin,
   type LiveState,
   type PickLine,
   type PoolLine,
@@ -54,6 +55,12 @@ export type Spawnable = {
 };
 
 /** What a line is resolved against: everything the GM's device already holds. */
+/** The titles of the entries a begin revealed, comma-separated, in the order it revealed them; a deleted one is left out. */
+export function revealedNames({ begin, entries }: { begin: LatestBegin; entries: readonly CodexEntry[] }): string {
+  const byId = new Map(entries.map((e) => [e.id, e.title]));
+  return begin.revealed.flatMap((id) => byId.get(id) ?? []).join(", ");
+}
+
 export type PrepWorld = {
   state: Pick<LiveState, "testDefs" | "pools" | "actors" | "encounter" | "access" | "campaign">;
   entries: readonly CodexEntry[];

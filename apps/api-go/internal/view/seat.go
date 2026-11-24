@@ -444,7 +444,11 @@ func seatCodex(codex cs.Codex, c cs.Ctx, sight Sight) cs.Codex {
 		}
 		entries = append(entries, e)
 	}
-	return cs.Codex{Entries: entries, Recaps: codex.Recaps}
+	out := cs.Codex{Entries: entries, Recaps: codex.Recaps}
+	if sight.Secrets || sight.Codex {
+		out.LatestBegin = codex.LatestBegin // the sides that see a scene's status (house decision #105)
+	}
+	return out
 }
 
 // ShowsPicture says whether a seat outside the codex side receives the picture's id: the picture route serves it only

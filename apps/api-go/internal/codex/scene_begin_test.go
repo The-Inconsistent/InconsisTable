@@ -99,6 +99,44 @@ func TestBeginRevealsAndTakingItBackSealsWhatItRevealed(t *testing.T) {
 	})
 }
 
+// The codex payload carries the latest begin while its scene is the one being played (house decision #105).
+func TestLatestBeginIsTheRoomsLatestWhileItsSceneIsActive(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		room := dbtest.NewRoom(t, tx)
+		npc := run(t, tx, room, Save, save("npc", "Keeper", nil))
+		first := run(t, tx, room, Save, save("scene", "First", reveals(npc)))
+		second := run(t, tx, room, Save, save("scene", "Second", nil))
+		latest := func() *cs.LatestBegin {
+			t.Helper()
+			c, err := Load(context.Background(), tx, room.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return c.LatestBegin
+		}
+		if latest() != nil {
+			t.Fatal("no begin yet")
+		}
+		one, _ := begin(t, tx, room, first)
+		if got := latest(); !reflect.DeepEqual(got, &cs.LatestBegin{ID: one, SceneID: first, Revealed: []string{npc}}) {
+			t.Fatalf("after a begin: %+v", got)
+		}
+		two, _ := begin(t, tx, room, second)
+		if got := latest(); got == nil || got.ID != two || got.SceneID != second || len(got.Revealed) != 0 {
+			t.Fatalf("the second begin is the latest, with nothing revealed: %+v", got)
+		}
+		// Taking it back deletes that begin: the first is the latest again, and its scene is active again.
+		run(t, tx, room, UndoBegin, undo(two))
+		if got := latest(); got == nil || got.ID != one {
+			t.Fatalf("after undo: %+v", got)
+		}
+		run(t, tx, room, Save, cs.Action{"type": "codex.save", "kind": "scene", "id": first, "status": "done"})
+		if latest() != nil {
+			t.Fatal("its scene is no longer active")
+		}
+	})
+}
+
 func TestBeginWithNothingBeforeAndAnEntryRevealedTwice(t *testing.T) {
 	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
 		room := dbtest.NewRoom(t, tx)

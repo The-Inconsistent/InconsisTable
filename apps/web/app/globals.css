@@ -4377,3 +4377,66 @@ textarea.mf-json {
 .budget-lines [data-over="true"] {
   font-weight: 700;
 }
+
+/* ---------- The SCENE tab (house decision #106): the scene being played, read as a page ----------
+   Read at arm's length on the tablet: the read-aloud text and the exit buttons are the big type. The side panel sits
+   beside the page from 1024px and under it before that. */
+.scene-layout {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+@media (min-width: 1024px) {
+  .scene-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    align-items: start;
+  }
+  .scene-side {
+    position: sticky;
+    top: 8px;
+  }
+}
+.scene-text {
+  border-inline-start: 4px solid var(--accent);
+  padding-inline-start: 14px;
+  max-width: 68ch;
+}
+.scene-text > p,
+.scene-body {
+  margin: 0;
+  font-size: calc(var(--fs-name) * 1.15);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.scene-body {
+  max-width: 68ch;
+}
+.scene-closed {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 4px 12px 12px;
+}
+.scene-closed > summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+}
+.scene-exit {
+  min-height: calc(var(--tap) + 8px);
+  font-size: var(--fs-name);
+}
+.scene-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.scene-strip .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.scene-strip .btn[aria-current="step"] {
+  font-weight: 800;
+}

@@ -913,11 +913,67 @@
     "now": "Now: {count}",
     "goTo": "{step}: go to {place}"
   },
+  "scene": {
+    "layers": {
+      "label": "Scene or fight",
+      "scene": "Scene",
+      "fight": "Fight"
+    },
+    "label": "{adventure}, {kind} {number}",
+    "labelLoose": "{kind}",
+    "closed": "GM notes and closed fields",
+    "gmNotes": "GM notes",
+    "reveal": {
+      "show": "Show",
+      "seal": "Seal",
+      "showName": "Show {name} to the party",
+      "sealName": "Seal {name} from the party",
+      "shown": "Shown",
+      "sealed": "Sealed"
+    },
+    "inScene": {
+      "title": "In this scene",
+      "empty": "Nothing is linked to this scene. Link people, places and handouts in Prep.",
+      "open": "Open {name} in Codex",
+      "fight": "Prepared fight",
+      "creatures": "{count, plural, =0 {No creatures prepared} one {# creature prepared} other {# creatures prepared}}"
+    },
+    "whereNext": {
+      "title": "Where next",
+      "none": "This scene has no exits.",
+      "other": "Other scene…",
+      "otherTitle": "Other scenes in this adventure",
+      "noOthers": "No other scenes."
+    },
+    "strip": {
+      "label": "Scenes in this adventure",
+      "tab": "{number}. {title}",
+      "played": "Played",
+      "playing": "Playing now"
+    },
+    "preview": {
+      "title": "Preview of {title}",
+      "note": "Nothing is sent until you begin.",
+      "begin": "Begin this scene",
+      "back": "Back"
+    },
+    "none": {
+      "title": "No scene is being played",
+      "intro": "Begin the next scene of an adventure, or start a fight without one.",
+      "begin": "Begin",
+      "beginName": "Begin {title}",
+      "next": "Next in {adventure}",
+      "running": "Running",
+      "empty": "No scene is waiting to begin. Add scenes to an adventure in Prep.",
+      "fight": "Start a fight without a scene"
+    }
+  },
   "gmApp": {
     "campaigns": "← Campaigns",
     "tabsLabel": "GM tabs",
     "readRules": "Read the rules",
     "tabs": {
+      "scene": "Scene",
       "track": "Track",
       "prep": "Prep",
       "codex": "Codex",

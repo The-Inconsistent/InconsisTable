@@ -44,10 +44,7 @@ export function nextUp(entries: readonly CodexEntry[]) {
     const running = scenes.some((s) => s.status !== null && PLAYED.includes(s.status));
     return scene ? [{ adventure, scene, running }] : [];
   });
-  return [...offers.filter((o) => o.running), ...offers.filter((o) => !o.running)].map(({ adventure, scene }) => ({
-    adventure,
-    scene,
-  }));
+  return [...offers.filter((o) => o.running), ...offers.filter((o) => !o.running)];
 }
 
 /** A scene's links by kind; `shown` is true once the entry is visible to the party or the public, to any audience. */

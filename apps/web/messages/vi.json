@@ -913,11 +913,67 @@
     "now": "Hiện có: {count}",
     "goTo": "{step}: đi tới {place}"
   },
+  "scene": {
+    "layers": {
+      "label": "Cảnh hay trận đánh",
+      "scene": "Cảnh",
+      "fight": "Trận đánh"
+    },
+    "label": "{adventure}, {kind} {number}",
+    "labelLoose": "{kind}",
+    "closed": "Ghi chú GM và mục đã đóng",
+    "gmNotes": "Ghi chú GM",
+    "reveal": {
+      "show": "Cho xem",
+      "seal": "Niêm lại",
+      "showName": "Cho cả nhóm xem {name}",
+      "sealName": "Niêm {name} lại, giấu khỏi cả nhóm",
+      "shown": "Đã cho xem",
+      "sealed": "Đã niêm"
+    },
+    "inScene": {
+      "title": "Trong cảnh này",
+      "empty": "Chưa có gì gắn với cảnh này. Gắn người, nơi chốn và tài liệu ở Chuẩn bị.",
+      "open": "Mở {name} trong Sổ tay",
+      "fight": "Trận đã chuẩn bị",
+      "creatures": "{count, plural, =0 {Chưa chuẩn bị sinh vật nào} other {Đã chuẩn bị # sinh vật}}"
+    },
+    "whereNext": {
+      "title": "Đi tiếp",
+      "none": "Cảnh này chưa có lối ra.",
+      "other": "Cảnh khác…",
+      "otherTitle": "Các cảnh khác trong cuộc phiêu lưu",
+      "noOthers": "Không còn cảnh nào khác."
+    },
+    "strip": {
+      "label": "Các cảnh trong cuộc phiêu lưu",
+      "tab": "{number}. {title}",
+      "played": "Đã chơi",
+      "playing": "Đang chơi"
+    },
+    "preview": {
+      "title": "Xem trước {title}",
+      "note": "Chưa gửi gì cho đến khi bạn bắt đầu.",
+      "begin": "Bắt đầu cảnh này",
+      "back": "Quay lại"
+    },
+    "none": {
+      "title": "Chưa có cảnh nào đang chơi",
+      "intro": "Bắt đầu cảnh kế tiếp của một cuộc phiêu lưu, hoặc mở trận đánh không cần cảnh.",
+      "begin": "Bắt đầu",
+      "beginName": "Bắt đầu {title}",
+      "next": "Kế tiếp trong {adventure}",
+      "running": "Đang chạy",
+      "empty": "Không có cảnh nào chờ bắt đầu. Thêm cảnh vào cuộc phiêu lưu ở Chuẩn bị.",
+      "fight": "Mở trận đánh không cần cảnh"
+    }
+  },
   "gmApp": {
     "campaigns": "← Campaign",
     "tabsLabel": "Tab GM",
     "readRules": "Đọc luật",
     "tabs": {
+      "scene": "Cảnh",
       "track": "Trận",
       "prep": "Chuẩn bị",
       "codex": "Sổ tay",

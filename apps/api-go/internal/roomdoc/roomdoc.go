@@ -546,6 +546,9 @@ func (im *importer) actorRows() error {
 		}
 	}
 	for i, a := range actors {
+		if err := im.held(i, a); err != nil {
+			return err
+		}
 		if err := im.resources(i, a); err != nil {
 			return err
 		}
@@ -554,6 +557,49 @@ func (im *importer) actorRows() error {
 				"actors", i, "conditions", j); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+// held holds the records a document's actor holds (house decision #88), kept in a held kind's list field and written
+// with the fields, to what a grant holds them to: each an entry the room is served, none twice, no more than the
+// kind's max. A refusal names the field.
+func (im *importer) held(i int, a map[string]any) error {
+	fields, _ := a["fields"].(map[string]any)
+	entity, _ := a["entityType"].(string)
+	if len(fields) == 0 || entity == "" {
+		return nil
+	}
+	rules, err := compiled.Load(im.ctx, im.tx, im.gm.CampaignID)
+	if err != nil || rules == nil {
+		return err
+	}
+	name, _ := a["name"].(string)
+	for _, id := range slices.Sorted(maps.Keys(rules.Ruleset.Held)) {
+		kind := rules.Ruleset.Held[id]
+		keys, given := fields[kind.Field].([]any)
+		if !given || !slices.Contains(kind.Entities, entity) {
+			continue
+		}
+		at := []any{"actors", i, "fields", kind.Field}
+		if len(keys) > kind.MaxOrDefault() {
+			return problem("heldFull", cs.Params{"name": name, "kind": kind.Label}, at...)
+		}
+		seen := map[string]bool{}
+		for _, v := range keys {
+			key, _ := v.(string)
+			entry, served, err := actor.ServedEntryName(im.ctx, im.tx, im.gm.CampaignID, kind.Entry, key)
+			if err != nil {
+				return err
+			}
+			if !served {
+				return problem("heldNoEntry", cs.Params{"entry": key}, at...)
+			}
+			if seen[key] {
+				return problem("heldAlready", cs.Params{"name": name, "entry": entry}, at...)
+			}
+			seen[key] = true
 		}
 	}
 	return nil

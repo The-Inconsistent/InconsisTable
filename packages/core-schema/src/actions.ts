@@ -310,6 +310,13 @@ export const Action = z.discriminatedUnion("type", [
     actorId: id,
     inputs: LookupInputs.default({}),
   }),
+  // A record an actor holds, taken away by the GM side (house decision #88): logged, and Undo gives it back.
+  z.object({
+    type: z.literal("held.remove"),
+    actorId: id,
+    held: z.string().min(1).max(64),
+    entry: z.string().min(1).max(80),
+  }),
   z.object({
     type: z.literal("table.deal"),
     tableId: TableId,
@@ -414,6 +421,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "safety.xcard": "safety:signal",
   "table.roll": "session:run",
   "table.apply": "encounter:run", // a lookup changes its target as the fight's own writes do (house decision #87)
+  "held.remove": "character:edit:any",
   "table.deal": "session:run",
   "table.reshuffle": "session:run",
 };

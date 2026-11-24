@@ -1181,6 +1181,32 @@ label {
   margin: 0;
   padding-left: 1.2em;
 }
+/* A chain of tables (house decision #88): the steps taken so far, in order, wrapping on a phone. */
+.table-trail {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.table-trail ol {
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.table-trail li + li::before {
+  content: "→ ";
+}
+/* The records a character holds: one per row, its name and page, what it does under it. */
+.w-held-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.w-held-head {
+  flex-wrap: wrap;
+  align-items: baseline;
+}
 .rolls-before {
   display: flex;
   gap: var(--gap);

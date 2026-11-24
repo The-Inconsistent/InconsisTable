@@ -171,9 +171,13 @@ function semanticProblems({ pack, ruleset }: { pack: Pack; ruleset: Ruleset }): 
     ids.add(id);
     recordIds.set(entry.type, ids);
   });
-  // Effects hold for every actor type that picks the entry's type in a `choose` step.
+  // Effects hold for every actor type that picks the entry's type in a `choose` step, or holds it as a record of a held
+  // kind (house decision #88).
   for (const [type, list] of withEffects) {
-    const pickers = new Set(ruleset.creation.flatMap((c) => (c.kind === "choose" && c.pick === type ? [c.actor] : [])));
+    const pickers = new Set([
+      ...ruleset.creation.flatMap((c) => (c.kind === "choose" && c.pick === type ? [c.actor] : [])),
+      ...Object.values(ruleset.held ?? {}).flatMap((k) => (k.entry === type ? k.entities : [])),
+    ]);
     const pool = ruleset.entities.filter((e) => pickers.has(e.id));
     if (pool.length === 0) {
       for (const { at } of list)

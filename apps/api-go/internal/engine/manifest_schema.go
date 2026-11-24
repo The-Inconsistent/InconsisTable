@@ -562,6 +562,8 @@ var rulesetSchema = schema.Object(
 	)).Min(1).Max(12)),
 	schema.Opt("scoring", scoringSchema),
 	schema.Opt("tables", schema.Record(idSchema, tableSchema)),
+	schema.Opt("held", schema.Refined(schema.Record(idSchema, heldKindSchema),
+		func(v any) bool { return len(v.(map[string]any)) <= MaxHeldKinds }, "at most 10 kinds")),
 	schema.Def("health", healthSchema, map[string]any{"tracks": []any{}, "states": []any{}}),
 	schema.Def("creation", schema.Array(creationStepSchema).Max(50), []any{}),
 	schema.Opt("build", buildSchema),
@@ -623,6 +625,7 @@ var tableEffectSchema = schema.Union("kind",
 	tableEffectVariant("condition", schema.Req("condition", idSchema)),
 	tableEffectVariant("resource", schema.Req("resource", idSchema), schema.Req("by", exprSource)),
 	tableEffectVariant("pool", schema.Req("pool", idSchema), schema.Req("by", exprSource)),
+	tableEffectVariant("grant", schema.Req("held", idSchema), schema.Req("entry", packKeySchema)),
 )
 
 // tableSchema is one random table of the manifest (house decision #49), or a lookup (house decision #87).

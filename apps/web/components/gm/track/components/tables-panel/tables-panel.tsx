@@ -39,6 +39,8 @@ export function TablesPanel(props: TablesPanelProps) {
   const [reshuffling, setReshuffling] = useState<string | null>(null);
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [targetId, setTargetId] = useState("");
+  // The chain so far (house decision #88): each table the GM stepped through and the line that sent them on.
+  const [trail, setTrail] = useState<readonly { title: string; label: string }[]>([]);
   const characters = actors.filter((a) => a.kind === "pc" || a.kind === "companion");
   const names = new Map(actors.map((a) => [a.id, a.name]));
   const list = Object.entries(ruleset.tables ?? {});
@@ -77,11 +79,19 @@ export function TablesPanel(props: TablesPanelProps) {
     if (await run({ type: "table.roll", tableId: id, result })) setTyped((was) => ({ ...was, [id]: "" }));
   };
 
-  // NEXT: a line names another table; its card comes into view with the same target, and nothing is rolled.
-  const handleNext = (id: string) => {
+  // NEXT: a line names another table; its card comes into view with the same target, the step joins the trail, and
+  // nothing is rolled or granted.
+  const handleNext = (id: string, from: { title: string; label: string }) => {
+    setTrail((was) => [...was, from]);
     const card = document.getElementById(`table-${id}`);
     card?.scrollIntoView({ behavior: "smooth", block: "start" });
     card?.querySelector("input")?.focus({ preventScroll: true });
+  };
+
+  // PICK: another target starts a new chain.
+  const handleTarget = (id: string) => {
+    setTargetId(id);
+    setTrail([]);
   };
 
   return (
@@ -90,7 +100,7 @@ export function TablesPanel(props: TablesPanelProps) {
       {lookups && (
         <label className="row table-target">
           <span>{t("target")}</span>
-          <select className="input" value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+          <select className="input" value={targetId} onChange={(e) => handleTarget(e.target.value)}>
             <option value="">{t("pickTarget")}</option>
             {targets.fighting.length > 0 && (
               <optgroup label={t("fighting")}>
@@ -110,6 +120,18 @@ export function TablesPanel(props: TablesPanelProps) {
             </optgroup>
           </select>
         </label>
+      )}
+      {trail.length > 0 && (
+        <div className="row table-trail">
+          <ol className="row" aria-label={t("trail")}>
+            {trail.map((s, i) => (
+              <li key={i}>{t("trailStep", s)}</li>
+            ))}
+          </ol>
+          <button className="btn sm" onClick={() => setTrail([])}>
+            {t("trailClear")}
+          </button>
+        </div>
       )}
       <ul className="table-list rise-list">
         {list.map(([id, table], i) => {
@@ -133,6 +155,7 @@ export function TablesPanel(props: TablesPanelProps) {
                   {...{ tableId: id, table, compiled, ruleset, target, campaign, books, requestPage, ask }}
                   characters={characters.length}
                   onNext={handleNext}
+                  onApplied={() => setTrail([])}
                 />
               ) : (
                 <>

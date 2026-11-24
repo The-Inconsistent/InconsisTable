@@ -21,15 +21,30 @@ type TableLookupProps = {
   books: readonly BookSource[];
   requestPage: RequestPage;
   ask: (a: ActionInput) => Promise<ActionResult>;
-  /** Opens the table a line names, for the same target. */
-  onNext: (tableId: string) => void;
+  /** Opens the table a line names, for the same target, with the line that sent the GM there. */
+  onNext: (tableId: string, from: { title: string; label: string }) => void;
+  /** A line applied: the chain that led to it is done. */
+  onApplied: () => void;
 };
 
 // A lookup on the GM's tables panel (house decision #87): the number the dice showed (ROLL fills it in when the
 // table may be rolled, I ROLLED is typing it), the inputs as switches and steppers, the line it reads worked out with
 // the engine for the picked target, and APPLY, which the server works out again before anything changes.
 export function TableLookup(props: TableLookupProps) {
-  const { tableId, table, compiled, ruleset, target, characters, campaign, books, requestPage, ask, onNext } = props;
+  const {
+    tableId,
+    table,
+    compiled,
+    ruleset,
+    target,
+    characters,
+    campaign,
+    books,
+    requestPage,
+    ask,
+    onNext,
+    onApplied,
+  } = props;
   const t = useTranslations("tables");
   const te = useTranslations("errors");
   const [typed, setTyped] = useState("");
@@ -39,6 +54,9 @@ export function TableLookup(props: TableLookupProps) {
   const entry = plan?.ok ? table.entries[plan.entry] : undefined;
   const label = (id: string) => ruleset.resources.find((r) => r.id === id)?.label ?? id;
   const harm = ruleset.health.harm;
+  // A line that grants a record ends a chain on ADD; one the target holds already is rolled again (house decision #88).
+  const grants = plan?.ok === true && plan.steps.some((s) => s.kind === "grant");
+  const held = plan?.ok === true && plan.steps.some((s) => s.kind === "grant" && s.has);
 
   // ROLL: the server rolls the table's die and the number lands in the entry, as if typed.
   const handleRoll = async () => {
@@ -51,7 +69,9 @@ export function TableLookup(props: TableLookupProps) {
     e.preventDefault();
     if (!target || result === null) return;
     const r = await ask({ type: "table.apply", tableId, result, actorId: target.id, inputs });
-    if (r.ok) setTyped("");
+    if (!r.ok) return;
+    setTyped("");
+    onApplied();
   };
   // A stepper's − or +, held to its bounds.
   const handleStep = (id: string, by: number, min: number, max: number) =>
@@ -73,6 +93,10 @@ export function TableLookup(props: TableLookupProps) {
         return [t("change", { by: s.by, label: label(s.resource) })];
       case "pool":
         return [t("change", { by: s.by, label: label(s.pool) })];
+      case "grant": {
+        const kind = ruleset.held?.[s.held]?.label ?? s.held;
+        return [s.has ? t("grantHas", { kind, entry: s.entry }) : t("grant", { kind, entry: s.entry })];
+      }
     }
   };
   const refusal = plan && !plan.ok ? refusalWords(plan) : null;
@@ -171,14 +195,23 @@ export function TableLookup(props: TableLookupProps) {
           )}
         </output>
       )}
+      {held && (
+        <p className="dim" role="status">
+          {t("rollAgain")}
+        </p>
+      )}
       <div className="row">
         {appliesTo(table) && (
-          <button className="btn primary" disabled={!target || !plan?.ok}>
-            {target ? t("apply", { name: target.name }) : t("pickTarget")}
+          <button className="btn primary" disabled={!target || !plan?.ok || held}>
+            {!target ? t("pickTarget") : grants ? t("add", { name: target.name }) : t("apply", { name: target.name })}
           </button>
         )}
         {entry?.next && ruleset.tables?.[entry.next] && (
-          <button type="button" className="btn" onClick={() => onNext(entry.next ?? "")}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => onNext(entry.next ?? "", { title: table.title, label: entry.label })}
+          >
             {t("next", { title: ruleset.tables[entry.next]?.title ?? entry.next })}
           </button>
         )}

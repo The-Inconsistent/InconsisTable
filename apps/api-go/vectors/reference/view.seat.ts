@@ -10,6 +10,7 @@ import {
   type Ctx,
   type DealtRow,
   type Encounter,
+  type HeldRecord,
   type RollRow,
   type LiveState,
   type PoolState,
@@ -385,6 +386,7 @@ function seatState({
           ...(v ? copyValues(v) : NO_VALUES),
           // The durations of the conditions the seat sees.
           conditionTimers: a.conditionTimers.filter((t) => v?.conditions.includes(t.id)),
+          held: seatHeld({ held: a.held ?? [], compiled, seen: v !== undefined, named: own }),
         };
       }),
     session: state.session && { ...state.session, notes: sight.session ? state.session.notes : "" },
@@ -400,6 +402,32 @@ function seatState({
       invites: sight.party || canInCampaign({ ctx, perm: "member:invite" }) ? state.access.invites : [],
     },
   };
+}
+
+/**
+ * The records an actor holds as one seat receives them (house decision #88): none where the seat does not see the
+ * actor's values; whole for the seat holding it and the GM side; otherwise a kind with an unseen word shows that word
+ * and the effects, never the entry's name, key or cite. A kind the ruleset no longer has is left out.
+ */
+function seatHeld({
+  held,
+  compiled,
+  seen,
+  named,
+}: {
+  held: readonly HeldRecord[];
+  compiled: CompiledRuleset | null;
+  seen: boolean;
+  named: boolean;
+}): HeldRecord[] {
+  if (!seen || compiled === null) return [];
+  return held.flatMap((r) => {
+    const kind = Object.hasOwn(compiled.ruleset.held ?? {}, r.kind) ? compiled.ruleset.held?.[r.kind] : undefined;
+    if (kind === undefined) return [];
+    if (kind.unseen !== undefined && !named)
+      return [{ kind: r.kind, key: null, name: kind.unseen, cite: null, effects: r.effects }];
+    return [r];
+  });
 }
 
 const shownPicture = (e: CodexEntry) => {

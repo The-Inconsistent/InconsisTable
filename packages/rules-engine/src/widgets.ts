@@ -32,6 +32,8 @@ export type WidgetSpec = {
   readonly steps?: boolean;
   /** Reads the saved build's sheet (the ruleset's `build` block) instead of bound values; its variant names the list. */
   readonly ledger?: boolean;
+  /** Reads the records the actor holds (the ruleset's `held` block, house decision #88) instead of bound values. */
+  readonly held?: boolean;
 };
 
 const one = (id: string, takes: SlotTakes, required: boolean, about: string): WidgetSlot => ({
@@ -145,6 +147,15 @@ export const WIDGETS = [
       "the seat that may change them.",
     variants: [],
     slots: [many("fields", "text", true, "The text fields, in order.")],
+  },
+  {
+    id: "held",
+    about:
+      "The records the actor holds (house decision #88), kind by kind: each one's name, its effects in words and its cite; " +
+      "for a seat that may not read a kind's names, its unseen word and the effects.",
+    variants: [],
+    slots: [],
+    held: true,
   },
 ] as const satisfies readonly WidgetSpec[];
 

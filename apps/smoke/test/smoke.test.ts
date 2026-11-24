@@ -5389,6 +5389,19 @@ test("strikes: a typed total lands on a creature and on a swarm as the strike gi
   ok(await owner.send({ type: "event.undo" }));
   s = await owner.until((x) => actorIn(x, hero)?.resources.wounds === 0);
   assert.equal(actorIn(s, rats)?.resources.members, 5);
+  // The fight's log (house decision #100): the GM side reads the strikes newest first, the undone one taken back; a
+  // player's seat reads none of it.
+  const log = s.encounter?.log ?? [];
+  assert.deepEqual(
+    log.slice(0, 3).map((l) => [l.strike?.outcome, l.strike?.means, l.undone]),
+    [
+      ["wounded", "Claw", true],
+      ["thinned", "Sling", false],
+      ["wounded", "Maul", false],
+    ],
+  );
+  const seen = await ana.until((x) => x.stateVersion >= s.stateVersion);
+  assert.equal(seen.encounter?.log, undefined);
   for (const c of [owner, ana]) c.socket.close();
 });
 

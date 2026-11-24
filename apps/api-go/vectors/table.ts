@@ -479,6 +479,33 @@ const STATE = {
     reminders: [{ at: "roundEnd", source: "reminder", id: "heldLost", text: "Held", cite: null, actorIds: [GOB] }],
     // TURN BACK's step, naming whoever's turn it was: the combat side's only (house decision #82).
     turnBack: { kind: "turnStart", name: "Goblin", round: 2, later: 3 },
+    // The fight's log, naming the hidden combatant's actor: the combat side's only (house decision #100).
+    log: [
+      {
+        id: U(410),
+        round: 2,
+        actorId: GOB,
+        undone: false,
+        strike: {
+          strikeId: "blow",
+          attackerId: GOB,
+          targetId: PC1,
+          means: "Claw",
+          total: 6,
+          outcome: "wounded",
+          wounds: 4,
+          shock: 0,
+        },
+        writes: [{ target: { actorId: PC1, resource: "hp" }, kind: "add", before: 9, after: 5 }],
+      },
+      {
+        id: U(411),
+        round: 2,
+        actorId: null,
+        undone: true,
+        writes: [{ target: { turn: "currentId" }, kind: "set", before: PC1, after: null }],
+      },
+    ],
   },
   games: [],
   access: {

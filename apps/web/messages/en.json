@@ -2202,6 +2202,65 @@
       "body": "Body"
     }
   },
+  "fightLog": {
+    "title": "LOG",
+    "empty": "Nothing yet in this fight.",
+    "roundHead": "Round {round}",
+    "between": "Between turns",
+    "turnOf": "{name}'s turn",
+    "strike": "{attacker} strikes {target}: {outcome} ({total})",
+    "strikeWith": "{attacker} strikes {target} with {means}: {outcome} ({total})",
+    "change": "{name}: {by, number, ::sign-always} {label}",
+    "pool": "{by, number, ::sign-always} {label}",
+    "set": "{name}: {label} {value}",
+    "conditionOn": "{name}: +{label}",
+    "conditionOff": "{name}: −{label}",
+    "acts": "{name} acts",
+    "ends": "{name}'s turn ends",
+    "round": "Round {round} begins",
+    "undone": "(taken back)"
+  },
+  "command": {
+    "label": "ORDER ›",
+    "aria": "Order",
+    "placeholder": "ogre hit 3 · +dazed hal · next · back",
+    "willSend": "Enter: {order}",
+    "words": {
+      "hit": "hit dmg",
+      "heal": "heal",
+      "shock": "shock",
+      "recover": "recover rec",
+      "next": "next",
+      "hold": "hold",
+      "back": "back",
+      "begin": "begin",
+      "mob": "mob",
+      "reveal": "reveal show",
+      "hide": "hide"
+    },
+    "said": {
+      "change": "{name}: {by, number, ::sign-always} {label}",
+      "conditionOn": "{name} gains {label}",
+      "conditionOff": "{name} loses {label}",
+      "next": "the next turn",
+      "hold": "hold the action",
+      "back": "TURN BACK",
+      "begin": "begin the fight",
+      "mob": "{name} stands at {members} members",
+      "reveal": "show {name} to the table",
+      "hide": "hide {name} from the table",
+      "pool": "{label} {by, number, ::sign-always}"
+    },
+    "why": {
+      "unknown": "Not an order: try a name and hit 3, +a condition, next, hold, back or begin.",
+      "noTarget": "Whose? Type a name or select a combatant.",
+      "noMatch": "No one in the fight is called {words}.",
+      "ambiguous": "Which one? {names}",
+      "noCondition": "This ruleset has no condition called {words}.",
+      "needsCount": "How many? Type mob and a number.",
+      "notHere": "This game's fight has no such order."
+    }
+  },
   "strike": {
     "open": "STRIKE",
     "close": "CLOSE",

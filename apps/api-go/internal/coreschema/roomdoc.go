@@ -91,6 +91,7 @@ var (
 		schema.Opt("prep", ScenePrep),
 		schema.Opt("imageId", id),
 		schema.Opt("imageRevealed", schema.Bool()),
+		schema.Opt("revealedAt", roomDateTime),
 	).Strict()
 
 	roomSession = schema.Object(

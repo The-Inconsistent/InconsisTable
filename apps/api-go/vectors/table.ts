@@ -478,6 +478,8 @@ const entry = (
   plannedTests: [] as string[],
   imageId: null as string | null,
   imageRevealed: false,
+  // When it reached the party or a reader (house decision #86): it travels with the entry, to whoever reads it.
+  revealedAt: visibility === "gm" ? null : "2026-11-01T10:00:00.000Z",
   fields: {} as Record<string, unknown>,
   // A handout's layout and header (house decision #72); null on every other kind.
   layout: (over.kind ?? "handout") === "handout" ? "tablet" : null,
@@ -844,8 +846,10 @@ const VALID: Record<string, Record<string, unknown>> = {
   "codex.move": { id: ID, parentId: null, position: 2 },
   "codex.link": { id: ID, targetId: ID },
   "codex.unlink": { id: ID, targetId: ID },
+  "scene.begin": { sceneId: ID },
+  "scene.undoBegin": { beginId: ID },
   "codex.reveal": { id: ID, visibility: "party", audienceMode: "listed", audience: [ID], imageRevealed: true },
-  "codex.delete": { id: ID },
+  "codex.delete": { id: ID, withScenes: true },
   "clock.create": { name: " Ritual ", segments: 6, visibility: "party", entryId: ID },
   "clock.tick": { id: ID, delta: -3 },
   "clock.update": { id: ID, name: " Cult ", segments: 8, visibility: "gm", entryId: ID },

@@ -70,6 +70,13 @@ own permission, is refused as that action would be, and lands in the log and in 
 names something the room's ruleset or packs no longer have is kept, shown as broken, and not sendable. The kinds of
 line a scene offers follow what the ruleset declares: no pools, no pool lines.
 
+*Amended 2026-11-21 (house decision #86).* Beginning a scene is one action, `scene.begin`: the scene being played goes
+to done, the named one becomes active, and each of its reveal lines is then sent as its own `codex.reveal`, with that
+action's permission and refusals; a line refused is skipped and named in the answer, and does not stop the begin. This
+is the one case where lines run without a tap each, as Auspex's BEGIN does. The begin is recorded so that
+`scene.undoBegin` can take it back while it is the room's latest and its scene is still active. An exit line is now
+`scene.begin` of the scene it names, no longer only opening it.
+
 **4. A room is a document.** `inconsistable-room`, version 1, lists what a room holds in the platform's own terms: its
 name and settings, the ruleset, pack and World versions it expects (by slug, version and hash; never their content),
 campaign fields and pools, actors with their fields and builds, the codex with everything above, sessions with their

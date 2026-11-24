@@ -133,8 +133,8 @@ describe("each kind of line becomes the action the table already has", () => {
       },
     });
   });
-  test("exit opens the scene, no action; reveal is codex.reveal to the party", () => {
-    assert.deepEqual(resolve("exits"), { state: "open", sceneId: SCENE });
+  test("exit begins the scene it names; reveal is codex.reveal to the party", () => {
+    assert.deepEqual(resolve("exits"), { state: "ready", action: { type: "scene.begin", sceneId: SCENE } });
     assert.deepEqual(resolve("reveals"), {
       state: "ready",
       action: { type: "codex.reveal", id: NPC, visibility: "party", audienceMode: "all", audience: [] },

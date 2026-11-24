@@ -104,6 +104,8 @@ export const RoomEntry = z.strictObject({
   prep: ScenePrep.optional(), // its scenes, entries and actors are this document's
   imageId: LocalId.optional(),
   imageRevealed: z.boolean().optional(),
+  // When it was last revealed; kept for a revealed entry, ignored on a sealed one (house decision #86).
+  revealedAt: z.iso.datetime({ offset: true }).optional(),
 });
 export type RoomEntry = z.infer<typeof RoomEntry>;
 

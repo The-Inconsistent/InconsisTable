@@ -34,7 +34,7 @@ type SceneRunProps = {
   act: (a: ActionInput) => Promise<ActionResult>;
   /** The ruleset's turn order is `sides`: the server picks each actor's side. */
   sided: boolean;
-  /** An exit: opens the named scene here. */
+  /** A scene begun here (an exit, PLAY THIS SCENE): opens it here. */
   onOpenScene: (sceneId: string) => void;
 };
 
@@ -49,6 +49,8 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
   const [asking, setAsking] = useState<string | null>(null); // the `pick` Test line whose takers are shown
   // What the GM filled in on a Test line that lacked inputs, by line id: for the next send only, never saved.
   const [filled, setFilled] = useState<Record<string, InputDraft>>({});
+  // The begin this screen last sent, for TAKE BACK (Auspex keeps it in the GM's shell the same way).
+  const [begun, setBegun] = useState<{ beginId: string; sceneId: string } | null>(null);
   const words = useSummaryWords();
   const prep = scene.prep ?? EMPTY_PREP;
   const empty = PREP_ORDER.every((k) => prep[k].length === 0);
@@ -57,7 +59,7 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
     step.line ? creatureName(step.line) : t(step.action.type === "encounter.start" ? "fight.start" : "fight.party");
 
   // SEND: the line's action; the status line says what went out, the refusal shows where every refusal does. What the
-  // GM filled in on the line served this send and is cleared.
+  // GM filled in on the line served this send and is cleared. An exit begins its scene, which then opens here.
   const handleSend = (id: string, what: string, action: ActionInput) => async () => {
     setBusy(id);
     setAsking(null);
@@ -65,6 +67,31 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
     setBusy(null);
     setSent(r.ok ? t("sent", { what }) : null);
     if (r.ok) setFilled((cur) => Object.fromEntries(Object.entries(cur).filter(([lineId]) => lineId !== id)));
+    if (r.ok && action.type === "scene.begin") handleBegun(action.sceneId, r.id);
+  };
+
+  // A begin answered with its id: kept for TAKE BACK, and the begun scene opens here.
+  const handleBegun = (sceneId: string, beginId: string | undefined) => {
+    if (beginId) setBegun({ beginId, sceneId });
+    onOpenScene(sceneId);
+  };
+  // PLAY THIS SCENE begins it (house decision #86); the other statuses are set as they are.
+  const handleStatus = (status: SceneStatus) => async () => {
+    if (status !== "active") {
+      await act({ type: "codex.save", id: scene.id, kind: "scene", status });
+      return;
+    }
+    const r = await act({ type: "scene.begin", sceneId: scene.id });
+    if (r.ok) handleBegun(scene.id, r.id);
+  };
+  // TAKE BACK: the begin this screen sent, while its scene is still the one being played.
+  const begunScene = begun && world.entries.find((e) => e.id === begun.sceneId && e.status === "active");
+  const handleTakeBack = async () => {
+    if (!begun || !begunScene) return;
+    const what = t("takeBack", { title: begunScene.title });
+    const r = await act({ type: "scene.undoBegin", beginId: begun.beginId });
+    setBegun(null);
+    setSent(r.ok ? t("sent", { what }) : null);
   };
 
   // An input a Test line lacked, filled in on the line.
@@ -97,15 +124,15 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
       </div>
       <div className="row" role="group" aria-label={t("sceneStatus")}>
         {SceneStatus.options.map((s) => (
-          <button
-            key={s}
-            className="btn sm"
-            aria-pressed={scene.status === s}
-            onClick={() => act({ type: "codex.save", id: scene.id, kind: "scene", status: s })}
-          >
+          <button key={s} className="btn sm" aria-pressed={scene.status === s} onClick={handleStatus(s)}>
             {t(`setStatus.${s}`)}
           </button>
         ))}
+        {begunScene && (
+          <button className="btn sm" onClick={handleTakeBack}>
+            {t("takeBack", { title: begunScene.title })}
+          </button>
+        )}
       </div>
       {sent && (
         <p className="small" role="status">
@@ -154,15 +181,7 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
                       </dl>
                     )}
                   </span>
-                  {resolved.state === "open" ? (
-                    <button
-                      className="btn"
-                      aria-label={t("openLine", { what })}
-                      onClick={() => onOpenScene(resolved.sceneId)}
-                    >
-                      {t("open")}
-                    </button>
-                  ) : resolved.state === "ready" ? (
+                  {resolved.state === "ready" ? (
                     <button
                       className="btn primary"
                       aria-label={t("sendLine", { what })}

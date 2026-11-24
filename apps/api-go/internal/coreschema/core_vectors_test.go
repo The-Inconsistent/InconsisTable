@@ -163,7 +163,7 @@ func TestNoticesMatchTypeScript(t *testing.T) {
 	if !reflect.DeepEqual(v.NoticeParams, NoticeParams) {
 		t.Fatalf("want %v, got %v", v.NoticeParams, NoticeParams)
 	}
-	for _, n := range []Notice{PoolFull("Luck", 2), RuleNotice("unspent", "Ash", "Ash has boons")} {
+	for _, n := range []Notice{PoolFull("Luck", 2), RestSkipped([]string{"Ash", "Bo"}), RuleNotice("unspent", "Ash", "Ash has boons")} {
 		keys := []string{}
 		for _, k := range NoticeParams[n.Code] {
 			if _, ok := n.Params[k]; ok {

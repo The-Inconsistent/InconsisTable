@@ -113,6 +113,35 @@ func parseFlag(key string) func(any) (flagInput, *Refusal) {
 	}
 }
 
+// barInput names one member by id, or every member of a side (house decision #81); exactly one of the two.
+type barInput struct {
+	id, side string
+	barred   bool
+}
+
+func parseBar(raw any) (barInput, *Refusal) {
+	r, ok := readObject(raw)
+	if !ok {
+		return barInput{}, refuse("badInput", "not an object")
+	}
+	var in barInput
+	if r.has("id") {
+		in.id = r.str("id")
+	}
+	if r.has("side") {
+		in.side = r.str("side")
+	}
+	if flag, ok := r.fields["barred"].(bool); ok {
+		in.barred = flag
+	} else {
+		r.fail("barred")
+	}
+	if r.has("id") == r.has("side") {
+		r.fail("id")
+	}
+	return in, r.refusal("badInput")
+}
+
 func sidesTargets(keys ...string) func(sidesParams) []TargetPattern {
 	return func(sidesParams) []TargetPattern {
 		out := make([]TargetPattern, len(keys))
@@ -484,8 +513,8 @@ var initiativeSides = definePrimitive(parseSidesParams, map[string]primitiveOp{
 			}
 			return deltas
 		}),
-	"bar": defineOp("encounter:run", parseFlag("barred"), sidesTargets("barred"),
-		func(p sidesParams, state *RuleState, in flagInput) *Refusal {
+	"bar": defineOp("encounter:run", parseBar, sidesTargets("barred"),
+		func(p sidesParams, state *RuleState, in barInput) *Refusal {
 			t, refusal := turnOrRefuse(state)
 			if refusal != nil {
 				return refusal
@@ -496,10 +525,16 @@ var initiativeSides = definePrimitive(parseSidesParams, map[string]primitiveOp{
 			if t.Round > p.barred.throughRound {
 				return refuse("wrongState", "barring is over")
 			}
+			if in.side != "" {
+				if !slices.Contains(p.sides, in.side) {
+					return refuse("badInput", `"%s" is not a side`, in.side)
+				}
+				return nil
+			}
 			if !slices.Contains(t.Order, in.id) {
 				return refuse("badInput", `"%s" is not in the order`, in.id)
 			}
-			if !in.flag {
+			if !in.barred {
 				return nil
 			}
 			if slices.Contains(t.Done, in.id) {
@@ -510,11 +545,28 @@ var initiativeSides = definePrimitive(parseSidesParams, map[string]primitiveOp{
 			}
 			return nil
 		},
-		func(_ sidesParams, state *RuleState, in flagInput) []Delta {
-			if in.flag {
-				return []Delta{setTurn("barred", withID(state.Turn.Barred, in.id))}
+		func(_ sidesParams, state *RuleState, in barInput) []Delta {
+			t := state.Turn
+			// A whole side: every member that may be barred (in the order, not done, not acting), or all of them freed.
+			ids := []string{in.id}
+			if in.side != "" {
+				ids = []string{}
+				for _, id := range t.Order {
+					acting := t.CurrentID != nil && *t.CurrentID == id
+					if t.SideOf[id] == in.side && (!in.barred || (!slices.Contains(t.Done, id) && !acting)) {
+						ids = append(ids, id)
+					}
+				}
 			}
-			return []Delta{setTurn("barred", withoutID(state.Turn.Barred, in.id))}
+			barred := t.Barred
+			for _, id := range ids {
+				if in.barred {
+					barred = withID(barred, id)
+				} else {
+					barred = withoutID(barred, id)
+				}
+			}
+			return []Delta{setTurn("barred", list(barred))}
 		}),
 	"lift": defineOp("encounter:run", parseOrderID, withPool(sidesTargets("barred")),
 		func(p sidesParams, state *RuleState, id string) *Refusal {

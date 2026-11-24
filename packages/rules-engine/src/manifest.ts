@@ -15,6 +15,7 @@ import {
   EntityBase,
   License,
   PoolFlag,
+  ReminderAt,
   ResetEvent,
   ResourceScope,
   ScalarType,
@@ -236,10 +237,42 @@ export const Condition = z.object({
   stacking: ConditionStacking.default("none"),
   maxStacks: z.int().min(1).max(100).optional(),
   duration: ConditionDuration,
+  /**
+   * `ownTurnEnd` only (house decision #81): added during its holder's own turn, it survives that turn's end and ends at
+   * the end of the next one; added at any other time it ends at the holder's next turn end, as without it.
+   */
+  from: z.literal("nextOwnTurn").optional(),
   /** Who sees that an actor has it. Fail-closed like everything else. */
   visibility: Visibility.default("gm"),
+  /** A reminder line for the side running the fight while an actor holds it (house decision #81); both or neither. */
+  at: ReminderAt.optional(),
+  text: z.string().min(1).max(120).optional(),
+  /** A boolean in the actor's scope: `condition.add` is refused on an actor it holds for (house decision #81). */
+  immune: ExprSource.optional(),
 });
 export type Condition = z.infer<typeof Condition>;
+
+/**
+ * A line the side running a fight is reminded of (house decision #81), in the ruleset's own words. `if` is a boolean in
+ * the scope of the combatant whose turn it is, which also reads `round`, `held` and `barred`; at `roundEnd` it is asked
+ * of every combatant and the line names the ones it holds for. No `if`: the line always shows, naming nobody.
+ */
+export const Reminder = z.object({
+  id: Id,
+  at: ReminderAt,
+  text: z.string().min(1).max(120),
+  cite: Cite.optional(),
+  if: ExprSource.optional(),
+});
+export type Reminder = z.infer<typeof Reminder>;
+
+/** A rest event an actor takes no part in while one of these health states holds for it (house decision #81). */
+export const RestRule = z.object({
+  event: ResetEvent,
+  refusedIn: z.array(Id).min(1).max(20),
+  cite: Cite.optional(),
+});
+export type RestRule = z.infer<typeof RestRule>;
 
 /**
  * The actor entity types a Test or a health state applies to (house decision #50). Absent: every actor type, and the
@@ -447,8 +480,8 @@ export const SidesInitiative = z.object({
   firstSide: z.enum(["fixed", "rotate"]).default("fixed"),
   /** auto: the round wraps when no able member is left. manual: it waits for `newRound`. */
   roundEnd: z.enum(["auto", "manual"]).default("auto"),
-  /** Present: the fight opens not begun, and no turn starts before `begin`. */
-  setup: z.object({ cite: Cite.optional() }).optional(),
+  /** Present: the fight opens not begun, and no turn starts before `begin`. `note` is shown to the GM meanwhile. */
+  setup: z.object({ cite: Cite.optional(), note: z.string().min(1).max(200).optional() }).optional(),
   /** A side with no cost cannot act out of turn. */
   outOfTurn: z.object({ cost: z.record(Id, SideCost), cite: Cite.optional() }).optional(),
   /** A member may end its turn holding an action. */
@@ -838,6 +871,10 @@ export const Ruleset = z.object({
     .refine((o) => Object.keys(o).length <= MAX_CAMPAIGN_FIELDS, `at most ${MAX_CAMPAIGN_FIELDS} campaign fields`)
     .optional(),
   conditions: z.array(Condition).max(500).default([]),
+  /** Lines the side running a fight is reminded of (house decision #81). Absent: none. */
+  reminders: z.array(Reminder).max(100).optional(),
+  /** Rest events refused in some health states (house decision #81). Absent: every actor rests. */
+  rests: z.array(RestRule).max(5).optional(),
   tests: z.record(Id, DiceMechanic).default({}),
   /** Absent: the game has no turn order, and `encounter.start` is refused. */
   initiative: Initiative.optional(),
@@ -1518,6 +1555,18 @@ function semanticProblems(r: Ruleset): Problem[] {
   r.conditions.forEach((c, i) => {
     needCite(c.cite, `conditions[${i}]`);
     c.effects.forEach((e, j) => needCite(e.cite ?? c.cite, `conditions[${i}].effects[${j}]`));
+    if ((c.at === undefined) !== (c.text === undefined))
+      out.push({ path: `conditions[${i}]`, message: "a reminder needs both at and text" });
+    if (c.from !== undefined && c.duration !== "ownTurnEnd")
+      out.push({ path: `conditions[${i}].from`, message: "only an ownTurnEnd condition is armed from a turn" });
+  });
+  r.reminders?.forEach((x, i) => needCite(x.cite, `reminders[${i}]`));
+  r.rests?.forEach((x, i) => {
+    needCite(x.cite, `rests[${i}]`);
+    x.refusedIn.forEach((id, j) => {
+      if (!r.health.states.some((st) => st.id === id))
+        out.push({ path: `rests[${i}].refusedIn[${j}]`, message: `unknown health state "${id}"` });
+    });
   });
   for (const [id, t] of Object.entries(r.tests)) {
     needCite(t.cite, `tests.${id}`);
@@ -1566,6 +1615,8 @@ function semanticProblems(r: Ruleset): Problem[] {
   duplicates({ ids: r.entities.map((e) => e.id), path: "entities", out });
   duplicates({ ids: r.resources.map((x) => x.id), path: "resources", out });
   duplicates({ ids: r.conditions.map((x) => x.id), path: "conditions", out });
+  duplicates({ ids: (r.reminders ?? []).map((x) => x.id), path: "reminders", out });
+  duplicates({ ids: (r.rests ?? []).map((x) => x.event), path: "rests", out });
   duplicates({ ids: (r.phases ?? []).map((x) => x.id), path: "phases", out });
   if (r.initiative?.strategy === "sides") {
     duplicates({ ids: r.initiative.sides.map((x) => x.id), path: "initiative.sides", out });

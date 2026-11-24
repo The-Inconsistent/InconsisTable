@@ -46,8 +46,9 @@ type CombatantPanelProps = {
 };
 
 // A refusal shown in the panel is brought into view when it appears: on a phone the panel's controls sit far below.
-// Stable, so React calls it only when the line mounts (a new refusal remounts it by its key).
-const bringIntoView = (el: HTMLElement | null) => el?.scrollIntoView({ block: "nearest" });
+// Stable, so React calls it only when the line mounts (a new refusal remounts it by its key). Centred, since a line
+// scrolled to the top edge would sit under the sticky fight bar.
+const bringIntoView = (el: HTMLElement | null) => el?.scrollIntoView({ block: "center" });
 
 // The selected combatant: a keypad for damage, healing and temporary points, death saves, what the table sees, the
 // conditions it carries with their time left, and the way out of the fight.
@@ -69,6 +70,9 @@ export function CombatantPanel({
   const tVisibility = useTranslations("combatVisibility");
   const tKeys = useTranslations("keypad");
   const tSheet = useTranslations("sheet");
+  const tBar = useTranslations("healthBar");
+  const stackedLabel = (label: string, count: number | undefined) =>
+    count === undefined ? label : tBar("stacked", { label, count });
   const [entry, setEntry] = useState("");
   const [critical, setCritical] = useState(false);
   const [condition, setCondition] = useState("");
@@ -236,7 +240,7 @@ export function CombatantPanel({
           {c.conditions.map((k) => (
             <li key={k.id}>
               <span>
-                {encounter.conditionDefs.find((d) => d.id === k.id)?.label ?? k.id}{" "}
+                {stackedLabel(encounter.conditionDefs.find((d) => d.id === k.id)?.label ?? k.id, k.stacks)}{" "}
                 <span className="dim">{leftText(k)}</span>
               </span>
               <button

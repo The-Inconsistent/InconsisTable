@@ -26,6 +26,7 @@ import { SAMPLE_PACK, SAMPLE_PACK_EFFECTS } from "../../../packages/rules-engine
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
+import { SAMPLE_SKIRMISH } from "../../../packages/rules-engine/src/fixtures/sample-skirmish.ts";
 import { SAMPLE_LEDGER_RULESET } from "../../../packages/rules-engine/src/fixtures/sample-ledger-ruleset.ts";
 import { SAMPLE_LEDGER_PACK } from "../../../packages/rules-engine/src/fixtures/sample-ledger-pack.ts";
 import { SAMPLE_WORLD } from "../../../packages/rules-engine/src/fixtures/sample-world.ts";
@@ -4789,4 +4790,108 @@ test("room document: a creator imports it, the GM reads all of it, an invited pl
   assert.equal(seen("Trouble on the quay"), undefined, "an unrevealed scene stays home");
   owner.socket.close();
   player.socket.close();
+});
+
+// House decision #81 on the invented sides fixture: reminder lines reach the combat side only, a whole side is barred
+// in one action, an immune foe refuses a condition, a rated condition shows its stacks to every seat, and a long rest
+// is refused while downed and skips the downed in a party rest.
+test("sides fixture: reminders, a side barred at once, immunity, stacks and a refused rest", async () => {
+  const ownerDevice = await device("owner-Skirmish");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_SKIRMISH);
+  assert.equal(rs.status, 201);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Skirmish",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-Skirmish") } });
+  const screen = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  const hero = (await owner.until((s) => s.actors.some((a) => a.kind === "pc"))).actors.find(
+    (a) => a.kind === "pc",
+  )!.id;
+  ok(await owner.send({ type: "actor.rename", id: hero, name: "Hal" }));
+  // Level 3, Grit 10: 14 Vigour at most, 2 left, so below half.
+  const stats = { "attr.str": 10, "attr.dex": 10, "attr.con": 10, guard: 1 };
+  await equip(hero, "character", { fields: { level: 3, ...stats }, resources: { hp: 2 } });
+  const brute = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Brute" })).id!;
+  await equip(brute, "creature", { fields: { level: 6, "attr.con": 10 }, resources: { hp: 20 } });
+  const imp = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Imp" })).id!;
+  await equip(imp, "creature", { fields: { level: 1, "attr.con": 10 }, resources: { hp: 5 } });
+  const sides = (op: string, input: object) =>
+    owner.send({ type: "rule.op", primitive: "initiative.sides", op, input } as ActionInput);
+
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: [hero, brute, imp], visibility: "full" }));
+  await owner.until((s) => s.encounter?.combatants.length === 3);
+  const cb = (s: LiveState, actorId: string) => s.encounter!.combatants.find((c) => c.actorId === actorId)!;
+
+  // Setup: the raiders barred at once, then freed, and the Imp alone; a side the ruleset lacks is refused.
+  ok(await sides("bar", { side: "raiders", barred: true }));
+  await owner.until((s) => cb(s, brute).barred === true && cb(s, imp).barred === true);
+  refused(await sides("bar", { side: "nobody", barred: true }), "badInput");
+  ok(await sides("bar", { side: "raiders", barred: false }));
+  ok(await sides("bar", { id: imp, barred: true }));
+  let s = await owner.until((x) => cb(x, brute).barred === false && cb(x, imp).barred === true);
+  assert.equal(s.encounter!.reminders, undefined, "nothing is due before the fight begins");
+  ok(await sides("begin", {}));
+
+  // Hal's turn: below half and burning at its start, the footing line at its end.
+  ok(await owner.send({ type: "condition.add", actorId: hero, condition: "burning" }));
+  ok(await sides("pick", { id: hero }));
+  s = await owner.until((x) => x.encounter?.currentId === cb(x, hero).id && (x.encounter.reminders?.length ?? 0) === 3);
+  assert.deepEqual(
+    s.encounter!.reminders!.map((r) => [r.at, r.id, r.actorIds]),
+    [
+      ["turnStart", "rally", [hero]],
+      ["turnStart", "burning", [hero]],
+      ["turnEnd", "footing", []],
+    ],
+  );
+  // A player and the screen never receive a line.
+  for (const c of [ana, screen]) {
+    const v = await c.until((x) => x.stateVersion >= s.stateVersion);
+    assert.equal(v.encounter!.reminders, undefined);
+  }
+
+  // The Brute is immune to Reeling by name; Hal takes it twice and every seat reads the stacks.
+  const immune = await owner.send({ type: "condition.add", actorId: brute, condition: "reeling" });
+  refused(immune, "conditionImmune");
+  assert.equal(immune.ok ? "" : immune.error, "Brute is immune to Reeling");
+  ok(await owner.send({ type: "condition.add", actorId: hero, condition: "reeling" }));
+  ok(await owner.send({ type: "condition.add", actorId: hero, condition: "reeling" }));
+  s = await owner.until((x) => cb(x, hero).conditions.some((k) => k.id === "reeling" && k.stacks === 2));
+  // Added during Hal's own turn: two ticks, so it outlasts this turn.
+  assert.equal(cb(s, hero).conditions.find((k) => k.id === "reeling")?.left, 2);
+  const seen = await ana.until((x) => x.stateVersion >= s.stateVersion);
+  assert.equal(cb(seen, hero).conditions.find((k) => k.id === "reeling")?.stacks, 2);
+
+  // The Brute holds; the Imp is still barred: the round's end names each.
+  ok(await sides("pick", { id: brute }));
+  ok(await sides("hold", {}));
+  s = await owner.until(
+    (x) => x.encounter?.currentId === null && x.encounter.reminders?.some((r) => r.at === "roundEnd") === true,
+  );
+  assert.deepEqual(
+    s.encounter!.reminders!.map((r) => [r.id, r.actorIds]),
+    [
+      ["heldLost", [brute]],
+      ["offGuardEnds", [imp]],
+    ],
+  );
+  assert.equal(cb(s, hero).conditions.find((k) => k.id === "reeling")?.left, 1, "Hal's turn end took one tick");
+
+  // Downed, Hal takes no long rest; the party's rests everyone else and names him.
+  await query("UPDATE actor_resource SET value = 0 WHERE actor_id = $1 AND resource_id = 'hp'", [hero]);
+  const one = await owner.send({ type: "actor.rest", event: "longRest", actorId: hero });
+  refused(one, "restRefused");
+  assert.equal(one.ok ? "" : one.error, "Hal can't rest while Downed");
+  const all = ok(await owner.send({ type: "actor.rest", event: "longRest" }));
+  assert.deepEqual(all.notices, [{ code: "restSkipped", params: { names: "Hal", count: 1 } }]);
+  s = await owner.until((x) => actorIn(x, imp)?.resources.hp === 7);
+  assert.equal(actorIn(s, hero)?.resources.hp, 0);
+  for (const c of [owner, ana, screen]) c.socket.close();
 });

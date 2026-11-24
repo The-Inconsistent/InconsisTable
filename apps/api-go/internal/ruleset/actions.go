@@ -2,6 +2,7 @@ package ruleset
 
 import (
 	"context"
+	"slices"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
@@ -25,22 +26,67 @@ func entityActor(rc *Context, actorID string) (*actor.Built, *cs.Error) {
 
 // RestActors applies a rest or boundary event to one actor (actorID) or to all of them ("") through the engine's
 // `rest` primitive, and logs it as one action. Used by actor.rest and by session start and end (the caller holds
-// session:run). pinned is false with no ruleset pinned, when there is nothing to reset.
-func RestActors(ctx context.Context, tx core.Conn, c cs.Ctx, event, actorID string) (pinned bool, actionID string, err error) {
+// session:run). pinned is false with no ruleset pinned, when there is nothing to reset. An actor in a health state the
+// ruleset's `rests` refuses this event in (house decision #81) is refused by name when named alone, and otherwise left
+// out: skipped names them, in name order.
+func RestActors(ctx context.Context, tx core.Conn, c cs.Ctx, event, actorID string) (pinned bool, actionID string, skipped []string, err error) {
 	rc, err := OpenIfPinned(ctx, tx, c)
 	if err != nil || rc == nil {
-		return false, "", err
+		return false, "", nil, err
 	}
 	input := map[string]any{"event": event}
 	if actorID != "" {
 		input["actorIds"] = []any{actorID}
 	}
+	refused := restRefused(rc, event)
+	if state, in := refused[actorID]; actorID != "" && in {
+		return true, "", nil, cs.Fail("restRefused", cs.Params{"name": rc.Built[actorID].Row.Name, "state": state})
+	}
 	deltas, err := rc.Run(ctx, Run{Primitive: "rest", Op: "apply", Input: input, NoTurn: true})
 	if err != nil {
-		return true, "", err
+		return true, "", nil, err
 	}
-	actionID, err = rc.ApplyRuled(ctx, deltas)
-	return true, actionID, err
+	kept := deltas[:0:0]
+	for _, d := range deltas {
+		if _, out := refused[d.Target.ActorID]; !out {
+			kept = append(kept, d)
+		}
+	}
+	for id := range refused {
+		skipped = append(skipped, rc.Built[id].Row.Name)
+	}
+	slices.Sort(skipped)
+	actionID, err = rc.ApplyRuled(ctx, kept)
+	return true, actionID, skipped, err
+}
+
+// restRefused is the actors a rest event leaves out, with the label of the first refusing state each is in.
+func restRefused(rc *Context, event string) map[string]string {
+	out := map[string]string{}
+	for _, rule := range rc.Compiled.Ruleset.Rests {
+		if rule.Event != event {
+			continue
+		}
+		for id, b := range rc.Built {
+			if b.Scope == nil {
+				continue
+			}
+			held, err := rc.Compiled.HealthStatesOf(b.Entity, b.Scope)
+			if err != nil {
+				continue
+			}
+			for _, s := range rc.Compiled.HealthStates {
+				if _, done := out[id]; !done && slices.Contains(rule.RefusedIn, s.ID) && slices.Contains(held, s.ID) {
+					label := s.ID
+					if s.Label != nil {
+						label = *s.Label
+					}
+					out[id] = label
+				}
+			}
+		}
+	}
+	return out
 }
 
 func applied(rc *Context, ctx context.Context, deltas []engine.Delta, charged bool) (cs.Result, error) {
@@ -138,7 +184,24 @@ func ConditionAdd(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.
 	if !known {
 		return cs.Result{}, cs.Fail("noCondition", cs.Params{"condition": condition})
 	}
-	rowID, row, changes := actor.ConditionApplied(def, b.Conditions, source, def.Duration, a["expiresAfter"])
+	if rc.Compiled.ImmuneTo(condition, b.Scope) {
+		return cs.Result{}, cs.Fail("conditionImmune", cs.Params{"name": b.Row.Name, "condition": def.Label})
+	}
+	// Armed from the holder's next turn when added during its own (house decision #81).
+	t, err := rc.Turn(ctx)
+	if err != nil {
+		return cs.Result{}, err
+	}
+	var typed *float64
+	if n, given := a["expiresAfter"].(float64); given {
+		typed = &n
+	}
+	acting := t != nil && t.CurrentID != nil && *t.CurrentID == actorID
+	var expiresAfter any
+	if ticks := engine.ArmedTicks(def, acting, typed); ticks != nil {
+		expiresAfter = *ticks
+	}
+	rowID, row, changes := actor.ConditionApplied(def, b.Conditions, source, def.Duration, expiresAfter)
 	if !changes {
 		return cs.Done(""), nil // applying it again does nothing
 	}
@@ -174,12 +237,15 @@ func ActorRest(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Res
 	if !engine.IsResetEvent(event) {
 		return cs.Result{}, cs.Fail("noRest", cs.Params{"event": event})
 	}
-	pinned, id, err := RestActors(ctx, tx, c, event, a.Str("actorId"))
+	pinned, id, skipped, err := RestActors(ctx, tx, c, event, a.Str("actorId"))
 	if err != nil {
 		return cs.Result{}, err
 	}
 	if !pinned {
 		return cs.Result{}, cs.Fail("noRuleset")
+	}
+	if len(skipped) > 0 {
+		cs.Notify(ctx, cs.RestSkipped(skipped))
 	}
 	return cs.Done(id), nil
 }

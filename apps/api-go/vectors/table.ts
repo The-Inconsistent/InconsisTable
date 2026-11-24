@@ -121,7 +121,7 @@ const combatant = (id: string, actorId: string, visibility: string, over: Record
   states: [{ id: "hurt", label: "Hurt" }],
   members: null,
   conditions: [
-    { id: "dazed", left: 1, expiresOn: "roundEnd" },
+    { id: "dazed", left: 1, expiresOn: "roundEnd", stacks: 2 },
     { id: "marked", left: null, expiresOn: "manual" },
   ],
   ...over,
@@ -307,6 +307,8 @@ const STATE = {
       combatant(CB4, NPC, "bar", { ord: 3, hp: null, bar: 0.25, members: { value: 3, max: 12 } }),
       combatant(CB5, GHOST, "full", { ord: 4 }),
     ],
+    // A line naming the hidden combatant's actor: the combat side's only (house decision #81).
+    reminders: [{ at: "roundEnd", source: "reminder", id: "heldLost", text: "Held", cite: null, actorIds: [GOB] }],
   },
   games: [],
   access: {

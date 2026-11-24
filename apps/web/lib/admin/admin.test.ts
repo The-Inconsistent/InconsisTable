@@ -11,6 +11,9 @@ const room = (name: string, ownerName: string | null, lastPlayedAt: string | nul
   rulesetVersion: null,
   lastPlayedAt,
   archived: false,
+  tableMode: "gm",
+  latestSession: null,
+  gms: [],
 });
 const rooms = [
   room("Ashfall", "Dana", null),

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -21,7 +22,7 @@ type Table interface {
 }
 
 // Actions are the housekeeping an admin may run at a room (ADMIN_ACTIONS in packages/core-schema).
-var Actions = []string{"member.seat", "member.remove", "campaign.archive", "campaign.unarchive", "campaign.delete", "campaign.transfer"}
+var Actions = cs.AdminActions
 
 // Service holds the admin console's reads and housekeeping, behind the shared `x-admin-key` header.
 //
@@ -70,6 +71,19 @@ type campaignRow struct {
 	RulesetVersion *string `json:"rulesetVersion"`
 	LastPlayedAt   *string `json:"lastPlayedAt"`
 	Archived       bool    `json:"archived"`
+	// TableMode says whether the room has GM seats to give (house decision #94).
+	TableMode string `json:"tableMode"`
+	// LatestSession is the room's last session, running when EndedAt is nil: what END WITHOUT AN AWARD and DELETE
+	// SESSION act on. Nil before the first.
+	LatestSession *latestSession `json:"latestSession"`
+	// GMs are the room's GM seats by name, so the console shows who runs it before seating another.
+	GMs []string `json:"gms"`
+}
+
+type latestSession struct {
+	ID      string  `json:"id"`
+	Number  int     `json:"number"`
+	EndedAt *string `json:"endedAt"`
 }
 
 // Campaigns is GET /api/admin/campaigns.
@@ -80,7 +94,12 @@ func (s *Service) Campaigns(_ http.ResponseWriter, r *http.Request) (any, error)
 		return nil, err
 	}
 	rows, err := s.DB.Query(r.Context(), `SELECT c.id::text, c.name, c.owner_user_id, u.name, ruleset.title, ruleset_version.version,
-			(SELECT max(coalesce(s.ended_at, s.started_at)) FROM session s WHERE s.campaign_id = c.id), c.archived_at IS NOT NULL
+			(SELECT max(coalesce(s.ended_at, s.started_at)) FROM session s WHERE s.campaign_id = c.id), c.archived_at IS NOT NULL,
+			c.table_mode,
+			(SELECT json_build_object('id', s.id, 'number', s.number, 'endedAt', s.ended_at) FROM session s
+				WHERE s.campaign_id = c.id ORDER BY s.number DESC LIMIT 1),
+			coalesce((SELECT json_agg(g.name ORDER BY g.name) FROM membership m JOIN app_user g ON g.id = m.user_id
+				WHERE m.campaign_id = c.id AND m.role = 'gm'), '[]'::json)
 		FROM campaign c LEFT JOIN app_user u ON u.id = c.owner_user_id
 		LEFT JOIN ruleset_version ON ruleset_version.id = c.ruleset_version_id
 		LEFT JOIN ruleset ON ruleset.id = ruleset_version.ruleset_id
@@ -93,8 +112,28 @@ func (s *Service) Campaigns(_ http.ResponseWriter, r *http.Request) (any, error)
 	for rows.Next() {
 		var c campaignRow
 		var played *time.Time
-		if err := rows.Scan(&c.ID, &c.Name, &c.OwnerUserID, &c.OwnerName, &c.Ruleset, &c.RulesetVersion, &played, &c.Archived); err != nil {
+		var latest, gms []byte
+		if err := rows.Scan(&c.ID, &c.Name, &c.OwnerUserID, &c.OwnerName, &c.Ruleset, &c.RulesetVersion, &played, &c.Archived,
+			&c.TableMode, &latest, &gms); err != nil {
 			return nil, err
+		}
+		if err := json.Unmarshal(gms, &c.GMs); err != nil {
+			return nil, err
+		}
+		if latest != nil {
+			var s struct {
+				ID      string     `json:"id"`
+				Number  int        `json:"number"`
+				EndedAt *time.Time `json:"endedAt"`
+			}
+			if err := json.Unmarshal(latest, &s); err != nil {
+				return nil, err
+			}
+			c.LatestSession = &latestSession{ID: s.ID, Number: s.Number}
+			if s.EndedAt != nil {
+				iso := core.ISOTime(*s.EndedAt)
+				c.LatestSession.EndedAt = &iso
+			}
 		}
 		if played != nil {
 			iso := core.ISOTime(*played)
@@ -259,13 +298,22 @@ type eventRow struct {
 	CreatedAt    string  `json:"createdAt"`
 }
 
-// Events is GET /api/admin/events: the newest 200 rows of the admin log.
+// Events is GET /api/admin/events: the newest 200 rows of the admin log, or of one room's with ?campaignId= (the room
+// card's event log, house decision #94).
 func (s *Service) Events(_ http.ResponseWriter, r *http.Request) (any, error) {
 	if err := guard(r); err != nil {
 		return nil, err
 	}
+	var room *string
+	if raw := r.URL.Query().Get("campaignId"); raw != "" {
+		id, ok := uuid(raw)
+		if !ok {
+			return nil, badRequest("Not a campaign id")
+		}
+		room = &id
+	}
 	rows, err := s.DB.Query(r.Context(), `SELECT id::text, actor_user_id, action, campaign_id::text, campaign_name, target_user_id, detail, created_at
-		FROM admin_event ORDER BY created_at DESC LIMIT 200`)
+		FROM admin_event WHERE $1::uuid IS NULL OR campaign_id = $1 ORDER BY created_at DESC LIMIT 200`, room)
 	if err != nil {
 		return nil, err
 	}

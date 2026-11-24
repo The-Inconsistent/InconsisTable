@@ -34,8 +34,9 @@ type coreVectors struct {
 		Grant    map[string]bool `json:"grant"`
 		SeatJSON any             `json:"seatJson"`
 	} `json:"permissions"`
-	GMPerm map[string]string `json:"gmPerm"`
-	Shapes []struct {
+	GMPerm       map[string]string `json:"gmPerm"`
+	AdminActions []string          `json:"adminActions"`
+	Shapes       []struct {
 		Shape  string `json:"shape"`
 		Input  any    `json:"input"`
 		Ok     bool   `json:"ok"`
@@ -71,6 +72,12 @@ func viaJSON(t *testing.T, v any) any {
 		t.Fatal(err)
 	}
 	return out
+}
+
+func TestAdminActionsMatchTypeScript(t *testing.T) {
+	if v := load(t); !reflect.DeepEqual(AdminActions, v.AdminActions) {
+		t.Fatalf("want %v, got %v", v.AdminActions, AdminActions)
+	}
 }
 
 func TestRefusalsMatchTypeScript(t *testing.T) {

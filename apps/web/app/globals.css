@@ -3212,6 +3212,20 @@ fieldset:disabled select {
 .ledger-confirm::backdrop {
   background: rgb(0 0 0 / 0.55);
 }
+/* A room's controls can run past the screen on a phone: the dialog scrolls, the page behind does not. */
+.ledger-confirm[open] {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+/* A user's seats and a room's admin log: plain lines, no bullets (house decision #94). */
+.admin-seats,
+.admin-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
 /* The dialog rises out of the top layer and sinks back into it; overlay and display hold it there while it leaves. */
 .ledger-confirm,
 .ledger-confirm::backdrop {

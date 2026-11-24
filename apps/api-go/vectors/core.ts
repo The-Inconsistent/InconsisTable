@@ -8,6 +8,7 @@ import {
   canActOnMember,
   canGrantRole,
   canInCampaign,
+  AdminAction,
   CreateGame,
   gmPermOf,
   NOTICE_PARAMS,
@@ -132,6 +133,7 @@ writeFileSync(
       (["pc", "companion", "npc", "creature", "group", "vehicle", "hazard"] as const).map((k) => [k, gmPermOf(k)]),
     ),
     shapes,
+    adminActions: AdminAction.options,
   }),
 );
 console.log(`core vectors: ${permissions.length} seats, ${shapes.length} shapes`);

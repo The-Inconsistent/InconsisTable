@@ -3,11 +3,23 @@ import { test } from "node:test";
 
 import { compileRuleset, Ruleset } from "@inconsistable/rules-engine";
 
-import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+import { SAMPLE_D20, SAMPLE_D20_BEFORE_WIDGETS } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_HARM } from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
-import { canAskToSpend, pageOfCite, rangeOf, restsOf, sectionsOf, stepAction, stepsOf, timeLeft } from "./sheet.ts";
+import {
+  canAskToSpend,
+  pageOfCite,
+  rangeOf,
+  restsOf,
+  rowsOf,
+  sectionsOf,
+  showJump,
+  stepAction,
+  stepsOf,
+  timeLeft,
+} from "./sheet.ts";
 
 const ruleset = Ruleset.parse(SAMPLE_D20);
+const plain = Ruleset.parse(SAMPLE_D20_BEFORE_WIDGETS);
 const actor = {
   entity: "character",
   fields: { name: "Ash", level: 3, "attr.str": 14, "attr.dex": 16, "attr.con": 12, guard: 11 },
@@ -16,11 +28,44 @@ const actor = {
 };
 
 test("the layout for the entity (or the shared one) becomes sections, in its order, of the values the seat holds", () => {
-  const sections = sectionsOf({ ruleset, actor });
+  const sections = sectionsOf({ ruleset: plain, actor });
   assert.deepEqual(
-    sections.map((s) => [s.id, s.rows.map((r) => r.id)]),
-    [["abilities", ["attr.str", "attr.dex", "attr.con"]]],
+    sections.map((s) => [s.id, s.parts.map((p) => (p.kind === "rows" ? p.rows.map((r) => r.id) : p.model.widget))]),
+    [["abilities", [["attr.str", "attr.dex", "attr.con"]]]],
   );
+  // A creature has no layout of its own: the shared one.
+  const creature = sectionsOf({ ruleset, actor: { ...actor, entity: "creature" } });
+  assert.deepEqual(
+    creature.map((s) => rowsOf(s).map((r) => r.id)),
+    [["attr.str", "attr.dex", "attr.con"]],
+  );
+});
+
+test("a plain layout draws one run of value rows per section, as it did before widgets (house decision #83)", () => {
+  for (const s of sectionsOf({ ruleset: plain, actor }))
+    assert.deepEqual(
+      s.parts.map((p) => p.kind),
+      ["rows"],
+    );
+  assert.equal(showJump(sectionsOf({ ruleset: plain, actor })), false);
+});
+
+test("value rows between widgets run together, and each widget stands alone in its place", () => {
+  const sections = sectionsOf({
+    ruleset,
+    actor: { ...actor, fields: { ...actor.fields, strain: 4, deathSaveSuccesses: 1, deathSaveFailures: 0 } },
+  });
+  const strain = sections.find((s) => s.id === "strain");
+  assert.deepEqual(
+    strain?.parts.map((p) => (p.kind === "rows" ? p.rows.map((r) => r.id) : p.model.widget)),
+    ["pips", ["deathSaveSuccesses", "deathSaveFailures"]],
+  );
+  const vigour = sections.find((s) => s.id === "vigour");
+  assert.deepEqual(
+    vigour?.parts.map((p) => (p.kind === "rows" ? p.rows.map((r) => r.id) : p.model.widget)),
+    ["track", ["tempHp"]], // focus is not sent to this seat: its track is not drawn
+  );
+  assert.equal(showJump(sections), true);
 });
 
 test("paths name a field, a derived value or a resource, and a value the seat does not hold is left out", () => {
@@ -36,12 +81,13 @@ test("paths name a field, a derived value or a resource, and a value the seat do
     },
   });
   const sections = sectionsOf({ ruleset: custom, actor });
+  const rows = sections[0] ? rowsOf(sections[0]) : [];
   assert.deepEqual(
-    sections[0]?.rows.map((r) => `${r.kind}:${r.id}`),
+    rows.map((r) => `${r.kind}:${r.id}`),
     ["derived:defense", "resource:hp", "field:attr.str", "derived:maxHp", "resource:tempHp"],
   );
   assert.equal(sections.length, 1); // a section with nothing to show is dropped
-  assert.equal(sections[0]?.rows[0]?.cite, "Sample p.4");
+  assert.equal(rows[0]?.cite, "Sample p.4");
 });
 
 test("without a layout the sheet lists numbers, resources, then details", () => {

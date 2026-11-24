@@ -15,6 +15,8 @@ type LedgerLinesProps = {
   ruleset: Ruleset;
   books: readonly BookSource[];
   requestPage: RequestPage;
+  /** The kinds of line the layout already draws through its widgets (`weapons`, `armour`, `talents` ...). */
+  skip?: ReadonlySet<string>;
 };
 
 type Line = { key: string; name: string; cite?: string | undefined; numbers?: string; summary?: string | undefined };
@@ -22,10 +24,19 @@ type Line = { key: string; name: string; cite?: string | undefined; numbers?: st
 // What a character bought with the ledger builder carries that its field rows do not: talents, abilities, weapons,
 // gear and powers. Each line is a name, its cite, its numbers and the importer's summary; never the books' wording,
 // which is not in the data. Read-only.
-export function LedgerLines({ sheet, ruleset, books, requestPage }: LedgerLinesProps) {
+export function LedgerLines({ sheet, ruleset, books, requestPage, skip }: LedgerLinesProps) {
   const t = useTranslations("sheet.ledger");
-  const lines = sheetLinesOf(sheet);
-  if (!lines) return null;
+  const read = sheetLinesOf(sheet);
+  if (!read) return null;
+  const drop = (kind: string) => skip?.has(kind) ?? false;
+  const lines = {
+    talents: drop("talents") ? [] : read.talents,
+    abilities: drop("abilities") ? [] : read.abilities,
+    weapons: drop("weapons") ? [] : read.weapons,
+    armour: drop("armour") ? null : read.armour,
+    gear: drop("gear") ? [] : read.gear,
+    powers: drop("powers") ? [] : read.powers,
+  };
   const rule =
     (prefix: string) => (r: { name: string; page?: string | undefined; summary?: string | undefined }, i: number) => ({
       key: `${prefix}-${i}`,

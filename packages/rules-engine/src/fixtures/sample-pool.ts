@@ -1,5 +1,5 @@
 import type { RulesetInput } from "../manifest.ts";
-import { NOTICE_RESOURCES, SAMPLE_D20 } from "./sample-d20.ts";
+import { NOTICE_RESOURCES, SAMPLE_D20_BEFORE_WIDGETS } from "./sample-d20.ts";
 
 /**
  * A placeholder Dice pool ruleset written for tests, on the sample-d20 characters. Every name, number and cite is our
@@ -8,7 +8,7 @@ import { NOTICE_RESOURCES, SAMPLE_D20 } from "./sample-d20.ts";
  * It has no codex block, so its rooms keep entries as a title and two texts (house decision #71), and none of the
  * d20's notices.
  */
-const { codex: _codex, notices: _notices, ...withoutCodex } = SAMPLE_D20;
+const { codex: _codex, notices: _notices, ...withoutCodex } = SAMPLE_D20_BEFORE_WIDGETS;
 void _codex;
 void _notices;
 export const SAMPLE_POOL: RulesetInput = {

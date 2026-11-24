@@ -48,7 +48,7 @@ test("the sample compiles, with derived values in dependency order", () => {
   const c = compile();
   assert.deepEqual(
     c.entities.character?.derived.map((d) => d.id),
-    ["baseHp", "initBonus", "maxHp", "defense"],
+    ["baseHp", "initBonus", "mightMod", "graceMod", "gritMod", "maxHp", "defense"],
   );
   assert.deepEqual(c.entities.character?.derived.find((d) => d.id === "maxHp")?.deps, ["baseHp"]);
   assert.deepEqual(c.entities.character?.resources, ["hp", "tempHp", "focus", "boons", "renown"]);
@@ -64,6 +64,9 @@ test("deriveValues computes every derived value", () => {
     initBonus: 3,
     maxHp: 15,
     defense: 14,
+    mightMod: 2,
+    graceMod: 3,
+    gritMod: 1,
   });
   assert.throws(() => deriveValues({ compiled: c, entity: "vehicle", values: HERO }), /unknown entity type/);
   assert.throws(

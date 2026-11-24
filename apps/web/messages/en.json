@@ -736,6 +736,7 @@
     "none": "None.",
     "turnsLeft": "{count, plural, one {# turn left} other {# turns left}}",
     "roundsLeft": "{count, plural, one {# round left} other {# rounds left}}",
+    "jump": "Jump to a section",
     "ledger": {
       "talents": "Talents",
       "abilities": "Abilities",
@@ -749,6 +750,26 @@
       "salvo": "Salvo {salvo}",
       "armour": "AR {ar}",
       "power": "DN {dn} · {activation} · {duration} · Range {range}"
+    },
+    "widget": {
+      "rating": "Rating",
+      "bonus": "Bonus",
+      "total": "Total",
+      "name": "Name",
+      "link": "Linked to",
+      "untrained": "untrained",
+      "trackOf": "{label}: {value} of {max}",
+      "pipsOf": "{label} {value}: {step}",
+      "noStep": "None yet",
+      "damage": "Dmg",
+      "ap": "AP",
+      "ed": "+{ed} ED",
+      "talent": "Talent",
+      "save": "Save",
+      "cancel": "Cancel",
+      "write": "Write",
+      "edit": "Edit",
+      "notWritten": "{fields}: not written yet."
     }
   },
   "breakdown": {

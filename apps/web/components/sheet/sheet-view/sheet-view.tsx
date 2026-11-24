@@ -9,11 +9,14 @@ import { XpBox } from "@/components/builder/ledger/play/xp-box/xp-box";
 import { Breakdown } from "@/components/sheet/components/breakdown/breakdown";
 import { LedgerLines } from "@/components/sheet/components/ledger-lines/ledger-lines";
 import { SpendAsk } from "@/components/sheet/components/spend-ask/spend-ask";
+import { SheetWidget } from "@/components/sheet/widgets/sheet-widget/sheet-widget";
+import type { WidgetEnv } from "@/components/sheet/widgets/types";
 import { Cite } from "@/components/ui/cite/cite";
 import { ResourceRow } from "@/components/ui/resource-row/resource-row";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { rankOf } from "@/lib/ledger/play";
 import { xpEarnedOf } from "@/lib/ledger/table";
+import { ledgerLaidOut } from "@/lib/sheet-widgets/sheet-widgets";
 import { pendingFor } from "@/lib/spend-request/spend-request";
 import {
   canAskToSpend,
@@ -23,6 +26,7 @@ import {
   resetsOn,
   restsOf,
   sectionsOf,
+  showJump,
   stepsOf,
   timeLeft,
   type SheetRow,
@@ -97,6 +101,9 @@ export function SheetView({
     setError(r.ok ? null : r.error);
   };
 
+  const range = (resource: string) =>
+    compiled ? rangeOf({ compiled, resource, actor, characters, campaign: inPlay }) : null;
+
   const rowView = (row: SheetRow) => {
     const cite = row.cite && <Cite cite={row.cite} {...{ ruleset, books, requestPage }} />;
     if (row.kind === "resource") {
@@ -108,7 +115,7 @@ export function SheetView({
             stat={row.id}
             label={row.label}
             value={actor.resources[row.id] ?? 0}
-            range={compiled ? rangeOf({ compiled, resource: row.id, actor, characters, campaign: inPlay }) : null}
+            range={range(row.id)}
             steps={stepsOf({ ruleset, resource: row.id, gm })}
             holder={actor.name}
             note={
@@ -159,7 +166,25 @@ export function SheetView({
     );
   };
 
-  const opened = open ? sections.flatMap((s) => s.rows).find((r) => r.kind === "derived" && r.id === open) : undefined;
+  const env: WidgetEnv = {
+    actor,
+    ruleset,
+    gm,
+    books,
+    requestPage,
+    send,
+    rowView,
+    range,
+    onOpen: setOpen,
+    onError: setError,
+  };
+  const models = sections.flatMap((s) => s.parts.flatMap((p) => (p.kind === "widget" ? [p.model] : [])));
+  const anchor = (id: string) => `sheet-${actor.id}-${id}`;
+  const jump = showJump(sections);
+  const openedDef = open
+    ? ruleset.entities.find((e) => e.id === actor.entity)?.derived.find((d) => d.id === open)
+    : undefined;
+  const opened = openedDef && { id: openedDef.id, label: openedDef.label, cite: openedDef.cite ?? null };
   const lines =
     opened && compiled
       ? breakdownOf({
@@ -200,14 +225,31 @@ export function SheetView({
           {error}
         </p>
       )}
+      {jump && (
+        <nav className="sheet-jump" aria-label={t("jump")}>
+          {sections.map((s) => (
+            <a key={s.id} href={`#${anchor(s.id)}`}>
+              {s.label ?? t(`section.${s.id as "derived" | "resources" | "fields"}`)}
+            </a>
+          ))}
+        </nav>
+      )}
       {sections.map((s) => (
-        <section key={s.id} className="stack sheet-card">
+        <section key={s.id} className="stack sheet-card" id={jump ? anchor(s.id) : undefined}>
           <h2 className="head">{s.label ?? t(`section.${s.id as "derived" | "resources" | "fields"}`)}</h2>
-          <div className="sheet-rows">{s.rows.map(rowView)}</div>
+          {s.parts.map((p, i) =>
+            p.kind === "rows" ? (
+              <div key={i} className="sheet-rows">
+                {p.rows.map(rowView)}
+              </div>
+            ) : (
+              <SheetWidget key={i} model={p.model} env={env} />
+            ),
+          )}
         </section>
       ))}
       {sections.length === 0 && <p className="dim">{t("nothing")}</p>}
-      <LedgerLines sheet={actor.ledger?.sheet} {...{ ruleset, books, requestPage }} />
+      <LedgerLines sheet={actor.ledger?.sheet} skip={ledgerLaidOut(models)} {...{ ruleset, books, requestPage }} />
       {build?.xp && ledger && (
         <XpBox
           earned={earned}

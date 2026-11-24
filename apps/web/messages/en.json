@@ -1605,6 +1605,12 @@
     "nothing": "Nothing in your notebook yet.",
     "openQuests": "Open quests"
   },
+  "actionNotices": {
+    "label": "What that did",
+    "poolFull": "{pool} is full: {lost} lost",
+    "rule": "{name}: {rule}",
+    "dismiss": "Dismiss"
+  },
   "spendRequest": {
     "ask": "Ask to spend",
     "askAria": "Ask the GM to spend {label}",

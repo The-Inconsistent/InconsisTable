@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"slices"
+
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine/ledger"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/schema"
 )
@@ -501,6 +503,14 @@ var rulesetSchema = schema.Object(
 	)), map[string]any{}),
 	schema.Opt("game", gameSchema),
 	schema.Opt("codex", codexSchema),
+	schema.Opt("notices", schema.Array(schema.Object(
+		schema.Req("id", idSchema),
+		schema.Req("when", schema.Enum(append(slices.Clone(resetEvents), "crossed")...)),
+		schema.Opt("entities", actorTypesSchema),
+		schema.Req("if", exprSource),
+		schema.Req("text", label(MaxNoticeText)),
+		schema.Opt("cite", citeSchema),
+	)).Max(MaxNotices)),
 )
 
 // tableSchema is one random table of the manifest (house decision #49).

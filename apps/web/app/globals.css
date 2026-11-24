@@ -1243,6 +1243,18 @@ label {
 .spend-notice[data-status="denied"] {
   border-inline-start-color: var(--wax);
 }
+/* An action's notices (house decision #79): the same slip, its lines a plain list that wraps rather than scrolls. */
+.action-notices > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.motion .action-notices {
+  animation: rise var(--dur-move) var(--ease-out) backwards;
+}
 .spend-ask {
   padding-block: 4px 10px;
   border-bottom: 1px dotted var(--line);

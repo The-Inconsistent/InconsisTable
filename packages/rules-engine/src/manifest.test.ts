@@ -138,7 +138,7 @@ test("ids, references and engine constraints", () => {
     cite: "Sample p.5",
   };
   const list = problems(m);
-  hasProblem(list, "resources[5].id", /duplicate id "hp"/);
+  hasProblem(list, "resources[7].id", /duplicate id "hp"/);
   hasProblem(list, "entities[0].fields.derived", /reserved/);
   hasProblem(list, "entities[0].fields.attr", /also a group/);
   hasProblem(list, "entities[0].fields.patron.entity", /unknown entity "deity"/);

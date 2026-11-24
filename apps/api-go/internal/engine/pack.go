@@ -239,7 +239,7 @@ func (p *Pack) semanticProblems(r *Ruleset) (found, warnings problems) {
 		for k := range r.Entities {
 			e := &r.Entities[k]
 			if slices.ContainsFunc(r.Creation, func(s CreationStep) bool { return s.Kind == "choose" && s.Pick == typ && s.Actor == e.ID }) ||
-				holdsType(r, typ, e.ID) {
+				holdsType(r, typ, e.ID) || itemHolds(r, typ, e.ID) {
 				pool = append(pool, e)
 			}
 		}

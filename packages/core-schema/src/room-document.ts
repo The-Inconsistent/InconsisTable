@@ -19,6 +19,7 @@ import {
   FieldValue,
   HandoutHeader,
   HandoutLayout,
+  ItemSource,
   LedgerBuildText,
   MAX_CLOCKS,
   MAX_PLANNED_TESTS,
@@ -42,6 +43,7 @@ export const ROOM_LIMITS = {
   actorFields: 200,
   actorResources: 100,
   actorConditions: 50,
+  actorItems: 200, // house decision #95: the largest kind cap
   codex: 1000,
   links: 100,
   audience: 50, // codex.reveal's
@@ -68,6 +70,21 @@ export const RoomExpect = z.strictObject({
 });
 export type RoomExpect = z.infer<typeof RoomExpect>;
 
+// An item a character holds (house decision #95): a pack entry by key or a hand-written name, `fittedTo` another item of
+// the same character, `entryId` the codex item a GIVE handed over.
+export const RoomItem = z.strictObject({
+  id: LocalId,
+  kind: Key,
+  entry: z.string().min(1).max(80).optional(),
+  name: z.string().trim().min(1).max(120).optional(),
+  note: z.string().max(200).optional(),
+  quantity: z.int().min(1).max(999).optional(),
+  fittedTo: LocalId.optional(),
+  source: ItemSource.optional(),
+  entryId: LocalId.optional(),
+});
+export type RoomItem = z.infer<typeof RoomItem>;
+
 export const RoomActor = z
   .strictObject({
     id: LocalId,
@@ -78,6 +95,7 @@ export const RoomActor = z
     resources: capped(z.record(Key, Amount), ROOM_LIMITS.actorResources, "resources").optional(),
     build: LedgerBuildText.optional(), // what build.save takes; never a draft. `fields` beside it: what it does not write
     conditions: z.array(Key).max(ROOM_LIMITS.actorConditions).optional(),
+    items: z.array(RoomItem).max(ROOM_LIMITS.actorItems).optional(),
   })
   .refine(
     (a) => a.build === undefined || a.entityType === undefined,

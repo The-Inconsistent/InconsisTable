@@ -371,6 +371,8 @@ func WriteDelta(ctx context.Context, tx core.Conn, w Write) (eventlog.Written, e
 	w.Delta.Value = JSONValue(w.Delta.Value)
 	t := w.Delta.Target
 	switch {
+	case t.Item != "":
+		return writeItem(ctx, tx, w)
 	case t.Pool != "":
 		if w.Bounds == nil || w.PoolScope == "" {
 			return eventlog.Written{}, cs.Fail("noBounds", cs.Params{"resource": t.Pool})
@@ -401,6 +403,8 @@ func WriteDelta(ctx context.Context, tx core.Conn, w Write) (eventlog.Written, e
 // Resources are never compared.
 func ReadTarget(ctx context.Context, tx core.Conn, campaignID string, t engine.DeltaTarget, fieldType string) (any, error) {
 	switch {
+	case t.Item != "":
+		return ItemValue(ctx, tx, campaignID, t.Item)
 	case t.Condition != "":
 		var c conditionScan
 		err := tx.QueryRow(ctx, `SELECT c.condition_id, c.stacks, c.source, c.expires_on, c.expires_after

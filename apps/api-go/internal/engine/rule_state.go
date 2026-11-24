@@ -134,6 +134,9 @@ type DeltaTarget struct {
 	// Clock is a room clock's id: a counted target with no actor, written by internal/clock (not a ruleset primitive,
 	// so the TypeScript DeltaTarget has no twin of it).
 	Clock string `json:"clock,omitempty"`
+	// Item is an actor_item row's id (house decision #95): `set` to the whole row, nil removing it, written by
+	// internal/actor for the item actions (not a ruleset primitive either, so no TypeScript twin).
+	Item string `json:"item,omitempty"`
 }
 
 // Delta is one proposed change. Value is a float64, string, bool, []string or nil.

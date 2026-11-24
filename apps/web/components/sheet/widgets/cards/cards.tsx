@@ -1,6 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
+import { ItemLine } from "@/components/sheet/components/item-line/item-line";
 import { Cite } from "@/components/ui/cite/cite";
 import type { WidgetModel } from "@/lib/sheet-widgets/sheet-widgets";
 
@@ -12,6 +13,24 @@ type CardsProps = { model: Extract<WidgetModel, { widget: "cards" }>; env: Widge
 // cite; never the books' wording, which is not in the data. Weapons are a table (name and rules, damage, AP); armour
 // and gear a line each; powers a card with their numbers and the importer's summary.
 export function Cards({ model, env }: CardsProps) {
+  // The items of this variant's kinds (house decision #95), each with what is fitted to it, below the build's lines.
+  const held = model.items.length > 0 && (
+    <ul className="w-kits" aria-label={env.actor.name}>
+      {model.items.map((l) => (
+        <ItemLine key={l.item.id} line={l} env={env} />
+      ))}
+    </ul>
+  );
+  return (
+    <>
+      <CardLines model={model} env={env} />
+      {held}
+    </>
+  );
+}
+
+// The saved build's lines of the variant.
+function CardLines({ model, env }: CardsProps) {
   const t = useTranslations("sheet.ledger");
   const tw = useTranslations("sheet.widget");
   const { lines, variant } = model;
@@ -19,36 +38,38 @@ export function Cards({ model, env }: CardsProps) {
     c && <Cite cite={c} ruleset={env.ruleset} books={env.books} requestPage={env.requestPage} />;
   if (variant === "weapons")
     return (
-      <div role="table" className="w-cards" aria-label={model.label ?? t("weapons")}>
-        <div role="row" className="w-cards-row w-cards-head">
-          <span role="columnheader">{tw("name")}</span>
-          <span role="columnheader">{tw("damage")}</span>
-          <span role="columnheader">{tw("ap")}</span>
-        </div>
-        {lines.weapons.map((w, i) => (
-          <div key={i} role="row" className="w-cards-row">
-            <span role="rowheader" className="w-cards-name">
-              <b>{w.count && w.count > 1 ? t("count", { name: w.name, count: w.count }) : w.name}</b>
-              <span className="w-cards-rules">
-                {[
-                  t("range", { range: w.range.join(" / ") }),
-                  w.salvo !== undefined && w.salvo !== null ? t("salvo", { salvo: w.salvo }) : null,
-                  ...w.traits,
-                ]
-                  .filter((x) => x !== null)
-                  .join(" · ")}
-              </span>
-            </span>
-            <span role="cell" className="w-cards-num">
-              {w.damage}
-              <small>{tw("ed", { ed: String(w.ed) })}</small>
-            </span>
-            <span role="cell" className="w-cards-num">
-              {w.ap ? w.ap : "–"}
-            </span>
+      lines.weapons.length > 0 && (
+        <div role="table" className="w-cards" aria-label={model.label ?? t("weapons")}>
+          <div role="row" className="w-cards-row w-cards-head">
+            <span role="columnheader">{tw("name")}</span>
+            <span role="columnheader">{tw("damage")}</span>
+            <span role="columnheader">{tw("ap")}</span>
           </div>
-        ))}
-      </div>
+          {lines.weapons.map((w, i) => (
+            <div key={i} role="row" className="w-cards-row">
+              <span role="rowheader" className="w-cards-name">
+                <b>{w.count && w.count > 1 ? t("count", { name: w.name, count: w.count }) : w.name}</b>
+                <span className="w-cards-rules">
+                  {[
+                    t("range", { range: w.range.join(" / ") }),
+                    w.salvo !== undefined && w.salvo !== null ? t("salvo", { salvo: w.salvo }) : null,
+                    ...w.traits,
+                  ]
+                    .filter((x) => x !== null)
+                    .join(" · ")}
+                </span>
+              </span>
+              <span role="cell" className="w-cards-num">
+                {w.damage}
+                <small>{tw("ed", { ed: String(w.ed) })}</small>
+              </span>
+              <span role="cell" className="w-cards-num">
+                {w.ap ? w.ap : "–"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )
     );
   if (variant === "armour")
     return (

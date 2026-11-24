@@ -619,6 +619,54 @@ export const HeldKind = z.object({
 });
 export type HeldKind = z.infer<typeof HeldKind>;
 
+/** The most kinds of item a ruleset declares, and an actor's default cap per kind (house decision #95). */
+export const MAX_ITEM_KINDS = 20;
+export const ITEM_DEFAULT_MAX = 60;
+/** The `cards` variants an item kind may be drawn in. */
+export const ITEM_CARDS = ["weapons", "armour", "gear"] as const;
+
+/**
+ * A kind of item an actor holds in play (house decision #95): the pack entries of type `entry` (carrying `tag`, when
+ * given; the first kind in the list that matches an entry is its kind) held by the `entities` actor types, one row per
+ * item. `stacks`: a quantity, one row per entry or hand-written name, and a row whose quantity reaches 0 is gone;
+ * `spend`: the holder may lower it (the GM sets it). `unique`: one of an entry per actor. `max`: how many an actor
+ * holds. `fits`: an item of this kind is fitted to a held item of a kind in `to`, at most `max` on one host, one per
+ * value of the entry's `slot` field, and an entry tagged `gmTag` fitted by the GM side only; its effects count only
+ * while it is fitted. `card`: the `cards` variant that draws it.
+ */
+export const ItemKind = z.object({
+  id: Id,
+  label: z.string().min(1).max(60),
+  entry: Id,
+  tag: z.string().min(1).max(40).optional(),
+  entities: z.array(Id).min(1).max(50),
+  card: z.enum(ITEM_CARDS).optional(),
+  max: z.int().min(1).max(200).optional(),
+  unique: z.boolean().optional(),
+  stacks: z.boolean().optional(),
+  spend: z.boolean().optional(),
+  fits: z
+    .object({
+      to: z.array(Id).min(1).max(10),
+      max: z.int().min(1).max(10),
+      slot: FieldId.optional(),
+      gmTag: z.string().min(1).max(40).optional(),
+    })
+    .optional(),
+  cite: Cite.optional(),
+});
+export type ItemKind = z.infer<typeof ItemKind>;
+
+/**
+ * Items actors hold in play (house decision #95). `give`: the codex `item` field (a `ref`) that names the pack entry a
+ * GIVE hands over, and the kind an item entry without one is given as, by its title.
+ */
+export const ItemsBlock = z.object({
+  kinds: z.array(ItemKind).min(1).max(MAX_ITEM_KINDS),
+  give: z.object({ ref: Id, loose: Id }).optional(),
+});
+export type ItemsBlock = z.infer<typeof ItemsBlock>;
+
 /** The most effects a row applies, inputs a lookup takes, and times one effect repeats (house decision #87). */
 export const MAX_ROW_EFFECTS = 8;
 export const MAX_LOOKUP_INPUTS = 6;
@@ -1221,6 +1269,8 @@ export const Ruleset = z.object({
     .record(Id, HeldKind)
     .refine((o) => Object.keys(o).length <= MAX_HELD_KINDS, `at most ${MAX_HELD_KINDS} kinds`)
     .optional(),
+  /** Items actors hold in play (house decision #95). Absent: the ruleset has none. */
+  items: ItemsBlock.optional(),
   health: Health.default({ tracks: [], states: [] }),
   /** Steps of the character builder, in order. Empty: the ruleset has no builder and actors are filled by hand. */
   creation: z.array(CreationStep).max(50).default([]),
@@ -1476,6 +1526,72 @@ function heldProblems({
         out.push({ path: `${path}.field`, message: "a field holding unseen records is owner or gm" });
     });
   }
+}
+
+/**
+ * Item kinds (house decision #95): ids once each, an entry type that is not an actor, holders that are, hosts that are
+ * kinds, a slot the entry type declares, a spend only on a counted kind, and a counted kind is never fitted. `give`
+ * names a codex `item` field that refers to a kind's entry type, and a kind that is not counted.
+ */
+function itemProblems({
+  r,
+  needCite,
+  out,
+}: {
+  r: Ruleset;
+  needCite: (cite: string | undefined, path: string) => void;
+  out: Problem[];
+}): void {
+  const items = r.items;
+  if (items === undefined) return;
+  const ids = new Set<string>();
+  items.kinds.forEach((k, i) => {
+    const path = `items.kinds[${i}]`;
+    needCite(k.cite, path);
+    if (ids.has(k.id)) out.push({ path: `${path}.id`, message: `duplicate kind "${k.id}"` });
+    ids.add(k.id);
+    const entry = r.entities.find((e) => e.id === k.entry);
+    if (entry === undefined) out.push({ path: `${path}.entry`, message: `unknown entity "${k.entry}"` });
+    else if (entry.base === "actor") out.push({ path: `${path}.entry`, message: `"${k.entry}" is an actor` });
+    k.entities.forEach((e, j) => {
+      if (!r.entities.some((x) => x.id === e && x.base === "actor"))
+        out.push({ path: `${path}.entities[${j}]`, message: `unknown actor type "${e}"` });
+    });
+    if (k.spend && !k.stacks) out.push({ path: `${path}.spend`, message: "only a counted kind is spent" });
+    if (k.fits) {
+      if (k.stacks) out.push({ path: `${path}.fits`, message: "a counted kind is not fitted" });
+      k.fits.to.forEach((to, j) => {
+        if (!items.kinds.some((x) => x.id === to))
+          out.push({ path: `${path}.fits.to[${j}]`, message: `unknown item kind "${to}"` });
+      });
+      if (k.fits.slot !== undefined && entry !== undefined && own(entry.fields, k.fits.slot) === undefined)
+        out.push({ path: `${path}.fits.slot`, message: `${k.entry} has no field "${k.fits.slot}"` });
+    }
+  });
+  if (items.give) {
+    const def = own(r.codex?.kinds.item?.fields ?? {}, items.give.ref);
+    if (def === undefined)
+      out.push({ path: "items.give.ref", message: `the item entry has no field "${items.give.ref}"` });
+    else if (def.type !== "ref" || !items.kinds.some((k) => k.entry === def.entity))
+      out.push({ path: "items.give.ref", message: "not a ref to an item kind's entry type" });
+    const loose = items.kinds.find((k) => k.id === items.give?.loose);
+    if (loose === undefined) out.push({ path: "items.give.loose", message: `unknown item kind "${items.give.loose}"` });
+    else if (loose.stacks) out.push({ path: "items.give.loose", message: "a counted kind is not given" });
+  }
+}
+
+/**
+ * The item kind of a pack entry (house decision #95): the first kind whose entry type is the entry's and whose tag, if
+ * it has one, the entry carries. Undefined when none.
+ */
+export function itemKindOf({
+  items,
+  entry,
+}: {
+  items: ItemsBlock | undefined;
+  entry: { type: string; tags: readonly string[] };
+}): ItemKind | undefined {
+  return items?.kinds.find((k) => k.entry === entry.type && (k.tag === undefined || entry.tags.includes(k.tag)));
 }
 
 /** Steps name real actor entities, pack entity types and fields, and no field has two writers. */
@@ -2235,6 +2351,7 @@ function semanticProblems(r: Ruleset): Problem[] {
     tableProblems({ id, t, r, out });
   }
   heldProblems({ r, needCite, out });
+  itemProblems({ r, needCite, out });
   if (r.scoring) {
     needCite(r.scoring.cite, "scoring");
     r.scoring.endWhen.forEach((x, i) => needCite(x.cite, `scoring.endWhen[${i}]`));

@@ -3645,7 +3645,10 @@ test("a ledger ruleset imports, and its pack's records reach every seat through 
     assert.equal(res.status, 200);
     const served = (await res.json()) as { entries: { key: string; record: Record<string, unknown> | null }[] };
     assert.equal(JSON.stringify(served.entries.find((e) => e.key === "factions.wardens")?.record), expected);
-    assert.equal(served.entries.filter((e) => e.record !== null).length, SAMPLE_LEDGER_PACK.entries.length);
+    assert.equal(
+      served.entries.filter((e) => e.record !== null).length,
+      SAMPLE_LEDGER_PACK.entries.filter((e) => e.record !== undefined).length,
+    );
     const hero = served.entries.find((e) => e.key === "sample-hero");
     assert.equal(hero !== undefined, gm, "a gm entry reaches the GM side only");
     if (hero !== undefined) assert.equal(hero.record, null);
@@ -3673,6 +3676,7 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
   // A derived number from the saved fields, so the seat view shows the build at work.
   const ruleset = structuredClone(SAMPLE_LEDGER_RULESET);
   ruleset.entities[0]!.derived = [
+    ...(ruleset.entities[0]!.derived ?? []), // the Guard the gear adds to (house decision #95)
     {
       id: "toughness",
       label: "Toughness",
@@ -3711,9 +3715,10 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
   };
   assert.equal(Object.keys(catalogue.kinds).length, 12);
   assert.deepEqual(catalogue.params.tiers, { min: 1, max: 4 });
-  const records = SAMPLE_LEDGER_PACK.entries.filter((e) => e.type !== "wargear");
+  // The stores carry no record (house decision #95): they are items, not the catalogue.
+  const records = SAMPLE_LEDGER_PACK.entries.filter((e) => e.type !== "wargear" && e.record !== undefined);
   assert.equal(Object.values(catalogue.kinds).flat().length, records.length);
-  assert.equal(catalogue.wargear.length, SAMPLE_LEDGER_PACK.entries.length - records.length);
+  assert.equal(catalogue.wargear.length, SAMPLE_LEDGER_PACK.entries.filter((e) => e.type === "wargear").length);
   const wardens = SAMPLE_LEDGER_PACK.entries.find((e) => e.key === "factions.wardens")?.record;
   assert.equal(
     JSON.stringify(catalogue.kinds.factions?.find((f) => f.id === "wardens")),
@@ -3810,6 +3815,60 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
   }
   // The waived package lets the next purchase through at the new Tier.
   ok(await ana.c.send(save(ana.held, { ...bought, advancement: { skills: { Brawl: 3 } } })));
+
+  // House decision #95: items a character holds. GIVE then TAKE BACK, a fit over the limit refused, stores spent to
+  // nothing from the phone. In this room, which already holds the ledger ruleset and pack.
+  const itemsOf = (s: LiveState) => actorIn(s, ana.held)?.items ?? [];
+  const named = (s: LiveState, name: string) => itemsOf(s).find((x) => x.name === name);
+
+  // A session runs (one may already). The staff reaches Ana's phone with the GM's note, and Ben reads none of Ana's items.
+  await owner.send({ type: "session.start" });
+  const staff = ok(
+    await owner.send({
+      type: "codex.save",
+      kind: "item",
+      title: "The old staff",
+      fields: { of: "wargear.lantern-staff" },
+    }),
+  ).id!;
+  refused(await ana.c.send({ type: "item.give", entryId: staff, actorId: ana.held }), "noPermission");
+  ok(await owner.send({ type: "item.give", entryId: staff, actorId: ana.held }));
+  const given = named(await owner.until((x) => named(x, "Lantern Staff") !== undefined), "Lantern Staff")!;
+  ok(await owner.send({ type: "item.edit", itemId: given.id, rev: given.rev, note: "it hums at night" }));
+  const onPhone = await ana.c.until((x) => named(x, "Lantern Staff")?.note === "it hums at night");
+  assert.equal(named(onPhone, "Lantern Staff")?.entryId, staff);
+  assert.deepEqual(itemsOf(await ben.c.until((x) => actorIn(x, ana.held) !== undefined)), []);
+  refused(await owner.send({ type: "item.give", entryId: staff, actorId: ben.held }), "itemGiven");
+
+  // Two fittings on the staff, one per slot; a third is over the limit; the Twin Mount is the GM's to fit.
+  for (const entry of ["wargear.sight-lens", "wargear.twin-mount"])
+    ok(await owner.send({ type: "item.add", actorId: ana.held, kind: "fittings", entry }));
+  ok(await owner.send({ type: "item.add", actorId: ana.held, kind: "fittings", name: "Bone Charm" }));
+  let s = await ana.c.until((x) => itemsOf(x).length === 4);
+  const host = named(s, "Lantern Staff")!.id;
+  const fit = (name: string) => ({ type: "item.fit", itemId: named(s, name)!.id, to: host }) as const;
+  ok(await ana.c.send(fit("Sight Lens")));
+  refused(await ana.c.send(fit("Twin Mount")), "itemFitGm");
+  ok(await owner.send(fit("Twin Mount")));
+  refused(await ana.c.send(fit("Bone Charm")), "itemFitFull");
+
+  // TAKE BACK: the staff goes, what was fitted to it comes loose; Undo gives it back as it was.
+  ok(await owner.send({ type: "item.take", entryId: staff }));
+  s = await ana.c.until((x) => named(x, "Lantern Staff") === undefined);
+  assert.equal(named(s, "Sight Lens")?.fittedTo, null);
+  ok(await owner.send({ type: "event.undo" }));
+  s = await ana.c.until((x) => named(x, "Twin Mount")?.fittedTo != null);
+  assert.equal(named(s, "Twin Mount")?.fittedTo, named(s, "Lantern Staff")?.id);
+
+  // Stores: the GM adds two, the phone spends them to nothing and cannot add one back.
+  ok(await owner.send({ type: "item.add", actorId: ana.held, kind: "stores", entry: "supply.pellets", quantity: 2 }));
+  s = await ana.c.until((x) => named(x, "Pellets")?.quantity === 2);
+  const pellets = named(s, "Pellets")!.id;
+  refused(await ana.c.send({ type: "item.adjust", itemId: pellets, by: 1 }), "itemOnlySpend");
+  ok(await ana.c.send({ type: "item.adjust", itemId: pellets, by: -1 }));
+  ok(await ana.c.send({ type: "item.adjust", itemId: pellets, by: -1 }));
+  await ana.c.until((x) => named(x, "Pellets") === undefined);
+  refused(await ana.c.send({ type: "item.adjust", itemId: pellets, by: -1 }), "itemNotFound");
   for (const c of [owner, ana.c, ben.c]) c.socket.close();
 });
 

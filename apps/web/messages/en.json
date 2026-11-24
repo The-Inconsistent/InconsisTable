@@ -949,7 +949,8 @@
       "label": "Scenes in this adventure",
       "tab": "{number}. {title}",
       "played": "Played",
-      "playing": "Playing now"
+      "playing": "Playing now",
+      "previewing": "Previewing"
     },
     "preview": {
       "title": "Preview of {title}",

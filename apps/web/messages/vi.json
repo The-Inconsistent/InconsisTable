@@ -949,7 +949,8 @@
       "label": "Các cảnh trong cuộc phiêu lưu",
       "tab": "{number}. {title}",
       "played": "Đã chơi",
-      "playing": "Đang chơi"
+      "playing": "Đang chơi",
+      "previewing": "Đang xem trước"
     },
     "preview": {
       "title": "Xem trước {title}",

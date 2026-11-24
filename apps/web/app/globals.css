@@ -4440,3 +4440,7 @@ textarea.mf-json {
 .scene-strip .btn[aria-current="step"] {
   font-weight: 800;
 }
+/* The strip's own tick means "played": the scene being previewed says so in words instead of the pressed check. */
+.scene-strip .btn[aria-pressed="true"]::before {
+  content: none;
+}

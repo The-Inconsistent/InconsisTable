@@ -31,6 +31,7 @@ export function SceneStrip({ strip, previewId, onPreview, onPlaying }: SceneStri
           <span aria-hidden="true">{i + 1}</span>
           {played && <span className="small"> ✓ {t("played")}</span>}
           {playing && <span className="small"> ▶ {t("playing")}</span>}
+          {previewId === scene.id && <span className="small"> · {t("previewing")}</span>}
         </button>
       ))}
     </nav>

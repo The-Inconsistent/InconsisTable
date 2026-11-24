@@ -1761,6 +1761,13 @@ summary {
 .lb-panel {
   min-width: 0;
 }
+/* The Tier picker, shown where the owner picks it (the character library): four Tiers wrap on a phone. */
+.lb-tiers {
+  flex-wrap: wrap;
+}
+.lb-tiers .btn {
+  flex: 1 1 6em;
+}
 .lb-next {
   justify-self: start;
 }

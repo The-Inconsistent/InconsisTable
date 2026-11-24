@@ -66,6 +66,15 @@ export function breakdownOf({
   const entries = [...new Map((values.entries ?? []).map((e) => [entrySourceId(e), e])).values()];
   const valueWith = (conditions: string[], held: typeof entries) =>
     deriveValues({ compiled, entity, values: { ...values, conditions, entries: held } })[derivedId] ?? 0;
+  // Without a source that sets a field the formula reads (a base-phase override on an unset field), the value cannot
+  // be worked out: that source is credited with the whole value, and the base is what is left.
+  const valueWithout = (conditions: string[], held: typeof entries) => {
+    try {
+      return valueWith(conditions, held);
+    } catch {
+      return 0;
+    }
+  };
   try {
     const all = valueWith(visible, entries);
     const lines = [
@@ -73,7 +82,7 @@ export function breakdownOf({
         const cond = own(compiled.conditions, id);
         const amount =
           all -
-          valueWith(
+          valueWithout(
             visible.filter((c) => c !== id),
             entries,
           );
@@ -84,7 +93,7 @@ export function breakdownOf({
       ...entries.flatMap((entry): BreakdownLine[] => {
         const amount =
           all -
-          valueWith(
+          valueWithout(
             visible,
             entries.filter((e) => e !== entry),
           );

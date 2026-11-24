@@ -19,8 +19,9 @@ import { SAMPLE_SKIRMISH } from "../../../../packages/rules-engine/src/fixtures/
 import { SAMPLE_HARM } from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { SAMPLE_PACK } from "../../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
-import { Ruleset } from "../../../../packages/rules-engine/src/manifest.ts";
+import { Ruleset, type RulesetInput } from "../../../../packages/rules-engine/src/manifest.ts";
 import { seatManifest, seatView, type Snapshot } from "./view.ts";
+import { CRAFTED_SEAT_CUTS, SAMPLE_RULESETS } from "./samples.ts";
 import type { PoolState } from "../../../../packages/core-schema/src/index.ts";
 
 // The matrix: one campaign, every kind of seat, and a digest of what each receives of the parts that can be hidden.
@@ -561,6 +562,77 @@ test("a player's manifest without the checklist still carries spends, requests a
   assert.deepEqual(shown.requests, { max: 3 });
   assert.deepEqual(shown.held, ruleset.held);
   assert.ok(Object.keys(shown.held ?? {}).length > 0);
+});
+
+// House decision #101: whatever a seat is served compiles, so its phone can work its numbers out, and cutting what
+// names a hidden definition never brings one back.
+describe("the manifest a seat is served compiles", () => {
+  const seats: [string, Ctx, boolean][] = [
+    ["gm", ctx(member("gm"), "u-gm"), true],
+    ["co-GM with combat", ctx(member("cogm", ["combat"]), "u-co"), true],
+    ["player", ctx(member("player", [], ["lyra"]), "u-lyra"), false],
+    ["guest", ctx({ kind: "token", role: "player", characterIds: ["lyra"] }, null), false],
+    ["table screen", ctx({ kind: "token", role: "screen", characterIds: [] }, null), false],
+    ["player without a GM", { ...ctx(member("player", [], ["lyra"]), "owner"), tableMode: "gmless" }, false],
+  ];
+  for (const [name, input] of Object.entries({ ...SAMPLE_RULESETS, ...CRAFTED_SEAT_CUTS })) {
+    test(name, () => {
+      const rules = compileRuleset(input);
+      assert.ok(rules.ok);
+      for (const [seat, c, gmSide] of seats) {
+        const served = seatManifest({ ruleset: rules.compiled.ruleset, ctx: c });
+        const compiled = compileRuleset(served);
+        assert.ok(compiled.ok, `${seat}: ${JSON.stringify(compiled.ok ? [] : compiled.problems)}`);
+        if (gmSide) continue;
+        const gm = [
+          ...served.entities.flatMap((e) => [...Object.values(e.fields), ...e.derived]),
+          ...served.resources,
+          ...served.conditions,
+          ...Object.values(served.codex?.kinds ?? {}).flatMap((k) => Object.values(k.fields)),
+        ].filter((d) => d.visibility === "gm");
+        assert.deepEqual(gm, [], seat);
+        assert.equal(served.checklist, undefined, seat);
+      }
+    });
+  }
+});
+
+test("a player on the ledger sample keeps the hero's Guard and its build, without the parts naming hidden ones", () => {
+  const rules = compileRuleset(SAMPLE_RULESETS.ledger);
+  assert.ok(rules.ok);
+  const served = seatManifest({ ruleset: rules.compiled.ruleset, ctx: ctx(member("player", [], ["lyra"]), "u-lyra") });
+  assert.deepEqual(
+    served.entities[0]?.derived.map((d) => d.id),
+    ["guard"],
+  );
+  assert.equal(served.build?.sheet.wealth, undefined);
+  assert.equal(served.build?.sheet.corruption, undefined);
+  assert.deepEqual(served.build?.keep, { fields: ["armourRating"], resources: [] });
+  assert.equal(served.items?.give, undefined);
+  assert.equal(served.items?.kinds.length, 4);
+});
+
+test("a strike, a generator and a codex kind's prefill are cut where they read what the seat may not", () => {
+  const served = (input: RulesetInput, c: Ctx) => {
+    const rules = compileRuleset(input);
+    assert.ok(rules.ok);
+    return seatManifest({ ruleset: rules.compiled.ruleset, ctx: c });
+  };
+  const player = served(CRAFTED_SEAT_CUTS.duelCuts!, ctx(member("player", [], ["lyra"]), "u-lyra"));
+  assert.deepEqual(
+    player.strikes?.map((s) => s.id),
+    ["lunge"],
+  );
+  const lunge = player.strikes![0]!;
+  assert.deepEqual(lunge.means, [{ from: "list", field: "blades", entry: "blade" }]);
+  assert.deepEqual(lunge.shows, []);
+  assert.deepEqual(
+    lunge.notes?.map((n) => n.text),
+    ["A clean line"],
+  );
+  const secrets = served(CRAFTED_SEAT_CUTS.d20Cuts!, ctx(member("cogm", ["codex", "codex.secrets"]), "u-co"));
+  assert.deepEqual(secrets.generators, []);
+  assert.deepEqual(secrets.codex?.kinds.location?.from, [{ entity: "site", values: {}, children: "within" }]);
 });
 
 // House decision #76: a link to another entry reaches a seat only when the seat may read the entry it names.

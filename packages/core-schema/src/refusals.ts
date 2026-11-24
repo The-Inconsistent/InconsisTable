@@ -217,6 +217,13 @@ export const REFUSALS = {
   tableNoApply: "Nothing on that table can be applied.",
   tableNotFor: "That table doesn't apply to {name}.",
   tableNeedsTarget: "Pick who the table is for first: it reads their values.",
+  // Strikes (house decision #99)
+  noSuchStrike: "This ruleset has no strike {strike}.",
+  strikeNotFor: "That strike can't be made like that: {detail}.",
+  noMeans: "{detail}: pick what the strike is made with, or nothing.",
+  noSuchMeans: "{name} has nothing like that to strike with.",
+  strikeNotInFight: "Both sides of a strike must be in the running fight.",
+  strikeNoHarm: "That total does nothing to apply.",
   // Held records
   noHeldKind: "This ruleset has no records of the kind {held}.",
   heldNotFor: "{name} can't hold {kind}.",

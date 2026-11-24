@@ -37,6 +37,15 @@ import { CombatVisibility, ENCOUNTER_ACTIONS, Marker } from "./encounter.ts";
 import { ScenePrep, SpawnOptionIds } from "./prep.ts";
 import { TestApplyOfferAction, TestCallAction, TestCloseAction, TestReportAction } from "./test-call.ts";
 
+/**
+ * The means a strike is made with (house decision #99): `source` the index of the strike's `means` it comes from, `ref`
+ * the sheet line's index (a `ledger` source) or the pack entry's key (a `list` source).
+ */
+export const StrikeMeansPick = z.object({ source: z.int().min(0).max(3), ref: z.string().min(1).max(120) });
+export type StrikeMeansPick = z.infer<typeof StrikeMeansPick>;
+/** The total the table typed for a strike: the engine's bounds (rules-engine STRIKE_TOTAL_MIN, STRIKE_TOTAL_MAX). */
+export const StrikeTotal = z.int().min(-1000).max(1000);
+
 /** The numbers a spend's asker picks, by input name (house decision #84). */
 export const SpendInputs = z.record(z.string().min(1).max(64), z.number().int().min(-1000).max(1000));
 
@@ -324,6 +333,17 @@ export const Action = z.discriminatedUnion("type", [
     actorId: id,
     inputs: LookupInputs.default({}),
   }),
+  // A strike (house decision #99): the attacker, the means it picked (by where it comes from and its line or key), the
+  // target, the inputs and the total the table typed. The server works out what the total does and applies its hit.
+  z.object({
+    type: z.literal("strike.apply"),
+    strikeId: TableId,
+    attackerId: id,
+    means: StrikeMeansPick.optional(),
+    targetId: id,
+    inputs: LookupInputs.default({}),
+    total: StrikeTotal,
+  }),
   // A record an actor holds, taken away by the GM side (house decision #88): logged, and Undo gives it back.
   z.object({
     type: z.literal("held.remove"),
@@ -488,6 +508,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "safety.xcard": "safety:signal",
   "table.roll": "session:run",
   "table.apply": "encounter:run", // a lookup changes its target as the fight's own writes do (house decision #87)
+  "strike.apply": "encounter:run", // a strike lands as the fight's own writes do; a player's seat later (house decision #99)
   "held.remove": "character:edit:any",
   "item.give": "character:edit:any",
   "item.take": "character:edit:any",

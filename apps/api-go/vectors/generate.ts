@@ -21,6 +21,7 @@ import type { ExprScope, ExprType } from "../../../packages/rules-engine/src/exp
 import { typeName } from "../../../packages/rules-engine/src/expr/expr.check.ts";
 import { compileExpr, type CompiledExpr } from "../../../packages/rules-engine/src/expr/expr.ts";
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+import { SAMPLE_DUEL } from "../../../packages/rules-engine/src/fixtures/sample-duel.ts";
 import { SAMPLE_HARM, SAMPLE_HARM_GROWTHS } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
@@ -75,6 +76,7 @@ import type {
 import { charge, checkDeltas } from "../../../packages/rules-engine/src/primitives/primitive.ts";
 import { opInputKeys, PRIMITIVES, runOp } from "../../../packages/rules-engine/src/primitives/registry.ts";
 import { planSpend } from "../../../packages/rules-engine/src/spend.ts";
+import { planStrike } from "../../../packages/rules-engine/src/strike.ts";
 import { budgetOf, planSpawn, type SpawnRoom } from "../../../packages/rules-engine/src/spawn.ts";
 import { SAMPLE_SKIRMISH_PACK } from "../../../packages/rules-engine/src/fixtures/sample-skirmish-pack.ts";
 import { firstOf, nextFirst, sequence } from "../../../packages/rules-engine/src/primitives/initiative-seated.ts";
@@ -1073,6 +1075,82 @@ function spendVectors() {
 }
 
 const isRefusalLike = (v: object): v is { code: string; message: string } => "code" in v && "message" in v;
+
+// Strikes (house decision #99): planStrike over the harm fixture's blow and the duel fixture's lunge, with random
+// attackers, targets, means, inputs and totals, some of them missing a value or out of bounds.
+function strikeVectors() {
+  const compiled = (input: unknown) => {
+    const r = compileRuleset(input);
+    if (!r.ok) throw new Error(JSON.stringify(r.problems));
+    return r.compiled.ruleset;
+  };
+  const rulesets = [compiled(SAMPLE_HARM), compiled(SAMPLE_DUEL)];
+  let seed = 99;
+  const r = (n: number) => (((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 2 ** 32) * n) | 0;
+  const one = <T>(items: readonly T[]): T => items[r(items.length)] as T;
+  const cases: unknown[] = [];
+  const party = { characters: 3 };
+  const harmSide = () => {
+    const entity = one(["hero", "hero", "brute", "swarm", "swarm", "arm"]);
+    const wounds = r(6);
+    const members = r(9);
+    const derived = { might: r(6), guard: r(5), toughness: r(7), strainCap: one([0, 2, 4]), limit: r(8) };
+    const scope: Record<string, unknown> =
+      entity === "swarm"
+        ? { size: 8, derived, res: { wounds, strain: r(3), members }, party }
+        : { grit: r(8), derived, res: { wounds, strain: r(3) }, party };
+    if (r(12) === 0) delete scope.derived;
+    if (r(10) === 0) scope.arms = one([[], ["maul"]]);
+    return { entity, scope };
+  };
+  const duelSide = () => ({
+    entity: one(["duelist", "duelist", "blade"]),
+    scope:
+      r(12) === 0 ? { party } : { skill: r(8), parry: 5 + r(15), derived: { limit: 5 }, res: { cuts: r(6) }, party },
+  });
+  for (let i = 0; i < 2500; i++) {
+    const duel = r(4) === 0;
+    const side = duel ? duelSide : harmSide;
+    const means = duel
+      ? one([{ cut: 2 }, { cut: 3 }, { cut: "3" }, {}, null])
+      : one([
+          { damage: 4, edge: 1, pierce: 0, close: true },
+          { damage: 4, edge: 1, pierce: 0, close: true, traits: "Brutal" },
+          { damage: 3, edge: 0, pierce: -1, close: false, traits: "Far, Light" },
+          { damage: 3, edge: 1, pierce: -2, close: "yes", traits: 3 },
+          { pierce: 1.5 },
+          {},
+          null,
+        ]);
+    const inputs = duel
+      ? one<Record<string, unknown>>([{}, {}, { aim: true }])
+      : one<Record<string, unknown>>([
+          {},
+          { aim: true },
+          { aim: true, far: 2 },
+          { far: 3 },
+          { far: 4 },
+          { aim: 1 },
+          { far: 1.5 },
+          { nope: true },
+        ]);
+    const total = one<number | null>([null, r(16), r(16), r(16) - 3, 2.5, 1001]);
+    const strikeId = duel ? one(["lunge", "lunge", "nope"]) : one(["blow", "blow", "blow", "nope"]);
+    const attacker = side();
+    const target = side();
+    const plan = planStrike({
+      ruleset: rulesets[duel ? 1 : 0]!,
+      strikeId,
+      attacker: attacker as never,
+      target: target as never,
+      means,
+      inputs,
+      total,
+    });
+    cases.push({ ruleset: duel ? 1 : 0, strikeId, attacker, target, means, inputs, total, result: plan });
+  }
+  return { rulesets: [SAMPLE_HARM, SAMPLE_DUEL], cases };
+}
 
 // Spawns (house decision #92): planSpawn and budgetOf on the skirmish fixture's foes, varied around their edges.
 function spawnVectors() {
@@ -2537,6 +2615,7 @@ const CRAFTED: object[] = [
   ...offersCrafted(),
   ...reminderCrafted(),
   ...spendCrafted(),
+  ...strikeCrafted(),
   ...lookupCrafted(),
   ...heldCrafted(),
   ...checklistCrafted(),
@@ -2988,6 +3067,86 @@ function spendCrafted(): object[] {
     },
     { ...SAMPLE_SKIRMISH, requests: { max: 0 } },
     { ...SAMPLE_SKIRMISH, spends: [...(SAMPLE_SKIRMISH.spends ?? []), ...(SAMPLE_SKIRMISH.spends ?? []).slice(0, 1)] },
+  ];
+}
+
+// Strikes (house decision #99): the duel fixture's, and crafted problems on the harm fixture's and the skirmish's.
+MANIFESTS.push(SAMPLE_DUEL);
+
+function strikeCrafted(): object[] {
+  const blow = SAMPLE_HARM.strikes![0]!;
+  const strike = (over: Record<string, unknown>, base: Record<string, unknown> = SAMPLE_HARM) => ({
+    ...base,
+    strikes: [{ ...blow, ...over }],
+  });
+  return [
+    strike({ id: "Bad", cite: undefined, label: "" }),
+    strike({ means: [{ from: "nope" }], values: { a: { key: "", type: "text" } } }),
+    strike({
+      means: [
+        { from: "ledger", lines: "armour" },
+        { from: "list", field: "Bad", entry: "x" },
+      ],
+    }),
+    strike({
+      means: [
+        { from: "ledger", lines: "weapons" },
+        { from: "list", field: "grit", entry: "nope" },
+      ],
+    }),
+    strike({ means: undefined }),
+    // A held item as the means (house decision #95): a kind the ruleset declares and an attacker holds.
+    ...[["hero"], ["brute"]].map((entities) => ({
+      ...strike({
+        means: [
+          { from: "items", kind: "arms" },
+          { from: "items", kind: "nope" },
+        ],
+      }),
+      items: { kinds: [{ id: "arms", label: "Arms", entry: "arm", entities, card: "weapons", cite: "Sample p.17" }] },
+    })),
+    strike({ means: [{ from: "items" }, { from: "items", kind: "Bad" }] }),
+    // Further numbers and text values (sample-harm 0.1.5).
+    strike({ shows: [blow.shows![0], { ...blow.shows![0], label: "Again" }] }),
+    strike({ shows: Array.from({ length: 7 }, (_, i) => ({ ...blow.shows![0], id: `n${i}` })) }),
+    strike({
+      shows: [{ id: "Bad", label: "", expr: "ctx.means.traits", adds: [{ label: "X", by: "1", when: "ctx.far" }] }],
+    }),
+    strike({ pool: { label: "P", expr: "derived.might", adds: [{ label: "T", by: "ctx.means.traits" }] } }),
+    strike({ values: { traits: { key: "traits", type: "list" } } }),
+    strike({
+      inputs: [
+        { id: "aim", label: "A", type: "bool", min: 0 },
+        { id: "aim", label: "B", type: "int", min: 3, max: 1 },
+        { id: "soak", label: "C", type: "int" },
+      ],
+    }),
+    strike({
+      outcomes: [
+        { id: "a", label: "A", when: "ctx.total" },
+        { id: "a", label: "A", when: "true", shock: "ctx.nope" },
+        { id: "b", label: "B", when: 'ctx.outcome == "a"', wounds: "true" },
+      ],
+    }),
+    strike({ pool: { label: "P", expr: "grit", adds: [{ label: "X", by: "ctx.aim", when: "1" }] } }),
+    strike({ beat: { label: "B", expr: "ctx.target.hide" }, soak: { label: "S", expr: "ctx.total" } }),
+    strike({ notes: [{ text: "N", when: "ctx.outcome" }, { text: "" }], then: { table: "nope", inputs: { a: "b" } } }),
+    strike({ then: { table: "blow", inputs: { past: "far", surge: "nope", nope: "aim" } } }),
+    strike({ entities: ["arm", "nope"], targets: ["swarm", "arm"] }),
+    strike({ targets: ["hero"], entities: ["brute"], pool: { label: "P", expr: "hide" } }),
+    // A ruleset without harm: a hit is refused; one with harm but no shock refuses shock.
+    strike({}, { ...SAMPLE_HARM, health: { states: [] }, tables: undefined, spends: undefined }),
+    strike({ outcomes: [{ id: "a", label: "A", when: "true", shock: "1" }] }, SAMPLE_DUEL),
+    { ...SAMPLE_HARM, strikes: [blow, blow] },
+    // The strike widget names a kind, and every type it is laid out for strikes with it.
+    {
+      ...SAMPLE_HARM,
+      layout: {
+        hero: { sections: [], phoneTurn: [{ widget: "strike" }, { widget: "strike", variant: "nope" }] },
+        brute: { sections: [], trackerRow: [{ widget: "strike", variant: "blow" }] },
+      },
+      strikes: [{ ...blow, entities: ["hero"] }],
+    },
   ];
 }
 
@@ -4191,6 +4350,7 @@ const vectors = {
   ops: opVectors(),
   charge: chargeVectors(),
   spends: spendVectors(),
+  strikes: strikeVectors(),
   spawns: spawnVectors(),
   opInputKeys: opKeyVectors(),
   deltaChecks: deltaCheckVectors(),

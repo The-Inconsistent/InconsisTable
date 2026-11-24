@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { compileRuleset, type CompiledRuleset } from "./compile.ts";
 import { actorScope, applyBaseEffects } from "./derived.ts";
-import { SAMPLE_HARM } from "./fixtures/sample-harm.ts";
+import { SAMPLE_HARM, SAMPLE_HARM_BEFORE_STRIKES } from "./fixtures/sample-harm.ts";
 import { SAMPLE_SKIRMISH } from "./fixtures/sample-skirmish.ts";
 import { planLookup, readLookup, rowOf, withLists } from "./lookups.ts";
 import { validateRuleset, type RulesetInput } from "./manifest.ts";
@@ -91,7 +91,7 @@ test("a total between lines reads the line below it; one under every line reads 
 });
 
 const withTable = (table: unknown, over: Record<string, unknown> = {}): RulesetInput =>
-  ({ ...structuredClone(SAMPLE_HARM), ...over, tables: { t: table } }) as RulesetInput;
+  ({ ...structuredClone(SAMPLE_HARM_BEFORE_STRIKES), ...over, tables: { t: table } }) as RulesetInput;
 const keys = (input: unknown): string[] => {
   const r = validateRuleset(input);
   return r.ok ? [] : r.problems.map((p) => `${p.path} | ${p.message}`);

@@ -54,7 +54,8 @@ export function lookupInputs({
   table,
   given,
 }: {
-  table: RandomTable;
+  /** A lookup's table, or anything else that takes its inputs' shape (a strike, house decision #99). */
+  table: Pick<RandomTable, "inputs">;
   given: Readonly<Record<string, unknown>>;
 }): { ok: true; ctx: Record<string, number | boolean> } | { ok: false; input: string } {
   const ctx: Record<string, number | boolean> = {};

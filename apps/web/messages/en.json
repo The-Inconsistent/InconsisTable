@@ -871,6 +871,7 @@
     "report": "Report {label}"
   },
   "testPrompt": {
+    "acquiring": "To acquire {item}",
     "reportedResult": "Result: {label}",
     "pickResult": "What came up for {who}?",
     "waiting": "Waiting for the GM",
@@ -979,6 +980,7 @@
       "power": "DN {dn} · {activation} · {duration} · Range {range}"
     },
     "widget": {
+      "with": "with {list}",
       "rating": "Rating",
       "heldAdd": "{by, number, ::sign-always} {label}",
       "heldOther": "{label}: {mode} {value}",
@@ -1026,7 +1028,23 @@
       "fromPacks": "From the packs",
       "orName": "Or a name of your own",
       "quantity": "How many",
-      "add": "Add"
+      "add": "Add",
+      "with": "with {list}",
+      "buildLine": "{name} (the build's)"
+    },
+    "acquire": {
+      "title": "Acquire",
+      "open": "Acquire an item",
+      "close": "Close",
+      "kind": "Kind",
+      "pick": "From the packs",
+      "total": "{label}: {total}",
+      "part": "{label} {value, number, ::sign-always}",
+      "host": "Fit it to",
+      "loose": "Keep it loose",
+      "ask": "Ask the GM",
+      "asking": "Waiting on the GM: {name}",
+      "cancel": "Cancel the ask"
     },
     "override": {
       "title": "The GM's override",
@@ -1315,6 +1333,7 @@
     "closedThisSession": "Closed this session"
   },
   "callCard": {
+    "acquiring": "To acquire {item}",
     "waiting": "Waiting",
     "total": "total {total}",
     "outcome": {
@@ -1344,6 +1363,7 @@
     "offers": "What {name}'s result offers",
     "offerChange": "{by} {label}",
     "offerApply": "Apply {offer} for {name}: {changes}",
+    "grant": "Grant {item}",
     "applied": "Applied",
     "offerDone": "{offer}, applied"
   },
@@ -1692,6 +1712,11 @@
     "itemFitsNot": "{item} doesn't fit {host}.",
     "itemFitFull": "{host} already has {max} fitted.",
     "itemSlotTaken": "{host} already has a {slot}: {other}.",
+    "noAcquire": "This room's rules acquire nothing by a Test.",
+    "acquireNotFor": "{name} can't acquire {entry}.",
+    "acquireNotNow": "{name} can't acquire {entry} now.",
+    "acquireLimit": "{name} has taken as many {kind} Tests as a session allows ({max}).",
+    "acquireAsked": "An acquisition for this character is waiting on the GM already.",
     "itemFitGm": "{item} is the GM's to fit.",
     "itemFitted": "{item} is fitted already: take it off first.",
     "itemNotFitted": "{item} isn't fitted.",
@@ -2092,6 +2117,8 @@
   },
   "spendRequest": {
     "ask": "Ask to spend",
+    "acquires": "{name} asks to acquire {item}",
+    "acquireOn": "{name} asks to acquire {item}, fitted to {host}",
     "askAria": "Ask the GM to spend {label}",
     "amount": "How much {label} to spend",
     "less": "Ask for less {label}",

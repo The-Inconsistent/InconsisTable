@@ -91,6 +91,9 @@ type StartTarget struct {
 	FieldsOnly bool
 	// KeepResources are left as they are while the rest start (a build over a hand-made sheet, house decision #96).
 	KeepResources []string
+	// Extra are more deltas logged with the start: the items fitted to a build line a rebuild no longer gives, dropped
+	// (house decision #102).
+	Extra []engine.Delta
 }
 
 // WriteStart writes the starting fields and resources of actors that already exist. One log entry for the lot, so one
@@ -130,6 +133,7 @@ func WriteStart(ctx context.Context, tx core.Conn, c cs.Ctx, compiled *engine.Co
 				deltas = append(deltas, engine.Delta{Target: engine.DeltaTarget{ActorID: t.ActorID, Field: field}, Kind: "set", Value: value})
 			}
 		}
+		deltas = append(deltas, t.Extra...)
 		if t.FieldsOnly {
 			continue
 		}

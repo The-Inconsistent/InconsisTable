@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 
 import { ItemLine } from "@/components/sheet/components/item-line/item-line";
 import { Cite } from "@/components/ui/cite/cite";
+import { withFitted } from "@/lib/items/items";
 import type { WidgetModel } from "@/lib/sheet-widgets/sheet-widgets";
 
 import type { WidgetEnv } from "../types";
@@ -34,6 +35,10 @@ function CardLines({ model, env }: CardsProps) {
   const t = useTranslations("sheet.ledger");
   const tw = useTranslations("sheet.widget");
   const { lines, variant } = model;
+  // A build line's numbers with what is fitted to it, as the server names a line (house decision #102).
+  const fitted = <T extends Record<string, unknown>>(ref: string, card: T) =>
+    withFitted({ card, fitted: (env.actor.items ?? []).filter((x) => x.fittedLine === ref) });
+  const withList = (by: readonly string[]) => (by.length > 0 ? tw("with", { list: by.join(", ") }) : null);
   const cite = (c: string | undefined) =>
     c && <Cite cite={c} ruleset={env.ruleset} books={env.books} requestPage={env.requestPage} />;
   if (variant === "weapons")
@@ -45,41 +50,50 @@ function CardLines({ model, env }: CardsProps) {
             <span role="columnheader">{tw("damage")}</span>
             <span role="columnheader">{tw("ap")}</span>
           </div>
-          {lines.weapons.map((w, i) => (
-            <div key={i} role="row" className="w-cards-row">
-              <span role="rowheader" className="w-cards-name">
-                <b>{w.count && w.count > 1 ? t("count", { name: w.name, count: w.count }) : w.name}</b>
-                <span className="w-cards-rules">
-                  {[
-                    t("range", { range: w.range.join(" / ") }),
-                    w.salvo !== undefined && w.salvo !== null ? t("salvo", { salvo: w.salvo }) : null,
-                    ...w.traits,
-                  ]
-                    .filter((x) => x !== null)
-                    .join(" · ")}
+          {lines.weapons.map((line, i) => {
+            const w = fitted(`weapons/${line.name}`, line);
+            return (
+              <div key={i} role="row" className="w-cards-row">
+                <span role="rowheader" className="w-cards-name">
+                  <b>{w.count && w.count > 1 ? t("count", { name: w.name, count: w.count }) : w.name}</b>
+                  <span className="w-cards-rules">
+                    {[
+                      t("range", { range: w.range.join(" / ") }),
+                      w.salvo !== undefined && w.salvo !== null ? t("salvo", { salvo: w.salvo }) : null,
+                      ...w.traits,
+                      withList(w.by),
+                    ]
+                      .filter((x) => x !== null)
+                      .join(" · ")}
+                  </span>
                 </span>
-              </span>
-              <span role="cell" className="w-cards-num">
-                {w.damage}
-                <small>{tw("ed", { ed: String(w.ed) })}</small>
-              </span>
-              <span role="cell" className="w-cards-num">
-                {w.ap ? w.ap : "–"}
-              </span>
-            </div>
-          ))}
+                <span role="cell" className="w-cards-num">
+                  {w.damage}
+                  <small>{tw("ed", { ed: String(w.ed) })}</small>
+                </span>
+                <span role="cell" className="w-cards-num">
+                  {w.ap ? w.ap : "–"}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )
     );
-  if (variant === "armour")
+  if (variant === "armour") {
+    const a = lines.armour && fitted(`armour/${lines.armour.name}`, lines.armour);
     return (
-      lines.armour && (
+      a && (
         <p className="w-kit">
-          <b>{lines.armour.name}</b>
-          {[t("armour", { ar: lines.armour.ar }), ...lines.armour.traits].map((x) => ` · ${x}`).join("")}
+          <b>{a.name}</b>
+          {[t("armour", { ar: a.ar }), ...a.traits, withList(a.by)]
+            .filter((x) => x !== null)
+            .map((x) => ` · ${x}`)
+            .join("")}
         </p>
       )
     );
+  }
   if (variant === "gear")
     return (
       <ul className="w-kits">

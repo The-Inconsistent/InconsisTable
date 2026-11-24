@@ -871,6 +871,7 @@
     "report": "Báo {label}"
   },
   "testPrompt": {
+    "acquiring": "Để kiếm {item}",
     "reportedResult": "Kết quả: {label}",
     "pickResult": "{who} ra kết quả nào?",
     "waiting": "Đang chờ GM",
@@ -979,6 +980,7 @@
       "power": "DN {dn} · {activation} · {duration} · Tầm {range}"
     },
     "widget": {
+      "with": "kèm {list}",
       "rating": "Bậc",
       "heldAdd": "{by, number, ::sign-always} {label}",
       "heldOther": "{label}: {mode} {value}",
@@ -1026,7 +1028,23 @@
       "fromPacks": "Từ các gói",
       "orName": "Hoặc tự đặt tên",
       "quantity": "Bao nhiêu",
-      "add": "Thêm"
+      "add": "Thêm",
+      "with": "kèm {list}",
+      "buildLine": "{name} (của bản dựng)"
+    },
+    "acquire": {
+      "title": "Kiếm đồ",
+      "open": "Kiếm một món đồ",
+      "close": "Đóng",
+      "kind": "Loại",
+      "pick": "Từ các gói",
+      "total": "{label}: {total}",
+      "part": "{label} {value, number, ::sign-always}",
+      "host": "Gắn vào",
+      "loose": "Để rời",
+      "ask": "Xin GM",
+      "asking": "Đang chờ GM: {name}",
+      "cancel": "Hủy yêu cầu"
     },
     "override": {
       "title": "GM ghi đè",
@@ -1315,6 +1333,7 @@
     "closedThisSession": "Đã đóng trong buổi này"
   },
   "callCard": {
+    "acquiring": "Để kiếm {item}",
     "waiting": "Đang chờ",
     "total": "tổng {total}",
     "outcome": {
@@ -1344,6 +1363,7 @@
     "offers": "Kết quả của {name} cho phép",
     "offerChange": "{by} {label}",
     "offerApply": "Áp dụng {offer} cho {name}: {changes}",
+    "grant": "Trao {item}",
     "applied": "Đã áp dụng",
     "offerDone": "{offer}, đã áp dụng"
   },
@@ -1692,6 +1712,11 @@
     "itemFitsNot": "{item} không gắn vừa {host}.",
     "itemFitFull": "{host} đã gắn đủ {max} món.",
     "itemSlotTaken": "{host} đã có {slot}: {other}.",
+    "noAcquire": "Luật của phòng này không cho kiếm đồ bằng Test.",
+    "acquireNotFor": "{name} không kiếm được {entry}.",
+    "acquireNotNow": "{name} chưa kiếm được {entry} lúc này.",
+    "acquireLimit": "{name} đã làm đủ số Test {kind} một buổi cho phép ({max}).",
+    "acquireAsked": "Đã có một yêu cầu kiếm đồ cho nhân vật này đang chờ GM.",
     "itemFitGm": "Chỉ GM gắn được {item}.",
     "itemFitted": "{item} đã được gắn: tháo ra trước đã.",
     "itemNotFitted": "{item} chưa được gắn.",
@@ -2092,6 +2117,8 @@
   },
   "spendRequest": {
     "ask": "Xin tiêu",
+    "acquires": "{name} xin kiếm {item}",
+    "acquireOn": "{name} xin kiếm {item}, gắn vào {host}",
     "askAria": "Xin GM cho tiêu {label}",
     "amount": "Số {label} muốn tiêu",
     "less": "Xin bớt {label}",

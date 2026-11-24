@@ -2,11 +2,12 @@
 import { useFormatter, useTranslations } from "next-intl";
 import { Fragment, useMemo, useState } from "react";
 
-import type { Actor, BookSource, LiveState, SpendRequest } from "@inconsistable/core-schema";
+import type { Actor, ActorItem, BookSource, LiveState, SpendRequest } from "@inconsistable/core-schema";
 import { breakdownOf, campaignValues, compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { XpBox } from "@/components/builder/ledger/play/xp-box/xp-box";
 import { Breakdown } from "@/components/sheet/components/breakdown/breakdown";
+import { AcquireBox } from "@/components/sheet/components/acquire-box/acquire-box";
 import { ItemsBox } from "@/components/sheet/components/items-box/items-box";
 import { LedgerLines } from "@/components/sheet/components/ledger-lines/ledger-lines";
 import { OverrideField } from "@/components/sheet/components/override-field/override-field";
@@ -19,7 +20,7 @@ import { HeldListEditor } from "@/components/ui/held-list/held-list";
 import { ResourceRow } from "@/components/ui/resource-row/resource-row";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { heldLists } from "@/lib/held/held";
-import { boxKinds } from "@/lib/items/items";
+import { boxKinds, itemEntries } from "@/lib/items/items";
 import { rankOf } from "@/lib/ledger/play";
 import { xpEarnedOf } from "@/lib/ledger/table";
 import { ledgerLaidOut } from "@/lib/sheet-widgets/sheet-widgets";
@@ -110,6 +111,11 @@ export function SheetView({
   // ± on a resource: a delta the server clamps.
   const handleStep = async ({ resource, delta }: { resource: string; delta: number }) => {
     const r = await send(stepAction({ ruleset, actorId: actor.id, resource, delta }));
+    setError(r.ok ? null : r.error);
+  };
+  // TAKE OFF: an item fitted to a line of the saved build comes loose (house decision #102).
+  const handleTakeOff = async (x: ActorItem) => {
+    const r = await send({ type: "item.fit", itemId: x.id, to: null });
     setError(r.ok ? null : r.error);
   };
   // SHORT REST / LONG REST: the GM resets this character's resources the manifest says refill then.
@@ -212,6 +218,8 @@ export function SheetView({
             fields: actor.fields,
             resources: actor.resources,
             conditions: actor.conditions,
+            // What the items it holds add, each named (house decision #95, #102).
+            entries: itemEntries({ ruleset, items: actor.items ?? [] }),
             party: { characters },
             campaign: inPlay,
           },
@@ -277,12 +285,19 @@ export function SheetView({
           {...{ ruleset, compiled, actor, table, characters, requests, send }}
         />
       )}
+      {!gm && table && <AcquireBox {...{ ruleset, compiled, actor, table, characters, requests, send }} />}
       {!gm && table && heldLists({ ruleset, actor }).some((l) => l.owner) && (
         <section className="stack sheet-card">
           <HeldListEditor ruleset={ruleset} actor={actor} campaignId={table.campaign.id} gm={false} send={send} />
         </section>
       )}
-      <LedgerLines sheet={actor.ledger?.sheet} skip={ledgerLaidOut(models)} {...{ ruleset, books, requestPage }} />
+      <LedgerLines
+        sheet={actor.ledger?.sheet}
+        skip={ledgerLaidOut(models)}
+        items={actor.items ?? []}
+        onTakeOff={handleTakeOff}
+        {...{ ruleset, books, requestPage }}
+      />
       {actor.items !== undefined && (
         <ItemsBox env={env} kinds={boxKinds({ ruleset, drawn: ledgerLaidOut(models) })} campaignId={campaignId} />
       )}

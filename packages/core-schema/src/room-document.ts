@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { NextSessionPlace, SessionTitle } from "./actions.ts";
+import { LineRef, NextSessionPlace, SessionTitle } from "./actions.ts";
 import { ScenePrep, SpawnOptionIds } from "./prep.ts";
 import {
   ActorKind,
@@ -81,6 +81,8 @@ export const RoomItem = z.strictObject({
   note: z.string().max(200).optional(),
   quantity: z.int().min(1).max(999).optional(),
   fittedTo: LocalId.optional(),
+  // A line of the character's saved build it is fitted to, `<card>/<name>` (house decision #102).
+  fittedLine: LineRef.optional(),
   source: ItemSource.optional(),
   entryId: LocalId.optional(),
 });

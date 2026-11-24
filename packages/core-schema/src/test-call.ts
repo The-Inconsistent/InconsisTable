@@ -96,6 +96,18 @@ export const TestTargetState = z.object({
 });
 export type TestTargetState = z.infer<typeof TestTargetState>;
 
+/** One of an acquisition's Test inputs: its total and the labelled parts it adds up from (house decision #102). */
+export const AcquireInputState = z.object({
+  total: z.number(),
+  parts: z.array(z.object({ label: z.string(), value: z.number() })),
+});
+export const CallAcquire = z.object({
+  name: z.string(),
+  kind: z.string(),
+  inputs: z.record(z.string(), AcquireInputState),
+});
+export type CallAcquire = z.infer<typeof CallAcquire>;
+
 export const TestCall = z.object({
   id: z.string(),
   testId: z.string(),
@@ -121,6 +133,9 @@ export const TestCall = z.object({
   called: z.int(),
   reported: z.int(),
   targets: z.array(TestTargetState),
+  /** A call made for an acquisition (house decision #102): the entry asked for, the kind it is granted as, and the
+   * Test's inputs each as its total and its labelled parts. Never on the table screen. */
+  acquire: CallAcquire.optional(),
 });
 export type TestCall = z.infer<typeof TestCall>;
 

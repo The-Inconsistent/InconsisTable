@@ -86,19 +86,23 @@ type (
 	// ActorItem is one item an actor holds (state.ts ActorItem): Entry is the pack entry's key (nil for a hand-written
 	// one), Quantity a counted kind's, FittedTo the item it is fitted to, EntryID the codex item a GIVE handed over.
 	ActorItem struct {
-		ID       string       `json:"id"`
-		Kind     string       `json:"kind"`
-		Entry    *string      `json:"entry"`
-		Name     string       `json:"name"`
-		Cite     *string      `json:"cite"`
-		Note     string       `json:"note"`
-		Quantity *int         `json:"quantity"`
-		FittedTo *string      `json:"fittedTo"`
-		Source   string       `json:"source"`
-		EntryID  *string      `json:"entryId"`
-		Rev      int64        `json:"rev"`
-		Tags     []string     `json:"tags"`
-		Effects  []HeldEffect `json:"effects"`
+		ID       string  `json:"id"`
+		Kind     string  `json:"kind"`
+		Entry    *string `json:"entry"`
+		Name     string  `json:"name"`
+		Cite     *string `json:"cite"`
+		Note     string  `json:"note"`
+		Quantity *int    `json:"quantity"`
+		FittedTo *string `json:"fittedTo"`
+		// FittedLine is the line of the saved build it is fitted to (`<card>/<name>`, house decision #102); absent when none.
+		FittedLine *string `json:"fittedLine,omitempty"`
+		// Profile is the entry record's weapon or armour, the numbers its card draws (house decision #102).
+		Profile json.RawMessage `json:"profile,omitempty"`
+		Source  string          `json:"source"`
+		EntryID *string         `json:"entryId"`
+		Rev     int64           `json:"rev"`
+		Tags    []string        `json:"tags"`
+		Effects []HeldEffect    `json:"effects"`
 	}
 	// HeldEffect is one effect of a held record, as the sheet words it.
 	HeldEffect struct {
@@ -159,6 +163,17 @@ type (
 		Inputs     map[string]float64 `json:"inputs"`
 		Note       string             `json:"note"`
 		CreatedAt  string             `json:"createdAt"`
+		// Acquire is an acquisition asked for (house decision #102): the entry and the host it goes on.
+		Acquire *RequestAcquire `json:"acquire,omitempty"`
+	}
+	// RequestAcquire is the pack entry an acquisition asks for, and the item (To) or build line (Line) it is fitted to.
+	RequestAcquire struct {
+		Type  string `json:"type"`
+		Entry string `json:"entry"`
+		// Name is the entry's name as the room is served it, its key when it is served none.
+		Name string `json:"name"`
+		To   string `json:"to,omitempty"`
+		Line string `json:"line,omitempty"`
 	}
 	// RollRow is one roll on a random table (house decision #49): what came up, as the seat that may see it reads it.
 	// Visibility is the table's, so the Seat view can cut it; Label is the entry's own short name.
@@ -537,6 +552,22 @@ type (
 		Called       int               `json:"called"`
 		Reported     int               `json:"reported"`
 		Targets      []TestTargetState `json:"targets"`
+		// Acquire is set on a call made for an acquisition (house decision #102); never on the table screen.
+		Acquire *CallAcquire `json:"acquire,omitempty"`
+	}
+	// CallAcquire is what an acquisition call asks for: the entry's name, the kind, the Test's inputs as parts.
+	CallAcquire struct {
+		Name   string                       `json:"name"`
+		Kind   string                       `json:"kind"`
+		Inputs map[string]AcquireInputState `json:"inputs"`
+	}
+	// AcquireInputState is one of an acquisition's Test inputs: its total and its labelled parts.
+	AcquireInputState struct {
+		Total float64 `json:"total"`
+		Parts []struct {
+			Label string  `json:"label"`
+			Value float64 `json:"value"`
+		} `json:"parts"`
 	}
 
 	// CodexEntry is one codex entry.

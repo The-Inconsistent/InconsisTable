@@ -13,6 +13,9 @@ import { generatorExprProblems } from "./generators.ts";
 import type { ExprScope, ExprType } from "./expr/expr.ast.ts";
 import { compileExpr, type CompiledExpr } from "./expr/expr.ts";
 import {
+  acquiredKinds,
+  hostValuesOf,
+  HOST_PREFIX,
   strikeTargets,
   validateRuleset,
   type Condition,
@@ -568,18 +571,37 @@ class Compiler {
   }): { host: CompiledEntity; effect: CompiledEffect }[] {
     return entries.flatMap((entry, i) =>
       entry.effects.flatMap((eff, j) =>
-        this.effect({
-          eff,
-          path: pathOf(i, j),
-          sourceId: entrySourceId(entry),
-          // The entry's own visibility is who may read its page; what it adds to a number is the same for every seat.
-          sourceVisibility: "public",
-          pool,
-          entities,
-          noHost: `${pool.map((e) => e.id).join(", ")} has no integer "${eff.path}"`,
-        }),
+        eff.path.startsWith(HOST_PREFIX)
+          ? this.hostEffect({ eff, type: entry.type, path: pathOf(i, j) })
+          : this.effect({
+              eff,
+              path: pathOf(i, j),
+              sourceId: entrySourceId(entry),
+              // The entry's own visibility is who may read its page; what it adds to a number is the same for every seat.
+              sourceVisibility: "public",
+              pool,
+              entities,
+              noHost: `${pool.map((e) => e.id).join(", ")} has no integer "${eff.path}"`,
+            }),
       ),
     );
+  }
+
+  /**
+   * An entry's effect on its host's card (house decision #102), `host.<value>`: a value of the card of a kind its kinds
+   * fit to, added or overridden by a number that reads nothing (the card shows it while fitted). It never changes the
+   * actor, so it compiles to no actor effect.
+   */
+  private hostEffect({ eff, type, path }: { eff: Effect; type: string; path: string }): [] {
+    const name = eff.path.slice(HOST_PREFIX.length);
+    if (!hostValuesOf({ items: this.r.items, type }).includes(name))
+      this.problems.push({ path: `${path}.path`, message: `"${eff.path}" is not a value of a host's card` });
+    else if (eff.mode !== "add" && eff.mode !== "override")
+      this.problems.push({ path: `${path}.mode`, message: "a host's value is added to or overridden" });
+    this.expr({ source: eff.value, scopes: [{}], expect: "int", path: `${path}.value` });
+    if (eff.when !== undefined)
+      this.problems.push({ path: `${path}.when`, message: "a host's value takes no condition" });
+    return [];
   }
 
   private effects(entities: Record<string, CompiledEntity>): void {
@@ -719,6 +741,39 @@ class Compiler {
         }
       });
     });
+  }
+
+  /**
+   * `items.acquire` (house decision #102): every expression in the scope of each actor type holding a kind it grants,
+   * with `item` (that kind's entry fields and its `tags`) and `ctx` (the picks). Read by `planAcquire` from the
+   * manifest's own text.
+   */
+  private acquire(actorsOf: (ids: readonly string[] | undefined) => { ce: CompiledEntity }[]): void {
+    const items = this.r.items;
+    const a = items?.acquire;
+    if (items === undefined || a === undefined) return;
+    const path = "items.acquire";
+    const picks = Object.fromEntries(Object.keys(a.picks ?? {}).map((k): [string, ExprType] => [k, "int"]));
+    const bases = acquiredKinds(items, a).flatMap((k) => {
+      const entry = this.r.entities.find((e) => e.id === k.entry);
+      const item: ExprType = { record: { ...fieldScope(entry?.fields ?? {}), tags: { list: "text" } } };
+      return actorsOf(k.entities).map(({ ce }) => ({ ...ce.scope, item }));
+    });
+    const scopes = (withPicks: boolean) => bases.map((b) => ({ ...b, ctx: { record: withPicks ? picks : {} } }));
+    for (const [name, def] of sortedEntries(a.picks ?? {}))
+      this.expr({ source: def.max, scopes: scopes(false), expect: "int", path: `${path}.picks.${name}.max` });
+    if (a.if !== undefined) this.expr({ source: a.if, scopes: scopes(true), expect: "bool", path: `${path}.if` });
+    for (const [name, parts] of sortedEntries(a.inputs))
+      parts.forEach((p, j) =>
+        this.expr({ source: p.value, scopes: scopes(true), expect: "int", path: `${path}.inputs.${name}[${j}].value` }),
+      );
+    const ints: [string | undefined, string][] = [
+      [a.topUp?.max, "topUp.max"],
+      [a.quantity, "quantity"],
+      [a.load?.quantity, "load.quantity"],
+    ];
+    for (const [source, at] of ints)
+      if (source !== undefined) this.expr({ source, scopes: scopes(true), expect: "int", path: `${path}.${at}` });
   }
 
   /**
@@ -1008,6 +1063,7 @@ class Compiler {
       if (expr !== null) immune[c.id] = expr;
     });
     this.spends(actorsOf);
+    this.acquire(actorsOf);
     this.spawn();
     this.strikes(actorsOf);
 

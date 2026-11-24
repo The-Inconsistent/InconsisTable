@@ -369,6 +369,23 @@ func (e *evaluator) call(n CallNode) any {
 			item = e.eval(n.Args[1])
 		}
 		return slices.Contains(l.Items, item)
+	case "overlap":
+		// How many distinct items of the first list the second holds (expr.eval.ts).
+		a, isA := e.firstArg(n).(*List)
+		var b *List
+		if len(n.Args) > 1 {
+			b, _ = e.eval(n.Args[1]).(*List)
+		}
+		if !isA || b == nil {
+			exprFail("overlap() of a non-list")
+		}
+		seen := []any{}
+		for _, x := range a.Items {
+			if !slices.Contains(seen, x) && slices.Contains(b.Items, x) {
+				seen = append(seen, x)
+			}
+		}
+		return float64(len(seen))
 	case "has":
 		if len(n.Args) == 0 {
 			return false

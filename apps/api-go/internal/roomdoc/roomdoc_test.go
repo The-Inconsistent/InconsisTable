@@ -400,7 +400,7 @@ func (r *room) actors() {
 		// the codex item a GIVE handed over by its title.
 		gotItems := []string{}
 		for _, x := range r.query(`SELECT i.kind || ' ' || coalesce(i.entry_key, i.name) || ' x' || coalesce(i.quantity::text, '-')
-				|| ' on ' || coalesce(h.entry_key, '-') || ' from ' || coalesce(e.title, '-') || ' ' || i.source || ' ' || i.note
+				|| ' on ' || coalesce(h.entry_key, i.fitted_line, '-') || ' from ' || coalesce(e.title, '-') || ' ' || i.source || ' ' || i.note
 			FROM actor_item i LEFT JOIN actor_item h ON h.id = i.fitted_to LEFT JOIN codex_entry e ON e.id = i.codex_entry_id
 			WHERE i.actor_id = $1 ORDER BY i.ordinal`, id) {
 			gotItems = append(gotItems, x[0].(string))
@@ -695,6 +695,13 @@ func TestARefusedDocumentNamesItsPathAndLeavesNothing(t *testing.T) {
 		{"a fit to an item not in the document", "ledger", func(d map[string]any) {
 			at(d, "00000000-0000-4000-8000-000000000999", "actors", 0, "items", 0, "fittedTo")
 		}, "actors[0].items[0].fittedTo", "roomNoSuchItem"},
+		// A fitting on a line of the saved build (house decision #102): one it gives, of a kind the fitting fits.
+		{"a fit to a line the build does not give", "ledger", func(d map[string]any) {
+			at(d, "weapons/Nope", "actors", 0, "items", 4, "fittedLine")
+		}, "actors[0].items[4].fittedLine", "roomNoSuchItem"},
+		{"a fit to a line of a kind it does not fit", "ledger", func(d map[string]any) {
+			at(d, "armour/Leather Coat", "actors", 0, "items", 4, "fittedLine")
+		}, "actors[0].items[4].fittedLine", "itemFitsNot"},
 		{"a typed actor without a ruleset", "bare", func(d map[string]any) {
 			d["actors"] = []any{map[string]any{"id": "00000000-0000-4000-8000-000000000050", "kind": "pc", "name": "Lone", "entityType": "character"}}
 		}, "actors[0].entityType", "noRuleset"},

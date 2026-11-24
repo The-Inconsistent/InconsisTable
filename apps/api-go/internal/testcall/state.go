@@ -15,6 +15,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/item"
 )
 
 // Closed calls older than the session are history, not state. A busy table calls a few Tests an hour.
@@ -235,10 +236,16 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 		return nil, err
 	}
 
-	// What each taker's result offers the GM side (house decision #80); read only when a Test of the ruleset offers any.
+	// What the room's acquisition calls grant (house decision #102).
+	acquired, err := item.LoadAcquired(ctx, conn, ids)
+	if err != nil {
+		return nil, err
+	}
+	// What each taker's result offers the GM side (house decision #80); read only when a Test of the ruleset offers any,
+	// or a call grants an acquisition.
 	var applied map[string]map[string]bool
 	for _, t := range compiled.Tests {
-		if len(t.Offers) > 0 {
+		if len(t.Offers) > 0 || len(acquired) > 0 {
 			if applied, err = appliedOffers(ctx, conn, ids); err != nil {
 				return nil, err
 			}
@@ -278,6 +285,13 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 		}
 		for i := range mine {
 			mine[i].Offers = offersOf(compiled, test, built[mine[i].ActorID], inputs, mine[i], applied[c.id+"/"+mine[i].ActorID])
+			if acq := acquired[c.id]; acq != nil && acq.ActorID == mine[i].ActorID {
+				mine[i].Offers = append(mine[i].Offers, acquireOffers(compiled, acq, built[mine[i].ActorID], mine[i], applied[c.id+"/"+mine[i].ActorID])...)
+			}
+		}
+		var callAcquire *cs.CallAcquire
+		if acq := acquired[c.id]; acq != nil {
+			callAcquire = acquireState(acq)
 		}
 		out = append(out, cs.TestCall{
 			ID: c.id, TestID: c.testID, Dice: diceOf(test.Def), Advantage: test.Def.Kind == "sumVsTarget" && test.Def.Advantage,
@@ -285,7 +299,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 			Inputs: inputs, SecretInputs: secret, ShowTarget: showTarget,
 			ShowModifier: !isReported && everyoneMay(test.ModifierVisibility, actorIDs, built, noGM),
 			ShowOutcome:  c.showOutcome || showTarget || isReported, Revealed: c.revealed, Called: len(mine), Reported: reported,
-			Targets: mine,
+			Targets: mine, Acquire: callAcquire,
 		})
 	}
 	return out, nil

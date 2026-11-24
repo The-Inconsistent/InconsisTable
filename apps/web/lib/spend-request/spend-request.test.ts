@@ -9,6 +9,8 @@ const request = (id: string, actorId: string, resourceId: string) => ({
   actorId,
   resourceId,
   amount: 1,
+  spendId: null,
+  inputs: null,
   note: "",
   createdAt: "",
 });
@@ -18,6 +20,7 @@ const answer = (id: string) => ({
   actorId: "a",
   resourceId: "r",
   amount: 1,
+  spendId: null,
   status: "denied" as const,
   reason: "",
 });

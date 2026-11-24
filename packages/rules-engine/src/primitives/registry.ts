@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import type { Touches } from "../enums.ts";
 import { own } from "../own.ts";
 import { conditionsExpire } from "./conditions-expire.ts";
@@ -25,6 +27,28 @@ export const PRIMITIVES: Readonly<Record<string, Primitive<unknown>>> = {
   [conditionsExpire.id]: conditionsExpire,
   [rest.id]: rest,
 };
+
+/**
+ * The primitives a ruleset declares, which a spend's `run` may name (house decision #84): the ones `rule.op` runs from
+ * the manifest's own blocks. The dice primitives run through the Test actions, so a spend runs none of them.
+ */
+export function declaredPrimitives(r: {
+  initiative?: { strategy: string };
+  health: { tracks: readonly unknown[]; harm?: unknown };
+}): string[] {
+  const out = ["resource.capped", "conditions.expire", "rest"];
+  if (r.initiative !== undefined) out.push(`initiative.${r.initiative.strategy}`);
+  if (r.health.tracks.length > 0) out.push("health.tracks");
+  if (r.health.harm !== undefined) out.push("health.harm");
+  return out;
+}
+
+/** The keys an op's input takes, or null for an op the registry does not know. */
+export function opInputKeys(primitive: string, op: string): string[] | null {
+  const def = own(own(PRIMITIVES, primitive)?.ops ?? {}, op);
+  if (def === undefined) return null;
+  return def.input instanceof z.ZodObject ? Object.keys(def.input.shape).sort() : [];
+}
 
 export type RunOpResult =
   { ok: true; deltas: Delta[]; touches: Touches; perm: string } | { ok: false; refusal: Refusal };

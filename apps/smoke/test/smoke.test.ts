@@ -869,6 +869,7 @@ test("spend requests: a player asks, the GM approves or denies, nobody else sees
       actorId: hero,
       resourceId: "tempHp",
       amount: 1,
+      spendId: null,
       status: "denied",
       reason: "not this scene",
     },
@@ -886,6 +887,99 @@ test("spend requests: a player asks, the GM approves or denies, nobody else sees
   ok(await owner.send({ type: "session.end" }));
   await owner.until((s) => s.requests.length === 0);
   ben.socket.close();
+});
+
+// A room on an invented ruleset of the owner's import, with Ana and Ben seated; their characters' ids.
+async function spendRoom(name: string, manifest: object) {
+  const ownerDevice = await device(`owner-${name}`);
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", manifest);
+  assert.equal(rs.status, 201);
+  const made = await me.post<{ campaignId: string }>("/campaigns", { name, rulesetVersionId: rs.body.versionId });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, `ana-${name}`) } });
+  const ben = connect({ auth: { campaignId, cookie: await seatPlayer(owner, `ben-${name}`) } });
+  const seated = await owner.until((s) => s.access.members.filter((m) => m.characterIds.length > 0).length === 2);
+  const own = (who: string) => seated.access.members.find((m) => m.userId === uid(`${who}-${name}`))!.characterIds[0]!;
+  return { owner, ana, ben, lyra: own("ana"), bram: own("ben") };
+}
+
+const spendAsk = (actorId: string, spendId: string, inputs?: Record<string, number>) =>
+  ({ type: "request.send", actorId, spendId, ...(inputs ? { inputs } : {}) }) as ActionInput;
+const momentum = (s: LiveState) => s.pools.find((p) => p.id === "momentum")?.value;
+const fillMomentum = (delta: number) =>
+  ({
+    type: "rule.op",
+    primitive: "resource.capped",
+    op: "adjustPool",
+    input: { resource: "momentum", delta },
+  }) as ActionInput;
+
+test("spends: a pool ask the party sees, paid at approval or left pending, one tap, cleared with the fight (#84)", async () => {
+  const { owner, ana, ben, lyra, bram } = await spendRoom("Spends", SAMPLE_SKIRMISH);
+  const sheet = {
+    fields: { level: 1, "attr.str": 10, "attr.con": 10, "attr.dex": 12, guard: 10 },
+    resources: { hp: 8, focus: 1 },
+  };
+  await equip(lyra, "character", sheet);
+  await equip(bram, "character", sheet);
+  ok(await owner.send({ type: "actor.rename", id: lyra, name: "Lyra" }));
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send(fillMomentum(3)));
+  await ana.until((s) => momentum(s) === 3 && actorIn(s, lyra)?.entity === "character");
+
+  refused(await ana.send(spendAsk(lyra, "rally", { dice: 4 })), "badInput");
+  refused(await ana.send(spendAsk(lyra, "jump")), "spendNotNow");
+  refused(await ana.send(spendAsk(bram, "rally", { dice: 1 })), "notYourCharacter");
+  refused(await ana.send({ type: "request.send", actorId: lyra, spendId: "rally", amount: 1 }), "requestKind");
+  const rally = ok(await ana.send(spendAsk(lyra, "rally", { dice: 2 }))).id!;
+  refused(await ana.send(spendAsk(lyra, "rally", { dice: 1 })), "spendAsked");
+  const seen = await ben.until((s) => s.requests.some((q) => q.id === rally));
+  assert.deepEqual(seen.requests.find((q) => q.id === rally)?.inputs, { dice: 2 }, "the party sees an ask on its pool");
+  refused(await ben.send({ type: "request.cancel", id: rally }), "requestNotFound");
+
+  // Short at approval: the ask stays, the GM is told why.
+  ok(await owner.send(fillMomentum(-2)));
+  refused(await owner.send({ type: "request.approve", id: rally }), "cannotPay");
+  assert.ok((await owner.until((s) => momentum(s) === 1)).requests.some((q) => q.id === rally));
+  ok(await owner.send(fillMomentum(2)));
+  ok(await owner.send({ type: "request.approve", id: rally }));
+  await ben.until((s) => momentum(s) === 1 && s.requests.length === 0);
+
+  // One tap from the GM side, taken back whole by Undo.
+  ok(await owner.send({ type: "spend.do", spendId: "rally", actorId: bram, inputs: { dice: 1 } }));
+  await owner.until((s) => momentum(s) === 0);
+  ok(await owner.send({ type: "event.undo" }));
+  await owner.until((s) => momentum(s) === 1);
+
+  // A fight's asks go with it; the others stay.
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: [lyra, bram] }));
+  const jump = ok(await ana.send(spendAsk(lyra, "jump"))).id!;
+  const later = ok(await ana.send(spendAsk(lyra, "rally", { dice: 1 }))).id!;
+  ok(await owner.send({ type: "encounter.end" }));
+  const after = await ana.until((s) => !s.requests.some((q) => q.id === jump));
+  assert.ok(
+    after.requests.some((q) => q.id === later),
+    "a spend that does not clear with the fight stays",
+  );
+  ben.socket.close();
+});
+
+test("spends: a free conversion by a reported number, approved and undone (#84)", async () => {
+  const { owner, ana, lyra } = await spendRoom("Endure", SAMPLE_HARM);
+  await equip(lyra, "hero", { fields: { grit: 2 }, resources: { wounds: 4, strain: 0 } });
+  ok(await owner.send({ type: "actor.rename", id: lyra, name: "Hal" }));
+  ok(await owner.send({ type: "session.start" }));
+  await ana.until((s) => actorIn(s, lyra)?.entity === "hero");
+  refused(await ana.send(spendAsk(lyra, "endure", { marks: 5 })), "badInput");
+  const id = ok(await ana.send(spendAsk(lyra, "endure", { marks: 3 }))).id!;
+  ok(await owner.send({ type: "request.approve", id }));
+  await ana.until((s) => actorIn(s, lyra)?.resources.wounds === 1 && actorIn(s, lyra)?.resources.strain === 3);
+  ok(await owner.send({ type: "event.undo" }));
+  await ana.until((s) => actorIn(s, lyra)?.resources.wounds === 4 && actorIn(s, lyra)?.resources.strain === 0);
 });
 
 test("codex: a reader listed twice is one reader, and an entry deletes once", async () => {

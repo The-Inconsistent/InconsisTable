@@ -28,6 +28,7 @@ import {
   type TestOffer,
 } from "./manifest.ts";
 import { own } from "./own.ts";
+import { declaredPrimitives, opInputKeys } from "./primitives/registry.ts";
 import type { Problem } from "./problem.ts";
 
 export interface CompiledDerived {
@@ -181,6 +182,16 @@ export const REMINDER_SCOPE: ExprScope = { round: "int", held: "bool", barred: "
 
 export type CompileResult = { ok: true; compiled: CompiledRuleset } | { ok: false; problems: Problem[] };
 
+/** A record's entries by key, so the Go twin (which has no key order) reports problems in the same order. */
+const sortedEntries = <V>(o: Readonly<Record<string, V>>): [string, V][] =>
+  Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+
+/** `ctx.self` and `ctx.fight` in a spend's expressions (house decision #84); its inputs join them as ints. */
+export const SPEND_CTX: Readonly<Record<string, ExprType>> = {
+  self: "text",
+  fight: { record: { on: "bool", in: "bool", round: "int", barred: "bool" } },
+};
+
 /** Party-level values every actor expression may read. */
 // ponytail: only the character count today; party pools and averages join when a ruleset needs them.
 export const PARTY_SCOPE: ExprType = { record: { characters: "int" } };
@@ -309,7 +320,8 @@ class Compiler {
   }: {
     source: string;
     scopes: readonly ExprScope[];
-    expect: ExprType;
+    /** Absent: any type (a spend op's input, which the op's own schema checks when it runs). */
+    expect?: ExprType;
     path: string;
   }): CompiledExpr | null {
     let kept: CompiledExpr | null = null;
@@ -603,6 +615,49 @@ class Compiler {
     );
   }
 
+  /**
+   * `spends` (house decision #84): every expression in the scope of each actor type that may spend it, plus `ctx`, and
+   * every `run` op one of a primitive the ruleset declares, its input keys that op's. Read by `planSpend` from the
+   * manifest's own text, as `health.harm` is.
+   */
+  private spends(actorsOf: (ids: readonly string[] | undefined) => { ce: CompiledEntity }[]): void {
+    const declared = declaredPrimitives(this.r);
+    this.r.spends?.forEach((s, i) => {
+      const path = `spends[${i}]`;
+      const bases = actorsOf(s.entities).map(({ ce }) => ce.scope);
+      const inputs = Object.fromEntries(Object.keys(s.inputs ?? {}).map((k): [string, ExprType] => [k, "int"]));
+      const scopes = (withInputs: boolean) =>
+        bases.map((b) => ({ ...b, ctx: { record: { ...(withInputs ? inputs : {}), ...SPEND_CTX } } }));
+      for (const [name, def] of sortedEntries(s.inputs ?? {}))
+        this.expr({ source: def.max, scopes: scopes(false), expect: "int", path: `${path}.inputs.${name}.max` });
+      if (s.if !== undefined) this.expr({ source: s.if, scopes: scopes(true), expect: "bool", path: `${path}.if` });
+      s.cost.forEach((c, j) =>
+        this.expr({ source: c.amount, scopes: scopes(true), expect: "int", path: `${path}.cost[${j}].amount` }),
+      );
+      s.run?.forEach((step, j) => {
+        const at = `${path}.run[${j}]`;
+        if (!declared.includes(step.primitive)) {
+          this.problems.push({
+            path: `${at}.primitive`,
+            message: `"${step.primitive}" is not declared by this ruleset`,
+          });
+          return;
+        }
+        const keys = opInputKeys(step.primitive, step.op);
+        if (keys === null) {
+          this.problems.push({ path: `${at}.op`, message: `"${step.primitive}" has no op "${step.op}"` });
+          return;
+        }
+        for (const [key, value] of sortedEntries(step.input)) {
+          if (!keys.includes(key))
+            this.problems.push({ path: `${at}.input.${key}`, message: `"${key}" is not an input` });
+          else if (typeof value === "string")
+            this.expr({ source: value, scopes: scopes(true), path: `${at}.input.${key}` });
+        }
+      });
+    });
+  }
+
   run(): CompiledRuleset | null {
     const entities: Record<string, CompiledEntity> = {};
     this.r.entities.forEach((e, i) => {
@@ -762,6 +817,7 @@ class Compiler {
       });
       if (expr !== null) immune[c.id] = expr;
     });
+    this.spends(actorsOf);
 
     if (this.problems.length > 0 || scoring === undefined || (ranked !== null && score === null)) return null;
     const b = this.r.build;

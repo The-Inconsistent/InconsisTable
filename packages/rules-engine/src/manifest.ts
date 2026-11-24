@@ -621,6 +621,8 @@ export const HarmProfile = z.object({
     .optional(),
   /** Number: one hit's wounds above `over` destroys the actor outright, which sets the bool `field`. */
   destroyed: z.object({ over: ExprSource, field: FieldId }).optional(),
+  /** true: `convert` moves wounds to the second track for this profile (house decision #84). Absent: it is refused. */
+  convert: z.boolean().optional(),
 });
 export type HarmProfile = z.infer<typeof HarmProfile>;
 
@@ -807,6 +809,57 @@ export const Layout = z.object({
 });
 export type Layout = z.infer<typeof Layout>;
 
+/** The table events that cancel a spend's pending asks (house decision #84). */
+export const SpendClearEvent = z.enum(["sessionStart", "sessionEnd", "encounterEnd"]);
+export type SpendClearEvent = z.infer<typeof SpendClearEvent>;
+
+/** Input names a spend may not take: `ctx.self` and `ctx.fight` are the platform's. */
+export const SPEND_CTX_ROOTS: ReadonlySet<string> = new Set(["self", "fight"]);
+
+/**
+ * One cost of a spend: a shared `pool` or an entity `resource` of the asking actor (exactly one), an integer
+ * expression. `byRun`: a `run` op takes it itself (`seize`, `lift`), so `spend.do` only checks and shows it.
+ */
+export const SpendCost = z.object({
+  pool: Id.optional(),
+  resource: Id.optional(),
+  amount: ExprSource,
+  byRun: z.boolean().optional(),
+});
+export type SpendCost = z.infer<typeof SpendCost>;
+
+/** One op a spend runs: an op of a primitive the ruleset declares, its input a value or an expression per key. */
+export const SpendStep = z.object({
+  primitive: z.string().min(1).max(64),
+  op: z.string().min(1).max(64),
+  /** A string is an expression (`ctx.self` is the asking actor's id); a number or boolean is taken as it is. */
+  input: z.record(z.string().min(1).max(64), z.union([ExprSource, z.number(), z.boolean()])),
+});
+export type SpendStep = z.infer<typeof SpendStep>;
+
+/**
+ * A spend (house decision #84): what a player may ask the GM to do for a cost, or the GM does in one tap. Every
+ * expression reads the asking actor's scope plus `ctx`: the spend's inputs, `ctx.self` and `ctx.fight`.
+ */
+export const Spend = z.object({
+  id: Id,
+  label: z.string().min(1).max(80),
+  cite: Cite.optional(),
+  /** The actor types that may spend it; absent: every actor type. */
+  entities: z.array(Id).min(1).max(50).optional(),
+  cost: z.array(SpendCost).max(5),
+  /** Numbers the asker picks, each within [min, max], read as `ctx.<name>`. */
+  inputs: z
+    .record(Id, z.object({ label: z.string().min(1).max(60), min: z.int().min(0).max(1000), max: ExprSource }))
+    .refine((o) => Object.keys(o).length <= 3, "at most 3 inputs")
+    .optional(),
+  /** Boolean: the spend is available now. */
+  if: ExprSource.optional(),
+  run: z.array(SpendStep).max(5).optional(),
+  clearOn: z.array(SpendClearEvent).max(3).optional(),
+});
+export type Spend = z.infer<typeof Spend>;
+
 /** How a table can sit for a game (docs/adr/0009-table-modes.md): with a GM, without one, or one player alone. */
 export const GameMode = z.enum(["gm", "gmless", "solo"]);
 export type GameMode = z.infer<typeof GameMode>;
@@ -896,6 +949,10 @@ export const Ruleset = z.object({
   codex: CodexBlock.optional(),
   /** What an action's answer tells its sender about an actor (house decision #79). Absent: none. */
   notices: z.array(NoticeRule).max(MAX_NOTICES).optional(),
+  /** What players may ask the GM to spend, and the GM do in one tap (house decision #84). Absent: none. */
+  spends: z.array(Spend).max(50).optional(),
+  /** `max`: pending requests per user. Absent: the platform's five (house decision #43). */
+  requests: z.object({ max: z.int().min(1).max(20) }).optional(),
 });
 export type Ruleset = z.infer<typeof Ruleset>;
 export type RulesetInput = z.input<typeof Ruleset>;
@@ -1542,6 +1599,45 @@ function layoutProblems(r: Ruleset, out: Problem[]): void {
   }
 }
 
+/** `spends` (house decision #84): ids, costs and inputs. Its expressions and `run` ops are `compileRuleset`'s. */
+function spendProblems({
+  r,
+  actorTypes,
+  out,
+}: {
+  r: Ruleset;
+  actorTypes: (ids: readonly string[] | undefined, path: string) => void;
+  out: Problem[];
+}): void {
+  const spends = r.spends ?? [];
+  duplicates({ ids: spends.map((s) => s.id), path: "spends", out });
+  const resources = new Map(r.resources.map((x) => [x.id, x]));
+  spends.forEach((s, i) => {
+    const path = `spends[${i}]`;
+    actorTypes(s.entities, `${path}.entities`);
+    s.cost.forEach((c, j) => {
+      const at = `${path}.cost[${j}]`;
+      if ((c.pool === undefined) === (c.resource === undefined)) {
+        out.push({ path: at, message: "a cost names a pool or a resource" });
+        return;
+      }
+      const id = c.pool ?? c.resource ?? "";
+      const key = c.pool === undefined ? "resource" : "pool";
+      const res = resources.get(id);
+      if (res === undefined) out.push({ path: `${at}.${key}`, message: `unknown resource "${id}"` });
+      else if (c.pool !== undefined && res.scope === "entity")
+        out.push({ path: `${at}.pool`, message: `"${id}" must be a shared pool` });
+      else if (c.resource !== undefined && res.scope !== "entity")
+        out.push({ path: `${at}.resource`, message: `"${id}" must be an entity-scoped resource` });
+    });
+    for (const name of Object.keys(s.inputs ?? {}).sort()) {
+      if (SPEND_CTX_ROOTS.has(name)) out.push({ path: `${path}.inputs.${name}`, message: `"${name}" is reserved` });
+    }
+    if (s.clearOn !== undefined && new Set(s.clearOn).size !== s.clearOn.length)
+      out.push({ path: `${path}.clearOn`, message: "an event is listed twice" });
+  });
+}
+
 function semanticProblems(r: Ruleset): Problem[] {
   const out: Problem[] = [];
   // CLAUDE.md principle 1: every rule entry cites its printed page, unless the whole ruleset is homebrew.
@@ -1693,6 +1789,8 @@ function semanticProblems(r: Ruleset): Problem[] {
     });
   r.health.states.forEach((s, i) => actorTypes(s.entities, `health.states[${i}].entities`));
   if (r.health.harm !== undefined) harmProblems({ r, harm: r.health.harm, actorTypes, out });
+  r.spends?.forEach((s, i) => needCite(s.cite, `spends[${i}]`));
+  spendProblems({ r, actorTypes, out });
 
   for (const [id, t] of Object.entries(r.tests)) {
     actorTypes(t.entities, `tests.${id}.entities`);

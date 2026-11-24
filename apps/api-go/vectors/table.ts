@@ -24,9 +24,20 @@ const ACTION_OUT = join(import.meta.dirname, "../internal/coreschema/testdata/ac
 
 // ---- Seat views ----
 
+// SAMPLE_D20 with spends on a party pool, a gm pool, both, and a resource, for who sees an ask (house decision #84).
+const cost = (over: object) => ({ amount: "1", ...over });
+const VIEW_MANIFEST = {
+  ...SAMPLE_D20,
+  spends: [
+    { id: "onParty", label: "On the party", cite: "p.1", cost: [cost({ pool: "luck" })] },
+    { id: "onGm", label: "On the GM", cite: "p.1", cost: [cost({ pool: "menace" })] },
+    { id: "onBoth", label: "On both", cite: "p.1", cost: [cost({ pool: "luck" }), cost({ pool: "menace" })] },
+    { id: "onMe", label: "On me", cite: "p.1", cost: [cost({ resource: "focus" })] },
+  ],
+};
 const compiled = (() => {
-  const r = compileRuleset(SAMPLE_D20);
-  if (!r.ok) throw new Error("SAMPLE_D20 does not compile");
+  const r = compileRuleset(VIEW_MANIFEST);
+  if (!r.ok) throw new Error("the view manifest does not compile");
   return r.compiled;
 })();
 
@@ -231,6 +242,8 @@ const STATE = {
       actorId: PC1,
       resourceId: "luck",
       amount: 2,
+      spendId: null,
+      inputs: null,
       note: "for the jump",
       createdAt: "2026-11-01T09:05:00.000Z",
     },
@@ -240,6 +253,8 @@ const STATE = {
       actorId: PC2,
       resourceId: "luck",
       amount: 1,
+      spendId: null,
+      inputs: null,
       note: "",
       createdAt: "2026-11-01T09:06:00.000Z",
     },
@@ -249,13 +264,44 @@ const STATE = {
       actorId: null,
       resourceId: "doom",
       amount: 3,
+      spendId: null,
+      inputs: null,
       note: "",
       createdAt: "2026-11-01T09:07:00.000Z",
     },
+    ...["onParty", "onGm", "onBoth", "onMe", "gone"].map((spendId, i) => ({
+      id: U(803 + i),
+      userId: "player2",
+      actorId: PC2,
+      resourceId: null,
+      amount: null,
+      spendId,
+      inputs: i === 0 ? { dice: 2 } : null,
+      note: "",
+      createdAt: `2026-11-01T09:0${8 + i}:00.000Z`,
+    })),
   ],
   requestAnswers: [
-    { id: U(810), userId: "player1", actorId: PC1, resourceId: "luck", amount: 1, status: "denied", reason: "not now" },
-    { id: U(811), userId: "player2", actorId: PC2, resourceId: "luck", amount: 1, status: "approved", reason: "" },
+    {
+      id: U(810),
+      userId: "player1",
+      actorId: PC1,
+      resourceId: "luck",
+      amount: 1,
+      spendId: null,
+      status: "denied",
+      reason: "not now",
+    },
+    {
+      id: U(811),
+      userId: "player2",
+      actorId: PC2,
+      resourceId: null,
+      amount: null,
+      spendId: "onParty",
+      status: "approved",
+      reason: "",
+    },
   ],
   rolls: [
     {
@@ -363,6 +409,28 @@ const STATE = {
       max: 6,
       capped: true,
       visibility: "public",
+      editableBy: "gm",
+    },
+    {
+      id: "luck",
+      label: "luck",
+      scope: "party",
+      value: 2,
+      min: 0,
+      max: 6,
+      capped: true,
+      visibility: "party",
+      editableBy: "owner",
+    },
+    {
+      id: "menace",
+      label: "menace",
+      scope: "gm",
+      value: 2,
+      min: 0,
+      max: 6,
+      capped: true,
+      visibility: "gm",
       editableBy: "gm",
     },
     {
@@ -755,7 +823,7 @@ mkdirSync(dirname(VIEW_OUT), { recursive: true });
 writeFileSync(
   VIEW_OUT,
   JSON.stringify({
-    manifest: SAMPLE_D20,
+    manifest: VIEW_MANIFEST,
     snapshots: Object.fromEntries(SNAPSHOTS.map((s) => [s.name, s])),
     views,
   }),
@@ -855,6 +923,7 @@ const VALID: Record<string, Record<string, unknown>> = {
   "clock.update": { id: ID, name: " Cult ", segments: 8, visibility: "gm", entryId: ID },
   "clock.delete": { id: ID },
   "request.send": { actorId: ID, resourceId: "luck", amount: 3, note: " please " },
+  "spend.do": { spendId: "rally", actorId: ID, inputs: { dice: 2 } },
   "request.cancel": { id: ID },
   "request.approve": { id: ID },
   "request.deny": { id: ID, reason: " not now " },

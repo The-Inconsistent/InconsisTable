@@ -2,12 +2,13 @@
 import { useFormatter, useTranslations } from "next-intl";
 import { Fragment, useMemo, useState } from "react";
 
-import type { Actor, BookSource, SpendRequest } from "@inconsistable/core-schema";
+import type { Actor, BookSource, LiveState, SpendRequest } from "@inconsistable/core-schema";
 import { breakdownOf, campaignValues, compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { XpBox } from "@/components/builder/ledger/play/xp-box/xp-box";
 import { Breakdown } from "@/components/sheet/components/breakdown/breakdown";
 import { LedgerLines } from "@/components/sheet/components/ledger-lines/ledger-lines";
+import { SpendList } from "@/components/sheet/components/spend-ask/components/spend-list/spend-list";
 import { SpendAsk } from "@/components/sheet/components/spend-ask/spend-ask";
 import { SheetWidget } from "@/components/sheet/widgets/sheet-widget/sheet-widget";
 import type { WidgetEnv } from "@/components/sheet/widgets/types";
@@ -17,7 +18,7 @@ import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { rankOf } from "@/lib/ledger/play";
 import { xpEarnedOf } from "@/lib/ledger/table";
 import { ledgerLaidOut } from "@/lib/sheet-widgets/sheet-widgets";
-import { pendingFor } from "@/lib/spend-request/spend-request";
+import { pendingFor, resourceLabels } from "@/lib/spend-request/spend-request";
 import {
   canAskToSpend,
   stepAction,
@@ -43,6 +44,8 @@ type SheetViewProps = {
   gm: boolean;
   /** This seat's pending spend requests (a player's phone); the GM's seat asks for nothing. */
   requests?: readonly SpendRequest[];
+  /** The room's pools and fight, for the spends a player may ask for now (house decision #84); a player's phone only. */
+  table?: Pick<LiveState, "pools" | "encounter" | "campaign">;
   send: Send;
   books: readonly BookSource[];
   requestPage: RequestPage;
@@ -59,6 +62,7 @@ export function SheetView({
   campaign,
   gm,
   requests = [],
+  table,
   send,
   books,
   requestPage,
@@ -249,6 +253,12 @@ export function SheetView({
         </section>
       ))}
       {sections.length === 0 && <p className="dim">{t("nothing")}</p>}
+      {!gm && table && (
+        <SpendList
+          labels={resourceLabels(ruleset)}
+          {...{ ruleset, compiled, actor, table, characters, requests, send }}
+        />
+      )}
       <LedgerLines sheet={actor.ledger?.sheet} skip={ledgerLaidOut(models)} {...{ ruleset, books, requestPage }} />
       {build?.xp && ledger && (
         <XpBox

@@ -22,6 +22,19 @@ var (
 	entryStatuses = []string{"open", "done", "failed", "planned", "active", "skipped"}
 )
 
+// spawnOptionIDs are the ruleset's spawn options a spawn takes, each once (prep.ts SpawnOptionIds, house decision #92).
+var spawnOptionIDs = schema.Refined(schema.Array(schema.String().Min(1).Max(64)).Max(10), func(v any) bool {
+	list, _ := v.([]any)
+	seen := map[any]bool{}
+	for _, x := range list {
+		if seen[x] {
+			return false
+		}
+		seen[x] = true
+	}
+	return true
+}, "An option is listed twice")
+
 // PrepKinds are the document's keys, the six kinds of line.
 var PrepKinds = []string{"roster", "tests", "pools", "exits", "reveals", "picks"}
 
@@ -45,6 +58,8 @@ var ScenePrep = schema.Refined(
 				schema.Opt("mob", schema.Int().Min(2).Max(500)),
 				schema.Def("visibility", schema.Enum(combatVisibility...), "hidden"),
 				schema.Def("temporary", schema.Bool(), true),
+				schema.Opt("marker", schema.Enum(Markers...)),
+				schema.Opt("options", spawnOptionIDs),
 			)),
 			lines("tests", prepLine(
 				schema.Req("testId", schema.String().Min(1).Max(64)),

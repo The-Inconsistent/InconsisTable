@@ -46,6 +46,14 @@
   --ok: light-dark(var(--leaf), var(--moss));
   --link: light-dark(var(--wax), var(--brass-hi));
   --focus: light-dark(var(--ink-blue), var(--brass-hi));
+  /* A combatant's marker (house decision #92): the colours of the tags on the miniatures, the same in every
+     Theme, and not a World's to set. */
+  --marker-red: rgb(229 72 59);
+  --marker-amber: rgb(240 168 48);
+  --marker-green: rgb(63 174 90);
+  --marker-blue: rgb(63 127 217);
+  --marker-purple: rgb(154 90 214);
+  --marker-white: rgb(244 241 234);
   --focus-halo: light-dark(var(--halo-light), var(--halo-dark));
 
   --plate: var(--wood-2);

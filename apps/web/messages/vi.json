@@ -450,6 +450,37 @@
     "stacked": "{label} ({count})",
     "held": "{label}: {item}"
   },
+  "marker": {
+    "label": "Dấu màu",
+    "none": "Không",
+    "red": "Đỏ",
+    "amber": "Hổ phách",
+    "green": "Xanh lá",
+    "blue": "Xanh dương",
+    "purple": "Tím",
+    "white": "Trắng",
+    "swatch": "Dấu màu {colour}",
+    "pick": "Dấu màu cho {name}"
+  },
+  "spawnOptions": {
+    "title": "Tuỳ chọn",
+    "line": "Xuất hiện với: {list}",
+    "pick": "Tuỳ chọn cho {name}"
+  },
+  "budget": {
+    "title": "Ngân sách trận đấu",
+    "line": "{label}: {used} trên {budget}",
+    "unread": "{label}: {used}",
+    "over": "vượt",
+    "switches": "Công tắc ngân sách",
+    "seated": "{count, plural, other {# nhân vật đang ngồi}}"
+  },
+  "rowShortcuts": {
+    "less": "Giảm {label} của {name}",
+    "more": "Tăng {label} của {name}",
+    "tag": "{label}: xem ghi chú",
+    "note": "{label}: {note}"
+  },
   "heldList": {
     "listFor": "{label} của {name}",
     "none": "Không giữ gì",
@@ -1384,6 +1415,8 @@
     "noSuchSpend": "Không thể chi khoản đó ở đây.",
     "spendNotNow": "Lúc này chưa làm được việc đó.",
     "usedThisRound": "Đã dùng trong vòng này rồi: {detail}.",
+    "noSuchOption": "Bộ luật không có tuỳ chọn xuất hiện này: {detail}.",
+    "optionNotHere": "Không thể chọn tuỳ chọn đó ở đây: {detail}.",
     "spendAsked": "Đã xin việc đó rồi: chờ GM hoặc huỷ yêu cầu.",
     "requestKind": "Hãy xin một tài nguyên và số lượng, hoặc một khoản chi.",
     "tableNotFound": "Không tìm thấy bảng",
@@ -1586,7 +1619,8 @@
       "pool": "Hỏng: bộ luật không có quỹ này",
       "scene": "Hỏng: cảnh đó không còn",
       "field": "Hỏng: trường đó không còn chọn được",
-      "row": "Hỏng: dòng này không còn trong mục của nó"
+      "row": "Hỏng: dòng này không còn trong mục của nó",
+      "option": "Hỏng: bộ luật không có tuỳ chọn xuất hiện đó"
     },
     "blocked": {
       "noFight": "Chưa có trận đánh nào. Hãy bắt đầu một trận trước.",

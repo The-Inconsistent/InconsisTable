@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 
 import type { Actor, Encounter } from "@inconsistable/core-schema";
 import type { SidesInitiative } from "@inconsistable/rules-engine";
@@ -19,11 +20,13 @@ type SidesOrderProps = {
   onSelect: (id: string) => void;
   /** What each combatant holds up (house decision #91), as chips on its row. */
   heldOf?: HeldOf;
+  /** A row's shortcuts beside its button: its tag and steppers (house decision #92). */
+  shortcutsOf?: (actorId: string) => ReactNode;
 };
 
 // The order of a sides fight: where it stands, then one group per side in the ruleset's order. Each row is a big target
 // that selects the combatant for the panel beside it and carries its turn mark.
-export function SidesOrder({ encounter, sides, actors, selectedId, onSelect, heldOf }: SidesOrderProps) {
+export function SidesOrder({ encounter, sides, actors, selectedId, onSelect, heldOf, shortcutsOf }: SidesOrderProps) {
   const tState = useTranslations("combatState");
   const tVisibility = useTranslations("combatVisibility");
   return (
@@ -55,6 +58,7 @@ export function SidesOrder({ encounter, sides, actors, selectedId, onSelect, hel
                     </span>
                     <HealthBar combatant={c} conditions={encounter.conditionDefs} held={heldOf?.(c.actorId)} />
                   </button>
+                  {shortcutsOf?.(c.actorId)}
                 </li>
               );
             })}

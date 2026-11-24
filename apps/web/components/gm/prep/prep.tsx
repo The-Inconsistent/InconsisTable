@@ -52,7 +52,13 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
   const secrets = canInCampaign({ ctx: me, perm: "codex:read_secret" });
   // What a scene's lines are resolved against: what this device already holds.
   const world = useMemo<PrepWorld>(
-    () => ({ state, entries, spawnable: spawnable ?? { packs: [], entries: [], complete: false }, ruleset }),
+    () => ({
+      state,
+      entries,
+      spawnable: spawnable ?? { packs: [], entries: [], complete: false },
+      ruleset,
+      ...(ruleset ? { options: (ruleset.spawn?.options ?? []).map((o) => o.id) } : {}),
+    }),
     [state, entries, spawnable, ruleset],
   );
   const names = useMemo(() => lineNames(world), [world]);

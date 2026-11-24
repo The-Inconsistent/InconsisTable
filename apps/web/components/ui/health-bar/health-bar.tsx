@@ -2,10 +2,11 @@ import { useTranslations } from "next-intl";
 
 import type { Combatant } from "@inconsistable/core-schema";
 
+import { MarkerSwatch } from "@/components/ui/marker-swatch/marker-swatch";
 import { drawnOf } from "@/lib/harm/harm";
 
 type HealthBarProps = {
-  combatant: Pick<Combatant, "name" | "bar" | "hp" | "states" | "members" | "conditions">;
+  combatant: Pick<Combatant, "name" | "bar" | "hp" | "states" | "members" | "conditions" | "marker">;
   /** The ruleset's conditions, for their labels. Given, the conditions the seat was sent are drawn too (#67). */
   conditions?: readonly { id: string; label: string }[];
   /** What the actor holds up (house decision #91), drawn beside its conditions. */
@@ -45,8 +46,9 @@ export function HealthBar({ combatant: c, conditions: defs, held = [] }: HealthB
           )}
         </span>
       )}
-      {(states.length > 0 || count !== null || conditions.length > 0 || held.length > 0) && (
+      {(states.length > 0 || count !== null || conditions.length > 0 || held.length > 0 || c.marker) && (
         <span className="row small health-states">
+          {c.marker && <MarkerSwatch marker={c.marker} />}
           {count !== null && (
             <span className="chip" data-count="true" aria-label={t("count", { count })}>
               {t("times", { count })}

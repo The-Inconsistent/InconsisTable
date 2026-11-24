@@ -2,17 +2,28 @@
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
-import { CombatVisibility } from "@inconsistable/core-schema";
+import { CombatVisibility, type LiveState, type Marker } from "@inconsistable/core-schema";
 import { Ruleset } from "@inconsistable/rules-engine";
 
+import { BudgetLines } from "@/components/ui/budget-lines/budget-lines";
+import { MarkerPicker } from "@/components/ui/marker-swatch/marker-swatch";
+import { SpawnOptions } from "@/components/ui/spawn-options/spawn-options";
 import { useRefusal, type RefusalText } from "@/hooks/use-refusal/use-refusal";
 import type { Send } from "@/hooks/use-table/use-table";
 import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
 import { clampCount, creatureTypes, MAX_SPAWN, MIN_SPAWN } from "@/lib/creatures/creatures";
 import { canMob, parseCount, SPAWN_MOB } from "@/lib/harm/harm";
 import { RulesReply, type RulesEntry } from "@/lib/library/library";
+import { entryValues, fightPicks, optionsFor, spawnRoom } from "@/lib/spawn/spawn";
 
-type CreaturesProps = { campaignId: string; send: Send };
+type CreaturesProps = {
+  campaignId: string;
+  send: Send;
+  /** The room, for the spawn options, the budget and the seated count (house decision #92). */
+  state: Pick<LiveState, "actors" | "access" | "campaign" | "encounter">;
+  /** The seat's ruleset, for its spawn options and budget; null before one is read. */
+  ruleset: Ruleset | null;
+};
 
 const PAGE = 50;
 
@@ -37,7 +48,7 @@ async function readRules({
 // ADD CREATURES: search the attached packs for creatures by name, pick one, say how many, and place them. They arrive
 // numbered ("Goblin 1", "Goblin 2"…) with the entry's values, and join a running fight at the view picked (hidden unless
 // the GM says otherwise); a temporary one goes when the encounter ends.
-export function Creatures({ campaignId, send }: CreaturesProps) {
+export function Creatures({ campaignId, send, state, ruleset }: CreaturesProps) {
   const t = useTranslations("creatures");
   const tStatus = useTranslations("status");
   const tVisibility = useTranslations("combatVisibility");
@@ -56,6 +67,8 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
   const [mobText, setMobText] = useState(""); // blank: creatures one by one; a number: one mob of that many
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
+  const [options, setOptions] = useState<string[]>([]); // the spawn options picked (house decision #92)
+  const [marker, setMarker] = useState<Marker | null>(null); // kept between adds, as the source app keeps it
 
   // SEARCH: reads the ruleset once for its creature types, then each type's entries matching the name.
   const handleSearch = async (e: FormEvent) => {
@@ -93,16 +106,52 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
   const mobbable = picked !== null && canMob({ ruleset: found?.ruleset ?? null, type: picked.type });
   const mob = mobbable ? parseCount({ text: mobText, ...SPAWN_MOB }) : null;
   const mobTyped = mobbable && mobText.trim() !== "";
+  // The options this entry may take, and what the budget counts: the fight so far and this pick (house decision #92).
+  const room = spawnRoom(state);
+  const offered = picked
+    ? optionsFor({ ruleset, type: picked.type, values: entryValues(picked.body), room, mob: mob !== null })
+    : [];
+  const chosen = options.filter((o) => offered.some((x) => x.id === o));
+  const picks = [
+    ...fightPicks({ ruleset, encounter: state.encounter, actors: state.actors }),
+    ...(picked ? [{ values: entryValues(picked.body), count: mob ?? count, mob: mob !== null }] : []),
+  ];
+
+  // PICK: another entry, its options cleared.
+  const handlePick = (e: RulesEntry) => () => {
+    setPicked(e);
+    setOptions([]);
+  };
 
   // SPAWN: places the creatures, or one mob of N; the server numbers them and writes their values.
   const handleSpawn = async () => {
     const packVersionId = picked && found?.versions.get(picked.pack);
     if (!picked || !packVersionId) return;
+    const withMarker = marker === null ? {} : { marker };
     setBusy(true);
     const r = await send(
       mob === null
-        ? { type: "actor.spawn", packVersionId, key: picked.key, count, temporary, visibility }
-        : { type: "actor.spawn", packVersionId, key: picked.key, count: 1, temporary, visibility, mob },
+        ? {
+            type: "actor.spawn",
+            packVersionId,
+            key: picked.key,
+            count,
+            temporary,
+            visibility,
+            options: chosen,
+            ...withMarker,
+          }
+        : {
+            type: "actor.spawn",
+            packVersionId,
+            key: picked.key,
+            count: 1,
+            temporary,
+            visibility,
+            mob,
+            options: chosen,
+            ...withMarker,
+          },
     );
     setBusy(false);
     const added =
@@ -136,7 +185,7 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
               type="button"
               className="found"
               aria-pressed={picked === e}
-              onClick={() => setPicked(e)}
+              onClick={handlePick(e)}
             >
               <strong>{e.name}</strong>
               <span className="row small dim">
@@ -213,6 +262,8 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
               ))}
             </div>
           </div>
+          <SpawnOptions options={offered} value={chosen} onChange={setOptions} name={picked.name} />
+          <MarkerPicker value={marker} onPick={setMarker} name={picked.name} />
           <button
             className="btn primary"
             disabled={busy || (mobTyped && mob === null)}
@@ -223,6 +274,7 @@ export function Creatures({ campaignId, send }: CreaturesProps) {
           </button>
         </div>
       )}
+      <BudgetLines ruleset={ruleset} picks={picks} room={room} />
       {message && (
         <p className={message.ok ? "small" : "error"} role={message.ok ? "status" : "alert"}>
           {message.text}

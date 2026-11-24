@@ -30,8 +30,8 @@ import {
   SafetyLine,
   SafetyList,
 } from "./state.ts";
-import { CombatVisibility, ENCOUNTER_ACTIONS } from "./encounter.ts";
-import { ScenePrep } from "./prep.ts";
+import { CombatVisibility, ENCOUNTER_ACTIONS, Marker } from "./encounter.ts";
+import { ScenePrep, SpawnOptionIds } from "./prep.ts";
 import { TestApplyOfferAction, TestCallAction, TestCloseAction, TestReportAction } from "./test-call.ts";
 
 /** The numbers a spend's asker picks, by input name (house decision #84). */
@@ -136,6 +136,9 @@ export const Action = z.discriminatedUnion("type", [
     mob: z.int().min(2).max(500).optional(),
     visibility: CombatVisibility.default("hidden"),
     name: z.string().trim().min(1).max(80).optional(),
+    // House decision #92: the ruleset's spawn options it takes, each once, and its marker when it joins a fight.
+    options: SpawnOptionIds.default([]),
+    marker: Marker.optional(),
   }),
   // The signed-in user's builder draft in this room (one per user and room).
   z.object({ type: z.literal("draft.save"), body: BuilderDraftBody }),
@@ -380,6 +383,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "encounter.move": "encounter:run",
   "encounter.setVisibility": "encounter:run",
   "encounter.keep": "encounter:run",
+  "encounter.mark": "encounter:run",
   "turn.next": "encounter:run",
   "turn.prev": "encounter:run",
   "turn.first": "encounter:run",

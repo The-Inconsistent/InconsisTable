@@ -4216,3 +4216,43 @@ button.chip {
 textarea.mf-json {
   min-height: 420px;
 }
+
+/* A combatant's marker (house decision #92): a square of the colour beside its word, outlined so white shows on cream. */
+.marker-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-inline-end: 6px;
+  vertical-align: -2px;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+}
+.marker-swatch[data-marker="red"] {
+  background: var(--marker-red);
+}
+.marker-swatch[data-marker="amber"] {
+  background: var(--marker-amber);
+}
+.marker-swatch[data-marker="green"] {
+  background: var(--marker-green);
+}
+.marker-swatch[data-marker="blue"] {
+  background: var(--marker-blue);
+}
+.marker-swatch[data-marker="purple"] {
+  background: var(--marker-purple);
+}
+.marker-swatch[data-marker="white"] {
+  background: var(--marker-white);
+}
+.marker-picker .btn {
+  display: inline-flex;
+  align-items: center;
+}
+/* A tracker row's shortcuts (house decision #92): its tag and its steppers, beside the row's own button. */
+.row-shortcuts {
+  min-width: 0;
+}
+.budget-lines [data-over="true"] {
+  font-weight: 700;
+}

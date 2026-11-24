@@ -5,7 +5,7 @@ import { Ruleset } from "@inconsistable/rules-engine";
 
 import { apiGet } from "@/app/server-api";
 import { ADMIN_PARAM } from "@/lib/admin/admin";
-import { asGmTab, TAB_PARAM } from "@/components/gm/gm-app/constants";
+import { asFight, asGmTab, TAB_PARAM } from "@/components/gm/gm-app/constants";
 import { GmApp } from "@/components/gm/gm-app/gm-app";
 import { PlayerApp } from "@/components/player/player-app/player-app";
 import { TableScreen } from "@/components/screen/table-screen/table-screen";
@@ -112,7 +112,16 @@ export default async function Table({ params, searchParams }: TableProps) {
     // The socket proves the key; without it nothing loads. The rules tabs need a seat's cookie, so they stay empty.
     // ponytail: no rules tabs as admin, pass the key through a server-readable cookie if admins need them
     me = { campaignId: p.campaignId, userId: null, campaignOwnerId: null, tableMode: "gm", seat: { kind: "admin" } };
-    return <GmApp me={me} initialTab={asGmTab(query[TAB_PARAM])} rules={null} view={null} spawnable={null} />;
+    return (
+      <GmApp
+        me={me}
+        initialTab={asGmTab(query[TAB_PARAM])}
+        initialFight={asFight(query[TAB_PARAM])}
+        rules={null}
+        view={null}
+        spawnable={null}
+      />
+    );
   }
   try {
     const res = await apiGet(`/api/campaigns/${campaignId}/me`);
@@ -134,6 +143,7 @@ export default async function Table({ params, searchParams }: TableProps) {
         <GmApp
           me={me}
           initialTab={asGmTab(query[TAB_PARAM])}
+          initialFight={asFight(query[TAB_PARAM])}
           rules={rules}
           view={view}
           spawnable={creatures}

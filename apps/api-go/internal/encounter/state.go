@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign/eventlog"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
@@ -187,6 +188,9 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 		Phases: []cs.EncounterPhase{}, Done: done, Paused: paused, ConditionDefs: []cs.ConditionDef{}, EndMet: []int{},
 		Combatants: combatants,
 	}
+	if out.TurnBack, err = turnBackOf(ctx, conn, campaignID, built); err != nil {
+		return nil, err
+	}
 	if compiled == nil {
 		return out, nil
 	}
@@ -228,6 +232,24 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 	// The ruleset's conditions in manifest order, as TypeScript's Object.entries over the compiled record reads them.
 	for _, c := range r.Conditions {
 		out.ConditionDefs = append(out.ConditionDefs, cs.ConditionDef{ID: c.ID, Label: c.Label, Duration: c.Duration})
+	}
+	return out, nil
+}
+
+// turnBackOf is what TURN BACK would take back now (house decision #82), worded for the tracker's button; nil with no
+// session running or no turn step in its log of this fight.
+func turnBackOf(ctx context.Context, conn core.Conn, campaignID string, built map[string]*actor.Built) (*cs.EncounterTurnBack, error) {
+	sessionID, err := eventlog.RunningSessionID(ctx, conn, campaignID)
+	if err != nil || sessionID == nil {
+		return nil, err
+	}
+	step, err := eventlog.LastTurnStep(ctx, conn, campaignID, *sessionID)
+	if err != nil || step == nil {
+		return nil, err
+	}
+	out := &cs.EncounterTurnBack{Kind: step.Kind, Round: step.Round, Later: len(step.Actions) - 1}
+	if step.Holder != nil && built[*step.Holder] != nil {
+		out.Name = built[*step.Holder].Row.Name
 	}
 	return out, nil
 }

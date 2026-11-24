@@ -4895,3 +4895,92 @@ test("sides fixture: reminders, a side barred at once, immunity, stacks and a re
   assert.equal(actorIn(s, hero)?.resources.hp, 0);
   for (const c of [owner, ana, screen]) c.socket.close();
 });
+
+// House decision #82 on the invented sides fixture: TURN BACK takes back the last turn step with every hit since and
+// what a paid start cost, tells only the side running the fight what it would take, and refuses as a whole.
+test("sides fixture: TURN BACK takes the last turn step and the hits since, and is refused whole", async () => {
+  const ownerDevice = await device("owner-TurnBack");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_SKIRMISH);
+  assert.equal(rs.status, 201);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Turn back",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-TurnBack") } });
+  await seatPlayer(owner, "bea-TurnBack");
+  const screen = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });
+  const pcs = (await owner.until((s) => s.actors.filter((a) => a.kind === "pc").length === 2)).actors.filter(
+    (a) => a.kind === "pc",
+  );
+  const [hal, bea] = [pcs[0]!.id, pcs[1]!.id];
+  ok(await owner.send({ type: "actor.rename", id: hal, name: "Hal" }));
+  ok(await owner.send({ type: "actor.rename", id: bea, name: "Bea" }));
+  const stats = { level: 3, "attr.str": 10, "attr.dex": 10, "attr.con": 10, guard: 1 };
+  await equip(hal, "character", { fields: stats, resources: { hp: 14 } });
+  await equip(bea, "character", { fields: stats, resources: { hp: 14 } });
+  const brute = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Brute" })).id!;
+  await equip(brute, "creature", { fields: { level: 6, "attr.con": 10 }, resources: { hp: 20 } });
+  const sides = (op: string, input: object) =>
+    owner.send({ type: "rule.op", primitive: "initiative.sides", op, input } as ActionInput);
+  const cb = (s: LiveState, actorId: string) => s.encounter!.combatants.find((c) => c.actorId === actorId)!;
+  const momentum = (s: LiveState) => s.pools.find((p) => p.id === "momentum")?.value;
+  const hp = (s: LiveState) => actorIn(s, brute)?.resources.hp;
+
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: [hal, bea, brute], visibility: "full" }));
+  ok(await sides("begin", {}));
+  refused(await owner.send({ type: "event.turnBack" }), "nothingToTurnBack");
+  ok(
+    await owner.send({
+      type: "rule.op",
+      primitive: "resource.capped",
+      op: "adjustPool",
+      input: { resource: "momentum", delta: 2 },
+    }),
+  );
+  ok(await sides("pick", { id: hal }));
+  ok(await sides("next", {}));
+  // A step with hits after it: Bea starts out of turn for a point of momentum, the Brute takes two hits and burns.
+  const step = async () => {
+    ok(await sides("seize", { id: bea }));
+    ok(await owner.send(hpStep(brute, "hp", -3)));
+    ok(await owner.send({ type: "condition.add", actorId: brute, condition: "burning" }));
+    ok(await owner.send(hpStep(brute, "hp", -2)));
+    return owner.until((x) => x.encounter?.currentId === cb(x, bea).id && hp(x) === 15 && momentum(x) === 1);
+  };
+  let s = await step();
+  assert.deepEqual(s.encounter!.turnBack, { kind: "turnStart", name: "Bea", round: 1, later: 3 });
+  for (const c of [ana, screen]) {
+    const v = await c.until((x) => x.stateVersion >= s.stateVersion);
+    assert.equal(v.encounter!.turnBack, undefined, "only the side running the fight is told");
+  }
+
+  // One press takes the paid start back with everything since; the next takes the step before.
+  ok(await owner.send({ type: "event.turnBack" }));
+  s = await owner.until((x) => x.encounter?.currentId === null && hp(x) === 20);
+  assert.equal(momentum(s), 2);
+  assert.deepEqual(cb(s, brute).conditions, []);
+  assert.deepEqual(s.encounter!.turnBack, { kind: "turnEnd", name: "Hal", round: 1, later: 0 });
+  ok(await owner.send({ type: "event.turnBack" }));
+  s = await owner.until((x) => x.encounter?.currentId === cb(x, hal).id);
+  assert.deepEqual(s.encounter!.turnBack, { kind: "turnStart", name: "Hal", round: 1, later: 0 });
+
+  // A condition changed outside the log: its add can't be taken back, so the whole step is refused and nothing moves.
+  ok(await sides("next", {}));
+  s = await step();
+  await query("DELETE FROM actor_condition WHERE actor_id = $1", [brute]);
+  const blocked = await owner.send({ type: "event.turnBack" });
+  refused(blocked, "turnBackRefused");
+  assert.match(blocked.ok ? "" : blocked.error, /action 2 of 4/);
+  ok(await owner.send({ type: "encounter.keep", combatantId: cb(s, brute).id, keep: true })); // a fresh state to read
+  s = await owner.until((x) => cb(x, brute).keep);
+  assert.equal(s.encounter!.currentId, cb(s, bea).id);
+  assert.equal(hp(s), 15);
+  assert.equal(momentum(s), 1);
+  for (const c of [owner, ana, screen]) c.socket.close();
+});

@@ -7,6 +7,7 @@ import { SideLine } from "@/components/ui/order-view/components/side-line/side-l
 import { TurnMark } from "@/components/ui/order-view/components/turn-mark/turn-mark";
 import { EndNotice } from "@/components/ui/end-notice/end-notice";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
+import type { HeldOf } from "@/lib/held/held";
 import { groupBySide, markOf } from "@/lib/sides/sides";
 import { phaseOf, stateKey } from "@/lib/track/track";
 
@@ -18,12 +19,14 @@ type OrderViewProps = {
   encounter: Encounter;
   sides?: SidesInitiative;
   conditions?: readonly { id: string; label: string }[];
+  /** What each combatant holds up (house decision #91), as chips beside its conditions. */
+  heldOf?: HeldOf;
 };
 
 // The turn order as a seat that doesn't run the fight sees it (the table screen, a phone): who acts, in order, with the
 // health the seat was sent. The acting row is marked by an edge and by the word ACTING, not by colour alone.
 // A sides fight (its snapshot carries `begun`) is grouped by side, each row marked with its turn.
-export function OrderView({ encounter, sides, conditions = [] }: OrderViewProps) {
+export function OrderView({ encounter, sides, conditions = [], heldOf }: OrderViewProps) {
   const t = useTranslations("orderView");
   const tState = useTranslations("combatState");
   const phase = phaseOf(encounter);
@@ -56,7 +59,7 @@ export function OrderView({ encounter, sides, conditions = [] }: OrderViewProps)
                 <li key={c.id} className="combatant" data-acting={c.id === encounter.currentId}>
                   <span className="who" style={{ cursor: "default" }}>
                     <span className="name">{c.name}</span>
-                    <HealthBar combatant={c} conditions={conditions} />
+                    <HealthBar combatant={c} conditions={conditions} held={heldOf?.(c.actorId)} />
                   </span>
                   <TurnMark mark={markOf({ encounter, combatant: c, sides })} />
                 </li>
@@ -80,7 +83,7 @@ export function OrderView({ encounter, sides, conditions = [] }: OrderViewProps)
                       {t("first")}
                     </span>
                   )}
-                  <HealthBar combatant={c} conditions={conditions} />
+                  <HealthBar combatant={c} conditions={conditions} held={heldOf?.(c.actorId)} />
                 </span>
                 {done && <span className="chip">{t("done")}</span>}
                 {word && (

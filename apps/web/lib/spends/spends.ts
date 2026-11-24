@@ -5,9 +5,12 @@ import {
   parseExpr,
   planSpend,
   resourceBounds,
+  usedKey,
+  withLists,
   type ActorState,
   type CompiledRuleset,
   type PlannedCost,
+  type Refusal,
   type RuleState,
   type Ruleset,
   type Spend,
@@ -23,22 +26,28 @@ type Table = Pick<LiveState, "pools" | "encounter" | "campaign">;
 
 /** The actor and the room as the engine's planSpend reads them, from what this seat receives. */
 export function spendWorld({
+  ruleset,
   compiled,
   table,
   actor,
   characters,
 }: {
+  ruleset: Ruleset;
   compiled: CompiledRuleset | null;
   table: Table;
   actor: Actor;
   characters: number;
 }): { actor: ActorState; state: RuleState } {
-  const scope = actorScope({
-    fields: actor.fields,
-    derived: actor.derived,
-    resources: actor.resources,
-    party: { characters },
-    campaign: table.campaign.fields,
+  // An unset list reads as empty, as on the server (house decision #91).
+  const scope = withLists({
+    ruleset,
+    scope: actorScope({
+      fields: actor.fields,
+      derived: actor.derived,
+      resources: actor.resources,
+      party: { characters },
+      campaign: table.campaign.fields,
+    }),
   });
   const resources: Record<string, ActorState["resources"][string]> = {};
   for (const [id, value] of Object.entries(actor.resources)) {
@@ -60,6 +69,10 @@ export function spendWorld({
           currentId: null,
           order: e.combatants.map((c) => c.actorId),
           barred: e.combatants.filter((c) => c.barred === true).map((c) => c.actorId),
+          // House decision #91: the round's uses, as the server counts them.
+          used: e.combatants.flatMap((c) =>
+            (c.used ?? []).map((spendId) => usedKey({ round: e.round, actorId: c.actorId, spendId })),
+          ),
         };
   const state: RuleState = { actors: {}, turn, pools };
   const self: ActorState = { id: actor.id, fields: actor.fields, resources, scope, entity: actor.entity ?? undefined };
@@ -81,22 +94,54 @@ export function offersOf({
   actor: Actor;
   characters: number;
   inputs?: Readonly<Record<string, Readonly<Record<string, number>>>>;
-}): { spend: Spend; plan: SpendPlan | null }[] {
+}): { spend: Spend; plan: SpendPlan | null; refusal: Refusal | null }[] {
   const spends = (ruleset.spends ?? []).filter(
     (s) => actor.entity !== null && (s.entities === undefined || s.entities.includes(actor.entity)),
   );
   if (spends.length === 0) return [];
-  const world = spendWorld({ compiled, table, actor, characters });
+  const world = spendWorld({ ruleset, compiled, table, actor, characters });
   return spends.map((spend) => {
     const picked = { ...defaultInputs(spend), ...inputs[spend.id] };
     const r = planSpend({ ruleset, spendId: spend.id, ...world, inputs: picked });
-    return { spend, plan: "code" in r ? null : r };
+    return "code" in r ? { spend, plan: null, refusal: r } : { spend, plan: r, refusal: null };
   });
 }
+
+/** A spend to show: one the server would take now, or one whose limit this round is reached (house decision #91). */
+export const shown = (o: { plan: SpendPlan | null; refusal: Refusal | null }) => o.plan !== null || usedUp(o);
+
+/** The spend's limit is reached this round: shown, disabled, with the reason. */
+export const usedUp = (o: { refusal: Refusal | null }) => o.refusal?.code === "usedThisRound";
 
 /** Each input at its min. */
 export const defaultInputs = (spend: Spend): Record<string, number> =>
   Object.fromEntries(Object.entries(spend.inputs ?? {}).map(([name, def]) => [name, def.min]));
+
+/**
+ * The table a spend opens next (house decision #91), with each spend input its `then` names carried onto the table's
+ * input: a number on a stepper, held to its bounds, or a switch, on when not 0. Null without one.
+ */
+export function nextTable({
+  ruleset,
+  spend,
+  inputs,
+}: {
+  ruleset: Ruleset;
+  spend: Spend;
+  inputs: Readonly<Record<string, number>>;
+}): { tableId: string; title: string; inputs: Record<string, number | boolean> } | null {
+  const then = spend.then;
+  const table = then === undefined ? undefined : ruleset.tables?.[then.table];
+  if (then === undefined || table === undefined) return null;
+  const carried: Record<string, number | boolean> = {};
+  for (const x of table.inputs ?? []) {
+    const from = then.inputs?.[x.id];
+    const v = from === undefined ? undefined : (inputs[from] ?? spend.inputs?.[from]?.min);
+    if (v === undefined) continue;
+    carried[x.id] = x.type === "bool" ? v !== 0 : Math.max(x.min ?? -Infinity, Math.min(x.max ?? Infinity, v));
+  }
+  return { tableId: then.table, title: table.title, inputs: carried };
+}
 
 /** A cost in the ruleset's words: "2 Momentum, 1 Resolve"; empty for a free spend. */
 export const costText = ({ costs, labels }: { costs: readonly PlannedCost[]; labels: ReadonlyMap<string, string> }) =>

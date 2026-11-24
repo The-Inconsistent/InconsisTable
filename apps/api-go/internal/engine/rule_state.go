@@ -76,6 +76,8 @@ type TurnState struct {
 	Held          []string          `json:"held"`
 	Barred        []string          `json:"barred"`
 	Unable        []string          `json:"unable"`
+	// Used is the uses of spends limited per round, each UsedKey (house decision #91). Absent reads as none.
+	Used []string `json:"used"`
 }
 
 // RuleState is the slice of live state an op reads, loaded by the caller and scoped to one campaign. Actors stay in

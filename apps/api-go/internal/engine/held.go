@@ -101,12 +101,20 @@ func entityByID(r *Ruleset, id string) *EntityType {
 	return nil
 }
 
-// withHeld is the scope with each held kind's list field read as empty where it is unset (lookups.ts withHeld): an
-// actor that holds nothing yet counts 0 records.
-func (c *CompiledRuleset) withHeld(scope *Record) *Record {
+// withLists is the scope with every list field an actor type declares read as empty where it is unset (lookups.ts
+// withLists; house decisions #88, #91), as the derived pass reads its own type's: an actor that holds nothing yet counts
+// 0 records.
+func (c *CompiledRuleset) withLists(scope *Record) *Record {
 	out := scope
-	for _, id := range sortedKeys(c.Ruleset.Held) {
-		out = setIfAbsent(out, strings.Split(c.Ruleset.Held[id].Field, "."))
+	for _, e := range c.Ruleset.Entities {
+		if e.Base != "actor" {
+			continue
+		}
+		for _, id := range sortedKeys(e.Fields) {
+			if e.Fields[id].Type == "list" {
+				out = setIfAbsent(out, strings.Split(id, "."))
+			}
+		}
 	}
 	return out
 }

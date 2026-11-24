@@ -6,6 +6,8 @@ import (
 	"errors"
 	"math"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -27,14 +29,28 @@ type Active struct {
 	Begun              bool
 	LastSide           *string
 	OutOfTurnSide      *string
+	// Used is the uses of spends limited per round (house decision #91), each engine.UsedKey.
+	Used []string
+}
+
+// usedNow is the spend ids an actor used this round, once per use (house decision #91); nil when none.
+func usedNow(e *Active, actorID string) []string {
+	var out []string
+	prefix := strconv.Itoa(e.Round) + ":" + actorID + ":"
+	for _, u := range e.Used {
+		if id, found := strings.CutPrefix(u, prefix); found {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 // LoadActive is the running encounter, or nil.
 func LoadActive(ctx context.Context, conn core.Conn, campaignID string) (*Active, error) {
 	var e Active
 	err := conn.QueryRow(ctx, `SELECT id::text, round, current_combatant_id::text, first_combatant_id::text, phase_id,
-		begun, last_side, out_of_turn_side FROM encounter WHERE campaign_id = $1 AND active`, campaignID).
-		Scan(&e.ID, &e.Round, &e.CurrentCombatantID, &e.FirstCombatantID, &e.PhaseID, &e.Begun, &e.LastSide, &e.OutOfTurnSide)
+		begun, last_side, out_of_turn_side, used FROM encounter WHERE campaign_id = $1 AND active`, campaignID).
+		Scan(&e.ID, &e.Round, &e.CurrentCombatantID, &e.FirstCombatantID, &e.PhaseID, &e.Begun, &e.LastSide, &e.OutOfTurnSide, &e.Used)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -157,6 +173,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, compiled *engi
 			c.Bar, c.Members = harmOf(b, compiled.Ruleset.Health.Harm)
 		}
 		c.States = statesOf(compiled, b)
+		c.Used = usedNow(e, c.ActorID)
 		c.Conditions = []cs.CombatantCondition{}
 		if b != nil {
 			for _, x := range b.Conditions {

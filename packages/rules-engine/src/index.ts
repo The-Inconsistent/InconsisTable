@@ -95,6 +95,7 @@ export {
   planLookup,
   readLookup,
   rowOf,
+  withLists,
   type LookupPlan,
   type LookupRefusal,
   type LookupStep,

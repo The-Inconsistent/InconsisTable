@@ -14,6 +14,7 @@ import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { XCardOverlay } from "@/components/ui/xcard/xcard-overlay";
 import { useTable } from "@/hooks/use-table/use-table";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
+import { heldChips } from "@/lib/held/held";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 import { testWords } from "@/lib/test-inputs/test-inputs";
 
@@ -57,6 +58,7 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
             encounter={state.encounter}
             sides={view?.ruleset?.initiative?.strategy === "sides" ? view.ruleset.initiative : undefined}
             conditions={view?.ruleset?.conditions}
+            heldOf={(id) => heldChips({ ruleset: view?.ruleset, actor: state.actors.find((a) => a.id === id) })}
           />
         )}
         {/* The newest ended game stays up until the next one starts. */}

@@ -968,6 +968,51 @@ test("spends: a pool ask the party sees, paid at approval or left pending, one t
   ben.socket.close();
 });
 
+test("once a round: a second use refused, free next round; a held list raises the target of a called Test (#91)", async () => {
+  const { owner, ana, lyra } = await spendRoom("Channel", SAMPLE_SKIRMISH);
+  await equip(lyra, "character", {
+    fields: { level: 1, "attr.str": 10, "attr.con": 10, "attr.dex": 12, guard: 10 },
+    resources: { hp: 8, focus: 1, nerve: 4 },
+  });
+  ok(await owner.send({ type: "actor.rename", id: lyra, name: "Lyra" }));
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: [lyra] }));
+  ok(await owner.send({ type: "rule.op", primitive: "initiative.sides", op: "begin", input: {} }));
+  const nerve = (s: LiveState) => actorIn(s, lyra)?.resources.nerve;
+  const channel = (push: number) =>
+    ({ type: "spend.do", spendId: "channel", actorId: lyra, inputs: { push } }) as const;
+
+  ok(await owner.send(channel(1)));
+  const used = await owner.until((s) => nerve(s) === 2);
+  assert.deepEqual(used.encounter?.combatants.find((c) => c.actorId === lyra)?.used, ["channel"]);
+  refused(await owner.send(channel(0)), /Already used this round: "Channel", round 1/);
+  refused(await ana.send(spendAsk(lyra, "channel", { push: 0 })), "usedThisRound");
+  ok(await owner.send({ type: "rule.op", primitive: "initiative.sides", op: "newRound", input: {} }));
+  ok(await owner.send(channel(0)));
+  await owner.until((s) => nerve(s) === 1);
+  ok(await owner.send({ type: "event.undo" }));
+  await owner.until((s) => nerve(s) === 2 && s.encounter?.combatants[0]?.used === undefined);
+
+  // The holder's phone holds two wards up: its checks are 4 harder, as the GM's call shows.
+  ok(await ana.send({ type: "field.set", actorId: lyra, field: "wards", value: ["Ward of Ash", "Ward of Salt"] }));
+  await ana.until((s) => actorIn(s, lyra)?.derived.wardLoad === 4);
+  const id = ok(
+    await owner.send({
+      type: "test.call",
+      testId: "check",
+      actorIds: [lyra],
+      inputs: { ability: "str", dc: 10 },
+      hideTarget: false,
+    }),
+  ).id!;
+  const called = await owner.until((s) => s.tests.some((t) => t.id === id));
+  assert.equal(called.tests.find((t) => t.id === id)?.targets[0]?.target, 14);
+  ok(await ana.send({ type: "field.set", actorId: lyra, field: "wards", value: [] }));
+  await ana.until((s) => actorIn(s, lyra)?.derived.wardLoad === 0);
+  ana.socket.close();
+});
+
 test("spends: a free conversion by a reported number, approved and undone (#84)", async () => {
   const { owner, ana, lyra } = await spendRoom("Endure", SAMPLE_HARM);
   await equip(lyra, "hero", { fields: { grit: 2 }, resources: { wounds: 4, strain: 0 } });

@@ -13,8 +13,10 @@ import {
   inputMax,
   inputsText,
   offersOf,
+  shown,
   spendOf,
   spendWorld,
+  usedUp,
 } from "@/lib/spends/spends";
 
 type SpendListProps = {
@@ -39,10 +41,10 @@ export function SpendList({ ruleset, compiled, actor, table, characters, labels,
   const [picked, setPicked] = useState<Record<string, Record<string, number>>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const listed = offersOf({ ruleset, compiled, table, actor, characters }).filter((o) => o.plan !== null);
+  const listed = offersOf({ ruleset, compiled, table, actor, characters }).filter(shown);
   const chosen = offersOf({ ruleset, compiled, table, actor, characters, inputs: picked });
   const waiting = askedFor({ requests, actorId: actor.id });
-  const world = spendWorld({ compiled, table, actor, characters });
+  const world = spendWorld({ ruleset, compiled, table, actor, characters });
   if (listed.length === 0 && waiting.length === 0) return null;
 
   // ASK: sends the spend with the numbers picked; the server checks it again.
@@ -76,7 +78,17 @@ export function SpendList({ ruleset, compiled, actor, table, characters, labels,
           </div>
         );
       })}
-      {listed.map(({ spend }) => {
+      {listed.map((offer) => {
+        const { spend } = offer;
+        // A spend used up this round stays, disabled, with the reason (house decision #91).
+        if (usedUp(offer))
+          return (
+            <div key={spend.id} className="stack spend-offer">
+              <button className="btn sm" disabled>
+                {t("usedThisRound", { label: spend.label })}
+              </button>
+            </div>
+          );
         const inputs = { ...defaultInputs(spend), ...picked[spend.id] };
         const plan = chosen.find((o) => o.spend.id === spend.id)?.plan ?? null;
         const cost = plan === null ? "" : costText({ costs: plan.costs, labels });

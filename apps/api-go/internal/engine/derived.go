@@ -210,6 +210,10 @@ func (c *CompiledRuleset) ApplyBaseEffects(entity string, values ActorValues) (m
 		fields[eff.Target] = next
 	}
 	for id, def := range ce.Def.Fields {
+		// An unset list reads as empty (house decision #91), as withLists reads it: counted from nothing.
+		if v, set := fields[id]; def.Type == "list" && (!set || v == nil) {
+			fields[id] = []any{}
+		}
 		v, isNumber := fields[id].(float64)
 		if def.Type != "int" || !isNumber {
 			continue

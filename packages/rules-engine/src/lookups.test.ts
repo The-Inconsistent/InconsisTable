@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { compileRuleset, type CompiledRuleset } from "./compile.ts";
-import { actorScope } from "./derived.ts";
+import { actorScope, applyBaseEffects } from "./derived.ts";
 import { SAMPLE_HARM } from "./fixtures/sample-harm.ts";
-import { planLookup, readLookup, rowOf } from "./lookups.ts";
+import { SAMPLE_SKIRMISH } from "./fixtures/sample-skirmish.ts";
+import { planLookup, readLookup, rowOf, withLists } from "./lookups.ts";
 import { validateRuleset, type RulesetInput } from "./manifest.ts";
 
 // Lookups (house decision #87): a typed result, the inputs and the target pick one line, whose effects become steps.
@@ -178,4 +179,20 @@ test("a lookup's expressions compile over the target and its inputs", () => {
     r.problems.map((p) => p.path),
     ["tables.t.modifier", "tables.t.entries[0].apply[0].when", "tables.t.entries[0].apply[0].wounds"],
   );
+});
+
+test("an unset list field reads as empty wherever it is read, a held kind's or not (house decisions #88, #91)", () => {
+  const r = compileRuleset(SAMPLE_SKIRMISH);
+  assert.ok(r.ok);
+  // The derived pass fills the actor's own type's lists, unset or null.
+  const values = { fields: { wards: null } };
+  assert.deepEqual(applyBaseEffects({ compiled: r.compiled, entity: "character", values }).wards, []);
+  // A scope built from stored fields reads the same.
+  assert.deepEqual(
+    withLists({ ruleset: r.compiled.ruleset, scope: actorScope({ fields: { wards: null } }) }).wards,
+    [],
+  );
+  assert.deepEqual(withLists({ ruleset: r.compiled.ruleset, scope: actorScope({ fields: { wards: ["a"] } }) }).wards, [
+    "a",
+  ]);
 });

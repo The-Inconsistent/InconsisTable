@@ -37,6 +37,11 @@ export const FieldValue = z.union([
 ]);
 export type FieldValue = z.infer<typeof FieldValue>;
 
+// A codex entry field's value as codex.save and the room document take it (house decision #89): a field value, or a
+// `rows` field's rows (at most rules-engine's MAX_ROWS), whose shape the ruleset's declaration checks.
+export const CodexFieldValue = z.union([FieldValue, z.array(z.record(z.string(), z.unknown())).max(30)]);
+export type CodexFieldValue = z.infer<typeof CodexFieldValue>;
+
 // An actor without its ruleset values: what an invite preview shows anyone holding the code.
 export const ActorBrief = z.object({
   id: z.string(),
@@ -376,7 +381,11 @@ export const CodexEntry = z.object({
   // When the entry was last revealed to the party or to a reader; null while sealed (house decision #86).
   revealedAt: z.string().nullable(),
   // The ruleset's declared fields of this kind that hold a value and that the seat may see (house decision #71).
-  fields: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])),
+  // A tags field is a list of words and a rows field a list of rows (house decision #89).
+  fields: z.record(
+    z.string(),
+    z.union([z.number(), z.string(), z.boolean(), z.array(z.string()), z.array(z.record(z.string(), z.unknown()))]),
+  ),
   layout: HandoutLayout.nullable(), // a handout's; null on every other kind. Seen by whoever sees the entry
   header: HandoutHeader.nullable(), // a handout's line above its body, "" for none; null on every other kind
   prep: ScenePrep.nullable(), // a scene's prepared lines; the codex and secrets sides only (house decision #73)

@@ -1538,14 +1538,16 @@
       "tests": "Tests",
       "pools": "Pools",
       "roster": "Creatures",
-      "exits": "Where next"
+      "exits": "Where next",
+      "picks": "Picked from a place"
     },
     "add": {
       "reveals": "Add an entry to show",
       "tests": "Add a Test",
       "pools": "Add a pool line",
       "roster": "Add creatures",
-      "exits": "Add an exit"
+      "exits": "Add an exit",
+      "picks": "Pick rows"
     },
     "missing": {
       "pack": "Broken: its pack is not attached to this room",
@@ -1553,7 +1555,9 @@
       "test": "Broken: the ruleset has no such Test",
       "actor": "Broken: a listed character is gone",
       "pool": "Broken: the ruleset has no such pool",
-      "scene": "Broken: the scene is gone"
+      "scene": "Broken: the scene is gone",
+      "field": "Broken: that field can no longer be picked",
+      "row": "Broken: this row is gone from its entry"
     },
     "blocked": {
       "noFight": "No fight is running. Start one first.",
@@ -1572,7 +1576,8 @@
       "gone": "(gone)",
       "pool": "{pool} {amount, number, ::sign-always}",
       "exit": "To {scene}",
-      "reveal": "Show {entry}"
+      "reveal": "Show {entry}",
+      "picks": "{count, plural, one {# row} other {# rows}} of {entry}"
     },
     "form": {
       "creature": "Creature",
@@ -1597,7 +1602,11 @@
       "outcomeLabel": "Result",
       "outcomeText": "What happens",
       "addOutcome": "Add a result",
-      "removeOutcome": "Remove the result {label}"
+      "removeOutcome": "Remove the result {label}",
+      "pickFrom": "Pick from",
+      "pickField": "Which list",
+      "pickRows": "Rows of {field}",
+      "noRows": "That entry has no rows yet."
     },
     "saveLine": "Save line",
     "edit": "Edit",
@@ -1632,7 +1641,9 @@
     "sent": "Sent: {what}",
     "asks": "Asks for {inputs} when sent.",
     "fillIn": "This Test still asks for these. They go with this send only.",
-    "fillFor": "What {what} still asks for"
+    "fillFor": "What {what} still asks for",
+    "pickedRows": "Picked {field}",
+    "switchRow": "{label}: {row}"
   },
   "safety": {
     "card": {
@@ -1678,7 +1689,22 @@
     "clearLabel": "Clear {label}",
     "gone": "This room's packs no longer have that entry.",
     "readFailed": "Couldn't read the room's packs.",
-    "level": "Level {level}"
+    "level": "Level {level}",
+    "reminders": "Reminders",
+    "addWord": "Add",
+    "wordFor": "A word for {label}",
+    "removeWord": "Remove {word}",
+    "wordsFull": "{max} at most",
+    "writeIn": "+ {word}, your own",
+    "suggestions": "Suggestions for {label}",
+    "addRow": "Add a row",
+    "fillFrom": "Fill a row from {type}",
+    "removeRow": "Remove row {n}",
+    "row": "Row {n}",
+    "rowsFull": "{max} rows at most",
+    "test": "Test",
+    "noTest": "No Test",
+    "filledFrom": "From {name}"
   },
   "notebook": {
     "entries": "Revealed",

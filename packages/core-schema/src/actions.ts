@@ -15,6 +15,7 @@ import {
   ClockName,
   ClockSegments,
   ClockVisibility,
+  CodexFieldValue,
   CodexVisibility,
   FieldValue,
   HandoutHeader,
@@ -216,7 +217,7 @@ export const Action = z.discriminatedUnion("type", [
     imageId: id.nullable().optional(), // a picture uploaded to this room; null removes it (house decision #70)
     // The ruleset's declared fields of this kind (house decision #71): a value sets one, null clears it, absent leaves it.
     fields: z
-      .record(z.string().min(1).max(64), FieldValue)
+      .record(z.string().min(1).max(64), CodexFieldValue)
       .refine((o) => Object.keys(o).length <= 20, "At most 20 fields")
       .optional(),
     layout: HandoutLayout.optional(), // a handout only

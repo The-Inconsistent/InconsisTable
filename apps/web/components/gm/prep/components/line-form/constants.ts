@@ -46,6 +46,8 @@ export function newLine({
       };
     case "pools":
       return { id, pool: state.pools[0]?.id ?? "", amount: 1, text: "" };
+    case "picks":
+      return { id, entryId: "", field: "", rows: [] };
     case "exits":
       return { id, label: "", sceneId: entries.find((e) => e.kind === "scene" && e.id !== scene.id)?.id ?? "" };
     default:

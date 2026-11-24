@@ -15,6 +15,7 @@ import { ScenePrep } from "../../../../packages/core-schema/src/index.ts";
 import { compileRuleset } from "../../../../packages/rules-engine/src/index.ts";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+import { SAMPLE_SKIRMISH } from "../../../../packages/rules-engine/src/fixtures/sample-skirmish.ts";
 import { SAMPLE_PACK } from "../../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { Ruleset } from "../../../../packages/rules-engine/src/manifest.ts";
@@ -483,6 +484,38 @@ test("a gm entry field reaches only the side that reads GM notes; the player and
   assert.deepEqual(defs(ctx({ kind: "token", role: "screen", characterIds: [] }, null), "faction"), []);
   assert.deepEqual(defs(ctx(member("cogm", ["combat"]), "u-co"), "npc"), ["disposition", "home", "mood"]);
   assert.deepEqual(defs(ctx(member("gm"), "u-gm"), "npc"), ["disposition", "home", "mood", "patron"]);
+});
+
+// House decision #89: tags and rows follow their field's visibility, and a reminder goes where every field it reads goes.
+test("a gm rows or tags field reaches nobody below the GM notes side; a party one does; a reminder never tells a gm value", () => {
+  const rules = compileRuleset(SAMPLE_SKIRMISH);
+  assert.ok(rules.ok);
+  const danger = { id: "d1", values: { name: "Wisp", threat: 2, check: { testId: "check", inputs: { dc: 12 } } } };
+  const log = [{ id: "l1", values: { day: "Day 1", what: "Ford" } }];
+  const entries = [
+    entry("place", { kind: "location", fields: { dangers: [danger] } }),
+    entry("band", { kind: "faction", fields: { standing: "ally", marks: ["Outsider"] } }),
+    entry("road", { kind: "quest", fields: { log } }),
+  ];
+  const withRows = (r: typeof compiled) => ({
+    view: (c: Ctx) => seatView({ snapshot: { ...snapshot, codex: { ...codex, entries } }, compiled: r, ctx: c }),
+  });
+  const d20 = withRows(compiled);
+  const skirmish = withRows(rules.compiled);
+  const fieldsOf = (v: ReturnType<typeof seatView>, id: string) => v.codex.entries.find((e) => e.id === id)?.fields;
+  for (const c of [ctx(member("player"), "u-x"), ctx({ kind: "token", role: "screen", characterIds: [] }, null)]) {
+    const v = d20.view(c);
+    assert.deepEqual(fieldsOf(v, "place"), {});
+    assert.deepEqual(fieldsOf(v, "band"), {});
+    // The faction's reminder reads its gm standing and marks: a player is not sent it, so a card can't hint at them.
+    assert.deepEqual(v.manifest?.codex?.kinds.faction?.reminders, []);
+    assert.equal(v.manifest?.codex?.kinds.location?.fields.dangers, undefined);
+    assert.deepEqual(fieldsOf(skirmish.view(c), "road"), { log });
+  }
+  const gm = d20.view(ctx(member("gm"), "u-gm"));
+  assert.deepEqual(fieldsOf(gm, "place"), { dangers: [danger] });
+  assert.deepEqual(fieldsOf(gm, "band"), { standing: "ally", marks: ["Outsider"] });
+  assert.equal(gm.manifest?.codex?.kinds.faction?.reminders?.length, 1);
 });
 
 // House decision #76: a link to another entry reaches a seat only when the seat may read the entry it names.

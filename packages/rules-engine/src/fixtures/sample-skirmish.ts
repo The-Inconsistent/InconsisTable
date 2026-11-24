@@ -1,16 +1,38 @@
 import type { RulesetInput } from "../manifest.ts";
-import { SAMPLE_D20 } from "./sample-d20.ts";
+import { CODEX_0_1_7, SAMPLE_D20 } from "./sample-d20.ts";
 
 /**
  * A placeholder ruleset written for tests: sample-d20 with a turn order of two sides that alternate, a setup with a
  * note, paid out-of-turn action, holding and a first-round bar; reminder lines at a turn's start and end and at the
  * round's end, a condition with its own line, one armed from its holder's next turn that a big enough foe is immune to,
- * and a long rest refused while downed (house decision #81). Every name, number and cite is our own invention.
+ * and a long rest refused while downed (house decision #81). Its codex is sample-d20's of 0.1.7 plus a second shape of
+ * rows (house decision #89): a quest's road log the crew reads, text only, filled by hand and never picked by a scene.
+ * Every name, number and cite is our own invention.
  */
 export const SAMPLE_SKIRMISH: RulesetInput = {
   ...SAMPLE_D20,
   id: "sample-skirmish",
-  version: "0.1.2",
+  version: "0.1.3",
+  codex: {
+    kinds: {
+      ...CODEX_0_1_7.kinds,
+      quest: {
+        fields: {
+          log: {
+            type: "rows",
+            label: "Road log",
+            visibility: "party",
+            columns: [
+              { id: "day", label: "Day", type: "text", maxLength: 20 },
+              { id: "what", label: "What came of it", type: "text", maxLength: 200 },
+            ],
+            maxRows: 20,
+            cite: "Sample p.21",
+          },
+        },
+      },
+    },
+  },
   resources: [
     ...(SAMPLE_D20.resources ?? []),
     { id: "momentum", label: "Momentum", cite: "Sample p.15", scope: "party", max: "6", visibility: "party" },

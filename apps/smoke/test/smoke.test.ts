@@ -1291,7 +1291,7 @@ test("entry fields: the ruleset declares them, the GM sets them, a player and th
     return Object.keys(manifest?.codex?.kinds[kind]?.fields ?? {}).sort();
   };
   assert.deepEqual(await defsOf(me, "npc"), ["disposition", "home", "mood", "patron"]);
-  assert.deepEqual(await defsOf(me, "faction"), ["seat", "standing"]);
+  assert.deepEqual(await defsOf(me, "faction"), ["marks", "seat", "standing"]);
   assert.deepEqual(await defsOf(caller(anaDevice), "npc"), ["disposition", "home", "mood"]);
   assert.deepEqual(await defsOf(caller(anaDevice), "faction"), []);
   // A ref's entry is read by its type and key, as the seat may read it: the gm creature only from the GM side.
@@ -1345,6 +1345,111 @@ test("entry fields: the ruleset declares them, the GM sets them, a player and th
   await eventually(() => fieldsOf(otherOwner, plainNpc) !== undefined, "saved");
   assert.deepEqual(fieldsOf(otherOwner, plainNpc), {});
   for (const c of [owner, ana, screen, otherOwner]) c.socket.close();
+});
+
+// House decision #89 on the invented fixtures: a place's dangers (rows filled from a creature and written by hand), a
+// guild's marks (tags) and its reminder, a scene's pick of the dangers with its switch, and what a player receives:
+// nothing of the GM's rows, tags or the reminder that reads them, and the whole of a party road log on the sides fixture.
+test("tags, rows, a scene's picks with their switch and a reminder; a player reads only the party's (#89)", async () => {
+  const ownerDevice = await device("lf-owner");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const pk = await me.post<PackReply>("/packs", SAMPLE_PACK);
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Lf", rulesetVersionId: rs.body.versionId })
+  ).body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const anaDevice = await seatPlayer(owner, "lf-ana");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  await ana.until(() => true);
+  const fieldsOf = (c: typeof owner, id: string) => c.codex()?.entries.find((e) => e.id === id)?.fields;
+  const check = { testId: "check", inputs: { ability: "dex", dc: 12 } };
+  const dangers = [
+    {
+      id: "d1",
+      from: { entity: "creature", key: "ember-wisp", cite: "Sample p.40" },
+      values: { name: "Ember Wisp", threat: 1, strength: "fierce", check },
+    },
+    { id: "d2", values: { name: "Slick stones", effect: "A slip into the water" } },
+  ];
+  const place = ok(await owner.send({ type: "codex.save", kind: "location", title: "Ford", fields: { dangers } })).id!;
+  // Refused at save, by row and column: a cell past its column's cap, a creature the packs do not serve, a Test the
+  // ruleset does not have; the whole save with it.
+  for (const bad of [
+    [{ id: "x", values: { threat: 21 } }],
+    [{ id: "x", from: { entity: "creature", key: "nobody" }, values: {} }],
+    [{ id: "x", values: { check: { testId: "gone", inputs: {} } } }],
+    [{ id: "x", values: { nope: 1 } }],
+  ])
+    refused(
+      await owner.send({ type: "codex.save", id: place, kind: "location", fields: { dangers: bad } }),
+      "badEntryField",
+    );
+  const band = ok(
+    await owner.send({
+      type: "codex.save",
+      kind: "faction",
+      title: "Reed Guild",
+      fields: { standing: "ally", marks: ["Reedfolk", "Outsider"] },
+    }),
+  ).id!;
+  refused(
+    await owner.send({ type: "codex.save", id: band, kind: "faction", fields: { marks: ["Outsider", "Outsider"] } }),
+    "badEntryField",
+  );
+
+  // A scene picks the place's first danger; its switch is ticked by saving the prep again.
+  const scene = ok(await owner.send({ type: "codex.save", kind: "scene", title: "At the ford" })).id!;
+  const pick = (on: boolean) => ({
+    picks: [{ id: "k1", entryId: place, field: "dangers", rows: [{ rowId: "d1", on }] }],
+  });
+  ok(await owner.send({ type: "codex.save", id: scene, kind: "scene", prep: pick(false) }));
+  ok(await owner.send({ type: "codex.save", id: scene, kind: "scene", prep: pick(true) }));
+  const prepOf = () => owner.codex()?.entries.find((e) => e.id === scene)?.prep;
+  await eventually(() => prepOf()?.picks[0]?.rows[0]?.on === true, "the switch is saved with the prep");
+  refused(
+    await owner.send({
+      type: "codex.save",
+      id: scene,
+      kind: "scene",
+      prep: { picks: [{ id: "k1", entryId: place, field: "dangers", rows: [{ rowId: "d1" }, { rowId: "d1" }] }] },
+    }),
+    "badRequest",
+  );
+
+  // The GM reads all of it; a player of the revealed place and guild reads none of the GM's fields, and is not sent the
+  // guild's reminder, which reads them.
+  for (const id of [place, band])
+    ok(await owner.send({ type: "codex.reveal", id, visibility: "party", audienceMode: "all", audience: [] }));
+  await eventually(() => fieldsOf(ana, band) !== undefined && fieldsOf(ana, place) !== undefined, "revealed");
+  assert.deepEqual(fieldsOf(owner, place), { dangers });
+  assert.deepEqual(fieldsOf(owner, band)?.marks, ["Reedfolk", "Outsider"]);
+  assert.deepEqual(fieldsOf(ana, place), {});
+  assert.deepEqual(fieldsOf(ana, band), {});
+  type Kinds = { codex?: { kinds: Record<string, { fields: Record<string, unknown>; reminders?: unknown[] }> } };
+  const kindsOf = async (c: ReturnType<typeof caller>) =>
+    ((await c.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset?.manifest as Kinds).codex?.kinds;
+  assert.equal((await kindsOf(me))?.faction?.reminders?.length, 1);
+  assert.deepEqual((await kindsOf(caller(anaDevice)))?.faction?.reminders, []);
+  assert.equal((await kindsOf(caller(anaDevice)))?.location?.fields.dangers, undefined);
+
+  // The second shape: a party road log of text columns, read whole by the player.
+  const sk = await me.post<RulesetReply>("/rulesets", SAMPLE_SKIRMISH);
+  const second = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Lf2", rulesetVersionId: sk.body.versionId })
+  ).body;
+  const owner2 = connect({ auth: { campaignId: second.campaignId, cookie: ownerDevice } });
+  await owner2.until(() => true);
+  const bo = connect({ auth: { campaignId: second.campaignId, cookie: await seatPlayer(owner2, "lf-bo") } });
+  await bo.until(() => true);
+  const log = [{ id: "l1", values: { day: "Day 1", what: "Crossed the ford" } }];
+  const road = ok(await owner2.send({ type: "codex.save", kind: "quest", title: "The road", fields: { log } })).id!;
+  ok(await owner2.send({ type: "codex.reveal", id: road, visibility: "party", audienceMode: "all", audience: [] }));
+  await eventually(() => fieldsOf(bo, road)?.log !== undefined, "the party's road log");
+  assert.deepEqual(fieldsOf(bo, road), { log });
+  for (const c of [owner, ana, owner2, bo]) c.socket.close();
 });
 
 test("a handout has a layout and a header, read by its player; the room's World offers and names its layouts", async () => {

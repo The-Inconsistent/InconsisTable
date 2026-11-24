@@ -136,7 +136,7 @@ needs a change to serve the second is not finished.
 ## Not decided
 
 - Entry kinds a ruleset adds of its own (a ship, a clue). The nine kinds stay; a field list per kind is the door.
-- A location's hazards and a scene's pick of them. They are expected to be a list-typed entry field and one more kind
-  of line, and are designed when the first of them is built.
+- ~~A location's hazards and a scene's pick of them.~~ Decided by house decision #89: codex field types `tags` and
+  `rows`, a sixth kind of prep line (`picks`) that is read and ticked, not sent, and reminders a kind's values raise.
 - An item given to a character and taken back. No item is given out in the campaign being moved; it follows.
 - Maps (design §3.8), which will use the same picture store.

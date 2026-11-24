@@ -18,6 +18,11 @@ type gameVectorFile struct {
 		Value any      `json:"value"`
 		Why   *string  `json:"why"`
 	} `json:"fieldValues"`
+	FitRows []struct {
+		Def   FieldDef `json:"def"`
+		Value any      `json:"value"`
+		Fit   any      `json:"fit"`
+	} `json:"fitRows"`
 	Scoring []struct {
 		Manifest int                       `json:"manifest"`
 		Actors   map[string]map[string]any `json:"actors"`
@@ -126,6 +131,38 @@ func TestFieldValuesMatchTypeScript(t *testing.T) {
 		}
 	}
 	f.done(len(v.FieldValues))
+}
+
+// A stored rows value as the declaration now fits it (house decision #89) is what fitRows in field-value.ts answers.
+func TestFitRowsMatchesTypeScript(t *testing.T) {
+	v := loadGameVectors(t)
+	if len(v.FitRows) == 0 {
+		t.Fatal("no fitRows vectors")
+	}
+	f := &failures{t: t}
+	for _, x := range v.FitRows {
+		var got any
+		if fit := FitRows(&x.Def, x.Value); fit != nil {
+			got = fit
+		}
+		if !reflect.DeepEqual(roundTrip(t, got), x.Fit) {
+			f.add("value %v: want %v, got %v", short(fmt.Sprint(x.Value)), x.Fit, got)
+		}
+	}
+	f.done(len(v.FitRows))
+}
+
+func roundTrip(t *testing.T, v any) any {
+	t.Helper()
+	raw, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
 
 func TestScoringMatchesTypeScript(t *testing.T) {

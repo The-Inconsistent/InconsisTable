@@ -7,9 +7,48 @@ import type { RulesetInput } from "../manifest.ts";
 /** The resources only sample-d20's notices read (house decision #79); the samples built on it leave them out. */
 export const NOTICE_RESOURCES: readonly string[] = ["boons", "renown"];
 
+/**
+ * The codex block as it was at 0.1.7 (house decisions #71, #76): the crew sees how a person feels and where they
+ * live, the GM whose creature backs them, where a faction stands and where it sits. 0.1.8 adds tags, rows and a
+ * reminder (house decision #89); the samples built on the earlier versions keep this one.
+ */
+export const CODEX_0_1_7: NonNullable<RulesetInput["codex"]> = {
+  kinds: {
+    npc: {
+      fields: {
+        mood: {
+          type: "enum",
+          label: "Mood",
+          values: ["warm", "wary", "cold"],
+          labels: { warm: "Warm", wary: "Wary", cold: "Cold" },
+          notes: { cold: "-2 to sway them" },
+          tones: { warm: "good", cold: "bad" },
+          visibility: "party",
+          cite: "Sample p.14",
+        },
+        disposition: { type: "int", label: "Disposition", min: -3, max: 3, visibility: "party", cite: "Sample p.14" },
+        patron: { type: "ref", label: "Patron", entity: "creature", cite: "Sample p.15" },
+        home: { type: "entry", label: "Home", kind: "location", visibility: "party", cite: "Sample p.15" },
+      },
+    },
+    faction: {
+      fields: {
+        standing: {
+          type: "enum",
+          label: "Standing",
+          values: ["ally", "neutral", "rival"],
+          labels: { ally: "Ally", neutral: "Neutral", rival: "Rival" },
+          cite: "Sample p.16",
+        },
+        seat: { type: "entry", label: "Seat", kind: "location", cite: "Sample p.16" },
+      },
+    },
+  },
+};
+
 export const SAMPLE_D20: RulesetInput = {
   id: "sample-d20",
-  version: "0.1.7",
+  version: "0.1.8",
   core: "^0.1.0",
   sources: [{ id: "sample", title: "Sample d20 Rules", license: "private", pageOffset: 0 }],
   terms: { party: "Crew", foe: "Opposition", hp: "Vigour" },
@@ -332,37 +371,58 @@ export const SAMPLE_D20: RulesetInput = {
       ],
     },
   },
-  // What a person and a faction carry in the codex (house decision #71): the crew sees how a person feels and where
-  // they live, the GM whose creature backs them, where a faction stands and where it sits (house decision #76).
+  // What a person, a faction and a place carry in the codex (house decisions #71, #76, #89).
   codex: {
     kinds: {
-      npc: {
-        fields: {
-          mood: {
-            type: "enum",
-            label: "Mood",
-            values: ["warm", "wary", "cold"],
-            labels: { warm: "Warm", wary: "Wary", cold: "Cold" },
-            notes: { cold: "-2 to sway them" },
-            tones: { warm: "good", cold: "bad" },
-            visibility: "party",
-            cite: "Sample p.14",
-          },
-          disposition: { type: "int", label: "Disposition", min: -3, max: 3, visibility: "party", cite: "Sample p.14" },
-          patron: { type: "ref", label: "Patron", entity: "creature", cite: "Sample p.15" },
-          home: { type: "entry", label: "Home", kind: "location", visibility: "party", cite: "Sample p.15" },
-        },
-      },
+      ...CODEX_0_1_7.kinds,
+      // A faction's marks: lineage names offered, any word written in; an ally marked an outsider raises a line.
       faction: {
         fields: {
-          standing: {
-            type: "enum",
-            label: "Standing",
-            values: ["ally", "neutral", "rival"],
-            labels: { ally: "Ally", neutral: "Neutral", rival: "Rival" },
+          ...CODEX_0_1_7.kinds.faction?.fields,
+          marks: {
+            type: "tags",
+            label: "Marks",
+            entities: ["lineage"],
+            writeIn: true,
+            maxItems: 10,
             cite: "Sample p.16",
           },
-          seat: { type: "entry", label: "Seat", kind: "location", cite: "Sample p.16" },
+        },
+        reminders: [
+          {
+            id: "outsiderAlly",
+            if: 'fields.standing == "ally" && contains(fields.marks, "Outsider")',
+            text: "An outsider ally needs a reason to ride with the crew",
+            cite: "Sample p.16",
+          },
+        ],
+      },
+      // A place's dangers: rows a creature fills or the GM writes, each with a threat, a strength and a check, picked
+      // by a scene and marked noticed there.
+      location: {
+        fields: {
+          dangers: {
+            type: "rows",
+            label: "Dangers",
+            columns: [
+              { id: "name", label: "Name", type: "text", maxLength: 80 },
+              { id: "threat", label: "Threat", type: "int", min: 0, max: 20 },
+              {
+                id: "strength",
+                label: "Strength",
+                type: "enum",
+                values: ["faint", "fierce"],
+                labels: { faint: "Faint", fierce: "Fierce" },
+                tones: { fierce: "bad" },
+              },
+              { id: "check", label: "Check", type: "test" },
+              { id: "effect", label: "What happens", type: "text", maxLength: 200 },
+            ],
+            maxRows: 12,
+            from: [{ entity: "creature", name: "name", values: { threat: "level" } }],
+            pick: { label: "Noticed" },
+            cite: "Sample p.18",
+          },
         },
       },
     },
@@ -405,4 +465,5 @@ export const SAMPLE_D20_BEFORE_WIDGETS: RulesetInput = {
     return { ...e, fields, derived: e.derived?.filter((d) => !WIDGET_DERIVED.has(d.id)) };
   }),
   layout: { sheet: SAMPLE_D20.layout?.sheet ?? { sections: [] } },
+  codex: CODEX_0_1_7,
 };

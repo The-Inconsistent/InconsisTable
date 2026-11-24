@@ -8,6 +8,7 @@ import {
   type Visibility,
 } from "./enums.ts";
 import type { BuildParams } from "./build/params.ts";
+import { codexScope } from "./codex.ts";
 import type { ExprScope, ExprType } from "./expr/expr.ast.ts";
 import { compileExpr, type CompiledExpr } from "./expr/expr.ts";
 import {
@@ -826,6 +827,14 @@ class Compiler {
             path: `reminders[${j}].if`,
           }),
     );
+    // A codex reminder's `if` reads its kind's fields (house decision #89); checked here, evaluated where it is shown.
+    for (const kind of Object.keys(this.r.codex?.kinds ?? {}).sort()) {
+      const k = own(this.r.codex?.kinds ?? {}, kind);
+      k?.reminders?.forEach((x, j) => {
+        const scope = codexScope({ fields: k.fields });
+        this.expr({ source: x.if, scopes: [scope], expect: "bool", path: `codex.kinds.${kind}.reminders[${j}].if` });
+      });
+    }
     const immune: Record<string, CompiledExpr> = {};
     this.r.conditions.forEach((c, j) => {
       if (c.immune === undefined) return;

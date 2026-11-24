@@ -153,9 +153,47 @@ const codexFieldBase = {
   cite: Cite.optional(),
 };
 
+// Ceilings of a `tags` and a `rows` field (house decision #89); a declaration's own `maxItems`, `maxRows` and a text
+// column's `maxLength` may only tighten them. The field-value check and the Go twin read the same numbers.
+export const MAX_TAGS = 30;
+export const MAX_TAG_CHARS = 60;
+export const MAX_ROWS = 30;
+export const MAX_ROW_COLUMNS = 8;
+export const MAX_CELL_CHARS = 500;
+export const MAX_ROW_PREFILLS = 5;
+export const MAX_CODEX_REMINDERS = 20;
+
+/**
+ * One column of a `rows` field (house decision #89): an entry field's types, plus `test`, a Test of the ruleset with
+ * its inputs, the two things a scene's prepared Test line holds (`testId`, `inputs`).
+ */
+const columnBase = { id: Id, label: z.string().min(1).max(60) };
+export const RowColumn = z.discriminatedUnion("type", [
+  z.object({ ...columnBase, ...intShape }),
+  z.object({ ...columnBase, type: z.literal("text"), maxLength: z.int().min(1).max(MAX_CELL_CHARS).optional() }),
+  z.object({ ...columnBase, ...enumShape }),
+  z.object({ ...columnBase, type: z.literal("bool") }),
+  z.object({ ...columnBase, ...refShape }),
+  z.object({ ...columnBase, type: z.literal("test") }),
+]);
+export type RowColumn = z.infer<typeof RowColumn>;
+
+/**
+ * How a pack entry of `entity` fills a new row (house decision #89): `name` the text column that takes the entry's
+ * name, `values` a column id to the entity field whose value it takes. The row keeps the entry's key and cite.
+ */
+export const RowPrefill = z.object({
+  entity: Id,
+  name: Id.optional(),
+  values: z.record(Id, FieldId).optional(),
+});
+export type RowPrefill = z.infer<typeof RowPrefill>;
+
 /**
  * A field a kind of codex entry carries (ADR 0012 decision 2, house decision #71): an entity field's types and shapes,
- * seen by the GM side or the party; no `editableBy` (only the codex writers write it) and no list.
+ * seen by the GM side or the party; no `editableBy` (only the codex writers write it) and no list. Two types are the
+ * codex's own (house decision #89): `tags`, short words suggested by pack entries' names or fixed options, written in
+ * when `writeIn`; and `rows`, typed rows that a pack entry may fill (`from`) and a scene may pick (`pick`).
  */
 export const CodexField = z.discriminatedUnion("type", [
   z.object({ ...codexFieldBase, ...intShape }),
@@ -165,10 +203,43 @@ export const CodexField = z.discriminatedUnion("type", [
   z.object({ ...codexFieldBase, ...refShape }),
   /** A link to another entry of the room, of the given kind (house decision #76); codex fields only. */
   z.object({ ...codexFieldBase, type: z.literal("entry"), kind: CodexEntryKind }),
+  z.object({
+    ...codexFieldBase,
+    type: z.literal("tags"),
+    maxItems: z.int().min(1).max(MAX_TAGS).optional(),
+    /** Pack entry types whose served entries' names are offered. */
+    entities: z.array(Id).min(1).max(10).optional(),
+    /** Fixed words offered, stored as their id and shown by `labels`. */
+    options: z.array(Id).min(1).max(200).optional(),
+    labels: z.record(Id, z.string().min(1).max(MAX_TAG_CHARS)).optional(),
+    /** Whether a word outside the suggestions may be written in. */
+    writeIn: z.boolean().default(false),
+  }),
+  z.object({
+    ...codexFieldBase,
+    type: z.literal("rows"),
+    columns: z.array(RowColumn).min(1).max(MAX_ROW_COLUMNS),
+    maxRows: z.int().min(1).max(MAX_ROWS).optional(),
+    from: z.array(RowPrefill).min(1).max(MAX_ROW_PREFILLS).optional(),
+    /** A scene may pick this field's rows, each with one switch of this name (a prep `picks` line). */
+    pick: z.object({ label: z.string().min(1).max(40) }).optional(),
+  }),
 ]);
 export type CodexField = z.infer<typeof CodexField>;
 
 export const MAX_CODEX_FIELDS = 20;
+
+/**
+ * A line an entry's card shows while its values meet `if` (house decision #89): `if` a boolean over the kind's fields
+ * as `fields.<id>`, `text` the ruleset's own short words. Only a seat that reads every field `if` reads is shown it.
+ */
+export const CodexReminder = z.object({
+  id: Id,
+  if: ExprSource,
+  text: z.string().min(1).max(120),
+  cite: Cite.optional(),
+});
+export type CodexReminder = z.infer<typeof CodexReminder>;
 
 /** The fields each kind of codex entry carries. Absent: an entry is a title and two texts, as in a room without one. */
 export const CodexBlock = z.object({
@@ -178,10 +249,12 @@ export const CodexBlock = z.object({
       fields: z
         .record(Id, CodexField)
         .refine((o) => Object.keys(o).length <= MAX_CODEX_FIELDS, `at most ${MAX_CODEX_FIELDS} fields`),
+      reminders: z.array(CodexReminder).max(MAX_CODEX_REMINDERS).optional(),
     }),
   ),
 });
 export type CodexBlock = z.infer<typeof CodexBlock>;
+export type CodexKindDef = NonNullable<CodexBlock["kinds"][keyof CodexBlock["kinds"]]>;
 
 export const DerivedDef = z.object({
   id: Id,
@@ -1585,8 +1658,85 @@ function codexProblems({ r, entityIds, out }: { r: Ruleset; entityIds: ReadonlyS
       if (def.type === "int" && def.min !== undefined && def.max !== undefined && def.max < def.min)
         out.push({ path: `${path}.max`, message: "max is below min" });
       if (def.type === "enum") enumWordProblems({ def, path, out });
+      if (def.type === "tags") tagsProblems({ def, entityIds, path, out });
+      if (def.type === "rows") rowsProblems({ def, r, path, out });
     }
+    duplicates({ ids: (k.reminders ?? []).map((x) => x.id), path: `codex.kinds.${kind}.reminders`, out });
   }
+}
+
+/** A tags field's suggestions name declared entities, its labels its options, and something can be entered. */
+function tagsProblems({
+  def,
+  entityIds,
+  path,
+  out,
+}: {
+  def: Extract<CodexField, { type: "tags" }>;
+  entityIds: ReadonlySet<string>;
+  path: string;
+  out: Problem[];
+}): void {
+  def.entities?.forEach((e, i) => {
+    if (!entityIds.has(e)) out.push({ path: `${path}.entities[${i}]`, message: `unknown entity "${e}"` });
+  });
+  enumWordProblems({ def: { values: def.options ?? [], labels: def.labels }, path, out });
+  if (def.entities === undefined && def.options === undefined && !def.writeIn)
+    out.push({ path, message: "a tags field needs entities, options or writeIn" });
+}
+
+/** Whether an entity field's values fit a column: the same type, an enum's values among the column's, a ref's entity. */
+function fitsColumn(col: RowColumn, field: FieldDef): boolean {
+  if (col.type !== field.type) return false;
+  if (col.type === "enum" && field.type === "enum") return field.values.every((v) => col.values.includes(v));
+  if (col.type === "ref" && field.type === "ref") return field.entity === col.entity;
+  return true;
+}
+
+/** A rows field's columns are unique and sound; each prefill names a declared entity whose fields fit their columns. */
+function rowsProblems({
+  def,
+  r,
+  path,
+  out,
+}: {
+  def: Extract<CodexField, { type: "rows" }>;
+  r: Ruleset;
+  path: string;
+  out: Problem[];
+}): void {
+  duplicates({ ids: def.columns.map((c) => c.id), path: `${path}.columns`, out });
+  def.columns.forEach((c, i) => {
+    const at = `${path}.columns[${i}]`;
+    if (c.type === "ref" && !r.entities.some((e) => e.id === c.entity))
+      out.push({ path: `${at}.entity`, message: `unknown entity "${c.entity}"` });
+    if (c.type === "int" && c.min !== undefined && c.max !== undefined && c.max < c.min)
+      out.push({ path: `${at}.max`, message: "max is below min" });
+    if (c.type === "enum") enumWordProblems({ def: c, path: at, out });
+  });
+  const column = (id: string) => def.columns.find((c) => c.id === id);
+  const seen = new Set<string>();
+  def.from?.forEach((f, i) => {
+    const at = `${path}.from[${i}]`;
+    if (seen.has(f.entity)) out.push({ path: `${at}.entity`, message: `"${f.entity}" fills rows twice` });
+    seen.add(f.entity);
+    const entity = r.entities.find((e) => e.id === f.entity);
+    if (entity === undefined) {
+      out.push({ path: `${at}.entity`, message: `unknown entity "${f.entity}"` });
+      return;
+    }
+    if (f.name !== undefined && column(f.name)?.type !== "text")
+      out.push({ path: `${at}.name`, message: `"${f.name}" is not a text column` });
+    for (const [col, fieldId] of Object.entries(f.values ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+      const c = column(col);
+      const field = own(entity.fields, fieldId);
+      if (c === undefined) out.push({ path: `${at}.values.${col}`, message: `"${col}" is not a column` });
+      else if (field === undefined)
+        out.push({ path: `${at}.values.${col}`, message: `"${fieldId}" is not a field of "${f.entity}"` });
+      else if (!fitsColumn(c, field))
+        out.push({ path: `${at}.values.${col}`, message: `"${fieldId}" does not fit the column` });
+    }
+  });
 }
 
 /** Every cost names a declared side and a shared pool. */

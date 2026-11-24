@@ -1,6 +1,15 @@
 import { z } from "zod";
 
-import type { CampaignField, CodexField, FieldDef } from "./manifest.ts";
+import {
+  MAX_CELL_CHARS,
+  MAX_ROWS,
+  MAX_TAG_CHARS,
+  MAX_TAGS,
+  type CampaignField,
+  type CodexField,
+  type FieldDef,
+  type RowColumn,
+} from "./manifest.ts";
 
 // Server-side ceilings for a field value; a manifest's own `maxLength` / `maxItems` may only tighten them.
 // core-schema repeats these numbers (it can't import the engine): keep `FieldValue` there in step.
@@ -53,7 +62,116 @@ export function checkFieldValue({ def, value }: { def: FieldDef | CodexField; va
         ? `an item is over ${MAX_LIST_ITEM_CHARS} characters`
         : null;
     }
+    case "tags": {
+      // Only the shape; whether a word is one of the suggestions is checked where the packs are known (the server).
+      if (!Array.isArray(value) || value.some((v) => typeof v !== "string")) return "expected a list of words";
+      const cap = Math.min(def.maxItems ?? MAX_TAGS, MAX_TAGS);
+      if (value.length > cap) return `more than ${cap} words`;
+      const words = value as string[];
+      if (words.some((v) => v.trim() === "")) return "a word is empty";
+      if (words.some((v) => v.length > MAX_TAG_CHARS)) return `a word is over ${MAX_TAG_CHARS} characters`;
+      return new Set(words).size === words.length ? null : "a word is there twice";
+    }
+    case "rows":
+      return checkRows({ def, value });
   }
+}
+
+type RowsDef = Extract<CodexField, { type: "rows" }>;
+const plain = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+const ROW_KEYS = new Set(["id", "from", "values"]);
+const FROM_KEYS = new Set(["entity", "key", "cite"]);
+const TEST_KEYS = new Set(["testId", "inputs"]);
+
+/** Why a cell does not fit its column, or null (house decision #89). */
+function checkCell({ col, value }: { col: RowColumn; value: unknown }): string | null {
+  switch (col.type) {
+    case "int":
+    case "enum":
+    case "bool":
+    case "ref":
+      return checkFieldValue({ def: { ...col, visibility: "gm" } as CodexField, value });
+    case "text": {
+      if (typeof value !== "string") return "expected text";
+      const cap = Math.min(col.maxLength ?? MAX_CELL_CHARS, MAX_CELL_CHARS);
+      return value.length > cap ? `${value.length} characters, over the cap of ${cap}` : null;
+    }
+    case "test": {
+      // A prepared Test line's `testId` and `inputs` (core-schema TestLine): the Test's id and its inputs' values.
+      if (!plain(value) || Object.keys(value).some((k) => !TEST_KEYS.has(k))) return "expected a Test and its inputs";
+      const { testId, inputs = {} } = value;
+      if (typeof testId !== "string" || testId.length === 0 || testId.length > 64) return "expected a Test";
+      if (!plain(inputs)) return "expected a Test's inputs";
+      for (const [k, v] of Object.entries(inputs)) {
+        const fits = typeof v === "boolean" || typeof v === "number" || (typeof v === "string" && v.length <= 100);
+        if (k.length > 64 || !fits) return "an input is not a number, a word or a yes/no";
+      }
+      return null;
+    }
+  }
+}
+
+/** Why a `rows` value does not fit its declaration, or null; a problem names the row and the column (house decision #89). */
+function checkRows({ def, value }: { def: RowsDef; value: unknown }): string | null {
+  if (!Array.isArray(value)) return "expected a list of rows";
+  const cap = Math.min(def.maxRows ?? MAX_ROWS, MAX_ROWS);
+  if (value.length > cap) return `more than ${cap} rows`;
+  const ids = new Set<string>();
+  for (const [i, row] of value.entries()) {
+    const at = `[${i}]`;
+    if (!plain(row) || Object.keys(row).some((k) => !ROW_KEYS.has(k))) return `${at}: expected id, from and values`;
+    if (typeof row.id !== "string" || row.id.length === 0 || row.id.length > 40) return `${at}.id: expected a row id`;
+    if (ids.has(row.id)) return `${at}.id: "${row.id}" is there twice`;
+    ids.add(row.id);
+    const from = row.from;
+    if (from !== undefined) {
+      if (!plain(from) || Object.keys(from).some((k) => !FROM_KEYS.has(k)))
+        return `${at}.from: expected entity, key and cite`;
+      if (typeof from.entity !== "string" || !(def.from ?? []).some((f) => f.entity === from.entity))
+        return `${at}.from.entity: not a type this field is filled from`;
+      if (typeof from.key !== "string" || from.key.length === 0 || from.key.length > 120)
+        return `${at}.from.key: expected an entry key`;
+      if (from.cite !== undefined && (typeof from.cite !== "string" || from.cite.length === 0 || from.cite.length > 40))
+        return `${at}.from.cite: expected a cite`;
+    }
+    if (!plain(row.values)) return `${at}.values: expected the row's values`;
+    for (const [col, cell] of Object.entries(row.values).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+      const c = def.columns.find((x) => x.id === col);
+      if (c === undefined) return `${at}.values.${col}: not a column`;
+      const why = checkCell({ col: c, value: cell });
+      if (why !== null) return `${at}.values.${col}: ${why}`;
+    }
+  }
+  return null;
+}
+
+/**
+ * A stored `rows` value as the ruleset now declares it (house decision #89, as #71 keeps a field the ruleset no longer
+ * fits): rows past the cap, rows without a sound id and cells the declaration no longer has or that no longer fit are
+ * left out of what a seat receives; the rest of each row stays. Null when nothing of it is a list of rows.
+ */
+export function fitRows({ def, value }: { def: RowsDef; value: unknown }): unknown[] | null {
+  if (!Array.isArray(value)) return null;
+  const ids = new Set<string>();
+  const out: unknown[] = [];
+  for (const row of value) {
+    if (out.length >= Math.min(def.maxRows ?? MAX_ROWS, MAX_ROWS)) break;
+    if (!plain(row) || typeof row.id !== "string" || row.id.length === 0 || row.id.length > 40 || ids.has(row.id))
+      continue;
+    ids.add(row.id);
+    const values: Record<string, unknown> = {};
+    if (plain(row.values)) {
+      for (const [col, cell] of Object.entries(row.values)) {
+        const c = def.columns.find((x) => x.id === col);
+        if (c !== undefined && checkCell({ col: c, value: cell }) === null) values[col] = cell;
+      }
+    }
+    const kept: Record<string, unknown> = { id: row.id, values };
+    if (row.from !== undefined && checkRows({ def, value: [{ id: row.id, from: row.from, values: {} }] }) === null)
+      kept.from = row.from;
+    out.push(kept);
+  }
+  return out;
 }
 
 /** Why `value` does not fit a campaign field, or null when it does; worded like `checkFieldValue`. */

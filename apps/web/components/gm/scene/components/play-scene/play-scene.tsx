@@ -1,6 +1,4 @@
 "use client";
-import { useState } from "react";
-
 import {
   canInCampaign,
   type ActionInput,
@@ -34,6 +32,9 @@ type PlaySceneProps = {
   act: (a: ActionInput) => Promise<ActionResult>;
   latestBegin: LatestBegin | null;
   onOpenCodex: (entryId: string) => void;
+  /** The address: the scene previewed (null: none), and a move of it, one step of the browser's history. */
+  previewId: string | null;
+  onPreview: (id: string | null) => void;
 };
 
 // The scene being played: the strip of the adventure's scenes, the page with its lines, IN THIS SCENE beside it and WHERE
@@ -50,8 +51,9 @@ export function PlayScene({
   act,
   latestBegin,
   onOpenCodex,
+  previewId,
+  onPreview: setPreviewId,
 }: PlaySceneProps) {
-  const [previewId, setPreviewId] = useState<string | null>(null);
   const sender = useLineSender({
     scene,
     world,

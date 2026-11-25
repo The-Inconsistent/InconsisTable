@@ -1,8 +1,9 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 
-import { canInCampaign, type CodexKind, type Me } from "@inconsistable/core-schema";
+import { canInCampaign, type Me } from "@inconsistable/core-schema";
 import type { ChecklistStep } from "@inconsistable/rules-engine";
 
 import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
@@ -32,6 +33,7 @@ import { useTable } from "@/hooks/use-table/use-table";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import { checklistRoom } from "@/lib/checklist/checklist";
 import { headerItems } from "@/lib/header/header";
+import { gmAddress, parseGmAddress, type GmAddress } from "@/lib/gm-address/gm-address";
 import type { RulesTabData } from "@/lib/library/library";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 import type { Spawnable } from "@/lib/scene-prep/scene-prep";
@@ -39,9 +41,6 @@ import { resourceLabels } from "@/lib/spend-request/spend-request";
 
 type GmAppProps = {
   me: Me;
-  initialTab: GmTab;
-  /** `?tab=track`: the SCENE tab opens on its FIGHT layer. */
-  initialFight: boolean;
   rules: RulesTabData | null;
   view: RulesView | null;
   /** The attached packs' creatures, for PREP's roster lines; null when they could not be read. */
@@ -50,7 +49,7 @@ type GmAppProps = {
 };
 
 // The GM side of a table: the room's owner, its GMs, co-GMs (tabs filtered by scope), or an admin who opened it.
-export function GmApp({ me, initialTab, initialFight, rules, view, spawnable, quick = false }: GmAppProps) {
+export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps) {
   const t = useTranslations("gmApp");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
@@ -61,41 +60,53 @@ export function GmApp({ me, initialTab, initialFight, rules, view, spawnable, qu
   const tabs = (Object.keys(GM_TABS) as GmTab[]).filter(
     (k) => canInCampaign({ ctx: me, perm: GM_TABS[k].perm }) && (k !== "standings" || (state?.games.length ?? 0) > 0),
   );
-  const [tab, setTab] = useState<GmTab>(
-    tabs.includes(initialTab) ? initialTab : tabs.includes("party") ? "party" : (tabs[0] ?? "rules"),
-  );
-  // The SCENE tab opens on FIGHT only when it was asked to (?tab=track, or a checklist step that goes to TRACK).
-  const [fightFirst, setFightFirst] = useState(initialFight);
-  const openTab = (next: GmTab, fight = false) => {
-    setFightFirst(fight);
-    setTab(next);
-  };
 
-  const [callTestId, setCallTestId] = useState<string | null>(null);
-  const [openEntryId, setOpenEntryId] = useState<string | null>(null);
-  const [codexKind, setCodexKind] = useState<CodexKind | null>(null);
+  // The address (house decision #111) is the state: the tab and what is open in it are read from the query. A tab the
+  // seat may not open, or an id the seat does not hold, falls back (the first allowed tab, the list).
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const requested = parseGmAddress(params);
+  const ids = new Set(codex?.entries.map((e) => e.id));
+  const holds = (id?: string) => id === undefined || codex === null || ids.has(id);
+  const address: GmAddress = !tabs.includes(requested.tab)
+    ? { tab: tabs.includes("party") ? "party" : (tabs[0] ?? "rules") }
+    : {
+        ...requested,
+        ...(holds(requested.entry) ? {} : { entry: undefined }),
+        ...(holds(requested.scene) ? {} : { scene: undefined }),
+        ...(holds(requested.preview) ? {} : { preview: undefined }),
+      };
+  const tab = address.tab;
+  const query = (a: GmAddress) => gmAddress(a, params.entries());
+  const settled = gmAddress(address) === gmAddress(requested);
+
+  // Keeps the history in step with the fallback once the room is read (STANDINGS depends on it): replaced, not pushed,
+  // so Back does not loop. The history is the external system this syncs with.
+  useEffect(() => {
+    if (state && !settled) window.history.replaceState(null, "", `${pathname}?${gmAddress(address, params.entries())}`);
+  });
+
+  // Moves the address: one step of the browser's history. Not router.push: that would re-run the server page.
+  const navigate = (next: GmAddress) => {
+    const to = query(next);
+    if (to !== query(address)) window.history.pushState(null, "", `${pathname}?${to}`);
+  };
+  const openTab = (next: GmTab, inner: Omit<GmAddress, "tab"> = {}) => navigate({ tab: next, ...inner });
+  // A change inside the open tab; a key left out stays as it is.
+  const go = (patch: Omit<GmAddress, "tab">) => navigate({ ...address, ...patch });
   const checklist = view?.ruleset?.checklist ?? [];
 
-  // PREP's CALL: opens TESTS with that Test selected (held in state, not the URL).
-  const handleCall = (testId: string) => {
-    setCallTestId(testId);
-    openTab("tests");
-  };
+  // PREP's CALL: opens TESTS with that Test selected.
+  const handleCall = (testId: string) => openTab("tests", { test: testId });
 
   // PREP's "Open in CODEX": opens CODEX with that entry open.
-  const handleOpenCodex = (entryId: string) => {
-    setOpenEntryId(entryId);
-    setCodexKind(null);
-    openTab("codex");
-  };
+  const handleOpenCodex = (entryId: string) => openTab("codex", { entry: entryId });
 
   // A checklist step's GO TO (house decision #90): its tab, the codex listing its kind.
   const handleGo = (goto: NonNullable<ChecklistStep["goto"]>) => {
-    setOpenEntryId(null);
-    setCodexKind(goto.kind ?? null);
     // A checklist step may still name the old TRACK tab: it is SCENE's FIGHT layer now.
-    if (goto.tab === "track") openTab("scene", true);
-    else openTab(goto.tab);
+    if (goto.tab === "track") openTab("scene", { layer: "fight" });
+    else openTab(goto.tab, goto.kind ? { kind: goto.kind } : {});
   };
 
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
@@ -191,7 +202,8 @@ export function GmApp({ me, initialTab, initialFight, rules, view, spawnable, qu
             spawnable={spawnable}
             known={view?.first.entries ?? []}
             sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
-            initialFight={fightFirst}
+            address={address}
+            onNav={go}
             onOpenCodex={handleOpenCodex}
           />
         ) : tab === "standings" ? (
@@ -208,16 +220,19 @@ export function GmApp({ me, initialTab, initialFight, rules, view, spawnable, qu
             onOpenCodex={handleOpenCodex}
             known={view?.first.entries ?? []}
             onPlay={() => openTab("scene")}
+            openId={address.scene ?? null}
+            mode={address.mode ?? "prepare"}
+            onNav={go}
           />
         ) : tab === "codex" ? (
           <Codex
-            key={`${openEntryId ?? ""}/${codexKind ?? ""}`}
-            initialKind={codexKind}
+            kind={address.kind ?? null}
+            openId={address.entry ?? null}
+            onNav={go}
             me={me}
             state={state}
             codex={codex}
             send={send}
-            initialOpenId={openEntryId}
             ruleset={view?.ruleset ?? null}
             known={view?.first.entries}
             books={books}
@@ -225,7 +240,7 @@ export function GmApp({ me, initialTab, initialFight, rules, view, spawnable, qu
             spawnable={spawnable}
           />
         ) : tab === "tests" ? (
-          <Tests state={state} send={send} testId={callTestId ?? undefined} />
+          <Tests state={state} send={send} testId={address.test} />
         ) : tab === "rules" ? (
           <div className="stack" style={{ gap: 32 }}>
             <RulesPanel me={me} send={send} data={rules} state={state} ruleset={view?.ruleset ?? null} />

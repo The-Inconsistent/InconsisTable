@@ -33,8 +33,9 @@ type SceneProps = {
   known: readonly RulesEntry[];
   /** What a character sheet needs, for the fight layer. */
   sheet: { ruleset: Ruleset | null; books: readonly BookSource[]; requestPage: RequestPage };
-  /** `?tab=track`: opens on the fight layer. */
-  initialFight: boolean;
+  /** The address (house decision #111): the layer chosen (none: FIGHT while a fight runs) and the scene previewed. */
+  address: { layer?: SceneLayer; preview?: string };
+  onNav: (patch: { layer?: SceneLayer; preview?: string }) => void;
   /** A name opens the entry in Codex. */
   onOpenCodex: (entryId: string) => void;
 };
@@ -50,13 +51,16 @@ export function Scene({
   spawnable,
   known,
   sheet,
-  initialFight,
+  address,
+  onNav,
   onOpenCodex,
 }: SceneProps) {
   const t = useTranslations("scene");
   const canFight = canInCampaign({ ctx: me, perm: "encounter:run" });
-  // A live fight opens the tab on FIGHT; otherwise on the scene.
-  const [layer, setLayer] = useState<SceneLayer>(canFight && (initialFight || state.encounter) ? "fight" : "scene");
+  // The address names the layer; without one a live fight shows FIGHT, otherwise the scene.
+  const layer: SceneLayer =
+    canFight && (address.layer ?? (state.encounter ? "fight" : "scene")) === "fight" ? "fight" : "scene";
+  const setLayer = (next: SceneLayer) => onNav({ layer: next, preview: undefined });
   const [error, setError] = useState<string | null>(null);
   const [beginning, setBeginning] = useState(false);
   const entries = useMemo(() => codex?.entries ?? [], [codex]);
@@ -111,6 +115,8 @@ export function Scene({
           act={act}
           latestBegin={codex?.latestBegin ?? null}
           onOpenCodex={onOpenCodex}
+          previewId={address.preview ?? null}
+          onPreview={(id) => onNav({ preview: id ?? undefined })}
         />
       ) : (
         <NoScene

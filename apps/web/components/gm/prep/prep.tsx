@@ -43,16 +43,35 @@ type PrepProps = {
   known: readonly RulesEntry[];
   /** RUN FROM HERE began a scene: the shell goes to the SCENE tab. */
   onPlay: () => void;
+  /** The address (house decision #111): the scene whose page is open and how it is looked at. */
+  openId: string | null;
+  mode: PrepMode;
+  /** Moves the address; opening a scene or switching mode is one step of the browser's history. */
+  onNav: (patch: { scene?: string; mode?: PrepMode }) => void;
 };
 
 // PREP: the GM's adventures as scenes in play order, each scene linked to the NPCs, places and handouts it needs and the
 // Tests it plans (docs/design.md §3.4). Revealing stays in CODEX.
-export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpenCodex, known, onPlay }: PrepProps) {
+export function Prep({
+  me,
+  state,
+  codex,
+  send,
+  ruleset,
+  spawnable,
+  onCall,
+  onOpenCodex,
+  known,
+  onPlay,
+  openId,
+  mode,
+  onNav,
+}: PrepProps) {
   const t = useTranslations("prep");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  // The scene whose page is open; the board's selection is what the glance reads.
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [mode, setMode] = useState<PrepMode>("prepare");
+  // The board's selection is what the glance reads; the open scene (the address) is the page.
+  const [selectedId, setSelectedId] = useState<string | null>(openId);
+  const setOpenId = (scene: string) => onNav({ scene, mode });
+  const setMode = (next: PrepMode) => onNav({ scene: openId ?? undefined, mode: next });
   const [newAdventure, setNewAdventure] = useState("");
   const [sceneFor, setSceneFor] = useState<string | null>(null);
   const [newScene, setNewScene] = useState("");

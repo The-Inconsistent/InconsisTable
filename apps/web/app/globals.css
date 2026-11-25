@@ -4579,6 +4579,10 @@ textarea.mf-json {
 
 /* A pool in the GM header: label and value on one line, wrapping with the band so it never widens the page. */
 .pool-button {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  align-items: baseline;
   max-width: 100%;
   overflow-wrap: anywhere;
 }

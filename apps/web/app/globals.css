@@ -3080,9 +3080,66 @@ summary {
     }
   }
 }
+/* The flash lasts until the next tap (house decision #112): after the lantern lights, the glow keeps beating. Reduced
+   motion: a steady ring instead of movement. */
+.turn-banner[data-flash="true"] {
+  animation:
+    lantern-lights calc(var(--dur-scene) * 2) var(--ease-out),
+    lantern-rise var(--dur-scene) var(--ease-spring),
+    lantern-beat calc(var(--dur-scene) * 3) ease-in-out calc(var(--dur-scene) * 2) infinite;
+}
+@keyframes lantern-beat {
+  50% {
+    box-shadow:
+      inset 0 0 0 4px var(--wood-0),
+      inset 0 0 0 5px var(--brass-lo),
+      0 0 44px var(--accent),
+      0 8px 14px var(--shadow);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .turn-banner[data-flash="true"] {
+    animation: turn-flash var(--dur-flash) var(--ease-out) 1;
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
 /* Turn alerts off on this device (Settings): the banner shows, still. */
-.quiet .turn-banner {
+.quiet .turn-banner,
+.quiet .turn-banner[data-flash="true"] {
   animation: none;
+  outline: none;
+}
+
+/* The phone's bottom tabs carry a live dot (a fight runs) and a NEW count (house decision #112): a word or number as
+   well as the mark, never colour alone. */
+.tab-live {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid currentColor;
+  vertical-align: 1px;
+}
+.tab-count {
+  display: inline-block;
+  min-width: 1.5em;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.6;
+  text-align: center;
+}
+/* The status line in the phone's header band: one chip that wraps with the band. */
+.phone-status {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 /* ---------- Test calls ---------- */

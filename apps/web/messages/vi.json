@@ -807,7 +807,13 @@
   "settingsMenu": {
     "label": "Cài đặt",
     "language": "Ngôn ngữ",
-    "turnAlerts": "Rung và nháy khi tới lượt tôi"
+    "turnAlerts": "Rung và nháy khi tới lượt tôi",
+    "turnSound": "Âm báo khi tới lượt tôi"
+  },
+  "turnSoundSwitch": {
+    "label": "Âm báo lượt",
+    "on": "Bật",
+    "off": "Tắt"
   },
   "alertsSwitch": {
     "label": "Báo lượt",
@@ -844,6 +850,15 @@
     "tabPending": "Tab này sẽ có nội dung khi bàn chơi tiếp.",
     "leave": "Rời bàn này",
     "tabsLabel": "Tab người chơi",
+    "tabLive": "{tab}, đang diễn ra",
+    "tabNew": "{tab}, {count} mới",
+    "status": {
+      "label": "Tình trạng trận",
+      "noFight": "Không có trận",
+      "yourTurn": "Đến lượt bạn",
+      "done": "Bạn: xong",
+      "round": "Vòng {round}"
+    },
     "tabs": {
       "sheet": "Sheet",
       "rules": "Luật",

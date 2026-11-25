@@ -140,11 +140,11 @@ The source draws the whole sheet from one component (wc/ui/book-sheet/book-sheet
 
 | # | Feature | Source | Target today | Needs | Size |
 |---|---|---|---|---|---|
-| 88 | Tabs SHEET, FIGHT, INTEL, RULES with the tab in `?tab=`; NEW count badge on INTEL; live dot on FIGHT | player-app.tsx:51-54, 223-247; constants.ts | PARTIAL: tabs sheet, rules, fight, map, notebook, standings, run (tw/player/player-app/constants.ts:2). `fight` and `map` render `tabPending` (player-app.tsx:216-217); tab in state, not URL; no NEW badge | S | M |
-| 89 | Header: campaign name, status line (NO COMBAT / YOUR TURN / ROUND n), offline badge, lobby link, account, menu (theme, sound, LEAVE) | player-app.tsx:109-170 | HAS: offline badge, session chip, settings menu, LEAVE (player-app.tsx:94-106, 84-90) | none | – |
+| 88 | Tabs SHEET, FIGHT, INTEL, RULES with the tab in `?tab=`; NEW count badge on INTEL; live dot on FIGHT | player-app.tsx:51-54, 223-247; constants.ts | DONE (#215 part A, house decision #112) | S | M |
+| 89 | Header: campaign name, status line (NO COMBAT / YOUR TURN / ROUND n), offline badge, lobby link, account, menu (theme, sound, LEAVE) | player-app.tsx:109-170 | DONE (#215 part A, house decision #112) | none | – |
 | 90 | Vitals strip on every tab: Wounds and Shock bars, Wrath, party Glory/max, Conditions and status chips, sustain line; folds to one line on scroll | vitals-strip.tsx:26-131 | PARTIAL: PoolsView (shared pools) and SheetView on the sheet tab only; no strip | B (phone strip widget, ADR 0010 #3) | M |
 | 91 | Multi-character strip | n/a (source: one Agent per seat) | HAS (extra): player-app.tsx:109-123 | – | – |
-| 92 | Archived banner (read-only game) | player-app.tsx:182 | not found in the target phone | S | S |
+| 92 | Archived banner (read-only game) | player-app.tsx:182 | DONE (#215 part A, house decision #112) | S | S |
 | 93 | FIGHT: now-acting plate, side up next, agents and threats rows with turn words (OUT, ACTING, AMBUSHED, HELD, DONE, READY), YOU mark, threat stat block by visibility, "no information" line | fight.tsx:57-252 | PARTIAL: OrderView above every tab (tw/ui/order-view); stat-block visibility (HD #75) exists; the FIGHT tab itself is a stub | S | M |
 | 94 | Your turn: THIS TURN options list (combat actions), 1 STRIKE weapon or power pick, 2 PICK A TARGET, 3 dice steps | fight.tsx:252-394; strike-steps.tsx:23-112; power-steps.tsx:32-109 | MISSING (plan item 15; no phone-turn target) | B (phone-turn widgets: pool and DN steps, target pick) | L |
 | 95 | Damage total typed, shows resulting Wounds or Shock against a shown target | strike-steps.tsx:44-60 | MISSING | B | M |

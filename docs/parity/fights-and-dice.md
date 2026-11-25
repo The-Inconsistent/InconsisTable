@@ -92,7 +92,7 @@ Read on 2026-11-21 from Auspex `main` plus the port commits (branch `feat/port-c
 | 61 | Phone NOW ACTING plate, UP NEXT, "n/m to act after you" | `fight.tsx:212-250` | PARTIAL: `TurnBanner` (`tw/player/turn-banner/turn-banner.tsx:13`), `OrderView`, `phoneLineOf` (`sides.ts:155`). No "after you" count | screen only | S |
 | 62 | Both sides listed on phones and TV with W/S numbers, Conditions as rule links, StatBlock toggle | `fight.tsx:94-160`; `web/screen/table-screen/table-screen.tsx:37` | PARTIAL: `OrderView` (`tw/screen/table-screen/table-screen.tsx:11`; `player-app.tsx`). No stat-block toggle or condition rule links | screen only | S |
 | 63 | Bars-only Threat note: "ask GM for a Scholar (Int) Test" | `fight.tsx:166`; `rf` §11.174 | MISSING | screen only | S |
-| 64 | Turn alert: flash + vibration + opt-in tone | `frontend.md:1056-1070` | PARTIAL: vibrate + pulse (`turn-banner.tsx:13`); alerts switch | screen only | S |
+| 64 | Turn alert: flash + vibration + opt-in tone | `frontend.md:1056-1070` | DONE (#215 part A, house decision #112) | screen only | S |
 
 ## E. Critical Hits, Perils, psychic powers
 

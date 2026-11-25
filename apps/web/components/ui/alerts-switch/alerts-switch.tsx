@@ -17,16 +17,20 @@ const stored = (): boolean => {
 /** Whether this device buzzes and flashes when a turn starts (the root class, set from storage on load). */
 export const turnAlertsOn = (): boolean => !document.documentElement.classList.contains(QUIET);
 
-/** The phone's one buzz (a turn starting, a whisper arriving), when alerts are on. Guarded: not every browser has it,
+/** A whisper's buzz, and the turn's two short buzzes with a gap (vibrate, pause, vibrate), in ms. */
+export const BUZZ = 200;
+export const TURN_BUZZ = [200, 120, 200];
+
+/** The phone's buzz (a turn starting, a whisper arriving), when alerts are on. Guarded: not every browser has it,
  * and Chrome ignores it before the first tap on the page. */
-export const buzz = () => {
+export const buzz = (pattern: number | number[] = BUZZ) => {
   if (
     typeof navigator !== "undefined" &&
     "vibrate" in navigator &&
     navigator.userActivation?.hasBeenActive &&
     turnAlertsOn()
   )
-    navigator.vibrate(200);
+    navigator.vibrate(pattern);
 };
 
 const subscribe = (onChange: () => void) => {

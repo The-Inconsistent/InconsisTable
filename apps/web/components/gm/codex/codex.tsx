@@ -29,10 +29,11 @@ type CodexProps = {
   state: LiveState;
   codex: CodexSnapshot | null;
   send: Send;
-  /** The entry open on arrival (PREP's "Open in CODEX"). */
-  initialOpenId?: string | null;
-  /** The kind listed on arrival (a checklist step's GO TO, house decision #90). */
-  initialKind?: CodexKind | null;
+  /** The address (house decision #111): the kind listed and the entry open; null is "all" and none. A change goes to
+   *  `onNav`, one step of the browser's history. Without `onNav` (the phone's) the Codex keeps them itself. */
+  kind?: CodexKind | null;
+  openId?: string | null;
+  onNav?: (patch: { kind?: CodexKind; entry?: string }) => void;
   /** The manifest as this seat reads it: the fields each kind of entry carries (house decision #71). */
   ruleset?: Ruleset | null;
   /** Pack entries this seat already read, to name a ref field's entry. */
@@ -53,8 +54,9 @@ export function Codex({
   state,
   codex,
   send,
-  initialOpenId = null,
-  initialKind = null,
+  kind: givenKind = null,
+  openId: givenOpenId = null,
+  onNav: givenNav,
   ruleset = null,
   known = NO_ENTRIES,
   books,
@@ -62,9 +64,14 @@ export function Codex({
   spawnable = null,
 }: CodexProps) {
   const t = useTranslations("codex");
-  const [kind, setKind] = useState<KindFilter>(initialKind ?? "all");
+  const [own, setOwn] = useState<{ kind?: CodexKind; entry?: string }>({});
+  const addressKind = givenNav ? givenKind : (own.kind ?? null);
+  const openId = givenNav ? givenOpenId : (own.entry ?? null);
+  const onNav = givenNav ?? setOwn;
+  const kind: KindFilter = addressKind ?? "all";
   const [query, setQuery] = useState("");
-  const [openId, setOpenId] = useState<string | null>(initialOpenId);
+  // Opens an entry, or closes the open one (null); the kind listed stays.
+  const setOpenId = (entry: string | null) => onNav({ kind: addressKind ?? undefined, entry: entry ?? undefined });
   const [adding, setAdding] = useState(false);
   const [fromPack, setFromPack] = useState(false);
   const packKinds = useMemo(() => fromKinds(ruleset), [ruleset]);
@@ -91,7 +98,7 @@ export function Codex({
   };
 
   // Filter chips: "All" or one kind.
-  const handleKind = (k: KindFilter) => () => setKind(k);
+  const handleKind = (k: KindFilter) => () => onNav({ kind: k === "all" ? undefined : k, entry: openId ?? undefined });
 
   // Search box: filters the list as the GM types.
   const handleQuery = (e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value);
@@ -117,8 +124,7 @@ export function Codex({
     setNewTitle("");
     setAdding(false);
     if (r.id) {
-      setOpenId(r.id);
-      setKind("all");
+      onNav({ entry: r.id });
       setQuery("");
     }
   };

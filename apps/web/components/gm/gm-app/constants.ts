@@ -19,6 +19,3 @@ export type GmTab = keyof typeof GM_TABS;
 // ?tab=track opens SCENE on its FIGHT layer, so links made before the tracker moved keep working.
 export const TAB_PARAM = "tab";
 export const FIGHT_TAB = "track";
-export const asGmTab = (v: string | string[] | undefined): GmTab =>
-  v === FIGHT_TAB ? "scene" : typeof v === "string" && Object.hasOwn(GM_TABS, v) ? (v as GmTab) : "scene";
-export const asFight = (v: string | string[] | undefined): boolean => v === FIGHT_TAB;

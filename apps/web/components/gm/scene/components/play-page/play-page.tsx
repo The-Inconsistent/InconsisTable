@@ -89,12 +89,7 @@ export function PlayPage({
           </div>
         </details>
       )}
-      <Missions
-        scene={scene}
-        entries={entries}
-        actors={world.state.actors}
-        onOpenEntry={onOpenEntry}
-      />
+      <Missions scene={scene} entries={entries} actors={world.state.actors} onOpenEntry={onOpenEntry} />
       <LineList sender={sender} world={world} names={names} kinds={PAGE_LINE_KINDS} readOnly={readOnly} />
     </article>
   );

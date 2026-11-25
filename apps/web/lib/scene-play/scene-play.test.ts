@@ -234,7 +234,7 @@ test("sceneGlance: links by kind, handouts and items, lines, fighters and what i
   assert.deepEqual(sceneGlance({ scene: entry("e"), entries: [] }).byKind, []);
 });
 
-test("sceneMissions: quests linked to the scene or its adventure, once each, with status and who they are listed to", () => {
+test("sceneMissions: the quests linked to the scene, with status and who they are listed to", () => {
   const quest = (id: string, over: Partial<CodexEntry> = {}) => entry(id, { kind: "quest", status: "open", ...over });
   const entries = [
     quest("q1", { audienceMode: "listed", audience: ["a1", "a2"] }),
@@ -242,8 +242,7 @@ test("sceneMissions: quests linked to the scene or its adventure, once each, wit
     entry("n", { kind: "npc" }),
   ];
   const s = entry("s", { links: ["q1", "n", "gone", "q2"] });
-  const a = entry("a", { kind: "adventure", links: ["q2", "q1"] });
-  const got = sceneMissions({ scene: s, adventure: a, entries });
+  const got = sceneMissions({ scene: s, entries });
   assert.deepEqual(
     got.map((m) => [m.quest.id, m.status, m.audience]),
     [
@@ -251,13 +250,7 @@ test("sceneMissions: quests linked to the scene or its adventure, once each, wit
       ["q2", "done", []],
     ],
   );
-  assert.deepEqual(
-    sceneMissions({ scene: entry("s2"), adventure: entry("a2", { kind: "adventure", links: ["q2"] }), entries }).map(
-      (m) => m.quest.id,
-    ),
-    ["q2"],
-  );
-  assert.deepEqual(sceneMissions({ scene: entry("s3"), adventure: null, entries }), []);
+  assert.deepEqual(sceneMissions({ scene: entry("s3"), entries }), []);
 });
 
 test("scenePoolLines: the pool lines of the scene being played that name the pool", () => {

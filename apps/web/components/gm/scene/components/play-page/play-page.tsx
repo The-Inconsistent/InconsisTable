@@ -91,7 +91,6 @@ export function PlayPage({
       )}
       <Missions
         scene={scene}
-        adventure={adventure}
         entries={entries}
         actors={world.state.actors}
         onOpenEntry={onOpenEntry}

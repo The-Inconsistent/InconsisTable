@@ -144,21 +144,12 @@ export function sceneGlance({ scene, entries }: { scene: CodexEntry; entries: re
 }
 
 /**
- * The missions of a scene (issue #216): the quests linked to the scene or to its adventure, each once, the scene's own
- * first, with its status and the actors it is listed to (an empty list: the whole table reads it).
+ * The missions of a scene (issue #216): the quests linked to the scene, with its status and the actors it is listed to
+ * (an empty list: the whole table reads it). Only a scene links, so a mission is a scene's (house decision #108).
  */
-export function sceneMissions({
-  scene,
-  adventure,
-  entries,
-}: {
-  scene: CodexEntry;
-  adventure: CodexEntry | null;
-  entries: readonly CodexEntry[];
-}) {
+export function sceneMissions({ scene, entries }: { scene: CodexEntry; entries: readonly CodexEntry[] }) {
   const byId = new Map(entries.map((e) => [e.id, e]));
-  const ids = [...new Set([...scene.links, ...(adventure?.links ?? [])])];
-  return ids.flatMap((id) => {
+  return scene.links.flatMap((id) => {
     const quest = byId.get(id);
     return quest?.kind === "quest"
       ? [{ quest, status: quest.status, audience: quest.audienceMode === "listed" ? quest.audience : [] }]

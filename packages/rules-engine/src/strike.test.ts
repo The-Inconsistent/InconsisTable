@@ -188,7 +188,7 @@ test("a strike's declaration is refused at its path", () => {
   s.outcomes = [...s.outcomes, { id: "x", label: "X", when: "ctx.nope", shock: "1" }];
   s.then = { table: "blow", inputs: { press: "nope", nope: "aim" } };
   s.targets = ["arm"];
-  bad.strikes.push({ ...s, id: "blow", cite: undefined });
+  bad.strikes = [s, { ...s, id: "blow", cite: undefined }];
   const r = compileRuleset(bad);
   assert.ok(!r.ok);
   const paths = r.problems.map((p) => `${p.path}: ${p.message}`);
@@ -254,4 +254,57 @@ test("a strike's expressions are checked over every attacker and target", () => 
   const paths = r.problems.map((p) => p.path);
   assert.ok(paths.includes("strikes[0].pool.expr"));
   assert.ok(paths.includes("strikes[0].outcomes[0].when"));
+});
+
+test("a choice reads as the option picked, the first when none is, and nothing else (house decision #112)", () => {
+  const sweep = (inputs: Record<string, unknown>) =>
+    planStrike({
+      ruleset: HARM,
+      strikeId: "sweep",
+      attacker: { entity: "hero", scope: hero() },
+      target: { entity: "swarm", scope: swarm(6) },
+      means: null,
+      inputs,
+      total: 9,
+    });
+  const light = plan(sweep({}));
+  assert.equal(light.pool.total, 4);
+  assert.deepEqual(light.harm, { wounds: 1, shock: 0 });
+  const allIn = plan(sweep({ force: 2 }));
+  assert.equal(allIn.pool.total, 6);
+  assert.deepEqual(allIn.shows, [
+    { id: "strain", total: 2, lines: [{ source: "Strain to pay", amount: 2, cite: "Sample p.18" }] },
+  ]);
+  assert.deepEqual(allIn.harm, { wounds: 3, shock: 0 });
+  for (const force of [3, 1.5, true, "1"]) {
+    const r = sweep({ force });
+    assert.ok(isRefusal(r) && r.code === "badInput", `force ${String(force)}`);
+  }
+});
+
+test("a choice has options and no bounds, only a choice has options, and its values differ (house decision #112)", () => {
+  const bad = structuredClone(SAMPLE_HARM) as RulesetInput & { strikes: NonNullable<RulesetInput["strikes"]> };
+  const s = bad.strikes[1]!;
+  const options = [
+    { label: "A", value: 1 },
+    { label: "B", value: 1 },
+  ];
+  s.inputs = [
+    { id: "a", label: "A", type: "choice", min: 0 },
+    { id: "b", label: "B", type: "int", options },
+    { id: "c", label: "C", type: "choice", options },
+  ];
+  const r = compileRuleset(bad);
+  assert.ok(!r.ok);
+  const paths = r.problems.map((p) => `${p.path}: ${p.message}`);
+  for (const want of [
+    "strikes[1].inputs[0]: a choice has no bounds",
+    "strikes[1].inputs[0]: a choice needs options",
+    "strikes[1].inputs[1].options: only a choice has options",
+    "strikes[1].inputs[2].options[1].value: duplicate value 1",
+  ])
+    assert.ok(paths.includes(want), `${want}\nin\n${paths.join("\n")}`);
+  const sweep = SAMPLE_HARM.strikes![1]!;
+  assert.ok(!compileRuleset({ ...SAMPLE_HARM, strikes: [{ ...sweep, byOwner: false as never }] }).ok);
+  assert.ok(!compileRuleset({ ...SAMPLE_HARM, strikes: [{ ...sweep, limit: { per: "turn" as never, max: 1 } }] }).ok);
 });

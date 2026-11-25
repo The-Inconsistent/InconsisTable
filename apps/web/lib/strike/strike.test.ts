@@ -35,7 +35,7 @@ const rats = actor("Rats", "swarm", { size: 6 }, { might: 1, guard: 1, toughness
 test("the guide offers each type's strikes, the means it holds that the packs have, and every other fighter", () => {
   assert.deepEqual(
     strikesFor({ ruleset, actor: hal }).map((s) => s.id),
-    ["blow"],
+    ["blow", "sweep"],
   );
   assert.deepEqual(entryTypesOf({ ruleset, strike: blow }), ["arm"]);
   assert.deepEqual(

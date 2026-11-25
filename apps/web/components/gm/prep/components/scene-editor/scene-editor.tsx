@@ -232,7 +232,14 @@ export function SceneEditor({
 
       {show("lines") && (
         <>
-          <PrepLines scene={scene} world={world} names={names} ruleset={ruleset} act={act} />
+          <PrepLines
+            scene={scene}
+            world={world}
+            names={names}
+            ruleset={ruleset}
+            act={act}
+            heading={only === undefined}
+          />
           <BudgetLines
             ruleset={ruleset}
             picks={rosterPicks({ prep: scene.prep ?? EMPTY_PREP, bodies })}

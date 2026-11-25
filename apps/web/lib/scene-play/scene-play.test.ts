@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import type { CodexEntry } from "@inconsistable/core-schema";
 import { Ruleset } from "@inconsistable/rules-engine";
+import { EMPTY_PREP, type PrepWorld } from "@/lib/scene-prep/scene-prep";
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 
 import {
@@ -12,6 +13,8 @@ import {
   sceneCast,
   sceneFixes,
   sceneGlance,
+  sceneMissions,
+  scenePoolLines,
   sceneTagline,
   scenePlay,
   sceneNumber,
@@ -229,4 +232,55 @@ test("sceneGlance: links by kind, handouts and items, lines, fighters and what i
     ["h"],
   );
   assert.deepEqual(sceneGlance({ scene: entry("e"), entries: [] }).byKind, []);
+});
+
+test("sceneMissions: quests linked to the scene or its adventure, once each, with status and who they are listed to", () => {
+  const quest = (id: string, over: Partial<CodexEntry> = {}) => entry(id, { kind: "quest", status: "open", ...over });
+  const entries = [
+    quest("q1", { audienceMode: "listed", audience: ["a1", "a2"] }),
+    quest("q2", { status: "done" }),
+    entry("n", { kind: "npc" }),
+  ];
+  const s = entry("s", { links: ["q1", "n", "gone", "q2"] });
+  const a = entry("a", { kind: "adventure", links: ["q2", "q1"] });
+  const got = sceneMissions({ scene: s, adventure: a, entries });
+  assert.deepEqual(
+    got.map((m) => [m.quest.id, m.status, m.audience]),
+    [
+      ["q1", "open", ["a1", "a2"]],
+      ["q2", "done", []],
+    ],
+  );
+  assert.deepEqual(
+    sceneMissions({ scene: entry("s2"), adventure: entry("a2", { kind: "adventure", links: ["q2"] }), entries }).map(
+      (m) => m.quest.id,
+    ),
+    ["q2"],
+  );
+  assert.deepEqual(sceneMissions({ scene: entry("s3"), adventure: null, entries }), []);
+});
+
+test("scenePoolLines: the pool lines of the scene being played that name the pool", () => {
+  const prep = {
+    ...EMPTY_PREP,
+    pools: [
+      { id: "p1", pool: "glory", amount: 1, text: "" },
+      { id: "p2", pool: "ruin", amount: -1, text: "" },
+      { id: "p3", pool: "glory", amount: -2, text: "" },
+    ],
+  };
+  const entries = [entry("s1", { status: "done", prep }), entry("s2", { status: "active", prep })];
+  const world = { state: { pools: [] }, entries, spawnable: { packs: [], entries: [], complete: true } };
+  const got = scenePoolLines({ entries, pool: "glory", world: world as unknown as PrepWorld });
+  assert.deepEqual(
+    got.map((g) => [g.line.id, g.resolved.state]),
+    [
+      ["p1", "broken"],
+      ["p3", "broken"],
+    ],
+  );
+  assert.deepEqual(
+    scenePoolLines({ entries: [entry("s", { prep })], pool: "glory", world: world as unknown as PrepWorld }),
+    [],
+  );
 });

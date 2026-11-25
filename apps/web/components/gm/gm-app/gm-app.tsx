@@ -80,10 +80,10 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
   const query = (a: GmAddress) => gmAddress(a, params.entries());
   const settled = gmAddress(address) === gmAddress(requested);
 
-  // Keeps the history in step with the fallback: replaced, not pushed, so Back does not loop. The history is the
-  // external system this syncs with.
+  // Keeps the history in step with the fallback once the room is read (STANDINGS depends on it): replaced, not pushed,
+  // so Back does not loop. The history is the external system this syncs with.
   useEffect(() => {
-    if (!settled) window.history.replaceState(null, "", `${pathname}?${gmAddress(address, params.entries())}`);
+    if (state && !settled) window.history.replaceState(null, "", `${pathname}?${gmAddress(address, params.entries())}`);
   });
 
   // Moves the address: one step of the browser's history. Not router.push: that would re-run the server page.

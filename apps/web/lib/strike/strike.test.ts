@@ -5,7 +5,16 @@ import type { Actor } from "@inconsistable/core-schema";
 import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_HARM, SAMPLE_HARM_ARMS } from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
-import { entryTypesOf, isPlan, meansOf, meansTexts, previewStrike, strikesFor, targetsOf } from "./strike.ts";
+import {
+  entryTypesOf,
+  isPlan,
+  meansOf,
+  meansTexts,
+  previewStrike,
+  strikeHold,
+  strikesFor,
+  targetsOf,
+} from "./strike.ts";
 
 const made = compileRuleset(SAMPLE_HARM);
 if (!made.ok) throw new Error(JSON.stringify(made.problems));
@@ -35,7 +44,7 @@ const rats = actor("Rats", "swarm", { size: 6 }, { might: 1, guard: 1, toughness
 test("the guide offers each type's strikes, the means it holds that the packs have, and every other fighter", () => {
   assert.deepEqual(
     strikesFor({ ruleset, actor: hal }).map((s) => s.id),
-    ["blow"],
+    ["blow", "sweep"],
   );
   assert.deepEqual(entryTypesOf({ ruleset, strike: blow }), ["arm"]);
   assert.deepEqual(
@@ -135,4 +144,31 @@ test("a means' text values are shown beside it, and the further numbers come wit
     p.shows.map((s) => [s.id, s.total]),
     [["damage", 9]],
   );
+});
+
+test("a phone sends a strike only as the server lets its owner, and says why not otherwise (house decision #113)", () => {
+  const sweep = ruleset.strikes![1]!;
+  const cb = (id: string, actorId: string, visibility: "full" | "bar", used?: string[]) =>
+    ({ id, actorId, visibility, ...(used ? { used } : {}) }) as never;
+  const encounter = (over: {
+    currentId?: string | null;
+    paused?: boolean;
+    used?: string[];
+    rats?: "full" | "bar";
+  }) => ({
+    currentId: over.currentId === undefined ? "c1" : over.currentId,
+    paused: over.paused ?? false,
+    combatants: [cb("c1", "Hal", "full", over.used), cb("c2", "Rats", over.rats ?? "full")],
+  });
+  const hold = (over: Parameters<typeof encounter>[0], strike = sweep, tableMode: "gm" | "gmless" = "gm") =>
+    strikeHold({ strike, encounter: encounter(over), tableMode, attackerId: "Hal", targetId: "Rats" });
+  assert.equal(hold({}), null);
+  assert.equal(hold({}, blow), "strikeNotByOwner");
+  assert.equal(hold({}, blow, "gmless"), null);
+  assert.equal(hold({ currentId: "c2" }), "strikeNotYourTurn");
+  assert.equal(hold({ currentId: null }), "strikeNotYourTurn");
+  assert.equal(hold({ paused: true }), "sessionPaused");
+  assert.equal(hold({ rats: "bar" }), "strikeTargetHidden");
+  assert.equal(hold({ used: ["strike:sweep"] }), "usedThisRound");
+  assert.equal(hold({ used: ["sweep", "strike:blow"] }), null);
 });

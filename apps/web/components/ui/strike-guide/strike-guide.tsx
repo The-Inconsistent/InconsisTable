@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
-import type { ActionInput, Actor, BookSource } from "@inconsistable/core-schema";
+import type { ActionInput, Actor, BookSource, Encounter, TableMode } from "@inconsistable/core-schema";
 import type { CompiledRuleset, Ruleset, StrikeFigureRead } from "@inconsistable/rules-engine";
 
 import { BreakdownLines } from "@/components/ui/breakdown-lines/breakdown-lines";
@@ -12,7 +12,16 @@ import type { RequestPage } from "@/hooks/use-table/use-table";
 import { RulesReply, type RulesEntry } from "@/lib/library/library";
 import { typedOf } from "@/lib/lookup/lookup";
 import { nextTable } from "@/lib/spends/spends";
-import { entryTypesOf, isPlan, meansOf, meansTexts, previewStrike, strikesFor, targetsOf } from "@/lib/strike/strike";
+import {
+  entryTypesOf,
+  isPlan,
+  meansOf,
+  meansTexts,
+  previewStrike,
+  strikeHold,
+  strikesFor,
+  targetsOf,
+} from "@/lib/strike/strike";
 
 type StrikeGuideProps = {
   ruleset: Ruleset;
@@ -29,6 +38,11 @@ type StrikeGuideProps = {
   run: (a: ActionInput) => Promise<boolean>;
   /** Opens the strike's next table for the target, with the strike's inputs carried (house decision #91's shape). */
   onTable?: (open: { tableId: string; actorId: string; inputs: Record<string, number | boolean> }) => void;
+  /**
+   * A player's phone (house decision #113): it SENDs only what the server lets its owner send now, and otherwise reads
+   * the result out for the GM to apply. Absent: the side that runs the fight, which APPLIES any strike.
+   */
+  phone?: { encounter: Pick<Encounter, "currentId" | "paused" | "combatants">; tableMode: TableMode };
 };
 
 const ENTRIES = 200;
@@ -38,8 +52,20 @@ const ENTRIES = 200;
 // the table, see what it does, APPLY (strike.apply, which the server works out again), then the notes and the table at
 // hand. The app never rolls and never decides a hit. A widget of the closed list, so a layout target can place it.
 export function StrikeGuide(props: StrikeGuideProps) {
-  const { ruleset, compiled, attacker, fighting, campaignId, characters, campaign, books, requestPage, run, onTable } =
-    props;
+  const {
+    ruleset,
+    compiled,
+    attacker,
+    fighting,
+    campaignId,
+    characters,
+    campaign,
+    books,
+    requestPage,
+    run,
+    onTable,
+    phone,
+  } = props;
   const t = useTranslations("strike");
   const tr = useRefusal();
   const kinds = strikesFor({ ruleset, actor: attacker });
@@ -74,6 +100,8 @@ export function StrikeGuide(props: StrikeGuideProps) {
   const harm = ruleset.health.harm;
   const label = (id: string | undefined) => ruleset.resources.find((r) => r.id === id)?.label ?? id ?? "";
   const next = nextTable({ ruleset, spend: { then: strike.then }, inputs });
+  // On a phone: why it may not send this itself, or null when it may (the server decides again).
+  const hold = phone ? strikeHold({ strike, ...phone, attackerId: attacker.id, targetId: target?.id }) : null;
 
   // STRIKE: opens the guide, reading the attached packs' entries its means come from.
   const handleOpen = async () => {
@@ -155,6 +183,13 @@ export function StrikeGuide(props: StrikeGuideProps) {
         : []),
       ...(h.shock !== 0 ? [t("change", { by: h.shock, label: label(harm?.shock) })] : []),
     ].join(", ");
+  const outcomeText = !isPlan(plan)
+    ? ""
+    : plan.outcome === null
+      ? t("nothing")
+      : plan.harm === null
+        ? t("outcomeOnly", { outcome: plan.outcome.label })
+        : t("outcome", { outcome: plan.outcome.label, harm: harmWords(plan.harm), name: target?.name ?? "" });
 
   return (
     <section className="stack strike-guide" aria-label={t("guideFor", { name: attacker.name })}>
@@ -219,7 +254,24 @@ export function StrikeGuide(props: StrikeGuideProps) {
         </label>
       )}
       {(strike.inputs ?? []).map((x) =>
-        x.type === "bool" ? (
+        x.type === "choice" ? (
+          <div key={x.id} className="stack">
+            <span>{x.label}</span>
+            <div className="seg strike-choice" role="group" aria-label={x.label}>
+              {(x.options ?? []).map((o, i) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  className="btn"
+                  aria-pressed={inputs[x.id] === undefined ? i === 0 : inputs[x.id] === o.value}
+                  onClick={() => setInputs((was) => ({ ...was, [x.id]: o.value }))}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : x.type === "bool" ? (
           <label key={x.id} className="row" style={{ minHeight: 44 }}>
             <input
               type="checkbox"
@@ -280,20 +332,22 @@ export function StrikeGuide(props: StrikeGuideProps) {
             </label>
             {total !== null && (
               <output className="strike-outcome" aria-live="polite">
-                {plan.outcome === null
-                  ? t("nothing")
-                  : plan.harm === null
-                    ? t("outcomeOnly", { outcome: plan.outcome.label })
-                    : t("outcome", {
-                        outcome: plan.outcome.label,
-                        harm: harmWords(plan.harm),
-                        name: target?.name ?? "",
-                      })}
+                {outcomeText}
               </output>
             )}
-            <button type="submit" className="btn primary" disabled={plan.harm === null || total === null}>
-              {t("apply")}
-            </button>
+            {hold === null ? (
+              <button type="submit" className="btn primary" disabled={plan.harm === null || total === null}>
+                {phone ? t("send") : t("apply")}
+              </button>
+            ) : (
+              total !== null &&
+              plan.harm !== null && (
+                <div className="stack" role="status">
+                  <p className="strike-tell">{t("tellGm", { result: outcomeText })}</p>
+                  <p className="small dim">{tr({ code: hold, message: hold, params: { detail: strike.label } })}</p>
+                </div>
+              )
+            )}
           </form>
           {plan.notes.length > 0 && (
             <ul className="stack strike-notes" aria-label={t("notes")}>

@@ -12,6 +12,7 @@ import (
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter/turn"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
 
 // Steps 4-5 of docs/design.md §5.3 (apps/api/src/ruleset/ruleset.run.ts and ruleset.context.ts): an op runs against
@@ -317,13 +318,19 @@ func (rc *Context) ApplyRuled(ctx context.Context, deltas []engine.Delta) (strin
 		actor.Apply{Ctx: rc.c, Compiled: rc.Compiled, Built: rc.Built, Deltas: deltas, Pools: rc.Pools, Trusted: true, Charged: true})
 }
 
+// importProblems is what an import refuses of a manifest that compiles: a table with no entry, and a strike its owner
+// sends that a player's copy does not carry (house decision #113).
+func importProblems(r *engine.Ruleset) []engine.Problem {
+	return append(engine.ImportProblems(r), view.OwnerStrikeProblems(r.Normalized)...)
+}
+
 // CheckRuleset is a manifest as the owner pasted it: validated and every expression compiled, returned normalized
 // (defaults applied) with the hash of that document (apps/api/src/ruleset/ruleset.check.ts). The hash is the compiled
 // cache key and tells a repeat import from a changed one.
 func CheckRuleset(input any) (normalized *engine.Ruleset, hash string, problems []engine.Problem) {
 	rules, problems := engine.CompileRuleset(input)
 	if len(problems) == 0 {
-		problems = engine.ImportProblems(rules.Ruleset)
+		problems = importProblems(rules.Ruleset)
 	}
 	if len(problems) > 0 {
 		return nil, "", problems

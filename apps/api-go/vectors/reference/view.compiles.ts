@@ -69,7 +69,7 @@ export function compilable(manifest: Ruleset): Ruleset {
   return m;
 }
 
-function problemsOf(m: unknown): Problem[] {
+export function problemsOf(m: unknown): Problem[] {
   const r = compileRuleset(m);
   if (r.ok) return [];
   return [...r.problems].sort((a, b) => compare(a.path, b.path) || compare(a.message, b.message));

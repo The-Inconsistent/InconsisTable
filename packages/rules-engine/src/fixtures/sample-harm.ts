@@ -484,7 +484,7 @@ export const SAMPLE_HARM_BEFORE_GENERATORS: RulesetInput = {
  * sample-harm 0.1.6 (house decision #98), the second shape of a generator: one roll on a table of signs, made into one
  * lore entry with no codex block at all. Invented like the rest.
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_BEFORE_OWNER: RulesetInput = {
   ...SAMPLE_HARM_BEFORE_GENERATORS,
   version: "0.1.6",
   tables: {
@@ -507,6 +507,68 @@ export const SAMPLE_HARM: RulesetInput = {
       cite: "Sample p.15",
       steps: [{ id: "sign", label: "The sign", kind: "roll", table: "sign" }],
       make: { kind: "lore", title: "sign" },
+    },
+  ],
+};
+
+/**
+ * sample-harm 0.1.7 (house decision #113): a sweep a hero's own phone may send, once a round, at a swarm, reading only
+ * what every seat reads (the hero's might, the swarm's guard), so a player's copy keeps it where the blow, which reads a
+ * brute's GM-only numbers, is cut. The force put in is a choice: more dice, more members thinned, and as much strain
+ * to pay, a further number the guide shows. Invented like the rest.
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_BEFORE_OWNER,
+  version: "0.1.7",
+  layout: {
+    hero: {
+      sections: SAMPLE_HARM_BEFORE_OWNER.layout?.hero?.sections ?? [],
+      phoneTurn: [
+        { widget: "strike", variant: "blow" },
+        { widget: "strike", variant: "sweep" },
+      ],
+    },
+  },
+  strikes: [
+    ...(SAMPLE_HARM_BEFORE_OWNER.strikes ?? []),
+    {
+      id: "sweep",
+      label: "Sweep",
+      cite: "Sample p.18",
+      entities: ["hero"],
+      targets: ["swarm"],
+      byOwner: true,
+      limit: { per: "round", max: 1 },
+      inputs: [
+        {
+          id: "force",
+          label: "Force",
+          type: "choice",
+          options: [
+            { label: "Light", value: 0 },
+            { label: "Hard", value: 1 },
+            { label: "All in", value: 2 },
+          ],
+          cite: "Sample p.18",
+        },
+      ],
+      pool: {
+        label: "Might",
+        expr: "derived.might",
+        cite: "Sample p.18",
+        adds: [{ label: "Force", by: "ctx.force", cite: "Sample p.18" }],
+      },
+      beat: { label: "Guard", expr: "ctx.target.derived.guard", cite: "Sample p.18" },
+      shows: [{ id: "strain", label: "Strain to pay", expr: "ctx.force", cite: "Sample p.18" }],
+      outcomes: [
+        {
+          id: "thinned",
+          label: "Thinned",
+          when: "ctx.total > ctx.beat",
+          wounds: "1 + ctx.force",
+          cite: "Sample p.18",
+        },
+      ],
     },
   ],
 };

@@ -884,7 +884,7 @@ var (
 			schema.Req("key", label(64)),
 			schema.Req("type", schema.Enum("int", "bool", "text")),
 		)), func(v any) bool { return len(v.(map[string]any)) <= maxStrikeValues }, "at most 20 values")),
-		schema.Opt("inputs", schema.Array(tableInputSchema).Min(1).Max(MaxLookupInputs)),
+		schema.Opt("inputs", schema.Array(strikeInputSchema).Min(1).Max(MaxLookupInputs)),
 		schema.Req("pool", strikeFigureSchema),
 		schema.Req("beat", strikeFigureSchema),
 		schema.Opt("soak", strikeFigureSchema),
@@ -903,6 +903,21 @@ var (
 			schema.Opt("cite", citeSchema),
 		)).Max(10)),
 		schema.Opt("then", schema.Object(schema.Req("table", idSchema), schema.Opt("inputs", schema.Record(idSchema, idSchema)))),
+		schema.Opt("byOwner", schema.Literal(true)),
+		schema.Opt("limit", schema.Object(schema.Req("per", schema.Literal("round")), schema.Req("max", schema.Int().Min(1).Max(10)))),
+	)
+	// strikeInputSchema is a lookup's input or a choice (manifest.ts StrikeInput, house decision #113).
+	strikeInputSchema = schema.Object(
+		schema.Req("id", idSchema),
+		schema.Req("label", label(60)),
+		schema.Req("type", schema.Enum("bool", "int", "choice")),
+		schema.Opt("min", schema.Int().Min(-1000).Max(1000)),
+		schema.Opt("max", schema.Int().Min(-1000).Max(1000)),
+		schema.Opt("cite", citeSchema),
+		schema.Opt("options", schema.Array(schema.Object(
+			schema.Req("label", label(60)),
+			schema.Req("value", schema.Int().Min(-1000).Max(1000)),
+		)).Min(2).Max(10)),
 	)
 )
 

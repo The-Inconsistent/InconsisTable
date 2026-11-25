@@ -1316,6 +1316,21 @@ export const StrikeOutcome = z.object({
 export type StrikeOutcome = z.infer<typeof StrikeOutcome>;
 
 /**
+ * A value set before a strike: a lookup's switch or stepper (#87), or a `choice` (house decision #113), 2 to 10
+ * labelled options, each a whole number read as `ctx.<id>` as a stepper's is (the first option's when none is picked).
+ * A choice has no bounds, and only a choice has options.
+ */
+export const StrikeInput = TableInput.extend({
+  type: z.enum(["bool", "int", "choice"]),
+  options: z
+    .array(z.object({ label: z.string().min(1).max(60), value: z.int().min(-1000).max(1000) }))
+    .min(2)
+    .max(10)
+    .optional(),
+});
+export type StrikeInput = z.infer<typeof StrikeInput>;
+
+/**
  * A kind of strike a game has (house decision #99): an attacker of the `entities` types, with one of its means, on a
  * target of the `targets` types. `pool` is what to roll, `beat` the number to beat and `soak` what the target takes off;
  * each reads the attacker's scope plus `ctx`: the inputs, `ctx.means.<value>`, `ctx.target` (the target's scope) and
@@ -1341,7 +1356,7 @@ export const Strike = z.object({
     .record(Id, z.object({ key: z.string().min(1).max(64), type: z.enum(["int", "bool", "text"]) }))
     .refine((o) => Object.keys(o).length <= MAX_STRIKE_VALUES, `at most ${MAX_STRIKE_VALUES} values`)
     .optional(),
-  inputs: z.array(TableInput).min(1).max(MAX_LOOKUP_INPUTS).optional(),
+  inputs: z.array(StrikeInput).min(1).max(MAX_LOOKUP_INPUTS).optional(),
   pool: StrikeFigure,
   beat: StrikeFigure,
   soak: StrikeFigure.optional(),
@@ -1355,6 +1370,13 @@ export const Strike = z.object({
     .optional(),
   /** The random table the guide offers next, and which strike inputs fill which of its inputs (#91's shape). */
   then: z.object({ table: Id, inputs: z.record(Id, Id).optional() }).optional(),
+  /**
+   * The seat that holds the attacker may send it, on the attacker's own turn, at a target shown to it in full (house
+   * decision #113). Absent: only the side that runs the fight applies it.
+   */
+  byOwner: z.literal(true).optional(),
+  /** At most `max` of this strike per attacker in a round of the fight (house decision #91's count; #113). */
+  limit: z.object({ per: SpendLimitPer, max: z.int().min(1).max(10) }).optional(),
 });
 export type Strike = z.infer<typeof Strike>;
 
@@ -2827,6 +2849,15 @@ function strikeProblems({
       if (STRIKE_CTX_ROOTS.has(x.id)) out.push({ path: `${at}.id`, message: `"${x.id}" is reserved` });
       if (x.type === "bool" && (x.min !== undefined || x.max !== undefined))
         out.push({ path: at, message: "a switch has no bounds" });
+      if (x.type === "choice" && (x.min !== undefined || x.max !== undefined))
+        out.push({ path: at, message: "a choice has no bounds" });
+      if (x.type === "choice" && x.options === undefined) out.push({ path: at, message: "a choice needs options" });
+      if (x.type !== "choice" && x.options !== undefined)
+        out.push({ path: `${at}.options`, message: "only a choice has options" });
+      x.options?.forEach((o, k) => {
+        if (x.options?.findIndex((p) => p.value === o.value) !== k)
+          out.push({ path: `${at}.options[${k}].value`, message: `duplicate value ${o.value}` });
+      });
       if (x.min !== undefined && x.max !== undefined && x.max < x.min)
         out.push({ path: `${at}.max`, message: "max is below min" });
     });

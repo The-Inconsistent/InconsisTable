@@ -1,4 +1,4 @@
-import type { Actor, StrikeMeansPick } from "@inconsistable/core-schema";
+import type { Actor, Encounter, StrikeMeansPick, TableMode } from "@inconsistable/core-schema";
 import {
   actorScope,
   campaignValues,
@@ -145,6 +145,39 @@ export function previewStrike({
     inputs,
     total,
   });
+}
+
+/** Why a phone may not send a strike itself (house decision #113), or null when it may: the server's own refusals. */
+export type StrikeHold =
+  "strikeNotByOwner" | "strikeNotYourTurn" | "sessionPaused" | "strikeTargetHidden" | "usedThisRound";
+
+/**
+ * Whether a player's phone may send this strike for its own character now, as the server will decide it: a table
+ * without a GM runs its own fight; with a GM, the strike lets its owner send it, the attacker is acting, a session runs,
+ * the target is shown to the seat in full, and the strike's uses this round are not used up. Null when it may.
+ */
+export function strikeHold({
+  strike,
+  encounter,
+  tableMode,
+  attackerId,
+  targetId,
+}: {
+  strike: Pick<Strike, "id" | "byOwner" | "limit">;
+  encounter: Pick<Encounter, "currentId" | "paused" | "combatants">;
+  tableMode: TableMode;
+  attackerId: string;
+  targetId: string | undefined;
+}): StrikeHold | null {
+  if (tableMode !== "gm") return null;
+  if (strike.byOwner !== true) return "strikeNotByOwner";
+  const acting = encounter.combatants.find((c) => c.id === encounter.currentId);
+  if (acting?.actorId !== attackerId) return "strikeNotYourTurn";
+  if (encounter.paused) return "sessionPaused";
+  if (encounter.combatants.find((c) => c.actorId === targetId)?.visibility !== "full") return "strikeTargetHidden";
+  const used = acting.used?.filter((id) => id === `strike:${strike.id}`).length ?? 0;
+  if (strike.limit !== undefined && used >= strike.limit.max) return "usedThisRound";
+  return null;
 }
 
 /** Whether a plan is one (and not a refusal). */

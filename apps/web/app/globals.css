@@ -1235,6 +1235,18 @@ label {
   margin: 0;
   overflow-wrap: anywhere;
 }
+/* A choice's options (house decision #112): up to ten, so they wrap on a phone rather than run off it. */
+.strike-choice {
+  flex-wrap: wrap;
+}
+.strike-choice .btn {
+  flex: 1 0 auto;
+}
+.strike-tell {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
 .strike-figures {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

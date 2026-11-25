@@ -61,6 +61,39 @@ func TestServedManifestsCompileAndMatchTypeScript(t *testing.T) {
 	}
 }
 
+// A strike its owner sends that a player's copy does not carry as declared is refused at import, as TypeScript refuses
+// it (house decision #113; vectors/table.ts writes them).
+func TestOwnerStrikeProblemsMatchTypeScript(t *testing.T) {
+	raw, err := os.ReadFile("../coreschema/testdata/served-manifests.json")
+	if err != nil {
+		t.Fatalf("no vectors, run `bun run test:go` from the repo root: %v", err)
+	}
+	var v struct {
+		Owner struct {
+			Fixtures map[string]any              `json:"OWNER_STRIKE_FIXTURES"`
+			Problems map[string][]engine.Problem `json:"ownerStrikes"`
+		} `json:"owner"`
+	}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		t.Fatal(err)
+	}
+	refused := 0
+	for name, input := range v.Owner.Fixtures {
+		c, problems := engine.CompileRuleset(input)
+		if len(problems) > 0 {
+			t.Fatalf("%s does not compile: %v", name, problems)
+		}
+		got := OwnerStrikeProblems(c.Ruleset.Normalized)
+		if want := v.Owner.Problems[name]; !reflect.DeepEqual(append([]engine.Problem{}, got...), append([]engine.Problem{}, want...)) {
+			t.Errorf("%s:\n want %v\n  got %v", name, want, got)
+		}
+		refused += len(got)
+	}
+	if refused < 2 {
+		t.Fatalf("only %d refused, so this test would prove little", refused)
+	}
+}
+
 // A problem no part answers leaves the manifest as it is: a cut never reaches past the document.
 func TestCompilableGivesUpWithoutWriting(t *testing.T) {
 	m := map[string]any{"id": "x"}

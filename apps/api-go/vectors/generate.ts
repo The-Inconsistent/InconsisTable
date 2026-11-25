@@ -22,7 +22,11 @@ import { typeName } from "../../../packages/rules-engine/src/expr/expr.check.ts"
 import { compileExpr, type CompiledExpr } from "../../../packages/rules-engine/src/expr/expr.ts";
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_DUEL } from "../../../packages/rules-engine/src/fixtures/sample-duel.ts";
-import { SAMPLE_HARM, SAMPLE_HARM_GROWTHS } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
+import {
+  SAMPLE_HARM,
+  SAMPLE_HARM_BEFORE_OWNER,
+  SAMPLE_HARM_GROWTHS,
+} from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
 import { SAMPLE_SCOPED } from "../../../packages/rules-engine/src/fixtures/sample-scoped.ts";
@@ -1125,20 +1129,23 @@ function strikeVectors() {
           {},
           null,
         ]);
+    const strikeId = duel ? one(["lunge", "lunge", "nope"]) : one(["blow", "blow", "blow", "blow", "sweep", "nope"]);
     const inputs = duel
       ? one<Record<string, unknown>>([{}, {}, { aim: true }])
-      : one<Record<string, unknown>>([
-          {},
-          { aim: true },
-          { aim: true, far: 2 },
-          { far: 3 },
-          { far: 4 },
-          { aim: 1 },
-          { far: 1.5 },
-          { nope: true },
-        ]);
+      : strikeId === "sweep"
+        ? // The sweep's choice (house decision #113): none, an option, one that is not, a switch's value, the blow's.
+          one<Record<string, unknown>>([{}, { force: 1 }, { force: 2 }, { force: 3 }, { force: true }, { aim: true }])
+        : one<Record<string, unknown>>([
+            {},
+            { aim: true },
+            { aim: true, far: 2 },
+            { far: 3 },
+            { far: 4 },
+            { aim: 1 },
+            { far: 1.5 },
+            { nope: true },
+          ]);
     const total = one<number | null>([null, r(16), r(16), r(16) - 3, 2.5, 1001]);
-    const strikeId = duel ? one(["lunge", "lunge", "nope"]) : one(["blow", "blow", "blow", "nope"]);
     const attacker = side();
     const target = side();
     const plan = planStrike({
@@ -3590,7 +3597,8 @@ MANIFESTS.push(SAMPLE_DUEL);
 
 function strikeCrafted(): object[] {
   const blow = SAMPLE_HARM.strikes![0]!;
-  const strike = (over: Record<string, unknown>, base: Record<string, unknown> = SAMPLE_HARM) => ({
+  // 0.1.6: its layout names no strike but the blow, which each case below replaces.
+  const strike = (over: Record<string, unknown>, base: Record<string, unknown> = SAMPLE_HARM_BEFORE_OWNER) => ({
     ...base,
     strikes: [{ ...blow, ...over }],
   });
@@ -3635,6 +3643,52 @@ function strikeCrafted(): object[] {
         { id: "aim", label: "B", type: "int", min: 3, max: 1 },
         { id: "soak", label: "C", type: "int" },
       ],
+    }),
+    // A choice, the owner's flag and the per-round count (house decision #113).
+    strike({
+      inputs: [
+        { id: "aim", label: "A", type: "choice", min: 0 },
+        { id: "far", label: "B", type: "int", options: [{ label: "X", value: 1 }] },
+        {
+          id: "c",
+          label: "C",
+          type: "choice",
+          options: [
+            { label: "X", value: 1 },
+            { label: "Y", value: 1 },
+            { label: "", value: 1.5 },
+          ],
+        },
+        {
+          id: "d",
+          label: "D",
+          type: "choice",
+          options: Array.from({ length: 11 }, (_, i) => ({ label: "O", value: i })),
+        },
+      ],
+    }),
+    strike({ byOwner: false, limit: { per: "turn", max: 0 } }),
+    strike({ byOwner: true, limit: { per: "round", max: 11 } }),
+    strike({
+      byOwner: true,
+      limit: { per: "round", max: 2 },
+      inputs: [
+        { id: "aim", label: "Aim", type: "bool" },
+        {
+          id: "far",
+          label: "Far",
+          type: "choice",
+          options: [
+            { label: "Near", value: 0 },
+            { label: "Far", value: 2 },
+          ],
+        },
+      ],
+      beat: {
+        label: "B",
+        expr: "ctx.target.derived.guard",
+        adds: [{ label: "Far", when: "ctx.far > 1", by: "ctx.far" }],
+      },
     }),
     strike({
       outcomes: [

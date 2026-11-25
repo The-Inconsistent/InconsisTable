@@ -42,6 +42,13 @@ const strikeParts = `{
 			{"id": "strained", "label": "Strained", "when": "ctx.targetMob == 0 && ctx.total == ctx.soak",
 				"shock": "ctx.target.derived.strainCap > 0 ? 1 : 0"}],
 		"notes": [{"text": "A six on the edge die: read the Telling Blow table"}]
+	}, {
+		"id": "sweep", "label": "Sweep", "cite": "Fixture p.18", "entities": ["hero"], "targets": ["swarm", "brute"],
+		"byOwner": true, "limit": {"per": "round", "max": 1},
+		"inputs": [{"id": "force", "label": "Force", "type": "choice", "options": [{"label": "Light", "value": 0}, {"label": "Hard", "value": 1}]}],
+		"pool": {"label": "Might", "expr": "derived.might", "adds": [{"label": "Force", "by": "ctx.force"}]},
+		"beat": {"label": "Guard", "expr": "ctx.target.derived.guard"},
+		"outcomes": [{"id": "thinned", "label": "Thinned", "when": "ctx.total > ctx.beat", "wounds": "1 + ctx.force"}]
 	}],
 	"items": {"kinds": [{"id": "carried", "label": "Carried arms", "entry": "arm", "entities": ["hero", "brute"],
 		"card": "weapons", "cite": "Fixture p.17"}]}
@@ -187,7 +194,7 @@ func TestAStrikeLandsWhatItsTotalGivesAsOneAction(t *testing.T) {
 }
 
 // A swarm struck loses one member to a total over its soak; a swarm striking gets half its members more dice, which
-// changes no harm; outside the fight, or from a player's seat, a strike is refused.
+// changes no harm; outside the fight, or from a player's seat when its owner may not send it, a strike is refused.
 func TestAStrikeThinsASwarmAndIsTheGMSides(t *testing.T) {
 	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
 		p := newStrikePlay(t, tx)
@@ -204,7 +211,7 @@ func TestAStrikeThinsASwarmAndIsTheGMSides(t *testing.T) {
 		}
 		p.refused(gm, strikeOf(hal, stray, "maul", 9, map[string]any{}), "strikeNotInFight")
 		player := p.room.Seat(t, tx, dbtest.User(t, tx, "Player"), hal)
-		p.refused(player, strikeOf(hal, rats, "maul", 9, map[string]any{}), "noPermission")
+		p.refused(player, strikeOf(hal, rats, "maul", 9, map[string]any{}), "strikeNotByOwner")
 	})
 }
 

@@ -16,6 +16,7 @@ import {
   SAMPLE_HARM,
   SAMPLE_HARM_BEFORE_GENERATORS,
   SAMPLE_HARM_BEFORE_HELD,
+  SAMPLE_HARM_BEFORE_OWNER,
   SAMPLE_HARM_BEFORE_SHOWS,
   SAMPLE_HARM_BEFORE_STRIKES,
 } from "./sample-harm.ts";
@@ -40,7 +41,7 @@ const PINNED: Record<string, string> = {
   "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
-  "sample-harm@0.1.6": "c7e19354792885f3b496d296d0ab4725987b0e440733083c796be6113e66a561",
+  "sample-harm@0.1.7": "1376c327be1b5bca8817e6482cd120218ed9edb6ddb80fa1dcef665287bc6a52",
   "sample-duel@0.1.0": "509f85209788bc47bdd6722b2772e741248a4a35876b1e16d5c8c3e1a782a09f",
 };
 
@@ -256,4 +257,13 @@ test("a ruleset without generators hashes as it did before them (house decision 
   };
   assert.equal(hash(SAMPLE_D20_0_1_9), "78ddf8b683a8baaeac8047da45e459b204fb3fa167d6c96113d73ebb2a8f3c96");
   assert.equal(hash(SAMPLE_HARM_BEFORE_GENERATORS), "f6a6542841fe98f3afb81e222ccfe23143f6632929dd19a345b8e5880bedceec");
+});
+
+test("a ruleset without a strike its owner sends hashes as it did before one (house decision #113)", () => {
+  const result = compileRuleset(SAMPLE_HARM_BEFORE_OWNER);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "c7e19354792885f3b496d296d0ab4725987b0e440733083c796be6113e66a561",
+  );
 });

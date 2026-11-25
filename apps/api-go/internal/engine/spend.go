@@ -39,6 +39,30 @@ func UsedKey(round float64, actorID, spendID string) string {
 	return esNumber(round) + ":" + actorID + ":" + spendID
 }
 
+// RoundUse is one more use of id by the actor in this round of the fight (house decision #91): the turn's `used` list
+// with it, this round's entries only, or usedThisRound once max stand. Nil outside a fight or for an actor not in it,
+// where nothing is counted. A strike limited per round counts under "strike:<id>" (house decision #113), which no
+// spend id can be.
+func RoundUse(t *TurnState, actorID, id, label string, max float64) ([]string, *Refusal) {
+	if t == nil || !slices.Contains(t.Order, actorID) {
+		return nil, nil
+	}
+	key, round := UsedKey(t.Round, actorID, id), esNumber(t.Round)+":"
+	now, times := []string{}, 0.0
+	for _, u := range t.Used {
+		if strings.HasPrefix(u, round) {
+			now = append(now, u)
+			if u == key {
+				times++
+			}
+		}
+	}
+	if times >= max {
+		return nil, refuse("usedThisRound", `"%s", round %s`, label, esNumber(t.Round))
+	}
+	return append(now, key), nil
+}
+
 // SpendOf is the ruleset's spend by id, or nil.
 func (r *Ruleset) SpendOf(id string) *Spend {
 	for i := range r.Spends {
@@ -111,21 +135,12 @@ func PlanSpend(r *Ruleset, spendID string, actor *ActorState, state *RuleState, 
 		}
 	}
 	plan := &SpendPlan{Costs: []PlannedCost{}, Run: []PlannedStep{}}
-	if t := state.Turn; spend.Limit != nil && t != nil && slices.Contains(t.Order, actor.ID) {
-		key, round := UsedKey(t.Round, actor.ID, spendID), esNumber(t.Round)+":"
-		now, times := []string{}, 0.0
-		for _, u := range t.Used {
-			if strings.HasPrefix(u, round) {
-				now = append(now, u)
-				if u == key {
-					times++
-				}
-			}
+	if spend.Limit != nil {
+		used, refusal := RoundUse(state.Turn, actor.ID, spendID, spend.Label, spend.Limit.Max)
+		if refusal != nil {
+			return nil, refusal
 		}
-		if times >= spend.Limit.Max {
-			return nil, refuse("usedThisRound", `"%s", round %s`, spend.Label, esNumber(t.Round))
-		}
-		plan.Used = append(now, key)
+		plan.Used = used
 	}
 	owed := map[string]float64{}
 	for j, c := range spend.Cost {

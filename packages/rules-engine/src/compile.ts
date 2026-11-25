@@ -842,7 +842,7 @@ class Compiler {
         Object.entries(s.values ?? {}).map(([k, v]): [string, ExprType] => [k, v.type]),
       );
       const base: Record<string, ExprType> = {
-        ...Object.fromEntries((s.inputs ?? []).map((x) => [x.id, x.type])),
+        ...Object.fromEntries((s.inputs ?? []).map((x) => [x.id, x.type === "choice" ? "int" : x.type])),
         means: { record: values },
         attackerMob: "int",
         targetMob: "int",

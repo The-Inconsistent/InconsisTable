@@ -224,6 +224,9 @@ export const REFUSALS = {
   noSuchMeans: "{name} has nothing like that to strike with.",
   strikeNotInFight: "Both sides of a strike must be in the running fight.",
   strikeNoHarm: "That total does nothing to apply.",
+  strikeNotByOwner: "Only the GM applies this strike. Tell the GM what the dice made.",
+  strikeNotYourTurn: "A strike is sent from a phone only on that character's own turn.",
+  strikeTargetHidden: "You can't see that target in full. Tell the GM what the dice made.",
   // Held records
   noHeldKind: "This ruleset has no records of the kind {held}.",
   heldNotFor: "{name} can't hold {kind}.",

@@ -17,6 +17,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign/eventlog"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter/turn"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 )
@@ -36,8 +37,32 @@ func Apply(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 		return cs.Result{}, cs.Fail("noSuchStrike", cs.Params{"strike": strikeID})
 	}
 	attackerID, targetID := a.Str("attackerId"), a.Str("targetId")
+	// The side that runs the fight applies any strike; the seat that holds the attacker only its own (house decision
+	// #112), whose writes the server's plan decides, so they are not asked of the seat's editableBy.
+	byOwner := false
+	if refused := cs.RequirePerm(c, "encounter:run", ""); refused != nil {
+		if err := ownerMay(ctx, tx, c, s, refused, attackerID, targetID); err != nil {
+			return cs.Result{}, err
+		}
+		byOwner = true
+	}
 	if err := inFight(ctx, tx, c.CampaignID, attackerID, targetID); err != nil {
 		return cs.Result{}, err
+	}
+	var used []string
+	if s.Limit != nil {
+		t, err := rc.Turn(ctx)
+		if err != nil {
+			return cs.Result{}, err
+		}
+		var ts *engine.TurnState
+		if t != nil {
+			ts = &t.TurnState
+		}
+		var refusal *engine.Refusal
+		if used, refusal = engine.RoundUse(ts, attackerID, "strike:"+strikeID, s.Label, s.Limit.Max); refusal != nil {
+			return cs.Result{}, cs.Fail(refusal.Code, cs.Params{"detail": refusal.Message})
+		}
 	}
 	attacker, err := side(rc, attackerID)
 	if err != nil {
@@ -77,9 +102,13 @@ func Apply(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	if err != nil {
 		return cs.Result{}, err
 	}
+	// A strike limited per round records its use in the turn (house decision #91), so Undo and TURN BACK return it.
+	if used != nil {
+		deltas = append(deltas, engine.Delta{Target: engine.DeltaTarget{Turn: turn.Used}, Kind: "set", Value: used})
+	}
 	actionID := core.NewUUID()
 	id, err := actor.ApplyDeltas(ctx, tx, actor.Apply{Ctx: c, Compiled: rc.Compiled, Built: rc.Built, Deltas: deltas,
-		Pools: rc.Pools, ActionID: actionID})
+		Pools: rc.Pools, ActionID: actionID, Trusted: byOwner})
 	if err != nil || id == "" {
 		return cs.Result{OK: true, ID: id}, err
 	}
@@ -89,6 +118,49 @@ func Apply(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 		return cs.Result{}, err
 	}
 	return cs.Result{OK: true, ID: id}, nil
+}
+
+// ownerMay is the owner's path (house decision #112) for a seat without encounter:run: the seat holds the attacker,
+// the strike lets its owner send it, the attacker is the combatant acting now (in a sides order, the member acting),
+// a session runs, and the target is shown in full. Everything is read from the room as it stands, never the client.
+func ownerMay(ctx context.Context, tx core.Conn, c cs.Ctx, s *engine.Strike, refused *cs.Error, attackerID, targetID string) error {
+	if !cs.CanInCampaign(c, "character:edit:own", attackerID) {
+		if refused.Code == "screenReadOnly" {
+			return refused
+		}
+		return cs.Fail("notYourCharacter")
+	}
+	if !s.ByOwner {
+		return cs.Fail("strikeNotByOwner")
+	}
+	var acting, shown *string
+	err := tx.QueryRow(ctx, `SELECT cur.actor_id::text, t.visibility FROM encounter e
+		LEFT JOIN combatant cur ON cur.id = e.current_combatant_id AND cur.encounter_id = e.id
+		LEFT JOIN combatant t ON t.encounter_id = e.id AND t.actor_id = $2
+		WHERE e.campaign_id = $1 AND e.active`, c.CampaignID, targetID).Scan(&acting, &shown)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return cs.Fail("strikeNotInFight")
+	}
+	if err != nil {
+		return err
+	}
+	if acting == nil || *acting != attackerID {
+		return cs.Fail("strikeNotYourTurn")
+	}
+	session, err := eventlog.RunningSessionID(ctx, tx, c.CampaignID)
+	if err != nil {
+		return err
+	}
+	if session == nil {
+		return cs.Fail("sessionPaused")
+	}
+	if shown == nil {
+		return cs.Fail("strikeNotInFight")
+	}
+	if *shown != "full" {
+		return cs.Fail("strikeTargetHidden")
+	}
+	return nil
 }
 
 // inFight refuses a side that is not a combatant of the room's running fight.

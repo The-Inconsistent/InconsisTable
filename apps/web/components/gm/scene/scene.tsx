@@ -19,7 +19,7 @@ import { Track } from "@/components/gm/track/track";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import type { RulesEntry } from "@/lib/library/library";
 import { nextUp, scenePlay } from "@/lib/scene-play/scene-play";
-import { lineNames, type PrepWorld, type Spawnable } from "@/lib/scene-prep/scene-prep";
+import { lineNames, prepWorld, type Spawnable } from "@/lib/scene-prep/scene-prep";
 
 type SceneProps = {
   me: Me;
@@ -62,17 +62,7 @@ export function Scene({
   const entries = useMemo(() => codex?.entries ?? [], [codex]);
   const play = useMemo(() => scenePlay(entries), [entries]);
   const offers = useMemo(() => nextUp(entries), [entries]);
-  // What a scene's lines are resolved against: what this device already holds.
-  const world = useMemo<PrepWorld>(
-    () => ({
-      state,
-      entries,
-      spawnable: spawnable ?? { packs: [], entries: [], complete: false },
-      ruleset,
-      ...(ruleset ? { options: (ruleset.spawn?.options ?? []).map((o) => o.id) } : {}),
-    }),
-    [state, entries, spawnable, ruleset],
-  );
+  const world = useMemo(() => prepWorld({ state, entries, spawnable, ruleset }), [state, entries, spawnable, ruleset]);
   const names = useMemo(() => lineNames(world), [world]);
 
   // Sends an action and shows its refusal, if any.

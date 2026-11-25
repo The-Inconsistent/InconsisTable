@@ -22,7 +22,7 @@ import type { Send } from "@/hooks/use-table/use-table";
 import { fromKinds } from "@/lib/entry-fields/entry-fields";
 import type { RulesEntry } from "@/lib/library/library";
 import { prepTree, stepIndex } from "@/lib/prep/prep";
-import { lineNames, type PrepWorld, type Spawnable } from "@/lib/scene-prep/scene-prep";
+import { lineNames, prepWorld, type Spawnable } from "@/lib/scene-prep/scene-prep";
 
 import { PREP_MODES, type PrepMode } from "./constants";
 
@@ -69,17 +69,7 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
     ? (tree.adventures.find((a) => a.scenes.some((s) => s.id === opened.id))?.scenes ?? tree.loose)
     : [];
   const secrets = canInCampaign({ ctx: me, perm: "codex:read_secret" });
-  // What a scene's lines are resolved against: what this device already holds.
-  const world = useMemo<PrepWorld>(
-    () => ({
-      state,
-      entries,
-      spawnable: spawnable ?? { packs: [], entries: [], complete: false },
-      ruleset,
-      ...(ruleset ? { options: (ruleset.spawn?.options ?? []).map((o) => o.id) } : {}),
-    }),
-    [state, entries, spawnable, ruleset],
-  );
+  const world = useMemo(() => prepWorld({ state, entries, spawnable, ruleset }), [state, entries, spawnable, ruleset]);
   const names = useMemo(() => lineNames(world), [world]);
 
   // Sends an action and shows its refusal, if any.

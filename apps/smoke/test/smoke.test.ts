@@ -2241,6 +2241,29 @@ test("importer: a kind's ready list imports, and is refused at its path when it 
   assert.deepEqual((read.body.ruleset?.manifest as Kinds).codex?.kinds.scene?.ready, scene.ready);
 });
 
+test("a ruleset's header block is stored and served whole; a round without an initiative is refused at its path (#109)", async () => {
+  const me = caller(await device("header-owner"));
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_SKIRMISH);
+  assert.equal(rs.status, 201);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Header",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const read = await me.get<RulesReply>(`/campaigns/${made.body.campaignId}/rules`);
+  assert.deepEqual((read.body.ruleset?.manifest as { header?: unknown }).header, { fields: ["peril"], round: true });
+
+  const { initiative: _initiative, ...noOrder } = structuredClone(SAMPLE_SKIRMISH);
+  const refusedRound = await me.post<PackReply>("/rulesets", { ...noOrder, version: "0.1.99" });
+  assert.equal(refusedRound.status, 422);
+  assert.ok(refusedRound.body.problems?.some((p) => p.path === "header.round"));
+  const refusedField = await me.post<PackReply>("/rulesets", {
+    ...structuredClone(SAMPLE_SKIRMISH),
+    version: "0.1.98",
+    header: { fields: ["peril", "nope"] },
+  });
+  assert.ok(refusedField.body.problems?.some((p) => p.path === "header.fields[1]"));
+});
+
 test("importer: a ruleset and a pack are stored once, a re-import reports its diff, bad files are refused by path", async () => {
   assert.equal((await post("/rulesets", SAMPLE_D20)).status, 401);
   assert.equal((await post("/packs", SAMPLE_PACK)).status, 401);

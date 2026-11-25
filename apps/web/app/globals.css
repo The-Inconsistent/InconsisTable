@@ -336,6 +336,43 @@ fieldset {
   display: inline-flex;
   align-items: center;
 }
+/* What the ruleset's `header` block adds beside the name (house decision #109): chips that wrap with the band and never
+   push it wider than the screen. */
+.header-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.header-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.header-items .chip {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.header-items .header-value {
+  font-weight: 700;
+}
+/* A closed room, on every GM tab: a word and a button, never colour alone. */
+.archived-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 2px dashed var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.archived-banner > span {
+  min-width: 0;
+  flex: 1 1 16rem;
+}
+
 /* Lost connection: the first row of the header band, full width and in flow, so it never covers the band's buttons and
    the last state stays readable under it. */
 .badge-offline {

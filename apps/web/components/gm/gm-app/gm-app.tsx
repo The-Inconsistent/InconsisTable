@@ -6,6 +6,7 @@ import { canInCampaign, type CodexKind, type Me } from "@inconsistable/core-sche
 import type { ChecklistStep } from "@inconsistable/rules-engine";
 
 import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
+import { HeaderItems } from "@/components/gm/gm-app/components/header-items/header-items";
 import { Codex } from "@/components/gm/codex/codex";
 import { Party } from "@/components/gm/party/party";
 import { Prep } from "@/components/gm/prep/prep";
@@ -16,6 +17,7 @@ import { SetupChecklist } from "@/components/gm/setup-checklist/setup-checklist"
 import { Scene } from "@/components/gm/scene/scene";
 import { WhisperButton } from "@/components/gm/whisper-button/whisper-button";
 import { ActionNotices } from "@/components/ui/action-notices/action-notices";
+import { ArchivedBanner } from "@/components/ui/archived-banner/archived-banner";
 import { TableModePicker } from "@/components/player/run-table/table-mode-picker";
 import { Tests } from "@/components/gm/tests/tests";
 import { Standings } from "@/components/ui/standings/standings";
@@ -26,6 +28,7 @@ import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useTable } from "@/hooks/use-table/use-table";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import { checklistRoom } from "@/lib/checklist/checklist";
+import { headerItems } from "@/lib/header/header";
 import type { RulesTabData } from "@/lib/library/library";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 import type { Spawnable } from "@/lib/scene-prep/scene-prep";
@@ -102,8 +105,16 @@ export function GmApp({ me, initialTab, initialFight, rules, view, spawnable, qu
           </span>
         )}
         <a href="/">{t("campaigns")}</a>
-        <strong>{state.campaign.name}</strong>
+        <strong className="header-name">{state.campaign.name}</strong>
+        <HeaderItems
+          items={headerItems({
+            ruleset: view?.ruleset ?? null,
+            campaign: state.campaign.fields,
+            encounter: state.encounter,
+          })}
+        />
         <span className="row">
+          {me.seat.kind === "admin" && <span className="chip">{t("header.admin")}</span>}
           {state.session && <span className="chip">{tTable("session", { number: state.session.number })}</span>}
           {/* Whispers need a GM (house decision #93); the side that runs the session sends them. */}
           {state.campaign.tableMode === "gm" &&
@@ -129,6 +140,11 @@ export function GmApp({ me, initialTab, initialFight, rules, view, spawnable, qu
         send={send}
       />
       <ActionNotices notices={notices} onDismiss={dismissNotices} />
+      {state.campaign.archived && (
+        <ArchivedBanner
+          onReopen={canInCampaign({ ctx: me, perm: "campaign:archive" }) ? () => openTab("party") : undefined}
+        />
+      )}
       <main className="page">
         {tab === "party" ? (
           <div className="stack" style={{ gap: 24 }}>

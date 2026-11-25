@@ -28,7 +28,7 @@ const CREATURE_FIELDS: Record<string, FieldDef> = {
 export const SAMPLE_SKIRMISH: RulesetInput = {
   ...SAMPLE_D20_0_1_8,
   id: "sample-skirmish",
-  version: "0.1.8",
+  version: "0.1.9",
   codex: {
     kinds: {
       ...CODEX_0_1_7.kinds,
@@ -301,6 +301,8 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
     // The peril spawn scaling and the budget read (house decision #92).
     peril: { type: "int", label: "Peril", min: 1, max: 5, default: 1, cite: "Sample p.25" },
   },
+  // What the GM's header shows beside the name: the peril and the fight's round (house decision #109).
+  header: { fields: ["peril"], round: true },
   // Setting up a skirmish campaign, in the order the invented book gives (house decision #90).
   checklist: [
     {
@@ -366,7 +368,7 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
 
 /** SAMPLE_SKIRMISH as it was at 0.1.5, before its spawn block, the fields, Spite and Peril it reads (#92) and its scene kind (#107). */
 export const SAMPLE_SKIRMISH_BEFORE_SPAWN: RulesetInput = (() => {
-  const { spawn: _spawn, layout: _layout, ...before } = SAMPLE_SKIRMISH;
+  const { spawn: _spawn, layout: _layout, header: _header, ...before } = SAMPLE_SKIRMISH;
   const { peril: _peril, ...campaignFields } = before.campaignFields ?? {};
   const { scene: _scene, ...kinds } = before.codex?.kinds ?? {};
   return {

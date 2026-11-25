@@ -1,14 +1,7 @@
 import type { CompiledRuleset, CompiledTableEffect } from "./compile.ts";
 import { ExprError, type ExprRecord, type ExprValue } from "./expr/expr.ast.ts";
 import { evaluateBool, evaluateInt } from "./expr/expr.ts";
-import {
-  MAX_EFFECT_TIMES,
-  tableDie,
-  type RandomTable,
-  type Ruleset,
-  type StrikeInput,
-  type TableEntry,
-} from "./manifest.ts";
+import { MAX_EFFECT_TIMES, tableDie, type Ruleset, type StrikeInput, type TableEntry } from "./manifest.ts";
 import { own } from "./own.ts";
 
 // Lookups (house decision #87): the GM types what the dice showed, the inputs and the target decide the total, the

@@ -2594,6 +2594,8 @@
     "outcome": "= {outcome}: {harm} on {name}",
     "change": "{by, number, ::sign-always} {label}",
     "apply": "APPLY",
+    "send": "SEND",
+    "tellGm": "Tell the GM: {result}",
     "notes": "After the strike",
     "openTable": "OPEN {title}",
     "readFailed": "Couldn't read what this strike is made with."

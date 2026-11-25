@@ -5671,9 +5671,9 @@ test("strikes: a typed total lands on a creature and on a swarm as the strike gi
   // The Ogre (hide 3) soaks 3 against a maul: a total of 7 is 4 wounds.
   ok(await owner.send(strike(hero, ogre, "maul", 7, { aim: true })));
   await owner.until((s) => actorIn(s, ogre)?.resources.wounds === 4);
-  // A tie on a brute is strain it never takes: nothing to apply. A player's seat is refused.
+  // A tie on a brute is strain it never takes: nothing to apply. A player's seat may not send the blow.
   refused(await owner.send(strike(hero, ogre, "maul", 3)), "strikeNoHarm");
-  refused(await ana.send(strike(hero, ogre, "maul", 9)), "noPermission");
+  refused(await ana.send(strike(hero, ogre, "maul", 9)), "strikeNotByOwner");
   refused(await owner.send(strike(hero, ogre, "claw", 9)), "noSuchMeans");
   // The swarm loses one member to a total over its soak, however high; the Ogre's claw on Hal is wounds again.
   ok(await owner.send(strike(hero, rats, "sling", 9)));
@@ -5696,6 +5696,32 @@ test("strikes: a typed total lands on a creature and on a swarm as the strike gi
   );
   const seen = await ana.until((x) => x.stateVersion >= s.stateVersion);
   assert.equal(seen.encounter?.log, undefined);
+
+  // The sweep (house decision #112): Ana's phone sends it for Hal, on Hal's turn, at the rats shown to it in full, once
+  // a round; off Hal's turn, or at the rats shown as a bar, it is refused. Its force is a choice: hard thins 2.
+  const sweep = (force: number) =>
+    ({
+      type: "strike.apply",
+      strikeId: "sweep",
+      attackerId: hero,
+      targetId: rats,
+      inputs: { force },
+      total: 9,
+    }) as ActionInput;
+  const ratsIn = s.encounter!.combatants.find((c) => c.actorId === rats)!.id;
+  refused(await ana.send(sweep(1)), "strikeNotYourTurn");
+  ok(await owner.send({ type: "rule.op", primitive: "initiative.seated", op: "next", input: {} }));
+  ok(await owner.send({ type: "encounter.setVisibility", combatantId: ratsIn, visibility: "bar" }));
+  refused(await ana.send(sweep(1)), "strikeTargetHidden");
+  ok(await owner.send({ type: "encounter.setVisibility", combatantId: ratsIn, visibility: "full" }));
+  ok(await ana.send(sweep(1)));
+  s = await owner.until((x) => actorIn(x, rats)?.resources.members === 3);
+  assert.deepEqual(s.encounter?.log?.[0]?.strike?.outcome, "thinned");
+  refused(await ana.send(sweep(0)), "usedThisRound");
+  ok(await owner.send({ type: "event.undo" }));
+  s = await owner.until((x) => actorIn(x, rats)?.resources.members === 5);
+  ok(await owner.send({ type: "rule.op", primitive: "initiative.seated", op: "next", input: {} }));
+  refused(await ana.send(sweep(0)), "strikeNotYourTurn");
   for (const c of [owner, ana]) c.socket.close();
 });
 

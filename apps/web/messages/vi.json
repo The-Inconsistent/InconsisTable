@@ -2594,6 +2594,8 @@
     "outcome": "= {outcome}: {harm} lên {name}",
     "change": "{by, number, ::sign-always} {label}",
     "apply": "ÁP DỤNG",
+    "send": "GỬI",
+    "tellGm": "Báo GM: {result}",
     "notes": "Sau đòn",
     "openTable": "MỞ {title}",
     "readFailed": "Không đọc được thứ dùng để ra đòn."

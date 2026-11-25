@@ -79,6 +79,11 @@ func TestAnOwnersStrikeIsRefusedOutsideItsTurnAndSight(t *testing.T) {
 		other := p.room.Seat(t, tx, dbtest.User(t, tx, "Other"))
 		p.refused(other, sweepOf(hal, rats, 9, 0), "notYourCharacter")
 		p.refused(player, strikeOf(hal, rats, "maul", 9, map[string]any{}), "strikeNotByOwner")
+		// Neither seat can tell a strike that exists from one that does not.
+		nope := sweepOf(hal, rats, 9, 0)
+		nope["strikeId"] = "nope"
+		p.refused(other, nope, "notYourCharacter")
+		p.refused(player, nope, "strikeNotByOwner")
 		p.refused(player, sweepOf(hal, ogre, 9, 0), "strikeTargetHidden")
 		p.refused(player, sweepOf(hal, p.swarm("Stray", 3), 9, 0), "strikeNotInFight")
 		dbtest.Exec(t, tx, `UPDATE session SET ended_at = now() WHERE campaign_id = $1`, p.room.ID)

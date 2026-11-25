@@ -71,6 +71,22 @@ export type PrepWorld = {
   options?: readonly string[];
 };
 
+/** What a scene's lines are resolved against: what this device already holds. */
+export function prepWorld({
+  state,
+  entries,
+  spawnable,
+  ruleset,
+}: Omit<PrepWorld, "spawnable" | "options"> & { spawnable: Spawnable | null }): PrepWorld {
+  return {
+    state,
+    entries,
+    spawnable: spawnable ?? { packs: [], entries: [], complete: false },
+    ruleset,
+    ...(ruleset ? { options: (ruleset.spawn?.options ?? []).map((o) => o.id) } : {}),
+  };
+}
+
 /** What a line names that the room no longer has. */
 export type Missing = "pack" | "entry" | "test" | "actor" | "pool" | "scene" | "field" | "option";
 /** Why a whole line cannot be sent right now (it is not broken). */

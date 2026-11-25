@@ -7,6 +7,9 @@ import type { ChecklistStep } from "@inconsistable/rules-engine";
 
 import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
 import { HeaderItems } from "@/components/gm/gm-app/components/header-items/header-items";
+import { CallBand } from "@/components/gm/header/call-band/call-band";
+import { CallButton } from "@/components/gm/header/call-button/call-button";
+import { HeaderPools } from "@/components/gm/header/header-pools/header-pools";
 import { Codex } from "@/components/gm/codex/codex";
 import { Party } from "@/components/gm/party/party";
 import { Prep } from "@/components/gm/prep/prep";
@@ -114,6 +117,15 @@ export function GmApp({ me, initialTab, initialFight, rules, view, spawnable, qu
           })}
         />
         <span className="row">
+          <HeaderPools
+            me={me}
+            state={state}
+            codex={codex}
+            ruleset={view?.ruleset ?? null}
+            spawnable={spawnable}
+            send={send}
+          />
+          {canInCampaign({ ctx: me, perm: "test:call" }) && <CallButton state={state} send={send} />}
           {me.seat.kind === "admin" && <span className="chip">{t("header.admin")}</span>}
           {state.session && <span className="chip">{tTable("session", { number: state.session.number })}</span>}
           {/* Whispers need a GM (house decision #93); the side that runs the session sends them. */}
@@ -139,6 +151,9 @@ export function GmApp({ me, initialTab, initialFight, rules, view, spawnable, qu
         ruleset={view?.ruleset ?? null}
         send={send}
       />
+      {canInCampaign({ ctx: me, perm: "test:call" }) && (
+        <CallBand state={state} send={send} onMore={() => openTab("tests")} />
+      )}
       <ActionNotices notices={notices} onDismiss={dismissNotices} />
       {state.campaign.archived && (
         <ArchivedBanner

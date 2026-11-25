@@ -979,7 +979,15 @@
     "campaigns": "← Campaign",
     "tabsLabel": "Tab GM",
     "readRules": "Đọc luật",
-    "header": { "admin": "Quản trị", "round": "Vòng {round}", "yes": "Có", "no": "Không" },
+    "header": {
+      "admin": "Quản trị",
+      "round": "Vòng {round}",
+      "yes": "Có",
+      "no": "Không",
+      "callTest": "Gọi một Test",
+      "openCalls": "Test đang mở",
+      "moreCalls": "Còn {count} ở tab Test"
+    },
     "tabs": {
       "scene": "Cảnh",
       "track": "Trận",
@@ -2621,6 +2629,7 @@
   },
   "pools": {
     "title": "Pool chung",
+    "planned": "Dự kiến trong cảnh này",
     "add": "Thêm 1 vào {label}",
     "take": "Bớt 1 khỏi {label}",
     "value": "{label}: {value}",

@@ -557,7 +557,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "table.roll": "session:run",
   "table.apply": "encounter:run", // a lookup changes its target as the fight's own writes do (house decision #87)
   // The handler asks encounter:run, or for a strike the owner may send, character:edit:own of the attacker on its own
-  // turn at a target shown in full (house decisions #99, #112).
+  // turn at a target shown in full (house decisions #99, #113).
   "strike.apply": null,
   "held.remove": "character:edit:any",
   "item.give": "character:edit:any",

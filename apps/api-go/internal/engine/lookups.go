@@ -81,7 +81,7 @@ func LookupInputs(t *RandomTable, given map[string]any) (map[string]any, string)
 			ctx[x.ID] = b
 			continue
 		}
-		// A choice (house decision #112) is one of its options' values, the first when none is given.
+		// A choice (house decision #113) is one of its options' values, the first when none is given.
 		if x.Type == "choice" {
 			if len(x.Options) == 0 {
 				return nil, x.ID

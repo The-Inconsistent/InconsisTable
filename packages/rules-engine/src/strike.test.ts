@@ -256,7 +256,7 @@ test("a strike's expressions are checked over every attacker and target", () => 
   assert.ok(paths.includes("strikes[0].outcomes[0].when"));
 });
 
-test("a choice reads as the option picked, the first when none is, and nothing else (house decision #112)", () => {
+test("a choice reads as the option picked, the first when none is, and nothing else (house decision #113)", () => {
   const sweep = (inputs: Record<string, unknown>) =>
     planStrike({
       ruleset: HARM,
@@ -282,7 +282,7 @@ test("a choice reads as the option picked, the first when none is, and nothing e
   }
 });
 
-test("a choice has options and no bounds, only a choice has options, and its values differ (house decision #112)", () => {
+test("a choice has options and no bounds, only a choice has options, and its values differ (house decision #113)", () => {
   const bad = structuredClone(SAMPLE_HARM) as RulesetInput & { strikes: NonNullable<RulesetInput["strikes"]> };
   const s = bad.strikes[1]!;
   const options = [

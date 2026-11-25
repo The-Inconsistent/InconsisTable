@@ -38,7 +38,7 @@ func Apply(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	}
 	attackerID, targetID := a.Str("attackerId"), a.Str("targetId")
 	// The side that runs the fight applies any strike; the seat that holds the attacker only its own (house decision
-	// #112), whose writes the server's plan decides, so they are not asked of the seat's editableBy.
+	// #113), whose writes the server's plan decides, so they are not asked of the seat's editableBy.
 	byOwner := false
 	if refused := cs.RequirePerm(c, "encounter:run", ""); refused != nil {
 		if err := ownerMay(ctx, tx, c, s, refused, attackerID, targetID); err != nil {
@@ -120,7 +120,7 @@ func Apply(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	return cs.Result{OK: true, ID: id}, nil
 }
 
-// ownerMay is the owner's path (house decision #112) for a seat without encounter:run: the seat holds the attacker,
+// ownerMay is the owner's path (house decision #113) for a seat without encounter:run: the seat holds the attacker,
 // the strike lets its owner send it, the attacker is the combatant acting now (in a sides order, the member acting),
 // a session runs, and the target is shown in full. Everything is read from the room as it stands, never the client.
 func ownerMay(ctx context.Context, tx core.Conn, c cs.Ctx, s *engine.Strike, refused *cs.Error, attackerID, targetID string) error {

@@ -512,7 +512,7 @@ export const SAMPLE_HARM_BEFORE_OWNER: RulesetInput = {
 };
 
 /**
- * sample-harm 0.1.7 (house decision #112): a sweep a hero's own phone may send, once a round, at a swarm, reading only
+ * sample-harm 0.1.7 (house decision #113): a sweep a hero's own phone may send, once a round, at a swarm, reading only
  * what every seat reads (the hero's might, the swarm's guard), so a player's copy keeps it where the blow, which reads a
  * brute's GM-only numbers, is cut. The force put in is a choice: more dice, more members thinned, and as much strain
  * to pay, a further number the guide shows. Invented like the rest.

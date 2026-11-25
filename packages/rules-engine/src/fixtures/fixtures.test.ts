@@ -259,7 +259,7 @@ test("a ruleset without generators hashes as it did before them (house decision 
   assert.equal(hash(SAMPLE_HARM_BEFORE_GENERATORS), "f6a6542841fe98f3afb81e222ccfe23143f6632929dd19a345b8e5880bedceec");
 });
 
-test("a ruleset without a strike its owner sends hashes as it did before one (house decision #112)", () => {
+test("a ruleset without a strike its owner sends hashes as it did before one (house decision #113)", () => {
   const result = compileRuleset(SAMPLE_HARM_BEFORE_OWNER);
   assert.ok(result.ok);
   assert.equal(

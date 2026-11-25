@@ -78,7 +78,7 @@ type (
 		Outcomes []StrikeOutcome        `json:"outcomes"`
 		Notes    []StrikeNote           `json:"notes"`
 		Then     *SpendThen             `json:"then"`
-		// ByOwner lets the seat that holds the attacker send it (house decision #112); Limit is #91's per-round count.
+		// ByOwner lets the seat that holds the attacker send it (house decision #113); Limit is #91's per-round count.
 		ByOwner bool        `json:"byOwner"`
 		Limit   *SpendLimit `json:"limit"`
 	}

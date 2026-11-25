@@ -1133,7 +1133,7 @@ function strikeVectors() {
     const inputs = duel
       ? one<Record<string, unknown>>([{}, {}, { aim: true }])
       : strikeId === "sweep"
-        ? // The sweep's choice (house decision #112): none, an option, one that is not, a switch's value, the blow's.
+        ? // The sweep's choice (house decision #113): none, an option, one that is not, a switch's value, the blow's.
           one<Record<string, unknown>>([{}, { force: 1 }, { force: 2 }, { force: 3 }, { force: true }, { aim: true }])
         : one<Record<string, unknown>>([
             {},
@@ -3644,7 +3644,7 @@ function strikeCrafted(): object[] {
         { id: "soak", label: "C", type: "int" },
       ],
     }),
-    // A choice, the owner's flag and the per-round count (house decision #112).
+    // A choice, the owner's flag and the per-round count (house decision #113).
     strike({
       inputs: [
         { id: "aim", label: "A", type: "choice", min: 0 },

@@ -39,7 +39,7 @@ type StrikeGuideProps = {
   /** Opens the strike's next table for the target, with the strike's inputs carried (house decision #91's shape). */
   onTable?: (open: { tableId: string; actorId: string; inputs: Record<string, number | boolean> }) => void;
   /**
-   * A player's phone (house decision #112): it SENDs only what the server lets its owner send now, and otherwise reads
+   * A player's phone (house decision #113): it SENDs only what the server lets its owner send now, and otherwise reads
    * the result out for the GM to apply. Absent: the side that runs the fight, which APPLIES any strike.
    */
   phone?: { encounter: Pick<Encounter, "currentId" | "paused" | "combatants">; tableMode: TableMode };

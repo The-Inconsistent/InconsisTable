@@ -529,7 +529,7 @@ var ActionPerms = map[string]string{
 	"safety.xcard":            "safety:signal",
 	"table.roll":              "session:run",
 	"table.apply":             "encounter:run",
-	// strike.apply asks encounter:run in its handler, or of an owner's strike character:edit:own of the attacker (#112).
+	// strike.apply asks encounter:run in its handler, or of an owner's strike character:edit:own of the attacker (#113).
 	"strike.apply":    "",
 	"held.remove":     "character:edit:any",
 	"table.deal":      "session:run",

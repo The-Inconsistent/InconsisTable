@@ -319,7 +319,7 @@ func (rc *Context) ApplyRuled(ctx context.Context, deltas []engine.Delta) (strin
 }
 
 // importProblems is what an import refuses of a manifest that compiles: a table with no entry, and a strike its owner
-// sends that a player's copy does not carry (house decision #112).
+// sends that a player's copy does not carry (house decision #113).
 func importProblems(r *engine.Ruleset) []engine.Problem {
 	return append(engine.ImportProblems(r), view.OwnerStrikeProblems(r.Normalized)...)
 }

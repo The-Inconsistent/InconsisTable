@@ -69,7 +69,7 @@ export function lookupInputs({
       ctx[x.id] = v ?? false;
       continue;
     }
-    // A choice (house decision #112) is one of its options' values, the first when none is given.
+    // A choice (house decision #113) is one of its options' values, the first when none is given.
     if (x.type === "choice") {
       const n = v ?? x.options?.[0]?.value;
       if (!x.options?.some((o) => o.value === n)) return { ok: false, input: x.id };

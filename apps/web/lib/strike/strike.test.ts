@@ -146,7 +146,7 @@ test("a means' text values are shown beside it, and the further numbers come wit
   );
 });
 
-test("a phone sends a strike only as the server lets its owner, and says why not otherwise (house decision #112)", () => {
+test("a phone sends a strike only as the server lets its owner, and says why not otherwise (house decision #113)", () => {
   const sweep = ruleset.strikes![1]!;
   const cb = (id: string, actorId: string, visibility: "full" | "bar", used?: string[]) =>
     ({ id, actorId, visibility, ...(used ? { used } : {}) }) as never;

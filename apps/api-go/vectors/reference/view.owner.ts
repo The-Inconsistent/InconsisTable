@@ -12,7 +12,7 @@ const PLAYER: Ctx = {
 } as Ctx;
 
 /**
- * What an import refuses of a strike its owner sends (house decision #112; the twin of internal/view/owner_strikes.go):
+ * What an import refuses of a strike its owner sends (house decision #113; the twin of internal/view/owner_strikes.go):
  * one a player's copy (house decision #101) does not carry as declared, because the cut that makes that copy compile
  * took or narrowed it for reading a value players may not read. Each is refused at the strike's path, naming where it
  * reads one. The ruleset is the normalized one of a manifest that compiles.

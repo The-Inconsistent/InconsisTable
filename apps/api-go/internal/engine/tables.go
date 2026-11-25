@@ -34,7 +34,7 @@ type (
 		By        *string `json:"by"`
 	}
 	// TableInput is a value the GM sets before applying a lookup, read as ctx.<id>: bool or int; a strike's may also be
-	// a choice of Options (manifest.ts StrikeInput, house decision #112), read as an int.
+	// a choice of Options (manifest.ts StrikeInput, house decision #113), read as an int.
 	TableInput struct {
 		ID      string        `json:"id"`
 		Label   string        `json:"label"`

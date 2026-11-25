@@ -62,7 +62,7 @@ func TestServedManifestsCompileAndMatchTypeScript(t *testing.T) {
 }
 
 // A strike its owner sends that a player's copy does not carry as declared is refused at import, as TypeScript refuses
-// it (house decision #112; vectors/table.ts writes them).
+// it (house decision #113; vectors/table.ts writes them).
 func TestOwnerStrikeProblemsMatchTypeScript(t *testing.T) {
 	raw, err := os.ReadFile("../coreschema/testdata/served-manifests.json")
 	if err != nil {

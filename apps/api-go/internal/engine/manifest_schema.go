@@ -906,7 +906,7 @@ var (
 		schema.Opt("byOwner", schema.Literal(true)),
 		schema.Opt("limit", schema.Object(schema.Req("per", schema.Literal("round")), schema.Req("max", schema.Int().Min(1).Max(10)))),
 	)
-	// strikeInputSchema is a lookup's input or a choice (manifest.ts StrikeInput, house decision #112).
+	// strikeInputSchema is a lookup's input or a choice (manifest.ts StrikeInput, house decision #113).
 	strikeInputSchema = schema.Object(
 		schema.Req("id", idSchema),
 		schema.Req("label", label(60)),

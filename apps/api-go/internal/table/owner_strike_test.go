@@ -8,7 +8,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core/dbtest"
 )
 
-// A strike its owner sends (house decision #112), on the strike fixture's sweep: a hero's might, one more put in hard,
+// A strike its owner sends (house decision #113), on the strike fixture's sweep: a hero's might, one more put in hard,
 // against the target's guard; a total over it thins a swarm by 1, 2 put in hard. Its owner's seat sends it once a
 // round, on the hero's own turn, while a session runs, at a target shown to it in full.
 

@@ -5697,7 +5697,7 @@ test("strikes: a typed total lands on a creature and on a swarm as the strike gi
   const seen = await ana.until((x) => x.stateVersion >= s.stateVersion);
   assert.equal(seen.encounter?.log, undefined);
 
-  // The sweep (house decision #112): Ana's phone sends it for Hal, on Hal's turn, at the rats shown to it in full, once
+  // The sweep (house decision #113): Ana's phone sends it for Hal, on Hal's turn, at the rats shown to it in full, once
   // a round; off Hal's turn, or at the rats shown as a bar, it is refused. Its force is a choice: hard thins 2.
   const sweep = (force: number) =>
     ({

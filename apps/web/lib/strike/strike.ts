@@ -147,7 +147,7 @@ export function previewStrike({
   });
 }
 
-/** Why a phone may not send a strike itself (house decision #112), or null when it may: the server's own refusals. */
+/** Why a phone may not send a strike itself (house decision #113), or null when it may: the server's own refusals. */
 export type StrikeHold =
   "strikeNotByOwner" | "strikeNotYourTurn" | "sessionPaused" | "strikeTargetHidden" | "usedThisRound";
 

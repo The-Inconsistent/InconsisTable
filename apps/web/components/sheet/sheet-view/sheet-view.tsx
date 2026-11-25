@@ -114,7 +114,7 @@ export function SheetView({
     const r = await send(stepAction({ ruleset, actorId: actor.id, resource, delta }));
     setError(r.ok ? null : r.error);
   };
-  // SEND on the strike guide (house decision #112): the strike for this character, refused or not by the server.
+  // SEND on the strike guide (house decision #113): the strike for this character, refused or not by the server.
   const handleStrike = async (a: ActionInput) => {
     const r = await send(a);
     setError(r.ok ? null : r.error);

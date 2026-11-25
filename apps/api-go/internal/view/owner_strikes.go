@@ -8,7 +8,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 )
 
-// OwnerStrikeProblems is what an import refuses of a strike its owner sends (house decision #112; vectors/reference
+// OwnerStrikeProblems is what an import refuses of a strike its owner sends (house decision #113; vectors/reference
 // ownerStrikeProblems): one a player's copy (house decision #101) does not carry as declared, because the cut that makes
 // that copy compile took or narrowed it for reading a value players may not read. Each is refused at the strike's path,
 // naming where it reads one. The manifest is the normalized one of a ruleset that compiles.

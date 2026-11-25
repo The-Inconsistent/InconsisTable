@@ -41,7 +41,7 @@ func UsedKey(round float64, actorID, spendID string) string {
 
 // RoundUse is one more use of id by the actor in this round of the fight (house decision #91): the turn's `used` list
 // with it, this round's entries only, or usedThisRound once max stand. Nil outside a fight or for an actor not in it,
-// where nothing is counted. A strike limited per round counts under "strike:<id>" (house decision #112), which no
+// where nothing is counted. A strike limited per round counts under "strike:<id>" (house decision #113), which no
 // spend id can be.
 func RoundUse(t *TurnState, actorID, id, label string, max float64) ([]string, *Refusal) {
 	if t == nil || !slices.Contains(t.Order, actorID) {

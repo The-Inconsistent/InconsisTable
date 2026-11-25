@@ -1316,7 +1316,7 @@ export const StrikeOutcome = z.object({
 export type StrikeOutcome = z.infer<typeof StrikeOutcome>;
 
 /**
- * A value set before a strike: a lookup's switch or stepper (#87), or a `choice` (house decision #112), 2 to 10
+ * A value set before a strike: a lookup's switch or stepper (#87), or a `choice` (house decision #113), 2 to 10
  * labelled options, each a whole number read as `ctx.<id>` as a stepper's is (the first option's when none is picked).
  * A choice has no bounds, and only a choice has options.
  */
@@ -1372,10 +1372,10 @@ export const Strike = z.object({
   then: z.object({ table: Id, inputs: z.record(Id, Id).optional() }).optional(),
   /**
    * The seat that holds the attacker may send it, on the attacker's own turn, at a target shown to it in full (house
-   * decision #112). Absent: only the side that runs the fight applies it.
+   * decision #113). Absent: only the side that runs the fight applies it.
    */
   byOwner: z.literal(true).optional(),
-  /** At most `max` of this strike per attacker in a round of the fight (house decision #91's count; #112). */
+  /** At most `max` of this strike per attacker in a round of the fight (house decision #91's count; #113). */
   limit: z.object({ per: SpendLimitPer, max: z.int().min(1).max(10) }).optional(),
 });
 export type Strike = z.infer<typeof Strike>;

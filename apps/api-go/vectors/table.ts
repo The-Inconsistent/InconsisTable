@@ -1075,7 +1075,7 @@ const servedManifests = Object.entries(SERVED_FIXTURES).flatMap(([fixture, input
     }),
   );
 });
-// A strike its owner sends that a player's copy does not carry as declared is refused at import (house decision #112):
+// A strike its owner sends that a player's copy does not carry as declared is refused at import (house decision #113):
 // the samples (none is), and the harm sample's sweep made to read a brute's GM-only guard, or a note a hero's GM-only
 // field, beside one that reads nothing hidden.
 type StrikeInput = NonNullable<RulesetInput["strikes"]>[number];

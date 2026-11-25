@@ -902,6 +902,24 @@ const BASE_SNAPSHOTS: {
     ruleset: true,
   },
   {
+    // House decision #114: the goblin behind a bar and a hidden combatant, the ghost hidden. Neither actor is sent to a
+    // seat outside the combat side, as after the fight below.
+    name: "foes not shown in full",
+    state: {
+      ...STATE,
+      encounter: {
+        ...STATE.encounter,
+        combatants: STATE.encounter.combatants.map((c) =>
+          c.id === CB2 ? { ...c, visibility: "bar" } : c.id === CB5 ? { ...c, visibility: "hidden" } : c,
+        ),
+      },
+    },
+    codex: CODEX,
+    drafts: {},
+    ruleset: true,
+  },
+  { name: "after the fight", state: { ...STATE, encounter: null }, codex: CODEX, drafts: {}, ruleset: true },
+  {
     // A sides order (house decision #60) with a hidden combatant: the side ids are public and the flags travel with the
     // combatant, so a seat that may not see the hidden one is told nothing of it.
     name: "sides fight",

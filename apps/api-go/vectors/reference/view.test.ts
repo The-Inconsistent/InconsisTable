@@ -339,7 +339,7 @@ const ALL = {
 };
 // A seat that holds nothing: the party by name and what it may know of it, the shared view of the fight.
 const NOBODY = {
-  actors: ["lyra", "bran"],
+  actors: ["lyra", "bran", "ogre"], // the ogre is shown in full (house decision #114), the wisp and the imp are not
   lyraGmField: undefined,
   lyraOwnerField: undefined,
   lyraConditions: ["dazed"],
@@ -364,7 +364,6 @@ const NOBODY = {
 };
 // What a seat holding Lyra adds.
 const HOLDING_LYRA = {
-  actors: ["lyra", "bran"],
   lyraOwnerField: "dear diary",
   sum: { target: null, modifier: 3, pool: null, shifts: null, secret: [] }, // the DC stays hidden, the modifier is theirs
   pool: { target: null, modifier: null, pool: null, shifts: null, secret: [] }, // no number to work the DC out from
@@ -917,6 +916,43 @@ test("a health number follows the ruleset's visibility of the actor, in the Enco
     view(ctx(member("gm"), "u-gm")).state.encounter?.combatants.find((c) => c.actorId === "wisp")?.hp?.value,
     5,
   );
+});
+
+// House decision #114: an actor behind a combatant shown in full reaches every seat while the fight runs, with only what
+// a seat reads of an actor it does not hold; `bar` and `hidden` send nothing, and nothing stays once the fight ends.
+test("a foe shown in full is sent with its readable values only, while it stands full in the running fight", () => {
+  const player = ctx(member("player", [], ["lyra"]), "u-lyra");
+  const screen = ctx({ kind: "token", role: "screen", characterIds: [] }, null);
+  const sent = (s: LiveState, c: Ctx) => seatView({ snapshot: { ...snapshot, state: s }, compiled, ctx: c }).state;
+  for (const c of [player, screen]) {
+    const ogre = sent(state, c).actors.find((a) => a.id === "ogre");
+    assert.deepEqual(ogre?.fields, { name: "Ogre" }); // `attr.con` is a gm field
+    assert.deepEqual(ogre?.resources, { hp: 30 });
+    assert.equal(ogre?.ownerUserId, null);
+    assert.equal(ogre?.ledger, null);
+    assert.deepEqual(
+      sent(state, c).actors.map((a) => a.id),
+      ["lyra", "bran", "ogre"],
+    ); // the hidden wisp and the bar-only imp are not
+  }
+  const atBar = {
+    ...state,
+    encounter: {
+      ...state.encounter!,
+      combatants: state.encounter!.combatants.map((x) =>
+        x.actorId === "ogre" ? { ...x, visibility: "bar" as const } : x,
+      ),
+    },
+  };
+  assert.deepEqual(
+    sent(atBar, player).actors.map((a) => a.id),
+    ["lyra", "bran"],
+  );
+  assert.deepEqual(
+    sent({ ...state, encounter: null }, player).actors.map((a) => a.id),
+    ["lyra", "bran"],
+  );
+  assert.ok(sent({ ...state, encounter: null }, ctx(member("gm"), "u-gm")).actors.some((a) => a.id === "ogre"));
 });
 
 // House decision #66: a Combatant's health states and a mob's count reach the combat side always, anyone else at `bar`

@@ -218,9 +218,19 @@ func seatState(state cs.LiveState, compiled *engine.CompiledRuleset, c cs.Ctx, s
 	if compiled != nil {
 		views = actorViews(state.Actors, compiled, c)
 	}
+	// An actor behind a combatant the GM shows in full, while the fight runs (house decision #114): every seat reads it as
+	// it reads any actor it does not hold. A `bar` or `hidden` one sends nothing more.
+	shown := map[string]bool{}
+	if state.Encounter != nil {
+		for _, cb := range state.Encounter.Combatants {
+			if cb.Visibility == "full" {
+				shown[cb.ActorID] = true
+			}
+		}
+	}
 	actors := []cs.Actor{}
 	for _, a := range state.Actors {
-		if !slices.Contains(partyKinds, a.Kind) && !holds(held, a.ID) && !sight.Combat {
+		if !slices.Contains(partyKinds, a.Kind) && !holds(held, a.ID) && !shown[a.ID] && !sight.Combat {
 			continue
 		}
 		out := a

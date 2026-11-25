@@ -419,11 +419,15 @@ function seatState({
   const held = heldBy(ctx);
   // Fail-closed: with no ruleset to say who sees a value, none is sent.
   const views = compiled ? actorViews({ actors: state.actors, compiled, ctx }) : new Map<string, ActorView>();
+  // An actor behind a combatant the GM shows in full, while the fight runs (house decision #114): every seat reads it as
+  // it reads any actor it does not hold. A `bar` or `hidden` one sends nothing more.
+  const shown = new Set(state.encounter?.combatants.filter((c) => c.visibility === "full").map((c) => c.actorId));
   return {
     ...state,
-    // Everyone sees the party by name and what the seat holds; the rest of the cast is for the combat side.
+    // Everyone sees the party by name, what the seat holds and a foe shown in full; the rest of the cast is for the
+    // combat side.
     actors: state.actors
-      .filter((a) => PARTY_KINDS.has(a.kind) || held.includes(a.id) || sight.combat)
+      .filter((a) => PARTY_KINDS.has(a.kind) || held.includes(a.id) || shown.has(a.id) || sight.combat)
       .map(({ spawnOptions, ...a }) => {
         const v = views.get(a.id);
         const own = held.includes(a.id) || actorGmSide({ ctx, kind: a.kind });

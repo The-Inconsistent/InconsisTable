@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { AlertsSwitch } from "@/components/ui/alerts-switch/alerts-switch";
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
+import { TurnSoundSwitch } from "@/components/ui/turn-sound-switch/turn-sound-switch";
 
 // The table's settings, one tap away in the header band and folded away otherwise, so it takes the room of a single
 // button. It holds this device's language, Theme and turn alerts; it closes on Escape or a tap anywhere else.
@@ -38,6 +39,8 @@ export function SettingsMenu() {
         <ThemeSwitch />
         <span className="small dim">{t("turnAlerts")}</span>
         <AlertsSwitch />
+        <span className="small dim">{t("turnSound")}</span>
+        <TurnSoundSwitch />
       </div>
     </details>
   );

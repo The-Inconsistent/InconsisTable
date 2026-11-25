@@ -807,7 +807,13 @@
   "settingsMenu": {
     "label": "Settings",
     "language": "Language",
-    "turnAlerts": "Buzz and flash on my turn"
+    "turnAlerts": "Buzz and flash on my turn",
+    "turnSound": "Sound on my turn"
+  },
+  "turnSoundSwitch": {
+    "label": "Sound on my turn",
+    "on": "On",
+    "off": "Off"
   },
   "alertsSwitch": {
     "label": "Turn alerts",
@@ -844,6 +850,15 @@
     "tabPending": "This tab fills in when the table plays on.",
     "leave": "Leave this table",
     "tabsLabel": "Player tabs",
+    "tabLive": "{tab}, running",
+    "tabNew": "{tab}, {count} new",
+    "status": {
+      "label": "Fight status",
+      "noFight": "No fight",
+      "yourTurn": "Your turn",
+      "done": "You: done",
+      "round": "Round {round}"
+    },
     "tabs": {
       "sheet": "Sheet",
       "rules": "Rules",

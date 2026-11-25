@@ -1,9 +1,11 @@
 "use client";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { canInCampaign, type Me } from "@inconsistable/core-schema";
 
+import { TAB_PARAM } from "@/components/gm/gm-app/constants";
 import { PLAYER_TABS, type PlayerTab } from "@/components/player/player-app/constants";
 import { Notebook } from "@/components/player/notebook/notebook";
 import { RecapCard } from "@/components/ui/recap-card/recap-card";
@@ -12,6 +14,7 @@ import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { DoneButton } from "@/components/player/done-button/done-button";
 import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
 import { WhisperSheet } from "@/components/player/whisper-sheet/whisper-sheet";
+import { ArchivedBanner } from "@/components/ui/archived-banner/archived-banner";
 import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
 import { PoolsView } from "@/components/ui/pools-view/pools-view";
 import { poolSidesOf, poolSteps } from "@/lib/pools/pools";
@@ -31,11 +34,15 @@ import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { RunTable } from "@/components/player/run-table/run-table";
 import { useTable } from "@/hooks/use-table/use-table";
+import { useSeen } from "@/hooks/use-seen/use-seen";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import { needsBuild } from "@/lib/builder/builder";
 import { playerEntryOf, usesLedger, xpToSpendOf } from "@/lib/ledger/table";
 import { heldChips } from "@/lib/held/held";
+import { phoneStatusOf } from "@/lib/phone-status/phone-status";
+import { parsePlayerTab, playerAddress, settledTab } from "@/lib/player-address/player-address";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
+import { seenKey } from "@/lib/seen/seen";
 
 type PlayerAppProps = { me: Me; view: RulesView | null; quick?: boolean };
 
@@ -44,6 +51,7 @@ type PlayerAppProps = { me: Me; view: RulesView | null; quick?: boolean };
 export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   const t = useTranslations("playerApp");
   const tTable = useTranslations("table");
+  const tPhoneStatus = useTranslations("playerApp.status");
   const tStatus = useTranslations("status");
   const tXp = useTranslations("ledgerBuilder.play.xp");
   const { state, codex, online, send, draftRecap, books, requestPage, xcard, notices, dismissNotices } = useTable(
@@ -52,10 +60,32 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   useWorldRefresh({ rendered: view?.first.world?.versionId ?? null, live: state?.campaign.worldVersionId });
   const held = me.seat.kind === "admin" ? [] : me.seat.characterIds;
   const [current, setCurrent] = useState(held[0] ?? "");
-  const [tab, setTab] = useState<PlayerTab>(quick ? "run" : "sheet");
   const [error, setError] = useState<string | null>(null);
 
   const [dismissedNow, setDismissedNow] = useState<string | null>(null);
+
+  // The open tab is the address (house decision #112): read from the query, written with replaceState on a tap. A tab the
+  // seat may not open (run without the table to run, standings before a game) falls back to the default, replaced.
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const allowed = PLAYER_TABS.filter(
+    (name) =>
+      (name !== "standings" || (state?.games.length ?? 0) > 0) &&
+      // Without a GM the phone also runs the table, from one tab of its own.
+      (name !== "run" || canInCampaign({ ctx: me, perm: "session:run" })),
+  );
+  const tab = settledTab({ requested: parsePlayerTab(params), allowed, fallback: quick ? "run" : "sheet" });
+  const newCount = useSeen({
+    storageKey: `it:seen:notebook:${me.campaignId}`,
+    keys: codex ? codex.entries.map((e) => seenKey({ id: e.id, stamp: e.revealedAt })) : null,
+    viewing: tab === "notebook",
+  });
+
+  // Syncs with the browser history: a tab the seat may not open is replaced in the address once the room is read.
+  useEffect(() => {
+    if (state && params.has(TAB_PARAM) && params.get(TAB_PARAM) !== tab)
+      window.history.replaceState(null, "", `${pathname}?${playerAddress({ tab, keep: params.entries() })}`);
+  });
 
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   const lastTime = state.session && codex?.recaps[0];
@@ -86,6 +116,11 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   const buildEntry =
     character && (ledgerEntry !== null || (!usesLedger({ ruleset, actor: character }) && needsBuild(character)));
 
+  // A tab tap: the address follows, replaced not pushed (Back leaves the table page, not the last tab).
+  const handleTab = (next: PlayerTab) =>
+    window.history.replaceState(null, "", `${pathname}?${playerAddress({ tab: next, keep: params.entries() })}`);
+  const status = phoneStatusOf({ encounter: state.encounter, held, showRound: view?.ruleset?.header?.round === true });
+
   // LEAVE: give up this seat; the character stays at the table for the GM.
   const handleLeave = async () => {
     const r = await send({ type: "seat.leave" });
@@ -104,12 +139,18 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           </span>
         )}
         <strong>{state.campaign.name}</strong>
+        {status && (
+          <span className="chip phone-status" role="status" aria-label={tPhoneStatus("label")}>
+            {tPhoneStatus(status.line, { round: status.line === "round" ? status.round : 0 })}
+          </span>
+        )}
         <span className="row">
           {state.session && <span className="chip">{tTable("session", { number: state.session.number })}</span>}
           <XCardButton me={me} state={state} send={send} />
           <SettingsMenu />
         </span>
       </header>
+      {state.campaign.archived && <ArchivedBanner />}
       <XCardOverlay signal={xcard} />
       <TransferOffer me={me} state={state} send={send} />
       <WhisperSheet
@@ -253,16 +294,31 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
         </button>
       </main>
       <nav className="tabs tabs-bottom safe-bottom" role="tablist" aria-label={t("tabsLabel")}>
-        {PLAYER_TABS.filter(
-          (name) =>
-            (name !== "standings" || state.games.length > 0) &&
-            // Without a GM the phone also runs the table, from one tab of its own.
-            (name !== "run" || canInCampaign({ ctx: me, perm: "session:run" })),
-        ).map((name) => (
-          <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => setTab(name)}>
-            {t(`tabs.${name}`)}
-          </button>
-        ))}
+        {allowed.map((name) => {
+          const live = name === "fight" && state.encounter !== null;
+          const fresh = name === "notebook" ? newCount : 0;
+          const label = t(`tabs.${name}`);
+          return (
+            <button
+              key={name}
+              className="tab"
+              role="tab"
+              aria-selected={tab === name}
+              aria-label={
+                live ? t("tabLive", { tab: label }) : fresh > 0 ? t("tabNew", { tab: label, count: fresh }) : undefined
+              }
+              onClick={() => handleTab(name)}
+            >
+              {label}
+              {live && <span className="tab-live" aria-hidden="true" />}
+              {fresh > 0 && (
+                <span className="tab-count" aria-hidden="true">
+                  {fresh}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </nav>
     </div>
   );

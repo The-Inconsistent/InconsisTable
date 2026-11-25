@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useId, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 
 import type { LiveState } from "@inconsistable/core-schema";
 
@@ -28,6 +28,8 @@ export function CallForm({ state, send, initialTargets = [], initialTestId, onCa
   const t = useTranslations("callForm");
   const [testId, setTestId] = useState(initialTestId ?? state.testDefs[0]?.id ?? "");
   const [draft, setDraft] = useState<InputDraft>({});
+  // The header's sheet and the TESTS tab can both draw this form.
+  const uid = useId();
   const [targets, setTargets] = useState<string[]>(() =>
     keepTakers({
       picked: initialTargets,
@@ -87,7 +89,7 @@ export function CallForm({ state, send, initialTargets = [], initialTestId, onCa
       <div className="row" style={{ alignItems: "end" }}>
         <label>
           {t("test")}
-          <select id="call-test" value={def.id} onChange={handleTest}>
+          <select id={`${uid}-test`} value={def.id} onChange={handleTest}>
             {state.testDefs.map((d) => (
               <option key={d.id} value={d.id}>
                 {testWords(d).test} ({d.outcomes ? t("reported") : d.dice})
@@ -98,7 +100,7 @@ export function CallForm({ state, send, initialTargets = [], initialTestId, onCa
         {def.inputs.map((input) => (
           <TestInputField
             key={input.id}
-            id={`call-input-${input.id}`}
+            id={`${uid}-input-${input.id}`}
             input={input}
             words={words}
             value={draft[input.id]}

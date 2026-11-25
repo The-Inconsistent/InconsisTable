@@ -162,7 +162,7 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
         ruleset={view?.ruleset ?? null}
         send={send}
       />
-      {canInCampaign({ ctx: me, perm: "test:call" }) && (
+      {tab !== "tests" && canInCampaign({ ctx: me, perm: "test:call" }) && (
         <CallBand state={state} send={send} onMore={() => openTab("tests")} />
       )}
       <ActionNotices notices={notices} onDismiss={dismissNotices} />

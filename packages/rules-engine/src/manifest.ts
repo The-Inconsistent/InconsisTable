@@ -1516,6 +1516,15 @@ export const Generator = z.object({
 });
 export type Generator = z.infer<typeof Generator>;
 
+/** What the GM's header shows beside the room's name (house decision #109). */
+export const Header = z.object({
+  /** Campaign field ids, drawn in order as `label value`. */
+  fields: z.array(Id).min(1).max(3).optional(),
+  /** The running fight's round. Needs an `initiative`. */
+  round: z.literal(true).optional(),
+});
+export type Header = z.infer<typeof Header>;
+
 export const Ruleset = z.object({
   id: RulesetId,
   version: SemVer,
@@ -1531,6 +1540,8 @@ export const Ruleset = z.object({
     .record(Id, CampaignField)
     .refine((o) => Object.keys(o).length <= MAX_CAMPAIGN_FIELDS, `at most ${MAX_CAMPAIGN_FIELDS} campaign fields`)
     .optional(),
+  /** What the GM's header shows besides the name. Absent: the name only. */
+  header: Header.optional(),
   conditions: z.array(Condition).max(500).default([]),
   /** Lines the side running a fight is reminded of (house decision #81). Absent: none. */
   reminders: z.array(Reminder).max(100).optional(),
@@ -2931,6 +2942,13 @@ function semanticProblems(r: Ruleset): Problem[] {
     duplicates({ ids: r.initiative.sides.map((x) => x.id), path: "initiative.sides", out });
     if (r.phases !== undefined) out.push({ path: "phases", message: "sides do not combine with phases yet" });
   }
+  r.header?.fields?.forEach((id, i) => {
+    const path = `header.fields[${i}]`;
+    if (r.campaignFields?.[id] === undefined) out.push({ path, message: `unknown campaign field "${id}"` });
+    else if (r.header?.fields?.indexOf(id) !== i) out.push({ path, message: `duplicate field "${id}"` });
+  });
+  if (r.header?.round && r.initiative === undefined)
+    out.push({ path: "header.round", message: "a round needs an initiative" });
   duplicates({ ids: r.options.map((x) => x.id), path: "options", out });
   duplicates({ ids: r.creation.map((x) => x.id), path: "creation", out });
   duplicates({ ids: r.decisions.map((x) => x.id), path: "decisions", out });

@@ -2733,6 +2733,7 @@ const CRAFTED: object[] = [
   ...reminderCrafted(),
   ...spendCrafted(),
   ...strikeCrafted(),
+  ...headerCrafted(),
   ...lookupCrafted(),
   ...heldCrafted(),
   ...checklistCrafted(),
@@ -3559,6 +3560,27 @@ function spendCrafted(): object[] {
     },
     { ...SAMPLE_SKIRMISH, requests: { max: 0 } },
     { ...SAMPLE_SKIRMISH, spends: [...(SAMPLE_SKIRMISH.spends ?? []), ...(SAMPLE_SKIRMISH.spends ?? []).slice(0, 1)] },
+  ];
+}
+
+// The `header` block (house decision #109): what is valid, and each refusal at its path.
+function headerCrafted(): object[] {
+  const fields = withCampaign({ danger: cInt, mood: { ...cInt, label: "M" }, a: cInt, b: cInt });
+  const h = (header: unknown, over: object = {}) => ({ ...fields, header, ...over });
+  return [
+    h({ fields: ["danger"], round: true }),
+    h({ fields: ["danger", "mood", "a"] }),
+    h({ round: true }),
+    h({}),
+    h({ fields: ["nope"] }),
+    h({ fields: ["danger", "danger"] }),
+    h({ fields: ["danger", "mood", "a", "b"] }),
+    h({ fields: [] }),
+    h({ fields: ["Bad id"] }),
+    h({ round: true }, { initiative: undefined }),
+    h({ round: false }),
+    h({ fields: ["danger"] }, { campaignFields: undefined }),
+    h({ fields: ["danger", "danger"], round: true }, { initiative: undefined }),
   ];
 }
 

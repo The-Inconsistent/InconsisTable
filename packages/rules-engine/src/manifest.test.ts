@@ -272,6 +272,17 @@ test("a ruleset with no initiative compiles, with none to run", () => {
   assert.equal(ordeal.degrees?.step, 5);
 });
 
+// House decision #109: the header block names declared campaign fields, and a round needs an initiative.
+test("a header names declared campaign fields once each, and a round needs an initiative", () => {
+  const withHeader = (header: object, over: object = {}) => ({ ...SAMPLE_SKIRMISH, header, ...over });
+  assert.deepEqual(problems(SAMPLE_SKIRMISH), []);
+  hasProblem(problems(withHeader({ fields: ["nope"] })), "header.fields[0]", /unknown campaign field/);
+  hasProblem(problems(withHeader({ fields: ["peril", "peril"] })), "header.fields[1]", /duplicate field/);
+  hasProblem(problems(withHeader({ round: true }, { initiative: undefined })), "header.round", /needs an initiative/);
+  assert.ok(problems(withHeader({ fields: ["peril", "chapter", "x", "y"] })).length > 0, "at most three fields");
+  assert.ok(problems(withHeader({ fields: [] })).length > 0, "a list names at least one");
+});
+
 // House decision #60: the sides of an `initiative.sides` order list their actor entity types, and some health states
 // leave a combatant unable.
 test("sides: entities and unableStates are checked", () => {

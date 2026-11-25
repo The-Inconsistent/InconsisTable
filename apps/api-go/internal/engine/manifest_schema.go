@@ -669,6 +669,10 @@ var rulesetSchema = schema.Object(
 	schema.Opt("campaignFields", schema.Refined(schema.Record(idSchema, campaignFieldSchema), func(v any) bool {
 		return len(v.(map[string]any)) <= MaxCampaignFields
 	}, "at most 50 campaign fields")),
+	schema.Opt("header", schema.Object(
+		schema.Opt("fields", schema.Array(idSchema).Min(1).Max(3)),
+		schema.Opt("round", schema.Literal(true)),
+	)),
 	schema.Def("conditions", schema.Array(conditionSchema).Max(500), []any{}),
 	schema.Opt("reminders", schema.Array(reminderSchema).Max(100)),
 	schema.Opt("rests", schema.Array(restRuleSchema).Max(5)),

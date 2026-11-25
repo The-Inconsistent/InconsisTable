@@ -521,14 +521,16 @@ type (
 		Resources []Resource   `json:"resources"`
 		// CampaignFields is nil when the manifest declares none.
 		CampaignFields map[string]CampaignFieldDef `json:"campaignFields"`
-		Conditions     []Condition                 `json:"conditions"`
-		Reminders      []Reminder                  `json:"reminders"`
-		Rests          []RestRule                  `json:"rests"`
-		Tests          map[string]Test             `json:"tests"`
-		Initiative     *Initiative                 `json:"initiative"`
-		Phases         []Phase                     `json:"phases"`
-		Scoring        *Scoring                    `json:"scoring"`
-		Tables         map[string]RandomTable      `json:"tables"`
+		// Header is what the GM's header shows besides the name (house decision #109); nil when absent.
+		Header     *HeaderBlock           `json:"header"`
+		Conditions []Condition            `json:"conditions"`
+		Reminders  []Reminder             `json:"reminders"`
+		Rests      []RestRule             `json:"rests"`
+		Tests      map[string]Test        `json:"tests"`
+		Initiative *Initiative            `json:"initiative"`
+		Phases     []Phase                `json:"phases"`
+		Scoring    *Scoring               `json:"scoring"`
+		Tables     map[string]RandomTable `json:"tables"`
 		// Held is the records an actor gains in play, by kind id (house decision #88); nil when absent.
 		Held map[string]HeldKind `json:"held"`
 		// Items is the items actors hold in play (house decision #95); nil when absent.
@@ -558,6 +560,11 @@ type (
 		Spawn *SpawnBlock `json:"spawn"`
 		// Strikes are the kinds of strike the GM's guide offers (house decision #99); nil when absent.
 		Strikes []Strike `json:"strikes"`
+	}
+	// HeaderBlock is manifest.ts Header.
+	HeaderBlock struct {
+		Fields []string `json:"fields"`
+		Round  bool     `json:"round"`
 	}
 	// SpawnOption is one option a spawned actor may take (manifest.ts SpawnOption).
 	SpawnOption struct {
@@ -1575,6 +1582,19 @@ func (r *Ruleset) semanticProblems() problems {
 		p.duplicates("initiative.sides", idsOf(i.Sides, func(x Side) string { return x.ID }))
 		if r.Phases != nil {
 			p.add("phases", "sides do not combine with phases yet")
+		}
+	}
+	if h := r.Header; h != nil {
+		for i, id := range h.Fields {
+			path := fmt.Sprintf("header.fields[%d]", i)
+			if _, ok := r.CampaignFields[id]; !ok {
+				p.add(path, `unknown campaign field "%s"`, id)
+			} else if slices.Index(h.Fields, id) != i {
+				p.add(path, `duplicate field "%s"`, id)
+			}
+		}
+		if h.Round && r.Initiative == nil {
+			p.add("header.round", "a round needs an initiative")
 		}
 	}
 	p.duplicates("options", idsOf(r.Options, idOf))

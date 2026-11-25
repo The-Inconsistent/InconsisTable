@@ -13,7 +13,7 @@ import { RequestBar } from "@/components/gm/request-bar/request-bar";
 import { RulesPanel } from "@/components/gm/rules/rules-panel";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { SetupChecklist } from "@/components/gm/setup-checklist/setup-checklist";
-import { Track } from "@/components/gm/track/track";
+import { Scene } from "@/components/gm/scene/scene";
 import { WhisperButton } from "@/components/gm/whisper-button/whisper-button";
 import { ActionNotices } from "@/components/ui/action-notices/action-notices";
 import { TableModePicker } from "@/components/player/run-table/table-mode-picker";
@@ -34,6 +34,8 @@ import { resourceLabels } from "@/lib/spend-request/spend-request";
 type GmAppProps = {
   me: Me;
   initialTab: GmTab;
+  /** `?tab=track`: the SCENE tab opens on its FIGHT layer. */
+  initialFight: boolean;
   rules: RulesTabData | null;
   view: RulesView | null;
   /** The attached packs' creatures, for PREP's roster lines; null when they could not be read. */
@@ -42,7 +44,7 @@ type GmAppProps = {
 };
 
 // The GM side of a table: the room's owner, its GMs, co-GMs (tabs filtered by scope), or an admin who opened it.
-export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }: GmAppProps) {
+export function GmApp({ me, initialTab, initialFight, rules, view, spawnable, quick = false }: GmAppProps) {
   const t = useTranslations("gmApp");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
@@ -53,7 +55,15 @@ export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }:
   const tabs = (Object.keys(GM_TABS) as GmTab[]).filter(
     (k) => canInCampaign({ ctx: me, perm: GM_TABS[k].perm }) && (k !== "standings" || (state?.games.length ?? 0) > 0),
   );
-  const [tab, setTab] = useState<GmTab>(tabs.includes(initialTab) ? initialTab : (tabs[0] ?? "rules"));
+  const [tab, setTab] = useState<GmTab>(
+    tabs.includes(initialTab) ? initialTab : tabs.includes("party") ? "party" : (tabs[0] ?? "rules"),
+  );
+  // The SCENE tab opens on FIGHT only when it was asked to (?tab=track, or a checklist step that goes to TRACK).
+  const [fightFirst, setFightFirst] = useState(initialFight);
+  const openTab = (next: GmTab, fight = false) => {
+    setFightFirst(fight);
+    setTab(next);
+  };
 
   const [callTestId, setCallTestId] = useState<string | null>(null);
   const [openEntryId, setOpenEntryId] = useState<string | null>(null);
@@ -63,21 +73,23 @@ export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }:
   // PREP's CALL: opens TESTS with that Test selected (held in state, not the URL).
   const handleCall = (testId: string) => {
     setCallTestId(testId);
-    setTab("tests");
+    openTab("tests");
   };
 
   // PREP's "Open in CODEX": opens CODEX with that entry open.
   const handleOpenCodex = (entryId: string) => {
     setOpenEntryId(entryId);
     setCodexKind(null);
-    setTab("codex");
+    openTab("codex");
   };
 
   // A checklist step's GO TO (house decision #90): its tab, the codex listing its kind.
   const handleGo = (goto: NonNullable<ChecklistStep["goto"]>) => {
     setOpenEntryId(null);
     setCodexKind(goto.kind ?? null);
-    setTab(goto.tab);
+    // A checklist step may still name the old TRACK tab: it is SCENE's FIGHT layer now.
+    if (goto.tab === "track") openTab("scene", true);
+    else openTab(goto.tab);
   };
 
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
@@ -105,7 +117,7 @@ export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }:
       <TransferOffer me={me} state={state} send={send} />
       <nav className="tabs" role="tablist" aria-label={t("tabsLabel")}>
         {tabs.map((name) => (
-          <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => setTab(name)}>
+          <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => openTab(name)}>
             {t(`tabs.${name}`)}
           </button>
         ))}
@@ -138,13 +150,18 @@ export function GmApp({ me, initialTab, rules, view, spawnable, quick = false }:
               sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
             />
           </div>
-        ) : tab === "track" ? (
-          <Track
+        ) : tab === "scene" ? (
+          <Scene
             me={me}
             state={state}
+            codex={codex}
             send={send}
+            ruleset={view?.ruleset ?? null}
+            spawnable={spawnable}
+            known={view?.first.entries ?? []}
             sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
-            entries={codex?.entries ?? []}
+            initialFight={fightFirst}
+            onOpenCodex={handleOpenCodex}
           />
         ) : tab === "standings" ? (
           <Standings games={state.games} />

@@ -20,6 +20,7 @@ import {
   tagWord,
   type EntryRow,
   type EnumWords,
+  type ShownField,
 } from "@/lib/entry-fields/entry-fields";
 import type { RulesEntry } from "@/lib/library/library";
 
@@ -38,6 +39,10 @@ type EntryFieldsProps = {
   onOpenEntry?: (entryId: string) => void;
   /** False while the entry sits closed in a list: a ref the page doesn't hold shows its key, and nothing is read. */
   readNames?: boolean;
+  /** Draw only these fields (the SCENE page splits open from closed); absent: every shown field. */
+  fields?: readonly ShownField[];
+  /** False where the entry's reminder lines are drawn elsewhere. */
+  reminders?: boolean;
 };
 
 /**
@@ -128,10 +133,12 @@ export function EntryFields({
   entries,
   onOpenEntry,
   readNames = true,
+  fields,
+  reminders: withReminders = true,
 }: EntryFieldsProps) {
   const t = useTranslations("entryFields");
   const { opened, openEntry, close } = usePackEntry();
-  const shown = shownFields({ ruleset, entry });
+  const shown = fields ?? shownFields({ ruleset, entry });
   const chips = shown.flatMap((f) => {
     if (f.def.type === "enum" && typeof f.value === "string" && enumChips)
       return [<EnumChip key={f.id} {...enumWords({ def: f.def, value: f.value })} />];
@@ -161,7 +168,7 @@ export function EntryFields({
       : [],
   );
   const lists = shown.flatMap(({ id, def, value }) => (def.type === "rows" ? [{ id, def, rows: rowsOf(value) }] : []));
-  const reminders = <EntryReminders ruleset={ruleset} entry={entry} />;
+  const reminders = withReminders ? <EntryReminders ruleset={ruleset} entry={entry} /> : null;
 
   // A ref row: opens the pack entry it names, read for this seat (a gm one only where the seat reads gm entries).
   const handleOpen = (row: (typeof rows)[number], title: string) => async () => {
@@ -170,7 +177,7 @@ export function EntryFields({
     await openEntry({ url: entryUrl({ campaignId, type: row.ref, key }), title, known: row.named });
   };
 
-  const lineCount = entryReminders({ ruleset, entry }).length;
+  const lineCount = withReminders ? entryReminders({ ruleset, entry }).length : 0;
   if (chips.length + rows.length + links.length + tags.length + lists.length + lineCount === 0) return null;
   return (
     <div className="stack entry-fields">

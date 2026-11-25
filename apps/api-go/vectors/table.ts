@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 
 import { z } from "zod";
 
-import { seatManifest, seatView, type Snapshot } from "./reference/view.ts";
+import { ownerStrikeProblems, seatManifest, seatView, type Snapshot } from "./reference/view.ts";
 import { CRAFTED_SEAT_CUTS, SAMPLE_RULESETS } from "./reference/samples.ts";
 import {
   Action,
@@ -19,6 +19,7 @@ import {
 } from "../../../packages/core-schema/src/index.ts";
 import { compileRuleset } from "../../../packages/rules-engine/src/compile.ts";
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+import { SAMPLE_HARM } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { SAMPLE_SKIRMISH } from "../../../packages/rules-engine/src/fixtures/sample-skirmish.ts";
 import type { RulesetInput } from "../../../packages/rules-engine/src/manifest.ts";
 
@@ -1074,7 +1075,41 @@ const servedManifests = Object.entries(SERVED_FIXTURES).flatMap(([fixture, input
     }),
   );
 });
-writeFileSync(SERVED_OUT, JSON.stringify({ inputs: SERVED_FIXTURES, manifests: servedManifests }));
+// A strike its owner sends that a player's copy does not carry as declared is refused at import (house decision #112):
+// the samples (none is), and the harm sample's sweep made to read a brute's GM-only guard, or a note a hero's GM-only
+// field, beside one that reads nothing hidden.
+type StrikeInput = NonNullable<RulesetInput["strikes"]>[number];
+const [blow, sweep] = SAMPLE_HARM.strikes! as [StrikeInput, StrikeInput];
+const [heroType, ...otherTypes] = SAMPLE_HARM.entities!;
+const OWNER_STRIKE_FIXTURES: Record<string, RulesetInput> = {
+  ...SERVED_FIXTURES,
+  sweepAtBrute: { ...SAMPLE_HARM, strikes: [blow, { ...sweep, targets: ["swarm", "brute"] }] },
+  sweepNote: {
+    ...SAMPLE_HARM,
+    entities: [
+      { ...heroType!, fields: { ...heroType!.fields, doom: { type: "int", label: "Doom", visibility: "gm" } } },
+      ...otherTypes,
+    ],
+    strikes: [blow, { ...sweep, notes: [{ text: "Doomed", when: "doom > 0" }] }, { ...sweep, id: "shove" }],
+  },
+};
+const ownerStrikes = Object.fromEntries(
+  Object.entries(OWNER_STRIKE_FIXTURES).map(([fixture, input]) => {
+    const c = compileRuleset(input);
+    if (!c.ok) throw new Error(`${fixture} does not compile: ${JSON.stringify(c.problems)}`);
+    return [fixture, ownerStrikeProblems(c.compiled.ruleset)];
+  }),
+);
+if (ownerStrikes.sweepAtBrute?.length !== 1 || ownerStrikes.sweepNote?.length !== 1)
+  throw new Error(`the crafted owner strikes are not refused: ${JSON.stringify(ownerStrikes)}`);
+writeFileSync(
+  SERVED_OUT,
+  JSON.stringify({
+    inputs: SERVED_FIXTURES,
+    manifests: servedManifests,
+    owner: { OWNER_STRIKE_FIXTURES, ownerStrikes },
+  }),
+);
 
 // ---- Actions and book schemas ----
 

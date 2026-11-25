@@ -5,7 +5,16 @@ import type { CodexEntry } from "@inconsistable/core-schema";
 import { Ruleset } from "@inconsistable/rules-engine";
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 
-import { beginTakenBack, nextUp, pageFields, sceneCast, scenePlay, sceneNumber } from "./scene-play.ts";
+import {
+  beginTakenBack,
+  nextUp,
+  pageFields,
+  sceneCast,
+  sceneFixes,
+  sceneGlance,
+  scenePlay,
+  sceneNumber,
+} from "./scene-play.ts";
 
 const entry = (id: string, over: Partial<CodexEntry> = {}): CodexEntry => ({
   id,
@@ -135,4 +144,78 @@ test("beginTakenBack: only while the begin's scene is still active", () => {
   assert.equal(beginTakenBack({ begin, entries: [scene("s", null, 0, "active")] })?.scene.id, "s");
   assert.equal(beginTakenBack({ begin, entries: [scene("s", null, 0, "done")] }), null);
   assert.equal(beginTakenBack({ begin: null, entries: [scene("s", null, 0, "active")] }), null);
+});
+
+const readyRules = Ruleset.parse({
+  ...SAMPLE_D20,
+  codex: {
+    kinds: {
+      scene: {
+        fields: {
+          goal: { type: "text", label: "Goal", visibility: "gm", cite: "Sample p.1" },
+          aloud: { type: "text", label: "Read aloud", maxLength: 5, cite: "Sample p.1" },
+        },
+        ready: ["goal", "aloud"],
+      },
+    },
+  },
+});
+const exitTo = (id: string, sceneId: string) => ({ id, label: `To ${sceneId}`, sceneId });
+const prepOf = (over: object) => ({ roster: [], tests: [], pools: [], exits: [], reveals: [], picks: [], ...over });
+
+test("sceneFixes: an empty or no longer fitting ready field, and an exit leading nowhere", () => {
+  const b = scene("b", "a", 1, "planned");
+  const a = entry("a2", {
+    parentId: "a",
+    fields: { goal: "  ", aloud: "too long for it" },
+    prep: prepOf({ exits: [exitTo("e1", "b"), exitTo("e2", "gone")] }) as CodexEntry["prep"],
+  });
+  assert.deepEqual(sceneFixes({ ruleset: readyRules, scene: a, entries: [a, b] }), [
+    { kind: "field", fieldId: "goal", label: "Goal" },
+    { kind: "field", fieldId: "aloud", label: "Read aloud" },
+    { kind: "exit", lineId: "e2", label: "To gone" },
+  ]);
+});
+
+test("sceneFixes: ready is the empty list; no ready declared leaves only exits", () => {
+  const ok = entry("s", { fields: { goal: "x", aloud: "ok" } });
+  assert.deepEqual(sceneFixes({ ruleset: readyRules, scene: ok, entries: [ok] }), []);
+  const bare = entry("s", { prep: prepOf({ exits: [exitTo("e", "gone")] }) as CodexEntry["prep"] });
+  assert.deepEqual(sceneFixes({ ruleset: null, scene: bare, entries: [bare] }), [
+    { kind: "exit", lineId: "e", label: "To gone" },
+  ]);
+  assert.deepEqual(sceneFixes({ ruleset: null, scene: entry("s"), entries: [] }), []);
+});
+
+test("sceneGlance: links by kind, handouts and items, lines, fighters and what is shown on entry", () => {
+  const npc = entry("n", { kind: "npc" });
+  const handout = entry("h", { kind: "handout" });
+  const item = entry("i", { kind: "item" });
+  const s = entry("s", {
+    links: ["n", "h", "i"],
+    prep: prepOf({
+      tests: [{ id: "t1" }],
+      roster: [
+        { id: "r1", count: 2 },
+        { id: "r2", count: 3 },
+      ],
+      exits: [exitTo("e", "s")],
+      reveals: [
+        { id: "v1", entryId: "h" },
+        { id: "v2", entryId: "gone" },
+      ],
+    }) as CodexEntry["prep"],
+  });
+  const g = sceneGlance({ scene: s, entries: [s, npc, handout, item] });
+  assert.deepEqual(g.byKind, [
+    { kind: "npc", count: 1 },
+    { kind: "item", count: 1 },
+    { kind: "handout", count: 1 },
+  ]);
+  assert.deepEqual([g.handouts, g.items, g.tests, g.combatants, g.exits], [1, 1, 1, 5, 1]);
+  assert.deepEqual(
+    g.shownOnEntry.map((e) => e.id),
+    ["h"],
+  );
+  assert.deepEqual(sceneGlance({ scene: entry("e"), entries: [] }).byKind, []);
 });

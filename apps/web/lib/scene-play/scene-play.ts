@@ -1,8 +1,9 @@
 import type { CodexEntry, CodexKind, LatestBegin } from "@inconsistable/core-schema";
-import type { Ruleset } from "@inconsistable/rules-engine";
+import { checkFieldValue, type Ruleset } from "@inconsistable/rules-engine";
 
-import { shownFields, type ShownField } from "@/lib/entry-fields/entry-fields";
+import { declaredFields, shownFields, type ShownField } from "@/lib/entry-fields/entry-fields";
 import { groupLinks, prepTree } from "@/lib/prep/prep";
+import { EMPTY_PREP } from "@/lib/scene-prep/scene-prep";
 
 // The scene being played, as a page (issue #216): what the SCENE tab draws, worked out from the entries the GM's seat
 // already holds. Nothing here sends anything.
@@ -66,4 +67,60 @@ export function pageFields({ ruleset, entry }: { ruleset: Ruleset | null; entry:
 export function beginTakenBack({ begin, entries }: { begin: LatestBegin | null; entries: readonly CodexEntry[] }) {
   const scene = begin && entries.find((e) => e.id === begin.sceneId && e.status === "active");
   return begin && scene ? { begin, scene } : null;
+}
+
+/** What a scene needs before it is ready for the table (house decision #107): a field to fill, or an exit to wire. */
+export type Fix = { kind: "field"; fieldId: string; label: string } | { kind: "exit"; lineId: string; label: string };
+
+const isEmpty = (value: unknown) =>
+  value === undefined ||
+  value === null ||
+  (typeof value === "string" && value.trim() === "") ||
+  (Array.isArray(value) && value.length === 0);
+
+/**
+ * The fixes a scene has: each field its kind's `ready` names that is empty or no longer fits its declaration, then each
+ * exit line naming a scene the GM's entries do not hold. A ruleset with no `ready` for scenes has only exit fixes; none
+ * at all means ready.
+ */
+export function sceneFixes({
+  ruleset,
+  scene,
+  entries,
+}: {
+  ruleset: Ruleset | null;
+  scene: CodexEntry;
+  entries: readonly CodexEntry[];
+}): Fix[] {
+  const needed = new Set(ruleset?.codex?.kinds.scene?.ready ?? []);
+  const fields = declaredFields({ ruleset, kind: "scene" })
+    .filter(({ id }) => needed.has(id))
+    .flatMap(({ id, def }): Fix[] => {
+      const value = Object.hasOwn(scene.fields, id) ? scene.fields[id] : undefined;
+      return isEmpty(value) || checkFieldValue({ def, value }) !== null
+        ? [{ kind: "field", fieldId: id, label: def.label }]
+        : [];
+    });
+  const scenes = new Set(entries.filter((e) => e.kind === "scene").map((e) => e.id));
+  const exits = (scene.prep ?? EMPTY_PREP).exits.flatMap((l): Fix[] =>
+    scenes.has(l.sceneId) ? [] : [{ kind: "exit", lineId: l.id, label: l.label }],
+  );
+  return [...fields, ...exits];
+}
+
+/** What a scene holds, counted for the board's glance; `shownOnEntry` are the entries its reveal lines name. */
+export function sceneGlance({ scene, entries }: { scene: CodexEntry; entries: readonly CodexEntry[] }) {
+  const prep = scene.prep ?? EMPTY_PREP;
+  const byKind = groupLinks({ entry: scene, entries }).map((g) => ({ kind: g.kind, count: g.entries.length }));
+  const count = (kind: CodexKind) => byKind.find((g) => g.kind === kind)?.count ?? 0;
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  return {
+    byKind,
+    handouts: count("handout"),
+    items: count("item"),
+    tests: prep.tests.length,
+    combatants: prep.roster.reduce((sum, l) => sum + l.count, 0),
+    exits: prep.exits.length,
+    shownOnEntry: prep.reveals.flatMap((l) => byId.get(l.entryId) ?? []),
+  };
 }

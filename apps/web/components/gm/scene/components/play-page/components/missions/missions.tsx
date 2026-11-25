@@ -35,7 +35,7 @@ export function Missions({ scene, adventure, entries, actors, onOpenEntry }: Mis
               style={{ width: "100%", justifyContent: "space-between", textAlign: "left", flexWrap: "wrap" }}
             >
               <strong>{quest.title}</strong>
-              <span className="row small" style={{ flexWrap: "wrap" }}>
+              <span className="row small" style={{ flexWrap: "wrap", gap: 12 }}>
                 {status && <span>{tCodex(`status.${status}`)}</span>}
                 <span className="dim">
                   {audience.length > 0

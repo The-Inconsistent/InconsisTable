@@ -261,12 +261,20 @@ export function SceneEditor({
             onChange={(e) => setQuery(e.target.value)}
           />
           {nameMatchesNone({ entries, name: query }) && (
-            <div className="row" role="group" aria-label={t("newEntryGroup")} style={{ flexWrap: "wrap" }}>
-              {LINKABLE_KINDS.map((kind) => (
-                <button key={kind} className="btn" onClick={() => handleNew(kind)}>
-                  {t("newEntry", { kind: tCodex(`kind.${kind}`), title: query.trim() })}
-                </button>
-              ))}
+            <div className="stack" role="group" aria-label={t("newEntryGroup", { title: query.trim() })}>
+              <span className="small dim">{t("newEntryGroup", { title: query.trim() })}</span>
+              <div className="row" style={{ flexWrap: "wrap" }}>
+                {LINKABLE_KINDS.map((kind) => (
+                  <button
+                    key={kind}
+                    className="btn"
+                    aria-label={t("newEntry", { kind: tCodex(`kind.${kind}`), title: query.trim() })}
+                    onClick={() => handleNew(kind)}
+                  >
+                    {t("newEntryShort", { kind: tCodex(`kind.${kind}`) })}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           <ul className="list">

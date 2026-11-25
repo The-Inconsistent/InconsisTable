@@ -2124,7 +2124,8 @@
       "close": "Close"
     },
     "newEntry": "New {kind}: {title}",
-    "newEntryGroup": "Make a new entry from this name",
+    "newEntryShort": "+ {kind}",
+    "newEntryGroup": "Make “{title}” a new entry",
     "newNotLinked": "“{title}” was made but not linked to this scene.",
     "linkNamed": "Link everything named ({count})",
     "linkedNamed": "{done} of {total} linked."

@@ -78,6 +78,9 @@ type (
 		Outcomes []StrikeOutcome        `json:"outcomes"`
 		Notes    []StrikeNote           `json:"notes"`
 		Then     *SpendThen             `json:"then"`
+		// ByOwner lets the seat that holds the attacker send it (house decision #112); Limit is #91's per-round count.
+		ByOwner bool        `json:"byOwner"`
+		Limit   *SpendLimit `json:"limit"`
 	}
 
 	// StrikeLine is one line of a figure (breakdown.ts BreakdownLine).
@@ -222,6 +225,20 @@ func (p *problems) strikes(r *Ruleset, actorTypes func(*[]string, string), needC
 			if x.Type == "bool" && (x.Min != nil || x.Max != nil) {
 				p.add(at, "a switch has no bounds")
 			}
+			if x.Type == "choice" && (x.Min != nil || x.Max != nil) {
+				p.add(at, "a choice has no bounds")
+			}
+			if x.Type == "choice" && x.Options == nil {
+				p.add(at, "a choice needs options")
+			}
+			if x.Type != "choice" && x.Options != nil {
+				p.add(at+".options", "only a choice has options")
+			}
+			for k, o := range x.Options {
+				if slices.IndexFunc(x.Options, func(q InputOption) bool { return q.Value == o.Value }) != k {
+					p.add(fmt.Sprintf("%s.options[%d].value", at, k), "duplicate value %s", esNumber(o.Value))
+				}
+			}
 			if x.Min != nil && x.Max != nil && *x.Max < *x.Min {
 				p.add(at+".max", "max is below min")
 			}
@@ -280,7 +297,11 @@ func (c *compiler) strikes(entities map[string]*CompiledEntity) {
 		}
 		base := map[string]ExprType{"means": RecordType{values}, "attackerMob": intType, "targetMob": intType}
 		for _, x := range s.Inputs {
-			base[x.ID] = Scalar(x.Type)
+			if x.Type == "choice" {
+				base[x.ID] = intType
+			} else {
+				base[x.ID] = Scalar(x.Type)
+			}
 		}
 		scopes := func(extra map[string]ExprType) []map[string]ExprType {
 			out := []map[string]ExprType{}

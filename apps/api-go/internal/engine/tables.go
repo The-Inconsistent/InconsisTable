@@ -33,14 +33,21 @@ type (
 		Entry     string  `json:"entry"`
 		By        *string `json:"by"`
 	}
-	// TableInput is a value the GM sets before applying a lookup, read as ctx.<id>: bool or int.
+	// TableInput is a value the GM sets before applying a lookup, read as ctx.<id>: bool or int; a strike's may also be
+	// a choice of Options (manifest.ts StrikeInput, house decision #112), read as an int.
 	TableInput struct {
-		ID    string  `json:"id"`
+		ID      string        `json:"id"`
+		Label   string        `json:"label"`
+		Type    string        `json:"type"`
+		Min     *int          `json:"min"`
+		Max     *int          `json:"max"`
+		Cite    *string       `json:"cite"`
+		Options []InputOption `json:"options"`
+	}
+	// InputOption is one option of a choice: its label and the whole number it reads as.
+	InputOption struct {
 		Label string  `json:"label"`
-		Type  string  `json:"type"`
-		Min   *int    `json:"min"`
-		Max   *int    `json:"max"`
-		Cite  *string `json:"cite"`
+		Value float64 `json:"value"`
 	}
 	// TableEntry is one line of a random table. A Range of one number is the open-ended last line.
 	TableEntry struct {

@@ -979,7 +979,15 @@
     "campaigns": "← Campaigns",
     "tabsLabel": "GM tabs",
     "readRules": "Read the rules",
-    "header": { "admin": "Admin", "round": "Round {round}", "yes": "Yes", "no": "No" },
+    "header": {
+      "admin": "Admin",
+      "round": "Round {round}",
+      "yes": "Yes",
+      "no": "No",
+      "callTest": "Call a Test",
+      "openCalls": "Open Tests",
+      "moreCalls": "{count} more on Tests"
+    },
     "tabs": {
       "scene": "Scene",
       "track": "Track",
@@ -2621,6 +2629,7 @@
   },
   "pools": {
     "title": "Pools",
+    "planned": "Planned in this scene",
     "add": "Add 1 to {label}",
     "take": "Take 1 from {label}",
     "value": "{label}: {value}",

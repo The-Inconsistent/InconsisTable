@@ -4576,3 +4576,12 @@ textarea.mf-json {
 .scene-strip .btn[aria-pressed="true"]::before {
   content: none;
 }
+
+/* A pool in the GM header: label and value on one line, wrapping with the band so it never widens the page. */
+.pool-button {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.call-band {
+  padding: 8px 16px;
+}

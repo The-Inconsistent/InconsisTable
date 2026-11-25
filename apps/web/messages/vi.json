@@ -979,6 +979,7 @@
     "campaigns": "← Campaign",
     "tabsLabel": "Tab GM",
     "readRules": "Đọc luật",
+    "header": { "admin": "Quản trị", "round": "Vòng {round}", "yes": "Có", "no": "Không" },
     "tabs": {
       "scene": "Cảnh",
       "track": "Trận",
@@ -1193,6 +1194,9 @@
     "them": "họ",
     "cancelOffer": "Hủy nhượng",
     "campaign": "Campaign",
+    "renameLabel": "Tên campaign mới",
+    "renameSave": "Lưu tên",
+    "renameInvalid": "Tên campaign dài từ 1 đến 100 ký tự.",
     "unarchive": "Bỏ lưu trữ",
     "archive": "Lưu trữ",
     "deleteLabel": "Gõ tên campaign để xóa",
@@ -2220,6 +2224,11 @@
     "recaps": "Tóm tắt các buổi",
     "nothing": "Sổ tay chưa có gì.",
     "openQuests": "Nhiệm vụ đang mở"
+  },
+  "archivedBanner": {
+    "title": "Chỉ đọc",
+    "text": "Campaign này đã đóng. Không gì ở bàn chơi thay đổi được cho đến khi mở lại.",
+    "reopen": "Mở lại ở Party"
   },
   "actionNotices": {
     "label": "Kết quả vừa rồi",

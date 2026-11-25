@@ -979,6 +979,7 @@
     "campaigns": "← Campaigns",
     "tabsLabel": "GM tabs",
     "readRules": "Read the rules",
+    "header": { "admin": "Admin", "round": "Round {round}", "yes": "Yes", "no": "No" },
     "tabs": {
       "scene": "Scene",
       "track": "Track",
@@ -1193,6 +1194,9 @@
     "them": "them",
     "cancelOffer": "Cancel offer",
     "campaign": "Campaign",
+    "renameLabel": "New campaign name",
+    "renameSave": "Save name",
+    "renameInvalid": "A campaign name is 1 to 100 characters.",
     "unarchive": "Unarchive",
     "archive": "Archive",
     "deleteLabel": "Type the campaign's name to delete it",
@@ -2220,6 +2224,11 @@
     "recaps": "Recaps",
     "nothing": "Nothing in your notebook yet.",
     "openQuests": "Open quests"
+  },
+  "archivedBanner": {
+    "title": "Read only",
+    "text": "This campaign is closed. Nothing at the table can change until it is reopened.",
+    "reopen": "Reopen on Party"
   },
   "actionNotices": {
     "label": "What that did",

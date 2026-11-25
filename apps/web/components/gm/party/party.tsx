@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 import {
+  CampaignName,
   CogmScope,
   canActOnMember,
   canGrantRole,
@@ -74,6 +75,7 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
   const [error, setError] = useState<string | null>(null);
   const [restSkipped, setRestSkipped] = useState<string | null>(null); // who the last party rest left out (#81)
   const [newName, setNewName] = useState("");
+  const [renameTo, setRenameTo] = useState("");
   const [inviteRole, setInviteRole] = useState<MemberRole>("player");
   const [deleteName, setDeleteName] = useState("");
   const [recap, setRecap] = useState<string | null>(null); // the end-of-session form, open while not null
@@ -216,6 +218,14 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
   // DELETE FOR GOOD: only an archived room, after typing its name; then back to the lobby.
   const handleDelete = async () => {
     if ((await act({ type: "campaign.delete", name: deleteName })).ok) router.push("/");
+  };
+
+  // RENAME: the action's own name rule is checked here; the server's refusal shows in the tab's error line.
+  const handleRename = async (e: FormEvent) => {
+    e.preventDefault();
+    const parsed = CampaignName.safeParse(renameTo);
+    if (!parsed.success) return setError(t("renameInvalid"));
+    if ((await act({ type: "campaign.update", name: parsed.data })).ok) setRenameTo("");
   };
 
   const transferTo = state.access.transfer;
@@ -582,21 +592,38 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
         )}
       </section>
 
-      {can("campaign:archive") && (
+      {(can("campaign:archive") || can("campaign:update")) && (
         <section className="stack">
           <h2 className="head">{t("campaign")}</h2>
-          <div className="row">
-            {state.campaign.archived ? (
-              <button className="btn" onClick={() => act({ type: "campaign.unarchive" })}>
-                {t("unarchive")}
+          {can("campaign:update") && (
+            <form className="row" onSubmit={handleRename}>
+              <input
+                id="rename-room"
+                aria-label={t("renameLabel")}
+                placeholder={state.campaign.name}
+                maxLength={100}
+                value={renameTo}
+                onChange={(e) => setRenameTo(e.target.value)}
+              />
+              <button className="btn" type="submit" disabled={renameTo.trim() === ""}>
+                {t("renameSave")}
               </button>
-            ) : (
-              <button className="btn" onClick={() => act({ type: "campaign.archive" })}>
-                {t("archive")}
-              </button>
-            )}
-          </div>
-          {isOwner && state.campaign.archived && (
+            </form>
+          )}
+          {can("campaign:archive") && (
+            <div className="row">
+              {state.campaign.archived ? (
+                <button className="btn" onClick={() => act({ type: "campaign.unarchive" })}>
+                  {t("unarchive")}
+                </button>
+              ) : (
+                <button className="btn" onClick={() => act({ type: "campaign.archive" })}>
+                  {t("archive")}
+                </button>
+              )}
+            </div>
+          )}
+          {can("campaign:archive") && isOwner && state.campaign.archived && (
             <div className="row">
               <input
                 id="delete-room-name"

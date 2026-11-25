@@ -2216,6 +2216,31 @@ test("importer: a setup checklist imports, reaches the GM's seat only, and is re
   owner.socket.close();
 });
 
+// House decision #107 on the sides fixture: a scene kind's `ready` list imports and is read back through the seat-scoped
+// rules route; a name that is not a field of that kind, or a duplicate, is refused at its path.
+test("importer: a kind's ready list imports, and is refused at its path when it names no field of the kind (#107)", async () => {
+  const me = caller(await device("ready-owner"));
+  const scene = SAMPLE_SKIRMISH.codex?.kinds.scene;
+  assert.ok(scene);
+  const bad = structuredClone(SAMPLE_SKIRMISH);
+  assert.ok(bad.codex?.kinds.scene);
+  bad.codex.kinds.scene.ready = ["goal", "nope", "goal"];
+  const refused = await me.post<PackReply>("/rulesets", bad);
+  assert.equal(refused.status, 422);
+  assert.deepEqual(
+    refused.body.problems?.map((p) => p.path),
+    ["codex.kinds.scene.ready[1]", "codex.kinds.scene.ready[2]"],
+  );
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_SKIRMISH);
+  assert.equal(rs.status, 201);
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Ready", rulesetVersionId: rs.body.versionId })
+  ).body;
+  type Kinds = { codex?: { kinds: { scene?: { ready?: string[] } } } };
+  const read = await me.get<RulesReply>(`/campaigns/${campaignId}/rules`);
+  assert.deepEqual((read.body.ruleset?.manifest as Kinds).codex?.kinds.scene?.ready, scene.ready);
+});
+
 test("importer: a ruleset and a pack are stored once, a re-import reports its diff, bad files are refused by path", async () => {
   assert.equal((await post("/rulesets", SAMPLE_D20)).status, 401);
   assert.equal((await post("/packs", SAMPLE_PACK)).status, 401);

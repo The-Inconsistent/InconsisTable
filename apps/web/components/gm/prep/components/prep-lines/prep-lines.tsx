@@ -32,12 +32,14 @@ type PrepLinesProps = {
   names: LineNames;
   ruleset: Ruleset | null;
   act: (a: ActionInput) => Promise<{ ok: boolean }>;
+  /** False when the page around it already names the section. */
+  heading?: boolean;
 };
 
 // The scene's prepared lines, grouped by kind as the scene screens show them; each is added, changed, moved or removed,
 // and every change saves the whole document. A kind the room cannot use is not offered, but its lines stay, shown
 // broken.
-export function PrepLines({ scene, world, names, ruleset, act }: PrepLinesProps) {
+export function PrepLines({ scene, world, names, ruleset, act, heading = true }: PrepLinesProps) {
   const t = useTranslations("prep");
   const [editing, setEditing] = useState<{ kind: PrepKind; id: string | null } | null>(null);
   const prep = scene.prep ?? EMPTY_PREP;
@@ -57,7 +59,7 @@ export function PrepLines({ scene, world, names, ruleset, act }: PrepLinesProps)
 
   return (
     <div className="stack">
-      <h3 className="head">{t("lines")}</h3>
+      {heading && <h3 className="head">{t("lines")}</h3>}
       {kinds.map((kind) => {
         const lines = prep[kind] as PrepLine[];
         return (

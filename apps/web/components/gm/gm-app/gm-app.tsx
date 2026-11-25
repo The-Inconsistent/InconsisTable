@@ -175,6 +175,8 @@ export function GmApp({ me, initialTab, initialFight, rules, view, spawnable, qu
             spawnable={spawnable}
             onCall={handleCall}
             onOpenCodex={handleOpenCodex}
+            known={view?.first.entries ?? []}
+            onPlay={() => openTab("scene")}
           />
         ) : tab === "codex" ? (
           <Codex

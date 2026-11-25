@@ -28,7 +28,7 @@ const CREATURE_FIELDS: Record<string, FieldDef> = {
 export const SAMPLE_SKIRMISH: RulesetInput = {
   ...SAMPLE_D20_0_1_8,
   id: "sample-skirmish",
-  version: "0.1.6",
+  version: "0.1.7",
   codex: {
     kinds: {
       ...CODEX_0_1_7.kinds,
@@ -46,6 +46,14 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
             cite: "Sample p.21",
           },
         },
+      },
+      // House decision #107: a scene is ready for the table once its goal and what is read aloud are written.
+      scene: {
+        fields: {
+          goal: { type: "text", label: "Goal", maxLength: 200, visibility: "gm", cite: "Sample p.24" },
+          readAloud: { type: "text", label: "Read aloud", maxLength: 600, visibility: "party", cite: "Sample p.24" },
+        },
+        ready: ["goal", "readAloud"],
       },
     },
   },
@@ -354,13 +362,15 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
   ],
 };
 
-/** SAMPLE_SKIRMISH as it was at 0.1.5, before its spawn block and the fields, Spite and Peril it reads (#92). */
+/** SAMPLE_SKIRMISH as it was at 0.1.5, before its spawn block, the fields, Spite and Peril it reads (#92) and its scene kind (#107). */
 export const SAMPLE_SKIRMISH_BEFORE_SPAWN: RulesetInput = (() => {
   const { spawn: _spawn, layout: _layout, ...before } = SAMPLE_SKIRMISH;
   const { peril: _peril, ...campaignFields } = before.campaignFields ?? {};
+  const { scene: _scene, ...kinds } = before.codex?.kinds ?? {};
   return {
     ...before,
     version: "0.1.5",
+    codex: { kinds },
     layout: SAMPLE_D20_0_1_8.layout,
     campaignFields,
     resources: before.resources?.filter((x) => x.id !== "spite"),

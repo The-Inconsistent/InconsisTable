@@ -173,6 +173,7 @@ var codexSchema = schema.Object(
 			schema.Opt("roster", fieldIDSchema),
 		)).Min(1).Max(maxRowPrefills)),
 		schema.Opt("titleRoll", fieldRoll),
+		schema.Opt("ready", schema.Array(idSchema).Min(1).Max(MaxCodexFields)),
 	), CodexKinds...)),
 )
 

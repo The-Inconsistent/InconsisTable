@@ -332,6 +332,34 @@ test("codex: the block validates, defaults to gm, and is refused where it names 
   hasProblem(npc({ n: { type: "int", label: "N", min: 3, max: 1 } }), "codex.kinds.npc.fields.n.max", /below min/);
 });
 
+// House decision #107: the fields a kind needs filled before an entry is ready.
+test("codex: a kind's ready list names its own fields, once each", () => {
+  const withKinds = (kinds: unknown) => problems({ ...sample(), codex: { kinds } });
+  const goal = { type: "text", label: "G" };
+  assert.deepEqual(withKinds({ scene: { fields: { goal }, ready: ["goal"] } }), []);
+  hasProblem(
+    withKinds({ scene: { fields: { goal }, ready: ["goal", "nope"] } }),
+    "codex.kinds.scene.ready[1]",
+    /unknown field "nope"/,
+  );
+  hasProblem(
+    withKinds({
+      scene: { fields: { goal }, ready: ["peril"] },
+      location: { fields: { peril: { type: "int", label: "P" } } },
+    }),
+    "codex.kinds.scene.ready[0]",
+    /unknown field "peril"/,
+  );
+  hasProblem(
+    withKinds({ scene: { fields: { goal }, ready: ["goal", "goal"] } }),
+    "codex.kinds.scene.ready[1]",
+    /duplicate id "goal"/,
+  );
+  assert.ok(
+    withKinds({ scene: { fields: { goal }, ready: [] } }).some((p) => p.path.startsWith("codex.kinds.scene.ready")),
+  );
+});
+
 test("enum labels and notes name the enum's own values, on entity and campaign fields too", () => {
   const s = sample();
   const character = s.entities[0];

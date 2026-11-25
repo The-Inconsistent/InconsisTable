@@ -3138,6 +3138,7 @@ function entryFromCrafted(): object[] {
       lore: {
         fields: { from: { type: "int", label: "F" } },
         reminders: [{ id: "r", if: "fields.from > campaign.season", text: "T" }],
+        ready: ["from"],
       },
     }),
     place({ entity: "nope" }),
@@ -3160,6 +3161,15 @@ function entryFromCrafted(): object[] {
     kinds({ npc: { fields: {}, titleRoll: { tables: [] } } }),
     kinds({ npc: { fields: {}, titleRoll: { tables: ["first"], join: "x".repeat(11) } } }),
     kinds({ lore: { fields: {}, reminders: [{ id: "r", if: "campaign.era > 1", text: "T" }] } }),
+    // The readiness rule (house decision #107): an unknown field, another kind's field, a duplicate, the bounds.
+    kinds({ scene: { fields: { goal: { type: "text", label: "G" } }, ready: ["goal", "nope"] } }),
+    kinds({
+      scene: { fields: { goal: { type: "text", label: "G" } }, ready: ["peril"] },
+      location: { fields: { peril: { type: "int", label: "P" } } },
+    }),
+    kinds({ scene: { fields: { goal: { type: "text", label: "G" } }, ready: ["goal", "goal"] } }),
+    kinds({ scene: { fields: { goal: { type: "text", label: "G" } }, ready: [] } }),
+    kinds({ scene: { fields: { goal: { type: "text", label: "G" } }, ready: ["Bad"] } }),
     {
       ...kinds({ lore: { fields: {}, reminders: [{ id: "r", if: "campaign.season > 1", text: "T" }] } }),
       campaignFields: undefined,

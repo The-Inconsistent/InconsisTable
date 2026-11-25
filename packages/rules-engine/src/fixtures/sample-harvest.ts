@@ -7,8 +7,19 @@ import type { RulesetInput } from "../manifest.ts";
  */
 export const SAMPLE_HARVEST: RulesetInput = {
   id: "sample-harvest",
-  version: "0.1.1",
+  version: "0.1.2",
   core: "^0.1.0",
+  // House decision #107: a round of the game is a scene; it is ready once its setup is written. No read-aloud field.
+  codex: {
+    kinds: {
+      scene: {
+        fields: {
+          setup: { type: "text", label: "Setup", maxLength: 300, visibility: "party", cite: "Sample p.7" },
+        },
+        ready: ["setup"],
+      },
+    },
+  },
   sources: [{ id: "sample", title: "Sample Harvest Rules", license: "homebrew", pageOffset: 0 }],
   entities: [
     {

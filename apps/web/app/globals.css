@@ -4437,8 +4437,103 @@ textarea.mf-json {
   flex: 0 0 auto;
   white-space: nowrap;
 }
-.scene-strip .btn[aria-current="step"] {
+.scene-strip .btn[aria-current] {
   font-weight: 800;
+}
+/* PREP's scene board: scenes on a spine in play order; the glance sits beside it from 1024px, under it below. */
+.scene-board-wrap {
+  container-type: inline-size;
+}
+.scene-board-wrap > .scene-board-body {
+  display: grid;
+  gap: calc(var(--gap) * 1.4);
+  min-width: 0;
+}
+/* Beside the board once the column holds both (the full width while no scene page is open), under it otherwise. */
+@container (min-width: 40rem) {
+  .scene-board-body:has(.scene-glance) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 17rem);
+    align-items: start;
+  }
+}
+.scene-board {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--gap);
+  position: relative;
+}
+.scene-board::before {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--line);
+}
+.scene-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  min-width: 0;
+}
+.scene-node {
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: var(--paper);
+  font-weight: 700;
+}
+.scene-card[data-selected] .scene-node {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.scene-pick {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 8px 10px;
+  text-align: left;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-btn);
+}
+.scene-card[data-selected] .scene-pick {
+  border-color: var(--accent);
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+.scene-title,
+.scene-tagline {
+  overflow-wrap: anywhere;
+}
+.scene-steps {
+  flex-wrap: nowrap;
+}
+.chip[data-exit="nowhere"] {
+  border-style: dashed;
+  font-weight: 800;
+}
+.scene-glance ul.row {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.scene-part {
+  display: grid;
+  gap: 8px;
+  padding-top: var(--gap);
+  border-top: 1px solid var(--line);
 }
 /* The strip's own tick means "played": the scene being previewed says so in words instead of the pressed check. */
 .scene-strip .btn[aria-pressed="true"]::before {

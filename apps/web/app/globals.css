@@ -4442,12 +4442,16 @@ textarea.mf-json {
 }
 /* PREP's scene board: scenes on a spine in play order; the glance sits beside it from 1024px, under it below. */
 .scene-board-wrap {
+  container-type: inline-size;
+}
+.scene-board-wrap > .scene-board-body {
   display: grid;
   gap: calc(var(--gap) * 1.4);
   min-width: 0;
 }
-@media (min-width: 1024px) {
-  .scene-board-wrap:has(.scene-glance) {
+/* Beside the board once the column holds both (the full width while no scene page is open), under it otherwise. */
+@container (min-width: 40rem) {
+  .scene-board-body:has(.scene-glance) {
     grid-template-columns: minmax(0, 1fr) minmax(0, 17rem);
     align-items: start;
   }
@@ -4519,6 +4523,11 @@ textarea.mf-json {
 .chip[data-exit="nowhere"] {
   border-style: dashed;
   font-weight: 800;
+}
+.scene-glance ul.row {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 .scene-part {
   display: grid;

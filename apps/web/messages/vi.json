@@ -2091,7 +2091,7 @@
       "readyForTable": "Sẵn sàng cho bàn chơi",
       "toFix": "Còn {count} việc cần sửa",
       "fixField": "Điền {label}",
-      "fixExit": "Lối ra '{label}' chẳng dẫn đi đâu",
+      "fixExit": "Lối ra ''{label}'' chẳng dẫn đi đâu",
       "open": "Mở",
       "run": "Chạy từ đây"
     },

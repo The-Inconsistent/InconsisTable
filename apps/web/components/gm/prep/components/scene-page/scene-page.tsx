@@ -9,7 +9,7 @@ import { SceneEditor, type SceneSection } from "@/components/gm/prep/components/
 import { EntryFields } from "@/components/ui/entry-fields/entry-fields";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { useSummaryWords } from "@/hooks/use-summary-words/use-summary-words";
-import { declaredFields } from "@/lib/entry-fields/entry-fields";
+import { declaredFields, shownFields } from "@/lib/entry-fields/entry-fields";
 import { groupLinks, stepIndex } from "@/lib/prep/prep";
 import type { RulesEntry } from "@/lib/library/library";
 import { lineSummary, PREP_ORDER, type LineNames, type PrepWorld } from "@/lib/scene-prep/scene-prep";
@@ -170,14 +170,18 @@ export function ScenePage({
         part(
           "fields",
           t("fields"),
-          <EntryFields
-            ruleset={ruleset}
-            entry={scene}
-            campaignId={campaignId}
-            known={known}
-            entries={entries}
-            onOpenEntry={onOpenCodex}
-          />,
+          shownFields({ ruleset, entry: scene }).length === 0 ? (
+            <p className="dim">{t("nothingWritten")}</p>
+          ) : (
+            <EntryFields
+              ruleset={ruleset}
+              entry={scene}
+              campaignId={campaignId}
+              known={known}
+              entries={entries}
+              onOpenEntry={onOpenCodex}
+            />
+          ),
         )}
       {part(
         "text",

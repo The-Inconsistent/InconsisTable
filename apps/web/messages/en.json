@@ -2091,7 +2091,7 @@
       "readyForTable": "Ready for the table",
       "toFix": "{count, plural, one {# thing to fix} other {# things to fix}}",
       "fixField": "Fill {label}",
-      "fixExit": "Exit '{label}' leads nowhere",
+      "fixExit": "Exit ''{label}'' leads nowhere",
       "open": "Open",
       "run": "Run from here"
     },

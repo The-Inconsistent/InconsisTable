@@ -156,25 +156,27 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
   // One adventure's board, with the glance beside it while the selected scene is one of its.
   const board = (scenes: readonly CodexEntry[]) => (
     <div className="scene-board-wrap">
-      <SceneBoard
-        scenes={scenes}
-        entries={entries}
-        ruleset={ruleset}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        onStep={handleStep}
-      />
-      {selected && scenes.some((s) => s.id === selected.id) && (
-        <SceneGlance
-          key={selected.id}
-          scene={selected}
+      <div className="scene-board-body">
+        <SceneBoard
+          scenes={scenes}
           entries={entries}
           ruleset={ruleset}
-          act={act}
-          onOpen={() => setOpenId(selected.id)}
-          onPlay={onPlay}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onStep={handleStep}
         />
-      )}
+        {selected && scenes.some((s) => s.id === selected.id) && (
+          <SceneGlance
+            key={selected.id}
+            scene={selected}
+            entries={entries}
+            ruleset={ruleset}
+            act={act}
+            onOpen={() => setOpenId(selected.id)}
+            onPlay={onPlay}
+          />
+        )}
+      </div>
     </div>
   );
 
@@ -185,7 +187,11 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
           {error}
         </p>
       )}
-      <div className="grid" style={{ alignItems: "start" }}>
+      {/* No page open: the board takes the full width, so the glance sits beside it; open, the page takes the other column. */}
+      <div
+        className="grid"
+        style={{ alignItems: "start", ...(opened ? {} : { gridTemplateColumns: "minmax(0, 1fr)" }) }}
+      >
         <div className="stack" style={{ minWidth: 0 }}>
           <form className="row" onSubmit={handleNewAdventure}>
             <input

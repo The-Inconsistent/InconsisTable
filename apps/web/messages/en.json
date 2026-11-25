@@ -967,6 +967,12 @@
       "running": "Running",
       "empty": "No scene is waiting to begin. Add scenes to an adventure in Prep.",
       "fight": "Start a fight without a scene"
+    },
+    "missions": {
+      "title": "Missions",
+      "listedTo": "Listed to {names}",
+      "everyone": "Everyone who sees it",
+      "open": "Open {title} in Codex"
     }
   },
   "gmApp": {
@@ -1899,6 +1905,15 @@
       "pick": "Pick a character…",
       "give": "Give",
       "takeBack": "Take back"
+    },
+    "addToScene": {
+      "title": "Add to scene",
+      "adventure": "Adventure",
+      "scene": "Scene",
+      "noAdventure": "No adventure",
+      "sceneOption": "{title} ({status})",
+      "add": "Add {name} to the scene",
+      "added": "Added to {scene}"
     }
   },
   "handout": {
@@ -2107,7 +2122,12 @@
       "edit": "Edit {part}",
       "closeEdit": "Stop editing {part}",
       "close": "Close"
-    }
+    },
+    "newEntry": "New {kind}: {title}",
+    "newEntryGroup": "Make a new entry from this name",
+    "newNotLinked": "“{title}” was made but not linked to this scene.",
+    "linkNamed": "Link everything named ({count})",
+    "linkedNamed": "{done} of {total} linked."
   },
   "safety": {
     "card": {

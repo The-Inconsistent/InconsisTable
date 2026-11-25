@@ -3570,6 +3570,7 @@ function headerCrafted(): object[] {
   return [
     h({ fields: ["danger"], round: true }),
     h({ fields: ["danger", "mood", "a"] }),
+    h({ fields: ["constructor"] }),
     h({ round: true }),
     h({}),
     h({ fields: ["nope"] }),

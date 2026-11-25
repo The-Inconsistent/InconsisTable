@@ -23,7 +23,8 @@ export function headerItems({
   if (!header) return [];
   const items: HeaderItem[] = [];
   for (const id of header.fields ?? []) {
-    const def = ruleset?.campaignFields?.[id];
+    const def =
+      ruleset?.campaignFields && Object.hasOwn(ruleset.campaignFields, id) ? ruleset.campaignFields[id] : undefined;
     const value = campaign[id];
     if (!def || value === undefined || value === "") continue;
     if (typeof value === "number" || typeof value === "boolean")

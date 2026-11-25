@@ -2944,7 +2944,8 @@ function semanticProblems(r: Ruleset): Problem[] {
   }
   r.header?.fields?.forEach((id, i) => {
     const path = `header.fields[${i}]`;
-    if (r.campaignFields?.[id] === undefined) out.push({ path, message: `unknown campaign field "${id}"` });
+    if (r.campaignFields === undefined || own(r.campaignFields, id) === undefined)
+      out.push({ path, message: `unknown campaign field "${id}"` });
     else if (r.header?.fields?.indexOf(id) !== i) out.push({ path, message: `duplicate field "${id}"` });
   });
   if (r.header?.round && r.initiative === undefined)

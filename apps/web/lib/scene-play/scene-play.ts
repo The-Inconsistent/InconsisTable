@@ -1,4 +1,4 @@
-import type { CodexEntry, CodexKind, LatestBegin } from "@inconsistable/core-schema";
+import { splitMentions, type CodexEntry, type CodexKind, type LatestBegin } from "@inconsistable/core-schema";
 import { checkFieldValue, type Ruleset } from "@inconsistable/rules-engine";
 
 import { declaredFields, shownFields, type ShownField } from "@/lib/entry-fields/entry-fields";
@@ -67,6 +67,24 @@ export function pageFields({ ruleset, entry }: { ruleset: Ruleset | null; entry:
 export function beginTakenBack({ begin, entries }: { begin: LatestBegin | null; entries: readonly CodexEntry[] }) {
   const scene = begin && entries.find((e) => e.id === begin.sceneId && e.status === "active");
   return begin && scene ? { begin, scene } : null;
+}
+
+/** The longest tagline a board card shows. */
+export const TAGLINE_MAX = 90;
+
+/**
+ * A scene's one line on the board: the first open (not `gm`) text field it holds, else the first line of its body with
+ * mentions read as their titles, cut to TAGLINE_MAX.
+ */
+export function sceneTagline({ ruleset, scene }: { ruleset: Ruleset | null; scene: CodexEntry }): string {
+  const open = shownFields({ ruleset, entry: scene }).find(
+    (f) => f.def.type === "text" && f.def.visibility !== "gm" && typeof f.value === "string",
+  );
+  const body = splitMentions(scene.body)
+    .map((p) => ("text" in p ? p.text : p.title))
+    .join("");
+  const text = (typeof open?.value === "string" ? open.value : body).trim().split("\n")[0] ?? "";
+  return text.length > TAGLINE_MAX ? `${text.slice(0, TAGLINE_MAX - 1).trimEnd()}…` : text;
 }
 
 /** What a scene needs before it is ready for the table (house decision #107): a field to fill, or an exit to wire. */

@@ -1937,7 +1937,7 @@
     "empty": "No adventures yet. Name one, then add its scenes.",
     "noScenes": "No scenes yet.",
     "loose": "Scenes outside an adventure",
-    "pickScene": "Pick a scene to prepare it.",
+    "pickScene": "Pick a scene on the board, then open it.",
     "moveUp": "Move {title} up",
     "moveDown": "Move {title} down",
     "testsCount": "{count, plural, one {# Test} other {# Tests}}",
@@ -2068,7 +2068,46 @@
     "fillIn": "This Test still asks for these. They go with this send only.",
     "fillFor": "What {what} still asks for",
     "pickedRows": "Picked {field}",
-    "switchRow": "{label}: {row}"
+    "switchRow": "{label}: {row}",
+    "board": {
+      "pick": "Scene {number}, {title}",
+      "ready": "Ready",
+      "toFix": "{count} to fix",
+      "exit": "To {label}",
+      "nowhere": "{label} leads nowhere",
+      "moveUp": "Move {title} up",
+      "moveDown": "Move {title} down"
+    },
+    "glance": {
+      "label": "{title} at a glance",
+      "empty": "Nothing linked or prepared yet.",
+      "holds": "What it holds",
+      "count": "{label} {count}",
+      "tests": "Tests",
+      "fight": "Fighters",
+      "exits": "Exits",
+      "onEntry": "Shown on entry",
+      "nothingOnEntry": "Nothing shown on entry.",
+      "readyForTable": "Ready for the table",
+      "toFix": "{count, plural, one {# thing to fix} other {# things to fix}}",
+      "fixField": "Fill {label}",
+      "fixExit": "Exit '{label}' leads nowhere",
+      "open": "Open",
+      "run": "Run from here"
+    },
+    "page": {
+      "previous": "Previous scene",
+      "next": "Next scene",
+      "position": "Scene {number} of {total}",
+      "strip": "Scenes of this adventure",
+      "tab": "Scene {number}, {title}",
+      "fields": "Fields",
+      "text": "Text and GM notes",
+      "nothingWritten": "Nothing written yet.",
+      "edit": "Edit {part}",
+      "closeEdit": "Stop editing {part}",
+      "close": "Close"
+    }
   },
   "safety": {
     "card": {

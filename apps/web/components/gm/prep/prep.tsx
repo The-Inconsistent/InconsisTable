@@ -14,10 +14,13 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { PackAdder } from "@/components/gm/codex/components/pack-adder/pack-adder";
 import { ImportAdventure } from "@/components/gm/prep/components/import-adventure/import-adventure";
-import { SceneEditor } from "@/components/gm/prep/components/scene-editor/scene-editor";
+import { SceneBoard } from "@/components/gm/prep/components/scene-board/scene-board";
+import { SceneGlance } from "@/components/gm/prep/components/scene-board/components/scene-glance/scene-glance";
+import { ScenePage } from "@/components/gm/prep/components/scene-page/scene-page";
 import { SceneRun } from "@/components/gm/prep/components/scene-run/scene-run";
 import type { Send } from "@/hooks/use-table/use-table";
 import { fromKinds } from "@/lib/entry-fields/entry-fields";
+import type { RulesEntry } from "@/lib/library/library";
 import { prepTree, stepIndex } from "@/lib/prep/prep";
 import { lineNames, type PrepWorld, type Spawnable } from "@/lib/scene-prep/scene-prep";
 
@@ -36,14 +39,19 @@ type PrepProps = {
   onCall: (testId: string) => void;
   /** "Open in CODEX" on a linked entry. */
   onOpenCodex: (entryId: string) => void;
+  /** Pack entries this seat already read, to name a picked ref in a scene's fields. */
+  known: readonly RulesEntry[];
+  /** RUN FROM HERE began a scene: the shell goes to the SCENE tab. */
+  onPlay: () => void;
 };
 
 // PREP: the GM's adventures as scenes in play order, each scene linked to the NPCs, places and handouts it needs and the
 // Tests it plans (docs/design.md §3.4). Revealing stays in CODEX.
-export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpenCodex }: PrepProps) {
+export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpenCodex, known, onPlay }: PrepProps) {
   const t = useTranslations("prep");
-  const tCodex = useTranslations("codex");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The scene whose page is open; the board's selection is what the glance reads.
+  const [openId, setOpenId] = useState<string | null>(null);
   const [mode, setMode] = useState<PrepMode>("prepare");
   const [newAdventure, setNewAdventure] = useState("");
   const [sceneFor, setSceneFor] = useState<string | null>(null);
@@ -55,6 +63,11 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
   const entries = useMemo(() => codex?.entries ?? [], [codex]);
   const tree = useMemo(() => prepTree(entries), [entries]);
   const selected = entries.find((e) => e.id === selectedId && e.kind === "scene") ?? null;
+  const opened = entries.find((e) => e.id === openId && e.kind === "scene") ?? null;
+  // The scenes beside the open one: its adventure's, else the loose ones.
+  const siblings = opened
+    ? (tree.adventures.find((a) => a.scenes.some((s) => s.id === opened.id))?.scenes ?? tree.loose)
+    : [];
   const secrets = canInCampaign({ ctx: me, perm: "codex:read_secret" });
   // What a scene's lines are resolved against: what this device already holds.
   const world = useMemo<PrepWorld>(
@@ -101,11 +114,17 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
     if (!moved.ok) return;
     setNewScene("");
     setSceneFor(null);
-    setSelectedId(made.id);
+    handleFlip(made.id);
+  };
+
+  // A scene chosen to work on: selected on the board and its page opened.
+  const handleFlip = (id: string) => {
+    setSelectedId(id);
+    setOpenId(id);
   };
 
   // UP / DOWN: one step among the siblings; the server renumbers them.
-  const handleStep = (siblings: readonly CodexEntry[], id: string, step: -1 | 1) => async () => {
+  const handleStep = async ({ siblings, id, step }: { siblings: readonly CodexEntry[]; id: string; step: -1 | 1 }) => {
     const to = stepIndex({ siblings, id, step });
     if (to === null) return;
     const parent = siblings.find((s) => s.id === id)?.parentId ?? null;
@@ -118,7 +137,7 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
         className="btn sm"
         aria-label={t("moveUp", { title: e.title })}
         disabled={stepIndex({ siblings, id: e.id, step: -1 }) === null}
-        onClick={handleStep(siblings, e.id, -1)}
+        onClick={() => handleStep({ siblings, id: e.id, step: -1 })}
       >
         ↑
       </button>
@@ -126,7 +145,7 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
         className="btn sm"
         aria-label={t("moveDown", { title: e.title })}
         disabled={stepIndex({ siblings, id: e.id, step: 1 }) === null}
-        onClick={handleStep(siblings, e.id, 1)}
+        onClick={() => handleStep({ siblings, id: e.id, step: 1 })}
       >
         ↓
       </button>
@@ -134,24 +153,29 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
   );
 
   const adventureList = tree.adventures.map((a) => a.adventure);
-  const sceneRow = (siblings: readonly CodexEntry[], s: CodexEntry) => (
-    <li key={s.id} className="row">
-      <button
-        className="btn"
-        aria-pressed={selectedId === s.id}
-        onClick={() => setSelectedId(s.id)}
-        style={{ flex: 1, justifyContent: "space-between", textAlign: "left" }}
-      >
-        <strong>{s.title}</strong>
-        <span className="row">
-          {s.status === "active" && <span className="chip">{tCodex("status.active")}</span>}
-          {s.plannedTests.length > 0 && (
-            <span className="chip">{t("testsCount", { count: s.plannedTests.length })}</span>
-          )}
-        </span>
-      </button>
-      {stepButtons(siblings, s)}
-    </li>
+  // One adventure's board, with the glance beside it while the selected scene is one of its.
+  const board = (scenes: readonly CodexEntry[]) => (
+    <div className="scene-board-wrap">
+      <SceneBoard
+        scenes={scenes}
+        entries={entries}
+        ruleset={ruleset}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onStep={handleStep}
+      />
+      {selected && scenes.some((s) => s.id === selected.id) && (
+        <SceneGlance
+          key={selected.id}
+          scene={selected}
+          entries={entries}
+          ruleset={ruleset}
+          act={act}
+          onOpen={() => setOpenId(selected.id)}
+          onPlay={onPlay}
+        />
+      )}
+    </div>
   );
 
   return (
@@ -185,10 +209,7 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
                 <h2 className="head">{adventure.title}</h2>
                 {stepButtons(adventureList, adventure)}
               </div>
-              <ul className="list">
-                {scenes.length === 0 && <li className="dim">{t("noScenes")}</li>}
-                {scenes.map((s) => sceneRow(scenes, s))}
-              </ul>
+              {scenes.length === 0 ? <p className="dim">{t("noScenes")}</p> : board(scenes)}
               {sceneFor === adventure.id ? (
                 <form className="row" onSubmit={handleNewScene}>
                   <input
@@ -213,7 +234,7 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
                   campaignId={me.campaignId}
                   ruleset={ruleset}
                   act={act}
-                  onMade={(ids) => ids[0] && setSelectedId(ids[0])}
+                  onMade={(ids) => ids[0] && handleFlip(ids[0])}
                   onClose={() => setPackFor(null)}
                 />
               ) : (
@@ -233,11 +254,11 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
           {tree.loose.length > 0 && (
             <section className="card stack" aria-label={t("loose")}>
               <h2 className="head">{t("loose")}</h2>
-              <ul className="list">{tree.loose.map((s) => sceneRow(tree.loose, s))}</ul>
+              {board(tree.loose)}
             </section>
           )}
         </div>
-        {selected ? (
+        {opened ? (
           <div className="stack" style={{ minWidth: 0 }}>
             <div className="row" role="group" aria-label={t("mode.label")}>
               {PREP_MODES.map((m) => (
@@ -248,27 +269,32 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
             </div>
             {mode === "run" ? (
               <SceneRun
-                scene={selected}
+                scene={opened}
                 world={world}
                 names={names}
                 act={act}
                 sided={ruleset?.initiative?.strategy === "sides"}
                 latestBegin={codex?.latestBegin ?? null}
-                onOpenScene={setSelectedId}
+                onOpenScene={handleFlip}
               />
             ) : (
-              <SceneEditor
-                key={selected.id}
-                scene={selected}
+              <ScenePage
+                key={opened.id}
+                scene={opened}
+                siblings={siblings}
                 entries={entries}
-                testIds={state.testDefs.map((d) => d.id)}
-                canSecrets={secrets}
+                ruleset={ruleset}
                 world={world}
                 names={names}
-                ruleset={ruleset}
+                testIds={state.testDefs.map((d) => d.id)}
+                canSecrets={secrets}
+                campaignId={me.campaignId}
+                known={known}
                 act={act}
                 onCall={onCall}
                 onOpenCodex={onOpenCodex}
+                onFlip={handleFlip}
+                onStep={handleStep}
               />
             )}
           </div>

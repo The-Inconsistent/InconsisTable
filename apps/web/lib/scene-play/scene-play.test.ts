@@ -12,6 +12,7 @@ import {
   sceneCast,
   sceneFixes,
   sceneGlance,
+  sceneTagline,
   scenePlay,
   sceneNumber,
 } from "./scene-play.ts";
@@ -153,7 +154,7 @@ const readyRules = Ruleset.parse({
       scene: {
         fields: {
           goal: { type: "text", label: "Goal", visibility: "gm", cite: "Sample p.1" },
-          aloud: { type: "text", label: "Read aloud", maxLength: 5, cite: "Sample p.1" },
+          aloud: { type: "text", label: "Read aloud", visibility: "party", maxLength: 5, cite: "Sample p.1" },
         },
         ready: ["goal", "aloud"],
       },
@@ -185,6 +186,16 @@ test("sceneFixes: ready is the empty list; no ready declared leaves only exits",
     { kind: "exit", lineId: "e", label: "To gone" },
   ]);
   assert.deepEqual(sceneFixes({ ruleset: null, scene: entry("s"), entries: [] }), []);
+});
+
+test("sceneTagline: the first open text field, else the body's first line, cut short", () => {
+  const withGoal = entry("s", { body: "Body line", fields: { goal: "secret goal", aloud: "Aloud" } });
+  assert.equal(sceneTagline({ ruleset: readyRules, scene: withGoal }), "Aloud");
+  const mention = entry("s", { body: "\n  Meet @[Mira](n1) at dawn\nsecond" });
+  assert.equal(sceneTagline({ ruleset: null, scene: entry("s", { body: "A\nB" }) }), "A");
+  assert.equal(sceneTagline({ ruleset: null, scene: mention }), "Meet Mira at dawn");
+  assert.equal(sceneTagline({ ruleset: null, scene: entry("s", { body: "x".repeat(200) }) }).length, 90);
+  assert.equal(sceneTagline({ ruleset: null, scene: entry("s") }), "");
 });
 
 test("sceneGlance: links by kind, handouts and items, lines, fighters and what is shown on entry", () => {

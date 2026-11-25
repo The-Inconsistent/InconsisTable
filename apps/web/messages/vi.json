@@ -1937,7 +1937,7 @@
     "empty": "Chưa có cuộc phiêu lưu nào. Đặt tên một cái rồi thêm các cảnh.",
     "noScenes": "Chưa có cảnh.",
     "loose": "Cảnh ngoài cuộc phiêu lưu",
-    "pickScene": "Chọn một cảnh để chuẩn bị.",
+    "pickScene": "Chọn một cảnh trên bảng, rồi mở nó.",
     "moveUp": "Đưa {title} lên",
     "moveDown": "Đưa {title} xuống",
     "testsCount": "{count, plural, other {# Test}}",
@@ -2068,7 +2068,46 @@
     "fillIn": "Test này còn thiếu các mục dưới đây. Chúng chỉ dùng cho lần gửi này.",
     "fillFor": "Những gì {what} còn thiếu",
     "pickedRows": "Đã chọn {field}",
-    "switchRow": "{label}: {row}"
+    "switchRow": "{label}: {row}",
+    "board": {
+      "pick": "Cảnh {number}, {title}",
+      "ready": "Sẵn sàng",
+      "toFix": "Còn {count} việc",
+      "exit": "Tới {label}",
+      "nowhere": "{label} chẳng dẫn đi đâu",
+      "moveUp": "Đưa {title} lên",
+      "moveDown": "Đưa {title} xuống"
+    },
+    "glance": {
+      "label": "{title} trong một cái nhìn",
+      "empty": "Chưa liên kết hay chuẩn bị gì.",
+      "holds": "Cảnh có gì",
+      "count": "{label} {count}",
+      "tests": "Test",
+      "fight": "Kẻ địch",
+      "exits": "Lối ra",
+      "onEntry": "Hiện khi vào cảnh",
+      "nothingOnEntry": "Không có gì hiện khi vào cảnh.",
+      "readyForTable": "Sẵn sàng cho bàn chơi",
+      "toFix": "Còn {count} việc cần sửa",
+      "fixField": "Điền {label}",
+      "fixExit": "Lối ra '{label}' chẳng dẫn đi đâu",
+      "open": "Mở",
+      "run": "Chạy từ đây"
+    },
+    "page": {
+      "previous": "Cảnh trước",
+      "next": "Cảnh sau",
+      "position": "Cảnh {number} trên {total}",
+      "strip": "Các cảnh của cuộc phiêu lưu này",
+      "tab": "Cảnh {number}, {title}",
+      "fields": "Trường",
+      "text": "Nội dung và ghi chú GM",
+      "nothingWritten": "Chưa viết gì.",
+      "edit": "Sửa {part}",
+      "closeEdit": "Thôi sửa {part}",
+      "close": "Đóng"
+    }
   },
   "safety": {
     "card": {

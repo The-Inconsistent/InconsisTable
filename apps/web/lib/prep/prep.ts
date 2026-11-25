@@ -1,4 +1,4 @@
-import type { CodexEntry, CodexKind } from "@inconsistable/core-schema";
+import { splitMentions, type CodexEntry, type CodexKind } from "@inconsistable/core-schema";
 
 /** The kinds a scene can link, in the order the scene lists them (the api refuses any other). */
 export const LINKABLE_KINDS = [
@@ -67,4 +67,54 @@ export function linkCandidates({
       !entry.links.includes(e.id) &&
       (q === "" || e.title.toLowerCase().includes(q)),
   );
+}
+
+/**
+ * The entries a scene's text names (a mention in its body or in any text field it holds) that it could link but has
+ * not: they exist in `entries`, are not the scene, are of a linkable kind and are not linked yet. Each once, in the
+ * order they are first named. Mentions only, nothing is inferred from a title (house decision #108).
+ */
+export function namedNotLinked({ scene, entries }: { scene: CodexEntry; entries: readonly CodexEntry[] }) {
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const texts = [scene.body, ...Object.values(scene.fields).filter((v): v is string => typeof v === "string")];
+  const seen = new Set<string>();
+  return texts.flatMap((text) =>
+    splitMentions(text).flatMap((part) => {
+      const found = "id" in part && !seen.has(part.id) ? byId.get(part.id) : undefined;
+      if (
+        !found ||
+        found.id === scene.id ||
+        scene.links.includes(found.id) ||
+        !(LINKABLE_KINDS as readonly string[]).includes(found.kind)
+      )
+        return [];
+      seen.add(found.id);
+      return [found];
+    }),
+  );
+}
+
+/** True when a typed name is worth offering as a new entry: it is not empty and no entry already has that title. */
+export function nameMatchesNone({ entries, name }: { entries: readonly CodexEntry[]; name: string }) {
+  const q = name.trim().toLowerCase();
+  return q !== "" && !entries.some((e) => e.title.trim().toLowerCase() === q);
+}
+
+const PLAYABLE_FIRST = ["active", "planned"];
+
+/**
+ * Where ADD TO SCENE can put a creature: each adventure with its scenes, the scene in play first, then planned (or with
+ * no status), then the played ones; scenes with no adventure come last.
+ */
+export function sceneTargets(entries: readonly CodexEntry[]) {
+  const rank = (s: CodexEntry) => {
+    const at = PLAYABLE_FIRST.indexOf(s.status ?? "planned");
+    return at < 0 ? PLAYABLE_FIRST.length : at;
+  };
+  const tree = prepTree(entries);
+  const sorted = (scenes: CodexEntry[]) => [...scenes].sort((a, b) => rank(a) - rank(b));
+  return [
+    ...tree.adventures.map((a) => ({ adventure: a.adventure as CodexEntry | null, scenes: sorted(a.scenes) })),
+    { adventure: null, scenes: sorted(tree.loose) },
+  ].filter((g) => g.scenes.length > 0);
 }

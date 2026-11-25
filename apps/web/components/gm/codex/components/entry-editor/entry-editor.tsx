@@ -15,6 +15,7 @@ import {
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { PictureField } from "@/components/gm/codex/components/entry-editor/components/picture-field/picture-field";
+import { AddToScene } from "@/components/gm/codex/components/add-to-scene/add-to-scene";
 import {
   EntryFieldsForm,
   type FieldsDraft,
@@ -35,6 +36,7 @@ import { parentOptions, savePatch, type EntryDraft } from "@/lib/codex/codex";
 import { declaredFields, fieldsPatch, type EntryFieldValue } from "@/lib/entry-fields/entry-fields";
 import { offeredLayouts } from "@/lib/handout/handout";
 import type { RulesEntry } from "@/lib/library/library";
+import type { Spawnable } from "@/lib/scene-prep/scene-prep";
 
 type EntryEditorProps = {
   campaignId: string;
@@ -55,6 +57,8 @@ type EntryEditorProps = {
   /** Books a GM tablet serves: the page an entry made from a pack entry cites opens through them. */
   books?: readonly BookSource[];
   requestPage?: RequestPage;
+  /** The attached packs' creatures: an entry made from one offers ADD TO SCENE. Null when they could not be read. */
+  spawnable?: Spawnable | null;
 };
 
 // One entry open: its title, where it sits, its declared fields, a handout's layout and header, body and (for a seat that
@@ -324,6 +328,9 @@ export function EntryEditor(props: EntryEditorProps) {
       <PictureField campaignId={campaignId} entry={entry} can={can} act={act} />
       {entry.kind === "item" && can.write && ruleset?.items?.give && (
         <ItemGive entry={entry} characters={characters} act={act} />
+      )}
+      {can.write && props.spawnable && (
+        <AddToScene entry={entry} entries={entries} spawnable={props.spawnable} act={act} />
       )}
       {can.reveal && <RevealForm entry={entry} characters={characters} act={act} />}
     </section>

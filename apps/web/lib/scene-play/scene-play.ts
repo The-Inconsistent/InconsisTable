@@ -3,7 +3,7 @@ import { checkFieldValue, type Ruleset } from "@inconsistable/rules-engine";
 
 import { declaredFields, shownFields, type ShownField } from "@/lib/entry-fields/entry-fields";
 import { groupLinks, prepTree } from "@/lib/prep/prep";
-import { EMPTY_PREP } from "@/lib/scene-prep/scene-prep";
+import { EMPTY_PREP, resolveLine, type PrepWorld } from "@/lib/scene-prep/scene-prep";
 
 // The scene being played, as a page (issue #216): what the SCENE tab draws, worked out from the entries the GM's seat
 // already holds. Nothing here sends anything.
@@ -141,4 +141,37 @@ export function sceneGlance({ scene, entries }: { scene: CodexEntry; entries: re
     exits: prep.exits.length,
     shownOnEntry: prep.reveals.flatMap((l) => byId.get(l.entryId) ?? []),
   };
+}
+
+/**
+ * The missions of a scene (issue #216): the quests linked to the scene, with its status and the actors it is listed to
+ * (an empty list: the whole table reads it). Only a scene links, so a mission is a scene's (house decision #108).
+ */
+export function sceneMissions({ scene, entries }: { scene: CodexEntry; entries: readonly CodexEntry[] }) {
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  return scene.links.flatMap((id) => {
+    const quest = byId.get(id);
+    return quest?.kind === "quest"
+      ? [{ quest, status: quest.status, audience: quest.audienceMode === "listed" ? quest.audience : [] }]
+      : [];
+  });
+}
+
+/**
+ * The pool lines of the scene being played that name one pool, each resolved against the room. The header's pool pad
+ * draws them (issue #217); nothing is sent from here.
+ */
+export function scenePoolLines({
+  entries,
+  pool,
+  world,
+}: {
+  entries: readonly CodexEntry[];
+  pool: string;
+  world: PrepWorld;
+}) {
+  const playing = scenePlay(entries).playing;
+  return (playing?.prep ?? EMPTY_PREP).pools
+    .filter((line) => line.pool === pool)
+    .map((line) => ({ line, resolved: resolveLine({ kind: "pools", line, world }) }));
 }

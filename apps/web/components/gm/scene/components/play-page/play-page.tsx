@@ -7,6 +7,7 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 import { LineList } from "@/components/gm/prep/components/scene-run/components/line-list/line-list";
 import { StatusBar } from "@/components/gm/prep/components/scene-run/components/status-bar/status-bar";
 import { FieldBlocks } from "@/components/gm/scene/components/play-page/components/field-blocks/field-blocks";
+import { Missions } from "@/components/gm/scene/components/play-page/components/missions/missions";
 import { PAGE_LINE_KINDS } from "@/components/gm/scene/constants";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import type { LineSender } from "@/hooks/use-line-sender/use-line-sender";
@@ -88,6 +89,7 @@ export function PlayPage({
           </div>
         </details>
       )}
+      <Missions scene={scene} entries={entries} actors={world.state.actors} onOpenEntry={onOpenEntry} />
       <LineList sender={sender} world={world} names={names} kinds={PAGE_LINE_KINDS} readOnly={readOnly} />
     </article>
   );

@@ -7,6 +7,8 @@ import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sampl
 import { SAMPLE_HARVEST } from "../../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 
 import {
+  creatureLine,
+  creatureOf,
   EMPTY_PREP,
   fightSteps,
   lineAsks,
@@ -423,4 +425,28 @@ test("revealedNames lists the titles a begin revealed, in order, leaving out a d
   const begin = { id: "b1", sceneId: SCENE, revealed: ["b", "gone", "a"] };
   assert.equal(revealedNames({ begin, entries }), "Map, Keeper");
   assert.equal(revealedNames({ begin: { ...begin, revealed: [] }, entries }), "");
+});
+
+test("creatureOf and creatureLine: an entry made from a spawnable pack creature gives a plain roster line", () => {
+  const made = { ...entry(NPC, "npc"), source: { entity: "creature", key: "ember-wisp" } } as CodexEntry;
+  const creature = creatureOf({ entry: made, spawnable: SPAWNABLE });
+  assert.equal(creature?.name, "Ember Wisp");
+  assert.deepEqual(creatureLine({ creature: creature!, id: "l1" }), {
+    id: "l1",
+    pack: "sample",
+    key: "ember-wisp",
+    count: 1,
+    visibility: "hidden",
+    temporary: true,
+  });
+  assert.equal(
+    creatureOf({ entry: { ...made, source: { entity: "creature", key: "other" } }, spawnable: SPAWNABLE }),
+    null,
+  );
+  assert.equal(
+    creatureOf({ entry: { ...made, source: { entity: "legend", key: "ember-wisp" } }, spawnable: SPAWNABLE }),
+    null,
+  );
+  assert.equal(creatureOf({ entry: { ...made, source: null }, spawnable: SPAWNABLE }), null);
+  assert.equal(creatureOf({ entry: made, spawnable: { ...SPAWNABLE, entries: [] } }), null);
 });

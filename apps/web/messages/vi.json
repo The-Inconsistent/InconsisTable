@@ -967,6 +967,12 @@
       "running": "Đang chạy",
       "empty": "Không có cảnh nào chờ bắt đầu. Thêm cảnh vào cuộc phiêu lưu ở Chuẩn bị.",
       "fight": "Mở trận đánh không cần cảnh"
+    },
+    "missions": {
+      "title": "Nhiệm vụ",
+      "listedTo": "Dành cho {names}",
+      "everyone": "Mọi người thấy được mục này",
+      "open": "Mở {title} trong Codex"
     }
   },
   "gmApp": {
@@ -1899,6 +1905,15 @@
       "pick": "Chọn nhân vật…",
       "give": "Trao",
       "takeBack": "Lấy lại"
+    },
+    "addToScene": {
+      "title": "Thêm vào cảnh",
+      "adventure": "Cuộc phiêu lưu",
+      "scene": "Cảnh",
+      "noAdventure": "Không có cuộc phiêu lưu",
+      "sceneOption": "{title} ({status})",
+      "add": "Thêm {name} vào cảnh",
+      "added": "Đã thêm vào {scene}"
     }
   },
   "handout": {
@@ -2107,7 +2122,13 @@
       "edit": "Sửa {part}",
       "closeEdit": "Thôi sửa {part}",
       "close": "Đóng"
-    }
+    },
+    "newEntry": "{kind} mới: {title}",
+    "newEntryShort": "+ {kind}",
+    "newEntryGroup": "Tạo “{title}” thành mục mới",
+    "newNotLinked": "Đã tạo “{title}” nhưng chưa liên kết với cảnh này.",
+    "linkNamed": "Liên kết mọi mục được nhắc ({count})",
+    "linkedNamed": "Đã liên kết {done} trên {total}."
   },
   "safety": {
     "card": {

@@ -28,7 +28,7 @@ const CREATURE_FIELDS: Record<string, FieldDef> = {
 export const SAMPLE_SKIRMISH: RulesetInput = {
   ...SAMPLE_D20_0_1_8,
   id: "sample-skirmish",
-  version: "0.1.7",
+  version: "0.1.8",
   codex: {
     kinds: {
       ...CODEX_0_1_7.kinds,
@@ -52,6 +52,8 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
         fields: {
           goal: { type: "text", label: "Goal", maxLength: 200, visibility: "gm", cite: "Sample p.24" },
           readAloud: { type: "text", label: "Read aloud", maxLength: 600, visibility: "party", cite: "Sample p.24" },
+          // House decision #76: one place, an entry of kind location; the scene page draws it because the kind declares it.
+          place: { type: "entry", label: "Place", kind: "location", visibility: "party", cite: "Sample p.24" },
         },
         ready: ["goal", "readAloud"],
       },

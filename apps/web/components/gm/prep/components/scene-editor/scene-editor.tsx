@@ -2,7 +2,13 @@
 import { useTranslations } from "next-intl";
 import { useState, type ChangeEvent } from "react";
 
-import { splitMentions, type ActionInput, type ActionResult, type CodexEntry } from "@inconsistable/core-schema";
+import {
+  splitMentions,
+  type ActionInput,
+  type ActionResult,
+  type CodexEntry,
+  type CodexKind,
+} from "@inconsistable/core-schema";
 
 import type { Ruleset } from "@inconsistable/rules-engine";
 
@@ -16,7 +22,14 @@ import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { MentionTextarea } from "@/components/ui/mention-textarea/mention-textarea";
 import { declaredFields, fieldsPatch, type EntryFieldValue } from "@/lib/entry-fields/entry-fields";
 import type { RulesEntry } from "@/lib/library/library";
-import { groupLinks, linkCandidates, PLANNED_TESTS_MAX } from "@/lib/prep/prep";
+import {
+  groupLinks,
+  LINKABLE_KINDS,
+  linkCandidates,
+  nameMatchesNone,
+  namedNotLinked,
+  PLANNED_TESTS_MAX,
+} from "@/lib/prep/prep";
 import { savePatch } from "@/lib/codex/codex";
 import { EMPTY_PREP, type LineNames, type PrepWorld } from "@/lib/scene-prep/scene-prep";
 import { rosterPicks, spawnRoom } from "@/lib/spawn/spawn";
@@ -73,6 +86,8 @@ export function SceneEditor({
   const tCodex = useTranslations("codex");
   const [draft, setDraft] = useState({ title: scene.title, body: scene.body, gmNotes: scene.gmNotes });
   const [query, setQuery] = useState("");
+  // What the last + NEW or LINK EVERYTHING NAMED did, when the error line does not say it.
+  const [note, setNote] = useState<string | null>(null);
   const declared = declaredFields({ ruleset, kind: "scene" });
   const [fieldsDraft, setFieldsDraft] = useState<FieldsDraft>(() =>
     Object.fromEntries(
@@ -84,6 +99,7 @@ export function SceneEditor({
   const dirty = (Object.keys(patch).length > 0 || fields !== null) && draft.title.trim() !== "";
   const show = (part: SceneSection) => only === undefined || only === part;
   const groups = groupLinks({ entry: scene, entries });
+  const named = namedNotLinked({ scene, entries });
   const candidates = linkCandidates({ entry: scene, entries, query }).slice(0, PICKER_ROWS);
   const addable = testIds.filter((id) => !scene.plannedTests.includes(id));
   // The roster's entries by pack and key, for the budget (house decision #92).
@@ -104,6 +120,28 @@ export function SceneEditor({
     if (!dirty) return;
     const r = await act({ type: "codex.save", id: scene.id, kind: "scene", ...patch, ...(fields ? { fields } : {}) });
     if (r.ok) onSaved?.();
+  };
+
+  // + NEW: makes an entry of that kind from the typed name, then links the scene to it. An entry made but not linked is
+  // told, never deleted; a refusal shows in the editor's error line.
+  const handleNew = async (kind: CodexKind) => {
+    const title = query.trim();
+    const made = await act({ type: "codex.save", kind, title });
+    if (!made.ok || !made.id) return;
+    const linked = await act({ type: "codex.link", id: scene.id, targetId: made.id });
+    setNote(linked.ok ? null : t("newNotLinked", { title }));
+    if (linked.ok) setQuery("");
+  };
+
+  // LINK EVERYTHING NAMED: links each entry the text mentions, in order, and stops at the first refusal.
+  const handleLinkNamed = async () => {
+    let done = 0;
+    for (const target of named) {
+      const r = await act({ type: "codex.link", id: scene.id, targetId: target.id });
+      if (!r.ok) break;
+      done += 1;
+    }
+    setNote(t("linkedNamed", { done, total: named.length }));
   };
 
   // Plans a Test the ruleset has, or drops a planned one.
@@ -180,6 +218,16 @@ export function SceneEditor({
         <div className="stack">
           <h3 className="head">{t("links")}</h3>
           {groups.length === 0 && <p className="dim">{t("noLinks")}</p>}
+          {named.length > 0 && (
+            <button className="btn primary" onClick={handleLinkNamed}>
+              {t("linkNamed", { count: named.length })}
+            </button>
+          )}
+          {note && (
+            <p className="small dim" role="status">
+              {note}
+            </p>
+          )}
           {groups.map((g) => (
             <div key={g.kind} className="stack">
               <span className="dim small">{tCodex(`kind.${g.kind}`)}</span>
@@ -212,6 +260,23 @@ export function SceneEditor({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+          {nameMatchesNone({ entries, name: query }) && (
+            <div className="stack" role="group" aria-label={t("newEntryGroup", { title: query.trim() })}>
+              <span className="small dim">{t("newEntryGroup", { title: query.trim() })}</span>
+              <div className="row" style={{ flexWrap: "wrap" }}>
+                {LINKABLE_KINDS.map((kind) => (
+                  <button
+                    key={kind}
+                    className="btn"
+                    aria-label={t("newEntry", { kind: tCodex(`kind.${kind}`), title: query.trim() })}
+                    onClick={() => handleNew(kind)}
+                  >
+                    {t("newEntryShort", { kind: tCodex(`kind.${kind}`) })}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <ul className="list">
             {candidates.length === 0 && <li className="dim">{t("noCandidates")}</li>}
             {candidates.map((e) => (

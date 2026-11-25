@@ -22,6 +22,7 @@ import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { filterEntries, treeRows, unfolded, type KindFilter } from "@/lib/codex/codex";
 import { fromKinds } from "@/lib/entry-fields/entry-fields";
 import type { RulesEntry } from "@/lib/library/library";
+import type { Spawnable } from "@/lib/scene-prep/scene-prep";
 
 type CodexProps = {
   me: Me;
@@ -39,6 +40,8 @@ type CodexProps = {
   /** Books a GM tablet serves, for the page an entry made from a pack entry cites. */
   books?: readonly BookSource[];
   requestPage?: RequestPage;
+  /** The attached packs' creatures, for ADD TO SCENE on an entry made from one. */
+  spawnable?: Spawnable | null;
 };
 
 const NO_ENTRIES: readonly RulesEntry[] = [];
@@ -56,6 +59,7 @@ export function Codex({
   known = NO_ENTRIES,
   books,
   requestPage,
+  spawnable = null,
 }: CodexProps) {
   const t = useTranslations("codex");
   const [kind, setKind] = useState<KindFilter>(initialKind ?? "all");
@@ -288,6 +292,7 @@ export function Codex({
             campaign={state.campaign.fields}
             books={books}
             requestPage={requestPage}
+            spawnable={spawnable}
           />
         )}
       </div>

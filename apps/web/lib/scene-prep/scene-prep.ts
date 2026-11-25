@@ -320,6 +320,20 @@ export function withLine<K extends PrepKind>({ prep, kind, line }: { prep: Scene
   return { ...prep, [kind]: next } as ScenePrep;
 }
 
+/**
+ * The creature an entry was made from, when the room serves it as a spawnable one: the pack entry its `source` names
+ * (house decision #97), found by its type and key among the attached packs' creatures. Null for any other entry.
+ */
+export function creatureOf({ entry, spawnable }: { entry: CodexEntry; spawnable: Spawnable }) {
+  const from = entry.source;
+  return from ? (spawnable.entries.find((e) => e.type === from.entity && e.key === from.key) ?? null) : null;
+}
+
+/** A roster line for one creature, as the line form starts one: count 1, hidden, temporary, no options. */
+export function creatureLine({ creature, id }: { creature: Spawnable["entries"][number]; id: string }): RosterLine {
+  return { id, pack: creature.pack, key: creature.key, count: 1, visibility: "hidden", temporary: true };
+}
+
 /** The document without one line. */
 export function withoutLine({ prep, kind, id }: { prep: ScenePrep; kind: PrepKind; id: string }): ScenePrep {
   return { ...prep, [kind]: (prep[kind] as { id: string }[]).filter((l) => l.id !== id) } as ScenePrep;

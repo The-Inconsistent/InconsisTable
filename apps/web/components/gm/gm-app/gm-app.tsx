@@ -191,6 +191,7 @@ export function GmApp({ me, initialTab, initialFight, rules, view, spawnable, qu
             known={view?.first.entries}
             books={books}
             requestPage={requestPage}
+            spawnable={spawnable}
           />
         ) : tab === "tests" ? (
           <Tests state={state} send={send} testId={callTestId ?? undefined} />

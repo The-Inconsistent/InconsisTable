@@ -503,6 +503,7 @@ function seatCodex({ codex, ctx, sight }: { codex: Codex; ctx: Ctx; sight: Sight
   const ids = new Set(seen.map((e) => e.id));
   return {
     recaps: codex.recaps,
+    latestBegin: sight.secrets || sight.codex ? codex.latestBegin : null,
     entries: seen.map((e) => ({
       ...e,
       body: sight.secrets || sight.codex ? e.body : hideMentions({ body: e.body, canSee: (id) => ids.has(id) }),

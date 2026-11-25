@@ -7,6 +7,7 @@ import {
   type ActionInput,
   type ActionResult,
   type CodexEntry,
+  type LatestBegin,
   type PickLine,
   type PrepLine,
   type RosterLine,
@@ -23,6 +24,7 @@ import {
   lineName,
   PREP_ORDER,
   resolveLine,
+  revealedNames,
   withLine,
   withSwitch,
   type FightStep,
@@ -38,6 +40,8 @@ type SceneRunProps = {
   act: (a: ActionInput) => Promise<ActionResult>;
   /** The ruleset's turn order is `sides`: the server picks each actor's side. */
   sided: boolean;
+  /** The room's latest begin from the codex payload (null for none): what TAKE BACK takes back. */
+  latestBegin: LatestBegin | null;
   /** A scene begun here (an exit, PLAY THIS SCENE): opens it here. */
   onOpenScene: (sceneId: string) => void;
 };
@@ -45,7 +49,7 @@ type SceneRunProps = {
 // RUN: the scene's prepared lines at the table, one button each, large enough to read and tap at arm's length on the
 // GM's tablet. A tap sends the action the line stands for, through the table's one path: refused as that action is, and
 // in the log and Undo as that action is. Nothing records that a line was sent; a line can be sent again.
-export function SceneRun({ scene, world, names, act, sided, onOpenScene }: SceneRunProps) {
+export function SceneRun({ scene, world, names, act, sided, latestBegin, onOpenScene }: SceneRunProps) {
   const t = useTranslations("prep");
   const tCodex = useTranslations("codex");
   const [busy, setBusy] = useState<string | null>(null);
@@ -53,8 +57,6 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
   const [asking, setAsking] = useState<string | null>(null); // the `pick` Test line whose takers are shown
   // What the GM filled in on a Test line that lacked inputs, by line id: for the next send only, never saved.
   const [filled, setFilled] = useState<Record<string, InputDraft>>({});
-  // The begin this screen last sent, for TAKE BACK (Auspex keeps it in the GM's shell the same way).
-  const [begun, setBegun] = useState<{ beginId: string; sceneId: string } | null>(null);
   const words = useSummaryWords();
   const prep = scene.prep ?? EMPTY_PREP;
   const empty = PREP_ORDER.every((k) => prep[k].length === 0);
@@ -71,14 +73,9 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
     setBusy(null);
     setSent(r.ok ? t("sent", { what }) : null);
     if (r.ok) setFilled((cur) => Object.fromEntries(Object.entries(cur).filter(([lineId]) => lineId !== id)));
-    if (r.ok && action.type === "scene.begin") handleBegun(action.sceneId, r.id);
+    if (r.ok && action.type === "scene.begin") onOpenScene(action.sceneId);
   };
 
-  // A begin answered with its id: kept for TAKE BACK, and the begun scene opens here.
-  const handleBegun = (sceneId: string, beginId: string | undefined) => {
-    if (beginId) setBegun({ beginId, sceneId });
-    onOpenScene(sceneId);
-  };
   // PLAY THIS SCENE begins it (house decision #86); the other statuses are set as they are.
   const handleStatus = (status: SceneStatus) => async () => {
     if (status !== "active") {
@@ -86,15 +83,15 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
       return;
     }
     const r = await act({ type: "scene.begin", sceneId: scene.id });
-    if (r.ok) handleBegun(scene.id, r.id);
+    if (r.ok) onOpenScene(scene.id);
   };
-  // TAKE BACK: the begin this screen sent, while its scene is still the one being played.
-  const begunScene = begun && world.entries.find((e) => e.id === begun.sceneId && e.status === "active");
+  // TAKE BACK: the room's latest begin, which the server carries only while its scene is the one being played.
+  const begunScene = latestBegin && world.entries.find((e) => e.id === latestBegin.sceneId && e.status === "active");
+  const revealedTitles = latestBegin ? revealedNames({ begin: latestBegin, entries: world.entries }) : "";
   const handleTakeBack = async () => {
-    if (!begun || !begunScene) return;
+    if (!latestBegin || !begunScene) return;
     const what = t("takeBack", { title: begunScene.title });
-    const r = await act({ type: "scene.undoBegin", beginId: begun.beginId });
-    setBegun(null);
+    const r = await act({ type: "scene.undoBegin", beginId: latestBegin.id });
     setSent(r.ok ? t("sent", { what }) : null);
   };
 
@@ -150,6 +147,7 @@ export function SceneRun({ scene, world, names, act, sided, onOpenScene }: Scene
           </button>
         )}
       </div>
+      {begunScene && revealedTitles && <p className="small dim">{t("takeBackRevealed", { titles: revealedTitles })}</p>}
       {sent && (
         <p className="small" role="status">
           {sent}

@@ -253,6 +253,7 @@ export function Prep({ me, state, codex, send, ruleset, spawnable, onCall, onOpe
                 names={names}
                 act={act}
                 sided={ruleset?.initiative?.strategy === "sides"}
+                latestBegin={codex?.latestBegin ?? null}
                 onOpenScene={setSelectedId}
               />
             ) : (

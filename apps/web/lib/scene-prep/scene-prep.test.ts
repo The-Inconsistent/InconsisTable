@@ -15,6 +15,7 @@ import {
   offeredKinds,
   pickedRows,
   resolveLine,
+  revealedNames,
   stepLine,
   withLine,
   withoutLine,
@@ -414,4 +415,12 @@ test("a pick line is read, not sent; a gone entry, an unpickable field and a gon
   assert.deepEqual(resolveLine({ kind: "picks", line: { ...line, entryId: GONE }, world: w }), broken("entry"));
   assert.deepEqual(resolveLine({ kind: "picks", line: { ...line, field: "district" }, world: w }), broken("field"));
   assert.deepEqual(resolveLine({ kind: "picks", line, world: { ...w, ruleset: null } }), broken("field"));
+});
+
+test("revealedNames lists the titles a begin revealed, in order, leaving out a deleted entry", () => {
+  const titled = (id: string, title: string) => ({ ...entry(id, "npc"), title }) as CodexEntry;
+  const entries = [titled("a", "Keeper"), titled("b", "Map")];
+  const begin = { id: "b1", sceneId: SCENE, revealed: ["b", "gone", "a"] };
+  assert.equal(revealedNames({ begin, entries }), "Map, Keeper");
+  assert.equal(revealedNames({ begin: { ...begin, revealed: [] }, entries }), "");
 });

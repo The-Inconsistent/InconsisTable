@@ -611,6 +611,15 @@ type (
 	Codex struct {
 		Entries []CodexEntry   `json:"entries"`
 		Recaps  []SessionRecap `json:"recaps"`
+		// LatestBegin is the room's latest scene begin while its scene is still active (what scene.undoBegin takes back),
+		// else nil. The codex and secrets sides only (house decision #105).
+		LatestBegin *LatestBegin `json:"latestBegin"`
+	}
+	// LatestBegin is a scene begin: its id, its scene and the entry ids it revealed.
+	LatestBegin struct {
+		ID       string   `json:"id"`
+		SceneID  string   `json:"sceneId"`
+		Revealed []string `json:"revealed"`
 	}
 	// SessionRecap is an ended session's recap, newest first, at most 50, never empty. Never the session's notes.
 	SessionRecap struct {

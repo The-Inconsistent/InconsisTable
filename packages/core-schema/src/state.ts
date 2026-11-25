@@ -489,5 +489,14 @@ export const SessionRecap = z.object({
 });
 export type SessionRecap = z.infer<typeof SessionRecap>;
 
-export const Codex = z.object({ entries: z.array(CodexEntry), recaps: z.array(SessionRecap) });
+// The room's latest scene begin while its scene is still active: what scene.undoBegin takes back. The codex and secrets
+// sides only; every other seat gets null (house decision #105).
+export const LatestBegin = z.object({ id: z.string(), sceneId: z.string(), revealed: z.array(z.string()) });
+export type LatestBegin = z.infer<typeof LatestBegin>;
+
+export const Codex = z.object({
+  entries: z.array(CodexEntry),
+  recaps: z.array(SessionRecap),
+  latestBegin: LatestBegin.nullable(),
+});
 export type Codex = z.infer<typeof Codex>;

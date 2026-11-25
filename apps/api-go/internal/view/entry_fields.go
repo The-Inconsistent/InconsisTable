@@ -40,7 +40,8 @@ func seatEntryFields(codex cs.Codex, compiled *engine.CompiledRuleset, secrets b
 		e.Fields = fields
 		entries[i] = e
 	}
-	return cs.Codex{Entries: entries, Recaps: codex.Recaps}
+	codex.Entries = entries
+	return codex
 }
 
 // The links between entries (house decision #76; seatEntryLinks in vectors/reference/view.seat.ts) a seat receives, run
@@ -71,7 +72,8 @@ func seatEntryLinks(codex cs.Codex, compiled *engine.CompiledRuleset) cs.Codex {
 		e.Fields = fields
 		entries[i] = e
 	}
-	return cs.Codex{Entries: entries, Recaps: codex.Recaps}
+	codex.Entries = entries
+	return codex
 }
 
 // The codex block as a seat may read it (house decision #71): the side that reads GM notes every field, anyone else the

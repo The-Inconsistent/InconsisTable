@@ -2005,6 +2005,7 @@
     "send": "Gửi",
     "sendLine": "Gửi {what}",
     "takeBack": "Hoàn tác bắt đầu {title}",
+    "takeBackRevealed": "Nó đã mở ra: {titles}",
     "sent": "Đã gửi: {what}",
     "asks": "Khi gửi sẽ hỏi thêm {inputs}.",
     "fillIn": "Test này còn thiếu các mục dưới đây. Chúng chỉ dùng cho lần gửi này.",

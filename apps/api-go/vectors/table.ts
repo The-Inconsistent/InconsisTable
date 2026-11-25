@@ -846,6 +846,7 @@ const CODEX = {
     { sessionId: U(600), number: 2, title: "The bridge", endedAt: "2026-02-01T10:00:00.000Z", recap: "They crossed." },
     { sessionId: U(601), number: 1, title: "", endedAt: "2026-01-01T10:00:00.000Z", recap: "They met." },
   ],
+  latestBegin: { id: U(610), sceneId: U(540), revealed: [U(541)] },
 };
 
 const DRAFTS = { player1: { actorId: PC1, answers: { name: "One" } }, owner: { actorId: PC2, answers: {} } };
@@ -888,7 +889,7 @@ const BASE_SNAPSHOTS: {
       tests: [],
       actors: [],
     },
-    codex: { entries: [], recaps: [] },
+    codex: { entries: [], recaps: [], latestBegin: null },
     drafts: {},
     ruleset: true,
   },

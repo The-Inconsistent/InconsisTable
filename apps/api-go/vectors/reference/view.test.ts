@@ -252,6 +252,7 @@ const codex: Codex = {
     entry("for-lyra", { audienceMode: "listed", audience: ["lyra", "kael"] }),
   ],
   recaps: [{ sessionId: "s2", number: 2, title: "", endedAt: "2026-02-01T10:00:00.000Z", recap: "They crossed." }],
+  latestBegin: { id: "b1", sceneId: "open", revealed: ["secret"] },
 };
 const draft: BuilderDraftBody = { actorId: "lyra", answers: { lineage: "reedfolk" } };
 const snapshot: Snapshot = { state, codex, drafts: new Map([["u-lyra", draft]]) };
@@ -769,6 +770,15 @@ test("a player and the table screen receive a handout's layout and header with t
 test("every seat receives the recaps, whole", () => {
   for (const c of [ctx(member("player"), "u-x"), ctx(member("cogm"), "u-co"), ctx(member("gm"), "u-gm")])
     assert.deepEqual(seatView({ snapshot, compiled, ctx: c }).codex.recaps, codex.recaps);
+});
+
+test("the latest scene begin reaches the codex and secrets sides; a player, a bare co-GM and the screen get null (#105)", () => {
+  const begin = (c: Ctx) => seatView({ snapshot, compiled, ctx: c }).codex.latestBegin;
+  const blind = [ctx(member("player"), "u-x"), ctx(member("cogm"), "u-co")];
+  for (const c of [...blind, ctx({ kind: "token", role: "screen", characterIds: [] }, null)])
+    assert.equal(begin(c), null);
+  for (const c of [ctx(member("gm"), "u-gm"), ctx(member("cogm", ["codex"]), "u-co")])
+    assert.deepEqual(begin(c), codex.latestBegin);
 });
 
 test("a whisper reaches the GM side whole, its reader's seat with only that reader, nobody else", () => {

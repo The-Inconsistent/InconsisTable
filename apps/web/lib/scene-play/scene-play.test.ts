@@ -191,6 +191,15 @@ test("sceneFixes: ready is the empty list; no ready declared leaves only exits",
   assert.deepEqual(sceneFixes({ ruleset: null, scene: entry("s"), entries: [] }), []);
 });
 
+test("sceneFixes: a seat without secrets is not sent gm values, so a gm ready field is not a fix", () => {
+  const hidden = entry("s", { fields: { aloud: "ok" } });
+  assert.deepEqual(sceneFixes({ ruleset: readyRules, scene: hidden, entries: [hidden], secrets: false }), []);
+  assert.deepEqual(
+    sceneFixes({ ruleset: readyRules, scene: hidden, entries: [hidden] }).map((f) => f.kind === "field" && f.fieldId),
+    ["goal"],
+  );
+});
+
 test("sceneTagline: the first open text field, else the body's first line, cut short", () => {
   const withGoal = entry("s", { body: "Body line", fields: { goal: "secret goal", aloud: "Aloud" } });
   assert.equal(sceneTagline({ ruleset: readyRules, scene: withGoal }), "Aloud");

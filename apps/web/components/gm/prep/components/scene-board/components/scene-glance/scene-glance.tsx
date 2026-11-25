@@ -10,6 +10,8 @@ type SceneGlanceProps = {
   scene: CodexEntry;
   entries: readonly CodexEntry[];
   ruleset: Ruleset | null;
+  /** The seat holds `codex:read_secret`: only then do `gm` fields count as fixes. */
+  secrets: boolean;
   act: (a: ActionInput) => Promise<ActionResult>;
   /** OPEN: the scene's page. */
   onOpen: () => void;
@@ -19,11 +21,11 @@ type SceneGlanceProps = {
 
 // The selected scene at a glance (house decision #107): what it holds, what is shown the moment it begins, what is left
 // to fix before the table, and the two ways on: open its page, or begin it and go to the SCENE tab.
-export function SceneGlance({ scene, entries, ruleset, act, onOpen, onPlay }: SceneGlanceProps) {
+export function SceneGlance({ scene, entries, ruleset, secrets, act, onOpen, onPlay }: SceneGlanceProps) {
   const t = useTranslations("prep.glance");
   const tCodex = useTranslations("codex");
   const glance = sceneGlance({ scene, entries });
-  const fixes = sceneFixes({ ruleset, scene, entries });
+  const fixes = sceneFixes({ ruleset, scene, entries, secrets });
 
   // RUN FROM HERE: `scene.begin` of this scene, then the SCENE tab; a refusal stays on the page for the GM to read.
   const handleRun = async () => {

@@ -99,20 +99,22 @@ const isEmpty = (value: unknown) =>
 /**
  * The fixes a scene has: each field its kind's `ready` names that is empty or no longer fits its declaration, then each
  * exit line naming a scene the GM's entries do not hold. A ruleset with no `ready` for scenes has only exit fixes; none
- * at all means ready.
+ * at all means ready. A seat without `secrets` is never sent a `gm` field's value, so such a field is not counted.
  */
 export function sceneFixes({
   ruleset,
   scene,
   entries,
+  secrets = true,
 }: {
   ruleset: Ruleset | null;
   scene: CodexEntry;
   entries: readonly CodexEntry[];
+  secrets?: boolean;
 }): Fix[] {
   const needed = new Set(ruleset?.codex?.kinds.scene?.ready ?? []);
   const fields = declaredFields({ ruleset, kind: "scene" })
-    .filter(({ id }) => needed.has(id))
+    .filter(({ id, def }) => needed.has(id) && (secrets || def.visibility !== "gm"))
     .flatMap(({ id, def }): Fix[] => {
       const value = Object.hasOwn(scene.fields, id) ? scene.fields[id] : undefined;
       return isEmpty(value) || checkFieldValue({ def, value }) !== null

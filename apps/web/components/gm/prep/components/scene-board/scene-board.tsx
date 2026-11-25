@@ -13,6 +13,8 @@ type SceneBoardProps = {
   scenes: readonly CodexEntry[];
   entries: readonly CodexEntry[];
   ruleset: Ruleset | null;
+  /** The seat holds `codex:read_secret`: only then do `gm` fields count as fixes. */
+  secrets: boolean;
   selectedId: string | null;
   onSelect: (sceneId: string) => void;
   /** One step among the siblings, as the list's arrows did. */
@@ -21,14 +23,14 @@ type SceneBoardProps = {
 
 // The scenes of one adventure as cards on a spine in play order: number, title, a tagline, where the scene stands, whether
 // it is ready for the table, and where its exits lead (house decision #107). Words carry every state, never colour alone.
-export function SceneBoard({ scenes, entries, ruleset, selectedId, onSelect, onStep }: SceneBoardProps) {
+export function SceneBoard({ scenes, entries, ruleset, secrets, selectedId, onSelect, onStep }: SceneBoardProps) {
   const t = useTranslations("prep.board");
   const tCodex = useTranslations("codex");
   const titles = new Map(entries.map((e) => [e.id, e.title]));
   return (
     <ol className="scene-board">
       {scenes.map((s, i) => {
-        const fixes = sceneFixes({ ruleset, scene: s, entries }).length;
+        const fixes = sceneFixes({ ruleset, scene: s, entries, secrets }).length;
         const tagline = sceneTagline({ ruleset, scene: s });
         return (
           <li key={s.id} className="scene-card" data-selected={selectedId === s.id ? "" : undefined}>

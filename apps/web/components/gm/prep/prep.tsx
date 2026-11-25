@@ -170,6 +170,7 @@ export function Prep({
           scenes={scenes}
           entries={entries}
           ruleset={ruleset}
+          secrets={secrets}
           selectedId={selectedId}
           onSelect={setSelectedId}
           onStep={handleStep}
@@ -179,6 +180,7 @@ export function Prep({
             key={selected.id}
             scene={selected}
             entries={entries}
+            secrets={secrets}
             ruleset={ruleset}
             act={act}
             onOpen={() => setOpenId(selected.id)}

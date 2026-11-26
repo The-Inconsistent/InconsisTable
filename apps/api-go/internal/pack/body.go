@@ -57,11 +57,11 @@ func LoneSurrogate(raw []byte) (int, bool) {
 	return 0, false
 }
 
-// readBody reads an importer's JSON body, up to engine.MaxPackBytes, as express's json({limit}) did for the importer
+// ReadBody reads an importer's JSON body, up to engine.MaxPackBytes, as express's json({limit}) did for the importer
 // routes: a request that is not JSON has an empty object as its body, so the importer is what refuses it. A lone
 // surrogate is refused here, before the decoder can replace it. ordered decodes objects with schema.DecodeJSON, in
 // their order, for a pack whose records the ledger builder reads in order (house decision #62).
-func readBody(w http.ResponseWriter, r *http.Request, ordered bool) (any, error) {
+func ReadBody(w http.ResponseWriter, r *http.Request, ordered bool) (any, error) {
 	contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if contentType != "application/json" {
 		return map[string]any{}, nil

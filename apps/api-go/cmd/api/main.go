@@ -18,6 +18,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/codex"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	charlib "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/library"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/module"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/pack"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/roomdoc"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/table"
@@ -128,6 +129,13 @@ func run() error {
 	route(router, "GET", "/api/worlds", core.Serve(library.Worlds))
 	route(router, "GET", "/api/worlds/:id/export", core.Serve(library.ExportWorld))
 	route(router, "POST", "/api/worlds/:id/hide", core.Serve(library.HideWorld))
+	// Game modules: one file brings in a whole game, and a room is made from one in one step (house decisions #122-#125).
+	modules := &module.Service{Library: library}
+	route(router, "POST", "/api/modules", core.Serve(modules.Import))
+	route(router, "GET", "/api/modules", core.Serve(modules.List))
+	route(router, "GET", "/api/modules/:id/export", core.Serve(modules.Export))
+	route(router, "POST", "/api/modules/:id/hide", core.Serve(modules.Hide))
+	route(router, "POST", "/api/campaigns/from-module", core.Serve(modules.Room))
 	route(router, "GET", "/api/admin/campaigns", core.Serve(console.Campaigns))
 	route(router, "POST", "/api/admin/campaigns/:id/action", core.Serve(console.Action))
 	route(router, "GET", "/api/admin/packs", core.Serve(console.Packs))
@@ -228,7 +236,7 @@ func guarded(next http.Handler, adminKey *core.Limiter) http.Handler {
 			tooMany(w, slowDown)
 			return
 		}
-		if under(path, "/api/lobby", "/api/me", "/api/account", "/api/campaigns", "/api/admin", "/api/rulesets", "/api/packs", "/api/worlds", "/api/library") && !signedIn.Allow(ip) {
+		if under(path, "/api/lobby", "/api/me", "/api/account", "/api/campaigns", "/api/admin", "/api/rulesets", "/api/packs", "/api/worlds", "/api/modules", "/api/library") && !signedIn.Allow(ip) {
 			tooMany(w, slowDown)
 			return
 		}
@@ -236,7 +244,7 @@ func guarded(next http.Handler, adminKey *core.Limiter) http.Handler {
 			tooMany(w, slowDown)
 			return
 		}
-		if under(path, "/api/rulesets", "/api/packs", "/api/worlds", "/api/campaigns/import") && r.Method == http.MethodPost && !imports.Allow(ip) {
+		if under(path, "/api/rulesets", "/api/packs", "/api/worlds", "/api/modules", "/api/campaigns/import") && r.Method == http.MethodPost && !imports.Allow(ip) {
 			tooMany(w, "Too many imports. Wait a minute.")
 			return
 		}

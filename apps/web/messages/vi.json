@@ -1622,6 +1622,8 @@
     "worldTakenDown": "World này đã bị admin gỡ",
     "worldDeleted": "World này đã bị xóa: hãy nhập lại để dùng",
     "worldRunnersOnly": "World chỉ ghim được trong campaign mà bạn tự điều hành",
+    "moduleNotFound": "Không tìm thấy game module",
+    "notAModuleId": "Không phải mã game module",
     "entryNotInPack": "Mục này không nằm trong pack nào gắn với campaign",
     "entryUnreadable": "Không đọc được mục này",
     "notPlaceable": "{name} không phải thứ có thể đặt lên bàn",

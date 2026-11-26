@@ -142,6 +142,11 @@ A public module version with a theme, words and empty rule slots for a game whos
 forks it and fills the slots from their own book into a private module. It names no game or publisher.
 _Avoid_: Template, starter, stub
 
+**Game module**:
+The list that makes one game of a user's parts: one ruleset version, the pack versions that go with it and optionally a
+World version. One file may carry the parts too; a room made from it pins the parts, never the module.
+_Avoid_: Module (alone), bundle, game (that is what it lists)
+
 **Entry**:
 One item of a pack, such as a creature or a piece of gear, with its values and a short summary in the importer's own
 words.

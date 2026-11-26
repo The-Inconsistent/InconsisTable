@@ -80,6 +80,8 @@ var refusals = map[string]string{
 	"worldTakenDown":            "This World was taken down by an admin",
 	"worldDeleted":              "This World is deleted: import it again to use it",
 	"worldRunnersOnly":          "A World can only be pinned in a room you run yourself",
+	"moduleNotFound":            "Game module not found",
+	"notAModuleId":              "Not a game module id",
 	"packWrongRuleset":          "This pack is written for another ruleset",
 	"entryNotInPack":            "That entry isn't in a pack attached to this game",
 	"entryUnreadable":           "That entry can't be read",

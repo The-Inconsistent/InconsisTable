@@ -2075,6 +2075,63 @@ test("a faction's marks from a list, a scene's per-Test inputs, a danger's check
   owner.socket.close();
 });
 
+test("a panel's foe line, a pool on the strip and a shared row cut before a resource narrows reach a player's copy as allowed; their refusals (#180)", async () => {
+  const ownerDevice = await device("fo-owner");
+  const me = caller(ownerDevice);
+  type Manifest = {
+    panels?: { id: string; foe?: string; lines?: { text: string }[] }[];
+    layout: Record<string, { phoneStrip?: unknown[]; screen?: unknown[] } | undefined>;
+    resources: { id: string; entities?: string[] }[];
+  };
+  // Refused at import: a foe that is no actor type, a strip naming a pool that does not exist.
+  const bad = structuredClone(SAMPLE_SKIRMISH) as unknown as {
+    panels: Record<string, unknown>[];
+    layout: Manifest["layout"];
+  };
+  bad.panels[0]!.foe = "nope";
+  bad.layout.character!.phoneStrip = ["pools.nope"];
+  const refusal = await me.post<PackReply>("/rulesets", bad);
+  assert.equal(refusal.status, 422);
+  assert.deepEqual(refusal.body.problems?.map((p) => `${p.path}: ${p.message}`).sort(), [
+    'layout.character.phoneStrip[0]: unknown pool "nope"',
+    'panels[0].foe: unknown entity "nope"',
+  ]);
+
+  // What one player's copy keeps of each.
+  const copyOf = async (ruleset: object, name: string) => {
+    const rs = await me.post<RulesetReply>("/rulesets", ruleset);
+    assert.equal(rs.status, 201, JSON.stringify(rs.body));
+    const { campaignId } = (
+      await me.post<{ campaignId: string }>("/campaigns", { name, rulesetVersionId: rs.body.versionId })
+    ).body;
+    const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+    await owner.until(() => true);
+    const player = await seatPlayer(owner, `${name}-ana`);
+    owner.socket.close();
+    return (await caller(player).get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset
+      ?.manifest as unknown as Manifest;
+  };
+  const harm = await copyOf(SAMPLE_HARM, "Fo1");
+  const incoming = harm.panels?.find((p) => p.id === "incoming");
+  assert.equal(incoming?.foe, "swarm");
+  assert.ok(incoming?.lines?.some((l) => l.text === "A swarm this big strikes twice"));
+  const skirmish = await copyOf(SAMPLE_SKIRMISH, "Fo2");
+  assert.deepEqual(
+    skirmish.layout.character?.phoneStrip?.filter((r) => typeof r === "string"),
+    ["pools.momentum"],
+    "the GM's pressure goes with its row",
+  );
+  const shared = structuredClone(SAMPLE_D20) as unknown as { id: string; layout: Manifest["layout"] };
+  shared.id = "sample-d20-shared";
+  shared.layout.sheet = {
+    ...shared.layout.sheet,
+    screen: [{ widget: "track", bind: { value: "res.hp", max: "derived.maxHp" } }],
+  };
+  const d20 = await copyOf(shared, "Fo3");
+  assert.equal(d20.layout.sheet?.screen?.length ?? 0, 0);
+  assert.deepEqual(d20.resources.find((r) => r.id === "hp")?.entities, ["character"]);
+});
+
 test("a handout has a layout and a header, read by its player; the room's World offers and names its layouts", async () => {
   const ownerDevice = await device("hl-owner");
   const me = caller(ownerDevice);

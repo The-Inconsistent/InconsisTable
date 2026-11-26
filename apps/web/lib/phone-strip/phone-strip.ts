@@ -1,3 +1,4 @@
+import type { PoolState } from "@inconsistable/core-schema";
 import type { LayoutRow, Ruleset } from "@inconsistable/rules-engine";
 
 import { rowFor, widgetOf, type SheetActor, type SheetRow } from "@/lib/sheet-widgets/sheet-widgets";
@@ -47,3 +48,12 @@ export function stripCellsOf({
     }
   });
 }
+
+/**
+ * The shared pools the strip's `pools.<id>` rows name, in their order (house decision #180): only those this seat was
+ * sent, so a pool its visibility keeps from the seat never shows.
+ */
+export const stripPools = ({ rows, pools }: { rows: readonly LayoutRow[]; pools: readonly PoolState[] }): PoolState[] =>
+  rows.flatMap((r) =>
+    typeof r === "string" && r.startsWith("pools.") ? pools.filter((p) => p.id === r.slice("pools.".length)) : [],
+  );

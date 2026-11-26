@@ -5,7 +5,7 @@ import { compileRuleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_DUEL } from "../../../../packages/rules-engine/src/fixtures/sample-duel.ts";
 import { SAMPLE_SKIRMISH } from "../../../../packages/rules-engine/src/fixtures/sample-skirmish.ts";
-import { stripCellsOf } from "./phone-strip.ts";
+import { stripCellsOf, stripPools } from "./phone-strip.ts";
 
 test("the strip reads each row's values, a track with its limit, and only what the seat was sent (#115)", () => {
   const duel = compileRuleset(SAMPLE_DUEL);
@@ -39,5 +39,29 @@ test("the strip reads each row's values, a track with its limit, and only what t
       rows: [...(skirmish.compiled.ruleset.layout.character?.phoneStrip ?? []), "res.nerve", "nope"],
     }).map((c) => c.row.id),
     ["name", "healthState", "hp", "nerve", "defense", "nerve"],
+  );
+});
+
+test("a pools row draws a shared pool only when the seat was sent it, in the rows' order (#180)", () => {
+  const pool = (id: string) =>
+    ({
+      id,
+      label: id,
+      scope: "party",
+      value: 2,
+      min: 0,
+      max: 6,
+      capped: true,
+      visibility: "party",
+      editableBy: "gm",
+    }) as const;
+  const rows = ["pools.pressure", "res.hp", "pools.momentum"];
+  assert.deepEqual(
+    stripPools({ rows, pools: [pool("momentum")] }).map((p) => p.id),
+    ["momentum"],
+  );
+  assert.deepEqual(
+    stripPools({ rows, pools: [pool("momentum"), pool("pressure")] }).map((p) => p.id),
+    ["pressure", "momentum"],
   );
 });

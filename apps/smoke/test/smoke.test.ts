@@ -1599,7 +1599,7 @@ test("entry fields: the ruleset declares them, the GM sets them, a player and th
     const manifest = (await c.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset?.manifest as Defs;
     return Object.keys(manifest?.codex?.kinds[kind]?.fields ?? {}).sort();
   };
-  assert.deepEqual(await defsOf(me, "npc"), ["disposition", "home", "look", "mood", "patron"]);
+  assert.deepEqual(await defsOf(me, "npc"), ["disposition", "home", "kin", "look", "mood", "patron"]);
   assert.deepEqual(await defsOf(me, "faction"), ["marks", "seat", "standing"]);
   assert.deepEqual(await defsOf(caller(anaDevice), "npc"), ["disposition", "home", "mood"]);
   assert.deepEqual(await defsOf(caller(anaDevice), "faction"), []);
@@ -2002,15 +2002,12 @@ test("a faction's marks from a list, a scene's per-Test inputs, a danger's check
   bad.generators[1]!.make.fields = { story: ["origin", "nope"] };
   const refusal = await me.post<PackReply>("/rulesets", bad);
   assert.equal(refusal.status, 422);
-  assert.deepEqual(
-    refusal.body.problems?.map((p) => `${p.path}: ${p.message}`).sort(),
-    [
-      'codex.kinds.faction.from[0].values.standing: "marks" does not fit the field',
-      'codex.kinds.npc.titleRoll.per.tables.dwarf: "dwarf" is not a value',
-      'codex.kinds.scene.poolLines[0].pool: "hp" must be a shared pool',
-      'generators[1].make.fields.story: "nope" is not a step',
-    ],
-  );
+  assert.deepEqual(refusal.body.problems?.map((p) => `${p.path}: ${p.message}`).sort(), [
+    'codex.kinds.faction.from[0].values.standing: "marks" does not fit the field',
+    'codex.kinds.npc.titleRoll.per.tables.dwarf: "dwarf" is not a value',
+    'codex.kinds.scene.poolLines[0].pool: "hp" must be a shared pool',
+    'generators[1].make.fields.story: "nope" is not a step',
+  ]);
 
   const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
   const packs = [await me.post<PackReply>("/packs", SAMPLE_PACK), await me.post<PackReply>("/packs", SAMPLE_ANNALS)];

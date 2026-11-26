@@ -44,6 +44,7 @@ import { SAMPLE_LEDGER_RULESET } from "../../../packages/rules-engine/src/fixtur
 import { SAMPLE_LEDGER_PACK } from "../../../packages/rules-engine/src/fixtures/sample-ledger-pack.ts";
 import { SAMPLE_WORLD } from "../../../packages/rules-engine/src/fixtures/sample-world.ts";
 import {
+  SAMPLE_GMLESS_MODULE,
   SAMPLE_MODULE,
   SAMPLE_NAMING_MODULE,
   SAMPLE_SKIRMISH_MODULE,
@@ -3302,6 +3303,25 @@ test("game modules: one file imports a whole game or nothing, is listed to its o
     [["sample-raiders", "sample-raiders-reserve"], null],
   );
 
+  // A game played only without a GM: its room sits that way, and the owner, who runs it, has its private pack attached.
+  const gmless = await caller(ownerDevice).post<ModuleReply>("/modules", SAMPLE_GMLESS_MODULE);
+  assert.equal(gmless.status, 201);
+  const round = await caller(ownerDevice).post<{ campaignId: string }>("/campaigns/from-module", {
+    name: "Round table",
+    moduleVersionId: gmless.body.versionId,
+    tableMode: "gmless",
+  });
+  assert.equal(round.status, 201);
+  const roundRules = await me.get<RulesReply & { world: ServedWorld | null }>(
+    `/campaigns/${round.body.campaignId}/rules`,
+  );
+  assert.deepEqual(
+    [roundRules.body.packs.map((p) => [p.slug, p.license]), roundRules.body.world?.name],
+    [[["sample-raiders-gmless", "private"]], "Tidewater"],
+  );
+  const rooms = (await (await get("/lobby", cookieOf(ownerDevice))).json()) as Lobby;
+  assert.equal(rooms.mine.find((g) => g.id === round.body.campaignId)?.tableMode, "gmless");
+
   // Another user: nothing listed, nothing exported, no room from it, and the private pack is not theirs to attach.
   const strangerDevice = await device("gm-stranger");
   const stranger = caller(strangerDevice);
@@ -3323,7 +3343,7 @@ test("game modules: one file imports a whole game or nothing, is listed to its o
 
   // Deleting a module leaves its parts and its rooms as they are.
   assert.deepEqual((await me.post(`/modules/${first.body.moduleId}/hide`, {})).body, { deleted: true });
-  assert.deepEqual(await stored(), [2, 3, 1, 1]);
+  assert.deepEqual(await stored(), [3, 4, 1, 2]);
   assert.equal((await me.get<RulesReply>(`/campaigns/${room.body.campaignId}/rules`)).body.packs.length, 1);
 });
 

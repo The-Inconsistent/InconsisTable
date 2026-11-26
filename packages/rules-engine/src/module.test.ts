@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { SAMPLE_MODULE, SAMPLE_NAMING_MODULE, SAMPLE_SKIRMISH_MODULE } from "./fixtures/sample-module.ts";
+import {
+  SAMPLE_GMLESS_MODULE,
+  SAMPLE_MODULE,
+  SAMPLE_NAMING_MODULE,
+  SAMPLE_SKIRMISH_MODULE,
+} from "./fixtures/sample-module.ts";
 import { validateModule, moduleHash, MAX_MODULE_BYTES, MAX_MODULE_PACKS, type GameModuleInput } from "./module.ts";
 
 const problems = (input: unknown) => {
@@ -13,7 +18,7 @@ const part = (slug: string) => ({ slug, version: "1.0.0" });
 const named: GameModuleInput = { id: "m", version: "1.0.0", core: "^1.0.0", name: "M", ruleset: part("r"), packs: [] };
 
 test("both sample modules and a module that only names its parts pass", () => {
-  for (const m of [SAMPLE_MODULE, SAMPLE_SKIRMISH_MODULE, SAMPLE_NAMING_MODULE, named])
+  for (const m of [SAMPLE_MODULE, SAMPLE_SKIRMISH_MODULE, SAMPLE_GMLESS_MODULE, SAMPLE_NAMING_MODULE, named])
     assert.deepEqual(problems(m), []);
 });
 

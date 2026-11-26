@@ -186,6 +186,33 @@ func TestImportRefusesWhatItCannotFind(t *testing.T) {
 	})
 }
 
+// A game played only without a GM gets its room from a module: made in that mode, its private pack attached and its
+// World worn by the owner, who counts as the one running it.
+func TestARoomWithoutAGMFromAModule(t *testing.T) {
+	db := dbtest.Open(t)
+	ctx := context.Background()
+	dbtest.Tx(t, db, func(tx pgx.Tx) {
+		owner := dbtest.User(t, tx, "Owner")
+		doc := whole(t)
+		rules := doc["documents"].(map[string]any)["ruleset"].(map[string]any)
+		rules["game"] = map[string]any{"title": "No GM", "players": map[string]any{"min": 1.0, "max": 4.0},
+			"modes": []any{"gmless"}, "cite": "Sample p.1"}
+		versionID := dbtest.Must[*Imported](t)(ImportTx(ctx, tx, owner, doc)).VersionID
+		id := dbtest.Must[string](t)(CreateRoomTx(ctx, tx, campaign.Owner{UserID: owner, Name: "Owner"}, "Round table",
+			versionID, cs.TableModeGMLess))
+		if made := dbtest.Scalar[int](t, tx, `SELECT count(*)::int FROM campaign WHERE id = $1 AND table_mode = 'gmless'
+			AND ruleset_version_id IS NOT NULL AND world_version_id IS NOT NULL`, id); made != 1 {
+			t.Fatal("the room sits without a GM, with the module's ruleset and World")
+		}
+		if packs := dbtest.Scalar[int](t, tx, `SELECT count(*)::int FROM campaign_pack WHERE campaign_id = $1`, id); packs != 1 {
+			t.Fatalf("the room has %d packs attached, want 1", packs)
+		}
+		if role := dbtest.Scalar[string](t, tx, `SELECT role FROM membership WHERE campaign_id = $1`, id); role != "player" {
+			t.Fatalf("the owner sits as %s, want player", role)
+		}
+	})
+}
+
 func TestARoomFromAModulePinsItsParts(t *testing.T) {
 	db := dbtest.Open(t)
 	ctx := context.Background()

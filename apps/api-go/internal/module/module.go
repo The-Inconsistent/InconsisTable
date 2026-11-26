@@ -408,9 +408,10 @@ func Delete(ctx context.Context, conn core.Conn, userID, moduleID string) (bool,
 	return tag.RowsAffected() > 0, err
 }
 
-// CreateRoom makes a room of the owner's from one version of their own module, in one transaction: the room, then the
-// ruleset pinned, each pack attached and the World pinned, each through the action a GM would send (house decision
-// #74's path), then how the table sits. A refusal of any of them is the action's own (*coreschema.Error).
+// CreateRoom makes a room of the owner's from one version of their own module, in one transaction: the room with its
+// ruleset and how the table sits (campaign.NewRoom, as POST /api/campaigns makes one), then each pack attached and the
+// World pinned through the action the one running the room would send (house decision #74's path). A refusal of any of
+// them is its own (*coreschema.Error).
 func CreateRoom(ctx context.Context, db *pgxpool.Pool, owner campaign.Owner, name, moduleVersionID, tableMode string) (string, error) {
 	var id string
 	err := core.InTx(ctx, db, func(tx pgx.Tx) error {
@@ -445,27 +446,32 @@ func CreateRoomTx(ctx context.Context, tx pgx.Tx, owner campaign.Owner, name, mo
 		if err != nil {
 			return err
 		}
-		if id, err = campaign.NewRoom(ctx, tx, name, &owner, nil, nil); err != nil {
+		// The room is made with its ruleset and its mode at once, as POST /api/campaigns makes one, so a game played only
+		// without a GM gets its room (pinning the ruleset afterwards would check it against a room with a GM).
+		mode, seat := cs.TableModeGM, "gm"
+		var modeParam *string
+		if tableMode != "" && tableMode != cs.TableModeGM {
+			mode, seat, modeParam = tableMode, "player", &tableMode
+		}
+		if id, err = campaign.NewRoom(ctx, tx, name, &owner, &rulesetID, modeParam); err != nil {
 			return err
 		}
-		gm := cs.Ctx{CampaignID: id, UserID: &owner.UserID, CampaignOwnerID: &owner.UserID, TableMode: cs.TableModeGM,
-			Seat: cs.Seat{Kind: cs.SeatMember, Role: "gm"}}
-		actions := []map[string]any{{"type": "campaign.setRuleset", "rulesetVersionId": rulesetID}}
+		// The owner as the room seats them: its GM, or, in a room without a GM, the player who counts as running it.
+		runner := cs.Ctx{CampaignID: id, UserID: &owner.UserID, CampaignOwnerID: &owner.UserID, TableMode: mode,
+			Seat: cs.Seat{Kind: cs.SeatMember, Role: seat}}
+		var actions []map[string]any
 		for _, p := range packs {
 			actions = append(actions, map[string]any{"type": "campaign.attachPack", "packVersionId": p})
 		}
 		if worldID != nil {
 			actions = append(actions, map[string]any{"type": "campaign.setWorld", "worldVersionId": *worldID})
 		}
-		if tableMode != "" && tableMode != cs.TableModeGM {
-			actions = append(actions, map[string]any{"type": "campaign.setTableMode", "mode": tableMode})
-		}
 		for _, action := range actions {
 			a, issues := cs.ParseAction(action)
 			if len(issues) > 0 {
 				return fmt.Errorf("module room action %v: %s", action["type"], schema.Prettify(issues))
 			}
-			if _, err := table.ApplyAction(ctx, tx, gm, a); err != nil {
+			if _, err := table.ApplyAction(ctx, tx, runner, a); err != nil {
 				return err
 			}
 		}

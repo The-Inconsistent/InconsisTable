@@ -4100,6 +4100,22 @@ function panelCrafted(): object[] {
       ...SAMPLE_HARM,
       layout: { hero: { sections: [], phoneStrip: [{ widget: "frames", bind: { values: ["nope", "grit"] } }, "x"] } },
     },
+    // House decision #180: the acting foe of a type, the items carried, and a shared pool on the strip; each refusal.
+    panel({ ...incoming, foe: "swarm", lines: [{ text: "x", when: "ctx.foe.size > 1 && ctx.foe.res.wounds >= 0" }] }),
+    panel({ ...incoming, foe: "nope" }, { ...incoming, id: "f2", foe: "growth" }),
+    panel({ ...incoming, foe: "swarm", lines: [{ text: "x", when: "ctx.foe.hide > 1" }] }),
+    panel({ ...incoming, lines: [{ text: "x", when: "ctx.foe.size > 1" }] }),
+    panel({ ...incoming, options: { entry: "stance", usable: 'contains(ctx.carried.carried, "maul")' } }),
+    panel({ ...incoming, options: { entry: "stance", usable: 'contains(ctx.carried.nope, "maul")' } }),
+    panel({ ...incoming, when: 'contains(ctx.carried.carried, "maul")' }),
+    {
+      ...SAMPLE_HARM,
+      resources: [
+        ...SAMPLE_HARM.resources!,
+        { id: "momentum", label: "M", scope: "party", max: "3", cite: "p.1", visibility: "party" },
+      ],
+      layout: { hero: { sections: [], phoneStrip: ["pools.momentum", "pools.wounds", "pools.nope", "pools."] } },
+    },
   ];
 }
 

@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { compileRuleset } from "./compile.ts";
 import type { ExprRecord } from "./expr/expr.ast.ts";
 import { SAMPLE_DUEL } from "./fixtures/sample-duel.ts";
-import { SAMPLE_HARM } from "./fixtures/sample-harm.ts";
+import { SAMPLE_HARM, SAMPLE_HARM_0_1_11 } from "./fixtures/sample-harm.ts";
 import type { RulesetInput } from "./manifest.ts";
 import { isRefusal } from "./primitives/primitive.ts";
 import { meansValues, planStrike, type StrikePlan } from "./strike.ts";
@@ -210,7 +210,8 @@ test("a strike's declaration is refused at its path", () => {
 test("a strike's means may be a held item of a kind an attacker holds (house decision #95)", () => {
   const kind = { id: "arms", label: "Arms", entry: "arm", entities: ["hero"], card: "weapons", cite: "Sample p.17" };
   const withItems = (means: NonNullable<RulesetInput["strikes"]>[number]["means"], entities?: string[]) => {
-    const r = structuredClone(SAMPLE_HARM) as RulesetInput & { strikes: NonNullable<RulesetInput["strikes"]> };
+    // 0.1.11: before a stance's `usable` read the carried kind this test renames.
+    const r = structuredClone(SAMPLE_HARM_0_1_11) as RulesetInput & { strikes: NonNullable<RulesetInput["strikes"]> };
     r.items = { kinds: [kind as never] };
     r.strikes[0] = { ...r.strikes[0]!, means, ...(entities ? { entities } : {}) };
     return compileRuleset(r);

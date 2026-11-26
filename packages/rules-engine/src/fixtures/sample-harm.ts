@@ -733,7 +733,7 @@ export const SAMPLE_HARM_0_1_10: RulesetInput = {
  * sample-harm 0.1.11 (house decision #174): a brute is destroyed outright by one big hit only once it is already
  * wounded; an unhurt one takes the hit as wounds.
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_0_1_11: RulesetInput = {
   ...SAMPLE_HARM_0_1_10,
   version: "0.1.11",
   health: {
@@ -747,6 +747,35 @@ export const SAMPLE_HARM: RulesetInput = {
       ),
     },
   },
+};
+
+/**
+ * 0.1.12 (house decision #180): Incoming reads the acting swarm's size, which every seat reads, and a stance a hero may
+ * take only with the maul carried sinks without it. 0.1.11 hashes as it did. Invented.
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_0_1_11,
+  version: "0.1.12",
+  panels: SAMPLE_HARM_0_1_11.panels?.map((p) =>
+    p.id === "incoming"
+      ? {
+          ...p,
+          foe: "swarm",
+          lines: [
+            ...(p.lines ?? []),
+            { text: "A swarm this big strikes twice", when: "ctx.foe.size > 10", cite: "Sample p.19" },
+          ],
+        }
+      : p.id === "stances"
+        ? {
+            ...p,
+            options: {
+              ...p.options!,
+              usable: 'entry.gist != "Strain first, wounds after" || contains(ctx.carried.carried, "maul")',
+            },
+          }
+        : p,
+  ),
 };
 
 /**

@@ -97,6 +97,27 @@ export const CRAFTED_SEAT_CUTS: Record<string, RulesetInput> = {
       e === d20Site ? { ...e, fields: { ...e.fields, peril: { ...d20Site.fields!.peril!, visibility: "gm" } } } : e,
     ),
   },
+  // House decision #180: a swarm's size made `gm`, so a player's Incoming loses only the line that reads the foe's.
+  harmFoeCuts: {
+    ...SAMPLE_HARM,
+    entities: SAMPLE_HARM.entities.map((e) =>
+      e.id === "swarm"
+        ? { ...e, fields: { ...e.fields, size: { type: "int", label: "Size", min: 1, max: 500, visibility: "gm" } } }
+        : e,
+    ),
+  },
+  // House decision #127, now #180: a shared screen row naming Vigour on every type, which a creature's `gm` most
+  // Vigour keeps a player from reading; the row goes and Vigour stays, narrowed to the characters.
+  d20SharedScreen: {
+    ...SAMPLE_D20,
+    layout: {
+      ...SAMPLE_D20.layout,
+      sheet: {
+        ...SAMPLE_D20.layout!.sheet!,
+        screen: [{ widget: "track", bind: { value: "res.hp", max: "derived.maxHp" } }],
+      },
+    },
+  },
   // House decision #114: a hero's `gm` doom and dread. Incoming loses only the line and the figure that read the doom,
   // the dread panel (its `when`) and the shiver panel (its `opensOn`) go whole, and so do their layout rows.
   harmPanelCuts: {

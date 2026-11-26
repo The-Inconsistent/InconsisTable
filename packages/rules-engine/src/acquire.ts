@@ -2,7 +2,7 @@ import { nestFields, type FieldValue } from "./derived.ts";
 import { ExprError, type ExprRecord, type ExprValue } from "./expr/expr.ast.ts";
 import { evaluate } from "./expr/expr.eval.ts";
 import { parseExpr } from "./expr/expr.parser.ts";
-import { acquiredKinds, HOST_PREFIX, itemKindOf, type Ruleset } from "./manifest.ts";
+import { acquiredKinds, CARD_VALUES, HOST_PREFIX, itemKindOf, type Ruleset } from "./manifest.ts";
 import { own } from "./own.ts";
 import { isRefusal, refuse, type ActorState, type Refusal } from "./primitives/primitive.ts";
 
@@ -187,4 +187,32 @@ export function withFittings({
     if (changed && !by.includes(item.name)) by.push(item.name);
   }
   return { values: out, by };
+}
+
+/** Every value a fitting may change on a card, whatever its kind: a weapon's numbers and an armour's rating. */
+const CARD_NUMBERS = [...new Set(Object.values(CARD_VALUES).flat())];
+
+/**
+ * A card, or the means a strike reads, with what is fitted to it (house decision #102): `withFittings` over its card
+ * numbers, a number the card prints as words (a rolled ED) left as printed and every other key kept. The sheet draws
+ * it; the strike guide and the api's `strike.apply` read a held weapon's numbers through it, so they never disagree.
+ */
+export function withFittedCard({
+  card,
+  fitted,
+}: {
+  card: Readonly<Record<string, unknown>>;
+  fitted: readonly { name: string; effects: readonly CarriedEffect[] }[];
+}): { card: Record<string, unknown>; by: string[] } {
+  const values: Record<string, number> = {};
+  for (const k of CARD_NUMBERS) {
+    const v = own(card, k);
+    if (typeof v === "number") values[k] = v;
+  }
+  const out = withFittings({ values, fitted });
+  const numbers = Object.entries(out.values).filter(([k]) => {
+    const v = own(card, k);
+    return v === undefined || typeof v === "number";
+  });
+  return { card: { ...card, ...Object.fromEntries(numbers) }, by: out.by };
 }

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"maps"
 	"slices"
 	"strings"
 )
@@ -68,4 +69,75 @@ func (c *compiler) hostEffect(eff *Effect, typ, path string) {
 	if eff.When != nil {
 		c.problems.add(path+".when", "a host's value takes no condition")
 	}
+}
+
+// Fitted is an item fitted to a host, as acquire.ts reads it: its name and its effects.
+type Fitted struct {
+	Name    string   `json:"name"`
+	Effects []Effect `json:"effects"`
+}
+
+// WithFittings is acquire.ts withFittings: a card's values with each fitted item's `host.<value>` effects, added or
+// overridden in the order the items are fitted, a value the card leaves out read as 0; by names the items that
+// changed one. An amount that cannot be read changes nothing.
+func WithFittings(values map[string]float64, fitted []Fitted) (map[string]float64, []string) {
+	out := maps.Clone(values)
+	if out == nil {
+		out = map[string]float64{}
+	}
+	by := []string{}
+	for _, item := range fitted {
+		changed := false
+		for _, eff := range item.Effects {
+			name, ok := strings.CutPrefix(eff.Path, HostPrefix)
+			if !ok {
+				continue
+			}
+			v, refusal := read(eff.Value, &Record{map[string]any{}}, eff.Path)
+			n, isNumber := v.(float64)
+			if refusal != nil || !isNumber {
+				continue
+			}
+			if eff.Mode == "override" {
+				out[name] = n
+			} else {
+				out[name] += n
+			}
+			changed = true
+		}
+		if changed && !slices.Contains(by, item.Name) {
+			by = append(by, item.Name)
+		}
+	}
+	return out, by
+}
+
+// cardNumbers is every value a fitting may change on a card, in acquire.ts CARD_NUMBERS' order.
+var cardNumbers = []string{"damage", "ed", "ap", "salvo", "ar"}
+
+// WithFittedCard is acquire.ts withFittedCard: a card, or the means a strike reads, with what is fitted to it; a
+// number the card prints as words left as printed and every other key kept.
+func WithFittedCard(card map[string]any, fitted []Fitted) (map[string]any, []string) {
+	values := map[string]float64{}
+	for _, k := range cardNumbers {
+		if v, ok := card[k].(float64); ok {
+			values[k] = v
+		}
+	}
+	changed, by := WithFittings(values, fitted)
+	out := maps.Clone(card)
+	if out == nil {
+		out = map[string]any{}
+	}
+	for k, v := range changed {
+		if x, ok := card[k]; !ok || isFloat(x) {
+			out[k] = v + 0 // a negated 0 reads as 0, as JSON writes it
+		}
+	}
+	return out, by
+}
+
+func isFloat(v any) bool {
+	_, ok := v.(float64)
+	return ok
 }

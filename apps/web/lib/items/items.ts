@@ -1,7 +1,7 @@
 import type { Actor, ActorItem } from "@inconsistable/core-schema";
 import {
   HOST_PREFIX,
-  withFittings,
+  withFittedCard,
   type ActiveEntry,
   type Effect,
   type ItemKind,
@@ -124,9 +124,6 @@ export function lineHostsOf({
   });
 }
 
-/** The numbers of a card a fitting may change (house decision #102). */
-const CARD_NUMBERS = ["damage", "ed", "ap", "salvo", "ar"] as const;
-
 /**
  * A weapon's or an armour's numbers with what is fitted to it (house decision #102): each fitted item's `host.<value>`
  * effects, in the order they were fitted; `by` names the items that changed one. A number the card prints as words
@@ -139,14 +136,6 @@ export function withFitted<T extends Record<string, unknown>>({
   card: T;
   fitted: readonly Pick<ActorItem, "name" | "effects">[];
 }): T & { by: string[] } {
-  const values: Record<string, number> = {};
-  for (const k of CARD_NUMBERS) {
-    const v = card[k];
-    if (typeof v === "number") values[k] = v;
-  }
-  const out = withFittings({ values, fitted });
-  const numbers = Object.fromEntries(
-    Object.entries(out.values).filter(([k]) => card[k] === undefined || typeof card[k] === "number"),
-  );
-  return { ...card, ...numbers, by: out.by };
+  const out = withFittedCard({ card, fitted });
+  return { ...(out.card as T), by: out.by };
 }

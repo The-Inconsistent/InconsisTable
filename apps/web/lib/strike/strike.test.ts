@@ -122,6 +122,45 @@ test("a held item of the strike's kind is a means, read from its loaded entry; a
   );
 });
 
+test("a held weapon strikes as its card shows it: its profile over the entry, with what is fitted to it", () => {
+  const items = { kinds: [{ id: "arms", label: "Arms", entry: "arm", entities: ["hero"] }] } as Ruleset["items"];
+  const sight = { path: "host.damage", mode: "add", value: "2", phase: "derived" } as const;
+  const keen = { path: "derived.limit", mode: "add", value: "5", phase: "derived" } as const;
+  const holder = {
+    ...hal,
+    ledger: {
+      sheet: {
+        weapons: [
+          { name: "Maul", damage: 4 },
+          { name: "Club", damage: 1 },
+        ],
+      },
+    } as never,
+    items: [
+      { id: "i1", kind: "arms", entry: "sling", name: "Sling", profile: { damage: 5 } },
+      { id: "i2", kind: "arms", entry: null, name: "Scope", fittedTo: "i1", effects: [sight, keen] },
+      {
+        id: "i3",
+        kind: "arms",
+        entry: null,
+        name: "Weight",
+        fittedTo: null,
+        fittedLine: "weapons/Maul",
+        effects: [sight],
+      },
+    ] as unknown as NonNullable<Actor["items"]>,
+  };
+  const carried = { ...blow, means: [{ from: "items" as const, kind: "arms" }] };
+  const [sling] = meansOf({ ruleset: { items }, strike: carried, actor: holder, entries });
+  // The profile's damage 5 over the entry's 3, the scope's 2 more; an effect on the holder changes no card number.
+  assert.equal(sling?.values.damage, 7);
+  assert.equal(sling?.values.pierce, -1);
+  const lined = { ...blow, means: [{ from: "ledger" as const, lines: "weapons" as const }] };
+  const [maul, club] = meansOf({ ruleset, strike: lined, actor: holder, entries });
+  assert.equal(maul?.values.damage, 6);
+  assert.equal(club?.values.damage, 1);
+});
+
 test("a means' text values are shown beside it, and the further numbers come with the plan", () => {
   const [maul, sling] = meansOf({ ruleset, strike: blow, actor: hal, entries });
   assert.deepEqual(meansTexts({ strike: blow, means: maul }), ["Brutal"]);

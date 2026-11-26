@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"slices"
 	"strconv"
 
@@ -238,16 +239,22 @@ func meansOf(ctx context.Context, tx core.Conn, campaignID string, s *engine.Str
 		if line == nil {
 			return nil, nil, missing
 		}
-		name, _ := line["name"].(string)
-		return line, &name, nil
+		name, isName := line["name"].(string)
+		fitted := fittedOn(b.Items, func(x actor.ItemRow) bool {
+			return isName && x.FittedLine != nil && *x.FittedLine == m.Lines+"/"+name
+		})
+		card, _ := engine.WithFittedCard(line, fitted)
+		return card, &name, nil
 	}
 	entryType, key := m.Entry, ref
+	var held *actor.ItemRow
 	if m.From == "items" {
 		i := slices.IndexFunc(b.Items, func(x actor.ItemRow) bool { return x.ID == ref && x.Kind == m.Kind && x.Served })
 		if i < 0 {
 			return nil, nil, missing
 		}
-		entryType, key = *b.Items[i].EntryType, *b.Items[i].EntryKey
+		held = &b.Items[i]
+		entryType, key = *held.EntryType, *held.EntryKey
 	} else {
 		keys, _ := b.Fields[m.Field].([]any)
 		if !slices.Contains(keys, any(ref)) {
@@ -271,7 +278,30 @@ func meansOf(ctx context.Context, tx core.Conn, campaignID string, s *engine.Str
 	if err := json.Unmarshal(body, &values); err != nil {
 		return nil, nil, err
 	}
-	return values, &name, nil
+	if held == nil {
+		return values, &name, nil
+	}
+	// A held weapon is read as its card shows it (house decision #102): its printed profile over the entry, with what
+	// is fitted to it; strike.ts meansOf on the web reads it the same way.
+	profile := map[string]any{}
+	if len(held.Profile) > 0 && json.Unmarshal(held.Profile, &profile) == nil {
+		maps.Copy(values, profile)
+	}
+	card, _ := engine.WithFittedCard(values, fittedOn(b.Items, func(x actor.ItemRow) bool {
+		return x.FittedTo != nil && *x.FittedTo == held.ID
+	}))
+	return card, &name, nil
+}
+
+// fittedOn is the items fitted to one host, in the actor's order, as the engine reads them.
+func fittedOn(items []actor.ItemRow, on func(actor.ItemRow) bool) []engine.Fitted {
+	out := []engine.Fitted{}
+	for _, x := range items {
+		if on(x) {
+			out = append(out, engine.Fitted{Name: x.Label(), Effects: x.Effects})
+		}
+	}
+	return out
 }
 
 // logStrike writes the strike as an event of its own beside the hit's writes, under the same action: not a delta, so

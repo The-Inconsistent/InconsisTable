@@ -82,7 +82,7 @@ import { charge, checkDeltas } from "../../../packages/rules-engine/src/primitiv
 import { opInputKeys, PRIMITIVES, runOp } from "../../../packages/rules-engine/src/primitives/registry.ts";
 import { planSpend } from "../../../packages/rules-engine/src/spend.ts";
 import { planStrike } from "../../../packages/rules-engine/src/strike.ts";
-import { planAcquire, type AcquireItem } from "../../../packages/rules-engine/src/acquire.ts";
+import { planAcquire, withFittedCard, type AcquireItem } from "../../../packages/rules-engine/src/acquire.ts";
 import { budgetOf, planSpawn, type SpawnRoom } from "../../../packages/rules-engine/src/spawn.ts";
 import { SAMPLE_SKIRMISH_PACK } from "../../../packages/rules-engine/src/fixtures/sample-skirmish-pack.ts";
 import { firstOf, nextFirst, sequence } from "../../../packages/rules-engine/src/primitives/initiative-seated.ts";
@@ -1257,6 +1257,45 @@ function acquireVectors() {
     });
   }
   return { rulesets: [ACQUIRE_MANIFEST, SAMPLE_LEDGER_RULESET], cases };
+}
+
+// Fittings (house decision #102): withFittedCard over cards and strike means with numbers, words and gaps, and items
+// whose effects add, override, change no card value, or cannot be read as a number.
+function fittingVectors() {
+  let seed = 224;
+  const r = (n: number) => (((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 2 ** 32) * n) | 0;
+  const one = <T>(items: readonly T[]): T => items[r(items.length)] as T;
+  const cards: Record<string, unknown>[] = [
+    { name: "Maul", damage: 4, ed: 1, ap: 0, traits: ["Brutal"] },
+    { name: "Bow", damage: 3, ed: "1d3", ap: -1, range: [12, 24] },
+    { ar: 2, name: "Coat" },
+    { damage: 2.5, salvo: 2, close: true },
+    {},
+  ];
+  const effects = [
+    { path: "host.damage", mode: "add", value: "1" },
+    { path: "host.damage", mode: "override", value: "6" },
+    { path: "host.ed", mode: "add", value: "2" },
+    { path: "host.ap", mode: "add", value: "-1" },
+    { path: "host.ap", mode: "override", value: "-0" },
+    { path: "host.salvo", mode: "add", value: "1 + 1" },
+    { path: "host.ar", mode: "add", value: "1" },
+    { path: "host.range", mode: "add", value: "1" },
+    { path: "derived.limit", mode: "add", value: "1" },
+    { path: "host.damage", mode: "add", value: "true" },
+    { path: "host.damage", mode: "add", value: "1 +" },
+    { path: "host.damage", mode: "add", value: "nope.x" },
+  ];
+  const cases: unknown[] = [];
+  for (let i = 0; i < 300; i++) {
+    const card = one(cards);
+    const fitted = Array.from({ length: r(4) }, () => ({
+      name: one(["Sight", "Keen", "Sight", "Plate"]),
+      effects: Array.from({ length: r(3) }, () => one(effects)),
+    }));
+    cases.push({ card, fitted, result: withFittedCard({ card, fitted }) });
+  }
+  return { cases };
 }
 
 // Spawns (house decision #92): planSpawn and budgetOf on the skirmish fixture's foes, varied around their edges.
@@ -5042,6 +5081,7 @@ const vectors = {
   spends: spendVectors(),
   strikes: strikeVectors(),
   acquire: acquireVectors(),
+  fittings: fittingVectors(),
   spawns: spawnVectors(),
   opInputKeys: opKeyVectors(),
   deltaChecks: deltaCheckVectors(),

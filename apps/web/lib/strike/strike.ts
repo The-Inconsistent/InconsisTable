@@ -5,6 +5,7 @@ import {
   meansValues,
   planStrike,
   strikeTargets,
+  withFittedCard,
   type CompiledRuleset,
   type Ruleset,
   type Strike,
@@ -42,7 +43,8 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "obj
  * The means the attacker has now, source by source: each line of its saved sheet's list (its index the ref), each key
  * its list field holds that names a loaded entry of the source's type (the key the ref), and each item of the source's
  * kind it holds whose entry is loaded (the item's id the ref). A key or an item no loaded entry has is left out, as the
- * server would refuse it.
+ * server would refuse it. A held weapon is read as its card shows it (house decision #102): an item's entry with its
+ * printed profile over it, or a sheet's line, with what is fitted to it.
  */
 export function meansOf({
   ruleset,
@@ -58,15 +60,28 @@ export function meansOf({
   return (strike.means ?? []).flatMap((m, source): StrikeMeansOption[] => {
     if (m.from === "ledger") {
       const lines = actor.ledger?.sheet?.[m.lines];
-      return (Array.isArray(lines) ? lines : []).flatMap((line, i) =>
-        isRecord(line) ? [{ source, ref: String(i), name: String(line.name ?? i + 1), values: line }] : [],
-      );
+      return (Array.isArray(lines) ? lines : []).flatMap((line, i) => {
+        if (!isRecord(line)) return [];
+        const ref = typeof line.name === "string" ? `${m.lines}/${line.name}` : null;
+        const fitted = (actor.items ?? []).filter((x) => ref !== null && x.fittedLine === ref);
+        return [
+          {
+            source,
+            ref: String(i),
+            name: String(line.name ?? i + 1),
+            values: withFittedCard({ card: line, fitted }).card,
+          },
+        ];
+      });
     }
     if (m.from === "items") {
       const type = ruleset.items?.kinds.find((k) => k.id === m.kind)?.entry;
       return (actor.items ?? []).flatMap((item) => {
         const e = item.kind === m.kind ? entries.find((x) => x.type === type && x.key === item.entry) : undefined;
-        return e === undefined ? [] : [{ source, ref: item.id, name: item.name, values: e.body }];
+        if (e === undefined) return [];
+        const fitted = (actor.items ?? []).filter((x) => x.fittedTo === item.id);
+        const card = withFittedCard({ card: { ...e.body, ...item.profile }, fitted }).card;
+        return [{ source, ref: item.id, name: item.name, values: card }];
       });
     }
     const keys = actor.fields[m.field];

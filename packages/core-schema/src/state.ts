@@ -150,6 +150,10 @@ export const Actor = ActorBrief.extend({
   ledger: ActorLedger.nullable(),
   // The spawn options it was spawned with (house decision #92), for the GM side; absent for everyone else, and when none.
   spawnOptions: z.array(z.string()).optional(),
+  // Its picture (house decision #155): for the seat holding it and the GM side, and for everyone else once
+  // `imageRevealed` says the table sees it; absent when none or not for this seat. Fetched by id from the api.
+  imageId: z.string().optional(),
+  imageRevealed: z.boolean().optional(),
 });
 export type Actor = z.infer<typeof Actor>;
 

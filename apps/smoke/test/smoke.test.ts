@@ -1378,6 +1378,63 @@ test("pictures: uploaded, attached, shown to the table apart from the entry; a r
   ana.socket.close();
 });
 
+// House decision #155: a character's picture is its player's to upload and show; the GM side's too.
+test("a character's picture: its player uploads and shows it, another phone sees it only then (#238)", async () => {
+  const { owner, campaignId, ownerDevice } = await newRoom("Portraits");
+  const anaDevice = await seatPlayer(owner, "ana-portrait");
+  const bobDevice = await seatPlayer(owner, "bob-portrait");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  const bob = connect({ auth: { campaignId, cookie: bobDevice } });
+  const wren = (await owner.until((s) => s.actors.some((a) => a.name === "ana-portrait"))).actors.find(
+    (a) => a.name === "ana-portrait",
+  )!.id;
+  await Promise.all([
+    ana.until((s) => actorIn(s, wren) !== undefined),
+    bob.until((s) => actorIn(s, wren) !== undefined),
+  ]);
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 9]);
+  const upload = (cookie: string, actorId = wren, type = "image/jpeg") =>
+    fetch(`${API}/api/campaigns/${campaignId}/actors/${actorId}/images`, {
+      method: "POST",
+      headers: { "content-type": type, ...SAME_ORIGIN, cookie, "cf-connecting-ip": nextSocketIp() },
+      body: jpeg,
+    });
+  const picture = (cookie: string, id: string) =>
+    get(`/campaigns/${campaignId}/images/${id}`, { cookie, "cf-connecting-ip": nextSocketIp() });
+
+  assert.equal((await upload(bobDevice)).status, 403, "another player uploads nothing for Wren");
+  assert.equal((await upload(await device("stranger-portrait"))).status, 401, "a device without a seat neither");
+  const refusedUpload = await upload(anaDevice, wren, "image/webp");
+  assert.equal(((await refusedUpload.json()) as { code?: string }).code, "pictureNotPicture");
+  const res = await upload(anaDevice);
+  assert.equal(res.status, 200);
+  const id = ((await res.json()) as { id: string }).id;
+
+  refused(await bob.send({ type: "actor.picture", actorId: wren, imageId: id }), "notYourCharacter");
+  ok(await ana.send({ type: "actor.picture", actorId: wren, imageId: id }));
+  await ana.until((s) => actorIn(s, wren)?.imageId === id);
+  await owner.until((s) => actorIn(s, wren)?.imageId === id);
+  const bobSees = await bob.until(() => true);
+  assert.equal(actorIn(bobSees, wren)?.imageId, undefined, "held back: another phone has no id");
+  assert.ok(!JSON.stringify(bobSees).includes(id), "nor the id anywhere");
+  assert.equal((await picture(bobDevice, id)).status, 404);
+  assert.equal((await picture(anaDevice, id)).status, 200);
+  assert.equal((await picture(ownerDevice, id)).status, 200);
+
+  ok(await ana.send({ type: "actor.picture", actorId: wren, imageRevealed: true }));
+  await bob.until((s) => actorIn(s, wren)?.imageId === id && actorIn(s, wren)?.imageRevealed === true);
+  assert.equal((await picture(bobDevice, id)).status, 200, "shown: another phone sees it");
+  ok(await owner.send({ type: "actor.picture", actorId: wren, imageRevealed: false }));
+  await bob.until((s) => actorIn(s, wren)?.imageId === undefined);
+  assert.equal((await picture(bobDevice, id)).status, 404, "held back again by the GM");
+
+  // A creature gets one only from the GM side.
+  const gull = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Gull" })).id!;
+  assert.equal((await upload(anaDevice, gull)).status, 403);
+  assert.equal((await upload(ownerDevice, gull)).status, 200);
+  for (const s of [owner, ana, bob]) s.socket.close();
+});
+
 test("prep: scenes under an adventure, reordered and linked; a player sees only the visible ends", async () => {
   const { owner, campaignId } = await newRoom("Prep");
   const inv = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;

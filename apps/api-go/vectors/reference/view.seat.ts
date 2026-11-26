@@ -555,11 +555,13 @@ function seatState({
     // Everyone sees the party by name and what the seat holds; the rest of the cast is for the combat side.
     actors: state.actors
       .filter((a) => PARTY_KINDS.has(a.kind) || held.includes(a.id) || sight.combat || shown.has(a.id))
-      .map(({ spawnOptions, ...a }) => {
+      .map(({ spawnOptions, imageId, ...a }) => {
         const v = views.get(a.id);
         const own = held.includes(a.id) || actorGmSide({ ctx, kind: a.kind });
         return {
           ...a,
+          // Its picture, for the rest once shown to the table (house decision #155).
+          ...(imageId !== undefined && (own || a.imageRevealed) ? { imageId } : {}),
           // The spawn options it was spawned with (house decision #92): the GM side and the seat holding it.
           ...(own && spawnOptions !== undefined && spawnOptions.length > 0 ? { spawnOptions } : {}),
           ownerUserId: own ? a.ownerUserId : null,

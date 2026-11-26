@@ -181,6 +181,11 @@ func references(d doc) error {
 	for _, p := range d.list("images") {
 		images[p["id"].(string)] = true
 	}
+	for i, a := range d.list("actors") {
+		if p, has := a["imageId"].(string); has && !images[p] {
+			return problem("roomNoSuchPicture", nil, "actors", i, "imageId")
+		}
+	}
 	mentions := func(text string, path ...any) error {
 		for _, m := range view.MentionRE.FindAllStringSubmatch(text, -1) {
 			if !entries[m[2]] {
@@ -592,6 +597,9 @@ func (im *importer) actorRows() error {
 		if err := im.spawnOptions(i, a, id); err != nil {
 			return err
 		}
+		if err := im.actorPicture(i, a, id); err != nil {
+			return err
+		}
 	}
 	for i, a := range actors {
 		id := im.actors[doc(a).str("id")]
@@ -682,6 +690,21 @@ func (im *importer) standing(a map[string]any) error {
 	_, err := im.tx.Exec(im.ctx, `INSERT INTO actor_build (actor_id, xp_at_ascension, package_waived) VALUES ($1, $2, $3)
 		ON CONFLICT (actor_id) DO UPDATE SET xp_at_ascension = EXCLUDED.xp_at_ascension, package_waived = EXCLUDED.package_waived`,
 		id, int(xp), waived)
+	return err
+}
+
+// actorPicture attaches an actor's picture and shows it as the document says, through actor.picture (house decision
+// #155). Absent imageRevealed leaves what attaching decides: held back, or shown in a room without a GM.
+func (im *importer) actorPicture(i int, a map[string]any, id string) error {
+	picture, has := a["imageId"].(string)
+	if !has {
+		return nil
+	}
+	action := map[string]any{"type": "actor.picture", "actorId": id, "imageId": im.images[picture]}
+	if shown, has := a["imageRevealed"]; has {
+		action["imageRevealed"] = shown
+	}
+	_, err := im.run(action, "actors", i, "imageId")
 	return err
 }
 

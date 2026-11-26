@@ -21,7 +21,7 @@ const (
 	MaxBytes     = 1_000_000
 	MaxCount     = 200
 	MaxRoomBytes = 100_000_000
-	// Grace is how long an uploaded picture no entry points at is kept before a codex write sweeps it.
+	// Grace is how long an uploaded picture no entry or actor points at is kept before a codex write sweeps it.
 	Grace = 24 * time.Hour
 )
 
@@ -92,6 +92,40 @@ func Check(mime string, data []byte, held []Info) error {
 func Has(ctx context.Context, conn core.Conn, campaignID, id string) (bool, error) {
 	held, err := Pictures.Usage(ctx, conn, campaignID)
 	return slices.ContainsFunc(held, func(p Info) bool { return p.ID == id }), err
+}
+
+// used is the SQL that says a picture is pointed at: by a codex entry (house decision #70) or an actor (#155).
+const used = `(EXISTS (SELECT 1 FROM codex_entry WHERE image_id = $1) OR EXISTS (SELECT 1 FROM actor WHERE image_id = $1))`
+
+// Free says whether the room holds the picture and nothing points at it yet: only its uploader has learnt its id.
+func Free(ctx context.Context, conn core.Conn, campaignID, id string) (bool, error) {
+	var free bool
+	err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM image WHERE id = $1 AND campaign_id = $2) AND NOT `+used,
+		id, campaignID).Scan(&free)
+	return free, err
+}
+
+// DropUnused deletes a picture nothing points at any more.
+func DropUnused(ctx context.Context, conn core.Conn, campaignID string, id *string) error {
+	if id == nil {
+		return nil
+	}
+	var inUse bool
+	if err := conn.QueryRow(ctx, `SELECT `+used, *id).Scan(&inUse); err != nil || inUse {
+		return err
+	}
+	return Pictures.Delete(ctx, conn, campaignID, []string{*id})
+}
+
+// Unused is which of the ids nothing in the room points at.
+func Unused(ctx context.Context, conn core.Conn, campaignID string, ids []string) ([]string, error) {
+	rows, err := conn.Query(ctx, `SELECT unnest($1::uuid[])::text EXCEPT (
+		SELECT image_id::text FROM codex_entry WHERE campaign_id = $2 AND image_id IS NOT NULL
+		UNION SELECT image_id::text FROM actor WHERE campaign_id = $2 AND image_id IS NOT NULL)`, ids, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
 
 type postgres struct{}

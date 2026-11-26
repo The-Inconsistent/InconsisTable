@@ -89,6 +89,8 @@ var (
 		schema.Opt("packageWaived", schema.Bool()),
 		schema.Opt("items", schema.Array(roomItem).Max(roomMaxActorItems)),
 		schema.Opt("spawnOptions", spawnOptionIDs),
+		schema.Opt("imageId", id), // house decision #155
+		schema.Opt("imageRevealed", schema.Bool()),
 	).Strict(), func(v any) bool {
 		a, _ := v.(map[string]any)
 		_, built := a["build"]

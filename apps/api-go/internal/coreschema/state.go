@@ -75,6 +75,10 @@ type (
 		Ledger *ActorLedger `json:"ledger"`
 		// SpawnOptions are the spawn options it was spawned with (house decision #92): the GM side's; absent when none.
 		SpawnOptions []string `json:"spawnOptions,omitempty"`
+		// ImageID is its picture, for the seat holding it, the GM side, and the rest once ImageRevealed says the table
+		// sees it (house decision #155); absent when none or not for this seat.
+		ImageID       *string `json:"imageId,omitempty"`
+		ImageRevealed bool    `json:"imageRevealed,omitempty"`
 	}
 	// HeldRecord is one record an actor holds: its kind, the entry's key, name and cite, and its effects. Key and Cite
 	// are nil where the seat may not read them.

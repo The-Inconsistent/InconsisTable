@@ -63,6 +63,8 @@ export const IDS = {
   tides: id(18),
   guild: id(19),
   picture: id(30),
+  maraPicture: id(31),
+  oylePicture: id(32),
   wren: id(40),
   lanternEntry: id(41),
   bow: id(42),
@@ -107,6 +109,9 @@ export const d20Document = (): RoomDocumentInput => ({
       },
       resources: { hp: 8, tempHp: 2 },
       conditions: ["marked"],
+      // Pictures (house decision #155): Mara's shown to the table, the Harbourmaster's held back.
+      imageId: IDS.maraPicture,
+      imageRevealed: true,
     },
     {
       id: IDS.harbourmaster,
@@ -114,6 +119,7 @@ export const d20Document = (): RoomDocumentInput => ({
       name: "Harbourmaster Oyle",
       entityType: "creature",
       fields: { level: 1, "attr.con": 10, guard: 12 },
+      imageId: IDS.oylePicture,
     },
     // A character whose seat went (#232): retired, still marked twice.
     {
@@ -238,7 +244,11 @@ export const d20Document = (): RoomDocumentInput => ({
     },
   ],
   clocks: [{ name: "The tide rises", segments: 6, filled: 2, visibility: "party", entryId: IDS.quay }],
-  images: [{ id: IDS.picture, mime: "image/jpeg", base64: TINY_JPEG }],
+  images: [
+    { id: IDS.picture, mime: "image/jpeg", base64: TINY_JPEG },
+    { id: IDS.maraPicture, mime: "image/jpeg", base64: TINY_JPEG },
+    { id: IDS.oylePicture, mime: "image/jpeg", base64: TINY_JPEG },
+  ],
 });
 
 // A room with no ruleset: the codex, sessions, clocks and pictures only.

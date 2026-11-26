@@ -147,7 +147,7 @@ func targetOf(a cs.Action) string {
 	switch a.Type() {
 	case "actor.rename":
 		return a.Str("id")
-	case "field.set", "test.report", "actor.build", "build.save", "phase.done", "whisper.reply", "whisper.read":
+	case "field.set", "test.report", "actor.build", "build.save", "phase.done", "whisper.reply", "whisper.read", "actor.picture":
 		return a.Str("actorId")
 	}
 	return ""
@@ -258,6 +258,7 @@ var handlers = map[string]handler{
 	// actor/actor.actions.ts
 	"actor.create":  actor.Create,
 	"actor.rename":  actor.Rename,
+	"actor.picture": actor.Picture,
 	"actor.delete":  actor.Delete,
 	"actor.build":   buildActor,
 	"build.save":    saveBuild,

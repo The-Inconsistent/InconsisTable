@@ -9,6 +9,7 @@ import (
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/image"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
 )
 
@@ -113,8 +114,11 @@ func Delete(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 		c.CampaignID, id); err != nil {
 		return cs.Result{}, err
 	}
-	_, err := tx.Exec(ctx, `DELETE FROM actor WHERE id = $1`, id) // seats, tokens and reveal rows cascade
-	return cs.Done(""), err
+	var picture *string // seats, tokens and reveal rows cascade; its picture goes unless an entry shows it too
+	if err := tx.QueryRow(ctx, `DELETE FROM actor WHERE id = $1 RETURNING image_id::text`, id).Scan(&picture); err != nil {
+		return cs.Result{}, err
+	}
+	return cs.Done(""), image.DropUnused(ctx, tx, c.CampaignID, picture)
 }
 
 // BuildAction is actor.build (BuildActor), answering with the logged action id.

@@ -40,6 +40,7 @@ func names(t *testing.T, db *pgxpool.Pool, id string) map[string]string {
 		`SELECT id::text, 'actor:' || name FROM actor WHERE campaign_id = $1`,
 		`SELECT id::text, 'entry:' || title FROM codex_entry WHERE campaign_id = $1`,
 		`SELECT image_id::text, 'picture:' || title FROM codex_entry WHERE campaign_id = $1 AND image_id IS NOT NULL`,
+		`SELECT image_id::text, 'portrait:' || name FROM actor WHERE campaign_id = $1 AND image_id IS NOT NULL`,
 		`SELECT id::text, 'session:' || number FROM session WHERE campaign_id = $1`,
 		`SELECT id::text, 'clock:' || name FROM clock WHERE campaign_id = $1`,
 		`SELECT i.id::text, 'item:' || a.name || ':' || i.ordinal FROM actor_item i JOIN actor a ON a.id = i.actor_id WHERE a.campaign_id = $1`,
@@ -171,9 +172,9 @@ func TestAnExportWithoutPictures(t *testing.T) {
 	if _, has := e["images"]; has {
 		t.Error("pictures in a document without them")
 	}
-	for _, x := range doc(e).list("codex") {
+	for _, x := range append(doc(e).list("codex"), doc(e).list("actors")...) {
 		if _, has := x["imageId"]; has {
-			t.Errorf("%v names a picture", x["title"])
+			t.Errorf("%v%v names a picture", x["title"], x["name"])
 		}
 	}
 	copied := imported(t, db, owner, e, Options{})

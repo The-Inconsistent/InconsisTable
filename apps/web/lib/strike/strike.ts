@@ -6,6 +6,7 @@ import {
   planStrike,
   strikeTargets,
   withFittedCard,
+  type StrikeMeans,
   type CompiledRuleset,
   type Ruleset,
   type Strike,
@@ -40,6 +41,26 @@ export const entryTypesOf = ({ ruleset, strike }: { ruleset: Pick<Ruleset, "item
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /**
+ * Each line of a list of the actor's saved sheet (its index the ref), as a held weapon's card shows it (house decision
+ * #102): the line with what is fitted to it. A strike's means and a list's quick picks (house decision #171) read it.
+ */
+export function ledgerLines({
+  lines,
+  actor,
+}: {
+  lines: Extract<StrikeMeans, { from: "ledger" }>["lines"];
+  actor: Pick<Actor, "ledger" | "items">;
+}): Omit<StrikeMeansOption, "source">[] {
+  const sheet = actor.ledger?.sheet?.[lines];
+  return (Array.isArray(sheet) ? sheet : []).flatMap((line, i) => {
+    if (!isRecord(line)) return [];
+    const ref = typeof line.name === "string" ? `${lines}/${line.name}` : null;
+    const fitted = (actor.items ?? []).filter((x) => ref !== null && x.fittedLine === ref);
+    return [{ ref: String(i), name: String(line.name ?? i + 1), values: withFittedCard({ card: line, fitted }).card }];
+  });
+}
+
+/**
  * The means the attacker has now, source by source: each line of its saved sheet's list (its index the ref), each key
  * its list field holds that names a loaded entry of the source's type (the key the ref), and each item of the source's
  * kind it holds whose entry is loaded (the item's id the ref). A key or an item no loaded entry has is left out, as the
@@ -58,22 +79,7 @@ export function meansOf({
   entries: readonly Pick<RulesEntry, "key" | "type" | "name" | "body">[];
 }): StrikeMeansOption[] {
   return (strike.means ?? []).flatMap((m, source): StrikeMeansOption[] => {
-    if (m.from === "ledger") {
-      const lines = actor.ledger?.sheet?.[m.lines];
-      return (Array.isArray(lines) ? lines : []).flatMap((line, i) => {
-        if (!isRecord(line)) return [];
-        const ref = typeof line.name === "string" ? `${m.lines}/${line.name}` : null;
-        const fitted = (actor.items ?? []).filter((x) => ref !== null && x.fittedLine === ref);
-        return [
-          {
-            source,
-            ref: String(i),
-            name: String(line.name ?? i + 1),
-            values: withFittedCard({ card: line, fitted }).card,
-          },
-        ];
-      });
-    }
+    if (m.from === "ledger") return ledgerLines({ lines: m.lines, actor }).map((x) => ({ source, ...x }));
     if (m.from === "items") {
       const type = ruleset.items?.kinds.find((k) => k.id === m.kind)?.entry;
       return (actor.items ?? []).flatMap((item) => {

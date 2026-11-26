@@ -116,6 +116,9 @@ const enumShape = { type: z.literal("enum"), values: z.array(Id).min(1).max(200)
 /** A reference to another actor or entry of the given entity type. */
 const refShape = { type: z.literal("ref"), entity: Id };
 
+/** The lists of a saved build sheet a strike's means or a list's quick picks may read (house decisions #99, #171). */
+export const STRIKE_LEDGER_LINES = ["weapons", "powers"] as const;
+
 export const FieldDef = z.discriminatedUnion("type", [
   z.object({ ...fieldBase, ...intShape }),
   z.object({ ...fieldBase, ...textShape }),
@@ -129,8 +132,13 @@ export const FieldDef = z.discriminatedUnion("type", [
     maxItems: z.int().min(1).max(500).optional(),
     /** House decision #91: its items show as chips where Condition chips show, each ended by itself or all at once. */
     chips: z.boolean().optional(),
-    /** House decision #91: where the screen's quick picks come from: the names of pack entries of this entity type. */
-    picks: z.object({ entity: Id }).optional(),
+    /**
+     * House decision #91: where the screen's quick picks come from: the names of pack entries of this entity type, or
+     * (house decision #171) the names of a list of the actor's saved build sheet, declared as a strike's means is.
+     */
+    picks: z
+      .union([z.object({ entity: Id }), z.object({ from: z.literal("ledger"), lines: z.enum(STRIKE_LEDGER_LINES) })])
+      .optional(),
   }),
 ]);
 export type FieldDef = z.infer<typeof FieldDef>;
@@ -1308,8 +1316,6 @@ export const MAX_STRIKE_VALUES = 20;
 /** The most items a means' `list` value holds (house decision #159); the rest are left off. */
 export const MAX_MEANS_LIST = 20;
 export const MAX_STRIKE_SHOWS = 6;
-/** The lists of the saved build's sheet a strike's means may come from. */
-export const STRIKE_LEDGER_LINES = ["weapons", "powers"] as const;
 /** The names a strike's `ctx` gives its own values; an input may not take one. */
 export const STRIKE_CTX_ROOTS: ReadonlySet<string> = new Set([
   "means",
@@ -2893,7 +2899,11 @@ function spendProblems({
   r.entities.forEach((e, i) => {
     for (const id of Object.keys(e.fields).sort()) {
       const f = e.fields[id];
-      if (f?.type === "list" && f.picks !== undefined && !r.entities.some((x) => x.id === f.picks?.entity))
+      if (f?.type !== "list" || f.picks === undefined) continue;
+      if ("from" in f.picks) {
+        if (r.build === undefined)
+          out.push({ path: `entities[${i}].fields.${id}.picks`, message: "the ruleset has no build" });
+      } else if (!r.entities.some((x) => x.id === (f.picks as { entity: string }).entity))
         out.push({ path: `entities[${i}].fields.${id}.picks.entity`, message: `unknown entity "${f.picks.entity}"` });
     }
   });

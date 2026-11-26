@@ -6,7 +6,7 @@ import type { Actor } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import type { Send } from "@/hooks/use-table/use-table";
-import { heldLists, withItem, withoutItem, type HeldList } from "@/lib/held/held";
+import { heldLists, ownPicks, withItem, withoutItem, type HeldList } from "@/lib/held/held";
 import { RulesReply } from "@/lib/library/library";
 
 type HeldListProps = {
@@ -43,11 +43,18 @@ export function HeldListEditor({ ruleset, actor, campaignId, gm, send }: HeldLis
     const next = withItem({ list, item: text[list.field] ?? "" });
     if (next !== null && (await handleSet(list, next))) setText((x) => ({ ...x, [list.field]: "" }));
   };
-  // QUICK PICKS: reads the names of the attached packs' entries of the list's type, once per list.
+  // QUICK PICKS: the names of the character's own sheet lines, or of the attached packs' entries of the list's type,
+  // read once per list.
   const handlePicks = async (list: HeldList) => {
     if (list.picks === null) return;
+    const own = ownPicks({ list, actor });
+    if (own !== null) {
+      setPicks((x) => ({ ...x, [list.field]: own }));
+      return;
+    }
+    if (!("entity" in list.picks)) return;
     try {
-      const path = `/api/campaigns/${encodeURIComponent(campaignId)}/rules?type=${encodeURIComponent(list.picks)}&limit=${PICKS}`;
+      const path = `/api/campaigns/${encodeURIComponent(campaignId)}/rules?type=${encodeURIComponent(list.picks.entity)}&limit=${PICKS}`;
       const res = await fetch(path);
       const parsed = RulesReply.safeParse(await res.json());
       if (!res.ok || !parsed.success) throw new Error(t("readFailed"));

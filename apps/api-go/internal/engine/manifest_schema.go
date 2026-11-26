@@ -82,7 +82,10 @@ var fieldDefSchema = schema.Union("type",
 	fieldDefVariant("bool"),
 	fieldDefVariant("ref", refShape...),
 	fieldDefVariant("list", schema.Opt("maxItems", schema.Int().Min(1).Max(500)), schema.Opt("chips", schema.Bool()),
-		schema.Opt("picks", schema.Object(schema.Req("entity", idSchema)))),
+		schema.Opt("picks", schema.AnyOf(
+			schema.Object(schema.Req("entity", idSchema)),
+			schema.Object(schema.Req("from", schema.Literal("ledger")), schema.Req("lines", schema.Enum(StrikeLedgerLines...))),
+		))),
 )
 
 func codexFieldVariant(tag string, extra ...schema.Field) schema.Variant {

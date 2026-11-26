@@ -3765,6 +3765,22 @@ function spendCrafted(): object[] {
         fields: { ...e.fields, held: { type: "list", label: "H", chips: "yes", picks: { entity: "nope" } } },
       })),
     },
+    // House decision #171: quick picks from a list of the actor's own saved sheet, as a strike's means.
+    ...[
+      { from: "ledger", lines: "powers" },
+      { from: "ledger", lines: "talents" },
+      { from: "list", lines: "powers" },
+      { from: "ledger" },
+      { entity: "hero", from: "ledger", lines: "weapons" },
+    ].flatMap((picks) =>
+      [SAMPLE_SKIRMISH, SAMPLE_LEDGER_RULESET].map((r) => ({
+        ...r,
+        entities: r.entities.map((e) => ({
+          ...e,
+          fields: { ...e.fields, held: { type: "list", label: "H", chips: true, picks } },
+        })),
+      })),
+    ),
     { ...SAMPLE_SKIRMISH, requests: { max: 0 } },
     { ...SAMPLE_SKIRMISH, spends: [...(SAMPLE_SKIRMISH.spends ?? []), ...(SAMPLE_SKIRMISH.spends ?? []).slice(0, 1)] },
   ];

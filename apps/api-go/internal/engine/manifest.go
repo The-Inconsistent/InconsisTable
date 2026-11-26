@@ -153,9 +153,12 @@ type (
 		Text string  `json:"text"`
 		Cite *string `json:"cite"`
 	}
-	// FieldPicks is where a list's quick picks come from: pack entries of an entity type.
+	// FieldPicks is where a list's quick picks come from: pack entries of an entity type, or (From "ledger") a list of
+	// the actor's saved build sheet, as a strike's means (house decision #171).
 	FieldPicks struct {
-		Entity string `json:"entity"`
+		Entity string `json:"entity,omitempty"`
+		From   string `json:"from,omitempty"`
+		Lines  string `json:"lines,omitempty"`
 	}
 	// CampaignFieldDef is one campaign field: an int has Min and Max, an enum Values; Default is a number, a word or a
 	// bool by the type.
@@ -965,7 +968,14 @@ func (p *problems) spends(r *Ruleset, actorTypes func(*[]string, string)) {
 	for i, e := range r.Entities {
 		for _, id := range sortedKeys(e.Fields) {
 			f := e.Fields[id]
-			if f.Type == "list" && f.Picks != nil && !slices.ContainsFunc(r.Entities, func(x EntityType) bool { return x.ID == f.Picks.Entity }) {
+			if f.Type != "list" || f.Picks == nil {
+				continue
+			}
+			if f.Picks.From != "" {
+				if r.Build == nil {
+					p.add(fmt.Sprintf("entities[%d].fields.%s.picks", i, id), "the ruleset has no build")
+				}
+			} else if !slices.ContainsFunc(r.Entities, func(x EntityType) bool { return x.ID == f.Picks.Entity }) {
 				p.add(fmt.Sprintf("entities[%d].fields.%s.picks.entity", i, id), `unknown entity "%s"`, f.Picks.Entity)
 			}
 		}

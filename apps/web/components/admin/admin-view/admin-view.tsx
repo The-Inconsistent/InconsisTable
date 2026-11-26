@@ -163,6 +163,15 @@ function Ledger({ campaigns, onForget, onReload }: LedgerProps) {
                         <th scope="row">
                           {c.name}
                           {c.archived && <span className="dim"> ({t("archived")})</span>}
+                          {c.latestSession && c.latestSession.endedAt === null && (
+                            <span className="small" style={{ display: "block" }}>
+                              <span className="chip">{t("live")}</span>{" "}
+                              {t("openSince", {
+                                number: c.latestSession.number,
+                                when: date.format(new Date(c.latestSession.startedAt)),
+                              })}
+                            </span>
+                          )}
                         </th>
                         <td>{c.ownerName ?? t("noOwner")}</td>
                         <td>{c.ruleset ? `${c.ruleset} ${c.rulesetVersion}` : t("noRuleset")}</td>
@@ -188,7 +197,7 @@ function Ledger({ campaigns, onForget, onReload }: LedgerProps) {
           )}
         </main>
       )}
-      <dialog ref={manageDialog} className="ledger-confirm" aria-labelledby="admin-manage-title">
+      <dialog ref={manageDialog} className="ledger-confirm admin-manage" aria-labelledby="admin-manage-title">
         <div className="stack">
           <div className="row between">
             <h2 className="head" id="admin-manage-title">

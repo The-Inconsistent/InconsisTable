@@ -76,14 +76,20 @@ type campaignRow struct {
 	// LatestSession is the room's last session, running when EndedAt is nil: what END WITHOUT AN AWARD and DELETE
 	// SESSION act on. Nil before the first.
 	LatestSession *latestSession `json:"latestSession"`
-	// GMs are the room's GM seats by name, so the console shows who runs it before seating another.
-	GMs []string `json:"gms"`
+	// GMs are the room's GM seats, by name, so the console shows who runs it before seating another and can remove one.
+	GMs []gmSeat `json:"gms"`
+}
+
+type gmSeat struct {
+	UserID string `json:"userId"`
+	Name   string `json:"name"`
 }
 
 type latestSession struct {
-	ID      string  `json:"id"`
-	Number  int     `json:"number"`
-	EndedAt *string `json:"endedAt"`
+	ID        string  `json:"id"`
+	Number    int     `json:"number"`
+	StartedAt string  `json:"startedAt"`
+	EndedAt   *string `json:"endedAt"`
 }
 
 // Campaigns is GET /api/admin/campaigns.
@@ -96,9 +102,9 @@ func (s *Service) Campaigns(_ http.ResponseWriter, r *http.Request) (any, error)
 	rows, err := s.DB.Query(r.Context(), `SELECT c.id::text, c.name, c.owner_user_id, u.name, ruleset.title, ruleset_version.version,
 			(SELECT max(coalesce(s.ended_at, s.started_at)) FROM session s WHERE s.campaign_id = c.id), c.archived_at IS NOT NULL,
 			c.table_mode,
-			(SELECT json_build_object('id', s.id, 'number', s.number, 'endedAt', s.ended_at) FROM session s
+			(SELECT json_build_object('id', s.id, 'number', s.number, 'startedAt', s.started_at, 'endedAt', s.ended_at) FROM session s
 				WHERE s.campaign_id = c.id ORDER BY s.number DESC LIMIT 1),
-			coalesce((SELECT json_agg(g.name ORDER BY g.name) FROM membership m JOIN app_user g ON g.id = m.user_id
+			coalesce((SELECT json_agg(json_build_object('userId', g.id, 'name', g.name) ORDER BY g.name) FROM membership m JOIN app_user g ON g.id = m.user_id
 				WHERE m.campaign_id = c.id AND m.role = 'gm'), '[]'::json)
 		FROM campaign c LEFT JOIN app_user u ON u.id = c.owner_user_id
 		LEFT JOIN ruleset_version ON ruleset_version.id = c.ruleset_version_id
@@ -122,14 +128,15 @@ func (s *Service) Campaigns(_ http.ResponseWriter, r *http.Request) (any, error)
 		}
 		if latest != nil {
 			var s struct {
-				ID      string     `json:"id"`
-				Number  int        `json:"number"`
-				EndedAt *time.Time `json:"endedAt"`
+				ID        string     `json:"id"`
+				Number    int        `json:"number"`
+				StartedAt time.Time  `json:"startedAt"`
+				EndedAt   *time.Time `json:"endedAt"`
 			}
 			if err := json.Unmarshal(latest, &s); err != nil {
 				return nil, err
 			}
-			c.LatestSession = &latestSession{ID: s.ID, Number: s.Number}
+			c.LatestSession = &latestSession{ID: s.ID, Number: s.Number, StartedAt: core.ISOTime(s.StartedAt)}
 			if s.EndedAt != nil {
 				iso := core.ISOTime(*s.EndedAt)
 				c.LatestSession.EndedAt = &iso

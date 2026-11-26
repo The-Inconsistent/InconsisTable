@@ -4238,7 +4238,7 @@ fieldset:disabled select {
   animation: rise var(--dur-move) var(--ease-out) backwards;
   animation-delay: calc(min(var(--i), 11) * var(--stagger));
 }
-.motion :is(.saved, #new-room, #quick-game, #import-panel, #import-adventure) {
+.motion :is(.saved, #quick-game, #import-panel, #import-adventure, .wizard-step, .first-run-step) {
   animation: rise var(--dur-move) var(--ease-out) backwards;
 }
 /* The admin ledger's filter: rows travel to their new places, a row that comes back rises, one that goes fades. */

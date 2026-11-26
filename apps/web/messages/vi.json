@@ -244,6 +244,54 @@
     "nameRequired": "Đặt tên cho phòng",
     "failed": "Không bắt đầu được game"
   },
+  "newCampaign": {
+    "title": "Chiến dịch mới",
+    "lede": "Vài bước, cuối cùng là một phòng. Rời đi ở bước nào cũng không tạo gì cả.",
+    "cancel": "Huỷ",
+    "stepsLabel": "Các bước",
+    "stepTab": "{n}. {step}",
+    "steps": {
+      "game": "Trò chơi",
+      "campaign": "Chiến dịch",
+      "premise": "Tiền đề",
+      "table": "Bàn chơi",
+      "name": "Tên"
+    },
+    "hints": {
+      "game": "Chọn trò chơi, và các gói chiến dịch này dùng.",
+      "campaign": "Các giá trị trò chơi giữ cho cả chiến dịch. Đổi sau trong Luật.",
+      "premise": "Chiến dịch nói về điều gì. Cả nhóm đọc được; trường ẩn chỉ bạn thấy.",
+      "table": "Bàn ngồi thế nào, và những gì bàn bỏ qua. Mọi người đồng ý, không ai phải giải thích.",
+      "name": "Xem lại tên, rồi tạo."
+    },
+    "packs": "Gói",
+    "packsHint": "Đánh dấu những gói chiến dịch này dùng. Trình tạo nhân vật sẽ đưa ra nội dung của chúng.",
+    "fromModule": "Đi kèm trò chơi",
+    "premiseTitle": "Tiêu đề",
+    "premiseLater": "Có thể chọn một tiền đề in sẵn ngay sau đó, ở các bước đầu của phòng.",
+    "limitsHint": "Mỗi dòng một mục, tối đa {items} mục, mỗi mục tối đa {chars} ký tự.",
+    "examples": "Gợi ý",
+    "name": "Tên",
+    "back": "Quay lại",
+    "next": "Tiếp",
+    "create": "Tạo",
+    "creating": "Đang tạo…",
+    "pickGame": "Hãy chọn trò chơi trước",
+    "freeformFailed": "Không thêm được Freeform vào thư viện của bạn",
+    "failed": "Không tạo được chiến dịch"
+  },
+  "firstRun": {
+    "title": "Những bước đầu",
+    "progress": "Bước {n} trên {count}",
+    "skipAll": "Bỏ qua, vào bàn",
+    "nothing": "Trò chơi này không có bước chuẩn bị nào. Bàn đã sẵn sàng.",
+    "generate": "Chạy {name}",
+    "openThere": "Mở {place}",
+    "back": "Quay lại",
+    "skip": "Bỏ qua",
+    "next": "Tiếp",
+    "toTable": "Vào bàn"
+  },
   "lobby": {
     "quickGame": "Chơi nhanh",
     "sits": "Bàn ngồi kiểu nào",

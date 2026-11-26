@@ -3146,6 +3146,7 @@
     "pick": "PICK PDF",
     "replace": "REPLACE",
     "pickLabel": "Pick the PDF of {title}",
+    "replaceLabel": "Replace the PDF of {title}",
     "remove": "REMOVE",
     "removeLabel": "Remove the PDF of {title}"
   }

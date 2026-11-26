@@ -3146,6 +3146,7 @@
     "pick": "CHỌN PDF",
     "replace": "ĐỔI",
     "pickLabel": "Chọn PDF của {title}",
+    "replaceLabel": "Đổi PDF của {title}",
     "remove": "GỠ",
     "removeLabel": "Gỡ PDF của {title}"
   }

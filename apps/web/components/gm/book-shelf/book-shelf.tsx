@@ -64,7 +64,7 @@ export function BookShelf({ server, sources }: BookShelfProps) {
                 <button
                   className="btn sm"
                   onClick={() => handlePickFor(s.id)}
-                  aria-label={t("pickLabel", { title: s.title })}
+                  aria-label={t(file ? "replaceLabel" : "pickLabel", { title: s.title })}
                 >
                   {file ? t("replace") : t("pick")}
                 </button>

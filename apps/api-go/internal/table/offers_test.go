@@ -177,3 +177,73 @@ func TestAMarkIsAYesOrNoTheCallMayLeaveOut(t *testing.T) {
 		}
 	})
 }
+
+// gmlessOffers is the offer fixture played without a GM; secret adds an offer whose change reads a `gm` resource.
+func gmlessOffers(t *testing.T, secret bool) string {
+	t.Helper()
+	var m map[string]any
+	if err := json.Unmarshal([]byte(offerFixture(t)), &m); err != nil {
+		t.Fatal(err)
+	}
+	m["game"] = map[string]any{"title": "Fixture Table", "players": map[string]any{"min": 1, "max": 4},
+		"modes": []any{"gm", "gmless"}, "cite": "Fixture p.9"}
+	if secret {
+		m["resources"] = append(m["resources"].([]any),
+			map[string]any{"id": "doom", "label": "Doom", "cite": "Fixture p.10", "scope": "entity", "visibility": "gm"})
+		pool := m["tests"].(map[string]any)["pool"].(map[string]any)
+		pool["offers"] = append(pool["offers"].([]any), map[string]any{"id": "doomed", "label": "Doomed",
+			"when": "!result.passed", "cite": "Fixture p.10",
+			"changes": []any{map[string]any{"pool": "dread", "by": "res.doom"}}})
+	}
+	out, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
+// Without a GM a seat that may call Tests sees what a result offers and applies it as the table (house decision #170);
+// a Test whose offers read a `gm` value offers nobody anything.
+func TestWithoutAGMTheSeatsThatCallTestsApplyOffers(t *testing.T) {
+	for _, secret := range []bool{false, true} {
+		dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+			room := dbtest.NewRoom(t, tx)
+			room.Pin(t, tx, gmlessOffers(t, secret))
+			p := &play{t, tx, room}
+			ash, bo := p.character("Ash", 4), p.character("Bo", 2)
+			p.counters(ash, map[string]int{"spare": 0})
+			p.setMode(room.GM(), "gmless")
+			alice := room.Seat(t, tx, dbtest.User(t, tx, "Alice"), ash)
+			ben := room.Seat(t, tx, dbtest.User(t, tx, "Ben"), bo)
+			alice.TableMode, ben.TableMode = "gmless", "gmless"
+			p.send(alice, map[string]any{"type": "session.start"})
+			id := p.send(ben, map[string]any{"type": "test.call", "testId": "pool", "actorIds": []any{ash},
+				"inputs": map[string]any{"dn": 4.0}}).ID
+			p.send(alice, map[string]any{"type": "test.report", "callId": id, "actorId": ash,
+				"roll": map[string]any{"kind": "pool", "counts": map[string]any{"hit": 1.0}, "special": []any{6.0}}})
+			if secret {
+				for _, c := range []cs.Ctx{alice, ben} {
+					if got := offerOf(t, p, c, id, ash); len(got) != 0 {
+						t.Fatalf("offers that read a gm value reached a seat: %+v", got)
+					}
+				}
+				return
+			}
+			// Both seats are the table: each sees the offer for Ash, and Ben, who does not hold Ash, applies it.
+			for _, c := range []cs.Ctx{alice, ben} {
+				if got := offerOf(t, p, c, id, ash); got["strain"].ID == "" {
+					t.Fatalf("a gmless seat got no offer: %+v", got)
+				}
+			}
+			by := offerOf(t, p, ben, id, ash)["strain"].Changes[0].By
+			wantNotices(t, p.send(ben, apply(id, ash, "strain")))
+			if by <= 0 || p.res(ash, "spare") != by {
+				t.Fatalf("spare: %d", p.res(ash, "spare"))
+			}
+			p.refused(alice, apply(id, ash, "strain"), "offerApplied")
+			if !offerOf(t, p, alice, id, ash)["strain"].Applied {
+				t.Fatal("strain is not shown as applied")
+			}
+		})
+	}
+}

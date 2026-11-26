@@ -1,4 +1,9 @@
-import type { Ctx, TestCall, TestTargetState } from "../../../../packages/core-schema/src/index.ts";
+import {
+  canInCampaign,
+  type Ctx,
+  type TestCall,
+  type TestTargetState,
+} from "../../../../packages/core-schema/src/index.ts";
 import { heldBy, type Sight } from "./view.sight.ts";
 
 /**
@@ -12,6 +17,8 @@ export function seatTests({ tests, ctx, sight }: { tests: readonly TestCall[]; c
   const held = heldBy(ctx);
   // Without a GM every call is the whole table's: the targets are public, so each character counts as the seat's own.
   const mineOf = (actorId: string) => sight.tableRun || held.includes(actorId);
+  // Without a GM a seat that may call Tests is the table's GM side for offers (house decision #170).
+  const offering = sight.tableRun && canInCampaign({ ctx, perm: "test:call" });
   const stripped = { secretInputs: [] };
   if (ctx.seat.kind === "token" && ctx.seat.role === "screen") {
     return tests
@@ -52,6 +59,8 @@ export function seatTests({ tests, ctx, sight }: { tests: readonly TestCall[]; c
         target: own && c.showTarget ? t.target : null,
         pool: own && c.showModifier ? t.pool : null,
         report,
+        // The state keeps a gmless room's offers only where the call shows what they read (house decision #170).
+        ...(offering && (t.offers?.length ?? 0) > 0 ? { offers: t.offers } : {}),
       };
     });
     return [

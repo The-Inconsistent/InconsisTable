@@ -44,6 +44,7 @@ import { SAMPLE_PARAMS } from "../../../packages/rules-engine/src/build/fixtures
 import { buildSchemas } from "../../../packages/rules-engine/src/build/schemas.ts";
 import { breakdownOf } from "../../../packages/rules-engine/src/breakdown.ts";
 import { compileRuleset } from "../../../packages/rules-engine/src/compile.ts";
+import type { Spend } from "../../../packages/rules-engine/src/manifest.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
 import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
 import { d20Document, IDS, LEDGER_BUILD, ROOM_D20 } from "../../api-go/vectors/room-documents.ts";
@@ -165,7 +166,8 @@ async function eventually(check: () => boolean, what: string) {
 // A new room created by a signed-in creator, who owns it, and that owner's socket.
 async function newRoom(name: string) {
   const ownerDevice = await device(`owner-${name}`);
-  const res = await post("/campaigns", { name }, cookieOf(ownerDevice));
+  // An address of its own: the signed-in window (120 a minute) is shared by every bare call of the suite otherwise.
+  const res = await post("/campaigns", { name }, { ...cookieOf(ownerDevice), "cf-connecting-ip": nextSocketIp() });
   assert.equal(res.status, 201);
   const { campaignId } = (await res.json()) as { campaignId: string };
   const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
@@ -1108,6 +1110,56 @@ test("spends: a pool ask the party sees, paid at approval or left pending, one t
   assert.ok(
     after.requests.some((q) => q.id === later),
     "a spend that does not clear with the fight stays",
+  );
+  ben.socket.close();
+});
+
+test("spends: an ask clears when its round moves on or its `if` stops holding (house decision #169)", async () => {
+  const { owner, ana, ben, lyra, bram } = await spendRoom("MootAsks", SAMPLE_SKIRMISH);
+  const sheet = {
+    fields: { level: 1, "attr.str": 10, "attr.con": 10, "attr.dex": 12, guard: 10 },
+    resources: { hp: 8, focus: 1 },
+  };
+  await equip(lyra, "character", sheet);
+  await equip(bram, "character", sheet);
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send(fillMomentum(5)));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: [lyra, bram] }));
+  const sides = (op: string, input: Record<string, unknown>) =>
+    ({ type: "rule.op", primitive: "initiative.sides", op, input }) as ActionInput;
+  ok(await owner.send(sides("begin", {})));
+  const asks = (s: LiveState) => s.requests.map((q) => q.id);
+
+  // Barred, Lyra asks to shake it off; the GM lifts the bar by hand, and the ask is gone. A rally ask stays.
+  ok(await owner.send(sides("bar", { id: lyra, barred: true })));
+  const shake = ok(await ana.send(spendAsk(lyra, "shake"))).id!;
+  const rally = ok(await ana.send(spendAsk(lyra, "rally", { dice: 1 }))).id!;
+  ok(await owner.send(sides("bar", { id: lyra, barred: false })));
+  // An ask whose `if` no longer holds is cleared.
+  assert.deepEqual(asks(await owner.until((s) => !asks(s).includes(shake))), [rally]);
+
+  // An ask to jump the line holds for its round only.
+  const jump = ok(await ana.send(spendAsk(lyra, "jump"))).id!;
+  await owner.until((s) => asks(s).includes(jump));
+  ok(await owner.send(sides("newRound", {})));
+  assert.deepEqual(asks(await owner.until((s) => !asks(s).includes(jump))), [rally]);
+
+  // A round event the ruleset cannot name, and a next table's `if` that is not a yes or no, are refused.
+  const me = caller(await device("moot-refusals"));
+  const importWith = async (change: (x: Spend) => Spend) => {
+    const bad = structuredClone(SAMPLE_SKIRMISH);
+    bad.spends = bad.spends?.map(change);
+    const r = await me.post<PackReply>("/rulesets", bad);
+    assert.equal(r.status, 422);
+    return r.body.problems?.map((p) => p.path);
+  };
+  assert.deepEqual(await importWith((x) => (x.id === "jump" ? { ...x, clearOn: ["roundStart" as "roundEnd"] } : x)), [
+    "spends[1].clearOn[0]",
+  ]);
+  assert.deepEqual(
+    await importWith((x) => (x.id === "channel" && x.then ? { ...x, then: { ...x.then, if: "ctx.push" } } : x)),
+    ["spends[3].then.if"],
   );
   ben.socket.close();
 });
@@ -3732,15 +3784,22 @@ test("notices: an answer tells its sender who has points as a session starts, wh
   const luck = (delta: number) =>
     ({ type: "rule.op", primitive: "resource.capped", op: "adjustPool", input: { resource: "luck", delta } }) as const;
 
-  // Points left are told at every start; the end's refill crosses the top step once, never again while it holds.
+  // The whole crew in one line, with no name (house decision #168).
+  const crew = { code: "rule", params: { rule: "crew", name: "" }, text: "The whole crew holds boons" };
+
+  // Points left are told at every start; the end's refill crosses the top step once, never again while it holds, and
+  // says the step it rose to.
   assert.deepEqual(ok(await owner.send({ type: "session.start" })).notices, [
     rule("unspent", "Lyra has boons to spend"),
+    crew,
   ]);
   assert.deepEqual(ok(await owner.send({ type: "session.end", recap: "" })).notices, [
     rule("renowned", "Lyra is renowned"),
+    rule("risen", "Lyra reached renown step 3"),
   ]);
   assert.deepEqual(ok(await owner.send({ type: "session.start" })).notices, [
     rule("unspent", "Lyra has boons to spend"),
+    crew,
   ]);
   assert.equal(ok(await owner.send({ type: "session.end", recap: "" })).notices, undefined);
 
@@ -3752,6 +3811,59 @@ test("notices: an answer tells its sender who has points as a session starts, wh
   // Nothing of it is in the state either seat receives.
   for (const c of [owner, ana])
     assert.equal(JSON.stringify(await c.until(() => true)).includes("Lyra is renowned"), false);
+  for (const c of [owner, ana]) c.socket.close();
+});
+
+test("notices: a param named name, a group rule naming one actor and a rise off a reset event are refused (#168)", async () => {
+  const me = caller(await device("notice-refusals"));
+  const bad = structuredClone(SAMPLE_D20);
+  const cite = "Sample p.17";
+  bad.notices = [
+    { id: "a", when: "crossed", if: "res.boons > 0", params: { name: "res.boons" }, text: "{name}", cite },
+    { id: "b", when: "sessionStart", group: "every", if: "res.boons > 0", text: "{name} and all", cite },
+    { id: "c", when: "sessionEnd", if: "res.boons > 0", rises: "res.boons", text: "{name} rose", cite },
+  ];
+  const refused = await me.post<PackReply>("/rulesets", bad);
+  assert.equal(refused.status, 422);
+  assert.deepEqual(
+    refused.body.problems?.map((p) => p.path),
+    ["notices[0].params.name", "notices[1].text", "notices[2].rises"],
+  );
+});
+
+test("offers: without a GM the seats that call Tests see a result's offers and apply them (house decision #170)", async () => {
+  const pool = structuredClone(SAMPLE_POOL);
+  pool.game = { title: "Pool", players: { min: 1, max: 4 }, modes: ["gm", "gmless"], cite: "Sample p.1" };
+  const { owner, ana, hero } = await d20Room("GmlessOffers", pool, { hp: 6, tempHp: 0 });
+  ok(await owner.send({ type: "campaign.setTableMode", mode: "gmless" }));
+  ok(await ana.send({ type: "session.start" }));
+  const id = ok(
+    await ana.send({
+      type: "test.call",
+      testId: "skill",
+      actorIds: [hero],
+      inputs: { ability: "str", dn: 4, bonus: 0 },
+      hideTarget: false,
+    }),
+  ).id!;
+  ok(
+    await ana.send({
+      type: "test.report",
+      callId: id,
+      actorId: hero,
+      roll: { kind: "pool", counts: { hit: 1 }, special: [1] },
+    }),
+  );
+  const offersIn = (s: LiveState) => s.tests.find((c) => c.id === id)?.targets.find((t) => t.actorId === hero)?.offers;
+  const seen = await ana.until((s) => offersIn(s) !== undefined);
+  assert.deepEqual(
+    offersIn(seen)?.map((o) => o.id),
+    ["strain"],
+  );
+  ok(await ana.send({ type: "test.applyOffer", callId: id, actorId: hero, offerId: "strain" }));
+  refused(await ana.send({ type: "test.applyOffer", callId: id, actorId: hero, offerId: "strain" }), "offerApplied");
+  const after = await ana.until((s) => offersIn(s)?.[0]?.applied === true);
+  assert.equal(actorIn(after, hero)?.resources.tempHp, 6);
   for (const c of [owner, ana]) c.socket.close();
 });
 

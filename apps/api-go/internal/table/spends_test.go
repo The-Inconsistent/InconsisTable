@@ -2,6 +2,7 @@ package table
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -194,6 +195,41 @@ func TestAFightsAsksAreClearedWhenItEnds(t *testing.T) {
 		p.send(gm, map[string]any{"type": "encounter.end"})
 		if a, b := p.requestStatus(jump), p.requestStatus(rally); a != "cancelled" || b != "pending" {
 			t.Fatalf("jump %s (want cancelled), rally %s (want pending)", a, b)
+		}
+	})
+}
+
+// House decision #169: an ask clears when the round moves, for a spend that says so, or when its `if` stops holding.
+func TestAnAskClearsWhenTheRoundMovesOrItsIfStopsHolding(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		room := dbtest.NewRoom(t, tx)
+		brace := spend("brace", []any{poolCost("momentum", "1", false)}, map[string]any{"clearOn": []any{"roundEnd"}})
+		room.Pin(t, tx, withSpends(t, sidesFixture(t, nil), append(slices.Clone(sidesSpends), brace), 0))
+		dbtest.Exec(t, tx, `INSERT INTO session (campaign_id, number) VALUES ($1, 1)`, room.ID)
+		p := &play{t, tx, room}
+		gm := p.room.GM()
+		wren, _, _ := p.sidesFight()
+		asker := p.room.Seat(t, tx, dbtest.User(t, tx, "P"), wren)
+		p.fill("momentum", 5)
+
+		// Barred, Wren asks to shake it off; the GM lifts the bar by hand, and the ask means nothing any more.
+		p.send(gm, sidesOp("bar", map[string]any{"id": wren, "barred": true}))
+		shake := p.send(asker, ask(wren, "shake", nil)).ID
+		rally := p.send(asker, ask(wren, "rally", map[string]any{"dice": 1.0})).ID
+		braced := p.send(asker, ask(wren, "brace", nil)).ID
+		p.send(gm, sidesOp("bar", map[string]any{"id": wren, "barred": false}))
+		if a, b, c := p.requestStatus(shake), p.requestStatus(rally), p.requestStatus(braced); a != "cancelled" || b != "pending" || c != "pending" {
+			t.Fatalf("after the lift: shake %s (want cancelled), rally %s, brace %s (want pending)", a, b, c)
+		}
+
+		// A new round clears the ask that clears on it, and only that one.
+		round := p.turn().Round
+		p.send(gm, sidesOp("newRound", map[string]any{}))
+		if p.turn().Round == round {
+			t.Fatal("the round did not move")
+		}
+		if b, c := p.requestStatus(rally), p.requestStatus(braced); b != "pending" || c != "cancelled" {
+			t.Fatalf("after the round: rally %s (want pending), brace %s (want cancelled)", b, c)
 		}
 	})
 }

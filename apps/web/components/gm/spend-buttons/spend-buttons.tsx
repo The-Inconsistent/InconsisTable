@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 
 import type { Actor, LiveState } from "@inconsistable/core-schema";
-import type { CompiledRuleset, Ruleset } from "@inconsistable/rules-engine";
+import { spendThenHolds, type CompiledRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import type { Send } from "@/hooks/use-table/use-table";
 import { resourceLabels } from "@/lib/spend-request/spend-request";
@@ -54,7 +54,8 @@ export function SpendButtons({ ruleset, compiled, state, actor, send, onTable }:
           const inputs = { ...defaultInputs(spend), ...picked[spend.id] };
           const plan = chosen.find((o) => o.spend.id === spend.id)?.plan ?? null;
           const cost = plan === null ? "" : costText({ costs: plan.costs, labels });
-          const next = nextTable({ ruleset, spend, inputs });
+          // A `then` with its own `if` is offered only while that holds (house decision #169).
+          const next = spendThenHolds({ spend, ...world, inputs }) ? nextTable({ ruleset, spend, inputs }) : null;
           const openNext = next && onTable && (
             <button
               className="btn sm"

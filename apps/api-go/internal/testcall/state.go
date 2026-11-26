@@ -275,6 +275,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 		// A reported Test has no target or modifier to show or hide; its results follow the same rules (house decision #41).
 		isReported := test.Def.Kind == "reported"
 		showTarget := !isReported && !c.hideTarget && everyoneMay(test.TargetVisibility, actorIDs, built, noGM)
+		showModifier := !isReported && everyoneMay(test.ModifierVisibility, actorIDs, built, noGM)
 		secret := []string{}
 		if !showTarget {
 			secret = TargetInputs(test)
@@ -285,6 +286,12 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 		}
 		for i := range mine {
 			mine[i].Offers = offersOf(compiled, test, built[mine[i].ActorID], inputs, mine[i], applied[c.id+"/"+mine[i].ActorID])
+			// Without a GM the offers go to every seat that may call Tests (house decision #170): only where their
+			// changes read what the whole table sees, and the call shows the number to beat and the total they read.
+			shown := isReported || (showTarget && showModifier)
+			if noGM && (!shown || !everyoneMay(test.OfferVisibility, []string{mine[i].ActorID}, built, true)) {
+				mine[i].Offers = nil
+			}
 			if acq := acquired[c.id]; acq != nil && acq.ActorID == mine[i].ActorID {
 				mine[i].Offers = append(mine[i].Offers, acquireOffers(compiled, acq, built[mine[i].ActorID], mine[i], applied[c.id+"/"+mine[i].ActorID])...)
 			}
@@ -297,7 +304,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 			ID: c.id, TestID: c.testID, Dice: diceOf(test.Def), Advantage: test.Def.Kind == "sumVsTarget" && test.Def.Advantage,
 			Pool: poolSpecOf(test.Def), Outcomes: outcomesOf(test.Def), Status: c.status, CreatedAt: core.ISOTime(c.createdAt),
 			Inputs: inputs, SecretInputs: secret, ShowTarget: showTarget,
-			ShowModifier: !isReported && everyoneMay(test.ModifierVisibility, actorIDs, built, noGM),
+			ShowModifier: showModifier,
 			ShowOutcome:  c.showOutcome || showTarget || isReported, Revealed: c.revealed, Called: len(mine), Reported: reported,
 			Targets: mine, Acquire: callAcquire,
 		})

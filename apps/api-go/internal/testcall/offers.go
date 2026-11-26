@@ -181,6 +181,10 @@ func applyOffer(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	} else if err != nil {
 		return cs.Result{}, err
 	}
+	// Without a GM the seat that applies an offer applies it as the table (house decision #170), as a spend ask is done.
+	if !c.HasGM() {
+		c.Seat = cs.Seat{Kind: cs.SeatAdmin}
+	}
 	rc, err := ruleset.Open(ctx, tx, c)
 	if err != nil {
 		return cs.Result{}, err

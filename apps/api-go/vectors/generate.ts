@@ -1801,12 +1801,21 @@ const ACQUIRE_MANIFEST = {
     },
   ],
   resources: [...MINIMAL.resources, { id: "coin", label: "C", scope: "entity", max: "20" }],
-  tests: { get: { ...sumTest, target: "ctx.dn", modifier: "ctx.bonus", inputs: { dn: "int", bonus: "int" } } },
+  tests: {
+    get: {
+      ...sumTest,
+      target: "ctx.dn",
+      modifier: "ctx.bonus - (ctx.rare ? 1 : 0)",
+      inputs: { dn: "int", bonus: "int", rare: "bool" },
+      inputLabels: { dn: "Number", rare: "Rare" },
+    },
+  },
   items: {
     ...ITEMS_MANIFEST.items,
     acquire: {
       test: "get",
       inputs: {
+        rare: [{ label: "Rated 3 up", value: "item.rating >= 3" }],
         dn: [
           { label: "Base", value: "5" },
           { label: "Rating", value: "item.rating" },
@@ -2974,7 +2983,12 @@ function acquireCrafted(): object[] {
         { id: "b", label: "B" },
       ],
     }),
-    test({ inputs: { dn: "int", bonus: "text" } }),
+    test({ inputs: { dn: "int", bonus: "text", rare: "bool" } }),
+    // House decision #175: a yes-or-no input is one part, read as a yes or no.
+    acquire({ inputs: { ...a.inputs, rare: [...a.inputs.rare, { label: "R", value: "true" }] } }),
+    acquire({ inputs: { ...a.inputs, rare: [{ label: "R", value: "1" }] } }),
+    acquire({ inputs: { ...a.inputs, rare: [] } }),
+    acquire({ inputs: { ...a.inputs, dn: [{ label: "R", value: "true" }] } }),
     test({ offers: [{ id: "acquire", label: "A", when: "true", changes: [{ resource: "coin", by: "1" }] }] }),
     {
       ...acquire({}),
@@ -3013,6 +3027,47 @@ function itemCrafted(): object[] {
     kind(1, { fits: { to: ["tool"], max: 1, slot: "nope" } }),
     kind(1, { fits: { to: [], max: 1 } }),
     kind(2, { fits: { to: ["tool"], max: 1 } }),
+    // House decision #176: a slot per host kind, a host filter, a copy limit and the exemptions, valid then broken.
+    ...[
+      {},
+      { slotOn: { kit: "slot" } },
+      { slotOn: { tool: "nope" } },
+      { slotOn: { tool: "copies" } },
+      { hosts: "nope" },
+      { hosts: "copies" },
+      { copies: "slot" },
+      { copies: "nope" },
+      { exempt: { max: "" } },
+      { exempt: { slot: "x".repeat(41) } },
+      { slotOn: { Bad: "slot" } },
+    ].map((over) => ({
+      ...kind(1, {
+        fits: {
+          to: ["tool"],
+          max: 2,
+          slot: "slot",
+          slotOn: { tool: "toolSlot" },
+          hosts: "hosts",
+          copies: "copies",
+          exempt: { max: "free", slot: "loose" },
+          ...over,
+        },
+      }),
+      entities: [
+        pcBase,
+        {
+          id: "gear",
+          label: "G",
+          base: "item",
+          fields: {
+            slot: { label: "S", type: "text" },
+            toolSlot: { label: "T", type: "enum", values: ["a", "b"] },
+            hosts: { label: "H", type: "list" },
+            copies: { label: "C", type: "int" },
+          },
+        },
+      ],
+    })),
     kind(0, { tag: "" }),
     kind(0, { label: "x".repeat(61) }),
     give({ ref: "nope", loose: "kit" }),

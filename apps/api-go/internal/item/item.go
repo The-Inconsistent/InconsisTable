@@ -434,23 +434,23 @@ func Fit(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, e
 	if err != nil {
 		return cs.Result{}, err
 	}
-	slot := ""
-	if kind.Fits.Slot != nil {
-		if slot, err = r.slotOf(x, *kind.Fits.Slot); err != nil {
-			return cs.Result{}, err
-		}
+	body, err := r.bodyOf(x)
+	if err != nil {
+		return cs.Result{}, err
 	}
-	if err := r.canFit(b, kind, fitting{Key: x.EntryKey, Label: x.Label(), Tags: x.Tags, Slot: slot}, host); err != nil {
+	if err := r.canFit(b, kind, fitting{Key: x.EntryKey, Label: x.Label(), Tags: x.Tags, Body: body}, host); err != nil {
 		return cs.Result{}, err
 	}
 	r.set(x.ID, value(b.Row.ID, x, host.Change))
 	return r.write()
 }
 
-// host is what an item is fitted to: a loose item of the holder's, or a line of its saved build, with the items fitted
-// to it now and the change that fits an item there.
+// host is what an item is fitted to: a loose item of the holder's, or a line of its saved build, with its kind, its
+// tags (a build line has none), the items fitted to it now and the change that fits an item there.
 type host struct {
 	Label  string
+	Kind   string
+	Tags   []string
 	On     []actor.ItemRow
 	Change map[string]any
 }
@@ -470,7 +470,7 @@ func (r *room) hostOf(b *actor.Built, kind *engine.ItemKind, itemID, label, to, 
 		if h.ID == itemID || h.FittedTo != nil || h.FittedLine != nil || !slices.Contains(kind.Fits.To, h.Kind) {
 			return host{}, cs.Fail("itemFitsNot", cs.Params{"item": label, "host": h.Label()})
 		}
-		out := host{Label: h.Label(), Change: map[string]any{"fittedTo": h.ID, "fittedLine": nil}}
+		out := host{Label: h.Label(), Kind: h.Kind, Tags: h.Tags, Change: map[string]any{"fittedTo": h.ID, "fittedLine": nil}}
 		for _, y := range b.Items {
 			if y.FittedTo != nil && *y.FittedTo == h.ID {
 				out.On = append(out.On, y)
@@ -490,7 +490,9 @@ func (r *room) hostOf(b *actor.Built, kind *engine.ItemKind, itemID, label, to, 
 	if lineKind == nil || !slices.Contains(kind.Fits.To, lineKind.ID) {
 		return host{}, cs.Fail("itemFitsNot", cs.Params{"item": label, "host": name})
 	}
-	out := host{Label: name, Change: map[string]any{"fittedTo": nil, "fittedLine": line}}
+	// ponytail: a build line carries no tags, so an entry whose `hosts` field names some never fits one (house decision
+	// #176); read the line's pack entry's tags when a sheet line names its entry.
+	out := host{Label: name, Kind: lineKind.ID, Change: map[string]any{"fittedTo": nil, "fittedLine": line}}
 	for _, y := range b.Items {
 		if y.FittedLine != nil && *y.FittedLine == line {
 			out.On = append(out.On, y)
@@ -499,53 +501,130 @@ func (r *room) hostOf(b *actor.Built, kind *engine.ItemKind, itemID, label, to, 
 	return out, nil
 }
 
-// fitting is the item to be fitted: its entry's key (nil for a hand-written one), its label, tags and slot.
+// fitting is the item to be fitted: its entry's key (nil for a hand-written one), its label, tags and its served
+// entry's body (nil for a hand-written one or one the room is not served).
 type fitting struct {
 	Key   *string
 	Label string
 	Tags  []string
-	Slot  string
+	Body  map[string]any
 }
 
-// canFit refuses fitting x to h: an entry tagged as the GM's from another seat, a second of the same entry on the host,
-// a host at the kind's max, a slot taken.
+// canFit refuses fitting x to h: an entry tagged as the GM's from another seat; a host without a tag the entry's
+// `hosts` field names; another of the same entry on the host past its `copies` (one when unset); a host at the kind's
+// max, counting neither x nor the fittings tagged exempt from it; a slot taken, where neither is tagged exempt from the
+// slots and copies of one entry share theirs (house decisions #95, #176).
 func (r *room) canFit(b *actor.Built, kind *engine.ItemKind, x fitting, h host) error {
-	if kind.Fits.GMTag != nil && slices.Contains(x.Tags, *kind.Fits.GMTag) && !view.ActorGmSide(r.c, b.Row.Kind) {
+	f := kind.Fits
+	if f.GMTag != nil && slices.Contains(x.Tags, *f.GMTag) && !view.ActorGmSide(r.c, b.Row.Kind) {
 		return cs.Fail("itemFitGm", cs.Params{"item": x.Label})
 	}
-	for _, y := range h.On {
-		if x.Key != nil && y.EntryKey != nil && *y.EntryKey == *x.Key {
-			return cs.Fail("itemAlready", cs.Params{"name": h.Label, "item": x.Label})
+	if f.Hosts != nil {
+		want := words(x.Body[*f.Hosts])
+		if len(want) > 0 && !slices.ContainsFunc(want, func(t string) bool { return slices.Contains(h.Tags, t) }) {
+			return cs.Fail("itemFitsNot", cs.Params{"item": x.Label, "host": h.Label})
 		}
 	}
-	if len(h.On) >= kind.Fits.Max {
-		return cs.Fail("itemFitFull", cs.Params{"host": h.Label, "max": kind.Fits.Max})
+	same := func(y actor.ItemRow) bool { return x.Key != nil && y.EntryKey != nil && *y.EntryKey == *x.Key }
+	copies := 0
+	for _, y := range h.On {
+		if same(y) {
+			copies++
+		}
 	}
-	if kind.Fits.Slot != nil && x.Slot != "" {
+	if copies > 0 {
+		limit := 1
+		if f.Copies != nil {
+			if n, _ := x.Body[*f.Copies].(float64); n > 1 {
+				limit = int(n)
+			}
+		}
+		if limit == 1 {
+			return cs.Fail("itemAlready", cs.Params{"name": h.Label, "item": x.Label})
+		}
+		if copies >= limit {
+			return cs.Fail("itemFitCopies", cs.Params{"host": h.Label, "item": x.Label, "max": limit})
+		}
+	}
+	var fromMax, fromSlot *string
+	if f.Exempt != nil {
+		fromMax, fromSlot = f.Exempt.Max, f.Exempt.Slot
+	}
+	exempt := func(tags []string, tag *string) bool { return tag != nil && slices.Contains(tags, *tag) }
+	if !exempt(x.Tags, fromMax) {
+		counted := 0
 		for _, y := range h.On {
-			theirs, err := r.slotOf(y, *kind.Fits.Slot)
-			if err != nil {
-				return err
+			if !exempt(y.Tags, fromMax) {
+				counted++
 			}
-			if theirs == x.Slot {
-				return cs.Fail("itemSlotTaken", cs.Params{"host": h.Label, "slot": x.Slot, "other": y.Label()})
-			}
+		}
+		if counted >= f.Max {
+			return cs.Fail("itemFitFull", cs.Params{"host": h.Label, "max": f.Max})
+		}
+	}
+	slot := slotIn(f, h.Kind, x.Body)
+	if slot == "" || exempt(x.Tags, fromSlot) {
+		return nil
+	}
+	for _, y := range h.On {
+		if same(y) || exempt(y.Tags, fromSlot) {
+			continue
+		}
+		body, err := r.bodyOf(y)
+		if err != nil {
+			return err
+		}
+		if slotIn(f, h.Kind, body) == slot {
+			return cs.Fail("itemSlotTaken", cs.Params{"host": h.Label, "slot": slot, "other": y.Label()})
 		}
 	}
 	return nil
 }
 
-// slotOf is the text of the entry's slot field, "" for a hand-written item or an entry that leaves it unset.
-func (r *room) slotOf(x actor.ItemRow, field string) (string, error) {
+// slotIn is the slot an entry with body takes on a host of kind hostKind: its field `slotOn` names for that kind when
+// set, else its `slot` field; "" for none.
+func slotIn(f *engine.ItemFits, hostKind string, body map[string]any) string {
+	if id, has := f.SlotOn[hostKind]; has {
+		if v, _ := body[id].(string); v != "" {
+			return v
+		}
+	}
+	if f.Slot == nil {
+		return ""
+	}
+	v, _ := body[*f.Slot].(string)
+	return v
+}
+
+// words is a text field's value as one word, or a list field's items; none for anything else.
+func words(v any) []string {
+	switch v := v.(type) {
+	case string:
+		if v != "" {
+			return []string{v}
+		}
+	case []any:
+		var out []string
+		for _, w := range v {
+			if w, _ := w.(string); w != "" {
+				out = append(out, w)
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+// bodyOf is the body of x's served entry, nil for a hand-written item or an entry the room is not served.
+func (r *room) bodyOf(x actor.ItemRow) (map[string]any, error) {
 	if x.EntryKey == nil {
-		return "", nil
+		return nil, nil
 	}
 	s, err := r.served(*x.EntryType, *x.EntryKey)
 	if err != nil || s == nil {
-		return "", err
+		return nil, err
 	}
-	v, _ := s.Body[field].(string)
-	return v, nil
+	return s.Body, nil
 }
 
 // Adjust is item.adjust: a counted item's quantity by a delta, the holder only spending one of a kind it spends, the

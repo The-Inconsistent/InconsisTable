@@ -45,8 +45,15 @@ test("the target reads the gear's rating and the keywords the hero shares with i
       { label: "Rating", value: 3 },
       { label: "Matched tags", value: -1 },
     ],
+    label: "Number to beat",
   });
-  assert.deepEqual(plan.inputs.bonus, { total: 1, parts: [{ label: "Push", value: 1 }] });
+  assert.deepEqual(plan.inputs.bonus, { total: 1, parts: [{ label: "Push", value: 1 }], label: "Push" });
+  // House decision #175: a yes-or-no input is its one part's answer.
+  assert.deepEqual(plan.inputs.rare, {
+    total: true,
+    parts: [{ label: "Rated 3 or more", value: true }],
+    label: "Rare",
+  });
   assert.deepEqual(plan.topUp, { resource: "coin", max: 3 });
   assert.equal(plan.quantity, null);
 });
@@ -63,6 +70,25 @@ test("a weapon that names its stores brings one; stores come three at a time to 
   const loaded = planAcquire({ ruleset, actor: hero([]), item: open, picks: { push: 0 } });
   assert.ok(!("code" in loaded));
   assert.deepEqual(loaded.load, { key: "supply.pellets", quantity: 1 });
+});
+
+test("a yes-or-no input reads no; one whose part reads a number is refused by the validator", () => {
+  const staff = planAcquire({
+    ruleset,
+    actor: hero(["WARDEN"]),
+    item: entry("wargear.lantern-staff"),
+    picks: { push: 0 },
+  });
+  assert.ok(!("code" in staff));
+  assert.equal(staff.inputs.rare?.total, false);
+  const input = structuredClone(SAMPLE_LEDGER_RULESET) as RulesetInput & { items: { acquire: { inputs: object } } };
+  input.items.acquire.inputs = { ...input.items.acquire.inputs, rare: [{ label: "R", value: "1" }] };
+  const r = compileRuleset(input);
+  assert.ok(!r.ok);
+  assert.deepEqual(
+    r.problems.map((p) => p.path),
+    ["items.acquire.inputs.rare[0].value"],
+  );
 });
 
 test("a pick out of its range, or one not declared, is refused", () => {
@@ -112,6 +138,7 @@ test("an acquisition names a non-reported Test, sets every input of it, and its 
   assert.deepEqual(problems({ test: "nope" }), ['items.acquire.test: unknown test "nope"']);
   assert.deepEqual(problems({ inputs: { dn: [{ label: "D", value: "1" }] } }), [
     'items.acquire.inputs: the Test\'s input "bonus" is not set',
+    'items.acquire.inputs: the Test\'s input "rare" is not set',
   ]);
   assert.deepEqual(problems({ limits: [{ kinds: ["nope"], max: 1 }] }), [
     'items.acquire.limits[0].kinds[0]: unknown item kind "nope"',

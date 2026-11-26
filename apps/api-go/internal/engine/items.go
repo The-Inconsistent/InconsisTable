@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/schema"
 )
@@ -16,12 +17,21 @@ const (
 )
 
 // ItemFits says what an item of a kind is fitted to: a held item of a kind in To, at most Max on one host, one per
-// value of the entry's Slot field, and an entry tagged GMTag by the GM side only.
+// value of the entry's Slot field, and an entry tagged GMTag by the GM side only. House decision #176: SlotOn names
+// per host kind the field read as the slot there, Hosts the entry's field naming the tags its host carries one of,
+// Copies the entry's field saying how many of it one host takes, Exempt the tags left out of Max or of the slots.
 type ItemFits struct {
-	To    []string `json:"to"`
-	Max   int      `json:"max"`
-	Slot  *string  `json:"slot"`
-	GMTag *string  `json:"gmTag"`
+	To     []string          `json:"to"`
+	Max    int               `json:"max"`
+	Slot   *string           `json:"slot"`
+	GMTag  *string           `json:"gmTag"`
+	SlotOn map[string]string `json:"slotOn"`
+	Hosts  *string           `json:"hosts"`
+	Copies *string           `json:"copies"`
+	Exempt *struct {
+		Max  *string `json:"max"`
+		Slot *string `json:"slot"`
+	} `json:"exempt"`
 }
 
 // ItemKind is one kind of item (ItemKind in manifest.ts).
@@ -151,6 +161,10 @@ var itemKindSchema = schema.Object(
 		schema.Req("max", schema.Int().Min(1).Max(10)),
 		schema.Opt("slot", fieldIDSchema),
 		schema.Opt("gmTag", label(40)),
+		schema.Opt("slotOn", schema.Record(idSchema, fieldIDSchema)),
+		schema.Opt("hosts", fieldIDSchema),
+		schema.Opt("copies", fieldIDSchema),
+		schema.Opt("exempt", schema.Object(schema.Opt("max", label(40)), schema.Opt("slot", label(40)))),
 	)),
 	schema.Opt("cite", citeSchema),
 )
@@ -223,10 +237,28 @@ func (p *problems) items(r *Ruleset, needCite func(*string, string)) {
 					p.add(fmt.Sprintf("%s.fits.to[%d]", path, j), `unknown item kind "%s"`, to)
 				}
 			}
-			if f.Slot != nil && entry != nil {
-				if _, has := entry.Fields[*f.Slot]; !has {
-					p.add(path+".fits.slot", `%s has no field "%s"`, k.Entry, *f.Slot)
+			// types empty: any field (the slot field has always been any).
+			field := func(id *string, at string, types ...string) {
+				if id == nil || entry == nil {
+					return
 				}
+				def, has := entry.Fields[*id]
+				switch {
+				case !has:
+					p.add(path+".fits."+at, `%s has no field "%s"`, k.Entry, *id)
+				case len(types) > 0 && !slices.Contains(types, def.Type):
+					p.add(path+".fits."+at, `"%s" is not of type %s`, *id, strings.Join(types, " or "))
+				}
+			}
+			field(f.Slot, "slot")
+			field(f.Hosts, "hosts", "text", "list")
+			field(f.Copies, "copies", "int")
+			for _, to := range sortedKeys(f.SlotOn) {
+				if !slices.Contains(f.To, to) {
+					p.add(path+".fits.slotOn."+to, `"%s" is not a kind it fits`, to)
+				}
+				id := f.SlotOn[to]
+				field(&id, "slotOn."+to, "text", "enum")
 			}
 		}
 	}
@@ -280,10 +312,14 @@ func (p *problems) acquire(r *Ruleset, b *ItemsBlock, a *ItemAcquire, needCite f
 		p.add(path+".test", "a reported Test has no number to reach")
 	default:
 		for _, name := range sortedKeys(test.Inputs) {
-			if test.Inputs[name] != "int" {
-				p.add(path+".test", `the Test's input "%s" is not a number`, name)
-			} else if _, set := a.Inputs[name]; !set {
+			parts, set := a.Inputs[name]
+			switch typ := test.Inputs[name]; {
+			case typ != "int" && typ != "bool":
+				p.add(path+".test", `the Test's input "%s" is not a number or a yes or no`, name)
+			case !set:
 				p.add(path+".inputs", `the Test's input "%s" is not set`, name)
+			case typ == "bool" && len(parts) != 1:
+				p.add(path+".inputs."+name, "a yes-or-no input has one part")
 			}
 		}
 		for _, name := range sortedKeys(a.Inputs) {

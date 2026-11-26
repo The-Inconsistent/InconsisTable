@@ -527,7 +527,15 @@ const STATE = {
     call(U(205), {
       targets: [{ actorId: PC2, modifier: 0, target: 11, pool: null, report: null }],
       called: 1,
-      acquire: { name: "Rope", kind: "kit", inputs: { dn: { total: 11, parts: [{ label: "Base", value: 11 }] } } },
+      // The Test's word for an input travels with it (the phone has no Test definition); a yes-or-no input is one part.
+      acquire: {
+        name: "Rope",
+        kind: "kit",
+        inputs: {
+          dn: { total: 11, parts: [{ label: "Base", value: 11 }], label: "Number to beat" },
+          rare: { total: false, parts: [{ label: "Rated 3 up", value: false }] },
+        },
+      },
     }),
     call(U(204), { status: "closed", targets: [] }),
   ],

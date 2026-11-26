@@ -19,10 +19,14 @@ export interface AcquireItem {
   body: Readonly<Record<string, unknown>>;
 }
 
-/** One of the Test's inputs: its total and the parts it adds up from. */
+/**
+ * One of the Test's inputs: its total and the parts it adds up from, or a yes-or-no input's answer and its one part;
+ * `label` the Test's word for it, absent when the ruleset gives none.
+ */
 export interface AcquireInput {
-  total: number;
-  parts: { label: string; value: number }[];
+  total: number | boolean;
+  parts: { label: string; value: number | boolean }[];
+  label?: string;
 }
 
 export interface AcquirePlan {
@@ -87,7 +91,7 @@ export function planAcquire({
   item,
   picks,
 }: {
-  ruleset: Pick<Ruleset, "items" | "entities">;
+  ruleset: Pick<Ruleset, "items" | "entities" | "tests">;
   actor: ActorState;
   item: AcquireItem;
   picks: Readonly<Record<string, unknown>>;
@@ -122,14 +126,31 @@ export function planAcquire({
     if (r.v !== true) return refuse("acquireNotNow", `"${item.name}" cannot be acquired now`);
   }
   const inputs: Record<string, AcquireInput> = {};
+  const test = own(ruleset.tests, a.test);
   for (const [name, list] of sorted(a.inputs)) {
-    const parts: AcquireInput["parts"] = [];
+    const label = own(test?.inputLabels ?? {}, name);
+    const at = (j: number) => `${path}.inputs.${name}[${j}].value`;
+    if (own(test?.inputs ?? {}, name) === "bool") {
+      // A yes-or-no input has one part (the validator holds it to one): its answer is the input's.
+      const [p] = list;
+      if (p === undefined) return refuse("wrongState", `${path}.inputs.${name}: no part`);
+      const r = read(p.value, scope, at(0));
+      if (isRefusal(r)) return r;
+      if (typeof r.v !== "boolean") return refuse("wrongState", `${at(0)}: not a yes or no`);
+      inputs[name] = { total: r.v, parts: [{ label: p.label, value: r.v }], ...(label === undefined ? {} : { label }) };
+      continue;
+    }
+    const parts: { label: string; value: number }[] = [];
     for (const [j, p] of list.entries()) {
-      const value = readInt(p.value, scope, `${path}.inputs.${name}[${j}].value`);
+      const value = readInt(p.value, scope, at(j));
       if (typeof value !== "number") return value;
       parts.push({ label: p.label, value: value + 0 }); // a negated 0 reads as 0
     }
-    inputs[name] = { total: parts.reduce((s, p) => s + p.value, 0), parts };
+    inputs[name] = {
+      total: parts.reduce((s, p) => s + p.value, 0),
+      parts,
+      ...(label === undefined ? {} : { label }),
+    };
   }
   let topUp: AcquirePlan["topUp"] = null;
   if (a.topUp !== undefined) {

@@ -595,13 +595,15 @@ type (
 		Kind   string                       `json:"kind"`
 		Inputs map[string]AcquireInputState `json:"inputs"`
 	}
-	// AcquireInputState is one of an acquisition's Test inputs: its total and its labelled parts.
+	// AcquireInputState is one of an acquisition's Test inputs: its total (a number, or a yes-or-no input's answer) and
+	// its labelled parts, and the Test's word for it (absent when the ruleset gives none).
 	AcquireInputState struct {
-		Total float64 `json:"total"`
+		Total any `json:"total"`
 		Parts []struct {
-			Label string  `json:"label"`
-			Value float64 `json:"value"`
+			Label string `json:"label"`
+			Value any    `json:"value"`
 		} `json:"parts"`
+		Label string `json:"label,omitempty"`
 	}
 
 	// CodexEntry is one codex entry.

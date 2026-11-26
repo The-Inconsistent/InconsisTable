@@ -83,7 +83,7 @@ export function Cite({ cite, ...props }: CiteProps) {
               >
                 {zoomed ? t("fit") : t("zoom")}
               </button>
-              <div className="book-page-frame">
+              <div className="book-page-frame" tabIndex={0} role="region" aria-label={t("pageAlt", { cite })}>
                 {/* A blob made in this browser from the relayed page; next/image has nothing to optimise. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img className="book-page" data-zoom={zoomed} src={shown.url} alt={t("pageAlt", { cite })} />

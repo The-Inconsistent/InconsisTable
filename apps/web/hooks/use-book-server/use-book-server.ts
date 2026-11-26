@@ -92,9 +92,9 @@ async function openDoc(file: File) {
 // Draws page `n` at PAGE_WIDTH_PX and sends the best JPEG that fits the relay's limit.
 async function renderPage(doc: PDFDocumentProxy, n: number): Promise<BookReply> {
   const page = await doc.getPage(n);
+  const canvas = document.createElement("canvas");
   try {
     const viewport = page.getViewport({ scale: PAGE_WIDTH_PX / page.getViewport({ scale: 1 }).width });
-    const canvas = document.createElement("canvas");
     canvas.width = Math.floor(viewport.width);
     canvas.height = Math.floor(viewport.height);
     await page.render({ canvas, viewport }).promise;
@@ -105,6 +105,8 @@ async function renderPage(doc: PDFDocumentProxy, n: number): Promise<BookReply> 
     });
     return blob ? { ok: true, image: await blob.arrayBuffer() } : refused("bookPageTooLarge");
   } finally {
+    // Safari caps the memory all canvases hold together; let go of this one at once rather than at collection.
+    canvas.width = canvas.height = 0;
     page.cleanup();
   }
 }

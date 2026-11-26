@@ -19,6 +19,8 @@ import { PhoneStrip } from "@/components/player/phone-strip/phone-strip";
 import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
 import { WhisperSheet } from "@/components/player/whisper-sheet/whisper-sheet";
 import { Peek } from "@/components/ui/peek/peek";
+import { SpotlightCard } from "@/components/ui/spotlight-card/spotlight-card";
+import { ShowingBar } from "@/components/gm/codex/components/showing-bar/showing-bar";
 import { ArchivedBanner } from "@/components/ui/archived-banner/archived-banner";
 import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
 import { PoolsView } from "@/components/ui/pools-view/pools-view";
@@ -48,6 +50,7 @@ import { parsePlayerTab, playerAddress, settledTab } from "@/lib/player-address/
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 import { entrySeenKey } from "@/lib/seen/seen";
 import { rangeOf } from "@/lib/sheet/sheet";
+import { dismissKey, spotlitEntry } from "@/lib/spotlight/spotlight";
 
 type PlayerAppProps = { me: Me; view: RulesView | null; quick?: boolean };
 
@@ -57,6 +60,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   const t = useTranslations("playerApp");
   const tTable = useTranslations("table");
   const tPhoneStatus = useTranslations("playerApp.status");
+  const tSpot = useTranslations("spotlight");
   const tStatus = useTranslations("status");
   const tXp = useTranslations("ledgerBuilder.play.xp");
   const { state, codex, online, send, draftRecap, books, requestPage, xcard, notices, dismissNotices } = useTable(
@@ -94,6 +98,10 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   });
   // The entry over the screen (#218): a mention, a link, a search hit or an inbox card opens it.
   const [peekId, setPeekId] = useState<string | null>(null);
+  // What this phone holds up to the table (SHOW THE TABLE, #2): local to the phone, nothing is sent.
+  const [heldUp, setHeldUp] = useState<string | null>(null);
+  // The `at` of the GM's SHOW dismissed on this page, before storage has it.
+  const [dismissedAt, setDismissedAt] = useState<string | null>(null);
 
   // Syncs with the browser history: a tab the seat may not open is replaced in the address once the room is read.
   useEffect(() => {
@@ -120,6 +128,47 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
       return false;
     }
   };
+  // The GM's SHOW (#2): up until this phone dismisses it; the dismissal is kept per `at`, so a new SHOW opens again.
+  const spotKey = dismissKey(me.campaignId);
+  const spotAt = state.spotlight?.at ?? null;
+  const spotEntry = spotlitEntry({ spotlight: state.spotlight, entries: codex?.entries ?? [] });
+  const spotDismissed = () => {
+    if (spotAt === null || dismissedAt === spotAt) return true;
+    try {
+      return localStorage.getItem(spotKey) === spotAt;
+    } catch {
+      return false;
+    }
+  };
+  // DISMISS on the GM's SHOW: this phone only.
+  const handleDismissSpot = () => {
+    setDismissedAt(spotAt);
+    try {
+      if (spotAt) localStorage.setItem(spotKey, spotAt);
+    } catch {
+      // No storage: the card stays dismissed until the page reloads.
+    }
+  };
+  // SHOW THE TABLE under a peek: the entry full-screen, the browser's fullscreen asked from the tap itself.
+  const handleHoldUp = async (entryId: string) => {
+    setPeekId(null);
+    setHeldUp(entryId);
+    try {
+      await document.documentElement.requestFullscreen?.();
+    } catch {
+      // Not offered (an iPhone): the card covers the page all the same.
+    }
+  };
+  // Lowering it: the card goes and the browser leaves fullscreen.
+  const handleLetDown = async () => {
+    setHeldUp(null);
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+    } catch {
+      // Already out of fullscreen.
+    }
+  };
+  const heldEntry = (codex?.entries ?? []).find((e) => e.id === heldUp) ?? null;
   const mine = state.actors.filter((a) => held.includes(a.id));
   const character = mine.find((a) => a.id === current) ?? mine[0];
   // A character the ledger builder builds has an entry while it has no saved build, and once built while it has XP
@@ -197,7 +246,36 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           held={held}
           onOpen={setPeekId}
           onClose={() => setPeekId(null)}
+          onHold={handleHoldUp}
         />
+      )}
+      {heldEntry ? (
+        <SpotlightCard
+          key={heldEntry.id}
+          entry={heldEntry}
+          campaignId={me.campaignId}
+          entries={codex?.entries ?? []}
+          ruleset={ruleset}
+          known={view?.first.entries ?? []}
+          campaign={state.campaign.fields}
+          kicker={tSpot("holding")}
+          onClose={handleLetDown}
+        />
+      ) : (
+        spotEntry &&
+        !spotDismissed() && (
+          <SpotlightCard
+            key={spotAt}
+            entry={spotEntry}
+            campaignId={me.campaignId}
+            entries={codex?.entries ?? []}
+            ruleset={ruleset}
+            known={view?.first.entries ?? []}
+            campaign={state.campaign.fields}
+            kicker={tSpot("fromGm")}
+            onClose={handleDismissSpot}
+          />
+        )
       )}
       <TransferOffer me={me} state={state} send={send} />
       <WhisperSheet
@@ -252,6 +330,9 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
         )}
         {ledgerEntry === "continue" && <p className="small dim">{t("buildDraft")}</p>}
         <ActionNotices notices={notices} onDismiss={dismissNotices} />
+        {canInCampaign({ ctx: me, perm: "codex:reveal" }) && (
+          <ShowingBar spotlight={state.spotlight} entries={codex?.entries ?? []} actors={state.actors} send={send} />
+        )}
         <RequestNotices
           answers={state.requestAnswers}
           actors={state.actors}

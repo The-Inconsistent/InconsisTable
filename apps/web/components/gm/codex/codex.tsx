@@ -19,6 +19,7 @@ import { PackAdder } from "@/components/gm/codex/components/pack-adder/pack-adde
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
 import { EntryFieldChips } from "@/components/ui/entry-fields/entry-fields";
 import { RevealSwitch } from "@/components/ui/reveal-switch/reveal-switch";
+import { ShowButton } from "@/components/gm/codex/components/show-button/show-button";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { byKind, filterEntries, treeRows, unfolded, type KindFilter } from "@/lib/codex/codex";
 import { fromKinds } from "@/lib/entry-fields/entry-fields";
@@ -95,6 +96,7 @@ export function Codex({
   const open = entries.find((e) => e.id === openId) ?? null;
   const names = useMemo(() => new Map(state.actors.map((a) => [a.id, a.name])), [state.actors]);
   const searching = query.trim() !== "";
+  const characters = useMemo(() => state.actors.filter((a) => a.kind === "pc"), [state.actors]);
   const box = useRef<HTMLInputElement>(null);
 
   // Syncs with the document's keyboard: "/" jumps to the search box (a tablet with a keyboard), unless a field has focus.
@@ -333,7 +335,10 @@ export function Codex({
                 <span className="codex-row-acts small">
                   <VisibilityBadge entry={e} names={e.audience.flatMap((id) => names.get(id) ?? [])} />
                   {can("codex:reveal") && !state.campaign.archived && (
-                    <RevealSwitch entry={e} act={act} onListed={() => setOpenId(e.id)} />
+                    <>
+                      <RevealSwitch entry={e} act={act} onListed={() => setOpenId(e.id)} />
+                      <ShowButton entry={e} characters={characters} act={act} />
+                    </>
                   )}
                 </span>
               </li>

@@ -3107,6 +3107,22 @@
     "missing": "This entry is not in your notebook any more.",
     "eyesOnly": "For your eyes only",
     "goTo": "Go to",
-    "goToLabel": "Go to {title} in Codex"
+    "goToLabel": "Go to {title} in Codex",
+    "hold": "Show the table",
+    "holdLabel": "Hold {title} up to the table, full screen"
+  },
+  "spotlight": {
+    "show": "Show",
+    "showLabel": "Show {title} to the table",
+    "everyone": "Everyone",
+    "only": "Or only these characters",
+    "toThem": "{count, plural, =0 {Show to them} one {Show to # character} other {Show to # characters}}",
+    "showing": "Showing {title} to {to}",
+    "clear": "Clear",
+    "clearLabel": "Stop showing {title}",
+    "close": "Dismiss",
+    "closeLabel": "Dismiss {title}",
+    "fromGm": "Shown by the GM",
+    "holding": "Showing the table · the screen stays awake"
   }
 }

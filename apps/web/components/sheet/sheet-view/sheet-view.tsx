@@ -6,6 +6,7 @@ import type { Actor, ActorItem, BookSource, LiveState, SpendRequest } from "@inc
 import { breakdownOf, campaignValues, compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { XpBox } from "@/components/builder/ledger/play/xp-box/xp-box";
+import { PrintSheets } from "@/components/print/print-sheets/print-sheets";
 import { Breakdown } from "@/components/sheet/components/breakdown/breakdown";
 import { AcquireBox } from "@/components/sheet/components/acquire-box/acquire-box";
 import { ItemsBox } from "@/components/sheet/components/items-box/items-box";
@@ -247,6 +248,7 @@ export function SheetView({
 
   return (
     <div className="stack sheet">
+      <PrintSheets actors={[actor]} {...{ ruleset, characters, campaign }} />
       {gm && rests.length > 0 && (
         <div className="row">
           {rests.map((b) => (

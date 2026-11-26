@@ -23,6 +23,7 @@ import {
 import { ItemGive } from "@/components/gm/codex/components/item-give/item-give";
 import { RevealForm } from "@/components/gm/codex/components/reveal-form/reveal-form";
 import { RollInto } from "@/components/gm/codex/components/roll-into/roll-into";
+import { PrintEntry } from "@/components/print/print-entry/print-entry";
 import { Cite } from "@/components/ui/cite/cite";
 import { EntryFields, EntryReminders } from "@/components/ui/entry-fields/entry-fields";
 import { EntryPath } from "@/components/ui/entry-path/entry-path";
@@ -328,6 +329,7 @@ export function EntryEditor(props: EntryEditorProps) {
         </div>
       )}
       <PictureField campaignId={campaignId} entry={entry} can={can} act={act} />
+      <PrintEntry campaignId={campaignId} entry={entry} entries={entries} ruleset={ruleset} />
       {entry.kind === "item" && can.write && ruleset?.items?.give && (
         <ItemGive entry={entry} characters={characters} act={act} />
       )}

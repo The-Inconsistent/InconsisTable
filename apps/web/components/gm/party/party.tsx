@@ -29,6 +29,7 @@ import { SafetyPanel } from "@/components/gm/party/safety-panel";
 import { SpendButtons } from "@/components/gm/spend-buttons/spend-buttons";
 import { WhisperPanel } from "@/components/gm/whisper-button/components/whisper-panel/whisper-panel";
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
+import { PrintParty } from "@/components/print/print-party/print-party";
 import { DraftRecap as DraftRecapButton } from "@/components/ui/draft-recap/draft-recap";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import type { DraftRecap, RequestPage, Send } from "@/hooks/use-table/use-table";
@@ -398,6 +399,7 @@ export function Party({ me, state, send, draftRecap, sheet, autoQr = false }: Pa
 
       <section className="stack" id={anchorId("characters")} tabIndex={-1}>
         <h2 className="head">{t("characters")}</h2>
+        <PrintParty state={state} ruleset={sheet.ruleset} />
         <ul className="list">
           {state.actors
             .filter((a) => a.kind === "pc")

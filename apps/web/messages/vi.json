@@ -3093,6 +3093,122 @@
       "hint": "Lưu ngay; bản dựng không được lưu cùng."
     }
   },
+  "print": {
+    "dialog": {
+      "paper": "Khổ giấy",
+      "papers": {
+        "A5": "A5",
+        "A4": "A4",
+        "LETTER": "Letter"
+      },
+      "build": "TẠO PDF",
+      "building": "ĐANG TẠO…",
+      "download": "TẢI PDF",
+      "open": "MỞ",
+      "close": "ĐÓNG",
+      "failed": "Không tạo được PDF: {error}"
+    },
+    "sheet": {
+      "one": "IN",
+      "oneLabel": "In phiếu nhân vật của {name}",
+      "oneTitle": "In phiếu nhân vật của {name}",
+      "all": "IN CÁC PHIẾU",
+      "allLabel": "In phiếu của mọi nhân vật",
+      "allTitle": "In phiếu của cả nhóm",
+      "hint": "Mỗi nhân vật bắt đầu một trang mới. Ô để trống là để ghi bút chì: những gì thay đổi khi chơi.",
+      "file": "phieu-nhan-vat.pdf"
+    },
+    "tents": {
+      "button": "IN THẺ GẤP",
+      "label": "In một thẻ gấp cho mỗi nhân vật",
+      "title": "In thẻ gấp",
+      "file": "the-gap.pdf"
+    },
+    "cards": {
+      "button": "IN THẺ",
+      "label": "In các thẻ của {title}",
+      "title": "In thẻ",
+      "one": "IN THẺ",
+      "oneLabel": "In thẻ của {name}",
+      "hint": "In ở 100 % (đúng kích thước), không chọn vừa trang, để mỗi thẻ là 63 × 88 mm. Cắt theo đường xám; gấp thẻ gấp theo đường đứt, tên quay về phía người chơi.",
+      "file": "the.pdf"
+    },
+    "handouts": {
+      "button": "IN TÀI LIỆU",
+      "label": "In tài liệu phát tay của {title}",
+      "title": "In tài liệu phát tay",
+      "one": "IN TÀI LIỆU",
+      "oneLabel": "In tài liệu {title}",
+      "hint": "Mỗi tài liệu một trang; tài liệu dài chạy sang trang sau. Để in hai tài liệu A5 trên một tờ A4, chọn 2 trang mỗi tờ trong hộp thoại in.",
+      "file": "tai-lieu.pdf"
+    },
+    "runSheet": {
+      "button": "IN PHIẾU DẪN TRUYỆN",
+      "label": "In phiếu dẫn truyện của {title}",
+      "title": "In phiếu dẫn truyện",
+      "hint": "Chỉ dành cho GM: phiếu có ghi chú của GM và kết quả của từng Test.",
+      "breaks": "Mỗi cảnh một trang mới",
+      "readAloud": "Đọc to",
+      "gmNotes": "Ghi chú của GM",
+      "budget": "Ngân sách trận đấu",
+      "fields": "Chi tiết",
+      "file": "phieu-dan-truyen.pdf"
+    },
+    "words": {
+      "yes": "Có",
+      "no": "Không",
+      "name": "Tên",
+      "link": "Gắn với",
+      "rating": "Bậc",
+      "bonus": "Cộng thêm",
+      "total": "Tổng",
+      "damage": "Sát thương",
+      "ap": "AP",
+      "rules": "Luật",
+      "ed": "+{ed} ED",
+      "range": "Tầm {range}",
+      "salvo": "Salvo {salvo}",
+      "count": "{name} ×{count}",
+      "with": "kèm {list}",
+      "weapons": "Vũ khí",
+      "armourTitle": "Giáp",
+      "armour": "AR {ar}",
+      "gear": "Trang bị",
+      "powers": "Quyền năng",
+      "power": "DN {dn} · {activation} · {duration} · Tầm {range}",
+      "talent": "Tài năng",
+      "talents": "Talent",
+      "abilities": "Năng lực",
+      "items": "Mang theo",
+      "more": "Còn có",
+      "conditions": "Trạng thái",
+      "section": {
+        "derived": "Chỉ số",
+        "resources": "Tài nguyên",
+        "fields": "Chi tiết"
+      },
+      "kind": {
+        "npc": "NPC",
+        "location": "Địa điểm",
+        "faction": "Phe phái",
+        "item": "Vật phẩm",
+        "handout": "Tài liệu phát tay",
+        "lore": "Truyền thuyết",
+        "quest": "Nhiệm vụ"
+      },
+      "line": {
+        "reveals": "Cho cả nhóm xem",
+        "picks": "Chọn từ một nơi",
+        "tests": "Test",
+        "pools": "Quỹ chung",
+        "roster": "Sinh vật",
+        "exits": "Đi tiếp",
+        "planned": "Test đã lên kế hoạch"
+      },
+      "budgetLine": "{label}: {used} trên {budget}",
+      "budgetUnread": "{label}: {used}"
+    }
+  },
   "journal": {
     "heading": "Nhật ký",
     "empty": "Chưa có buổi nào. Mỗi buổi hiện ở đây khi bắt đầu.",

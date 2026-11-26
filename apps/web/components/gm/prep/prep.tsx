@@ -18,6 +18,8 @@ import { SceneBoard } from "@/components/gm/prep/components/scene-board/scene-bo
 import { SceneGlance } from "@/components/gm/prep/components/scene-board/components/scene-glance/scene-glance";
 import { ScenePage } from "@/components/gm/prep/components/scene-page/scene-page";
 import { SceneRun } from "@/components/gm/prep/components/scene-run/scene-run";
+import { PrintRunSheet } from "@/components/print/print-run-sheet/print-run-sheet";
+import { PrintScene } from "@/components/print/print-scene/print-scene";
 import type { Send } from "@/hooks/use-table/use-table";
 import { fromKinds } from "@/lib/entry-fields/entry-fields";
 import type { RulesEntry } from "@/lib/library/library";
@@ -224,6 +226,7 @@ export function Prep({
             <section key={adventure.id} className="card stack" aria-label={adventure.title}>
               <div className="row between">
                 <h2 className="head">{adventure.title}</h2>
+                <PrintRunSheet adventure={adventure} scenes={scenes} world={world} gm={secrets} />
                 {stepButtons(adventureList, adventure)}
               </div>
               {scenes.length === 0 ? <p className="dim">{t("noScenes")}</p> : board(scenes)}
@@ -283,6 +286,7 @@ export function Prep({
                   {t(`mode.${m}`)}
                 </button>
               ))}
+              <PrintScene scene={opened} world={world} campaignId={me.campaignId} />
             </div>
             {mode === "run" ? (
               <SceneRun

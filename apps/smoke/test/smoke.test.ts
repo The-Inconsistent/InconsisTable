@@ -43,6 +43,11 @@ import { SAMPLE_SKIRMISH_PACK } from "../../../packages/rules-engine/src/fixture
 import { SAMPLE_LEDGER_RULESET } from "../../../packages/rules-engine/src/fixtures/sample-ledger-ruleset.ts";
 import { SAMPLE_LEDGER_PACK } from "../../../packages/rules-engine/src/fixtures/sample-ledger-pack.ts";
 import { SAMPLE_WORLD } from "../../../packages/rules-engine/src/fixtures/sample-world.ts";
+import {
+  SAMPLE_MODULE,
+  SAMPLE_NAMING_MODULE,
+  SAMPLE_SKIRMISH_MODULE,
+} from "../../../packages/rules-engine/src/fixtures/sample-module.ts";
 import { SAMPLE_PARAMS } from "../../../packages/rules-engine/src/build/fixtures/sample-ledger.ts";
 import { buildSchemas } from "../../../packages/rules-engine/src/build/schemas.ts";
 import { breakdownOf } from "../../../packages/rules-engine/src/breakdown.ts";
@@ -3165,6 +3170,163 @@ const resourceOf = (c: ReturnType<typeof connect>, id: string, resource: string,
 const actorIn = (s: LiveState, id: string) => s.actors.find((a) => a.id === id);
 
 // House decision #51: nothing stored is rewritten, so the room moves only to a version every stored value still fits.
+interface ModuleReply {
+  moduleId: string;
+  versionId: string;
+  unchanged: boolean;
+  warnings: Problem[];
+  problems?: Problem[];
+}
+type ModulePart = { versionId: string; slug: string; version: string };
+type ModuleList = {
+  id: string;
+  slug: string;
+  versions: { id: string; name: string; ruleset: ModulePart; packs: ModulePart[]; world: ModulePart | null }[];
+}[];
+
+test("game modules: one file imports a whole game or nothing, is listed to its owner, and opens a room with its parts (#234)", async () => {
+  assert.equal((await post("/modules", SAMPLE_MODULE)).status, 401);
+  const plain = await device("gm-plain");
+  await withDb((c) => c.query("update app_user set role = 'user' where id = $1", [uid("gm-plain")]));
+  assert.equal((await caller(plain).post("/modules", SAMPLE_MODULE)).status, 403);
+  const ownerDevice = await device("gm-owner");
+  const me = caller(ownerDevice);
+  const stored = async () => [
+    (await me.get<unknown[]>("/rulesets")).body.length,
+    (await me.get<{ packs: unknown[] }>("/packs")).body.packs.length,
+    (await me.get<unknown[]>("/worlds")).body.length,
+    (await me.get<unknown[]>("/modules")).body.length,
+  ];
+
+  // Refused whole, by path in the file: an oversized file, a bad pack, parts it only names, a part it does not carry.
+  assert.equal((await me.post("/modules", { ...SAMPLE_NAMING_MODULE, pad: "x".repeat(5 * 1024 * 1024) })).status, 413);
+  const badPack = { ...SAMPLE_PACK, entries: [{ key: "x" }] };
+  const bad = await me.post<ModuleReply>("/modules", {
+    ...SAMPLE_MODULE,
+    documents: { ...SAMPLE_MODULE.documents, packs: [badPack] },
+  });
+  assert.equal(bad.status, 422);
+  assert.match(bad.body.problems?.[0]?.path ?? "", /^documents\.packs\[0\]\.entries\[0\]/);
+  assert.deepEqual(await stored(), [0, 0, 0, 0], "a refused module stores nothing, its ruleset and World included");
+  const naming = await me.post<ModuleReply>("/modules", SAMPLE_NAMING_MODULE);
+  assert.deepEqual(
+    [naming.status, naming.body.problems?.[0]],
+    [
+      422,
+      {
+        path: "ruleset",
+        message: `import the ruleset "sample-d20" ${SAMPLE_D20.version} first, or carry it in the module`,
+      },
+    ],
+  );
+  const notCarried = await me.post<ModuleReply>("/modules", {
+    ...SAMPLE_MODULE,
+    ruleset: { slug: "sample-d20", version: "9.0.0" },
+  });
+  assert.equal(notCarried.body.problems?.[0]?.path, "documents.ruleset");
+  assert.deepEqual(await stored(), [0, 0, 0, 0]);
+
+  // A whole game in one file; naming the same parts is the same version; a hash that differs is refused.
+  const first = await me.post<ModuleReply>("/modules", SAMPLE_MODULE);
+  assert.equal(first.status, 201);
+  assert.deepEqual(await stored(), [1, 1, 1, 1]);
+  const same = await me.post<ModuleReply>("/modules", SAMPLE_NAMING_MODULE);
+  assert.deepEqual([same.status, same.body.unchanged, same.body.versionId], [201, true, first.body.versionId]);
+  const differs = await me.post<ModuleReply>("/modules", {
+    ...SAMPLE_NAMING_MODULE,
+    version: "0.2.0",
+    world: { slug: SAMPLE_WORLD.id, version: SAMPLE_WORLD.version, hash: "0".repeat(64) },
+  });
+  assert.deepEqual([differs.status, differs.body.problems?.[0]?.path], [422, "world.hash"]);
+  const skirmish = await me.post<ModuleReply>("/modules", SAMPLE_SKIRMISH_MODULE);
+  assert.equal(skirmish.status, 201);
+
+  // Listed to its owner, newest first, each version with its parts; the export is the list with hashes, no documents.
+  const listed = (await me.get<ModuleList>("/modules")).body;
+  assert.deepEqual(
+    listed.map((m) => [m.slug, m.versions[0]?.packs.map((p) => p.slug), m.versions[0]?.world?.slug ?? null]),
+    [
+      ["sample-skirmish-game", ["sample-raiders", "sample-raiders-reserve"], null],
+      ["sample-d20-game", ["sample-bestiary"], "sample-tidewater"],
+    ],
+  );
+  const exported = await me.get<Record<string, { hash?: string }>>(`/modules/${first.body.moduleId}/export`);
+  assert.equal(exported.status, 200);
+  assert.equal(exported.body.documents, undefined);
+  assert.match(exported.body.ruleset?.hash ?? "", /^[0-9a-f]{64}$/);
+
+  // A room from the whole game: the ruleset pinned, the private pack attached, the World worn.
+  assert.equal(
+    (await caller(plain).post("/campaigns/from-module", { name: "x", moduleVersionId: first.body.versionId })).status,
+    403,
+  );
+  const solo = await me.post<{ code: string }>("/campaigns/from-module", {
+    name: "Alone",
+    moduleVersionId: first.body.versionId,
+    tableMode: "solo",
+  });
+  assert.deepEqual([solo.status, solo.body.code], [400, "modeNotPlayed"]);
+  const room = await me.post<{ campaignId: string }>("/campaigns/from-module", {
+    name: "Tidewater night",
+    moduleVersionId: first.body.versionId,
+  });
+  assert.equal(room.status, 201);
+  const rules = await me.get<RulesReply & { world: ServedWorld | null }>(`/campaigns/${room.body.campaignId}/rules`);
+  assert.deepEqual(
+    [rules.body.ruleset?.versionId, rules.body.packs.map((p) => [p.slug, p.license]), rules.body.world?.name],
+    [listed[1]?.versions[0]?.ruleset.versionId, [["sample-bestiary", "private"]], "Tidewater"],
+  );
+  const lobby = (await (await get("/lobby", cookieOf(ownerDevice))).json()) as Lobby;
+  assert.equal(lobby.mine.filter((g) => g.name === "Alone").length, 0, "a refused room is not left behind");
+
+  // A pack a module names stays when hidden; a room from that module is then refused at the hidden pack, whole, until
+  // the module brings it back.
+  const reserve = (await me.get<{ packs: { id: string; slug: string }[] }>("/packs")).body.packs.find(
+    (p) => p.slug === "sample-raiders-reserve",
+  );
+  assert.deepEqual((await me.post(`/packs/${reserve?.id}/hide`, {})).body, { deleted: false });
+  const hidden = await me.post<{ code: string }>("/campaigns/from-module", {
+    name: "Raid",
+    moduleVersionId: skirmish.body.versionId,
+  });
+  assert.deepEqual([hidden.status, hidden.body.code], [400, "packDeleted"]);
+  assert.equal((await me.post<ModuleReply>("/modules", SAMPLE_SKIRMISH_MODULE)).body.unchanged, true);
+  const raid = await me.post<{ campaignId: string }>("/campaigns/from-module", {
+    name: "Raid",
+    moduleVersionId: skirmish.body.versionId,
+  });
+  assert.equal(raid.status, 201);
+  const raidRules = await me.get<RulesReply & { world: unknown }>(`/campaigns/${raid.body.campaignId}/rules`);
+  assert.deepEqual(
+    [raidRules.body.packs.map((p) => p.slug).sort(), raidRules.body.world],
+    [["sample-raiders", "sample-raiders-reserve"], null],
+  );
+
+  // Another user: nothing listed, nothing exported, no room from it, and the private pack is not theirs to attach.
+  const strangerDevice = await device("gm-stranger");
+  const stranger = caller(strangerDevice);
+  assert.deepEqual((await stranger.get<unknown[]>("/modules")).body, []);
+  assert.equal((await stranger.get(`/modules/${first.body.moduleId}/export`)).status, 404);
+  assert.equal((await stranger.post(`/modules/${first.body.moduleId}/hide`, {})).status, 404);
+  const theirs = await stranger.post<{ code: string }>("/campaigns/from-module", {
+    name: "Not mine",
+    moduleVersionId: first.body.versionId,
+  });
+  assert.deepEqual([theirs.status, theirs.body.code], [400, "moduleNotFound"]);
+  const { campaignId: strangerRoom } = (await stranger.post<{ campaignId: string }>("/campaigns", { name: "Mine" }))
+    .body;
+  const strangerSocket = connect({ auth: { campaignId: strangerRoom, cookie: strangerDevice } });
+  await strangerSocket.until(() => true);
+  const privatePack = rules.body.packs[0]?.id ?? "";
+  refused(await strangerSocket.send({ type: "campaign.attachPack", packVersionId: privatePack }), "packNotFound");
+  strangerSocket.socket.close();
+
+  // Deleting a module leaves its parts and its rooms as they are.
+  assert.deepEqual((await me.post(`/modules/${first.body.moduleId}/hide`, {})).body, { deleted: true });
+  assert.deepEqual(await stored(), [2, 3, 1, 1]);
+  assert.equal((await me.get<RulesReply>(`/campaigns/${room.body.campaignId}/rules`)).body.packs.length, 1);
+});
+
 test("campaign.setRuleset: a room whose characters are built moves only to a version their values fit", async () => {
   const { owner, ana, hero, ownerDevice } = await rulesRoom("Pin");
   const post = (over: Partial<typeof FIXTURE_RULESET>) =>

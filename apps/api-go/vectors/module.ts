@@ -66,7 +66,8 @@ function cases(): unknown[] {
   ];
   for (const key of ["id", "version", "core", "name", "ruleset", "packs", "world", "documents"])
     for (const junk of JUNK) inputs.push(named({ [key]: junk }));
-  for (const key of ["slug", "version", "hash"]) for (const junk of JUNK) inputs.push(named({ ruleset: part("r", { [key]: junk }) }));
+  for (const key of ["slug", "version", "hash"])
+    for (const junk of JUNK) inputs.push(named({ ruleset: part("r", { [key]: junk }) }));
   for (const junk of JUNK) inputs.push(named({ documents: { packs: junk } }));
 
   return inputs.map((input) => {

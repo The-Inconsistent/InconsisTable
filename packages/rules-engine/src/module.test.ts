@@ -13,7 +13,8 @@ const part = (slug: string) => ({ slug, version: "1.0.0" });
 const named: GameModuleInput = { id: "m", version: "1.0.0", core: "^1.0.0", name: "M", ruleset: part("r"), packs: [] };
 
 test("both sample modules and a module that only names its parts pass", () => {
-  for (const m of [SAMPLE_MODULE, SAMPLE_SKIRMISH_MODULE, SAMPLE_NAMING_MODULE, named]) assert.deepEqual(problems(m), []);
+  for (const m of [SAMPLE_MODULE, SAMPLE_SKIRMISH_MODULE, SAMPLE_NAMING_MODULE, named])
+    assert.deepEqual(problems(m), []);
 });
 
 test("the hash leaves the carried documents out, so carrying and naming the same parts is one module", () => {
@@ -37,5 +38,8 @@ test("refusals by path: a pack named twice, a bad hash, an unknown key, too many
   assert.match(problems({ ...named, documents: { rulesets: [] } })[0] ?? "", /^documents \| Unrecognized key/);
   const many = Array.from({ length: MAX_MODULE_PACKS + 1 }, (_, i) => part(`p${i}`));
   assert.match(problems({ ...named, packs: many })[0] ?? "", /^packs \| /);
-  assert.match(problems({ ...named, pad: "x".repeat(MAX_MODULE_BYTES) })[0] ?? "", /^\(root\) \| \d+ bytes, over the cap/);
+  assert.match(
+    problems({ ...named, pad: "x".repeat(MAX_MODULE_BYTES) })[0] ?? "",
+    /^\(root\) \| \d+ bytes, over the cap/,
+  );
 });

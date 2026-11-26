@@ -613,6 +613,21 @@ describe("the manifest a seat is served compiles", () => {
   }
 });
 
+// House decision #127: the screen layout's rows draw Vigour, so the party's Vigour must survive the cut for the TV and a
+// player (a shared-layout row naming it once made it uncuttable to the characters alone, and it went whole).
+test("the sample's Vigour and its track reach the table screen and a player", () => {
+  const rules = compileRuleset(SAMPLE_D20);
+  assert.ok(rules.ok);
+  for (const c of [ctx({ kind: "token", role: "screen", characterIds: [] }, null), ctx(member("player"), "u-x")]) {
+    const served = seatManifest({ ruleset: rules.compiled.ruleset, ctx: c });
+    assert.deepEqual(served.resources.find((r) => r.id === "hp")?.entities, ["character"]);
+    assert.deepEqual(
+      served.health?.tracks.map((t) => t.resource),
+      ["hp"],
+    );
+  }
+});
+
 test("a player on the ledger sample keeps the hero's Guard and its build, without the parts naming hidden ones", () => {
   const rules = compileRuleset(SAMPLE_RULESETS.ledger);
   assert.ok(rules.ok);

@@ -732,14 +732,14 @@ const layout0_1_11 = SAMPLE_D20_0_1_11.layout ?? {};
 
 /**
  * 0.1.12 (house decision #127): the table screen shows each character's Vigour against its most, its Defense and its
- * level, and a creature the GM shows in full its Vigour. 0.1.11 hashes as it did.
+ * level. No creature row: a creature's most Vigour is the GM's here, so the screen's seat is served no Vigour for one.
+ * 0.1.11 hashes as it did.
  */
 export const SAMPLE_D20: RulesetInput = {
   ...SAMPLE_D20_0_1_11,
   version: "0.1.12",
   layout: {
     ...layout0_1_11,
-    sheet: { ...layout0_1_11.sheet!, screen: [{ widget: "track", bind: { value: "res.hp" } }] },
     character: {
       ...layout0_1_11.character!,
       screen: [

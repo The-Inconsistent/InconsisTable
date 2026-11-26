@@ -22,7 +22,12 @@ const encounter = {
 } as unknown as LiveState["encounter"];
 
 test("the screen draws a card per party character and per creature shown in full, from the screen layout", () => {
-  const ruleset = Ruleset.parse(SAMPLE_D20);
+  // The sample lays out no creature row (its creatures' most Vigour is the GM's), so this one adds a shared row.
+  const layout = SAMPLE_D20.layout ?? {};
+  const ruleset = Ruleset.parse({
+    ...SAMPLE_D20,
+    layout: { ...layout, sheet: { ...layout.sheet!, screen: [{ widget: "track", bind: { value: "res.hp" } }] } },
+  });
   const cards = screenCardsOf({ ruleset, state: { actors, encounter } });
   assert.deepEqual(
     cards.party.map((c) => c.actor.id),

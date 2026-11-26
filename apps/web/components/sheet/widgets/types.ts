@@ -22,4 +22,6 @@ export type WidgetEnv = {
   /** Opens the breakdown of a derived value. */
   onOpen: (derivedId: string) => void;
   onError: (error: string | null) => void;
+  /** A sheet read only (a foe's card on a phone, house decision #117): nothing in it writes. */
+  readOnly?: boolean;
 };

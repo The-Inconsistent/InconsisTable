@@ -59,6 +59,8 @@ type SheetViewProps = {
   builderHref?: string | null;
   /** The room, for the GM's ADD BY HAND to search its packs (house decision #95). */
   campaignId?: string | null;
+  /** Read only (a foe's card on a phone, house decision #117): no steppers, no asks, no editing, no items box. */
+  readOnly?: boolean;
 };
 
 // SHEET: one character as the ruleset's layout lays it out. Every value is the server's, already cut down to what this
@@ -76,6 +78,7 @@ export function SheetView({
   requestPage,
   builderHref = null,
   campaignId = null,
+  readOnly = false,
 }: SheetViewProps) {
   const t = useTranslations("sheet");
   const tDuration = useTranslations("duration");
@@ -131,7 +134,7 @@ export function SheetView({
     const cite = row.cite && <Cite cite={row.cite} {...{ ruleset, books, requestPage }} />;
     if (row.kind === "resource") {
       const resets = resetsOn({ ruleset, resource: row.id });
-      const ask = !gm && canAskToSpend({ ruleset, resource: row.id });
+      const ask = !gm && !readOnly && canAskToSpend({ ruleset, resource: row.id });
       return (
         <Fragment key={`r-${row.id}`}>
           <ResourceRow
@@ -139,7 +142,7 @@ export function SheetView({
             label={row.label}
             value={actor.resources[row.id] ?? 0}
             range={range(row.id)}
-            steps={stepsOf({ ruleset, resource: row.id, gm })}
+            steps={readOnly ? { dec: false, inc: false } : stepsOf({ ruleset, resource: row.id, gm })}
             holder={actor.name}
             note={
               <span className="row small dim" style={{ gap: 6 }}>
@@ -200,6 +203,7 @@ export function SheetView({
     range,
     onOpen: setOpen,
     onError: setError,
+    readOnly,
   };
   const models = sections.flatMap((s) => s.parts.flatMap((p) => (p.kind === "widget" ? [p.model] : [])));
   const anchor = (id: string) => `sheet-${actor.id}-${id}`;
@@ -298,7 +302,7 @@ export function SheetView({
         onTakeOff={handleTakeOff}
         {...{ ruleset, books, requestPage }}
       />
-      {actor.items !== undefined && (
+      {!readOnly && actor.items !== undefined && (
         <ItemsBox env={env} kinds={boxKinds({ ruleset, drawn: ledgerLaidOut(models) })} campaignId={campaignId} />
       )}
       {build?.xp && ledger && (

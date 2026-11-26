@@ -107,6 +107,7 @@ export function FightTab(props: FightTabProps) {
         characters={characters}
         campaign={state.campaign.fields}
         gm={false}
+        readOnly
         {...{ send, books, requestPage }}
       />
     ) : (

@@ -25,10 +25,12 @@ const (
 	MaxMarks  = 10
 )
 
-// MaxNotices caps a manifest's notice rules, and MaxNoticeText a rule's words (house decision #79).
+// MaxNotices caps a manifest's notice rules, MaxNoticeText a rule's words (house decision #79) and MaxNoticeParams its
+// params (house decision #168).
 const (
-	MaxNotices    = 50
-	MaxNoticeText = 120
+	MaxNotices      = 50
+	MaxNoticeText   = 120
+	MaxNoticeParams = 5
 )
 
 // CodexKinds are the kinds of codex entry (rules-engine CodexEntryKind; coreschema's list is this one).
@@ -460,6 +462,8 @@ type (
 	SpendThen struct {
 		Table  string            `json:"table"`
 		Inputs map[string]string `json:"inputs"`
+		// If is house decision #169: the table is offered only while it holds (a spend's; a strike has none).
+		If *string `json:"if"`
 	}
 	// HealthState is one display state of the health block.
 	HealthState struct {
@@ -655,7 +659,12 @@ type (
 		Entities *[]string `json:"entities"`
 		If       string    `json:"if"`
 		Text     string    `json:"text"`
-		Cite     *string   `json:"cite"`
+		// Params, Group and Rises are house decision #168: a value for each `{param}` of the text, a line about the
+		// actors of its types together, and a `crossed` rule raised each time that number goes up.
+		Params map[string]string `json:"params"`
+		Group  *string           `json:"group"`
+		Rises  *string           `json:"rises"`
+		Cite   *string           `json:"cite"`
 	}
 	// LedgerBuild is the manifest's build block (house decision #62). Params is parsed by ValidateRuleset.
 	LedgerBuild struct {
@@ -1756,8 +1765,26 @@ func (r *Ruleset) semanticProblems() problems {
 		}
 	}
 	for i, n := range r.Notices {
-		needCite(n.Cite, fmt.Sprintf("notices[%d]", i))
-		actorTypes(n.Entities, fmt.Sprintf("notices[%d].entities", i))
+		path := fmt.Sprintf("notices[%d]", i)
+		needCite(n.Cite, path)
+		actorTypes(n.Entities, path+".entities")
+		if _, named := n.Params["name"]; named {
+			p.add(path+".params.name", "{name} is the actor's name")
+		}
+		if n.Rises != nil && n.When != "crossed" {
+			p.add(path+".rises", `rises needs when "crossed"`)
+		}
+		if n.Group != nil {
+			if n.Params != nil {
+				p.add(path+".params", "a group rule reads no one actor")
+			}
+			if n.Rises != nil {
+				p.add(path+".rises", "a group rule reads no one actor")
+			}
+			if strings.Contains(n.Text, "{name}") {
+				p.add(path+".text", "a group rule names no one actor")
+			}
+		}
 	}
 	p.duplicates("notices", idsOf(r.Notices, func(n NoticeRule) string { return n.ID }))
 	for i, s := range r.Checklist {

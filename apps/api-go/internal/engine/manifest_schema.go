@@ -491,7 +491,7 @@ var harmSchema = schema.Object(
 )
 
 // SpendClearEvents are the table events that cancel a spend's pending asks (manifest.ts SpendClearEvent, #84).
-var SpendClearEvents = []string{"sessionStart", "sessionEnd", "encounterEnd"}
+var SpendClearEvents = []string{"sessionStart", "sessionEnd", "encounterEnd", "roundEnd"}
 
 // spendSchema is one entry of the manifest's spends (house decision #84).
 var spendSchema = schema.Object(
@@ -516,10 +516,11 @@ var spendSchema = schema.Object(
 		schema.Req("op", label(64)),
 		schema.Req("input", schema.Record(label(64), schema.AnyOf(exprSource, schema.Float(), schema.Bool()))),
 	)).Max(5)),
-	schema.Opt("clearOn", schema.Array(schema.Enum(SpendClearEvents...)).Max(3)),
+	schema.Opt("clearOn", schema.Array(schema.Enum(SpendClearEvents...)).Max(4)),
 	// manifest.ts SpendLimitPer (house decision #91): zod words a one-option enum as a literal.
 	schema.Opt("limit", schema.Object(schema.Req("per", schema.Literal("round")), schema.Req("max", schema.Int().Min(1).Max(10)))),
-	schema.Opt("then", schema.Object(schema.Req("table", idSchema), schema.Opt("inputs", schema.Record(idSchema, idSchema)))),
+	schema.Opt("then", schema.Object(schema.Req("table", idSchema), schema.Opt("inputs", schema.Record(idSchema, idSchema)),
+		schema.Opt("if", exprSource))),
 )
 
 // spawnSchema is the manifest's spawn block (manifest.ts SpawnBlock, house decision #92).
@@ -730,6 +731,10 @@ var rulesetSchema = schema.Object(
 		schema.Opt("entities", actorTypesSchema),
 		schema.Req("if", exprSource),
 		schema.Req("text", label(MaxNoticeText)),
+		schema.Opt("params", schema.Refined(schema.Record(idSchema, exprSource),
+			func(v any) bool { return len(v.(map[string]any)) <= MaxNoticeParams }, "at most 5 params")),
+		schema.Opt("group", schema.Enum("every", "any")),
+		schema.Opt("rises", exprSource),
 		schema.Opt("cite", citeSchema),
 	)).Max(MaxNotices)),
 	schema.Opt("spends", schema.Array(spendSchema).Max(50)),

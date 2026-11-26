@@ -1159,7 +1159,7 @@ export const Layout = z.object({
 export type Layout = z.infer<typeof Layout>;
 
 /** The table events that cancel a spend's pending asks (house decision #84). */
-export const SpendClearEvent = z.enum(["sessionStart", "sessionEnd", "encounterEnd"]);
+export const SpendClearEvent = z.enum(["sessionStart", "sessionEnd", "encounterEnd", "roundEnd"]);
 export type SpendClearEvent = z.infer<typeof SpendClearEvent>;
 
 /** What a spend's limit counts in (house decision #91). */
@@ -1209,7 +1209,7 @@ export const Spend = z.object({
   /** Boolean: the spend is available now. */
   if: ExprSource.optional(),
   run: z.array(SpendStep).max(5).optional(),
-  clearOn: z.array(SpendClearEvent).max(3).optional(),
+  clearOn: z.array(SpendClearEvent).max(4).optional(),
   /**
    * House decision #91: at most `max` times per actor in one round of a running fight the actor is in; once more is
    * refused (`usedThisRound`). Outside a fight it is not counted: a spend only for fights says so in `if`.
@@ -1218,8 +1218,9 @@ export const Spend = z.object({
   /**
    * House decision #91: the random table the screen offers next, for the same actor, and which of the spend's inputs
    * (the values) fill which of the table's inputs (the keys). Only the link: the table is opened, never rolled here.
+   * `if` (house decision #169) reads what the spend's `if` reads: the table is offered only while it holds.
    */
-  then: z.object({ table: Id, inputs: z.record(Id, Id).optional() }).optional(),
+  then: z.object({ table: Id, inputs: z.record(Id, Id).optional(), if: ExprSource.optional() }).optional(),
 });
 export type Spend = z.infer<typeof Spend>;
 
@@ -1505,9 +1506,17 @@ export type NoticeWhen = z.infer<typeof NoticeWhen>;
 export const MAX_NOTICE_TEXT = 120;
 export const MAX_NOTICES = 50;
 
+export const MAX_NOTICE_PARAMS = 5;
+/** A group rule (house decision #168): it holds when every (or any) actor of its types meets `if`. */
+export const NoticeGroup = z.enum(["every", "any"]);
+export type NoticeGroup = z.infer<typeof NoticeGroup>;
+
 /**
  * A line the server tells the seat that sent an action, about an actor (house decision #79). `if` reads the actor's
- * scope; `text` is the ruleset's own short words, `{name}` standing for the actor's name.
+ * scope (a ledger actor's also `build.xpSpent` and `build.xpAtAscension`, house decision #168); `text` is the
+ * ruleset's own short words, `{name}` standing for the actor's name and `{<param>}` for each of `params`, a value
+ * worked out on the same actor. `group` makes it one line about the actors of its types together, and `rises` (with
+ * `crossed`) raises it each time that number goes up while `if` holds (house decision #168).
  */
 export const NoticeRule = z.object({
   id: Id,
@@ -1515,6 +1524,12 @@ export const NoticeRule = z.object({
   entities: ActorTypes,
   if: ExprSource,
   text: z.string().min(1).max(MAX_NOTICE_TEXT),
+  params: z
+    .record(Id, ExprSource)
+    .refine((o) => Object.keys(o).length <= MAX_NOTICE_PARAMS, `at most ${MAX_NOTICE_PARAMS} params`)
+    .optional(),
+  group: NoticeGroup.optional(),
+  rises: ExprSource.optional(),
   cite: Cite.optional(),
 });
 export type NoticeRule = z.infer<typeof NoticeRule>;
@@ -3261,8 +3276,17 @@ function semanticProblems(r: Ruleset): Problem[] {
     }
   }
   r.notices?.forEach((n, i) => {
-    needCite(n.cite, `notices[${i}]`);
-    actorTypes(n.entities, `notices[${i}].entities`);
+    const path = `notices[${i}]`;
+    needCite(n.cite, path);
+    actorTypes(n.entities, `${path}.entities`);
+    if (n.params?.name !== undefined) out.push({ path: `${path}.params.name`, message: "{name} is the actor's name" });
+    if (n.rises !== undefined && n.when !== "crossed")
+      out.push({ path: `${path}.rises`, message: 'rises needs when "crossed"' });
+    if (n.group !== undefined) {
+      if (n.params !== undefined) out.push({ path: `${path}.params`, message: "a group rule reads no one actor" });
+      if (n.rises !== undefined) out.push({ path: `${path}.rises`, message: "a group rule reads no one actor" });
+      if (n.text.includes("{name}")) out.push({ path: `${path}.text`, message: "a group rule names no one actor" });
+    }
   });
   duplicates({ ids: (r.notices ?? []).map((n) => n.id), path: "notices", out });
   r.checklist?.forEach((s, i) => {

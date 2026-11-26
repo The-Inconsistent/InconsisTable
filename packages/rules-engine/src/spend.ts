@@ -1,7 +1,7 @@
 import { ExprError, type ExprRecord, type ExprValue } from "./expr/expr.ast.ts";
 import { evaluate } from "./expr/expr.eval.ts";
 import { parseExpr } from "./expr/expr.parser.ts";
-import type { Ruleset } from "./manifest.ts";
+import type { Ruleset, Spend } from "./manifest.ts";
 import { own } from "./own.ts";
 import { isRefusal, refuse, type ActorState, type Refusal, type RuleState } from "./primitives/primitive.ts";
 
@@ -73,6 +73,32 @@ export function fightOf(state: Pick<RuleState, "turn">, id: string): ExprRecord 
     held: t?.held?.includes(id) ?? false,
     foeActing: inFight && current !== null && current !== id && side(current) !== side(id),
   };
+}
+
+/**
+ * Whether the screen offers a spend's `then` table now (house decision #169): its `if`, read in the scope the spend's
+ * own `if` reads, with the inputs picked, holds. Without one it always does; one that cannot be read does not.
+ */
+export function spendThenHolds({
+  spend,
+  actor,
+  state,
+  inputs,
+}: {
+  spend: Pick<Spend, "then">;
+  actor: ActorState;
+  state: Pick<RuleState, "turn">;
+  inputs: Readonly<Record<string, number>>;
+}): boolean {
+  const source = spend.then?.if;
+  if (source === undefined) return true;
+  if (actor.scope === undefined) return false;
+  const r = read(
+    source,
+    { ...actor.scope, ctx: { ...inputs, self: actor.id, fight: fightOf(state, actor.id) } },
+    "then.if",
+  );
+  return !isRefusal(r) && r.v === true;
 }
 
 /**

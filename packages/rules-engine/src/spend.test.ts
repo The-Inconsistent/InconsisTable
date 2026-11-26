@@ -9,7 +9,7 @@ import { SAMPLE_SKIRMISH, SAMPLE_SKIRMISH_BEFORE_PANELS } from "./fixtures/sampl
 import type { RulesetInput } from "./manifest.ts";
 import { isRefusal, type ActorState, type RuleState } from "./primitives/primitive.ts";
 import { runOp } from "./primitives/registry.ts";
-import { planSpend } from "./spend.ts";
+import { planSpend, spendThenHolds } from "./spend.ts";
 
 // House decision #84: spends on the invented fixtures.
 
@@ -161,6 +161,36 @@ test("the validator checks a spend's limit and the table it opens next (house de
   ]);
   assert.equal(problems({ limit: { per: "turn", max: 1 } }).length, 1);
   assert.equal(problems({ limit: { per: "round", max: 0 } }).length, 1);
+});
+
+// House decision #169: the table a spend opens next, only while its own `if` holds.
+test("a spend's next table has an `if` of its own, read in the spend's scope with the inputs picked", () => {
+  const channel = SAMPLE_SKIRMISH.spends?.find((s) => s.id === "channel");
+  assert.ok(channel);
+  const spend = { ...channel, then: { ...channel.then!, if: "ctx.push == 2 && !ctx.fight.on" } };
+  const a = fighter("c1");
+  assert.equal(spendThenHolds({ spend, actor: a, state: state(a), inputs: { push: 2 } }), true);
+  assert.equal(spendThenHolds({ spend, actor: a, state: state(a), inputs: { push: 1 } }), false);
+  const turn = { round: 1, currentId: null, order: ["c1"], barred: [] };
+  assert.equal(spendThenHolds({ spend, actor: a, state: state(a, { turn }), inputs: { push: 2 } }), false);
+  // The fixture's own: a backlash only for a pushed use. Without one the table is always offered; an actor whose
+  // values cannot be read is offered none.
+  assert.equal(spendThenHolds({ spend: channel, actor: a, state: state(a), inputs: { push: 0 } }), false);
+  assert.equal(spendThenHolds({ spend: channel, actor: a, state: state(a), inputs: { push: 1 } }), true);
+  const plain = { then: { table: "backlash" } };
+  assert.equal(spendThenHolds({ spend: plain, actor: a, state: state(a), inputs: {} }), true);
+  assert.equal(
+    spendThenHolds({ spend, actor: { ...a, scope: undefined }, state: state(a), inputs: { push: 2 } }),
+    false,
+  );
+
+  const problems = (over: Record<string, unknown>) => {
+    const r = compileRuleset({ ...SAMPLE_SKIRMISH_BEFORE_PANELS, spends: [{ ...channel, ...over }] });
+    return r.ok ? [] : r.problems.map((p) => p.path);
+  };
+  assert.deepEqual(problems({ then: spend.then, clearOn: ["roundEnd", "encounterEnd"] }), []);
+  assert.deepEqual(problems({ then: { ...spend.then, if: "ctx.push" } }), ["spends[0].then.if"]);
+  assert.deepEqual(problems({ clearOn: ["roundStart"] }), ["spends[0].clearOn[0]"]);
 });
 
 test("a list held in play is counted from empty, raising a Test's target, and its picks name a type (#91)", () => {

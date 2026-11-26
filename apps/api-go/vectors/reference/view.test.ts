@@ -592,7 +592,8 @@ describe("the manifest a seat is served compiles", () => {
     ["player", ctx(member("player", [], ["lyra"]), "u-lyra"), false],
     ["guest", ctx({ kind: "token", role: "player", characterIds: ["lyra"] }, null), false],
     ["table screen", ctx({ kind: "token", role: "screen", characterIds: [] }, null), false],
-    ["player without a GM", { ...ctx(member("player", [], ["lyra"]), "owner"), tableMode: "gmless" }, false],
+    ["player without a GM", { ...ctx(member("player", [], ["lyra"]), "u-lyra"), tableMode: "gmless" }, false],
+    ["owner without a GM", { ...ctx(member("player", [], ["lyra"]), "owner"), tableMode: "gmless" }, false],
   ];
   for (const [name, input] of Object.entries({ ...SAMPLE_RULESETS, ...CRAFTED_SEAT_CUTS })) {
     test(name, () => {
@@ -610,7 +611,11 @@ describe("the manifest a seat is served compiles", () => {
           ...Object.values(served.codex?.kinds ?? {}).flatMap((k) => Object.values(k.fields)),
         ].filter((d) => d.visibility === "gm");
         assert.deepEqual(gm, [], seat);
-        assert.equal(served.checklist, undefined, seat);
+        // The owner runs a room without a GM, so walks its checklist (house decision #146), cut to what it may read; no
+        // other player does.
+        const steps = (r: { checklist?: { id: string }[] }) => r.checklist?.map((s) => s.id);
+        if (seat === "owner without a GM") assert.deepEqual(steps(served), steps(rules.compiled.ruleset), seat);
+        else assert.equal(served.checklist, undefined, seat);
       }
     });
   }

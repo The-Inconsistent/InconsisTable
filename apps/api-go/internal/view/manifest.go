@@ -18,9 +18,10 @@ func SeatManifest(manifest map[string]any, c cs.Ctx) map[string]any {
 	sight := SightOf(c)
 	out := seatCodexDefs(seatDefinitions(manifest, sight, c), sight.Secrets)
 	// The setup checklist (house decision #90) and the generators (house decision #98) are the GM's: only the side that
-	// reads GM notes is sent them.
+	// reads GM notes is sent them, and in a room without a GM its owner, who runs it (house decision #146).
+	runs := sight.Secrets || (!c.HasGM() && isOwner(c))
 	for _, key := range []string{"checklist", "generators"} {
-		if _, has := out[key]; has && !sight.Secrets {
+		if _, has := out[key]; has && !runs {
 			out = maps.Clone(out)
 			delete(out, key)
 		}

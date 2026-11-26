@@ -57,6 +57,45 @@ func TestAnActorsPictureIsUploadedByItsHolderOrTheGM(t *testing.T) {
 	})
 }
 
+// A player keeps few pictures waiting to be attached, so the room's quota stays the codex's too: the third upload in a
+// row is refused while the GM still uploads, and one left waiting past a few minutes goes at the next try.
+func TestAPlayerKeepsFewPicturesWaiting(t *testing.T) {
+	db := dbtest.Open(t)
+	dbtest.Tx(t, db, func(tx pgx.Tx) {
+		ctx, room := context.Background(), dbtest.NewRoom(t, tx)
+		wren, gull := room.Actor(t, tx, "pc", "Wren", ""), room.Actor(t, tx, "creature", "Gull", "")
+		player := room.Seat(t, tx, dbtest.User(t, tx, "Player"), wren)
+		upload := func(c cs.Ctx, actorID string) error {
+			if err := MayPictureActor(ctx, tx, c, actorID); err != nil {
+				return err
+			}
+			_, err := store(ctx, tx, c, "image/jpeg", jpeg)
+			return err
+		}
+		for i := range image.MaxWaiting {
+			if err := upload(player, wren); err != nil {
+				t.Fatalf("upload %d: %v", i+1, err)
+			}
+		}
+		if err := upload(player, wren); code(err) != "picturesWaiting" {
+			t.Fatalf("a third picture waiting: %v", err)
+		}
+		for range 3 {
+			if err := upload(room.GM(), gull); err != nil {
+				t.Fatalf("the GM is held back by a player's pictures: %v", err)
+			}
+		}
+		dbtest.Exec(t, tx, `UPDATE image SET created_at = now() - interval '11 minutes'
+			WHERE id = (SELECT id FROM image WHERE created_by = $1 ORDER BY id LIMIT 1)`, *player.UserID)
+		if err := upload(player, wren); err != nil {
+			t.Fatalf("after one waited too long: %v", err)
+		}
+		if n := dbtest.Scalar[int](t, tx, `SELECT count(*) FROM image WHERE created_by = $1`, *player.UserID); n != image.MaxWaiting {
+			t.Fatalf("the player holds %d pictures", n)
+		}
+	})
+}
+
 // Attaching, showing, replacing and removing: the holder sees a held-back picture, the rest of the table only once it
 // is shown, and every step is logged in the running session.
 func TestAnActorsPictureIsShownWhenItsHolderSaysSo(t *testing.T) {

@@ -181,9 +181,18 @@ func references(d doc) error {
 	for _, p := range d.list("images") {
 		images[p["id"].(string)] = true
 	}
+	pictured := map[string]bool{}
 	for i, a := range d.list("actors") {
-		if p, has := a["imageId"].(string); has && !images[p] {
+		p, has := a["imageId"].(string)
+		if has && !images[p] {
 			return problem("roomNoSuchPicture", nil, "actors", i, "imageId")
+		}
+		// One picture, one character (house decision #155): actor.picture attaches only a picture nothing holds.
+		if has && pictured[p] {
+			return problem("roomPictureShared", nil, "actors", i, "imageId")
+		}
+		if has {
+			pictured[p] = true
 		}
 	}
 	mentions := func(text string, path ...any) error {

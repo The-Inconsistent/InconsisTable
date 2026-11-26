@@ -629,6 +629,19 @@ func TestADryRunLeavesNothing(t *testing.T) {
 	}
 }
 
+// A character may show the picture an entry shows (house decision #155): the actor takes it first, the entry after.
+func TestACharacterAndAnEntryShareAPicture(t *testing.T) {
+	db := dbtest.Open(t)
+	v := load(t)
+	owner := library(t, db, v)
+	d := v.document(t, "d20")
+	at(d, "00000000-0000-4000-8000-000000000030", "actors", 0, "imageId")
+	answer, err := Import(context.Background(), db, owner, d, Options{DryRun: true})
+	if err != nil || answer.Counts.Pictures != 3 {
+		t.Fatalf("%+v %v", answer, err)
+	}
+}
+
 // at sets a value at a path of a decoded document.
 func at(d map[string]any, value any, path ...any) {
 	var cur any = d
@@ -679,6 +692,9 @@ func TestARefusedDocumentNamesItsPathAndLeavesNothing(t *testing.T) {
 			at(d, "00000000-0000-4000-8000-000000000999", "codex", 1, "parentId")
 		}, "codex[1].parentId", "roomNoSuchEntry"},
 		{"a missing picture", "d20", func(d map[string]any) { d["images"] = []any{} }, "actors[0].imageId", "roomNoSuchPicture"},
+		{"a picture two characters share", "d20", func(d map[string]any) {
+			at(d, "00000000-0000-4000-8000-000000000031", "actors", 1, "imageId")
+		}, "actors[1].imageId", "roomPictureShared"},
 		{"a missing entry picture", "d20", func(d map[string]any) {
 			at(d, "00000000-0000-4000-8000-000000000999", "codex", 1, "imageId")
 		}, "codex[1].imageId", "roomNoSuchPicture"},

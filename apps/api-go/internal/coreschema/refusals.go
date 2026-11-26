@@ -173,6 +173,7 @@ var refusals = map[string]string{
 	"picturesFull":              "This room already holds 200 pictures",
 	"picturesTooHeavy":          "This room's pictures are at 100 MB",
 	"pictureNotFound":           "Picture not found",
+	"picturesWaiting":           "Two pictures you sent are still waiting. Try again in a few minutes",
 	"tableNotFound":             "Table not found",
 	"tableDealOnly":             "That table is dealt, not rolled.",
 	"tableNoGm":                 "Nobody runs this room as GM, so nothing can be GM-only.",
@@ -333,6 +334,7 @@ var refusals = map[string]string{
 	"roomNoSuchActor":           "No such character in this document.",
 	"roomNoSuchItem":            "No such item of this character in this document.",
 	"roomNoSuchPicture":         "No such picture in this document.",
+	"roomPictureShared":         "Two characters share this picture; each holds its own.",
 	"roomPictureEncoding":       "This picture is not base64.",
 	"roomValueClamped":          "The room would hold {now} here, not {value}.",
 	// An entry made from a pack entry (house decision #97).

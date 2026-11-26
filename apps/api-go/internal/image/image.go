@@ -23,6 +23,10 @@ const (
 	MaxRoomBytes = 100_000_000
 	// Grace is how long an uploaded picture no entry or actor points at is kept before a codex write sweeps it.
 	Grace = 24 * time.Hour
+	// MaxWaiting is how many pictures a seat that may not write the codex may hold sent and not yet attached, and
+	// WaitingFor how long one of them waits before its uploader's next upload drops it (house decision #155).
+	MaxWaiting = 2
+	WaitingFor = 10 * time.Minute
 )
 
 // Mimes are the two formats a picture may be.
@@ -126,6 +130,38 @@ func Unused(ctx context.Context, conn core.Conn, campaignID string, ids []string
 		return nil, err
 	}
 	return pgx.CollectRows(rows, pgx.RowTo[string])
+}
+
+// Waiting deletes the pictures one uploader sent to the room that nothing points at and that are older than stale, and
+// counts the ones left. by is the uploader's user id; nil is every guest of the room, who have none.
+func Waiting(ctx context.Context, conn core.Conn, campaignID string, by *string, stale time.Duration) (int, error) {
+	rows, err := conn.Query(ctx, `SELECT id::text, created_at FROM image
+		WHERE campaign_id = $1 AND created_by IS NOT DISTINCT FROM $2
+			AND NOT EXISTS (SELECT 1 FROM codex_entry WHERE image_id = image.id)
+			AND NOT EXISTS (SELECT 1 FROM actor WHERE image_id = image.id)`, campaignID, by)
+	if err != nil {
+		return 0, err
+	}
+	free, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (Info, error) {
+		var p Info
+		err := r.Scan(&p.ID, &p.CreatedAt)
+		return p, err
+	})
+	if err != nil {
+		return 0, err
+	}
+	old := []string{}
+	for _, p := range free {
+		if time.Since(p.CreatedAt) > stale {
+			old = append(old, p.ID)
+		}
+	}
+	if len(old) > 0 {
+		if err := Pictures.Delete(ctx, conn, campaignID, old); err != nil {
+			return 0, err
+		}
+	}
+	return len(free) - len(old), nil
 }
 
 type postgres struct{}

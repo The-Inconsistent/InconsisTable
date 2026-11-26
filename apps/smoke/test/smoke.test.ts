@@ -1432,6 +1432,13 @@ test("a character's picture: its player uploads and shows it, another phone sees
   const gull = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Gull" })).id!;
   assert.equal((await upload(anaDevice, gull)).status, 403);
   assert.equal((await upload(ownerDevice, gull)).status, 200);
+
+  // A player keeps at most two pictures waiting to be attached; the GM is never held back by them.
+  assert.equal((await upload(anaDevice)).status, 200);
+  assert.equal((await upload(anaDevice)).status, 200);
+  const waiting = await upload(anaDevice);
+  assert.equal(((await waiting.json()) as { code?: string }).code, "picturesWaiting");
+  assert.equal((await upload(ownerDevice, gull)).status, 200);
   for (const s of [owner, ana, bob]) s.socket.close();
 });
 

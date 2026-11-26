@@ -110,10 +110,25 @@ func MayPictureActor(ctx context.Context, conn core.Conn, c cs.Ctx, actorID stri
 	}
 	var here bool
 	if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM actor WHERE id = $1 AND campaign_id = $2)`,
-		actorID, c.CampaignID).Scan(&here); err != nil || here {
+		actorID, c.CampaignID).Scan(&here); err != nil {
 		return err
 	}
-	return cs.Fail("characterNotFound")
+	if !here {
+		return cs.Fail("characterNotFound")
+	}
+	// A player's pictures sit in the room's store beside the GM's: one sent and never attached waits a few minutes, and
+	// only a couple at once, so no seat can fill the room's count or bytes and lock the codex out of it.
+	if cs.CanInCampaign(c, "codex:write", "") {
+		return nil
+	}
+	waiting, err := image.Waiting(ctx, conn, c.CampaignID, c.UserID, image.WaitingFor)
+	if err != nil {
+		return err
+	}
+	if waiting >= image.MaxWaiting {
+		return cs.Fail("picturesWaiting")
+	}
+	return nil
 }
 
 // upload reads the body and stores it for a seat the check lets through.

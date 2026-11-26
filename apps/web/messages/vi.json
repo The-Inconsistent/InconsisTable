@@ -2267,7 +2267,7 @@
     "viewsLabel": "Các phần của sổ tay",
     "views": {
       "inbox": "Hộp thư",
-      "mission": "Nhiệm vụ",
+      "mission": "Cốt truyện",
       "archive": "Lưu trữ"
     },
     "viewNew": "{view}, {count} mới",
@@ -2282,7 +2282,7 @@
     "premise": "Tiền đề",
     "quests": {
       "orders": "Mệnh lệnh của bạn ({count})",
-      "open": "Đang thực hiện",
+      "open": "Đang mở",
       "done": "Đã xong",
       "failed": "Thất bại"
     }

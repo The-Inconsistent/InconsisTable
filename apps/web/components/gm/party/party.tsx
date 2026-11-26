@@ -73,7 +73,6 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
   const router = useRouter();
   const [shown, setShown] = useState<Shown | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [restSkipped, setRestSkipped] = useState<string | null>(null); // who the last party rest left out (#81)
   const [newName, setNewName] = useState("");
   const [renameTo, setRenameTo] = useState("");
   const [inviteRole, setInviteRole] = useState<MemberRole>("player");
@@ -110,12 +109,9 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
     return r;
   };
 
-  // REST (PARTY): rests everyone; the ones the ruleset refuses this rest in their state are left out and named.
-  const handleRestParty = async (event: string) => {
-    const r = await act({ type: "actor.rest", event });
-    const skipped = r.ok ? r.notices?.find((n) => n.code === "restSkipped") : undefined;
-    setRestSkipped(skipped ? String(skipped.params.names) : null);
-  };
+  // REST (PARTY): rests everyone; the ones the ruleset refuses this rest in their state are left out, and the GM app's
+  // notices strip names them (the restSkipped notice, house decision #81), once.
+  const handleRestParty = (event: string) => act({ type: "actor.rest", event });
 
   // Shows a join link for a token or invite code as a QR the phones can scan.
   const show = async ({ title, path, at = null }: { title: string; path: string; at?: string | null }) => {
@@ -460,11 +456,6 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
               </button>
             ))}
           </div>
-        )}
-        {restSkipped !== null && (
-          <p className="dim" role="status">
-            {t("restSkipped", { names: restSkipped })}
-          </p>
         )}
         {sheet.ruleset && ledgerBuild?.ascension && ledgerBuild.xp && can("campaign:update") && (
           <details className="stack ws-fold">

@@ -170,12 +170,16 @@ function answer({
           throw new Refused("generateMissing", params);
         let table = own(r.tables ?? {}, s.table);
         let line = undefined as { id: string; label: string; next?: string } | undefined;
+        const labels: string[] = [];
         for (const [i, id] of rows.entries()) {
           if (i > 0) table = line?.next === undefined ? undefined : own(r.tables ?? {}, line.next);
           line = table?.entries.find((e) => e.id === id);
           if (line === undefined) throw new Refused("generateRow", params);
+          labels.push(line.label);
         }
-        answered.set(s.id, { step: s, expr: line!.id, text: line!.label, key: null, value: null });
+        // A trail's words are the whole chain's (house decision #179); an expression still reads the last line.
+        const text = s.trail === true ? labels.join(" ") : line!.label;
+        answered.set(s.id, { step: s, expr: line!.id, text, key: null, value: null });
         return;
       }
       case "pick": {
@@ -246,11 +250,13 @@ function planned({
 }): PlannedEntry {
   const defs = r.codex?.kinds[g.make.kind]?.fields ?? {};
   const fields: Record<string, unknown> = {};
-  for (const [id, step] of Object.entries(made.fields ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
-    const a = answered.get(step);
+  for (const [id, ref] of Object.entries(made.fields ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
     const def = own(defs, id);
-    if (a === undefined || def === undefined) continue;
-    const value = fillOf(a, def);
+    if (def === undefined) continue;
+    // Several steps fill a text field with the words of those answered, joined by a space (house decision #179).
+    const all = (typeof ref === "string" ? [ref] : ref).flatMap((s) => answered.get(s) ?? []);
+    if (all.length === 0) continue;
+    const value = all.length === 1 ? fillOf(all[0]!, def) : all.map((a) => a.text).join(" ");
     if (value !== null && checkFieldValue({ def, value }) === null) fields[id] = value;
   }
   const from = made.from === undefined ? undefined : answered.get(made.from);

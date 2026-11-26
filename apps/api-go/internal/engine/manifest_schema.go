@@ -190,10 +190,19 @@ var codexSchema = schema.Object(
 			schema.Opt("tests", schema.Object(
 				schema.Req("field", fieldIDSchema),
 				schema.Opt("inputs", schema.Record(idSchema, fieldIDSchema)),
+				schema.Opt("per", schema.Record(idSchema, schema.Record(idSchema, fieldIDSchema))),
 			)),
 			schema.Opt("roster", fieldIDSchema),
 		)).Min(1).Max(maxRowPrefills)),
 		schema.Opt("titleRoll", fieldRoll),
+		// A scene's pool lines made from pack entries (house decision #178).
+		schema.Opt("poolLines", schema.Array(schema.Object(
+			schema.Req("entity", idSchema),
+			schema.Req("pool", idSchema),
+			schema.Req("amount", fieldIDSchema),
+			schema.Opt("spend", schema.Bool()),
+			schema.Opt("text", fieldIDSchema),
+		)).Min(1).Max(maxRowPrefills)),
 		schema.Opt("ready", schema.Array(idSchema).Min(1).Max(MaxCodexFields)),
 	), CodexKinds...)),
 )
@@ -202,6 +211,12 @@ var codexSchema = schema.Object(
 var fieldRoll = schema.Object(
 	schema.Req("tables", schema.Array(idSchema).Min(1).Max(4)),
 	schema.Opt("join", schema.String().Max(10)),
+	// Tables by the value of one of the entry's fields (house decision #178).
+	schema.Opt("per", schema.Object(
+		schema.Req("field", fieldIDSchema),
+		schema.Req("tables", schema.Refined(schema.Record(schema.String().Min(1).Max(80), schema.Array(idSchema).Min(1).Max(4)),
+			func(v any) bool { n := len(v.(map[string]any)); return n >= 1 && n <= 20 }, "1 to 20 values")),
+	)),
 )
 
 func campaignFieldVariant(tag string, extra ...schema.Field) schema.Variant {

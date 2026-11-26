@@ -236,6 +236,18 @@ export type RowPrefill = z.infer<typeof RowPrefill>;
 export const FieldRoll = z.object({
   tables: z.array(Id).min(1).max(4),
   join: z.string().max(10).optional(),
+  /**
+   * Tables by the value of one of the entry's own fields (an enum, or a ref naming a pack entry by key): while the
+   * entry holds a value listed here, its tables are rolled in place of `tables` (house decision #178).
+   */
+  per: z
+    .object({
+      field: FieldId,
+      tables: z
+        .record(z.string().min(1).max(80), z.array(Id).min(1).max(4))
+        .refine((o) => Object.keys(o).length >= 1 && Object.keys(o).length <= 20, "1 to 20 values"),
+    })
+    .optional(),
 });
 export type FieldRoll = z.infer<typeof FieldRoll>;
 
@@ -248,7 +260,14 @@ export type FieldRoll = z.infer<typeof FieldRoll>;
  */
 export const EntryPrefill = RowPrefill.extend({
   children: FieldId.optional(),
-  tests: z.object({ field: FieldId, inputs: z.record(Id, FieldId).optional() }).optional(),
+  tests: z
+    .object({
+      field: FieldId,
+      inputs: z.record(Id, FieldId).optional(),
+      /** A Test id to its own inputs' fields, over `inputs` for the lines of that Test (house decision #177). */
+      per: z.record(Id, z.record(Id, FieldId)).optional(),
+    })
+    .optional(),
   roster: FieldId.optional(),
 });
 export type EntryPrefill = z.infer<typeof EntryPrefill>;
@@ -326,6 +345,23 @@ export const CodexBlock = z.object({
       from: z.array(EntryPrefill).min(1).max(MAX_ROW_PREFILLS).optional(),
       /** Tables the GM's editor rolls into an entry's title (house decision #97). */
       titleRoll: FieldRoll.optional(),
+      /**
+       * A scene's pool lines made from pack entries in the GM's prep (house decision #178): an entry of `entity` makes a
+       * line on `pool` (a shared pool) of its `amount` field, spent when `spend`, its name the label and `text` its words.
+       */
+      poolLines: z
+        .array(
+          z.object({
+            entity: Id,
+            pool: Id,
+            amount: FieldId,
+            spend: z.boolean().optional(),
+            text: FieldId.optional(),
+          }),
+        )
+        .min(1)
+        .max(MAX_ROW_PREFILLS)
+        .optional(),
       /** The fields an entry of this kind needs filled before it is ready for the table (house decision #107). */
       ready: z.array(Id).min(1).max(MAX_CODEX_FIELDS).optional(),
     }),
@@ -1675,7 +1711,8 @@ const generatorStepBase = {
  * a short text. Expressions read a roll as its last line's id, a pick as its key, a value as itself.
  */
 export const GeneratorStep = z.discriminatedUnion("kind", [
-  z.object({ ...generatorStepBase, kind: z.literal("roll"), table: Id }),
+  /** `trail`: its words are every line of the chain it followed, in order, not only the last (house decision #179). */
+  z.object({ ...generatorStepBase, kind: z.literal("roll"), table: Id, trail: z.boolean().optional() }),
   z.object({ ...generatorStepBase, kind: z.literal("pick"), entity: Id, filter: ExprSource.optional() }),
   z.object({
     ...generatorStepBase,
@@ -1697,10 +1734,12 @@ export type GeneratorStep = z.infer<typeof GeneratorStep>;
  * What one made entry takes (house decision #98): its title from a step, its declared fields from steps, and with
  * `from` (a pick step) the mapping its kind's `from` gives that pick's pack entry (house decision #97).
  */
+export const MAX_JOINED_STEPS = 4;
 export const GeneratedEntry = z.object({
   title: Id,
   from: Id.optional(),
-  fields: z.record(Id, Id).optional(),
+  /** A field to the step that fills it; a text field may name 2 to 4, their words joined by a space (house decision #179). */
+  fields: z.record(Id, z.union([Id, z.array(Id).min(2)])).optional(),
 });
 export type GeneratedEntry = z.infer<typeof GeneratedEntry>;
 
@@ -2531,10 +2570,13 @@ function codexProblems({ r, entityIds, out }: { r: Ruleset; entityIds: ReadonlyS
       if (def.type === "enum") enumWordProblems({ def, path, out });
       if (def.type === "tags") tagsProblems({ def, entityIds, path, out });
       if (def.type === "rows") rowsProblems({ def, r, path, out });
-      if (def.type === "text" && def.roll !== undefined) rollProblems({ roll: def.roll, r, path: `${path}.roll`, out });
+      if (def.type === "text" && def.roll !== undefined)
+        rollProblems({ roll: def.roll, r, kind, k, path: `${path}.roll`, out });
     }
     duplicates({ ids: (k.reminders ?? []).map((x) => x.id), path: `codex.kinds.${kind}.reminders`, out });
-    if (k.titleRoll !== undefined) rollProblems({ roll: k.titleRoll, r, path: `codex.kinds.${kind}.titleRoll`, out });
+    if (k.titleRoll !== undefined)
+      rollProblems({ roll: k.titleRoll, r, kind, k, path: `codex.kinds.${kind}.titleRoll`, out });
+    poolLineProblems({ kind, k, r, out });
     entryFromProblems({ kind, k, r, out });
     const seenReady = new Set<string>();
     k.ready?.forEach((id, i) => {
@@ -2547,12 +2589,60 @@ function codexProblems({ r, entityIds, out }: { r: Ruleset; entityIds: ReadonlyS
 }
 
 /** A field's roll names tables of the ruleset that are rolled, not dealt (house decision #97). */
-function rollProblems({ roll, r, path, out }: { roll: FieldRoll; r: Ruleset; path: string; out: Problem[] }): void {
-  roll.tables.forEach((id, i) => {
-    const t = own(r.tables ?? {}, id);
-    if (t === undefined) out.push({ path: `${path}.tables[${i}]`, message: `unknown table "${id}"` });
-    else if (t.visibility === "owner")
-      out.push({ path: `${path}.tables[${i}]`, message: `"${id}" is dealt, never rolled` });
+function rollProblems({
+  roll,
+  r,
+  kind,
+  k,
+  path,
+  out,
+}: {
+  roll: FieldRoll;
+  r: Ruleset;
+  kind: string;
+  k: CodexKindDef;
+  path: string;
+  out: Problem[];
+}): void {
+  const tables = (ids: readonly string[], at: string) =>
+    ids.forEach((id, i) => {
+      const t = own(r.tables ?? {}, id);
+      if (t === undefined) out.push({ path: `${at}[${i}]`, message: `unknown table "${id}"` });
+      else if (t.visibility === "owner") out.push({ path: `${at}[${i}]`, message: `"${id}" is dealt, never rolled` });
+    });
+  tables(roll.tables, `${path}.tables`);
+  if (roll.per === undefined) return;
+  // Tables by a field's value (house decision #178): an enum's values are known; a ref's keys are the packs'.
+  const by = own(k.fields, roll.per.field);
+  if (by?.type !== "enum" && by?.type !== "ref")
+    out.push({ path: `${path}.per.field`, message: `"${roll.per.field}" is not an enum or ref field of ${kind}` });
+  for (const [value, ids] of Object.entries(roll.per.tables).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+    if (by?.type === "enum" && !by.values.includes(value))
+      out.push({ path: `${path}.per.tables.${value}`, message: `"${value}" is not a value` });
+    tables(ids, `${path}.per.tables.${value}`);
+  }
+}
+
+/**
+ * A scene's pool lines from pack entries (house decision #178): on a scene only, of a declared entity, onto a shared
+ * pool, its amount an int field and its words a text field of the entity.
+ */
+function poolLineProblems({ kind, k, r, out }: { kind: string; k: CodexKindDef; r: Ruleset; out: Problem[] }): void {
+  k.poolLines?.forEach((l, i) => {
+    const at = `codex.kinds.${kind}.poolLines[${i}]`;
+    if (kind !== "scene") out.push({ path: at, message: "only a scene holds prepared lines" });
+    const res = r.resources.find((x) => x.id === l.pool);
+    if (res === undefined) out.push({ path: `${at}.pool`, message: `unknown resource "${l.pool}"` });
+    else if (res.scope === "entity") out.push({ path: `${at}.pool`, message: `"${l.pool}" must be a shared pool` });
+    const entity = r.entities.find((e) => e.id === l.entity);
+    if (entity === undefined) {
+      out.push({ path: `${at}.entity`, message: `unknown entity "${l.entity}"` });
+      return;
+    }
+    if (own(entity.fields, l.amount)?.type !== "int")
+      out.push({ path: `${at}.amount`, message: `"${l.amount}" is not an int field of "${l.entity}"` });
+    if (l.text !== undefined && own(entity.fields, l.text)?.type !== "text")
+      out.push({ path: `${at}.text`, message: `"${l.text}" is not a text field of "${l.entity}"` });
   });
 }
 
@@ -2581,7 +2671,8 @@ function entryFromProblems({ kind, k, r, out }: { kind: string; k: CodexKindDef;
       if (def === undefined) out.push({ path: `${at}.values.${to}`, message: `"${to}" is not a field of ${kind}` });
       else if (field === undefined)
         out.push({ path: `${at}.values.${to}`, message: `"${fieldId}" is not a field of "${f.entity}"` });
-      else if (!fitsColumn(def, field))
+      // A list fills a tags field, its words checked as the GM's would be (house decision #177).
+      else if (!fitsColumn(def, field) && !(def.type === "tags" && field.type === "list"))
         out.push({ path: `${at}.values.${to}`, message: `"${fieldId}" does not fit the field` });
     }
     if (f.children !== undefined) {
@@ -2597,15 +2688,18 @@ function entryFromProblems({ kind, k, r, out }: { kind: string; k: CodexKindDef;
     };
     if (f.tests !== undefined) {
       list(f.tests.field, `${at}.tests.field`);
-      for (const [input, fieldId] of Object.entries(f.tests.inputs ?? {}).sort(([a], [b]) =>
-        a < b ? -1 : a > b ? 1 : 0,
-      )) {
-        const t = of(fieldId)?.type;
-        if (t !== "int" && t !== "text" && t !== "enum" && t !== "bool")
-          out.push({
-            path: `${at}.tests.inputs.${input}`,
-            message: `"${fieldId}" is not a value field of "${f.entity}"`,
-          });
+      const inputs = (map: Readonly<Record<string, string>>, path: string) => {
+        for (const [input, fieldId] of Object.entries(map).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+          const t = of(fieldId)?.type;
+          if (t !== "int" && t !== "text" && t !== "enum" && t !== "bool")
+            out.push({ path: `${path}.${input}`, message: `"${fieldId}" is not a value field of "${f.entity}"` });
+        }
+      };
+      inputs(f.tests.inputs ?? {}, `${at}.tests.inputs`);
+      for (const [test, map] of Object.entries(f.tests.per ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+        if (own(r.tests, test) === undefined)
+          out.push({ path: `${at}.tests.per.${test}`, message: `unknown test "${test}"` });
+        else inputs(map, `${at}.tests.per.${test}`);
       }
     }
     if (f.roster !== undefined) list(f.roster, `${at}.roster`);
@@ -2689,7 +2783,8 @@ function rowsProblems({
       if (c === undefined) out.push({ path: `${at}.values.${col}`, message: `"${col}" is not a column` });
       else if (field === undefined)
         out.push({ path: `${at}.values.${col}`, message: `"${fieldId}" is not a field of "${f.entity}"` });
-      else if (!fitsColumn(c, field))
+      // A Test column takes a text or enum field naming the Test (house decision #177).
+      else if (!fitsColumn(c, field) && !(c.type === "test" && (field.type === "text" || field.type === "enum")))
         out.push({ path: `${at}.values.${col}`, message: `"${fieldId}" does not fit the column` });
     }
   });
@@ -3497,12 +3592,18 @@ function generatorProblems({ r, g, path, out }: { r: Ruleset; g: Generator; path
       if (s?.kind !== "pick" || !(kind?.from ?? []).some((f) => f.entity === s.entity))
         push(`${at}.from`, `"${m.from}" is not a pick of a type ${g.make.kind} is made from`);
     }
-    for (const [f, id] of Object.entries(m.fields ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+    for (const [f, ref] of Object.entries(m.fields ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
       const def = own(kind?.fields ?? {}, f);
-      const s = step(id);
+      const ids = typeof ref === "string" ? [ref] : ref;
       if (def === undefined) push(`${at}.fields.${f}`, `"${f}" is not a field of ${g.make.kind}`);
-      else if (s === undefined) push(`${at}.fields.${f}`, `"${id}" is not a step`);
-      else if (!stepFills(s, def)) push(`${at}.fields.${f}`, `"${id}" can't fill "${f}"`);
+      else if (ids.length > 1 && def.type !== "text")
+        push(`${at}.fields.${f}`, "only a text field takes several steps");
+      else if (ids.length > MAX_JOINED_STEPS) push(`${at}.fields.${f}`, `at most ${MAX_JOINED_STEPS} steps`);
+      else {
+        const bad = ids.find((id) => step(id) === undefined || !stepFills(step(id)!, def));
+        if (bad !== undefined && step(bad) === undefined) push(`${at}.fields.${f}`, `"${bad}" is not a step`);
+        else if (bad !== undefined) push(`${at}.fields.${f}`, `"${bad}" can't fill "${f}"`);
+      }
     }
   };
   made(g.make, g.steps, `${path}.make`);

@@ -150,7 +150,20 @@ func FromPack(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 func saveFrom(ctx context.Context, tx core.Conn, c cs.Ctx, rules *engine.CompiledRuleset, kind string, how *engine.EntryPrefill, e pack.StoredEntry) (cs.Action, error) {
 	save := cs.Action{"type": "codex.save", "kind": kind, "title": e.Name,
 		"source": map[string]any{"entity": how.Entity, "key": e.Key}}
-	if fields := mapped(rules, kind, how, e, cs.CanInCampaign(c, "codex:read_secret", "")); len(fields) > 0 {
+	fields := mapped(rules, kind, how, e, cs.CanInCampaign(c, "codex:read_secret", ""))
+	// A list filled into a tags field keeps it only when every word is one the GM could enter (house decision #177).
+	for id, value := range fields {
+		if def := rules.Ruleset.Codex.Kinds[kind].Fields[id]; def.Type == "tags" {
+			detail, err := listProblem(ctx, tx, c, rules, &def, value)
+			if err != nil {
+				return nil, err
+			}
+			if detail != "" {
+				delete(fields, id)
+			}
+		}
+	}
+	if len(fields) > 0 {
 		save["fields"] = fields
 	}
 	if kind == "scene" {
@@ -221,9 +234,12 @@ func scenePrep(ctx context.Context, tx core.Conn, c cs.Ctx, rules *engine.Compil
 		tests := []any{}
 		for i, id := range listOf(e.Body[how.Tests.Field]) {
 			inputs := map[string]any{}
-			for input, field := range how.Tests.Inputs {
-				if _, declared := rules.Ruleset.Tests[id].Inputs[input]; declared && e.Body[field] != nil {
-					inputs[input] = e.Body[field]
+			// The Test's own mapping goes over the shared one (house decision #177).
+			for _, fields := range []map[string]string{how.Tests.Inputs, how.Tests.Per[id]} {
+				for input, field := range fields {
+					if _, declared := rules.Ruleset.Tests[id].Inputs[input]; declared && e.Body[field] != nil {
+						inputs[input] = e.Body[field]
+					}
 				}
 			}
 			tests = append(tests, map[string]any{"id": fmt.Sprintf("t%d", i+1), "testId": id, "inputs": inputs,

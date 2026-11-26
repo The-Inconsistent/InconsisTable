@@ -2809,6 +2809,72 @@ summary {
 .bottom-sheet .bottom-sheet {
   z-index: 11;
 }
+
+/* ---------- A name that says what it means (house decision #126): dotted under, the card in a bottom sheet ---------- */
+.term {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-height: 32px;
+  cursor: help;
+  text-align: inherit;
+  text-decoration: underline dotted;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}
+.term.chip {
+  min-height: 0;
+  padding: 2px 11px;
+  border: 1px solid var(--parchment-line);
+}
+.term:focus-visible,
+.term-mark:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px var(--focus-halo);
+}
+.term-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-inline-start: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  cursor: help;
+  vertical-align: middle;
+}
+.term-mark > span {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  font: italic 700 var(--fs-small) / 1 var(--font-display);
+}
+.term-text {
+  margin: 0;
+  font-size: var(--fs-body);
+  overflow-wrap: anywhere;
+}
+.sheet-guide > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+}
+.sheet-guide dl {
+  margin: 0;
+}
 /* A sheet shown inside the panel is already on parchment: no second card. */
 .bottom-sheet .sheet-card {
   filter: none;
@@ -2887,6 +2953,17 @@ summary {
   align-content: center;
   min-width: 0;
 }
+/* A phone's foe: its name is the toggle of its card (house decision #117), its health beside it outside the button. */
+.combatant .who-toggle {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 0;
+  text-align: start;
+}
+.combatant .who-toggle:focus-visible,
 .combatant .who:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;

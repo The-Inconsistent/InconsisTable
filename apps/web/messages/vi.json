@@ -610,6 +610,12 @@
     "openLabel": "Mở trang của {cite}",
     "pageAlt": "Trang sách {cite}"
   },
+  "term": {
+    "hint": "{label}: nghĩa là gì",
+    "mark": "{label} nghĩa là gì",
+    "guide": "Cách đọc tờ nhân vật này",
+    "guideTip": "Chạm vào một chữ gạch chân để xem nghĩa của nó."
+  },
   "healthBar": {
     "label": "HP của {name}: {percent} phần trăm",
     "count": "còn {count}",

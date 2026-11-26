@@ -1,8 +1,9 @@
 "use client";
 import { useTranslations } from "next-intl";
 
+import { Term } from "@/components/ui/term-card/term-card";
 import type { SheetRow } from "@/lib/sheet-widgets/sheet-widgets";
-import { valueOf } from "@/lib/sheet-widgets/sheet-widgets";
+import { termOf, valueOf } from "@/lib/sheet-widgets/sheet-widgets";
 import { printValue } from "@/lib/sheet/sheet";
 
 import type { WidgetEnv } from "../types";
@@ -26,7 +27,9 @@ export function Strip({ title, values, env }: StripProps) {
         <dl className="w-strip-cells">
           {values.map((v) => (
             <div key={`${v.kind}-${v.id}`} className="w-strip-cell" data-stat={v.id}>
-              <dt>{v.label}</dt>
+              <dt>
+                <Term term={termOf(v)} env={env} />
+              </dt>
               <dd>{print(v)}</dd>
             </div>
           ))}

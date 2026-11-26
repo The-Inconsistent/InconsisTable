@@ -179,6 +179,7 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
                 steps={checklist}
                 room={checklistRoom({ state, entries: codex?.entries ?? [], packs: view?.first.packs ?? [] })}
                 onGo={handleGo}
+                terms={view?.ruleset ? { ruleset: view.ruleset, books, requestPage } : undefined}
               />
             )}
             <TableModePicker me={me} state={state} ruleset={view?.ruleset ?? null} send={send} />
@@ -243,7 +244,15 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
           <Tests state={state} send={send} testId={address.test} />
         ) : tab === "rules" ? (
           <div className="stack" style={{ gap: 32 }}>
-            <RulesPanel me={me} send={send} data={rules} state={state} ruleset={view?.ruleset ?? null} />
+            <RulesPanel
+              me={me}
+              send={send}
+              data={rules}
+              state={state}
+              ruleset={view?.ruleset ?? null}
+              books={books}
+              requestPage={requestPage}
+            />
             {view && (
               <section className="stack">
                 <h2 className="title">{t("readRules")}</h2>

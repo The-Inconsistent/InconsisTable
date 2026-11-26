@@ -1,7 +1,15 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { numberOf, type PipStep, pipsFilled, type SheetRow, stepReached } from "@/lib/sheet-widgets/sheet-widgets";
+import { Term } from "@/components/ui/term-card/term-card";
+import {
+  numberOf,
+  type PipStep,
+  pipsFilled,
+  type SheetRow,
+  stepReached,
+  termOf,
+} from "@/lib/sheet-widgets/sheet-widgets";
 
 import type { WidgetEnv } from "../types";
 
@@ -22,7 +30,7 @@ export function Pips({ value, steps, env }: PipsProps) {
       ) : (
         <div className="sheet-row" data-stat={value.id} data-kind={value.kind}>
           <span className="stack" style={{ gap: 2 }}>
-            <span className="stat-label">{value.label}</span>
+            <Term term={termOf(value)} env={env} className="stat-label" />
             <span className="small dim">{step}</span>
           </span>
           <strong className="sheet-num">{n}</strong>

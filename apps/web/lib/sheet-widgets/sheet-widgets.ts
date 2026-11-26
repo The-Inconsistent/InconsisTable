@@ -44,6 +44,8 @@ export type SheetRow = {
   id: string;
   label: string;
   cite: string | null;
+  /** What it means, in the importer's own words (house decision #126); null when the ruleset says nothing. */
+  summary: string | null;
 };
 
 /**
@@ -67,18 +69,19 @@ export function rowFor({
           id: path,
           label: def.fields[path]?.label ?? path,
           cite: def.fields[path]?.cite ?? null,
+          summary: def.fields[path]?.summary ?? null,
         }
       : null;
   const derived = (id: string) => {
     const d = def?.derived.find((x) => x.id === id);
     return d && Object.hasOwn(actor.derived, id)
-      ? { kind: "derived" as const, id, label: d.label, cite: d.cite ?? null }
+      ? { kind: "derived" as const, id, label: d.label, cite: d.cite ?? null, summary: d.summary ?? null }
       : null;
   };
   const resource = (id: string) => {
     const r = ruleset.resources.find((x) => x.id === id);
     return r && Object.hasOwn(actor.resources, id)
-      ? { kind: "resource" as const, id, label: r.label, cite: r.cite ?? null }
+      ? { kind: "resource" as const, id, label: r.label, cite: r.cite ?? null, summary: r.summary ?? null }
       : null;
   };
   if (path.startsWith("derived.")) return derived(path.slice(8));
@@ -224,6 +227,9 @@ export function valueOf({ actor, row }: { actor: SheetActor; row: SheetRow }) {
   if (row.kind === "resource") return actor.resources[row.id];
   return actor.fields[row.id];
 }
+
+/** A row's label as a tappable name: a derived value's meaning is in its breakdown, so its label stays text. */
+export const termOf = (row: SheetRow): SheetRow => (row.kind === "derived" ? { ...row, summary: null } : row);
 
 /** A row's value as a number; 0 when it is not one. */
 export const numberOf = ({ actor, row }: { actor: SheetActor; row: SheetRow }): number => {

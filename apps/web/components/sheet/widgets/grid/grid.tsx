@@ -2,7 +2,8 @@
 import { useTranslations } from "next-intl";
 import type { CSSProperties } from "react";
 
-import { type GridRow, numberOf, signed, type WidgetModel } from "@/lib/sheet-widgets/sheet-widgets";
+import { Term } from "@/components/ui/term-card/term-card";
+import { type GridRow, numberOf, signed, termOf, type WidgetModel } from "@/lib/sheet-widgets/sheet-widgets";
 
 import { Num } from "../num/num";
 import type { WidgetEnv } from "../types";
@@ -24,7 +25,7 @@ export function Grid({ model, env }: GridProps) {
       return (
         <div key={r.rating.id} role="row" className="w-pairs-row" data-stat={r.rating.id}>
           <span role="rowheader" className="w-pairs-name">
-            {r.rating.label}
+            <Term term={termOf(r.rating)} env={env} />
           </span>
           {columns.link && (
             <span role="cell" className="w-pairs-link">
@@ -81,7 +82,7 @@ export function Grid({ model, env }: GridProps) {
         <span role="columnheader" />
         {rows.map((r) => (
           <span key={r.rating.id} role="columnheader">
-            {r.rating.label}
+            <Term term={termOf(r.rating)} env={env} />
           </span>
         ))}
       </div>

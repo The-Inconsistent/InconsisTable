@@ -211,6 +211,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                 refusal={refusalAt({ refusal, at: selected.id })}
                 mode={mode}
                 onSheet={sheet.ruleset ? setSheetOf : undefined}
+                terms={sheet.ruleset ? { ...sheet, ruleset: sheet.ruleset } : undefined}
                 onCallTest={state.testDefs.length > 0 ? setTestFor : undefined}
                 sides={sides ?? undefined}
                 pools={state.pools}

@@ -610,6 +610,12 @@
     "openLabel": "Open the page of {cite}",
     "pageAlt": "Book page {cite}"
   },
+  "term": {
+    "hint": "{label}: what it means",
+    "mark": "What {label} means",
+    "guide": "How to read this sheet",
+    "guideTip": "Tap an underlined word for what it means."
+  },
   "healthBar": {
     "label": "{name} health {percent} percent",
     "count": "{count} standing",

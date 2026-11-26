@@ -17,6 +17,8 @@ type BreakdownProps = {
   /** Null: the value cannot be worked out on this device; only the cite is shown. */
   lines: BreakdownLine[] | null;
   cite: string | null;
+  /** What the value means, in the importer's words (house decision #126): the number needs no second tap target. */
+  summary?: string | null;
   ruleset: Ruleset;
   books: readonly BookSource[];
   requestPage: RequestPage;
@@ -31,6 +33,7 @@ export function Breakdown({
   total,
   lines,
   cite,
+  summary = null,
   ruleset,
   books,
   requestPage,
@@ -40,6 +43,7 @@ export function Breakdown({
   const t = useTranslations("breakdown");
   return (
     <BottomSheet title={`${label} ${total}`} onClose={onClose}>
+      {summary && <p className="term-text">{summary}</p>}
       {lines ? <BreakdownLines {...{ lines, ruleset, books, requestPage }} /> : <p className="dim">{t("hidden")}</p>}
       {!lines && cite && <Cite {...{ cite, ruleset, books, requestPage }} />}
       {children}

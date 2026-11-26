@@ -2,7 +2,8 @@
 import type { CSSProperties, ReactNode } from "react";
 
 import { Cite } from "@/components/ui/cite/cite";
-import type { SheetRow } from "@/lib/sheet-widgets/sheet-widgets";
+import { Term } from "@/components/ui/term-card/term-card";
+import { type SheetRow, termOf } from "@/lib/sheet-widgets/sheet-widgets";
 
 import { Num } from "../num/num";
 import type { WidgetEnv } from "../types";
@@ -13,7 +14,7 @@ export function Frame({ row, env, mark, total }: { row: SheetRow; env: WidgetEnv
     <div className="w-cell" data-stat={row.id} data-total={total || undefined}>
       <span className="w-cell-label">
         {mark && <span aria-hidden="true">{mark} </span>}
-        {row.label}
+        <Term term={termOf(row)} env={env} />
       </span>
       <Num row={row} env={env} className="w-cell-num" />
       {row.cite && <Cite cite={row.cite} ruleset={env.ruleset} books={env.books} requestPage={env.requestPage} />}

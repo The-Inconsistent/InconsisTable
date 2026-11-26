@@ -7,6 +7,7 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { RollInto } from "@/components/gm/codex/components/roll-into/roll-into";
 import { PackEntrySheet } from "@/components/ui/pack-entry-sheet/pack-entry-sheet";
+import { TermMark, type TermEnv } from "@/components/ui/term-card/term-card";
 import { usePackEntry } from "@/hooks/use-pack-entry/use-pack-entry";
 import {
   entryUrl,
@@ -42,6 +43,8 @@ type EntryFieldsFormProps = {
   onOpenEntry: (entryId: string) => void;
   /** Sends an action: a text field the ruleset rolls on its tables offers ROLL and I ROLLED (house decision #97). */
   act?: (a: ActionInput) => Promise<ActionResult>;
+  /** The ruleset with the page relay: a field that says what it means gets its ⓘ (house decision #126). */
+  terms?: TermEnv;
 };
 
 // The declared fields of an entry's kind in the GM's editor (house decision #71), each from its declaration: an enum as
@@ -58,6 +61,7 @@ export function EntryFieldsForm({
   entries,
   onOpenEntry,
   act,
+  terms,
 }: EntryFieldsFormProps) {
   const t = useTranslations("entryFields");
   const [picked, setPicked] = useState<readonly RulesEntry[]>([]);
@@ -84,149 +88,164 @@ export function EntryFieldsForm({
     await openEntry({ url: entryUrl({ campaignId, type, key }), title: entry?.name ?? key, known: entry });
   };
 
+  // One declared field's control, from its declaration.
+  const control = ({ id, def }: DeclaredField) => {
+    const value = Object.hasOwn(draft, id) ? (draft[id] ?? null) : null;
+    const inputId = `codex-field-${id}`;
+    switch (def.type) {
+      case "enum":
+        return (
+          <label key={id} className="stack">
+            {def.label}
+            <select
+              id={inputId}
+              value={typeof value === "string" ? value : ""}
+              onChange={handleText(id)}
+              disabled={disabled}
+            >
+              <option value="">{t("none")}</option>
+              {def.values.map((v) => {
+                const w = enumWords({ def, value: v });
+                return (
+                  <option key={v} value={v}>
+                    {w.note ? `${w.label} · ${w.note}` : w.label}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+        );
+      case "text":
+        return (
+          <div key={id} className="stack">
+            <label className="stack">
+              {def.label}
+              <input
+                id={inputId}
+                value={typeof value === "string" ? value : ""}
+                onChange={handleText(id)}
+                maxLength={def.maxLength ?? 10_000}
+                disabled={disabled}
+              />
+            </label>
+            {def.roll && act && (
+              <RollInto
+                roll={def.roll}
+                ruleset={ruleset}
+                label={def.label}
+                act={act}
+                disabled={disabled}
+                onRolled={(text) => onChange({ id, value: text.slice(0, def.maxLength ?? 10_000) || null })}
+              />
+            )}
+          </div>
+        );
+      case "int":
+        return (
+          <IntInput
+            key={id}
+            id={inputId}
+            label={def.label}
+            min={def.min}
+            max={def.max}
+            value={typeof value === "number" ? value : null}
+            disabled={disabled}
+            onValue={(n) => onChange({ id, value: n })}
+          />
+        );
+      case "bool":
+        return (
+          <label key={id} className="row">
+            <input
+              id={inputId}
+              type="checkbox"
+              role="switch"
+              checked={value === true}
+              onChange={handleBool(id)}
+              disabled={disabled}
+            />
+            {def.label}
+          </label>
+        );
+      case "ref": {
+        const key = typeof value === "string" ? value : null;
+        return (
+          <RefPicker
+            key={id}
+            id={inputId}
+            label={def.label}
+            campaignId={campaignId}
+            entity={def.entity}
+            value={key}
+            name={key === null ? null : (named(def.entity, key)?.name ?? null)}
+            disabled={disabled}
+            onPick={handlePick(id)}
+            onOpen={handleOpen(def.entity, key ?? "")}
+          />
+        );
+      }
+      case "entry":
+        return (
+          <EntryPicker
+            key={id}
+            id={inputId}
+            label={def.label}
+            kind={def.kind}
+            entries={entries}
+            self={entryId}
+            value={typeof value === "string" ? value : null}
+            disabled={disabled}
+            onPick={(picked) => onChange({ id, value: picked })}
+            onOpen={onOpenEntry}
+          />
+        );
+      case "tags":
+        return (
+          <TagsPicker
+            key={id}
+            id={inputId}
+            def={def}
+            campaignId={campaignId}
+            value={tagsOf(value)}
+            disabled={disabled}
+            onChange={(words) => onChange({ id, value: words.length > 0 ? words : null })}
+          />
+        );
+      case "rows":
+        return (
+          <RowsEditor
+            key={id}
+            id={inputId}
+            def={def}
+            ruleset={ruleset}
+            campaignId={campaignId}
+            known={[...picked, ...known]}
+            value={rowsOf(value)}
+            disabled={disabled}
+            onChange={(rows) => onChange({ id, value: rows.length > 0 ? rows : null })}
+            onPicked={(entry) => setPicked([entry, ...picked])}
+          />
+        );
+    }
+  };
+
   if (fields.length === 0) return null;
   return (
     <fieldset className="stack entry-fields-form" style={{ minWidth: 0, border: 0, padding: 0, margin: 0 }}>
       <legend className="small dim">{t("legend")}</legend>
-      {fields.map(({ id, def }) => {
-        const value = Object.hasOwn(draft, id) ? (draft[id] ?? null) : null;
-        const inputId = `codex-field-${id}`;
-        switch (def.type) {
-          case "enum":
-            return (
-              <label key={id} className="stack">
-                {def.label}
-                <select
-                  id={inputId}
-                  value={typeof value === "string" ? value : ""}
-                  onChange={handleText(id)}
-                  disabled={disabled}
-                >
-                  <option value="">{t("none")}</option>
-                  {def.values.map((v) => {
-                    const w = enumWords({ def, value: v });
-                    return (
-                      <option key={v} value={v}>
-                        {w.note ? `${w.label} · ${w.note}` : w.label}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
-            );
-          case "text":
-            return (
-              <div key={id} className="stack">
-                <label className="stack">
-                  {def.label}
-                  <input
-                    id={inputId}
-                    value={typeof value === "string" ? value : ""}
-                    onChange={handleText(id)}
-                    maxLength={def.maxLength ?? 10_000}
-                    disabled={disabled}
-                  />
-                </label>
-                {def.roll && act && (
-                  <RollInto
-                    roll={def.roll}
-                    ruleset={ruleset}
-                    label={def.label}
-                    act={act}
-                    disabled={disabled}
-                    onRolled={(text) => onChange({ id, value: text.slice(0, def.maxLength ?? 10_000) || null })}
-                  />
-                )}
-              </div>
-            );
-          case "int":
-            return (
-              <IntInput
-                key={id}
-                id={inputId}
-                label={def.label}
-                min={def.min}
-                max={def.max}
-                value={typeof value === "number" ? value : null}
-                disabled={disabled}
-                onValue={(n) => onChange({ id, value: n })}
-              />
-            );
-          case "bool":
-            return (
-              <label key={id} className="row">
-                <input
-                  id={inputId}
-                  type="checkbox"
-                  role="switch"
-                  checked={value === true}
-                  onChange={handleBool(id)}
-                  disabled={disabled}
-                />
-                {def.label}
-              </label>
-            );
-          case "ref": {
-            const key = typeof value === "string" ? value : null;
-            return (
-              <RefPicker
-                key={id}
-                id={inputId}
-                label={def.label}
-                campaignId={campaignId}
-                entity={def.entity}
-                value={key}
-                name={key === null ? null : (named(def.entity, key)?.name ?? null)}
-                disabled={disabled}
-                onPick={handlePick(id)}
-                onOpen={handleOpen(def.entity, key ?? "")}
-              />
-            );
-          }
-          case "entry":
-            return (
-              <EntryPicker
-                key={id}
-                id={inputId}
-                label={def.label}
-                kind={def.kind}
-                entries={entries}
-                self={entryId}
-                value={typeof value === "string" ? value : null}
-                disabled={disabled}
-                onPick={(picked) => onChange({ id, value: picked })}
-                onOpen={onOpenEntry}
-              />
-            );
-          case "tags":
-            return (
-              <TagsPicker
-                key={id}
-                id={inputId}
-                def={def}
-                campaignId={campaignId}
-                value={tagsOf(value)}
-                disabled={disabled}
-                onChange={(words) => onChange({ id, value: words.length > 0 ? words : null })}
-              />
-            );
-          case "rows":
-            return (
-              <RowsEditor
-                key={id}
-                id={inputId}
-                def={def}
-                ruleset={ruleset}
-                campaignId={campaignId}
-                known={[...picked, ...known]}
-                value={rowsOf(value)}
-                disabled={disabled}
-                onChange={(rows) => onChange({ id, value: rows.length > 0 ? rows : null })}
-                onPicked={(entry) => setPicked([entry, ...picked])}
-              />
-            );
-        }
-      })}
+      {fields.map(({ id, def }) =>
+        // A field the ruleset explains gets its ⓘ beside it (house decision #126); any other draws as it did.
+        def.summary && terms ? (
+          <div key={id} className="row" style={{ flexWrap: "nowrap", alignItems: "end" }}>
+            <div className="stack" style={{ flex: 1, minWidth: 0 }}>
+              {control({ id, def })}
+            </div>
+            <TermMark term={def} env={terms} />
+          </div>
+        ) : (
+          control({ id, def })
+        ),
+      )}
       {opened && <PackEntrySheet opened={opened} ruleset={ruleset} onClose={close} />}
     </fieldset>
   );

@@ -1,7 +1,8 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { numberOf, type SheetRow } from "@/lib/sheet-widgets/sheet-widgets";
+import { Term } from "@/components/ui/term-card/term-card";
+import { numberOf, type SheetRow, termOf } from "@/lib/sheet-widgets/sheet-widgets";
 
 import type { WidgetEnv } from "../types";
 import { MAX_TRACK_BOXES } from "./constants";
@@ -24,7 +25,7 @@ export function Track({ value, max, env }: TrackProps) {
         env.rowView(value)
       ) : (
         <div className="sheet-row" data-stat={value.id} data-kind={value.kind}>
-          <span className="stat-label">{value.label}</span>
+          <Term term={termOf(value)} env={env} className="stat-label" />
           <strong className="sheet-num">
             {n}
             {limit != null && <span className="dim small"> / {limit}</span>}

@@ -212,6 +212,11 @@ export function EntryEditor(props: EntryEditorProps) {
           entries={entries}
           onOpenEntry={onOpenEntry}
           act={act}
+          terms={
+            ruleset && props.books && props.requestPage
+              ? { ruleset, books: props.books, requestPage: props.requestPage }
+              : undefined
+          }
         />
       ) : (
         <EntryFields

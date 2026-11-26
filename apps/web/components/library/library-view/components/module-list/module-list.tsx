@@ -47,11 +47,13 @@ export function ModuleList({ modules, canImport, onChanged }: ModuleListProps) {
     setError(null);
     try {
       const res = await fetch(`/api/modules/${encodeURIComponent(id)}/hide`, { method: "POST" });
-      const body = HideReply.safeParse(await readJson(res));
+      const reply: unknown = await readJson(res);
+      const body = HideReply.safeParse(reply);
+      const refusal = ApiMessage.safeParse(reply);
       if (res.ok && body.success) {
         setConfirming(null);
         onChanged();
-      } else setError(t("deleteFailed"));
+      } else setError(!res.ok && refusal.success ? tr(refusal.data) : t("deleteFailed"));
     } catch {
       setError(tStatus("nosignal"));
     }

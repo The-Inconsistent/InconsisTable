@@ -38,13 +38,17 @@ import {
 import { SAMPLE_HARVEST } from "../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "../../../packages/rules-engine/src/fixtures/sample-no-order.ts";
 import { SAMPLE_POOL } from "../../../packages/rules-engine/src/fixtures/sample-pool.ts";
-import { SAMPLE_SKIRMISH } from "../../../packages/rules-engine/src/fixtures/sample-skirmish.ts";
+import {
+  SAMPLE_SKIRMISH,
+  SAMPLE_SKIRMISH_PREMISE,
+} from "../../../packages/rules-engine/src/fixtures/sample-skirmish.ts";
 import { SAMPLE_SKIRMISH_PACK } from "../../../packages/rules-engine/src/fixtures/sample-skirmish-pack.ts";
 import { SAMPLE_LEDGER_RULESET } from "../../../packages/rules-engine/src/fixtures/sample-ledger-ruleset.ts";
 import { SAMPLE_LEDGER_PACK } from "../../../packages/rules-engine/src/fixtures/sample-ledger-pack.ts";
 import { SAMPLE_WORLD } from "../../../packages/rules-engine/src/fixtures/sample-world.ts";
 import {
   SAMPLE_GMLESS_MODULE,
+  SAMPLE_SKIRMISH_GMLESS,
   SAMPLE_MODULE,
   SAMPLE_NAMING_MODULE,
   SAMPLE_SKIRMISH_MODULE,
@@ -7445,4 +7449,138 @@ test("sides fixture: TURN BACK takes the last turn step and the hits since, and 
   assert.equal(hp(s), 15);
   assert.equal(momentum(s), 1);
   for (const c of [owner, ana, screen]) c.socket.close();
+});
+
+// House decisions #142 to #146: the campaign wizard sends one room document, checked by a dry run, then made; a refusal
+// comes back whole with the path of the step that caused it, and neither it nor the dry run leaves a room behind.
+const WIZARD_PACK = {
+  ...SAMPLE_SKIRMISH_PACK,
+  id: "sample-raiders-premise",
+  ruleset: { id: SAMPLE_SKIRMISH_PREMISE.id, range: SAMPLE_SKIRMISH_PACK.ruleset.range },
+};
+const wizardDocument = (over: Partial<RoomDocumentInput> = {}): RoomDocumentInput => ({
+  format: "inconsistable-room",
+  version: 1,
+  room: { name: "Ford watch", safety: { lines: ["Spiders"], veils: ["Drowning"], xCard: true } },
+  expects: {
+    ruleset: { slug: SAMPLE_SKIRMISH_PREMISE.id, version: SAMPLE_SKIRMISH_PREMISE.version },
+    packs: [{ slug: WIZARD_PACK.id, version: WIZARD_PACK.version }],
+  },
+  campaignFields: { chapter: 3, peril: 2 },
+  codex: [
+    {
+      id: "00000000-0000-4000-8000-000000000101",
+      kind: "lore",
+      title: "Lore",
+      visibility: "party",
+      fields: { premise: "Hold the ford", style: ["raids", "night work"], aim: "Sell them out" },
+    },
+  ],
+  ...over,
+});
+
+test("campaign wizard: a plain ruleset's room, dry run then made, refused whole with its step's path (#219)", async () => {
+  const ownerDevice = await device("wizard-owner");
+  const me = caller(ownerDevice);
+  assert.equal((await me.post("/rulesets", SAMPLE_SKIRMISH_PREMISE)).status, 201);
+  assert.equal((await me.post("/packs", WIZARD_PACK)).status, 201);
+  const rooms = async () => ((await (await get("/lobby", cookieOf(ownerDevice))).json()) as Lobby).mine;
+
+  // A value the game does not allow is refused by its path, before and during a dry run, and makes nothing.
+  const wrong = await me.post<RoomImportRefusal>(
+    "/campaigns/import?dryRun=1",
+    wizardDocument({ campaignFields: { chapter: 99, peril: 2 } }),
+  );
+  assert.deepEqual([wrong.status, wrong.body.path], [422, "campaignFields.chapter"]);
+  const dry = await me.post<RoomImportReply>("/campaigns/import?dryRun=1", wizardDocument());
+  assert.deepEqual([dry.status, dry.body.campaignId, dry.body.counts.entries], [200, null, { lore: 1 }]);
+  assert.equal((await rooms()).length, 0, "the refusal and the dry run leave no room behind");
+
+  const made = await me.post<RoomImportReply>("/campaigns/import", wizardDocument());
+  assert.equal(made.status, 201);
+  const campaignId = made.body.campaignId!;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  const s = await owner.until((x) => x.campaign.name === "Ford watch");
+  assert.deepEqual(s.campaign.fields, { chapter: 3, peril: 2 });
+  assert.deepEqual(s.campaign.safety, { lines: ["Spiders"], veils: ["Drowning"], xCard: true });
+  const rules = await me.get<RulesReply>(`/campaigns/${campaignId}/rules?limit=1`);
+  assert.deepEqual(
+    rules.body.packs.map((p) => p.slug),
+    [WIZARD_PACK.id],
+  );
+  await eventually(() => owner.codex()?.entries.length === 1, "the GM reads the premise");
+  assert.deepEqual(owner.codex()!.entries[0]?.fields, {
+    premise: "Hold the ford",
+    style: ["raids", "night work"],
+    aim: "Sell them out",
+  });
+
+  // A player reads the premise the party sees, without its hidden field, and the table's limits.
+  const anaDevice = await seatPlayer(owner, "wizard-ana");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  const seen = await ana.until((x) => x.campaign.safety.lines.length === 1);
+  assert.deepEqual(seen.campaign.safety.lines, ["Spiders"]);
+  await eventually(() => ana.codex()?.entries.length === 1, "the player reads the premise");
+  assert.deepEqual(ana.codex()!.entries[0]?.fields, { premise: "Hold the ford", style: ["raids", "night work"] });
+
+  // A game played only without a GM gets its room the same way.
+  assert.equal((await me.post("/rulesets", SAMPLE_SKIRMISH_GMLESS)).status, 201);
+  const gmless = wizardDocument({
+    room: { name: "Round ford" },
+    expects: { ruleset: { slug: SAMPLE_SKIRMISH_GMLESS.id, version: SAMPLE_SKIRMISH_GMLESS.version } },
+    codex: [],
+  });
+  assert.equal((await me.post<RoomImportReply>("/campaigns/import?tableMode=gmless", gmless)).status, 201);
+  assert.equal((await rooms()).find((r) => r.name === "Round ford")?.tableMode, "gmless");
+  owner.socket.close();
+  ana.socket.close();
+});
+
+test("campaign wizard: a game module's room carries its parts and the wizard's values in one request (#219)", async () => {
+  const ownerDevice = await device("wizard-module");
+  const me = caller(ownerDevice);
+  const module = await me.post<ModuleReply>("/modules", SAMPLE_MODULE);
+  assert.equal(module.status, 201);
+  const rooms = async () => ((await (await get("/lobby", cookieOf(ownerDevice))).json()) as Lobby).mine;
+  const doc: RoomDocumentInput = {
+    format: "inconsistable-room",
+    version: 1,
+    room: { name: "Tidewater wizard", safety: { lines: ["Spiders"], veils: [], xCard: false } },
+    campaignFields: { season: 2 },
+  };
+  const at = (query: string) => `/campaigns/import?${query}`;
+
+  // The module names the ruleset and World, so a document that names them too is refused at that path; so is a
+  // module that is not the caller's.
+  const twice = await me.post<RoomImportRefusal>(at(`dryRun=1&module=${module.body.versionId}`), {
+    ...doc,
+    expects: { ruleset: { slug: SAMPLE_D20.id, version: SAMPLE_D20.version } },
+  });
+  assert.deepEqual([twice.status, twice.body.path], [422, "expects.ruleset"]);
+  const stranger = await me.post<RoomImportRefusal>(at(`module=${crypto.randomUUID()}`), doc);
+  assert.deepEqual([stranger.status, stranger.body.path, stranger.body.code], [422, "module", "moduleNotFound"]);
+  assert.equal((await me.post(at("module=nope"), doc)).status, 400);
+  const dry = await me.post<RoomImportReply>(at(`dryRun=1&module=${module.body.versionId}`), doc);
+  assert.deepEqual([dry.status, dry.body.campaignId], [200, null]);
+  assert.equal((await rooms()).length, 0, "nothing is left behind before CREATE");
+
+  const made = await me.post<RoomImportReply>(at(`module=${module.body.versionId}`), doc);
+  assert.equal(made.status, 201);
+  const campaignId = made.body.campaignId!;
+  const rules = await me.get<RulesReply & { world: { name: string } | null }>(`/campaigns/${campaignId}/rules?limit=1`);
+  assert.deepEqual([rules.body.packs.map((p) => p.slug), rules.body.world?.name], [[SAMPLE_PACK.id], "Tidewater"]);
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  const s = await owner.until((x) => x.campaign.name === "Tidewater wizard");
+  assert.deepEqual([s.campaign.fields, s.campaign.safety.lines], [{ season: 2 }, ["Spiders"]]);
+  owner.socket.close();
+
+  // A module played only without a GM: the room sits that way, its private pack attached.
+  const gmless = await me.post<ModuleReply>("/modules", SAMPLE_GMLESS_MODULE);
+  const round = await me.post<RoomImportReply>(at(`tableMode=gmless&module=${gmless.body.versionId}`), {
+    ...doc,
+    room: { name: "Round wizard" },
+    campaignFields: { chapter: 2 },
+  });
+  assert.equal(round.status, 201);
+  assert.equal((await rooms()).find((r) => r.name === "Round wizard")?.tableMode, "gmless");
 });

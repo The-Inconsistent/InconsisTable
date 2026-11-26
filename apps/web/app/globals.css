@@ -2828,7 +2828,7 @@ summary {
   text-underline-offset: 0.2em;
 }
 .term.chip {
-  min-height: 0;
+  min-height: 32px;
   padding: 2px 11px;
   border: 1px solid var(--parchment-line);
 }

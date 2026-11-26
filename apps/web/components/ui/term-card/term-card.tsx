@@ -5,7 +5,7 @@ import { type HTMLAttributes, useState } from "react";
 import type { BookSource } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
-import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
+import { FloatingSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
 import { Cite } from "@/components/ui/cite/cite";
 import type { RequestPage } from "@/hooks/use-table/use-table";
 
@@ -20,10 +20,10 @@ type TermProps = { term: TermDef; env: TermEnv | undefined } & Omit<HTMLAttribut
 // page through the relay while a tablet serves the book (the platform's "full rule": a rule's text is never stored).
 function TermCard({ term, env, onClose }: { term: TermDef; env: TermEnv; onClose: () => void }) {
   return (
-    <BottomSheet title={term.label} onClose={onClose}>
+    <FloatingSheet title={term.label} onClose={onClose}>
       <p className="term-text">{term.summary}</p>
       {term.cite && <Cite cite={term.cite} {...env} />}
-    </BottomSheet>
+    </FloatingSheet>
   );
 }
 

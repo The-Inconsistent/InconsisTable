@@ -1,6 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 import type { KeyboardEvent, ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 type BottomSheetProps = { title: string; onClose: () => void; children: ReactNode };
 
@@ -23,4 +24,11 @@ export function BottomSheet({ title, onClose, children }: BottomSheetProps) {
       {children}
     </aside>
   );
+}
+
+// The same panel mounted on the table's surface instead of in place. Opened from inside a card or a combatant row, which
+// are transformed or filtered and so would pin a fixed child to themselves, not to the screen. The surface (not the
+// body) keeps the World's and the table's look. Only rendered after a tap, so `document` exists.
+export function FloatingSheet(props: BottomSheetProps) {
+  return createPortal(<BottomSheet {...props} />, document.querySelector(".surface-table") ?? document.body);
 }

@@ -13,6 +13,7 @@ import {
   SAMPLE_D20_0_1_11,
   SAMPLE_D20_0_1_13,
   SAMPLE_D20_0_1_14,
+  SAMPLE_D20_0_1_15,
   SAMPLE_D20_BEFORE_WIDGETS,
 } from "./sample-d20.ts";
 import {
@@ -54,8 +55,8 @@ import {
 const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9cb58c5d";
 const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf";
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.15": "e7ef8944c7fd22a761ab58b065512e9e40f0595c59fed91c9b43e8d421648a5f",
-  "sample-ledger@0.1.6": "717025a2783d882c3738ec979b565b9d330ee31297becd9560c0264be790ca73",
+  "sample-d20@0.1.16": "d4fa93828de012392447c4315886e5f873768cf748223030a41533f993e36ec6",
+  "sample-ledger@0.1.6": "54ed673c9bed6d4ca7bed2b7074adc040c2708f362d534fbe727b18e720b8c8e",
   "sample-skirmish@0.1.12": "ae10b8252b4c8627a2821f8f183434f510e4ddf054aca13bcaacb9cbbc7dcf4d",
   "sample-pool@0.1.4": "20a6d1b8a8d6031a0d3abfab5e5ceaade06eed14c7748e8226b4b1a68e35e182",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
@@ -151,6 +152,15 @@ test("a ruleset without the fitting keys or a yes-or-no acquisition input hashes
   assert.equal(
     sha256Hex(canonicalJson(result.compiled.ruleset)),
     "bc200e07badbdacfa62b6977db93d1c233db686ba2df7d0c27cbeece4f99cdf2",
+  );
+});
+
+test("a ruleset without the keys of #177 to #179 hashes as before them", () => {
+  const result = compileRuleset(SAMPLE_D20_0_1_15);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "e7ef8944c7fd22a761ab58b065512e9e40f0595c59fed91c9b43e8d421648a5f",
   );
 });
 

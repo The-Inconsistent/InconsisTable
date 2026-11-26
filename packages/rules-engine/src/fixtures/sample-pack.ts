@@ -119,3 +119,47 @@ export const SAMPLE_ATLAS: PackInput = {
     },
   ],
 };
+
+/**
+ * Entries sample-d20 0.1.16 fills from (house decisions #177, #178): a house whose marks fill a faction's, a hazard whose
+ * check fills a danger's, an incident naming the skill its check reads, and an omen a scene spends menace on. Invented.
+ */
+export const SAMPLE_ANNALS: PackInput = {
+  ...SAMPLE_PACK,
+  id: "sample-annals",
+  ruleset: { id: "sample-d20", range: "^0.1.16" },
+  entries: [
+    {
+      key: "house-reed",
+      type: "house",
+      name: "House Reed",
+      cite: "Sample p.16",
+      visibility: "party",
+      body: { marks: ["Reedfolk", "Boatwrights"] },
+    },
+    {
+      key: "loose-scree",
+      type: "hazard",
+      name: "Loose Scree",
+      cite: "Sample p.18",
+      visibility: "gm",
+      body: { threat: 3, check: "check", strengths: ["faint"] },
+    },
+    {
+      key: "ferry-raid",
+      type: "incident",
+      name: "Ferry Raid",
+      cite: "Sample p.71",
+      visibility: "gm",
+      body: { checks: ["check"], dc: 14, skill: "dex" },
+    },
+    {
+      key: "black-crow",
+      type: "omen",
+      name: "A black crow",
+      cite: "Sample p.72",
+      visibility: "gm",
+      body: { cost: 2, gist: "A foe arrives early" },
+    },
+  ],
+};

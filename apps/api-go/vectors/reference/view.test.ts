@@ -509,7 +509,7 @@ test("a gm entry field reaches only the side that reads GM notes; the player and
   assert.deepEqual(defs(ctx(member("player"), "u-x"), "npc"), ["disposition", "home", "mood"]);
   assert.deepEqual(defs(ctx({ kind: "token", role: "screen", characterIds: [] }, null), "faction"), []);
   assert.deepEqual(defs(ctx(member("cogm", ["combat"]), "u-co"), "npc"), ["disposition", "home", "mood"]);
-  assert.deepEqual(defs(ctx(member("gm"), "u-gm"), "npc"), ["disposition", "home", "look", "mood", "patron"]);
+  assert.deepEqual(defs(ctx(member("gm"), "u-gm"), "npc"), ["disposition", "home", "kin", "look", "mood", "patron"]);
 });
 
 // House decision #89: tags and rows follow their field's visibility, and a reminder goes where every field it reads goes.
@@ -665,7 +665,11 @@ test("a strike, a generator and a codex kind's prefill are cut where they read w
     ["A clean line"],
   );
   const secrets = served(CRAFTED_SEAT_CUTS.d20Cuts!, ctx(member("cogm", ["codex", "codex.secrets"]), "u-co"));
-  assert.deepEqual(secrets.generators, []);
+  // The warren's pick reads a creature's level the seat may not read; the shrine's reads nothing (house decision #179).
+  assert.deepEqual(
+    secrets.generators?.map((g) => g.id),
+    ["shrine"],
+  );
   assert.deepEqual(secrets.codex?.kinds.location?.from, [{ entity: "site", values: {}, children: "within" }]);
 });
 

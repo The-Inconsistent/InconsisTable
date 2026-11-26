@@ -801,7 +801,7 @@ const D20_0_1_14: RulesetInput = {
  * ability it lists. 0.1.14 hashes as it did. Invented.
  */
 export const SAMPLE_D20_0_1_14 = D20_0_1_14;
-export const SAMPLE_D20: RulesetInput = {
+export const SAMPLE_D20_0_1_15: RulesetInput = {
   ...SAMPLE_D20_0_1_14,
   version: "0.1.15",
   entities: SAMPLE_D20_0_1_14.entities.map((e) =>
@@ -851,3 +851,134 @@ export const SAMPLE_D20: RulesetInput = {
     },
   },
 };
+
+const codex0_1_15 = SAMPLE_D20_0_1_15.codex?.kinds ?? {};
+
+/**
+ * 0.1.16 (house decisions #177 to #179): a faction's marks filled from a house's list, a danger's check from a hazard,
+ * a scene's check reading an incident's own skill and its omens as pool lines, a person's forename rolled on the table
+ * of their kin, and a shrine whose story joins what made it (the whole chain) and its keeper. 0.1.15 hashes as it did.
+ * Invented.
+ */
+export const SAMPLE_D20_0_1_16: RulesetInput = {
+  ...SAMPLE_D20_0_1_15,
+  version: "0.1.16",
+  entities: [
+    ...SAMPLE_D20_0_1_15.entities.map((e) =>
+      e.id === "incident"
+        ? {
+            ...e,
+            fields: { ...e.fields, skill: { type: "text" as const, label: "Skill", visibility: "public" as const } },
+          }
+        : e,
+    ),
+    {
+      id: "house",
+      label: "House",
+      base: "item",
+      fields: { marks: { type: "list", label: "Marks", maxItems: 6, visibility: "public" } },
+    },
+    {
+      id: "hazard",
+      label: "Hazard",
+      base: "item",
+      fields: {
+        threat: { type: "int", label: "Threat", min: 0, max: 20, visibility: "public" },
+        check: { type: "text", label: "Check", visibility: "public" },
+        strengths: { type: "list", label: "Strengths", visibility: "public" },
+      },
+    },
+    {
+      id: "omen",
+      label: "Omen",
+      base: "item",
+      fields: {
+        cost: { type: "int", label: "Cost", min: 1, max: 5, visibility: "public" },
+        gist: { type: "text", label: "Gist", visibility: "public" },
+      },
+    },
+  ],
+  tables: {
+    ...SAMPLE_D20_0_1_15.tables,
+    elfname: {
+      title: "Elven forenames",
+      die: "1d6",
+      visibility: "gm",
+      cite: "Sample p.34",
+      entries: [
+        { id: "ilse", label: "Ilse", range: [1, 3] },
+        { id: "oren", label: "Oren", range: [4, 6] },
+      ],
+    },
+  },
+  codex: {
+    kinds: {
+      ...codex0_1_15,
+      npc: {
+        ...codex0_1_15.npc!,
+        fields: {
+          ...codex0_1_15.npc?.fields,
+          kin: {
+            type: "enum",
+            label: "Kin",
+            values: ["human", "elf"],
+            labels: { human: "Human", elf: "Elf" },
+            cite: "Sample p.34",
+          },
+        },
+        titleRoll: { tables: ["forename", "surname"], per: { field: "kin", tables: { elf: ["elfname", "surname"] } } },
+      },
+      faction: { ...codex0_1_15.faction!, from: [{ entity: "house", values: { marks: "marks" } }] },
+      location: {
+        ...codex0_1_15.location!,
+        fields: Object.fromEntries(
+          Object.entries(codex0_1_15.location?.fields ?? {}).map(([id, f]) =>
+            id === "dangers" && f.type === "rows"
+              ? [
+                  id,
+                  {
+                    ...f,
+                    from: [
+                      ...(f.from ?? []),
+                      { entity: "hazard", name: "name", values: { threat: "threat", check: "check" } },
+                    ],
+                  },
+                ]
+              : [id, f],
+          ),
+        ),
+      },
+      scene: {
+        ...codex0_1_15.scene!,
+        from: (codex0_1_15.scene?.from ?? []).map((f) =>
+          f.entity === "incident" && f.tests
+            ? { ...f, tests: { ...f.tests, per: { check: { ability: "skill" } } } }
+            : f,
+        ),
+        poolLines: [{ entity: "omen", pool: "menace", amount: "cost", spend: true, text: "gist" }],
+      },
+      lore: {
+        ...codex0_1_15.lore!,
+        fields: {
+          ...codex0_1_15.lore?.fields,
+          story: { type: "text", label: "Story", maxLength: 200, cite: "Sample p.92" },
+        },
+      },
+    },
+  },
+  generators: [
+    ...(SAMPLE_D20_0_1_15.generators ?? []),
+    {
+      id: "shrine",
+      label: "A shrine",
+      cite: "Sample p.92",
+      steps: [
+        { id: "origin", label: "What raised it", kind: "roll", table: "warren", trail: true },
+        { id: "keeper", label: "Its keeper", kind: "pick", entity: "creature" },
+      ],
+      make: { kind: "lore", title: "origin", fields: { story: ["origin", "keeper"] } },
+    },
+  ],
+};
+
+export const SAMPLE_D20 = SAMPLE_D20_0_1_16;

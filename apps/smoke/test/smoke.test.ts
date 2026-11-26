@@ -4293,6 +4293,19 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
       cite: "Base p.1",
     },
   ];
+  // House decisions #175 and #176: a yes-or-no acquisition input has one part, a fitting's copies field is a number.
+  type Loose = { items: { acquire: { inputs: Record<string, unknown[]> }; kinds: { id: string; fits?: object }[] } };
+  const broken = structuredClone(ruleset) as unknown as Loose;
+  broken.items.acquire.inputs.rare = [...(broken.items.acquire.inputs.rare ?? []), { label: "Again", value: "true" }];
+  broken.items.kinds = broken.items.kinds.map((k) =>
+    k.id === "fittings" ? { ...k, fits: { ...k.fits, copies: "slot" } } : k,
+  );
+  const brokenImport = await me.post<RulesetReply & { problems?: Problem[] }>("/rulesets", broken);
+  assert.equal(brokenImport.status, 422);
+  assert.deepEqual(brokenImport.body.problems?.map((p) => p.path).sort(), [
+    "items.acquire.inputs.rare",
+    "items.kinds[1].fits.copies",
+  ]);
   const rs = await me.post<RulesetReply>("/rulesets", ruleset);
   const pk = await me.post<PackReply>("/packs", SAMPLE_LEDGER_PACK);
   assert.deepEqual([rs.status, pk.status], [201, 201]);
@@ -4532,6 +4545,11 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
   const called = phoneCall.tests.find((c) => c.id === bowCall)!;
   assert.equal(called.acquire?.name, "Hunting Bow");
   assert.equal(called.targets[0]?.target, 11);
+  // The phone reads the Test's word for each input; the bow, rated 3, is a rare find, which costs it 1 (#175).
+  assert.deepEqual(
+    [called.acquire?.inputs.dn?.label, called.acquire?.inputs.rare?.label, called.acquire?.inputs.rare?.total],
+    ["Number to beat", "Rare", true],
+  );
   const reportFace = (callId: string, face: number) =>
     ana.c.send({ type: "test.report", callId, actorId: ana.held, roll: { kind: "faces", faces: [face] } });
   ok(await reportFace(bowCall, 15));
@@ -4571,6 +4589,33 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
     await ana.c.send({ type: "item.fit", itemId: named(s, "Sight Lens")!.id, to: null, line: "weapons/Nope" }),
     "itemFitted",
   );
+
+  // House decision #176: the Bow String goes on a BOW only; the free Ribbon goes on the full staff, into its taken sight
+  // slot, twice and no more; on kit the Long Sight takes a slot of its own, beside a Sight Lens.
+  for (const entry of ["bow-string", "ribbon", "ribbon", "ribbon", "long-sight", "sight-lens"])
+    ok(await owner.send({ type: "item.add", actorId: ana.held, kind: "fittings", entry: `wargear.${entry}` }));
+  ok(await owner.send({ type: "item.add", actorId: ana.held, kind: "kit", entry: "wargear.rope" }));
+  s = await ana.c.until(
+    (x) => named(x, "Rope") !== undefined && itemsOf(x).filter((y) => y.name === "Ribbon").length === 3,
+  );
+  const loose = (name: string) =>
+    itemsOf(s).find((x) => x.name === name && x.fittedTo === null && x.fittedLine === undefined)!.id;
+  const fitTo = (name: string, to: string) => ({ type: "item.fit", itemId: loose(name), to }) as const;
+  const staffNow = named(s, "Lantern Staff")!.id;
+  refused(await ana.c.send(fitTo("Bow String", staffNow)), "itemFitsNot");
+  ok(await ana.c.send(fitTo("Bow String", bow.id)));
+  for (let i = 0; i < 2; i++) {
+    ok(await ana.c.send(fitTo("Ribbon", staffNow)));
+    s = await ana.c.until(
+      (x) => itemsOf(x).filter((y) => y.name === "Ribbon" && y.fittedTo === staffNow).length === i + 1,
+    );
+  }
+  refused(await ana.c.send(fitTo("Ribbon", staffNow)), "itemFitCopies");
+  const rope = named(s, "Rope")!.id;
+  ok(await ana.c.send(fitTo("Long Sight", rope)));
+  s = await ana.c.until((x) => itemsOf(x).some((y) => y.name === "Long Sight" && y.fittedTo === rope));
+  ok(await ana.c.send(fitTo("Sight Lens", rope)));
+  await ana.c.until((x) => itemsOf(x).some((y) => y.name === "Sight Lens" && y.fittedTo === rope));
   for (const c of [owner, ana.c, ben.c]) c.socket.close();
 });
 

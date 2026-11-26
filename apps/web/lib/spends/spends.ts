@@ -2,10 +2,10 @@ import type { Actor, LiveState, SpendRequest } from "@inconsistable/core-schema"
 import {
   actorScope,
   evaluate,
+  fightOf,
   parseExpr,
   planSpend,
   resourceBounds,
-  usedKey,
   withLists,
   type ActorState,
   type CompiledRuleset,
@@ -16,6 +16,8 @@ import {
   type Spend,
   type SpendPlan,
 } from "@inconsistable/rules-engine";
+
+import { turnOf } from "@/lib/fight/fight";
 
 // The pure side of spends (house decision #84): what a character may spend now, read as the server reads it, and the
 // words a spend or an ask is shown with. The server still decides; this is the preview that hides what it would refuse.
@@ -60,21 +62,7 @@ export function spendWorld({
     }
   }
   const pools = Object.fromEntries(table.pools.map((p) => [p.id, { value: p.value, min: p.min, max: p.max }]));
-  const e = table.encounter;
-  const turn: RuleState["turn"] =
-    e === null
-      ? null
-      : {
-          round: e.round,
-          currentId: null,
-          order: e.combatants.map((c) => c.actorId),
-          barred: e.combatants.filter((c) => c.barred === true).map((c) => c.actorId),
-          // House decision #91: the round's uses, as the server counts them.
-          used: e.combatants.flatMap((c) =>
-            (c.used ?? []).map((spendId) => usedKey({ round: e.round, actorId: c.actorId, spendId })),
-          ),
-        };
-  const state: RuleState = { actors: {}, turn, pools };
+  const state: RuleState = { actors: {}, turn: turnOf(table.encounter), pools };
   const self: ActorState = { id: actor.id, fields: actor.fields, resources, scope, entity: actor.entity ?? undefined };
   return { actor: self, state: { ...state, actors: { [actor.id]: self } } };
 }
@@ -176,14 +164,8 @@ export function inputMax({
   world: { actor: ActorState; state: RuleState };
   source: string;
 }): number | null {
-  const t = world.state.turn;
   const id = world.actor.id;
-  const fight = {
-    on: t !== null,
-    in: t?.order.includes(id) ?? false,
-    round: t?.round ?? 0,
-    barred: t?.barred?.includes(id) ?? false,
-  };
+  const fight = fightOf(world.state, id);
   try {
     const v = evaluate({ node: parseExpr(source), scope: { ...world.actor.scope, ctx: { self: id, fight } } });
     return typeof v === "number" ? v : null;

@@ -6,7 +6,7 @@ import { Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { lineNames, type PrepWorld, type SummaryWords } from "../scene-prep/scene-prep.ts";
-import { plainText, printRunSheet } from "./run-sheet.ts";
+import { fieldText, plainText, printRunSheet } from "./run-sheet.ts";
 import type { PrintWords } from "./sheet.ts";
 
 const ruleset = Ruleset.parse(SAMPLE_D20);
@@ -108,6 +108,18 @@ test("the GM's notes and a Test's outcomes print only from the GM side", () => {
   assert.equal(not.gmNotes, "");
   assert.equal(not.scenes[0]?.gmNotes, "");
   assert.ok(!JSON.stringify(not).includes("Swept away"));
+});
+
+test("the GM's run sheet names a linked entry the table does not see", () => {
+  const field = {
+    id: "home",
+    def: { type: "entry", label: "Home", kind: "location", visibility: "gm" },
+    value: "x",
+  } as const;
+  const hidden = entry({ id: "x", kind: "location", title: "The Vault", visibility: "gm" });
+  assert.equal(fieldText({ ruleset, entries: [hidden], field, t }), "The Vault");
+  assert.equal(fieldText({ ruleset, entries: [hidden], field, t, named: () => false }), "…");
+  assert.equal(fieldText({ ruleset, entries: [], field, t }), "—");
 });
 
 test("a mention prints as its title", () => {

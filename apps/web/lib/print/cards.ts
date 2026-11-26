@@ -7,7 +7,7 @@ import { SHARED_LAYOUT, printValue } from "../sheet/sheet.ts";
 import { rowFor, type SheetActor, type SheetRow } from "../sheet-widgets/sheet-widgets.ts";
 
 import { CARD_STATS, CARDS_PER_SHEET, CREATURE_STATS, ITEM_TEXT_MAX } from "./constants.ts";
-import { fieldText } from "./run-sheet.ts";
+import { fieldText, seenByAll } from "./run-sheet.ts";
 import type { PrintWords } from "./sheet.ts";
 
 // Printed props (issue #4, house decision #153): poker cards for creatures and items, a fold-over tent card per
@@ -34,7 +34,7 @@ export type CreatureSource = {
  * for one it may not see) for the rest. A printed prop goes on the table, so it names nothing a phone would not.
  */
 export function tableText({ body, entries }: { body: string; entries: readonly CodexEntry[] }): string {
-  const open = new Set(entries.filter((e) => e.visibility !== "gm" && e.audienceMode === "all").map((e) => e.id));
+  const open = new Set(entries.filter(seenByAll).map((e) => e.id));
   return splitMentions(body)
     .map((p) => ("text" in p ? p.text : open.has(p.id) ? p.title : "…"))
     .join("");
@@ -92,7 +92,10 @@ export function creatureCard({ ruleset, entry }: { ruleset: Ruleset; entry: Crea
   };
 }
 
-/** A codex item's card: its declared fields, its table text (never the GM's notes), and the page it was made from. */
+/**
+ * A codex item's card, a prop for the table: the declared fields every seat may read (a GM-only one stays off), a link
+ * named only when every seat reads its entry, its table text (never the GM's notes), and the page it was made from.
+ */
 export function itemCard({
   ruleset,
   entry,
@@ -108,8 +111,9 @@ export function itemCard({
     kind: "item",
     name: entry.title,
     stats: shownFields({ ruleset, entry })
+      .filter((field) => field.def.visibility !== "gm")
       .slice(0, CARD_STATS)
-      .map((field) => ({ label: field.def.label, value: fieldText({ ruleset, entries, field, t }) })),
+      .map((field) => ({ label: field.def.label, value: fieldText({ ruleset, entries, field, t, named: seenByAll }) })),
     text: cut(tableText({ body: entry.body, entries }), ITEM_TEXT_MAX),
     cite: entry.source?.cite ?? null,
   };

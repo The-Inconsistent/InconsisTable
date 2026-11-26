@@ -48,17 +48,27 @@ export const plainText = (body: string): string =>
     .map((p) => ("text" in p ? p.text : p.title))
     .join("");
 
-/** A declared field's value as words: an enum by its label, tags as words, rows as their chips, a link by its title. */
+/** Whether every seat reads an entry: not GM-only, and not kept to listed characters. */
+export const seenByAll = (e: Pick<CodexEntry, "visibility" | "audienceMode">): boolean =>
+  e.visibility !== "gm" && e.audienceMode === "all";
+
+/**
+ * A declared field's value as words: an enum by its label, tags as words, rows as their chips, a link by its title.
+ * `named` says which linked entries the paper may name; any other prints "…", as a phone shows one it may not see.
+ * (A rows chip never names a codex entry: its `ref` names a pack entry, its `test` a Test.)
+ */
 export function fieldText({
   ruleset,
   entries,
   field,
   t,
+  named = () => true,
 }: {
   ruleset: Ruleset | null;
   entries: readonly CodexEntry[];
   field: ShownField;
   t: PrintWords;
+  named?: (e: CodexEntry) => boolean;
 }): string {
   const { def, value } = field;
   if (def.type === "enum" && typeof value === "string") return enumWords({ def, value }).label;
@@ -74,7 +84,10 @@ export function fieldText({
           .join(" "),
       )
       .join("; ");
-  if (def.type === "entry") return linkedEntry({ entries, id: value })?.title ?? "—";
+  if (def.type === "entry") {
+    const linked = linkedEntry({ entries, id: value });
+    return linked ? (named(linked) ? linked.title : "…") : "—";
+  }
   if (typeof value === "boolean") return value ? t("yes") : t("no");
   return Array.isArray(value) ? value.join(", ") : String(value);
 }

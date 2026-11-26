@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import type { Paper } from "@/lib/print/constants";
 
@@ -49,6 +49,14 @@ export function PrintDialog({ label, ariaLabel, title, papers, paperKey, hint, f
   const url = useRef<string | null>(null); // the built PDF's blob URL, freed on close or when a choice changes
   // Bumped by every reset: a build that ends after one belongs to choices the dialog no longer shows, so it's dropped.
   const generation = useRef(0);
+
+  // Syncs with the browser's blob URL store: a PDF built while the dialog is open is freed if the button unmounts.
+  useEffect(
+    () => () => {
+      if (url.current) URL.revokeObjectURL(url.current);
+    },
+    [],
+  );
 
   // Drops the built PDF: a new choice needs a new build.
   const reset = () => {

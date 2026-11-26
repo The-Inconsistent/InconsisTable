@@ -20,7 +20,7 @@ import { SAMPLE_HARM } from "../../../../packages/rules-engine/src/fixtures/samp
 import { SAMPLE_PACK } from "../../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { Ruleset, type RulesetInput } from "../../../../packages/rules-engine/src/manifest.ts";
-import { seatManifest, seatView, type Snapshot } from "./view.ts";
+import { ownerStrikeProblems, seatManifest, seatView, type Snapshot } from "./view.ts";
 import { CRAFTED_SEAT_CUTS, SAMPLE_RULESETS } from "./samples.ts";
 import type { PoolState } from "../../../../packages/core-schema/src/index.ts";
 
@@ -663,6 +663,16 @@ test("a second phone's copy carries no gm panel line or figure, and no panel gua
     phone.layout.hero?.phoneTurn?.flatMap((r) => (typeof r === "string" ? [] : [r.variant])),
     ["incoming", "hit", "fallen", "stances", "sweep"],
   );
+  // The importer refuses each such panel, as it does an owner's strike (house decisions #113, #114); the samples pass.
+  assert.deepEqual(
+    ownerStrikeProblems(rules.compiled.ruleset).map((p) => p.path),
+    ["panels[0]", "panels[4]", "panels[5]"],
+  );
+  for (const sample of [SAMPLE_RULESETS.harm, SAMPLE_RULESETS.skirmish, SAMPLE_RULESETS.duel]) {
+    const c = compileRuleset(sample!);
+    assert.ok(c.ok);
+    assert.deepEqual(ownerStrikeProblems(c.compiled.ruleset), []);
+  }
 });
 
 // House decision #76: a link to another entry reaches a seat only when the seat may read the entry it names.

@@ -584,7 +584,12 @@ export const SAMPLE_HARM: RulesetInput = {
   version: "0.1.8",
   entities: [
     ...(SAMPLE_HARM_BEFORE_PANELS.entities ?? []),
-    { id: "stance", label: "Stance", base: "ability", fields: { gist: { type: "text", label: "Gist" } } },
+    {
+      id: "stance",
+      label: "Stance",
+      base: "ability",
+      fields: { gist: { type: "text", label: "Gist", visibility: "party" } },
+    },
   ],
   layout: {
     hero: {

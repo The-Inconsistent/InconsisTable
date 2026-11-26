@@ -11,7 +11,8 @@ import (
 // OwnerStrikeProblems is what an import refuses of a strike its owner sends (house decision #113; vectors/reference
 // ownerStrikeProblems): one a player's copy (house decision #101) does not carry as declared, because the cut that makes
 // that copy compile took or narrowed it for reading a value players may not read. Each is refused at the strike's path,
-// naming where it reads one. The manifest is the normalized one of a ruleset that compiles.
+// naming where it reads one. A panel (house decision #114) a player's copy loses or cuts down is refused the same way,
+// at the panel's path: it is drawn only on phones. The manifest is the normalized one of a ruleset that compiles.
 func OwnerStrikeProblems(manifest map[string]any) []engine.Problem {
 	var owned []int
 	strikes := list(manifest["strikes"])
@@ -20,11 +21,36 @@ func OwnerStrikeProblems(manifest map[string]any) []engine.Problem {
 			owned = append(owned, i)
 		}
 	}
-	if len(owned) == 0 {
+	panels := list(manifest["panels"])
+	if len(owned) == 0 && len(panels) == 0 {
 		return nil
 	}
 	player := cs.Ctx{TableMode: cs.TableModeGM, Seat: cs.Seat{Kind: cs.SeatMember, Role: "player"}}
 	served := SeatManifest(manifest, player)
+	out := strikeProblems(served, strikes, owned)
+	shown := map[string]string{}
+	for _, p := range list(served["panels"]) {
+		panel, _ := p.(map[string]any)
+		id, _ := panel["id"].(string)
+		shown[id] = engine.CanonicalJSON(panel)
+	}
+	for i, p := range panels {
+		panel, _ := p.(map[string]any)
+		id, _ := panel["id"].(string)
+		switch had, kept := shown[id]; {
+		case !kept:
+			out = append(out, engine.Problem{Path: fmt.Sprintf("panels[%d]", i),
+				Message: "a panel reads a value players may not read, so their copy loses it"})
+		case had != engine.CanonicalJSON(panel):
+			out = append(out, engine.Problem{Path: fmt.Sprintf("panels[%d]", i),
+				Message: "a panel reads a value players may not read, so their copy loses part of it"})
+		}
+	}
+	return out
+}
+
+// strikeProblems is the owner strikes (the indexes in owned) the player's copy served does not carry as declared.
+func strikeProblems(served map[string]any, strikes []any, owned []int) []engine.Problem {
 	kept := map[string]string{}
 	for _, s := range list(served["strikes"]) {
 		strike, _ := s.(map[string]any)

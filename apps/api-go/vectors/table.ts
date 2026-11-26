@@ -1104,7 +1104,11 @@ const ownerStrikes = Object.fromEntries(
     return [fixture, ownerStrikeProblems(c.compiled.ruleset)];
   }),
 );
-if (ownerStrikes.sweepAtBrute?.length !== 1 || ownerStrikes.sweepNote?.length !== 1)
+if (
+  ownerStrikes.sweepAtBrute?.length !== 1 ||
+  ownerStrikes.sweepNote?.length !== 1 ||
+  ownerStrikes.harmPanelCuts?.length !== 3
+)
   throw new Error(`the crafted owner strikes are not refused: ${JSON.stringify(ownerStrikes)}`);
 writeFileSync(
   SERVED_OUT,

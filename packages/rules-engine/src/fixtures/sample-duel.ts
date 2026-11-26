@@ -97,4 +97,4 @@ export const SAMPLE_DUEL: RulesetInput = {
 export const SAMPLE_DUEL_BLADES = [
   { key: "rapier", name: "Rapier", body: { cut: 2 } },
   { key: "sabre", name: "Sabre", body: { cut: 3 } },
-].map(({ key, name, body }) => ({ key, type: "blade", name, tags: [], cite: "Sample p.6", visibility: "gm", body }));
+].map(({ key, name, body }) => ({ key, type: "blade", name, tags: [], cite: "Sample p.6", visibility: "party", body }));

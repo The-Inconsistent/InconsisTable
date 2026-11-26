@@ -210,7 +210,31 @@ span.mention {
   min-width: 0;
 }
 .codex-list > li {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+}
+/* Under a row: who reads it and the one-tap reveal (#218), on a line of their own. */
+.codex-row-acts {
+  flex: 1 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.reach-chip {
+  min-height: 32px;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+}
+.reach-names {
+  flex: 1 0 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+/* FOR YOUR EYES ONLY: the word says it; the dashed edge marks it at a glance. */
+.chip[data-eyes="only"] {
+  border-style: dashed;
 }
 .btn.codex-row {
   flex: 1 1 0;

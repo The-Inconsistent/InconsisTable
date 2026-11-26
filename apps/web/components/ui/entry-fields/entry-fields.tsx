@@ -43,6 +43,8 @@ type EntryFieldsProps = {
   fields?: readonly ShownField[];
   /** False where the entry's reminder lines are drawn elsewhere. */
   reminders?: boolean;
+  /** The campaign fields in play, which a reminder may read (house decision #97). */
+  campaign?: Readonly<Record<string, string | number | boolean>>;
 };
 
 /**
@@ -135,6 +137,7 @@ export function EntryFields({
   readNames = true,
   fields,
   reminders: withReminders = true,
+  campaign,
 }: EntryFieldsProps) {
   const t = useTranslations("entryFields");
   const { opened, openEntry, close } = usePackEntry();
@@ -168,7 +171,7 @@ export function EntryFields({
       : [],
   );
   const lists = shown.flatMap(({ id, def, value }) => (def.type === "rows" ? [{ id, def, rows: rowsOf(value) }] : []));
-  const reminders = withReminders ? <EntryReminders ruleset={ruleset} entry={entry} /> : null;
+  const reminders = withReminders ? <EntryReminders ruleset={ruleset} entry={entry} campaign={campaign} /> : null;
 
   // A ref row: opens the pack entry it names, read for this seat (a gm one only where the seat reads gm entries).
   const handleOpen = (row: (typeof rows)[number], title: string) => async () => {
@@ -177,7 +180,7 @@ export function EntryFields({
     await openEntry({ url: entryUrl({ campaignId, type: row.ref, key }), title, known: row.named });
   };
 
-  const lineCount = withReminders ? entryReminders({ ruleset, entry }).length : 0;
+  const lineCount = withReminders ? entryReminders({ ruleset, entry, campaign }).length : 0;
   if (chips.length + rows.length + links.length + tags.length + lists.length + lineCount === 0) return null;
   return (
     <div className="stack entry-fields">

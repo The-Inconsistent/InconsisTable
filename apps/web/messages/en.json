@@ -951,7 +951,9 @@
       "showName": "Show {name} to the party",
       "sealName": "Seal {name} from the party",
       "shown": "Shown",
-      "sealed": "Sealed"
+      "sealed": "Sealed",
+      "readers": "Readers",
+      "readersName": "Change who reads {name}"
     },
     "inScene": {
       "title": "In this scene",
@@ -1951,7 +1953,11 @@
       "sceneOption": "{title} ({status})",
       "add": "Add {name} to the scene",
       "added": "Added to {scene}"
-    }
+    },
+    "readersOf": "Who reads {title}",
+    "searchKey": "Search the codex (press /)",
+    "hits": "{kind}: {count, plural, one {# match} other {# matches}}",
+    "hitLabel": "Peek at {title}"
   },
   "handout": {
     "layoutLabel": "Layout",
@@ -2985,5 +2991,12 @@
     "noOptions": "None of these are attached to this table.",
     "needs": "Needs {needs}",
     "cannotUse": "Not now"
+  },
+  "peek": {
+    "title": "Entry",
+    "missing": "This entry is not in your notebook any more.",
+    "eyesOnly": "For your eyes only",
+    "goTo": "Go to",
+    "goToLabel": "Go to {title} in Codex"
   }
 }

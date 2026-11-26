@@ -3,7 +3,18 @@ import { describe, test } from "node:test";
 
 import type { CodexEntry } from "@inconsistable/core-schema";
 
-import { entryPath, filterEntries, newestRevealed, parentOptions, savePatch, treeRows, unfolded } from "./codex.ts";
+import {
+  byKind,
+  entryPath,
+  filterEntries,
+  forYourEyes,
+  nameLinker,
+  newestRevealed,
+  parentOptions,
+  savePatch,
+  treeRows,
+  unfolded,
+} from "./codex.ts";
 
 const entry = (over: Partial<CodexEntry>): CodexEntry => ({
   id: "e1",
@@ -57,6 +68,53 @@ describe("filterEntries", () => {
   test("kind and query combine", () => {
     assert.deepEqual(ids(filterEntries({ entries, kind: "npc", query: "lantern" })), ["a"]);
     assert.deepEqual(ids(filterEntries({ entries, kind: "lore", query: "lantern" })), []);
+  });
+  test("the query hits a field's value and a tag's word", () => {
+    const tagged = [
+      entry({ id: "t", title: "Gate", body: "", fields: { mood: "wary", ranks: 3, tags: ["Smuggler", "night"] } }),
+      ...entries,
+    ];
+    assert.deepEqual(ids(filterEntries({ entries: tagged, kind: "all", query: "smuggler" })), ["t"]);
+    assert.deepEqual(ids(filterEntries({ entries: tagged, kind: "all", query: "WARY" })), ["t"]);
+    assert.deepEqual(ids(filterEntries({ entries: tagged, kind: "all", query: "secret" })), []);
+  });
+});
+
+describe("byKind", () => {
+  test("groups in the codex's kind order and leaves out empty kinds", () => {
+    assert.deepEqual(
+      byKind(entries).map((g) => [g.kind, ids(g.entries)]),
+      [
+        ["npc", ["a"]],
+        ["location", ["b"]],
+        ["lore", ["c"]],
+      ],
+    );
+  });
+});
+
+describe("nameLinker", () => {
+  const named = [
+    entry({ id: "loc", kind: "location", title: "Maren" }),
+    entry({ id: "npc", kind: "npc", title: "Maren" }),
+    entry({ id: "old", kind: "npc", title: "Old Maren" }),
+    entry({ id: "ox", kind: "npc", title: "Ox" }),
+  ];
+  const link = nameLinker(named);
+  const show = (text: string, self?: string) =>
+    link({ text, self })
+      .map((p) => ("entry" in p ? `[${p.entry.id}]` : p.text))
+      .join("");
+  test("links whole words, longest title first, an NPC winning a shared title", () => {
+    assert.equal(show("Old Maren met Maren, not Marenson."), "[old] met [npc], not Marenson.");
+  });
+  test("skips short titles, the entry itself, and other cases", () => {
+    assert.equal(show("Ox and maren", "npc"), "Ox and maren");
+    assert.equal(show("Maren", "npc"), "Maren");
+  });
+  test("is built once per list", () => {
+    assert.equal(nameLinker(named), link);
+    assert.equal(nameLinker([])({ text: "Maren" }).length, 1);
   });
 });
 
@@ -125,5 +183,15 @@ describe("the entry tree", () => {
     assert.deepEqual(ids(entryPath({ entries: tree, entry: place("lost", "gone") })), []);
     const x = place("x", "y");
     assert.equal(entryPath({ entries: [x, place("y", "x")], entry: x }).length, 2);
+  });
+});
+
+describe("forYourEyes", () => {
+  test("a listed reveal to a character this seat holds", () => {
+    const listed = entry({ visibility: "party", audienceMode: "listed", audience: ["pc1"] });
+    assert.equal(forYourEyes({ entry: listed, held: ["pc1"] }), true);
+    assert.equal(forYourEyes({ entry: listed, held: [] }), false);
+    assert.equal(forYourEyes({ entry: { ...listed, audienceMode: "all" }, held: ["pc1"] }), false);
+    assert.equal(forYourEyes({ entry: { ...listed, visibility: "gm" }, held: ["pc1"] }), false);
   });
 });

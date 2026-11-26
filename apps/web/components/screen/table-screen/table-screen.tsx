@@ -115,6 +115,7 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
               campaignId={null}
               known={view?.first.entries ?? []}
               entries={codex?.entries ?? []}
+              campaign={state.campaign.fields}
             />
             {e.layout !== null ? (
               <HandoutDoc layout={e.layout} header={e.header ?? ""} title={e.title} body={e.body} entries={revealed} />

@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { canInCampaign, type Me } from "@inconsistable/core-schema";
 import type { ChecklistStep } from "@inconsistable/rules-engine";
@@ -22,6 +22,7 @@ import { Scene } from "@/components/gm/scene/scene";
 import { WhisperButton } from "@/components/gm/whisper-button/whisper-button";
 import { ActionNotices } from "@/components/ui/action-notices/action-notices";
 import { ArchivedBanner } from "@/components/ui/archived-banner/archived-banner";
+import { Peek } from "@/components/ui/peek/peek";
 import { TableModePicker } from "@/components/player/run-table/table-mode-picker";
 import { Tests } from "@/components/gm/tests/tests";
 import { Standings } from "@/components/ui/standings/standings";
@@ -99,8 +100,14 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
   // PREP's CALL: opens TESTS with that Test selected.
   const handleCall = (testId: string) => openTab("tests", { test: testId });
 
-  // PREP's "Open in CODEX": opens CODEX with that entry open.
-  const handleOpenCodex = (entryId: string) => openTab("codex", { entry: entryId });
+  // An entry a scene, a mention or a search names: its peek over the current tab (#218); GO TO leaves for CODEX.
+  const [peekId, setPeekId] = useState<string | null>(null);
+  const handleOpenCodex = (entryId: string) => setPeekId(entryId);
+  // GO TO under a peek: CODEX with that entry open, where it is edited.
+  const handleGoTo = (entryId: string) => {
+    setPeekId(null);
+    openTab("codex", { entry: entryId });
+  };
 
   // A checklist step's GO TO (house decision #90): its tab, the codex listing its kind.
   const handleGo = (goto: NonNullable<ChecklistStep["goto"]>) => {
@@ -171,6 +178,20 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
           onReopen={canInCampaign({ ctx: me, perm: "campaign:archive" }) ? () => openTab("party") : undefined}
         />
       )}
+      {peekId && (
+        <Peek
+          entryId={peekId}
+          entries={codex?.entries ?? []}
+          ruleset={view?.ruleset ?? null}
+          campaignId={me.campaignId}
+          campaign={state.campaign.fields}
+          known={view?.first.entries ?? []}
+          held={[]}
+          onOpen={setPeekId}
+          onClose={() => setPeekId(null)}
+          onGoTo={canInCampaign({ ctx: me, perm: "codex:write" }) ? handleGoTo : undefined}
+        />
+      )}
       <main className="page">
         {tab === "party" ? (
           <div className="stack" style={{ gap: 24 }}>
@@ -230,6 +251,7 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
             kind={address.kind ?? null}
             openId={address.entry ?? null}
             onNav={go}
+            onPeek={setPeekId}
             me={me}
             state={state}
             codex={codex}

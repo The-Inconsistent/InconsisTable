@@ -951,7 +951,9 @@
       "showName": "Cho cả nhóm xem {name}",
       "sealName": "Niêm {name} lại, giấu khỏi cả nhóm",
       "shown": "Đã cho xem",
-      "sealed": "Đã niêm"
+      "sealed": "Đã niêm",
+      "readers": "Người đọc",
+      "readersName": "Đổi người được đọc {name}"
     },
     "inScene": {
       "title": "Trong cảnh này",
@@ -1951,7 +1953,11 @@
       "sceneOption": "{title} ({status})",
       "add": "Thêm {name} vào cảnh",
       "added": "Đã thêm vào {scene}"
-    }
+    },
+    "readersOf": "Ai đọc {title}",
+    "searchKey": "Tìm trong codex (nhấn /)",
+    "hits": "{kind}: {count, plural, other {# kết quả}}",
+    "hitLabel": "Xem nhanh {title}"
   },
   "handout": {
     "layoutLabel": "Bố cục",
@@ -2985,5 +2991,12 @@
     "noOptions": "Bàn này chưa gắn mục nào loại này.",
     "needs": "Cần {needs}",
     "cannotUse": "Chưa dùng được"
+  },
+  "peek": {
+    "title": "Mục",
+    "missing": "Mục này không còn trong sổ tay của bạn.",
+    "eyesOnly": "Chỉ mình bạn được xem",
+    "goTo": "Đến",
+    "goToLabel": "Đến {title} trong Codex"
   }
 }

@@ -218,9 +218,18 @@ func seatState(state cs.LiveState, compiled *engine.CompiledRuleset, c cs.Ctx, s
 	if compiled != nil {
 		views = actorViews(state.Actors, compiled, c)
 	}
+	// House decision #117: a combatant the GM shows in full reaches every seat, cut to what the seat may read.
+	shown := map[string]bool{}
+	if state.Encounter != nil {
+		for _, cb := range state.Encounter.Combatants {
+			if cb.Visibility == "full" {
+				shown[cb.ActorID] = true
+			}
+		}
+	}
 	actors := []cs.Actor{}
 	for _, a := range state.Actors {
-		if !slices.Contains(partyKinds, a.Kind) && !holds(held, a.ID) && !sight.Combat {
+		if !slices.Contains(partyKinds, a.Kind) && !holds(held, a.ID) && !sight.Combat && !shown[a.ID] {
 			continue
 		}
 		out := a

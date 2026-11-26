@@ -339,7 +339,9 @@ const ALL = {
 };
 // A seat that holds nothing: the party by name and what it may know of it, the shared view of the fight.
 const NOBODY = {
-  actors: ["lyra", "bran"],
+  // The Creature the GM shows in full reaches every seat, without its `gm` values (house decision #117); the `bar` one
+  // does not.
+  actors: ["lyra", "bran", "ogre"],
   lyraGmField: undefined,
   lyraOwnerField: undefined,
   lyraConditions: ["dazed"],
@@ -364,7 +366,7 @@ const NOBODY = {
 };
 // What a seat holding Lyra adds.
 const HOLDING_LYRA = {
-  actors: ["lyra", "bran"],
+  actors: ["lyra", "bran", "ogre"],
   lyraOwnerField: "dear diary",
   sum: { target: null, modifier: 3, pool: null, shifts: null, secret: [] }, // the DC stays hidden, the modifier is theirs
   pool: { target: null, modifier: null, pool: null, shifts: null, secret: [] }, // no number to work the DC out from
@@ -634,6 +636,33 @@ test("a strike, a generator and a codex kind's prefill are cut where they read w
   const secrets = served(CRAFTED_SEAT_CUTS.d20Cuts!, ctx(member("cogm", ["codex", "codex.secrets"]), "u-co"));
   assert.deepEqual(secrets.generators, []);
   assert.deepEqual(secrets.codex?.kinds.location?.from, [{ entity: "site", values: {}, children: "within" }]);
+});
+
+test("a second phone's copy carries no gm panel line or figure, and no panel guarded by a gm value (#114)", () => {
+  const rules = compileRuleset(CRAFTED_SEAT_CUTS.harmPanelCuts!);
+  assert.ok(rules.ok);
+  const gm = seatManifest({ ruleset: rules.compiled.ruleset, ctx: ctx(member("gm"), "u-gm") });
+  assert.equal(gm.panels?.length, 6);
+  const phone = seatManifest({ ruleset: rules.compiled.ruleset, ctx: ctx(member("player", [], ["bran"]), "u-bran") });
+  assert.ok(compileRuleset(phone).ok);
+  assert.deepEqual(
+    phone.panels?.map((p) => p.id),
+    ["incoming", "hit", "fallen", "stances"],
+  );
+  const incoming = phone.panels![0]!;
+  assert.deepEqual(
+    incoming.lines?.map((l) => l.text),
+    ["Say how you meet the blow before the dice land", "Resolve left: you may try again"],
+  );
+  assert.deepEqual(
+    incoming.figures?.map((f) => f.label),
+    ["Grit", "Wounds before you fall"],
+  );
+  assert.ok(!JSON.stringify(phone).includes("doom") && !JSON.stringify(phone).includes("dread"));
+  assert.deepEqual(
+    phone.layout.hero?.phoneTurn?.flatMap((r) => (typeof r === "string" ? [] : [r.variant])),
+    ["incoming", "hit", "fallen", "stances", "sweep"],
+  );
 });
 
 // House decision #76: a link to another entry reaches a seat only when the seat may read the entry it names.

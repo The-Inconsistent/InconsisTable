@@ -3,6 +3,7 @@ package view
 import (
 	"encoding/json"
 	"os"
+	"slices"
 	"testing"
 
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
@@ -20,6 +21,45 @@ type vectorCtx struct {
 		Scopes       []string    `json:"scopes"`
 		CharacterIDs []string    `json:"characterIds"`
 	} `json:"seat"`
+}
+
+// A seat that does not run the fight is sent a creature only when the GM shows it in full, and then none of its `gm`
+// values; a combatant shown as a bar carries no numbers (house decision #117).
+func assertFoesShownInFull(t *testing.T, name string, s Snapshot, got SeatView, compiled *engine.CompiledRuleset, c cs.Ctx) {
+	t.Helper()
+	sight := SightOf(c)
+	if sight.All || sight.Combat || s.State.Encounter == nil {
+		return
+	}
+	full := map[string]bool{}
+	for _, cb := range s.State.Encounter.Combatants {
+		full[cb.ActorID] = full[cb.ActorID] || cb.Visibility == "full"
+	}
+	for _, a := range got.State.Actors {
+		if slices.Contains(partyKinds, a.Kind) || holds(HeldBy(c), a.ID) {
+			continue
+		}
+		if !full[a.ID] {
+			t.Errorf("%s: sent %s, which is not shown in full", name, a.ID)
+		}
+		if compiled == nil {
+			continue
+		}
+		for _, e := range compiled.Ruleset.Entities {
+			for key, def := range e.Fields {
+				if _, sent := a.Fields[key]; sent && e.ID == a.Entity && (def.Visibility == "" || def.Visibility == "gm") {
+					t.Errorf("%s: sent the gm field %s of %s", name, key, a.ID)
+				}
+			}
+		}
+	}
+	if got.State.Encounter != nil {
+		for _, cb := range got.State.Encounter.Combatants {
+			if cb.Visibility == "bar" && cb.HP != nil {
+				t.Errorf("%s: sent the numbers of %s, shown as a bar", name, cb.ActorID)
+			}
+		}
+	}
 }
 
 func canonical(t *testing.T, v any) string {
@@ -105,6 +145,7 @@ func TestSeatViewsMatchTypeScript(t *testing.T) {
 			t.Errorf("%s, %s: pack visibilities want %s, got %s", c.Snapshot, c.SeatName, want, have)
 		}
 		assertNothingForTheGM(t, c.Snapshot+", "+c.SeatName, s.State.Campaign.TableMode, c.Ctx.Seat.Kind, got, ReadableEntryVisibilities(fresh))
+		assertFoesShownInFull(t, c.Snapshot+", "+c.SeatName, s, got, ruleset, fresh)
 		if want, have := engine.CanonicalJSON(c.State), canonical(t, got.State); want != have {
 			t.Errorf("%s, %s: state\n want %s\n  got %s", c.Snapshot, c.SeatName, want, have)
 		}

@@ -7484,7 +7484,8 @@ test("campaign wizard: a plain ruleset's room, dry run then made, refused whole 
   const me = caller(ownerDevice);
   assert.equal((await me.post("/rulesets", SAMPLE_SKIRMISH_PREMISE)).status, 201);
   assert.equal((await me.post("/packs", WIZARD_PACK)).status, 201);
-  const rooms = async () => ((await (await get("/lobby", cookieOf(ownerDevice))).json()) as Lobby).mine;
+  // Read from the caller's own address: the shared one is rate limited across the suite.
+  const rooms = async () => (await me.get<Lobby>("/lobby")).body.mine;
 
   // A value the game does not allow is refused by its path, before and during a dry run, and makes nothing.
   const wrong = await me.post<RoomImportRefusal>(
@@ -7541,7 +7542,7 @@ test("campaign wizard: a game module's room carries its parts and the wizard's v
   const me = caller(ownerDevice);
   const module = await me.post<ModuleReply>("/modules", SAMPLE_MODULE);
   assert.equal(module.status, 201);
-  const rooms = async () => ((await (await get("/lobby", cookieOf(ownerDevice))).json()) as Lobby).mine;
+  const rooms = async () => (await me.get<Lobby>("/lobby")).body.mine;
   const doc: RoomDocumentInput = {
     format: "inconsistable-room",
     version: 1,

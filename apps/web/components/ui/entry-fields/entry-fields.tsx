@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import type { CodexEntry } from "@inconsistable/core-schema";
 import type { CodexField, Ruleset } from "@inconsistable/rules-engine";
 
+import { Cite } from "@/components/ui/cite/cite";
 import { PackEntrySheet } from "@/components/ui/pack-entry-sheet/pack-entry-sheet";
 import { RefName } from "@/components/ui/ref-name/ref-name";
 import { usePackEntry } from "@/hooks/use-pack-entry/use-pack-entry";
@@ -92,7 +93,7 @@ export function RowChips({
           {c.text}
         </span>
       ))}
-      {row.from?.cite && <span className="small dim">{row.from.cite}</span>}
+      {row.from?.cite && <Cite cite={row.from.cite} />}
     </span>
   );
 }
@@ -116,7 +117,12 @@ export function EntryReminders({
       {lines.map((r) => (
         <li key={r.id} className="small" role="note">
           <strong>{r.text}</strong>
-          {r.cite && <span className="dim"> ({r.cite})</span>}
+          {r.cite && (
+            <>
+              {" "}
+              <Cite cite={r.cite} />
+            </>
+          )}
         </li>
       ))}
     </ul>

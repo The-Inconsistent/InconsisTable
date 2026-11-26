@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
+import { Cite } from "@/components/ui/cite/cite";
 import type { OpenedEntry } from "@/hooks/use-pack-entry/use-pack-entry";
 import { summaryOf } from "@/lib/builder/builder";
 
@@ -30,7 +31,7 @@ export function PackEntrySheet({ opened, ruleset, onClose }: PackEntrySheetProps
           <div className="row">
             <span className="chip">{def?.label ?? entry.type}</span>
             {entry.level !== null && <span className="chip">{t("level", { level: entry.level })}</span>}
-            {entry.cite && <span className="small dim">{entry.cite}</span>}
+            {entry.cite && <Cite cite={entry.cite} />}
           </div>
           {summary !== entry.name && <p className="dim">{summary}</p>}
           {rows.length > 0 && (

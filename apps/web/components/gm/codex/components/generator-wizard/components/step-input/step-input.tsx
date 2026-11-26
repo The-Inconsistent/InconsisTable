@@ -6,6 +6,7 @@ import type { ActionInput, ActionResult } from "@inconsistable/core-schema";
 import { pickFits, type GeneratorStep, type Ruleset, type StepValue } from "@inconsistable/rules-engine";
 
 import { IntInput } from "@/components/gm/codex/components/entry-fields-form/components/int-input/int-input";
+import { Cite } from "@/components/ui/cite/cite";
 import { TableTrail } from "@/components/ui/table-trail/table-trail";
 import { readEntries } from "@/hooks/use-pack-entry/use-pack-entry";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
@@ -154,7 +155,7 @@ export function StepInput(props: StepInputProps) {
                     }}
                   >
                     <strong>{e.name}</strong>
-                    {e.cite && <span className="small dim">{e.cite}</span>}
+                    {e.cite && <Cite cite={e.cite} />}
                   </button>
                 </li>
               ))}

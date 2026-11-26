@@ -23,4 +23,5 @@ relay (design §4.6).
 
 - Pages are available only while the GM's tablet is online and has the book loaded.
 - The api needs no book storage, but must authorize and size-limit the relay per seat.
-- The GM tablet side of `book:*` (`serveBooks`) is not wired yet; it is a P2 item.
+- The serving side is the GM's BOOKS tab (without a GM, the owner's, in RUN THE TABLE): PDFs picked on that device and
+  held in its memory, drawn with pdf.js on the first request (#221, house decision #147).

@@ -5,7 +5,7 @@ import { compileRuleset } from "./compile.ts";
 import { actorScope, deriveValues } from "./derived.ts";
 import { evaluate } from "./expr/expr.eval.ts";
 import { SAMPLE_HARM } from "./fixtures/sample-harm.ts";
-import { SAMPLE_SKIRMISH } from "./fixtures/sample-skirmish.ts";
+import { SAMPLE_SKIRMISH, SAMPLE_SKIRMISH_BEFORE_PANELS } from "./fixtures/sample-skirmish.ts";
 import type { RulesetInput } from "./manifest.ts";
 import { isRefusal, type ActorState, type RuleState } from "./primitives/primitive.ts";
 import { runOp } from "./primitives/registry.ts";
@@ -148,7 +148,7 @@ test("a spend limited per round counts its uses in the turn, round by round (hou
 test("the validator checks a spend's limit and the table it opens next (house decision #91)", () => {
   const problems = (over: Record<string, unknown>) => {
     const channel = SAMPLE_SKIRMISH.spends?.find((s) => s.id === "channel");
-    const r = compileRuleset({ ...SAMPLE_SKIRMISH, spends: [{ ...channel, ...over }] });
+    const r = compileRuleset({ ...SAMPLE_SKIRMISH_BEFORE_PANELS, spends: [{ ...channel, ...over }] });
     return r.ok ? [] : r.problems.map((p) => `${p.path}: ${p.message}`);
   };
   assert.deepEqual(problems({}), []);
@@ -205,7 +205,7 @@ test("convert moves up to the amount from wounds to the second track, and refuse
 test("the validator checks a spend's costs, inputs and ops", () => {
   const bad = (spend: Record<string, unknown>) => {
     const r = compileRuleset({
-      ...SAMPLE_SKIRMISH,
+      ...SAMPLE_SKIRMISH_BEFORE_PANELS,
       spends: [{ id: "x", label: "X", cite: "p.1", cost: [], ...spend }],
     });
     assert.ok(!r.ok);

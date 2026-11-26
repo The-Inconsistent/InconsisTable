@@ -517,7 +517,7 @@ export const SAMPLE_HARM_BEFORE_OWNER: RulesetInput = {
  * brute's GM-only numbers, is cut. The force put in is a choice: more dice, more members thinned, and as much strain
  * to pay, a further number the guide shows. Invented like the rest.
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_BEFORE_PANELS: RulesetInput = {
   ...SAMPLE_HARM_BEFORE_OWNER,
   version: "0.1.7",
   layout: {
@@ -572,6 +572,99 @@ export const SAMPLE_HARM: RulesetInput = {
     },
   ],
 };
+
+/**
+ * sample-harm 0.1.8 (house decisions #114, #115): a hero's phone shows its wounds against its limit and its grit and
+ * resolve on every tab; while a foe acts, what the hero meets the blow with; when its wounds rise, a sheet that asks to
+ * endure; while it has fallen, what it may still do; and on its turn the stances it may take (pack entries of a type of
+ * their own, ungrouped), hidden once fallen. Invented like the rest.
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_BEFORE_PANELS,
+  version: "0.1.8",
+  entities: [
+    ...(SAMPLE_HARM_BEFORE_PANELS.entities ?? []),
+    { id: "stance", label: "Stance", base: "ability", fields: { gist: { type: "text", label: "Gist" } } },
+  ],
+  layout: {
+    hero: {
+      sections: SAMPLE_HARM_BEFORE_PANELS.layout?.hero?.sections ?? [],
+      phoneStrip: [
+        { widget: "track", bind: { value: "res.wounds", max: "derived.limit" } },
+        { widget: "frames", bind: { values: ["grit", "res.resolve"] } },
+      ],
+      phoneTurn: [
+        { widget: "panel", variant: "incoming" },
+        { widget: "panel", variant: "hit" },
+        { widget: "panel", variant: "fallen" },
+        { widget: "panel", variant: "stances" },
+        ...(SAMPLE_HARM_BEFORE_PANELS.layout?.hero?.phoneTurn ?? []),
+      ],
+    },
+  },
+  panels: [
+    {
+      id: "incoming",
+      label: "Incoming",
+      cite: "Sample p.19",
+      entities: ["hero"],
+      when: "ctx.fight.foeActing",
+      lines: [
+        { text: "Say how you meet the blow before the dice land", cite: "Sample p.19" },
+        { text: "Resolve left: you may try again", when: "res.resolve > 0", cite: "Sample p.8" },
+      ],
+      figures: [
+        { label: "Grit", expr: "grit", cite: "Sample p.19" },
+        { label: "Wounds before you fall", expr: "max(0, derived.limit - res.wounds)", cite: "Sample p.19" },
+      ],
+    },
+    {
+      id: "hit",
+      label: "You're hit",
+      cite: "Sample p.9",
+      entities: ["hero"],
+      opensOn: { rises: "wounds" },
+      lines: [{ text: "Roll your grit; each mark turns a wound into strain", cite: "Sample p.9" }],
+      spends: ["endure"],
+    },
+    {
+      id: "fallen",
+      label: "Fallen",
+      cite: "Sample p.20",
+      entities: ["hero"],
+      holds: "fallen",
+      lines: [
+        { text: "Crawl, call out, or hold on", cite: "Sample p.20" },
+        { text: "Rise when a friend's healing brings you under your limit", cite: "Sample p.20" },
+      ],
+      figures: [{ label: "Scars", expr: "scars", cite: "Sample p.20" }],
+    },
+    {
+      id: "stances",
+      label: "This turn",
+      cite: "Sample p.21",
+      entities: ["hero"],
+      when: "ctx.fight.acting",
+      unless: "fallen",
+      lines: [{ text: "One stance a turn", cite: "Sample p.21" }],
+      options: { entry: "stance" },
+    },
+  ],
+};
+
+/** Stances for SAMPLE_HARM 0.1.8: the entries its `stances` panel lists (house decision #114). */
+export const SAMPLE_HARM_STANCES = [
+  { key: "guarded", name: "Guarded", body: { gist: "Strain first, wounds after" } },
+  { key: "reckless", name: "Reckless", body: { gist: "One more die, one less guard" } },
+].map(({ key, name, body }) => ({
+  key,
+  type: "stance",
+  name,
+  tags: [],
+  cite: "Sample p.21",
+  visibility: "party",
+  body,
+}));
 
 /**
  * Arms for SAMPLE_HARM (house decision #99): what a blow reads of the means it is struck with, and since 0.1.5 its

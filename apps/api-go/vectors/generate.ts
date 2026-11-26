@@ -997,7 +997,14 @@ function spendVectors() {
     if (!r.ok) throw new Error(JSON.stringify(r.problems));
     return r.compiled.ruleset;
   };
-  const rulesets = [compiled(SAMPLE_HARM), compiled(SAMPLE_SKIRMISH)];
+  // House decision #116: the skirmish's rally only on the actor's own turn or while it holds, never while a foe acts.
+  const FIGHT_KEYS = {
+    ...SAMPLE_SKIRMISH,
+    spends: SAMPLE_SKIRMISH.spends?.map((s) =>
+      s.id === "rally" ? { ...s, if: "!ctx.fight.foeActing && (ctx.fight.acting || ctx.fight.held)" } : s,
+    ),
+  };
+  const rulesets = [compiled(SAMPLE_HARM), compiled(SAMPLE_SKIRMISH), compiled(FIGHT_KEYS)];
   let seed = 84;
   const r = (n: number) => (((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 2 ** 32) * n) | 0;
   const one = <T>(items: readonly T[]): T => items[r(items.length)] as T;
@@ -1078,7 +1085,24 @@ function spendVectors() {
     const spendId = one(["rally", "rally", "jump", "shake", "channel", "channel"]);
     add(1, spendId, actor, { actors: { c1: actor }, turn, pools }, inputs);
   }
-  return { rulesets: [SAMPLE_HARM, SAMPLE_SKIRMISH], cases };
+  // House decision #116: who acts, who holds, and a foe acting, on both sides and with someone unknown acting.
+  const sides = { c1: "wardens", c2: "wardens", r1: "raiders" };
+  const order = ["c1", "c2", "r1"];
+  for (const turn of [
+    null,
+    { round: 1, currentId: "c1", order, sideOf: sides },
+    { round: 1, currentId: "c2", order, sideOf: sides },
+    { round: 1, currentId: "r1", order, sideOf: sides },
+    { round: 1, currentId: "r1", order, sideOf: sides, held: ["c1"] },
+    { round: 1, currentId: "c2", order, sideOf: sides, held: ["c1"] },
+    { round: 1, currentId: "zz", order, sideOf: sides, held: ["c1"] },
+    { round: 1, currentId: null, order, held: ["c1"] },
+    { round: 1, currentId: "r1", order: ["r1"], sideOf: sides, held: ["c1"] },
+  ] satisfies RuleState["turn"][]) {
+    const pools = { momentum: { value: 6, min: 0, max: 6 } };
+    add(2, "rally", fighter, { actors: { c1: fighter }, turn, pools }, { dice: 1 });
+  }
+  return { rulesets: [SAMPLE_HARM, SAMPLE_SKIRMISH, FIGHT_KEYS], cases };
 }
 
 const isRefusalLike = (v: object): v is { code: string; message: string } => "code" in v && "message" in v;
@@ -2740,6 +2764,7 @@ const CRAFTED: object[] = [
   ...reminderCrafted(),
   ...spendCrafted(),
   ...strikeCrafted(),
+  ...panelCrafted(),
   ...headerCrafted(),
   ...lookupCrafted(),
   ...heldCrafted(),
@@ -3594,6 +3619,58 @@ function headerCrafted(): object[] {
 
 // Strikes (house decision #99): the duel fixture's, and crafted problems on the harm fixture's and the skirmish's.
 MANIFESTS.push(SAMPLE_DUEL);
+
+// Panels (house decision #114): what the validator and the compiler refuse, each once, on the harm fixture without
+// its layout, and the panel widget's rows; a phone strip's rows (#115).
+function panelCrafted(): object[] {
+  const [incoming, hit] = SAMPLE_HARM.panels as unknown as [Record<string, unknown>, Record<string, unknown>];
+  const panel = (...panels: Record<string, unknown>[]) => ({ ...SAMPLE_HARM, layout: {}, panels });
+  const turn = (...phoneTurn: object[]) => ({ ...SAMPLE_HARM, layout: { hero: { sections: [], phoneTurn } } });
+  return [
+    panel(incoming, incoming),
+    panel({ ...incoming, id: "Bad", label: "", cite: undefined, entities: ["nope", "growth"] }),
+    panel({ ...incoming, holds: "nope", unless: "hurt", opensOn: { rises: "nope" } }),
+    panel({ ...hit, opensOn: { rises: "momentum" }, spends: ["endure", "nope"] }, { ...hit, id: "h2", spends: [] }),
+    {
+      ...panel({ ...hit, opensOn: { rises: "momentum" } }),
+      resources: [...SAMPLE_HARM.resources!, { id: "momentum", label: "M", scope: "party", max: "3", cite: "p.1" }],
+    },
+    panel(
+      { ...incoming, options: { entry: "nope" } },
+      { ...incoming, id: "o2", options: { entry: "stance", group: "kind", needs: "nope" } },
+    ),
+    panel({
+      ...incoming,
+      options: { entry: "stance", group: "gist", needs: "gist", usable: 'entry.gist == "x" && grit > 1' },
+    }),
+    panel(
+      { ...incoming, options: { entry: "stance", usable: "entry.nope" } },
+      { ...incoming, id: "o3", options: { entry: "nope", usable: "1" } },
+    ),
+    panel({ id: "empty", label: "E", cite: "p.1" }),
+    panel({ ...incoming, lines: Array.from({ length: 11 }, () => ({ text: "x" })), figures: [], spends: [] }),
+    panel({ ...incoming, when: 'ctx.fight.acting && ctx.fight.held && ctx.fight.foeActing && ctx.self == "x"' }),
+    panel({
+      ...incoming,
+      when: "grit",
+      lines: [{ text: "x", when: "hide > 0" }, { text: "" }],
+      figures: [{ label: "F", expr: "gone" }],
+    }),
+    panel({ ...incoming, entities: undefined, when: "res.resolve > 0" }),
+    { ...SAMPLE_HARM, panels: Array.from({ length: 21 }, (_, i) => ({ ...incoming, id: `p${i}` })), layout: {} },
+    turn(
+      { widget: "panel" },
+      { widget: "panel", variant: "nope" },
+      { widget: "panel", variant: "hit", bind: { a: "grit" } },
+    ),
+    turn({ widget: "spends" }, { widget: "spends", variant: "x" }, { widget: "spends", bind: { x: "grit" } }),
+    { ...SAMPLE_HARM, layout: { sheet: { sections: [], phoneTurn: [{ widget: "panel", variant: "hit" }] } } },
+    {
+      ...SAMPLE_HARM,
+      layout: { hero: { sections: [], phoneStrip: [{ widget: "frames", bind: { values: ["nope", "grit"] } }, "x"] } },
+    },
+  ];
+}
 
 function strikeCrafted(): object[] {
   const blow = SAMPLE_HARM.strikes![0]!;

@@ -560,6 +560,8 @@ type (
 		Spawn *SpawnBlock `json:"spawn"`
 		// Strikes are the kinds of strike the GM's guide offers (house decision #99); nil when absent.
 		Strikes []Strike `json:"strikes"`
+		// Panels are what a phone shows while each holds (house decision #114); nil when absent.
+		Panels []Panel `json:"panels"`
 	}
 	// HeaderBlock is manifest.ts Header.
 	HeaderBlock struct {
@@ -1701,6 +1703,7 @@ func (r *Ruleset) semanticProblems() problems {
 	p.spends(r, actorTypes)
 	p.spawn(r, actorTypes, needCite)
 	p.strikes(r, actorTypes, needCite)
+	p.panels(r, actorTypes, needCite)
 
 	for _, id := range sortedKeys(r.Tests) {
 		t := r.Tests[id]

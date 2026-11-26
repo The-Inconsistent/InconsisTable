@@ -215,10 +215,15 @@ export type CompileResult = { ok: true; compiled: CompiledRuleset } | { ok: fals
 const sortedEntries = <V>(o: Readonly<Record<string, V>>): [string, V][] =>
   Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 
-/** `ctx.self` and `ctx.fight` in a spend's expressions (house decision #84); its inputs join them as ints. */
+/**
+ * `ctx.self` and `ctx.fight` in a spend's and a panel's expressions (house decisions #84, #114); a spend's inputs join
+ * them as ints. `acting`, `held` and `foeActing` are house decision #116's.
+ */
 export const SPEND_CTX: Readonly<Record<string, ExprType>> = {
   self: "text",
-  fight: { record: { on: "bool", in: "bool", round: "int", barred: "bool" } },
+  fight: {
+    record: { on: "bool", in: "bool", round: "int", barred: "bool", acting: "bool", held: "bool", foeActing: "bool" },
+  },
 };
 
 /** Party-level values every actor expression may read. */
@@ -886,6 +891,32 @@ class Compiler {
     });
   }
 
+  /**
+   * `panels` (house decision #114): `when`, each line's `when` and each figure in the scope of each actor type that shows
+   * it, plus `ctx.self` and `ctx.fight`; the options' `usable` also reads `entry`, the listed entry type's fields. The
+   * phone reads them from the manifest's own text.
+   */
+  private panels(actorsOf: (ids: readonly string[] | undefined) => { ce: CompiledEntity }[]): void {
+    this.r.panels?.forEach((p, i) => {
+      const path = `panels[${i}]`;
+      const scopes = actorsOf(p.entities).map(({ ce }) => ({ ...ce.scope, ctx: { record: SPEND_CTX } }));
+      if (p.when !== undefined) this.expr({ source: p.when, scopes, expect: "bool", path: `${path}.when` });
+      p.lines?.forEach((l, j) => {
+        if (l.when !== undefined)
+          this.expr({ source: l.when, scopes, expect: "bool", path: `${path}.lines[${j}].when` });
+      });
+      p.figures?.forEach((f, j) =>
+        this.expr({ source: f.expr, scopes, expect: "int", path: `${path}.figures[${j}].expr` }),
+      );
+      const o = p.options;
+      const entry = o === undefined ? undefined : this.r.entities.find((e) => e.id === o.entry);
+      if (o?.usable !== undefined && entry !== undefined) {
+        const withEntry = scopes.map((s) => ({ ...s, entry: { record: fieldScope(entry.fields) } }));
+        this.expr({ source: o.usable, scopes: withEntry, expect: "bool", path: `${path}.options.usable` });
+      }
+    });
+  }
+
   /** What a spawn reads of the room: `campaign`, and `party` with `seated` (house decision #92). */
   private roomScope(): Record<string, ExprType> {
     return { party: SPAWN_PARTY_SCOPE, ...this.campaignRoot() };
@@ -1066,6 +1097,7 @@ class Compiler {
     this.acquire(actorsOf);
     this.spawn();
     this.strikes(actorsOf);
+    this.panels(actorsOf);
 
     const lookups = this.lookups(actorsOf);
 

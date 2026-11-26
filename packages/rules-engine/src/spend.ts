@@ -54,14 +54,24 @@ function readInt(source: string, scope: ExprRecord, path: string): number | Refu
   return typeof r.v === "number" ? r.v : refuse("wrongState", `${path}: not a number`);
 }
 
-/** `ctx.fight`: whether a fight runs, the actor is in it, the round, and whether the actor is barred this round. */
-function fightOf(state: RuleState, id: string): ExprRecord {
+/**
+ * `ctx.fight`: whether a fight runs, the actor is in it, the round, and whether the actor is barred this round; and
+ * (house decision #116) whether it acts now, holds an action, and whether, in the fight, a combatant of another side
+ * acts now (one without a side in `sideOf` counts as another side's).
+ */
+export function fightOf(state: Pick<RuleState, "turn">, id: string): ExprRecord {
   const t = state.turn;
+  const inFight = t?.order.includes(id) ?? false;
+  const current = t?.currentId ?? null;
+  const side = (actorId: string) => own(t?.sideOf ?? {}, actorId);
   return {
     on: t !== null,
-    in: t?.order.includes(id) ?? false,
+    in: inFight,
     round: t?.round ?? 0,
     barred: t?.barred?.includes(id) ?? false,
+    acting: current === id,
+    held: t?.held?.includes(id) ?? false,
+    foeActing: inFight && current !== null && current !== id && side(current) !== side(id),
   };
 }
 

@@ -4,8 +4,9 @@ import type { RulesetInput } from "../manifest.ts";
  * A placeholder duel ruleset written for tests of strikes (house decision #99), a second game whose attack works unlike
  * sample-harm's: one roll plus the duelist's skill against the target's parry, a hit doing the blade's flat cut, no
  * soak, no strain and no mobs. Every name, number and cite is our own invention ("Sample p.N" points at no real book).
+ * This is 0.1.0, before its phone's strip and turn.
  */
-export const SAMPLE_DUEL: RulesetInput = {
+export const SAMPLE_DUEL_BEFORE_PANELS: RulesetInput = {
   id: "sample-duel",
   version: "0.1.0",
   core: "^0.1.0",
@@ -55,6 +56,39 @@ export const SAMPLE_DUEL: RulesetInput = {
         { id: "hit", label: "Hit", when: "ctx.total >= ctx.beat", wounds: "ctx.means.cut", cite: "Sample p.5" },
         { id: "miss", label: "Miss", when: "true", cite: "Sample p.5" },
       ],
+    },
+  ],
+};
+
+/**
+ * sample-duel 0.1.1 (house decisions #114, #115), the third shape: no asks, no sides, no states. The strip shows the
+ * duelist's skill and parry and its cuts against its limit; when its cuts rise, a sheet with one line and no ask; on its
+ * turn the lunge guide, which only the GM applies (the lunge is not `byOwner`).
+ */
+export const SAMPLE_DUEL: RulesetInput = {
+  ...SAMPLE_DUEL_BEFORE_PANELS,
+  version: "0.1.1",
+  layout: {
+    duelist: {
+      sections: [{ id: "duelist", label: "Duelist", show: ["skill", "parry", "derived.limit", "res.cuts"] }],
+      phoneStrip: [
+        { widget: "frames", bind: { values: ["skill", "parry"] } },
+        { widget: "track", bind: { value: "res.cuts", max: "derived.limit" } },
+      ],
+      phoneTurn: [
+        { widget: "panel", variant: "touched" },
+        { widget: "strike", variant: "lunge" },
+      ],
+    },
+  },
+  panels: [
+    {
+      id: "touched",
+      label: "Touched",
+      cite: "Sample p.7",
+      entities: ["duelist"],
+      opensOn: { rises: "cuts" },
+      lines: [{ text: "Step back and call your parry for the next pass", cite: "Sample p.7" }],
     },
   ],
 };

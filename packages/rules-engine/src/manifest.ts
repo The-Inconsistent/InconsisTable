@@ -1117,6 +1117,8 @@ export const Layout = z.object({
   trackerRow: LayoutRows.optional(),
   /** The table screen (the TV). */
   screen: LayoutRows.optional(),
+  /** The strip under the phone's header, on every tab (house decision #115). */
+  phoneStrip: LayoutRows.optional(),
 });
 export type Layout = z.infer<typeof Layout>;
 
@@ -1380,6 +1382,55 @@ export const Strike = z.object({
 });
 export type Strike = z.infer<typeof Strike>;
 
+/** The most panels a ruleset declares, and the most lines, figures and asks one shows (house decision #114). */
+export const MAX_PANELS = 20;
+export const MAX_PANEL_LINES = 10;
+export const MAX_PANEL_FIGURES = 6;
+export const MAX_PANEL_SPENDS = 4;
+
+/**
+ * The entries a panel lists (house decision #114): the pack entries of type `entry`, grouped by the entry field `group`,
+ * each with the importer's own summary and cite. `usable` reads the holder's scope plus `ctx` and `entry` (the entry's
+ * fields); an entry it does not hold for sinks, with the entry's text field `needs` beside it.
+ */
+export const PanelOptions = z.object({
+  entry: Id,
+  group: FieldId.optional(),
+  usable: ExprSource.optional(),
+  needs: FieldId.optional(),
+});
+export type PanelOptions = z.infer<typeof PanelOptions>;
+
+/**
+ * A panel (house decision #114): what a phone shows its holder while it holds, in the ruleset's own short words. It
+ * holds while `when` (the holder's scope plus `ctx.self` and `ctx.fight`) does, while the health state `holds` holds and
+ * `unless` does not; one with `opensOn` opens as a sheet when the holder's resource `rises` rises in a fight, and closes
+ * on an ask sent, a lower value or the fight's end. It changes no number: its lines are reminders, its figures numbers
+ * read from the holder, its `spends` the asks it offers (#84) and its `options` the entries it lists.
+ */
+export const Panel = z.object({
+  id: Id,
+  label: z.string().min(1).max(80),
+  cite: Cite.optional(),
+  /** The actor types whose phones show it; absent: every actor type. */
+  entities: ActorTypes,
+  when: ExprSource.optional(),
+  holds: Id.optional(),
+  unless: Id.optional(),
+  opensOn: z.object({ rises: Id }).optional(),
+  lines: z
+    .array(z.object({ text: z.string().min(1).max(200), when: ExprSource.optional(), cite: Cite.optional() }))
+    .max(MAX_PANEL_LINES)
+    .optional(),
+  figures: z
+    .array(z.object({ label: z.string().min(1).max(60), expr: ExprSource, cite: Cite.optional() }))
+    .max(MAX_PANEL_FIGURES)
+    .optional(),
+  spends: z.array(Id).min(1).max(MAX_PANEL_SPENDS).optional(),
+  options: PanelOptions.optional(),
+});
+export type Panel = z.infer<typeof Panel>;
+
 /** How a table can sit for a game (docs/adr/0009-table-modes.md): with a GM, without one, or one player alone. */
 export const GameMode = z.enum(["gm", "gmless", "solo"]);
 export type GameMode = z.infer<typeof GameMode>;
@@ -1609,6 +1660,8 @@ export const Ruleset = z.object({
   spawn: SpawnBlock.optional(),
   /** The kinds of strike the GM's guide offers (house decision #99). Absent: none. */
   strikes: z.array(Strike).max(MAX_STRIKES).optional(),
+  /** What a phone shows while it holds: incoming, hit, barred, dying, this turn's options (house decision #114). */
+  panels: z.array(Panel).max(MAX_PANELS).optional(),
 });
 export type Ruleset = z.infer<typeof Ruleset>;
 export type RulesetInput = z.input<typeof Ruleset>;
@@ -2618,6 +2671,13 @@ function widgetRowProblems({
     else if (s === undefined) out.push({ path: `${path}.variant`, message: `unknown strike "${row.variant}"` });
     else if (s.entities !== undefined && entities.some((e) => !s.entities?.includes(e.id)))
       out.push({ path: `${path}.variant`, message: `not every type here strikes with "${row.variant}"` });
+  } else if (spec.panel) {
+    // A panel widget's variant names one of the ruleset's panels (house decision #114).
+    const s = (r.panels ?? []).find((x) => x.id === row.variant);
+    if (row.variant === undefined) out.push({ path: `${path}.variant`, message: "a panel widget names a panel" });
+    else if (s === undefined) out.push({ path: `${path}.variant`, message: `unknown panel "${row.variant}"` });
+    else if (s.entities !== undefined && entities.some((e) => !s.entities?.includes(e.id)))
+      out.push({ path: `${path}.variant`, message: `not every type here shows "${row.variant}"` });
   } else if (row.variant !== undefined && !spec.variants.includes(row.variant))
     out.push({ path: `${path}.variant`, message: `unknown variant "${row.variant}"` });
   const variant = row.variant ?? spec.variants[0];
@@ -2891,6 +2951,59 @@ function strikeProblems({
   });
 }
 
+/**
+ * `panels` (house decision #114): ids, cites, actor types, the health states, resource, spends and entries they name,
+ * and something to show. Their expressions are `compileRuleset`'s. A resource `opensOn` cannot name is reported at
+ * `opensOn`, a guard, so a seat's copy that cannot read the resource loses the panel (house decision #101).
+ */
+function panelProblems({
+  r,
+  actorTypes,
+  needCite,
+  out,
+}: {
+  r: Ruleset;
+  actorTypes: (ids: readonly string[] | undefined, path: string) => void;
+  needCite: (cite: string | undefined, path: string) => void;
+  out: Problem[];
+}): void {
+  const panels = r.panels ?? [];
+  duplicates({ ids: panels.map((p) => p.id), path: "panels", out });
+  const states = new Set(r.health.states.map((s) => s.id));
+  panels.forEach((p, i) => {
+    const path = `panels[${i}]`;
+    needCite(p.cite, path);
+    actorTypes(p.entities, `${path}.entities`);
+    for (const key of ["holds", "unless"] as const) {
+      const id = p[key];
+      if (id !== undefined && !states.has(id)) out.push({ path: `${path}.${key}`, message: `unknown state "${id}"` });
+    }
+    if (p.opensOn !== undefined) {
+      const res = r.resources.find((x) => x.id === p.opensOn?.rises);
+      if (res === undefined) out.push({ path: `${path}.opensOn`, message: `unknown resource "${p.opensOn.rises}"` });
+      else if (res.scope !== "entity")
+        out.push({ path: `${path}.opensOn`, message: `"${res.id}" must be an entity-scoped resource` });
+    }
+    p.spends?.forEach((id, j) => {
+      if (!(r.spends ?? []).some((s) => s.id === id))
+        out.push({ path: `${path}.spends[${j}]`, message: `unknown spend "${id}"` });
+    });
+    const o = p.options;
+    if (o !== undefined) {
+      const entry = r.entities.find((e) => e.id === o.entry);
+      if (entry === undefined) out.push({ path: `${path}.options.entry`, message: `unknown entity "${o.entry}"` });
+      else {
+        if (o.group !== undefined && own(entry.fields, o.group) === undefined)
+          out.push({ path: `${path}.options.group`, message: `"${o.group}" is not a field of "${o.entry}"` });
+        if (o.needs !== undefined && own(entry.fields, o.needs)?.type !== "text")
+          out.push({ path: `${path}.options.needs`, message: `"${o.needs}" is not a text field of "${o.entry}"` });
+      }
+    }
+    if (p.lines === undefined && p.figures === undefined && p.spends === undefined && o === undefined)
+      out.push({ path, message: "a panel shows nothing" });
+  });
+}
+
 function semanticProblems(r: Ruleset): Problem[] {
   const out: Problem[] = [];
   // CLAUDE.md principle 1: every rule entry cites its printed page, unless the whole ruleset is homebrew.
@@ -3056,6 +3169,7 @@ function semanticProblems(r: Ruleset): Problem[] {
   spendProblems({ r, actorTypes, out });
   spawnProblems({ r, actorTypes, needCite, out });
   strikeProblems({ r, actorTypes, needCite, out });
+  panelProblems({ r, actorTypes, needCite, out });
 
   for (const [id, t] of Object.entries(r.tests)) {
     actorTypes(t.entities, `tests.${id}.entities`);

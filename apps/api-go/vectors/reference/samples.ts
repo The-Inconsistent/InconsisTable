@@ -38,6 +38,7 @@ export const SAMPLE_RULESETS: Record<string, RulesetInput> = {
 const duelist = SAMPLE_DUEL.entities[0]!;
 const lunge = SAMPLE_DUEL.strikes![0]!;
 const d20Site = SAMPLE_D20.entities.find((e) => e.id === "site")!;
+const harmIncoming = SAMPLE_HARM.panels![0]!;
 
 /**
  * Made up to reach the cuts the stack's blocks need for a seat (house decision #101): a `gm` nerve and a `gm` list of
@@ -82,5 +83,59 @@ export const CRAFTED_SEAT_CUTS: Record<string, RulesetInput> = {
     entities: SAMPLE_D20.entities.map((e) =>
       e === d20Site ? { ...e, fields: { ...e.fields, peril: { ...d20Site.fields!.peril!, visibility: "gm" } } } : e,
     ),
+  },
+  // House decision #114: a hero's `gm` doom and dread. Incoming loses only the line and the figure that read the doom,
+  // the dread panel (its `when`) and the shiver panel (its `opensOn`) go whole, and so do their layout rows.
+  harmPanelCuts: {
+    ...SAMPLE_HARM,
+    entities: SAMPLE_HARM.entities.map((e) =>
+      e.id === "hero" ? { ...e, fields: { ...e.fields, doom: { type: "int", label: "Doom", visibility: "gm" } } } : e,
+    ),
+    resources: [
+      ...(SAMPLE_HARM.resources ?? []),
+      {
+        id: "dread",
+        label: "Dread",
+        cite: "Sample p.30",
+        scope: "entity",
+        entities: ["hero"],
+        max: "5",
+        visibility: "gm",
+      },
+    ],
+    layout: {
+      hero: {
+        ...SAMPLE_HARM.layout!.hero!,
+        phoneTurn: [
+          ...(SAMPLE_HARM.layout!.hero!.phoneTurn ?? []),
+          { widget: "panel", variant: "dread" },
+          { widget: "panel", variant: "shiver" },
+        ],
+      },
+    },
+    panels: [
+      {
+        ...harmIncoming,
+        lines: [...(harmIncoming.lines ?? []), { text: "Doom draws near", when: "doom > 2", cite: "Sample p.30" }],
+        figures: [...(harmIncoming.figures ?? []), { label: "Doom", expr: "doom", cite: "Sample p.30" }],
+      },
+      ...SAMPLE_HARM.panels!.slice(1),
+      {
+        id: "dread",
+        label: "Dread",
+        cite: "Sample p.30",
+        entities: ["hero"],
+        when: "doom > 0",
+        lines: [{ text: "It watches" }],
+      },
+      {
+        id: "shiver",
+        label: "Shiver",
+        cite: "Sample p.30",
+        entities: ["hero"],
+        opensOn: { rises: "dread" },
+        lines: [{ text: "Cold" }],
+      },
+    ],
   },
 };

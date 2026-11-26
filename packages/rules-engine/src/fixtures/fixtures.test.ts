@@ -11,12 +11,14 @@ import {
   SAMPLE_D20_0_1_9,
   SAMPLE_D20_BEFORE_WIDGETS,
 } from "./sample-d20.ts";
-import { SAMPLE_DUEL } from "./sample-duel.ts";
+import type { RulesetInput } from "../manifest.ts";
+import { SAMPLE_DUEL, SAMPLE_DUEL_BEFORE_PANELS } from "./sample-duel.ts";
 import {
   SAMPLE_HARM,
   SAMPLE_HARM_BEFORE_GENERATORS,
   SAMPLE_HARM_BEFORE_HELD,
   SAMPLE_HARM_BEFORE_OWNER,
+  SAMPLE_HARM_BEFORE_PANELS,
   SAMPLE_HARM_BEFORE_SHOWS,
   SAMPLE_HARM_BEFORE_STRIKES,
 } from "./sample-harm.ts";
@@ -27,6 +29,7 @@ import {
   SAMPLE_SKIRMISH,
   SAMPLE_SKIRMISH_BEFORE_CHECKLIST,
   SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND,
+  SAMPLE_SKIRMISH_BEFORE_PANELS,
   SAMPLE_SKIRMISH_BEFORE_SPAWN,
 } from "./sample-skirmish.ts";
 
@@ -37,13 +40,26 @@ const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9c
 const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf";
 const PINNED: Record<string, string> = {
   "sample-d20@0.1.10": "a425b9fb13540762c37cb12a90bb07b1f718c9b678873f373e32dd99a8058df7",
-  "sample-skirmish@0.1.9": "43ee1b3a05c7d1d08bd353c5864554b3c4f4e45bed7a1ae41b9bb87556ce3e66",
+  "sample-skirmish@0.1.10": "ec137373e7414019345555f2fe028d4b40a3bac898fb845e9d7fe07b0568506e",
   "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
-  "sample-harm@0.1.7": "1376c327be1b5bca8817e6482cd120218ed9edb6ddb80fa1dcef665287bc6a52",
-  "sample-duel@0.1.0": "509f85209788bc47bdd6722b2772e741248a4a35876b1e16d5c8c3e1a782a09f",
+  "sample-harm@0.1.8": "bf403b1455e787fe572ed41c7dbed34abb58e1e6a546e76ab2608c7726d0dd71",
+  "sample-duel@0.1.1": "e05e632beefe7d3b5586d85771d2366068a1d5883e26a3984963f8951f2cd6f9",
 };
+
+test("a ruleset without panels or a phone strip hashes as it did before they existed (house decisions #114, #115)", () => {
+  const before: [RulesetInput, string][] = [
+    [SAMPLE_HARM_BEFORE_PANELS, "1376c327be1b5bca8817e6482cd120218ed9edb6ddb80fa1dcef665287bc6a52"],
+    [SAMPLE_SKIRMISH_BEFORE_PANELS, "43ee1b3a05c7d1d08bd353c5864554b3c4f4e45bed7a1ae41b9bb87556ce3e66"],
+    [SAMPLE_DUEL_BEFORE_PANELS, "509f85209788bc47bdd6722b2772e741248a4a35876b1e16d5c8c3e1a782a09f"],
+  ];
+  for (const [fixture, pinned] of before) {
+    const result = compileRuleset(fixture);
+    assert.ok(result.ok, `${fixture.id}@${fixture.version} compiles`);
+    assert.equal(sha256Hex(canonicalJson(result.compiled.ruleset)), pinned);
+  }
+});
 
 test("a sample ruleset's normalized manifest changes only with its version", () => {
   for (const fixture of [

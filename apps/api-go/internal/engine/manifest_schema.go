@@ -706,6 +706,7 @@ var rulesetSchema = schema.Object(
 		schema.Opt("phoneTurn", layoutRows),
 		schema.Opt("trackerRow", layoutRows),
 		schema.Opt("screen", layoutRows),
+		schema.Opt("phoneStrip", layoutRows),
 	)), map[string]any{}),
 	schema.Opt("game", gameSchema),
 	schema.Opt("codex", codexSchema),
@@ -734,6 +735,38 @@ var rulesetSchema = schema.Object(
 	schema.Opt("spawn", spawnSchema),
 	schema.Opt("strikes", schema.Array(strikeSchema).Max(MaxStrikes)),
 	schema.Opt("generators", schema.Array(generatorSchema).Max(maxGenerators)),
+	schema.Opt("panels", schema.Array(panelSchema).Max(maxPanels)),
+)
+
+// Panels (manifest.ts Panel, house decision #114).
+const maxPanels = 20
+
+var panelSchema = schema.Object(
+	schema.Req("id", idSchema),
+	schema.Req("label", label(80)),
+	schema.Opt("cite", citeSchema),
+	schema.Opt("entities", actorTypesSchema),
+	schema.Opt("when", exprSource),
+	schema.Opt("holds", idSchema),
+	schema.Opt("unless", idSchema),
+	schema.Opt("opensOn", schema.Object(schema.Req("rises", idSchema))),
+	schema.Opt("lines", schema.Array(schema.Object(
+		schema.Req("text", label(200)),
+		schema.Opt("when", exprSource),
+		schema.Opt("cite", citeSchema),
+	)).Max(10)),
+	schema.Opt("figures", schema.Array(schema.Object(
+		schema.Req("label", label(60)),
+		schema.Req("expr", exprSource),
+		schema.Opt("cite", citeSchema),
+	)).Max(6)),
+	schema.Opt("spends", schema.Array(idSchema).Min(1).Max(4)),
+	schema.Opt("options", schema.Object(
+		schema.Req("entry", idSchema),
+		schema.Opt("group", fieldIDSchema),
+		schema.Opt("usable", exprSource),
+		schema.Opt("needs", fieldIDSchema),
+	)),
 )
 
 // The setup checklist (house decision #90; rules-engine CHECKLIST_TABS, CHECKLIST_PREP_KINDS, ChecklistCount).

@@ -748,10 +748,14 @@ func (c *compiler) scoring(scopes []map[string]ExprType) (compiled *CompiledScor
 	return out, ok
 }
 
-// spendCtx is `ctx.self` and `ctx.fight` in a spend's expressions (compile.ts SPEND_CTX, house decision #84).
+// spendCtx is `ctx.self` and `ctx.fight` in a spend's and a panel's expressions (compile.ts SPEND_CTX, house decisions
+// #84, #114, #116).
 var spendCtx = map[string]ExprType{
-	"self":  textType,
-	"fight": RecordType{map[string]ExprType{"on": boolType, "in": boolType, "round": intType, "barred": boolType}},
+	"self": textType,
+	"fight": RecordType{map[string]ExprType{
+		"on": boolType, "in": boolType, "round": intType, "barred": boolType,
+		"acting": boolType, "held": boolType, "foeActing": boolType,
+	}},
 }
 
 // Spawn scopes (compile.ts SPAWN_PARTY_SCOPE, SPAWN_CTX, BUDGET_COST_CTX; house decision #92).
@@ -1118,6 +1122,7 @@ func (c *compiler) run() *CompiledRuleset {
 	c.acquire(entities)
 	c.spawn()
 	c.strikes(entities)
+	c.panels(entities)
 
 	lookups := c.lookups(entities)
 

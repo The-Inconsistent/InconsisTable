@@ -32,6 +32,8 @@ type WidgetSpec struct {
 	Held bool `json:"held,omitempty"`
 	// Strike names one of the ruleset's strike kinds in its variant (house decision #99) instead of one of Variants.
 	Strike bool `json:"strike,omitempty"`
+	// Panel names one of the ruleset's panels in its variant (house decision #114) instead of one of Variants.
+	Panel bool `json:"panel,omitempty"`
 }
 
 func oneSlot(id, takes string, required bool) WidgetSlot {
@@ -60,10 +62,12 @@ var Widgets = []WidgetSpec{
 	{ID: "notes", Variants: []string{}, Slots: []WidgetSlot{listSlot("fields", "text", true)}},
 	{ID: "held", Variants: []string{}, Slots: []WidgetSlot{}, Held: true},
 	{ID: "strike", Variants: []string{}, Slots: []WidgetSlot{}, Strike: true},
+	{ID: "panel", Variants: []string{}, Slots: []WidgetSlot{}, Panel: true},
+	{ID: "spends", Variants: []string{}, Slots: []WidgetSlot{}},
 }
 
-// LayoutTargets is LAYOUT_TARGETS: the layout keys beyond the sheet's sections.
-var LayoutTargets = []string{"phoneTurn", "trackerRow", "screen"}
+// LayoutTargets is LAYOUT_TARGETS: the layout keys beyond the sheet's sections (phoneStrip: house decision #115).
+var LayoutTargets = []string{"phoneTurn", "trackerRow", "screen", "phoneStrip"}
 
 // MaxPipSteps and MaxPipsPerStep bound a pips row's steps (MAX_PIP_STEPS, MAX_PIPS_PER_STEP).
 const (
@@ -101,6 +105,7 @@ type (
 		PhoneTurn  []LayoutRow `json:"phoneTurn"`
 		TrackerRow []LayoutRow `json:"trackerRow"`
 		Screen     []LayoutRow `json:"screen"`
+		PhoneStrip []LayoutRow `json:"phoneStrip"`
 	}
 )
 
@@ -124,6 +129,8 @@ func (l *LayoutDef) target(name string) []LayoutRow {
 		return l.PhoneTurn
 	case "trackerRow":
 		return l.TrackerRow
+	case "phoneStrip":
+		return l.PhoneStrip
 	default:
 		return l.Screen
 	}
@@ -193,6 +200,23 @@ func (p *problems) widgetRow(r *Ruleset, row *WidgetRow, entities []*EntityType,
 			p.add(path+".variant", `unknown strike "%s"`, *row.Variant)
 		case s.Entities != nil && slices.ContainsFunc(entities, func(e *EntityType) bool { return !slices.Contains(*s.Entities, e.ID) }):
 			p.add(path+".variant", `not every type here strikes with "%s"`, *row.Variant)
+		}
+	} else if spec.Panel {
+		// A panel widget's variant names one of the ruleset's panels (house decision #114).
+		var s *Panel
+		for i := range r.Panels {
+			if row.Variant != nil && r.Panels[i].ID == *row.Variant {
+				s = &r.Panels[i]
+				break
+			}
+		}
+		switch {
+		case row.Variant == nil:
+			p.add(path+".variant", "a panel widget names a panel")
+		case s == nil:
+			p.add(path+".variant", `unknown panel "%s"`, *row.Variant)
+		case s.Entities != nil && slices.ContainsFunc(entities, func(e *EntityType) bool { return !slices.Contains(*s.Entities, e.ID) }):
+			p.add(path+".variant", `not every type here shows "%s"`, *row.Variant)
 		}
 	} else if row.Variant != nil && !slices.Contains(spec.Variants, *row.Variant) {
 		p.add(path+".variant", `unknown variant "%s"`, *row.Variant)

@@ -278,7 +278,15 @@
     "creating": "Creating…",
     "pickGame": "Pick a game first",
     "freeformFailed": "Couldn't add Freeform to your library",
-    "failed": "Couldn't create the campaign"
+    "failed": "Couldn't create the campaign",
+    "problems": {
+      "game": "One of the packs or the game can't be used as it is.",
+      "campaign": "A campaign value is not one this game allows.",
+      "premise": "A premise field is too long or not one this game allows.",
+      "table": "Each line or veil is at most 80 characters, and a list holds at most 30.",
+      "name": "Give the campaign a name, up to 100 characters.",
+      "other": "Something in the campaign can't be saved as it is."
+    }
   },
   "firstRun": {
     "title": "First steps",
@@ -290,7 +298,8 @@
     "back": "Back",
     "skip": "Skip",
     "next": "Next",
-    "toTable": "To the table"
+    "toTable": "To the table",
+    "value": "Set to {value}"
   },
   "lobby": {
     "quickGame": "Quick game",

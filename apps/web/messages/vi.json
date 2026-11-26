@@ -222,7 +222,7 @@
     "solo": "một mình"
   },
   "chooseGame": {
-    "title": "Chọn game",
+    "title": "Chọn trò chơi",
     "playersLabel": "Số người ở bàn",
     "players": "{count} người",
     "anyPlayers": "Bao nhiêu cũng được",
@@ -278,7 +278,15 @@
     "creating": "Đang tạo…",
     "pickGame": "Hãy chọn trò chơi trước",
     "freeformFailed": "Không thêm được Freeform vào thư viện của bạn",
-    "failed": "Không tạo được chiến dịch"
+    "failed": "Không tạo được chiến dịch",
+    "problems": {
+      "game": "Một gói hoặc trò chơi không dùng được như hiện tại.",
+      "campaign": "Một giá trị của chiến dịch không nằm trong những gì trò chơi cho phép.",
+      "premise": "Một trường của tiền đề quá dài hoặc không được trò chơi cho phép.",
+      "table": "Mỗi dòng hoặc mục che mờ tối đa 80 ký tự, và mỗi danh sách tối đa 30 mục.",
+      "name": "Hãy đặt tên chiến dịch, tối đa 100 ký tự.",
+      "other": "Có phần của chiến dịch chưa lưu được như hiện tại."
+    }
   },
   "firstRun": {
     "title": "Những bước đầu",
@@ -290,7 +298,8 @@
     "back": "Quay lại",
     "skip": "Bỏ qua",
     "next": "Tiếp",
-    "toTable": "Vào bàn"
+    "toTable": "Vào bàn",
+    "value": "Đã đặt: {value}"
   },
   "lobby": {
     "quickGame": "Chơi nhanh",
@@ -494,7 +503,7 @@
     "worlds": "World",
     "worldsHint": "World là diện mạo của một phòng: màu, kiểu chữ và hình dáng. Nhập dưới dạng JSON, rồi khoác nó từ thẻ Luật của phòng.",
     "modules": "Game module",
-    "modulesHint": "Một game module gom một bộ luật, các pack của nó và một World thành một trò chơi. Nhập tệp của nó (tệp có thể mang luôn các phần đó), rồi chọn nó ở Chọn game khi tạo phòng."
+    "modulesHint": "Một game module gom một bộ luật, các pack của nó và một World thành một trò chơi. Nhập tệp của nó (tệp có thể mang luôn các phần đó), rồi chọn nó ở Chọn trò chơi khi tạo phòng."
   },
   "importPanel": {
     "template": "Bắt đầu từ một mẫu",
@@ -543,7 +552,7 @@
     "worldSaved": "Đã lưu World {slug} {version}. Khoác nó cho phòng từ thẻ Luật của phòng.",
     "worldUnchanged": "World {slug} {version} đã được nhập từ trước. Không có gì thay đổi.",
     "moduleNoForm": "Game module không có form: hãy nhập nguyên JSON của nó.",
-    "moduleSaved": "Đã lưu game module {slug} {version}. Chọn nó ở Chọn game khi tạo phòng.",
+    "moduleSaved": "Đã lưu game module {slug} {version}. Chọn nó ở Chọn trò chơi khi tạo phòng.",
     "moduleUnchanged": "Game module {slug} {version} đã được nhập từ trước. Không có gì thay đổi."
   },
   "worldList": {
@@ -1291,7 +1300,7 @@
     "startSession": "Bắt đầu buổi chơi",
     "invite": "Mời",
     "as": "Vai trò",
-    "campaignQr": "QR campaign",
+    "campaignQr": "Mã QR chiến dịch",
     "screenQr": "QR màn hình",
     "revokeScreens": "Thu hồi màn hình ({count})",
     "qrAlt": "Mã QR của {title}",

@@ -7,12 +7,19 @@ import type { ActionInput, ActionResult } from "@inconsistable/core-schema";
 import { qrImage } from "@/lib/qr/qr";
 import { shareOrigin } from "@/lib/share-origin/share-origin";
 
-type JoinQrProps = { act: (a: ActionInput) => Promise<ActionResult> };
+/** A room invite as the phones scan it: its link and the QR drawn of it. */
+export type Invite = { url: string; qr: string };
 
-// ROOM QR on the first-run walk: a player invite the phones scan, the same invite PARTY's ROOM QR makes.
-export function JoinQr({ act }: JoinQrProps) {
+type JoinQrProps = {
+  act: (a: ActionInput) => Promise<ActionResult>;
+  /** The invite this walk already made, kept by the walk so a later step shows it again instead of making another. */
+  invite: Invite | null;
+  onInvite: (invite: Invite) => void;
+};
+
+// ROOM QR on the first-run walk: a player invite the phones scan, the same invite PARTY's ROOM QR makes, made once.
+export function JoinQr({ act, invite: shown, onInvite }: JoinQrProps) {
   const t = useTranslations("party");
-  const [shown, setShown] = useState<{ url: string; qr: string } | null>(null);
   const [failed, setFailed] = useState(false);
 
   // ROOM QR: a room invite for players, guests allowed, drawn as a QR.
@@ -21,7 +28,7 @@ export function JoinQr({ act }: JoinQrProps) {
     if (!r.ok || !r.token) return;
     const url = `${shareOrigin(location)}/invite/${r.token}`;
     try {
-      setShown({ url, qr: await qrImage(url) });
+      onInvite({ url, qr: await qrImage(url) });
       setFailed(false);
     } catch {
       setFailed(true);
@@ -30,9 +37,11 @@ export function JoinQr({ act }: JoinQrProps) {
 
   return (
     <div className="stack" style={{ justifyItems: "start" }}>
-      <button type="button" className="btn primary" onClick={handleInvite}>
-        {t("campaignQr")}
-      </button>
+      {!shown && (
+        <button type="button" className="btn primary" onClick={handleInvite}>
+          {t("campaignQr")}
+        </button>
+      )}
       {failed && (
         <p className="error" role="alert">
           {t("qrFailed")}

@@ -13,7 +13,7 @@ import { useTable } from "@/hooks/use-table/use-table";
 import { checklistRoom } from "@/lib/checklist/checklist";
 import { fromKinds } from "@/lib/entry-fields/entry-fields";
 
-import { JoinQr } from "./components/join-qr/join-qr";
+import { JoinQr, type Invite } from "./components/join-qr/join-qr";
 
 type FirstRunProps = { me: Me; ruleset: Ruleset | null; packs: readonly { slug: string }[] };
 
@@ -30,6 +30,8 @@ export function FirstRun({ me, ruleset, packs }: FirstRunProps) {
   const { state, codex, send } = useTable(me.campaignId);
   const [at, setAt] = useState(0);
   const [generating, setGenerating] = useState<string | null>(null);
+  // The one room invite this walk made, shown again on every step that asks for the join QR.
+  const [invite, setInvite] = useState<Invite | null>(null);
   const [error, setError] = useState<string | null>(null);
   const table = `/c/${me.campaignId}?tab=party`;
   const steps = ruleset?.checklist ?? [];
@@ -89,7 +91,9 @@ export function FirstRun({ me, ruleset, packs }: FirstRunProps) {
               </h2>
             </div>
             <p className="small dim">
-              {tChecklist("now", { count: tick.count })}
+              {tick.step.done.count === "campaignField"
+                ? t("value", { value: String(state.campaign.fields[tick.step.done.field] ?? "—") })
+                : tChecklist("now", { count: tick.count })}
               {tick.step.cite && ` · ${tick.step.cite}`}
             </p>
             {tick.step.note && <p className="small">{tick.step.note}</p>}
@@ -124,7 +128,7 @@ export function FirstRun({ me, ruleset, packs }: FirstRunProps) {
                 onClose={() => setGenerating(null)}
               />
             )}
-            {goto?.tab === "party" && <JoinQr act={act} />}
+            {goto?.tab === "party" && <JoinQr act={act} invite={invite} onInvite={setInvite} />}
             {goto && goHref && (
               <Link
                 className="btn"

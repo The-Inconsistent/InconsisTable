@@ -27,7 +27,9 @@ These rules decide reviews. Breaking one blocks a merge.
 6. **The server decides.** One mutation path. Counters take deltas and are clamped on the server. Players see only what
    the table's view lets them see. The only writes outside it are owner-scoped REST: a user importing
    and exporting their own rulesets and packs (`/api/rulesets`, `/api/packs`, the pack library), creating a room,
-   a user importing a room document as a new room they own (house decision #74), the admin console, a seat that may
+   a user importing a room document as a new room they own (house decision #74), a user importing and deleting their
+   own game modules (`/api/modules`) and creating a room from one (`/api/campaigns/from-module`, house decision #125),
+   the admin console, a seat that may
    write the codex uploading a picture into its room (house decision #70), a user keeping their own characters in the
    character library (`/api/library`, house decision #104; one goes into a room only as an ordinary `build.save`
    draft), and a user's own sign-in, sign-out and sign-in methods (house decision #35).

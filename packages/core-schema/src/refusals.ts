@@ -352,6 +352,9 @@ export const REFUSALS = {
   bookNoReply: "No reply from the GM's tablet.",
   bookMalformed: "That page request is malformed.",
   bookRenderFailed: "The GM's tablet couldn't render it.",
+  bookUnreadable: "The GM's file of that book won't open.",
+  bookNoPage: "That book has no page {page}.",
+  bookPageTooLarge: "That page is too large to send.",
   // A room document (house decision #74), refused by path
   roomNotDocument: "This is not a room document (inconsistable-room, version 1).",
   roomImportFirst: "Import {slug} {version} first.",

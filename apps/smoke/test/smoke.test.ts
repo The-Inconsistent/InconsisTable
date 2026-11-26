@@ -427,6 +427,51 @@ test("book pages are limited per seat: a second socket of the same seat shares t
   for (const c of [owner, first, second]) c.socket.close();
 });
 
+test("a book page goes from the serving device to the seat that asked, and only a seat that may serve announces", async () => {
+  const { owner, campaignId } = await newRoom("BookRelay");
+  const anaDevice = await seatPlayer(owner, "ana-books");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  await ana.until(() => true);
+  const heard: string[][] = [];
+  ana.socket.on("book:available", (b: { sources: string[] }) => heard.push(b.sources));
+  const ask = (page: number) =>
+    ana.socket.emitWithAck("book:request", { source: "sample", page }) as Promise<
+      ActionResult | { ok: true; image: Uint8Array }
+    >;
+
+  // A player's device never serves: its announcement is dropped, and the answer it then gets is a plain refusal.
+  ana.socket.emit("book:serving", { sources: ["sample"] });
+  refused((await ask(1)) as ActionResult, "bookNotServed");
+
+  // The GM's device answers with what it draws; here a few bytes the test makes stand for the JPEG.
+  const drawn = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+  const asked: unknown[] = [];
+  let answer: (page: number) => unknown = () => ({ ok: true, image: drawn });
+  owner.socket.on("book:request", (p: { page: number }, ack: (r: unknown) => void) => {
+    asked.push(p);
+    ack(answer(p.page));
+  });
+  owner.socket.emit("book:serving", { sources: ["sample", "coreRules"] });
+  await eventually(() => heard.some((s) => s.join() === "sample,coreRules"), "the served books reach the player");
+
+  const got = await ask(3);
+  assert.equal(got.ok, true);
+  assert.deepEqual(new Uint8Array((got as { image: Uint8Array }).image), drawn);
+  assert.deepEqual(asked, [{ source: "sample", page: 3 }], "the request reaches the server as asked, nothing more");
+
+  // The device's refusals reach the phone by code; a page over the limit is never passed on.
+  answer = (page) => ({ ok: false, error: `no page ${page}`, code: "bookNoPage", params: { page } });
+  assert.deepEqual(await ask(900), { ok: false, error: "no page 900", code: "bookNoPage", params: { page: 900 } });
+  answer = () => ({ ok: true, image: new Uint8Array(MAX_PAGE_BYTES + 1) });
+  refused((await ask(4)) as ActionResult, "bookRenderFailed");
+
+  // Stopping turns every cite back into text.
+  owner.socket.emit("book:serving", { sources: [] });
+  await eventually(() => heard.at(-1)?.length === 0, "the stop reaches the player");
+  refused((await ask(3)) as ActionResult, "bookNotServed");
+  for (const c of [owner, ana]) c.socket.close();
+});
+
 test("the admin endpoints need the key: none is 401, a wrong one 403", async () => {
   const ip = () => ({ "cf-connecting-ip": nextSocketIp() });
   for (const path of ["/admin/campaigns", "/admin/packs", "/admin/events"]) {

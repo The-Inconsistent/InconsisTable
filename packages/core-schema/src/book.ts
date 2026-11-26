@@ -8,11 +8,12 @@ import { RefusalKey, RefusalParamsSchema } from "./refusals.ts";
 // to that player only. Nothing is uploaded or stored. A source is a ruleset's `sources[].id`; turning a printed page
 // into a PDF page (the source's `pageOffset`) happens on the GM's tablet, which holds the manifest.
 
+// A manifest's source id is camelCase (`Id` in rules-engine); hyphens stay accepted for sources named before that.
 export const BookSource = z
   .string()
   .min(1)
-  .max(60)
-  .regex(/^[a-z0-9][a-z0-9-]*$/);
+  .max(64)
+  .regex(/^[a-z0-9][a-zA-Z0-9-]*$/);
 export type BookSource = z.infer<typeof BookSource>;
 
 export const BookPage = z.object({ source: BookSource, page: z.number().int().min(1).max(5000) });

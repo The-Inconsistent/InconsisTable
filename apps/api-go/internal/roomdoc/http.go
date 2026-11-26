@@ -17,6 +17,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/schema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
 
@@ -147,13 +148,18 @@ func (s *Service) Import(w http.ResponseWriter, r *http.Request) (any, error) {
 	if mode != "" && !slices.Contains([]string{cs.TableModeGM, cs.TableModeGMLess, cs.TableModeSolo}, mode) {
 		return nil, core.Refuse(http.StatusBadRequest, "badRequest", cs.Params{"detail": "tableMode is gm, gmless or solo"})
 	}
+	// `?module=`: the room is made from that version of the caller's own game module (house decision #143).
+	module := query.Get("module")
+	if _, issues := schema.Parse(schema.UUID(), module); module != "" && len(issues) > 0 {
+		return nil, core.Refuse(http.StatusBadRequest, "badRequest", cs.Params{"detail": "module is a module version id"})
+	}
 	body, err := core.ReadBody(w, r, cs.RoomMaxBytes)
 	if err != nil {
 		return nil, err
 	}
 	dryRun := query.Get("dryRun") == "1"
 	answer, err := Import(ctx, s.DB, campaign.Owner{UserID: user.UserID, Name: user.Name}, body,
-		Options{DryRun: dryRun, TableMode: mode, Fresh: query.Get("fresh") == "1"})
+		Options{DryRun: dryRun, TableMode: mode, Fresh: query.Get("fresh") == "1", Module: module})
 	var p *Problem
 	if errors.As(err, &p) {
 		refusal := cs.RefusalBody(p.Code, p.Params)

@@ -768,7 +768,7 @@ export const SAMPLE_D20_0_1_13: RulesetInput = {
  * 0.1.14 (house decision #168): a line with a number worked out in it, raised each time renown climbs a step, and a
  * line about the whole crew as a session starts. 0.1.13 hashes as it did.
  */
-export const SAMPLE_D20: RulesetInput = {
+const D20_0_1_14: RulesetInput = {
   ...SAMPLE_D20_0_1_13,
   version: "0.1.14",
   notices: [
@@ -793,4 +793,61 @@ export const SAMPLE_D20: RulesetInput = {
       cite: "Sample p.17",
     },
   ],
+};
+
+/**
+ * 0.1.15 (house decision #173): a place's dangers rolled from a hazards table once per season, a danger's strength
+ * offered from the creature's own strengths, and its check's DC worked out from the season and the threat, one chip per
+ * ability it lists. 0.1.14 hashes as it did. Invented.
+ */
+export const SAMPLE_D20_0_1_14 = D20_0_1_14;
+export const SAMPLE_D20: RulesetInput = {
+  ...SAMPLE_D20_0_1_14,
+  version: "0.1.15",
+  entities: SAMPLE_D20_0_1_14.entities.map((e) =>
+    e.id === "creature"
+      ? { ...e, fields: { ...e.fields, strengths: { type: "list", label: "Strengths", cite: "Sample p.18" } } }
+      : e,
+  ),
+  tables: {
+    ...SAMPLE_D20_0_1_14.tables,
+    hazards: {
+      title: "Hazards",
+      die: "1d6",
+      visibility: "gm",
+      cite: "Sample p.18",
+      entries: [
+        { id: "mire", label: "Sucking mire", range: [1, 3] },
+        { id: "rockfall", label: "Loose rockfall", range: [4, 6] },
+      ],
+    },
+  },
+  codex: {
+    kinds: {
+      ...SAMPLE_D20_0_1_14.codex?.kinds,
+      location: {
+        ...SAMPLE_D20_0_1_14.codex?.kinds.location,
+        fields: Object.fromEntries(
+          Object.entries(SAMPLE_D20_0_1_14.codex?.kinds.location?.fields ?? {}).map(([id, f]) =>
+            id === "dangers" && f.type === "rows"
+              ? [
+                  id,
+                  {
+                    ...f,
+                    columns: f.columns.map((c) =>
+                      c.type === "enum" && c.id === "strength"
+                        ? { ...c, offer: "strengths" }
+                        : c.type === "test"
+                          ? { ...c, inputs: { dc: "10 + campaign.season + values.threat" }, each: "ability" }
+                          : c,
+                    ),
+                    rolls: { table: "hazards", into: "name", times: "season" },
+                  },
+                ]
+              : [id, f],
+          ),
+        ),
+      },
+    },
+  },
 };

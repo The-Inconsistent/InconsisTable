@@ -347,5 +347,19 @@ func (p *problems) layout(r *Ruleset) {
 				rows(list, "layout."+key+"."+target)
 			}
 		}
+		// The strip's `pools.<id>` rows name a shared pool (house decision #180).
+		for j, row := range l.target("phoneStrip") {
+			if row.Path == nil || !strings.HasPrefix(*row.Path, "pools.") {
+				continue
+			}
+			id, at := strings.TrimPrefix(*row.Path, "pools."), fmt.Sprintf("layout.%s.phoneStrip[%d]", key, j)
+			res := slices.IndexFunc(r.Resources, func(x Resource) bool { return x.ID == id })
+			switch {
+			case res < 0:
+				p.add(at, `unknown pool "%s"`, id)
+			case r.Resources[res].Scope == "entity":
+				p.add(at, `"%s" must be a shared pool`, id)
+			}
+		}
 	}
 }

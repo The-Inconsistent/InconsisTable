@@ -48,7 +48,7 @@ test("the phone's turn and strip rows come from the character's own layout, else
     ["incoming", "hit", "fallen", "stances", null, null],
   );
   assert.equal(layoutRows({ ruleset: HARM, entity: "brute", target: "phoneStrip" }), null);
-  assert.equal(layoutRows({ ruleset: SKIRMISH, entity: "character", target: "phoneStrip" })?.length, 3);
+  assert.equal(layoutRows({ ruleset: SKIRMISH, entity: "character", target: "phoneStrip" })?.length, 5);
 });
 
 test("incoming holds while a foe acts, with the lines and figures it reads (house decision #114)", () => {
@@ -140,8 +140,47 @@ test("options are grouped, summarised, and the ones the holder cannot use sink w
     entries: entries(SAMPLE_HARM_STANCES),
     scope: panelScope({ ruleset: HARM, actor: hero({}), table: NO_FIGHT, characters: 2 }),
   });
+  // Guarded needs the maul carried (house decision #180): without it, it sinks.
   assert.deepEqual(
     stances.map((g) => [g.label, g.lines.map((l) => l.summary)]),
-    [[null, ["Strain first, wounds after", "One more die, one less guard"]]],
+    [[null, ["One more die, one less guard", "Strain first, wounds after"]]],
   );
+  const armed = { ...hero({}), items: [{ kind: "carried", entry: "maul", tags: ["heavy"] }] } as unknown as Actor;
+  const carried = panelScope({ ruleset: HARM, actor: armed, table: NO_FIGHT, characters: 2 });
+  assert.deepEqual((carried.ctx as { carried: unknown }).carried, { carried: ["maul", "heavy"] });
+  assert.ok(
+    optionGroups({
+      ruleset: HARM,
+      options: panel(HARM, "stances").options!,
+      entries: entries(SAMPLE_HARM_STANCES),
+      scope: carried,
+    })[0]!.lines.every((l) => l.usable),
+  );
+});
+
+test("Incoming reads the acting swarm only when the seat was sent it (house decision #180)", () => {
+  const swarm = (size?: number) =>
+    ({
+      id: "s",
+      entity: "swarm",
+      fields: size === undefined ? {} : { size },
+      resources: {},
+      derived: {},
+    }) as unknown as Actor;
+  const fight = (foe: Actor | null) => ({
+    ...table("c2", [cb("c1", "h"), cb("c2", "s", { side: "foes" })]),
+    actors: foe === null ? [] : [foe],
+  });
+  const lines = (foe: Actor | null) =>
+    panelNow({
+      ruleset: HARM,
+      panel: panel(HARM, "incoming"),
+      actor: hero({ resolve: 0 }),
+      table: fight(foe),
+      characters: 2,
+    })?.lines.map((l) => l.text);
+  assert.ok(lines(swarm(12))?.includes("A swarm this big strikes twice"));
+  assert.ok(!lines(swarm(4))?.includes("A swarm this big strikes twice"));
+  assert.ok(!lines(swarm())?.includes("A swarm this big strikes twice"), "a size not sent");
+  assert.ok(!lines(null)?.includes("A swarm this big strikes twice"), "a foe not sent");
 });

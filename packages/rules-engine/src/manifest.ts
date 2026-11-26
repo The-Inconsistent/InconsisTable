@@ -1538,7 +1538,8 @@ export const MAX_PANEL_SPENDS = 4;
 /**
  * The entries a panel lists (house decision #114): the pack entries of type `entry`, grouped by the entry field `group`,
  * each with the importer's own summary and cite. `usable` reads the holder's scope plus `ctx` and `entry` (the entry's
- * fields); an entry it does not hold for sinks, with the entry's text field `needs` beside it.
+ * fields), and `ctx.carried.<item kind>`, the keys and tags of the items of that kind the holder carries (house decision
+ * #180); an entry it does not hold for sinks, with the entry's text field `needs` beside it.
  */
 export const PanelOptions = z.object({
   entry: Id,
@@ -1561,6 +1562,11 @@ export const Panel = z.object({
   cite: Cite.optional(),
   /** The actor types whose phones show it; absent: every actor type. */
   entities: ActorTypes,
+  /**
+   * An actor type whose values `ctx.foe` reads: the combatant acting now when it is a foe of that type, as the seat was
+   * sent it (house decision #180). Absent: `ctx.foe` is not there.
+   */
+  foe: Id.optional(),
   when: ExprSource.optional(),
   holds: Id.optional(),
   unless: Id.optional(),
@@ -3026,6 +3032,15 @@ function layoutProblems(r: Ruleset, out: Problem[]): void {
       const list = layout[target];
       if (list !== undefined) rows(list, `layout.${key}.${target}`);
     }
+    // The strip's `pools.<id>` rows name a shared pool (house decision #180).
+    layout.phoneStrip?.forEach((row, j) => {
+      if (typeof row !== "string" || !row.startsWith("pools.")) return;
+      const id = row.slice("pools.".length);
+      const res = r.resources.find((x) => x.id === id);
+      const at = `layout.${key}.phoneStrip[${j}]`;
+      if (res === undefined) out.push({ path: at, message: `unknown pool "${id}"` });
+      else if (res.scope === "entity") out.push({ path: at, message: `"${id}" must be a shared pool` });
+    });
   }
 }
 
@@ -3263,6 +3278,11 @@ function panelProblems({
     const path = `panels[${i}]`;
     needCite(p.cite, path);
     actorTypes(p.entities, `${path}.entities`);
+    if (p.foe !== undefined) {
+      const foe = r.entities.find((e) => e.id === p.foe);
+      if (foe === undefined) out.push({ path: `${path}.foe`, message: `unknown entity "${p.foe}"` });
+      else if (foe.base !== "actor") out.push({ path: `${path}.foe`, message: `"${p.foe}" is not an actor entity` });
+    }
     for (const key of ["holds", "unless"] as const) {
       const id = p[key];
       if (id !== undefined && !states.has(id)) out.push({ path: `${path}.${key}`, message: `unknown state "${id}"` });

@@ -22,7 +22,8 @@ import { SHARED_LAYOUT } from "@/lib/sheet/sheet";
 // The phone's panels (house decision #114), read from the seat's own manifest and what this seat was sent. A panel
 // changes no number: this only decides whether it holds and which of its lines and figures show.
 
-type Table = Pick<LiveState, "encounter" | "campaign">;
+// `actors`, when given, lets a panel that names a foe type read the acting foe as this seat was sent it (#180).
+type Table = Pick<LiveState, "encounter" | "campaign"> & { actors?: readonly Actor[] };
 
 /** The rows a layout target holds for this character's type: its own layout's, else the shared one's; null when absent. */
 export function layoutRows({
@@ -42,8 +43,8 @@ export function layoutRows({
 export const panelOfRow = (ruleset: Ruleset, row: LayoutRow): Panel | undefined =>
   typeof row === "string" || row.widget !== "panel" ? undefined : ruleset.panels?.find((p) => p.id === row.variant);
 
-/** The character's scope with `ctx.self` and `ctx.fight`, as a panel's expressions read it. */
-export function panelScope({
+/** An actor's scope as an expression reads it, from what this seat was sent. */
+const scopeOf = ({
   ruleset,
   actor,
   table,
@@ -53,8 +54,8 @@ export function panelScope({
   actor: Actor;
   table: Table;
   characters: number;
-}): ExprRecord {
-  const scope = withLists({
+}) =>
+  withLists({
     ruleset,
     scope: actorScope({
       fields: actor.fields,
@@ -64,7 +65,43 @@ export function panelScope({
       campaign: table.campaign.fields,
     }),
   });
-  return { ...scope, ctx: { self: actor.id, fight: fightOf({ turn: turnOf(table.encounter) }, actor.id) } };
+
+/**
+ * The character's scope with `ctx.self` and `ctx.fight`, as a panel's expressions read it; `ctx.carried`, the keys and
+ * tags of the items it carries by kind, and for a panel naming a foe type, `ctx.foe`, the acting foe of that type as the
+ * seat was sent it (house decision #180). A foe the seat was not sent leaves `ctx.foe` out, so what reads it is not shown.
+ */
+export function panelScope({
+  ruleset,
+  actor,
+  table,
+  characters,
+  panel,
+}: {
+  ruleset: Ruleset;
+  actor: Actor;
+  table: Table;
+  characters: number;
+  panel?: Panel;
+}): ExprRecord {
+  const turn = turnOf(table.encounter);
+  const fight = fightOf({ turn }, actor.id);
+  const carried = Object.fromEntries(
+    (ruleset.items?.kinds ?? []).map((k) => [
+      k.id,
+      [
+        ...new Set(
+          (actor.items ?? []).filter((i) => i.kind === k.id).flatMap((i) => [i.entry ?? [], ...i.tags].flat()),
+        ),
+      ],
+    ]),
+  );
+  const foeActor =
+    panel?.foe === undefined || fight.foeActing !== true
+      ? undefined
+      : table.actors?.find((a) => a.id === turn?.currentId && a.entity === panel.foe);
+  const foe = foeActor === undefined ? {} : { foe: scopeOf({ ruleset, actor: foeActor, table, characters }) };
+  return { ...scopeOf({ ruleset, actor, table, characters }), ctx: { self: actor.id, fight, carried, ...foe } };
 }
 
 /** An expression read in a scope; undefined when it cannot be (a value the seat was not sent). */
@@ -104,7 +141,7 @@ export function panelNow({
   const states = table.encounter?.combatants.find((c) => c.actorId === actor.id)?.states.map((s) => s.id) ?? [];
   if (panel.holds !== undefined && !states.includes(panel.holds)) return null;
   if (panel.unless !== undefined && states.includes(panel.unless)) return null;
-  const scope = panelScope({ ruleset, actor, table, characters });
+  const scope = panelScope({ ruleset, actor, table, characters, panel });
   const holds = (source: string | undefined) => source === undefined || read(source, scope) === true;
   if (!holds(panel.when)) return null;
   return {

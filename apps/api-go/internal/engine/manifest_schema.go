@@ -804,6 +804,7 @@ var panelSchema = schema.Object(
 	schema.Req("label", label(80)),
 	schema.Opt("cite", citeSchema),
 	schema.Opt("entities", actorTypesSchema),
+	schema.Opt("foe", idSchema),
 	schema.Opt("when", exprSource),
 	schema.Opt("holds", idSchema),
 	schema.Opt("unless", idSchema),

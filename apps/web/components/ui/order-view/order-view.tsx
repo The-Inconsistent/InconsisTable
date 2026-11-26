@@ -84,8 +84,9 @@ export function OrderView({ encounter, sides, conditions = [], heldOf, you = [],
       </h2>
       <EndNotice encounter={encounter} />
       {sided && <SideLine encounter={encounter} sides={sides} />}
-      {/* A ranked or seated order has no side line: say here that a hidden combatant holds the turn (#68). */}
-      {!sided && encounter.unseen && (
+      {/* A ranked or seated order has no side line: say here that a hidden combatant holds the turn (#68). The phone's
+          Fight tab (with `foes`) says it on its plate already. */}
+      {!sided && encounter.unseen && foes === undefined && (
         <p className="side-line" role="status">
           {t("lineUnseen")}
         </p>

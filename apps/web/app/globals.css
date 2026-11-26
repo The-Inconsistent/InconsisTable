@@ -4701,9 +4701,20 @@ textarea.mf-json {
 .phone-strip[data-folded="true"] .phone-strip-name {
   font-size: 17px;
 }
+/* Folded, each value is its label then its number on one line, the values apart by a gap and a rule, wrapping. */
 .phone-strip[data-folded="true"] .value-cells {
-  flex-wrap: nowrap;
-  overflow: hidden;
+  gap: 2px 12px;
+}
+.phone-strip[data-folded="true"] .value-cell {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid var(--brass-lo);
+}
+.phone-strip[data-folded="true"] .value-cell:first-child {
+  padding-inline-start: 0;
+  border-inline-start: 0;
 }
 .phone-strip[data-folded="true"] .value-cell dd {
   font-size: 17px;

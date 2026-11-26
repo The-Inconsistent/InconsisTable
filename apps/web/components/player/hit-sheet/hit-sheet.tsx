@@ -40,9 +40,11 @@ export function HitSheet(props: HitSheetProps) {
   const changed = Object.keys(values).some((k) => values[k] !== seen[k]);
   if (changed) {
     setSeen(values);
+    // A rise opens only a panel that holds at that moment, so a closed guard never leaves one waiting to pop up later.
     const rose = panels.find((x) => {
       const key = `${actor.id}:${x.panel.id}`;
-      return seen[key] !== undefined && (values[key] ?? 0) > (seen[key] ?? 0);
+      const up = seen[key] !== undefined && (values[key] ?? 0) > (seen[key] ?? 0);
+      return up && panelNow({ ...props, panel: x.panel }) !== null;
     });
     const fell = open !== null && (values[open] ?? 0) < (seen[open] ?? 0);
     if (fighting && rose) setOpen(`${actor.id}:${rose.panel.id}`);

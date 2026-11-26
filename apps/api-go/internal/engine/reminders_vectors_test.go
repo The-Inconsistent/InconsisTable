@@ -14,6 +14,7 @@ type reminderVectorFile struct {
 		At       string `json:"at"`
 		Actors   map[string]struct {
 			Fields     map[string]any `json:"fields"`
+			Entity     string         `json:"entity"`
 			Conditions []string       `json:"conditions"`
 			Held       bool           `json:"held"`
 			Barred     bool           `json:"barred"`
@@ -52,7 +53,7 @@ func TestRemindersMatchTypeScript(t *testing.T) {
 	for i, x := range v.Reminders {
 		actors := map[string]ReminderActor{}
 		for id, a := range x.Actors {
-			b := ReminderActor{Conditions: a.Conditions, Held: a.Held, Barred: a.Barred}
+			b := ReminderActor{Entity: a.Entity, Conditions: a.Conditions, Held: a.Held, Barred: a.Barred}
 			if a.Fields != nil {
 				b.Scope = ActorScope(a.Fields, nil, nil, 0, nil)
 			}

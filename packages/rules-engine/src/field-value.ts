@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   MAX_CELL_CHARS,
+  MAX_EACH_WORDS,
   MAX_ROWS,
   MAX_TAG_CHARS,
   MAX_TAGS,
@@ -103,7 +104,11 @@ function checkCell({ col, value }: { col: RowColumn; value: unknown }): string |
       if (typeof testId !== "string" || testId.length === 0 || testId.length > 64) return "expected a Test";
       if (!plain(inputs)) return "expected a Test's inputs";
       for (const [k, v] of Object.entries(inputs)) {
-        const fits = typeof v === "boolean" || typeof v === "number" || (typeof v === "string" && v.length <= 100);
+        const word = (x: unknown) => typeof x === "string" && x.length <= 100;
+        // The column's `each` input may hold a list of words, one Test chip each (house decision #173).
+        const words =
+          k === col.each && Array.isArray(v) && v.length >= 1 && v.length <= MAX_EACH_WORDS && v.every(word);
+        const fits = typeof v === "boolean" || typeof v === "number" || word(v) || words;
         if (k.length > 64 || !fits) return "an input is not a number, a word or a yes/no";
       }
       return null;

@@ -9,6 +9,8 @@ import { evaluateBool } from "./expr/expr.ts";
 /** The part of a combatant a reminder reads. */
 export interface ReminderActor {
   scope: ExprRecord | null;
+  /** Its actor type, which a reminder's `entities` reads (house decision #174). */
+  entity?: string;
   /** The condition ids it holds. */
   conditions: readonly string[];
   held: boolean;
@@ -58,6 +60,7 @@ export function remindersOf({
     }
     const actorIds = present.flatMap(({ id, a }) => {
       if (a.scope === null) return [];
+      if (r.entities !== undefined && (a.entity === undefined || !r.entities.includes(a.entity))) return [];
       try {
         return evaluateBool({ expr, scope: { ...a.scope, round, held: a.held, barred: a.barred } }) ? [id] : [];
       } catch (e) {

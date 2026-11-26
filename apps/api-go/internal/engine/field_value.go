@@ -213,6 +213,13 @@ func checkCell(col *RowColumn, value any) string {
 				fits = true
 			case string:
 				fits = unitLength(x) <= 100
+			case []any:
+				// The column's each input may hold a list of words, one Test chip each (house decision #173).
+				fits = col.Each != nil && k == *col.Each && len(x) >= 1 && len(x) <= MaxEachWords
+				for _, w := range x {
+					s, ok := w.(string)
+					fits = fits && ok && unitLength(s) <= 100
+				}
 			}
 			if unitLength(k) > 64 || !fits {
 				return "an input is not a number, a word or a yes/no"

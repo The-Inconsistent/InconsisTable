@@ -2,6 +2,7 @@ import type { CompiledRuleset, CompiledTableEffect } from "./compile.ts";
 import { ExprError, type ExprRecord, type ExprValue } from "./expr/expr.ast.ts";
 import { evaluateBool, evaluateInt } from "./expr/expr.ts";
 import {
+  immuneOf,
   inputBounds,
   MAX_EFFECT_TIMES,
   tableDie,
@@ -144,10 +145,12 @@ export function planLookup(args: {
   result: number;
   inputs: Readonly<Record<string, unknown>>;
   scope: ExprRecord;
+  /** The target's actor type, which an immunity's `entities` reads (house decision #174). */
+  entity?: string;
 }): LookupPlan {
   const read = readLookup(args);
   if (!read.ok) return read;
-  const { compiled, tableId, scope } = args;
+  const { compiled, tableId, scope, entity } = args;
   const effects = own(compiled.lookups, tableId)?.effects[read.entry] ?? [];
   const full = { ...withLists({ ruleset: compiled.ruleset, scope }), ctx: read.ctx };
   const steps: LookupStep[] = [];
@@ -156,7 +159,7 @@ export function planLookup(args: {
       if (x.when !== null && !evaluateBool({ expr: x.when, scope: full })) continue;
       const times =
         x.times === null ? 1 : Math.max(0, Math.min(MAX_EFFECT_TIMES, evaluateInt({ expr: x.times, scope: full })));
-      const step = stepOf({ x, scope: full, compiled, target: scope });
+      const step = stepOf({ x, scope: full, compiled, target: scope, entity });
       if (step === null) continue;
       for (let n = 0; n < times; n++) steps.push(step);
     }
@@ -173,11 +176,13 @@ function stepOf({
   scope,
   compiled,
   target,
+  entity,
 }: {
   x: CompiledTableEffect;
   scope: ExprRecord;
   compiled: CompiledRuleset;
   target: ExprRecord;
+  entity: string | undefined;
 }): LookupStep | null {
   const int = (e: CompiledTableEffect["by"]) => (e === null ? 0 : evaluateInt({ expr: e, scope }));
   const d = x.def;
@@ -191,7 +196,7 @@ function stepOf({
       return {
         kind: "condition",
         condition: d.condition,
-        immune: immuneTo({ compiled, condition: d.condition, scope: target }),
+        immune: immuneTo({ compiled, condition: d.condition, scope: target, entity }),
       };
     case "resource": {
       const by = int(x.by);
@@ -258,17 +263,22 @@ function isRecord(v: ExprValue | null | undefined): v is ExprRecord {
 }
 
 /** Whether the actor is immune to the condition (house decision #81); a value it cannot read makes it not immune. */
+// An immunity read only on some actor types (house decision #174) holds for no actor of another, or of none given.
 export function immuneTo({
   compiled,
   condition,
   scope,
+  entity,
 }: {
   compiled: CompiledRuleset;
   condition: string;
   scope: ExprRecord;
+  entity?: string;
 }): boolean {
   const expr = own(compiled.immune, condition);
   if (expr === undefined) return false;
+  const only = immuneOf(own(compiled.conditions, condition) ?? {})?.entities ?? null;
+  if (only !== null && (entity === undefined || !only.includes(entity))) return false;
   try {
     return evaluateBool({ expr, scope });
   } catch (e) {

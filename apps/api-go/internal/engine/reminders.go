@@ -11,7 +11,9 @@ import (
 
 // ReminderActor is the part of a combatant a reminder reads. Scope is nil for an actor whose values cannot be read.
 type ReminderActor struct {
-	Scope      *Record
+	Scope *Record
+	// Entity is its actor type, which a reminder's Entities reads (house decision #174).
+	Entity     string
 	Conditions []string
 	Held       bool
 	Barred     bool
@@ -44,7 +46,7 @@ func (c *CompiledRuleset) RemindersOf(at string, actors map[string]ReminderActor
 		}
 		for _, id := range order {
 			a, ok := actors[id]
-			if !ok || a.Scope == nil {
+			if !ok || a.Scope == nil || (r.Entities != nil && !slices.Contains(*r.Entities, a.Entity)) {
 				continue
 			}
 			scope := &Record{make(map[string]any, len(a.Scope.Fields)+3)}
@@ -84,9 +86,14 @@ func (c *CompiledRuleset) RemindersOf(at string, actors map[string]ReminderActor
 
 // ImmuneTo is whether a condition's `immune` holds for an actor (house decision #81). A condition without one, an actor
 // whose values cannot be read, or a value its expression cannot read: not immune.
-func (c *CompiledRuleset) ImmuneTo(condition string, scope *Record) bool {
+// An immunity read only on some actor types (house decision #174) holds for no actor of another, or of none given ("").
+func (c *CompiledRuleset) ImmuneTo(condition, entity string, scope *Record) bool {
 	expr, ok := c.Immune[condition]
 	if !ok || scope == nil {
+		return false
+	}
+	if def := c.Conditions[condition]; def != nil && def.Immune != nil && def.Immune.Entities != nil &&
+		!slices.Contains(*def.Immune.Entities, entity) {
 		return false
 	}
 	holds, err := evaluateBool(expr, scope)

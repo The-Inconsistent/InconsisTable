@@ -121,3 +121,16 @@ test("a ruleset without the block has no checklist; refusals are at their path",
     "checklist[0].cite: a rule entry needs a cite",
   ]);
 });
+
+test("a step shows its room value, worked out from the campaign fields (house decision #173)", () => {
+  const step: ChecklistStep = {
+    id: "tier",
+    label: "Tier",
+    done: { count: "campaignField", field: "tier" },
+    now: "campaign.tier * 100",
+  };
+  const room = { ...EMPTY, campaignFields: { tier: 3 } };
+  assert.equal(checklistTicks({ steps: [step], room }).ticks[0]?.now, 300);
+  assert.equal(checklistTicks({ steps: [step], room: EMPTY }).ticks[0]?.now, null, "an unset value reads nothing");
+  assert.equal(checklistTicks({ steps, room }).ticks[0]?.now, null, "a step without one");
+});

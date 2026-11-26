@@ -35,3 +35,20 @@ func PartyReadsReminder(kind CodexKind, reminder CodexReminder, campaign map[str
 	_, err := CompileExpr(reminder.If, CodexScope(kind.Fields, true, campaign), nil)
 	return err == nil
 }
+
+// RowScope is what a rows field's Test input reads of the row as `values` (house decision #173; rowScope in
+// compile.ts): its plain columns, an enum as text.
+func RowScope(columns []RowColumn) ExprType {
+	record := map[string]ExprType{}
+	for _, c := range columns {
+		switch c.Type {
+		case "int":
+			record[c.ID] = intType
+		case "text", "enum":
+			record[c.ID] = textType
+		case "bool":
+			record[c.ID] = boolType
+		}
+	}
+	return RecordType{record}
+}

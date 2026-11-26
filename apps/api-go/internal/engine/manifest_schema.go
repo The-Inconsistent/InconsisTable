@@ -112,6 +112,9 @@ const (
 	MaxCellChars     = 500
 	maxRowPrefills   = 5
 	maxCodexReminder = 20
+	// MaxColumnInputs and MaxEachWords bound a Test column's worked-out inputs and a cell's listed words (#173).
+	MaxColumnInputs = 5
+	MaxEachWords    = 10
 )
 
 func columnVariant(tag string, extra ...schema.Field) schema.Variant {
@@ -127,10 +130,14 @@ func columnVariant(tag string, extra ...schema.Field) schema.Variant {
 var rowColumn = schema.Union("type",
 	columnVariant("int", intShape...),
 	columnVariant("text", schema.Opt("maxLength", schema.Int().Min(1).Max(MaxCellChars))),
-	columnVariant("enum", enumShape...),
+	columnVariant("enum", append(slices.Clone(enumShape), schema.Opt("offer", fieldIDSchema))...),
 	columnVariant("bool"),
 	columnVariant("ref", refShape...),
-	columnVariant("test"),
+	columnVariant("test",
+		schema.Opt("inputs", schema.Refined(schema.Record(idSchema, exprSource),
+			func(v any) bool { return len(v.(map[string]any)) <= MaxColumnInputs }, "at most 5 inputs")),
+		schema.Opt("each", idSchema),
+	),
 )
 
 // codexSchema is the manifest's codex block (house decision #71): the fields each kind of entry carries, and the
@@ -160,6 +167,11 @@ var codexSchema = schema.Object(
 					schema.Opt("values", schema.Record(idSchema, fieldIDSchema)),
 				)).Min(1).Max(maxRowPrefills)),
 				schema.Opt("pick", schema.Object(schema.Req("label", label(40)))),
+				schema.Opt("rolls", schema.Object(
+					schema.Req("table", idSchema),
+					schema.Req("into", idSchema),
+					schema.Opt("times", idSchema),
+				)),
 			),
 		)), func(v any) bool { return len(v.(map[string]any)) <= MaxCodexFields }, "at most 20 fields")),
 		schema.Opt("reminders", schema.Array(schema.Object(
@@ -270,7 +282,7 @@ var conditionSchema = schema.Object(
 	schema.Def("visibility", visibilityEnum, "gm"),
 	schema.Opt("at", reminderAtEnum),
 	schema.Opt("text", label(120)),
-	schema.Opt("immune", exprSource),
+	schema.Opt("immune", schema.AnyOf(exprSource, schema.Object(schema.Req("if", exprSource), schema.Req("entities", actorTypesSchema)))),
 )
 
 // ReminderAts are when a reminder line shows (house decision #81; rules-engine ReminderAt).
@@ -284,6 +296,7 @@ var reminderSchema = schema.Object(
 	schema.Req("text", label(120)),
 	schema.Opt("cite", citeSchema),
 	schema.Opt("if", exprSource),
+	schema.Opt("entities", actorTypesSchema),
 )
 
 var restRuleSchema = schema.Object(
@@ -760,6 +773,7 @@ var rulesetSchema = schema.Object(
 		)),
 		schema.Opt("note", label(200)),
 		schema.Opt("optional", schema.Bool()),
+		schema.Opt("now", exprSource),
 	)).Max(maxChecklistSteps)),
 	schema.Opt("spawn", spawnSchema),
 	schema.Opt("strikes", schema.Array(strikeSchema).Max(MaxStrikes)),

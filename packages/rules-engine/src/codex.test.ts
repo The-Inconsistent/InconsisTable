@@ -138,3 +138,35 @@ test("in a reminder group only the first that holds shows, and a seat is sent no
     ["big", "huge", "alone"],
   );
 });
+
+test("a rows field rolls a table into rows, offers an enum from its entry and works a Test's inputs out (#173)", () => {
+  const withDangers = (over: object) =>
+    problems({
+      kinds: {
+        ...SAMPLE_D20.codex?.kinds,
+        location: { fields: { dangers: { ...dangers, ...over } as CodexField } },
+      },
+    });
+  assert.deepEqual(withDangers({ rolls: { table: "nope", into: "threat", times: "nope" } }), [
+    'codex.kinds.location.fields.dangers.rolls.table: unknown table "nope"',
+    'codex.kinds.location.fields.dangers.rolls.into: "threat" is not a text column',
+    'codex.kinds.location.fields.dangers.rolls.times: "nope" is not a whole-number campaign field',
+  ]);
+  const columns = (c: object) => ({ columns: [...dangers.columns.filter((x) => x.type !== "test"), c] });
+  assert.deepEqual(withDangers(columns({ id: "how", label: "H", type: "enum", values: ["a"], offer: "level" })), [
+    'codex.kinds.location.fields.dangers.columns[4].offer: "level" is not a list or enum field of "creature"',
+  ]);
+  assert.deepEqual(
+    withDangers(columns({ id: "t", label: "T", type: "test", inputs: { dc: "values.threat + 1" } })),
+    [],
+  );
+  assert.equal(withDangers(columns({ id: "t", label: "T", type: "test", inputs: { dc: "values.nope" } })).length, 1);
+  const cell = (inputs: object) =>
+    checkFieldValue({
+      def: { ...dangers, columns: [{ id: "t", label: "T", type: "test", each: "skill" }] },
+      value: [{ id: "r", values: { t: { testId: "x", inputs } } }],
+    });
+  assert.equal(cell({ skill: ["Climb", "Swim"] }), null);
+  assert.equal(cell({ dc: ["Climb"] }), "[0].values.t: an input is not a number, a word or a yes/no");
+  assert.equal(cell({ skill: [] }), "[0].values.t: an input is not a number, a word or a yes/no");
+});

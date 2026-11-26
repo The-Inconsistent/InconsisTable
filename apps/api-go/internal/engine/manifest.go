@@ -95,6 +95,7 @@ type (
 		MaxRows *float64     `json:"maxRows"`
 		From    []RowPrefill `json:"from"`
 		Pick    *RowPick     `json:"pick"`
+		Rolls   *RowsRoll    `json:"rolls"`
 		// Chips and Picks are a list's (house decision #91): its items show as chips, its quick picks name an entity type.
 		Chips bool        `json:"chips"`
 		Picks *FieldPicks `json:"picks"`
@@ -134,6 +135,17 @@ type (
 		Notes     map[string]string `json:"notes"`
 		Tones     map[string]string `json:"tones"`
 		Entity    string            `json:"entity"`
+		// Offer, Inputs and Each are house decision #173: an enum's words offered from the row's entry, a Test's inputs
+		// worked out, and the input a cell lists words for.
+		Offer  *string           `json:"offer"`
+		Inputs map[string]string `json:"inputs"`
+		Each   *string           `json:"each"`
+	}
+	// RowsRoll is a table a rows field's editor rolls into new rows, once or Times (a campaign field) times (#173).
+	RowsRoll struct {
+		Table string  `json:"table"`
+		Into  string  `json:"into"`
+		Times *string `json:"times"`
 	}
 	// RowPrefill is how a pack entry of Entity fills a new row: Name the text column that takes its name, Values a
 	// column id to the entity field it takes.
@@ -249,10 +261,10 @@ type (
 		Effects    []Effect `json:"effects"`
 		Visibility string   `json:"visibility"`
 		// From, At, Text and Immune are house decision #81; nil when absent.
-		From   *string `json:"from"`
-		At     *string `json:"at"`
-		Text   *string `json:"text"`
-		Immune *string `json:"immune"`
+		From   *string          `json:"from"`
+		At     *string          `json:"at"`
+		Text   *string          `json:"text"`
+		Immune *ConditionImmune `json:"immune"`
 	}
 	// Reminder is one line of `reminders` (house decision #81). If is nil when it has none.
 	Reminder struct {
@@ -261,6 +273,8 @@ type (
 		Text string  `json:"text"`
 		Cite *string `json:"cite"`
 		If   *string `json:"if"`
+		// Entities are the actor types its If is read on (house decision #174); nil: every one.
+		Entities *[]string `json:"entities"`
 	}
 	// RestRule is one of `rests` (house decision #81).
 	RestRule struct {
@@ -630,6 +644,8 @@ type (
 			Tab  string  `json:"tab"`
 			Kind *string `json:"kind"`
 		} `json:"goto"`
+		// Now is a room value the step shows, an expression over `campaign` (house decision #173).
+		Now *string `json:"now"`
 	}
 	// ChecklistCount is what a step counts, one flat struct read by Count.
 	ChecklistCount struct {
@@ -1451,6 +1467,21 @@ func (p *problems) rows(r *Ruleset, def *FieldDef, path string) {
 		if c.Type == "enum" {
 			p.enumWords(at, c.Values, c.Labels, c.Notes, c.Tones)
 		}
+		// An enum's offered words come from a list or enum field of every type that fills the row (house decision #173).
+		if c.Type == "enum" && c.Offer != nil {
+			if def.From == nil {
+				p.add(at+".offer", "offer needs from")
+			}
+			for _, f := range def.From {
+				e := r.entity(f.Entity)
+				if e == nil {
+					continue
+				}
+				if field, has := e.Fields[*c.Offer]; !has || (field.Type != "list" && field.Type != "enum") {
+					p.add(at+".offer", `"%s" is not a list or enum field of "%s"`, *c.Offer, f.Entity)
+				}
+			}
+		}
 	}
 	seen := map[string]bool{}
 	for i, f := range def.From {
@@ -1480,6 +1511,22 @@ func (p *problems) rows(r *Ruleset, def *FieldDef, path string) {
 				p.add(at+".values."+col, `"%s" is not a field of "%s"`, fieldID, f.Entity)
 			case !fitsColumn(c, &field):
 				p.add(at+".values."+col, `"%s" does not fit the column`, fieldID)
+			}
+		}
+	}
+	// A table rolled into new rows, once or per a campaign value (house decision #173).
+	if x := def.Rolls; x != nil {
+		if t, has := r.Tables[x.Table]; !has {
+			p.add(path+".rolls.table", `unknown table "%s"`, x.Table)
+		} else if t.Visibility == "owner" {
+			p.add(path+".rolls.table", `"%s" is dealt, never rolled`, x.Table)
+		}
+		if c := columnOf(def, x.Into); c == nil || c.Type != "text" {
+			p.add(path+".rolls.into", `"%s" is not a text column`, x.Into)
+		}
+		if x.Times != nil {
+			if f, has := r.CampaignFields[*x.Times]; !has || f.Type != "int" {
+				p.add(path+".rolls.times", `"%s" is not a whole-number campaign field`, *x.Times)
 			}
 		}
 	}
@@ -1741,6 +1788,18 @@ func (r *Ruleset) semanticProblems() problems {
 	for i, s := range r.Health.States {
 		actorTypes(s.Entities, fmt.Sprintf("health.states[%d].entities", i))
 	}
+	// A reminder's and an immunity's actor types (house decision #174).
+	for i, x := range r.Reminders {
+		actorTypes(x.Entities, fmt.Sprintf("reminders[%d].entities", i))
+		if x.Entities != nil && x.If == nil {
+			p.add(fmt.Sprintf("reminders[%d].entities", i), "entities needs an if")
+		}
+	}
+	for i, c := range r.Conditions {
+		if c.Immune != nil {
+			actorTypes(c.Immune.Entities, fmt.Sprintf("conditions[%d].immune.entities", i))
+		}
+	}
 	if r.Health.Harm != nil {
 		p.harm(r, r.Health.Harm, actorTypes)
 	}
@@ -1985,4 +2044,33 @@ func (p *problems) sideCosts(r *Ruleset, init *Initiative) {
 	if init.Barred != nil {
 		costs(init.Barred.LiftCost, "initiative.barred.liftCost")
 	}
+}
+
+// ConditionImmune is a condition's `immune`: a boolean expression, or `{ if, entities }`, read only on those actor types
+// (house decisions #81, #174; immuneOf in rules-engine). Entities nil: every actor type.
+type ConditionImmune struct {
+	If       string
+	Entities *[]string
+}
+
+func (c *ConditionImmune) UnmarshalJSON(raw []byte) error {
+	if err := json.Unmarshal(raw, &c.If); err == nil {
+		return nil
+	}
+	var o struct {
+		If       string    `json:"if"`
+		Entities *[]string `json:"entities"`
+	}
+	if err := json.Unmarshal(raw, &o); err != nil {
+		return err
+	}
+	c.If, c.Entities = o.If, o.Entities
+	return nil
+}
+
+func (c ConditionImmune) MarshalJSON() ([]byte, error) {
+	if c.Entities == nil {
+		return json.Marshal(c.If)
+	}
+	return json.Marshal(map[string]any{"if": c.If, "entities": *c.Entities})
 }

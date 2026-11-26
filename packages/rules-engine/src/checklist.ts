@@ -1,3 +1,6 @@
+import { ExprError, type ExprRecord } from "./expr/expr.ast.ts";
+import { evaluate } from "./expr/expr.eval.ts";
+import { parseExpr } from "./expr/expr.parser.ts";
 import type { ChecklistCount, ChecklistStep } from "./manifest.ts";
 
 /**
@@ -19,7 +22,25 @@ export type ChecklistRoom = {
 };
 
 /** One step as the room stands: how many of what it counts, and whether that is enough. */
-export type ChecklistTick = { step: ChecklistStep; count: number; done: boolean };
+/** `now`: the step's room value (house decision #173), null without one or when it cannot be read. */
+export type ChecklistTick = {
+  step: ChecklistStep;
+  count: number;
+  done: boolean;
+  now: string | number | boolean | null;
+};
+
+/** A step's room value read over the campaign fields in play; null when it is not a number, a word or a yes/no. */
+function nowOf({ source, room }: { source: string | undefined; room: ChecklistRoom }) {
+  if (source === undefined) return null;
+  try {
+    const v = evaluate({ node: parseExpr(source), scope: { campaign: room.campaignFields as ExprRecord } });
+    return typeof v === "number" || typeof v === "string" || typeof v === "boolean" ? v : null;
+  } catch (e) {
+    if (e instanceof ExprError) return null;
+    throw e;
+  }
+}
 
 /** A value that is set: text that is not blank, a list that is not empty, any number or yes/no. */
 const isSet = (v: unknown) =>
@@ -68,7 +89,7 @@ function enough({ done, count, room }: { done: ChecklistCount; count: number; ro
 export function checklistTicks({ steps, room }: { steps: readonly ChecklistStep[]; room: ChecklistRoom }) {
   const ticks: ChecklistTick[] = steps.map((step) => {
     const count = countOf({ done: step.done, room });
-    return { step, count, done: enough({ done: step.done, count, room }) };
+    return { step, count, done: enough({ done: step.done, count, room }), now: nowOf({ source: step.now, room }) };
   });
   const next = ticks.find((t) => !t.done && t.step.optional !== true)?.step.id ?? null;
   return { ticks, next, doneCount: ticks.filter((t) => t.done).length };

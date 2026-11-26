@@ -2050,7 +2050,56 @@ function listCrafted(): object[] {
   });
   const col = (c: object) => rows({ columns: [{ id: "name", label: "N", type: "text" }, c], from: undefined });
   const fill = (f: object) => rows({ from: [f] });
+  const tier = { campaignFields: { tier: { type: "int", label: "T", min: 1, max: 4, default: 1 } } };
+  const rolled = {
+    tables: { haz: { title: "H", die: "d6", visibility: "gm", entries: [{ id: "a", label: "A", range: [1, 6] }] } },
+  };
+  const extra = (dangers: object, over: object = {}) => ({ ...kind({ dangers }), ...tier, ...rolled, ...over });
+  const testCol = (c: object) => ({ id: "test", label: "T", type: "test", ...c });
   return [
+    // House decision #173: a table rolled into rows per a campaign value, an enum offered from the row's entry, a
+    // Test's inputs worked out and listed per word, and each refusal.
+    extra(rows({ rolls: { table: "haz", into: "name", times: "tier" } })),
+    extra(rows({ rolls: { table: "haz", into: "name" } })),
+    extra(rows({ rolls: { table: "nope", into: "dc", times: "nope" } })),
+    extra(rows({ rolls: { table: "haz", into: "name", times: "tier" } }), { campaignFields: undefined }),
+    extra(rows({ rolls: { table: "haz", into: "Bad id" } })),
+    extra(
+      rows({
+        columns: [
+          { id: "name", label: "N", type: "text" },
+          { id: "dc", label: "D", type: "int" },
+          { id: "how", label: "H", type: "enum", values: ["a", "b"], offer: "mood" },
+          testCol({
+            inputs: { dn: "campaign.tier + values.dc", skill: 'values.how == "a" ? "x" : values.name' },
+            each: "skill",
+          }),
+        ],
+        from: [{ entity: "kin", name: "name" }],
+      }),
+    ),
+    extra(
+      rows({
+        columns: [{ id: "how", label: "H", type: "enum", values: ["a"], offer: "bite" }],
+        from: [{ entity: "kin" }],
+      }),
+    ),
+    extra(
+      rows({
+        columns: [{ id: "how", label: "H", type: "enum", values: ["a"], offer: "nope" }],
+        from: [{ entity: "kin" }],
+      }),
+    ),
+    extra(rows({ columns: [{ id: "how", label: "H", type: "enum", values: ["a"], offer: "mood" }], from: undefined })),
+    extra(rows({ columns: [testCol({ inputs: { dn: "values.nope + 1" } })], from: undefined })),
+    extra(rows({ columns: [testCol({ inputs: { dn: "values.test" } })], from: undefined })),
+    extra(rows({ columns: [testCol({ inputs: { dn: "campaign.tier" } })], from: undefined }), {
+      campaignFields: undefined,
+    }),
+    extra(
+      rows({ columns: [testCol({ inputs: { a: "1", b: "1", c: "1", d: "1", e: "1", f: "1" } })], from: undefined }),
+    ),
+    extra(rows({ columns: [testCol({ each: "Bad id" })], from: undefined })),
     kind(
       {
         dangers: rows(),
@@ -3446,6 +3495,11 @@ function checklistCrafted(): object[] {
       step({ count: "safety" }, { cite: "p1" }),
     ),
     { ...base, checklist: [] },
+    // House decision #173: a step's room value, an expression over the campaign fields.
+    list(step({ count: "campaignField", field: "tier" }, { now: "campaign.tier * 100" })),
+    list(step({ count: "campaignField", field: "tier" }, { now: "campaign.nope" })),
+    list(step({ count: "sessions" }, { now: "res.hp" })),
+    { ...list(step({ count: "sessions" }, { now: "campaign.tier" })), campaignFields: undefined },
     list(step({ count: "nothing" })),
     list(step({ count: "entries", kind: "ship" })),
     list(step({ count: "entries", kind: "lore", field: "nope" })),
@@ -3633,6 +3687,10 @@ function noticesCrafted(): object[] {
     { notices: [rule({ group: "every", params: { x: "1" }, rises: "res.hp" })] },
     { notices: [rule({ group: "all" })] },
     { notices: [rule({ rises: "res.hp", params: { hp: "res.hp" }, text: "{name} rose to {hp}" })] },
+    // House decision #174: a rising rule's params read how far it rose; any other rule's do not.
+    { notices: [rule({ rises: "10 - res.hp", params: { dn: "ctx.rose + 1" }, text: "{name}: DN {dn}" })] },
+    { notices: [rule({ params: { dn: "ctx.rose + 1" }, text: "{name}: DN {dn}" })] },
+    { notices: [rule({ rises: "res.hp", params: { dn: "ctx.nope" }, text: "{name}: DN {dn}" })] },
     { notices: [rule({ when: "sessionStart", rises: "res.hp" }), rule({ id: "b", rises: "res.hp > 1" })] },
     { notices: [rule({ if: "build.xpSpent > 1" })] },
     {
@@ -3688,6 +3746,14 @@ function reminderCrafted(): object[] {
     cond({ immune: "attr.str >= 3" }),
     cond({ immune: "attr.str" }),
     cond({ immune: "round > 1" }),
+    // House decision #174: an immunity and a reminder read only on some actor types.
+    cond({ immune: { if: "attr.str >= 3", entities: ["pc"] } }),
+    cond({ immune: { if: "attr.str >= 3", entities: ["nope"] } }),
+    cond({ immune: { if: "attr.str >= 3" } }),
+    cond({ immune: { if: "attr.str >= 3", entities: [] } }),
+    { reminders: [{ id: "r", at: "turnEnd", text: "Go", if: "attr.str > 2", entities: ["pc"] }] },
+    { reminders: [{ id: "r", at: "turnEnd", text: "Go", entities: ["pc"] }] },
+    { reminders: [{ id: "r", at: "turnEnd", text: "Go", if: "attr.str > 2", entities: ["nope"] }] },
     { ...states, rests: [{ event: "longRest", refusedIn: ["down"] }] },
     { ...states, rests: [{ event: "longRest", refusedIn: ["nope", "down"] }] },
     { ...states, rests: [{ event: "longRest", refusedIn: [] }] },
@@ -4555,7 +4621,7 @@ function fieldValueVectors() {
         { id: "how", label: "H", type: "enum", values: ["low", "high"] },
         { id: "on", label: "O", type: "bool" },
         { id: "who", label: "W", type: "ref", entity: "kin" },
-        { id: "test", label: "T", type: "test" },
+        { id: "test", label: "T", type: "test", each: "skill", inputs: { dn: "1" } },
       ],
       from: [{ entity: "kin", name: "name" }],
     },
@@ -4575,6 +4641,10 @@ function fieldValueVectors() {
     [row({ values: { test: "check" } })], [row({ from: { entity: "kin", key: "elf", cite: "Sample p.1" } })], [row({ from: { entity: "kin", key: "elf" } })],
     [row({ from: { entity: "gear", key: "elf" } })], [row({ from: { entity: "kin", key: "" } })], [row({ from: { entity: "kin", key: "elf", cite: "" } })],
     [row({ from: { entity: "kin", key: "elf", page: 1 } })], [row({ from: null })], [row({}), row({})],
+    // House decision #173: the column's each input lists words; no other input does, and the list is bounded.
+    [row({ values: { test: { testId: "c", inputs: { skill: ["Climb", "Swim"] } } } })], [row({ values: { test: { testId: "c", inputs: { dn: ["Climb"] } } } })],
+    [row({ values: { test: { testId: "c", inputs: { skill: [] } } } })], [row({ values: { test: { testId: "c", inputs: { skill: Array.from({ length: 11 }, (_, i) => `s${i}`) } } } })],
+    [row({ values: { test: { testId: "c", inputs: { skill: ["x".repeat(101)] } } } })], [row({ values: { test: { testId: "c", inputs: { skill: [1] } } } })],
   ];
   const typed = [...tags, ...rows].flatMap((def) =>
     [...values, ...shaped].map((value) => ({ def, value, why: checkFieldValue({ def, value }) })),
@@ -4738,6 +4808,8 @@ const REMINDER_MANIFESTS: unknown[] = [
       { id: "d", at: "roundEnd", text: "D", if: "barred && round == 1" },
       { id: "e", at: "turnEnd", text: "E", if: "gold > vp" },
       { id: "f", at: "roundEnd", text: "F" },
+      // House decision #174: read only on its actor types.
+      { id: "g", at: "turnStart", text: "G", if: "vp >= 0", entities: ["pc"] },
     ],
   },
 ];
@@ -4752,7 +4824,13 @@ function reminderVectors() {
       const ids = ["a", "b", "c", "d"].slice(0, 1 + rnd(4));
       const actors: Record<
         string,
-        { fields: Record<string, number> | null; conditions: string[]; held: boolean; barred: boolean }
+        {
+          fields: Record<string, number> | null;
+          entity: string;
+          conditions: string[];
+          held: boolean;
+          barred: boolean;
+        }
       > = {};
       const built: Record<string, ReminderActor> = {};
       for (const id of ids) {
@@ -4762,8 +4840,9 @@ function reminderVectors() {
         const held = rnd(3) === 0;
         const barred = rnd(3) === 0;
         const has = conditions.filter(() => rnd(3) === 0);
-        actors[id] = { fields: isNull ? null : fields, conditions: has, held, barred };
-        built[id] = { scope: isNull ? null : actorScope({ fields }), conditions: has, held, barred };
+        const entity = pick(["pc", "character", "creature", "nope"]);
+        actors[id] = { fields: isNull ? null : fields, entity, conditions: has, held, barred };
+        built[id] = { scope: isNull ? null : actorScope({ fields }), entity, conditions: has, held, barred };
       }
       const order = [...ids, ...(rnd(5) === 0 ? ["gone"] : [])];
       const at = pick(["turnStart", "turnEnd", "roundEnd"] as const);
@@ -4798,7 +4877,18 @@ const HELD_CONTAINS = {
 };
 
 /** The lookup manifests lookupVectors reads (house decision #87). */
-const LOOKUP_MANIFESTS: unknown[] = [SAMPLE_HARM, LOOKUP_MANIFEST, HELD_CONTAINS];
+const LOOKUP_MANIFESTS: unknown[] = [
+  SAMPLE_HARM,
+  LOOKUP_MANIFEST,
+  HELD_CONTAINS,
+  // House decision #174: an immunity read only on its actor types.
+  {
+    ...LOOKUP_MANIFEST,
+    conditions: LOOKUP_MANIFEST.conditions.map((c) =>
+      "immune" in c && typeof c.immune === "string" ? { ...c, immune: { if: c.immune, entities: ["pc"] } } : c,
+    ),
+  },
+];
 
 /** Typed results applied to targets of random values (house decision #87): the line, the total and the steps, or why not. */
 function lookupVectors() {
@@ -4827,6 +4917,7 @@ function lookupVectors() {
       const resources: Record<string, number> = { wounds: rnd(4) };
       for (const key of ["luck", "hp"]) if (rnd(3) !== 0) resources[key] = rnd(5);
       const scope = actorScope({ fields, derived, resources });
+      const entity = pick(["pc", "hero", "brute", "nope", undefined]);
       out.push({
         manifest: index,
         tableId,
@@ -4835,7 +4926,8 @@ function lookupVectors() {
         fields,
         derived,
         resources,
-        plan: planLookup({ compiled: r.compiled, tableId, result, inputs, scope }),
+        entity,
+        plan: planLookup({ compiled: r.compiled, tableId, result, inputs, scope, entity }),
       });
     }
   });

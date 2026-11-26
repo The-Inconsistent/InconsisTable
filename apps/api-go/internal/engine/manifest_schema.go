@@ -40,6 +40,9 @@ var (
 	gameOutcomeEnum = schema.Enum("win", "lose")
 )
 
+// summarySchema is a definition's meaning in the importer's own words (house decision #126; rules-engine Summary).
+var summarySchema = schema.String().Trim().Min(1).Max(300)
+
 func label(n int) *schema.StringSchema { return schema.String().Min(1).Max(n) }
 
 func fieldDefVariant(tag string, extra ...schema.Field) schema.Variant {
@@ -48,6 +51,7 @@ func fieldDefVariant(tag string, extra ...schema.Field) schema.Variant {
 		schema.Def("visibility", visibilityEnum, "gm"),
 		schema.Def("editableBy", editableByEnum, "gm"),
 		schema.Opt("cite", citeSchema),
+		schema.Opt("summary", summarySchema),
 		schema.Req("type", schema.Literal(tag)),
 	}, extra...)
 	return schema.Variant{Tag: tag, Schema: schema.Object(fields...)}
@@ -86,6 +90,7 @@ func codexFieldVariant(tag string, extra ...schema.Field) schema.Variant {
 		schema.Req("label", label(80)),
 		schema.Def("visibility", schema.Enum("gm", "party"), "gm"),
 		schema.Opt("cite", citeSchema),
+		schema.Opt("summary", summarySchema),
 		schema.Req("type", schema.Literal(tag)),
 	}, extra...)
 	return schema.Variant{Tag: tag, Schema: schema.Object(fields...)}
@@ -187,6 +192,7 @@ func campaignFieldVariant(tag string, extra ...schema.Field) schema.Variant {
 	fields := append([]schema.Field{
 		schema.Req("label", label(80)),
 		schema.Opt("cite", citeSchema),
+		schema.Opt("summary", summarySchema),
 		schema.Req("type", schema.Literal(tag)),
 	}, extra...)
 	return schema.Variant{Tag: tag, Schema: schema.Object(fields...)}
@@ -213,6 +219,7 @@ var entityTypeSchema = schema.Object(
 		schema.Req("expr", exprSource),
 		schema.Def("visibility", visibilityEnum, "gm"),
 		schema.Opt("cite", citeSchema),
+		schema.Opt("summary", summarySchema),
 		schema.Opt("override", fieldIDSchema),
 	)), []any{}),
 )
@@ -221,6 +228,7 @@ var resourceSchema = schema.Object(
 	schema.Req("id", idSchema),
 	schema.Req("label", label(80)),
 	schema.Opt("cite", citeSchema),
+	schema.Opt("summary", summarySchema),
 	schema.Req("scope", schema.Enum("entity", "party", "gm", "campaign")),
 	schema.Opt("entities", schema.Array(idSchema)),
 	schema.Def("min", exprSource, "0"),
@@ -249,6 +257,7 @@ var conditionSchema = schema.Object(
 	schema.Req("id", idSchema),
 	schema.Req("label", label(80)),
 	schema.Opt("cite", citeSchema),
+	schema.Opt("summary", summarySchema),
 	schema.Def("effects", schema.Array(effectSchema).Max(50), []any{}),
 	schema.Def("stacking", schema.Enum("none", "stack", "refresh"), "none"),
 	schema.Opt("maxStacks", schema.Int().Min(1).Max(100)),

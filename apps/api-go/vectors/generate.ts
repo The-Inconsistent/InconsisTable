@@ -2769,6 +2769,7 @@ const CRAFTED: object[] = [
   ...lookupCrafted(),
   ...heldCrafted(),
   ...checklistCrafted(),
+  ...summaryCrafted(),
   // House decision #92: spawn blocks the schema, the semantic pass or the compiler refuses.
   ...[
     {
@@ -3436,6 +3437,34 @@ function offersCrafted(): object[] {
         },
       },
     },
+  ];
+}
+
+// A definition's meaning (house decision #126): on every kind of definition, trimmed, at most 300 characters.
+function summaryCrafted(): object[] {
+  const cited = { sources: [{ id: "s", title: "T", license: "srd" }] };
+  return [
+    {
+      ...withPc({
+        fields: { ...pcBase.fields, hp: { ...fieldInt, summary: "  How hard you are to stop.  " } },
+        derived: [{ id: "a", label: "A", expr: "attr.str", visibility: "public", summary: "x".repeat(300) }],
+      }),
+      resources: [{ id: "hp", label: "H", scope: "entity", max: "10", summary: "What you can lose." }],
+      conditions: [{ id: "c", label: "C", duration: "manual", summary: "You stumble." }],
+      campaignFields: { tier: { ...cInt, summary: "How grand the tale is." } },
+      codex: { kinds: { npc: { fields: { mood: { type: "text", label: "M", summary: "How they feel." } } } } },
+    },
+    withFields({ hp: { ...fieldInt, summary: "x".repeat(301) } }),
+    withFields({ hp: { ...fieldInt, summary: " " + "x".repeat(300) + " " } }),
+    withFields({ hp: { ...fieldInt, summary: "   " } }),
+    withFields({ hp: { ...fieldInt, summary: "" } }),
+    withFields({ hp: { ...fieldInt, summary: 3 } }),
+    withDerived({ id: "a", label: "A", expr: "attr.str", summary: "" }),
+    { resources: [{ id: "hp", label: "H", scope: "entity", max: "10", summary: "x".repeat(301) }] },
+    { conditions: [{ id: "c", label: "C", duration: "manual", summary: " " }] },
+    withCampaign({ tier: { ...cInt, summary: "x".repeat(301) } }),
+    { codex: { kinds: { npc: { fields: { mood: { type: "text", label: "M", summary: "" } } } } } },
+    { ...cited, conditions: [{ id: "c", label: "C", duration: "manual", summary: "Uncited." }] },
   ];
 }
 

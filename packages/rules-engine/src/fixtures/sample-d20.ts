@@ -607,7 +607,7 @@ const codex0_1_9 = SAMPLE_D20_0_1_9.codex?.kinds ?? {};
  * one goes on to its builders' table), picks a creature to keep it (a flooded warren only a creature of level 1 or
  * more), and rolls each chamber; the warren is made as a place with its keeper, and its chambers inside it. Invented.
  */
-export const SAMPLE_D20: RulesetInput = {
+export const SAMPLE_D20_0_1_10: RulesetInput = {
   ...SAMPLE_D20_0_1_9,
   version: "0.1.10",
   tables: {
@@ -682,4 +682,48 @@ export const SAMPLE_D20: RulesetInput = {
       },
     },
   ],
+};
+
+/** Invented meanings by definition id (house decision #126), never a book's words. */
+const MEANINGS: Readonly<Record<string, string>> = {
+  "attr.str": "How hard you push, lift and strike. Its bonus is added to checks that lean on strength.",
+  guard: "What your training adds to Defense before anything else.",
+  gmNote: "The GM's own line about this character; players never see it.",
+  defense: "How hard you are to hit: an attack must reach this number.",
+  hp: "How much harm you can take. At 0 you are down and start rolling to stay alive.",
+  dazed: "Your footing is gone for a moment: Grace counts 2 lower until the round ends.",
+  season: "Where the year stands. Some charters and places only fit certain seasons.",
+  mood: "How this person feels about the crew right now. A cold one is harder to sway.",
+};
+const meant = <T extends object>(id: string, def: T): T => (MEANINGS[id] ? { ...def, summary: MEANINGS[id] } : def);
+
+/**
+ * 0.1.11 (house decision #126): a field, a derived value, a resource, a Condition, a campaign field and the GM's own
+ * field each say what they mean in a line of our own. 0.1.10 hashes as it did.
+ */
+export const SAMPLE_D20: RulesetInput = {
+  ...SAMPLE_D20_0_1_10,
+  version: "0.1.11",
+  entities: SAMPLE_D20_0_1_10.entities.map((e) =>
+    e.id !== "character"
+      ? e
+      : {
+          ...e,
+          fields: Object.fromEntries(Object.entries(e.fields ?? {}).map(([id, f]) => [id, meant(id, f)])),
+          derived: e.derived?.map((d) => meant(d.id, d)),
+        },
+  ),
+  resources: SAMPLE_D20_0_1_10.resources?.map((r) => meant(r.id, r)),
+  conditions: SAMPLE_D20_0_1_10.conditions?.map((c) => meant(c.id, c)),
+  campaignFields: Object.fromEntries(
+    Object.entries(SAMPLE_D20_0_1_10.campaignFields ?? {}).map(([id, f]) => [id, meant(id, f)]),
+  ),
+  codex: {
+    kinds: Object.fromEntries(
+      Object.entries(SAMPLE_D20_0_1_10.codex?.kinds ?? {}).map(([kind, k]) => [
+        kind,
+        { ...k, fields: Object.fromEntries(Object.entries(k.fields).map(([id, f]) => [id, meant(id, f)])) },
+      ]),
+    ),
+  },
 };

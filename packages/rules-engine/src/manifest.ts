@@ -67,6 +67,12 @@ export const SemVerRange = z
   );
 /** Source and printed page, e.g. "Sample p.12". */
 export const Cite = z.string().min(1).max(40);
+/**
+ * What a definition means, in the importer's own words, never the book's (house decision #126): a new player taps the
+ * name and reads it with the cite. At most 300 characters; 280 is the guidance, as for a pack's text (house decision #17).
+ */
+export const MAX_SUMMARY = 300;
+export const Summary = z.string().trim().min(1).max(MAX_SUMMARY);
 export const ExprSource = z.string().min(1).max(MAX_EXPR_LENGTH);
 export const DiceNotation = z
   .string()
@@ -91,6 +97,7 @@ const fieldBase = {
   visibility: Visibility.default("gm"),
   editableBy: EditableBy.default("gm"),
   cite: Cite.optional(),
+  summary: Summary.optional(),
 };
 
 /**
@@ -128,7 +135,7 @@ export const FieldDef = z.discriminatedUnion("type", [
 ]);
 export type FieldDef = z.infer<typeof FieldDef>;
 
-const campaignFieldBase = { label: z.string().min(1).max(80), cite: Cite.optional() };
+const campaignFieldBase = { label: z.string().min(1).max(80), cite: Cite.optional(), summary: Summary.optional() };
 const CAMPAIGN_INT = z.int().min(-1000).max(1000);
 
 /**
@@ -160,6 +167,7 @@ const codexFieldBase = {
   label: z.string().min(1).max(80),
   visibility: CodexFieldVisibility.default("gm"),
   cite: Cite.optional(),
+  summary: Summary.optional(),
 };
 
 // Ceilings of a `tags` and a `rows` field (house decision #89); a declaration's own `maxItems`, `maxRows` and a text
@@ -302,6 +310,7 @@ export const DerivedDef = z.object({
   expr: ExprSource,
   visibility: Visibility.default("gm"),
   cite: Cite.optional(),
+  summary: Summary.optional(),
   /**
    * An int field of the same entity that holds a GM's override (house decision #96): set, it replaces the worked-out
    * value; unset, the value is worked out. Absent: the value is never overridden.
@@ -323,6 +332,7 @@ export const Resource = z.object({
   id: Id,
   label: z.string().min(1).max(80),
   cite: Cite.optional(),
+  summary: Summary.optional(),
   scope: ResourceScope,
   /** Entity types that carry an `entity`-scoped resource; every `actor`-based type when omitted. */
   entities: z.array(Id).optional(),
@@ -356,6 +366,7 @@ export const Condition = z.object({
   id: Id,
   label: z.string().min(1).max(80),
   cite: Cite.optional(),
+  summary: Summary.optional(),
   effects: z.array(Effect).max(50).default([]),
   stacking: ConditionStacking.default("none"),
   maxStacks: z.int().min(1).max(100).optional(),

@@ -440,3 +440,17 @@ test("enum tones are good or bad and name the enum's own values, wherever an enu
   hasProblem(found, "entities[0].fields.size.tones.big", /"big" is not a value/);
   hasProblem(found, "campaignFields.era.tones.new", /"new" is not a value/);
 });
+
+test("a summary is trimmed, never blank, and at most 300 characters (house decision #126)", () => {
+  const withSummary = (summary: string) => {
+    const r = sample();
+    r.resources = r.resources?.map((x) => (x.id === "hp" ? { ...x, summary } : x));
+    return r;
+  };
+  const ok = validateRuleset(withSummary("  Harm you can take.  "));
+  assert.ok(ok.ok);
+  assert.equal(ok.ruleset.resources.find((x) => x.id === "hp")?.summary, "Harm you can take.");
+  assert.ok(validateRuleset(withSummary("x".repeat(300))).ok);
+  hasProblem(problems(withSummary("x".repeat(301))), "resources[0].summary", /300/);
+  hasProblem(problems(withSummary("   ")), "resources[0].summary", /.+/);
+});

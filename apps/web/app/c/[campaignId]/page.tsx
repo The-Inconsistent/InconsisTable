@@ -111,7 +111,12 @@ export default async function Table({ params, searchParams }: TableProps) {
     // The socket proves the key; without it nothing loads. The rules tabs need a seat's cookie, so they stay empty.
     // ponytail: no rules tabs as admin, pass the key through a server-readable cookie if admins need them
     me = { campaignId: p.campaignId, userId: null, campaignOwnerId: null, tableMode: "gm", seat: { kind: "admin" } };
-    return <GmApp me={me} rules={null} view={null} spawnable={null} />;
+    // No World without a seat's rules, but the GM tabs still need the providers RoomWorld mounts (handouts).
+    return (
+      <RoomWorld world={null}>
+        <GmApp me={me} rules={null} view={null} spawnable={null} />
+      </RoomWorld>
+    );
   }
   try {
     const res = await apiGet(`/api/campaigns/${campaignId}/me`);

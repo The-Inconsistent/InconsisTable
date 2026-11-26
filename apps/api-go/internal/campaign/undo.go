@@ -15,6 +15,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/encounter/turn"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/request"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
@@ -265,9 +266,12 @@ func undoAction(ctx context.Context, tx core.Conn, c cs.Ctx, sessionID, actionID
 		VALUES ($1, $2, 'undo', $3, $4, $5) RETURNING id::text`, cid, sessionID, core.NewUUID(), c.UserID, payload).Scan(&eventID); err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `UPDATE session_event SET undone_by = $4 WHERE `+sessionDeltas+` AND action_id = $3`,
-		cid, sessionID, actionID, eventID)
-	return err
+	if _, err = tx.Exec(ctx, `UPDATE session_event SET undone_by = $4 WHERE `+sessionDeltas+` AND action_id = $3`,
+		cid, sessionID, actionID, eventID); err != nil {
+		return err
+	}
+	// A request this action approved is waiting again (house decision #119).
+	return request.Reopen(ctx, tx, cid, actionID)
 }
 
 // A clock tick is counted like a resource: undo ticks back the change that was made, and a deleted clock is passed over.

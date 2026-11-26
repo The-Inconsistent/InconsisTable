@@ -261,7 +261,7 @@ func Approve(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resul
 	var actionID string
 	switch {
 	case w.acquireKey != "":
-		actionID, err = callAcquire(ctx, tx, c, askOf(w))
+		actionID, err = callAcquire(ctx, tx, c, askOf(w)) // a Test call's id, not a logged action: nothing to reopen
 	case w.spendID != "":
 		actionID, err = doSpend(ctx, tx, c, w.spendID, w.actorID, w.inputs)
 	default:
@@ -270,8 +270,23 @@ func Approve(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resul
 	if err != nil {
 		return cs.Result{}, err
 	}
-	_, err = tx.Exec(ctx, `UPDATE spend_request SET status = 'approved', resolved_at = now() WHERE id = $1`, id)
+	// The logged action Undo may take back (house decision #119); none for an acquisition, or a spend that changed
+	// nothing (Apply answers "" when every delta is a no-op).
+	var logged *string
+	if w.acquireKey == "" && actionID != "" {
+		logged = &actionID
+	}
+	_, err = tx.Exec(ctx, `UPDATE spend_request SET status = 'approved', resolved_at = now(), action_id = $2 WHERE id = $1`,
+		id, logged)
 	return cs.Done(actionID), err
+}
+
+// Reopen puts back to pending the request whose approval was the logged action actionID, which Undo has just taken back
+// (#227, house decision #119): the cost is returned, so the GM side may answer the ask again.
+func Reopen(ctx context.Context, tx core.Conn, campaignID, actionID string) error {
+	_, err := tx.Exec(ctx, `UPDATE spend_request SET status = 'pending', resolved_at = NULL, action_id = NULL
+		WHERE campaign_id = $1 AND action_id = $2 AND status = 'approved'`, campaignID, actionID)
+	return err
 }
 
 // spend takes amount off the resource: the resource.capped adjust op and the actor pipeline, as a GM's own delta. It

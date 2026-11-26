@@ -36,7 +36,9 @@ func fixture(t *testing.T, name string) any {
 var tide = map[string]any{"id": "tide", "version": "1.0.0", "core": "^1.0.0", "name": "Tide",
 	"theme": map[string]any{"schemes": map[string]any{"light": map[string]any{}}}}
 
-func part(slug, version string) map[string]any { return map[string]any{"slug": slug, "version": version} }
+func part(slug, version string) map[string]any {
+	return map[string]any{"slug": slug, "version": version}
+}
 
 // whole is a module that carries its ruleset, its pack and its World.
 func whole(t *testing.T) map[string]any {

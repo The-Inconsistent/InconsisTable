@@ -14,7 +14,7 @@ export function Frame({ row, env, mark, total }: { row: SheetRow; env: WidgetEnv
     <div className="w-cell" data-stat={row.id} data-total={total || undefined}>
       <span className="w-cell-label">
         {mark && <span aria-hidden="true">{mark} </span>}
-        <Term term={termOf(row)} env={env} />
+        <Term term={termOf(row)} env={env.still ? undefined : env} />
       </span>
       <Num row={row} env={env} className="w-cell-num" />
       {row.cite && <Cite cite={row.cite} ruleset={env.ruleset} books={env.books} requestPage={env.requestPage} />}

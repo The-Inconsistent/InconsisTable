@@ -13,11 +13,12 @@ type NumProps = {
   format?: (n: number) => string;
 };
 
-// One number of a widget. A derived value is a button that opens where it comes from, as on the plain sheet rows.
+// One number of a widget. A derived value is a button that opens where it comes from, as on the plain sheet rows,
+// except on a screen nobody touches.
 export function Num({ row, env, className = "", format = String }: NumProps) {
   const t = useTranslations("sheet");
   const n = numberOf({ actor: env.actor, row });
-  if (row.kind !== "derived")
+  if (row.kind !== "derived" || env.still)
     return (
       <span className={className} data-stat={row.id}>
         {format(n)}

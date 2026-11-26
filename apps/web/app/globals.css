@@ -1059,6 +1059,15 @@ label {
 .screen .bar {
   height: 20px;
 }
+/* A ruleset's screen layout (house decision #127): a card per character, side by side as the TV's width allows. */
+.screen-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: var(--gap);
+}
+.screen-cards > .screen-card {
+  min-width: 0;
+}
 
 /* ---------- Clocks: a brass-rimmed disc of wedges, the filled ones lit like a candle ----------
    A lit wedge lies over a dark one: filling swells it in from a little smaller and unlit, emptying fades it out. Only

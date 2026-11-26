@@ -30,7 +30,7 @@ export function Pips({ value, steps, env }: PipsProps) {
       ) : (
         <div className="sheet-row" data-stat={value.id} data-kind={value.kind}>
           <span className="stack" style={{ gap: 2 }}>
-            <Term term={termOf(value)} env={env} className="stat-label" />
+            <Term term={termOf(value)} env={env.still ? undefined : env} className="stat-label" />
             <span className="small dim">{step}</span>
           </span>
           <strong className="sheet-num">{n}</strong>

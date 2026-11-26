@@ -25,7 +25,7 @@ export function Track({ value, max, env }: TrackProps) {
         env.rowView(value)
       ) : (
         <div className="sheet-row" data-stat={value.id} data-kind={value.kind}>
-          <Term term={termOf(value)} env={env} className="stat-label" />
+          <Term term={termOf(value)} env={env.still ? undefined : env} className="stat-label" />
           <strong className="sheet-num">
             {n}
             {limit != null && <span className="dim small"> / {limit}</span>}

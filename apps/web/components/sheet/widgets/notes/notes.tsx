@@ -75,13 +75,14 @@ export function Notes({ fields, env }: NotesProps) {
         </div>
       </div>
     );
+  // On the TV (`still`) the texts lie open and nothing in them takes focus.
   return (
-    <div className="w-notes stack">
+    <div className="w-notes stack" inert={env.still}>
       {written.length === 0 ? (
         <p className="dim">{t("notWritten", { fields: fields.map((f) => f.label).join(", ") })}</p>
       ) : (
         written.map((f) => (
-          <details key={f.id} className="w-fold" data-stat={f.id}>
+          <details key={f.id} className="w-fold" data-stat={f.id} open={env.still}>
             <summary>
               <span className="w-fold-title">{f.label}</span>
             </summary>

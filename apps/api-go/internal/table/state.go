@@ -66,7 +66,7 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 
 	// ponytail: every session with its notes in each snapshot, fine for a campaign's few dozen sessions; page the journal
 	// once a room passes ~200 sessions.
-	sessions, err := conn.Query(ctx, `SELECT id::text, number, title, started_at, ended_at, recap, notes, abandoned FROM session
+	sessions, err := conn.Query(ctx, `SELECT id::text, number, title, started_at, ended_at, recap, notes, abandoned, award FROM session
 		WHERE campaign_id = $1 ORDER BY number DESC`, campaignID)
 	if err != nil {
 		return nil, nil, nil, err
@@ -75,7 +75,7 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 		var s cs.JournalSession
 		var startedAt time.Time
 		var endedAt *time.Time
-		err := r.Scan(&s.ID, &s.Number, &s.Title, &startedAt, &endedAt, &s.Recap, &s.Notes, &s.Abandoned)
+		err := r.Scan(&s.ID, &s.Number, &s.Title, &startedAt, &endedAt, &s.Recap, &s.Notes, &s.Abandoned, &s.Award)
 		s.StartedAt, s.EndedAt = core.ISOTime(startedAt), isoPtr(endedAt)
 		return s, err
 	})

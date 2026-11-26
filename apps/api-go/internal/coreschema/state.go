@@ -39,9 +39,11 @@ type (
 		Notes     string  `json:"notes"`
 	}
 	// JournalSession is one session of the GM's journal (house decision #85); Abandoned when it ended without an award.
+	// Award is the XP each character was given at its end (house decision #120), nil when none was stored.
 	JournalSession struct {
 		Session
 		Abandoned bool `json:"abandoned"`
+		Award     *int `json:"award"`
 	}
 	// ConditionTimer is what is left of an active condition's count.
 	ConditionTimer struct {

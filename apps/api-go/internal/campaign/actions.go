@@ -140,8 +140,15 @@ func SessionStart(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.
 // session ends, so they are logged in it; with no session running the refusal rolls them back.
 func SessionEnd(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	award, _ := a["award"].(float64)
-	if err := checkAward(ctx, tx, c.CampaignID, award); err != nil {
+	gives, err := checkAward(ctx, tx, c.CampaignID, award)
+	if err != nil {
 		return cs.Result{}, err
+	}
+	// The award given, kept with the session for the journal (house decision #120); none where the ruleset gives none.
+	var stored *int
+	if gives {
+		n := int(award)
+		stored = &n
 	}
 	if _, _, _, err := ruleset.RestActors(ctx, tx, c, "sessionEnd", ""); err != nil {
 		return cs.Result{}, err
@@ -149,8 +156,8 @@ func SessionEnd(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	if err := sessionAward(ctx, tx, c, award); err != nil {
 		return cs.Result{}, err
 	}
-	tag, err := tx.Exec(ctx, `UPDATE session SET ended_at = now(), recap = $2 WHERE campaign_id = $1 AND ended_at IS NULL`,
-		c.CampaignID, a.Str("recap"))
+	tag, err := tx.Exec(ctx, `UPDATE session SET ended_at = now(), recap = $2, award = $3 WHERE campaign_id = $1 AND ended_at IS NULL`,
+		c.CampaignID, a.Str("recap"), stored)
 	if err != nil {
 		return cs.Result{}, err
 	}

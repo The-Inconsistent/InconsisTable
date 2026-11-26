@@ -1016,7 +1016,8 @@
       "no": "No",
       "callTest": "Call a Test",
       "openCalls": "Open Tests",
-      "moreCalls": "{count} more on Tests"
+      "moreCalls": "{count} more on Tests",
+      "history": "History"
     },
     "tabs": {
       "scene": "Scene",
@@ -2588,7 +2589,19 @@
     "acts": "{name} acts",
     "ends": "{name}'s turn ends",
     "round": "Round {round} begins",
-    "undone": "(taken back)"
+    "undone": "(taken back)",
+    "other": "{count, plural, one {# change} other {# changes}}"
+  },
+  "history": {
+    "title": "History of this session",
+    "empty": "Nothing logged in this session yet.",
+    "noSession": "History lists the running session's actions. Start a session first.",
+    "undo": "Undo",
+    "redo": "Redo",
+    "undoLine": "Undo: {line}",
+    "redoLine": "Redo: {line}",
+    "undone": "(taken back)",
+    "first": "Undo this first"
   },
   "command": {
     "label": "ORDER ›",

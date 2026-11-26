@@ -21,7 +21,8 @@ are not open:
 
 1. **Reminders, not automation,** for Condition numbers (Auspex reminds; it does not change the numbers).
 2. **TURN BACK** is the undo of Auspex's `main`: the last turn step and the damage since, with what a Seize or an
-   Aware cost given back. The journal with redo and a history, merged into Auspex `main` on 2026-11-21 (commit 7391d928), is not built here.
+   Aware cost given back. The journal with redo and a history, merged into Auspex `main` on 2026-11-21 (commit 7391d928),
+   is built beside it (#237, house decisions #131 to #134).
 3. **The app never rolls a Test.** Book tables offer ROLL and I ROLLED; the Critical Hit and Perils lookups take a
    typed result only.
 4. **Beginning a scene sends its reveals,** as one tap of the GM's, each reveal its own action in the log, and the
@@ -54,7 +55,9 @@ and other players' builds and drafts being sent to every phone.
    upload.
 5. **Three play rules stay the platform's:** a phone reports its dice and the server works out the result; one report
    stands; a fight needs a running session and does not replace a running fight.
-6. **Undo is TURN BACK only,** as on Auspex's `main`. The journal with redo and a history is not built.
+6. **Undo is TURN BACK and the action journal,** as on Auspex's `main` since 7391d928: TURN BACK, undo by line with
+   its conflict refusal, redo and HISTORY (the owner, 2026-11-26, in #237; house decisions #131 to #134). Replaces
+   "Undo is TURN BACK only" of 2026-11-21.
 7. **Not ported:** other tables' running games in the lobby, and a character's sheet shown to someone holding only an
    invite link.
 

@@ -209,7 +209,7 @@ export const Action = z.discriminatedUnion("type", [
   // Takes back the undo of a logged action of the running session, so the action stands again (house decision #132).
   z.object({ type: z.literal("event.redo"), actionId: id }),
   // Undoes the running fight's last turn step: every action back to and including the newest one that changed who acts
-  // or the round (house decision #82). There is no redo.
+  // or the round (house decision #82). The step is not redone whole; each action it took back is, by line.
   z.object({ type: z.literal("event.turnBack") }),
 
   // A Test the GM calls, the physical roll a player or the GM reports, and the close (docs/design.md §6.3). The api

@@ -1016,7 +1016,8 @@
       "no": "Không",
       "callTest": "Gọi một Test",
       "openCalls": "Test đang mở",
-      "moreCalls": "Còn {count} ở tab Test"
+      "moreCalls": "Còn {count} ở tab Test",
+      "history": "Lịch sử"
     },
     "tabs": {
       "scene": "Cảnh",
@@ -2588,7 +2589,19 @@
     "acts": "{name} hành động",
     "ends": "Hết lượt của {name}",
     "round": "Bắt đầu vòng {round}",
-    "undone": "(đã hoàn tác)"
+    "undone": "(đã hoàn tác)",
+    "other": "{count} thay đổi"
+  },
+  "history": {
+    "title": "Lịch sử buổi này",
+    "empty": "Buổi này chưa ghi lại gì.",
+    "noSession": "Lịch sử liệt kê các hành động của buổi đang chơi. Hãy bắt đầu một buổi trước.",
+    "undo": "Hoàn tác",
+    "redo": "Làm lại",
+    "undoLine": "Hoàn tác: {line}",
+    "redoLine": "Làm lại: {line}",
+    "undone": "(đã hoàn tác)",
+    "first": "Hoàn tác bước này trước"
   },
   "command": {
     "label": "LỆNH ›",

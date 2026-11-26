@@ -9,7 +9,7 @@ import { PageHead } from "@/components/ui/page-head/page-head";
 type CharactersViewProps = { characters: LobbyCharacter[] };
 
 // MY CHARACTERS: every character a seat of yours holds, grouped by the room it lives in. A card opens that room.
-// ponytail: only characters held in rooms, upgrade: the character library outside campaigns (docs/design.md §3.2)
+// Characters outside any room live in the library (house decision #104), listed by the lobby's your-characters.
 export function CharactersView({ characters }: CharactersViewProps) {
   const t = useTranslations("workspace");
   const rooms = new Map<string, LobbyCharacter[]>();

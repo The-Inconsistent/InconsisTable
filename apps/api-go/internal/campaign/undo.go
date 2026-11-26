@@ -249,24 +249,34 @@ func laterFirst(ctx context.Context, tx core.Conn, ask laterAsk) error {
 		return nil
 	}
 	var blocker string
-	var target []byte
-	err := tx.QueryRow(ctx, `SELECT e.action_id::text, e.payload->'target' FROM session_event e
+	var payload []byte
+	err := tx.QueryRow(ctx, `SELECT e.action_id::text, e.payload FROM session_event e
 		WHERE e.campaign_id = $1 AND e.session_id = $2 AND e.type = 'delta' AND e.undone_by IS NULL AND e.action_id <> $3
 		AND (e.created_at, e.id) > (SELECT created_at, id FROM session_event WHERE id = $4)
 		AND (e.payload->'target' IN (SELECT t::jsonb FROM unnest($5::text[]) t)
 			OR (e.payload->'target'->>'actorId', coalesce(e.payload->'after'->>'conditionId', e.payload->'before'->>'conditionId'))
 				IN (SELECT * FROM unnest($6::text[], $7::text[])))
 		ORDER BY e.created_at, e.id LIMIT 1`, ask.cid, ask.sessionID, ask.actionID, ask.since, targets, condActors, condIDs).
-		Scan(&blocker, &target)
+		Scan(&blocker, &payload)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	var t engine.DeltaTarget
-	if err := json.Unmarshal(target, &t); err != nil {
+	w, err := eventlog.Parse(payload)
+	if err != nil {
 		return err
+	}
+	t := w.Target
+	// A condition row's id says nothing to the GM: the condition it holds does.
+	for _, v := range []any{w.After, w.Before} {
+		if row, isRow := v.(map[string]any); isRow && t.Condition != "" {
+			if id, ok := row["conditionId"].(string); ok {
+				t.Condition = id
+				break
+			}
+		}
 	}
 	return cs.Fail(ask.code, cs.Params{"target": eventlog.DescribeTarget(t), "actionId": blocker})
 }

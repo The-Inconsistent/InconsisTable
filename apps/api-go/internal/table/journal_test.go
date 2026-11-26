@@ -28,7 +28,9 @@ func (p *play) refusedNaming(c cs.Ctx, action map[string]any, code, blocker stri
 	p.t.Helper()
 	_, err := p.try(c, action)
 	var refusal *cs.Error
-	if !errors.As(err, &refusal) || refusal.Code != code || refusal.Params["actionId"] != blocker {
+	// The value is named by the condition it holds, not by its row's id.
+	if !errors.As(err, &refusal) || refusal.Code != code || refusal.Params["actionId"] != blocker ||
+		refusal.Params["target"] != `condition "dazed"` {
 		p.t.Fatalf("%v: want %s naming %s, got %v", action["type"], code, blocker, err)
 	}
 }

@@ -1355,6 +1355,7 @@ label {
 }
 .history-first {
   color: var(--accent);
+  font-size: var(--fs-small);
 }
 /* A chain of tables (house decision #88): the steps taken so far, in order, wrapping on a phone. */
 .table-trail {

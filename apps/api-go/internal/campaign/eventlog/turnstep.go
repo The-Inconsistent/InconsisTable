@@ -11,7 +11,8 @@ import (
 type TurnStep struct {
 	// Actions are action ids, newest first; the last is the step itself.
 	Actions []string
-	// Kind is "turnStart" (someone began acting), "turnEnd" (whoever acted stopped) or "round" (only the round moved).
+	// Kind is "turnStart" (someone began acting), "turnEnd" (whoever acted stopped), "round" (only the round moved) or
+	// "begin" (a sides fight's setup ended: BEGIN ROUND 1, house decision #130).
 	Kind string
 	// Holder is the actor the step names: who began acting, or whose turn ended; nil for a round.
 	Holder *string
@@ -23,6 +24,7 @@ type TurnStep struct {
 const (
 	turnRound   = "round"
 	turnCurrent = "currentId"
+	turnBegun   = "begun"
 )
 
 // LastTurnStep is the running fight's newest turn step in the running session's log, or nil when there is none: no fight
@@ -69,21 +71,30 @@ func LastTurnStep(ctx context.Context, conn core.Conn, campaignID, sessionID str
 	return nil, nil
 }
 
-// judge adds one action to the step and says whether it is the step itself: it changed who acts or the round.
+// judge adds one action to the step and says whether it is the step itself: it changed who acts or the round, or it
+// began a fight that had a setup.
 func (s *TurnStep) judge(actionID string, writes []Written) bool {
 	s.Actions = append(s.Actions, actionID)
 	var current, round *Written
+	begins := false
 	for i := range writes {
 		switch writes[i].Target.Turn {
 		case turnCurrent:
 			current = &writes[i]
 		case turnRound:
 			round = &writes[i]
+		case turnBegun:
+			begins = writes[i].After == true
 		}
 	}
 	if round != nil {
 		// Only a step moves the round, so a later action never did: the round now is the step's, unless it moved it.
 		s.Round = int(number(round.After))
+	}
+	if begins {
+		// Before the turn writes: a begin also clears whoever acted in the setup, and is still the begin.
+		s.Kind, s.Holder = "begin", nil
+		return true
 	}
 	if current != nil {
 		if after, acts := current.After.(string); acts {

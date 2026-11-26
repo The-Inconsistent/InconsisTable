@@ -299,7 +299,7 @@ type (
 		ActorIDs []string `json:"actorIds"`
 	}
 	// EncounterTurnBack is the fight's last turn step (house decision #82): which kind, whose turn (left out for a round),
-	// in which round, and how many later actions go back with it.
+	// in which round, and how many later actions go back with it. Kind "begin" is BEGIN ROUND 1 (house decision #130).
 	EncounterTurnBack struct {
 		Kind  string `json:"kind"`
 		Name  string `json:"name,omitempty"`

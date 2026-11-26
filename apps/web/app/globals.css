@@ -3086,6 +3086,24 @@ summary {
   color: var(--candle);
   text-shadow: 0 0 14px color-mix(in srgb, var(--candle) 60%, transparent);
 }
+/* Phone: the round on a line of its own, then at most two rows of buttons. TURN BACK's long label wraps inside its
+   button rather than taking a row of its own (#223). */
+@media (max-width: 480px) {
+  .fightbar .round {
+    flex-basis: 100%;
+  }
+  .fightbar > .btn {
+    flex: 1 1 auto;
+  }
+  .fightbar .turn-back {
+    flex: 1 1 140px;
+    min-width: 0;
+    padding-block: 6px;
+    font-size: var(--fs-small);
+    line-height: 1.2;
+    white-space: normal;
+  }
+}
 .track {
   display: grid;
   gap: 28px;

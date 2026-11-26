@@ -92,7 +92,7 @@ export function FightBar({ encounter, sessionRunning, run, mode, sides }: FightB
       </button>
       {encounter && (
         <button
-          className="btn"
+          className="btn turn-back"
           disabled={back === undefined}
           onClick={handleTurnBack}
           onBlur={() => setTurningBack(false)}

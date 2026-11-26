@@ -262,10 +262,11 @@ func narrowAt(m map[string]any, keys []any) map[string]any {
 	}
 	// An expression's problem means the manifest validated, so a narrowing that does not validate broke something else
 	// that needs the type (a layout row naming the resource on it): that type stays out of the narrowing.
+	// A layout row that names the definition on a type the narrowing leaves out goes first (house decision #127).
 	var keep []string
 	for _, id := range candidates {
-		trial := withEntities(m, keys, []string{id})
-		if _, problems := engine.ValidateRuleset(trial); len(problems) > 0 {
+		trial := withoutLayoutBreaks(withEntities(m, keys, []string{id}))
+		if trial == nil {
 			continue
 		}
 		under := false
@@ -282,7 +283,34 @@ func narrowAt(m map[string]any, keys []any) map[string]any {
 	if len(keep) == 0 || len(keep) == len(candidates) {
 		return nil
 	}
-	return withEntities(m, keys, keep)
+	return withoutLayoutBreaks(withEntities(m, keys, keep))
+}
+
+// withoutLayoutBreaks is the manifest with the layout rows it fails to validate on cut, one at a time (the first by
+// path), or nil when it fails on anything else (view.compiles.ts withoutLayoutBreaks; house decision #127).
+func withoutLayoutBreaks(m map[string]any) map[string]any {
+	for i := 0; i < maxCuts && m != nil; i++ {
+		_, problems := engine.ValidateRuleset(m)
+		if len(problems) == 0 {
+			return m
+		}
+		slices.SortStableFunc(problems, func(a, b engine.Problem) int {
+			if c := strings.Compare(a.Path, b.Path); c != 0 {
+				return c
+			}
+			return strings.Compare(a.Message, b.Message)
+		})
+		if !strings.HasPrefix(problems[0].Path, "layout.") {
+			return nil
+		}
+		keys, _ := locate(m, problems[0].Path)
+		row := 4
+		if len(keys) > 2 && keys[2] == "sections" {
+			row = 6
+		}
+		m = cutAt(m, keys[:min(row, len(keys))])
+	}
+	return nil
 }
 
 func keyTexts(keys []any) []string {

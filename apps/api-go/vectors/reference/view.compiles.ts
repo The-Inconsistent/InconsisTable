@@ -162,12 +162,32 @@ function narrow(m: Ruleset, keys: readonly Key[]): Ruleset | null {
   const candidates = Array.isArray(declared) ? declared.filter((id): id is string => typeof id === "string") : actors;
   // An expression's problem means the manifest validated, so a narrowing that does not validate broke something else
   // that needs the type (a layout row naming the resource on it): that type stays out of the narrowing.
+  // A layout row that names the definition on a type the narrowing leaves out goes first (house decision #127).
   const keep = candidates.filter((id) => {
-    const trial = withEntities(m, keys, [id]);
-    if (!validateRuleset(trial).ok) return false;
+    const trial = withoutLayoutBreaks(withEntities(m, keys, [id]));
+    if (trial === null) return false;
     return !problemsOf(trial).some((p) => matches(keys.map(String), locate(trial, p.path).keys.map(String)));
   });
-  return keep.length === 0 || keep.length === candidates.length ? null : withEntities(m, keys, keep);
+  return keep.length === 0 || keep.length === candidates.length
+    ? null
+    : withoutLayoutBreaks(withEntities(m, keys, keep));
+}
+
+/**
+ * The manifest with the layout rows it fails to validate on cut, one at a time (the first by path), or null when it
+ * fails on anything else (house decision #127).
+ */
+function withoutLayoutBreaks(m: Ruleset): Ruleset | null {
+  let out: Ruleset | null = m;
+  for (let i = 0; i < MAX_CUTS && out !== null; i++) {
+    const v = validateRuleset(out);
+    if (v.ok) return out;
+    const first = [...v.problems].sort((a, b) => compare(a.path, b.path) || compare(a.message, b.message))[0]!;
+    if (!first.path.startsWith("layout.")) return null;
+    const { keys } = locate(out, first.path);
+    out = cut(out, keys.slice(0, keys[2] === "sections" ? 6 : 4));
+  }
+  return null;
 }
 
 function withEntities(m: Ruleset, keys: readonly Key[], entities: string[]): Ruleset {

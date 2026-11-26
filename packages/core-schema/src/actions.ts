@@ -297,6 +297,11 @@ export const Action = z.discriminatedUnion("type", [
   }),
   // `withScenes`: an adventure goes with its scenes; without it, one that has scenes is refused (house decision #86).
   z.object({ type: z.literal("codex.delete"), id, withScenes: z.boolean().optional() }),
+  // SHOW TO TABLE (#2, house decision #139): one entry full-screen on the phones (everyone, or listed characters) and,
+  // for everyone, on the TV. Showing reveals it for good; a new SHOW replaces the last; CLEAR takes it down, unrevealing
+  // nothing.
+  z.object({ type: z.literal("spotlight.show"), entryId: id, audience: z.array(id).max(50).default([]) }),
+  z.object({ type: z.literal("spotlight.clear") }),
   // A scene begun: the one being played goes to done, this one is active, its prepared reveals are sent (house decision
   // #86). The answer's id is the begin's, which scene.undoBegin takes back while it is the room's latest.
   z.object({ type: z.literal("scene.begin"), sceneId: id }),
@@ -541,6 +546,8 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "codex.generate": "codex:write", // and each pick read as the seat reads it (house decision #98)
   "codex.reveal": "codex:reveal",
   "codex.delete": "codex:write",
+  "spotlight.show": "codex:reveal",
+  "spotlight.clear": "codex:reveal",
   "scene.begin": "codex:write", // as making a scene active with codex.save; each reveal then asks codex:reveal
   "scene.undoBegin": "codex:write",
   "codex.move": "codex:write",

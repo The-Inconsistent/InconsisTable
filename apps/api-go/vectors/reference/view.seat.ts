@@ -17,6 +17,7 @@ import {
   type PoolState,
   type RequestAnswer,
   type SpendRequest,
+  type Spotlight,
   type Whisper,
 } from "../../../../packages/core-schema/src/index.ts";
 import {
@@ -222,6 +223,7 @@ export function seatView({
       ...seatTables({ rolls: state.rolls, dealt: state.dealt, ctx, sight }),
       whispers: seatWhispers({ whispers: state.whispers, ctx, sight }),
       history: seatHistory({ whole: snapshot.state, pools, clocks, codex, compiled, ctx, sight }),
+      spotlight: seatSpotlight({ spotlight: state.spotlight, seen, ctx, sight }),
     },
     codex,
     manifest,
@@ -340,6 +342,28 @@ const seatWhispers = ({
     const readers = w.readers.filter((r) => held.includes(r.actorId));
     return readers.length > 0 ? [{ ...w, readers }] : [];
   });
+};
+
+// The spotlight a seat receives (house decision #139): the codex and secrets sides get it whole. Anyone else gets none for
+// an entry its codex lacks, and of a listed audience only the characters it holds, none when that leaves none: no phone
+// learns who else was named, and the screen gets only one shown to everyone.
+const seatSpotlight = ({
+  spotlight,
+  seen,
+  ctx,
+  sight,
+}: {
+  spotlight: Spotlight | null;
+  seen: ReadonlySet<string>;
+  ctx: Ctx;
+  sight: Sight;
+}): Spotlight | null => {
+  if (!spotlight || sight.secrets || sight.codex) return spotlight;
+  if (!seen.has(spotlight.entryId)) return null;
+  if (spotlight.audience.length === 0) return spotlight;
+  const held = heldBy(ctx);
+  const audience = spotlight.audience.filter((id) => held.includes(id));
+  return audience.length > 0 ? { ...spotlight, audience } : null;
 };
 
 // The pools a seat receives (house decision #59). The GM side (a room with a GM, a seat that runs the table; the same

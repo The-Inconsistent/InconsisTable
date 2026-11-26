@@ -255,6 +255,15 @@ type (
 		// History is the running session's logged actions, newest first (house decision #133): the side that may undo
 		// them, cut to the writes the seat sees; absent for everyone else and when there is none.
 		History []HistoryLine `json:"history,omitempty"`
+		// Spotlight is the entry the GM is showing the table, as this seat may see it (house decision #139).
+		Spotlight *Spotlight `json:"spotlight"`
+	}
+	// Spotlight is what the GM holds up to the table (state.ts, #2): one codex entry, drawn by each seat from its own
+	// codex. Audience is the characters it is shown to, [] for everyone.
+	Spotlight struct {
+		EntryID  string   `json:"entryId"`
+		Audience []string `json:"audience"`
+		At       string   `json:"at"`
 	}
 	// Whisper is the GM's private line to chosen characters (house decision #93), with each reader's reply and read mark.
 	Whisper struct {

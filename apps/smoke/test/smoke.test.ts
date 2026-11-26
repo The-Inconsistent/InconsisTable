@@ -704,6 +704,53 @@ test("whispers: one reaches only its reader, the reply only the GM, a new reply 
   for (const c of [owner, ana, ben]) c.socket.close();
 });
 
+test("SHOW TO TABLE: shown to everyone or to listed characters, a new SHOW replaces the last, CLEAR unreveals nothing (#2)", async () => {
+  const { owner, campaignId } = await newRoom("Spotlight");
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-spot") } });
+  const ben = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ben-spot") } });
+  const held = (name: string) =>
+    owner.until((s) => s.access.members.some((m) => m.userId === uid(name) && m.characterIds.length === 1));
+  const anaChar = (await held("ana-spot")).access.members.find((m) => m.userId === uid("ana-spot"))!.characterIds[0]!;
+  const benChar = (await held("ben-spot")).access.members.find((m) => m.userId === uid("ben-spot"))!.characterIds[0]!;
+  await Promise.all([ana.until(() => true), ben.until(() => true)]);
+  const keeper = ok(await owner.send({ type: "codex.save", kind: "npc", title: "Keeper" })).id!;
+  const letter = ok(await owner.send({ type: "codex.save", kind: "handout", title: "Letter" })).id!;
+
+  refused(await ana.send({ type: "spotlight.show", entryId: keeper, audience: [] }), "noPermission");
+  refused(await owner.send({ type: "spotlight.show", entryId: crypto.randomUUID(), audience: [] }), "entryNotFound");
+  refused(
+    await owner.send({ type: "spotlight.show", entryId: keeper, audience: [crypto.randomUUID()] }),
+    "characterNotFound",
+  );
+
+  // For everyone: the spotlight with no one named, and the entry now in the player's codex for good.
+  ok(await owner.send({ type: "spotlight.show", entryId: keeper, audience: [] }));
+  const shown = await ana.until((s) => s.spotlight?.entryId === keeper);
+  assert.deepEqual(shown.spotlight!.audience, []);
+  await eventually(() => ana.codex()?.entries.some((e) => e.id === keeper) === true, "showing reveals the entry");
+
+  // Listed to Ana: a new SHOW replaces the last; Ben's seat gets none, Ana's names only Ana.
+  ok(await owner.send({ type: "spotlight.show", entryId: letter, audience: [anaChar] }));
+  const anaSees = await ana.until((s) => s.spotlight?.entryId === letter);
+  assert.deepEqual(anaSees.spotlight!.audience, [anaChar]);
+  assert.equal((await ben.until((s) => s.stateVersion >= anaSees.stateVersion)).spotlight, null);
+  ok(await owner.send({ type: "spotlight.show", entryId: letter, audience: [anaChar, benChar] }));
+  assert.deepEqual((await ben.until((s) => s.spotlight?.entryId === letter)).spotlight!.audience, [benChar]);
+  const gm = await owner.until((s) => s.spotlight?.audience.length === 2);
+  assert.deepEqual(gm.spotlight!.audience, [anaChar, benChar].sort(), "the GM sees everyone named");
+
+  ok(await owner.send({ type: "spotlight.clear" }));
+  await ana.until((s) => s.spotlight === null);
+  ok(await owner.send({ type: "spotlight.clear" })); // none up: no refusal
+  const after = await ana.until((s) => s.stateVersion >= gm.stateVersion + 2);
+  assert.equal(after.spotlight, null);
+  assert.ok(
+    ana.codex()?.entries.some((e) => e.id === letter),
+    "clearing unreveals nothing",
+  );
+  for (const c of [owner, ana, ben]) c.socket.close();
+});
+
 test("the next session as a calendar file: any seat, 404 until a date is set, 3 hours", async () => {
   const { owner, campaignId, ownerDevice } = await newRoom("Calendar");
   const anaDevice = await seatPlayer(owner, "ana-ics");

@@ -151,6 +151,9 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 	if state.Whispers, err = whisper.Load(ctx, conn, campaignID); err != nil {
 		return nil, nil, nil, err
 	}
+	if state.Spotlight, err = codex.LoadSpotlight(ctx, conn, campaignID); err != nil {
+		return nil, nil, nil, err
+	}
 	// ponytail: every draft in the room is reloaded on each broadcast, load only connected users' drafts if it shows.
 	drafts, err := actor.LoadDrafts(ctx, conn, campaignID)
 	if err != nil {

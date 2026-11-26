@@ -806,6 +806,8 @@ const STATE = {
       writes: [{ target: { actorId: GHOST, field: "secret" }, kind: "set", before: null, after: 1 }],
     },
   ],
+  // SHOW TO TABLE (house decision #139): a shown entry for everyone; the snapshots below show a listed one and a hidden one.
+  spotlight: { entryId: U(501), audience: [] as string[], at: "2026-11-01T10:05:00.000Z" },
 };
 
 const entry = (
@@ -984,6 +986,22 @@ const BASE_SNAPSHOTS: {
 }[] = [
   { name: "full", state: STATE, codex: CODEX, drafts: DRAFTS, ruleset: true },
   { name: "no ruleset", state: STATE, codex: CODEX, drafts: DRAFTS, ruleset: false },
+  // Shown to one of the entry's two readers: the other's seat reads the entry but gets no spotlight.
+  {
+    name: "spotlight listed",
+    state: { ...STATE, spotlight: { ...STATE.spotlight, entryId: U(502), audience: [PC1] } },
+    codex: CODEX,
+    drafts: {},
+    ruleset: true,
+  },
+  // Shown on an entry no player reads: only the codex and secrets sides get it.
+  {
+    name: "spotlight hidden",
+    state: { ...STATE, spotlight: { ...STATE.spotlight, entryId: U(500) } },
+    codex: CODEX,
+    drafts: {},
+    ruleset: true,
+  },
   {
     name: "quiet",
     state: {
@@ -1323,6 +1341,8 @@ const VALID: Record<string, Record<string, unknown>> = {
   "scene.undoBegin": { beginId: ID },
   "codex.reveal": { id: ID, visibility: "party", audienceMode: "listed", audience: [ID], imageRevealed: true },
   "codex.delete": { id: ID, withScenes: true },
+  "spotlight.show": { entryId: ID, audience: [ID] },
+  "spotlight.clear": {},
   "clock.create": { name: " Ritual ", segments: 6, visibility: "party", entryId: ID },
   "clock.tick": { id: ID, delta: -3 },
   "clock.update": { id: ID, name: " Cult ", segments: 8, visibility: "gm", entryId: ID },

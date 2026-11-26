@@ -3112,7 +3112,7 @@
     "holdLabel": "Hold {title} up to the table, full screen"
   },
   "spotlight": {
-    "show": "Show",
+    "show": "Show to table",
     "showLabel": "Show {title} to the table",
     "everyone": "Everyone",
     "only": "Or only these characters",

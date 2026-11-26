@@ -50,7 +50,7 @@ import { parsePlayerTab, playerAddress, settledTab } from "@/lib/player-address/
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 import { entrySeenKey } from "@/lib/seen/seen";
 import { rangeOf } from "@/lib/sheet/sheet";
-import { dismissKey, spotlitEntry } from "@/lib/spotlight/spotlight";
+import { dismissKey, spotlitEntry, xcardUp } from "@/lib/spotlight/spotlight";
 
 type PlayerAppProps = { me: Me; view: RulesView | null; quick?: boolean };
 
@@ -102,6 +102,8 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   const [heldUp, setHeldUp] = useState<string | null>(null);
   // The `at` of the GM's SHOW dismissed on this page, before storage has it.
   const [dismissedAt, setDismissedAt] = useState<string | null>(null);
+  // The X-card's touch count when it last came down: until then a card held or shown yields to it.
+  const [xcardClosed, setXcardClosed] = useState(0);
 
   // Syncs with the browser history: a tab the seat may not open is replaced in the address once the room is read.
   useEffect(() => {
@@ -131,7 +133,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   // The GM's SHOW (#2): up until this phone dismisses it; the dismissal is kept per `at`, so a new SHOW opens again.
   const spotKey = dismissKey(me.campaignId);
   const spotAt = state.spotlight?.at ?? null;
-  const spotEntry = spotlitEntry({ spotlight: state.spotlight, entries: codex?.entries ?? [] });
+  const spotEntry = spotlitEntry({ spotlight: state.spotlight, entries: codex?.entries ?? [], held });
   const spotDismissed = () => {
     if (spotAt === null || dismissedAt === spotAt) return true;
     try {
@@ -234,7 +236,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           {...{ ruleset, compiled, characters, send, books, requestPage }}
         />
       )}
-      <XCardOverlay signal={xcard} />
+      <XCardOverlay signal={xcard} onClose={() => setXcardClosed(xcard)} />
       {peekId && (
         <Peek
           entryId={peekId}
@@ -249,7 +251,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           onHold={handleHoldUp}
         />
       )}
-      {heldEntry ? (
+      {xcardUp({ signal: xcard, closedAt: xcardClosed }) ? null : heldEntry ? (
         <SpotlightCard
           key={heldEntry.id}
           entry={heldEntry}
@@ -260,6 +262,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           campaign={state.campaign.fields}
           kicker={tSpot("holding")}
           onClose={handleLetDown}
+          xcard={<XCardButton me={me} state={state} send={send} />}
         />
       ) : (
         spotEntry &&
@@ -274,6 +277,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
             campaign={state.campaign.fields}
             kicker={tSpot("fromGm")}
             onClose={handleDismissSpot}
+            xcard={<XCardButton me={me} state={state} send={send} />}
           />
         )
       )}

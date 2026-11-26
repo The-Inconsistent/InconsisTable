@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, type SyntheticEvent } from "react";
+import { useEffect, useRef, type ReactNode, type SyntheticEvent } from "react";
 
 import type { CodexEntry } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
@@ -23,6 +23,8 @@ type SpotlightCardProps = {
   kicker: string;
   /** DISMISS on a phone; absent on the TV, which has no input and keeps it up until the GM clears it. */
   onClose?: () => void;
+  /** The phone's X-card button: the card makes the page behind it inert, and the X-card must stay in reach. */
+  xcard?: ReactNode;
 };
 
 // One entry full-screen (#2, house decision #139): the GM's SHOW on a phone and on the TV, or a player holding a handout or
@@ -37,6 +39,7 @@ export function SpotlightCard({
   campaign,
   kicker,
   onClose,
+  xcard,
 }: SpotlightCardProps) {
   const t = useTranslations("spotlight");
   const dialog = useRef<HTMLDialogElement>(null);
@@ -62,11 +65,19 @@ export function SpotlightCard({
       <div className="spotlight-sheet stack">
         <div className="row between">
           <span className="small spotlight-kicker">{kicker}</span>
-          {onClose && (
-            <button className="btn sm" onClick={onClose} aria-label={t("closeLabel", { title: entry.title })} autoFocus>
-              {t("close")}
-            </button>
-          )}
+          <span className="row">
+            {xcard}
+            {onClose && (
+              <button
+                className="btn sm"
+                onClick={onClose}
+                aria-label={t("closeLabel", { title: entry.title })}
+                autoFocus
+              >
+                {t("close")}
+              </button>
+            )}
+          </span>
         </div>
         <h2 id="spotlight-title" className="title spotlight-title">
           {entry.title}

@@ -927,12 +927,13 @@ test("spend requests: a player asks, the GM approves or denies, nobody else sees
   );
   assert.equal(spare(answered, hero), 3, "a denial spends nothing");
 
-  // Undo takes the approved spend back (the denial wrote nothing).
+  // Undo takes the approved spend back (the denial wrote nothing), and the ask waits again (house decision #119).
   ok(await owner.send({ type: "event.undo" }));
-  await ana.until((s) => spare(s, hero) === 5);
+  await ana.until((s) => spare(s, hero) === 5 && s.requests.some((q) => q.id === first));
+  await owner.until((s) => s.requests.some((q) => q.id === first));
 
-  // Five waiting at most; a session end cancels what is left.
-  for (let i = 0; i < 5; i++)
+  // Five waiting at most, the reopened one among them; a session end cancels what is left.
+  for (let i = 0; i < 4; i++)
     ok(await ana.send({ type: "request.send", actorId: hero, resourceId: "tempHp", amount: 1 }));
   refused(await ana.send({ type: "request.send", actorId: hero, resourceId: "tempHp", amount: 1 }), "requestLimit");
   ok(await owner.send({ type: "session.end" }));

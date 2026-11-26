@@ -1,20 +1,20 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useState, type SyntheticEvent } from "react";
+import { useState } from "react";
 
-import { CodexKind, type Actor, type Codex, type Me, type Safety, type Whisper } from "@inconsistable/core-schema";
+import type { Actor, Codex, Me, Safety, Whisper } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
+import { Archive } from "@/components/player/notebook/components/archive/archive";
+import type { CardScope } from "@/components/player/notebook/components/entry-card/entry-card";
+import { Inbox } from "@/components/player/notebook/components/inbox/inbox";
+import { Mission } from "@/components/player/notebook/components/mission/mission";
+import { NOTEBOOK_VIEWS, type NotebookView } from "@/components/player/notebook/constants";
 import { SafetySection } from "@/components/player/notebook/safety-section";
-import { EntryFieldChips, EntryFields } from "@/components/ui/entry-fields/entry-fields";
-import { EntryPath } from "@/components/ui/entry-path/entry-path";
-import { EntryPicture } from "@/components/ui/entry-picture/entry-picture";
-import { HandoutDoc } from "@/components/ui/handout-doc/handout-doc";
-import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { WhisperReply } from "@/components/ui/whisper-reply/whisper-reply";
 import type { Send } from "@/hooks/use-table/use-table";
-import { newestRevealed, treeRows, type TreeRow } from "@/lib/codex/codex";
 import type { RulesEntry } from "@/lib/library/library";
+import { inboxEntries } from "@/lib/seen/seen";
 
 type NotebookProps = {
   codex: Codex | null;
@@ -28,22 +28,47 @@ type NotebookProps = {
   ruleset: Ruleset | null;
   /** Pack entries this seat already read, to name a ref field's entry. */
   known: readonly RulesEntry[];
+  /** The campaign fields in play, for an entry's reminders. */
+  campaign: Readonly<Record<string, string | number | boolean>>;
+  /** The characters this seat holds. */
+  held: readonly string[];
+  /** The keys this device had not seen when the notebook was opened (`useSeen`). */
+  fresh: ReadonlySet<string>;
+  /** MARK ALL READ. */
+  onMarkAll: () => void;
+  /** Opens an entry's peek. */
+  onPeek: (entryId: string) => void;
 };
 
-// The phone's notebook: this session's whispers to reread and answer, open quests, then what the GM revealed by kind and
-// tapped open (closed quests with their outcome under Quest), each with the fields the party sees, then the recaps,
-// newest first. An entry sits indented under its parent when the phone reads it.
-export function Notebook({ codex, whispers, actors, me, safety, send, ruleset, known }: NotebookProps) {
+// The phone's notebook (#218), three views in one tab: INBOX (this session's whispers and what is new since the last
+// visit), MISSION (the premise, the table's lines, the quests, the adventures and the recaps) and ARCHIVE (everything the
+// seat holds, searchable). It opens on INBOX when that holds something, else on ARCHIVE.
+export function Notebook({
+  codex,
+  whispers,
+  actors,
+  me,
+  safety,
+  send,
+  ruleset,
+  known,
+  campaign,
+  held,
+  fresh,
+  onMarkAll,
+  onPeek,
+}: NotebookProps) {
   const t = useTranslations("notebook");
-  const tKind = useTranslations("codex.kind");
-  const tStatus = useTranslations("codex.status");
-  const tRecaps = useTranslations("recaps");
   const tWhisper = useTranslations("whisper");
-  // The cards opened so far: only those read a ref field's name the page doesn't hold (no read per closed card).
-  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const entries = codex?.entries ?? [];
   const recaps = codex?.recaps ?? [];
-  const safetySection = <SafetySection me={me} safety={safety} send={send} />;
+  const inbox = inboxEntries({ entries, fresh });
+  const [picked, setPicked] = useState<NotebookView | null>(null);
+  const view = picked ?? (inbox.length > 0 || whispers.length > 0 ? "inbox" : "archive");
+  // Adjusting state during render: the view first chosen once the codex is read stays, so MARK ALL READ or a new
+  // reveal never moves the player.
+  if (picked === null && codex !== null) setPicked(view);
+  const scope: CardScope = { entries, ruleset, campaignId: me.campaignId, campaign, known, held, fresh, onPeek };
   const whisperSection = whispers.length > 0 && (
     <section className="stack">
       <h2 className="head">{tWhisper("notebook")}</h2>
@@ -65,103 +90,36 @@ export function Notebook({ codex, whispers, actors, me, safety, send, ruleset, k
       ))}
     </section>
   );
-  if (!entries.length && !recaps.length)
-    return (
-      <div className="stack">
-        {whisperSection || <p className="dim">{t("nothing")}</p>}
-        {safetySection}
-      </div>
-    );
-  const openQuests = entries.filter((e) => e.kind === "quest" && e.status === "open");
-  const rest = entries.filter((e) => !openQuests.includes(e));
-  // A mention opens the entry it names and scrolls to it.
-  const handleOpen = (id: string) => {
-    const el = document.getElementById(`entry-${id}`);
-    if (!(el instanceof HTMLDetailsElement)) return;
-    el.open = true;
-    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  };
-  // A card opened (by a tap or by a mention) may read its refs' names from then on; a read is kept once made.
-  const handleToggle = (id: string) => (ev: SyntheticEvent<HTMLDetailsElement>) => {
-    if (ev.currentTarget.open) setOpened((cur) => (cur.has(id) ? cur : new Set(cur).add(id)));
-  };
-  const card = ({ entry: e, depth }: TreeRow) => (
-    <details
-      key={e.id}
-      id={`entry-${e.id}`}
-      className={depth > 0 ? "card tree-child" : "card"}
-      style={{ marginInlineStart: depth * 12 }}
-      onToggle={handleToggle(e.id)}
-    >
-      <summary>
-        <strong>{e.title}</strong>
-        {e.status && e.status !== "open" && <span className="chip">{tStatus(e.status)}</span>}
-        <EntryFieldChips ruleset={ruleset} entry={e} />
-      </summary>
-      <EntryPath entries={entries} entry={e} onOpen={handleOpen} />
-      <EntryPicture campaignId={me.campaignId} entry={e} />
-      <EntryFields
-        ruleset={ruleset}
-        entry={e}
-        campaignId={me.campaignId}
-        known={known}
-        enumChips={false}
-        entries={entries}
-        onOpenEntry={handleOpen}
-        readNames={opened.has(e.id)}
-      />
-      {e.layout !== null ? (
-        <HandoutDoc
-          layout={e.layout}
-          header={e.header ?? ""}
-          title={e.title}
-          body={e.body}
-          entries={entries}
-          onOpen={handleOpen}
-        />
-      ) : (
-        <p style={{ whiteSpace: "pre-wrap" }}>
-          <MentionText body={e.body} entries={entries} onOpen={handleOpen} />
-        </p>
-      )}
-    </details>
-  );
   return (
     <div className="stack">
-      {whisperSection}
-      {openQuests.length > 0 && (
-        <section className="stack">
-          <h2 className="head">{t("openQuests")}</h2>
-          {treeRows(openQuests).map(card)}
-        </section>
+      <div className="seg notebook-views" role="group" aria-label={t("viewsLabel")}>
+        {NOTEBOOK_VIEWS.map((v) => {
+          const count = v === "inbox" ? inbox.length : 0;
+          return (
+            <button
+              key={v}
+              className="btn"
+              aria-pressed={view === v}
+              aria-label={count > 0 ? t("viewNew", { view: t(`views.${v}`), count }) : undefined}
+              onClick={() => setPicked(v)}
+            >
+              {t(`views.${v}`)}
+              {count > 0 && (
+                <span className="tab-count" aria-hidden="true">
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {view === "inbox" ? (
+        <Inbox inbox={inbox} scope={scope} whispers={whisperSection} onMarkAll={onMarkAll} />
+      ) : view === "mission" ? (
+        <Mission scope={scope} recaps={recaps} safety={<SafetySection me={me} safety={safety} send={send} />} />
+      ) : (
+        <Archive scope={scope} recaps={recaps} />
       )}
-      {CodexKind.options.map((kind) => {
-        // Handouts newest revealed first, as a phone's inbox has them (house decision #86).
-        const ofKind = rest.filter((e) => e.kind === kind);
-        const shown = kind === "handout" ? newestRevealed(ofKind) : ofKind;
-        return (
-          ofKind.length > 0 && (
-            <section key={kind} className="stack">
-              <h2 className="head">{tKind(kind)}</h2>
-              {treeRows(shown).map(card)}
-            </section>
-          )
-        );
-      })}
-      {recaps.length > 0 && (
-        <section className="stack">
-          <h2 className="head">{t("recaps")}</h2>
-          {recaps.map((r) => (
-            <details key={r.sessionId} className="card">
-              <summary>
-                <strong>{[tRecaps("session", { number: r.number }), r.title].filter(Boolean).join(": ")}</strong>
-              </summary>
-              <p style={{ whiteSpace: "pre-wrap" }}>{r.recap}</p>
-            </details>
-          ))}
-        </section>
-      )}
-      {safetySection}
     </div>
   );
 }

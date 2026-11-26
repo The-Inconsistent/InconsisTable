@@ -7,10 +7,12 @@ import {
   byKind,
   entryPath,
   filterEntries,
+  firstLine,
   forYourEyes,
   nameLinker,
   newestRevealed,
   parentOptions,
+  questGroups,
   savePatch,
   treeRows,
   unfolded,
@@ -193,5 +195,46 @@ describe("forYourEyes", () => {
     assert.equal(forYourEyes({ entry: listed, held: [] }), false);
     assert.equal(forYourEyes({ entry: { ...listed, audienceMode: "all" }, held: ["pc1"] }), false);
     assert.equal(forYourEyes({ entry: { ...listed, visibility: "gm" }, held: ["pc1"] }), false);
+  });
+});
+
+describe("firstLine", () => {
+  test("the first line holding words, trimmed", () => {
+    assert.equal(firstLine("\n  \n  Meet at dawn.  \nBring rope"), "Meet at dawn.");
+    assert.equal(firstLine(""), "");
+  });
+});
+
+describe("questGroups", () => {
+  test("orders first, then by status, empty groups left out, other kinds ignored", () => {
+    const quests = [
+      entry({ id: "q1", kind: "quest", status: "open", visibility: "party" }),
+      entry({ id: "q2", kind: "quest", status: "failed", visibility: "party" }),
+      entry({
+        id: "q3",
+        kind: "quest",
+        status: "open",
+        visibility: "party",
+        audienceMode: "listed",
+        audience: ["pc1"],
+      }),
+      entry({ id: "n", kind: "npc" }),
+    ];
+    assert.deepEqual(
+      questGroups({ entries: quests, held: ["pc1"] }).map((g) => [g.group, g.entries.map((e) => e.id)]),
+      [
+        ["orders", ["q3"]],
+        ["open", ["q1"]],
+        ["failed", ["q2"]],
+      ],
+    );
+    // Without the listed character, the listed quest goes by its status.
+    assert.deepEqual(
+      questGroups({ entries: quests, held: [] }).map((g) => [g.group, g.entries.length]),
+      [
+        ["open", 2],
+        ["failed", 1],
+      ],
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { CodexKind, type CodexEntry, type HandoutLayout } from "@inconsistable/core-schema";
+import { CodexKind, QuestStatus, type CodexEntry, type HandoutLayout } from "@inconsistable/core-schema";
 
 /** The most readers a listed audience can hold (the action's own limit). */
 export const AUDIENCE_MAX = 50;
@@ -169,3 +169,35 @@ export function nameLinker(entries: readonly CodexEntry[]): (args: { text: strin
 // audience is already cut to the characters it holds; a seat holding none (the GM side) never reads it so.
 export const forYourEyes = ({ entry, held }: { entry: CodexEntry; held: readonly string[] }): boolean =>
   entry.visibility !== "gm" && entry.audienceMode === "listed" && entry.audience.some((a) => held.includes(a));
+
+/** The first line of a body that holds words, trimmed, for a compact card. */
+export const firstLine = (body: string): string =>
+  body
+    .split("\n")
+    .map((l) => l.trim())
+    .find(Boolean) ?? "";
+
+/** MISSION's quest groups in the order drawn: YOUR ORDERS (folded), then each quest status. */
+export const QUEST_GROUPS = ["orders", ...QuestStatus.options] as const;
+export type QuestGroup = (typeof QUEST_GROUPS)[number];
+
+// The quests by group (#218): one revealed to listed characters this seat holds is in YOUR ORDERS only, any other by its
+// own status. Groups without a quest are left out; each keeps the order given.
+export function questGroups({
+  entries,
+  held,
+}: {
+  entries: readonly CodexEntry[];
+  held: readonly string[];
+}): { group: QuestGroup; entries: CodexEntry[] }[] {
+  const quests = entries.filter((e) => e.kind === "quest");
+  const groupOf = (e: CodexEntry): QuestGroup | null => {
+    if (forYourEyes({ entry: e, held })) return "orders";
+    const status = QuestStatus.safeParse(e.status);
+    return status.success ? status.data : null;
+  };
+  return QUEST_GROUPS.flatMap((group) => {
+    const of = quests.filter((e) => groupOf(e) === group);
+    return of.length > 0 ? [{ group, entries: of }] : [];
+  });
+}

@@ -2262,7 +2262,30 @@
     "entries": "Revealed",
     "recaps": "Recaps",
     "nothing": "Nothing in your notebook yet.",
-    "openQuests": "Open quests"
+    "openQuests": "Open quests",
+    "new": "New",
+    "viewsLabel": "Notebook views",
+    "views": {
+      "inbox": "Inbox",
+      "mission": "Mission",
+      "archive": "Archive"
+    },
+    "viewNew": "{view}, {count} new",
+    "inboxEmpty": "Nothing new. The archive holds the rest.",
+    "markAllRead": "Mark all read",
+    "search": "Search your notebook",
+    "filter": "Show one kind",
+    "all": "All",
+    "kindCount": "{kind} ({count})",
+    "hits": "{kind}: {count, plural, one {# match} other {# matches}}",
+    "noMatch": "Nothing in your notebook matches.",
+    "premise": "Premise",
+    "quests": {
+      "orders": "Your orders ({count})",
+      "open": "Active",
+      "done": "Done",
+      "failed": "Failed"
+    }
   },
   "archivedBanner": {
     "title": "Read only",

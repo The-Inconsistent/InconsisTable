@@ -4942,3 +4942,31 @@ textarea.mf-json {
 .spend-quick .btn {
   min-width: var(--tap);
 }
+
+/* ---------- The phone's notebook (#218): INBOX / MISSION / ARCHIVE in one tab ---------- */
+/* The view switch: three equal buttons that wrap rather than scroll on a narrow phone. */
+.notebook-views {
+  flex-wrap: wrap;
+}
+.notebook-views .btn {
+  min-width: 0;
+  padding-inline: 8px;
+}
+/* An inbox card or a search hit: the whole row is the button; the body's first line stays on one line. */
+.notebook-list > li {
+  min-width: 0;
+}
+.notebook-row-line {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+}
+/* YOUR ORDERS: folded, so a phone left on the table does not show them; the heading is the tap target. */
+.notebook-orders > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  cursor: pointer;
+}

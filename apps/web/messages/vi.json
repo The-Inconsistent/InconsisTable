@@ -2262,7 +2262,30 @@
     "entries": "Đã tiết lộ",
     "recaps": "Tóm tắt các buổi",
     "nothing": "Sổ tay chưa có gì.",
-    "openQuests": "Nhiệm vụ đang mở"
+    "openQuests": "Nhiệm vụ đang mở",
+    "new": "Mới",
+    "viewsLabel": "Các phần của sổ tay",
+    "views": {
+      "inbox": "Hộp thư",
+      "mission": "Nhiệm vụ",
+      "archive": "Lưu trữ"
+    },
+    "viewNew": "{view}, {count} mới",
+    "inboxEmpty": "Không có gì mới. Phần Lưu trữ giữ mọi thứ còn lại.",
+    "markAllRead": "Đánh dấu đã đọc hết",
+    "search": "Tìm trong sổ tay",
+    "filter": "Chỉ xem một loại",
+    "all": "Tất cả",
+    "kindCount": "{kind} ({count})",
+    "hits": "{kind}: {count} kết quả",
+    "noMatch": "Không có mục nào khớp trong sổ tay.",
+    "premise": "Tiền đề",
+    "quests": {
+      "orders": "Mệnh lệnh của bạn ({count})",
+      "open": "Đang thực hiện",
+      "done": "Đã xong",
+      "failed": "Thất bại"
+    }
   },
   "archivedBanner": {
     "title": "Chỉ đọc",

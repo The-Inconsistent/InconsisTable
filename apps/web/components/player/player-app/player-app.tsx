@@ -18,6 +18,7 @@ import { HitSheet } from "@/components/player/hit-sheet/hit-sheet";
 import { PhoneStrip } from "@/components/player/phone-strip/phone-strip";
 import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
 import { WhisperSheet } from "@/components/player/whisper-sheet/whisper-sheet";
+import { Peek } from "@/components/ui/peek/peek";
 import { ArchivedBanner } from "@/components/ui/archived-banner/archived-banner";
 import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
 import { PoolsView } from "@/components/ui/pools-view/pools-view";
@@ -45,7 +46,7 @@ import { layoutRows } from "@/lib/panels/panels";
 import { phoneStatusOf } from "@/lib/phone-status/phone-status";
 import { parsePlayerTab, playerAddress, settledTab } from "@/lib/player-address/player-address";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
-import { seenKey } from "@/lib/seen/seen";
+import { entrySeenKey } from "@/lib/seen/seen";
 import { rangeOf } from "@/lib/sheet/sheet";
 
 type PlayerAppProps = { me: Me; view: RulesView | null; quick?: boolean };
@@ -86,11 +87,13 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
       (name !== "run" || canInCampaign({ ctx: me, perm: "session:run" })),
   );
   const tab = settledTab({ requested: parsePlayerTab(params), allowed, fallback: quick ? "run" : "sheet" });
-  const newCount = useSeen({
+  const seen = useSeen({
     storageKey: `it:seen:notebook:${me.campaignId}`,
-    keys: codex ? codex.entries.map((e) => seenKey({ id: e.id, stamp: e.revealedAt })) : null,
+    keys: codex ? codex.entries.map(entrySeenKey) : null,
     viewing: tab === "notebook",
   });
+  // The entry over the screen (#218): a mention, a link, a search hit or an inbox card opens it.
+  const [peekId, setPeekId] = useState<string | null>(null);
 
   // Syncs with the browser history: a tab the seat may not open is replaced in the address once the room is read.
   useEffect(() => {
@@ -183,6 +186,19 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
         />
       )}
       <XCardOverlay signal={xcard} />
+      {peekId && (
+        <Peek
+          entryId={peekId}
+          entries={codex?.entries ?? []}
+          ruleset={ruleset}
+          campaignId={me.campaignId}
+          campaign={state.campaign.fields}
+          known={view?.first.entries ?? []}
+          held={held}
+          onOpen={setPeekId}
+          onClose={() => setPeekId(null)}
+        />
+      )}
       <TransferOffer me={me} state={state} send={send} />
       <WhisperSheet
         whispers={state.whispers}
@@ -260,6 +276,11 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
             send={send}
             ruleset={ruleset}
             known={view?.first.entries ?? []}
+            campaign={state.campaign.fields}
+            held={held}
+            fresh={seen.fresh}
+            onMarkAll={seen.markAll}
+            onPeek={setPeekId}
           />
         ) : tab === "fight" ? (
           <FightTab {...{ state, ruleset, compiled, character, held, characters, send, books, requestPage, maxOf }} />
@@ -288,6 +309,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
             books={books}
             requestPage={requestPage}
             quick={quick}
+            onPeek={setPeekId}
           />
         ) : tab === "sheet" ? (
           character && view?.ruleset && !needsBuild(character) ? (
@@ -321,7 +343,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
       <nav className="tabs tabs-bottom safe-bottom" role="tablist" aria-label={t("tabsLabel")}>
         {allowed.map((name) => {
           const live = name === "fight" && state.encounter !== null;
-          const fresh = name === "notebook" ? newCount : 0;
+          const fresh = name === "notebook" ? seen.count : 0;
           const label = t(`tabs.${name}`);
           return (
             <button

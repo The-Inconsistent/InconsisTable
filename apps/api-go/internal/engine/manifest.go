@@ -152,6 +152,8 @@ type (
 		If   string  `json:"if"`
 		Text string  `json:"text"`
 		Cite *string `json:"cite"`
+		// Group: of the reminders sharing it, only the first that holds shows (house decision #172).
+		Group string `json:"group,omitempty"`
 	}
 	// FieldPicks is where a list's quick picks come from: pack entries of an entity type, or (From "ledger") a list of
 	// the actor's saved build sheet, as a strike's means (house decision #171).
@@ -419,8 +421,9 @@ type (
 			HealTo    *string `json:"healTo"`
 		} `json:"felled"`
 		Destroyed *struct {
-			Over  string `json:"over"`
-			Field string `json:"field"`
+			Over  string  `json:"over"`
+			Field string  `json:"field"`
+			When  *string `json:"when"`
 		} `json:"destroyed"`
 		// Convert lets `convert` move wounds to the second track (house decision #84).
 		Convert bool `json:"convert"`

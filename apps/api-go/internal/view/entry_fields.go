@@ -107,10 +107,20 @@ func seatCodexDefs(manifest map[string]any, secrets bool) map[string]any {
 			if raw, err := json.Marshal(manifest["campaignFields"]); err == nil {
 				_ = json.Unmarshal(raw, &campaign)
 			}
+			// In a group, none after one that is cut: whether it shows says whether the cut one held (house decision #172).
 			reminders := []any{}
+			cut := map[string]bool{}
 			for i, r := range declared {
-				if i < len(typed.Reminders) && engine.PartyReadsReminder(typed, typed.Reminders[i], campaign) {
+				if i >= len(typed.Reminders) {
+					break
+				}
+				g := typed.Reminders[i].Group
+				switch {
+				case g != "" && cut[g]:
+				case engine.PartyReadsReminder(typed, typed.Reminders[i], campaign):
 					reminders = append(reminders, r)
+				case g != "":
+					cut[g] = true
 				}
 			}
 			out["reminders"] = reminders

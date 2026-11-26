@@ -25,6 +25,7 @@ type harmProfile struct {
 	destroyed       bool
 	destroyedOver   string
 	destroyedField  string
+	destroyedWhen   *string
 	convert         bool
 }
 
@@ -93,6 +94,7 @@ func parseHarmParams(raw any) (harmParams, *Refusal) {
 		if x.has("destroyed") {
 			d := x.nested("destroyed")
 			profile.destroyed, profile.destroyedOver, profile.destroyedField = true, d.str("over"), d.str("field")
+			profile.destroyedWhen = d.optStr("when")
 			x.absorb("destroyed", d)
 		}
 		profile.convert = x.boolOr("convert", false)
@@ -353,12 +355,21 @@ func (p harmParams) hit(state *RuleState, in hitInput) ([]Delta, *Refusal) {
 	}
 	// c. Destroyed: one hit past the line ends the actor outright, and nothing else changes.
 	if profile.destroyed {
-		over, refusal := readNumber(profile.destroyedOver, scope, path+".destroyed.over")
-		if refusal != nil {
-			return nil, refusal
+		when := true
+		if profile.destroyedWhen != nil {
+			var refusal *Refusal
+			if when, refusal = readBool(*profile.destroyedWhen, scope, path+".destroyed.when"); refusal != nil {
+				return nil, refusal
+			}
 		}
-		if wounds > over {
-			return []Delta{setField(id, profile.destroyedField, true)}, nil
+		if when {
+			over, refusal := readNumber(profile.destroyedOver, scope, path+".destroyed.over")
+			if refusal != nil {
+				return nil, refusal
+			}
+			if wounds > over {
+				return []Delta{setField(id, profile.destroyedField, true)}, nil
+			}
 		}
 	}
 	deltas := []Delta{}

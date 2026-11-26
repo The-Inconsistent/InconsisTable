@@ -23,6 +23,7 @@ import type { RulesetInput } from "../manifest.ts";
 import { SAMPLE_DUEL, SAMPLE_DUEL_BEFORE_LISTS, SAMPLE_DUEL_BEFORE_PANELS } from "./sample-duel.ts";
 import {
   SAMPLE_HARM,
+  SAMPLE_HARM_0_1_10,
   SAMPLE_HARM_BEFORE_GENERATORS,
   SAMPLE_HARM_BEFORE_HELD,
   SAMPLE_HARM_BEFORE_OWNER,
@@ -56,7 +57,7 @@ const PINNED: Record<string, string> = {
   "sample-pool@0.1.4": "20a6d1b8a8d6031a0d3abfab5e5ceaade06eed14c7748e8226b4b1a68e35e182",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
-  "sample-harm@0.1.10": "fa69eac85323609c4daf9fac3a11578ae2188822abc24a9a24b88b48f9442c43",
+  "sample-harm@0.1.11": "936c14b7194813d93e69d4dad1bba258c0e13f30e0dd43c23118db0d138c27fd",
   "sample-duel@0.1.2": "906d7745550475b5fccd07ec48bec073a7db8ad4c1908da63bd3fab06493f614",
 };
 const PINNED_BEFORE_LOOKUPS = "60f2e297678d64e1fc72e4a9598943476c49c1e23c3c8dd5c4df500cc28fae7c";
@@ -130,6 +131,7 @@ test("a ruleset without the notices and spends of #227 hashes as before them (ho
 test("a ruleset without the keys of #225 and #230 hashes as before them (house decisions #171 to #174)", () => {
   const before: [RulesetInput, string][] = [
     [SAMPLE_LEDGER_RULESET_0_1_4, "cfd8e45e21b93d72a886c4d0d171d4b8763f0bdcf7a359e5421c510bc5314bb3"],
+    [SAMPLE_HARM_0_1_10, "fa69eac85323609c4daf9fac3a11578ae2188822abc24a9a24b88b48f9442c43"],
   ];
   for (const [fixture, pinned] of before) {
     const result = compileRuleset(fixture);

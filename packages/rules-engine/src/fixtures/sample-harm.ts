@@ -696,7 +696,7 @@ export const SAMPLE_HARM_BEFORE_LOOKUPS: RulesetInput = {
  * wounds), its strain left out on a brute that never takes any, its last line asking whether the target has resolve at
  * all; and a growth that brings the growths its `with` list names.
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_0_1_10: RulesetInput = {
   ...SAMPLE_HARM_BEFORE_LOOKUPS,
   version: "0.1.10",
   entities: (SAMPLE_HARM_BEFORE_LOOKUPS.entities ?? []).map((e) =>
@@ -725,6 +725,26 @@ export const SAMPLE_HARM: RulesetInput = {
           cite: "Sample p.10",
         },
       ],
+    },
+  },
+};
+
+/**
+ * sample-harm 0.1.11 (house decision #174): a brute is destroyed outright by one big hit only once it is already
+ * wounded; an unhurt one takes the hit as wounds.
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_0_1_10,
+  version: "0.1.11",
+  health: {
+    ...SAMPLE_HARM_0_1_10.health,
+    harm: {
+      ...SAMPLE_HARM_0_1_10.health!.harm!,
+      profiles: SAMPLE_HARM_0_1_10.health!.harm!.profiles.map((p) =>
+        p.entities?.includes("brute") && p.destroyed !== undefined
+          ? { ...p, destroyed: { ...p.destroyed, when: "res.wounds >= 1" } }
+          : p,
+      ),
     },
   },
 };

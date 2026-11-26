@@ -1118,6 +1118,7 @@ func (c *compiler) run() *CompiledRuleset {
 			}
 			if x.Destroyed != nil {
 				check(&x.Destroyed.Over, intType, "destroyed.over")
+				check(x.Destroyed.When, boolType, "destroyed.when")
 			}
 		}
 	}

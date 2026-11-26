@@ -288,6 +288,8 @@ export const CodexReminder = z.object({
   if: ExprSource,
   text: z.string().min(1).max(120),
   cite: Cite.optional(),
+  /** Of the reminders sharing a group, only the first that holds shows (house decision #172). */
+  group: Id.optional(),
 });
 export type CodexReminder = z.infer<typeof CodexReminder>;
 
@@ -976,8 +978,11 @@ export const HarmProfile = z.object({
       healTo: ExprSource.optional(),
     })
     .optional(),
-  /** Number: one hit's wounds above `over` destroys the actor outright, which sets the bool `field`. */
-  destroyed: z.object({ over: ExprSource, field: FieldId }).optional(),
+  /**
+   * Number: one hit's wounds above `over` destroys the actor outright, which sets the bool `field`; with `when` (a
+   * boolean in the same scope, house decision #174) only while it holds.
+   */
+  destroyed: z.object({ over: ExprSource, field: FieldId, when: ExprSource.optional() }).optional(),
   /** true: `convert` moves wounds to the second track for this profile (house decision #84). Absent: it is refused. */
   convert: z.boolean().optional(),
 });

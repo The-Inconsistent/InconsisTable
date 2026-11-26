@@ -167,6 +167,7 @@ var codexSchema = schema.Object(
 			schema.Req("if", exprSource),
 			schema.Req("text", label(120)),
 			schema.Opt("cite", citeSchema),
+			schema.Opt("group", idSchema),
 		)).Max(maxCodexReminder)),
 		// How an entry of this kind is made from a pack entry, and the tables rolled into its title (house decision #97).
 		schema.Opt("from", schema.Array(schema.Object(
@@ -493,7 +494,8 @@ var harmSchema = schema.Object(
 			schema.Opt("condition", idSchema),
 			schema.Opt("healTo", exprSource),
 		)),
-		schema.Opt("destroyed", schema.Object(schema.Req("over", exprSource), schema.Req("field", fieldIDSchema))),
+		schema.Opt("destroyed", schema.Object(schema.Req("over", exprSource), schema.Req("field", fieldIDSchema),
+			schema.Opt("when", exprSource))),
 		schema.Opt("convert", schema.Bool()),
 	)).Min(1).Max(10)),
 )

@@ -90,13 +90,31 @@ export function codexReminders({
     else if (Array.isArray(value) && value.every((v) => typeof v === "string")) values[id] = value;
   }
   const record: ExprRecord = { fields: values, campaign };
+  const shown = new Set<string>();
   return (kind.reminders ?? []).filter((r) => {
+    if (r.group !== undefined && shown.has(r.group)) return false;
     const compiled = compileExpr({ source: r.if, scope, expect: "bool" });
     if (!compiled.ok) return false;
     try {
-      return evaluateBool({ expr: compiled.expr, scope: record });
+      const holds = evaluateBool({ expr: compiled.expr, scope: record });
+      if (holds && r.group !== undefined) shown.add(r.group);
+      return holds;
     } catch {
       return false;
     }
+  });
+}
+
+/**
+ * The reminders a seat that reads only `party` fields is sent: those whose `if` reads none of the others, and in a group
+ * none after one it is not sent, since whether a later one shows says whether that one held (house decision #172).
+ */
+export function partyReminders({ kind, campaign }: { kind: CodexKindDef; campaign?: CampaignDefs }): CodexReminder[] {
+  const cut = new Set<string>();
+  return (kind.reminders ?? []).filter((reminder) => {
+    if (reminder.group !== undefined && cut.has(reminder.group)) return false;
+    if (partyReadsReminder({ kind, reminder, campaign })) return true;
+    if (reminder.group !== undefined) cut.add(reminder.group);
+    return false;
   });
 }

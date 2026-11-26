@@ -604,6 +604,13 @@ const HARM_PARAMS: unknown[] = [
       { entities: ["brute"], felled: { when: "res.wounds > 2", injuries: "hide", condition: "winded" }, convert: true },
     ],
   },
+  // House decision #174: destroyed only while its `when` holds, else hurt as anyone.
+  {
+    ...HARM_BLOCK,
+    profiles: HARM_BLOCK?.profiles?.map((p) =>
+      p.destroyed === undefined ? p : { ...p, destroyed: { ...p.destroyed, when: "res.wounds >= 1" } },
+    ),
+  },
 ];
 let harmSeed = 66;
 const hrnd = (n: number) => (((harmSeed = (Math.imul(harmSeed, 1103515245) + 12345) >>> 0) / 2 ** 32) * n) | 0;
@@ -1934,6 +1941,9 @@ function harmCrafted(): object[] {
     harmManifest(harmProfile(0, { felled: { when: "res.wounds" } })),
     harmManifest(harmProfile(0, { felled: { when: "true", healTo: "true" } })),
     harmManifest(harmProfile(0, { destroyed: { over: "tough", field: "gone" } })),
+    harmManifest(harmProfile(0, { destroyed: { over: "1", field: "gone", when: "tough > 1" } })),
+    harmManifest(harmProfile(0, { destroyed: { over: "1", field: "gone", when: "tough" } })),
+    harmManifest(harmProfile(0, { destroyed: { over: "1", field: "gone", when: "nope" } })),
     harmManifest({ profiles: [] }),
     harmManifest({ profiles: Array.from({ length: 11 }, () => ({ entities: ["pc"] })) }),
     harmManifest({ wounds: "Bad_Id" }),
@@ -3266,6 +3276,17 @@ function entryFromCrafted(): object[] {
     kinds({ npc: { fields: {}, titleRoll: { tables: [] } } }),
     kinds({ npc: { fields: {}, titleRoll: { tables: ["first"], join: "x".repeat(11) } } }),
     kinds({ lore: { fields: {}, reminders: [{ id: "r", if: "campaign.era > 1", text: "T" }] } }),
+    // House decision #172: a group of reminders, of which the first that holds shows; a group is an id.
+    kinds({
+      lore: {
+        fields: {},
+        reminders: [
+          { id: "a", if: "campaign.season > 2", text: "T", group: "g" },
+          { id: "b", if: "campaign.season > 1", text: "U", group: "g" },
+        ],
+      },
+    }),
+    kinds({ lore: { fields: {}, reminders: [{ id: "a", if: "campaign.season > 2", text: "T", group: "Bad id" }] } }),
     // The readiness rule (house decision #107): an unknown field, another kind's field, a duplicate, the bounds.
     kinds({ scene: { fields: { goal: { type: "text", label: "G" } }, ready: ["goal", "nope"] } }),
     kinds({

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { codexReminders, partyReadsReminder } from "./codex.ts";
+import { codexReminders, partyReadsReminder, partyReminders } from "./codex.ts";
 import { compileRuleset } from "./compile.ts";
 import { checkFieldValue, fitRows } from "./field-value.ts";
 import { SAMPLE_D20_0_1_9 as SAMPLE_D20 } from "./fixtures/sample-d20.ts";
@@ -108,5 +108,33 @@ test("refused at import, by path: a prefill that does not fit, suggestions from 
   assert.deepEqual(
     problems({ kinds: { faction: { fields: {}, reminders: [{ id: "r", if: "fields.nope", text: "T" }] } } }).length,
     1,
+  );
+});
+
+test("in a reminder group only the first that holds shows, and a seat is sent none after one it is not (#172)", () => {
+  const kind: CodexKindDef = {
+    fields: {
+      standing: { type: "enum", label: "S", values: ["ally", "rival"], visibility: "gm" },
+      size: { type: "int", label: "N", visibility: "party" },
+    },
+    reminders: [
+      { id: "secret", if: 'fields.standing == "rival"', text: "A", group: "mix" },
+      { id: "big", if: "fields.size > 3", text: "B", group: "mix" },
+      { id: "huge", if: "fields.size > 5", text: "C", group: "mix" },
+      { id: "alone", if: "fields.size > 5", text: "D" },
+    ],
+  };
+  const met = (fields: Record<string, unknown>) => codexReminders({ kind, fields }).map((r) => r.id);
+  assert.deepEqual(met({ standing: "rival", size: 9 }), ["secret", "alone"]);
+  assert.deepEqual(met({ standing: "ally", size: 9 }), ["big", "alone"]);
+  assert.deepEqual(met({ size: 2 }), []);
+  assert.deepEqual(
+    partyReminders({ kind }).map((r) => r.id),
+    ["alone"],
+  );
+  const open = { ...kind, reminders: kind.reminders?.slice(1) };
+  assert.deepEqual(
+    partyReminders({ kind: open }).map((r) => r.id),
+    ["big", "huge", "alone"],
   );
 });

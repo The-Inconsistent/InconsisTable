@@ -1087,6 +1087,7 @@ class Compiler {
       check(p.felled?.when, "bool", "felled.when");
       check(p.felled?.healTo, "int", "felled.healTo");
       check(p.destroyed?.over, "int", "destroyed.over");
+      check(p.destroyed?.when, "bool", "destroyed.when");
     });
 
     const notices = (this.r.notices ?? []).flatMap((n, j): CompiledNotice[] => {

@@ -1,6 +1,8 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useState, type ChangeEvent, type ReactNode } from "react";
+import { Fragment, useState, type ChangeEvent, type ReactNode } from "react";
+
+import { Cite, useCiteOpens } from "@/components/ui/cite/cite";
 
 import { filterRows, REACH_FILTERS, type ListRow, type ReachFilter } from "@/lib/ledger/ledger";
 
@@ -8,7 +10,12 @@ import { LIST_PAGE, SEARCH_FROM } from "../../constants";
 
 // A catalogue record as a list row: its name, a line of numbers and cite, its optional summary, and why it can't be
 // taken. `blocked` is a reason of the step's own (above the Tier, not at creation).
-export type RecordRow = ListRow & { meta?: ReactNode; summary?: string | undefined; blocked?: string | undefined };
+export type RecordRow = ListRow & {
+  cite?: string;
+  meta?: readonly ReactNode[];
+  summary?: string | undefined;
+  blocked?: string | undefined;
+};
 
 type RecordListProps = {
   label: string;
@@ -86,9 +93,12 @@ export function RecordList({ label, rows, onPick, tools }: RecordListProps) {
 
 type RecordButtonProps = { row: RecordRow; onPick: (id: string) => void };
 
-// One row: a toggle that takes the record or gives it back. A closed row stays readable, with its reasons.
+// One row: a toggle that takes the record or gives it back. A closed row stays readable, with its reasons. Its cite is
+// text inside the toggle, or a button of its own under it while its book is served.
 function RecordButton({ row, onPick }: RecordButtonProps) {
   const t = useTranslations("ledgerBuilder.list");
+  const opens = useCiteOpens(row.cite);
+  const line = [...(row.cite && !opens ? [row.cite] : []), ...(row.meta ?? [])];
   const closed = !row.taken && (row.reach.out || !!row.blocked);
   const why = [
     ...(row.reach.out ? [t("outOfReach")] : []),
@@ -97,20 +107,32 @@ function RecordButton({ row, onPick }: RecordButtonProps) {
     ...row.reach.gm.map((what) => t("gmJudges", { what })),
   ];
   return (
-    <button
-      type="button"
-      className="found lb-row"
-      aria-pressed={row.taken}
-      disabled={closed}
-      onClick={() => onPick(row.id)}
-    >
-      <span className="lb-row-text">
-        <span className="pick-name">{row.name}</span>
-        {row.meta && <span className="small dim">{row.meta}</span>}
-        {row.summary && <span className="small">{row.summary}</span>}
-        {why.length > 0 && <span className="small lb-why">{why.join("; ")}</span>}
-      </span>
-      <span className="small lb-row-state">{row.taken ? t("taken") : closed ? t("closed") : t("take")}</span>
-    </button>
+    <>
+      <button
+        type="button"
+        className="found lb-row"
+        aria-pressed={row.taken}
+        disabled={closed}
+        onClick={() => onPick(row.id)}
+      >
+        <span className="lb-row-text">
+          <span className="pick-name">{row.name}</span>
+          {line.length > 0 && (
+            <span className="small dim">
+              {line.map((m, i) => (
+                <Fragment key={i}>
+                  {i > 0 && " · "}
+                  {m}
+                </Fragment>
+              ))}
+            </span>
+          )}
+          {row.summary && <span className="small">{row.summary}</span>}
+          {why.length > 0 && <span className="small lb-why">{why.join("; ")}</span>}
+        </span>
+        <span className="small lb-row-state">{row.taken ? t("taken") : closed ? t("closed") : t("take")}</span>
+      </button>
+      {opens && row.cite && <Cite cite={row.cite} />}
+    </>
   );
 }

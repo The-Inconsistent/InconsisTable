@@ -1738,7 +1738,7 @@
     "bookScreenNone": "Màn hình bàn không hiện trang sách.",
     "bookNotServed": "GM không chia sẻ cuốn sách đó.",
     "bookBusy": "Máy tính bảng của GM đang bận. Hãy thử lại sau giây lát.",
-    "bookNoReply": "Máy tính bảng của GM không phản hồi.",
+    "bookNoReply": "Máy tính bảng của GM không phản hồi: có thể máy đang ở chế độ ngủ.",
     "bookMalformed": "Yêu cầu trang không hợp lệ.",
     "bookRenderFailed": "Máy tính bảng của GM không dựng được trang này.",
     "bookUnreadable": "Tệp sách đó của GM không mở được.",

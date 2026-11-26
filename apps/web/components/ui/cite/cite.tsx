@@ -38,6 +38,14 @@ type CiteProps = { cite: string } & Partial<CiteEnv>;
 
 type Shown = { url?: string; error?: string };
 
+/** Whether a cite opens its page right now. A row that is itself a button keeps the cite as text inside it until then,
+ * and shows a `Cite` beside it once it opens (a button can't hold one). */
+export function useCiteOpens(cite: string | undefined) {
+  const { ruleset, books } = use(CiteContext);
+  const page = cite && ruleset ? pageOfCite({ cite, ruleset }) : null;
+  return !!page && books.includes(page.source);
+}
+
 // A printed page reference. When a device at the table serves that book it is a button that asks for the page (the
 // `book:*` relay: nothing is stored) and shows it in a sheet; otherwise it is the cite text alone.
 export function Cite({ cite, ...props }: CiteProps) {

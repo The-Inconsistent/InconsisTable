@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
+import { Cite } from "@/components/ui/cite/cite";
 import { languageRows, recordCite, setLanguage, setWealth, tapLanguage } from "@/lib/ledger/ledger";
 
 import { useLedger } from "../../ledger-context";
@@ -33,7 +34,10 @@ export function DetailStep() {
       <section className="stack" aria-labelledby="lb-languages">
         <h3 id="lb-languages" className="lb-sub">
           {t("languages")}
-          <span className="small dim"> · {params.languages.cite}</span>
+          <span className="small dim">
+            {" "}
+            · <Cite cite={params.languages.cite} />
+          </span>
         </h3>
         <ul className="list lb-plain">
           {rows.map(({ language: l, way, canFree }) => (
@@ -96,7 +100,10 @@ export function DetailStep() {
       <section className="stack" aria-labelledby="lb-wealth">
         <h3 id="lb-wealth" className="lb-sub">
           {t("wealth")}
-          <span className="small dim"> · {params.wealth.cite}</span>
+          <span className="small dim">
+            {" "}
+            · <Cite cite={params.wealth.cite} />
+          </span>
         </h3>
         <div className="score-row">
           <span className="small dim">

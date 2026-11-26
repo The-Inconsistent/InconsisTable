@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 
 import type { BuildStep } from "@inconsistable/rules-engine";
 
+import { Cite } from "@/components/ui/cite/cite";
 import { toggleApproval } from "@/lib/ledger/ledger";
 
 import { useLedger } from "../../ledger-context";
@@ -28,7 +29,12 @@ export function StepIssues({ step }: StepIssuesProps) {
               <span className="lb-issue-text">
                 {p.what}
                 {p.of && <span className="dim"> ({p.of})</span>}
-                {p.cite && <span className="small dim"> · {p.cite}</span>}
+                {p.cite && (
+                  <span className="small dim">
+                    {" "}
+                    · <Cite cite={p.cite} />
+                  </span>
+                )}
               </span>
             </li>
           ))}
@@ -37,7 +43,12 @@ export function StepIssues({ step }: StepIssuesProps) {
               <span className="lb-tag">{p.severity === "gm" ? t("gm") : t("fix")}</span>
               <span className="lb-issue-text">
                 {p.what}
-                {p.cite && <span className="small dim"> · {p.cite}</span>}
+                {p.cite && (
+                  <span className="small dim">
+                    {" "}
+                    · <Cite cite={p.cite} />
+                  </span>
+                )}
               </span>
               {p.severity === "gm" &&
                 (gm && p.path ? (

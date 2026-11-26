@@ -1,5 +1,5 @@
 "use client";
-import { createContext, Fragment, useContext, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 
 import type {
   BuildCatalogue,
@@ -65,12 +65,8 @@ export function useRowOf() {
       search: cite,
       taken,
       reach: reachOf({ requires, who: resolved?.who ?? null, ctx }),
-      meta: [cite, ...extra].map((m, i) => (
-        <Fragment key={i}>
-          {i > 0 && " · "}
-          {m}
-        </Fragment>
-      )),
+      cite,
+      meta: extra,
       summary: record.summary,
       blocked,
     };

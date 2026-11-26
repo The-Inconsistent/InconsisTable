@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 import type { ChangeEvent } from "react";
 
+import { Cite } from "@/components/ui/cite/cite";
 import {
   backgroundRows,
   factionOffers,
@@ -60,7 +61,10 @@ export function FactionStep() {
       <section className="stack" aria-labelledby="lb-background">
         <h3 id="lb-background" className="lb-sub">
           {t("background")}
-          <span className="small dim"> · {params.cites.background}</span>
+          <span className="small dim">
+            {" "}
+            · <Cite cite={params.cites.background} />
+          </span>
         </h3>
         {tables.length === 0 ? (
           <p className="dim">{t("noTables")}</p>
@@ -218,7 +222,9 @@ function BackgroundRows() {
       ))}
       <fieldset className="stack lb-group">
         <legend className="pick-name">{t("whichBonus")}</legend>
-        <p className="small dim">{params.cites.backgroundBonus}</p>
+        <p className="small dim">
+          <Cite cite={params.cites.backgroundBonus} />
+        </p>
         {columns.map((row) => (
           <label key={row} className="pick">
             <input

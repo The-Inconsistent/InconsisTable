@@ -1,6 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
+import { Cite } from "@/components/ui/cite/cite";
 import { setTier } from "@/lib/ledger/ledger";
 
 import { useLedger } from "../../ledger-context";
@@ -34,7 +35,10 @@ export function TierStep() {
       {gm && tier !== undefined && <p className="small dim">{t("roomTier")}</p>}
       <p>
         {resolved ? t("budget", { xp: resolved.budget }) : t("perTier", { xp: params.startingXp.perTier })}
-        <span className="small dim"> · {params.startingXp.cite}</span>
+        <span className="small dim">
+          {" "}
+          · <Cite cite={params.startingXp.cite} />
+        </span>
       </p>
       <section className="stack" aria-labelledby="lb-sources">
         <h3 id="lb-sources" className="lb-sub">

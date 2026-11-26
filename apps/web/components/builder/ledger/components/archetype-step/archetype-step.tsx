@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
+import { Cite } from "@/components/ui/cite/cite";
 import {
   offered,
   pickArchetype,
@@ -197,7 +198,9 @@ function AdvancedPanel() {
         <h3 id="lb-adv-kit" className="lb-sub">
           {t("kit")}
         </h3>
-        <p className="small dim">{params.advanced.wargear.cite}</p>
+        <p className="small dim">
+          <Cite cite={params.advanced.wargear.cite} />
+        </p>
         <RecordList label={t("kit")} rows={kit} onPick={(id) => edit(toggleAdvancedWargear({ build, id }))} />
       </section>
     </div>

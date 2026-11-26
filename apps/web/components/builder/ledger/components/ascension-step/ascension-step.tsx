@@ -1,6 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
+import { Cite } from "@/components/ui/cite/cite";
 import { ascensionOf, offered, pickAscension, pickPlayAscension, toggleArchetypeAscension } from "@/lib/ledger/ledger";
 
 import { useLedger, useRowOf } from "../../ledger-context";
@@ -41,7 +42,10 @@ export function AscensionStep() {
         <section className="stack" aria-labelledby="lb-asc-creation">
           <h3 id="lb-asc-creation" className="lb-sub">
             {t("atCreation")}
-            <span className="small dim"> · {params.cites.creationAscension}</span>
+            <span className="small dim">
+              {" "}
+              · <Cite cite={params.cites.creationAscension} />
+            </span>
           </h3>
           <RecordList
             label={t("atCreation")}
@@ -55,7 +59,10 @@ export function AscensionStep() {
           <section className="stack" aria-labelledby="lb-asc-play">
             <h3 id="lb-asc-play" className="lb-sub">
               {t("inPlay", { from: build.tier, to: play.tier })}
-              <span className="small dim"> · {params.cites.ascensionSteps}</span>
+              <span className="small dim">
+                {" "}
+                · <Cite cite={params.cites.ascensionSteps} />
+              </span>
             </h3>
             {play.packageWaived && <p className="lb-banner">{t("waived")}</p>}
             <RecordList
@@ -67,7 +74,10 @@ export function AscensionStep() {
           <section className="stack" aria-labelledby="lb-asc-arch">
             <h3 id="lb-asc-arch" className="lb-sub">
               {t("archetype")}
-              <span className="small dim"> · {params.cites.archetypeAscension}</span>
+              <span className="small dim">
+                {" "}
+                · <Cite cite={params.cites.archetypeAscension} />
+              </span>
             </h3>
             <p className="small dim">{t("archetypeNote", { rank: params.archetypeAscension.minRank })}</p>
             <RecordList

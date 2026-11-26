@@ -4,6 +4,7 @@ import type { ChangeEvent } from "react";
 
 import { outOfReach } from "@inconsistable/rules-engine";
 
+import { Cite } from "@/components/ui/cite/cite";
 import {
   offered,
   purchasesOf,
@@ -174,7 +175,9 @@ export function CustomiseStep({ layer }: CustomiseStepProps) {
           <h3 id="lb-learn" className="lb-sub">
             {t("languages")}
           </h3>
-          <p className="small dim">{params.languages.cite}</p>
+          <p className="small dim">
+            <Cite cite={params.languages.cite} />
+          </p>
           <RecordList
             label={t("languages")}
             rows={languages}
@@ -205,7 +208,10 @@ function RatingRows({ layer, kind }: RatingRowsProps) {
     <section className="stack" aria-labelledby={`lb-${kind}-${layer}`}>
       <h3 id={`lb-${kind}-${layer}`} className="lb-sub">
         {kind === "attributes" ? t("attributes") : t("skills")}
-        <span className="small dim"> · {table.cite}</span>
+        <span className="small dim">
+          {" "}
+          · <Cite cite={table.cite} />
+        </span>
       </h3>
       <ul className="list lb-ratings">
         {keys.map(({ key, name, linked }) => {

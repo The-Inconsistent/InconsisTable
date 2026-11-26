@@ -11,6 +11,7 @@ import { ChooseStep } from "@/components/builder/components/choose-step/choose-s
 import { FieldsStep } from "@/components/builder/components/fields-step/fields-step";
 import { DRAFT_DELAY_MS } from "@/components/builder/constants";
 import { LedgerBuild } from "@/components/builder/ledger-build/ledger-build";
+import { Cite, CiteProvider } from "@/components/ui/cite/cite";
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
@@ -49,21 +50,24 @@ type BuilderProps = {
 export function Builder({ campaignId, actorId, ruleset, entries, me, step, worldVersionId, packs = [] }: BuilderProps) {
   const t = useTranslations("builder");
   const tStatus = useTranslations("status");
-  const { state, send } = useTable(campaignId);
+  // The same socket as the table's, so a cite opens its page while a device serves the book (#221).
+  const { state, send, books, requestPage } = useTable(campaignId);
   useWorldRefresh({ rendered: worldVersionId ?? null, live: state?.campaign.worldVersionId });
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   const actor = state.actors.find((a) => a.id === actorId);
   if (!actor) return <StatusScreen text={t("notAtTable")} />;
-  if (me && usesLedger({ ruleset, actor }))
-    return (
-      <LedgerBuild {...{ campaignId, ruleset, actor, send, step, packs }} me={me} campaign={state.campaign.fields} />
-    );
   return (
-    <BuilderGate
-      {...{ campaignId, actorId, ruleset, entries, send, actor }}
-      campaign={state.campaign.fields}
-      draft={state.myDraft?.actorId === actorId ? state.myDraft.answers : {}}
-    />
+    <CiteProvider ruleset={ruleset} books={books} requestPage={requestPage}>
+      {me && usesLedger({ ruleset, actor }) ? (
+        <LedgerBuild {...{ campaignId, ruleset, actor, send, step, packs }} me={me} campaign={state.campaign.fields} />
+      ) : (
+        <BuilderGate
+          {...{ campaignId, actorId, ruleset, entries, send, actor }}
+          campaign={state.campaign.fields}
+          draft={state.myDraft?.actorId === actorId ? state.myDraft.answers : {}}
+        />
+      )}
+    </CiteProvider>
   );
 }
 
@@ -214,7 +218,12 @@ function BuilderForm({
                 </h2>
                 <span className="step-state" data-done={done}>
                   {done ? t("stepDone") : step.optional ? t("stepOptional") : t("stepTodo")}
-                  {step.cite ? ` · ${step.cite}` : ""}
+                  {step.cite && (
+                    <>
+                      {" · "}
+                      <Cite cite={step.cite} />
+                    </>
+                  )}
                 </span>
               </div>
               {step.kind === "choose" && (

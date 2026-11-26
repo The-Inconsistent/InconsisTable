@@ -316,7 +316,7 @@ var refusals = map[string]string{
 	"bookScreenNone":            "The table screen shows no book pages.",
 	"bookNotServed":             "The GM isn't serving that book.",
 	"bookBusy":                  "The GM's tablet is busy. Try again in a moment.",
-	"bookNoReply":               "No reply from the GM's tablet.",
+	"bookNoReply":               "No reply from the GM's tablet: it may be asleep.",
 	"bookMalformed":             "That page request is malformed.",
 	"bookRenderFailed":          "The GM's tablet couldn't render it.",
 	"bookUnreadable":            "The GM's file of that book won't open.",

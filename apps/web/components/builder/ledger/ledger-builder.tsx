@@ -44,6 +44,8 @@ export type LedgerBuilderProps = {
   footer?: (state: { ready: boolean; resolved: ResolvedBuild | null }) => ReactNode;
   // in play, the step a link asked for (`?step=advance`); opened when this seat has it
   step?: string | null | undefined;
+  // what the caller adds to the last step (a room's character picture, house decision #155)
+  lastStep?: ReactNode;
 };
 
 const STEP_SCREENS: Record<BuildStep, () => ReactNode> = {
@@ -70,6 +72,7 @@ export function LedgerBuilder({
   play,
   footer,
   step: asked,
+  lastStep,
 }: LedgerBuilderProps) {
   const t = useTranslations("ledgerBuilder");
   const lookups = useMemo(() => lookupsOf(catalogue.creation), [catalogue]);
@@ -141,6 +144,7 @@ export function LedgerBuilder({
           <section id="lb-panel" role="tabpanel" aria-labelledby={`lb-tab-${step}`} className="card stack lb-panel">
             <h2 className="step-title">{t(`steps.${step}`)}</h2>
             {STEP_SCREENS[step]()}
+            {!next && lastStep}
             {next && (
               <button type="button" className="btn primary lb-next" onClick={() => value.go(next)}>
                 {t("nav.next", { step: t(`steps.${next}`) })}

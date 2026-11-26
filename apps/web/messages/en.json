@@ -1271,7 +1271,8 @@
       "hint": "Blank: the worked-out number returns.",
       "set": "Set",
       "clear": "Clear"
-    }
+    },
+    "picture": "Picture of {name}"
   },
   "breakdown": {
     "hidden": "The parts of this number aren't shown on your phone.",

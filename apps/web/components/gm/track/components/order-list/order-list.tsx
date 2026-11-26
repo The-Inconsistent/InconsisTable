@@ -5,6 +5,7 @@ import type { FocusEvent, KeyboardEvent, ReactNode } from "react";
 import type { Actor, Combatant, Encounter } from "@inconsistable/core-schema";
 
 import type { Run } from "@/components/gm/track/constants";
+import { ActorPicture } from "@/components/ui/actor-picture/actor-picture";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
 import type { HeldOf } from "@/lib/held/held";
 import { stateKey } from "@/lib/track/track";
@@ -19,11 +20,22 @@ type OrderListProps = {
   heldOf?: HeldOf;
   /** A row's shortcuts beside its button: its tag and steppers (house decision #92). */
   shortcutsOf?: (actorId: string) => ReactNode;
+  /** The room, for each character's thumbnail (house decision #155). */
+  campaignId: string;
 };
 
 // The turn order. Each row is a big target that selects the combatant for the panel beside it; the number beside it is
 // what the GM types from the dice (blank clears it), and the arrows settle a tie one place at a time.
-export function OrderList({ encounter, actors, selectedId, onSelect, run, heldOf, shortcutsOf }: OrderListProps) {
+export function OrderList({
+  encounter,
+  actors,
+  selectedId,
+  onSelect,
+  run,
+  heldOf,
+  shortcutsOf,
+  campaignId,
+}: OrderListProps) {
   const t = useTranslations("orderList");
   const tState = useTranslations("combatState");
   const tSide = useTranslations("combatSide");
@@ -52,7 +64,10 @@ export function OrderList({ encounter, actors, selectedId, onSelect, run, heldOf
         return (
           <li key={c.id} className="combatant" data-acting={acting} data-selected={c.id === selectedId}>
             <button className="who" aria-pressed={c.id === selectedId} onClick={() => onSelect(c.id)}>
-              <span className="name">{c.name}</span>
+              <span className="name">
+                <ActorPicture campaignId={campaignId} actor={actors.get(c.actorId) ?? { name: c.name }} />
+                {c.name}
+              </span>
               <span className="row small dim">
                 {first && (
                   <span className="chip" data-first="true">

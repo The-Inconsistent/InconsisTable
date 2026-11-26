@@ -30,6 +30,7 @@ import { SpendButtons } from "@/components/gm/spend-buttons/spend-buttons";
 import { WhisperPanel } from "@/components/gm/whisper-button/components/whisper-panel/whisper-panel";
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
 import { PrintParty } from "@/components/print/print-party/print-party";
+import { ActorPicture } from "@/components/ui/actor-picture/actor-picture";
 import { DraftRecap as DraftRecapButton } from "@/components/ui/draft-recap/draft-recap";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import type { DraftRecap, RequestPage, Send } from "@/hooks/use-table/use-table";
@@ -413,6 +414,7 @@ export function Party({ me, state, send, draftRecap, sheet, autoQr = false }: Pa
               return (
                 <li key={a.id}>
                   <span>
+                    <ActorPicture campaignId={state.campaign.id} actor={a} />
                     <strong>{a.name}</strong> <span className="dim small">{holder ?? t("open")}</span>
                     {xp && (
                       <span className="small" data-stat="xp">

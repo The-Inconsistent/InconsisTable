@@ -189,6 +189,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                   onSelect={handleSelect}
                   heldOf={heldOf}
                   shortcutsOf={shortcutsOf}
+                  campaignId={state.campaign.id}
                 />
               ) : (
                 <OrderList
@@ -199,6 +200,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                   run={run}
                   heldOf={heldOf}
                   shortcutsOf={shortcutsOf}
+                  campaignId={state.campaign.id}
                 />
               )}
             </div>

@@ -1271,7 +1271,8 @@
       "hint": "Để trống: con số tính được quay lại.",
       "set": "Đặt",
       "clear": "Xoá"
-    }
+    },
+    "picture": "Hình của {name}"
   },
   "breakdown": {
     "hidden": "Các thành phần của chỉ số này không hiện trên điện thoại của bạn.",

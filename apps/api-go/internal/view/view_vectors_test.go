@@ -45,11 +45,36 @@ func assertFoesShownInFull(t *testing.T, name string, s Snapshot, got SeatView, 
 		if compiled == nil {
 			continue
 		}
+		gm := func(v string) bool { return v == "" || v == "gm" }
 		for _, e := range compiled.Ruleset.Entities {
 			for key, def := range e.Fields {
-				if _, sent := a.Fields[key]; sent && e.ID == a.Entity && (def.Visibility == "" || def.Visibility == "gm") {
+				if _, sent := a.Fields[key]; sent && e.ID == a.Entity && gm(def.Visibility) {
 					t.Errorf("%s: sent the gm field %s of %s", name, key, a.ID)
 				}
+			}
+		}
+		if ce := compiled.Entities[a.Entity]; ce != nil {
+			for _, d := range ce.Derived {
+				if _, sent := a.Derived[d.ID]; sent && gm(d.Visibility) {
+					t.Errorf("%s: sent the gm derived value %s of %s", name, d.ID, a.ID)
+				}
+			}
+		}
+		for _, x := range compiled.Ruleset.Resources {
+			if _, sent := a.Resources[x.ID]; sent && gm(x.Visibility) {
+				t.Errorf("%s: sent the gm resource %s of %s", name, x.ID, a.ID)
+			}
+		}
+		for _, x := range compiled.Ruleset.Conditions {
+			if slices.Contains(a.Conditions, x.ID) && gm(x.Visibility) {
+				t.Errorf("%s: sent the gm condition %s of %s", name, x.ID, a.ID)
+			}
+		}
+		// A held record names its entry only where the seat reads the kind's list (#88, #117).
+		for _, r := range a.Held {
+			kind := compiled.Ruleset.Held[r.Kind]
+			if _, readable := a.Fields[kind.Field]; r.Key != nil && !readable {
+				t.Errorf("%s: sent the held record %s of %s, whose list the seat may not read", name, *r.Key, a.ID)
 			}
 		}
 	}

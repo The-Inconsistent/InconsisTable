@@ -1518,3 +1518,52 @@ test("a held record's name, key and cite reach only the holder and the GM side",
     for (const secret of ["Third Eye", "third-eye", "Sample p.31"]) assert.ok(!sent.includes(secret), secret);
   }
 });
+
+test("a creature shown in full reaches a phone and the TV without its gm traits, values or conditions (#117)", () => {
+  const made = compileRuleset({
+    ...SAMPLE_D20,
+    entities: [
+      ...(SAMPLE_D20.entities ?? []).map((e) =>
+        e.id === "creature" ? { ...e, fields: { ...e.fields, traits: { type: "list" as const, label: "Traits" } } } : e,
+      ),
+      { id: "trait", label: "Trait", base: "ability", fields: {} },
+    ],
+    held: { trait: { label: "Traits", entry: "trait", field: "traits", entities: ["creature"], cite: "S p.1" } },
+  });
+  assert.ok(made.ok);
+  const effects = [{ path: "derived.maxHp", mode: "add", value: "1", phase: "derived" }];
+  const record = { kind: "trait", key: "venom", name: "Venom", cite: "Sample p.31", effects };
+  const shown: Snapshot = {
+    ...snapshot,
+    state: {
+      ...state,
+      actors: state.actors.map((a) =>
+        a.id === "ogre"
+          ? {
+              ...a,
+              fields: { ...a.fields, traits: ["venom"] },
+              derived: { maxHp: 30 },
+              conditions: ["marked"],
+              held: [record],
+            }
+          : a,
+      ),
+    },
+  };
+  const ogreOn = (c: Ctx) =>
+    seatView({ snapshot: shown, compiled: made.compiled, ctx: c }).state.actors.find((a) => a.id === "ogre");
+  assert.deepEqual(ogreOn(ctx(member("gm"), "u-gm"))?.held, [record]);
+  for (const c of [
+    ctx(member("player", [], ["bran"]), "u-bran"),
+    ctx({ kind: "token", role: "screen", characterIds: [] }, null),
+  ]) {
+    const ogre = ogreOn(c);
+    assert.ok(ogre, "the shown Ogre is sent");
+    assert.deepEqual(ogre.held, []);
+    assert.equal(ogre.fields.traits, undefined);
+    assert.equal(ogre.fields["attr.con"], undefined);
+    assert.equal(ogre.derived.maxHp, undefined);
+    assert.ok(!ogre.conditions.includes("marked"));
+    assert.ok(!JSON.stringify(ogre).includes("Venom"));
+  }
+});

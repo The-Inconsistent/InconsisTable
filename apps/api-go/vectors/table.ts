@@ -71,10 +71,14 @@ const VIEW_MANIFEST: RulesetInput = {
         boons: { type: "list", label: "Boons", visibility: "party" },
       },
     },
-    ...entities,
+    // A creature's traits are the GM's (house decision #117): a shown creature reaches every seat, its traits do not.
+    ...entities.map((e) =>
+      e.id === "creature" ? { ...e, fields: { ...e.fields, traits: { type: "list" as const, label: "Traits" } } } : e,
+    ),
     { id: "mark", label: "Mark", base: "ability", fields: {} },
   ],
   held: {
+    trait: { label: "Traits", entry: "mark", field: "traits", entities: ["creature"], cite: "Sample p.30" },
     mark: {
       label: "Marks",
       entry: "mark",
@@ -232,8 +236,8 @@ const ACTORS = [
   }),
   actor(GOB, "creature", "Goblin", null, {
     entity: "creature",
-    fields: { name: "G", level: 1, healthState: "ok" },
-    held: HELD,
+    fields: { name: "G", level: 1, healthState: "ok", traits: ["venom"] },
+    held: [...HELD, heldRecord("trait", "venom", "Venom")],
     resources: { hp: 4 },
     derived: { maxHp: 7 },
   }),

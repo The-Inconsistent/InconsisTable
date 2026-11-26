@@ -197,10 +197,12 @@ export function entryCells({ def, entry }: { def: RowsDef; entry: RowSource }): 
   const from = def.from?.find((f) => f.entity === entry.type);
   const given: [string, unknown][] = [
     ...(from?.name === undefined ? [] : [[from.name, entry.name] as [string, unknown]]),
-    ...Object.entries(from?.values ?? {}).map(([col, field]): [string, unknown] => [
-      col,
-      Object.hasOwn(entry.body, field) ? entry.body[field] : undefined,
-    ]),
+    ...Object.entries(from?.values ?? {}).map(([col, field]): [string, unknown] => {
+      const value = Object.hasOwn(entry.body, field) ? entry.body[field] : undefined;
+      // A Test column takes the Test the entry names (house decision #177).
+      const test = def.columns.find((c) => c.id === col)?.type === "test";
+      return [col, test && typeof value === "string" && value !== "" ? { testId: value, inputs: {} } : value];
+    }),
   ];
   return Object.fromEntries(
     given.filter(([col, v]) => {

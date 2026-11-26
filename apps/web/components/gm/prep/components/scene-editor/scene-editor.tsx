@@ -304,6 +304,7 @@ export function SceneEditor({
             ruleset={ruleset}
             act={act}
             heading={only === undefined}
+            campaignId={campaignId}
           />
           <BudgetLines
             ruleset={ruleset}

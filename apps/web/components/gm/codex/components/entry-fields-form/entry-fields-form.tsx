@@ -12,6 +12,7 @@ import { usePackEntry } from "@/hooks/use-pack-entry/use-pack-entry";
 import {
   entryUrl,
   enumWords,
+  rollFor,
   rowsOf,
   tagsOf,
   type DeclaredField,
@@ -133,7 +134,8 @@ export function EntryFieldsForm({
             </label>
             {def.roll && act && (
               <RollInto
-                roll={def.roll}
+                key={rollFor({ roll: def.roll, fields: draft }).tables.join()}
+                roll={rollFor({ roll: def.roll, fields: draft })}
                 ruleset={ruleset}
                 label={def.label}
                 act={act}

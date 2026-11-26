@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { CodexEntry } from "@inconsistable/core-schema";
-import { followRow, Ruleset } from "@inconsistable/rules-engine";
+import { entryCells, followRow, Ruleset } from "@inconsistable/rules-engine";
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 
 import {
@@ -17,6 +17,7 @@ import {
   listChips,
   prefillRow,
   rolledRows,
+  rollFor,
   rollTimes,
   rowChips,
   rolledText,
@@ -55,7 +56,7 @@ const npc = (fields: CodexEntry["fields"]): CodexEntry => ({
 test("the declared fields of a kind, in order; none without a block or a ruleset", () => {
   assert.deepEqual(
     declaredFields({ ruleset, kind: "npc" }).map((f) => f.id),
-    ["mood", "disposition", "patron", "home", "look"],
+    ["mood", "disposition", "patron", "home", "look", "kin"],
   );
   assert.deepEqual(declaredFields({ ruleset, kind: "adventure" }), []);
   assert.deepEqual(declaredFields({ ruleset: null, kind: "npc" }), []);
@@ -274,6 +275,7 @@ test("rolled lines fill a field in the declared order, joined as declared (house
     [
       ["scene", ["incident"]],
       ["location", ["site"]],
+      ["faction", ["house"]],
       ["lore", ["charter"]],
     ],
   );
@@ -300,4 +302,29 @@ test("a field's table rolls into new rows per the campaign value, within the cap
     rowChips({ ruleset, def: dangers, row, campaign: { season: 1 } }).map((c) => c.text),
     ["Threat 2", "Ability check · DC 13, Ability Strength", "Ability check · DC 13, Ability Dexterity"],
   );
+});
+
+test("a danger's check is filled from a hazard's Test, and a title rolls on the tables of its kin (#177, #178)", () => {
+  assert.ok(dangers?.type === "rows");
+  const scree = {
+    pack: "sample-annals",
+    key: "loose-scree",
+    type: "hazard",
+    name: "Loose Scree",
+    level: null,
+    tags: [],
+    cite: null,
+    visibility: "gm",
+    body: { threat: 3, check: "check" },
+  };
+  assert.deepEqual(entryCells({ def: dangers, entry: scree }), {
+    name: "Loose Scree",
+    threat: 3,
+    check: { testId: "check", inputs: {} },
+  });
+  const title = ruleset.codex?.kinds.npc?.titleRoll;
+  assert.ok(title);
+  assert.deepEqual(rollFor({ roll: title, fields: { kin: "elf" } }).tables, ["elfname", "surname"]);
+  assert.deepEqual(rollFor({ roll: title, fields: { kin: "human" } }).tables, ["forename", "surname"]);
+  assert.deepEqual(rollFor({ roll: title, fields: { kin: "constructor" } }).tables, ["forename", "surname"]);
 });

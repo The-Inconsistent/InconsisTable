@@ -16,6 +16,7 @@ import {
   lineNames,
   offeredKinds,
   pickedRows,
+  poolLineFrom,
   resolveLine,
   revealedNames,
   stepLine,
@@ -449,4 +450,17 @@ test("creatureOf and creatureLine: an entry made from a spawnable pack creature 
   );
   assert.equal(creatureOf({ entry: { ...made, source: null }, spawnable: SPAWNABLE }), null);
   assert.equal(creatureOf({ entry: made, spawnable: { ...SPAWNABLE, entries: [] } }), null);
+});
+
+test("a pool line from a pack entry takes the declared pool, the amount spent, the name and the words (#178)", () => {
+  const d20 = Ruleset.parse(SAMPLE_D20);
+  const omen = { type: "omen", name: "A black crow", body: { cost: 2, gist: "A foe arrives early" } };
+  assert.deepEqual(poolLineFrom({ ruleset: d20, entry: omen }), {
+    pool: "menace",
+    amount: -2,
+    label: "A black crow",
+    text: "A foe arrives early",
+  });
+  assert.equal(poolLineFrom({ ruleset: d20, entry: { ...omen, body: { cost: 0 } } }), null);
+  assert.equal(poolLineFrom({ ruleset: d20, entry: { ...omen, type: "creature" } }), null);
 });

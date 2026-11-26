@@ -445,3 +445,28 @@ export function lineSummary({
 export function lineName(args: { kind: PrepKind; line: PrepLine; names: LineNames; t: SummaryWords }): string {
   return args.line.label?.trim() || lineSummary(args);
 }
+
+/**
+ * A pool line filled from a pack entry by the scene kind's `poolLines` (house decision #178): its pool, its amount
+ * (spent when the declaration says so), its name as the label and its words as the text. Null when no declaration takes
+ * its type or its amount is not a whole number from 1 to 1000.
+ */
+export function poolLineFrom({
+  ruleset,
+  entry,
+}: {
+  ruleset: Ruleset | null;
+  entry: { type: string; name: string; body: Readonly<Record<string, unknown>> };
+}): Pick<PoolLine, "pool" | "amount" | "label" | "text"> | null {
+  const how = ruleset?.codex?.kinds.scene?.poolLines?.find((l) => l.entity === entry.type);
+  const amount = how === undefined ? undefined : entry.body[how.amount];
+  if (how === undefined || typeof amount !== "number" || !Number.isInteger(amount) || amount < 1 || amount > 1000)
+    return null;
+  const text = how.text === undefined ? undefined : entry.body[how.text];
+  return {
+    pool: how.pool,
+    amount: how.spend === true ? -amount : amount,
+    label: entry.name.slice(0, 80),
+    text: typeof text === "string" ? text.slice(0, 500) : "",
+  };
+}

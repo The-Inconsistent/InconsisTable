@@ -20,13 +20,15 @@ import {
 } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
+import { RefPicker } from "@/components/gm/codex/components/entry-fields-form/components/ref-picker/ref-picker";
 import { takers } from "@/components/gm/tests/components/call-form/takers";
 import { MarkSwitches } from "@/components/gm/tests/components/mark-switches/mark-switches";
 import { pickableFields, rowName, rowsOf } from "@/lib/entry-fields/entry-fields";
 import { MarkerPicker } from "@/components/ui/marker-swatch/marker-swatch";
 import { SpawnOptions } from "@/components/ui/spawn-options/spawn-options";
 import { canMob } from "@/lib/harm/harm";
-import type { Spawnable } from "@/lib/scene-prep/scene-prep";
+import type { RulesEntry } from "@/lib/library/library";
+import { poolLineFrom, type Spawnable } from "@/lib/scene-prep/scene-prep";
 import { optionsFor } from "@/lib/spawn/spawn";
 import { testWords } from "@/lib/test-inputs/test-inputs";
 
@@ -41,6 +43,8 @@ type LineFormProps = {
   state: Pick<LiveState, "testDefs" | "pools" | "actors">;
   ruleset: Ruleset | null;
   spawnable: Spawnable;
+  /** The room, whose served entries a pool line may be filled from (house decision #178). */
+  campaignId?: string;
   onSave: (line: PrepLine) => void;
   onCancel: () => void;
 };
@@ -56,7 +60,18 @@ const SCHEMAS = {
 
 // One prepared line being written: the pickers for what it names (a creature, a Test and its inputs, a pool, a scene, an
 // entry), how it is sent, and the GM's label and note. SAVE is offered once the line has the shape the api takes.
-export function LineForm({ kind, line, scene, entries, state, ruleset, spawnable, onSave, onCancel }: LineFormProps) {
+export function LineForm({
+  kind,
+  line,
+  scene,
+  entries,
+  state,
+  ruleset,
+  spawnable,
+  campaignId,
+  onSave,
+  onCancel,
+}: LineFormProps) {
   const t = useTranslations("prep");
   const [draft, setDraft] = useState<PrepLine>(() => line ?? newLine({ kind, state, entries, scene, spawnable }));
   const valid = SCHEMAS[kind].safeParse(draft).success;
@@ -82,6 +97,7 @@ export function LineForm({ kind, line, scene, entries, state, ruleset, spawnable
       {kind === "tests" && <TestFields d={d} set={set} state={state} />}
       {kind === "pools" && (
         <>
+          {campaignId !== undefined && <PoolFromPack ruleset={ruleset} campaignId={campaignId} set={set} />}
           <label className="stack">
             {t("form.pool")}
             <select id="line-pool" value={String(d.pool ?? "")} onChange={(e) => set({ pool: e.target.value })}>
@@ -574,4 +590,37 @@ function PickFields({ d, set, entries, scene, ruleset }: PickFieldsProps) {
       )}
     </>
   );
+}
+
+// FROM A PACK on a pool line (house decision #178): a search of the served entries of each type the scene kind makes
+// pool lines from; the one picked fills the pool, the amount, the label and the text, for the GM to change before SAVE.
+function PoolFromPack({
+  ruleset,
+  campaignId,
+  set,
+}: {
+  ruleset: Ruleset | null;
+  campaignId: string;
+  set: FieldsProps["set"];
+}) {
+  const t = useTranslations("prep");
+  // A picked entry fills the line; one whose amount is not a whole number is left for the GM.
+  const handlePick = (entry: RulesEntry | null) => {
+    const patch = entry === null ? null : poolLineFrom({ ruleset, entry });
+    if (patch !== null) set(patch);
+  };
+  return (ruleset?.codex?.kinds.scene?.poolLines ?? []).map((how) => (
+    <RefPicker
+      key={how.entity}
+      id={`line-pool-from-${how.entity}`}
+      label={t("form.poolFrom", { type: ruleset?.entities.find((e) => e.id === how.entity)?.label ?? how.entity })}
+      campaignId={campaignId}
+      entity={how.entity}
+      value={null}
+      name={null}
+      disabled={false}
+      onPick={handlePick}
+      onOpen={() => {}}
+    />
+  ));
 }

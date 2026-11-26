@@ -9,25 +9,25 @@ import { GamePicker } from "@/components/lobby/game-picker/game-picker";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { createRoom } from "@/lib/games/create-room";
 import { gameOptions, startMode, type GameOption } from "@/lib/games/games";
-import type { RulesetList } from "@/lib/library/library";
+import type { ModuleList, RulesetList } from "@/lib/library/library";
 
-type QuickGameProps = { rulesets: RulesetList };
+type QuickGameProps = { rulesets: RulesetList; modules: ModuleList };
 
 // QUICK GAME: pick a game, check the name, create. The room opens on PARTY with the join QR already showing, so the
 // table is playing in a couple of minutes. Nothing else is asked (docs/p2-plan.md group E).
-export function QuickGame({ rulesets }: QuickGameProps) {
+export function QuickGame({ rulesets, modules }: QuickGameProps) {
   const t = useTranslations("quickGame");
   const tModes = useTranslations("tableModes");
   const tr = useRefusal();
   const format = useFormatter();
   const router = useRouter();
-  const games = gameOptions(rulesets);
-  const [slug, setSlug] = useState(games[0]?.slug ?? "");
+  const games = gameOptions(rulesets, modules);
+  const [slug, setSlug] = useState(games[0]?.key ?? "");
   const [typed, setTyped] = useState<string | null>(null);
   const [picked, setPicked] = useState<TableMode>("gm");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const game = games.find((g) => g.slug === slug);
+  const game = games.find((g) => g.key === slug);
   const mode = startMode(game, picked);
   const weekday = format.dateTime(new Date(), { weekday: "long" });
   const name = typed ?? (game ? `${game.title} · ${weekday}` : "");
@@ -36,7 +36,7 @@ export function QuickGame({ rulesets }: QuickGameProps) {
   // sitting when the filter asked for one.
   const handleSelect = (g: GameOption | null, wanted: "any" | TableMode) => {
     if (!g) return;
-    setSlug(g.slug);
+    setSlug(g.key);
     if (wanted !== "any") setPicked(wanted);
   };
   // The mode menu offers only the game's own modes, but a value is still parsed.

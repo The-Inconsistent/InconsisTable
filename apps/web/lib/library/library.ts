@@ -39,6 +39,14 @@ export const PackImported = z.object({
 });
 export type PackImported = z.infer<typeof PackImported>;
 
+/** The descriptive part of a manifest's game block, as the api lists it for Choose game. */
+const GameBlock = z.object({
+  title: z.string(),
+  family: z.string().optional(),
+  genres: z.array(z.string()).default([]),
+  players: z.object({ min: z.number(), max: z.number() }),
+});
+
 export const RulesetList = z.array(
   z.object({
     id: z.string(),
@@ -51,15 +59,7 @@ export const RulesetList = z.array(
         createdAt: z.string(),
         modes: z.array(TableMode).default(["gm"]),
         /** The manifest's game block, for Choose game; null when the ruleset has none. */
-        game: z
-          .object({
-            title: z.string(),
-            family: z.string().optional(),
-            genres: z.array(z.string()).default([]),
-            players: z.object({ min: z.number(), max: z.number() }),
-          })
-          .nullable()
-          .default(null),
+        game: GameBlock.nullable().default(null),
       }),
     ),
   }),
@@ -172,11 +172,54 @@ export const WorldList = z.array(
 );
 export type WorldList = z.infer<typeof WorldList>;
 
-/** What a pasted document is, by its shape: a ruleset has `entities`, a pack has `entries`, a World a `theme` alone. */
-export function kindOf(doc: unknown): "ruleset" | "pack" | "world" | null {
+/** What importing a game module answers (house decision #122): its carried packs' warnings by path in the file. */
+export const ModuleImported = z.object({
+  ok: z.literal(true),
+  moduleId: z.string(),
+  versionId: z.string(),
+  slug: z.string(),
+  version: z.string(),
+  unchanged: z.boolean(),
+  warnings: z.array(Problem),
+});
+export type ModuleImported = z.infer<typeof ModuleImported>;
+
+const ModulePart = z.object({ versionId: z.string(), slug: z.string(), version: z.string() });
+
+/** The owner's game modules (`GET /api/modules`), each version newest first, with its parts and its ruleset's game. */
+export const ModuleList = z.array(
+  z.object({
+    id: z.string(),
+    slug: z.string(),
+    versions: z.array(
+      z.object({
+        id: z.string(),
+        version: z.string(),
+        name: z.string(),
+        createdAt: z.string(),
+        ruleset: ModulePart,
+        packs: z.array(ModulePart),
+        world: ModulePart.nullable(),
+        modes: z.array(TableMode).default(["gm"]),
+        game: GameBlock.nullable().default(null),
+      }),
+    ),
+  }),
+);
+export type ModuleList = z.infer<typeof ModuleList>;
+
+/** What the library imports, by the route each goes to (`/api/<kind>s`). */
+export type ImportKind = "ruleset" | "pack" | "world" | "module";
+
+/**
+ * What a pasted document is, by its shape: a ruleset has `entities`, a pack has `entries`, a game module `packs` (the
+ * documents it carries are nested), a World a `theme` alone.
+ */
+export function kindOf(doc: unknown): ImportKind | null {
   if (typeof doc !== "object" || doc === null || Array.isArray(doc)) return null;
   if ("entries" in doc) return "pack";
   if ("entities" in doc) return "ruleset";
+  if ("packs" in doc) return "module";
   if ("theme" in doc) return "world";
   return null;
 }
@@ -201,7 +244,7 @@ export function formatBytes(bytes: number, locale = "en"): string {
   return `${new Intl.NumberFormat(locale).format(Math.max(1, Math.round(bytes / 1024)))} KB`;
 }
 
-/** The owner's export route for a ruleset, a pack or a World (newest version, as the importer takes it). */
-export function exportUrl(kind: "ruleset" | "pack" | "world", id: string): string {
+/** The owner's export route for a ruleset, a pack, a World or a game module (newest version, as its importer takes it). */
+export function exportUrl(kind: ImportKind, id: string): string {
   return `/api/${kind}s/${encodeURIComponent(id)}/export`;
 }

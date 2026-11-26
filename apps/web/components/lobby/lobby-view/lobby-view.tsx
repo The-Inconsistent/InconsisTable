@@ -16,9 +16,9 @@ import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import type { AuthMe } from "@/lib/api-reply/api-reply";
 import { createRoom } from "@/lib/games/create-room";
 import { gameOptions, startMode, type GameOption } from "@/lib/games/games";
-import type { RulesetList } from "@/lib/library/library";
+import type { ModuleList, RulesetList } from "@/lib/library/library";
 
-type LobbyViewProps = { lobby: Lobby; rulesets: RulesetList; me: AuthMe; signInFailed: boolean };
+type LobbyViewProps = { lobby: Lobby; rulesets: RulesetList; modules: ModuleList; me: AuthMe; signInFailed: boolean };
 
 function GameCard({ game, i }: { game: LobbyGame; i: number }) {
   const t = useTranslations("lobby");
@@ -73,7 +73,7 @@ function Section({ title, games, empty }: { title: string; games: LobbyGame[]; e
 
 // ROOMS: the ones you own, the ones where you play or co-GM, and the archived ones; plus NEW ROOM for creators, open
 // at once when there is nothing else to show, and the account bar on deployments that sign in.
-export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps) {
+export function LobbyView({ lobby, rulesets, modules, me, signInFailed }: LobbyViewProps) {
   const t = useTranslations("lobby");
   const tWs = useTranslations("workspace");
   const tStatus = useTranslations("status");
@@ -88,8 +88,8 @@ export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps)
   const [picked, setPicked] = useState<TableMode>("gm");
   const [error, setError] = useState<string | null>(null);
   // How the table can sit is the chosen game's say; a ruleset without a `game` block is played with a GM.
-  const games = gameOptions(rulesets);
-  const game = games.find((g) => g.slug === slug) ?? null;
+  const games = gameOptions(rulesets, modules);
+  const game = games.find((g) => g.key === slug) ?? null;
   const modes = game?.modes ?? ["gm"];
   const tableMode = startMode(game ?? undefined, picked);
   const tModes = useTranslations("tableModes");
@@ -116,7 +116,7 @@ export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps)
   };
   // A card tapped: it is the ruleset, and the way of sitting the filter asked for is kept when the game allows it.
   const handleSelect = (g: GameOption | null, wanted: "any" | TableMode) => {
-    setSlug(g?.slug ?? null);
+    setSlug(g?.key ?? null);
     if (wanted !== "any") setPicked(wanted);
   };
 
@@ -168,7 +168,7 @@ export function LobbyView({ lobby, rulesets, me, signInFailed }: LobbyViewProps)
           </button>
         )}
       </PageHead>
-      {lobby.canCreate && quick && <QuickGame rulesets={rulesets} />}
+      {lobby.canCreate && quick && <QuickGame rulesets={rulesets} modules={modules} />}
       {lobby.canCreate && importing && <ImportRoom />}
       <AccountBar me={me} signInFailed={signInFailed} />
       {lobby.canCreate && creating && (

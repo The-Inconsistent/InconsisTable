@@ -6387,15 +6387,21 @@ test("sides fixture: HISTORY, undo by line and redo", async () => {
   ok(await owner.send(hpStep(brute, "hp", -2)));
   ok(await owner.send({ type: "condition.add", ...burning }));
   ok(await owner.send({ type: "condition.remove", ...burning }));
-  let s = await owner.until((x) => (x.history?.length ?? 0) === 4 && hp(x) === 15);
-  const [removed, added, , first] = s.history!.map((l) => l.id);
-  const v = await ana.until((x) => x.stateVersion >= s.stateVersion);
-  assert.equal(v.history, undefined, "a player is sent no history");
+  // HISTORY is read on request, never pushed with the state.
+  type HistoryAnswer = { ok: boolean; lines?: { id: string; undone: boolean }[]; code?: string };
+  const history = async (c: ReturnType<typeof connect>) =>
+    (await c.socket.emitWithAck("session:history")) as HistoryAnswer;
+  let s = await owner.until((x) => hp(x) === 15);
+  assert.equal(s.history, undefined, "the state carries no history");
+  const lines = (await history(owner)).lines!;
+  assert.equal(lines.length, 4);
+  const [removed, added, , first] = lines.map((l) => l.id);
+  assert.equal((await history(ana)).code, "noPermission", "a player reads no history");
 
   // The first hit goes back under the later ones; the add is refused while the later remove stands, naming it.
   ok(await owner.send({ type: "event.undo", actionId: first! }));
   s = await owner.until((x) => hp(x) === 18);
-  assert.equal(s.history!.find((l) => l.id === first)?.undone, true);
+  assert.equal((await history(owner)).lines!.find((l) => l.id === first)?.undone, true);
   const blocked = await owner.send({ type: "event.undo", actionId: added! });
   refused(blocked, "undoLaterFirst");
   assert.equal(blocked.ok ? null : blocked.params?.actionId, removed);
@@ -6404,7 +6410,7 @@ test("sides fixture: HISTORY, undo by line and redo", async () => {
   // Redo puts the hit back; a second redo has nothing to redo.
   ok(await owner.send({ type: "event.redo", actionId: first! }));
   s = await owner.until((x) => hp(x) === 15);
-  assert.equal(s.history!.find((l) => l.id === first)?.undone, false);
+  assert.equal((await history(owner)).lines!.find((l) => l.id === first)?.undone, false);
   refused(await owner.send({ type: "event.redo", actionId: first! }), "nothingToRedo");
   for (const c of [owner, ana]) c.socket.close();
 });

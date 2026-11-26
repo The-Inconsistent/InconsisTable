@@ -101,14 +101,15 @@ func DescribeTarget(t engine.DeltaTarget) string {
 	return `test "` + t.Test + `"`
 }
 
-// Text is a value as JSON.stringify writes it: a condition row keeps its fields' order, the rest are canonical.
+// Text is a value as JSON.stringify writes it, for a refusal: a condition row keeps its fields' order, the rest are
+// canonical. A condition's source is left out: it may hold the GM's words, and a co-GM reads the refusal too (#131).
 func Text(v any) string {
 	row, isRow := v.(map[string]any)
 	if !isRow {
 		return engine.CanonicalJSON(v)
 	}
 	parts := []string{}
-	for _, k := range []string{"conditionId", "stacks", "source", "expiresOn", "expiresAfter"} {
+	for _, k := range []string{"conditionId", "stacks", "expiresOn", "expiresAfter"} {
 		if x, ok := row[k]; ok {
 			parts = append(parts, engine.CanonicalJSON(k)+":"+engine.CanonicalJSON(x))
 		}

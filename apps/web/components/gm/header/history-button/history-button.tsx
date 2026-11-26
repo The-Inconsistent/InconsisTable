@@ -2,7 +2,7 @@
 import { useFormatter, useTranslations } from "next-intl";
 import { useMemo, useState, type CSSProperties } from "react";
 
-import type { LiveState } from "@inconsistable/core-schema";
+import type { HistoryLine, LiveState } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
@@ -10,12 +10,20 @@ import { useLogWords } from "@/hooks/use-log-words/use-log-words";
 import type { Send } from "@/hooks/use-table/use-table";
 import { historyLines, type HistoryEntry } from "@/lib/fight-log/fight-log";
 
-type HistoryButtonProps = { state: LiveState; ruleset: Ruleset | null; send: Send };
+type HistoryButtonProps = {
+  state: LiveState;
+  ruleset: Ruleset | null;
+  send: Send;
+  /** The lines the api answered `session:history` with (`useTable().history`); null until read. */
+  history: readonly HistoryLine[] | null;
+  /** Opens (true) or closes (false) the read: asked on opening and after every state while open. */
+  watch: (on: boolean) => void;
+};
 
 // HISTORY in the GM's header (house decision #133): the running session's actions, newest first, worded as the fight's
 // log words them, with UNDO on a standing line and REDO on one taken back. The server decides: a refusal ("a later step
-// changed …") shows at the top, and the line it names is marked to undo first.
-export function HistoryButton({ state, ruleset, send }: HistoryButtonProps) {
+// changed …") shows at the top, and the line it names is marked to undo first when this seat is sent that line.
+export function HistoryButton({ state, ruleset, send, history, watch }: HistoryButtonProps) {
   const t = useTranslations("history");
   const tHeader = useTranslations("gmApp.header");
   const format = useFormatter();
@@ -23,7 +31,13 @@ export function HistoryButton({ state, ruleset, send }: HistoryButtonProps) {
   const [open, setOpen] = useState(false);
   const [refusal, setRefusal] = useState<{ text: string; first: string | null } | null>(null);
   const names = useMemo(() => new Map(state.actors.map((a) => [a.id, a])), [state.actors]);
-  const lines = historyLines({ history: state.history ?? [], names, ruleset });
+  const lines = historyLines({ history: history ?? [], names, ruleset });
+
+  // Opening asks the api for the lines; they come again after every state while the sheet stays open.
+  const handleOpen = () => {
+    setOpen(true);
+    watch(true);
+  };
 
   // UNDO or REDO of one line; a refusal keeps the line it names (the later step to undo first).
   const handleLine = async (line: HistoryEntry) => {
@@ -32,15 +46,16 @@ export function HistoryButton({ state, ruleset, send }: HistoryButtonProps) {
     setRefusal(r.ok ? null : { text: r.error, first: typeof first === "string" ? first : null });
   };
 
-  // Closing forgets the refusal, so the next opening starts clean.
+  // Closing stops the reads and forgets the refusal, so the next opening starts clean.
   const handleClose = () => {
     setOpen(false);
     setRefusal(null);
+    watch(false);
   };
 
   return (
     <>
-      <button className="btn" aria-expanded={open} onClick={() => (open ? handleClose() : setOpen(true))}>
+      <button className="btn" aria-expanded={open} onClick={open ? handleClose : handleOpen}>
         {tHeader("history")}
       </button>
       {open && (
@@ -52,6 +67,10 @@ export function HistoryButton({ state, ruleset, send }: HistoryButtonProps) {
           )}
           {state.session === null ? (
             <p className="dim">{t("noSession")}</p>
+          ) : history === null ? (
+            <p className="dim" role="status">
+              {t("reading")}
+            </p>
           ) : lines.length === 0 ? (
             <p className="dim">{t("empty")}</p>
           ) : (

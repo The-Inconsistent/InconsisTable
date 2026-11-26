@@ -15,20 +15,38 @@ import (
 // further back.
 const MaxHistory = 100
 
+// maxHistoryRows bounds the logged writes HISTORY reads before it groups them by action.
+//
+// ponytail: 20 writes an action on average; a session of very wide actions lists fewer than MaxHistory, raise it then.
+const maxHistoryRows = 20 * MaxHistory
+
+// LogWrite is a logged write as the log and HISTORY carry it.
+func LogWrite(w Written) (cs.FightLogWrite, error) {
+	var out cs.FightLogWrite
+	b, err := json.Marshal(w)
+	if err == nil {
+		err = json.Unmarshal(b, &out)
+	}
+	return out, err
+}
+
 // History is the running session's logged actions for HISTORY (house decision #133), newest first, at most MaxHistory:
 // each action that wrote anything, when it was taken, whether it stands undone (Undo, TURN BACK, or an undo by line,
-// until a redo), the strike it was and its writes as logged. Nil with no session running. What each seat receives of it
-// is internal/view's call.
+// until a redo), the strike it was and its writes as logged. Nil with no session running. It is read on request
+// (`session:history`, table.ReadHistory), never pushed; what each seat receives of it is internal/view's call.
 func History(ctx context.Context, conn core.Conn, campaignID string, sessionID *string) ([]cs.HistoryLine, error) {
 	if sessionID == nil {
 		return nil, nil
 	}
-	rows, err := conn.Query(ctx, `WITH a AS (SELECT action_id, min(created_at) AS at, min(id::text) AS first FROM session_event
+	// The newest rows first, bounded before they are grouped (the campaign's created_at index reads them newest first).
+	rows, err := conn.Query(ctx, `WITH recent AS (SELECT action_id, created_at, id FROM session_event
 			WHERE campaign_id = $1 AND session_id = $2 AND type = 'delta' AND action_id IS NOT NULL
+			ORDER BY created_at DESC, id DESC LIMIT $4),
+		a AS (SELECT action_id, min(created_at) AS at, min(id::text) AS first FROM recent
 			GROUP BY action_id ORDER BY at DESC, first DESC LIMIT $3)
 		SELECT e.type, e.action_id::text, a.at, e.undone_by IS NOT NULL, e.payload FROM session_event e JOIN a USING (action_id)
 		WHERE e.campaign_id = $1 AND e.type IN ('delta', 'strike') ORDER BY a.at DESC, a.first DESC, e.created_at, e.id`,
-		campaignID, *sessionID, MaxHistory)
+		campaignID, *sessionID, MaxHistory, maxHistoryRows)
 	if err != nil {
 		return nil, err
 	}

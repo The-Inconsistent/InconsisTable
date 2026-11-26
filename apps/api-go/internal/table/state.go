@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
-	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/campaign/eventlog"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/clock"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/codex"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
@@ -88,9 +87,6 @@ func LoadLive(ctx context.Context, conn core.Conn, campaignID string) (*cs.LiveS
 		session := state.Journal[0].Session
 		state.Session = &session
 		sessionID = &session.ID
-	}
-	if state.History, err = eventlog.History(ctx, conn, campaignID, sessionID); err != nil {
-		return nil, nil, nil, err
 	}
 
 	rows, err := actor.LoadRows(ctx, conn, campaignID)

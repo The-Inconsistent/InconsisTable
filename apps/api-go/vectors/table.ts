@@ -776,7 +776,8 @@ const STATE = {
           target: { actorId: PC1, condition: U(990) },
           kind: "set",
           before: null,
-          after: { conditionId: "dazed", stacks: 1, source: "", expiresOn: "roundEnd", expiresAfter: 2 },
+          // The source may hold the GM's words: the GM side's only.
+          after: { conditionId: "dazed", stacks: 1, source: "the GM's words", expiresOn: "roundEnd", expiresAfter: 2 },
         },
         {
           target: { actorId: PC2, condition: U(991) },

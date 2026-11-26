@@ -398,7 +398,7 @@ export const LiveState = z.object({
   // the ones to a character it holds, with only those readers; anyone else none.
   whispers: z.array(Whisper),
   // The running session's logged actions, newest first, at most 100 (house decision #133): the side that may undo them,
-  // cut to the writes the seat sees; absent for everyone else and when there is none.
+  // cut to the writes the seat sees. Never in a pushed state: the api fills it only to answer `session:history`.
   history: z.array(HistoryLine).optional(),
 });
 export type LiveState = z.infer<typeof LiveState>;

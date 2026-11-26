@@ -104,7 +104,9 @@ func TurnBack(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Resu
 		err := undoAction(ctx, tx, c, *sessionID, actionID)
 		var refusal *cs.Error
 		if errors.As(err, &refusal) {
-			return cs.Result{}, cs.Fail("turnBackRefused", cs.Params{"n": i + 1, "count": len(step.Actions), "reason": refusal.Error()})
+			out := cs.Fail("turnBackRefused", cs.Params{"n": i + 1, "count": len(step.Actions), "reason": refusal.Error()})
+			out.Write = refusal.Write // the table cuts the reason to what the seat sees
+			return cs.Result{}, out
 		}
 		if err != nil {
 			return cs.Result{}, err
@@ -157,6 +159,9 @@ func Redo(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 			return cs.Result{}, cs.Fail("cantRedoKind")
 		}
 	}
+	if err := undoneWhole(ctx, tx, cid, *sessionID, actionID, logged); err != nil {
+		return cs.Result{}, err
+	}
 	if err := laterFirst(ctx, tx, laterAsk{cid: cid, sessionID: *sessionID, actionID: actionID, since: *undoID,
 		logged: logged, code: "redoLaterFirst"}); err != nil {
 		return cs.Result{}, err
@@ -193,6 +198,45 @@ func Redo(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 		return cs.Result{}, err
 	}
 	return cs.Done(actionID), nil
+}
+
+// undoneWhole refuses a redo whose undo did not take back the whole of a counted value (house decision #132): the
+// undo was held at a limit (Vigour at its max) or passed over (a deleted actor, a pool gone), so inverting what the
+// undo wrote would not put back what the action did, and a later undo of the action would take back what it never
+// gave. The counted writes of the action and of its undo, summed by value, must cancel.
+func undoneWhole(ctx context.Context, tx core.Conn, cid, sessionID, actionID string, undid []eventlog.Written) error {
+	rows, err := tx.Query(ctx, `SELECT payload FROM session_event WHERE `+sessionDeltas+` AND action_id = $3`, cid, sessionID, actionID)
+	if err != nil {
+		return err
+	}
+	payloads, err := pgx.CollectRows(rows, pgx.RowTo[[]byte])
+	if err != nil {
+		return err
+	}
+	net := map[engine.DeltaTarget]float64{}
+	add := func(w eventlog.Written) {
+		if t := w.Target; t.Resource != "" || t.Pool != "" || t.Clock != "" {
+			before, _ := w.Before.(float64)
+			after, _ := w.After.(float64)
+			net[t] += after - before
+		}
+	}
+	for _, p := range payloads {
+		w, err := eventlog.Parse(p)
+		if err != nil {
+			return err
+		}
+		add(w)
+	}
+	for _, w := range undid {
+		add(w)
+	}
+	for t, n := range net {
+		if n != 0 {
+			return cs.Fail("redoClamped", cs.Params{"target": eventlog.DescribeTarget(t)})
+		}
+	}
+	return nil
 }
 
 // mayTakeBack is the author check Undo, TURN BACK and Redo share: without a GM every seat takes back its own steps and
@@ -278,7 +322,13 @@ func laterFirst(ctx context.Context, tx core.Conn, ask laterAsk) error {
 			}
 		}
 	}
-	return cs.Fail(ask.code, cs.Params{"target": eventlog.DescribeTarget(t), "actionId": blocker})
+	out := cs.Fail(ask.code, cs.Params{"target": eventlog.DescribeTarget(t), "actionId": blocker})
+	about, err := eventlog.LogWrite(w)
+	if err != nil {
+		return err
+	}
+	out.Write = &about
+	return out
 }
 
 // undoAction takes back one logged action of the running session, its writes in reverse order, and records the undo.
@@ -344,11 +394,22 @@ func undoAction(ctx context.Context, tx core.Conn, c cs.Ctx, sessionID, actionID
 
 // takeBack writes the inverse of each logged write, in the order given, and says what it wrote and passed over. Undo
 // gives it an action's writes newest first; Redo gives it an undo's writes, oldest first.
-func takeBack(ctx context.Context, tx core.Conn, c cs.Ctx, rules *engine.CompiledRuleset, writes []eventlog.Written) ([]eventlog.Written, []skipped, error) {
+func takeBack(ctx context.Context, tx core.Conn, c cs.Ctx, rules *engine.CompiledRuleset, writes []eventlog.Written) (_ []eventlog.Written, _ []skipped, err error) {
 	cid := c.CampaignID
 	written := []eventlog.Written{}
 	passed := []skipped{}
+	var at eventlog.Written
+	// A refusal is about the write it stopped at: the table cuts it to what the seat sees (house decision #131).
+	defer func() {
+		var refusal *cs.Error
+		if errors.As(err, &refusal) && refusal.Write == nil {
+			if about, failed := eventlog.LogWrite(at); failed == nil {
+				refusal.Write = &about
+			}
+		}
+	}()
 	for _, logged := range writes {
+		at = logged
 		t := logged.Target
 		if t.Item != "" {
 			// An item row is set whole (house decision #95), undone only while it holds what the step left.

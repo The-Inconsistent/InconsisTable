@@ -197,7 +197,7 @@ func ApplyAction(ctx context.Context, tx pgx.Tx, seated cs.Ctx, a cs.Action) (Re
 		err = read.raise(ctx, tx, c, a)
 	}
 	if err != nil {
-		return Result{}, err
+		return Result{}, cutRefusal(ctx, tx, c, err)
 	}
 	result.Notices = *notices
 	return result, nil

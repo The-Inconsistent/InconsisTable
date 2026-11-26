@@ -1678,6 +1678,8 @@
     "redoLaterFirst": "Không làm lại được: một bước sau đã đổi {target}. Hãy hoàn tác bước đó trước.",
     "cantRedoKind": "Không làm lại được bước đã tạo mục codex: hoàn tác đã xoá chúng.",
     "requestAnsweredSince": "Không làm lại được: yêu cầu nó đã duyệt đã được trả lời hoặc rút lại từ đó.",
+    "changedUnseen": "Không hoàn tác được: một thứ bạn không thấy đã đổi từ đó. GM làm được.",
+    "redoClamped": "Không làm lại được: lần hoàn tác bị chặn ở giới hạn của {target}, nên làm lại sẽ không trả đúng những gì bước đó đã làm.",
     "noEncounterRunning": "Không có trận nào đang chạy",
     "encounterRunning": "Đang có một trận chạy",
     "alreadyInFight": "{name} đã ở trong trận",
@@ -2595,6 +2597,7 @@
   "history": {
     "title": "Lịch sử buổi này",
     "empty": "Buổi này chưa ghi lại gì.",
+    "reading": "Đang đọc lịch sử buổi này…",
     "noSession": "Lịch sử liệt kê các hành động của buổi đang chơi. Hãy bắt đầu một buổi trước.",
     "undo": "Hoàn tác",
     "redo": "Làm lại",

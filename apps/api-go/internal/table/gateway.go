@@ -79,6 +79,8 @@ type deps struct {
 	sessionLive func(ctx context.Context, tokenHash string) (bool, error)
 	// draftRecap is the `session:draftRecap` read; nil in a gateway built without a database.
 	draftRecap func(ctx context.Context, c cs.Ctx) (string, error)
+	// history is the `session:history` read; nil in a gateway built without a database.
+	history func(ctx context.Context, c cs.Ctx) ([]cs.HistoryLine, error)
 }
 
 // Gateway is the table socket.
@@ -101,6 +103,8 @@ type Gateway struct {
 	allowPage *core.Limiter
 	// One X-Card touch per seat per XCardEvery (in memory, like the others).
 	allowXCard *core.Limiter
+	// HISTORY's reads, per seat: one on opening and one after each state while it stays open, so as many as actions.
+	allowRead *core.Limiter
 
 	kickGrace   time.Duration
 	pageTimeout time.Duration
@@ -139,6 +143,9 @@ func NewGateway(db *pgxpool.Pool, authService *auth.Service, webOrigins []string
 			})
 			return text, err
 		},
+		history: func(ctx context.Context, c cs.Ctx) ([]cs.HistoryLine, error) {
+			return ReadHistory(ctx, db, c)
+		},
 	})
 	g.allowAdminKey = adminKeyLimit
 	return g
@@ -176,6 +183,7 @@ func newGateway(webOrigins []string, d deps) *Gateway {
 		allowAction:   core.NewLimiter(120, time.Minute),
 		allowPage:     core.NewLimiter(30, time.Minute),
 		allowXCard:    core.NewLimiter(1, XCardEvery),
+		allowRead:     core.NewLimiter(120, time.Minute),
 		allowAdminKey: core.NewLimiter(20, time.Minute),
 		kickGrace:     KickGrace, pageTimeout: PageTimeout,
 	}
@@ -311,6 +319,7 @@ func (g *Gateway) onConnection(s *socket.Socket) {
 	}
 	on("action", func(body any, ack func(any)) { g.onAction(s, body, ack) })
 	on("session:draftRecap", func(_ any, ack func(any)) { g.onDraftRecap(s, ack) })
+	on("session:history", func(_ any, ack func(any)) { g.onHistory(s, ack) })
 	on("book:serving", func(body any, _ func(any)) { g.onBookServing(s, body) })
 	on("book:request", func(body any, ack func(any)) {
 		// It waits on another socket for up to PageTimeout, so it must not hold this socket's events up.

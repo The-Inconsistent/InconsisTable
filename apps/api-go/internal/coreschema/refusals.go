@@ -255,6 +255,8 @@ var refusals = map[string]string{
 	"redoLaterFirst":            "Can't redo: a later step changed {target}. Undo that step first.",
 	"cantRedoKind":              "Can't redo a step that made codex entries: undo deleted them.",
 	"requestAnsweredSince":      "Can't redo: the ask it approved was answered or withdrawn since.",
+	"changedUnseen":             "Can't take this back: something you don't see changed since. The GM can.",
+	"redoClamped":               "Can't redo: the undo was held at a limit of {target}, so a redo would not put back what the step did.",
 	"safetyListFull":            "That list is full.",
 	"xcardOff":                  "The X-Card is off at this table.",
 	"xcardWait":                 "Wait a moment before touching it again.",

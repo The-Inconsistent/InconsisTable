@@ -233,8 +233,9 @@ export function seatView({
  * HISTORY as one seat receives it (house decision #133): the side that may undo (the combat side, as Undo is
  * `encounter:run`), and of each action only the writes of values the seat sees: an actor's field, resource or condition
  * by the ruleset's visibility as that seat sees that actor; a pool, a clock or a codex entry it is sent; the turn; a
- * Test's value to the session side or a table without a GM. An item row and anything else stay home (fail-closed). An
- * action left with no write and no strike is dropped; with none left the key is absent.
+ * Test's value to the session side or a table without a GM. An item row and anything else stay home (fail-closed). A
+ * condition row goes without its source. An action left with no write and no strike is dropped; with none left the key
+ * is absent. The api fills `history` only for the `session:history` read, never in a pushed state.
  */
 function seatHistory({
   whole,
@@ -303,8 +304,19 @@ function seatHistory({
     if (t.test) return sight.session || sight.tableRun;
     return false;
   };
+  // A condition row without its source, which may hold the GM's words.
+  const shown = (v: unknown): unknown => {
+    if (typeof v !== "object" || v === null || Array.isArray(v)) return v;
+    const row = v as Record<string, unknown>;
+    return Object.fromEntries(
+      ["conditionId", "stacks", "expiresOn", "expiresAfter"].flatMap((k) => (k in row ? [[k, row[k]]] : [])),
+    );
+  };
   const history = whole.history.flatMap((line) => {
-    const cut = { ...line, writes: line.writes.filter(sees) };
+    const writes = line.writes
+      .filter(sees)
+      .map((w) => (w.target.condition ? { ...w, before: shown(w.before), after: shown(w.after) } : w));
+    const cut = { ...line, writes };
     return cut.writes.length > 0 || cut.strike !== undefined ? [cut] : [];
   });
   return history.length > 0 ? history : undefined;

@@ -76,11 +76,65 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 // the side that may undo (the combat side, as Undo is encounter:run), and of each action only the writes of values the
 // seat sees: an actor's field, resource or condition by the ruleset's visibility as that seat sees that actor; a pool, a
 // clock or a codex entry it is sent; the turn; a Test's value to the session side or a table without a GM. An item row
-// and anything else stay home (fail-closed). An action left with no write and no strike is dropped.
+// and anything else stay home (fail-closed). A condition row is sent without its source, which may hold the GM's words.
+// An action left with no write and no strike is dropped.
 func seatHistory(whole, seat cs.LiveState, codex cs.Codex, compiled *engine.CompiledRuleset, c cs.Ctx, sight Sight) []cs.HistoryLine {
 	if !sight.Combat || len(whole.History) == 0 {
 		return nil
 	}
+	sees := writeSeer(whole, seat, codex, compiled, c, sight)
+	out := []cs.HistoryLine{}
+	for _, line := range whole.History {
+		cut := line
+		cut.Writes = []cs.FightLogWrite{}
+		for _, w := range line.Writes {
+			if sees(w) {
+				if w.Target["condition"] != "" {
+					w.Before, w.After = conditionShown(w.Before), conditionShown(w.After)
+				}
+				cut.Writes = append(cut.Writes, w)
+			}
+		}
+		if len(cut.Writes) > 0 || cut.Strike != nil {
+			out = append(out, cut)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// A condition row as a seat off the GM side reads it: what it is, how many and when it ends; not its source.
+func conditionShown(v any) any {
+	row, isRow := v.(map[string]any)
+	if !isRow {
+		return v
+	}
+	out := map[string]any{}
+	for _, k := range []string{"conditionId", "stacks", "expiresOn", "expiresAfter"} {
+		if x, ok := row[k]; ok {
+			out[k] = x
+		}
+	}
+	return out
+}
+
+// SeesWrite says whether the seat sees the value a logged write changed, by the cut HISTORY makes: an undo's refusal
+// about that write is cut by it too (house decision #131). The GM side sees every one.
+func SeesWrite(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx, w cs.FightLogWrite) bool {
+	c.TableMode = snapshot.State.Campaign.TableMode
+	sight := SightOf(c)
+	if sight.All {
+		return true
+	}
+	seat := Of(snapshot, compiled, c)
+	return writeSeer(snapshot.State, seat.State, seat.Codex, compiled, c, sight)(w)
+}
+
+// writeSeer is the test of one logged write against what the seat sees: whole is the snapshot's state, seat and codex
+// what the seat receives of them.
+func writeSeer(whole, seat cs.LiveState, codex cs.Codex, compiled *engine.CompiledRuleset, c cs.Ctx, sight Sight) func(cs.FightLogWrite) bool {
 	actors := map[string]cs.Actor{}
 	for _, a := range whole.Actors {
 		actors[a.ID] = a
@@ -90,7 +144,7 @@ func seatHistory(whole, seat cs.LiveState, codex cs.Codex, compiled *engine.Comp
 		role = "screen"
 	}
 	seatViewer := engine.Viewer{Role: role, CharacterIDs: HeldBy(c)}
-	sees := func(w cs.FightLogWrite) bool {
+	return func(w cs.FightLogWrite) bool {
 		t := w.Target
 		switch {
 		case t["actorId"] != "":
@@ -137,23 +191,6 @@ func seatHistory(whole, seat cs.LiveState, codex cs.Codex, compiled *engine.Comp
 		}
 		return false
 	}
-	out := []cs.HistoryLine{}
-	for _, line := range whole.History {
-		cut := line
-		cut.Writes = []cs.FightLogWrite{}
-		for _, w := range line.Writes {
-			if sees(w) {
-				cut.Writes = append(cut.Writes, w)
-			}
-		}
-		if len(cut.Writes) > 0 || cut.Strike != nil {
-			out = append(out, cut)
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }
 
 // The whispers a seat receives (view.seat.ts seatWhispers, house decision #93): the side that runs the session with a

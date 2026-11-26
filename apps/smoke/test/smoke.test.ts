@@ -6610,10 +6610,8 @@ test("sides fixture: immunity and reminders by actor type, a rising notice's num
   });
   const owner = connect({ auth: { campaignId: made.body.campaignId, cookie: ownerDevice } });
   await owner.until(() => true);
-  const hero = (await owner.until((s) => s.actors.some((a) => a.kind === "pc"))).actors.find(
-    (a) => a.kind === "pc",
-  )!.id;
-  ok(await owner.send({ type: "actor.rename", id: hero, name: "Hal" }));
+  const hero = ok(await owner.send({ type: "actor.create", kind: "pc", name: "Hal" })).id!;
+
   const stats = { "attr.str": 10, "attr.dex": 10, "attr.con": 10, guard: 1 };
   await equip(hero, "character", { fields: { level: 6, ...stats }, resources: { hp: 20 } });
   const boss = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Boss" })).id!;
@@ -6636,7 +6634,7 @@ test("sides fixture: immunity and reminders by actor type, a rising notice's num
     },
   ]);
   // Healing raises nothing.
-  assert.equal(ok(await owner.send(adjust(boss, "hp", 1))).notices, undefined);
+  assert.equal(ok(await owner.send(hpStep(boss, "hp", 1))).notices, undefined);
 
   // The boss line is asked at the end of a creature's turn, never of Hal's.
   const sides = (op: string, input: object) =>

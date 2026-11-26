@@ -1,7 +1,15 @@
 import type { CompiledRuleset, CompiledTableEffect } from "./compile.ts";
 import { ExprError, type ExprRecord, type ExprValue } from "./expr/expr.ast.ts";
 import { evaluateBool, evaluateInt } from "./expr/expr.ts";
-import { MAX_EFFECT_TIMES, tableDie, type Ruleset, type StrikeInput, type TableEntry } from "./manifest.ts";
+import {
+  inputBounds,
+  MAX_EFFECT_TIMES,
+  tableDie,
+  type Ruleset,
+  type StrikeInput,
+  type TableEntry,
+  type TableInput,
+} from "./manifest.ts";
 import { own } from "./own.ts";
 
 // Lookups (house decision #87): the GM types what the dice showed, the inputs and the target decide the total, the
@@ -55,7 +63,7 @@ export function lookupInputs({
   given,
 }: {
   /** A lookup's table, or anything else that takes its inputs' shape (a strike, house decision #99). */
-  table: { inputs?: readonly StrikeInput[] | undefined };
+  table: { inputs?: readonly (StrikeInput | TableInput)[] | undefined };
   given: Readonly<Record<string, unknown>>;
 }): { ok: true; ctx: Record<string, number | boolean> } | { ok: false; input: string } {
   const ctx: Record<string, number | boolean> = {};
@@ -76,9 +84,10 @@ export function lookupInputs({
       ctx[x.id] = n as number;
       continue;
     }
-    const n = v ?? x.min ?? 0;
+    const { min, max } = inputBounds(x);
+    const n = v ?? min ?? 0;
     if (typeof n !== "number" || !Number.isInteger(n)) return { ok: false, input: x.id };
-    if ((x.min !== undefined && n < x.min) || (x.max !== undefined && n > x.max)) return { ok: false, input: x.id };
+    if ((min !== undefined && n < min) || (max !== undefined && n > max)) return { ok: false, input: x.id };
     ctx[x.id] = n;
   }
   return { ok: true, ctx };

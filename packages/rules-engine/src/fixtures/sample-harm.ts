@@ -675,7 +675,7 @@ export const SAMPLE_HARM_STANCES = [
  * sample-harm 0.1.9 (house decision #159): an arm's traits are a list the guide shows as chips, read from the arm's
  * text split at its commas; the brutal note asks whether the list holds "Brutal".
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_BEFORE_LOOKUPS: RulesetInput = {
   ...SAMPLE_HARM_BEFORE_LISTS,
   version: "0.1.9",
   strikes: (SAMPLE_HARM_BEFORE_LISTS.strikes ?? []).map((s) =>
@@ -689,6 +689,44 @@ export const SAMPLE_HARM: RulesetInput = {
           ),
         },
   ),
+};
+
+/**
+ * sample-harm 0.1.10 (house decisions #163 to #166): a jolt the GM looks up with a die typed beside it (1d3 more
+ * wounds), its strain left out on a brute that never takes any, its last line asking whether the target has resolve at
+ * all; and a growth that brings the growths its `with` list names.
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_BEFORE_LOOKUPS,
+  version: "0.1.10",
+  entities: (SAMPLE_HARM_BEFORE_LOOKUPS.entities ?? []).map((e) =>
+    e.id === "growth" ? { ...e, fields: { ...e.fields, with: { type: "list", label: "Brings", maxItems: 4 } } } : e,
+  ) as RulesetInput["entities"],
+  held: {
+    growth: { ...SAMPLE_HARM_BEFORE_LOOKUPS.held!.growth!, includes: "with" },
+  },
+  tables: {
+    ...SAMPLE_HARM_BEFORE_LOOKUPS.tables,
+    jolt: {
+      title: "Jolt",
+      die: "d6",
+      visibility: "gm",
+      cite: "Sample p.10",
+      typedOnly: true,
+      entities: ["hero", "brute"],
+      inputs: [{ id: "more", label: "More wounds", type: "int", dice: "1d3", cite: "Sample p.10" }],
+      entries: [
+        { id: "shaken", label: "Shaken", range: [1, 4], apply: [{ kind: "harm", wounds: "ctx.more", shock: "1" }] },
+        {
+          id: "unnerved",
+          label: "Unnerved",
+          range: [5, 6],
+          apply: [{ kind: "resource", resource: "resolve", by: "-1", when: "has(res.resolve)" }],
+          cite: "Sample p.10",
+        },
+      ],
+    },
+  },
 };
 
 /**

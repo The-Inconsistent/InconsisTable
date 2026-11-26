@@ -21,6 +21,7 @@ import {
   SAMPLE_HARM_BEFORE_HELD,
   SAMPLE_HARM_BEFORE_OWNER,
   SAMPLE_HARM_BEFORE_LISTS,
+  SAMPLE_HARM_BEFORE_LOOKUPS,
   SAMPLE_HARM_BEFORE_PANELS,
   SAMPLE_HARM_BEFORE_SHOWS,
   SAMPLE_HARM_BEFORE_STRIKES,
@@ -47,9 +48,10 @@ const PINNED: Record<string, string> = {
   "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
-  "sample-harm@0.1.9": "60f2e297678d64e1fc72e4a9598943476c49c1e23c3c8dd5c4df500cc28fae7c",
+  "sample-harm@0.1.10": "fa69eac85323609c4daf9fac3a11578ae2188822abc24a9a24b88b48f9442c43",
   "sample-duel@0.1.2": "906d7745550475b5fccd07ec48bec073a7db8ad4c1908da63bd3fab06493f614",
 };
+const PINNED_BEFORE_LOOKUPS = "60f2e297678d64e1fc72e4a9598943476c49c1e23c3c8dd5c4df500cc28fae7c";
 const PINNED_BEFORE_LISTS: Record<string, string> = {
   "sample-harm@0.1.8": "3e1f29531651423992be0129ffb806ea360e612da7c511f1e5eed60f1a63cca0",
   "sample-duel@0.1.1": "e05e632beefe7d3b5586d85771d2366068a1d5883e26a3984963f8951f2cd6f9",
@@ -66,6 +68,12 @@ test("a ruleset without panels or a phone strip hashes as it did before they exi
     assert.ok(result.ok, `${fixture.id}@${fixture.version} compiles`);
     assert.equal(sha256Hex(canonicalJson(result.compiled.ruleset)), pinned);
   }
+});
+
+test("a ruleset without dice inputs, includes or has() of another type's resource hashes as before (#163 to #166)", () => {
+  const result = compileRuleset(SAMPLE_HARM_BEFORE_LOOKUPS);
+  assert.ok(result.ok, "sample-harm@0.1.9 compiles");
+  assert.equal(sha256Hex(canonicalJson(result.compiled.ruleset)), PINNED_BEFORE_LOOKUPS);
 });
 
 test("a ruleset without list values hashes as it did before them (house decision #159)", () => {

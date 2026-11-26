@@ -33,6 +33,11 @@ const lookupTables = `{
 					{"kind": "condition", "condition": "dazed", "when": "ctx.past", "times": "ctx.press"}]},
 				{"id": "ruin", "label": "Ruin", "range": [61], "apply": [{"kind": "harm", "wounds": "ctx.past ? 4 : 1"}],
 					"next": "aftermath"}]},
+		"jolt": {"title": "Jolt", "die": "d6", "visibility": "gm", "cite": "Fixture p.9", "typedOnly": true,
+			"entities": ["hero", "brute"],
+			"entries": [
+				{"id": "both", "label": "Both", "range": [1, 3], "apply": [{"kind": "harm", "wounds": "1", "shock": "2"}]},
+				{"id": "strain", "label": "Strain", "range": [4, 6], "apply": [{"kind": "harm", "shock": "1"}]}]},
 		"aftermath": {"title": "Aftermath", "die": "d6", "visibility": "gm", "cite": "Fixture p.10",
 			"entries": [{"id": "limp", "label": "Limp", "range": [1, 3]}, {"id": "scar", "label": "Scar", "range": [4, 6]}]}
 	}
@@ -163,6 +168,36 @@ func TestALookupSkipsAConditionTheTargetIsImmuneTo(t *testing.T) {
 		if len(r.Notices) != 1 || r.Notices[0].Code != "conditionSkipped" || r.Notices[0].Params["name"] != "Ogre" ||
 			r.Notices[0].Params["condition"] != "Dazed" {
 			t.Fatalf("want one conditionSkipped notice naming the Ogre and Dazed, got %+v", r.Notices)
+		}
+	})
+}
+
+// A hit a target never takes shock from lands its wounds alone, with a notice; a line of shock alone writes nothing but
+// the notice (house decision #163). A hero takes both.
+func TestALookupLeavesOutTheShockOfATargetThatNeverTakesIt(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		p := newLookupPlay(t, tx)
+		gm := p.room.GM()
+		ogre := p.brute("Ogre", 4)
+		jolt := func(id string, result int) map[string]any {
+			return map[string]any{"type": "table.apply", "tableId": "jolt", "result": float64(result), "actorId": id, "inputs": map[string]any{}}
+		}
+		r := p.send(gm, jolt(ogre, 2))
+		if p.res(ogre, "wounds") != 1 || p.res(ogre, "strain") != 0 {
+			t.Fatalf("want 1 wound and no strain, got %d, %d", p.res(ogre, "wounds"), p.res(ogre, "strain"))
+		}
+		if len(r.Notices) != 1 || r.Notices[0].Code != "shockSkipped" || r.Notices[0].Params["name"] != "Ogre" ||
+			r.Notices[0].Params["shock"] != "Strain" {
+			t.Fatalf("want one shockSkipped notice naming the Ogre and Strain, got %+v", r.Notices)
+		}
+		r = p.send(gm, jolt(ogre, 5))
+		if p.res(ogre, "wounds") != 1 || len(r.Notices) != 1 || r.Notices[0].Code != "shockSkipped" {
+			t.Fatalf("want nothing written and one notice, got %d wounds, %+v", p.res(ogre, "wounds"), r.Notices)
+		}
+		hal := p.hero("Hal", 0, 0)
+		p.send(gm, jolt(hal, 2))
+		if p.res(hal, "wounds") != 1 || p.res(hal, "strain") != 2 {
+			t.Fatalf("Hal: want 1 wound and 2 strain, got %d, %d", p.res(hal, "wounds"), p.res(hal, "strain"))
 		}
 	})
 }

@@ -3,7 +3,11 @@ import { test } from "node:test";
 
 import { compileRuleset, type CompiledRuleset } from "./compile.ts";
 import { actorScope, applyBaseEffects } from "./derived.ts";
-import { SAMPLE_HARM_BEFORE_GENERATORS as SAMPLE_HARM, SAMPLE_HARM_BEFORE_STRIKES } from "./fixtures/sample-harm.ts";
+import {
+  SAMPLE_HARM_BEFORE_GENERATORS as SAMPLE_HARM,
+  SAMPLE_HARM as SAMPLE_HARM_LATEST,
+  SAMPLE_HARM_BEFORE_STRIKES,
+} from "./fixtures/sample-harm.ts";
 import { SAMPLE_SKIRMISH } from "./fixtures/sample-skirmish.ts";
 import { planLookup, readLookup, rowOf, withLists } from "./lookups.ts";
 import { validateRuleset, type RulesetInput } from "./manifest.ts";
@@ -195,4 +199,28 @@ test("an unset list field reads as empty wherever it is read, a held kind's or n
   assert.deepEqual(withLists({ ruleset: r.compiled.ruleset, scope: actorScope({ fields: { wards: ["a"] } }) }).wards, [
     "a",
   ]);
+});
+
+test("has() asks whether the target has a resource its type may lack, and a die typed beside a line is bounded by it", () => {
+  const r = compileRuleset(SAMPLE_HARM_LATEST);
+  assert.ok(r.ok);
+  const jolt = (scope: ReturnType<typeof actorScope>, result: number, more = 1) =>
+    planLookup({ compiled: r.compiled, tableId: "jolt", result, inputs: { more }, scope });
+  const heroScope = actorScope({ fields: { grit: 2 }, resources: { wounds: 0, strain: 0, resolve: 2 } });
+  const bruteScope = actorScope({ fields: { hide: 3 }, resources: { wounds: 0, strain: 0 } });
+  assert.deepEqual(jolt(heroScope, 5), {
+    ok: true,
+    total: 5,
+    entry: 1,
+    steps: [{ kind: "resource", resource: "resolve", by: -1 }],
+  });
+  assert.deepEqual(jolt(bruteScope, 5), { ok: true, total: 5, entry: 1, steps: [] });
+  assert.deepEqual(jolt(heroScope, 1, 4), { ok: false, code: "tableInput", input: "more" });
+  // The brute never takes strain: the engine plans the hit whole, the server leaves the strain out (#163).
+  assert.deepEqual(jolt(bruteScope, 1, 2), {
+    ok: true,
+    total: 1,
+    entry: 0,
+    steps: [{ kind: "harm", wounds: 2, shock: 1 }],
+  });
 });

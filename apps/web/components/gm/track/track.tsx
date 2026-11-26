@@ -314,6 +314,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
       <PoolsPanel pools={state.pools} me={me} send={send} />
       {rules && (
         <TablesPanel
+          campaignId={state.campaign.id}
           ruleset={rules}
           compiled={compiled}
           rolls={state.rolls}

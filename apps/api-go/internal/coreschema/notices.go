@@ -19,6 +19,8 @@ var NoticeParams = map[string][]string{
 	"revealSkipped": {"line", "reason"},
 	// conditionSkipped answers table.apply (house decision #87).
 	"conditionSkipped": {"name", "condition"},
+	// shockSkipped answers table.apply: the shock of a hit its target never takes (house decision #163).
+	"shockSkipped": {"name", "shock"},
 	// advanced answers campaign.setField raising the field an advance follows (house decision #96).
 	"advanced": {"field", "from", "to", "steps"},
 }
@@ -55,6 +57,11 @@ func RestSkipped(names []string) Notice {
 // SessionDeleted is the notice that session number was deleted.
 func SessionDeleted(number int) Notice {
 	return Notice{Code: "sessionDeleted", Params: Params{"number": number}}
+}
+
+// ShockSkipped is the notice that a lookup left out the shock of a hit its target never takes (house decision #163).
+func ShockSkipped(name, shock string) Notice {
+	return Notice{Code: "shockSkipped", Params: Params{"name": name, "shock": shock}}
 }
 
 // ConditionSkipped is the notice that a lookup left out a condition its target is immune to (house decision #87).

@@ -12,6 +12,7 @@ import type { RequestPage } from "@/hooks/use-table/use-table";
 import { isLookupTable, targetsOf, typedOf } from "@/lib/lookup/lookup";
 
 type TablesPanelProps = {
+  campaignId: string;
   ruleset: Ruleset;
   compiled: CompiledRuleset | null;
   rolls: readonly RollRow[];
@@ -36,7 +37,21 @@ type TablesPanelProps = {
 // die also takes the number the GM rolled (I ROLLED), and a lookup applies its line to the target picked at the top,
 // which stays picked when a line sends the GM on to another table (house decision #87).
 export function TablesPanel(props: TablesPanelProps) {
-  const { ruleset, compiled, rolls, dealt, actors, fighting, hasGm, campaign, books, requestPage, ask, opened } = props;
+  const {
+    campaignId,
+    ruleset,
+    compiled,
+    rolls,
+    dealt,
+    actors,
+    fighting,
+    hasGm,
+    campaign,
+    books,
+    requestPage,
+    ask,
+    opened,
+  } = props;
   const t = useTranslations("tables");
   const [dealing, setDealing] = useState<string | null>(null);
   const [picked, setPicked] = useState<readonly string[]>([]);
@@ -163,7 +178,7 @@ export function TablesPanel(props: TablesPanelProps) {
                   // Opened by a spend, the lookup starts again from the spend's inputs.
                   key={opened?.tableId === id ? opened.n : 0}
                   start={opened?.tableId === id ? opened.inputs : undefined}
-                  {...{ tableId: id, table, compiled, ruleset, target, campaign, books, requestPage, ask }}
+                  {...{ campaignId, tableId: id, table, compiled, ruleset, target, campaign, books, requestPage, ask }}
                   characters={characters.length}
                   onNext={handleNext}
                   onApplied={() => setTrail([])}

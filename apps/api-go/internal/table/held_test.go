@@ -35,7 +35,7 @@ const heldParts = `{
 	}
 }`
 
-func newHeldPlay(t *testing.T, tx pgx.Tx) *play {
+func newHeldPlay(t *testing.T, tx pgx.Tx, tweaks ...func(m map[string]any)) *play {
 	var m, extra map[string]any
 	if err := json.Unmarshal([]byte(harmFixture), &m); err != nil {
 		t.Fatal(err)
@@ -48,6 +48,9 @@ func newHeldPlay(t *testing.T, tx pgx.Tx) *play {
 	hero["fields"].(map[string]any)["growths"] = map[string]any{"type": "list", "label": "Growths", "visibility": "owner"}
 	m["entities"] = append(entities, extra["growth"])
 	m["held"], m["tables"] = extra["held"], extra["tables"]
+	for _, tweak := range tweaks {
+		tweak(m)
+	}
 	out, err := json.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
@@ -206,6 +209,34 @@ func TestAnotherSeatSeesTheNumbersButNotTheName(t *testing.T) {
 			if strings.Contains(string(whole), secret) {
 				t.Fatalf("another player's seat received %s", secret)
 			}
+		}
+	})
+}
+
+// A record that brings others with it (house decision #165): Scales includes Horn, Wings and a growth the room is not
+// served; a grant of Scales adds Wings, skips the Horn already held and the one not served, and Scales twice is refused.
+func TestAGrantBringsTheRecordsItIncludesThatAreNotHeld(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		p := newHeldPlay(t, tx, func(m map[string]any) {
+			kind := m["held"].(map[string]any)["growth"].(map[string]any)
+			kind["includes"], kind["max"] = "with", 3.0
+			for _, e := range m["entities"].([]any) {
+				if e := e.(map[string]any); e["id"] == "growth" {
+					e["fields"] = map[string]any{"with": map[string]any{"type": "list", "label": "With"}}
+				}
+			}
+		})
+		dbtest.Exec(t, tx, `UPDATE pack_entry SET body = '{"with": ["horn", "wings", "gone", "scales"]}' WHERE key = 'scales'`)
+		gm := p.room.GM()
+		hal := p.hero("Hal", 0, 0)
+		p.send(gm, grant("lesser", hal, 13))
+		p.send(gm, grant("lesser", hal, 31)) // 31 and one growth held read 41: Scales
+		if got := strings.Join(p.growths(hal), ","); got != "horn,scales,wings" {
+			t.Fatalf("want horn,scales,wings, got %s", got)
+		}
+		p.refused(gm, grant("lesser", hal, 21), "heldAlready") // 21 and three held read 51: Scales again
+		if got := strings.Join(p.growths(hal), ","); got != "horn,scales,wings" {
+			t.Fatalf("a refusal wrote: %s", got)
 		}
 	})
 }

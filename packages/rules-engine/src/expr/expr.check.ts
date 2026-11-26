@@ -258,6 +258,13 @@ class Checker {
         arity(1, 1);
         const arg = first();
         if (pathOf(arg) === null) throw new ExprError("has() takes a path such as res.tempHp");
+        // A resource its type does not have is a value that is not there (house decision #166): `has(res.members)` reads
+        // false on an actor type without that resource, so one expression serves every type it is checked against.
+        // Only `res`: a field cut from a seat's scope must still refuse, which is how a seat's reads are checked.
+        if (arg.k === "get" && arg.obj.k === "id" && arg.obj.name === "res") {
+          const obj = this.check(arg.obj, true);
+          if (typeof obj !== "string" && "record" in obj && own(obj.record, arg.key) === undefined) return "bool";
+        }
         this.check(arg);
         return "bool";
       }

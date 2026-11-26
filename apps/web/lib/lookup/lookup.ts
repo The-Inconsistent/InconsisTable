@@ -7,6 +7,7 @@ import {
   type LookupPlan,
   type LookupStep,
   type RandomTable,
+  type Ruleset,
 } from "@inconsistable/rules-engine";
 
 // Lookups on the GM's tables panel (house decision #87): what a typed result does to the target, worked out with the
@@ -16,6 +17,21 @@ type Target = Pick<Actor, "id" | "name" | "entity" | "fields" | "derived" | "res
 
 /** A table the GM applies to a target: one with a line that has effects. */
 export const appliesTo = (t: RandomTable): boolean => t.entries.some((e) => e.apply !== undefined);
+
+/**
+ * The pack entry types a table's grants name records of (house decision #88), which the panel loads so its preview
+ * names the record rather than its key.
+ */
+export const grantTypesOf = ({ ruleset, table }: { ruleset: Pick<Ruleset, "held">; table: RandomTable }): string[] => [
+  ...new Set(
+    table.entries.flatMap((e) =>
+      (e.apply ?? []).flatMap((x) => {
+        const entry = x.kind === "grant" ? ruleset.held?.[x.held]?.entry : undefined;
+        return entry === undefined ? [] : [entry];
+      }),
+    ),
+  ),
+];
 
 /** Whether the table reads anything of a lookup: effects, inputs, a modifier, a line naming the next table. */
 export const isLookupTable = (t: RandomTable): boolean =>

@@ -299,6 +299,15 @@ func (c *checker) call(x CallNode) ExprType {
 		if _, isPath := pathOf(x.Args[0]); !isPath {
 			exprFail("has() takes a path such as res.tempHp")
 		}
+		// A resource its type does not have is a value that is not there (house decision #166), only under `res`, as
+		// expr.check.ts.
+		if get, isGet := x.Args[0].(GetNode); isGet && get.Obj == Node(IdentNode{"res"}) {
+			if obj, isRecord := c.check(get.Obj, true).(RecordType); isRecord {
+				if _, known := obj.Fields[get.Key]; !known {
+					return boolType
+				}
+			}
+		}
 		c.check(x.Args[0], false)
 		return boolType
 	}

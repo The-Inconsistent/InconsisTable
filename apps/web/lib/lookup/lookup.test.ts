@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { compileRuleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_HARM } from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
-import { groupSteps, isLookupTable, previewOf, targetsOf, typedOf } from "./lookup.ts";
+import { grantTypesOf, groupSteps, isLookupTable, previewOf, targetsOf, typedOf } from "./lookup.ts";
 
 const made = compileRuleset(SAMPLE_HARM);
 assert.ok(made.ok);
@@ -58,4 +58,28 @@ test("only a whole typed number counts, and a table is a lookup by what it decla
   assert.deepEqual(["44", " 7 ", "", "4.5", "x"].map(typedOf), [44, 7, null, null, null]);
   assert.equal(isLookupTable(compiled.ruleset.tables!.blow!), true);
   assert.equal(isLookupTable(compiled.ruleset.tables!.aftermath!), false);
+});
+
+test("a table that grants records loads its kinds' entry type for the preview's names; one that grants none, none", () => {
+  const ruleset = compiled.ruleset;
+  assert.deepEqual(grantTypesOf({ ruleset, table: ruleset.tables!.greater! }), ["growth"]);
+  assert.deepEqual(grantTypesOf({ ruleset, table: ruleset.tables!.jolt! }), []);
+});
+
+test("a die the GM types is held to its notation's range (house decision #164)", () => {
+  const harm = {
+    id: "a",
+    name: "Hal",
+    entity: "hero",
+    fields: { grit: 2 },
+    derived: { limit: 5, strainCap: 2 },
+    resources: { wounds: 0, strain: 0, resolve: 1 },
+  };
+  const at = (more: number) =>
+    previewOf({ compiled, tableId: "jolt", result: 2, inputs: { more }, target: harm, characters: 1, campaign: {} });
+  assert.equal(at(0)?.ok, false);
+  assert.equal(at(4)?.ok, false);
+  const plan = at(3);
+  assert.ok(plan?.ok);
+  assert.deepEqual(plan.steps, [{ kind: "harm", wounds: 3, shock: 1 }]);
 });

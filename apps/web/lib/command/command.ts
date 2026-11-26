@@ -16,9 +16,26 @@ export const COMMAND_VERBS = [
   "mob",
   "reveal",
   "hide",
+  "go",
+  "seize",
+  "aware",
+  "ambush",
+  "remove",
 ] as const;
 export type CommandVerb = (typeof COMMAND_VERBS)[number];
 export type CommandWords = Readonly<Record<CommandVerb, readonly string[]>>;
+
+/**
+ * The orders on one fighter's turn that the `sides` turn order's ops do (house decision #161), as its panel's buttons:
+ * go acts out of order (JUST GO), seize pays to act out of turn, ambush bars a first turn, aware lifts that bar again.
+ */
+const SIDE_VERBS = {
+  go: (id: string) => ({ op: "pick", input: { id, force: true } }),
+  seize: (id: string) => ({ op: "seize", input: { id } }),
+  ambush: (id: string) => ({ op: "bar", input: { id, barred: true } }),
+  aware: (id: string) => ({ op: "bar", input: { id, barred: false } }),
+} as const;
+export type SideVerb = keyof typeof SIDE_VERBS;
 
 /** Each verb's words from a space-separated list per verb (the messages' `command.words`), lower case. */
 export function commandWords(say: (verb: CommandVerb) => string): CommandWords {
@@ -52,6 +69,8 @@ export type Said =
   | { kind: "turn"; verb: "next" | "hold" | "back" | "begin" }
   | { kind: "mob"; name: string; members: number }
   | { kind: "visibility"; name: string; visibility: CombatVisibility }
+  | { kind: "side"; verb: SideVerb; name: string }
+  | { kind: "remove"; name: string }
   | { kind: "pool"; label: string; by: number };
 
 /** Why an order does not parse; nothing is sent. */
@@ -120,8 +139,8 @@ function change(verb: "hit" | "heal" | "shock" | "recover", n: number, f: Fighte
 /**
  * The order the text says, or why it does not parse; null for nothing typed. Its shapes: `<name> <verb> [n]` in any
  * order (hit, heal, shock, recover: 1 when no number), `<name> +n` or `-n` (hit or heal), `+<condition> [name]` and
- * `-<condition> [name]`, `<name> mob n`, `reveal|hide <name>`, `<pool> +n|-n`, and `next`, `hold`, `back`, `begin`
- * alone. A name may be its first letters; no name is the selected combatant.
+ * `-<condition> [name]`, `<name> mob n`, `reveal|hide <name>`, `go|seize|aware|ambush|remove <name>`, `<pool> +n|-n`,
+ * and `next`, `hold`, `back`, `begin` alone. A name may be its first letters; no name is the selected combatant.
  */
 export function parseOrder({ text, table }: { text: string; table: CommandTable }): Order | null {
   const tokens = text.trim().split(/\s+/).filter(Boolean).map(lower);
@@ -152,8 +171,8 @@ export function parseOrder({ text, table }: { text: string; table: CommandTable 
   }
   const fail = (why: Why): Order => ({ ok: false, why });
   // A verb that takes no number reads a plain one after it as the end of the name ("reveal ogre 2").
-  if ((verb === "reveal" || verb === "hide" || condition !== null) && amount !== null && !signed)
-    words.push(String(amount));
+  const named = verb === "reveal" || verb === "hide" || verb === "remove" || (verb !== null && verb in SIDE_VERBS);
+  if ((named || condition !== null) && amount !== null && !signed) words.push(String(amount));
 
   if (verb === "next" || verb === "hold" || verb === "back" || verb === "begin") {
     if (verb === "back") return { ok: true, said: { kind: "turn", verb }, action: { type: "event.turnBack" } };
@@ -215,6 +234,26 @@ export function parseOrder({ text, table }: { text: string; table: CommandTable 
       ok: true,
       said: { kind: "visibility", name: f.name, visibility },
       action: { type: "encounter.setVisibility", combatantId: f.combatantId, visibility },
+    };
+  }
+  if (verb === "go" || verb === "seize" || verb === "aware" || verb === "ambush") {
+    if (!table.sides) return fail({ kind: "notHere" });
+    const f = resolve(words, table);
+    if (isWhy(f)) return fail(f);
+    const { op, input } = SIDE_VERBS[verb](f.actorId);
+    return {
+      ok: true,
+      said: { kind: "side", verb, name: f.name },
+      action: { type: "rule.op", primitive: "initiative.sides", op, input },
+    };
+  }
+  if (verb === "remove") {
+    const f = resolve(words, table);
+    if (isWhy(f)) return fail(f);
+    return {
+      ok: true,
+      said: { kind: "remove", name: f.name },
+      action: { type: "encounter.remove", combatantId: f.combatantId },
     };
   }
   if (amount !== null && signed) {

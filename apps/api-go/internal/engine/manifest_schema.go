@@ -929,7 +929,7 @@ var (
 		)).Min(1).Max(4)),
 		schema.Opt("values", schema.Refined(schema.Record(idSchema, schema.Object(
 			schema.Req("key", label(64)),
-			schema.Req("type", schema.Enum("int", "bool", "text")),
+			schema.Req("type", schema.Enum("int", "bool", "text", "list")),
 		)), func(v any) bool { return len(v.(map[string]any)) <= maxStrikeValues }, "at most 20 values")),
 		schema.Opt("inputs", schema.Array(strikeInputSchema).Min(1).Max(MaxLookupInputs)),
 		schema.Req("pool", strikeFigureSchema),

@@ -92,13 +92,17 @@ export function meansOf({
   });
 }
 
-/** A means' text values (a weapon's traits), in the strike's order, the empty ones left out: shown beside the means. */
+/**
+ * A means' chips, shown beside it: each text value (a weapon's traits), and each item of a list value (house decision
+ * #159), in the strike's order, the empty ones left out.
+ */
 export const meansTexts = ({ strike, means }: { strike: Strike; means: StrikeMeansOption | undefined }): string[] => {
   if (means === undefined) return [];
   const read = meansValues({ values: strike.values ?? {}, means: means.values });
   return Object.entries(strike.values ?? {}).flatMap(([id, v]) => {
-    const text = read[id];
-    return v.type === "text" && typeof text === "string" && text !== "" ? [text] : [];
+    const value = read[id];
+    if (v.type === "list" && Array.isArray(value)) return value.map(String);
+    return v.type === "text" && typeof value === "string" && value !== "" ? [value] : [];
   });
 };
 
@@ -194,6 +198,21 @@ export function strikeHold({
   if (strike.limit !== undefined && used >= strike.limit.max) return "usedThisRound";
   return null;
 }
+
+/**
+ * Whether the GM should say the number to beat aloud (house decision #160): the target's players see it only as a bar,
+ * or not at all, so they cannot read it off their phones.
+ */
+export const sayAloud = ({
+  combatants,
+  targetId,
+}: {
+  combatants: readonly Pick<Encounter["combatants"][number], "actorId" | "visibility">[];
+  targetId: string | undefined;
+}): boolean => {
+  const seen = combatants.find((c) => c.actorId === targetId)?.visibility;
+  return seen === "bar" || seen === "hidden";
+};
 
 /** Whether a plan is one (and not a refusal). */
 export const isPlan = (p: ReturnType<typeof planStrike> | null): p is StrikePlan => p !== null && !("code" in p);

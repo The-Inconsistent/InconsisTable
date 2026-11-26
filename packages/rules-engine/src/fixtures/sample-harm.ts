@@ -579,7 +579,7 @@ export const SAMPLE_HARM_BEFORE_PANELS: RulesetInput = {
  * endure; while it has fallen, what it may still do; and on its turn the stances it may take (pack entries of a type of
  * their own, ungrouped), hidden once fallen. Invented like the rest.
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_BEFORE_LISTS: RulesetInput = {
   ...SAMPLE_HARM_BEFORE_PANELS,
   version: "0.1.8",
   entities: [
@@ -670,6 +670,26 @@ export const SAMPLE_HARM_STANCES = [
   visibility: "party",
   body,
 }));
+
+/**
+ * sample-harm 0.1.9 (house decision #159): an arm's traits are a list the guide shows as chips, read from the arm's
+ * text split at its commas; the brutal note asks whether the list holds "Brutal".
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_BEFORE_LISTS,
+  version: "0.1.9",
+  strikes: (SAMPLE_HARM_BEFORE_LISTS.strikes ?? []).map((s) =>
+    s.values?.traits === undefined
+      ? s
+      : {
+          ...s,
+          values: { ...s.values, traits: { key: "traits", type: "list" as const } },
+          notes: (s.notes ?? []).map((n) =>
+            n.when === 'ctx.means.traits == "Brutal"' ? { ...n, when: 'contains(ctx.means.traits, "Brutal")' } : n,
+          ),
+        },
+  ),
+};
 
 /**
  * Arms for SAMPLE_HARM (house decision #99): what a blow reads of the means it is struck with, and since 0.1.5 its

@@ -1143,12 +1143,21 @@ function strikeVectors() {
     const duel = r(4) === 0;
     const side = duel ? duelSide : harmSide;
     const means = duel
-      ? one([{ cut: 2 }, { cut: 3 }, { cut: "3" }, {}, null])
+      ? one([
+          { cut: 2 },
+          { cut: 3, marks: ["Swift", 2, -0] },
+          { cut: "3" },
+          { cut: 2, marks: "Fine,, Keen " },
+          {},
+          null,
+        ])
       : one([
           { damage: 4, edge: 1, pierce: 0, close: true },
           { damage: 4, edge: 1, pierce: 0, close: true, traits: "Brutal" },
           { damage: 3, edge: 0, pierce: -1, close: false, traits: "Far, Light" },
           { damage: 3, edge: 1, pierce: -2, close: "yes", traits: 3 },
+          { damage: 2, edge: 0, pierce: 0, close: true, traits: ["Brutal", " Heavy ", "", 2, 1.5, true, null] },
+          { damage: 2, edge: 0, pierce: 0, close: true, traits: Array.from({ length: 25 }, (_, i) => `T${i}`) },
           { pierce: 1.5 },
           {},
           null,

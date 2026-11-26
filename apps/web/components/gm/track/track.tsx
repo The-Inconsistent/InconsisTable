@@ -246,6 +246,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                       requestPage={sheet.requestPage}
                       run={runFrom(selected.id)}
                       onTable={handleOpenTable}
+                      combatants={encounter.combatants}
                     />
                   )
                 }

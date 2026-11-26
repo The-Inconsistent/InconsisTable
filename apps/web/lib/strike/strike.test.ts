@@ -11,6 +11,7 @@ import {
   meansOf,
   meansTexts,
   previewStrike,
+  sayAloud,
   strikeHold,
   strikesFor,
   targetsOf,
@@ -164,7 +165,7 @@ test("a held weapon strikes as its card shows it: its profile over the entry, wi
 test("a means' text values are shown beside it, and the further numbers come with the plan", () => {
   const [maul, sling] = meansOf({ ruleset, strike: blow, actor: hal, entries });
   assert.deepEqual(meansTexts({ strike: blow, means: maul }), ["Brutal"]);
-  assert.deepEqual(meansTexts({ strike: blow, means: sling }), ["Far, Light"]);
+  assert.deepEqual(meansTexts({ strike: blow, means: sling }), ["Far", "Light"]);
   assert.deepEqual(meansTexts({ strike: blow, means: { source: 0, ref: "x", name: "X", values: { traits: 3 } } }), []);
   assert.deepEqual(meansTexts({ strike: blow, means: undefined }), []);
   const p = previewStrike({
@@ -210,4 +211,16 @@ test("a phone sends a strike only as the server lets its owner, and says why not
   assert.equal(hold({ rats: "bar" }), "strikeTargetHidden");
   assert.equal(hold({ used: ["strike:sweep"] }), "usedThisRound");
   assert.equal(hold({ used: ["sweep", "strike:blow"] }), null);
+});
+
+test("the GM says the number to beat aloud when the target's players see only a bar, or nothing", () => {
+  const combatants = [
+    { actorId: "a", visibility: "bar" as const },
+    { actorId: "b", visibility: "full" as const },
+    { actorId: "c", visibility: "hidden" as const },
+  ];
+  assert.equal(sayAloud({ combatants, targetId: "a" }), true);
+  assert.equal(sayAloud({ combatants, targetId: "b" }), false);
+  assert.equal(sayAloud({ combatants, targetId: "c" }), true);
+  assert.equal(sayAloud({ combatants, targetId: undefined }), false);
 });

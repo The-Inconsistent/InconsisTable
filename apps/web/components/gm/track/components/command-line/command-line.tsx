@@ -42,6 +42,10 @@ export function CommandLine({ table, run }: CommandLineProps) {
         return t(s.visibility === "full" ? "said.reveal" : "said.hide", { name: s.name });
       case "pool":
         return t("said.pool", { label: s.label, by: s.by });
+      case "side":
+        return t(`said.${s.verb}`, { name: s.name });
+      case "remove":
+        return t("said.remove", { name: s.name });
     }
   };
   // Why it does not parse.

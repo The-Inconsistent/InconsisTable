@@ -5,6 +5,8 @@ import (
 	"maps"
 	"math"
 	"slices"
+	"strconv"
+	"strings"
 )
 
 // Strikes (packages/rules-engine/src/strike.ts and manifest.ts Strike; house decision #99): the kinds of strike a game
@@ -293,7 +295,11 @@ func (c *compiler) strikes(entities map[string]*CompiledEntity) {
 		_, attackers := c.actorsOf(s.Entities, entities)
 		values := map[string]ExprType{}
 		for k, v := range s.Values {
-			values[k] = Scalar(v.Type)
+			if v.Type == "list" {
+				values[k] = ListType{textType}
+			} else {
+				values[k] = Scalar(v.Type)
+			}
 		}
 		base := map[string]ExprType{"means": RecordType{values}, "attackerMob": intType, "targetMob": intType}
 		for _, x := range s.Inputs {
@@ -404,12 +410,48 @@ func (r *Ruleset) strikeMembers(scope *Record) float64 {
 	return n
 }
 
+// MaxMeansList is the most items a means' `list` value holds (manifest.ts MAX_MEANS_LIST, house decision #159).
+const MaxMeansList = 20
+
+// listOf is strike.ts listOf: a means' list's text and whole numbers (as their digits), or its text split at commas,
+// each trimmed, the empty ones left out, at most MaxMeansList.
+func listOf(x any) []any {
+	var items []any
+	switch v := x.(type) {
+	case []any:
+		items = v
+	case string:
+		for _, s := range strings.Split(v, ",") {
+			items = append(items, s)
+		}
+	}
+	out := []any{}
+	for _, i := range items {
+		text := ""
+		switch v := i.(type) {
+		case string:
+			text = strings.TrimSpace(v)
+		case float64:
+			if v == math.Trunc(v) && math.Abs(v) <= 1<<53-1 {
+				text = strconv.FormatFloat(v+0, 'f', -1, 64) // -0 is written 0, as String(-0)
+			}
+		}
+		if text != "" && len(out) < MaxMeansList {
+			out = append(out, text)
+		}
+	}
+	return out
+}
+
 // MeansValues is strike.ts meansValues: each declared value's key, 0, false or "" where the means has none of that type.
 func MeansValues(values map[string]StrikeValue, means map[string]any) map[string]any {
 	out := map[string]any{}
 	for id, v := range values {
 		x := means[v.Key]
 		switch v.Type {
+		case "list":
+			out[id] = &List{Items: listOf(x)}
+			continue
 		case "bool":
 			b, _ := x.(bool)
 			out[id] = b

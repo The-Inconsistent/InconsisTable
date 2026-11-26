@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { codexReminders, partyReadsReminder, partyReminders } from "./codex.ts";
+import { codexReminders, offeredValues, partyReadsReminder, partyReminders, rowTests } from "./codex.ts";
 import { compileRuleset } from "./compile.ts";
 import { checkFieldValue, fitRows } from "./field-value.ts";
 import { SAMPLE_D20_0_1_9 as SAMPLE_D20 } from "./fixtures/sample-d20.ts";
@@ -169,4 +169,24 @@ test("a rows field rolls a table into rows, offers an enum from its entry and wo
   assert.equal(cell({ skill: ["Climb", "Swim"] }), null);
   assert.equal(cell({ dc: ["Climb"] }), "[0].values.t: an input is not a number, a word or a yes/no");
   assert.equal(cell({ skill: [] }), "[0].values.t: an input is not a number, a word or a yes/no");
+});
+
+test("a Test cell's chips: worked-out inputs under the cell's own, one per listed word (#173)", () => {
+  const col = {
+    id: "t",
+    label: "T",
+    type: "test" as const,
+    inputs: { dc: "10 + campaign.season + values.threat" },
+    each: "ability",
+  };
+  const values = { threat: 2 };
+  assert.deepEqual(rowTests({ col, inputs: {}, values, campaign: { season: 3 } }), [{ dc: 15 }]);
+  assert.deepEqual(rowTests({ col, inputs: { dc: 9, ability: ["str", "dex"] }, values, campaign: { season: 3 } }), [
+    { dc: 9, ability: "str" },
+    { dc: 9, ability: "dex" },
+  ]);
+  assert.deepEqual(rowTests({ col, inputs: {}, values: {} }), [{}], "an unreadable input is left for the GM");
+  const strength = { id: "s", label: "S", type: "enum" as const, values: ["faint", "fierce"], offer: "strengths" };
+  assert.deepEqual(offeredValues({ col: strength, body: { strengths: ["fierce", "odd"] } }), ["fierce"]);
+  assert.deepEqual(offeredValues({ col: strength, body: undefined }), ["faint", "fierce"]);
 });

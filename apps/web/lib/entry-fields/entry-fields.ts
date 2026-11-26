@@ -2,6 +2,8 @@ import { CodexKind, type CodexEntry, type TestInputs } from "@inconsistable/core
 import {
   checkFieldValue,
   codexReminders,
+  MAX_ROWS,
+  rowTests,
   type CodexField,
   type EnumTone,
   type Ruleset,
@@ -121,8 +123,8 @@ export function fieldsPatch({
 type RowsDef = Extract<CodexField, { type: "rows" }>;
 type TagsDef = Extract<CodexField, { type: "tags" }>;
 export type RowColumn = RowsDef["columns"][number];
-/** A Test cell: the two things a prepared Test line holds. */
-export type TestCell = { testId: string; inputs: TestInputs };
+/** A Test cell: the two things a prepared Test line holds; the column's `each` input may list words (#173). */
+export type TestCell = { testId: string; inputs: Record<string, TestInputs[string] | string[]> };
 /** One row of a rows field as a screen reads it. */
 export type EntryRow = {
   id: string;
@@ -210,11 +212,14 @@ export function rowChips({
   def,
   row,
   known = [],
+  campaign,
 }: {
   ruleset: Ruleset | null;
   def: RowsDef;
   row: EntryRow;
   known?: readonly RulesEntry[];
+  /** The campaign fields in play, which a Test column's inputs read (house decision #173). */
+  campaign?: Readonly<Record<string, unknown>>;
 }): RowChip[] {
   return def.columns.flatMap((col): RowChip[] => {
     const v = Object.hasOwn(row.values, col.id) ? row.values[col.id] : undefined;
@@ -236,13 +241,17 @@ export function rowChips({
         return [{ key, text: named?.name ?? String(v), tone: null }];
       }
       case "test": {
+        // One chip per word the cell lists, each with the column's worked-out inputs (house decision #173).
         const cell = v as TestCell;
         const test = testOf({ ruleset, testId: cell.testId });
         const words = testWords(test ?? { id: cell.testId });
-        const inputs = Object.entries(cell.inputs ?? {})
-          .map(([k, x]) => `${words.input(k)} ${words.value(k, x)}`)
-          .join(", ");
-        return [{ key, text: inputs === "" ? words.test : `${words.test} · ${inputs}`, tone: null, broken: !test }];
+        return rowTests({ col, inputs: cell.inputs ?? {}, values: row.values, campaign }).map((set, i) => {
+          const inputs = Object.entries(set)
+            .map(([k, x]) => `${words.input(k)} ${words.value(k, x)}`)
+            .join(", ");
+          const text = inputs === "" ? words.test : `${words.test} · ${inputs}`;
+          return { key: i === 0 ? key : `${key}-${i}`, text, tone: null, broken: !test };
+        });
       }
     }
   });
@@ -317,3 +326,28 @@ export function rolledText({
     .filter((label) => label !== "")
     .join(join ?? " ");
 }
+
+/**
+ * New rows from lines a table rolled (house decision #173): each line's label in the `into` column, within the field's
+ * cap, after the rows it holds.
+ */
+export function rolledRows({
+  def,
+  rows,
+  labels,
+}: {
+  def: RowsDef;
+  rows: readonly EntryRow[];
+  labels: readonly string[];
+}): EntryRow[] {
+  const into = def.rolls?.into;
+  if (into === undefined) return [...rows];
+  const room = Math.max(0, Math.min(def.maxRows ?? MAX_ROWS, MAX_ROWS) - rows.length);
+  return [...rows, ...labels.slice(0, room).map((label) => ({ id: newRowId(), values: { [into]: label } }))];
+}
+
+/** How many times a rows field's table is rolled: its campaign field's value, else once (house decision #173). */
+export const rollTimes = ({ def, campaign }: { def: RowsDef; campaign?: Readonly<Record<string, unknown>> }) => {
+  const v = def.rolls?.times === undefined ? undefined : campaign?.[def.rolls.times];
+  return typeof v === "number" && Number.isInteger(v) && v > 0 ? Math.min(v, MAX_ROWS) : 1;
+};

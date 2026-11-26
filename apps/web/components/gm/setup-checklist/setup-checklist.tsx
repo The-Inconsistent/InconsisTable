@@ -59,7 +59,9 @@ export function SetupChecklist({ steps, room, onGo, terms }: SetupChecklistProps
                 </span>
                 <span className="small dim">
                   {/* A step's room value in its place, when the ruleset gives one (house decision #173). */}
-                  {t("now", { count: now === null ? String(count) : typeof now === "boolean" ? (now ? "✓" : "–") : String(now) })}
+                  {t("now", {
+                    count: now === null ? String(count) : typeof now === "boolean" ? (now ? "✓" : "–") : String(now),
+                  })}
                   {step.cite && (
                     <>
                       {" · "}

@@ -16,6 +16,8 @@ import {
   entryReminders,
   listChips,
   prefillRow,
+  rolledRows,
+  rollTimes,
   rowChips,
   rolledText,
   rowName,
@@ -263,5 +265,28 @@ test("rolled lines fill a field in the declared order, joined as declared (house
       ["location", ["site"]],
       ["lore", ["charter"]],
     ],
+  );
+});
+
+test("a field's table rolls into new rows per the campaign value, within the cap; a Test chip per listed word (#173)", () => {
+  assert.ok(dangers?.type === "rows");
+  assert.equal(rollTimes({ def: dangers, campaign: { season: 3 } }), 3);
+  assert.equal(rollTimes({ def: dangers, campaign: {} }), 1);
+  const rows = rolledRows({
+    def: { ...dangers, maxRows: 2 },
+    rows: [{ id: "a", values: {} }],
+    labels: ["Mire", "Rockfall"],
+  });
+  assert.deepEqual(
+    rows.map((r) => r.values),
+    [{}, { name: "Mire" }],
+  );
+  const row = {
+    id: "r",
+    values: { threat: 2, check: { testId: "check", inputs: { ability: ["str", "dex"] } } },
+  };
+  assert.deepEqual(
+    rowChips({ ruleset, def: dangers, row, campaign: { season: 1 } }).map((c) => c.text),
+    ["Threat 2", "Ability check · DC 13, Ability Strength", "Ability check · DC 13, Ability Dexterity"],
   );
 });

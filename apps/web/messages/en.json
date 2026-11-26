@@ -2271,6 +2271,8 @@
     "writeIn": "+ {word}, your own",
     "suggestions": "Suggestions for {label}",
     "addRow": "Add a row",
+    "rollRows": "Roll {table} ×{count}",
+    "eachHint": "Several, split by commas: one Test each",
     "fillFrom": "Fill a row from {type}",
     "removeRow": "Remove row {n}",
     "row": "Row {n}",

@@ -1,6 +1,8 @@
-import type { ExprRecord, ExprScope, ExprType, ExprValue } from "./expr/expr.ast.ts";
+import { ExprError, type ExprRecord, type ExprScope, type ExprType, type ExprValue } from "./expr/expr.ast.ts";
+import { evaluate } from "./expr/expr.eval.ts";
+import { parseExpr } from "./expr/expr.parser.ts";
 import { compileExpr, evaluateBool } from "./expr/expr.ts";
-import type { CampaignField, CodexField, CodexKindDef, CodexReminder } from "./manifest.ts";
+import type { CampaignField, CodexField, CodexKindDef, CodexReminder, RowColumn } from "./manifest.ts";
 
 /** What an expression reads a codex field as (house decision #89); a `rows` field is not read. */
 function fieldType(def: CodexField): ExprType | null {
@@ -117,4 +119,59 @@ export function partyReminders({ kind, campaign }: { kind: CodexKindDef; campaig
     if (reminder.group !== undefined) cut.add(reminder.group);
     return false;
   });
+}
+
+/** A Test input's value: a number, a word or a yes/no. */
+export type RowTestValue = number | string | boolean;
+
+/**
+ * The Test chips a `test` cell shows (house decision #173): the column's worked-out inputs (each read over `campaign`
+ * and the row's `values`; one that cannot be read is left for the GM) under the cell's own, then one set of inputs per
+ * word the cell lists for the column's `each` input, or the one set when it lists none.
+ */
+export function rowTests({
+  col,
+  inputs,
+  values,
+  campaign = {},
+}: {
+  col: Extract<RowColumn, { type: "test" }>;
+  inputs: Readonly<Record<string, unknown>>;
+  values: Readonly<Record<string, unknown>>;
+  campaign?: Readonly<Record<string, unknown>>;
+}): Record<string, RowTestValue>[] {
+  const out: Record<string, RowTestValue> = {};
+  const scope = { campaign: campaign as ExprRecord, values: values as ExprRecord };
+  for (const [k, source] of Object.entries(col.inputs ?? {})) {
+    try {
+      const v = evaluate({ node: parseExpr(source), scope });
+      if (typeof v === "number" || typeof v === "string" || typeof v === "boolean") out[k] = v;
+    } catch (e) {
+      if (!(e instanceof ExprError)) throw e;
+    }
+  }
+  const words: string[] = [];
+  for (const [k, v] of Object.entries(inputs)) {
+    if (typeof v === "number" || typeof v === "string" || typeof v === "boolean") out[k] = v;
+    else if (k === col.each && Array.isArray(v)) words.push(...v.filter((w): w is string => typeof w === "string"));
+  }
+  const each = col.each;
+  return each === undefined || words.length === 0 ? [out] : words.map((w) => ({ ...out, [each]: w }));
+}
+
+/**
+ * The words an `enum` column offers for a row (house decision #173): with `offer`, those of its values the row's entry
+ * lists in that field (its body read where this seat holds it); all of them otherwise, or when nothing is listed.
+ */
+export function offeredValues({
+  col,
+  body,
+}: {
+  col: Extract<RowColumn, { type: "enum" }>;
+  body: Readonly<Record<string, unknown>> | undefined;
+}): string[] {
+  const v = col.offer === undefined || body === undefined ? undefined : body[col.offer];
+  const listed = Array.isArray(v) ? v : typeof v === "string" ? [v] : [];
+  const offered = col.values.filter((x) => listed.includes(x));
+  return offered.length > 0 ? offered : col.values;
 }

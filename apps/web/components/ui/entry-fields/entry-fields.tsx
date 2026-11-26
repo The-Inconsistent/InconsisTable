@@ -74,15 +74,18 @@ export function RowChips({
   def,
   row,
   known = [],
+  campaign,
 }: {
   ruleset: Ruleset | null;
   def: RowsDef;
   row: EntryRow;
   known?: readonly RulesEntry[];
+  /** The campaign fields in play, which a Test column's inputs read (house decision #173). */
+  campaign?: Readonly<Record<string, unknown>>;
 }) {
   return (
     <span className="row" style={{ flex: "1 1 200px", minWidth: 0, gap: 4 }} data-field="row">
-      {rowChips({ ruleset, def, row, known }).map((c) => (
+      {rowChips({ ruleset, def, row, known, campaign }).map((c) => (
         <span
           key={c.key}
           className="chip"
@@ -212,7 +215,7 @@ export function EntryFields({
           <ul className="list" aria-label={def.label}>
             {list.map((row) => (
               <li key={row.id}>
-                <RowChips ruleset={ruleset} def={def} row={row} known={known} />
+                <RowChips ruleset={ruleset} def={def} row={row} known={known} campaign={campaign} />
               </li>
             ))}
           </ul>

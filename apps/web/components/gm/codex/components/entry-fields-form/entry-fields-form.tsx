@@ -45,6 +45,8 @@ type EntryFieldsFormProps = {
   act?: (a: ActionInput) => Promise<ActionResult>;
   /** The ruleset with the page relay: a field that says what it means gets its ⓘ (house decision #126). */
   terms?: TermEnv;
+  /** The campaign fields in play, which a rows field's roll and Test inputs read (house decision #173). */
+  campaign?: Readonly<Record<string, string | number | boolean>>;
 };
 
 // The declared fields of an entry's kind in the GM's editor (house decision #71), each from its declaration: an enum as
@@ -62,6 +64,7 @@ export function EntryFieldsForm({
   onOpenEntry,
   act,
   terms,
+  campaign,
 }: EntryFieldsFormProps) {
   const t = useTranslations("entryFields");
   const [picked, setPicked] = useState<readonly RulesEntry[]>([]);
@@ -224,6 +227,8 @@ export function EntryFieldsForm({
             disabled={disabled}
             onChange={(rows) => onChange({ id, value: rows.length > 0 ? rows : null })}
             onPicked={(entry) => setPicked([entry, ...picked])}
+            act={act}
+            campaign={campaign}
           />
         );
     }

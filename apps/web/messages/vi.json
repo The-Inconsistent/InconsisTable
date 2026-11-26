@@ -2271,6 +2271,8 @@
     "writeIn": "+ {word}, của riêng bạn",
     "suggestions": "Gợi ý cho {label}",
     "addRow": "Thêm dòng",
+    "rollRows": "Gieo {table} ×{count}",
+    "eachHint": "Nhiều giá trị, cách nhau bằng dấu phẩy: mỗi giá trị một Test",
     "fillFrom": "Điền một dòng từ {type}",
     "removeRow": "Bỏ dòng {n}",
     "row": "Dòng {n}",

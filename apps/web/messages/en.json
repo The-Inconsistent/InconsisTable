@@ -188,7 +188,9 @@
         "gm": "GM",
         "cogm": "co-GM",
         "player": "player"
-      }
+      },
+      "removeGm": "Remove {name}",
+      "removed": "{name} no longer sits here."
     },
     "users": {
       "empty": "No users yet.",
@@ -208,7 +210,9 @@
       "cancel": "Cancel",
       "removed": "{name}: removed from {count, plural, one {# room} other {# rooms}}",
       "failed": "That did not go through. Try again."
-    }
+    },
+    "live": "Live",
+    "openSince": "Session {number} open since {when}"
   },
   "tableModes": {
     "gm": "with a GM",
@@ -1248,7 +1252,15 @@
       "reviewLabel": "Review the build of {name}: a draft waits",
       "open": "Open builder",
       "openLabel": "Open the builder for {name}"
-    }
+    },
+    "sessionTitle": "Title of the session (optional)",
+    "running": "Session {number} is running",
+    "runningTitled": "Session {number}: {title} is running",
+    "inviteCharacter": "Invite",
+    "inviteCharacterLabel": "Invite a player to {name}: a link used once, signed in",
+    "characterInviteTitle": "Invite for {name}",
+    "whisper": "Whisper",
+    "whisperLabel": "Whisper to {name}"
   },
   "roomExport": {
     "title": "Export",
@@ -2988,6 +3000,48 @@
       "title": "Overrides",
       "hint": "Saved at once; the build is not saved with them."
     }
+  },
+  "journal": {
+    "heading": "Journal",
+    "empty": "No sessions yet. Each session appears here once it starts.",
+    "session": "Session {number}",
+    "since": "since {start}",
+    "dates": "{start} to {end}",
+    "inProgress": "In progress",
+    "abandoned": "Ended without an award",
+    "award": "+{xp} XP each",
+    "edit": "Edit",
+    "editLabel": "Edit session {number}",
+    "title": "Title",
+    "titleInvalid": "A title is at most 100 characters.",
+    "recap": "Recap",
+    "notes": "GM notes",
+    "notesLabel": "GM notes (never shown to players)",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "nextSession": {
+    "heading": "Next session",
+    "none": "No date set.",
+    "when": "Date and time",
+    "place": "Place",
+    "placeHint": "Optional",
+    "placeInvalid": "A place is at most 200 characters.",
+    "save": "Save",
+    "clear": "Clear the date",
+    "addToCalendar": "Add to calendar"
+  },
+  "openInvites": {
+    "heading": "Open invites",
+    "room": "Room invite, as {role}",
+    "character": "Invite for {name}",
+    "gone": "a deleted character",
+    "used": "{count, plural, =0 {not used yet} one {used once} other {used # times}}",
+    "usedOf": "used {count} of {max}",
+    "until": "until {when}",
+    "accountsOnly": "Accounts only",
+    "revoke": "Revoke",
+    "revokeLabel": "Revoke: {what}"
   },
   "fightTab": {
     "noFight": "No fight right now. When the GM starts one, this tab fills in.",

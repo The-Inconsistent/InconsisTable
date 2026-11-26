@@ -278,6 +278,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
             codex={codex}
             whispers={state.whispers}
             actors={state.actors}
+            next={{ at: state.campaign.nextSessionAt, place: state.campaign.nextSessionPlace }}
             me={me}
             safety={state.campaign.safety}
             send={send}

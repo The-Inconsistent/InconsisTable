@@ -188,7 +188,9 @@
         "gm": "GM",
         "cogm": "đồng GM",
         "player": "người chơi"
-      }
+      },
+      "removeGm": "Gỡ {name}",
+      "removed": "{name} không còn ngồi ở đây."
     },
     "users": {
       "empty": "Chưa có người dùng nào.",
@@ -208,7 +210,9 @@
       "cancel": "Huỷ",
       "removed": "{name}: đã gỡ khỏi {count, plural, other {# phòng}}",
       "failed": "Không thực hiện được. Thử lại."
-    }
+    },
+    "live": "Đang chơi",
+    "openSince": "Buổi {number} mở từ {when}"
   },
   "tableModes": {
     "gm": "có GM",
@@ -1248,7 +1252,15 @@
       "reviewLabel": "Xem bản tạo của {name}: có bản nháp đang chờ",
       "open": "Mở trình tạo",
       "openLabel": "Mở trình tạo cho {name}"
-    }
+    },
+    "sessionTitle": "Tiêu đề buổi (không bắt buộc)",
+    "running": "Buổi {number} đang diễn ra",
+    "runningTitled": "Buổi {number}: {title} đang diễn ra",
+    "inviteCharacter": "Mời",
+    "inviteCharacterLabel": "Mời một người chơi vào {name}: liên kết dùng một lần, cần đăng nhập",
+    "characterInviteTitle": "Lời mời cho {name}",
+    "whisper": "Thì thầm",
+    "whisperLabel": "Thì thầm với {name}"
   },
   "roomExport": {
     "title": "Xuất",
@@ -2988,6 +3000,48 @@
       "title": "Ghi đè",
       "hint": "Lưu ngay; bản dựng không được lưu cùng."
     }
+  },
+  "journal": {
+    "heading": "Nhật ký",
+    "empty": "Chưa có buổi nào. Mỗi buổi hiện ở đây khi bắt đầu.",
+    "session": "Buổi {number}",
+    "since": "từ {start}",
+    "dates": "{start} đến {end}",
+    "inProgress": "Đang diễn ra",
+    "abandoned": "Kết thúc không thưởng",
+    "award": "+{xp} XP mỗi người",
+    "edit": "Sửa",
+    "editLabel": "Sửa buổi {number}",
+    "title": "Tiêu đề",
+    "titleInvalid": "Tiêu đề tối đa 100 ký tự.",
+    "recap": "Tóm tắt",
+    "notes": "Ghi chú của GM",
+    "notesLabel": "Ghi chú của GM (không bao giờ hiện cho người chơi)",
+    "save": "Lưu",
+    "cancel": "Hủy"
+  },
+  "nextSession": {
+    "heading": "Buổi tới",
+    "none": "Chưa đặt ngày.",
+    "when": "Ngày và giờ",
+    "place": "Địa điểm",
+    "placeHint": "Không bắt buộc",
+    "placeInvalid": "Địa điểm tối đa 200 ký tự.",
+    "save": "Lưu",
+    "clear": "Xóa ngày",
+    "addToCalendar": "Thêm vào lịch"
+  },
+  "openInvites": {
+    "heading": "Lời mời đang mở",
+    "room": "Lời mời vào phòng, với vai {role}",
+    "character": "Lời mời cho {name}",
+    "gone": "một nhân vật đã xóa",
+    "used": "{count, plural, =0 {chưa dùng} other {đã dùng # lần}}",
+    "usedOf": "đã dùng {count} trên {max}",
+    "until": "đến {when}",
+    "accountsOnly": "Chỉ tài khoản",
+    "revoke": "Thu hồi",
+    "revokeLabel": "Thu hồi: {what}"
   },
   "fightTab": {
     "noFight": "Chưa có trận đánh. Khi GM bắt đầu, thẻ này sẽ hiện ra.",

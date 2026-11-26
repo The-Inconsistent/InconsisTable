@@ -654,3 +654,54 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
         : s,
   ),
 };
+
+/**
+ * The skirmish sample with a premise (house decisions #142 and #145), a ruleset of its own beside the skirmish, as the
+ * skirmish without a GM is: a `lore` entry the party reads, whose premise, patron and kind of game (a `tags` field with
+ * the invented book's options) the campaign wizard asks because its first checklist step asks for a premise written,
+ * and the book's suggested lines to leave out. Every name and page is our own invention.
+ */
+export const SAMPLE_SKIRMISH_PREMISE: RulesetInput = {
+  ...SAMPLE_SKIRMISH,
+  id: "sample-skirmish-premise",
+  version: "0.1.0",
+  game: {
+    title: "Sample skirmish with a premise",
+    players: { min: 2, max: 5 },
+    modes: ["gm", "gmless"],
+    cite: "Sample p.1",
+  },
+  codex: {
+    kinds: {
+      ...SAMPLE_SKIRMISH.codex?.kinds,
+      lore: {
+        fields: {
+          premise: { type: "text", label: "Premise", maxLength: 200, visibility: "party", cite: "Sample p.21" },
+          patron: { type: "text", label: "Patron", maxLength: 80, visibility: "party", cite: "Sample p.21" },
+          style: {
+            type: "tags",
+            label: "Kind of game",
+            options: ["raids", "intrigue", "survival"],
+            labels: { raids: "Raids", intrigue: "Intrigue", survival: "Survival" },
+            writeIn: true,
+            visibility: "party",
+            cite: "Sample p.21",
+          },
+          // What the crew is not told: the wizard asks it too, and the party never reads it.
+          aim: { type: "text", label: "Hidden aim", maxLength: 200, cite: "Sample p.21" },
+        },
+      },
+    },
+  },
+  checklist: [
+    {
+      id: "premise",
+      label: "Agree the premise",
+      done: { count: "entries", kind: "lore", field: "premise" },
+      goto: { tab: "codex", kind: "lore" },
+      cite: "Sample p.21",
+    },
+    ...(SAMPLE_SKIRMISH.checklist ?? []),
+  ],
+  safetyExamples: { lines: ["Spiders", "Drowning", "Harm to animals"], cite: "Sample p.22" },
+};

@@ -796,6 +796,11 @@ var rulesetSchema = schema.Object(
 		schema.Opt("optional", schema.Bool()),
 		schema.Opt("now", exprSource),
 	)).Max(maxChecklistSteps)),
+	// The book's suggested lines to leave out (house decision #145; rules-engine SafetyExamples).
+	schema.Opt("safetyExamples", schema.Object(
+		schema.Req("lines", schema.Array(schema.String().Min(1).Max(80)).Min(1).Max(30)),
+		schema.Opt("cite", citeSchema),
+	)),
 	schema.Opt("spawn", spawnSchema),
 	schema.Opt("strikes", schema.Array(strikeSchema).Max(MaxStrikes)),
 	schema.Opt("generators", schema.Array(generatorSchema).Max(maxGenerators)),

@@ -591,6 +591,10 @@ type (
 		Notices []NoticeRule `json:"notices"`
 		// Checklist is the setup checklist (house decision #90); nil when absent.
 		Checklist []ChecklistStep `json:"checklist"`
+		// SafetyExamples are the book's suggested lines to leave out (house decision #145); nil when absent.
+		SafetyExamples *struct {
+			Cite *string `json:"cite"`
+		} `json:"safetyExamples"`
 		// Generators are what the GM runs in prep (house decision #98); nil when absent.
 		Generators []Generator `json:"generators"`
 		// Layout is read for its widget rows (house decision #83).
@@ -1977,6 +1981,9 @@ func (r *Ruleset) semanticProblems() problems {
 		}
 	}
 	p.duplicates("checklist", idsOf(r.Checklist, func(s ChecklistStep) string { return s.ID }))
+	if r.SafetyExamples != nil {
+		needCite(r.SafetyExamples.Cite, "safetyExamples")
+	}
 	for i := range r.Generators {
 		path := fmt.Sprintf("generators[%d]", i)
 		needCite(r.Generators[i].Cite, path)

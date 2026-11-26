@@ -2948,6 +2948,16 @@ const CRAFTED: object[] = [
   ...heldCrafted(),
   ...checklistCrafted(),
   ...summaryCrafted(),
+  // House decision #145: the suggested lines to leave out, valid and each refusal.
+  ...[
+    { lines: ["Spiders", "x".repeat(80)], cite: "p.2" },
+    { lines: [], cite: "p.2" },
+    { lines: [""], cite: "p.2" },
+    { lines: ["x".repeat(81)], cite: "p.2" },
+    { lines: Array.from({ length: 31 }, (_, i) => `Line ${i}`), cite: "p.2" },
+    { lines: ["Spiders"], cite: "" },
+  ].map((safetyExamples) => ({ safetyExamples })),
+  { safetyExamples: { lines: ["Spiders"] }, sources: [{ id: "s", title: "T", license: "private" }] },
   // House decision #92: spawn blocks the schema, the semantic pass or the compiler refuses.
   ...[
     {

@@ -232,6 +232,8 @@ export function SheetView({
             fields: actor.fields,
             resources: actor.resources,
             conditions: actor.conditions,
+            // Each spawn option its own line, for the GM side only (house decision #171).
+            options: actor.spawnOptions,
             // What the items it holds add, each named (house decision #95, #102).
             entries: itemEntries({ ruleset, items: actor.items ?? [] }),
             party: { characters },

@@ -61,6 +61,7 @@ import type { Spend } from "../../../packages/rules-engine/src/manifest.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
 import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
 import { d20Document, IDS, LEDGER_BUILD, ROOM_D20 } from "../../api-go/vectors/room-documents.ts";
+import { roomDocument, type WizardDraft } from "../../web/lib/games/room-document.ts";
 import { adventuresIn, planAdventures } from "../../web/lib/adventure-import/adventure-import.ts";
 
 // Spelled out, not imported from the api: this suite is the black-box spec any api implementation has to pass.
@@ -7458,26 +7459,26 @@ const WIZARD_PACK = {
   id: "sample-raiders-premise",
   ruleset: { id: SAMPLE_SKIRMISH_PREMISE.id, range: SAMPLE_SKIRMISH_PACK.ruleset.range },
 };
-const wizardDocument = (over: Partial<RoomDocumentInput> = {}): RoomDocumentInput => ({
-  format: "inconsistable-room",
-  version: 1,
-  room: { name: "Ford watch", safety: { lines: ["Spiders"], veils: ["Drowning"], xCard: true } },
-  expects: {
-    ruleset: { slug: SAMPLE_SKIRMISH_PREMISE.id, version: SAMPLE_SKIRMISH_PREMISE.version },
-    packs: [{ slug: WIZARD_PACK.id, version: WIZARD_PACK.version }],
-  },
-  campaignFields: { chapter: 3, peril: 2 },
-  codex: [
-    {
-      id: "00000000-0000-4000-8000-000000000101",
-      kind: "lore",
-      title: "Lore",
-      visibility: "party",
-      fields: { premise: "Hold the ford", style: ["raids", "night work"], aim: "Sell them out" },
+// As the wizard's page holds a ticked pack: the builder sends only its slug and version.
+const TICKED = { slug: WIZARD_PACK.id, version: WIZARD_PACK.version, fromModule: false };
+const NO_LIMITS = { lines: [], veils: [], xCard: false };
+// The wizard's document, made by the builder the page uses (apps/web/lib/games/room-document.ts).
+const wizardDocument = (over: Partial<WizardDraft> = {}): RoomDocumentInput =>
+  roomDocument({
+    draft: {
+      name: "Ford watch",
+      ruleset: { slug: SAMPLE_SKIRMISH_PREMISE.id, version: SAMPLE_SKIRMISH_PREMISE.version },
+      packs: [TICKED],
+      fields: { chapter: 3, peril: 2 },
+      premise: {
+        kind: "lore",
+        title: "Lore",
+        fields: { premise: "Hold the ford", patron: "", style: ["raids", "night work"], aim: "Sell them out" },
+      },
+      safety: { lines: ["Spiders"], veils: ["Drowning"], xCard: true },
+      ...over,
     },
-  ],
-  ...over,
-});
+  });
 
 test("campaign wizard: a plain ruleset's room, dry run then made, refused whole with its step's path (#219)", async () => {
   const ownerDevice = await device("wizard-owner");
@@ -7490,7 +7491,7 @@ test("campaign wizard: a plain ruleset's room, dry run then made, refused whole 
   // A value the game does not allow is refused by its path, before and during a dry run, and makes nothing.
   const wrong = await me.post<RoomImportRefusal>(
     "/campaigns/import?dryRun=1",
-    wizardDocument({ campaignFields: { chapter: 99, peril: 2 } }),
+    wizardDocument({ fields: { chapter: 99, peril: 2 } }),
   );
   assert.deepEqual([wrong.status, wrong.body.path], [422, "campaignFields.chapter"]);
   const dry = await me.post<RoomImportReply>("/campaigns/import?dryRun=1", wizardDocument());
@@ -7527,12 +7528,22 @@ test("campaign wizard: a plain ruleset's room, dry run then made, refused whole 
   // A game played only without a GM gets its room the same way.
   assert.equal((await me.post("/rulesets", SAMPLE_SKIRMISH_GMLESS)).status, 201);
   const gmless = wizardDocument({
-    room: { name: "Round ford" },
-    expects: { ruleset: { slug: SAMPLE_SKIRMISH_GMLESS.id, version: SAMPLE_SKIRMISH_GMLESS.version } },
-    codex: [],
+    name: "Round ford",
+    ruleset: { slug: SAMPLE_SKIRMISH_GMLESS.id, version: SAMPLE_SKIRMISH_GMLESS.version },
+    packs: [],
+    premise: null,
+    safety: NO_LIMITS,
   });
-  assert.equal((await me.post<RoomImportReply>("/campaigns/import?tableMode=gmless", gmless)).status, 201);
+  const round = await me.post<RoomImportReply>("/campaigns/import?tableMode=gmless", gmless);
+  assert.equal(round.status, 201);
   assert.equal((await rooms()).find((r) => r.name === "Round ford")?.tableMode, "gmless");
+  // Its owner, who runs it, is served the checklist its first-run walk goes through (house decision #146).
+  type Listed = { ruleset: { manifest: { checklist?: { id: string }[] } } | null };
+  const served = (await me.get<Listed>(`/campaigns/${round.body.campaignId}/rules?limit=1`)).body;
+  assert.deepEqual(
+    served.ruleset?.manifest.checklist?.map((c) => c.id),
+    SAMPLE_SKIRMISH_GMLESS.checklist?.map((c) => c.id),
+  );
   owner.socket.close();
   ana.socket.close();
 });
@@ -7543,12 +7554,16 @@ test("campaign wizard: a game module's room carries its parts and the wizard's v
   const module = await me.post<ModuleReply>("/modules", SAMPLE_MODULE);
   assert.equal(module.status, 201);
   const rooms = async () => (await me.get<Lobby>("/lobby")).body.mine;
-  const doc: RoomDocumentInput = {
-    format: "inconsistable-room",
-    version: 1,
-    room: { name: "Tidewater wizard", safety: { lines: ["Spiders"], veils: [], xCard: false } },
-    campaignFields: { season: 2 },
-  };
+  const doc = roomDocument({
+    draft: {
+      name: "Tidewater wizard",
+      ruleset: null,
+      packs: [],
+      fields: { season: 2 },
+      premise: null,
+      safety: { ...NO_LIMITS, lines: ["Spiders"] },
+    },
+  });
   const at = (query: string) => `/campaigns/import?${query}`;
 
   // The module names the ruleset and World, so a document that names them too is refused at that path; so is a

@@ -119,11 +119,30 @@ test("a refusal's path names the step it belongs to", () => {
 test("the document is checked before it is sent: a blank name is the NAME step's", () => {
   assert.equal(documentProblem(roomDocument({ draft: draft() })), null);
   assert.equal(documentProblem(roomDocument({ draft: draft({ name: "  " }) }))?.step, "name");
-  assert.equal(
-    documentProblem(roomDocument({ draft: draft({ safety: { lines: ["x".repeat(81)], veils: [], xCard: false } }) }))
-      ?.step,
-    "table",
+  assert.deepEqual(
+    documentProblem(roomDocument({ draft: draft({ safety: { lines: ["x".repeat(81)], veils: [], xCard: false } }) })),
+    { step: "table", path: "room.safety.lines.0" },
   );
+});
+
+test("a ticked pack goes in as slug and version only, whatever else the page holds of it", () => {
+  const ticked = { slug: "sample-raiders", version: "0.1.0", fromModule: false };
+  const doc = roomDocument({ draft: draft({ packs: [ticked] }) });
+  assert.deepEqual(doc.expects?.packs, [{ slug: "sample-raiders", version: "0.1.0" }]);
+  assert.ok(RoomDocument.safeParse(doc).success);
+});
+
+test("the field the premise step asks for comes first, whatever order the stored manifest keeps", () => {
+  const parsed = Ruleset.parse(SAMPLE_SKIRMISH_PREMISE);
+  const lore = parsed.codex?.kinds.lore;
+  assert.ok(lore);
+  const { premise: asked, ...rest } = lore.fields;
+  assert.ok(asked);
+  const stored = {
+    ...parsed,
+    codex: { kinds: { ...parsed.codex?.kinds, lore: { ...lore, fields: { ...rest, premise: asked } } } },
+  };
+  assert.equal(premiseOf(stored)?.fields[0]?.id, "premise");
 });
 
 test("lines typed one per line are trimmed and blanks dropped", () => {

@@ -2,12 +2,15 @@ import {
   ROOM_FORMAT,
   ROOM_VERSION,
   RoomDocument,
+  type CodexEntry,
   type CodexKind,
   type RoomDocumentInput,
 } from "@inconsistable/core-schema";
-import type { CampaignField, ChecklistStep, Ruleset } from "@inconsistable/rules-engine";
+import type { CampaignField, ChecklistStep, CodexField, Ruleset } from "@inconsistable/rules-engine";
 
-import { declaredFields, type DeclaredField, type EntryFieldValue } from "@/lib/entry-fields/entry-fields";
+// Only package imports here: the smoke suite builds its documents with this file too. These are entry-fields' shapes.
+type DeclaredField = { id: string; def: CodexField };
+type EntryFieldValue = CodexEntry["fields"][string];
 
 /** The steps of the campaign wizard (house decision #142), in order; a game shows only the ones it asks. */
 export const WIZARD_STEPS = ["game", "campaign", "premise", "table", "name"] as const;
@@ -22,8 +25,10 @@ export type Premise = { kind: CodexKind; step: ChecklistStep; fields: DeclaredFi
 /**
  * The premise of a game (house decision #142), found by what its ruleset declares without naming any game: the first
  * checklist step that asks for an entry of a kind with a field written (no value it must equal, no prepared lines), where
- * that field is one the party reads. The wizard asks that kind's fields that need no room yet; a `tags` field offers
- * only its fixed options there, since its pack suggestions are served from a room.
+ * that field is one the party reads. The wizard asks that kind's fields that need no room yet, the one the step asks
+ * first; a `tags` field offers only its fixed options there, since its pack suggestions are served from a room.
+ * ponytail: after the asked field they come in the stored manifest's key order (jsonb keeps none), an `order` list in
+ * the codex block when a ruleset needs its own.
  */
 export function premiseOf(ruleset: Ruleset | null): Premise | null {
   if (!ruleset) return null;
@@ -32,9 +37,11 @@ export function premiseOf(ruleset: Ruleset | null): Premise | null {
     if (done.count !== "entries" || done.field === undefined || done.equals !== undefined || done.prep !== undefined)
       continue;
     if (ruleset.codex?.kinds[done.kind]?.fields[done.field]?.visibility !== "party") continue;
-    const fields = declaredFields({ ruleset, kind: done.kind })
+    const asked = done.field;
+    const fields = Object.entries(ruleset.codex?.kinds[done.kind]?.fields ?? {})
+      .map(([id, def]): DeclaredField => ({ id, def: def.type === "tags" ? { ...def, entities: undefined } : def }))
       .filter((f) => ASKED.has(f.def.type))
-      .map((f) => (f.def.type === "tags" ? { ...f, def: { ...f.def, entities: undefined } } : f));
+      .sort((a, b) => Number(b.id === asked) - Number(a.id === asked));
     return { kind: done.kind, step, fields };
   }
   return null;
@@ -90,7 +97,7 @@ export function roomDocument({
   const premise = Object.fromEntries(Object.entries(draft.premise?.fields ?? {}).filter(([, v]) => filled(v)));
   const expects = {
     ...(draft.ruleset ? { ruleset: draft.ruleset } : {}),
-    ...(draft.packs.length > 0 ? { packs: [...draft.packs] } : {}),
+    ...(draft.packs.length > 0 ? { packs: draft.packs.map(({ slug, version }) => ({ slug, version })) } : {}),
   };
   return {
     format: ROOM_FORMAT,
@@ -130,11 +137,13 @@ export function stepOfPath(path: string): WizardStep | null {
   return null;
 }
 
-/** The document checked as the server will first check it: the step and message of its first problem, or null. */
-export function documentProblem(doc: RoomDocumentInput): { step: WizardStep | null; message: string } | null {
+/** The document checked as the server will first check it: the path of its first problem and its step, or null. */
+export function documentProblem(doc: RoomDocumentInput): { step: WizardStep | null; path: string } | null {
   const parsed = RoomDocument.safeParse(doc);
   const issue = parsed.success ? undefined : parsed.error.issues[0];
-  return issue ? { step: stepOfPath(issue.path.join(".")), message: issue.message } : null;
+  if (!issue) return null;
+  const path = issue.path.join(".");
+  return { step: stepOfPath(path), path };
 }
 
 /** Lines typed one per line: trimmed, blanks dropped. */

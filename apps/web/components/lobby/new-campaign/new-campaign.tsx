@@ -75,14 +75,42 @@ export function NewCampaign({ games, options }: NewCampaignProps) {
     setProblem(null);
     if (wanted !== "any") setPicked(wanted);
   };
-  // A pack ticked or unticked.
-  const handlePack = (slug: string) =>
+  // A pack ticked or unticked; a refusal shown goes, since the draft changed.
+  const handlePack = (slug: string) => {
+    setProblem(null);
     setTicked((all) => (all.includes(slug) ? all.filter((s) => s !== slug) : [...all, slug]));
-  // BACK and NEXT, and a step's own tab: moves to another step of this game.
+  };
+  // A campaign value picked.
+  const handleValue = ({ id, value }: { id: string; value: CampaignValue }) => {
+    setProblem(null);
+    setValues({ ...values, [id]: value });
+  };
+  // The premise's title, or one of its fields, written.
+  const handlePremise = (patch: Partial<typeof premise>) => {
+    setProblem(null);
+    setPremise({ ...premise, ...patch });
+  };
+  // The way of sitting, or the lines and veils, changed.
+  const handleMode = (m: TableMode) => {
+    setProblem(null);
+    setPicked(m);
+  };
+  const handleSafety = (next: SafetyDraft) => {
+    setProblem(null);
+    setSafety(next);
+  };
+  // The room's name typed.
+  const handleName = (text: string) => {
+    setProblem(null);
+    setTyped(text);
+  };
+  // BACK and NEXT, and a step's own tab: moves to another step of this game, and brings its tab into view on a narrow
+  // strip.
   const go = (to: WizardStep | undefined) => {
     if (!to) return;
     setStep(to);
     setProblem((p) => (p?.step === to ? p : null));
+    document.getElementById(`wizard-tab-${to}`)?.scrollIntoView({ block: "nearest", inline: "center" });
   };
 
   // A refusal, with its path, shown on the step it belongs to.
@@ -110,7 +138,9 @@ export function NewCampaign({ games, options }: NewCampaignProps) {
         draft: {
           name,
           ruleset: game.moduleVersionId ? null : { slug: game.slug, version: game.version },
-          packs: option.packs.filter((p) => !p.fromModule && ticked.includes(p.slug)),
+          packs: option.packs
+            .filter((p) => !p.fromModule && ticked.includes(p.slug))
+            .map(({ slug, version }) => ({ slug, version })),
           fields: Object.fromEntries(
             Object.entries(option.campaignFields).map(([id, f]) => [id, values[id] ?? f.default]),
           ),
@@ -120,7 +150,7 @@ export function NewCampaign({ games, options }: NewCampaignProps) {
       });
       const local = documentProblem(doc);
       if (local) {
-        show(local);
+        show({ step: local.step, message: t(`problems.${local.step ?? "other"}`), path: local.path });
         return setBusy(false);
       }
       const sent = { file: new Blob([JSON.stringify(doc)]), tableMode: mode, module: game.moduleVersionId };
@@ -208,11 +238,7 @@ export function NewCampaign({ games, options }: NewCampaignProps) {
           </>
         )}
         {step === "campaign" && option && (
-          <CampaignStep
-            fields={option.campaignFields}
-            values={values}
-            onChange={({ id, value }) => setValues({ ...values, [id]: value })}
-          />
+          <CampaignStep fields={option.campaignFields} values={values} onChange={handleValue} />
         )}
         {step === "premise" && option?.premise && (
           <>
@@ -222,17 +248,13 @@ export function NewCampaign({ games, options }: NewCampaignProps) {
             </p>
             <label className="stack">
               {t("premiseTitle")}
-              <input
-                value={premiseTitle}
-                maxLength={200}
-                onChange={(e) => setPremise({ ...premise, title: e.target.value })}
-              />
+              <input value={premiseTitle} maxLength={200} onChange={(e) => handlePremise({ title: e.target.value })} />
             </label>
             <EntryFieldsForm
               ruleset={null}
               fields={option.premise.fields}
               draft={premise.fields}
-              onChange={({ id, value }) => setPremise({ ...premise, fields: { ...premise.fields, [id]: value } })}
+              onChange={({ id, value }) => handlePremise({ fields: { ...premise.fields, [id]: value } })}
               campaignId=""
               known={[]}
               disabled={busy}
@@ -247,16 +269,16 @@ export function NewCampaign({ games, options }: NewCampaignProps) {
           <TableStep
             modes={game?.modes ?? ["gm"]}
             mode={mode}
-            onMode={setPicked}
+            onMode={handleMode}
             safety={safety}
-            onSafety={setSafety}
+            onSafety={handleSafety}
             examples={option.examples}
           />
         )}
         {step === "name" && (
           <label className="stack">
             {t("name")}
-            <input value={name} onChange={(e) => setTyped(e.target.value)} maxLength={100} />
+            <input value={name} onChange={(e) => handleName(e.target.value)} maxLength={100} />
           </label>
         )}
         {shownProblem}

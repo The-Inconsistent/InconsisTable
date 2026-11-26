@@ -42,7 +42,6 @@ export function AcquireBox({ ruleset, compiled, actor, table, characters, reques
   const waiting = waitingAcquire({ requests, actorId: actor.id });
   if (acquire === undefined || kinds.length === 0) return null;
   const kind = kinds.find((k) => k.id === kindId) ?? kinds[0];
-  const test = ruleset.tests[acquire.test];
   const plan = entry && previewAcquire({ ruleset, compiled, table, actor, characters, entry, picks });
   const refused =
     plan && "code" in plan ? tr({ code: plan.code, message: plan.message, params: refusalParams(plan) }) : null;
@@ -150,11 +149,17 @@ export function AcquireBox({ ruleset, compiled, actor, table, characters, reques
               {Object.entries(ready.inputs).map(([input, v]) => (
                 <div key={input} className="stack" style={{ gap: 2 }}>
                   <dt>
-                    <b>{t("total", { label: test?.inputLabels?.[input] ?? input, total: v.total })}</b>
+                    <b>
+                      {typeof v.total === "boolean"
+                        ? t(v.total ? "yes" : "no", { label: v.label ?? input })
+                        : t("total", { label: v.label ?? input, total: v.total })}
+                    </b>
                   </dt>
                   {v.parts.map((part, i) => (
                     <dd key={i} className="small dim">
-                      {t("part", { label: part.label, value: part.value })}
+                      {typeof part.value === "boolean"
+                        ? part.label
+                        : t("part", { label: part.label, value: part.value })}
                     </dd>
                   ))}
                 </div>

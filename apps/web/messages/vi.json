@@ -617,7 +617,10 @@
   },
   "cite": {
     "openLabel": "Mở trang của {cite}",
-    "pageAlt": "Trang sách {cite}"
+    "pageAlt": "Trang sách {cite}",
+    "asking": "Đang xin trang…",
+    "zoom": "PHÓNG TO",
+    "fit": "VỪA KHUNG"
   },
   "term": {
     "hint": "{label}: nghĩa là gì",
@@ -848,7 +851,8 @@
       "fight": "Giao tranh",
       "tests": "Test",
       "codex": "Codex",
-      "party": "Phòng"
+      "party": "Phòng",
+      "books": "Sách"
     }
   },
   "tableMode": {
@@ -1031,7 +1035,8 @@
       "tests": "Test",
       "standings": "Xếp hạng",
       "map": "Bản đồ",
-      "rules": "Luật"
+      "rules": "Luật",
+      "books": "Sách"
     },
     "coming": {
       "map": "Bản đồ giúp cả bàn nhớ sẽ có ở P2."
@@ -3127,5 +3132,21 @@
     "closeLabel": "Đóng {title}",
     "fromGm": "GM đang trình chiếu",
     "holding": "Đang cho cả bàn xem · màn hình luôn sáng"
+  },
+  "books": {
+    "none": "Bộ luật của phòng này không nêu cuốn sách nào.",
+    "start": "BẮT ĐẦU CHIA SẺ",
+    "stop": "ĐANG CHIA SẺ · DỪNG",
+    "serving": "{books, plural, other {# cuốn}} mở cho cả bàn · đã gửi {pages, plural, other {# trang}}",
+    "off": "Không chia sẻ · trích dẫn trang chỉ là chữ",
+    "intro": "Chọn tệp PDF của chính bạn cho các cuốn sách của phòng. Chúng ở lại trên thiết bị này: ai chạm vào một trích dẫn trang sẽ nhận đúng trang đó, được vẽ tại đây, và không gì được tải lên hay lưu lại. Sau khi tải lại trang, hãy chọn lại. Điện thoại vẽ trang chậm hơn máy tính bảng.",
+    "listLabel": "Sách của phòng",
+    "loaded": "Đã nạp: {name}",
+    "empty": "Chưa chọn PDF",
+    "pick": "CHỌN PDF",
+    "replace": "ĐỔI",
+    "pickLabel": "Chọn PDF của {title}",
+    "remove": "GỠ",
+    "removeLabel": "Gỡ PDF của {title}"
   }
 }

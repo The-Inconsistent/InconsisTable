@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 
 import { canInCampaign, type Me } from "@inconsistable/core-schema";
-import { compileRuleset } from "@inconsistable/rules-engine";
+import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { TAB_PARAM } from "@/components/gm/gm-app/constants";
 import { PLAYER_TABS, type PlayerTab } from "@/components/player/player-app/constants";
@@ -22,6 +22,7 @@ import { Peek } from "@/components/ui/peek/peek";
 import { SpotlightCard } from "@/components/ui/spotlight-card/spotlight-card";
 import { ShowingBar } from "@/components/gm/codex/components/showing-bar/showing-bar";
 import { ArchivedBanner } from "@/components/ui/archived-banner/archived-banner";
+import { CiteProvider } from "@/components/ui/cite/cite";
 import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
 import { PoolsView } from "@/components/ui/pools-view/pools-view";
 import { poolSidesOf, poolSteps } from "@/lib/pools/pools";
@@ -39,6 +40,7 @@ import { SettingsMenu } from "@/components/ui/settings-menu/settings-menu";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { RunTable } from "@/components/player/run-table/run-table";
+import { useBookServer } from "@/hooks/use-book-server/use-book-server";
 import { useTable } from "@/hooks/use-table/use-table";
 import { useSeen } from "@/hooks/use-seen/use-seen";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
@@ -63,9 +65,10 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   const tSpot = useTranslations("spotlight");
   const tStatus = useTranslations("status");
   const tXp = useTranslations("ledgerBuilder.play.xp");
-  const { state, codex, online, send, draftRecap, books, requestPage, xcard, notices, dismissNotices } = useTable(
-    me.campaignId,
-  );
+  const { state, codex, online, send, draftRecap, books, requestPage, serveBooks, xcard, notices, dismissNotices } =
+    useTable(me.campaignId);
+  // Without a GM the owner's device serves the books (house decision #147); it lives here so it outlasts RUN's tabs.
+  const bookServer = useBookServer({ serveBooks, sources: view?.ruleset?.sources ?? NO_SOURCES });
   useWorldRefresh({ rendered: view?.first.world?.versionId ?? null, live: state?.campaign.worldVersionId });
   const held = me.seat.kind === "admin" ? [] : me.seat.characterIds;
   const [current, setCurrent] = useState(held[0] ?? "");
@@ -206,260 +209,269 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   };
 
   return (
-    <div className="surface-table">
-      <header className="band">
-        {!online && (
-          <span className="badge-offline" role="status">
-            {tTable("offline")}
+    <CiteProvider ruleset={ruleset} books={books} requestPage={requestPage}>
+      <div className="surface-table">
+        <header className="band">
+          {!online && (
+            <span className="badge-offline" role="status">
+              {tTable("offline")}
+            </span>
+          )}
+          <strong>{state.campaign.name}</strong>
+          {status && (
+            <span className="chip phone-status" role="status" aria-label={tPhoneStatus("label")}>
+              {tPhoneStatus(status.line, { round: status.line === "round" ? status.round : 0 })}
+            </span>
+          )}
+          <span className="row">
+            {state.session && <span className="chip">{tTable("session", { number: state.session.number })}</span>}
+            <XCardButton me={me} state={state} send={send} />
+            <SettingsMenu />
           </span>
+        </header>
+        {state.campaign.archived && <ArchivedBanner />}
+        {ruleset && character && strip && <PhoneStrip ruleset={ruleset} actor={character} rows={strip} maxOf={maxOf} />}
+        {ruleset && character && (
+          <HitSheet
+            key={character.id}
+            actor={character}
+            table={state}
+            requests={state.requests}
+            {...{ ruleset, compiled, characters, send, books, requestPage }}
+          />
         )}
-        <strong>{state.campaign.name}</strong>
-        {status && (
-          <span className="chip phone-status" role="status" aria-label={tPhoneStatus("label")}>
-            {tPhoneStatus(status.line, { round: status.line === "round" ? status.round : 0 })}
-          </span>
+        <XCardOverlay signal={xcard} onClose={() => setXcardClosed(xcard)} />
+        {peekId && (
+          <Peek
+            entryId={peekId}
+            entries={codex?.entries ?? []}
+            ruleset={ruleset}
+            campaignId={me.campaignId}
+            campaign={state.campaign.fields}
+            known={view?.first.entries ?? []}
+            held={held}
+            onOpen={setPeekId}
+            onClose={() => setPeekId(null)}
+            onHold={handleHoldUp}
+          />
         )}
-        <span className="row">
-          {state.session && <span className="chip">{tTable("session", { number: state.session.number })}</span>}
-          <XCardButton me={me} state={state} send={send} />
-          <SettingsMenu />
-        </span>
-      </header>
-      {state.campaign.archived && <ArchivedBanner />}
-      {ruleset && character && strip && <PhoneStrip ruleset={ruleset} actor={character} rows={strip} maxOf={maxOf} />}
-      {ruleset && character && (
-        <HitSheet
-          key={character.id}
-          actor={character}
-          table={state}
-          requests={state.requests}
-          {...{ ruleset, compiled, characters, send, books, requestPage }}
-        />
-      )}
-      <XCardOverlay signal={xcard} onClose={() => setXcardClosed(xcard)} />
-      {peekId && (
-        <Peek
-          entryId={peekId}
-          entries={codex?.entries ?? []}
-          ruleset={ruleset}
-          campaignId={me.campaignId}
-          campaign={state.campaign.fields}
-          known={view?.first.entries ?? []}
-          held={held}
-          onOpen={setPeekId}
-          onClose={() => setPeekId(null)}
-          onHold={handleHoldUp}
-        />
-      )}
-      {xcardUp({ signal: xcard, closedAt: xcardClosed }) ? null : heldEntry ? (
-        <SpotlightCard
-          key={heldEntry.id}
-          entry={heldEntry}
-          campaignId={me.campaignId}
-          entries={codex?.entries ?? []}
-          ruleset={ruleset}
-          known={view?.first.entries ?? []}
-          campaign={state.campaign.fields}
-          kicker={tSpot("holding")}
-          onClose={handleLetDown}
-          xcard={<XCardButton me={me} state={state} send={send} />}
-        />
-      ) : (
-        spotEntry &&
-        !spotDismissed() && (
+        {xcardUp({ signal: xcard, closedAt: xcardClosed }) ? null : heldEntry ? (
           <SpotlightCard
-            key={spotAt}
-            entry={spotEntry}
+            key={heldEntry.id}
+            entry={heldEntry}
             campaignId={me.campaignId}
             entries={codex?.entries ?? []}
             ruleset={ruleset}
             known={view?.first.entries ?? []}
             campaign={state.campaign.fields}
-            kicker={tSpot("fromGm")}
-            onClose={handleDismissSpot}
+            kicker={tSpot("holding")}
+            onClose={handleLetDown}
             xcard={<XCardButton me={me} state={state} send={send} />}
           />
-        )
-      )}
-      <TransferOffer me={me} state={state} send={send} />
-      <WhisperSheet
-        whispers={state.whispers}
-        actors={state.actors}
-        several={held.length > 1}
-        waiting={state.tests.some(
-          (c) => c.status === "open" && c.targets.some((tg) => held.includes(tg.actorId) && tg.report === null),
-        )}
-        send={send}
-      />
-      {mine.length > 1 && (
-        <nav className="tabs" role="tablist" aria-label={t("charactersLabel")}>
-          {mine.map((a) => (
-            <button
-              key={a.id}
-              className="tab"
-              role="tab"
-              aria-selected={a.id === character?.id}
-              onClick={() => setCurrent(a.id)}
-            >
-              {a.name}
-            </button>
-          ))}
-        </nav>
-      )}
-      <main className="page">
-        {lastTime && !lastTimeDismissed() && (
-          <RecapCard
-            recap={lastTime}
-            entries={codex?.entries ?? []}
-            onPeek={setPeekId}
-            onDismiss={handleDismissLastTime}
-          />
-        )}
-        <TurnBanner encounter={state.encounter} held={held} />
-        <DoneButton encounter={state.encounter} held={held} send={send} />
-        <TestPrompt state={state} send={send} />
-        <h1 className="title sheet-name">{character?.name ?? t("noCharacter")}</h1>
-        {character && buildEntry && (
-          <a
-            className="btn primary"
-            href={ledgerEntry === "levelUp" ? `${builderHref}?step=advance` : builderHref}
-            style={{ justifySelf: "start" }}
-          >
-            {ledgerEntry === "levelUp"
-              ? tXp("levelUp", { xp: xpToSpendOf({ ruleset, actor: character }) })
-              : ledgerEntry === "continue" || state.myDraft?.actorId === character.id
-                ? t("continueBuilding")
-                : t("build")}
-          </a>
-        )}
-        {ledgerEntry === "continue" && <p className="small dim">{t("buildDraft")}</p>}
-        <ActionNotices notices={notices} onDismiss={dismissNotices} />
-        {canInCampaign({ ctx: me, perm: "codex:reveal" }) && (
-          <ShowingBar spotlight={state.spotlight} entries={codex?.entries ?? []} actors={state.actors} send={send} />
-        )}
-        <RequestNotices
-          answers={state.requestAnswers}
-          actors={state.actors}
-          labels={resourceLabels(view?.ruleset ?? null)}
-          spends={spendLabels(view?.ruleset ?? null)}
-        />
-        <SpendAsks
-          requests={state.requests}
-          actors={state.actors}
-          held={held}
-          spends={spendLabels(view?.ruleset ?? null)}
-        />
-        <PoolsView pools={state.pools} steps={(pool) => poolSteps({ pool, ...poolSidesOf(me) })} send={send} />
-        <ClocksView clocks={state.clocks} />
-        <YourCards
-          dealt={state.dealt}
-          held={held}
-          actors={state.actors}
-          titles={Object.fromEntries(Object.entries(view?.ruleset?.tables ?? {}).map(([id, tb]) => [id, tb.title]))}
-        />
-        {!state.encounter && state.games[0] && <GameResult game={state.games[0]} held={held} />}
-        {tab === "notebook" ? (
-          <Notebook
-            codex={codex}
-            whispers={state.whispers}
-            actors={state.actors}
-            next={{ at: state.campaign.nextSessionAt, place: state.campaign.nextSessionPlace }}
-            me={me}
-            safety={state.campaign.safety}
-            send={send}
-            ruleset={ruleset}
-            known={view?.first.entries ?? []}
-            campaign={state.campaign.fields}
-            held={held}
-            fresh={seen.fresh}
-            onMarkAll={seen.markAll}
-            onPeek={setPeekId}
-          />
-        ) : tab === "fight" ? (
-          <FightTab {...{ state, ruleset, compiled, character, held, characters, send, books, requestPage, maxOf }} />
-        ) : tab === "standings" ? (
-          <Standings games={state.games} />
-        ) : tab === "rules" ? (
-          view ? (
-            <RulesReader
+        ) : (
+          spotEntry &&
+          !spotDismissed() && (
+            <SpotlightCard
+              key={spotAt}
+              entry={spotEntry}
               campaignId={me.campaignId}
-              ruleset={view.ruleset}
-              first={view.first}
+              entries={codex?.entries ?? []}
+              ruleset={ruleset}
+              known={view?.first.entries ?? []}
+              campaign={state.campaign.fields}
+              kicker={tSpot("fromGm")}
+              onClose={handleDismissSpot}
+              xcard={<XCardButton me={me} state={state} send={send} />}
+            />
+          )
+        )}
+        <TransferOffer me={me} state={state} send={send} />
+        <WhisperSheet
+          whispers={state.whispers}
+          actors={state.actors}
+          several={held.length > 1}
+          waiting={state.tests.some(
+            (c) => c.status === "open" && c.targets.some((tg) => held.includes(tg.actorId) && tg.report === null),
+          )}
+          send={send}
+        />
+        {mine.length > 1 && (
+          <nav className="tabs" role="tablist" aria-label={t("charactersLabel")}>
+            {mine.map((a) => (
+              <button
+                key={a.id}
+                className="tab"
+                role="tab"
+                aria-selected={a.id === character?.id}
+                onClick={() => setCurrent(a.id)}
+              >
+                {a.name}
+              </button>
+            ))}
+          </nav>
+        )}
+        <main className="page">
+          {lastTime && !lastTimeDismissed() && (
+            <RecapCard
+              recap={lastTime}
+              entries={codex?.entries ?? []}
+              onPeek={setPeekId}
+              onDismiss={handleDismissLastTime}
+            />
+          )}
+          <TurnBanner encounter={state.encounter} held={held} />
+          <DoneButton encounter={state.encounter} held={held} send={send} />
+          <TestPrompt state={state} send={send} />
+          <h1 className="title sheet-name">{character?.name ?? t("noCharacter")}</h1>
+          {character && buildEntry && (
+            <a
+              className="btn primary"
+              href={ledgerEntry === "levelUp" ? `${builderHref}?step=advance` : builderHref}
+              style={{ justifySelf: "start" }}
+            >
+              {ledgerEntry === "levelUp"
+                ? tXp("levelUp", { xp: xpToSpendOf({ ruleset, actor: character }) })
+                : ledgerEntry === "continue" || state.myDraft?.actorId === character.id
+                  ? t("continueBuilding")
+                  : t("build")}
+            </a>
+          )}
+          {ledgerEntry === "continue" && <p className="small dim">{t("buildDraft")}</p>}
+          <ActionNotices notices={notices} onDismiss={dismissNotices} />
+          {canInCampaign({ ctx: me, perm: "codex:reveal" }) && (
+            <ShowingBar spotlight={state.spotlight} entries={codex?.entries ?? []} actors={state.actors} send={send} />
+          )}
+          <RequestNotices
+            answers={state.requestAnswers}
+            actors={state.actors}
+            labels={resourceLabels(view?.ruleset ?? null)}
+            spends={spendLabels(view?.ruleset ?? null)}
+          />
+          <SpendAsks
+            requests={state.requests}
+            actors={state.actors}
+            held={held}
+            spends={spendLabels(view?.ruleset ?? null)}
+          />
+          <PoolsView pools={state.pools} steps={(pool) => poolSteps({ pool, ...poolSidesOf(me) })} send={send} />
+          <ClocksView clocks={state.clocks} />
+          <YourCards
+            dealt={state.dealt}
+            held={held}
+            actors={state.actors}
+            titles={Object.fromEntries(Object.entries(view?.ruleset?.tables ?? {}).map(([id, tb]) => [id, tb.title]))}
+          />
+          {!state.encounter && state.games[0] && <GameResult game={state.games[0]} held={held} />}
+          {tab === "notebook" ? (
+            <Notebook
+              codex={codex}
+              whispers={state.whispers}
+              actors={state.actors}
+              next={{ at: state.campaign.nextSessionAt, place: state.campaign.nextSessionPlace }}
+              me={me}
+              safety={state.campaign.safety}
+              send={send}
+              ruleset={ruleset}
+              known={view?.first.entries ?? []}
+              campaign={state.campaign.fields}
+              held={held}
+              fresh={seen.fresh}
+              onMarkAll={seen.markAll}
+              onPeek={setPeekId}
+            />
+          ) : tab === "fight" ? (
+            <FightTab {...{ state, ruleset, compiled, character, held, characters, send, books, requestPage, maxOf }} />
+          ) : tab === "standings" ? (
+            <Standings games={state.games} />
+          ) : tab === "rules" ? (
+            view ? (
+              <RulesReader
+                campaignId={me.campaignId}
+                ruleset={view.ruleset}
+                first={view.first}
+                books={books}
+                requestPage={requestPage}
+              />
+            ) : (
+              <p className="error">{t("rulesFailed")}</p>
+            )
+          ) : tab === "run" ? (
+            <RunTable
+              me={me}
+              state={state}
+              codex={codex}
+              send={send}
+              draftRecap={draftRecap}
+              ruleset={view?.ruleset ?? null}
               books={books}
               requestPage={requestPage}
+              quick={quick}
+              onPeek={setPeekId}
+              bookServer={bookServer}
             />
+          ) : tab === "sheet" ? (
+            character && view?.ruleset && !needsBuild(character) ? (
+              <SheetView
+                key={character.id}
+                actor={character}
+                ruleset={view.ruleset}
+                characters={characters}
+                campaign={state.campaign.fields}
+                gm={false}
+                requests={state.requests}
+                table={state}
+                builderHref={`${builderHref}?step=advance`}
+                {...{ send, books, requestPage }}
+              />
+            ) : !character || !needsBuild(character) ? (
+              <p className="dim">{t("sheetPending")}</p>
+            ) : null
           ) : (
-            <p className="error">{t("rulesFailed")}</p>
-          )
-        ) : tab === "run" ? (
-          <RunTable
-            me={me}
-            state={state}
-            codex={codex}
-            send={send}
-            draftRecap={draftRecap}
-            ruleset={view?.ruleset ?? null}
-            books={books}
-            requestPage={requestPage}
-            quick={quick}
-            onPeek={setPeekId}
-          />
-        ) : tab === "sheet" ? (
-          character && view?.ruleset && !needsBuild(character) ? (
-            <SheetView
-              key={character.id}
-              actor={character}
-              ruleset={view.ruleset}
-              characters={characters}
-              campaign={state.campaign.fields}
-              gm={false}
-              requests={state.requests}
-              table={state}
-              builderHref={`${builderHref}?step=advance`}
-              {...{ send, books, requestPage }}
-            />
-          ) : !character || !needsBuild(character) ? (
-            <p className="dim">{t("sheetPending")}</p>
-          ) : null
-        ) : (
-          <p className="dim">{t("tabPending")}</p>
-        )}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        <button className="btn" onClick={handleLeave} style={{ justifySelf: "start" }}>
-          {t("leave")}
-        </button>
-      </main>
-      <nav className="tabs tabs-bottom safe-bottom" role="tablist" aria-label={t("tabsLabel")}>
-        {allowed.map((name) => {
-          const live = name === "fight" && state.encounter !== null;
-          const fresh = name === "notebook" ? seen.count : 0;
-          const label = t(`tabs.${name}`);
-          return (
-            <button
-              key={name}
-              className="tab"
-              role="tab"
-              aria-selected={tab === name}
-              aria-label={
-                live ? t("tabLive", { tab: label }) : fresh > 0 ? t("tabNew", { tab: label, count: fresh }) : undefined
-              }
-              onClick={() => handleTab(name)}
-            >
-              {label}
-              {live && <span className="tab-live" aria-hidden="true" />}
-              {fresh > 0 && (
-                <span className="tab-count" aria-hidden="true">
-                  {fresh}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
-    </div>
+            <p className="dim">{t("tabPending")}</p>
+          )}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <button className="btn" onClick={handleLeave} style={{ justifySelf: "start" }}>
+            {t("leave")}
+          </button>
+        </main>
+        <nav className="tabs tabs-bottom safe-bottom" role="tablist" aria-label={t("tabsLabel")}>
+          {allowed.map((name) => {
+            const live = name === "fight" && state.encounter !== null;
+            const fresh = name === "notebook" ? seen.count : 0;
+            const label = t(`tabs.${name}`);
+            return (
+              <button
+                key={name}
+                className="tab"
+                role="tab"
+                aria-selected={tab === name}
+                aria-label={
+                  live
+                    ? t("tabLive", { tab: label })
+                    : fresh > 0
+                      ? t("tabNew", { tab: label, count: fresh })
+                      : undefined
+                }
+                onClick={() => handleTab(name)}
+              >
+                {label}
+                {live && <span className="tab-live" aria-hidden="true" />}
+                {fresh > 0 && (
+                  <span className="tab-count" aria-hidden="true">
+                    {fresh}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+    </CiteProvider>
   );
 }
+
+const NO_SOURCES: Ruleset["sources"] = [];

@@ -12,6 +12,8 @@ export const GM_TABS = {
   standings: { perm: "codex:read" }, // every GM seat; listed only once the campaign has a game
   map: { perm: "codex:read" },
   rules: { perm: "codex:read" },
+  // The seats that may serve books (`mayServeBooks` in the api): with a GM, those that write the codex.
+  books: { perm: "codex:write" },
 } as const satisfies Record<string, { perm: Permission }>;
 export type GmTab = keyof typeof GM_TABS;
 

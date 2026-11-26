@@ -2873,6 +2873,22 @@ summary {
 .bottom-sheet .bottom-sheet {
   z-index: 11;
 }
+/* A book page the serving device drew: the whole width, twice it when zoomed (scrolled inside, never the page). */
+.book-page-frame {
+  overflow: auto;
+  max-height: 60vh;
+  border: 1px solid var(--line);
+  touch-action: pan-x pan-y pinch-zoom;
+}
+.book-page {
+  display: block;
+  width: 100%;
+  height: auto;
+  &[data-zoom="true"] {
+    width: 200%;
+    max-width: none;
+  }
+}
 
 /* ---------- A name that says what it means (house decision #126): dotted under, the card in a bottom sheet ---------- */
 .term {

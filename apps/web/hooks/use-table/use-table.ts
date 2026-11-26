@@ -274,8 +274,12 @@ export function useTable(campaignId: string) {
 
   // GM: serve these sources with `render`, or stop (null or no sources).
   const serveBooks = useCallback((next: { sources: BookSource[]; render: RenderPage } | null) => {
+    const before = serving.current?.sources ?? [];
     serving.current = next?.sources.length ? next : null;
-    socket.current?.emit("book:serving", { sources: next?.sources ?? [] });
+    // Only a change of list reaches the api: every seat's app mounts a book server, and most never serve.
+    if (String(before) !== String(serving.current?.sources ?? [])) {
+      socket.current?.emit("book:serving", { sources: serving.current?.sources ?? [] });
+    }
   }, []);
 
   return {

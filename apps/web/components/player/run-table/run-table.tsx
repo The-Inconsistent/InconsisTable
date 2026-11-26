@@ -11,6 +11,7 @@ import {
 } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
+import { BookShelf } from "@/components/gm/book-shelf/book-shelf";
 import { Codex } from "@/components/gm/codex/codex";
 import { Party } from "@/components/gm/party/party";
 import { Tests } from "@/components/gm/tests/tests";
@@ -18,6 +19,7 @@ import { Track } from "@/components/gm/track/track";
 import { RUN_TABS, type RunTab } from "@/components/player/run-table/constants";
 import { TableModePicker } from "@/components/player/run-table/table-mode-picker";
 import { DraftRecap as DraftRecapButton } from "@/components/ui/draft-recap/draft-recap";
+import type { BookServer } from "@/hooks/use-book-server/use-book-server";
 import type { DraftRecap, RequestPage, Send } from "@/hooks/use-table/use-table";
 import { RECAP_MAX } from "@/lib/codex/codex";
 import { TableModeProvider } from "@/lib/table-mode/table-mode";
@@ -35,6 +37,8 @@ type RunTableProps = {
   quick?: boolean;
   /** Opens a codex search hit in the phone's peek (#218). */
   onPeek?: (entryId: string) => void;
+  /** This device's book server, for BOOKS. */
+  bookServer: BookServer;
 };
 
 // RUN THE TABLE: a room without a GM is run by every phone at once, so the table's controls live here, behind one tab,
@@ -51,10 +55,15 @@ export function RunTable({
   requestPage,
   quick = false,
   onPeek,
+  bookServer,
 }: RunTableProps) {
   const t = useTranslations("runTable");
   const can = (perm: Parameters<typeof canInCampaign>[0]["perm"]) => canInCampaign({ ctx: me, perm });
-  const tabs = RUN_TABS.filter((name) => can(name === "party" ? "member:invite" : "session:run"));
+  // The api's `mayServeBooks` without a GM: the owner's member seat.
+  const owner = me.seat.kind === "member" && me.userId !== null && me.userId === state.campaign.ownerUserId;
+  const tabs = RUN_TABS.filter((name) =>
+    name === "books" ? owner : can(name === "party" ? "member:invite" : "session:run"),
+  );
   const [tab, setTab] = useState<RunTab>(quick ? "party" : "fight");
   const [recap, setRecap] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +84,7 @@ export function RunTable({
   return (
     <TableModeProvider mode={me.tableMode}>
       <div className="stack" style={{ gap: 20 }}>
-        {shown !== "party" && can("session:run") && (
+        {shown !== "party" && shown !== "books" && can("session:run") && (
           <section className="row">
             {state.session ? (
               recap === null ? (
@@ -129,6 +138,8 @@ export function RunTable({
           <Tests state={state} send={send} />
         ) : shown === "codex" ? (
           <Codex me={me} state={state} codex={codex} send={send} ruleset={ruleset} onPeek={onPeek} />
+        ) : shown === "books" ? (
+          <BookShelf server={bookServer} sources={ruleset?.sources ?? []} />
         ) : (
           <div className="stack" style={{ gap: 24 }}>
             <TableModePicker me={me} state={state} ruleset={ruleset} send={send} />

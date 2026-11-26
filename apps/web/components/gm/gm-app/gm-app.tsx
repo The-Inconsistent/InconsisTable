@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { canInCampaign, type Me } from "@inconsistable/core-schema";
-import type { ChecklistStep } from "@inconsistable/rules-engine";
+import type { ChecklistStep, Ruleset } from "@inconsistable/rules-engine";
 
 import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
 import { HeaderItems } from "@/components/gm/gm-app/components/header-items/header-items";
@@ -12,6 +12,7 @@ import { CallBand } from "@/components/gm/header/call-band/call-band";
 import { CallButton } from "@/components/gm/header/call-button/call-button";
 import { HeaderPools } from "@/components/gm/header/header-pools/header-pools";
 import { HistoryButton } from "@/components/gm/header/history-button/history-button";
+import { BookShelf } from "@/components/gm/book-shelf/book-shelf";
 import { Codex } from "@/components/gm/codex/codex";
 import { Party } from "@/components/gm/party/party";
 import { Prep } from "@/components/gm/prep/prep";
@@ -23,6 +24,7 @@ import { Scene } from "@/components/gm/scene/scene";
 import { WhisperButton } from "@/components/gm/whisper-button/whisper-button";
 import { ActionNotices } from "@/components/ui/action-notices/action-notices";
 import { ArchivedBanner } from "@/components/ui/archived-banner/archived-banner";
+import { CiteProvider } from "@/components/ui/cite/cite";
 import { Peek } from "@/components/ui/peek/peek";
 import { ShowingBar } from "@/components/gm/codex/components/showing-bar/showing-bar";
 import { TableModePicker } from "@/components/player/run-table/table-mode-picker";
@@ -32,6 +34,7 @@ import { XCardOverlay } from "@/components/ui/xcard/xcard-overlay";
 import { SettingsMenu } from "@/components/ui/settings-menu/settings-menu";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
+import { useBookServer } from "@/hooks/use-book-server/use-book-server";
 import { useTable } from "@/hooks/use-table/use-table";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import { checklistRoom } from "@/lib/checklist/checklist";
@@ -65,12 +68,16 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
     draftRecap,
     books,
     requestPage,
+    serveBooks,
     xcard,
     notices,
     dismissNotices,
     history,
     watchHistory,
   } = useTable(me.campaignId);
+  const sources = view?.ruleset?.sources ?? NO_SOURCES;
+  // Mounted here, not in BOOKS, so serving goes on while the GM is on another tab.
+  const bookServer = useBookServer({ serveBooks, sources });
   useWorldRefresh({ rendered: view?.first.world?.versionId ?? null, live: state?.campaign.worldVersionId });
   const tabs = (Object.keys(GM_TABS) as GmTab[]).filter(
     (k) => canInCampaign({ ctx: me, perm: GM_TABS[k].perm }) && (k !== "standings" || (state?.games.length ?? 0) > 0),
@@ -132,193 +139,199 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
 
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   return (
-    <div className="surface-table">
-      <header className="band">
-        {!online && (
-          <span className="badge-offline" role="status">
-            {tTable("offline")}
-          </span>
-        )}
-        <a href="/">{t("campaigns")}</a>
-        <strong className="header-name">{state.campaign.name}</strong>
-        <HeaderItems
-          items={headerItems({
-            ruleset: view?.ruleset ?? null,
-            campaign: state.campaign.fields,
-            encounter: state.encounter,
-          })}
-        />
-        <span className="row">
-          <HeaderPools
-            me={me}
-            state={state}
-            codex={codex}
-            ruleset={view?.ruleset ?? null}
-            spawnable={spawnable}
-            send={send}
-          />
-          {canInCampaign({ ctx: me, perm: "test:call" }) && <CallButton state={state} send={send} />}
-          {/* HISTORY is Undo's (house decision #133): the seats that may undo, event.undo's permission. */}
-          {canInCampaign({ ctx: me, perm: "encounter:run" }) && (
-            <HistoryButton
-              state={state}
-              ruleset={view?.ruleset ?? null}
-              send={send}
-              history={history}
-              watch={watchHistory}
-            />
+    <CiteProvider ruleset={view?.ruleset ?? null} books={books} requestPage={requestPage}>
+      <div className="surface-table">
+        <header className="band">
+          {!online && (
+            <span className="badge-offline" role="status">
+              {tTable("offline")}
+            </span>
           )}
-          {me.seat.kind === "admin" && <span className="chip">{t("header.admin")}</span>}
-          {state.session && <span className="chip">{tTable("session", { number: state.session.number })}</span>}
-          {/* Whispers need a GM (house decision #93); the side that runs the session sends them. */}
-          {state.campaign.tableMode === "gm" &&
-            canInCampaign({ ctx: { ...me, tableMode: "gm" }, perm: "session:run" }) && (
-              <WhisperButton campaignId={me.campaignId} state={state} send={send} />
-            )}
-          <SettingsMenu />
-        </span>
-      </header>
-      <XCardOverlay signal={xcard} />
-      <TransferOffer me={me} state={state} send={send} />
-      <nav className="tabs" role="tablist" aria-label={t("tabsLabel")}>
-        {tabs.map((name) => (
-          <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => openTab(name)}>
-            {t(`tabs.${name}`)}
-          </button>
-        ))}
-      </nav>
-      <RequestBar
-        state={state}
-        labels={resourceLabels(view?.ruleset ?? null)}
-        ruleset={view?.ruleset ?? null}
-        send={send}
-      />
-      {tab !== "tests" && canInCampaign({ ctx: me, perm: "test:call" }) && (
-        <CallBand state={state} send={send} onMore={() => openTab("tests")} />
-      )}
-      <ActionNotices notices={notices} onDismiss={dismissNotices} />
-      {canInCampaign({ ctx: me, perm: "codex:reveal" }) && (
-        <ShowingBar spotlight={state.spotlight} entries={codex?.entries ?? []} actors={state.actors} send={send} />
-      )}
-      {state.campaign.archived && (
-        <ArchivedBanner
-          onReopen={canInCampaign({ ctx: me, perm: "campaign:archive" }) ? () => openTab("party") : undefined}
-        />
-      )}
-      {peekId && (
-        <Peek
-          entryId={peekId}
-          entries={codex?.entries ?? []}
-          ruleset={view?.ruleset ?? null}
-          campaignId={me.campaignId}
-          campaign={state.campaign.fields}
-          known={view?.first.entries ?? []}
-          held={[]}
-          onOpen={setPeekId}
-          onClose={() => setPeekId(null)}
-          onGoTo={canInCampaign({ ctx: me, perm: "codex:write" }) ? handleGoTo : undefined}
-        />
-      )}
-      <main className="page">
-        {tab === "party" ? (
-          <div className="stack" style={{ gap: 24 }}>
-            {checklist.length > 0 && (
-              <SetupChecklist
-                steps={checklist}
-                room={checklistRoom({ state, entries: codex?.entries ?? [], packs: view?.first.packs ?? [] })}
-                onGo={handleGo}
-                terms={view?.ruleset ? { ruleset: view.ruleset, books, requestPage } : undefined}
+          <a href="/">{t("campaigns")}</a>
+          <strong className="header-name">{state.campaign.name}</strong>
+          <HeaderItems
+            items={headerItems({
+              ruleset: view?.ruleset ?? null,
+              campaign: state.campaign.fields,
+              encounter: state.encounter,
+            })}
+          />
+          <span className="row">
+            <HeaderPools
+              me={me}
+              state={state}
+              codex={codex}
+              ruleset={view?.ruleset ?? null}
+              spawnable={spawnable}
+              send={send}
+            />
+            {canInCampaign({ ctx: me, perm: "test:call" }) && <CallButton state={state} send={send} />}
+            {/* HISTORY is Undo's (house decision #133): the seats that may undo, event.undo's permission. */}
+            {canInCampaign({ ctx: me, perm: "encounter:run" }) && (
+              <HistoryButton
+                state={state}
+                ruleset={view?.ruleset ?? null}
+                send={send}
+                history={history}
+                watch={watchHistory}
               />
             )}
-            <TableModePicker me={me} state={state} ruleset={view?.ruleset ?? null} send={send} />
-            <Party
+            {me.seat.kind === "admin" && <span className="chip">{t("header.admin")}</span>}
+            {state.session && <span className="chip">{tTable("session", { number: state.session.number })}</span>}
+            {/* Whispers need a GM (house decision #93); the side that runs the session sends them. */}
+            {state.campaign.tableMode === "gm" &&
+              canInCampaign({ ctx: { ...me, tableMode: "gm" }, perm: "session:run" }) && (
+                <WhisperButton campaignId={me.campaignId} state={state} send={send} />
+              )}
+            <SettingsMenu />
+          </span>
+        </header>
+        <XCardOverlay signal={xcard} />
+        <TransferOffer me={me} state={state} send={send} />
+        <nav className="tabs" role="tablist" aria-label={t("tabsLabel")}>
+          {tabs.map((name) => (
+            <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => openTab(name)}>
+              {t(`tabs.${name}`)}
+            </button>
+          ))}
+        </nav>
+        <RequestBar
+          state={state}
+          labels={resourceLabels(view?.ruleset ?? null)}
+          ruleset={view?.ruleset ?? null}
+          send={send}
+        />
+        {tab !== "tests" && canInCampaign({ ctx: me, perm: "test:call" }) && (
+          <CallBand state={state} send={send} onMore={() => openTab("tests")} />
+        )}
+        <ActionNotices notices={notices} onDismiss={dismissNotices} />
+        {canInCampaign({ ctx: me, perm: "codex:reveal" }) && (
+          <ShowingBar spotlight={state.spotlight} entries={codex?.entries ?? []} actors={state.actors} send={send} />
+        )}
+        {state.campaign.archived && (
+          <ArchivedBanner
+            onReopen={canInCampaign({ ctx: me, perm: "campaign:archive" }) ? () => openTab("party") : undefined}
+          />
+        )}
+        {peekId && (
+          <Peek
+            entryId={peekId}
+            entries={codex?.entries ?? []}
+            ruleset={view?.ruleset ?? null}
+            campaignId={me.campaignId}
+            campaign={state.campaign.fields}
+            known={view?.first.entries ?? []}
+            held={[]}
+            onOpen={setPeekId}
+            onClose={() => setPeekId(null)}
+            onGoTo={canInCampaign({ ctx: me, perm: "codex:write" }) ? handleGoTo : undefined}
+          />
+        )}
+        <main className="page">
+          {tab === "party" ? (
+            <div className="stack" style={{ gap: 24 }}>
+              {checklist.length > 0 && (
+                <SetupChecklist
+                  steps={checklist}
+                  room={checklistRoom({ state, entries: codex?.entries ?? [], packs: view?.first.packs ?? [] })}
+                  onGo={handleGo}
+                  terms={view?.ruleset ? { ruleset: view.ruleset, books, requestPage } : undefined}
+                />
+              )}
+              <TableModePicker me={me} state={state} ruleset={view?.ruleset ?? null} send={send} />
+              <Party
+                me={me}
+                state={state}
+                send={send}
+                draftRecap={draftRecap}
+                autoQr={quick}
+                sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
+              />
+            </div>
+          ) : tab === "scene" ? (
+            <Scene
               me={me}
               state={state}
+              codex={codex}
               send={send}
-              draftRecap={draftRecap}
-              autoQr={quick}
-              sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
-            />
-          </div>
-        ) : tab === "scene" ? (
-          <Scene
-            me={me}
-            state={state}
-            codex={codex}
-            send={send}
-            ruleset={view?.ruleset ?? null}
-            spawnable={spawnable}
-            known={view?.first.entries ?? []}
-            sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
-            address={address}
-            onNav={go}
-            onOpenCodex={handleOpenCodex}
-          />
-        ) : tab === "standings" ? (
-          <Standings games={state.games} />
-        ) : tab === "prep" ? (
-          <Prep
-            me={me}
-            state={state}
-            codex={codex}
-            send={send}
-            ruleset={view?.ruleset ?? null}
-            spawnable={spawnable}
-            onCall={handleCall}
-            onOpenCodex={handleOpenCodex}
-            known={view?.first.entries ?? []}
-            onPlay={() => openTab("scene")}
-            openId={address.scene ?? null}
-            mode={address.mode ?? "prepare"}
-            onNav={go}
-          />
-        ) : tab === "codex" ? (
-          <Codex
-            kind={address.kind ?? null}
-            openId={address.entry ?? null}
-            onNav={go}
-            onPeek={setPeekId}
-            me={me}
-            state={state}
-            codex={codex}
-            send={send}
-            ruleset={view?.ruleset ?? null}
-            known={view?.first.entries}
-            books={books}
-            requestPage={requestPage}
-            spawnable={spawnable}
-          />
-        ) : tab === "tests" ? (
-          <Tests state={state} send={send} testId={address.test} />
-        ) : tab === "rules" ? (
-          <div className="stack" style={{ gap: 32 }}>
-            <RulesPanel
-              me={me}
-              send={send}
-              data={rules}
-              state={state}
               ruleset={view?.ruleset ?? null}
+              spawnable={spawnable}
+              known={view?.first.entries ?? []}
+              sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
+              address={address}
+              onNav={go}
+              onOpenCodex={handleOpenCodex}
+            />
+          ) : tab === "standings" ? (
+            <Standings games={state.games} />
+          ) : tab === "prep" ? (
+            <Prep
+              me={me}
+              state={state}
+              codex={codex}
+              send={send}
+              ruleset={view?.ruleset ?? null}
+              spawnable={spawnable}
+              onCall={handleCall}
+              onOpenCodex={handleOpenCodex}
+              known={view?.first.entries ?? []}
+              onPlay={() => openTab("scene")}
+              openId={address.scene ?? null}
+              mode={address.mode ?? "prepare"}
+              onNav={go}
+            />
+          ) : tab === "codex" ? (
+            <Codex
+              kind={address.kind ?? null}
+              openId={address.entry ?? null}
+              onNav={go}
+              onPeek={setPeekId}
+              me={me}
+              state={state}
+              codex={codex}
+              send={send}
+              ruleset={view?.ruleset ?? null}
+              known={view?.first.entries}
               books={books}
               requestPage={requestPage}
-              pictures={pictureCount(codex?.entries ?? [])}
+              spawnable={spawnable}
             />
-            {view && (
-              <section className="stack">
-                <h2 className="title">{t("readRules")}</h2>
-                <RulesReader
-                  campaignId={me.campaignId}
-                  ruleset={view.ruleset}
-                  first={view.first}
-                  books={books}
-                  requestPage={requestPage}
-                />
-              </section>
-            )}
-          </div>
-        ) : (
-          <p className="dim">{t(`coming.${tab}`)}</p>
-        )}
-      </main>
-    </div>
+          ) : tab === "tests" ? (
+            <Tests state={state} send={send} testId={address.test} />
+          ) : tab === "rules" ? (
+            <div className="stack" style={{ gap: 32 }}>
+              <RulesPanel
+                me={me}
+                send={send}
+                data={rules}
+                state={state}
+                ruleset={view?.ruleset ?? null}
+                books={books}
+                requestPage={requestPage}
+                pictures={pictureCount(codex?.entries ?? [])}
+              />
+              {view && (
+                <section className="stack">
+                  <h2 className="title">{t("readRules")}</h2>
+                  <RulesReader
+                    campaignId={me.campaignId}
+                    ruleset={view.ruleset}
+                    first={view.first}
+                    books={books}
+                    requestPage={requestPage}
+                  />
+                </section>
+              )}
+            </div>
+          ) : tab === "books" ? (
+            <BookShelf server={bookServer} sources={sources} />
+          ) : (
+            <p className="dim">{t(`coming.${tab}`)}</p>
+          )}
+        </main>
+      </div>
+    </CiteProvider>
   );
 }
+
+const NO_SOURCES: Ruleset["sources"] = [];

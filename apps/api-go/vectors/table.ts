@@ -348,7 +348,7 @@ const STATE = {
       title: "",
       startedAt: "2026-10-01T09:00:00.000Z",
       endedAt: "2026-10-01T12:00:00.000Z",
-      recap: "They met.",
+      recap: `They met @[Hidden one](${U(500)}) and @[Shown](${U(501)}).`,
       notes: "Old notes",
       abandoned: true,
     },
@@ -848,7 +848,13 @@ const CODEX = {
     entry(U(542), "party", "all", [], { kind: "faction", fields: { marks: ["a", "a"] } }),
   ],
   recaps: [
-    { sessionId: U(600), number: 2, title: "The bridge", endedAt: "2026-02-01T10:00:00.000Z", recap: "They crossed." },
+    {
+      sessionId: U(600),
+      number: 2,
+      title: "The bridge",
+      endedAt: "2026-02-01T10:00:00.000Z",
+      recap: `They crossed with @[Hidden one](${U(500)}) and @[Shown](${U(501)}).`,
+    },
     { sessionId: U(601), number: 1, title: "", endedAt: "2026-01-01T10:00:00.000Z", recap: "They met." },
   ],
   latestBegin: { id: U(610), sceneId: U(540), revealed: [U(541)] },

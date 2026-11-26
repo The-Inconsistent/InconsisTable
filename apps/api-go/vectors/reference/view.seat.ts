@@ -204,9 +204,15 @@ export function seatView({
   }
   const codex = seatEntryLinks({ codex: seatCodex({ codex: fielded, ctx, sight }), ruleset });
   const state = seatState({ state: snapshot.state, compiled, ctx, sight });
+  const seen = new Set(codex.entries.map((e) => e.id));
   return {
     state: {
       ...state,
+      // The journal's recaps read like the codex's (house decision #136).
+      journal:
+        sight.secrets || sight.codex
+          ? state.journal
+          : state.journal.map((s) => ({ ...s, recap: hideMentions({ body: s.recap, canSee: (id) => seen.has(id) }) })),
       myDraft,
       pools,
       clocks: seatClocks({ clocks: state.clocks, codex, sight }),
@@ -511,7 +517,11 @@ function seatCodex({ codex, ctx, sight }: { codex: Codex; ctx: Ctx; sight: Sight
   // A link or a parent reaches a seat only when both its ends do: an id is never a way to learn a hidden entry exists.
   const ids = new Set(seen.map((e) => e.id));
   return {
-    recaps: codex.recaps,
+    // A recap's mentions are hidden like an entry body's (house decision #136).
+    recaps:
+      sight.secrets || sight.codex
+        ? codex.recaps
+        : codex.recaps.map((r) => ({ ...r, recap: hideMentions({ body: r.recap, canSee: (id) => ids.has(id) }) })),
     latestBegin: sight.secrets || sight.codex ? codex.latestBegin : null,
     entries: seen.map((e) => ({
       ...e,

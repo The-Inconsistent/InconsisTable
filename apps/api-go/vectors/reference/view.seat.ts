@@ -344,9 +344,10 @@ const seatWhispers = ({
   });
 };
 
-// The spotlight a seat receives (house decision #139): the codex and secrets sides get it whole. Anyone else gets none for
-// an entry its codex lacks, and of a listed audience only the characters it holds, none when that leaves none: no phone
-// learns who else was named, and the screen gets only one shown to everyone.
+// The spotlight a seat receives (house decision #139): the codex and secrets sides get it whole, and so, without a GM, does
+// a seat that may reveal (it sends SHOW, so it needs the bar and CLEAR). Anyone else gets none for an entry its codex
+// lacks, and of a listed audience only the characters it holds, none when that leaves none: no phone learns who else
+// was named, and the screen gets only one shown to everyone.
 const seatSpotlight = ({
   spotlight,
   seen,
@@ -359,6 +360,7 @@ const seatSpotlight = ({
   sight: Sight;
 }): Spotlight | null => {
   if (!spotlight || sight.secrets || sight.codex) return spotlight;
+  if (ctx.tableMode !== "gm" && canInCampaign({ ctx, perm: "codex:reveal" })) return spotlight;
   if (!seen.has(spotlight.entryId)) return null;
   if (spotlight.audience.length === 0) return spotlight;
   const held = heldBy(ctx);

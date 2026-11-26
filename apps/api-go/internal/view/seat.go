@@ -195,10 +195,11 @@ func writeSeer(whole, seat cs.LiveState, codex cs.Codex, compiled *engine.Compil
 }
 
 // The spotlight a seat receives (view.seat.ts seatSpotlight, house decision #139): the codex and secrets sides get it
-// whole. Anyone else gets none for an entry its codex lacks, and of a listed audience only the characters it holds,
-// none when that leaves none: no phone learns who else was named, and the screen gets only one shown to everyone.
+// whole, and so, without a GM, does a seat that may reveal (it sends SHOW, so it needs the bar and CLEAR). Anyone else
+// gets none for an entry its codex lacks, and of a listed audience only the characters it holds, none when that leaves
+// none: no phone learns who else was named, and the screen gets only one shown to everyone.
 func seatSpotlight(s *cs.Spotlight, codex cs.Codex, c cs.Ctx, sight Sight) *cs.Spotlight {
-	if s == nil || sight.Secrets || sight.Codex {
+	if s == nil || sight.Secrets || sight.Codex || (!c.HasGM() && cs.CanInCampaign(c, "codex:reveal", "")) {
 		return s
 	}
 	if !slices.ContainsFunc(codex.Entries, func(e cs.CodexEntry) bool { return e.ID == s.EntryID }) {

@@ -119,3 +119,31 @@ func TestShowRefusesWhatIsNotThisRooms(t *testing.T) {
 		}
 	})
 }
+
+func TestSealingTheShownEntryTakesTheCardDown(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		room := dbtest.NewRoom(t, tx)
+		npc := run(t, tx, room, Save, save("npc", "Keeper", nil))
+		other := run(t, tx, room, Save, save("npc", "Guard", nil))
+
+		// Sealed by codex.reveal to the GM: a later reveal must not pop it up again unasked.
+		run(t, tx, room, ShowSpotlight, show(npc))
+		run(t, tx, room, Reveal, cs.Action{"type": "codex.reveal", "id": other, "visibility": "gm", "audienceMode": "all", "audience": []any{}})
+		if s := spotlightOf(t, tx, room); s == nil {
+			t.Fatal("sealing another entry leaves the card up")
+		}
+		run(t, tx, room, Reveal, cs.Action{"type": "codex.reveal", "id": npc, "visibility": "gm", "audienceMode": "all", "audience": []any{}})
+		if s := spotlightOf(t, tx, room); s != nil {
+			t.Fatalf("sealed by reveal: %+v", s)
+		}
+
+		// Sealed by taking back the scene.begin that revealed it.
+		scene := run(t, tx, room, Save, save("scene", "Scene", reveals(npc)))
+		id, _ := begin(t, tx, room, scene)
+		run(t, tx, room, ShowSpotlight, show(npc))
+		run(t, tx, room, UndoBegin, undo(id))
+		if s := spotlightOf(t, tx, room); s != nil {
+			t.Fatalf("sealed by undoing the begin: %+v", s)
+		}
+	})
+}

@@ -917,6 +917,15 @@ test("a spotlight reaches the codex side whole; anyone else only on an entry it 
   assert.equal(shown(listed, screen), null);
   // On an entry a seat does not read: none, whoever it is for.
   for (const c of [lyra, kael, screen]) assert.equal(shown(hidden, c), null);
+  // Without a GM a player that may reveal sends SHOW, so it gets it whole (its bar and CLEAR); the TV still gets none.
+  const gmless = (spotlight: Spotlight, c: Ctx) =>
+    seatView({
+      snapshot: { ...snapshot, state: { ...state, spotlight, campaign: { ...state.campaign, tableMode: "gmless" } } },
+      compiled,
+      ctx: c,
+    }).state.spotlight;
+  assert.deepEqual(gmless({ ...listed, audience: ["kael"] }, lyra), { ...listed, audience: ["kael"] });
+  assert.equal(gmless(listed, screen), null);
 });
 
 test("the journal reaches the seats that run the room, the notes the session side; a player gets neither", () => {

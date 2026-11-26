@@ -225,7 +225,14 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
         </nav>
       )}
       <main className="page">
-        {lastTime && !lastTimeDismissed() && <RecapCard recap={lastTime} onDismiss={handleDismissLastTime} />}
+        {lastTime && !lastTimeDismissed() && (
+          <RecapCard
+            recap={lastTime}
+            entries={codex?.entries ?? []}
+            onPeek={setPeekId}
+            onDismiss={handleDismissLastTime}
+          />
+        )}
         <TurnBanner encounter={state.encounter} held={held} />
         <DoneButton encounter={state.encounter} held={held} send={send} />
         <TestPrompt state={state} send={send} />

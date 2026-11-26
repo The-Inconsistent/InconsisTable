@@ -74,7 +74,9 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
             .join(" · ")}
         </p>
         {/* "Last time...": while a session runs and no fight has started. */}
-        {state.session && !state.encounter && codex?.recaps[0] && <RecapCard recap={codex.recaps[0]} />}
+        {state.session && !state.encounter && codex?.recaps[0] && (
+          <RecapCard recap={codex.recaps[0]} entries={codex.entries} />
+        )}
         <PoolsView pools={state.pools} />
         <ClocksView clocks={state.clocks} />
         <RollsView rolls={state.rolls} />

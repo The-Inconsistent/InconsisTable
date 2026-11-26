@@ -252,6 +252,9 @@ type (
 		Pools []PoolState `json:"pools"`
 		// Whispers are this session's, newest first (house decision #93); each seat the ones to a character it holds.
 		Whispers []Whisper `json:"whispers"`
+		// History is the running session's logged actions, newest first (house decision #133): the side that may undo
+		// them, cut to the writes the seat sees; absent for everyone else and when there is none.
+		History []HistoryLine `json:"history,omitempty"`
 	}
 	// Whisper is the GM's private line to chosen characters (house decision #93), with each reader's reply and read mark.
 	Whisper struct {
@@ -333,6 +336,15 @@ type (
 		Undone  bool            `json:"undone"`
 		Strike  *FightLogStrike `json:"strike,omitempty"`
 		Writes  []FightLogWrite `json:"writes"`
+	}
+	// HistoryLine is one logged action of the running session, for HISTORY (house decision #133): when it was taken,
+	// whether it stands undone, the strike it was, and its writes as logged.
+	HistoryLine struct {
+		ID     string          `json:"id"`
+		At     string          `json:"at"`
+		Undone bool            `json:"undone"`
+		Strike *FightLogStrike `json:"strike,omitempty"`
+		Writes []FightLogWrite `json:"writes"`
 	}
 	// HP is a combatant's health numbers.
 	HP struct {

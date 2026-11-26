@@ -726,6 +726,85 @@ const STATE = {
       readers: [{ actorId: PAL, reply: null, repliedAt: null, readAt: null }],
     },
   ],
+  // HISTORY (house decision #133): the combat side's, each action cut to the writes of values the seat sees.
+  history: [
+    {
+      id: U(960),
+      at: "2026-11-01T10:05:00.000Z",
+      undone: false,
+      strike: {
+        strikeId: "blow",
+        attackerId: GOB,
+        targetId: PC1,
+        means: null,
+        total: 6,
+        outcome: "wounded",
+        wounds: 4,
+        shock: 0,
+      },
+      writes: [{ target: { actorId: PC1, resource: "hp" }, kind: "add", before: 9, after: 5 }],
+    },
+    {
+      id: U(961),
+      at: "2026-11-01T10:04:00.000Z",
+      undone: true,
+      writes: [
+        { target: { actorId: PC1, field: "secret" }, kind: "set", before: "a", after: "b" },
+        { target: { actorId: PC1, field: "diary" }, kind: "set", before: "a", after: "b" },
+        { target: { actorId: PC2, field: "diary" }, kind: "set", before: "a", after: "b" },
+        { target: { actorId: GOB, resource: "hp" }, kind: "add", before: 7, after: 4 },
+        { target: { actorId: PC1, resource: "menace" }, kind: "add", before: 2, after: 3 },
+      ],
+    },
+    {
+      id: U(962),
+      at: "2026-11-01T10:03:00.000Z",
+      undone: false,
+      writes: [
+        { target: { pool: "menace" }, kind: "add", before: 1, after: 2 },
+        { target: { pool: "luck" }, kind: "add", before: 1, after: 2 },
+        { target: { clock: U(701) }, kind: "add", before: 3, after: 4 },
+        { target: { clock: U(700) }, kind: "add", before: 1, after: 2 },
+      ],
+    },
+    {
+      id: U(963),
+      at: "2026-11-01T10:02:00.000Z",
+      undone: false,
+      writes: [
+        {
+          target: { actorId: PC1, condition: U(990) },
+          kind: "set",
+          before: null,
+          after: { conditionId: "dazed", stacks: 1, source: "", expiresOn: "roundEnd", expiresAfter: 2 },
+        },
+        {
+          target: { actorId: PC2, condition: U(991) },
+          kind: "set",
+          before: { conditionId: "unknownCondition", stacks: 1, source: "", expiresOn: "manual", expiresAfter: null },
+          after: null,
+        },
+      ],
+    },
+    {
+      id: U(964),
+      at: "2026-11-01T10:01:00.000Z",
+      undone: false,
+      writes: [
+        { target: { turn: "currentId" }, kind: "set", before: null, after: CB1 },
+        { target: { test: "k" }, kind: "set", before: null, after: 1 },
+        { target: { item: U(992) }, kind: "set", before: null, after: { name: "Rope" } },
+        { target: { entry: U(500) }, kind: "create", before: true, after: null },
+        { target: { entry: U(501) }, kind: "create", before: true, after: null },
+      ],
+    },
+    {
+      id: U(965),
+      at: "2026-11-01T10:00:00.000Z",
+      undone: false,
+      writes: [{ target: { actorId: GHOST, field: "secret" }, kind: "set", before: null, after: 1 }],
+    },
+  ],
 };
 
 const entry = (
@@ -1177,7 +1256,8 @@ const VALID: Record<string, Record<string, unknown>> = {
   "condition.add": { actorId: ID, condition: "dazed", source: "x", expiresAfter: 2 },
   "condition.remove": { actorId: ID, condition: "dazed" },
   "actor.rest": { event: "longRest", actorId: ID },
-  "event.undo": {},
+  "event.undo": { actionId: ID },
+  "event.redo": { actionId: ID },
   "event.turnBack": {},
   "encounter.start": {},
   "encounter.end": {},

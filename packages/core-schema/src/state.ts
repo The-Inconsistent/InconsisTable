@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Encounter, Game } from "./encounter.ts";
+import { Encounter, FightLogLine, Game } from "./encounter.ts";
 import { ScenePrep, SceneStatus } from "./prep.ts";
 import { CogmScope, MemberRole, TableMode } from "./seat.ts";
 import { TestCall, TestDef } from "./test-call.ts";
@@ -331,6 +331,13 @@ export const Whisper = z.object({
 });
 export type Whisper = z.infer<typeof Whisper>;
 
+/**
+ * One logged action of the running session, for HISTORY (house decision #133): when it was taken, whether it stands
+ * undone (until a redo), the strike it was and its writes as logged. The fight's log line without its round and turn.
+ */
+export const HistoryLine = FightLogLine.omit({ round: true, actorId: true }).extend({ at: z.string() });
+export type HistoryLine = z.infer<typeof HistoryLine>;
+
 export const LiveState = z.object({
   campaign: z.object({
     id: z.string(),
@@ -390,6 +397,9 @@ export const LiveState = z.object({
   // This session's whispers, newest first (house decision #93): the side that runs the session gets every one; a seat
   // the ones to a character it holds, with only those readers; anyone else none.
   whispers: z.array(Whisper),
+  // The running session's logged actions, newest first, at most 100 (house decision #133): the side that may undo them,
+  // cut to the writes the seat sees; absent for everyone else and when there is none.
+  history: z.array(HistoryLine).optional(),
 });
 export type LiveState = z.infer<typeof LiveState>;
 

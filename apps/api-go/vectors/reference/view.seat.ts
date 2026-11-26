@@ -11,6 +11,7 @@ import {
   type DealtRow,
   type Encounter,
   type HeldRecord,
+  type HistoryLine,
   type RollRow,
   type LiveState,
   type PoolState,
@@ -205,6 +206,7 @@ export function seatView({
   const codex = seatEntryLinks({ codex: seatCodex({ codex: fielded, ctx, sight }), ruleset });
   const state = seatState({ state: snapshot.state, compiled, ctx, sight });
   const seen = new Set(codex.entries.map((e) => e.id));
+  const clocks = seatClocks({ clocks: state.clocks, codex, sight });
   return {
     state: {
       ...state,
@@ -215,15 +217,97 @@ export function seatView({
           : state.journal.map((s) => ({ ...s, recap: hideMentions({ body: s.recap, canSee: (id) => seen.has(id) }) })),
       myDraft,
       pools,
-      clocks: seatClocks({ clocks: state.clocks, codex, sight }),
+      clocks,
       ...seatRequests({ requests: state.requests, answers: state.requestAnswers, ctx, sight, ruleset, pools }),
       ...seatTables({ rolls: state.rolls, dealt: state.dealt, ctx, sight }),
       whispers: seatWhispers({ whispers: state.whispers, ctx, sight }),
+      history: seatHistory({ whole: snapshot.state, pools, clocks, codex, compiled, ctx, sight }),
     },
     codex,
     manifest,
     packVisibilities,
   };
+}
+
+/**
+ * HISTORY as one seat receives it (house decision #133): the side that may undo (the combat side, as Undo is
+ * `encounter:run`), and of each action only the writes of values the seat sees: an actor's field, resource or condition
+ * by the ruleset's visibility as that seat sees that actor; a pool, a clock or a codex entry it is sent; the turn; a
+ * Test's value to the session side or a table without a GM. An item row and anything else stay home (fail-closed). An
+ * action left with no write and no strike is dropped; with none left the key is absent.
+ */
+function seatHistory({
+  whole,
+  pools,
+  clocks,
+  codex,
+  compiled,
+  ctx,
+  sight,
+}: {
+  whole: LiveState;
+  pools: readonly PoolState[];
+  clocks: readonly Clock[];
+  codex: Codex;
+  compiled: CompiledRuleset | null;
+  ctx: Ctx;
+  sight: Sight;
+}): HistoryLine[] | undefined {
+  if (!sight.combat || whole.history === undefined || whole.history.length === 0) return undefined;
+  const actors = new Map(whole.actors.map((a) => [a.id, a]));
+  const seat: Viewer = {
+    role: ctx.seat.kind === "token" && ctx.seat.role === "screen" ? "screen" : "player",
+    characterIds: heldBy(ctx),
+  };
+  const conditionOf = (w: HistoryLine["writes"][number]) =>
+    [w.after, w.before].flatMap((v) =>
+      typeof v === "object" && v !== null && "conditionId" in v && typeof v.conditionId === "string"
+        ? [v.conditionId]
+        : [],
+    )[0];
+  const sees = (w: HistoryLine["writes"][number]): boolean => {
+    const t = w.target;
+    if (t.actorId !== undefined && t.actorId !== "") {
+      const a = actors.get(t.actorId);
+      if (a === undefined || compiled === null) return false;
+      const viewer = actorGmSide({ ctx, kind: a.kind }) ? GM_VIEWER : seat;
+      // The write as one value of the actor, through the one filter every actor value goes through.
+      const condition = conditionOf(w);
+      const value = t.resource
+        ? { resources: { [t.resource]: 0 } }
+        : t.field
+          ? { fields: { [t.field]: null } }
+          : t.condition && condition !== undefined
+            ? { conditions: [condition] }
+            : null;
+      if (value === null) return false;
+      const probe: ActorView = {
+        id: a.id,
+        entity: a.entity,
+        fields: {},
+        resources: {},
+        derived: {},
+        conditions: [],
+        ...value,
+      };
+      const [seen] = toViewerView({ compiled, viewer, actors: [probe] }).actors;
+      return (
+        seen !== undefined &&
+        Object.keys(seen.resources).length + Object.keys(seen.fields).length + seen.conditions.length > 0
+      );
+    }
+    if (t.pool) return pools.some((p) => p.id === t.pool);
+    if (t.clock) return clocks.some((k) => k.id === t.clock);
+    if (t.entry) return codex.entries.some((e) => e.id === t.entry);
+    if (t.turn) return true;
+    if (t.test) return sight.session || sight.tableRun;
+    return false;
+  };
+  const history = whole.history.flatMap((line) => {
+    const cut = { ...line, writes: line.writes.filter(sees) };
+    return cut.writes.length > 0 || cut.strike !== undefined ? [cut] : [];
+  });
+  return history.length > 0 ? history : undefined;
 }
 
 // The whispers a seat receives (house decision #93): the side that runs the session with a GM (the one that sends them)

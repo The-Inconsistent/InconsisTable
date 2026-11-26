@@ -277,6 +277,12 @@ export const REFUSALS = {
   undoGone: "Can't undo: {target} is gone.",
   undoChanged:
     "Can't undo: {target} changed after this step (now {now}, the step left {left}). Undo the later steps first.",
+  alreadyUndone: "That step is already undone.",
+  undoLaterFirst: "Can't undo: a later step changed {target}. Undo that step first.",
+  nothingToRedo: "Nothing to redo: that step is not undone.",
+  redoLaterFirst: "Can't redo: a later step changed {target}. Undo that step first.",
+  cantRedoKind: "Can't redo a step that made codex entries: undo deleted them.",
+  requestAnsweredSince: "Can't redo: the ask it approved was answered or withdrawn since.",
   // Session Zero
   safetyListFull: "That list is full.",
   xcardOff: "The X-Card is off at this table.",

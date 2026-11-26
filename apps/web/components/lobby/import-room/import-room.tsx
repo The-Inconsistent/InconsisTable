@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type ChangeEvent } from "react";
 
-import { ActorKind, CodexKind, type RoomImportExpect } from "@inconsistable/core-schema";
+import { ActorKind, CodexKind, ROOM_LIMITS, type RoomImportExpect } from "@inconsistable/core-schema";
 
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { importRoom, type RoomImport } from "@/lib/room-import/room-import";
@@ -38,12 +38,16 @@ export function ImportRoom() {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const [fresh, setFresh] = useState(false);
+  const [tooLarge, setTooLarge] = useState(false);
 
   // The dry run of a file, as a fresh start or not (house decision #103).
   const check = async (picked: File | null, asFresh: boolean) => {
     setResult(null);
     setFailed(false);
+    setTooLarge(false);
     if (!picked) return;
+    // The api refuses a document over its cap; say so before sending it (Auspex P126).
+    if (picked.size > ROOM_LIMITS.bytes) return setTooLarge(true);
     setBusy(true);
     try {
       setResult(await importRoom({ file: picked, dryRun: true, fresh: asFresh }));
@@ -139,6 +143,11 @@ export function ImportRoom() {
             )}
           </p>
         </div>
+      )}
+      {tooLarge && (
+        <p className="error" role="alert">
+          {t("tooLarge")}
+        </p>
       )}
       {failed && (
         <p className="error" role="alert">

@@ -324,6 +324,7 @@
     }
   },
   "importAdventure": {
+    "unserved": "{count, plural, one {# entry came from a pack entry this room is not served and was made without it.} other {# entries came from pack entries this room is not served and were made without them.}}",
     "open": "Import adventure",
     "tooLarge": "That file is over 100 MB. Export it again without pictures.",
     "notADocument": "That file is not a room document.",
@@ -344,6 +345,7 @@
     "pictureFailed": "A picture did not upload."
   },
   "importRoom": {
+    "tooLarge": "That file is over 100 MB. Export it again without pictures.",
     "title": "Import a room",
     "lede": "A room document becomes a new room you own and run as GM. Players join it by invite, as in any room.",
     "file": "Room document (.json)",

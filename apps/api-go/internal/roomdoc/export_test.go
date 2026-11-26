@@ -343,6 +343,35 @@ func TestAnExportLeavesNothingDangling(t *testing.T) {
 	}
 }
 
+// A temporary creature is not exported (#232): it would come back as a permanent actor, and what named it (an audience,
+// a Test line's takers) is dropped as a reference to an actor the room no longer holds, so the document still imports.
+func TestAnExportLeavesTemporaryActorsOut(t *testing.T) {
+	db := dbtest.Open(t)
+	v := load(t)
+	owner := library(t, db, v)
+	room := imported(t, db, owner, v.document(t, "d20"), Options{})
+	if _, err := db.Exec(context.Background(), `UPDATE actor SET temporary = true WHERE campaign_id = $1 AND name = 'Mara'`, room); err != nil {
+		t.Fatal(err)
+	}
+	e := exported(t, db, room, true)
+	for _, a := range doc(e).list("actors") {
+		if a["name"] == "Mara" {
+			t.Errorf("a temporary actor was exported: %v", a)
+		}
+	}
+	copied := imported(t, db, owner, e, Options{})
+	var n int
+	_ = db.QueryRow(context.Background(), `SELECT count(*) FROM actor WHERE campaign_id = $1 AND name = 'Mara'`, copied).Scan(&n)
+	if n != 0 {
+		t.Errorf("Mara came back: %d", n)
+	}
+	var visibility string
+	_ = db.QueryRow(context.Background(), `SELECT visibility FROM codex_entry WHERE campaign_id = $1 AND title = 'Notice'`, copied).Scan(&visibility)
+	if visibility != "gm" {
+		t.Errorf("an entry listed only for Mara: %q", visibility)
+	}
+}
+
 // A fresh start (house decision #103): no sessions, nothing revealed, scenes planned and picks off, every resource and
 // pool at its start, no conditions, no next session or safety lines; builds, fields, held records, items and where an
 // entry came from stay.

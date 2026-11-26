@@ -240,11 +240,22 @@ type expect struct {
 
 // actorList is every actor of the room in the order it was made: a built one with its build and the fields its build
 // does not write, a typed one with its type and fields, each with its resources, conditions, items and spawn options.
+// A temporary creature is left out: it lives only as long as its fight, which does not travel, and the import would
+// make it permanent; whatever refers to it is then dropped as a reference to an actor the room no longer holds.
 func (ex *exporter) actorList() ([]any, error) {
-	rows, err := actor.LoadRows(ex.ctx, ex.conn, ex.id)
+	all, err := actor.LoadRows(ex.ctx, ex.conn, ex.id)
 	if err != nil {
 		return nil, err
 	}
+	tempRows, err := ex.conn.Query(ex.ctx, `SELECT id::text FROM actor WHERE campaign_id = $1 AND temporary`, ex.id)
+	if err != nil {
+		return nil, err
+	}
+	temporary, err := pgx.CollectRows(tempRows, pgx.RowTo[string])
+	if err != nil {
+		return nil, err
+	}
+	rows := slices.DeleteFunc(all, func(r actor.Rows) bool { return slices.Contains(temporary, r.Actor.ID) })
 	var campaign map[string]any
 	if ex.rules != nil {
 		if campaign, err = actor.LoadCampaign(ex.ctx, ex.conn, ex.id, ex.rules); err != nil {
@@ -416,6 +427,11 @@ func (ex *exporter) codex(entries []cs.CodexEntry, pictures bool) []any {
 			}
 			slices.Sort(audience)
 			x["audience"] = audience
+			// Every listed reader is gone (deleted, or a temporary creature left out): nobody but the GM side reads it, and
+			// the import refuses a listed entry with nobody to show it to.
+			if e.AudienceMode == "listed" && len(audience) == 0 {
+				x["visibility"] = "gm"
+			}
 		}
 		if e.ParentID != nil {
 			x["parentId"] = *e.ParentID

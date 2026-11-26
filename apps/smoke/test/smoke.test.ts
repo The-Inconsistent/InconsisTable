@@ -29,6 +29,7 @@ import {
   SAMPLE_HARM_GROWTHS,
 } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import {
+  SAMPLE_ANNALS,
   SAMPLE_ATLAS,
   SAMPLE_PACK,
   SAMPLE_PACK_EFFECTS,
@@ -1884,7 +1885,7 @@ test("a confirmed generator run makes a place with its chambers; a forged one is
   type Generators = { generators?: unknown[] };
   const generatorsOf = async (c: ReturnType<typeof caller>) =>
     ((await c.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset?.manifest as Generators).generators;
-  assert.equal((await generatorsOf(me))?.length, 1);
+  assert.equal((await generatorsOf(me))?.length, 2);
   assert.equal(await generatorsOf(caller(anaDevice)), undefined);
 
   // The second shape: one roll, one flat entry.
@@ -1985,6 +1986,96 @@ test("entries made from pack entries: a place with the ones inside it, a scene w
   ok(await owner.send({ type: "event.undo" }));
   await eventually(() => made.ids!.every((id) => entryOf(owner, id) === undefined), "the places undone");
   for (const c of [owner, ana]) c.socket.close();
+});
+
+test("a faction's marks from a list, a scene's per-Test inputs, a danger's check from a hazard and a shrine's joined story; their refusals (#177 to #179)", async () => {
+  const ownerDevice = await device("fl-owner");
+  const me = caller(ownerDevice);
+  // Each new key is refused at its path when it names what does not fit.
+  const bad = structuredClone(SAMPLE_D20) as unknown as {
+    codex: { kinds: Record<string, Record<string, unknown>> };
+    generators: { make: { fields?: Record<string, unknown> } }[];
+  };
+  bad.codex.kinds.faction!.from = [{ entity: "house", values: { standing: "marks" } }];
+  bad.codex.kinds.npc!.titleRoll = { tables: ["forename"], per: { field: "kin", tables: { dwarf: ["forename"] } } };
+  bad.codex.kinds.scene!.poolLines = [{ entity: "omen", pool: "hp", amount: "cost" }];
+  bad.generators[1]!.make.fields = { story: ["origin", "nope"] };
+  const refusal = await me.post<PackReply>("/rulesets", bad);
+  assert.equal(refusal.status, 422);
+  assert.deepEqual(
+    refusal.body.problems?.map((p) => `${p.path}: ${p.message}`).sort(),
+    [
+      'codex.kinds.faction.from[0].values.standing: "marks" does not fit the field',
+      'codex.kinds.npc.titleRoll.per.tables.dwarf: "dwarf" is not a value',
+      'codex.kinds.scene.poolLines[0].pool: "hp" must be a shared pool',
+      'generators[1].make.fields.story: "nope" is not a step',
+    ],
+  );
+
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const packs = [await me.post<PackReply>("/packs", SAMPLE_PACK), await me.post<PackReply>("/packs", SAMPLE_ANNALS)];
+  assert.equal(packs[1]!.status, 201, JSON.stringify(packs[1]!.body));
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Fl", rulesetVersionId: rs.body.versionId })
+  ).body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  for (const pk of packs) ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const entryOf = (id: string) => owner.codex()?.entries.find((e) => e.id === id);
+
+  const house = ok(
+    await owner.send({ type: "codex.fromPack", kind: "faction", entity: "house", key: "house-reed" }),
+  ).id!;
+  await eventually(() => entryOf(house) !== undefined, "the faction");
+  assert.deepEqual(entryOf(house)?.fields, { marks: ["Reedfolk", "Boatwrights"] });
+
+  const adventure = ok(await owner.send({ type: "codex.save", kind: "adventure", title: "The ferry" })).id!;
+  const scene = ok(
+    await owner.send({
+      type: "codex.fromPack",
+      kind: "scene",
+      entity: "incident",
+      key: "ferry-raid",
+      parentId: adventure,
+    }),
+  ).id!;
+  await eventually(() => entryOf(scene)?.prep !== undefined, "the scene");
+  assert.deepEqual(
+    entryOf(scene)?.prep?.tests.map((l) => [l.testId, l.inputs]),
+    [["check", { dc: 14, ability: "dex" }]],
+  );
+
+  // A danger's row as the editor fills it from the hazard: its Test is the hazard's.
+  const place = ok(
+    await owner.send({
+      type: "codex.save",
+      kind: "location",
+      title: "Scree slope",
+      fields: {
+        dangers: [
+          {
+            id: "d1",
+            from: { entity: "hazard", key: "loose-scree" },
+            values: { name: "Loose Scree", threat: 3, check: { testId: "check", inputs: {} } },
+          },
+        ],
+      },
+    }),
+  ).id!;
+  await eventually(() => entryOf(place) !== undefined, "the place");
+
+  const shrine = ok(
+    await owner.send({
+      type: "codex.generate",
+      generatorId: "shrine",
+      values: { origin: { rows: ["built", "monks"] }, keeper: { key: "ember-wisp" } },
+      each: [],
+    }),
+  ).id!;
+  await eventually(() => entryOf(shrine) !== undefined, "the shrine");
+  assert.equal(entryOf(shrine)?.title, "Built warren Warren of the monks");
+  assert.deepEqual(entryOf(shrine)?.fields, { story: "Built warren Warren of the monks Ember Wisp" });
+  owner.socket.close();
 });
 
 test("a handout has a layout and a header, read by its player; the room's World offers and names its layouts", async () => {

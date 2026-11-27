@@ -62,8 +62,13 @@
   --marker-white: rgb(244 241 234);
   --focus-halo: light-dark(var(--halo-light), var(--halo-dark));
 
-  /* plates: the buttons. Wood plates on wood, light plates on parchment, brass for the main action */
-  --plate: linear-gradient(180deg, var(--wood-3), var(--wood-2));
+  /* plates: the buttons. Wood plates on wood, light plates on parchment, brass for the main action. The plate follows
+     the surface's set, so a light app page (the admin console, the lobby) has light plates under its dark ink (#235). */
+  --plate: linear-gradient(
+    180deg,
+    light-dark(var(--parchment-hi), var(--wood-3)),
+    light-dark(var(--parchment-2), var(--wood-2))
+  );
   --plate-line: var(--brass-lo);
   --plate-shade: rgb(0 0 0 / 0.5);
   --plate-lit: rgb(255 215 150 / 0.22);
@@ -73,6 +78,10 @@
   /* shape */
   --radius-btn: 7px;
   --radius-card: 2px;
+  /* the rounding of a framed box (a well, a tile, a notice): small, middle, large; a World's square corners set all three */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --edge: polygon(
     0 3px,
     9% 0,

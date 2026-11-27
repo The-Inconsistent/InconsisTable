@@ -35,6 +35,7 @@ import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { EndNotice } from "@/components/ui/end-notice/end-notice";
 import { GameResult } from "@/components/ui/game-result/game-result";
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
+import { StatBlock } from "@/components/ui/stat-block/stat-block";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { harmPadOf } from "@/lib/harm/harm";
 import { afterAnswer, afterSelect, refusalAt, type Refusal } from "@/lib/refusal/refusal";
@@ -284,23 +285,25 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
       {!encounter && state.games[0] && <GameResult game={state.games[0]} onCorrect={handleCorrect} />}
       {sheet.ruleset && sheetActor && (
         <BottomSheet title={t("sheetOf", { name: sheetActor.name })} onClose={() => setSheetOf(null)}>
-          <SheetView
-            key={sheetActor.id}
-            actor={sheetActor}
-            ruleset={sheet.ruleset}
-            characters={characters}
-            campaign={state.campaign.fields}
-            gm={canInCampaign({ ctx: me, perm: gmPermOf(sheetActor.kind) })}
-            send={send}
-            books={sheet.books}
-            campaignId={state.campaign.id}
-            requestPage={sheet.requestPage}
-            builderHref={
-              gmSideOf({ me, kind: sheetActor.kind })
-                ? `/c/${state.campaign.id}/build/${sheetActor.id}?step=advance`
-                : null
-            }
-          />
+          <StatBlock actor={sheetActor} named>
+            <SheetView
+              key={sheetActor.id}
+              actor={sheetActor}
+              ruleset={sheet.ruleset}
+              characters={characters}
+              campaign={state.campaign.fields}
+              gm={canInCampaign({ ctx: me, perm: gmPermOf(sheetActor.kind) })}
+              send={send}
+              books={sheet.books}
+              campaignId={state.campaign.id}
+              requestPage={sheet.requestPage}
+              builderHref={
+                gmSideOf({ me, kind: sheetActor.kind })
+                  ? `/c/${state.campaign.id}/build/${sheetActor.id}?step=advance`
+                  : null
+              }
+            />
+          </StatBlock>
         </BottomSheet>
       )}
       {testFor && (

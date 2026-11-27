@@ -104,6 +104,10 @@ export const WORLD_SHAPES = {
   gmSeal: ["none", "crest", "skull"],
   /** The header row of a sheet's grid and card list: the page's ink, or the band (house decision #206). */
   tableHead: ["plain", "band"],
+  /** A creature's stat block: the sheet's cards, or printed (a crest, a title bar, ragged section bands; house decision #219). */
+  statBlock: ["plain", "printed"],
+  /** The GM's chapters: tabs along the top, or a rail down the right edge on a wide screen (house decision #220). */
+  gmNav: ["tabs", "rail"],
 } as const;
 export type WorldShape = keyof typeof WORLD_SHAPES;
 
@@ -153,6 +157,8 @@ export const WorldTheme = z.object({
       readout: shape("readout"),
       gmSeal: shape("gmSeal"),
       tableHead: shape("tableHead"),
+      statBlock: shape("statBlock"),
+      gmNav: shape("gmNav"),
     })
     .default({}),
 });

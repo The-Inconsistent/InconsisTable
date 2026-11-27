@@ -9,6 +9,7 @@ import { PanelView } from "@/components/player/panel-view/panel-view";
 import { SpendList } from "@/components/sheet/components/spend-ask/components/spend-list/spend-list";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { OrderView } from "@/components/ui/order-view/order-view";
+import { StatBlock } from "@/components/ui/stat-block/stat-block";
 import { StrikeGuide } from "@/components/ui/strike-guide/strike-guide";
 import { ValueCells } from "@/components/ui/value-cells/value-cells";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
@@ -101,15 +102,17 @@ export function FightTab(props: FightTabProps) {
   const card = (c: Combatant) => {
     const actor = c.visibility === "full" ? state.actors.find((a) => a.id === c.actorId) : undefined;
     return actor && ruleset ? (
-      <SheetView
-        actor={actor}
-        ruleset={ruleset}
-        characters={characters}
-        campaign={state.campaign.fields}
-        gm={false}
-        readOnly
-        {...{ send, books, requestPage }}
-      />
+      <StatBlock actor={actor}>
+        <SheetView
+          actor={actor}
+          ruleset={ruleset}
+          characters={characters}
+          campaign={state.campaign.fields}
+          gm={false}
+          readOnly
+          {...{ send, books, requestPage }}
+        />
+      </StatBlock>
     ) : (
       <p className="small dim">{t("foeHidden")}</p>
     );

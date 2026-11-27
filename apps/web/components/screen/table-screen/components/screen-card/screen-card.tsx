@@ -7,6 +7,7 @@ import type { LayoutRow, Ruleset } from "@inconsistable/rules-engine";
 import { SheetWidget } from "@/components/sheet/widgets/sheet-widget/sheet-widget";
 import type { WidgetEnv } from "@/components/sheet/widgets/types";
 import { ResourceRow } from "@/components/ui/resource-row/resource-row";
+import { showsStatBlock } from "@/components/ui/stat-block/stat-block";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { partsOf, printValue, type SheetRow } from "@/lib/sheet/sheet";
 
@@ -67,9 +68,15 @@ export function ScreenCard({ actor, ruleset, rows, range, send, requestPage }: S
     still: true,
   };
 
+  // A creature the GM shows in full is a stat block (house decision #219): its name heads it as the block's title.
+  const block = showsStatBlock(actor.kind);
   return (
-    <section className="stack sheet-card screen-card" aria-label={actor.name} data-kind={actor.kind}>
-      <h2 className="head">{actor.name}</h2>
+    <section
+      className={block ? "stack sheet-card screen-card stat-block" : "stack sheet-card screen-card"}
+      aria-label={actor.name}
+      data-kind={actor.kind}
+    >
+      <h2 className={block ? "head stat-title" : "head"}>{actor.name}</h2>
       {parts.map((p, i) =>
         p.kind === "rows" ? (
           <div key={i} className="sheet-rows">

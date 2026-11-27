@@ -44,6 +44,8 @@ var (
 		{"readout", []string{"plain", "slate"}},
 		{"gmSeal", []string{"none", "crest", "skull"}},
 		{"tableHead", []string{"plain", "band"}},
+		{"statBlock", []string{"plain", "printed"}},
+		{"gmNav", []string{"tabs", "rail"}},
 	}
 	// HandoutLayouts is HANDOUT_LAYOUTS: the handout layouts the platform draws (house decision #72). The codex entry's
 	// `layout` is one of them (coreschema), so the two lists are this one.

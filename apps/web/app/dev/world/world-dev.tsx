@@ -16,6 +16,7 @@ import {
 import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
 import { HandoutDoc } from "@/components/ui/handout-doc/handout-doc";
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
+import { StatBlock } from "@/components/ui/stat-block/stat-block";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import { SAMPLE_WORLDS, type SampleWorld } from "@/lib/world/sample";
 import { worldLook, worldStyle } from "@/lib/world/world";
@@ -65,7 +66,7 @@ export function WorldDev() {
   return (
     <div {...look.attributes}>
       <style>{worldStyle(look)}</style>
-      <div className="surface-table" data-density={density === "tv" ? "tv" : undefined}>
+      <div className="surface-table gm-shell" data-density={density === "tv" ? "tv" : undefined}>
         <header className="band">
           <strong>{t("title")}</strong>
           <span className="row">
@@ -73,7 +74,7 @@ export function WorldDev() {
             <ThemeSwitch />
           </span>
         </header>
-        <nav className="tabs" role="tablist" aria-label={t("tabs")}>
+        <nav className="tabs gm-tabs" role="tablist" aria-label={t("tabs")}>
           <button type="button" className="tab" role="tab" aria-selected="true">
             {t("tab.fight")}
           </button>
@@ -303,6 +304,26 @@ export function WorldDev() {
             {t("gmOnly")}
             <textarea rows={2} defaultValue={t("gmOnlyText")} />
           </label>
+
+          <StatBlock actor={{ name: t("names.second"), kind: "creature" }}>
+            <div className="stack sheet">
+              <section className="stack sheet-card">
+                <h2 className="head">{t("section.abilities")}</h2>
+                <div className="sheet-rows">
+                  <div className="sheet-row" data-stat="defence">
+                    <span className="stat-label">{t("stat.defence")}</span>
+                    <span className="sheet-num">16</span>
+                  </div>
+                  <div className="sheet-row">
+                    <span className="stat-label">{t("stat.speed")}</span>
+                    <span className="sheet-num">25</span>
+                  </div>
+                </div>
+                <h3 className="w-label">{t("section.grid")}</h3>
+                <p>{t("cardText")}</p>
+              </section>
+            </div>
+          </StatBlock>
 
           <section className="stack" aria-label={t("buttons")}>
             <h2 className="head">{t("buttons")}</h2>

@@ -19,6 +19,8 @@ const BASE_ATTRIBUTES = {
   "data-readout": "plain",
   "data-gm-seal": "none",
   "data-table-head": "plain",
+  "data-stat-block": "plain",
+  "data-gm-nav": "tabs",
 };
 
 test("light handout paper: the light set's palette, resolved, on a paper handout in either set; not its semantic names", () => {

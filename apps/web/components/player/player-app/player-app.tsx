@@ -462,6 +462,8 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
               >
                 {label}
                 {live && <span className="tab-live" aria-hidden="true" />}
+                {/* The hook for a World's stamp (house decision #221): once a World's terms exist (#159), a term such as
+                    `stamp.new` (Auspex's "+++ HANDOUT +++") is the word this mark announces; today it is the count. */}
                 {fresh > 0 && (
                   <span className="tab-count" aria-hidden="true">
                     {fresh}

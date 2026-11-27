@@ -26,6 +26,7 @@ import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d
 import {
   SAMPLE_HARM,
   SAMPLE_HARM_ARMS,
+  SAMPLE_HARM_FIXINGS,
   SAMPLE_HARM_GROWTHS,
 } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import {
@@ -6240,6 +6241,8 @@ test("strikes: a typed total lands on a creature and on a swarm as the strike gi
       { ...HARM_PACK.entries[0]!, body: { hide: 3, arms: ["claw"] } },
       { ...HARM_PACK.entries[1]!, body: { arms: ["claw"] } },
       ...SAMPLE_HARM_ARMS,
+      // A fixing whose effects change its host's Traits (house decision #198): the pack check takes them.
+      ...SAMPLE_HARM_FIXINGS,
     ],
   });
   assert.deepEqual([rs.status, pk.status], [201, 201]);

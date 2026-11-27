@@ -147,7 +147,7 @@ test("options are grouped, summarised, and the ones the holder cannot use sink w
   );
   const armed = { ...hero({}), items: [{ kind: "carried", entry: "maul", tags: ["heavy"] }] } as unknown as Actor;
   const carried = panelScope({ ruleset: HARM, actor: armed, table: NO_FIGHT, characters: 2 });
-  assert.deepEqual((carried.ctx as { carried: unknown }).carried, { carried: ["maul", "heavy"] });
+  assert.deepEqual((carried.ctx as { carried: unknown }).carried, { fixings: [], carried: ["maul", "heavy"] });
   assert.ok(
     optionGroups({
       ruleset: HARM,

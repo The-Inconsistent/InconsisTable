@@ -810,7 +810,7 @@ export const SAMPLE_HARM_0_1_13: RulesetInput = {
  * 0.1.14 (house decision #191): a growth may ask for more rolls on its table and bring arms the hero then carries.
  * 0.1.13 hashes as it did. Invented.
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_0_1_14: RulesetInput = {
   ...SAMPLE_HARM_0_1_13,
   version: "0.1.14",
   entities: SAMPLE_HARM_0_1_13.entities.map((e) =>
@@ -829,6 +829,46 @@ export const SAMPLE_HARM: RulesetInput = {
     growth: { ...SAMPLE_HARM_0_1_13.held!.growth!, extraRolls: "more", gear: { field: "arms", kind: "carried" } },
   },
 };
+
+/**
+ * 0.1.15 (house decision #198): an arm tagged `fixing` is fitted to a carried arm, one to an arm, and changes its traits,
+ * which the blow reads. 0.1.14 hashes as it did. Invented.
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_0_1_14,
+  version: "0.1.15",
+  items: {
+    kinds: [
+      {
+        id: "fixings",
+        label: "Fixings",
+        entry: "arm",
+        tag: "fixing",
+        entities: ["hero"],
+        fits: { to: ["carried"], max: 1 },
+        cite: "Sample p.17",
+      },
+      ...SAMPLE_HARM_0_1_14.items!.kinds,
+    ],
+  },
+};
+
+/** Fixings for SAMPLE_HARM 0.1.15 (house decision #198): Spikes make an arm Brutal and take its Light off. */
+export const SAMPLE_HARM_FIXINGS = [
+  {
+    key: "spikes",
+    type: "arm",
+    name: "Spikes",
+    tags: ["fixing"],
+    cite: "Sample p.17",
+    visibility: "gm" as const,
+    body: {},
+    effects: [
+      { path: "host.trait.Brutal", mode: "upgrade", value: "0", phase: "base" },
+      { path: "host.trait.Light", mode: "override", value: "0", phase: "base" },
+    ],
+  },
+];
 
 /**
  * Arms for SAMPLE_HARM (house decision #99): what a blow reads of the means it is struck with, and since 0.1.5 its

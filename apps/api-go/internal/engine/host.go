@@ -2,7 +2,10 @@ package engine
 
 import (
 	"maps"
+	"math"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -15,9 +18,15 @@ var CardValues = map[string][]string{"weapons": {"damage", "ed", "ap", "salvo"},
 // HostPrefix starts the path of an effect on the host's card.
 const HostPrefix = "host."
 
-// HostValuesOf is the host values a fitting of entry type typ may change: the card values of every kind its kinds fit
-// to.
-func HostValuesOf(b *ItemsBlock, typ string) []string {
+// TraitPrefix, after HostPrefix, starts a fitting's change to a Trait of its host (house decision #198; manifest.ts
+// TRAIT_PREFIX, TRAIT_CARDS and TRAIT_NAME): the Trait's word, with no bracket or comma. Weapons and armour carry Traits.
+const TraitPrefix = "trait."
+
+var traitCards = []string{"weapons", "armour"}
+var traitName = regexp.MustCompile(`^[^\t\n\r (),]([^\t\n\r(),]{0,38}[^\t\n\r (),])?$`)
+
+// hostCardsOf is the `cards` variants of every kind the kinds of entry type typ fit to.
+func hostCardsOf(b *ItemsBlock, typ string) []string {
 	if b == nil {
 		return nil
 	}
@@ -29,14 +38,29 @@ func HostValuesOf(b *ItemsBlock, typ string) []string {
 	}
 	for _, k := range b.Kinds {
 		if slices.Contains(hosts, k.ID) && k.Card != nil {
-			for _, v := range CardValues[*k.Card] {
-				if !slices.Contains(out, v) {
-					out = append(out, v)
-				}
+			out = append(out, *k.Card)
+		}
+	}
+	return out
+}
+
+// HostValuesOf is the host values a fitting of entry type typ may change: the card values of every kind its kinds fit
+// to.
+func HostValuesOf(b *ItemsBlock, typ string) []string {
+	var out []string
+	for _, card := range hostCardsOf(b, typ) {
+		for _, v := range CardValues[card] {
+			if !slices.Contains(out, v) {
+				out = append(out, v)
 			}
 		}
 	}
 	return out
+}
+
+// hostTakesTraits is whether a fitting of entry type typ fits to a kind whose card carries Traits.
+func hostTakesTraits(b *ItemsBlock, typ string) bool {
+	return slices.ContainsFunc(hostCardsOf(b, typ), func(c string) bool { return slices.Contains(traitCards, c) })
 }
 
 // CardKind is the kind a line of the saved build counts as when an item is fitted to it (house decision #102): the
@@ -58,7 +82,13 @@ func (b *ItemsBlock) CardKind(card, entity string) *ItemKind {
 // that reads nothing. It never changes the actor, so it compiles to no actor effect.
 func (c *compiler) hostEffect(eff *Effect, typ, path string) {
 	name := strings.TrimPrefix(eff.Path, HostPrefix)
+	trait, isTrait := strings.CutPrefix(name, TraitPrefix)
 	switch {
+	case isTrait && (!traitName.MatchString(trait) || !hostTakesTraits(c.r.Items, typ)):
+		c.problems.add(path+".path", `"%s" is not a Trait of a host's card`, eff.Path)
+	case isTrait && eff.Mode != "upgrade" && eff.Mode != "add" && eff.Mode != "override":
+		c.problems.add(path+".mode", "a host's Trait is gained (upgrade), re-rated (add) or set")
+	case isTrait:
 	case !slices.Contains(HostValuesOf(c.r.Items, typ), name):
 		c.problems.add(path+".path", `"%s" is not a value of a host's card`, eff.Path)
 	case eff.Mode != "add" && eff.Mode != "override":
@@ -90,7 +120,7 @@ func WithFittings(values map[string]float64, fitted []Fitted) (map[string]float6
 		changed := false
 		for _, eff := range item.Effects {
 			name, ok := strings.CutPrefix(eff.Path, HostPrefix)
-			if !ok {
+			if !ok || strings.HasPrefix(name, TraitPrefix) { // a Trait: fittedTraits
 				continue
 			}
 			v, refusal := read(eff.Value, &Record{map[string]any{}}, eff.Path)
@@ -134,7 +164,126 @@ func WithFittedCard(card map[string]any, fitted []Fitted) (map[string]any, []str
 			out[k] = v + 0 // a negated 0 reads as 0, as JSON writes it
 		}
 	}
-	return out, by
+	traits, traitsBy := fittedTraits(card, fitted)
+	if traits != nil {
+		list := make([]any, len(traits))
+		for i, t := range traits {
+			list[i] = t
+		}
+		out["traits"] = list
+	}
+	names := []string{}
+	for _, f := range fitted {
+		if (slices.Contains(by, f.Name) || slices.Contains(traitsBy, f.Name)) && !slices.Contains(names, f.Name) {
+			names = append(names, f.Name)
+		}
+	}
+	return out, names
+}
+
+// traitList is acquire.ts traitList: a card's Traits, an array's words or a text's comma-separated words.
+func traitList(v any) []string {
+	out := []string{}
+	switch x := v.(type) {
+	case []any:
+		for _, t := range x {
+			if s, ok := t.(string); ok {
+				out = append(out, s)
+			}
+		}
+	case []string:
+		out = append(out, x...)
+	case string:
+		for _, t := range strings.Split(x, ",") {
+			if t = strings.TrimSpace(t); t != "" {
+				out = append(out, t)
+			}
+		}
+	}
+	return out
+}
+
+var traitRating = regexp.MustCompile(`\((\d{1,3})\)`)
+
+func traitKey(t string) string {
+	name, _, _ := strings.Cut(t, "(")
+	return strings.ToLower(strings.TrimSpace(name))
+}
+
+func ratingOf(t string) float64 {
+	m := traitRating.FindStringSubmatch(t)
+	if m == nil {
+		return 0
+	}
+	n, _ := strconv.ParseFloat(m[1], 64)
+	return n
+}
+
+// rated is a Trait as the card prints it, "Name (rating)" or the bare name, its rating at most 999.
+func rated(name string, rating float64) string {
+	if rating <= 0 {
+		return name
+	}
+	return name + " (" + strconv.FormatFloat(min(999, rating), 'f', -1, 64) + ")"
+}
+
+// fittedTraits is acquire.ts fittedTraits (house decision #198): the card's Traits with each fitted item's
+// `host.trait.<name>` effects in order, and the items that changed one; nil when none did.
+func fittedTraits(card map[string]any, fitted []Fitted) ([]string, []string) {
+	var list []string
+	by := []string{}
+	for _, item := range fitted {
+		for _, eff := range item.Effects {
+			name, ok := strings.CutPrefix(eff.Path, HostPrefix+TraitPrefix)
+			if !ok {
+				continue
+			}
+			v, refusal := read(eff.Value, &Record{map[string]any{}}, eff.Path)
+			n, isNumber := v.(float64)
+			if refusal != nil || !isNumber || n != math.Trunc(n) || !traitName.MatchString(name) {
+				continue
+			}
+			traits := list
+			if traits == nil {
+				traits = traitList(card["traits"])
+			}
+			key := strings.ToLower(name)
+			at := slices.IndexFunc(traits, func(t string) bool { return traitKey(t) == key })
+			had := 0.0
+			if at >= 0 {
+				had = ratingOf(traits[at])
+			}
+			set := func(rating float64) []string {
+				out := slices.Clone(traits)
+				out[at] = rated(name, rating)
+				return out
+			}
+			switch {
+			case eff.Mode == "upgrade" && at < 0:
+				list = append(slices.Clone(traits), rated(name, n))
+			case eff.Mode == "upgrade" && n > 0:
+				list = set(max(had, n))
+			case eff.Mode == "upgrade", eff.Mode == "add" && at < 0:
+				continue // no rating to raise, or no rating to move: nothing changes
+			case eff.Mode == "add" && had+n <= 0:
+				list = slices.Delete(slices.Clone(traits), at, at+1)
+			case eff.Mode == "add":
+				list = set(had + n)
+			case eff.Mode == "override" && n <= 0:
+				list = slices.DeleteFunc(slices.Clone(traits), func(t string) bool { return traitKey(t) == key })
+			case eff.Mode == "override" && at < 0:
+				list = append(slices.Clone(traits), rated(name, n))
+			case eff.Mode == "override":
+				list = set(n)
+			default:
+				continue
+			}
+			if !slices.Contains(by, item.Name) {
+				by = append(by, item.Name)
+			}
+		}
+	}
+	return list, by
 }
 
 func isFloat(v any) bool {

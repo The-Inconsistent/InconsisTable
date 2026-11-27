@@ -4,7 +4,11 @@ import { test } from "node:test";
 import type { Actor } from "@inconsistable/core-schema";
 import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
-import { SAMPLE_HARM, SAMPLE_HARM_ARMS } from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
+import {
+  SAMPLE_HARM,
+  SAMPLE_HARM_ARMS,
+  SAMPLE_HARM_FIXINGS,
+} from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import {
   entryTypesOf,
   isPlan,
@@ -160,6 +164,19 @@ test("a held weapon strikes as its card shows it: its profile over the entry, wi
   const [maul, club] = meansOf({ ruleset, strike: lined, actor: holder, entries });
   assert.equal(maul?.values.damage, 6);
   assert.equal(club?.values.damage, 1);
+});
+
+test("a fitting's Traits reach the strike that reads them: Spikes make a sling Brutal and take its Light off (#198)", () => {
+  const spikes = SAMPLE_HARM_FIXINGS[0]!;
+  const holder = {
+    ...hal,
+    items: [
+      { id: "i1", kind: "carried", entry: "sling", name: "Sling" },
+      { id: "i2", kind: "fixings", entry: "spikes", name: "Spikes", fittedTo: "i1", effects: spikes.effects },
+    ] as unknown as NonNullable<Actor["items"]>,
+  };
+  const sling = meansOf({ ruleset, strike: blow, actor: holder, entries }).find((m) => m.ref === "i1");
+  assert.deepEqual(meansTexts({ strike: blow, means: sling }), ["Far", "Brutal"]);
 });
 
 test("a means' text values are shown beside it, and the further numbers come with the plan", () => {

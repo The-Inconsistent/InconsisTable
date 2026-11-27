@@ -1287,6 +1287,10 @@ function fittingVectors() {
     { ar: 2, name: "Coat" },
     { damage: 2.5, salvo: 2, close: true },
     {},
+    // Traits (house decision #198): rated, unrated, comma text, a rating past three digits, a word in another case.
+    { name: "Gun", damage: 5, traits: ["Rapid Fire (2)", "Heavy", "Spread (12)", "Odd (1234)", 7] },
+    { name: "Sling", traits: "Far, Light ,, keen (1)" },
+    { name: "Suit", ar: 4, traits: ["Bulky (1)"] },
   ];
   const effects = [
     { path: "host.damage", mode: "add", value: "1" },
@@ -1301,6 +1305,20 @@ function fittingVectors() {
     { path: "host.damage", mode: "add", value: "true" },
     { path: "host.damage", mode: "add", value: "1 +" },
     { path: "host.damage", mode: "add", value: "nope.x" },
+    { path: "host.trait.Keen", mode: "upgrade", value: "0" },
+    { path: "host.trait.keen", mode: "upgrade", value: "2" },
+    { path: "host.trait.Rapid Fire", mode: "add", value: "-1" },
+    { path: "host.trait.Rapid Fire", mode: "add", value: "1" },
+    { path: "host.trait.Heavy", mode: "override", value: "0" },
+    { path: "host.trait.Bulky", mode: "override", value: "3" },
+    { path: "host.trait.Brutal", mode: "upgrade", value: "1" },
+    { path: "host.trait.Brutal", mode: "add", value: "-2" },
+    { path: "host.trait.Spread", mode: "add", value: "990" },
+    { path: "host.trait.Odd", mode: "upgrade", value: "5" },
+    { path: "host.trait.Light", mode: "multiply", value: "2" },
+    { path: "host.trait.Light", mode: "upgrade", value: "1.5" },
+    { path: "host.trait.(x)", mode: "upgrade", value: "1" },
+    { path: "host.trait.Far", mode: "override", value: "true" },
   ];
   const cases: unknown[] = [];
   for (let i = 0; i < 300; i++) {
@@ -4566,6 +4584,16 @@ function ledgerPackVectors() {
       { path: "host.damage", mode: "add", value: "armourRating" },
       { path: "host.damage", mode: "add", value: "1", when: "true" },
       { path: "host.damage", mode: "add", value: "1", when: "1" },
+      // A Trait of the host (house decision #198): a word with no bracket or comma, gained, re-rated or set.
+      { path: "host.trait.Keen", mode: "upgrade", value: "1" },
+      { path: "host.trait.Rapid Fire", mode: "add", value: "-1" },
+      { path: "host.trait.Heavy", mode: "override", value: "0" },
+      { path: "host.trait.Heavy", mode: "multiply", value: "2" },
+      { path: "host.trait.Heavy (2)", mode: "upgrade", value: "1" },
+      { path: "host.trait. Heavy", mode: "upgrade", value: "1" },
+      { path: "host.trait.", mode: "upgrade", value: "1" },
+      { path: "host.trait.Keen", mode: "upgrade", value: "armourRating" },
+      { path: "host.trait.Keen", mode: "upgrade", value: "1", when: "true" },
     ].map((eff) => (p: Mutable) => (at(p, "wargear.sight-lens").effects = [eff])),
     (p) => (at(p, "wargear.lantern-staff").effects = [{ path: "host.damage", mode: "add", value: "1" }]),
   ];

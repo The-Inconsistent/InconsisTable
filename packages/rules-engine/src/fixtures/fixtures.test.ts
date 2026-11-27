@@ -31,6 +31,7 @@ import {
   SAMPLE_HARM_0_1_11,
   SAMPLE_HARM_0_1_12,
   SAMPLE_HARM_0_1_13,
+  SAMPLE_HARM_0_1_14,
   SAMPLE_HARM_BEFORE_GENERATORS,
   SAMPLE_HARM_BEFORE_HELD,
   SAMPLE_HARM_BEFORE_OWNER,
@@ -67,7 +68,7 @@ const PINNED: Record<string, string> = {
   "sample-pool@0.1.4": "20a6d1b8a8d6031a0d3abfab5e5ceaade06eed14c7748e8226b4b1a68e35e182",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
-  "sample-harm@0.1.14": "5a3e0d7554c41a4fb5d05aa0b85243b924d4de1f29eca644fa79d1cc7aed2fb8",
+  "sample-harm@0.1.15": "1c0c90b4e8122dc797d1c6b750e4dcc6656d5c85ffbd74c9424a1ff49a12b125",
   "sample-duel@0.1.2": "906d7745550475b5fccd07ec48bec073a7db8ad4c1908da63bd3fab06493f614",
 };
 const PINNED_BEFORE_LOOKUPS = "60f2e297678d64e1fc72e4a9598943476c49c1e23c3c8dd5c4df500cc28fae7c";
@@ -192,6 +193,15 @@ test("a ruleset without a record's extras, a pool-capped stepper or the players'
     assert.ok(result.ok, `${fixture.id}@${fixture.version} compiles`);
     assert.equal(sha256Hex(canonicalJson(result.compiled.ruleset)), pinned);
   }
+});
+
+test("a ruleset without a fixing kind hashes as before it (house decision #198)", () => {
+  const result = compileRuleset(SAMPLE_HARM_0_1_14);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "5a3e0d7554c41a4fb5d05aa0b85243b924d4de1f29eca644fa79d1cc7aed2fb8",
+  );
 });
 
 test("a ruleset without upper-cased write-ins hashes as before them (house decision #197)", () => {

@@ -6074,6 +6074,13 @@ test("room document: exported by its owner, imported back as the same room, and 
   const res = await get(`/campaigns/${campaignId}/export`, headers);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-disposition"), 'attachment; filename="harbour-watch.room.json"');
+  // What it carries and leaves out (#232): its picture, nothing of a pack the room is no longer served.
+  assert.deepEqual(JSON.parse(res.headers.get("x-room-export") ?? "null"), {
+    pictures: 1,
+    packs: 0,
+    items: 0,
+    sources: 0,
+  });
   const exported = (await res.json()) as RoomDocumentInput;
   assert.equal(exported.images?.length, 1);
   assert.equal(exported.codex?.length, 10);
@@ -6091,7 +6098,15 @@ test("room document: exported by its owner, imported back as the same room, and 
   const copy = connect({ auth: { campaignId: again.body.campaignId!, cookie: ownerDevice } });
   const s = await copy.until((x) => x.actors.some((a) => a.name === "Mara"));
   assert.equal(s.actors.find((a) => a.name === "Mara")!.resources.hp, 8);
-  assert.equal(s.journal.length, 2);
+  assert.equal(s.actors.find((a) => a.name === "Bram")!.status, "retired", "a retired character stays retired (#232)");
+  assert.deepEqual(
+    s.journal.map((j) => [j.startedAt, j.endedAt]),
+    [
+      ["2026-03-01T18:00:00.000Z", "2026-03-01T22:00:00.000Z"],
+      ["2026-02-20T18:00:00.000Z", "2026-02-20T21:30:00.000Z"],
+    ],
+    "each session keeps when it was played (#232)",
+  );
   await eventually(() => copy.codex()?.entries.length === 10, "every entry comes back");
   const entry = (title: string) => copy.codex()!.entries.find((e) => e.title === title)!;
   assert.equal(entry("Quay").parentId, entry("Harbour town").id);

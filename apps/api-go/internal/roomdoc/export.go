@@ -2,6 +2,7 @@ package roomdoc
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -24,9 +25,9 @@ import (
 
 // The export (house decision #103) writes a room as the document Import reads, so that importing it gives an equal
 // room. Its ids are the room's own row ids, which are UUIDs as the document's must be. What the document has no place
-// for (a running fight, seats, drafts, a session's dates) stays behind; a reference to something the room no longer
-// holds (a mention, a prepared line, a link field naming a deleted entry or character) is left out, since the import
-// refuses one that dangles.
+// for (a running fight, seats, drafts) stays behind; a reference to something the room no longer holds (a mention, a
+// prepared line, a link field naming a deleted entry or character) is left out, since the import refuses one that
+// dangles, and so is what names a pack the room is no longer served (#232), counted in the export's Report.
 
 // ErrTooLarge is a document over the import's body cap: the room's pictures make it larger than an import takes.
 var ErrTooLarge = cs.Fail("roomExportTooLarge")
@@ -37,39 +38,74 @@ type picture struct {
 	size     int
 }
 
-// Write writes the room's document to w. With pictures false it carries none, and no entry names one. The pictures
-// are written last, one at a time, so a room of large pictures is never held whole in memory. A document the import
-// would refuse for its size is refused before anything is written.
-func Write(ctx context.Context, conn core.Conn, w io.Writer, campaignID string, pictures bool) error {
-	d, shown, err := exportRoom(ctx, conn, campaignID, pictures)
+// Report is what an export says of itself (#232, the `X-Room-Export` header; RoomExportReport in core-schema): the
+// pictures it carries, the packs the room is no longer served that it leaves out of `expects`, the items of such packs
+// it writes as hand-written lines, and the entries whose pack entry (`source`) it leaves out.
+type Report struct {
+	Pictures int `json:"pictures"`
+	Packs    int `json:"packs"`
+	Items    int `json:"items"`
+	Sources  int `json:"sources"`
+}
+
+// prepared is a document read and known to fit, its pictures still to be written.
+type prepared struct {
+	campaignID string
+	pictures   bool
+	head       []byte
+	shown      []picture
+	Report     Report
+}
+
+// prepare reads the room's document. A document the import would refuse for its size is refused here, before anything
+// is written.
+func prepare(ctx context.Context, conn core.Conn, campaignID string, pictures bool) (*prepared, error) {
+	d, shown, report, err := exportRoom(ctx, conn, campaignID, pictures)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	head, err := json.Marshal(d)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	total := len(head)
 	for _, p := range shown {
 		total += base64.StdEncoding.EncodedLen(p.size) + 120
 	}
 	if total > cs.RoomMaxBytes {
-		return ErrTooLarge
+		return nil, ErrTooLarge
 	}
-	if !pictures {
-		_, err = w.Write(head)
+	report.Pictures = len(shown)
+	return &prepared{campaignID: campaignID, pictures: pictures, head: head, shown: shown, Report: report}, nil
+}
+
+// Write writes the room's document to w. With pictures false it carries none, and no entry names one.
+func Write(ctx context.Context, conn core.Conn, w io.Writer, campaignID string, pictures bool) error {
+	p, err := prepare(ctx, conn, campaignID, pictures)
+	if err != nil {
+		return err
+	}
+	return p.write(ctx, conn, w)
+}
+
+// write writes the document. The pictures are written last, one at a time, so a room of large pictures is never held
+// whole in memory.
+func (p *prepared) write(ctx context.Context, conn core.Conn, w io.Writer) error {
+	head, shown, campaignID := p.head, p.shown, p.campaignID
+	if !p.pictures {
+		_, err := w.Write(head)
 		return err
 	}
 	// The document without its last brace, then its pictures.
 	if _, err := w.Write(append(head[:len(head)-1], []byte(`,"images":[`)...)); err != nil {
 		return err
 	}
-	for i, p := range shown {
+	for i, pic := range shown {
 		var data []byte
-		if err := conn.QueryRow(ctx, `SELECT bytes FROM image WHERE id = $1 AND campaign_id = $2`, p.id, campaignID).Scan(&data); err != nil {
+		if err := conn.QueryRow(ctx, `SELECT bytes FROM image WHERE id = $1 AND campaign_id = $2`, pic.id, campaignID).Scan(&data); err != nil {
 			return err
 		}
-		meta, _ := json.Marshal(map[string]string{"id": p.id, "mime": p.mime})
+		meta, _ := json.Marshal(map[string]string{"id": pic.id, "mime": pic.mime})
 		if i > 0 {
 			meta = append([]byte(","), meta...)
 		}
@@ -88,7 +124,7 @@ func Write(ctx context.Context, conn core.Conn, w io.Writer, campaignID string, 
 			return err
 		}
 	}
-	_, err = w.Write([]byte("]}"))
+	_, err := w.Write([]byte("]}"))
 	return err
 }
 
@@ -114,20 +150,23 @@ type exporter struct {
 	// What the actors were built with, for the pools' bounds.
 	characters float64
 	campaign   map[string]any
+	// When it is written: a session still running ends then (#232).
+	at     time.Time
+	report Report
 }
 
 // exportRoom is the document without its pictures' bytes, and the pictures it carries in the order they are written.
-func exportRoom(ctx context.Context, conn core.Conn, campaignID string, pictures bool) (map[string]any, []picture, error) {
+func exportRoom(ctx context.Context, conn core.Conn, campaignID string, pictures bool) (map[string]any, []picture, Report, error) {
 	rules, err := compiled.Load(ctx, conn, campaignID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, Report{}, err
 	}
 	ex := &exporter{ctx: ctx, conn: conn, id: campaignID, rules: rules, entries: map[string]bool{}, actors: map[string]bool{},
-		pictureIDs: map[string]bool{}}
-	d := map[string]any{"format": cs.RoomFormat, "version": cs.RoomVersion, "exportedAt": time.Now().UTC().Format(time.RFC3339Nano)}
+		pictureIDs: map[string]bool{}, at: time.Now().UTC()}
+	d := map[string]any{"format": cs.RoomFormat, "version": cs.RoomVersion, "exportedAt": ex.at.Format(time.RFC3339Nano)}
 	room, expects, err := ex.room()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, Report{}, err
 	}
 	d["room"] = room
 	if len(expects) > 0 {
@@ -135,7 +174,7 @@ func exportRoom(ctx context.Context, conn core.Conn, campaignID string, pictures
 	}
 	entries, err := codex.Load(ctx, conn, campaignID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, Report{}, err
 	}
 	// In the order they were made: ids are uuidv7, and the entries an import makes share one time.
 	slices.SortFunc(entries.Entries, func(a, b cs.CodexEntry) int { return strings.Compare(a.ID, b.ID) })
@@ -144,13 +183,13 @@ func exportRoom(ctx context.Context, conn core.Conn, campaignID string, pictures
 	}
 	actors, err := ex.actorList()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, Report{}, err
 	}
 	if len(actors) > 0 {
 		d["actors"] = actors
 	}
 	if err := ex.values(d); err != nil {
-		return nil, nil, err
+		return nil, nil, Report{}, err
 	}
 	if list := ex.codex(entries.Entries, pictures); len(list) > 0 {
 		d["codex"] = list
@@ -158,25 +197,25 @@ func exportRoom(ctx context.Context, conn core.Conn, campaignID string, pictures
 	for key, read := range map[string]func() ([]any, error){"sessions": ex.sessions, "clocks": ex.clocks} {
 		list, err := read()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, Report{}, err
 		}
 		if len(list) > 0 {
 			d[key] = list
 		}
 	}
 	if !pictures || len(ex.pictureIDs) == 0 {
-		return d, nil, nil
+		return d, nil, ex.report, nil
 	}
 	rows, err := conn.Query(ctx, `SELECT id::text, mime, size FROM image WHERE campaign_id = $1 AND id = ANY($2::uuid[])
 		ORDER BY created_at, id`, campaignID, slices.Sorted(maps.Keys(ex.pictureIDs)))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, Report{}, err
 	}
 	shown, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (picture, error) {
 		var p picture
 		return p, r.Scan(&p.id, &p.mime, &p.size)
 	})
-	return d, shown, err
+	return d, shown, ex.report, err
 }
 
 // room is the room's name, next session and safety lines, and the versions it expects by slug, version and hash.
@@ -212,17 +251,25 @@ func (ex *exporter) room() (map[string]any, map[string]any, error) {
 	if world != nil {
 		expects["world"] = world
 	}
-	rows, err := ex.conn.Query(ex.ctx, `SELECT p.slug, v.version, v.hash FROM campaign_pack cp
-		JOIN pack_version v ON v.id = cp.pack_version_id JOIN pack p ON p.id = v.pack_id
-		WHERE cp.campaign_id = $1 ORDER BY cp.created_at, p.slug`, ex.id)
+	// A pack the room is no longer served (taken down, or private to someone who no longer runs it) is left out and
+	// counted (#232): the import could not attach it, and what was made from it is left out or written by hand below.
+	rows, err := ex.conn.Query(ex.ctx, `SELECT pack.slug, v.version, v.hash, `+actor.ServedPacks("$1")+` FROM campaign_pack
+		JOIN pack_version v ON v.id = campaign_pack.pack_version_id JOIN pack ON pack.id = v.pack_id
+		WHERE campaign_pack.campaign_id = $1 ORDER BY campaign_pack.created_at, pack.slug`, ex.id)
 	if err != nil {
 		return nil, nil, err
 	}
-	packs, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (expect, error) {
-		var e expect
-		return e, r.Scan(&e.Slug, &e.Version, &e.Hash)
-	})
-	if err != nil {
+	packs := []expect{}
+	var e expect
+	var served bool
+	if _, err := pgx.ForEachRow(rows, []any{&e.Slug, &e.Version, &e.Hash, &served}, func() error {
+		if served {
+			packs = append(packs, e)
+		} else {
+			ex.report.Packs++
+		}
+		return nil
+	}); err != nil {
 		return nil, nil, err
 	}
 	if len(packs) > 0 {
@@ -280,6 +327,24 @@ func (ex *exporter) actorList() ([]any, error) {
 	}); err != nil {
 		return nil, err
 	}
+	// Where each ledger build's next advance counts from (#232), on any actor build.ascend gave a row.
+	type advance struct {
+		xp     int
+		waived bool
+	}
+	advances := map[string]advance{}
+	advanceRows, err := ex.conn.Query(ex.ctx, `SELECT b.actor_id::text, b.xp_at_ascension, b.package_waived FROM actor_build b
+		JOIN actor a ON a.id = b.actor_id WHERE a.campaign_id = $1`, ex.id)
+	if err != nil {
+		return nil, err
+	}
+	var adv advance
+	if _, err := pgx.ForEachRow(advanceRows, []any{&buildID, &adv.xp, &adv.waived}, func() error {
+		advances[buildID] = adv
+		return nil
+	}); err != nil {
+		return nil, err
+	}
 	for _, r := range rows {
 		ex.actors[r.Actor.ID] = true
 	}
@@ -316,11 +381,20 @@ func (ex *exporter) actorList() ([]any, error) {
 			}
 		}
 		if len(r.Conditions) > 0 {
-			ids := make([]string, len(r.Conditions))
+			list := make([]any, len(r.Conditions))
 			for i, c := range r.Conditions {
-				ids[i] = c.ConditionID
+				list[i] = c.ConditionID
+				if c.Stacks > 1 {
+					list[i] = map[string]any{"id": c.ConditionID, "stacks": c.Stacks}
+				}
 			}
-			a["conditions"] = ids
+			a["conditions"] = list
+		}
+		if r.Actor.Status != "active" {
+			a["status"] = r.Actor.Status
+		}
+		if b := advances[r.Actor.ID]; b.xp != 0 || b.waived {
+			a["xpAtAscension"], a["packageWaived"] = b.xp, b.waived
 		}
 		if items := ex.items(r.Items); len(items) > 0 {
 			a["items"] = items
@@ -335,9 +409,14 @@ func (ex *exporter) items(rows []actor.ItemRow) []any {
 	out := []any{}
 	for _, x := range rows {
 		item := map[string]any{"id": x.ID, "kind": x.Kind}
-		if x.EntryKey != nil {
+		switch {
+		case x.EntryKey != nil && x.Served:
 			item["entry"] = *x.EntryKey
-		} else {
+		case x.EntryKey != nil:
+			// A pack the room is no longer served (#232): a hand-written line named by its key, as the sheet names it.
+			item["name"] = x.Label()
+			ex.report.Items++
+		default:
 			item["name"] = x.Name
 		}
 		if x.Note != "" {
@@ -464,10 +543,14 @@ func (ex *exporter) codex(entries []cs.CodexEntry, pictures bool) []any {
 		if pictures && e.ImageRevealed {
 			x["imageRevealed"] = true
 		}
-		// The pack entry it was made from (house decision #97), as stored; the import checks it is served and reads its
-		// page again.
-		if e.Source != nil {
-			x["source"] = e.Source
+		// The pack entry it was made from (house decision #97), while the room is served it; the import checks it is and
+		// reads its page again. One no longer served is left out and counted (#232).
+		if source, has := e.Source.(map[string]any); has {
+			if entity, _ := source["entity"].(string); ex.served(entity, source["key"]) {
+				x["source"] = e.Source
+			} else {
+				ex.report.Sources++
+			}
 		}
 		if e.RevealedAt != nil && e.Visibility != "gm" {
 			x["revealedAt"] = *e.RevealedAt
@@ -475,6 +558,15 @@ func (ex *exporter) codex(entries []cs.CodexEntry, pictures bool) []any {
 		out = append(out, x)
 	}
 	return out
+}
+
+// served says whether the room is served the pack entry of that type and key.
+func (ex *exporter) served(entity string, key any) bool {
+	var served bool
+	err := ex.conn.QueryRow(ex.ctx, `SELECT EXISTS (SELECT 1 FROM campaign_pack JOIN pack_version v ON v.id = campaign_pack.pack_version_id
+		JOIN pack ON pack.id = v.pack_id JOIN pack_entry e ON e.pack_version_id = v.id
+		WHERE e.type = $2 AND e.key = $3 AND `+actor.ServedPacks("$1")+`)`, ex.id, entity, key).Scan(&served)
+	return err == nil && served
 }
 
 // mentions is a text with every mention of an entry the room no longer has turned into its words.
@@ -488,15 +580,21 @@ func (ex *exporter) mentions(text string) string {
 	})
 }
 
-// fields are an entry's field values, a link field (`entry`, house decision #76) only while it names an entry here.
+// fields are an entry's field values, a link field (`entry`, house decision #76) only while it names an entry here, a
+// pack field (`ref`) only while the room is served what it names (#232, counted with the sources).
 func (ex *exporter) fields(kind string, given map[string]any) map[string]any {
 	out := maps.Clone(given)
 	if ex.rules == nil || ex.rules.Ruleset.Codex == nil {
 		return out
 	}
 	for key, def := range ex.rules.Ruleset.Codex.Kinds[kind].Fields {
-		if id, isID := out[key].(string); def.Type == "entry" && isID && !ex.entries[id] {
+		id, isID := out[key].(string)
+		switch {
+		case def.Type == "entry" && isID && !ex.entries[id]:
 			delete(out, key)
+		case def.Type == "ref" && isID && !ex.served(def.Entity, id):
+			delete(out, key)
+			ex.report.Sources++
 		}
 	}
 	return out
@@ -538,19 +636,27 @@ func (ex *exporter) prep(prep map[string]any) map[string]any {
 	return out
 }
 
-// sessions are the room's sessions in order, each with its title, recap, notes and whether it was abandoned.
+// sessions are the room's sessions in order, each with its title, recap, notes, whether it was abandoned, when it
+// started and ended, and its award (#232). One still running ends at the export's time: nothing is live in a new room.
 func (ex *exporter) sessions() ([]any, error) {
-	rows, err := ex.conn.Query(ex.ctx, `SELECT title, recap, notes, abandoned FROM session WHERE campaign_id = $1 ORDER BY number`, ex.id)
+	rows, err := ex.conn.Query(ex.ctx, `SELECT title, recap, notes, abandoned, started_at, ended_at, award FROM session
+		WHERE campaign_id = $1 ORDER BY number`, ex.id)
 	if err != nil {
 		return nil, err
 	}
 	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (any, error) {
 		var title, recap, notes string
 		var abandoned bool
-		if err := r.Scan(&title, &recap, &notes, &abandoned); err != nil {
+		var started time.Time
+		var ended *time.Time
+		var award *int
+		if err := r.Scan(&title, &recap, &notes, &abandoned, &started, &ended, &award); err != nil {
 			return nil, err
 		}
-		s := map[string]any{}
+		s := map[string]any{"startedAt": core.ISOTime(started), "endedAt": core.ISOTime(*cmp.Or(ended, &ex.at))}
+		if award != nil {
+			s["award"] = *award
+		}
 		for key, text := range map[string]string{"title": title, "recap": ex.mentions(recap), "notes": ex.mentions(notes)} {
 			if text != "" {
 				s[key] = text

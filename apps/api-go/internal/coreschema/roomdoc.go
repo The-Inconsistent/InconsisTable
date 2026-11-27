@@ -69,6 +69,9 @@ var (
 		schema.Opt("entryId", id),
 	).Strict()
 
+	// actorStatuses is ActorStatus (core-schema state.ts).
+	actorStatuses = []string{"active", "retired", "dead", "dismissed"}
+
 	roomActor = schema.RefinedSoft(schema.Object(
 		schema.Req("id", id),
 		schema.Req("kind", schema.Enum(actorKinds...)),
@@ -77,7 +80,13 @@ var (
 		schema.Opt("fields", capped(schema.Record(schema.String().Min(1).Max(120), fieldValue), roomMaxActorFields, "fields")),
 		schema.Opt("resources", capped(schema.Record(roomKey, roomAmount), roomMaxActorResources, "resources")),
 		schema.Opt("build", LedgerBuildText),
-		schema.Opt("conditions", schema.Array(roomKey).Max(roomMaxActorConditions)),
+		// A condition by id, or with its stacks (#232).
+		schema.Opt("conditions", schema.Array(schema.AnyOf(roomKey, schema.Object(
+			schema.Req("id", roomKey), schema.Req("stacks", schema.Int().Min(1).Max(100)),
+		).Strict())).Max(roomMaxActorConditions)),
+		schema.Opt("status", schema.Enum(actorStatuses...)),
+		schema.Opt("xpAtAscension", schema.Int().Min(0).Max(1_000_000)),
+		schema.Opt("packageWaived", schema.Bool()),
 		schema.Opt("items", schema.Array(roomItem).Max(roomMaxActorItems)),
 		schema.Opt("spawnOptions", spawnOptionIDs),
 	).Strict(), func(v any) bool {
@@ -116,6 +125,9 @@ var (
 		schema.Opt("recap", recap),
 		schema.Opt("notes", schema.String().Max(10_000)),
 		schema.Opt("abandoned", schema.Bool()),
+		schema.Opt("startedAt", roomDateTime),
+		schema.Opt("endedAt", roomDateTime),
+		schema.Opt("award", schema.Int().Min(0).Max(1_000_000)),
 	).Strict()
 
 	roomClock = schema.RefinedSoft(schema.Object(

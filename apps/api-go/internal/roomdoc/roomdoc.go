@@ -395,6 +395,17 @@ func (im *importer) sessions() error {
 				return err
 			}
 		}
+		// When it was played and what it awarded (#232): no action writes either, as revealedAt is kept below. A time the
+		// document leaves out stays the import's; the award is the document's, since no ruleset is pinned yet to give one.
+		var award *int
+		if n, has := s["award"].(float64); has {
+			award = new(int(n))
+		}
+		if _, err := im.tx.Exec(im.ctx, `UPDATE session SET started_at = coalesce(nullif($2, '')::timestamptz, started_at),
+			ended_at = coalesce(nullif($3, '')::timestamptz, ended_at), award = $4 WHERE id = $1`,
+			id, doc(s).str("startedAt"), doc(s).str("endedAt"), award); err != nil {
+			return err
+		}
 		im.sessionIDs = append(im.sessionIDs, id)
 	}
 	return nil
@@ -580,14 +591,66 @@ func (im *importer) actorRows() error {
 		if err := im.resources(i, a); err != nil {
 			return err
 		}
-		for j, condition := range strs(a["conditions"]) {
-			if _, err := im.run(map[string]any{"type": "condition.add", "actorId": im.actors[doc(a).str("id")], "condition": condition},
-				"actors", i, "conditions", j); err != nil {
-				return err
-			}
+		if err := im.conditions(i, a); err != nil {
+			return err
+		}
+		if err := im.standing(a); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// conditions applies each of an actor's conditions through condition.add, once for each of its stacks (#232), as the
+// table stacks one. Stacks it would not reach (a condition that does not stack, or past its most) are refused, never
+// changed in silence.
+func (im *importer) conditions(i int, a map[string]any) error {
+	id := im.actors[doc(a).str("id")]
+	list, _ := a["conditions"].([]any)
+	for j, c := range list {
+		condition, stacks := "", 1.0
+		switch c := c.(type) {
+		case string:
+			condition = c
+		case map[string]any:
+			condition, _ = c["id"].(string)
+			stacks, _ = c["stacks"].(float64)
+		}
+		for range int(stacks) {
+			if _, err := im.run(map[string]any{"type": "condition.add", "actorId": id, "condition": condition}, "actors", i, "conditions", j); err != nil {
+				return err
+			}
+		}
+		var got float64
+		if err := im.tx.QueryRow(im.ctx, `SELECT coalesce(max(stacks), 0) FROM actor_condition WHERE actor_id = $1 AND condition_id = $2`,
+			id, condition).Scan(&got); err != nil {
+			return err
+		}
+		if got != stacks {
+			return problem("roomValueClamped", cs.Params{"now": got, "value": stacks}, "actors", i, "conditions", j)
+		}
+	}
+	return nil
+}
+
+// standing is what no action writes of an actor (#232): its status (a character whose seat went is retired) and where
+// its ledger build's next advance counts from, as build.ascend leaves them.
+func (im *importer) standing(a map[string]any) error {
+	id := im.actors[doc(a).str("id")]
+	if status := doc(a).str("status"); status != "" {
+		if _, err := im.tx.Exec(im.ctx, `UPDATE actor SET status = $2 WHERE id = $1`, id, status); err != nil {
+			return err
+		}
+	}
+	xp, hasXP := a["xpAtAscension"].(float64)
+	waived, _ := a["packageWaived"].(bool)
+	if !hasXP && !waived {
+		return nil
+	}
+	_, err := im.tx.Exec(im.ctx, `INSERT INTO actor_build (actor_id, xp_at_ascension, package_waived) VALUES ($1, $2, $3)
+		ON CONFLICT (actor_id) DO UPDATE SET xp_at_ascension = EXCLUDED.xp_at_ascension, package_waived = EXCLUDED.package_waived`,
+		id, int(xp), waived)
+	return err
 }
 
 // spawnOptions keeps the spawn options a spawned actor was made with (house decision #92): each one the ruleset declares

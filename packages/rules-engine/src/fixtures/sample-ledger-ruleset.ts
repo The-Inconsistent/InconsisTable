@@ -291,7 +291,7 @@ export const SAMPLE_LEDGER_RULESET_0_1_5: RulesetInput = {
  * the roll; fittings also go on kit, in a slot of their own there, name the keywords their host carries one of, take
  * more than one copy where the entry says so, and a free one counts toward neither the two nor the slots.
  */
-export const SAMPLE_LEDGER_RULESET: RulesetInput = {
+export const SAMPLE_LEDGER_RULESET_0_1_6: RulesetInput = {
   ...SAMPLE_LEDGER_RULESET_0_1_5,
   version: "0.1.6",
   entities: SAMPLE_LEDGER_RULESET_0_1_5.entities.map((e) =>
@@ -341,5 +341,30 @@ export const SAMPLE_LEDGER_RULESET: RulesetInput = {
       inputs: { ...SAMPLE_LEDGER_PROCURE.inputs, rare: "bool" },
       inputLabels: { ...SAMPLE_LEDGER_PROCURE.inputLabels, rare: "Rare" },
     },
+  },
+};
+
+/**
+ * 0.1.7 (house decision #199): a hero may also be made by hand, on the GM side, from a step that sets what its Guard
+ * reads; the ledger build stays the path a new hero takes first. A build over a hand-made sheet keeps the better armour
+ * and merges the keywords, a copy kept, besides the wealth it kept before.
+ */
+export const SAMPLE_LEDGER_RULESET: RulesetInput = {
+  ...SAMPLE_LEDGER_RULESET_0_1_6,
+  version: "0.1.7",
+  creation: [
+    {
+      id: "byHand",
+      actor: "hero",
+      kind: "fields",
+      label: "By hand",
+      fields: ["species", "armourRating", "mod.guard"],
+      cite: "Base p.12",
+    },
+  ],
+  build: {
+    ...SAMPLE_LEDGER_RULESET_0_1_6.build!,
+    first: "build",
+    keep: { fields: [], resources: ["wealth"], greater: ["armourRating"], merge: ["keywords"] },
   },
 };

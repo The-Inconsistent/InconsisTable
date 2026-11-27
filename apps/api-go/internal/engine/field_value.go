@@ -19,6 +19,9 @@ const (
 	int4Max          = 2_147_483_647
 )
 
+// MaxListItems is the server's ceiling on a list field's items.
+const MaxListItems = maxListItems
+
 // A field value as a pack body or a builder answer carries it. Null (unset) is not allowed: omit the field.
 var fieldValueInput = schema.AnyOf(
 	schema.Number(int4Min, int4Max),

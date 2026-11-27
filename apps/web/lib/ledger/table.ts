@@ -14,6 +14,7 @@ import {
   compileRuleset,
   healthStatesOf,
   type BuildCatalogue,
+  type CreationPath,
   type LedgerCreation,
   type LedgerWargear,
   type Ruleset,
@@ -29,9 +30,26 @@ import { rankOf, toSpend, type AscensionMember } from "./play";
 
 type Ledgered = Pick<Actor, "entity" | "ledger" | "fields">;
 
-/** The ledger builder builds a character that is untyped or of the type the ruleset's `build` names. */
-export const usesLedger = ({ ruleset, actor }: { ruleset: Ruleset | null; actor: Pick<Actor, "entity"> }) =>
-  ruleset?.build !== undefined && (actor.entity === "" || actor.entity === ruleset.build.actor);
+/** Whether creation steps also make the type the ledger builds, so the GM side may make one by hand (house decision #199). */
+export const madeBothWays = (ruleset: Ruleset | null) =>
+  ruleset?.build !== undefined && ruleset.creation.some((s) => s.actor === ruleset.build?.actor);
+
+/**
+ * The ledger builder builds a character that is untyped or of the type the ruleset's `build` names, unless the GM side
+ * picked the steps for a type both make (house decision #199).
+ */
+export const usesLedger = ({
+  ruleset,
+  actor,
+  path = "build",
+}: {
+  ruleset: Ruleset | null;
+  actor: Pick<Actor, "entity">;
+  path?: CreationPath;
+}) =>
+  ruleset?.build !== undefined &&
+  (actor.entity === "" || actor.entity === ruleset.build.actor) &&
+  !(path === "steps" && madeBothWays(ruleset));
 
 /** A GM-side seat of an actor of this kind, as the Seat view decides who reads and approves the GM's part. */
 export const gmSideOf = ({ me, kind }: { me: Me; kind: ActorKind }) =>

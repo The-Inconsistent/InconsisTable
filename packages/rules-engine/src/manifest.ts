@@ -1220,6 +1220,9 @@ const VocabName = z.string().min(1).max(60);
  * The ledger builder picked for one actor type (docs/adr/0011, house decision #62): its parameters, the entity type
  * that holds each kind of catalogue record, and the fields and resources the resolved sheet lands in.
  */
+/** The two ways a character of a type both creation steps and the ledger make is made (house decision #199). */
+export const CREATION_PATHS = ["build", "steps"] as const;
+
 export const LedgerBuild = z.object({
   strategy: z.literal("ledger"),
   /** The actor entity type it builds. */
@@ -1258,16 +1261,61 @@ export const LedgerBuild = z.object({
    * resources it would start, left as they were set by hand. Absent: such a build is refused (`alreadyBuilt`).
    */
   keep: z
-    .object({ fields: z.array(FieldId).max(50).default([]), resources: z.array(Id).max(20).default([]) })
+    .object({
+      fields: z.array(FieldId).max(50).default([]),
+      resources: z.array(Id).max(20).default([]),
+      /** Int fields that keep the greater of the hand-made value and the build's: the better armour (house decision #199). */
+      greater: z.array(FieldId).max(50).optional(),
+      /** List fields the build's items and the hand-made ones are merged in, a copy kept (house decision #199). */
+      merge: z.array(FieldId).max(50).optional(),
+    })
     .optional(),
   /**
    * The kind of record whose chosen one names a finished character on its library card (house decision #187): the
    * archetype's name, or the species'. Absent: the card shows none.
    */
   libraryLine: z.enum(LIBRARY_LINE_KINDS).optional(),
+  /**
+   * When creation steps also make `actor` (by hand), the path a character with neither takes first: the ledger build
+   * (the default) or the steps. Only the GM side makes one by hand, and it picks either (house decision #199).
+   */
+  first: z.enum(CREATION_PATHS).optional(),
   cite: Cite,
 });
 export type LedgerBuild = z.infer<typeof LedgerBuild>;
+
+/** How a character of a type both creation steps and the ledger make is made: built, or by hand (house decision #199). */
+export type CreationPath = (typeof CREATION_PATHS)[number];
+
+/**
+ * A kept field of a build saved over a hand-made sheet (house decision #199, after Auspex's keepPlay and
+ * keepSheetWeapons): `greater` the greater of two numbers (one missing is the other); `merge` the build's items, then
+ * each hand-made item past the copies the build already has, at most `max`.
+ */
+export function keptValue({
+  how,
+  hand,
+  built,
+  max,
+}: {
+  how: "greater" | "merge";
+  hand: unknown;
+  built: unknown;
+  max: number;
+}): unknown {
+  if (how === "greater") {
+    if (typeof hand !== "number") return built;
+    return typeof built === "number" ? Math.max(hand, built) : hand;
+  }
+  const out = Array.isArray(built) ? [...built] : [];
+  const seen = new Map<unknown, number>();
+  for (const x of Array.isArray(hand) ? hand : []) {
+    const n = (seen.get(x) ?? 0) + 1;
+    seen.set(x, n);
+    if (out.filter((y) => y === x).length < n) out.push(x);
+  }
+  return out.slice(0, max);
+}
 
 const LayoutPath = z.string().max(130);
 /**
@@ -2389,8 +2437,8 @@ function buildProblems(r: Ruleset, out: Problem[]): void {
     if (other !== undefined) out.push({ path, message: `"${id}" already holds the ${other}` });
     else holds.set(id, kind);
   }
-  if (r.creation.some((s) => s.actor === b.actor))
-    out.push({ path: "creation", message: "an actor type the ledger builder builds takes no creation steps" });
+  if (b.first === "steps" && !r.creation.some((s) => s.actor === b.actor))
+    out.push({ path: "build.first", message: `no creation step makes the ${b.actor}` });
   const tier = r.campaignFields === undefined ? undefined : own(r.campaignFields, b.tier);
   const { min, max } = b.params.tiers;
   if (tier === undefined) out.push({ path: "build.tier", message: `unknown campaign field "${b.tier}"` });
@@ -2458,6 +2506,18 @@ function buildProblems(r: Ruleset, out: Problem[]): void {
     if (own(actor.fields, id) === undefined)
       out.push({ path: `build.keep.fields[${i}]`, message: `${actor.id} has no field "${id}"` });
   });
+  const kept = new Set(b.keep?.fields);
+  for (const how of ["greater", "merge"] as const)
+    b.keep?.[how]?.forEach((id, i) => {
+      const f = own(actor.fields, id);
+      if (f?.type !== (how === "greater" ? "int" : "list"))
+        out.push({
+          path: `build.keep.${how}[${i}]`,
+          message: `${actor.id} has no ${how === "greater" ? "int" : "list"} field "${id}"`,
+        });
+      else if (kept.has(id)) out.push({ path: `build.keep.${how}[${i}]`, message: `"${id}" is kept already` });
+      kept.add(id);
+    });
   b.keep?.resources.forEach((id, i) => {
     const res = r.resources.findLast((x) => x.id === id);
     if (res === undefined || res.scope !== "entity" || (res.entities !== undefined && !res.entities.includes(actor.id)))

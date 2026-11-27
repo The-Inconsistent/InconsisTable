@@ -4444,6 +4444,10 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
       cite: "Base p.1",
     },
   ];
+  // Made by hand too (house decision #199), the steps set what the new number reads.
+  ruleset.creation = ruleset.creation?.map((s) =>
+    s.kind === "fields" ? { ...s, fields: [...s.fields, "attr.mgt", "skill.lore"] } : s,
+  );
   // House decisions #175 and #176: a yes-or-no acquisition input has one part, a fitting's copies field is a number.
   type Loose = { items: { acquire: { inputs: Record<string, unknown[]> }; kinds: { id: string; fits?: object }[] } };
   const broken = structuredClone(ruleset) as unknown as Loose;
@@ -4512,8 +4516,13 @@ test("build.save: a player reads the catalogue and saves a ledger build, which o
   assert.match(notReady.ok ? "" : notReady.error, /needs Lore 3 \(for the GM to approve\)/);
   refused(await ana.c.send(save(ana.held, { tier: 2, archetypeId: "lamplighter" })), "buildTierMismatch");
   refused(await ana.c.send({ type: "build.save", actorId: ana.held, build: "{" }), "buildInvalid");
+  // The hero is also made by hand, on the GM side only (house decision #199).
+  const byHand = { byHand: { species: "Moth", armourRating: 2, "mod.guard": 1 } };
+  refused(await ana.c.send({ type: "actor.build", actorId: ana.held, answers: byHand }), "byHandGm");
   // The unfinished build is sent to the GM as a draft: stored unresolved, nothing of the character written.
   ok(await ana.c.send({ ...save(ana.held, { tier: 1, archetypeId: "lamplighter" }), draft: true }));
+  // A draft claims the hero for the ledger: the GM makes it by hand no more.
+  refused(await owner.send({ type: "actor.build", actorId: ana.held, answers: byHand }), "alreadyBuilt");
   const drafted = actorIn(await owner.until((x) => actorIn(x, ana.held)?.ledger?.draft != null), ana.held);
   assert.equal(
     JSON.stringify(drafted?.ledger),

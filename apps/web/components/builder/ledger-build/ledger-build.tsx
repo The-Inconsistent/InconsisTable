@@ -118,10 +118,12 @@ function LedgerForm({ campaignId, ruleset, actor, me, send, campaign, catalogue,
   const actorId = actor.id;
   const save = useCallback<SaveBuild>(
     async (text, draft) => {
-      const r = await send({ type: "build.save", actorId, build: text, draft });
+      // The GM side's first save over a sheet made by hand keeps what the ruleset marks (house decisions #96, #199);
+      // the api reads keepSheet only for such a sheet.
+      const r = await send({ type: "build.save", actorId, build: text, draft, keepSheet: gm && !draft });
       return r.ok ? { ok: true } : { ok: false, error: r.error };
     },
-    [send, actorId],
+    [send, actorId, gm],
   );
   // The ruleset's `build` is there: the page only opens this builder for a ruleset with one.
   const params = ruleset.build?.params;

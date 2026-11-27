@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { compileRuleset } from "./compile.ts";
 import { SAMPLE_D20 } from "./fixtures/sample-d20.ts";
 import { SAMPLE_LEDGER_RULESET } from "./fixtures/sample-ledger-ruleset.ts";
-import { validateRuleset } from "./manifest.ts";
+import { keptValue, validateRuleset } from "./manifest.ts";
 import type { Problem } from "./problem.ts";
 
 // House decision #62: a ruleset picks the ledger builder for one actor type.
@@ -110,10 +110,28 @@ test("xp, when given, is an int field of the actor", () => {
   refused(m, "build.xp", '"species" is text, not int');
 });
 
-test("an actor type the ledger builder builds takes no creation steps", () => {
+test("creation steps may also make the built type; first names steps only when there are some (#199)", () => {
   const m = sample();
-  m.creation = [{ id: "name", actor: "hero", kind: "fields", label: "Name", fields: ["species"], cite: "Base p.1" }];
-  refused(m, "creation", "an actor type the ledger builder builds takes no creation steps");
+  m.creation = [];
+  m.build.first = "steps";
+  refused(m, "build.first", "no creation step makes the hero");
+  // By hand, the steps set what the type's derived values read, as on any type creation makes.
+  const fields = ["species", "armourRating", "mod.guard"];
+  m.creation = [{ id: "sheet", actor: "hero", kind: "fields", label: "Sheet", fields, cite: "Base p.1" }];
+  assert.ok(compileRuleset(m).ok);
+});
+
+test("a build over a hand-made sheet keeps the greater int and merges a list, each field kept once (#199)", () => {
+  const m = sample();
+  m.build.keep = { fields: ["armourRating"], greater: ["armourRating", "species"], merge: ["keywords", "xp"] };
+  refused(m, "build.keep.greater[0]", '"armourRating" is kept already');
+  refused(m, "build.keep.greater[1]", 'hero has no int field "species"');
+  refused(m, "build.keep.merge[1]", 'hero has no list field "xp"');
+  assert.deepEqual(keptValue({ how: "greater", hand: 4, built: 2, max: 9 }), 4);
+  assert.deepEqual(keptValue({ how: "greater", hand: null, built: 2, max: 9 }), 2);
+  // The build's items, then each hand-made one past the copies it has: a second A is kept.
+  assert.deepEqual(keptValue({ how: "merge", hand: ["A", "C", "A"], built: ["B", "A"], max: 9 }), ["B", "A", "C", "A"]);
+  assert.deepEqual(keptValue({ how: "merge", hand: ["A", "C"], built: ["B"], max: 2 }), ["B", "A"]);
 });
 
 // House decision #64: play after creation.
@@ -143,6 +161,7 @@ test("a ruleset without ascension, gone and award validates as before, with none
   delete m.build.award;
   delete m.build.keep; // house decision #96
   delete m.build.libraryLine; // house decision #187
+  delete m.build.first; // house decision #199
   const r = validateRuleset(m);
   assert.ok(r.ok);
   if (r.ok) assert.deepEqual(Object.keys(r.ruleset.build ?? {}).slice(-3), ["tier", "xp", "cite"]);

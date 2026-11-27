@@ -8,6 +8,7 @@ import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { AssignStep } from "@/components/builder/components/assign-step/assign-step";
 import { ChooseStep } from "@/components/builder/components/choose-step/choose-step";
+import { CreationPathPicker } from "@/components/builder/components/creation-path/creation-path";
 import { FieldsStep } from "@/components/builder/components/fields-step/fields-step";
 import { DRAFT_DELAY_MS } from "@/components/builder/constants";
 import { LedgerBuild } from "@/components/builder/ledger-build/ledger-build";
@@ -26,7 +27,7 @@ import {
   problemsByStep,
   stepsFor,
 } from "@/lib/builder/builder";
-import { usesLedger } from "@/lib/ledger/table";
+import { gmSideOf, madeBothWays, usesLedger } from "@/lib/ledger/table";
 import type { RulesEntry } from "@/lib/library/library";
 
 type BuilderProps = {
@@ -53,12 +54,21 @@ export function Builder({ campaignId, actorId, ruleset, entries, me, step, world
   // The same socket as the table's, so a cite opens its page while a device serves the book (#221).
   const { state, send, books, requestPage } = useTable(campaignId);
   useWorldRefresh({ rendered: worldVersionId ?? null, live: state?.campaign.worldVersionId });
+  // BUILD or BY HAND for a type both make, until the first save (house decision #199); a player always builds.
+  const [path, setPath] = useState(ruleset.build?.first ?? "build");
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   const actor = state.actors.find((a) => a.id === actorId);
   if (!actor) return <StatusScreen text={t("notAtTable")} />;
+  const picks =
+    me !== undefined &&
+    madeBothWays(ruleset) &&
+    gmSideOf({ me, kind: actor.kind }) &&
+    actor.ledger === null &&
+    needsBuild(actor);
   return (
     <CiteProvider ruleset={ruleset} books={books} requestPage={requestPage}>
-      {me && usesLedger({ ruleset, actor }) ? (
+      {picks && <CreationPathPicker path={path} onPick={setPath} />}
+      {me && usesLedger({ ruleset, actor, path: picks ? path : "build" }) ? (
         <LedgerBuild {...{ campaignId, ruleset, actor, send, step, packs }} me={me} campaign={state.campaign.fields} />
       ) : (
         <BuilderGate

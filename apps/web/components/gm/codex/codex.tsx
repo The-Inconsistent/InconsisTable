@@ -85,6 +85,13 @@ export function Codex({
   // them to the GM side only.
   const generators = useMemo(() => generatorsFor({ generators: ruleset?.generators ?? [], kind }), [ruleset, kind]);
   const [generating, setGenerating] = useState(false);
+  // Another kind filtered (a chip, or the browser's back) closes the sheet, so it never swaps generator mid-run or pops
+  // back later; adjusted while rendering, as React's "state from a prop" pattern.
+  const [generatingKind, setGeneratingKind] = useState(kind);
+  if (generatingKind !== kind) {
+    setGeneratingKind(kind);
+    setGenerating(false);
+  }
   const [newKind, setNewKind] = useState<CodexKind>("npc");
   const [newTitle, setNewTitle] = useState("");
   const [error, setError] = useState<string | null>(null);

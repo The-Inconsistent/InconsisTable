@@ -8,7 +8,7 @@ import { GeneratorWizard } from "@/components/gm/codex/components/generator-wiza
 import { Cite } from "@/components/ui/cite/cite";
 import { SideDrawer } from "@/components/ui/side-drawer/side-drawer";
 
-type GeneratorSheetProps = Omit<ComponentProps<typeof GeneratorWizard>, "generator" | "footer"> & {
+type GeneratorSheetProps = Omit<ComponentProps<typeof GeneratorWizard>, "generator" | "footer" | "onBusy"> & {
   /** The generators the kind filtered makes, at least one. */
   generators: readonly Generator[];
   /** The last refusal, shown here too: the sheet covers the CODEX's own line on a narrow screen. */
@@ -22,6 +22,7 @@ export function GeneratorSheet({ generators, error, onClose, ...wizard }: Genera
   const tSheet = useTranslations("bottomSheet");
   const [pickedId, setPickedId] = useState(generators[0]?.id ?? "");
   const [foot, setFoot] = useState<HTMLElement | null>(null);
+  const [busy, setBusy] = useState(false);
   const g = generators.find((x) => x.id === pickedId) ?? generators[0];
   if (!g) return null;
   const title = generators.length > 1 ? t("title") : g.label;
@@ -36,7 +37,7 @@ export function GeneratorSheet({ generators, error, onClose, ...wizard }: Genera
         <>
           <h2 className="head">{title}</h2>
           {generators.length > 1 && (
-            <select aria-label={t("pick")} value={g.id} onChange={(e) => setPickedId(e.target.value)}>
+            <select aria-label={t("pick")} value={g.id} disabled={busy} onChange={(e) => setPickedId(e.target.value)}>
               {generators.map((x) => (
                 <option key={x.id} value={x.id}>
                   {x.label}
@@ -54,7 +55,7 @@ export function GeneratorSheet({ generators, error, onClose, ...wizard }: Genera
             {error}
           </p>
         )}
-        <GeneratorWizard key={g.id} {...wizard} generator={g} onClose={onClose} footer={foot} />
+        <GeneratorWizard key={g.id} {...wizard} generator={g} onClose={onClose} footer={foot} onBusy={setBusy} />
       </div>
     </SideDrawer>
   );

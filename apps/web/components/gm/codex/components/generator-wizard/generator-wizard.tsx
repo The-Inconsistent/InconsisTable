@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type { ActionInput, ActionResult } from "@inconsistable/core-schema";
@@ -37,6 +37,8 @@ type GeneratorWizardProps = {
    * with ROLL ALL above the steps and AGAIN on each rolled step. Absent, the wizard is its own card (the first run's).
    */
   footer?: HTMLElement | null;
+  /** Told when a roll-all or a confirm starts and ends. */
+  onBusy?: (busy: boolean) => void;
 };
 
 // A generator run in the GM's browser (house decision #98): its steps in order (each asked while its `when` holds), every
@@ -51,6 +53,7 @@ export function GeneratorWizard({
   onMade,
   onClose,
   footer,
+  onBusy,
 }: GeneratorWizardProps) {
   const t = useTranslations("generators");
   // A run with no entry of its own puts its rounds under an entry the GM names, the open one to start with (#202).
@@ -77,38 +80,55 @@ export function GeneratorWizard({
     answered(g.steps, answers, asked) &&
     Array.from({ length: count }, (_, i) => answered(eachSteps, rounds[i] ?? {}, roundAsked(i))).every(Boolean);
 
+  // Busy is the sheet's too: its generator picker waits while a run is rolling or confirming.
+  const working = (on: boolean) => {
+    setBusy(on);
+    onBusy?.(on);
+  };
+  // External system: the server's table.roll calls ROLL ALL makes one after another; once this run is gone, none more.
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
   const inSheet = footer !== undefined;
   const leftToRoll = nextRoll({ ruleset, generator: g, answers, rounds, campaign }) !== null;
 
   // ROLL ALL: every asked roll step not yet done, in order and each to the end of its chain, one table.roll at a time;
   // a round's steps once the run's own say how many rounds there are. A refusal stops it where it is.
   const handleRollAll = async () => {
-    setBusy(true);
-    let own = answers;
-    let each = rounds;
-    let at = nextRoll({ ruleset, generator: g, answers: own, rounds: each, campaign });
-    while (at !== null) {
-      const r = await act({ type: "table.roll", tableId: at.table });
-      if (!r.ok || !r.roll) break;
-      const { round, step } = at;
-      const given = round === null ? own : (each[round] ?? {});
-      const rolled = set(given, step, { rows: [...(given[step]?.rows ?? []), r.roll.entryId] });
-      if (round === null) own = rolled;
-      else
-        each = Array.from({ length: Math.max(each.length, round + 1) }, (_, k) =>
-          k === round ? rolled : (each[k] ?? {}),
-        );
-      setAnswers(own);
-      setRounds(each);
-      at = nextRoll({ ruleset, generator: g, answers: own, rounds: each, campaign });
+    working(true);
+    try {
+      let own = answers;
+      let each = rounds;
+      let at = nextRoll({ ruleset, generator: g, answers: own, rounds: each, campaign });
+      while (at !== null) {
+        const r = await act({ type: "table.roll", tableId: at.table });
+        // The run went away (CLOSE, Escape, another generator): no roll after it.
+        if (!alive.current || !r.ok || !r.roll) break;
+        const { round, step } = at;
+        const given = round === null ? own : (each[round] ?? {});
+        const rolled = set(given, step, { rows: [...(given[step]?.rows ?? []), r.roll.entryId] });
+        if (round === null) own = rolled;
+        else
+          each = Array.from({ length: Math.max(each.length, round + 1) }, (_, k) =>
+            k === round ? rolled : (each[k] ?? {}),
+          );
+        setAnswers(own);
+        setRounds(each);
+        at = nextRoll({ ruleset, generator: g, answers: own, rounds: each, campaign });
+      }
+    } finally {
+      working(false);
     }
-    setBusy(false);
   };
 
   // CONFIRM: the asked answers and each round's, as one codex.generate.
   const handleConfirm = async () => {
     if (!ready || count === null) return;
-    setBusy(true);
     const only = (steps: readonly GeneratorStep[], given: Answers, on: readonly boolean[]) =>
       Object.fromEntries(
         steps.flatMap((s, j) => {
@@ -116,15 +136,19 @@ export function GeneratorWizard({
           return on[j] && v ? [[s.id, { ...v, rows: v.rows ? [...v.rows] : undefined }]] : [];
         }),
       );
-    const r = await act({
-      type: "codex.generate",
-      generatorId: g.id,
-      values: only(g.steps, answers, asked),
-      each: Array.from({ length: count }, (_, i) => only(eachSteps, rounds[i] ?? {}, roundAsked(i))),
-      ...(rootless && parentId !== "" ? { parentId } : {}),
-    });
-    setBusy(false);
-    if (r.ok) onMade(r.ids ?? (r.id ? [r.id] : []));
+    working(true);
+    try {
+      const r = await act({
+        type: "codex.generate",
+        generatorId: g.id,
+        values: only(g.steps, answers, asked),
+        each: Array.from({ length: count }, (_, i) => only(eachSteps, rounds[i] ?? {}, roundAsked(i))),
+        ...(rootless && parentId !== "" ? { parentId } : {}),
+      });
+      if (r.ok) onMade(r.ids ?? (r.id ? [r.id] : []));
+    } finally {
+      working(false);
+    }
   };
 
   const input = (

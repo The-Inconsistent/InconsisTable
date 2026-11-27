@@ -33,6 +33,8 @@ type ScenePageProps = {
   /** Flips to another scene of the adventure. */
   onFlip: (sceneId: string) => void;
   onStep: (args: { siblings: readonly CodexEntry[]; id: string; step: -1 | 1 }) => void;
+  /** DELETE went through: the page closes. */
+  onDeleted: () => void;
 };
 
 // A scene as a page (house decision #107): its parts drawn to read, a pencil on each that opens only that part's editor,
@@ -53,12 +55,14 @@ export function ScenePage({
   onOpenCodex,
   onFlip,
   onStep,
+  onDeleted,
 }: ScenePageProps) {
   const t = useTranslations("prep.page");
   const tPrep = useTranslations("prep");
   const tCodex = useTranslations("codex");
   const words = useSummaryWords();
   const [editing, setEditing] = useState<SceneSection | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const at = siblings.findIndex((s) => s.id === scene.id);
   const before = siblings[at - 1];
   const after = siblings[at + 1];
@@ -69,6 +73,12 @@ export function ScenePage({
   // DONE and SKIP set the status as the status buttons do; the scene stays where it is on the board.
   const handleStatus = (status: "done" | "skipped") => async () => {
     await act({ type: "codex.save", id: scene.id, kind: "scene", status });
+  };
+
+  // DELETE, after the confirm step: codex.delete as CODEX's entry editor sends it; a refusal shows above.
+  const handleDelete = async () => {
+    const r = await act({ type: "codex.delete", id: scene.id });
+    if (r.ok) onDeleted();
   };
 
   // The pencil opens that part's editor, or closes it.
@@ -257,6 +267,22 @@ export function ScenePage({
           </ul>
         ),
       )}
+      <div className="row">
+        {confirming ? (
+          <>
+            <button className="btn" onClick={handleDelete}>
+              {tCodex("confirmDelete", { title: scene.title })}
+            </button>
+            <button className="btn" onClick={() => setConfirming(false)}>
+              {tCodex("cancel")}
+            </button>
+          </>
+        ) : (
+          <button className="btn" onClick={() => setConfirming(true)}>
+            {tCodex("delete")}
+          </button>
+        )}
+      </div>
     </section>
   );
 }

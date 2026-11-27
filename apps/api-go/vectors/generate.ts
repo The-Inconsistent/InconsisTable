@@ -1718,6 +1718,8 @@ const TABLES_OK = {
     { id: "b", label: "B", count: 2 },
     { id: "c", label: "C" },
   ]),
+  // House decision #224: a table the party sees that is also dealt.
+  loot: tbl(undefined, [{ id: "a", label: "A", count: 2 }], { deck: true }),
 };
 MANIFESTS.push({ ...MINIMAL, tables: TABLES_OK });
 
@@ -2517,6 +2519,7 @@ const CRAFTED: object[] = [
   { tables: { t: tbl(undefined, [{ id: "a", label: "A", weight: 101 }]) } },
   { tables: { t: tbl(undefined, [{ id: "a", label: "A", count: 21 }]) } },
   { tables: { t: tbl(undefined, []) } },
+  { tables: { t: tbl(undefined, [{ id: "a", label: "A" }], { deck: "yes" }) } },
   { tables: { t: tbl(undefined, [{ id: "a", label: "A" }], { visibility: "public" }) } },
   { tables: { t: tbl(undefined, [{ id: "a", label: "A" }], { cite: "x".repeat(41) }) } },
   { tables: { Bad: tbl(undefined, [{ id: "a", label: "A" }]) } },

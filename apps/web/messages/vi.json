@@ -2029,6 +2029,7 @@
     "requestKind": "Hãy xin một tài nguyên và số lượng, hoặc một khoản chi.",
     "tableNotFound": "Không tìm thấy bảng",
     "tableDealOnly": "Bảng này để chia, không để gieo.",
+    "tableNotDeck": "Bảng này để gieo, không để chia.",
     "tableNoGm": "Phòng này không có GM, nên không có gì chỉ dành cho GM.",
     "tableShort": "Không còn đủ bài để chia.",
     "tableHeld": "Đã có người cầm một lá của bảng này.",

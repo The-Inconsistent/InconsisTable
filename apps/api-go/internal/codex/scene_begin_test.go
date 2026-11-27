@@ -182,3 +182,61 @@ func TestDeletingAnAdventureTakesItsScenesWhenAsked(t *testing.T) {
 		}
 	})
 }
+
+// A scene on its own goes, however much points at it: one shaped like an imported room's (every prep line, a link, an
+// exit to it, revealed, begun and then left for another, shown to the table, a clock about it) and one made by hand.
+func TestDeletingASceneAloneTakesWhatHangsOnIt(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		room := dbtest.NewRoom(t, tx)
+		adventure := run(t, tx, room, Save, save("adventure", "A", nil))
+		npc := run(t, tx, room, Save, save("npc", "Keeper", nil))
+		place := run(t, tx, room, Save, save("location", "Quay", nil))
+		full := run(t, tx, room, Save, save("scene", "Full", nil))
+		bare := run(t, tx, room, Save, save("scene", "Bare", nil))
+		next := run(t, tx, room, Save, save("scene", "Next", nil))
+		for i, s := range []string{full, bare, next} {
+			run(t, tx, room, Move, move(s, adventure, float64(i)))
+		}
+		// The prep a room document writes as it came.
+		dbtest.Exec(t, tx, `UPDATE codex_entry SET prep = $2::jsonb, planned_tests = '{check}' WHERE id = $1`, full, `{
+			"roster": [{"id": "r1", "label": "Wisps", "pack": "p", "key": "k", "count": 2, "visibility": "gm", "marker": "amber"}],
+			"tests": [{"id": "t1", "testId": "check", "inputs": {"dn": 3}, "takers": "all", "outcomes": [{"label": "Pass", "text": "On"}]}],
+			"pools": [{"id": "p1", "pool": "glory", "amount": 1, "text": "x"}],
+			"exits": [{"id": "e1", "label": "On", "sceneId": "`+next+`"}],
+			"reveals": [{"id": "v1", "entryId": "`+npc+`"}],
+			"picks": [{"id": "k1", "entryId": "`+place+`", "field": "dangers", "rows": [{"rowId": "d1", "on": true}]}]}`)
+		dbtest.Exec(t, tx, `UPDATE codex_entry SET prep = $2::jsonb WHERE id = $1`, next,
+			`{"exits": [{"id": "back", "label": "Back", "sceneId": "`+full+`"}]}`)
+		run(t, tx, room, Link, cs.Action{"type": "codex.link", "id": full, "targetId": npc})
+		run(t, tx, room, Reveal, cs.Action{"type": "codex.reveal", "id": full, "visibility": "party", "audienceMode": "all", "audience": []any{}})
+		begin(t, tx, room, full)
+		begin(t, tx, room, next) // its begin keeps the full scene as the one before
+		run(t, tx, room, ShowSpotlight, show(full))
+		dbtest.Exec(t, tx, `INSERT INTO clock (campaign_id, name, segments, entry_id, position) VALUES ($1, 'Tide', 4, $2, 0)`, room.ID, full)
+
+		run(t, tx, room, Delete, cs.Action{"type": "codex.delete", "id": full})
+		run(t, tx, room, Delete, cs.Action{"type": "codex.delete", "id": bare})
+		if n := dbtest.Scalar[int64](t, tx, `SELECT count(*) FROM codex_entry WHERE id IN ($1, $2)`, full, bare); n != 0 {
+			t.Fatal("both scenes are gone")
+		}
+		if got := positions(t, tx, next); got[0] != 0 {
+			t.Fatalf("the scene left is renumbered, got %v", got)
+		}
+		for what, q := range map[string]string{
+			"its links":     `SELECT count(*) FROM codex_link WHERE entry_id = $1 OR target_id = $1`,
+			"its begin":     `SELECT count(*) FROM scene_begin WHERE scene_id = $1 OR before_id = $1`,
+			"the spotlight": `SELECT count(*) FROM spotlight WHERE entry_id = $1`,
+			"the clock's":   `SELECT count(*) FROM clock WHERE entry_id = $1`,
+		} {
+			if n := dbtest.Scalar[int64](t, tx, q, full); n != 0 {
+				t.Fatalf("%s go with it", what)
+			}
+		}
+		if n := dbtest.Scalar[int64](t, tx, `SELECT count(*) FROM scene_begin WHERE scene_id = $1`, next); n != 1 {
+			t.Fatal("the next scene's begin stays")
+		}
+		if got := dbtest.Scalar[string](t, tx, `SELECT prep->'exits'->0->>'sceneId' FROM codex_entry WHERE id = $1`, next); got != full {
+			t.Fatal("an exit to it stays, unlinked")
+		}
+	})
+}

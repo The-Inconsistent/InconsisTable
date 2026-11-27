@@ -142,6 +142,12 @@ export function Prep({
     await act({ type: "codex.move", id, parentId: parent, position: to });
   };
 
+  // A deleted scene's page closes: off the board's selection and out of the address.
+  const handleDeleted = () => {
+    setSelectedId(null);
+    onNav({ scene: undefined, mode });
+  };
+
   const stepButtons = (siblings: readonly CodexEntry[], e: CodexEntry) => (
     <span className="row">
       <button
@@ -316,6 +322,7 @@ export function Prep({
                 onOpenCodex={onOpenCodex}
                 onFlip={handleFlip}
                 onStep={handleStep}
+                onDeleted={handleDeleted}
               />
             )}
           </div>

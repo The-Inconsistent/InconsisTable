@@ -7092,6 +7092,34 @@ test("room document: exported by its owner, imported back as the same room, and 
   for (const c of [copy, anew, gm]) c.socket.close();
 });
 
+// A room imported from its document deletes its scenes as a room made by hand does: the active one with every prep
+// line and link, and one another scene's exit points at (the exit stays, unlinked).
+test("room document: an imported room's scenes can be deleted", async () => {
+  const ownerDevice = await device("roomdoc-scenes");
+  const me = caller(ownerDevice);
+  assert.equal((await me.post("/rulesets", ROOM_D20)).status, 201);
+  assert.equal((await me.post("/packs", SAMPLE_PACK)).status, 201);
+  assert.equal((await me.post("/worlds", SAMPLE_WORLD)).status, 201);
+  const made = await me.post<RoomImportReply>("/campaigns/import", d20Document());
+  assert.equal(made.status, 201);
+  const gm = connect({ auth: { campaignId: made.body.campaignId!, cookie: ownerDevice } });
+  await eventually(() => (gm.codex()?.entries.length ?? 0) > 0, "the codex arrives");
+  const idOf = (title: string) => gm.codex()!.entries.find((e) => e.title === title)!.id;
+  const quay = idOf("Trouble on the quay");
+  const hill = idOf("The hill road");
+  ok(await gm.send({ type: "codex.delete", id: hill }));
+  ok(await gm.send({ type: "codex.delete", id: quay }));
+  await eventually(
+    () => !gm.codex()!.entries.some((e) => e.id === quay || e.id === hill),
+    "both scenes are gone from the GM's codex",
+  );
+  assert.ok(
+    gm.codex()!.entries.some((e) => e.title === "The Salt Road"),
+    "their adventure stays",
+  );
+  gm.socket.close();
+});
+
 // House decision #104: the character library, a user's own characters outside any room. Made, autosaved at its
 // revision, saved ready; nobody else reads or writes it; brought into a room as an ordinary build.save draft; a room's
 // built character saved back to it.

@@ -23,8 +23,8 @@ type Service struct {
 	Auth *auth.Service
 }
 
-// caller reads as the Visitor, so a new device's library is empty and its own export or hide finds nothing.
-func (s *Service) caller(r *http.Request) (*auth.User, error) {
+// Caller reads as the Visitor, so a new device's library is empty and its own export or hide finds nothing.
+func (s *Service) Caller(r *http.Request) (*auth.User, error) {
 	return s.who(r, s.Auth.Visitor)
 }
 
@@ -39,10 +39,10 @@ func (s *Service) who(r *http.Request, find func(context.Context, string) (*auth
 	return user, nil
 }
 
-// importer is the caller of an import. Importing stores content on the server, so it takes a creator, as starting a
+// Importer is the caller of an import. Importing stores content on the server, so it takes a creator, as starting a
 // room does: with sign-in on, an anonymous device never is one (auth.DeviceCreates). Reading, exporting and hiding
 // one's own stay open to every caller.
-func (s *Service) importer(r *http.Request) (*auth.User, error) {
+func (s *Service) Importer(r *http.Request) (*auth.User, error) {
 	user, err := s.who(r, s.Auth.EnsureDeviceUser)
 	if err != nil {
 		return nil, err
@@ -53,8 +53,8 @@ func (s *Service) importer(r *http.Request) (*auth.User, error) {
 	return user, nil
 }
 
-// A refused import answers 422 with its problems by path, so the importer can show them next to the field.
-func refusing(err error) error {
+// Refusing answers a refused import 422 with its problems by path, so the importer can show them next to the field.
+func Refusing(err error) error {
 	var refused *ruleset.Refused
 	if !errors.As(err, &refused) {
 		return err
@@ -76,24 +76,24 @@ func packID(r *http.Request) (string, error) {
 
 // ImportRuleset is POST /api/rulesets.
 func (s *Service) ImportRuleset(w http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.importer(r)
+	user, err := s.Importer(r)
 	if err != nil {
 		return nil, err
 	}
-	body, err := readBody(w, r, false)
+	body, err := ReadBody(w, r, false)
 	if err != nil {
-		return nil, refusing(err)
+		return nil, Refusing(err)
 	}
 	out, err := ruleset.Import(r.Context(), s.DB, user.UserID, body)
 	if err != nil {
-		return nil, refusing(err)
+		return nil, Refusing(err)
 	}
 	return core.Created{Body: out}, nil
 }
 
 // Rulesets is GET /api/rulesets.
 func (s *Service) Rulesets(_ http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.Caller(r)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (s *Service) Rulesets(_ http.ResponseWriter, r *http.Request) (any, error) 
 // ExportRuleset is GET /api/rulesets/{id}/export: the owner's newest manifest, as ImportRuleset takes it. Anyone
 // else's ruleset answers like a missing one.
 func (s *Service) ExportRuleset(_ http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.Caller(r)
 	if err != nil {
 		return nil, err
 	}
@@ -123,24 +123,24 @@ func (s *Service) ExportRuleset(_ http.ResponseWriter, r *http.Request) (any, er
 
 // ImportPack is POST /api/packs.
 func (s *Service) ImportPack(w http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.importer(r)
+	user, err := s.Importer(r)
 	if err != nil {
 		return nil, err
 	}
-	body, err := readBody(w, r, true)
+	body, err := ReadBody(w, r, true)
 	if err != nil {
-		return nil, refusing(err)
+		return nil, Refusing(err)
 	}
 	out, err := Import(r.Context(), s.DB, user.UserID, body)
 	if err != nil {
-		return nil, refusing(err)
+		return nil, Refusing(err)
 	}
 	return core.Created{Body: out}, nil
 }
 
 // Packs is GET /api/packs.
 func (s *Service) Packs(_ http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.Caller(r)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func (s *Service) Packs(_ http.ResponseWriter, r *http.Request) (any, error) {
 // Export is GET /api/packs/{id}/export: the owner's own JSON back, as ImportPack takes it. Anyone else's pack answers
 // like a missing one.
 func (s *Service) Export(_ http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.Caller(r)
 	if err != nil {
 		return nil, err
 	}
@@ -181,24 +181,24 @@ func worldID(r *http.Request) (string, error) {
 
 // ImportWorld is POST /api/worlds (house decision #65).
 func (s *Service) ImportWorld(w http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.importer(r)
+	user, err := s.Importer(r)
 	if err != nil {
 		return nil, err
 	}
-	body, err := readBody(w, r, false)
+	body, err := ReadBody(w, r, false)
 	if err != nil {
-		return nil, refusing(err)
+		return nil, Refusing(err)
 	}
 	out, err := world.Import(r.Context(), s.DB, user.UserID, body)
 	if err != nil {
-		return nil, refusing(err)
+		return nil, Refusing(err)
 	}
 	return core.Created{Body: out}, nil
 }
 
 // Worlds is GET /api/worlds: the caller's own.
 func (s *Service) Worlds(_ http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.Caller(r)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (s *Service) Worlds(_ http.ResponseWriter, r *http.Request) (any, error) {
 // ExportWorld is GET /api/worlds/{id}/export: the owner's newest version, as ImportWorld takes it. Anyone else's World
 // answers like a missing one.
 func (s *Service) ExportWorld(_ http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.Caller(r)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func (s *Service) ExportWorld(_ http.ResponseWriter, r *http.Request) (any, erro
 
 // HideWorld is POST /api/worlds/{id}/hide.
 func (s *Service) HideWorld(_ http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.Caller(r)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +251,7 @@ func (s *Service) HideWorld(_ http.ResponseWriter, r *http.Request) (any, error)
 
 // Hide is POST /api/packs/{id}/hide.
 func (s *Service) Hide(_ http.ResponseWriter, r *http.Request) (any, error) {
-	user, err := s.caller(r)
+	user, err := s.Caller(r)
 	if err != nil {
 		return nil, err
 	}

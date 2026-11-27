@@ -9,6 +9,7 @@ import { ApiMessage, readJson } from "@/lib/api-reply/api-reply";
 import {
   exportUrl,
   formatBytes,
+  type ModuleList as ModuleListData,
   type PackList as PackListData,
   type RulesetList,
   type WorldList as WorldListData,
@@ -17,6 +18,7 @@ import { newPack, newRuleset, stripNulls, type Doc, type FormKind } from "@/lib/
 
 import { ImportPanel } from "./components/import-panel/import-panel";
 import { ManifestForm } from "./components/manifest-form/manifest-form";
+import { ModuleList } from "./components/module-list/module-list";
 import { PackList } from "./components/pack-list/pack-list";
 import { WorldList } from "./components/world-list/world-list";
 
@@ -24,11 +26,17 @@ type OpenForm = { kind: FormKind; doc: Doc; editing: boolean; n: number };
 
 // canImport: the caller is a creator (the lobby's canCreate). With sign-in on, an anonymous device is not one, and
 // the api refuses its imports and saves, so neither the importer nor the form is offered.
-type LibraryViewProps = { rulesets: RulesetList; packs: PackListData; worlds: WorldListData; canImport: boolean };
+type LibraryViewProps = {
+  rulesets: RulesetList;
+  packs: PackListData;
+  worlds: WorldListData;
+  modules: ModuleListData;
+  canImport: boolean;
+};
 
-// MY RULESETS, PACKS & WORLDS: everything the device's user imported. Nothing here is shared; a room can use what its
-// owner imported, and a private pack or a World only in rooms its owner runs.
-export function LibraryView({ rulesets, packs, worlds, canImport }: LibraryViewProps) {
+// MY RULESETS, PACKS, WORLDS & GAME MODULES: everything the device's user imported. Nothing here is shared; a room can
+// use what its owner imported, and a private pack or a World only in rooms its owner runs.
+export function LibraryView({ rulesets, packs, worlds, modules, canImport }: LibraryViewProps) {
   const t = useTranslations("library");
   const tWs = useTranslations("workspace");
   const locale = useLocale();
@@ -176,6 +184,14 @@ export function LibraryView({ rulesets, packs, worlds, canImport }: LibraryViewP
         </h2>
         <p className="small dim">{t("worldsHint")}</p>
         <WorldList worlds={worlds} canImport={canImport} onChanged={handleChanged} />
+      </section>
+
+      <section className="stack">
+        <h2 className="head">
+          {t("modules")} <span className="ws-tally">{modules.length}</span>
+        </h2>
+        <p className="small dim">{t("modulesHint")}</p>
+        <ModuleList modules={modules} canImport={canImport} onChanged={handleChanged} />
       </section>
     </main>
   );

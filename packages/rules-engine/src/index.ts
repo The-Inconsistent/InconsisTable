@@ -91,6 +91,7 @@ export * from "./view.ts";
 export * from "./breakdown.ts";
 export * from "./build/index.ts";
 export * from "./world.ts";
+export * from "./module.ts";
 export * from "./widgets.ts";
 export {
   heldKeys,

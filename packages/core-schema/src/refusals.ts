@@ -91,6 +91,9 @@ export const REFUSALS = {
   worldTakenDown: "This World was taken down by an admin",
   worldDeleted: "This World is deleted: import it again to use it",
   worldRunnersOnly: "A World can only be pinned in a room you run yourself",
+  // Game modules (house decisions #122 to #125)
+  moduleNotFound: "Game module not found",
+  notAModuleId: "Not a game module id",
   entryNotInPack: "That entry isn't in a pack attached to this game",
   entryUnreadable: "That entry can't be read",
   notPlaceable: "{name} isn't something that takes a place at the table",

@@ -444,7 +444,9 @@
     "edit": "Edit",
     "editRulesetLabel": "Edit ruleset {slug}",
     "worlds": "Worlds",
-    "worldsHint": "A World is a room's look: its colours, typefaces and shapes. Import one as JSON, then wear it from a room's Rules tab."
+    "worldsHint": "A World is a room's look: its colours, typefaces and shapes. Import one as JSON, then wear it from a room's Rules tab.",
+    "modules": "Game modules",
+    "modulesHint": "A game module makes one game of a ruleset, its packs and a World. Import its file (it may carry those parts too), then choose it under Choose game when you start a room."
   },
   "importPanel": {
     "template": "Start from a template",
@@ -491,7 +493,10 @@
     "openInForm": "Open in form",
     "worldNoForm": "A World has no form: import its JSON as it is.",
     "worldSaved": "Saved the World {slug} {version}. Wear it from a room's Rules tab.",
-    "worldUnchanged": "The World {slug} {version} was already imported. Nothing changed."
+    "worldUnchanged": "The World {slug} {version} was already imported. Nothing changed.",
+    "moduleNoForm": "A game module has no form: import its JSON as it is.",
+    "moduleSaved": "Saved the game module {slug} {version}. Choose it under Choose game when you start a room.",
+    "moduleUnchanged": "The game module {slug} {version} was already imported. Nothing changed."
   },
   "worldList": {
     "exportFailed": "Couldn't export that World.",
@@ -502,6 +507,20 @@
     "export": "Export",
     "exportLabel": "Export {name}",
     "keepCopy": "Rooms wearing it keep it.",
+    "delete": "Delete",
+    "keep": "Keep",
+    "deleteLabel": "Delete {name}",
+    "confirmDeleteLabel": "Confirm delete {name}"
+  },
+  "moduleList": {
+    "exportFailed": "Couldn't export that game module.",
+    "deleteFailed": "Couldn't delete that game module.",
+    "empty": "No game modules yet. Import one above.",
+    "emptyCreatorsOnly": "No game modules.",
+    "parts": "{ruleset} · {packs, plural, one {# pack} other {# packs}}{world, select, none {} other { · World {world}}}",
+    "export": "Export",
+    "exportLabel": "Export {name}",
+    "keepParts": "Its ruleset, packs, World and rooms stay.",
     "delete": "Delete",
     "keep": "Keep",
     "deleteLabel": "Delete {name}",
@@ -1622,6 +1641,8 @@
     "worldTakenDown": "This World was taken down by an admin",
     "worldDeleted": "This World is deleted: import it again to use it",
     "worldRunnersOnly": "A World can only be pinned in a room you run yourself",
+    "moduleNotFound": "Game module not found",
+    "notAModuleId": "Not a game module id",
     "entryNotInPack": "That entry isn't in a pack attached to this game",
     "entryUnreadable": "That entry can't be read",
     "notPlaceable": "{name} isn't something that takes a place at the table",

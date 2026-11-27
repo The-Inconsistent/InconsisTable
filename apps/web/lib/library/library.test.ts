@@ -7,6 +7,8 @@ test("a document is a pack, a ruleset or a World by its shape", () => {
   assert.equal(kindOf({ id: "p", entries: [] }), "pack");
   assert.equal(kindOf({ id: "r", entities: [] }), "ruleset");
   assert.equal(kindOf({ id: "w", theme: {} }), "world");
+  // A game module names its packs; the documents it carries sit under `documents`, so its top is never a pack's.
+  assert.equal(kindOf({ id: "m", ruleset: {}, packs: [], documents: { world: { theme: {} } } }), "module");
   // A ruleset or pack that also carries a `theme` stays what its body says.
   assert.equal(kindOf({ id: "r", entities: [], theme: {} }), "ruleset");
   assert.equal(kindOf({ id: "x" }), null);
@@ -53,4 +55,5 @@ test("sizes read as people say them", () => {
 test("the edit flow reads the export route of its kind", () => {
   assert.equal(exportUrl("ruleset", "abc"), "/api/rulesets/abc/export");
   assert.equal(exportUrl("pack", "abc"), "/api/packs/abc/export");
+  assert.equal(exportUrl("module", "abc"), "/api/modules/abc/export");
 });

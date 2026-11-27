@@ -10,7 +10,7 @@ import { MAX_PLAYERS } from "./constants";
 
 type GamePickerProps = {
   games: readonly GameOption[];
-  /** The slug of the chosen game, or null. */
+  /** The key of the chosen game, or null. */
   selected: string | null;
   /** A card tapped (the same card again clears the choice) with the way of sitting the filter asks for. */
   onSelect: (game: GameOption | null, wanted: "any" | TableMode) => void;
@@ -36,7 +36,7 @@ export function GamePicker({ games, selected, onSelect }: GamePickerProps) {
       ...f,
       genres: f.genres.includes(genre) ? f.genres.filter((g) => g !== genre) : [...f.genres, genre],
     }));
-  const handlePick = (game: GameOption) => onSelect(selected === game.slug ? null : game, filter.mode);
+  const handlePick = (game: GameOption) => onSelect(selected === game.key ? null : game, filter.mode);
 
   return (
     <fieldset className="stack game-picker">
@@ -88,10 +88,10 @@ export function GamePicker({ games, selected, onSelect }: GamePickerProps) {
         <div className="grid rise-list">
           {shown.map((g, i) => (
             <button
-              key={g.slug}
+              key={g.key}
               type="button"
               className="card ws-tile game-card"
-              aria-pressed={selected === g.slug}
+              aria-pressed={selected === g.key}
               style={{ "--i": i } as CSSProperties}
               onClick={() => handlePick(g)}
             >

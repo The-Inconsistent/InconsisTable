@@ -6,7 +6,7 @@ import { apiGet, readLobby } from "@/app/server-api";
 import { LobbyView } from "@/components/lobby/lobby-view/lobby-view";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
 import { AuthMe, CampaignRef } from "@/lib/api-reply/api-reply";
-import { RulesetList } from "@/lib/library/library";
+import { ModuleList, RulesetList } from "@/lib/library/library";
 
 type HomeProps = { searchParams: Promise<{ join?: string | string[]; signin?: string | string[] }> };
 
@@ -48,6 +48,17 @@ async function importedRulesets(): Promise<RulesetList> {
   }
 }
 
+// The game modules the caller imported, offered first in Choose game (house decision #125).
+async function importedModules(): Promise<ModuleList> {
+  try {
+    const res = await apiGet("/api/modules");
+    const parsed = ModuleList.safeParse(res.ok ? await res.json() : null);
+    return parsed.success ? parsed.data : [];
+  } catch {
+    return [];
+  }
+}
+
 // The lobby of this device's user. A device with no rooms of its own that holds a guest QR seat goes back to that table.
 export default async function Home({ searchParams }: HomeProps) {
   const t = await getTranslations();
@@ -60,6 +71,10 @@ export default async function Home({ searchParams }: HomeProps) {
     const table = await guestTable();
     if (table) redirect(`/c/${table}`);
   }
-  const [rulesets, me] = await Promise.all([lobby.canCreate ? importedRulesets() : [], authMe()]);
-  return <LobbyView lobby={lobby} rulesets={rulesets} me={me} signInFailed={signin === "failed"} />;
+  const [rulesets, modules, me] = await Promise.all([
+    lobby.canCreate ? importedRulesets() : [],
+    lobby.canCreate ? importedModules() : [],
+    authMe(),
+  ]);
+  return <LobbyView lobby={lobby} rulesets={rulesets} modules={modules} me={me} signInFailed={signin === "failed"} />;
 }

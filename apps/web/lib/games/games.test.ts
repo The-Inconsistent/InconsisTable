@@ -4,7 +4,9 @@ import { test } from "node:test";
 import { NO_FILTER, filterGames, gameOptions, genresOf, startMode, type GameOption } from "./games.ts";
 
 const game = (over: Partial<GameOption>): GameOption => ({
+  key: "g",
   versionId: "v",
+  moduleVersionId: null,
   slug: "g",
   title: "G",
   version: "1.0.0",
@@ -56,6 +58,41 @@ test("Freeform comes first, offered unimported when the library lacks it, and an
       ["zed", "v2"],
     ],
   );
+});
+
+test("a game module is offered after Freeform, in the place of the ruleset it plays; other rulesets stay", () => {
+  const v = (id: string) => ({ id, version: id, createdAt: "", modes: ["gm" as const], game: null });
+  const zed = { id: "r1", slug: "zed", title: "Zed", versions: [v("v2")] };
+  const ace = { id: "r3", slug: "ace", title: "Ace", versions: [v("a1")] };
+  const part = (slug: string, versionId: string) => ({ slug, versionId, version: "1.0.0" });
+  const zedGame = {
+    id: "m1",
+    slug: "zed",
+    versions: [
+      {
+        id: "mv2",
+        version: "1.1.0",
+        name: "Zed at the shore",
+        createdAt: "",
+        ruleset: part("zed", "v2"),
+        packs: [part("zed-foes", "p1")],
+        world: null,
+        modes: ["gm" as const, "solo" as const],
+        game: { title: "Zed", genres: ["sea"], players: { min: 1, max: 4 } },
+      },
+    ],
+  };
+  const options = gameOptions([zed, ace], [zedGame]);
+  assert.deepEqual(
+    options.map((g) => [g.key, g.title, g.versionId, g.moduleVersionId]),
+    [
+      ["freeform", "Freeform", null, null],
+      ["module:zed", "Zed at the shore", "v2", "mv2"],
+      ["ace", "Ace", "a1", null],
+    ],
+  );
+  assert.deepEqual(options[1]?.modes, ["gm", "solo"]);
+  assert.deepEqual(options[1]?.genres, ["sea"]);
 });
 
 test("a room starts in the mode asked for when the game allows it, else the game's first", () => {

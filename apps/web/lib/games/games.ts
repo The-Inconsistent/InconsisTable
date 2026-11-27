@@ -1,12 +1,19 @@
 import type { TableMode } from "@inconsistable/core-schema";
 
 import { FREEFORM, FREEFORM_SLUG } from "../freeform/freeform";
-import type { RulesetList } from "../library/library";
+import type { ModuleList, RulesetList } from "../library/library";
 
-/** One game the user can sit down to: a ruleset's newest version, or Freeform before it is imported. */
+/**
+ * One game the user can sit down to: a game module's newest version, a ruleset's newest version, or Freeform before it
+ * is imported.
+ */
 export interface GameOption {
+  /** Unique across the list: a module and a ruleset may share a slug. */
+  key: string;
   /** The ruleset version, or null for Freeform not yet in the user's library (imported when it is used). */
   versionId: string | null;
+  /** The game module version a room is made from, which pins its ruleset, packs and World; null for a bare ruleset. */
+  moduleVersionId: string | null;
   slug: string;
   title: string;
   version: string;
@@ -26,7 +33,9 @@ export interface GameFilter {
 export const NO_FILTER: GameFilter = { players: 0, mode: "any", genres: [] };
 
 const FREEFORM_OPTION: GameOption = {
+  key: FREEFORM_SLUG,
   versionId: null,
+  moduleVersionId: null,
   slug: FREEFORM_SLUG,
   title: FREEFORM.game?.title ?? "Freeform",
   version: FREEFORM.version,
@@ -37,14 +46,37 @@ const FREEFORM_OPTION: GameOption = {
 
 // ponytail: only a ruleset's newest version is offered; older ones stay reachable by pinning in a room's Rules tab,
 // list versions per card when a table needs to start on an old one.
-/** The user's games, newest version of each ruleset, Freeform first (offered unimported when they have none). */
-export function gameOptions(rulesets: RulesetList): GameOption[] {
+/**
+ * The user's games: Freeform first (offered unimported when they have none), then each game module's newest version,
+ * then the newest version of each ruleset no listed module plays (house decision #125).
+ */
+export function gameOptions(rulesets: RulesetList, modules: ModuleList = []): GameOption[] {
+  const fromModules = modules.flatMap((m): GameOption[] => {
+    const v = m.versions[0];
+    if (!v) return [];
+    return [
+      {
+        key: `module:${m.slug}`,
+        versionId: v.ruleset.versionId,
+        moduleVersionId: v.id,
+        slug: m.slug,
+        title: v.name,
+        version: v.version,
+        players: v.game?.players ?? null,
+        modes: v.modes,
+        genres: v.game?.genres ?? [],
+      },
+    ];
+  });
+  const played = new Set(modules.map((m) => m.versions[0]?.ruleset.slug));
   const own = rulesets.flatMap((r): GameOption[] => {
     const v = r.versions[0];
     if (!v) return [];
     return [
       {
+        key: r.slug,
         versionId: v.id,
+        moduleVersionId: null,
         slug: r.slug,
         title: v.game?.title ?? r.title,
         version: v.version,
@@ -55,7 +87,7 @@ export function gameOptions(rulesets: RulesetList): GameOption[] {
     ];
   });
   const free = own.find((g) => g.slug === FREEFORM_SLUG) ?? FREEFORM_OPTION;
-  return [free, ...own.filter((g) => g !== free)];
+  return [free, ...fromModules, ...own.filter((g) => g !== free && !played.has(g.slug))];
 }
 
 /** The games that suit the table: seating a player count, a way of sitting, and any of the genres chosen. */

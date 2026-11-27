@@ -38,6 +38,7 @@ type Imported struct {
 	OK        bool             `json:"ok"`
 	PackID    string           `json:"packId"`
 	VersionID string           `json:"versionId"`
+	Slug      string           `json:"slug"`
 	Version   string           `json:"version"`
 	Diff      engine.PackDiff  `json:"diff"`
 	Warnings  []engine.Problem `json:"warnings"`
@@ -101,6 +102,18 @@ func normalize(p *engine.Pack, rulesetVersionID string) normalized {
 // The uploaded file itself is not kept. Refusals (problems by path, quota, a taken-down pack) are *ruleset.Refused.
 // input is decoded with schema.DecodeJSON, so a record keeps its order (engine.ValidatePack).
 func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*Imported, error) {
+	var out *Imported
+	err := core.InTx(ctx, db, func(tx pgx.Tx) error {
+		var err error
+		out, err = ImportTx(ctx, tx, userID, input, "")
+		return err
+	})
+	return out, err
+}
+
+// ImportTx is Import inside the caller's transaction. checkAgainst, when given, is the one version of the owner's
+// ruleset the pack is checked against (a game module's), in place of the newest.
+func ImportTx(ctx context.Context, tx pgx.Tx, userID string, input any, checkAgainst string) (*Imported, error) {
 	ref, issues := schema.Parse(rulesetRef, input)
 	if len(issues) > 0 {
 		return nil, &ruleset.Refused{Problems: []engine.Problem{{Path: "ruleset.id", Message: "name the ruleset the pack is written for"}}}
@@ -109,11 +122,14 @@ func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*I
 
 	var rulesetID, rulesetVersionID string
 	var manifestRaw []byte
-	err := db.QueryRow(ctx, `SELECT ruleset.id::text, ruleset_version.id::text, ruleset_version.manifest FROM ruleset
+	err := tx.QueryRow(ctx, `SELECT ruleset.id::text, ruleset_version.id::text, ruleset_version.manifest FROM ruleset
 		JOIN ruleset_version ON ruleset_version.ruleset_id = ruleset.id
-		WHERE ruleset.owner_user_id = $1 AND ruleset.slug = $2
-		ORDER BY ruleset_version.created_at DESC, ruleset_version.id DESC LIMIT 1`, userID, slug).
+		WHERE ruleset.owner_user_id = $1 AND ruleset.slug = $2 AND ($3 = '' OR ruleset_version.id::text = $3)
+		ORDER BY ruleset_version.created_at DESC, ruleset_version.id DESC LIMIT 1`, userID, slug, checkAgainst).
 		Scan(&rulesetID, &rulesetVersionID, &manifestRaw)
+	if errors.Is(err, pgx.ErrNoRows) && checkAgainst != "" {
+		return nil, &ruleset.Refused{Problems: []engine.Problem{{Path: "ruleset.id", Message: fmt.Sprintf(`written for "%s", not for the module's ruleset`, slug)}}}
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, &ruleset.Refused{Problems: []engine.Problem{{Path: "ruleset.id", Message: fmt.Sprintf(`import the ruleset "%s" first (My rulesets)`, slug)}}}
 	}
@@ -144,7 +160,7 @@ func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*I
 	}
 
 	var out *Imported
-	err = core.InTx(ctx, db, func(tx pgx.Tx) error {
+	err = func() error {
 		if err := ruleset.LockImport(ctx, tx, userID); err != nil {
 			return err
 		}
@@ -218,7 +234,7 @@ func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*I
 		for _, e := range next.entries {
 			after[e.key] = e.contentHash
 		}
-		result := Imported{OK: true, PackID: packID, Version: p.Version, Diff: engine.DiffHashes(before, after), Warnings: warnings}
+		result := Imported{OK: true, PackID: packID, Slug: p.ID, Version: p.Version, Diff: engine.DiffHashes(before, after), Warnings: warnings}
 		if hasPrev && prevHash == next.hash {
 			// The order is outside the hash: the same entries in a new order keep the version and take the file's order.
 			keys := make([]string, len(next.entries))
@@ -247,9 +263,11 @@ func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*I
 			}
 		}
 
-		// Older versions no room has attached are no longer needed: the new one is the diff base from now on.
+		// Older versions no room has attached and no game module names are no longer needed: the new one is the diff
+		// base from now on.
 		if _, err := tx.Exec(ctx, `DELETE FROM pack_version WHERE pack_id = $1 AND id <> $2
-			AND id NOT IN (SELECT pack_version_id FROM campaign_pack)`, packID, result.VersionID); err != nil {
+			AND id NOT IN (SELECT pack_version_id FROM campaign_pack)
+			AND id NOT IN (SELECT pack_version_id FROM game_module_pack)`, packID, result.VersionID); err != nil {
 			return err
 		}
 		used, err := storageOf(ctx, tx, userID)
@@ -261,7 +279,7 @@ func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*I
 		}
 		out = &result
 		return nil
-	})
+	}()
 	return out, err
 }
 
@@ -516,8 +534,10 @@ func Hide(ctx context.Context, db *pgxpool.Pool, userID, packID string) (*Hidden
 			return err
 		}
 		var used int
-		if err := tx.QueryRow(ctx, `SELECT count(*)::int FROM campaign_pack
-			JOIN pack_version ON pack_version.id = campaign_pack.pack_version_id WHERE pack_version.pack_id = $1`, packID).Scan(&used); err != nil {
+		// A version a game module names stays too, as a room's does (its module keeps working).
+		if err := tx.QueryRow(ctx, `SELECT count(*)::int FROM pack_version WHERE pack_id = $1
+			AND (id IN (SELECT pack_version_id FROM campaign_pack) OR id IN (SELECT pack_version_id FROM game_module_pack))`,
+			packID).Scan(&used); err != nil {
 			return err
 		}
 		if used > 0 {

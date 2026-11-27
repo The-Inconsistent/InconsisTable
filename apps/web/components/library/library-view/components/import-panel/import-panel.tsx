@@ -11,11 +11,13 @@ import type { Doc } from "@/lib/manifest-form/manifest-form";
 import { TEMPLATE_IDS, templateText, type TemplateId } from "@/lib/templates/templates";
 import {
   ImportRefusal,
+  ModuleImported,
   PackImported,
   RulesetImported,
   WorldImported,
   kindOf,
   parseErrorAt,
+  type ImportKind,
   type Problem,
 } from "@/lib/library/library";
 
@@ -27,10 +29,15 @@ type Outcome =
   | { kind: "ruleset"; saved: RulesetImported }
   | { kind: "pack"; saved: PackImported }
   | { kind: "world"; saved: WorldImported }
+  | { kind: "module"; saved: ModuleImported }
   | { kind: "error"; message: string };
 
 // A 2xx reply as an outcome, or null when it isn't the shape the api promises.
-function savedOutcome({ kind, body }: { kind: "pack" | "ruleset" | "world"; body: unknown }): Outcome | null {
+function savedOutcome({ kind, body }: { kind: ImportKind; body: unknown }): Outcome | null {
+  if (kind === "module") {
+    const m = ModuleImported.safeParse(body);
+    return m.success ? { kind, saved: m.data } : null;
+  }
   if (kind === "world") {
     const w = WorldImported.safeParse(body);
     return w.success ? { kind, saved: w.data } : null;
@@ -126,9 +133,13 @@ export function ImportPanel({ onSaved, autoFocus, onOpenForm }: ImportPanelProps
       });
     }
     const kind = kindOf(doc);
-    // A World has no form: its JSON is imported and exported as it is.
-    if (kind === "world")
-      return setOutcome({ kind: "problems", problems: [{ path: "(root)", message: t("worldNoForm") }], warnings: [] });
+    // A World and a game module have no form: their JSON is imported and exported as it is.
+    if (kind === "world" || kind === "module")
+      return setOutcome({
+        kind: "problems",
+        problems: [{ path: "(root)", message: t(kind === "world" ? "worldNoForm" : "moduleNoForm") }],
+        warnings: [],
+      });
     if (!kind || typeof doc !== "object" || doc === null)
       return setOutcome({ kind: "problems", problems: [{ path: "(root)", message: t("unknownShape") }], warnings: [] });
     onOpenForm({ kind, doc: doc as Doc });
@@ -176,7 +187,7 @@ export function ImportPanel({ onSaved, autoFocus, onOpenForm }: ImportPanelProps
       if (saved) {
         setOutcome(saved);
         // Kept when there are warnings, so a tap on one can still find its spot.
-        if (saved.kind !== "pack" || saved.saved.warnings.length === 0) setText("");
+        if ((saved.kind !== "pack" && saved.kind !== "module") || saved.saved.warnings.length === 0) setText("");
         onSaved();
       } else {
         const refusal = ImportRefusal.safeParse(body);
@@ -194,7 +205,11 @@ export function ImportPanel({ onSaved, autoFocus, onOpenForm }: ImportPanelProps
   };
 
   const warnings: Problem[] =
-    outcome?.kind === "pack" ? outcome.saved.warnings : outcome?.kind === "problems" ? outcome.warnings : [];
+    outcome?.kind === "pack" || outcome?.kind === "module"
+      ? outcome.saved.warnings
+      : outcome?.kind === "problems"
+        ? outcome.warnings
+        : [];
 
   return (
     <section id="import-panel" className="card import">
@@ -265,6 +280,13 @@ export function ImportPanel({ onSaved, autoFocus, onOpenForm }: ImportPanelProps
             : t("worldSaved", { slug: outcome.saved.slug, version: outcome.saved.version })}
         </p>
       )}
+      {outcome?.kind === "module" && (
+        <p className="saved" role="status">
+          {outcome.saved.unchanged
+            ? t("moduleUnchanged", { slug: outcome.saved.slug, version: outcome.saved.version })
+            : t("moduleSaved", { slug: outcome.saved.slug, version: outcome.saved.version })}
+        </p>
+      )}
       {outcome?.kind === "pack" && (
         <div className="stack saved" role="status">
           <p>
@@ -290,7 +312,7 @@ export function ImportPanel({ onSaved, autoFocus, onOpenForm }: ImportPanelProps
         <ProblemList title={t("fixThese")} items={outcome.problems} tone="error" onPick={handlePick} />
       )}
       <ProblemList
-        title={outcome?.kind === "pack" ? t("warnSaved") : t("warnAlso")}
+        title={outcome?.kind === "pack" || outcome?.kind === "module" ? t("warnSaved") : t("warnAlso")}
         items={warnings}
         tone="warn"
         onPick={handlePick}

@@ -219,8 +219,10 @@ func HideTx(ctx context.Context, tx pgx.Tx, userID, worldID string) (*Hidden, er
 		return nil, err
 	}
 	var pinned bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM campaign JOIN world_version ON world_version.id = campaign.world_version_id
-		WHERE world_version.world_id = $1)`, worldID).Scan(&pinned); err != nil {
+	// A version a game module names stays too, as a pinned one does.
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM world_version WHERE world_id = $1
+		AND (id IN (SELECT world_version_id FROM campaign) OR id IN (SELECT world_version_id FROM game_module_version)))`,
+		worldID).Scan(&pinned); err != nil {
 		return nil, err
 	}
 	if pinned {

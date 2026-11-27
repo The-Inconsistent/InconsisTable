@@ -54,6 +54,17 @@ func LockImport(ctx context.Context, tx pgx.Tx, userID string) error {
 // content is a no-op; with different content it is refused (fix it by raising the version, which is what makes it
 // immutable).
 func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*Imported, error) {
+	var out *Imported
+	err := core.InTx(ctx, db, func(tx pgx.Tx) error {
+		var err error
+		out, err = ImportTx(ctx, tx, userID, input)
+		return err
+	})
+	return out, err
+}
+
+// ImportTx is Import inside the caller's transaction (a game module imports its parts in one).
+func ImportTx(ctx context.Context, tx pgx.Tx, userID string, input any) (*Imported, error) {
 	compiled, problems := engine.CompileRuleset(input)
 	if len(problems) == 0 {
 		problems = importProblems(compiled.Ruleset)
@@ -79,7 +90,7 @@ func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*I
 	}
 
 	var out *Imported
-	err = core.InTx(ctx, db, func(tx pgx.Tx) error {
+	err = func() error {
 		if err := LockImport(ctx, tx, userID); err != nil {
 			return err
 		}
@@ -145,7 +156,7 @@ func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*I
 		}
 		out = &base
 		return nil
-	})
+	}()
 	return out, err
 }
 

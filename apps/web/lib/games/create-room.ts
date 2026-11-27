@@ -13,7 +13,8 @@ export type CreatedRoom =
 
 /**
  * NEW ROOM: the api creates it with the caller as owner and GM (or as a player where there is no GM). A game not yet in
- * the library (Freeform) is imported first. `game` null makes a room with no ruleset.
+ * the library (Freeform) is imported first. `game` null makes a room with no ruleset. A game module's room is made from
+ * the module, which pins its ruleset, attaches its packs and pins its World in the same step (house decision #125).
  */
 export async function createRoom({
   name,
@@ -32,10 +33,12 @@ export async function createRoom({
   }
   const parsed = CreateGame.safeParse({ name, rulesetVersionId, tableMode: mode === "gm" ? undefined : mode });
   if (!parsed.success) return { ok: false, reason: "invalid" };
-  const res = await fetch("/api/campaigns", {
+  const { rulesetVersionId: _ruleset, ...rest } = parsed.data;
+  const fromModule = game?.moduleVersionId ? { ...rest, moduleVersionId: game.moduleVersionId } : null;
+  const res = await fetch(fromModule ? "/api/campaigns/from-module" : "/api/campaigns", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(parsed.data),
+    body: JSON.stringify(fromModule ?? parsed.data),
   });
   const body = await readJson(res);
   const room = CampaignRef.safeParse(body);

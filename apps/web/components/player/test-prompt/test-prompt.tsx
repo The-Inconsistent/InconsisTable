@@ -111,13 +111,22 @@ export function TestPrompt({ state, send }: TestPromptProps) {
               {call.acquire && (
                 <div className="stack small" data-acquire="true" style={{ gap: 2 }}>
                   <b>{t("acquiring", { item: call.acquire.name })}</b>
-                  {Object.entries(call.acquire.inputs).map(([input, v]) => (
-                    <span key={input}>
-                      {tA("total", { label: input, total: v.total })}
-                      {" · "}
-                      {v.parts.map((p) => tA("part", { label: p.label, value: p.value })).join(", ")}
-                    </span>
-                  ))}
+                  {Object.entries(call.acquire.inputs).map(([input, v]) => {
+                    const label = v.label ?? input;
+                    return (
+                      <span key={input}>
+                        {typeof v.total === "boolean"
+                          ? tA(v.total ? "yes" : "no", { label })
+                          : tA("total", { label, total: v.total })}
+                        {" · "}
+                        {v.parts
+                          .map((p) =>
+                            typeof p.value === "boolean" ? p.label : tA("part", { label: p.label, value: p.value }),
+                          )
+                          .join(", ")}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
               {call.choices && !target.report && (

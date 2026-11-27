@@ -204,6 +204,7 @@ var refusals = map[string]string{
 	"itemNoFit":                 "{item} isn't fitted to anything.",
 	"itemFitsNot":               "{item} doesn't fit {host}.",
 	"itemFitFull":               "{host} already has {max} fitted.",
+	"itemFitCopies":             "{item} goes on {host} at most {max} times.",
 	"itemSlotTaken":             "{host} already has a {slot}: {other}.",
 	"noAcquire":                 "This room's rules acquire nothing by a Test.",
 	"acquireNotFor":             "{name} can't acquire {entry}.",

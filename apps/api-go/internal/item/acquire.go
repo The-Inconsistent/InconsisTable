@@ -158,11 +158,7 @@ func (r *room) grant(b *actor.Built, acq *Acquired, s *served, to, line string) 
 			if err != nil {
 				return "", err
 			}
-			slot := ""
-			if kind.Fits.Slot != nil {
-				slot, _ = s.Body[*kind.Fits.Slot].(string)
-			}
-			if err := r.canFit(b, kind, fitting{Key: &key, Label: s.Name, Tags: s.Tags, Slot: slot}, h); err != nil {
+			if err := r.canFit(b, kind, fitting{Key: &key, Label: s.Name, Tags: s.Tags, Body: s.Body}, h); err != nil {
 				return "", err
 			}
 			for k, v := range h.Change {

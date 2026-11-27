@@ -766,7 +766,10 @@ export function hostValuesOf({ items, type }: { items: ItemsBlock | undefined; t
  * `spend`: the holder may lower it (the GM sets it). `unique`: one of an entry per actor. `max`: how many an actor
  * holds. `fits`: an item of this kind is fitted to a held item of a kind in `to`, at most `max` on one host, one per
  * value of the entry's `slot` field, and an entry tagged `gmTag` fitted by the GM side only; its effects count only
- * while it is fitted. `card`: the `cards` variant that draws it.
+ * while it is fitted. House decision #176: `slotOn` names, per host kind, the field read as the slot on a host of that
+ * kind (the `slot` field when it is unset); `hosts` the entry's field naming the tags its host carries one of (unset:
+ * any host); `copies` the entry's whole-number field saying how many of it one host takes (unset: one); `exempt` the
+ * tags that leave an entry out of the `max` count or out of the slots. `card`: the `cards` variant that draws it.
  */
 export const ItemKind = z.object({
   id: Id,
@@ -785,6 +788,12 @@ export const ItemKind = z.object({
       max: z.int().min(1).max(10),
       slot: FieldId.optional(),
       gmTag: z.string().min(1).max(40).optional(),
+      slotOn: z.record(Id, FieldId).optional(),
+      hosts: FieldId.optional(),
+      copies: FieldId.optional(),
+      exempt: z
+        .object({ max: z.string().min(1).max(40).optional(), slot: z.string().min(1).max(40).optional() })
+        .optional(),
     })
     .optional(),
   cite: Cite.optional(),
@@ -803,8 +812,8 @@ export type AcquirePart = z.infer<typeof AcquirePart>;
 export const ACQUIRE_OFFERS = { grant: "acquire", topUp: "acquireTopUp" } as const;
 
 /**
- * Acquiring an item by a Test (house decision #102): the Test rolled, each of its inputs the sum of labelled parts
- * read over the asking actor's scope, `item` (the entry's declared fields and its `tags`) and `ctx` (the asker's
+ * Acquiring an item by a Test (house decision #102): the Test rolled, each of its inputs the sum of labelled parts (a
+ * yes-or-no input one part, its answer; house decision #175) read over the asking actor's scope, `item` (the entry's declared fields and its `tags`) and `ctx` (the asker's
  * picks); `if` whether it may be asked; `limits` how many Tests of some kinds an actor takes in one session;
  * `topUp` the resource a failed roll may be topped up with, one per point short, at most `max`; `quantity` how many of
  * a counted kind it grants; `load` the counted item an entry's field names, granted with it.
@@ -2068,8 +2077,22 @@ function itemProblems({
         if (!items.kinds.some((x) => x.id === to))
           out.push({ path: `${path}.fits.to[${j}]`, message: `unknown item kind "${to}"` });
       });
-      if (k.fits.slot !== undefined && entry !== undefined && own(entry.fields, k.fits.slot) === undefined)
-        out.push({ path: `${path}.fits.slot`, message: `${k.entry} has no field "${k.fits.slot}"` });
+      // `types` empty: any field (the `slot` field has always been any).
+      const field = (id: string | undefined, at: string, types: readonly string[]) => {
+        if (id === undefined || entry === undefined) return;
+        const def = own(entry.fields, id);
+        if (def === undefined) out.push({ path: `${path}.fits.${at}`, message: `${k.entry} has no field "${id}"` });
+        else if (types.length > 0 && !types.includes(def.type))
+          out.push({ path: `${path}.fits.${at}`, message: `"${id}" is not of type ${types.join(" or ")}` });
+      };
+      field(k.fits.slot, "slot", []);
+      field(k.fits.hosts, "hosts", ["text", "list"]);
+      field(k.fits.copies, "copies", ["int"]);
+      for (const [to, id] of Object.entries(k.fits.slotOn ?? {}).sort(([a], [b]) => (a < b ? -1 : 1))) {
+        if (!k.fits.to.includes(to))
+          out.push({ path: `${path}.fits.slotOn.${to}`, message: `"${to}" is not a kind it fits` });
+        field(id, `slotOn.${to}`, ["text", "enum"]);
+      }
     }
   });
   if (items.give) {
@@ -2117,9 +2140,13 @@ function acquireProblems({
     out.push({ path: `${path}.test`, message: "a reported Test has no number to reach" });
   else {
     for (const [name, type] of Object.entries(test.inputs).sort(([a], [b]) => (a < b ? -1 : 1))) {
-      if (type !== "int") out.push({ path: `${path}.test`, message: `the Test's input "${name}" is not a number` });
-      else if (!Object.hasOwn(acquire.inputs, name))
+      const parts = own(acquire.inputs, name);
+      if (type !== "int" && type !== "bool")
+        out.push({ path: `${path}.test`, message: `the Test's input "${name}" is not a number or a yes or no` });
+      else if (parts === undefined)
         out.push({ path: `${path}.inputs`, message: `the Test's input "${name}" is not set` });
+      else if (type === "bool" && parts.length !== 1)
+        out.push({ path: `${path}.inputs.${name}`, message: "a yes-or-no input has one part" });
     }
     for (const name of Object.keys(acquire.inputs).sort()) {
       if (!Object.hasOwn(test.inputs, name))

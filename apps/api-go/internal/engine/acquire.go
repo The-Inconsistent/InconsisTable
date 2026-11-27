@@ -45,9 +45,14 @@ func (c *compiler) acquire(entities map[string]*CompiledEntity) {
 	if a.If != nil {
 		c.expr(*a.If, scopes(true), boolType, path+".if")
 	}
+	test := c.r.Tests[a.Test]
 	for _, name := range sortedKeys(a.Inputs) {
+		var want ExprType = intType
+		if test.Inputs[name] == "bool" {
+			want = boolType
+		}
 		for j, part := range a.Inputs[name] {
-			c.expr(part.Value, scopes(true), intType, fmt.Sprintf("%s.inputs.%s[%d].value", path, name, j))
+			c.expr(part.Value, scopes(true), want, fmt.Sprintf("%s.inputs.%s[%d].value", path, name, j))
 		}
 	}
 	if a.TopUp != nil && a.TopUp.Max != nil {
@@ -70,16 +75,18 @@ type AcquireItem struct {
 	Body map[string]any `json:"body"`
 }
 
-// AcquirePartValue is one part of an input, worked out.
+// AcquirePartValue is one part of an input, worked out: a number, or a yes-or-no input's answer.
 type AcquirePartValue struct {
-	Label string  `json:"label"`
-	Value float64 `json:"value"`
+	Label string `json:"label"`
+	Value any    `json:"value"`
 }
 
-// AcquireInput is one of the Test's inputs: its total and the parts it adds up from.
+// AcquireInput is one of the Test's inputs: its total (a float64) and the parts it adds up from, or a yes-or-no
+// input's answer (a bool) and its one part; Label the Test's word for it, "" when the ruleset gives none.
 type AcquireInput struct {
-	Total float64            `json:"total"`
+	Total any                `json:"total"`
 	Parts []AcquirePartValue `json:"parts"`
+	Label string             `json:"label,omitempty"`
 }
 
 // AcquirePlan is planAcquire's answer.
@@ -170,16 +177,37 @@ func PlanAcquire(r *Ruleset, actor *ActorState, item AcquireItem, picks map[stri
 		}
 	}
 	plan := &AcquirePlan{Kind: kind.ID, Inputs: map[string]AcquireInput{}}
+	test := r.Tests[a.Test]
 	for _, name := range sortedKeys(a.Inputs) {
-		in := AcquireInput{Parts: []AcquirePartValue{}}
+		at := func(j int) string { return fmt.Sprintf("%s.inputs.%s[%d].value", path, name, j) }
+		if test.Inputs[name] == "bool" {
+			// A yes-or-no input has one part (the validator holds it to one): its answer is the input's.
+			list := a.Inputs[name]
+			if len(list) == 0 {
+				return nil, refuse("wrongState", "%s.inputs.%s: no part", path, name)
+			}
+			v, refusal := read(list[0].Value, scope, at(0))
+			if refusal != nil {
+				return nil, refusal
+			}
+			yes, isBool := v.(bool)
+			if !isBool {
+				return nil, refuse("wrongState", "%s: not a yes or no", at(0))
+			}
+			plan.Inputs[name] = AcquireInput{Total: yes, Parts: []AcquirePartValue{{list[0].Label, yes}}, Label: test.InputLabels[name]}
+			continue
+		}
+		total := 0.0
+		in := AcquireInput{Parts: []AcquirePartValue{}, Label: test.InputLabels[name]}
 		for j, part := range a.Inputs[name] {
-			v, refusal := readNumber(part.Value, scope, fmt.Sprintf("%s.inputs.%s[%d].value", path, name, j))
+			v, refusal := readNumber(part.Value, scope, at(j))
 			if refusal != nil {
 				return nil, refusal
 			}
 			in.Parts = append(in.Parts, AcquirePartValue{part.Label, v + 0}) // a negated 0 reads as 0
-			in.Total += v
+			total += v
 		}
+		in.Total = total
 		plan.Inputs[name] = in
 	}
 	if t := a.TopUp; t != nil {

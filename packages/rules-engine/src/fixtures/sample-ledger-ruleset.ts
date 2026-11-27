@@ -111,6 +111,18 @@ export const SAMPLE_LEDGER_ITEMS = {
   },
 } satisfies ItemsBlock;
 
+const SAMPLE_LEDGER_PROCURE = {
+  kind: "sumVsTarget",
+  label: "Procure",
+  dice: "1d20",
+  target: "ctx.dn",
+  modifier: "ctx.bonus",
+  inputs: { dn: "int", bonus: "int" },
+  inputLabels: { dn: "Number to beat", bonus: "Push" },
+  entities: ["hero"] as string[],
+  cite: "Base p.43",
+} as const;
+
 export const SAMPLE_LEDGER_RULESET_0_1_3: RulesetInput = {
   id: "sample-ledger",
   // 0.1.1: the hero's Guard, gear with a slot, stores, the item codex field and the items block (house decision #95).
@@ -185,19 +197,7 @@ export const SAMPLE_LEDGER_RULESET_0_1_3: RulesetInput = {
       cite: "Base p.9",
     },
   ],
-  tests: {
-    procure: {
-      kind: "sumVsTarget",
-      label: "Procure",
-      dice: "1d20",
-      target: "ctx.dn",
-      modifier: "ctx.bonus",
-      inputs: { dn: "int", bonus: "int" },
-      inputLabels: { dn: "Number to beat", bonus: "Push" },
-      entities: ["hero"],
-      cite: "Base p.43",
-    },
-  },
+  tests: { procure: SAMPLE_LEDGER_PROCURE },
   // Out of play for good: what leaves a hero out of the Ascension count.
   health: { states: [{ id: "lost", label: "Lost", when: "res.corruption >= 10", entities: ["hero"] }] },
   build: {
@@ -263,7 +263,7 @@ export const SAMPLE_LEDGER_RULESET_0_1_4: RulesetInput = {
  * 0.1.5 (house decision #171): the powers a hero sustains, shown as chips, with quick picks from the powers of its own
  * saved sheet, declared as a strike's means is.
  */
-export const SAMPLE_LEDGER_RULESET: RulesetInput = {
+export const SAMPLE_LEDGER_RULESET_0_1_5: RulesetInput = {
   ...SAMPLE_LEDGER_RULESET_0_1_4,
   version: "0.1.5",
   entities: SAMPLE_LEDGER_RULESET_0_1_4.entities.map((e) =>
@@ -284,4 +284,62 @@ export const SAMPLE_LEDGER_RULESET: RulesetInput = {
         }
       : e,
   ),
+};
+
+/**
+ * 0.1.6 (house decisions #175, #176): procuring asks whether the gear is rare (rated 3 or more), which costs a point of
+ * the roll; fittings also go on kit, in a slot of their own there, name the keywords their host carries one of, take
+ * more than one copy where the entry says so, and a free one counts toward neither the two nor the slots.
+ */
+export const SAMPLE_LEDGER_RULESET: RulesetInput = {
+  ...SAMPLE_LEDGER_RULESET_0_1_5,
+  version: "0.1.6",
+  entities: SAMPLE_LEDGER_RULESET_0_1_5.entities.map((e) =>
+    e.id === SAMPLE_LEDGER_KINDS.wargear
+      ? {
+          ...e,
+          fields: {
+            ...e.fields,
+            kitSlot: { type: "text", label: "Slot on kit", visibility: "party" },
+            mounts: { type: "list", label: "Goes on", visibility: "party" },
+            copies: { type: "int", label: "Copies", visibility: "party" },
+          },
+        }
+      : e,
+  ),
+  items: {
+    ...SAMPLE_LEDGER_ITEMS,
+    kinds: SAMPLE_LEDGER_ITEMS.kinds.map((k) =>
+      k.id === "fittings"
+        ? {
+            ...k,
+            fits: {
+              to: ["arms", "kit"],
+              max: 2,
+              slot: "slot",
+              gmTag: "pair",
+              slotOn: { kit: "kitSlot" },
+              hosts: "mounts",
+              copies: "copies",
+              exempt: { max: "free", slot: "free" },
+            },
+          }
+        : k,
+    ),
+    acquire: {
+      ...SAMPLE_LEDGER_ITEMS.acquire,
+      inputs: {
+        ...SAMPLE_LEDGER_ITEMS.acquire.inputs,
+        rare: [{ label: "Rated 3 or more", value: "item.rating >= 3" }],
+      },
+    },
+  },
+  tests: {
+    procure: {
+      ...SAMPLE_LEDGER_PROCURE,
+      modifier: "ctx.bonus - (ctx.rare ? 1 : 0)",
+      inputs: { ...SAMPLE_LEDGER_PROCURE.inputs, rare: "bool" },
+      inputLabels: { ...SAMPLE_LEDGER_PROCURE.inputLabels, rare: "Rare" },
+    },
+  },
 };

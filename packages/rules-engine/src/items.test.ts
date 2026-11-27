@@ -58,3 +58,18 @@ test("an items block names real kinds, slots and a give field, and a counted kin
     "items.give.loose: a counted kind is not given",
   ]);
 });
+
+test("a fitting's slot per host kind, host filter and copies name fields of the right type (house decision #176)", () => {
+  const [arms, fittings, stores, kit] = SAMPLE_LEDGER_ITEMS.kinds;
+  const fits = (over: object) =>
+    problems({ kinds: [arms, { ...fittings, fits: { to: ["arms"], max: 2, ...over } }, stores, kit] });
+  assert.deepEqual(fits({ slotOn: { arms: "slot" }, hosts: "keywords", exempt: { max: "free" } }), [
+    'items.kinds[1].fits.hosts: wargear has no field "keywords"',
+  ]);
+  assert.deepEqual(fits({ slotOn: { kit: "rating" }, hosts: "slot", copies: "slot" }), [
+    'items.kinds[1].fits.copies: "slot" is not of type int',
+    'items.kinds[1].fits.slotOn.kit: "kit" is not a kind it fits',
+    'items.kinds[1].fits.slotOn.kit: "rating" is not of type text or enum',
+  ]);
+  assert.deepEqual(fits({ slot: "rating", hosts: "loads", copies: "rating" }), []);
+});

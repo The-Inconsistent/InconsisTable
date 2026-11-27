@@ -109,10 +109,15 @@ export const TestTargetState = z.object({
 });
 export type TestTargetState = z.infer<typeof TestTargetState>;
 
-/** One of an acquisition's Test inputs: its total and the labelled parts it adds up from (house decision #102). */
+/**
+ * One of an acquisition's Test inputs: its total and the labelled parts it adds up from (house decision #102), or a
+ * yes-or-no input's answer and its one part (house decision #175); `label` the Test's word for it, which the phone
+ * cannot read from a Test definition it never receives. Absent when the ruleset gives none.
+ */
 export const AcquireInputState = z.object({
-  total: z.number(),
-  parts: z.array(z.object({ label: z.string(), value: z.number() })),
+  total: z.union([z.number(), z.boolean()]),
+  parts: z.array(z.object({ label: z.string(), value: z.union([z.number(), z.boolean()]) })),
+  label: z.string().optional(),
 });
 export const CallAcquire = z.object({
   name: z.string(),

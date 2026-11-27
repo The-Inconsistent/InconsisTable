@@ -151,9 +151,9 @@ func TestFittingHoldsToTheKindsLimitsAndItsEffectCountsOnlyWhileFitted(t *testin
 		fit := func(item, to string) map[string]any {
 			return map[string]any{"type": "item.fit", "itemId": item, "to": to}
 		}
-		r.refusedWith(r.bo, fit(sight, bow), "notYourCharacter")                    // not Bo's character
-		r.refusedWith(r.ana, fit(bow, sight), "itemNoFit")                          // arms are not fitted
-		r.refusedWith(r.ana, fit(sight, r.id(r.hero, "Brass Lens")), "itemFitsNot") // kit takes no fitting
+		r.refusedWith(r.bo, fit(sight, bow), "notYourCharacter") // not Bo's character
+		r.refusedWith(r.ana, fit(bow, sight), "itemNoFit")       // arms are not fitted
+		r.refusedWith(r.ana, fit(sight, sight), "itemFitsNot")   // not to itself
 		r.send(r.ana, fit(sight, bow))
 		if got := r.guard(r.hero); got != base+2 {
 			t.Fatalf("a fitted Sight Lens adds 1: %v", got)
@@ -173,6 +173,48 @@ func TestFittingHoldsToTheKindsLimitsAndItsEffectCountsOnlyWhileFitted(t *testin
 		undoAs(r.play, r.gm)
 		if got := r.line(r.hero); !strings.Contains(got, "Sight Lens@Hunting Bow") {
 			t.Fatalf("after Undo: %s", got)
+		}
+	})
+}
+
+// House decision #176: the Bow String goes only on a host tagged BOW; the Ribbon goes on twice, past the two and into a
+// slot taken, being free; on kit the Long Sight takes a slot of its own, so it sits beside a Sight Lens there.
+func TestAFittingReadsItsHostsCopiesExemptionsAndSlotPerHostKind(t *testing.T) {
+	db := dbtest.Open(t)
+	lib := importLedger(t, db)
+	dbtest.Tx(t, db, func(tx pgx.Tx) {
+		r := newItemRoom(t, tx, lib)
+		r.add(r.hero, "arms", "wargear.hunting-bow")
+		r.add(r.hero, "arms", "wargear.lantern-staff")
+		r.add(r.hero, "kit", "wargear.rope")
+		for _, entry := range []string{"wargear.bow-string", "wargear.sight-lens", "wargear.long-sight", "wargear.sight-lens",
+			"wargear.ribbon", "wargear.ribbon", "wargear.ribbon"} {
+			r.add(r.hero, "fittings", entry)
+		}
+		bow, staff, rope := r.id(r.hero, "Hunting Bow"), r.id(r.hero, "Lantern Staff"), r.id(r.hero, "Rope")
+		loose := func(name string) string {
+			for _, x := range r.items(r.gm, r.hero) {
+				if x.Name == name && x.FittedTo == nil {
+					return x.ID
+				}
+			}
+			t.Fatalf("no loose %s", name)
+			return ""
+		}
+		fit := func(name, to string) map[string]any {
+			return map[string]any{"type": "item.fit", "itemId": loose(name), "to": to}
+		}
+		r.refusedWith(r.ana, fit("Bow String", staff), "itemFitsNot") // the staff is no BOW
+		r.send(r.ana, fit("Bow String", bow))
+		r.send(r.ana, fit("Sight Lens", bow)) // two on the bow: its max
+		r.send(r.ana, fit("Ribbon", bow))     // free: past the max, and into the sight slot the lens holds
+		r.send(r.ana, fit("Ribbon", bow))     // its second copy
+		r.refusedWith(r.ana, fit("Ribbon", bow), "itemFitCopies")
+		// On kit the Long Sight's slot is its own field's, so it goes beside a Sight Lens; on the bow it would clash.
+		r.send(r.ana, fit("Sight Lens", rope))
+		r.send(r.ana, fit("Long Sight", rope))
+		if got := r.line(r.hero); !strings.Contains(got, "Long Sight@Rope") || strings.Count(got, "Ribbon@Hunting Bow") != 2 {
+			t.Fatalf("fitted: %s", got)
 		}
 	})
 }

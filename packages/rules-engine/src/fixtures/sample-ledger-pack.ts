@@ -33,11 +33,13 @@ const GEAR_EFFECTS: Record<string, readonly { path: string; mode: string; value:
 };
 // The stores a weapon loads (house decision #102).
 const LOADS: Record<string, string> = { sling: "supply.pellets" };
+// The slot a fitting takes on kit, where it differs (house decision #176).
+const KIT_SLOTS: Record<string, string> = { "long-sight": "eyepiece" };
 
 /**
  * A piece of gear as an item (house decision #95): tagged with its kind, so the items block tells arms from fittings
- * and kit, and with its record's keywords (house decision #102: what a hero matches); its slot, its rating and the
- * stores it loads in the body, and its effects.
+ * and kit, and with its record's keywords (house decision #102: what a hero matches); its slot (and its slot on kit,
+ * house decision #176), its rating and the stores it loads in the body, and its effects.
  */
 const gearEntry = (r: RawGear) => ({
   ...ledgerEntry("wargear", r),
@@ -46,9 +48,26 @@ const gearEntry = (r: RawGear) => ({
     rating: r.value ?? 0,
     ...(r.upgrade && { slot: r.upgrade.slot }),
     ...(LOADS[r.id] !== undefined && { loads: LOADS[r.id] }),
+    ...(KIT_SLOTS[r.id] !== undefined && { kitSlot: KIT_SLOTS[r.id] }),
   },
   ...(GEAR_EFFECTS[r.id] !== undefined && { effects: [...GEAR_EFFECTS[r.id]!] }),
 });
+
+/** A fitting of the 0.1.3 pack (house decision #176): rated 1, in `slot`, with the extra fields its body names. */
+const fitting = (r: { id: string; name: string; slot: string }, more: Record<string, number | string[]>) => {
+  const e = gearEntry({
+    id: r.id,
+    name: r.name,
+    source: "base",
+    page: 41,
+    category: "Kit",
+    kind: "upgrade",
+    value: 1,
+    rarity: "Common",
+    upgrade: { slot: "grip", fits: { weapon: "ranged" }, mods: [] },
+  } as RawGear);
+  return { ...e, body: { ...e.body, slot: r.slot, ...more } };
+};
 
 // Stores any hero may procure (house decision #102).
 const STORE = { tags: ["open"], body: { rating: 1 } };
@@ -58,7 +77,9 @@ export const SAMPLE_LEDGER_PACK: PackInput = {
   // 0.1.1: gear tagged by kind with slots and effects, stores, and a pair only the GM fits (house decision #95).
   // 0.1.2: gear tagged with its keywords, a rating, the stores the sling loads, a Sight Lens that sharpens its host,
   // and stores open to any hero, rated (house decision #102).
-  version: "0.1.2",
+  // 0.1.3: a Bow String only a bow takes, a Ribbon that goes on twice and counts toward neither the two fittings nor the
+  // slots, and a Long Sight in a slot of its own on kit (house decision #176).
+  version: "0.1.3",
   ruleset: { id: "sample-ledger", range: "^0.1.0" },
   license: "private",
   entries: [
@@ -96,6 +117,8 @@ export const SAMPLE_LEDGER_PACK: PackInput = {
       } as RawGear),
       tags: ["upgrade", "open"],
     },
+    fitting({ id: "bow-string", name: "Bow String", slot: "string" }, { mounts: ["BOW"] }),
+    { ...fitting({ id: "ribbon", name: "Ribbon", slot: "sight" }, { copies: 2 }), tags: ["upgrade", "free"] },
     { key: "supply.pellets", type: "supply", name: "Pellets", cite: "Base p.42", visibility: "public", ...STORE },
     { key: "supply.oil", type: "supply", name: "Lamp Oil", cite: "Base p.42", visibility: "public", ...STORE },
   ],

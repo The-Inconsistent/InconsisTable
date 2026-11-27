@@ -798,10 +798,13 @@ class Compiler {
     for (const [name, def] of sortedEntries(a.picks ?? {}))
       this.expr({ source: def.max, scopes: scopes(false), expect: "int", path: `${path}.picks.${name}.max` });
     if (a.if !== undefined) this.expr({ source: a.if, scopes: scopes(true), expect: "bool", path: `${path}.if` });
-    for (const [name, parts] of sortedEntries(a.inputs))
+    const test = own(this.r.tests, a.test);
+    for (const [name, parts] of sortedEntries(a.inputs)) {
+      const expect = own(test?.inputs ?? {}, name) === "bool" ? "bool" : "int";
       parts.forEach((p, j) =>
-        this.expr({ source: p.value, scopes: scopes(true), expect: "int", path: `${path}.inputs.${name}[${j}].value` }),
+        this.expr({ source: p.value, scopes: scopes(true), expect, path: `${path}.inputs.${name}[${j}].value` }),
       );
+    }
     const ints: [string | undefined, string][] = [
       [a.topUp?.max, "topUp.max"],
       [a.quantity, "quantity"],

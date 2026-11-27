@@ -56,10 +56,10 @@ test("an item is offered the loose items of a kind it fits, and a GM's fitting o
   const loose = ITEMS[2]!;
   assert.deepEqual(
     hostsOf({ ruleset, items: ITEMS, item: loose, gm: false }).map((x) => x.id),
-    ["bow"],
+    ["bow", "rope"], // fittings go on kit too (sample-ledger 0.1.6, house decision #176)
   );
   assert.deepEqual(hostsOf({ ruleset, items: ITEMS, item: { ...loose, tags: ["upgrade", "pair"] }, gm: false }), []);
-  assert.equal(hostsOf({ ruleset, items: ITEMS, item: { ...loose, tags: ["pair"] }, gm: true }).length, 1);
+  assert.equal(hostsOf({ ruleset, items: ITEMS, item: { ...loose, tags: ["pair"] }, gm: true }).length, 2);
   assert.deepEqual(hostsOf({ ruleset, items: ITEMS, item: ITEMS[0]!, gm: true }), []);
 });
 

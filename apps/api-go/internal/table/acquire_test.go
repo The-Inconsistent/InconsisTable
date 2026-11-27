@@ -111,8 +111,13 @@ func TestAnAcquisitionAskedFromAPhoneIsCalledReportedAndGrantedOnce(t *testing.T
 		if call == nil || call.ID != callID || call.Acquire.Name != "Hunting Bow" || *call.Targets[0].Target != 11 {
 			t.Fatalf("the phone's call: %+v", call)
 		}
-		if parts := call.Acquire.Inputs["dn"].Parts; len(parts) != 3 || parts[1].Label != "Rating" || parts[1].Value != 3 {
-			t.Fatalf("the number's parts: %+v", parts)
+		if dn := call.Acquire.Inputs["dn"]; len(dn.Parts) != 3 || dn.Parts[1].Label != "Rating" || dn.Parts[1].Value != 3.0 ||
+			dn.Label != "Number to beat" {
+			t.Fatalf("the number's parts and the Test's word for it: %+v", dn)
+		}
+		// House decision #175: a yes-or-no input is its one part's answer; the bow is rated 3, so it is rare.
+		if rare := call.Acquire.Inputs["rare"]; rare.Total != true || len(rare.Parts) != 1 || rare.Label != "Rare" {
+			t.Fatalf("the yes-or-no input: %+v", rare)
 		}
 		if got := r.offers(callID); got != "" {
 			t.Fatalf("nothing is offered before the report: %s", got)
@@ -168,7 +173,7 @@ func TestAMissIsToppedUpWithCoinUpToTheBound(t *testing.T) {
 		r := newAcquireRoom(t, tx, lib)
 		callID := r.send(r.gm, map[string]any{"type": "request.approve",
 			"id": r.send(r.ana, acquire(r.hero, "wargear.hunting-bow", map[string]any{"push": 0.0})).ID}).ID
-		r.report(callID, 9) // 9 against 11: 2 short
+		r.report(callID, 10) // 10, less 1 for a rare find (house decision #175), against 11: 2 short
 		if got := r.offers(callID); got != "acquireTopUp coin--" {
 			t.Fatalf("a miss within the top-up: %s", got)
 		}

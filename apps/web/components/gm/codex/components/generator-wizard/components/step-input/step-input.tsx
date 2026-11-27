@@ -29,12 +29,15 @@ type StepInputProps = {
   /** A picked entry's name, kept for the confirm's words. */
   onPicked: (entry: RulesEntry) => void;
   pickedName: string | null;
+  /** AGAIN on a rolled step: its chain rolled afresh from its own table (house decision #226). */
+  again?: boolean;
 };
 
 // One step of a generator's wizard (house decision #98): a roll through table.roll (ROLL or I ROLLED, going on through a
 // line's `next` with the trail of tables), a pick from the served entries its filter lets through, or a value by hand.
 export function StepInput(props: StepInputProps) {
-  const { step, before, answers, value, onChange, ruleset, campaignId, campaign, act, onPicked, pickedName } = props;
+  const { step, before, answers, value, onChange, ruleset, campaignId, campaign, act, onPicked, pickedName, again } =
+    props;
   const t = useTranslations("generators");
   const tr = useRefusal();
   const [typed, setTyped] = useState("");
@@ -90,28 +93,48 @@ export function StepInput(props: StepInputProps) {
       await roll(n);
       setTyped("");
     };
+    const rolled = again === true && rows.length > 0;
+    // AGAIN: the chain read so far is dropped and rolled afresh on the step's own table, through table.roll.
+    const handleAgain = async () => {
+      const r = await act({ type: "table.roll", tableId: step.table });
+      if (r.ok && r.roll) onChange({ rows: [r.roll.entryId] });
+    };
     return (
       <div className="stack">
         {header}
         <TableTrail steps={trail} onClear={rows.length > 0 ? () => onChange(undefined) : undefined} />
-        {nextTable && (
+        {(nextTable || rolled) && (
           <div className="row">
-            <button type="button" className="btn sm primary" onClick={() => roll(null)}>
-              {rows.length === 0 ? t("roll") : t("rollOn", { title: nextTable.title })}
-            </button>
-            <form className="row" onSubmit={handleTyped}>
-              <input
-                className="input table-typed"
-                inputMode="numeric"
-                value={typed}
-                onChange={(e) => setTyped(e.target.value)}
-                aria-label={t("typedOn", { title: nextTable.title })}
-                placeholder={t("typed")}
-              />
-              <button className="btn sm" disabled={typedOf(typed) === null}>
-                {t("useTyped")}
+            {nextTable && (
+              <>
+                <button type="button" className="btn sm primary" onClick={() => roll(null)}>
+                  {rows.length === 0 ? t("roll") : t("rollOn", { title: nextTable.title })}
+                </button>
+                <form className="row" onSubmit={handleTyped}>
+                  <input
+                    className="input table-typed"
+                    inputMode="numeric"
+                    value={typed}
+                    onChange={(e) => setTyped(e.target.value)}
+                    aria-label={t("typedOn", { title: nextTable.title })}
+                    placeholder={t("typed")}
+                  />
+                  <button className="btn sm" disabled={typedOf(typed) === null}>
+                    {t("useTyped")}
+                  </button>
+                </form>
+              </>
+            )}
+            {rolled && (
+              <button
+                type="button"
+                className="btn sm"
+                onClick={handleAgain}
+                aria-label={t("againOn", { label: step.label })}
+              >
+                {t("again")}
               </button>
-            </form>
+            )}
           </div>
         )}
       </div>

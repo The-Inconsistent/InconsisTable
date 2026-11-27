@@ -14,7 +14,7 @@ import {
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { EntryEditor } from "@/components/gm/codex/components/entry-editor/entry-editor";
-import { GeneratorWizard } from "@/components/gm/codex/components/generator-wizard/generator-wizard";
+import { GeneratorSheet } from "@/components/gm/codex/components/generator-sheet/generator-sheet";
 import { PackAdder } from "@/components/gm/codex/components/pack-adder/pack-adder";
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
 import { EntryFieldChips } from "@/components/ui/entry-fields/entry-fields";
@@ -23,6 +23,7 @@ import { ShowButton } from "@/components/gm/codex/components/show-button/show-bu
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { byKind, filterEntries, treeRows, unfolded, type KindFilter } from "@/lib/codex/codex";
 import { fromKinds } from "@/lib/entry-fields/entry-fields";
+import { generatorsFor } from "@/lib/generators/generators";
 import type { RulesEntry } from "@/lib/library/library";
 import type { Spawnable } from "@/lib/scene-prep/scene-prep";
 
@@ -80,10 +81,10 @@ export function Codex({
   const [adding, setAdding] = useState(false);
   const [fromPack, setFromPack] = useState(false);
   const packKinds = useMemo(() => fromKinds(ruleset), [ruleset]);
-  // The generator being run (house decision #98); the served manifest carries them to the GM side only.
-  const generators = ruleset?.generators ?? [];
-  const [generating, setGenerating] = useState<string | null>(null);
-  const generator = generators.find((g) => g.id === generating) ?? null;
+  // GENERATE's sheet (house decisions #98, #226): the generators making the kind filtered; the served manifest carries
+  // them to the GM side only.
+  const generators = useMemo(() => generatorsFor({ generators: ruleset?.generators ?? [], kind }), [ruleset, kind]);
+  const [generating, setGenerating] = useState(false);
   const [newKind, setNewKind] = useState<CodexKind>("npc");
   const [newTitle, setNewTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -195,34 +196,25 @@ export function Codex({
           </button>
         )}
         {can("codex:write") && generators.length > 0 && (
-          <select
-            aria-label={t("generate")}
-            value={generating ?? ""}
-            onChange={(e) => setGenerating(e.target.value || null)}
-          >
-            <option value="">{t("generate")}</option>
-            {generators.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.label}
-              </option>
-            ))}
-          </select>
+          <button className="btn" onClick={() => setGenerating(!generating)} aria-expanded={generating}>
+            {t("generate")}
+          </button>
         )}
       </div>
-      {ruleset && generator && (
-        <GeneratorWizard
-          key={generator.id}
-          generator={generator}
+      {ruleset && generating && generators.length > 0 && (
+        <GeneratorSheet
+          generators={generators}
+          error={error}
           ruleset={ruleset}
           campaignId={me.campaignId}
           campaign={state.campaign.fields}
           act={act}
           under={{ entries: entries.map((e) => ({ id: e.id, title: e.title })), open: openId }}
           onMade={(ids) => {
-            setGenerating(null);
+            setGenerating(false);
             if (ids[0]) setOpenId(ids[0]);
           }}
-          onClose={() => setGenerating(null)}
+          onClose={() => setGenerating(false)}
         />
       )}
       {fromPack && (

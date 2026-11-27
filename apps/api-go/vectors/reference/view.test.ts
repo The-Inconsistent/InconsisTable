@@ -509,7 +509,7 @@ test("a gm entry field reaches only the side that reads GM notes; the player and
   assert.deepEqual(defs(ctx(member("player"), "u-x"), "npc"), ["disposition", "home", "mood"]);
   assert.deepEqual(defs(ctx({ kind: "token", role: "screen", characterIds: [] }, null), "faction"), []);
   assert.deepEqual(defs(ctx(member("cogm", ["combat"]), "u-co"), "npc"), ["disposition", "home", "mood"]);
-  assert.deepEqual(defs(ctx(member("gm"), "u-gm"), "npc"), ["disposition", "home", "look", "mood", "patron"]);
+  assert.deepEqual(defs(ctx(member("gm"), "u-gm"), "npc"), ["disposition", "home", "kin", "look", "mood", "patron"]);
 });
 
 // House decision #89: tags and rows follow their field's visibility, and a reminder goes where every field it reads goes.
@@ -646,6 +646,30 @@ test("a player on the ledger sample keeps the hero's Guard and its build, withou
   assert.equal(served.items?.kinds.length, 4);
 });
 
+test("a player's copy keeps a foe's line only where it reads what the player may, a pool row only for a pool it is sent, and a shared row goes before a resource is narrowed (#180)", () => {
+  const served = (input: RulesetInput, c: Ctx) => {
+    const rules = compileRuleset(input);
+    assert.ok(rules.ok);
+    return seatManifest({ ruleset: rules.compiled.ruleset, ctx: c });
+  };
+  const player = ctx(member("player", [], ["bran"]), "u-bran");
+  const incoming = (input: RulesetInput) => served(input, player).panels?.find((p) => p.id === "incoming");
+  assert.ok(incoming(SAMPLE_HARM)?.lines?.some((l) => l.text === "A swarm this big strikes twice"));
+  const cut = incoming(CRAFTED_SEAT_CUTS.harmFoeCuts!);
+  assert.equal(cut?.foe, "swarm");
+  assert.deepEqual(
+    cut?.lines?.map((l) => l.text),
+    ["Say how you meet the blow before the dice land", "Resolve left: you may try again"],
+  );
+  assert.deepEqual(
+    served(SAMPLE_SKIRMISH, player).layout.character?.phoneStrip?.filter((r) => typeof r === "string"),
+    ["pools.momentum"],
+  );
+  const screen = served(CRAFTED_SEAT_CUTS.d20SharedScreen!, player);
+  assert.equal(screen.layout.sheet?.screen?.length ?? 0, 0);
+  assert.deepEqual(screen.resources.find((r) => r.id === "hp")?.entities, ["character"]);
+});
+
 test("a strike, a generator and a codex kind's prefill are cut where they read what the seat may not", () => {
   const served = (input: RulesetInput, c: Ctx) => {
     const rules = compileRuleset(input);
@@ -665,7 +689,11 @@ test("a strike, a generator and a codex kind's prefill are cut where they read w
     ["A clean line"],
   );
   const secrets = served(CRAFTED_SEAT_CUTS.d20Cuts!, ctx(member("cogm", ["codex", "codex.secrets"]), "u-co"));
-  assert.deepEqual(secrets.generators, []);
+  // The warren's pick reads a creature's level the seat may not read; the shrine's reads nothing (house decision #179).
+  assert.deepEqual(
+    secrets.generators?.map((g) => g.id),
+    ["shrine"],
+  );
   assert.deepEqual(secrets.codex?.kinds.location?.from, [{ entity: "site", values: {}, children: "within" }]);
 });
 
@@ -683,7 +711,11 @@ test("a second phone's copy carries no gm panel line or figure, and no panel gua
   const incoming = phone.panels![0]!;
   assert.deepEqual(
     incoming.lines?.map((l) => l.text),
-    ["Say how you meet the blow before the dice land", "Resolve left: you may try again"],
+    [
+      "Say how you meet the blow before the dice land",
+      "Resolve left: you may try again",
+      "A swarm this big strikes twice",
+    ],
   );
   assert.deepEqual(
     incoming.figures?.map((f) => f.label),

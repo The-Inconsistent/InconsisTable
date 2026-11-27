@@ -532,7 +532,7 @@ const SKIRMISH_0_1_11: RulesetInput = {
  * stance lines of which only the first that holds shows, and the chapter named in its checklist step. Invented.
  */
 export const SAMPLE_SKIRMISH_0_1_11 = SKIRMISH_0_1_11;
-export const SAMPLE_SKIRMISH: RulesetInput = {
+export const SAMPLE_SKIRMISH_0_1_12: RulesetInput = {
   ...SAMPLE_SKIRMISH_0_1_11,
   version: "0.1.12",
   conditions: SAMPLE_SKIRMISH_0_1_11.conditions?.map((c) =>
@@ -582,4 +582,21 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
     },
   },
   checklist: SAMPLE_SKIRMISH_0_1_11.checklist?.map((s) => (s.id === "chapter" ? { ...s, now: "campaign.chapter" } : s)),
+};
+
+/**
+ * 0.1.13 (house decision #180): the strip shows the party's momentum, and the GM's pressure, which a player's copy loses
+ * with its row. 0.1.12 hashes as it did. Invented.
+ */
+const skirmishLayout = SAMPLE_SKIRMISH_0_1_12.layout ?? {};
+export const SAMPLE_SKIRMISH: RulesetInput = {
+  ...SAMPLE_SKIRMISH_0_1_12,
+  version: "0.1.13",
+  layout: {
+    ...skirmishLayout,
+    character: {
+      ...skirmishLayout.character!,
+      phoneStrip: [...(skirmishLayout.character?.phoneStrip ?? []), "pools.momentum", "pools.pressure"],
+    },
+  },
 };

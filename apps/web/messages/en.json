@@ -2114,6 +2114,7 @@
       "visibility": "The table sees",
       "pool": "Pool",
       "amount": "Amount",
+      "poolFrom": "From a pack: {type}",
       "amountHint": "Positive adds, negative spends. Never 0.",
       "text": "What it is for",
       "scene": "Scene",

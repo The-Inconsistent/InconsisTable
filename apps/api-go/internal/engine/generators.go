@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -21,6 +22,7 @@ const (
 	maxEachSteps      = 8
 	MaxGenerated      = 60
 	MaxChain          = 8
+	maxJoinedSteps    = 4
 )
 
 type (
@@ -39,13 +41,17 @@ type (
 		Options   []string          `json:"options"`
 		Labels    map[string]string `json:"labels"`
 		MaxLength *float64          `json:"maxLength"`
+		// Trail: a roll's words are every line of its chain, in order (house decision #179).
+		Trail bool `json:"trail"`
 	}
+	// StepRefs is the steps that fill one field: one id, or 2 to 4 joined as words (house decision #179).
+	StepRefs []string
 	// GeneratedEntry is what one made entry takes: a title and fields from steps, and From a pick step whose pack
 	// entry it is made from (house decision #97).
 	GeneratedEntry struct {
-		Title  string            `json:"title"`
-		From   *string           `json:"from"`
-		Fields map[string]string `json:"fields"`
+		Title  string              `json:"title"`
+		From   *string             `json:"from"`
+		Fields map[string]StepRefs `json:"fields"`
 	}
 	// Generator is one declared generator.
 	Generator struct {
@@ -65,6 +71,24 @@ type (
 	}
 )
 
+// UnmarshalJSON reads one step id or a list of them.
+func (s *StepRefs) UnmarshalJSON(b []byte) error {
+	var one string
+	if json.Unmarshal(b, &one) == nil {
+		*s = StepRefs{one}
+		return nil
+	}
+	return json.Unmarshal(b, (*[]string)(s))
+}
+
+// MarshalJSON writes one id as itself, as the manifest says it.
+func (s StepRefs) MarshalJSON() ([]byte, error) {
+	if len(s) == 1 {
+		return json.Marshal(s[0])
+	}
+	return json.Marshal([]string(s))
+}
+
 func generatorStepVariant(tag string, extra ...schema.Field) schema.Variant {
 	fields := append([]schema.Field{
 		schema.Req("id", idSchema),
@@ -77,7 +101,7 @@ func generatorStepVariant(tag string, extra ...schema.Field) schema.Variant {
 
 var (
 	generatorStep = schema.Union("kind",
-		generatorStepVariant("roll", schema.Req("table", idSchema)),
+		generatorStepVariant("roll", schema.Req("table", idSchema), schema.Opt("trail", schema.Bool())),
 		generatorStepVariant("pick", schema.Req("entity", idSchema), schema.Opt("filter", exprSource)),
 		generatorStepVariant("number", schema.Req("min", schema.Int().Min(-1000).Max(1000)),
 			schema.Req("max", schema.Int().Min(-1000).Max(1000))),
@@ -88,7 +112,7 @@ var (
 	generatedEntry = []schema.Field{
 		schema.Req("title", idSchema),
 		schema.Opt("from", idSchema),
-		schema.Opt("fields", schema.Record(idSchema, idSchema)),
+		schema.Opt("fields", schema.Record(idSchema, schema.AnyOf(idSchema, schema.Array(idSchema).Min(2)))),
 	}
 	generatorSchema = schema.Object(
 		schema.Req("id", idSchema),
@@ -199,16 +223,28 @@ func (p *problems) generator(r *Ruleset, g *Generator, path string) {
 			}
 		}
 		for _, f := range sortedKeys(m.Fields) {
-			id := m.Fields[f]
+			ids := m.Fields[f]
 			def, declared := kind.Fields[f]
-			s := step(id)
-			switch {
-			case !declared:
+			if !declared {
 				p.add(at+".fields."+f, `"%s" is not a field of %s`, f, g.Make.Kind)
-			case s == nil:
-				p.add(at+".fields."+f, `"%s" is not a step`, id)
-			case !stepFills(s, &def):
-				p.add(at+".fields."+f, `"%s" can't fill "%s"`, id, f)
+				continue
+			}
+			if len(ids) > 1 && def.Type != "text" {
+				p.add(at+".fields."+f, "only a text field takes several steps")
+				continue
+			}
+			if len(ids) > maxJoinedSteps {
+				p.add(at+".fields."+f, "at most %d steps", maxJoinedSteps)
+				continue
+			}
+			for _, id := range ids {
+				if s := step(id); s == nil {
+					p.add(at+".fields."+f, `"%s" is not a step`, id)
+					break
+				} else if !stepFills(s, &def) {
+					p.add(at+".fields."+f, `"%s" can't fill "%s"`, id, f)
+					break
+				}
 			}
 		}
 	}
@@ -393,6 +429,7 @@ func answer(r *Ruleset, steps, above []GeneratorStep, given map[string]StepValue
 			}
 			tableID, ok := s.Table, true
 			var line *TableEntry
+			labels := []string{}
 			for i, id := range v.Rows {
 				if i > 0 {
 					ok = line.Next != nil
@@ -412,8 +449,14 @@ func answer(r *Ruleset, steps, above []GeneratorStep, given map[string]StepValue
 				if line == nil {
 					return refuse("generateRow")
 				}
+				labels = append(labels, line.Label)
 			}
-			done[s.ID] = &answered{step: s, expr: line.ID, text: line.Label}
+			// A trail's words are the whole chain's (house decision #179); an expression still reads the last line.
+			text := line.Label
+			if s.Trail {
+				text = strings.Join(labels, " ")
+			}
+			done[s.ID] = &answered{step: s, expr: line.ID, text: text}
 		case "pick":
 			if !has || v.Key == nil {
 				return refuse("generateMissing")
@@ -508,12 +551,28 @@ func plan(r *Ruleset, g *Generator, made *GeneratedEntry, done map[string]*answe
 		out.Title = string(runes[:200])
 	}
 	for _, id := range sortedKeys(made.Fields) {
-		a, has := done[made.Fields[id]]
 		def, declared := defs[id]
-		if !has || !declared {
+		all := []*answered{}
+		for _, step := range made.Fields[id] {
+			if a, has := done[step]; has {
+				all = append(all, a)
+			}
+		}
+		if !declared || len(all) == 0 {
 			continue
 		}
-		if value := fillOf(a, &def); value != nil && CheckFieldValue(&def, value) == "" {
+		// Several steps fill a text field with the words of those answered, joined by a space (house decision #179).
+		var value any
+		if len(all) == 1 {
+			value = fillOf(all[0], &def)
+		} else {
+			words := make([]string, len(all))
+			for i, a := range all {
+				words[i] = a.text
+			}
+			value = strings.Join(words, " ")
+		}
+		if value != nil && CheckFieldValue(&def, value) == "" {
 			out.Fields[id] = value
 		}
 	}

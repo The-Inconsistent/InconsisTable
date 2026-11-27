@@ -2114,6 +2114,7 @@
       "visibility": "Cả bàn thấy",
       "pool": "Quỹ",
       "amount": "Số lượng",
+      "poolFrom": "Từ gói: {type}",
       "amountHint": "Dương là thêm, âm là tiêu. Không bao giờ là 0.",
       "text": "Dùng để làm gì",
       "scene": "Cảnh",

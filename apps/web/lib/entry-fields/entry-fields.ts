@@ -5,6 +5,7 @@ import {
   MAX_ROWS,
   rowTests,
   type CodexField,
+  type FieldRoll,
   type EnumTone,
   type Ruleset,
 } from "@inconsistable/rules-engine";
@@ -353,3 +354,10 @@ export const rollTimes = ({ def, campaign }: { def: RowsDef; campaign?: Readonly
   const v = def.rolls?.times === undefined ? undefined : campaign?.[def.rolls.times];
   return typeof v === "number" && Number.isInteger(v) && v > 0 ? Math.min(v, MAX_ROWS) : 1;
 };
+
+/** The tables a roll reads for an entry: those listed for the value its `per` field holds, else its own (house decision #178). */
+export function rollFor({ roll, fields }: { roll: FieldRoll; fields: Readonly<Record<string, unknown>> }): FieldRoll {
+  const value = roll.per === undefined ? undefined : fields[roll.per.field];
+  if (roll.per === undefined || typeof value !== "string" || !Object.hasOwn(roll.per.tables, value)) return roll;
+  return { ...roll, tables: roll.per.tables[value] ?? roll.tables };
+}

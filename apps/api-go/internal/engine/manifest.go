@@ -107,6 +107,19 @@ type (
 	FieldRoll struct {
 		Tables []string `json:"tables"`
 		Join   *string  `json:"join"`
+		// Per is tables by the value of one of the entry's fields, rolled in place of Tables (house decision #178).
+		Per *struct {
+			Field  string              `json:"field"`
+			Tables map[string][]string `json:"tables"`
+		} `json:"per"`
+	}
+	// PoolLineFrom is how a pack entry of Entity makes a scene's pool line on Pool (house decision #178).
+	PoolLineFrom struct {
+		Entity string  `json:"entity"`
+		Pool   string  `json:"pool"`
+		Amount string  `json:"amount"`
+		Spend  bool    `json:"spend"`
+		Text   *string `json:"text"`
 	}
 	// EntryPrefill is how a pack entry of Entity makes a codex entry of a kind (house decision #97; rules-engine
 	// EntryPrefill): a row's prefill mapping, the ref field whose entries come along nested, and for a scene the list
@@ -119,6 +132,8 @@ type (
 		Tests    *struct {
 			Field  string            `json:"field"`
 			Inputs map[string]string `json:"inputs"`
+			// Per is a Test id to its own inputs' fields, over Inputs for that Test's lines (house decision #177).
+			Per map[string]map[string]string `json:"per"`
 		} `json:"tests"`
 		Roster *string `json:"roster"`
 	}
@@ -201,6 +216,8 @@ type (
 		// (house decision #97).
 		From      []EntryPrefill `json:"from"`
 		TitleRoll *FieldRoll     `json:"titleRoll"`
+		// PoolLines is the pack entry types a scene's prep makes pool lines from (house decision #178).
+		PoolLines []PoolLineFrom `json:"poolLines"`
 		// Ready is the fields an entry of this kind needs filled before it is ready for the table (house decision #107).
 		Ready []string `json:"ready"`
 	}
@@ -1312,14 +1329,15 @@ func (p *problems) codex(r *Ruleset) {
 				p.rows(r, &def, path)
 			}
 			if def.Type == "text" && def.Roll != nil {
-				p.roll(r, def.Roll, path+".roll")
+				p.roll(r, kind, fields, def.Roll, path+".roll")
 			}
 		}
 		k := r.Codex.Kinds[kind]
 		p.duplicates("codex.kinds."+kind+".reminders", idsOf(k.Reminders, func(x CodexReminder) string { return x.ID }))
 		if k.TitleRoll != nil {
-			p.roll(r, k.TitleRoll, "codex.kinds."+kind+".titleRoll")
+			p.roll(r, kind, fields, k.TitleRoll, "codex.kinds."+kind+".titleRoll")
 		}
+		p.poolLines(r, kind, &k)
 		p.entryFrom(r, kind, &k)
 		seenReady := map[string]bool{}
 		for i, id := range k.Ready {
@@ -1336,14 +1354,61 @@ func (p *problems) codex(r *Ruleset) {
 
 // roll checks a field's roll (house decision #97; rollProblems in manifest.ts): its tables exist and are rolled, not
 // dealt.
-func (p *problems) roll(r *Ruleset, roll *FieldRoll, path string) {
-	for i, id := range roll.Tables {
-		t, has := r.Tables[id]
+func (p *problems) roll(r *Ruleset, kind string, fields map[string]FieldDef, roll *FieldRoll, path string) {
+	tables := func(ids []string, at string) {
+		for i, id := range ids {
+			t, has := r.Tables[id]
+			switch {
+			case !has:
+				p.add(fmt.Sprintf("%s[%d]", at, i), `unknown table "%s"`, id)
+			case t.Visibility == "owner":
+				p.add(fmt.Sprintf("%s[%d]", at, i), `"%s" is dealt, never rolled`, id)
+			}
+		}
+	}
+	tables(roll.Tables, path+".tables")
+	if roll.Per == nil {
+		return
+	}
+	// Tables by a field's value (house decision #178): an enum's values are known; a ref's keys are the packs'.
+	by, has := fields[roll.Per.Field]
+	if !has || (by.Type != "enum" && by.Type != "ref") {
+		p.add(path+".per.field", `"%s" is not an enum or ref field of %s`, roll.Per.Field, kind)
+	}
+	for _, value := range sortedKeys(roll.Per.Tables) {
+		if has && by.Type == "enum" && !slices.Contains(by.Values, value) {
+			p.add(path+".per.tables."+value, `"%s" is not a value`, value)
+		}
+		tables(roll.Per.Tables[value], path+".per.tables."+value)
+	}
+}
+
+// poolLines checks a scene's pool lines from pack entries (house decision #178; poolLineProblems in manifest.ts).
+func (p *problems) poolLines(r *Ruleset, kind string, k *CodexKind) {
+	for i, l := range k.PoolLines {
+		at := fmt.Sprintf("codex.kinds.%s.poolLines[%d]", kind, i)
+		if kind != "scene" {
+			p.add(at, "only a scene holds prepared lines")
+		}
+		res := slices.IndexFunc(r.Resources, func(x Resource) bool { return x.ID == l.Pool })
 		switch {
-		case !has:
-			p.add(fmt.Sprintf("%s.tables[%d]", path, i), `unknown table "%s"`, id)
-		case t.Visibility == "owner":
-			p.add(fmt.Sprintf("%s.tables[%d]", path, i), `"%s" is dealt, never rolled`, id)
+		case res < 0:
+			p.add(at+".pool", `unknown resource "%s"`, l.Pool)
+		case r.Resources[res].Scope == "entity":
+			p.add(at+".pool", `"%s" must be a shared pool`, l.Pool)
+		}
+		entity := r.entity(l.Entity)
+		if entity == nil {
+			p.add(at+".entity", `unknown entity "%s"`, l.Entity)
+			continue
+		}
+		if f, has := entity.Fields[l.Amount]; !has || f.Type != "int" {
+			p.add(at+".amount", `"%s" is not an int field of "%s"`, l.Amount, l.Entity)
+		}
+		if l.Text != nil {
+			if f, has := entity.Fields[*l.Text]; !has || f.Type != "text" {
+				p.add(at+".text", `"%s" is not a text field of "%s"`, *l.Text, l.Entity)
+			}
 		}
 	}
 }
@@ -1376,7 +1441,9 @@ func (p *problems) entryFrom(r *Ruleset, kind string, k *CodexKind) {
 				p.add(at+".values."+to, `"%s" is not a field of %s`, to, kind)
 			case !has:
 				p.add(at+".values."+to, `"%s" is not a field of "%s"`, fieldID, f.Entity)
-			case !fitsColumn(&RowColumn{Type: def.Type, Values: def.Values, Entity: def.Entity}, &field):
+			// A list fills a tags field, its words checked as the GM's would be (house decision #177).
+			case !fitsColumn(&RowColumn{Type: def.Type, Values: def.Values, Entity: def.Entity}, &field) &&
+				(def.Type != "tags" || field.Type != "list"):
 				p.add(at+".values."+to, `"%s" does not fit the field`, fieldID)
 			}
 		}
@@ -1398,10 +1465,20 @@ func (p *problems) entryFrom(r *Ruleset, kind string, k *CodexKind) {
 		}
 		if f.Tests != nil {
 			list(f.Tests.Field, at+".tests.field")
-			for _, input := range sortedKeys(f.Tests.Inputs) {
-				fieldID := f.Tests.Inputs[input]
-				if def := entity.Fields[fieldID]; !slices.Contains([]string{"int", "text", "enum", "bool"}, def.Type) {
-					p.add(at+".tests.inputs."+input, `"%s" is not a value field of "%s"`, fieldID, f.Entity)
+			inputs := func(m map[string]string, path string) {
+				for _, input := range sortedKeys(m) {
+					fieldID := m[input]
+					if def := entity.Fields[fieldID]; !slices.Contains([]string{"int", "text", "enum", "bool"}, def.Type) {
+						p.add(path+"."+input, `"%s" is not a value field of "%s"`, fieldID, f.Entity)
+					}
+				}
+			}
+			inputs(f.Tests.Inputs, at+".tests.inputs")
+			for _, test := range sortedKeys(f.Tests.Per) {
+				if _, has := r.Tests[test]; !has {
+					p.add(at+".tests.per."+test, `unknown test "%s"`, test)
+				} else {
+					inputs(f.Tests.Per[test], at+".tests.per."+test)
 				}
 			}
 		}
@@ -1509,7 +1586,8 @@ func (p *problems) rows(r *Ruleset, def *FieldDef, path string) {
 				p.add(at+".values."+col, `"%s" is not a column`, col)
 			case !has:
 				p.add(at+".values."+col, `"%s" is not a field of "%s"`, fieldID, f.Entity)
-			case !fitsColumn(c, &field):
+			// A Test column takes a text or enum field naming the Test (house decision #177).
+			case !fitsColumn(c, &field) && (c.Type != "test" || (field.Type != "text" && field.Type != "enum")):
 				p.add(at+".values."+col, `"%s" does not fit the column`, fieldID)
 			}
 		}

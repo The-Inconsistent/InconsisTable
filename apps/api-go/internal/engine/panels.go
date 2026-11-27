@@ -35,10 +35,12 @@ type (
 		Label    string    `json:"label"`
 		Cite     *string   `json:"cite"`
 		Entities *[]string `json:"entities"`
-		When     *string   `json:"when"`
-		Holds    *string   `json:"holds"`
-		Unless   *string   `json:"unless"`
-		OpensOn  *struct {
+		// Foe is the actor type whose values ctx.foe reads, the acting foe's (house decision #180).
+		Foe     *string `json:"foe"`
+		When    *string `json:"when"`
+		Holds   *string `json:"holds"`
+		Unless  *string `json:"unless"`
+		OpensOn *struct {
 			Rises string `json:"rises"`
 		} `json:"opensOn"`
 		Lines   []PanelLine   `json:"lines"`
@@ -58,6 +60,13 @@ func (p *problems) panels(r *Ruleset, actorTypes func(*[]string, string), needCi
 		path := fmt.Sprintf("panels[%d]", i)
 		needCite(x.Cite, path)
 		actorTypes(x.Entities, path+".entities")
+		if x.Foe != nil {
+			if foe := r.entity(*x.Foe); foe == nil {
+				p.add(path+".foe", `unknown entity "%s"`, *x.Foe)
+			} else if foe.Base != "actor" {
+				p.add(path+".foe", `"%s" is not an actor entity`, *x.Foe)
+			}
+		}
 		if x.Holds != nil && !state(*x.Holds) {
 			p.add(path+".holds", `unknown state "%s"`, *x.Holds)
 		}
@@ -102,11 +111,25 @@ func (p *problems) panels(r *Ruleset, actorTypes func(*[]string, string), needCi
 // panels is compile.ts Compiler.panels: when, each line's when and each figure over each actor type that shows the
 // panel, with ctx.self and ctx.fight; the options' usable also reads entry, the listed type's fields.
 func (c *compiler) panels(entities map[string]*CompiledEntity) {
+	// The carried items' keys and tags by kind (house decision #180), which an option's usable reads.
+	carried := map[string]ExprType{}
+	if c.r.Items != nil {
+		for _, k := range c.r.Items.Kinds {
+			carried[k.ID] = ListType{textType}
+		}
+	}
 	for i := range c.r.Panels {
 		x := &c.r.Panels[i]
 		path := fmt.Sprintf("panels[%d]", i)
 		_, bases := c.actorsOf(x.Entities, entities)
-		scopes := withScope(bases, "ctx", RecordType{maps.Clone(spendCtx)})
+		ctx := maps.Clone(spendCtx)
+		// ctx.foe: the acting foe's scope, of the type the panel names (house decision #180).
+		if x.Foe != nil {
+			if foe, ok := entities[*x.Foe]; ok {
+				ctx["foe"] = RecordType{foe.Scope}
+			}
+		}
+		scopes := withScope(bases, "ctx", RecordType{ctx})
 		if x.When != nil {
 			c.expr(*x.When, scopes, boolType, path+".when")
 		}
@@ -120,7 +143,10 @@ func (c *compiler) panels(entities map[string]*CompiledEntity) {
 		}
 		if o := x.Options; o != nil && o.Usable != nil {
 			if e := c.r.entity(o.Entry); e != nil {
-				c.expr(*o.Usable, withScope(scopes, "entry", RecordType{fieldScope(e.Fields)}), boolType, path+".options.usable")
+				withCarried := maps.Clone(ctx)
+				withCarried["carried"] = RecordType{carried}
+				usable := withScope(withScope(bases, "ctx", RecordType{withCarried}), "entry", RecordType{fieldScope(e.Fields)})
+				c.expr(*o.Usable, usable, boolType, path+".options.usable")
 			}
 		}
 	}

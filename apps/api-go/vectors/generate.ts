@@ -2069,6 +2069,10 @@ function listCrafted(): object[] {
     // House decision #173: a table rolled into rows per a campaign value, an enum offered from the row's entry, a
     // Test's inputs worked out and listed per word, and each refusal.
     extra(rows({ rolls: { table: "haz", into: "name", times: "tier" } })),
+    // House decision #177: a Test column filled from a text or enum field, never from a number.
+    fill({ entity: "kin", values: { test: "note" } }),
+    fill({ entity: "kin", values: { test: "mood" } }),
+    fill({ entity: "kin", values: { test: "bite" } }),
     extra(rows({ rolls: { table: "haz", into: "name" } })),
     extra(rows({ rolls: { table: "nope", into: "dc", times: "nope" } })),
     extra(rows({ rolls: { table: "haz", into: "name", times: "tier" } }), { campaignFields: undefined }),
@@ -3176,6 +3180,26 @@ function generatorCrafted(): object[] {
       each: { times: "steps.r", steps: [{ ...roll, id: "e" }] },
       make: { kind: "location", title: "r", each: { title: "e" } },
     }),
+    // House decision #179: a roll's whole chain as its words, and a text field joining several steps; each refusal.
+    gen({
+      steps: [
+        { ...roll, trail: true },
+        { id: "t", label: "T", kind: "text" },
+      ],
+      make: { kind: "location", title: "r", fields: { name: ["r", "t"] } },
+    }),
+    gen({
+      steps: [roll, { id: "m", label: "M", kind: "choice", options: ["a"] }],
+      make: { kind: "location", title: "r", fields: { mood: ["m", "m"] } },
+    }),
+    gen({ make: { kind: "location", title: "r", fields: { name: ["r", "nope"] } } }),
+    gen({
+      steps: [roll, { id: "n", label: "N", kind: "number", min: 1, max: 3 }],
+      make: { kind: "location", title: "r", fields: { name: ["r", "n"] } },
+    }),
+    gen({ make: { kind: "location", title: "r", fields: { name: ["r"] } } }),
+    gen({ make: { kind: "location", title: "r", fields: { name: ["r", "r", "r", "r", "r"] } } }),
+    gen({ steps: [{ ...roll, trail: "yes" }] }),
     gen({ steps: [roll, { id: "t", label: "T", kind: "text", maxLength: 201 }] }),
     gen({ steps: [roll, { id: "s", label: "S", kind: "nope" }] }),
     { ...gen({}), generators: [gen({}).generators[0], gen({}).generators[0]] },
@@ -3289,6 +3313,17 @@ function generatorRunVectors(): object[] {
     charter({}, {}),
     charter({ name: { value: 3 } }),
     { manifest: 0, generator: "person", run: { values: { mood: { value: "cold" } }, each: [] } },
+    // House decision #179: the shrine's chain as its title and its story joining the chain and the keeper.
+    {
+      manifest: 0,
+      generator: "shrine",
+      run: { values: { origin: { rows: ["built", "monks"] }, keeper: { key: "wisp" } }, each: [] },
+    },
+    {
+      manifest: 0,
+      generator: "shrine",
+      run: { values: { origin: { rows: ["flooded"] }, keeper: { key: "rat" } }, each: [] },
+    },
     { manifest: 1, generator: "portent", run: { values: { sign: { rows: ["crow"] } }, each: [] } },
     { manifest: 1, generator: "portent", run: { values: { sign: { rows: ["crow"] } }, each: [{}] } },
   ];
@@ -3376,6 +3411,69 @@ function entryFromCrafted(): object[] {
     scene({ entity: "site", roster: "note" }),
     scene({ entity: "site", tests: { field: "checks", inputs: { dc: "within" } } }),
     scene({ entity: "site", tests: { field: "checks", inputs: { dc: "nope" } } }),
+    // House decision #177: a list fills a tags field; a Test's own inputs over the shared ones; each refusal.
+    place({ entity: "site", values: { marks: "checks" } }, { marks: { type: "tags", label: "M", writeIn: true } }),
+    place({ entity: "site", values: { marks: "note" } }, { marks: { type: "tags", label: "M", writeIn: true } }),
+    {
+      ...scene({ entity: "site", tests: { field: "checks", per: { t: { dc: "peril", who: "mood" } } } }),
+      tests: { t: sumTest },
+    },
+    scene({ entity: "site", tests: { field: "checks", per: { t: { dc: "peril" } } } }),
+    { ...scene({ entity: "site", tests: { field: "checks", per: { t: { dc: "within" } } } }), tests: { t: sumTest } },
+    // House decision #178: a title rolled on tables by a field's value, and a scene's pool lines from pack entries.
+    kinds({
+      npc: {
+        fields: {
+          kin: { type: "enum", label: "K", values: ["a", "b"] },
+          from: { type: "ref", label: "F", entity: "site" },
+        },
+        titleRoll: { tables: ["first"], per: { field: "kin", tables: { b: ["first", "first"] } } },
+      },
+      location: {
+        fields: {
+          by: { type: "ref", label: "B", entity: "site" },
+          look: {
+            type: "text",
+            label: "L",
+            roll: { tables: ["first"], per: { field: "by", tables: { "old-mill": ["first"] } } },
+          },
+        },
+      },
+    }),
+    kinds({
+      npc: {
+        fields: { kin: { type: "enum", label: "K", values: ["a"] } },
+        titleRoll: { tables: ["first"], per: { field: "kin", tables: { z: ["nope", "dealt"] } } },
+      },
+    }),
+    kinds({
+      npc: {
+        fields: { n: { type: "int", label: "N" } },
+        titleRoll: { tables: ["first"], per: { field: "n", tables: { a: ["first"] } } },
+      },
+    }),
+    kinds({ npc: { fields: {}, titleRoll: { tables: ["first"], per: { field: "nope", tables: {} } } } }),
+    kinds({ npc: { fields: {}, titleRoll: { tables: ["first"], per: { field: "nope", tables: { a: [] } } } } }),
+    {
+      ...kinds({
+        scene: {
+          fields: {},
+          poolLines: [{ entity: "site", pool: "dread", amount: "peril", spend: true, text: "note" }],
+        },
+      }),
+      resources: [
+        { id: "dread", label: "D", scope: "gm" },
+        { id: "hp", label: "H", scope: "entity" },
+      ],
+    },
+    {
+      ...kinds({
+        location: { fields: {}, poolLines: [{ entity: "site", pool: "hp", amount: "note", text: "peril" }] },
+        scene: { fields: {}, poolLines: [{ entity: "nope", pool: "nope", amount: "peril" }] },
+      }),
+      resources: [{ id: "hp", label: "H", scope: "entity" }],
+    },
+    kinds({ scene: { fields: {}, poolLines: [] } }),
     kinds({ npc: { fields: { look: { type: "text", label: "L", roll: { tables: ["nope", "dealt"] } } } } }),
     kinds({ npc: { fields: {}, titleRoll: { tables: [] } } }),
     kinds({ npc: { fields: {}, titleRoll: { tables: ["first"], join: "x".repeat(11) } } }),
@@ -4001,6 +4099,22 @@ function panelCrafted(): object[] {
     {
       ...SAMPLE_HARM,
       layout: { hero: { sections: [], phoneStrip: [{ widget: "frames", bind: { values: ["nope", "grit"] } }, "x"] } },
+    },
+    // House decision #180: the acting foe of a type, the items carried, and a shared pool on the strip; each refusal.
+    panel({ ...incoming, foe: "swarm", lines: [{ text: "x", when: "ctx.foe.size > 1 && ctx.foe.res.wounds >= 0" }] }),
+    panel({ ...incoming, foe: "nope" }, { ...incoming, id: "f2", foe: "growth" }),
+    panel({ ...incoming, foe: "swarm", lines: [{ text: "x", when: "ctx.foe.hide > 1" }] }),
+    panel({ ...incoming, lines: [{ text: "x", when: "ctx.foe.size > 1" }] }),
+    panel({ ...incoming, options: { entry: "stance", usable: 'contains(ctx.carried.carried, "maul")' } }),
+    panel({ ...incoming, options: { entry: "stance", usable: 'contains(ctx.carried.nope, "maul")' } }),
+    panel({ ...incoming, when: 'contains(ctx.carried.carried, "maul")' }),
+    {
+      ...SAMPLE_HARM,
+      resources: [
+        ...SAMPLE_HARM.resources!,
+        { id: "momentum", label: "M", scope: "party", max: "3", cite: "p.1", visibility: "party" },
+      ],
+      layout: { hero: { sections: [], phoneStrip: ["pools.momentum", "pools.wounds", "pools.nope", "pools."] } },
     },
   ];
 }

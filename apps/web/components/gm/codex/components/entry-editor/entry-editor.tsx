@@ -33,7 +33,7 @@ import { VisibilityBadge } from "@/components/gm/codex/components/visibility-bad
 import { useRoomHandouts } from "@/components/ui/room-handouts/room-handouts";
 import type { RequestPage } from "@/hooks/use-table/use-table";
 import { parentOptions, savePatch, type EntryDraft } from "@/lib/codex/codex";
-import { declaredFields, fieldsPatch, type EntryFieldValue } from "@/lib/entry-fields/entry-fields";
+import { declaredFields, fieldsPatch, rollFor, type EntryFieldValue } from "@/lib/entry-fields/entry-fields";
 import { offeredLayouts } from "@/lib/handout/handout";
 import type { RulesEntry } from "@/lib/library/library";
 import type { Spawnable } from "@/lib/scene-prep/scene-prep";
@@ -165,7 +165,8 @@ export function EntryEditor(props: EntryEditorProps) {
       </label>
       {titleRoll && can.write && (
         <RollInto
-          roll={titleRoll}
+          key={rollFor({ roll: titleRoll, fields: fieldsDraft }).tables.join()}
+          roll={rollFor({ roll: titleRoll, fields: fieldsDraft })}
           ruleset={ruleset}
           label={t("titleLabel")}
           act={act}

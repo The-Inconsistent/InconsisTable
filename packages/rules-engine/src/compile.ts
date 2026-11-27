@@ -932,10 +932,20 @@ class Compiler {
    * it, plus `ctx.self` and `ctx.fight`; the options' `usable` also reads `entry`, the listed entry type's fields. The
    * phone reads them from the manifest's own text.
    */
-  private panels(actorsOf: (ids: readonly string[] | undefined) => { ce: CompiledEntity }[]): void {
+  private panels(
+    actorsOf: (ids: readonly string[] | undefined) => { ce: CompiledEntity }[],
+    entities: Readonly<Record<string, CompiledEntity>>,
+  ): void {
+    // The carried items' keys and tags by kind (house decision #180), which an option's `usable` reads.
+    const carried: ExprType = {
+      record: Object.fromEntries((this.r.items?.kinds ?? []).map((k) => [k.id, { list: "text" } as const])),
+    };
     this.r.panels?.forEach((p, i) => {
       const path = `panels[${i}]`;
-      const scopes = actorsOf(p.entities).map(({ ce }) => ({ ...ce.scope, ctx: { record: SPEND_CTX } }));
+      // `ctx.foe`: the acting foe's scope, of the type the panel names (house decision #180).
+      const foe = p.foe === undefined ? undefined : own(entities, p.foe);
+      const ctx = foe === undefined ? SPEND_CTX : { ...SPEND_CTX, foe: { record: foe.scope } };
+      const scopes = actorsOf(p.entities).map(({ ce }) => ({ ...ce.scope, ctx: { record: ctx } }));
       if (p.when !== undefined) this.expr({ source: p.when, scopes, expect: "bool", path: `${path}.when` });
       p.lines?.forEach((l, j) => {
         if (l.when !== undefined)
@@ -947,7 +957,11 @@ class Compiler {
       const o = p.options;
       const entry = o === undefined ? undefined : this.r.entities.find((e) => e.id === o.entry);
       if (o?.usable !== undefined && entry !== undefined) {
-        const withEntry = scopes.map((s) => ({ ...s, entry: { record: fieldScope(entry.fields) } }));
+        const withEntry = scopes.map((s) => ({
+          ...s,
+          ctx: { record: { ...ctx, carried } },
+          entry: { record: fieldScope(entry.fields) },
+        }));
         this.expr({ source: o.usable, scopes: withEntry, expect: "bool", path: `${path}.options.usable` });
       }
     });
@@ -1201,7 +1215,7 @@ class Compiler {
     this.acquire(actorsOf);
     this.spawn();
     this.strikes(actorsOf);
-    this.panels(actorsOf);
+    this.panels(actorsOf, entities);
 
     const lookups = this.lookups(actorsOf);
 

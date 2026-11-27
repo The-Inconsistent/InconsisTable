@@ -230,7 +230,9 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           </span>
         </header>
         {state.campaign.archived && <ArchivedBanner />}
-        {ruleset && character && strip && <PhoneStrip ruleset={ruleset} actor={character} rows={strip} maxOf={maxOf} />}
+        {ruleset && character && strip && (
+          <PhoneStrip ruleset={ruleset} actor={character} rows={strip} maxOf={maxOf} pools={state.pools} />
+        )}
         {ruleset && character && (
           <HitSheet
             key={character.id}

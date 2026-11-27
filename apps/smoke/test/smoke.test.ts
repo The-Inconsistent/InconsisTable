@@ -29,6 +29,7 @@ import {
   SAMPLE_HARM_GROWTHS,
 } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import {
+  SAMPLE_ANNALS,
   SAMPLE_ATLAS,
   SAMPLE_PACK,
   SAMPLE_PACK_EFFECTS,
@@ -1598,7 +1599,7 @@ test("entry fields: the ruleset declares them, the GM sets them, a player and th
     const manifest = (await c.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset?.manifest as Defs;
     return Object.keys(manifest?.codex?.kinds[kind]?.fields ?? {}).sort();
   };
-  assert.deepEqual(await defsOf(me, "npc"), ["disposition", "home", "look", "mood", "patron"]);
+  assert.deepEqual(await defsOf(me, "npc"), ["disposition", "home", "kin", "look", "mood", "patron"]);
   assert.deepEqual(await defsOf(me, "faction"), ["marks", "seat", "standing"]);
   assert.deepEqual(await defsOf(caller(anaDevice), "npc"), ["disposition", "home", "mood"]);
   assert.deepEqual(await defsOf(caller(anaDevice), "faction"), []);
@@ -1884,7 +1885,7 @@ test("a confirmed generator run makes a place with its chambers; a forged one is
   type Generators = { generators?: unknown[] };
   const generatorsOf = async (c: ReturnType<typeof caller>) =>
     ((await c.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset?.manifest as Generators).generators;
-  assert.equal((await generatorsOf(me))?.length, 1);
+  assert.equal((await generatorsOf(me))?.length, 2);
   assert.equal(await generatorsOf(caller(anaDevice)), undefined);
 
   // The second shape: one roll, one flat entry.
@@ -1985,6 +1986,150 @@ test("entries made from pack entries: a place with the ones inside it, a scene w
   ok(await owner.send({ type: "event.undo" }));
   await eventually(() => made.ids!.every((id) => entryOf(owner, id) === undefined), "the places undone");
   for (const c of [owner, ana]) c.socket.close();
+});
+
+test("a faction's marks from a list, a scene's per-Test inputs, a danger's check from a hazard and a shrine's joined story; their refusals (#177 to #179)", async () => {
+  const ownerDevice = await device("fl-owner");
+  const me = caller(ownerDevice);
+  // Each new key is refused at its path when it names what does not fit.
+  const bad = structuredClone(SAMPLE_D20) as unknown as {
+    codex: { kinds: Record<string, Record<string, unknown>> };
+    generators: { make: { fields?: Record<string, unknown> } }[];
+  };
+  bad.codex.kinds.faction!.from = [{ entity: "house", values: { standing: "marks" } }];
+  bad.codex.kinds.npc!.titleRoll = { tables: ["forename"], per: { field: "kin", tables: { dwarf: ["forename"] } } };
+  bad.codex.kinds.scene!.poolLines = [{ entity: "omen", pool: "hp", amount: "cost" }];
+  bad.generators[1]!.make.fields = { story: ["origin", "nope"] };
+  const refusal = await me.post<PackReply>("/rulesets", bad);
+  assert.equal(refusal.status, 422);
+  assert.deepEqual(refusal.body.problems?.map((p) => `${p.path}: ${p.message}`).sort(), [
+    'codex.kinds.faction.from[0].values.standing: "marks" does not fit the field',
+    'codex.kinds.npc.titleRoll.per.tables.dwarf: "dwarf" is not a value',
+    'codex.kinds.scene.poolLines[0].pool: "hp" must be a shared pool',
+    'generators[1].make.fields.story: "nope" is not a step',
+  ]);
+
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_D20);
+  const packs = [await me.post<PackReply>("/packs", SAMPLE_PACK), await me.post<PackReply>("/packs", SAMPLE_ANNALS)];
+  assert.equal(packs[1]!.status, 201, JSON.stringify(packs[1]!.body));
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Fl", rulesetVersionId: rs.body.versionId })
+  ).body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  for (const pk of packs) ok(await owner.send({ type: "campaign.attachPack", packVersionId: pk.body.versionId }));
+  const entryOf = (id: string) => owner.codex()?.entries.find((e) => e.id === id);
+
+  const house = ok(
+    await owner.send({ type: "codex.fromPack", kind: "faction", entity: "house", key: "house-reed" }),
+  ).id!;
+  await eventually(() => entryOf(house) !== undefined, "the faction");
+  assert.deepEqual(entryOf(house)?.fields, { marks: ["Reedfolk", "Boatwrights"] });
+
+  const adventure = ok(await owner.send({ type: "codex.save", kind: "adventure", title: "The ferry" })).id!;
+  const scene = ok(
+    await owner.send({
+      type: "codex.fromPack",
+      kind: "scene",
+      entity: "incident",
+      key: "ferry-raid",
+      parentId: adventure,
+    }),
+  ).id!;
+  await eventually(() => entryOf(scene)?.prep !== undefined, "the scene");
+  assert.deepEqual(
+    entryOf(scene)?.prep?.tests.map((l) => [l.testId, l.inputs]),
+    [["check", { dc: 14, ability: "dex" }]],
+  );
+
+  // A danger's row as the editor fills it from the hazard: its Test is the hazard's.
+  const place = ok(
+    await owner.send({
+      type: "codex.save",
+      kind: "location",
+      title: "Scree slope",
+      fields: {
+        dangers: [
+          {
+            id: "d1",
+            from: { entity: "hazard", key: "loose-scree" },
+            values: { name: "Loose Scree", threat: 3, check: { testId: "check", inputs: {} } },
+          },
+        ],
+      },
+    }),
+  ).id!;
+  await eventually(() => entryOf(place) !== undefined, "the place");
+
+  const shrine = ok(
+    await owner.send({
+      type: "codex.generate",
+      generatorId: "shrine",
+      values: { origin: { rows: ["built", "monks"] }, keeper: { key: "ember-wisp" } },
+      each: [],
+    }),
+  ).id!;
+  await eventually(() => entryOf(shrine) !== undefined, "the shrine");
+  assert.equal(entryOf(shrine)?.title, "Built warren Warren of the monks");
+  assert.deepEqual(entryOf(shrine)?.fields, { story: "Built warren Warren of the monks Ember Wisp" });
+  owner.socket.close();
+});
+
+test("a panel's foe line, a pool on the strip and a shared row cut before a resource narrows reach a player's copy as allowed; their refusals (#180)", async () => {
+  const ownerDevice = await device("fo-owner");
+  const me = caller(ownerDevice);
+  type Manifest = {
+    panels?: { id: string; foe?: string; lines?: { text: string }[] }[];
+    layout: Record<string, { phoneStrip?: unknown[]; screen?: unknown[] } | undefined>;
+    resources: { id: string; entities?: string[] }[];
+  };
+  // Refused at import: a foe that is no actor type, a strip naming a pool that does not exist.
+  const bad = structuredClone(SAMPLE_SKIRMISH) as unknown as {
+    panels: Record<string, unknown>[];
+    layout: Manifest["layout"];
+  };
+  bad.panels[0]!.foe = "nope";
+  bad.layout.character!.phoneStrip = ["pools.nope"];
+  const refusal = await me.post<PackReply>("/rulesets", bad);
+  assert.equal(refusal.status, 422);
+  assert.deepEqual(refusal.body.problems?.map((p) => `${p.path}: ${p.message}`).sort(), [
+    'layout.character.phoneStrip[0]: unknown pool "nope"',
+    'panels[0].foe: unknown entity "nope"',
+  ]);
+
+  // What one player's copy keeps of each.
+  const copyOf = async (ruleset: object, name: string) => {
+    const rs = await me.post<RulesetReply>("/rulesets", ruleset);
+    assert.equal(rs.status, 201, JSON.stringify(rs.body));
+    const { campaignId } = (
+      await me.post<{ campaignId: string }>("/campaigns", { name, rulesetVersionId: rs.body.versionId })
+    ).body;
+    const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+    await owner.until(() => true);
+    const player = await seatPlayer(owner, `${name}-ana`);
+    owner.socket.close();
+    return (await caller(player).get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset
+      ?.manifest as unknown as Manifest;
+  };
+  const harm = await copyOf(SAMPLE_HARM, "Fo1");
+  const incoming = harm.panels?.find((p) => p.id === "incoming");
+  assert.equal(incoming?.foe, "swarm");
+  assert.ok(incoming?.lines?.some((l) => l.text === "A swarm this big strikes twice"));
+  const skirmish = await copyOf(SAMPLE_SKIRMISH, "Fo2");
+  assert.deepEqual(
+    skirmish.layout.character?.phoneStrip?.filter((r) => typeof r === "string"),
+    ["pools.momentum"],
+    "the GM's pressure goes with its row",
+  );
+  const shared = structuredClone(SAMPLE_D20) as unknown as { id: string; layout: Manifest["layout"] };
+  shared.id = "sample-d20-shared";
+  shared.layout.sheet = {
+    ...shared.layout.sheet,
+    screen: [{ widget: "track", bind: { value: "res.hp", max: "derived.maxHp" } }],
+  };
+  const d20 = await copyOf(shared, "Fo3");
+  assert.equal(d20.layout.sheet?.screen?.length ?? 0, 0);
+  assert.deepEqual(d20.resources.find((r) => r.id === "hp")?.entities, ["character"]);
 });
 
 test("a handout has a layout and a header, read by its player; the room's World offers and names its layouts", async () => {

@@ -218,7 +218,7 @@ var refusals = map[string]string{
 	"keepSheetGm":               "Only the GM saves a build over a sheet made by hand.",
 	"requestNotFound":           "Request not found",
 	"requestAnswered":           "That request was already answered.",
-	"requestLimit":              "You have too many requests waiting.",
+	"requestLimit":              "This character has too many requests waiting.",
 	"requestNotAllowed":         "Players can't spend from that.",
 	"requestSpendYourself":      "You can spend that yourself.",
 	"requestNoPool":             "Shared pools aren't at this table yet.",

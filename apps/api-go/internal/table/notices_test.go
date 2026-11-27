@@ -121,3 +121,61 @@ func TestAPoolThatCannotTakeTheWholeChangeSaysSo(t *testing.T) {
 		wantNotices(t, p.send(gm, adjustPool("stash", -1)))
 	})
 }
+
+// moreNotices is the notice fixture with house decision #168's rules instead: a renown step with its number, raised as
+// it rises; every character holding boons as a session starts; any character over a line that reads a value only the GM
+// sees.
+func moreNotices(t *testing.T, tx pgx.Tx) *play {
+	t.Helper()
+	var m map[string]any
+	if err := json.Unmarshal([]byte(noticeFixture(t)), &m); err != nil {
+		t.Fatal(err)
+	}
+	m["notices"] = []any{
+		map[string]any{"id": "step", "when": "crossed", "if": "res.renown > 0", "rises": "floor(res.renown, 4)",
+			"params": map[string]any{"step": "floor(res.renown, 4)", "left": "12 - res.renown"},
+			"text":   "{name} reached step {step}, {left} to go", "cite": "Fixture p.9"},
+		map[string]any{"id": "crew", "when": "sessionStart", "group": "every", "if": "res.boons > 0",
+			"text": "Everyone holds boons", "cite": "Fixture p.9"},
+		map[string]any{"id": "secrets", "when": "crossed", "group": "any", "if": "res.boons + res.secret > 4",
+			"text": "Someone hides something", "cite": "Fixture p.9"},
+	}
+	out, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	room := dbtest.NewRoom(t, tx)
+	room.Pin(t, tx, string(out))
+	return &play{t, tx, room}
+}
+
+func TestANoticeCarriesItsNumbersRisesStepByStepAndSpeaksForTheGroup(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		p := moreNotices(t, tx)
+		gm := p.room.GM()
+		ash, bo := p.character("Ash", 2), p.character("Bo", 1)
+		alice := p.room.Seat(t, tx, dbtest.User(t, tx, "Alice"), ash)
+		p.counters(ash, map[string]int{"boons": 2, "renown": 0, "secret": 0})
+		p.counters(bo, map[string]int{"boons": 0, "renown": 0, "secret": 0})
+
+		// Not everyone holds boons: no line about the group. Once Bo does, one line, with no name.
+		wantNotices(t, p.send(gm, map[string]any{"type": "session.start"}))
+		p.send(gm, map[string]any{"type": "session.end", "recap": ""}) // both renown refill to 12 here
+		p.send(gm, adjust(bo, "boons", 1))
+		wantNotices(t, p.send(gm, map[string]any{"type": "session.start"}), cs.RuleNotice("crew", "", "Everyone holds boons"))
+
+		// Renown rises a step at a time: each step up says its number, a step down or a rise within a step says nothing.
+		dbtest.Exec(t, tx, `UPDATE actor_resource SET value = 3 WHERE actor_id = $1 AND resource_id = 'renown'`, ash)
+		wantNotices(t, p.send(alice, adjust(ash, "renown", 1)), cs.RuleNotice("step", "Ash", "Ash reached step 1, 8 to go"))
+		wantNotices(t, p.send(alice, adjust(ash, "renown", 2)))
+		wantNotices(t, p.send(alice, adjust(ash, "renown", -3)))
+		wantNotices(t, p.send(alice, adjust(ash, "renown", 5)), cs.RuleNotice("step", "Ash", "Ash reached step 2, 4 to go"))
+
+		// A group line that reads a value only the GM sees reaches the GM side; a player's action that crosses it is not
+		// told it.
+		wantNotices(t, p.send(alice, adjust(ash, "boons", 3)))
+		p.send(gm, adjust(ash, "boons", -3))
+		wantNotices(t, p.send(gm, adjust(ash, "boons", 3)), cs.RuleNotice("secrets", "", "Someone hides something"))
+		wantNotices(t, p.send(gm, adjust(bo, "secret", 5))) // one already does: the group crossed nothing
+	})
+}

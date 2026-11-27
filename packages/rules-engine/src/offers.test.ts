@@ -66,3 +66,16 @@ test("the validator refuses a bad mark or offer", () => {
   // `when` reads the result and the call only, never the taker.
   assert.equal(problems({ offers: [{ ...offer, when: "attr.str > 1" }] }).length, 1);
 });
+
+test("a choice made while reporting is read by the target and the offers, not the modifier or the pool (#170)", () => {
+  const r = compileRuleset(SAMPLE_POOL);
+  assert.ok(r.ok);
+  const steadied = r.compiled.tests.skill?.offers.find((o) => o.def.id === "steadied");
+  assert.ok(steadied);
+  assert.equal(evaluateBool({ expr: steadied.when, scope: { ctx: { steady: 1 }, result: {} } }), true);
+  assert.equal(evaluateBool({ expr: steadied.when, scope: { ctx: { steady: 0 }, result: {} } }), false);
+  assert.deepEqual(problems({ modifier: "ctx.steady" }), ['tests.skill.modifier: unknown identifier "ctx.steady"']);
+  assert.deepEqual(problems({ choices: { dread: { label: "D", cite: "p" } } }), [
+    'tests.skill.choices.dread: "dread" is also a mark',
+  ]);
+});

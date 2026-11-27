@@ -929,7 +929,10 @@
     "readHidden": "Read the die. Your modifier is added for you.",
     "readModifier": "Read the die. {modifier} is added for you.",
     "lastClosed": "Last Test closed",
-    "gotIt": "Got it"
+    "gotIt": "Got it",
+    "choicesFor": "Choices for {who} before reporting",
+    "less": "Less {label}",
+    "more": "More {label}"
   },
   "tableScreen": {
     "between": "Between sessions",
@@ -1782,7 +1785,7 @@
     "pictureNotFound": "Picture not found",
     "requestNotFound": "Request not found",
     "requestAnswered": "That request was already answered.",
-    "requestLimit": "You have too many requests waiting.",
+    "requestLimit": "This character has too many requests waiting.",
     "requestNotAllowed": "Players can't spend from that.",
     "requestSpendYourself": "You can spend that yourself.",
     "changeBetweenSessions": "Change how the table sits between sessions.",

@@ -20,7 +20,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
 
-// MaxPending is how many requests one user may have waiting, unless the ruleset's requests.max says (house decision #84).
+// MaxPending is how many requests one character may have waiting (house decision #169), unless the ruleset's requests.max says (house decision #84).
 const MaxPending = 5
 
 // answersKept is how many of a player's latest answers the snapshot carries, and for how long.
@@ -155,7 +155,7 @@ func Send(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 		actionID, err := spend(ctx, tx, table, actorID, resource, int(amount))
 		return cs.Done(actionID), err
 	}
-	if err := underLimit(ctx, tx, c, max); err != nil {
+	if err := underLimit(ctx, tx, c, actorID, max); err != nil {
 		return cs.Result{}, err
 	}
 	var id string
@@ -167,11 +167,12 @@ func Send(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 
 var heldBy = view.HeldBy
 
-// underLimit refuses a user who already has max requests waiting.
-func underLimit(ctx context.Context, tx core.Conn, c cs.Ctx, max int) error {
+// underLimit refuses an ask for a character that already has max requests waiting: the limit is per character, as
+// Auspex's is per Agent (house decision #169), so a user holding two characters may have max waiting on each.
+func underLimit(ctx context.Context, tx core.Conn, c cs.Ctx, actorID string, max int) error {
 	var waiting int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM spend_request WHERE campaign_id = $1 AND user_id = $2 AND status = 'pending'`,
-		c.CampaignID, *c.UserID).Scan(&waiting); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM spend_request WHERE campaign_id = $1 AND actor_id = $2 AND status = 'pending'`,
+		c.CampaignID, actorID).Scan(&waiting); err != nil {
 		return err
 	}
 	if waiting >= max {

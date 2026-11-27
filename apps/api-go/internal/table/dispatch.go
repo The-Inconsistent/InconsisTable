@@ -195,8 +195,18 @@ func ApplyAction(ctx context.Context, tx pgx.Tx, seated cs.Ctx, a cs.Action) (Re
 	if err != nil {
 		return Result{}, err
 	}
+	// The spend asks an action can make moot (house decision #169): read before it, cleared after it.
+	var moot *request.Moot
+	if TouchesOf(a).State {
+		if moot, err = request.ReadMoot(ctx, tx, c.CampaignID); err != nil {
+			return Result{}, err
+		}
+	}
 	ctx, notices := cs.WithNotices(ctx)
 	result, err := dispatch(ctx, tx, c, a)
+	if err == nil {
+		err = request.ClearMoot(ctx, tx, c, moot)
+	}
 	if err == nil && read != nil {
 		err = read.raise(ctx, tx, c, a)
 	}
@@ -349,7 +359,8 @@ var handlers = map[string]handler{
 	"strike.apply": strike.Apply,
 }
 
-// clearing runs h, then cancels the pending asks of the spends that clear on event (house decision #84).
+// clearing runs h, then cancels the pending asks of the spends that clear on event (house decision #84). A round's end
+// is not an action of its own: ApplyAction clears those asks once the round moved (house decision #169).
 func clearing(event string, h func(context.Context, core.Conn, cs.Ctx, cs.Action) (cs.Result, error)) func(context.Context, core.Conn, cs.Ctx, cs.Action) (cs.Result, error) {
 	return func(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 		res, err := h(ctx, tx, c, a)

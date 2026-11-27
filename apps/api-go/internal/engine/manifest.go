@@ -19,16 +19,19 @@ const MaxCampaignFields = 50
 // MaxFields caps the fields and derived values across a manifest.
 const MaxFields = 2000
 
-// MaxOffers caps a Test's offers and MaxMarks its marks (house decision #80).
+// MaxOffers caps a Test's offers and MaxMarks its marks (house decision #80), MaxChoices its choices (#170).
 const (
-	MaxOffers = 10
-	MaxMarks  = 10
+	MaxOffers  = 10
+	MaxMarks   = 10
+	MaxChoices = 5
 )
 
-// MaxNotices caps a manifest's notice rules, and MaxNoticeText a rule's words (house decision #79).
+// MaxNotices caps a manifest's notice rules, MaxNoticeText a rule's words (house decision #79) and MaxNoticeParams its
+// params (house decision #168).
 const (
-	MaxNotices    = 50
-	MaxNoticeText = 120
+	MaxNotices      = 50
+	MaxNoticeText   = 120
+	MaxNoticeParams = 5
 )
 
 // CodexKinds are the kinds of codex entry (rules-engine CodexEntryKind; coreschema's list is this one).
@@ -292,6 +295,8 @@ type (
 		// absent.
 		Marks  map[string]TestMark `json:"marks"`
 		Offers []TestOffer         `json:"offers"`
+		// Choices are what the taker sets when reporting (house decision #170); nil when absent.
+		Choices map[string]TestChoice `json:"choices"`
 		// Entities names the actor types that take the Test (house decision #50); nil is every actor type.
 		Entities  *[]string `json:"entities"`
 		Cite      *string   `json:"cite"`
@@ -460,6 +465,8 @@ type (
 	SpendThen struct {
 		Table  string            `json:"table"`
 		Inputs map[string]string `json:"inputs"`
+		// If is house decision #169: the table is offered only while it holds (a spend's; a strike has none).
+		If *string `json:"if"`
 	}
 	// HealthState is one display state of the health block.
 	HealthState struct {
@@ -551,7 +558,7 @@ type (
 		Generators []Generator `json:"generators"`
 		// Layout is read for its widget rows (house decision #83).
 		Layout map[string]LayoutDef `json:"layout"`
-		// Spends is what players may ask the GM to spend (house decision #84); Requests.Max caps pending asks per user.
+		// Spends is what players may ask the GM to spend (house decision #84); Requests.Max caps pending asks per character.
 		Spends   []Spend `json:"spends"`
 		Requests *struct {
 			Max float64 `json:"max"`
@@ -634,6 +641,13 @@ type (
 		Label string  `json:"label"`
 		Cite  *string `json:"cite"`
 	}
+	// TestChoice is what a Test's taker sets when reporting (house decision #170), read as ctx.<id> by the target and
+	// the offers: a switch, or with Max a whole number from 0 to Max.
+	TestChoice struct {
+		Label string   `json:"label"`
+		Max   *float64 `json:"max"`
+		Cite  *string  `json:"cite"`
+	}
 	// TestOffer is what a called Test's result offers the GM: when When holds, Changes, once.
 	TestOffer struct {
 		ID      string        `json:"id"`
@@ -655,7 +669,12 @@ type (
 		Entities *[]string `json:"entities"`
 		If       string    `json:"if"`
 		Text     string    `json:"text"`
-		Cite     *string   `json:"cite"`
+		// Params, Group and Rises are house decision #168: a value for each `{param}` of the text, a line about the
+		// actors of its types together, and a `crossed` rule raised each time that number goes up.
+		Params map[string]string `json:"params"`
+		Group  *string           `json:"group"`
+		Rises  *string           `json:"rises"`
+		Cite   *string           `json:"cite"`
 	}
 	// LedgerBuild is the manifest's build block (house decision #62). Params is parsed by ValidateRuleset.
 	LedgerBuild struct {
@@ -1089,7 +1108,9 @@ func (p *problems) pool(t *Test, path string) {
 	}
 }
 
-var reservedRoots = []string{"derived", "res", "party", "campaign", "ctx", "max", "min", "true", "false"}
+// result is a Test's report as its offers read it and build the builder's draft in a notice's scope: a field of either
+// name would be shadowed or judged public.
+var reservedRoots = []string{"derived", "result", "build", "res", "party", "campaign", "ctx", "max", "min", "true", "false"}
 
 // Words an expression reads as themselves, so a campaign field may not take them.
 var expressionWords = []string{"true", "false", "max", "min"}
@@ -1135,6 +1156,16 @@ func (p *problems) testOutcomes(r *Ruleset, id string, t *Test, needCite func(*s
 		if _, input := t.Inputs[key]; input {
 			p.add(path+".marks."+key, `"%s" is also an input`, key)
 		}
+	}
+	// A choice (house decision #170) is a rule like an offer, and shares ctx with the inputs and marks.
+	for _, key := range sortedKeys(t.Choices) {
+		if _, input := t.Inputs[key]; input {
+			p.add(path+".choices."+key, `"%s" is also an input`, key)
+		}
+		if _, mark := t.Marks[key]; mark {
+			p.add(path+".choices."+key, `"%s" is also a mark`, key)
+		}
+		needCite(t.Choices[key].Cite, path+".choices."+key)
 	}
 	p.duplicates(path+".offers", idsOf(t.Offers, func(o TestOffer) string { return o.ID }))
 	var takers []*EntityType
@@ -1756,8 +1787,26 @@ func (r *Ruleset) semanticProblems() problems {
 		}
 	}
 	for i, n := range r.Notices {
-		needCite(n.Cite, fmt.Sprintf("notices[%d]", i))
-		actorTypes(n.Entities, fmt.Sprintf("notices[%d].entities", i))
+		path := fmt.Sprintf("notices[%d]", i)
+		needCite(n.Cite, path)
+		actorTypes(n.Entities, path+".entities")
+		if _, named := n.Params["name"]; named {
+			p.add(path+".params.name", "{name} is the actor's name")
+		}
+		if n.Rises != nil && n.When != "crossed" {
+			p.add(path+".rises", `rises needs when "crossed"`)
+		}
+		if n.Group != nil {
+			if n.Params != nil {
+				p.add(path+".params", "a group rule reads no one actor")
+			}
+			if n.Rises != nil {
+				p.add(path+".rises", "a group rule reads no one actor")
+			}
+			if strings.Contains(n.Text, "{name}") {
+				p.add(path+".text", "a group rule names no one actor")
+			}
+		}
 	}
 	p.duplicates("notices", idsOf(r.Notices, func(n NoticeRule) string { return n.ID }))
 	for i, s := range r.Checklist {

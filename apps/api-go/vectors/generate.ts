@@ -1561,6 +1561,7 @@ function compiledView(c: CompiledRuleset) {
       pool: exprView(t.pool),
       modifierVisibility: t.modifierVisibility,
       targetVisibility: t.targetVisibility,
+      offerVisibility: t.offerVisibility,
     })),
     initiative:
       c.initiative === null
@@ -1582,7 +1583,12 @@ function compiledView(c: CompiledRuleset) {
     })),
     instantDeath: mapValues(c.instantDeath, exprView),
     conditions: Object.keys(c.conditions).sort(),
-    notices: c.notices.map((n) => ({ ...n, if: exprView(n.if) })),
+    notices: c.notices.map((n) => ({
+      ...n,
+      if: exprView(n.if),
+      params: mapValues(n.params, exprView),
+      rises: exprView(n.rises),
+    })),
     reminders: c.reminders.map(exprView),
     immune: mapValues(c.immune, exprView),
     lookups: mapValues(c.lookups, (l) => ({
@@ -2274,6 +2280,9 @@ const WIDGET_CRAFTED: object[] = [
 
 const CRAFTED: object[] = [
   ...WIDGET_CRAFTED,
+  // result and build are roots of a Test's offers and a notice's scope: a field may not take either (#227).
+  withFields({ result: { type: "int", label: "R", visibility: "gm" } }),
+  withFields({ "build.x": { type: "int", label: "B" } }),
   // An entity id declared twice: both engines check a creation step against the first definition.
   { entities: [pcBase, { ...pcBase, base: "item" }], creation: [step({})] },
   { entities: [{ ...pcBase, base: "item" }, pcBase], creation: [step({})] },
@@ -3514,6 +3523,33 @@ function offersCrafted(): object[] {
         },
       },
     },
+    // Choices the taker makes while reporting (house decision #170): read by the target and the offers, not the
+    // modifier or the pool; a switch reads as yes or no, a number as a whole number.
+    test({
+      target: "max(1, 3 - ctx.wrath)",
+      choices: { wrath: { label: "Wrath", max: 2 }, brace: { label: "Braced" } },
+      offers: [offer({ when: "!result.passed && !ctx.brace", changes: [{ pool: "dread", by: "1 + ctx.wrath" }] })],
+    }),
+    test({ choices: { brace: { label: "B" } } }, sumTest),
+    test({ choices: { brace: { label: "B" } } }, reportedTest(["a", "b"])),
+    test({ choices: {} }),
+    test({ choices: { brace: { label: "" } } }),
+    test({ choices: { w: { label: "W", max: 0 } } }),
+    test({ choices: { w: { label: "W", max: 21 } } }),
+    test({ choices: { w: { label: "W", max: 1.5 } } }),
+    test({ choices: Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`c${i}`, { label: "C" }])) }),
+    test({ choices: { fear: { label: "F" } } }),
+    test({ inputs: { brace: "bool" }, choices: { brace: { label: "B" } } }),
+    test({ modifier: "ctx.wrath", choices: { wrath: { label: "W", max: 2 } } }),
+    test({ pool: "ctx.wrath", choices: { wrath: { label: "W", max: 2 } } }),
+    test({ target: "ctx.brace", choices: { brace: { label: "B" } } }),
+    test({ target: "ctx.wrath ? 1 : 2", choices: { wrath: { label: "W", max: 2 } } }),
+    {
+      sources: [{ id: "s", title: "T", license: "srd" }],
+      resources: pools.map((x) => ({ ...x, cite: "p1" })),
+      initiative: undefined,
+      tests: { t: { ...poolTest, cite: "p1", choices: { a: { label: "A" }, b: { label: "B", cite: "p2" } } } },
+    },
   ];
 }
 
@@ -3567,6 +3603,31 @@ function noticesCrafted(): object[] {
     { notices: [rule({ if: "1" })] },
     { notices: [rule({ if: "nope > 1" })] },
     { notices: Array.from({ length: 51 }, (_, i) => rule({ id: `r${i}` })) },
+    // House decision #168: params, a group, a number that rises, a ledger actor's play.
+    { notices: [rule({ params: { left: "res.hp", hidden: "secret" }, text: "{name} has {left}" })] },
+    { notices: [rule({ params: { name: "res.hp" } })] },
+    { notices: [rule({ params: Object.fromEntries(["a", "b", "c", "d", "e", "f"].map((k) => [k, "1"])) })] },
+    { notices: [rule({ params: { x: "nope + 1", y: "1 +" } })] },
+    { notices: [rule({ group: "every", text: "All are low" }), rule({ id: "any", group: "any", text: "One is low" })] },
+    { notices: [rule({ group: "every", params: { x: "1" }, rises: "res.hp" })] },
+    { notices: [rule({ group: "all" })] },
+    { notices: [rule({ rises: "res.hp", params: { hp: "res.hp" }, text: "{name} rose to {hp}" })] },
+    { notices: [rule({ when: "sessionStart", rises: "res.hp" }), rule({ id: "b", rises: "res.hp > 1" })] },
+    { notices: [rule({ if: "build.xpSpent > 1" })] },
+    {
+      ...SAMPLE_LEDGER_RULESET,
+      notices: [
+        {
+          id: "rank",
+          when: "crossed",
+          if: "build.xpSpent - build.xpAtAscension >= 10",
+          rises: "floor(build.xpSpent, 10)",
+          params: { rank: "floor(build.xpSpent, 10)" },
+          text: "{name} reached Rank {rank}",
+          cite: "p1",
+        },
+      ],
+    },
     {
       sources: [{ id: "s", title: "T", license: "srd" }],
       resources: [{ id: "hp", label: "H", scope: "entity", max: "10", cite: "p1" }],
@@ -3684,6 +3745,14 @@ function spendCrafted(): object[] {
       limit: { per: "round", max: 11 },
       then: { table: "backlash", inputs: { extra: "n" } },
     }),
+    // House decision #169: a round clears asks, and the table is offered only while its own `if` holds.
+    spend({
+      inputs: { n: { label: "N", min: 0, max: "1" } },
+      clearOn: ["roundEnd", "sessionStart", "sessionEnd", "encounterEnd"],
+      then: { table: "backlash", inputs: { extra: "n" }, if: "ctx.n == 1 && ctx.fight.on" },
+    }),
+    spend({ then: { table: "backlash", if: "1" }, clearOn: ["roundStart"] }),
+    spend({ then: { table: "backlash", if: "nope" } }),
     // The key names one of the table's inputs, the value one of the spend's (house decision #91).
     spend({
       inputs: { n: { label: "N", min: 0, max: "1" } },

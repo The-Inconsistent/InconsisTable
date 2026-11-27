@@ -375,7 +375,7 @@ const characterLayout = SAMPLE_SKIRMISH_BEFORE_PANELS.layout?.character ?? { sec
  * while its status field reads dying (a field, not a health state), its saves; on its turn the moves it may make,
  * grouped by kind, the ones its nerve cannot pay sunk with what they need, hidden while dying; and its asks.
  */
-export const SAMPLE_SKIRMISH: RulesetInput = {
+export const SAMPLE_SKIRMISH_0_1_10: RulesetInput = {
   ...SAMPLE_SKIRMISH_BEFORE_PANELS,
   version: "0.1.10",
   entities: [
@@ -463,7 +463,7 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
   ],
 };
 
-/** Moves for SAMPLE_SKIRMISH 0.1.10: the entries its `moves` panel lists (house decision #114). */
+/** Moves for SAMPLE_SKIRMISH 0.1.10 and later: the entries its `moves` panel lists (house decision #114). */
 export const SAMPLE_SKIRMISH_MOVES = [
   { key: "lunge", name: "Lunge", body: { kind: "strike", nerve: 0 } },
   { key: "feint", name: "Feint", body: { kind: "strike", nerve: 2, needs: "2 Nerve" } },
@@ -509,3 +509,19 @@ export const SAMPLE_SKIRMISH_BEFORE_CHECKLIST: RulesetInput = (() => {
   const { checklist: _checklist, campaignFields: _fields, ...before } = SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND;
   return { ...before, version: "0.1.3" };
 })();
+
+/**
+ * 0.1.11 (house decision #169): an ask to jump the line holds for its round only, and Channel's backlash table
+ * is offered only when the use was pushed. 0.1.10 hashes as it did.
+ */
+export const SAMPLE_SKIRMISH: RulesetInput = {
+  ...SAMPLE_SKIRMISH_0_1_10,
+  version: "0.1.11",
+  spends: SAMPLE_SKIRMISH_0_1_10.spends?.map((s) =>
+    s.id === "jump"
+      ? { ...s, clearOn: ["encounterEnd", "roundEnd"] }
+      : s.id === "channel" && s.then !== undefined
+        ? { ...s, then: { ...s.then, if: "ctx.push >= 1" } }
+        : s,
+  ),
+};

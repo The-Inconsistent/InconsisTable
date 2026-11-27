@@ -754,7 +754,7 @@ export const SAMPLE_D20_0_1_12: RulesetInput = {
  * 0.1.13 (#221): a second book whose PDF starts two pages before its page 1 (`pageOffset`), and Braced cited in it, so
  * a served page can be shown to land on the printed page plus the offset. 0.1.12 hashes as it did.
  */
-export const SAMPLE_D20: RulesetInput = {
+export const SAMPLE_D20_0_1_13: RulesetInput = {
   ...SAMPLE_D20_0_1_12,
   version: "0.1.13",
   sources: [
@@ -762,4 +762,35 @@ export const SAMPLE_D20: RulesetInput = {
     { id: "companion", title: "Sample d20 Companion", license: "private", pageOffset: 2 },
   ],
   conditions: SAMPLE_D20_0_1_12.conditions?.map((c) => (c.id === "braced" ? { ...c, cite: "Companion p.3" } : c)),
+};
+
+/**
+ * 0.1.14 (house decision #168): a line with a number worked out in it, raised each time renown climbs a step, and a
+ * line about the whole crew as a session starts. 0.1.13 hashes as it did.
+ */
+export const SAMPLE_D20: RulesetInput = {
+  ...SAMPLE_D20_0_1_13,
+  version: "0.1.14",
+  notices: [
+    ...(SAMPLE_D20_0_1_13.notices ?? []),
+    {
+      id: "risen",
+      when: "crossed",
+      entities: ["character"],
+      if: "res.renown > 0",
+      rises: "floor(res.renown, 4)",
+      params: { step: "floor(res.renown, 4)" },
+      text: "{name} reached renown step {step}",
+      cite: "Sample p.17",
+    },
+    {
+      id: "crew",
+      when: "sessionStart",
+      entities: ["character"],
+      group: "every",
+      if: "res.boons > 0",
+      text: "The whole crew holds boons",
+      cite: "Sample p.17",
+    },
+  ],
 };

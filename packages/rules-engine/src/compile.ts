@@ -32,6 +32,7 @@ import {
   type Scoring,
   type DiceMechanic,
   type LedgerKind,
+  type NoticeGroup,
   type NoticeWhen,
   type TestOffer,
   type TableEffect,
@@ -154,6 +155,8 @@ export interface CompiledTest {
    */
   modifierVisibility: Record<string, Visibility>;
   targetVisibility: Record<string, Visibility>;
+  /** By actor type: who may be told what the Test's offers work out (house decision #170). */
+  offerVisibility: Record<string, Visibility>;
 }
 
 /** A notice rule (house decision #79), with who may be told its `if` by actor type, as a Test's numbers are. */
@@ -164,8 +167,16 @@ export interface CompiledNotice {
   entities: readonly string[] | null;
   if: CompiledExpr;
   text: string;
+  /** Each `{param}` of the text, by name (house decision #168); empty without `params`. */
+  params: Record<string, CompiledExpr>;
+  group: NoticeGroup | null;
+  rises: CompiledExpr | null;
+  /** Who may be told it: the strictest of what `if`, `params` and `rises` read. */
   visibility: Record<string, Visibility>;
 }
+
+/** What a notice reads of a ledger actor's play (house decision #168), as `build`. */
+export const NOTICE_BUILD_SCOPE: ExprScope = { xpSpent: "int", xpAtAscension: "int" };
 
 export type CompiledInitiative =
   | { def: RankedInitiative; score: CompiledExpr; tiebreak: CompiledExpr[] }
@@ -306,6 +317,8 @@ function pathVisibility({
   // `campaign.*` is a value of the whole table, shown to every seat like the party's size.
   if (root === "party" || root === "campaign") return PARTY_VISIBILITY;
   if (root === "ctx") return "public"; // call-time inputs, supplied by whoever calls the Test
+  // A taker's report, as an offer reads it: the call decides what of it a seat is told (house decision #170).
+  if (root === "result") return "public";
   if (root === "derived") {
     const ids = rest === "" ? [...derived.keys()] : [rest];
     return strictestVisibility(ids.map((id) => derived.get(id) ?? "gm"));
@@ -724,6 +737,8 @@ class Compiler {
       for (const [name, def] of sortedEntries(s.inputs ?? {}))
         this.expr({ source: def.max, scopes: scopes(false), expect: "int", path: `${path}.inputs.${name}.max` });
       if (s.if !== undefined) this.expr({ source: s.if, scopes: scopes(true), expect: "bool", path: `${path}.if` });
+      if (s.then?.if !== undefined)
+        this.expr({ source: s.then.if, scopes: scopes(true), expect: "bool", path: `${path}.then.if` });
       s.cost.forEach((c, j) =>
         this.expr({ source: c.amount, scopes: scopes(true), expect: "int", path: `${path}.cost[${j}].amount` }),
       );
@@ -960,8 +975,17 @@ class Compiler {
       // A mark reads as a yes-or-no input (house decision #80).
       const marks = Object.fromEntries(Object.keys(t.marks ?? {}).map((k) => [k, "bool" as const]));
       const ctx: ExprType = { record: { ...t.inputs, ...marks } };
+      // A choice the taker sets when reporting (house decision #170) is read by the target and the offers only.
+      const choices = Object.fromEntries(
+        Object.entries(t.choices ?? {}).map(([k, c]) => [
+          k,
+          c.max === undefined ? ("bool" as const) : ("int" as const),
+        ]),
+      );
+      const taken: ExprType = { record: { ...t.inputs, ...marks, ...choices } };
       const takers = actorsOf(t.entities);
       const scopes = takers.map(({ ce }) => ({ ...ce.scope, ctx }));
+      const takenScopes = takers.map(({ ce }) => ({ ...ce.scope, ctx: taken }));
       // A reported Test has no numbers: the constant 0 keeps every reader of a compiled Test one shape.
       const modifier = this.expr({
         source: t.kind === "reported" ? "0" : t.modifier,
@@ -971,7 +995,7 @@ class Compiler {
       });
       const target = this.expr({
         source: t.kind === "reported" ? "0" : t.target,
-        scopes,
+        scopes: takenScopes,
         expect: "int",
         path: `tests.${id}.target`,
       });
@@ -986,7 +1010,7 @@ class Compiler {
         const at = `tests.${id}.offers[${i}]`;
         const when = this.expr({
           source: o.when,
-          scopes: [{ ctx, result: RESULT_SCOPE }],
+          scopes: [{ ctx: taken, result: RESULT_SCOPE }],
           expect: "bool",
           path: `${at}.when`,
         });
@@ -995,7 +1019,7 @@ class Compiler {
           resource: c.resource ?? null,
           by: this.expr({
             source: c.by,
-            scopes: scopes.map((x) => ({ ...x, result: RESULT_SCOPE })),
+            scopes: takenScopes.map((x) => ({ ...x, result: RESULT_SCOPE })),
             expect: "int",
             path: `${at}.changes[${j}].by`,
           }),
@@ -1008,7 +1032,18 @@ class Compiler {
       // A value the call computes for an actor is as hidden as its most hidden input, like a derived value.
       const seen = (...exprs: CompiledExpr[]) => this.seenBy(takers, exprs);
       const modifierVisibility = pool === null ? seen(modifier) : seen(modifier, pool);
-      tests[id] = { def: t, offers, modifier, target, pool, modifierVisibility, targetVisibility: seen(target) };
+      // Who may be told what the offers work out on a taker (house decision #170): their changes read its scope.
+      const offerVisibility = seen(...offers.flatMap((o) => o.changes.map((c) => c.by)));
+      tests[id] = {
+        def: t,
+        offers,
+        modifier,
+        target,
+        pool,
+        modifierVisibility,
+        targetVisibility: seen(target),
+        offerVisibility,
+      };
     }
 
     const init = this.r.initiative;
@@ -1056,15 +1091,34 @@ class Compiler {
 
     const notices = (this.r.notices ?? []).flatMap((n, j): CompiledNotice[] => {
       const takers = actorsOf(n.entities);
-      const when = this.expr({
-        source: n.if,
-        scopes: takers.map(({ ce }) => ce.scope),
-        expect: "bool",
-        path: `notices[${j}].if`,
-      });
-      if (when === null) return [];
-      const visibility = this.seenBy(takers, [when]);
-      return [{ id: n.id, when: n.when, entities: n.entities ?? null, if: when, text: n.text, visibility }];
+      // A ledger actor's notices also read its play as `build` (house decision #168).
+      const scopes = takers.map(({ e, ce }) =>
+        e.id === this.r.build?.actor ? { ...ce.scope, build: { record: NOTICE_BUILD_SCOPE } } : ce.scope,
+      );
+      const path = `notices[${j}]`;
+      const when = this.expr({ source: n.if, scopes, expect: "bool", path: `${path}.if` });
+      const params = sortedEntries(n.params ?? {}).map(
+        ([name, source]) => [name, this.expr({ source, scopes, path: `${path}.params.${name}` })] as const,
+      );
+      const rises =
+        n.rises === undefined ? null : this.expr({ source: n.rises, scopes, expect: "int", path: `${path}.rises` });
+      const whole = params.flatMap(([name, x]) => (x === null ? [] : [[name, x] as const]));
+      if (when === null || whole.length < params.length || (n.rises !== undefined && rises === null)) return [];
+      const read = whole.map(([, x]) => x);
+      const visibility = this.seenBy(takers, [when, ...read, ...(rises === null ? [] : [rises])]);
+      return [
+        {
+          id: n.id,
+          when: n.when,
+          entities: n.entities ?? null,
+          if: when,
+          text: n.text,
+          params: Object.fromEntries(whole),
+          group: n.group ?? null,
+          rises,
+          visibility,
+        },
+      ];
     });
     const reminders = (this.r.reminders ?? []).map((x, j) =>
       x.if === undefined

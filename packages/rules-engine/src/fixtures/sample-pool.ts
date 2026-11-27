@@ -11,7 +11,8 @@ import { NOTICE_RESOURCES, SAMPLE_D20_BEFORE_WIDGETS } from "./sample-d20.ts";
 const { codex: _codex, notices: _notices, ...withoutCodex } = SAMPLE_D20_BEFORE_WIDGETS;
 void _codex;
 void _notices;
-export const SAMPLE_POOL: RulesetInput = {
+/** SAMPLE_POOL as it was at 0.1.3, before the choice its taker makes while reporting (house decision #170). */
+export const SAMPLE_POOL_0_1_3: RulesetInput = {
   ...withoutCodex,
   id: "sample-pool",
   version: "0.1.3",
@@ -56,6 +57,35 @@ export const SAMPLE_POOL: RulesetInput = {
             { pool: "luck", by: "1" },
           ],
           cite: "Sample p.21",
+        },
+      ],
+    },
+  },
+};
+
+const skill = SAMPLE_POOL_0_1_3.tests?.skill;
+if (skill?.kind !== "poolSuccesses") throw new Error("sample-pool 0.1.3 has its skill Test");
+
+/**
+ * sample-pool 0.1.4 (house decision #170): the taker may spend a Luck point while reporting to steady the roll, one off
+ * the number to beat but never below 1; the GM side is then offered to take the point from the Luck pool.
+ */
+export const SAMPLE_POOL: RulesetInput = {
+  ...SAMPLE_POOL_0_1_3,
+  version: "0.1.4",
+  tests: {
+    skill: {
+      ...skill,
+      target: "max(1, ctx.dn - ctx.steady)",
+      choices: { steady: { label: "Luck spent", max: 1, cite: "Sample p.22" } },
+      offers: [
+        ...(skill.offers ?? []),
+        {
+          id: "steadied",
+          label: "Luck spent",
+          when: "ctx.steady > 0",
+          changes: [{ pool: "luck", by: "-ctx.steady" }],
+          cite: "Sample p.22",
         },
       ],
     },

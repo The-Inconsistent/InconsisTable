@@ -54,6 +54,14 @@ export const TestDef = z.object({
 });
 export type TestDef = z.infer<typeof TestDef>;
 
+/** What the taker set while reporting, by choice id (house decision #170): a switch, or a whole number. */
+export const TestChoiceValues = z.record(z.string().max(64), z.union([z.boolean(), z.int().min(0).max(20)]));
+export type TestChoiceValues = z.infer<typeof TestChoiceValues>;
+
+/** A choice the taker makes while reporting (house decision #170): a switch, or with `max` a number from 0 to it. */
+export const ChoiceSpec = z.object({ id: z.string(), label: z.string(), max: z.int().optional() });
+export type ChoiceSpec = z.infer<typeof ChoiceSpec>;
+
 /** A reported roll as a seat may see it: a field the seat may not see is null. */
 export const TestResult = z.object({
   natural: z.int().nullable(),
@@ -65,6 +73,11 @@ export const TestResult = z.object({
   shifts: z.int().nullable(),
   /** What a Dice pool's special dice flagged (the engine's `PoolFlag`); empty for a sum Test. */
   flags: z.array(z.string()),
+  /**
+   * What the taker chose (house decision #170), every choice the Test declares: absent when it declares none, or when
+   * the seat may not be told the result's numbers (a choice moves the number to beat).
+   */
+  choices: TestChoiceValues.optional(),
 });
 export type TestResult = z.infer<typeof TestResult>;
 
@@ -118,6 +131,8 @@ export const TestCall = z.object({
   pool: PoolSpec.nullable(),
   /** Set on a reported Test: the phone shows these as buttons and the report's `outcome` is one of their ids. */
   outcomes: z.array(OutcomeSpec).nullable(),
+  /** What the taker may choose while reporting (house decision #170); absent when the Test declares none. */
+  choices: z.array(ChoiceSpec).optional(),
   status: TestCallStatus,
   createdAt: z.string(),
   /** What the GM supplied when calling. Inputs the hidden target reads are removed for seats without GM rights. */
@@ -164,6 +179,8 @@ export const TestReportAction = z
     advantage: z.string().max(20).optional(),
     roll: z.record(z.string().max(20), z.unknown()).optional(),
     outcome: z.string().min(1).max(64).optional(),
+    /** What the taker chose (house decision #170); the server checks each against the Test's declared choices. */
+    choices: TestChoiceValues.optional(),
   })
   .refine(
     (a) =>

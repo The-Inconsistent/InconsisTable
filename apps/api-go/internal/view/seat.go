@@ -652,6 +652,8 @@ func seatTests(tests []cs.TestCall, c cs.Ctx, sight Sight) []cs.TestCall {
 	held := HeldBy(c)
 	// Without a GM every call is the whole table's: the targets are public, so each character counts as the seat's own.
 	mineOf := func(id string) bool { return sight.TableRun || holds(held, id) }
+	// Without a GM a seat that may call Tests is the table's GM side for offers (house decision #170).
+	offering := sight.TableRun && cs.CanInCampaign(c, "test:call", "")
 	out := []cs.TestCall{}
 	if isScreen(c) {
 		for _, call := range tests {
@@ -694,10 +696,15 @@ func seatTests(tests []cs.TestCall, c cs.Ctx, sight Sight) []cs.TestCall {
 			if own && call.ShowTarget {
 				seen.Target = t.Target
 			}
+			// The state keeps a gmless room's offers only where the call shows what they read (house decision #170).
+			if offering {
+				seen.Offers = t.Offers
+			}
 			if t.Report != nil {
 				r := cs.TestResult{Natural: t.Report.Natural, Flags: t.Report.Flags}
+				// A choice moves the number to beat (house decision #170), so it is told as the total is.
 				if own && call.ShowModifier {
-					r.Total = t.Report.Total
+					r.Total, r.Choices = t.Report.Total, t.Report.Choices
 				}
 				if !own || call.ShowOutcome || call.Revealed {
 					r.Outcome = t.Report.Outcome

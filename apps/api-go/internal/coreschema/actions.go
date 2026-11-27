@@ -117,7 +117,9 @@ var (
 	// codexFieldValue is a codex entry field's value (core-schema CodexFieldValue, house decision #89): a field value, or
 	// a rows field's rows, whose shape the ruleset's declaration checks.
 	codexFieldValue = schema.AnyOf(fieldValue, schema.Array(schema.Record(schema.String(), schema.Unknown())).Max(30))
-	testInputs      = schema.Record(schema.String().Max(64), schema.AnyOf(
+	// testChoiceValues is what a taker chose while reporting (house decision #170).
+	testChoiceValues = schema.Record(schema.String().Max(64), schema.AnyOf(schema.Bool(), schema.Int().Min(0).Max(20)))
+	testInputs       = schema.Record(schema.String().Max(64), schema.AnyOf(
 		schema.Number(-math.MaxFloat64, math.MaxFloat64),
 		schema.String().Max(100),
 		schema.Bool(),
@@ -262,6 +264,7 @@ var ActionSchema = schema.Union("type",
 		schema.Opt("advantage", schema.String().Max(20)),
 		schema.Opt("roll", schema.Record(schema.String().Max(20), schema.Unknown())),
 		schema.Opt("outcome", schema.String().Min(1).Max(64)),
+		schema.Opt("choices", testChoiceValues),
 	).Refine(func(a map[string]any) bool {
 		_, hasRoll := a["roll"]
 		_, hasOutcome := a["outcome"]

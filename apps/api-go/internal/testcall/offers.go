@@ -94,7 +94,7 @@ func offersOf(rules *engine.CompiledRuleset, test *engine.CompiledTest, b *actor
 	if len(test.Offers) == 0 || t.Report == nil || b == nil || b.Scope == nil {
 		return nil
 	}
-	scope := offerScope(b.Scope, inputs, t.Report, number(t.Target))
+	scope := offerScope(b.Scope, withChoices(inputs, t.Report.Choices), t.Report, number(t.Target))
 	var out []cs.TestOfferState
 	for i := range test.Offers {
 		o := &test.Offers[i]
@@ -153,8 +153,12 @@ func applyOffer(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	}
 	var testID string
 	var rawInputs []byte
-	err := tx.QueryRow(ctx, `SELECT test_id, inputs FROM test_call WHERE id = $1 AND campaign_id = $2`, callID, cid).
-		Scan(&testID, &rawInputs)
+	var hideTarget bool
+	var called []string
+	err := tx.QueryRow(ctx, `SELECT c.test_id, c.inputs, c.hide_target,
+			(SELECT array_agg(t.actor_id::text) FROM test_call_target t WHERE t.call_id = c.id)
+		FROM test_call c WHERE c.id = $1 AND c.campaign_id = $2`, callID, cid).
+		Scan(&testID, &rawInputs, &hideTarget, &called)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return cs.Result{}, cs.Fail("testNotHere")
 	}
@@ -181,6 +185,11 @@ func applyOffer(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	} else if err != nil {
 		return cs.Result{}, err
 	}
+	// Without a GM the seat that applies an offer applies it as the table (house decision #170), as a spend ask is done.
+	noGM := !c.HasGM()
+	if noGM {
+		c.Seat = cs.Seat{Kind: cs.SeatAdmin}
+	}
 	rc, err := ruleset.Open(ctx, tx, c)
 	if err != nil {
 		return cs.Result{}, err
@@ -191,6 +200,9 @@ func applyOffer(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 		return cs.Result{}, cs.Fail("characterNotFound")
 	case b.Scope == nil:
 		return cs.Result{}, cs.Fail("incomplete", cs.Params{"name": b.Row.Name, "detail": b.Problem})
+	// Only an offer the seat is shown: its changes would tell a number the table may not see.
+	case noGM && !offersShown(test, hideTarget, called, actorID, rc.Built):
+		return cs.Result{}, cs.Fail("offerNotOffered")
 	}
 	report, err := reportOf(ctx, tx, callID, actorID)
 	if err != nil {
@@ -210,7 +222,7 @@ func applyOffer(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	if err := json.Unmarshal(rawInputs, &inputs); err != nil {
 		return cs.Result{}, err
 	}
-	scope := offerScope(b.Scope, inputs, report, float64(target))
+	scope := offerScope(b.Scope, withChoices(inputs, choicesOf(test, report.Choices)), report, float64(target))
 	// The GM may have changed the report since the card offered it.
 	if !offerHolds(offer, scope) {
 		return cs.Result{}, cs.Fail("offerNotOffered")
@@ -251,12 +263,13 @@ func reportOf(ctx context.Context, conn core.Conn, callID, actorID string) (*cs.
 	var total int32
 	var outcome string
 	var flags []string
-	err := conn.QueryRow(ctx, `SELECT "natural", total, outcome, margin, shifts, flags FROM test_report
-		WHERE call_id = $1 AND actor_id = $2`, callID, actorID).Scan(&natural, &total, &outcome, &margin, &shifts, &flags)
+	var choices map[string]any
+	err := conn.QueryRow(ctx, `SELECT "natural", total, outcome, margin, shifts, flags, choices FROM test_report
+		WHERE call_id = $1 AND actor_id = $2`, callID, actorID).Scan(&natural, &total, &outcome, &margin, &shifts, &flags, &choices)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	t := int(total)
 	return &cs.TestResult{Natural: intPtr(natural), Total: &t, Outcome: &outcome, Margin: intPtr(margin),
-		Shifts: intPtr(shifts), Flags: flags}, err
+		Shifts: intPtr(shifts), Flags: flags, Choices: choices}, err
 }

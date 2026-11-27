@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
-import type { LiveState, TestCall, TestTargetState } from "@inconsistable/core-schema";
+import type { LiveState, TestCall, TestChoiceValues, TestTargetState } from "@inconsistable/core-schema";
 import type { AdvantageMode } from "@inconsistable/rules-engine";
 
 import { OutcomePad } from "@/components/ui/outcome-pad/outcome-pad";
@@ -12,6 +12,8 @@ import { RollPad } from "@/components/ui/roll-pad/roll-pad";
 import type { Send } from "@/hooks/use-table/use-table";
 import { outcomeLabel } from "@/lib/outcome-label/outcome-label";
 import { outcomeClass, outcomeKey, signed } from "@/lib/roll-slots/roll-slots";
+
+import { ReportChoices } from "./components/report-choices/report-choices";
 
 type TestPromptProps = { state: LiveState; send: Send };
 
@@ -27,6 +29,14 @@ export function TestPrompt({ state, send }: TestPromptProps) {
   const [dismissed, setDismissed] = useState<string | null>(null);
   const newestClosed = state.tests.find((c) => c.status === "closed");
   const lastClosed = newestClosed?.id === dismissed ? undefined : newestClosed;
+  // What each taker chose before reporting (house decision #170), by call and character; sent with the report.
+  const [chosen, setChosen] = useState<Record<string, TestChoiceValues>>({});
+  const choicesOf = (callId: string, actorId: string) => {
+    const declared = state.tests.find((c) => c.id === callId)?.choices;
+    return declared ? { choices: chosen[`${callId}-${actorId}`] ?? {} } : {};
+  };
+  // CHOOSE: what one taker chose so far, kept until the report is sent.
+  const handleChoose = (key: string) => (values: TestChoiceValues) => setChosen((prev) => ({ ...prev, [key]: values }));
 
   // What a reported roll says to the player: what they read, and the rest only if the call lets the server say it.
   const resultText = ({ call, target }: { call: TestCall; target: TestTargetState }): string => {
@@ -49,7 +59,14 @@ export function TestPrompt({ state, send }: TestPromptProps) {
   const reportPool =
     ({ callId, actorId }: { callId: string; actorId: string }) =>
     async (roll: { kind: "pool"; counts: Record<string, number>; special: number[] }): Promise<string | null> => {
-      const r = await send({ type: "test.report", callId, actorId, advantage: "none", roll });
+      const r = await send({
+        type: "test.report",
+        callId,
+        actorId,
+        advantage: "none",
+        roll,
+        ...choicesOf(callId, actorId),
+      });
       return r.ok ? null : r.error;
     };
 
@@ -57,7 +74,7 @@ export function TestPrompt({ state, send }: TestPromptProps) {
   const reportOutcome =
     ({ callId, actorId }: { callId: string; actorId: string }) =>
     async (outcome: string): Promise<string | null> => {
-      const r = await send({ type: "test.report", callId, actorId, outcome });
+      const r = await send({ type: "test.report", callId, actorId, outcome, ...choicesOf(callId, actorId) });
       return r.ok ? null : r.error;
     };
 
@@ -71,6 +88,7 @@ export function TestPrompt({ state, send }: TestPromptProps) {
         actorId,
         advantage: roll.advantage,
         roll: { kind: "faces", faces: roll.faces },
+        ...choicesOf(callId, actorId),
       });
       return r.ok ? null : r.error;
     };
@@ -101,6 +119,14 @@ export function TestPrompt({ state, send }: TestPromptProps) {
                     </span>
                   ))}
                 </div>
+              )}
+              {call.choices && !target.report && (
+                <ReportChoices
+                  choices={call.choices}
+                  values={chosen[`${call.id}-${target.actorId}`] ?? {}}
+                  who={who}
+                  onChange={handleChoose(`${call.id}-${target.actorId}`)}
+                />
               )}
               {target.report ? (
                 <p

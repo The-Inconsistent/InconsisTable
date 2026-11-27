@@ -3,7 +3,10 @@ package request
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"slices"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
@@ -136,7 +139,7 @@ func sendSpend(ctx context.Context, tx core.Conn, c cs.Ctx, rc *ruleset.Context,
 	if asked {
 		return cs.Result{}, cs.Fail("spendAsked")
 	}
-	if err := underLimit(ctx, tx, c, max); err != nil {
+	if err := underLimit(ctx, tx, c, actorID, max); err != nil {
 		return cs.Result{}, err
 	}
 	stored, err := json.Marshal(inputs)
@@ -168,5 +171,94 @@ func Clear(ctx context.Context, tx core.Conn, campaignID, event string) error {
 	}
 	_, err = tx.Exec(ctx, `UPDATE spend_request SET status = 'cancelled', resolved_at = now()
 		WHERE campaign_id = $1 AND status = 'pending' AND spend_id = ANY($2)`, campaignID, ids)
+	return err
+}
+
+// Moot is what an action may make moot, read before it (house decision #169): the running fight and its round ("" and
+// 0 without one), read only while a spend ask waits.
+type Moot struct {
+	encounter string
+	round     int
+}
+
+// ReadMoot is read before an action; nil when no spend ask waits, so there is nothing to clear after it.
+func ReadMoot(ctx context.Context, tx core.Conn, campaignID string) (*Moot, error) {
+	var asked bool
+	m := &Moot{}
+	err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM spend_request WHERE campaign_id = $1 AND status = 'pending'
+			AND spend_id IS NOT NULL),
+		coalesce((SELECT id::text FROM encounter WHERE campaign_id = $1 AND active), ''),
+		coalesce((SELECT round FROM encounter WHERE campaign_id = $1 AND active), 0)`, campaignID).
+		Scan(&asked, &m.encounter, &m.round)
+	if err != nil || !asked {
+		return nil, err
+	}
+	return m, nil
+}
+
+// ClearMoot cancels, after an action, the spend asks it made moot (house decision #169): those of a spend whose
+// `clearOn` lists `roundEnd` once the fight's round moved, and those whose spend's `if` no longer holds for the actor.
+// The answer is a cancel's, as Clear gives.
+func ClearMoot(ctx context.Context, tx core.Conn, c cs.Ctx, before *Moot) error {
+	if before == nil {
+		return nil
+	}
+	after, err := ReadMoot(ctx, tx, c.CampaignID)
+	if err != nil || after == nil {
+		return err
+	}
+	rules, err := compiled.Load(ctx, tx, c.CampaignID)
+	if err != nil || rules == nil {
+		return err
+	}
+	rows, err := tx.Query(ctx, `SELECT id::text, actor_id::text, spend_id, inputs FROM spend_request
+		WHERE campaign_id = $1 AND status = 'pending' AND spend_id IS NOT NULL ORDER BY created_at, id`, c.CampaignID)
+	if err != nil {
+		return err
+	}
+	type ask struct {
+		id, actorID, spendID string
+		inputs               map[string]any
+	}
+	asks, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (ask, error) {
+		var q ask
+		err := r.Scan(&q.id, &q.actorID, &q.spendID, &q.inputs)
+		return q, err
+	})
+	if err != nil {
+		return err
+	}
+	moved := before.encounter != "" && before.encounter == after.encounter && before.round != after.round
+	var rc *ruleset.Context
+	moot := []string{}
+	for _, q := range asks {
+		s := rules.Ruleset.SpendOf(q.spendID)
+		switch {
+		case s == nil:
+			continue
+		case moved && slices.Contains(s.ClearOn, "roundEnd"):
+			moot = append(moot, q.id)
+			continue
+		case s.If == nil:
+			continue
+		}
+		if rc == nil {
+			if rc, err = ruleset.Open(ctx, tx, c); err != nil {
+				return err
+			}
+		}
+		// Only the spend's `if` makes an ask moot: one that cannot be paid now stays, for the GM side to answer.
+		var refused *cs.Error
+		if _, err := plan(ctx, rc, q.spendID, q.actorID, q.inputs); errors.As(err, &refused) && refused.Code == "spendNotNow" {
+			moot = append(moot, q.id)
+		} else if err != nil && !errors.As(err, &refused) {
+			return err
+		}
+	}
+	if len(moot) == 0 {
+		return nil
+	}
+	_, err = tx.Exec(ctx, `UPDATE spend_request SET status = 'cancelled', resolved_at = now()
+		WHERE campaign_id = $1 AND status = 'pending' AND id = ANY($2::uuid[])`, c.CampaignID, moot)
 	return err
 }

@@ -111,7 +111,7 @@ export const SAMPLE_LEDGER_ITEMS = {
   },
 } satisfies ItemsBlock;
 
-export const SAMPLE_LEDGER_RULESET: RulesetInput = {
+export const SAMPLE_LEDGER_RULESET_0_1_3: RulesetInput = {
   id: "sample-ledger",
   // 0.1.1: the hero's Guard, gear with a slot, stores, the item codex field and the items block (house decision #95).
   // 0.1.2: the GM's override of the Guard, and what a build over a hand-made sheet keeps (house decision #96).
@@ -227,4 +227,34 @@ export const SAMPLE_LEDGER_RULESET: RulesetInput = {
     libraryLine: "archetypes",
     cite: "Base p.1",
   },
+};
+
+/**
+ * 0.1.4 (house decision #168): what a hero's spent XP says, read as `build`: the Rank a hero reached, with the number in
+ * the line, and, as a session ends, that the whole group has spent enough since the last Ascension to Ascend again.
+ */
+export const SAMPLE_LEDGER_RULESET: RulesetInput = {
+  ...SAMPLE_LEDGER_RULESET_0_1_3,
+  version: "0.1.4",
+  notices: [
+    {
+      id: "rank",
+      when: "crossed",
+      entities: ["hero"],
+      if: "build.xpSpent >= 10",
+      rises: "floor(build.xpSpent, 10)",
+      params: { rank: "floor(build.xpSpent, 10)" },
+      text: "{name} reached Rank {rank}",
+      cite: "Base p.31",
+    },
+    {
+      id: "ascend",
+      when: "sessionEnd",
+      entities: ["hero"],
+      group: "every",
+      if: "build.xpSpent - build.xpAtAscension >= 20",
+      text: "The group may Ascend",
+      cite: "Base p.30",
+    },
+  ],
 };

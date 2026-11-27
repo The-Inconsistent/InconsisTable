@@ -11,8 +11,10 @@ import {
   SAMPLE_D20_0_1_9,
   SAMPLE_D20_0_1_10,
   SAMPLE_D20_0_1_11,
+  SAMPLE_D20_0_1_13,
   SAMPLE_D20_BEFORE_WIDGETS,
 } from "./sample-d20.ts";
+import { SAMPLE_LEDGER_RULESET, SAMPLE_LEDGER_RULESET_0_1_3 } from "./sample-ledger-ruleset.ts";
 import type { RulesetInput } from "../manifest.ts";
 import { SAMPLE_DUEL, SAMPLE_DUEL_BEFORE_LISTS, SAMPLE_DUEL_BEFORE_PANELS } from "./sample-duel.ts";
 import {
@@ -28,9 +30,10 @@ import {
 } from "./sample-harm.ts";
 import { SAMPLE_HARVEST } from "./sample-harvest.ts";
 import { SAMPLE_NO_ORDER } from "./sample-no-order.ts";
-import { SAMPLE_POOL } from "./sample-pool.ts";
+import { SAMPLE_POOL, SAMPLE_POOL_0_1_3 } from "./sample-pool.ts";
 import {
   SAMPLE_SKIRMISH,
+  SAMPLE_SKIRMISH_0_1_10,
   SAMPLE_SKIRMISH_BEFORE_CHECKLIST,
   SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND,
   SAMPLE_SKIRMISH_BEFORE_PANELS,
@@ -43,9 +46,10 @@ import {
 const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9cb58c5d";
 const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf";
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.13": "84c99fc8e83c19128696219c4f945c89fa2ba39f70874955d664a4a3496b33e9",
-  "sample-skirmish@0.1.10": "b225267a9ce44460c52059d5d1037482fd185b6b0ca981606910ac8679fb3f0f",
-  "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
+  "sample-d20@0.1.14": "1ec00ae72265d9397be77b839752e8b2c90a6b586a3b2ae8bf0412a30e6dde3b",
+  "sample-ledger@0.1.4": "cfd8e45e21b93d72a886c4d0d171d4b8763f0bdcf7a359e5421c510bc5314bb3",
+  "sample-skirmish@0.1.11": "18e88a8d16b375a70b00cb2904b31043c0273fb7c55a9ed762128487160909e3",
+  "sample-pool@0.1.4": "20a6d1b8a8d6031a0d3abfab5e5ceaade06eed14c7748e8226b4b1a68e35e182",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
   "sample-harm@0.1.10": "fa69eac85323609c4daf9fac3a11578ae2188822abc24a9a24b88b48f9442c43",
@@ -103,8 +107,25 @@ test("a ruleset without summaries hashes as it did before they existed (house de
   );
 });
 
+test("a ruleset without the notices and spends of #227 hashes as before them (house decisions #168, #169)", () => {
+  const before: [RulesetInput, string][] = [
+    [SAMPLE_D20_0_1_13, "84c99fc8e83c19128696219c4f945c89fa2ba39f70874955d664a4a3496b33e9"],
+    [SAMPLE_LEDGER_RULESET_0_1_3, "a9b110b28b7f3fc2e3fbd2301c2ad9fc6a0188e82b242e779d7b8a1e4152b84c"],
+    // Nor a spend's round event or its next table's own `if` (house decision #169).
+    [SAMPLE_SKIRMISH_0_1_10, "b225267a9ce44460c52059d5d1037482fd185b6b0ca981606910ac8679fb3f0f"],
+    // Nor a choice made while reporting (house decision #170).
+    [SAMPLE_POOL_0_1_3, "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb"],
+  ];
+  for (const [fixture, pinned] of before) {
+    const result = compileRuleset(fixture);
+    assert.ok(result.ok, `${fixture.id}@${fixture.version} compiles`);
+    assert.equal(sha256Hex(canonicalJson(result.compiled.ruleset)), pinned);
+  }
+});
+
 test("a sample ruleset's normalized manifest changes only with its version", () => {
   for (const fixture of [
+    SAMPLE_LEDGER_RULESET,
     SAMPLE_D20,
     SAMPLE_POOL,
     SAMPLE_HARVEST,
@@ -122,10 +143,10 @@ test("a sample ruleset's normalized manifest changes only with its version", () 
 });
 
 test("a Test without marks or offers hashes as it did before they existed (house decision #80)", () => {
-  const skill = SAMPLE_POOL.tests?.skill;
+  const skill = SAMPLE_POOL_0_1_3.tests?.skill;
   assert.ok(skill);
   const { marks: _marks, offers: _offers, ...before } = skill;
-  const result = compileRuleset({ ...SAMPLE_POOL, version: "0.1.2", tests: { skill: before } });
+  const result = compileRuleset({ ...SAMPLE_POOL_0_1_3, version: "0.1.2", tests: { skill: before } });
   assert.ok(result.ok);
   assert.equal(
     sha256Hex(canonicalJson(result.compiled.ruleset)),

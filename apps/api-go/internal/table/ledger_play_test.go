@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core/dbtest"
+	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 )
 
 // A ledger character in play (house decision #64): its Tier and creation are locked, it buys with the XP it earned, and
@@ -144,5 +145,31 @@ func TestBuyingInPlayStampsThePurchaseHistoryAndStoresTheXPSpent(t *testing.T) {
 		if got := p.resources(hero); got["wealth"] != 7 || got["corruption"] != 1 {
 			t.Fatalf("resources %v", got)
 		}
+	})
+}
+
+// House decision #168 on the ledger sample: as a session ends the GM side is told the group may Ascend once every hero
+// has spent enough since the last Ascension, read from what each saved build spends; a player is never told it.
+func TestASessionsEndSaysTheGroupMayAscendFromWhatEachHeroSpent(t *testing.T) {
+	db := dbtest.Open(t)
+	lib := importLedger(t, db)
+	dbtest.Tx(t, db, func(tx pgx.Tx) {
+		p := ledgerPlay(t, tx, lib)
+		gm := p.room.GM()
+		wren, moss := p.room.Actor(t, tx, "pc", "Wren", ""), p.room.Actor(t, tx, "pc", "Moss", "")
+		ana := p.room.Seat(t, tx, dbtest.User(t, tx, "Ana"), wren)
+		p.send(ana, save(wren, dreamBuild))
+		p.send(gm, save(moss, dreamBuild))
+		spent := func(actorID string, xp int) {
+			dbtest.Exec(t, tx, `UPDATE actor_build SET xp_spent = $2 WHERE actor_id = $1`, actorID, xp)
+		}
+		ascend := cs.RuleNotice("ascend", "", "The group may Ascend")
+		spent(wren, 25)
+		spent(moss, 19)
+		p.send(gm, map[string]any{"type": "session.start"})
+		wantNotices(t, p.send(gm, map[string]any{"type": "session.end", "recap": ""}))
+		spent(moss, 20)
+		p.send(gm, map[string]any{"type": "session.start"})
+		wantNotices(t, p.send(gm, map[string]any{"type": "session.end", "recap": ""}), ascend)
 	})
 }

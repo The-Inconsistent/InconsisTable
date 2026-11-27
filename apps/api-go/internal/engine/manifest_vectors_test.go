@@ -196,7 +196,7 @@ func compiledJSON(c *CompiledRuleset) any {
 		tests[id] = map[string]any{
 			"offers":   offers,
 			"modifier": exprJSON(x.Modifier), "target": exprJSON(x.Target), "pool": exprJSON(x.Pool),
-			"modifierVisibility": x.ModifierVisibility, "targetVisibility": x.TargetVisibility,
+			"modifierVisibility": x.ModifierVisibility, "targetVisibility": x.TargetVisibility, "offerVisibility": x.OfferVisibility,
 		}
 	}
 	var initiative any
@@ -217,8 +217,16 @@ func compiledJSON(c *CompiledRuleset) any {
 	}
 	notices := make([]any, len(c.Notices))
 	for i, n := range c.Notices {
+		params := map[string]any{}
+		for name, x := range n.Params {
+			params[name] = exprJSON(x)
+		}
+		var group any
+		if n.Group != "" {
+			group = n.Group
+		}
 		notices[i] = map[string]any{"id": n.ID, "when": n.When, "entities": n.Entities, "if": exprJSON(n.If), "text": n.Text,
-			"visibility": n.Visibility}
+			"params": params, "group": group, "rises": exprJSON(n.Rises), "visibility": n.Visibility}
 	}
 	immune := map[string]any{}
 	for id, e := range c.Immune {

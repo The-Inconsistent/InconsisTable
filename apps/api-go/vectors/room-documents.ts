@@ -287,7 +287,7 @@ export const ledgerDocument = (): RoomDocumentInput => ({
   version: 1,
   room: { name: "Lamplight" },
   expects: {
-    ruleset: { slug: "sample-ledger", version: "0.1.3" },
+    ruleset: { slug: "sample-ledger", version: SAMPLE_LEDGER_RULESET.version },
     packs: [{ slug: "sample-ledger-catalogue", version: "0.1.2" }],
   },
   campaignFields: { tier: 1 },

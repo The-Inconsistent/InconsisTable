@@ -76,6 +76,8 @@ type (
 		Offers                               []CompiledOffer
 		Modifier, Target, Pool               *CompiledExpr
 		ModifierVisibility, TargetVisibility map[string]string
+		// OfferVisibility is who may be told what the offers work out on a taker (house decision #170).
+		OfferVisibility map[string]string
 	}
 	// CompiledOffer is one offer of a Test: When reads `result` and `ctx`, each change's By the taker's scope too.
 	CompiledOffer struct {
@@ -147,9 +149,14 @@ type (
 	CompiledNotice struct {
 		ID, When string
 		// Entities is the actor types it reads; nil is every actor type.
-		Entities   *[]string
-		If         *CompiledExpr
-		Text       string
+		Entities *[]string
+		If       *CompiledExpr
+		Text     string
+		// Params, Group and Rises are house decision #168: Params empty without any, Group "" and Rises nil without.
+		Params map[string]*CompiledExpr
+		Group  string
+		Rises  *CompiledExpr
+		// Visibility is who may be told it: the strictest of what If, Params and Rises read.
 		Visibility map[string]string
 	}
 	// CompiledBuild is what a caller hands the ledger builder.
@@ -242,6 +249,8 @@ func pathVisibility(ref string, e *EntityType, carried map[string]*Resource, der
 		return "party"
 	case "ctx":
 		return "public" // call-time inputs, supplied by whoever calls the Test
+	case "result":
+		return "public" // a taker's report, as an offer reads it: the call decides what of it a seat is told (#170)
 	case "derived":
 		if rest != "" {
 			if v, ok := derived[rest]; ok {
@@ -875,6 +884,9 @@ func (c *compiler) spends(entities map[string]*CompiledEntity) {
 		if s.If != nil {
 			c.expr(*s.If, scopes(true), boolType, path+".if")
 		}
+		if s.Then != nil && s.Then.If != nil {
+			c.expr(*s.Then.If, scopes(true), boolType, path+".then.if")
+		}
 		for j, cost := range s.Cost {
 			c.expr(cost.Amount, scopes(true), intType, fmt.Sprintf("%s.cost[%d].amount", path, j))
 		}
@@ -934,6 +946,10 @@ func (c *compiler) seenBy(takers []*EntityType, entities map[string]*CompiledEnt
 	return out
 }
 
+// NoticeBuildScope is what a notice reads of a ledger actor's play as `build` (house decision #168; compile.ts
+// NOTICE_BUILD_SCOPE).
+var NoticeBuildScope = RecordType{map[string]ExprType{"xpSpent": intType, "xpAtAscension": intType}}
+
 // ResultScope is what an offer reads of a taker's resolved report as `result` (house decision #80; compile.ts
 // RESULT_SCOPE): a number the kind of Test has not is 0.
 var ResultScope = func() ExprType {
@@ -956,8 +972,17 @@ func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity)
 	for k := range t.Marks {
 		inputs[k] = boolType
 	}
+	// A choice the taker sets when reporting (house decision #170) is read by the target and the offers only.
+	taken := maps.Clone(inputs)
+	for k, ch := range t.Choices {
+		taken[k] = boolType
+		if ch.Max != nil {
+			taken[k] = intType
+		}
+	}
 	takers, actorScopes := c.actorsOf(t.Entities, entities)
 	scopes := withScope(actorScopes, "ctx", RecordType{inputs})
+	takenScopes := withScope(actorScopes, "ctx", RecordType{taken})
 	path := "tests." + id
 	// A reported Test has no numbers: the constant 0 keeps every reader of a compiled Test one shape.
 	modSource, targetSource := t.Modifier, t.Target
@@ -965,7 +990,7 @@ func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity)
 		modSource, targetSource = "0", "0"
 	}
 	modifier := c.expr(modSource, scopes, intType, path+".modifier")
-	target := c.expr(targetSource, scopes, intType, path+".target")
+	target := c.expr(targetSource, takenScopes, intType, path+".target")
 	var pool *CompiledExpr
 	if t.Kind == "poolSuccesses" {
 		pool = c.expr(t.Pool, scopes, intType, path+".pool")
@@ -978,10 +1003,10 @@ func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity)
 	for i := range t.Offers {
 		o := &t.Offers[i]
 		at := fmt.Sprintf("%s.offers[%d]", path, i)
-		when := c.expr(o.When, []map[string]ExprType{{"ctx": RecordType{inputs}, "result": ResultScope}}, boolType, at+".when")
+		when := c.expr(o.When, []map[string]ExprType{{"ctx": RecordType{taken}, "result": ResultScope}}, boolType, at+".when")
 		compiled := CompiledOffer{Def: o, When: when}
 		for j, ch := range o.Changes {
-			by := c.expr(ch.By, withScope(scopes, "result", ResultScope), intType, fmt.Sprintf("%s.changes[%d].by", at, j))
+			by := c.expr(ch.By, withScope(takenScopes, "result", ResultScope), intType, fmt.Sprintf("%s.changes[%d].by", at, j))
 			whole = whole && by != nil
 			compiled.Changes = append(compiled.Changes, CompiledChange{ch.Pool, ch.Resource, by})
 		}
@@ -997,7 +1022,14 @@ func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity)
 	if pool != nil {
 		modifierVisibility = seen(modifier, pool)
 	}
-	return &CompiledTest{t, offers, modifier, target, pool, modifierVisibility, seen(target)}
+	// Who may be told what the offers work out on a taker (house decision #170): their changes read its scope.
+	byOf := []*CompiledExpr{}
+	for _, o := range offers {
+		for _, ch := range o.Changes {
+			byOf = append(byOf, ch.By)
+		}
+	}
+	return &CompiledTest{t, offers, modifier, target, pool, modifierVisibility, seen(target), seen(byOf...)}
 }
 
 func (c *compiler) run() *CompiledRuleset {
@@ -1093,8 +1125,35 @@ func (c *compiler) run() *CompiledRuleset {
 	notices := []CompiledNotice{}
 	for j, n := range c.r.Notices {
 		takers, scopes := c.actorsOf(n.Entities, entities)
-		if when := c.expr(n.If, scopes, boolType, fmt.Sprintf("notices[%d].if", j)); when != nil {
-			notices = append(notices, CompiledNotice{n.ID, n.When, n.Entities, when, n.Text, c.seenBy(takers, entities, []*CompiledExpr{when})})
+		// A ledger actor's notices also read its play as `build` (house decision #168).
+		if c.r.Build != nil {
+			for i, e := range takers {
+				if e.ID == c.r.Build.Actor {
+					scopes[i] = maps.Clone(scopes[i])
+					scopes[i]["build"] = NoticeBuildScope
+				}
+			}
+		}
+		path := fmt.Sprintf("notices[%d]", j)
+		when := c.expr(n.If, scopes, boolType, path+".if")
+		read, whole := []*CompiledExpr{when}, when != nil
+		params := map[string]*CompiledExpr{}
+		for _, name := range sortedKeys(n.Params) {
+			x := c.expr(n.Params[name], scopes, nil, path+".params."+name)
+			params[name], read, whole = x, append(read, x), whole && x != nil
+		}
+		var rises *CompiledExpr
+		if n.Rises != nil {
+			rises = c.expr(*n.Rises, scopes, intType, path+".rises")
+			read, whole = append(read, rises), whole && rises != nil
+		}
+		if whole {
+			group := ""
+			if n.Group != nil {
+				group = *n.Group
+			}
+			notices = append(notices, CompiledNotice{n.ID, n.When, n.Entities, when, n.Text, params, group, rises,
+				c.seenBy(takers, entities, read)})
 		}
 	}
 	reminderScopes := withScope(withScope(withScope(actorScopes, "round", intType), "held", boolType), "barred", boolType)

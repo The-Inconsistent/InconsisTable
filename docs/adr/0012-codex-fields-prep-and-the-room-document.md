@@ -92,6 +92,16 @@ recaps, clocks, safety lines, and pictures. Ids inside it are its own; the impor
 - This is a new entry in principle 6's list of writes outside the action path; the house decision that lands it amends
   `CLAUDE.md`.
 
+*Amended 2026-11-27 (#232, house decisions #181 to #184).* The document also carries what the export used to drop and the
+table relies on: each session's start, end and award (a session still running at export comes back ended at the
+export's time); an actor's status (a retired character stays retired); a condition's stacks; and where a ledger build's
+next advance counts from (`xpAtAscension`, `packageWaived`). Every new field is optional, so a document written before
+still imports, with the import's own times, an active status, one stack, and an advance counted from 0. The export now
+writes only what the room is served: a pack it is no longer served leaves `expects`, an item of such a pack is written as
+a hand-written line under its key, and an entry's `source` or a pack field naming such an entry is left out; the export
+answers how many of each in its `X-Room-Export` header, and the screens that export say so. A running fight, seats,
+invites, drafts, Test calls, spend requests, whispers and the session log still stay behind.
+
 The platform never reads another app's format. Turning an Auspex export into a room document is a converter in the
 Auspex repository, beside the ruleset and pack generators.
 

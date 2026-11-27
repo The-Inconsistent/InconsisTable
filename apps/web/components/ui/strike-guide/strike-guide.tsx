@@ -43,6 +43,13 @@ type StrikeGuideProps = {
    * the result out for the GM to apply. Absent: the side that runs the fight, which APPLIES any strike.
    */
   phone?: { encounter: Pick<Encounter, "currentId" | "paused" | "combatants">; tableMode: TableMode };
+  /** The one strike kind a layout row names (house decision #114); absent, every kind the attacker has. */
+  strikeId?: string;
+  /**
+   * Combatants in the fight whose actor the seat is not sent (a foe shown as a bar only), by actor id: offered as targets
+   * with no figures, only the hint to ask the GM (F63).
+   */
+  unread?: readonly { id: string; name: string }[];
 };
 
 const ENTRIES = 200;
@@ -65,10 +72,13 @@ export function StrikeGuide(props: StrikeGuideProps) {
     run,
     onTable,
     phone,
+    strikeId,
+    unread = [],
   } = props;
   const t = useTranslations("strike");
+  const tFoe = useTranslations("foeCard");
   const tr = useRefusal();
-  const kinds = strikesFor({ ruleset, actor: attacker });
+  const kinds = strikesFor({ ruleset, actor: attacker }).filter((k) => strikeId === undefined || k.id === strikeId);
   const [open, setOpen] = useState(false);
   const [kindId, setKindId] = useState(kinds[0]?.id ?? "");
   const [entries, setEntries] = useState<RulesEntry[]>([]);
@@ -84,7 +94,10 @@ export function StrikeGuide(props: StrikeGuideProps) {
   const chosen = means.find((m) => `${m.source}:${m.ref}` === pick) ?? means[0];
   const texts = meansTexts({ strike, means: chosen });
   const targets = targetsOf({ ruleset, strike, attackerId: attacker.id, fighting });
-  const target = targets.find((a) => a.id === targetId) ?? targets[0];
+  // A bar-only foe picked (or the only kind of target there is): no numbers to show, only the hint (F63).
+  const picked = unread.find((u) => u.id === targetId);
+  const target = picked ? undefined : (targets.find((a) => a.id === targetId) ?? targets[0]);
+  const blind = picked ?? (target === undefined ? unread[0] : undefined);
   const total = typedOf(typed);
   const plan = previewStrike({
     compiled,
@@ -239,19 +252,24 @@ export function StrikeGuide(props: StrikeGuideProps) {
           </div>
         ))}
       {texts.length > 0 && <p className="small strike-means-text">{texts.join(" · ")}</p>}
-      {targets.length === 0 ? (
+      {targets.length + unread.length === 0 ? (
         <p className="dim">{t("noTarget")}</p>
       ) : (
         <label className="row table-target">
           <span>{t("target")}</span>
-          <select value={target?.id ?? ""} onChange={(e) => setTargetId(e.target.value)}>
-            {targets.map((a) => (
+          <select value={target?.id ?? blind?.id ?? ""} onChange={(e) => setTargetId(e.target.value)}>
+            {[...targets, ...unread].map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
               </option>
             ))}
           </select>
         </label>
+      )}
+      {blind && (
+        <p className="strike-tell" role="status">
+          {tFoe("noDetails")}
+        </p>
       )}
       {(strike.inputs ?? []).map((x) =>
         x.type === "choice" ? (

@@ -37,6 +37,7 @@ import {
   showJump,
   stepsOf,
   timeLeft,
+  turnPartsOf,
   type SheetRow,
 } from "@/lib/sheet/sheet";
 
@@ -60,7 +61,14 @@ type SheetViewProps = {
   builderHref?: string | null;
   /** The room, for the GM's ADD BY HAND to search its packs (house decision #95). */
   campaignId?: string | null;
+  /**
+   * What it draws (house decision #114): `sheet`, the whole sheet; `turn`, only the layout's `phoneTurn` rows (the
+   * phone's Fight tab on the seat's turn); `card`, the whole sheet read-only, with no step, ask or edit (a foe's card).
+   */
+  part?: "sheet" | "turn" | "card";
 };
+
+const NO_STEPS = { dec: false, inc: false };
 
 // SHEET: one character as the ruleset's layout lays it out. Every value is the server's, already cut down to what this
 // seat may see; the only thing worked out here is the Breakdown of a number, from the same manifest.
@@ -77,7 +85,9 @@ export function SheetView({
   requestPage,
   builderHref = null,
   campaignId = null,
+  part = "sheet",
 }: SheetViewProps) {
+  const readOnly = part === "card";
   const t = useTranslations("sheet");
   const tDuration = useTranslations("duration");
   const tReset = useTranslations("resetEvent");
@@ -138,7 +148,7 @@ export function SheetView({
     const cite = row.cite && <Cite cite={row.cite} {...{ ruleset, books, requestPage }} />;
     if (row.kind === "resource") {
       const resets = resetsOn({ ruleset, resource: row.id });
-      const ask = !gm && canAskToSpend({ ruleset, resource: row.id });
+      const ask = !gm && !readOnly && canAskToSpend({ ruleset, resource: row.id });
       return (
         <Fragment key={`r-${row.id}`}>
           <ResourceRow
@@ -146,7 +156,7 @@ export function SheetView({
             label={row.label}
             value={actor.resources[row.id] ?? 0}
             range={range(row.id)}
-            steps={stepsOf({ ruleset, resource: row.id, gm })}
+            steps={readOnly ? NO_STEPS : stepsOf({ ruleset, resource: row.id, gm })}
             holder={actor.name}
             note={
               <span className="row small dim" style={{ gap: 6 }}>
@@ -200,6 +210,7 @@ export function SheetView({
     actor,
     ruleset,
     gm,
+    readOnly,
     books,
     requestPage,
     send,
@@ -231,10 +242,64 @@ export function SheetView({
             campaign: inPlay,
           },
           total: actor.derived[opened.id] ?? 0,
-          viewer: { role: gm ? "gm" : "player", characterIds: [actor.id] },
+          // A foe's card is read as an actor the seat does not hold.
+          viewer: { role: gm ? "gm" : "player", characterIds: readOnly ? [] : [actor.id] },
           actorId: actor.id,
         })
       : null;
+
+  // The seat's turn on the Fight tab: the layout's `phoneTurn` rows, a strike as the guide and the spends as the list
+  // the Sheet tab shows (house decision #114). A bar-only foe is offered as a target with the hint only (F63).
+  if (part === "turn") {
+    const encounter = table?.encounter ?? null;
+    const unread = (encounter?.combatants ?? []).flatMap((c) =>
+      table?.actors.some((a) => a.id === c.actorId) ? [] : [{ id: c.actorId, name: c.name }],
+    );
+    return (
+      <div className="stack sheet">
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        {turnPartsOf({ ruleset, actor }).map((p, i) =>
+          p.kind === "strike" ? (
+            encounter &&
+            table &&
+            compiled && (
+              <section key={i} className="stack sheet-card">
+                <StrikeGuide
+                  attacker={actor}
+                  strikeId={p.strikeId}
+                  fighting={encounter.combatants.flatMap((c) => table.actors.find((a) => a.id === c.actorId) ?? [])}
+                  unread={unread}
+                  campaignId={table.campaign.id}
+                  campaign={table.campaign.fields}
+                  phone={{ encounter, tableMode: table.campaign.tableMode }}
+                  run={handleStrike}
+                  {...{ ruleset, compiled, characters, books, requestPage }}
+                />
+              </section>
+            )
+          ) : p.kind === "spends" ? (
+            table && (
+              <SpendList
+                key={i}
+                labels={resourceLabels(ruleset)}
+                {...{ ruleset, compiled, actor, table, characters, requests, send }}
+              />
+            )
+          ) : p.kind === "rows" ? (
+            <div key={i} className="sheet-rows">
+              {p.rows.map(rowView)}
+            </div>
+          ) : (
+            <SheetWidget key={i} model={p.model} env={env} />
+          ),
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="stack sheet">
@@ -293,20 +358,6 @@ export function SheetView({
         />
       )}
       {!gm && table && <AcquireBox {...{ ruleset, compiled, actor, table, characters, requests, send }} />}
-      {/* ponytail: the guide sits on the Sheet tab until the phone's Fight tab (#215 part B) draws phoneTurn; move it there. */}
-      {!gm && table?.encounter && compiled && table.encounter.combatants.some((c) => c.actorId === actor.id) && (
-        <section className="stack sheet-card">
-          <StrikeGuide
-            attacker={actor}
-            fighting={table.encounter.combatants.flatMap((c) => table.actors.find((a) => a.id === c.actorId) ?? [])}
-            campaignId={table.campaign.id}
-            campaign={table.campaign.fields}
-            phone={{ encounter: table.encounter, tableMode: table.campaign.tableMode }}
-            run={handleStrike}
-            {...{ ruleset, compiled, characters, books, requestPage }}
-          />
-        </section>
-      )}
       {!gm && table && heldLists({ ruleset, actor }).some((l) => l.owner) && (
         <section className="stack sheet-card">
           <HeldListEditor ruleset={ruleset} actor={actor} campaignId={table.campaign.id} gm={false} send={send} />

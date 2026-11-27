@@ -707,7 +707,9 @@
       "holding": "holding",
       "noTurn": "no turn this round",
       "out": "out"
-    }
+    },
+    "you": "You",
+    "openCard": "Open what you know of {name}"
   },
   "endNotice": {
     "reached": "The game can end now"
@@ -2949,5 +2951,18 @@
       "title": "Overrides",
       "hint": "Saved at once; the build is not saved with them."
     }
+  },
+  "fight": {
+    "noFight": "No fight",
+    "actingLabel": "Acting now",
+    "actingNow": "Acting now",
+    "actingYou": "{name}, you",
+    "unseen": "Someone you cannot see",
+    "afterYou": "{count} of {of} to act after you",
+    "turnLabel": "{name}'s turn",
+    "yourTurn": "Your turn: {name}"
+  },
+  "foeCard": {
+    "noDetails": "No details. Ask the GM for a Test."
   }
 }

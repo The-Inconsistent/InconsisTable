@@ -47,6 +47,26 @@ function partsOf({ ruleset, actor, show }: { ruleset: Ruleset; actor: SheetActor
   return parts;
 }
 
+/** A part of the phone's turn (house decision #114): a sheet part, a strike guide by its kind, or the spends list. */
+export type TurnPart = SheetPart | { kind: "strike"; strikeId: string } | { kind: "spends" };
+
+/**
+ * The rows of the layout's `phoneTurn` target for this character, in order. A strike row names a kind the seat's copy
+ * of the manifest still carries (a cut one is gone, house decision #101); without a `phoneTurn`, none.
+ */
+export function turnPartsOf({ ruleset, actor }: { ruleset: Ruleset; actor: SheetActor }): TurnPart[] {
+  const rows = (ruleset.layout[actor.entity] ?? ruleset.layout[SHARED_LAYOUT])?.phoneTurn ?? [];
+  const parts: TurnPart[] = [];
+  rows.forEach((row, i) => {
+    if (typeof row !== "string" && row.widget === "strike") {
+      if ((ruleset.strikes ?? []).some((s) => s.id === row.variant))
+        parts.push({ kind: "strike", strikeId: row.variant ?? "" });
+    } else if (typeof row !== "string" && row.widget === "spends") parts.push({ kind: "spends" });
+    else parts.push(...partsOf({ ruleset, actor, show: rows.slice(i, i + 1) }));
+  });
+  return parts;
+}
+
 const rowsPart = (rows: SheetRow[]): SheetPart[] => (rows.length > 0 ? [{ kind: "rows", rows }] : []);
 
 /** Sections in layout order. No layout for the entity: derived values, then resources, then fields. */

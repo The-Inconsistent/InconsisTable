@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { compileRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_D20, SAMPLE_D20_BEFORE_WIDGETS } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
+import { SAMPLE_DUEL } from "../../../../packages/rules-engine/src/fixtures/sample-duel.ts";
 import { SAMPLE_HARM } from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import {
   canAskToSpend,
@@ -16,6 +17,7 @@ import {
   stepAction,
   stepsOf,
   timeLeft,
+  turnPartsOf,
 } from "./sheet.ts";
 
 const ruleset = Ruleset.parse(SAMPLE_D20);
@@ -224,4 +226,23 @@ test("a bound that reads the campaign is worked out from the campaign's values i
     rangeOf({ compiled: c.compiled, resource: "hp", actor, characters: 4, campaign: { danger: 3 } })?.max,
     17,
   );
+});
+
+test("the phone's turn draws the phoneTurn rows the seat's copy still carries (house decision #114)", () => {
+  const harm = Ruleset.parse(SAMPLE_HARM);
+  const hero = { entity: "hero", fields: {}, resources: {}, derived: {} };
+  assert.deepEqual(turnPartsOf({ ruleset: harm, actor: hero }), [
+    { kind: "strike", strikeId: "blow" },
+    { kind: "strike", strikeId: "sweep" },
+    { kind: "spends" },
+  ]);
+  // A strike the served copy cut (house decision #101) is not drawn.
+  const cut = { ...harm, strikes: (harm.strikes ?? []).filter((s) => s.id !== "blow") };
+  assert.deepEqual(
+    turnPartsOf({ ruleset: cut, actor: hero }).map((p) => p.kind),
+    ["strike", "spends"],
+  );
+  // No phoneTurn: nothing more.
+  const duel = Ruleset.parse(SAMPLE_DUEL);
+  assert.deepEqual(turnPartsOf({ ruleset: duel, actor: { ...hero, entity: duel.entities[0]?.id ?? "" } }), []);
 });

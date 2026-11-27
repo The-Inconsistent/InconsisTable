@@ -3029,6 +3029,32 @@ summary {
   font-variant-numeric: lining-nums tabular-nums;
 }
 
+/* ---------- The phone's Fight tab: who acts now on an unlit brass plate, read at arm's length; the turn banner above
+   keeps the glow for the seat's own turn ---------- */
+.acting-plate {
+  display: grid;
+  gap: 2px;
+  padding: 12px 16px;
+  color: var(--parchment-hi);
+  background: var(--grain-h), linear-gradient(180deg, var(--wood-2), var(--wood-0));
+  background-size:
+    360px 120px,
+    auto;
+  border: 2px solid var(--brass-lo);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 3px var(--wood-0);
+}
+.acting-name {
+  font-size: var(--fs-banner);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  color: var(--candle);
+}
+.after-you {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- Your turn: a glowing lantern plate, the one thing on the phone that is not a card ---------- */
 .turn-banner {
   display: flex;

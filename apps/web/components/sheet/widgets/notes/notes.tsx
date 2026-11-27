@@ -22,7 +22,9 @@ export function Notes({ fields, env }: NotesProps) {
   };
   const writable = fields.filter((f) => {
     const field = def && Object.hasOwn(def.fields, f.id) ? def.fields[f.id] : undefined;
-    return field !== undefined && stepsFor({ editableBy: field.editableBy, gmSide: env.gm }).inc;
+    return (
+      field !== undefined && env.readOnly !== true && stepsFor({ editableBy: field.editableBy, gmSide: env.gm }).inc
+    );
   });
   const maxLengthOf = (id: string) => {
     const field = def && Object.hasOwn(def.fields, id) ? def.fields[id] : undefined;

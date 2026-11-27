@@ -707,7 +707,9 @@
       "holding": "đang giữ",
       "noTurn": "không có lượt",
       "out": "ngoài trận"
-    }
+    },
+    "you": "Bạn",
+    "openCard": "Mở những gì bạn biết về {name}"
   },
   "endNotice": {
     "reached": "Ván có thể kết thúc"
@@ -2949,5 +2951,18 @@
       "title": "Ghi đè",
       "hint": "Lưu ngay; bản dựng không được lưu cùng."
     }
+  },
+  "fight": {
+    "noFight": "Không có trận đấu",
+    "actingLabel": "Đang hành động",
+    "actingNow": "Đang hành động",
+    "actingYou": "{name}, là bạn",
+    "unseen": "Một kẻ bạn không thấy",
+    "afterYou": "{count} trên {of} hành động sau bạn",
+    "turnLabel": "Lượt của {name}",
+    "yourTurn": "Lượt của bạn: {name}"
+  },
+  "foeCard": {
+    "noDetails": "Không có thông tin. Hãy xin GM gọi một Test."
   }
 }

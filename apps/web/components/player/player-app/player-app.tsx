@@ -12,6 +12,7 @@ import { RecapCard } from "@/components/ui/recap-card/recap-card";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { DoneButton } from "@/components/player/done-button/done-button";
+import { Fight } from "@/components/player/fight/fight";
 import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
 import { WhisperSheet } from "@/components/player/whisper-sheet/whisper-sheet";
 import { ArchivedBanner } from "@/components/ui/archived-banner/archived-banner";
@@ -218,7 +219,8 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           actors={state.actors}
           titles={Object.fromEntries(Object.entries(view?.ruleset?.tables ?? {}).map(([id, tb]) => [id, tb.title]))}
         />
-        {state.encounter && (
+        {/* The Fight tab draws the order itself, with the seat's own marked. */}
+        {state.encounter && tab !== "fight" && (
           <OrderView
             encounter={state.encounter}
             sides={view?.ruleset?.initiative?.strategy === "sides" ? view.ruleset.initiative : undefined}
@@ -281,6 +283,14 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           ) : !character || !needsBuild(character) ? (
             <p className="dim">{t("sheetPending")}</p>
           ) : null
+        ) : tab === "fight" ? (
+          <Fight
+            state={state}
+            ruleset={ruleset}
+            held={held}
+            requests={state.requests}
+            {...{ send, books, requestPage }}
+          />
         ) : (
           <p className="dim">{t("tabPending")}</p>
         )}

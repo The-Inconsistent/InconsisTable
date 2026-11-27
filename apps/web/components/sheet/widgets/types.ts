@@ -12,6 +12,8 @@ export type WidgetEnv = {
   ruleset: Ruleset;
   /** The GM's seat may change any value; a player's by the value's `editableBy`. */
   gm: boolean;
+  /** A card drawn only to be read (a foe's, house decision #114): nothing in it is changed from here. */
+  readOnly?: boolean;
   books: readonly BookSource[];
   requestPage: RequestPage;
   send: Send;

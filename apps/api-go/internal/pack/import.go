@@ -220,6 +220,16 @@ func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*I
 		}
 		result := Imported{OK: true, PackID: packID, Version: p.Version, Diff: engine.DiffHashes(before, after), Warnings: warnings}
 		if hasPrev && prevHash == next.hash {
+			// The order is outside the hash: the same entries in a new order keep the version and take the file's order.
+			keys := make([]string, len(next.entries))
+			for i, e := range next.entries {
+				keys[i] = e.key
+			}
+			if _, err := tx.Exec(ctx, `UPDATE pack_entry SET ordinal = f.n - 1
+				FROM unnest($2::text[]) WITH ORDINALITY AS f(key, n)
+				WHERE pack_entry.pack_version_id = $1 AND pack_entry.key = f.key`, prevID, keys); err != nil {
+				return err
+			}
 			result.VersionID, result.Unchanged = prevID, true
 			out = &result
 			return nil
@@ -462,7 +472,7 @@ func Export(ctx context.Context, conn core.Conn, userID, packID string) (*export
 		return nil, err
 	}
 	rows, err := conn.Query(ctx, `SELECT key, type, name, level, tags, cite, visibility, body, effects, record FROM pack_entry
-		WHERE pack_version_id = $1 ORDER BY type, key`, versionID)
+		WHERE pack_version_id = $1 ORDER BY ordinal, key`, versionID)
 	if err != nil {
 		return nil, err
 	}

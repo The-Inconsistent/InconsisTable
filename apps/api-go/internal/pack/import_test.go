@@ -188,4 +188,19 @@ func TestServedEntriesComeInTheFilesOrder(t *testing.T) {
 	if err != nil || len(read.Entries) != 2 || read.Entries[0].Key != "zz-reed" {
 		t.Fatalf("the rules read lists them in the file's order too, got %+v, %v", read, err)
 	}
+
+	// The same entries in another order: the same version, which takes the new file's order, and exports in it.
+	doc["entries"] = append(entries[:1:1], append(entries[1:], late)...)
+	again, err := Import(ctx, db, owner, doc)
+	if err != nil || !again.Unchanged || again.VersionID != imported.VersionID {
+		t.Fatalf("want the same version, unchanged, got %+v, %v", again, err)
+	}
+	served, err = LoadServedEntries(ctx, db, room, ServedOptions{Types: []string{"lineage"}})
+	if err != nil || len(served) != 2 || served[0].Key != "reedfolk" || served[1].Key != "zz-reed" {
+		t.Fatalf("want reedfolk then zz-reed after the re-import, got %+v, %v", served, err)
+	}
+	exported, err := Export(ctx, db, owner, imported.PackID)
+	if err != nil || exported == nil || len(exported.Entries) != len(entries)+1 || exported.Entries[len(entries)].Key != "zz-reed" {
+		t.Fatalf("the export follows the file's order, got %+v, %v", exported, err)
+	}
 }

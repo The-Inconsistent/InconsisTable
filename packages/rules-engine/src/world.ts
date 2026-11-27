@@ -40,6 +40,8 @@ export const WORLD_COLOUR_TOKENS = [
   "ink-blue",
   "halo-light",
   "halo-dark",
+  "side-ally",
+  "side-foe",
   "paper",
   "paper-2",
   "ink",
@@ -94,6 +96,14 @@ export const WORLD_SHAPES = {
   headingCase: ["normal", "caps"],
   /** How a button is built. */
   buttonFrame: ["plate", "flat", "double"],
+  /** A handout's paper in the dark set: the set's own card, or the World's light card kept (house decision #203). */
+  handoutPaper: ["follow", "light"],
+  /** The phone's readouts (its strip, the fight plate): the band, or a slate (house decision #204). */
+  readout: ["plain", "slate"],
+  /** What marks GM-only content: nothing, a spiked crest bar, or the bar with a winged skull (house decision #205). */
+  gmSeal: ["none", "crest", "skull"],
+  /** The header row of a sheet's grid and card list: the page's ink, or the band (house decision #206). */
+  tableHead: ["plain", "band"],
 } as const;
 export type WorldShape = keyof typeof WORLD_SHAPES;
 
@@ -139,6 +149,10 @@ export const WorldTheme = z.object({
       headingRule: shape("headingRule"),
       headingCase: shape("headingCase"),
       buttonFrame: shape("buttonFrame"),
+      handoutPaper: shape("handoutPaper"),
+      readout: shape("readout"),
+      gmSeal: shape("gmSeal"),
+      tableHead: shape("tableHead"),
     })
     .default({}),
 });
@@ -219,6 +233,9 @@ const BASE_PALETTE = {
   "ink-blue": "#123a8f",
   "halo-light": "#fff3cf",
   "halo-dark": "#120a05",
+  // the two sides of a fight on the phone's order (house decision #207), tuned for a card, which lantern keeps light
+  "side-ally": "#2f5f9e",
+  "side-foe": "#b3541e",
 } as const;
 
 /**

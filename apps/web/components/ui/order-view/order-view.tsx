@@ -43,6 +43,8 @@ export function OrderView({ encounter, sides, conditions = [], heldOf, you = [],
   // A phone's foe: a row of another side than its characters', or any row it does not hold when none of them fights.
   const isFoe = (c: Combatant) =>
     foes !== undefined && !you.includes(c.actorId) && (mySides.size === 0 || !mySides.has(c.side));
+  // A phone's row says its side for a World's stripe (house decision #207); the TV's rows have no seat to side with.
+  const sideOf = (c: Combatant) => (foes === undefined ? undefined : isFoe(c) ? "foe" : "ally");
 
   // The row's name: a foe's opens its card, anyone else's is a plain label. A foe's health stays outside its button, so
   // a condition in it can open its own meaning.
@@ -103,6 +105,7 @@ export function OrderView({ encounter, sides, conditions = [], heldOf, you = [],
                   className="combatant"
                   data-acting={c.id === encounter.currentId}
                   data-you={you.includes(c.actorId) || undefined}
+                  data-side={sideOf(c)}
                 >
                   {who(c, <HealthBar combatant={c} conditions={conditions} held={heldOf?.(c.actorId)} terms={terms} />)}
                   <TurnMark mark={markOf({ encounter, combatant: c, sides })} />
@@ -120,7 +123,13 @@ export function OrderView({ encounter, sides, conditions = [], heldOf, you = [],
             const done = phase?.mode === "simultaneous" && encounter.done.includes(c.id);
             const word = stateKey({ current: acting, healthState: undefined });
             return [
-              <li key={c.id} className="combatant" data-acting={acting} data-you={you.includes(c.actorId) || undefined}>
+              <li
+                key={c.id}
+                className="combatant"
+                data-acting={acting}
+                data-you={you.includes(c.actorId) || undefined}
+                data-side={sideOf(c)}
+              >
                 {who(
                   c,
                   <>

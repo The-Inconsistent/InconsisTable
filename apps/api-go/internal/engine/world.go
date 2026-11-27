@@ -21,7 +21,7 @@ var (
 	worldColourTokens = []string{
 		"wood-0", "wood", "wood-2", "wood-3", "brass", "brass-hi", "brass-lo", "brass-ink", "candle", "wax", "cream", "leaf",
 		"moss", "parchment", "parchment-hi", "parchment-2", "parchment-ink", "parchment-ink-2", "parchment-line", "ink-blue",
-		"halo-light", "halo-dark",
+		"halo-light", "halo-dark", "side-ally", "side-foe",
 		"paper", "paper-2", "ink", "ink-2", "line", "band", "band-ink", "accent", "accent-ink", "ok", "link", "focus", "focus-halo",
 	}
 	worldSchemes   = []string{"light", "dark"}
@@ -39,6 +39,10 @@ var (
 		{"headingRule", []string{"none", "line", "quill"}},
 		{"headingCase", []string{"normal", "caps"}},
 		{"buttonFrame", []string{"plate", "flat", "double"}},
+		{"handoutPaper", []string{"follow", "light"}},
+		{"readout", []string{"plain", "slate"}},
+		{"gmSeal", []string{"none", "crest", "skull"}},
+		{"tableHead", []string{"plain", "band"}},
 	}
 	// HandoutLayouts is HANDOUT_LAYOUTS: the handout layouts the platform draws (house decision #72). The codex entry's
 	// `layout` is one of them (coreschema), so the two lists are this one.
@@ -64,7 +68,8 @@ var worldBasePalette = map[string]string{
 	"brass-hi": "#f0c870", "brass-lo": "#8a6322", "brass-ink": "#251509", "candle": "#ffb64f", "wax": "#9c2f23",
 	"cream": "#fff6e2", "leaf": "#3e6a2a", "moss": "#a6d68e", "parchment": "#f2e5c6", "parchment-hi": "#f9f0da",
 	"parchment-2": "#e7d5ad", "parchment-ink": "#2a1b10", "parchment-ink-2": "#5a4430", "parchment-line": "#b59a68",
-	"ink-blue": "#123a8f", "halo-light": "#fff3cf", "halo-dark": "#120a05",
+	"ink-blue": "#123a8f", "halo-light": "#fff3cf", "halo-dark": "#120a05", "side-ally": "#2f5f9e",
+	"side-foe": "#b3541e",
 }
 
 func withPalette(semantic map[string]string) map[string]string {

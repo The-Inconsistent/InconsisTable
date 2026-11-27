@@ -282,7 +282,7 @@ export function EntryEditor(props: EntryEditorProps) {
         )
       )}
       {can.secrets && (
-        <label className="stack">
+        <label className="stack sealed">
           {t("gmNotes")}
           <textarea
             id="codex-gm-notes"

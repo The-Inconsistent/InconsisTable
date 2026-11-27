@@ -72,8 +72,10 @@
       "order": "Turn order",
       "names": {
         "first": "Ada Marrow",
-        "second": "The Grey Warden"
+        "second": "The Grey Warden",
+        "third": "Brannoc Vale"
       },
+      "nowActing": "Now acting",
       "firstPlayer": "First",
       "party": "Party",
       "foe": "Foe",
@@ -100,8 +102,14 @@
       "machine": "seat 3 · health -4 · 21:04:17",
       "section": {
         "abilities": "Abilities",
-        "notes": "Notes"
+        "notes": "Notes",
+        "grid": "Ratings"
       },
+      "grid": {
+        "rating": "Rating"
+      },
+      "gmOnly": "GM notes",
+      "gmOnlyText": "Only the GM reads this: the warden keeps the second key.",
       "stat": {
         "health": "Health",
         "defence": "Defence",

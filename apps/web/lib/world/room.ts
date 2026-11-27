@@ -1,3 +1,5 @@
+import { WORLD_SCHEMES, worldColours } from "@inconsistable/rules-engine";
+
 import type { RulesReply } from "@/lib/library/library";
 
 import { worldLook, worldStyle, type WorldAttributes } from "./world";
@@ -10,6 +12,20 @@ export function roomLook(world: RoomWorld): { attributes: WorldAttributes; style
   if (!world) return null;
   const look = worldLook(world.theme);
   return { attributes: look.attributes, style: worldStyle(look) };
+}
+
+/**
+ * The browser's own colour (its toolbar, the task switcher) in a room wearing a World: the World's band, per set it
+ * brings, as Auspex's is its iron band (house decision #208). Null with no World, so the base Theme's band stands.
+ */
+export function roomBand(world: RoomWorld): string | { media: string; color: string }[] | null {
+  if (!world) return null;
+  const sets = WORLD_SCHEMES.flatMap((scheme) => {
+    const colours = world.theme.schemes[scheme];
+    return colours ? [{ scheme, band: worldColours({ scheme, colours }).band }] : [];
+  });
+  if (sets.length === 1) return sets[0]!.band;
+  return sets.map((s) => ({ media: `(prefers-color-scheme: ${s.scheme})`, color: s.band }));
 }
 
 /**

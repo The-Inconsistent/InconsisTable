@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
 
 import { HandoutLayout } from "@inconsistable/core-schema";
 import {
@@ -172,8 +172,25 @@ export function WorldDev() {
             {t("yourTurn")}
           </p>
 
+          <div className="phone-strip">
+            <span className="phone-strip-name">{t("names.first")}</span>
+          </div>
+          <div className="fight-plate" data-mine="true">
+            <span className="fight-plate-kicker">{t("nowActing")}</span>
+            <span className="fight-plate-name">{t("names.first")}</span>
+          </div>
+
           <ol className="order" aria-label={t("order")}>
-            <li className="combatant" data-acting="true">
+            <li className="combatant" data-side="ally">
+              <span className="who">
+                <span className="name">{t("names.third")}</span>
+                <span className="row small dim">
+                  <span className="chip">{t("party")}</span>
+                </span>
+              </span>
+              <span className="score">11</span>
+            </li>
+            <li className="combatant" data-acting="true" data-side="ally">
               <span className="who">
                 <span className="name">{t("names.first")}</span>
                 <span className="row small dim">
@@ -191,7 +208,7 @@ export function WorldDev() {
               </span>
               <span className="score">14</span>
             </li>
-            <li className="combatant">
+            <li className="combatant" data-side="foe">
               <span className="who">
                 <span className="name">{t("names.second")}</span>
                 <span className="row small dim">
@@ -260,7 +277,32 @@ export function WorldDev() {
               <h2 className="head">{t("section.notes")}</h2>
               <p>{t("notes")}</p>
             </div>
+            <div className="sheet-card stack">
+              <h2 className="head">{t("section.grid")}</h2>
+              <div
+                role="table"
+                className="w-grid"
+                aria-label={t("section.grid")}
+                style={{ "--cols": 2 } as CSSProperties}
+              >
+                <div role="row" className="w-grid-row w-grid-head">
+                  <span role="columnheader" />
+                  <span role="columnheader">{t("stat.speed")}</span>
+                  <span role="columnheader">{t("stat.defence")}</span>
+                </div>
+                <div role="row" className="w-grid-row">
+                  <span role="rowheader">{t("grid.rating")}</span>
+                  <span role="cell">3</span>
+                  <span role="cell">4</span>
+                </div>
+              </div>
+            </div>
           </section>
+
+          <label className="stack sealed">
+            {t("gmOnly")}
+            <textarea rows={2} defaultValue={t("gmOnlyText")} />
+          </label>
 
           <section className="stack" aria-label={t("buttons")}>
             <h2 className="head">{t("buttons")}</h2>

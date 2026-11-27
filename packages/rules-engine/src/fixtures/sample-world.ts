@@ -2,7 +2,9 @@ import type { WorldInput } from "../world.ts";
 
 /**
  * An invented World for tests: a tide-washed harbour town. Every name and colour is made up; it dresses no real book.
- * It brings both colour sets, moves the light card through the palette (`parchment`) and the rest by semantic name.
+ * It brings both colour sets, moves the light card through the palette (`parchment`) and the rest by semantic name,
+ * and picks every look a World can (#235): its own side colours, light handouts at night, slate readouts, a GM crest and
+ * banded table heads.
  */
 export const SAMPLE_WORLD: WorldInput = {
   id: "sample-tidewater",
@@ -21,6 +23,8 @@ export const SAMPLE_WORLD: WorldInput = {
         link: "#1f5f8b",
         ok: "#2f6b3a",
         focus: "#1d3f9e",
+        "side-ally": "#1d4f9e",
+        "side-foe": "#a8461a",
       },
       dark: {
         wood: "#0f2326",
@@ -34,11 +38,22 @@ export const SAMPLE_WORLD: WorldInput = {
         ok: "#9fd8a6",
         focus: "#ffd166",
         "focus-halo": "#0a1416",
+        "side-ally": "#8fb6ff",
+        "side-foe": "#f0a060",
       },
     },
     typefaces: { display: "cinzel", body: "literata" },
     texture: "paper",
-    shapes: { corners: "square", cardEdge: "rounded", headingRule: "line", headingCase: "caps" },
+    shapes: {
+      corners: "square",
+      cardEdge: "rounded",
+      headingRule: "line",
+      headingCase: "caps",
+      handoutPaper: "light",
+      readout: "slate",
+      gmSeal: "crest",
+      tableHead: "band",
+    },
   },
   // Three of the five layouts, in its own order and under its own names (ADR 0012, decision 6).
   handouts: {

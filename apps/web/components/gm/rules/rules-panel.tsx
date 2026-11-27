@@ -19,12 +19,13 @@ type RulesPanelProps = {
   ruleset: Ruleset | null;
   books: readonly BookSource[];
   requestPage: RequestPage;
+  pictures: number; // the pictures this seat's codex holds, for EXPORT to count
 };
 
 // RULES: the ruleset this room plays, the World it wears and the packs attached to it. The owner pins a ruleset and a
 // World they imported and attaches or detaches their packs; a refusal (characters already use another version, a private pack in the wrong room) shows
 // under the thing that was tapped. Everything imported lives in the library (/library).
-export function RulesPanel({ me, send, data, state, ruleset, books, requestPage }: RulesPanelProps) {
+export function RulesPanel({ me, send, data, state, ruleset, books, requestPage, pictures }: RulesPanelProps) {
   const t = useTranslations("rulesPanel");
   const router = useRouter();
   const canEdit = canInCampaign({ ctx: me, perm: "campaign:ruleset" });
@@ -249,7 +250,7 @@ export function RulesPanel({ me, send, data, state, ruleset, books, requestPage 
         )}
       </section>
 
-      <RoomExport me={me} />
+      <RoomExport me={me} pictures={pictures} />
     </div>
   );
 }

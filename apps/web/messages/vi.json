@@ -175,7 +175,6 @@
       "archived": "Đã lưu trữ: phòng chỉ còn đọc.",
       "export": "Xuất",
       "exportWithoutPictures": "Xuất không kèm ảnh",
-      "exported": "Đã xuất thành {name}.",
       "unarchive": "Bỏ lưu trữ",
       "unarchived": "Đã bỏ lưu trữ.",
       "typeName": "Gõ {name} để xoá phòng này cùng mọi thứ trong đó",
@@ -1267,7 +1266,13 @@
     "title": "Xuất",
     "lede": "Phòng này dưới dạng tài liệu phòng: một bản sao lưu, hoặc một bản để nhập thành phòng mới (bắt đầu mới cho một nhóm mới). Nó ghi bộ luật, gói và Thế giới nó cần; người nhập phải có sẵn của riêng họ.",
     "export": "Xuất",
-    "withoutPictures": "Xuất không kèm ảnh"
+    "withoutPictures": "Xuất không kèm ảnh",
+    "includes": "Kèm {count} ảnh",
+    "exported": "Đã lưu {name}, {pictures, plural, =0 {không kèm ảnh} other {kèm # ảnh}}.",
+    "packsLeft": "Đã bỏ {count} gói mà phòng không còn được cấp.",
+    "itemsTurned": "{count} vật phẩm từ những gói đó được ghi thành dòng viết tay.",
+    "sourcesLeft": "Đã bỏ {count} liên kết tới mục của những gói đó.",
+    "failed": "Xuất không thành công. Thử lại."
   },
   "rulesPanel": {
     "readFailed": "Không đọc được luật. Kiểm tra kết nối rồi tải lại.",

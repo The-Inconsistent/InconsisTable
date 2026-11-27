@@ -2,11 +2,13 @@
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useMemo, useState, type FormEvent } from "react";
 
-import type { ActionInput } from "@inconsistable/core-schema";
+import type { ActionInput, RoomExportReport } from "@inconsistable/core-schema";
 
 import type { RoomConfirm } from "@/components/admin/admin-view/components/room-controls/constants";
+import { ExportReport } from "@/components/ui/export-report/export-report";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { adminFetch, AdminEvents, type AdminCampaign, type AdminUser } from "@/lib/admin/admin";
+import { saveExport } from "@/lib/room-export/room-export";
 
 type RoomControlsProps = {
   campaign: AdminCampaign;
@@ -32,6 +34,7 @@ export function RoomControls({ campaign: c, users, onChanged }: RoomControlsProp
   const [busy, setBusy] = useState(false);
   const [line, setLine] = useState<{ ok: boolean; text: string } | null>(null);
   const [events, setEvents] = useState<AdminEvents | null>(null);
+  const [saved, setSaved] = useState<{ name: string; report: RoomExportReport | null } | null>(null);
   const date = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
   const session = c.latestSession;
   const running = session !== null && session.endedAt === null;
@@ -75,23 +78,18 @@ export function RoomControls({ campaign: c, users, onChanged }: RoomControlsProp
     else void act({ type: "session.delete", sessionId: session.id }, t("sessionDeleted", { number }));
   };
   // EXPORT: the room's document (house decision #103). The key goes in a header, so the file is fetched here and handed to
-  // the browser as a download under the name the api gives it.
+  // the browser as a download under the name the api gives it, with what it left out (#232).
   const handleExport = async (pictures: boolean) => {
     setBusy(true);
+    setSaved(null);
     try {
       const res = await adminFetch(`/api/admin/campaigns/${c.id}/export${pictures ? "" : "?pictures=0"}`);
       if (!res?.ok) {
         const body = (await res?.json().catch(() => null)) as { code?: string; message?: string } | null;
         setLine({ ok: false, text: body ? refusal({ code: body.code, message: body.message ?? "" }) : t("failed") });
       } else {
-        const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "room.room.json";
-        const url = URL.createObjectURL(await res.blob());
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = name;
-        link.click();
-        URL.revokeObjectURL(url);
-        setLine({ ok: true, text: t("exported", { name }) });
+        setLine(null);
+        setSaved(await saveExport(res));
       }
     } catch {
       setLine({ ok: false, text: t("failed") });
@@ -211,6 +209,7 @@ export function RoomControls({ campaign: c, users, onChanged }: RoomControlsProp
           </span>
         </form>
       )}
+      {saved && <ExportReport name={saved.name} report={saved.report} />}
       {line && (
         <p className={line.ok ? "small" : "error"} role={line.ok ? "status" : "alert"}>
           {line.text}

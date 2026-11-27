@@ -275,6 +275,7 @@ export function TablesPanel(props: TablesPanelProps) {
               <ConfirmButton
                 label={t("reshuffle")}
                 ariaLabel={t("reshuffleLabel", { title: x.title })}
+                warning={t("reshuffleWarning")}
                 onConfirm={() => void run({ type: "table.reshuffle", tableId: id })}
               />
             </div>

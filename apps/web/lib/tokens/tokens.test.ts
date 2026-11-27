@@ -339,6 +339,8 @@ const KEEPS_ITS_MATERIAL: Record<string, string> = {
   ".outcome-criticalSuccess": "a critical success's double rule is the main action's brass",
   ".roll-key.report": "the report key is the main action, in brass",
   ".bottom-sheet": "its fill below the fold is the card's own paper, which a World sets",
+  ".spotlight-sheet":
+    "the shown card's ink is the card's own (on --bg-card), which a World sets; world.css restyles its rule",
   ".combatant .chip": "a chip in a card reads the card's own line, which a World sets",
   ".card .chip": "a chip in a card reads the card's own line; world.css's [data-world] .chip rule outranks it",
   '.chip[data-live="true"]::before': "the live dot's ring is the ok colour's own leaf, which a World sets",

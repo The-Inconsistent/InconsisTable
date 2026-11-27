@@ -270,6 +270,10 @@ html:has([data-world]) {
 [data-world] .sheet-name {
   text-shadow: none;
 }
+/* The card SHOW TO TABLE puts up (#2): its head rule is no action, so it reads the line. */
+[data-world] .spotlight-sheet {
+  border-top-color: var(--line);
+}
 [data-world] .roll-card::before {
   box-shadow:
     inset 0 0 0 7px var(--paper),

@@ -55,6 +55,8 @@ materials, `theme/world.css` now restyles it; the column says what changed.
 | GM header | `.band` | always wood under the base Themes; the World's band under a World |
 | Roll card | `.roll-card` | rings in the line, the wax seal becomes the card's stud |
 | Lobby GM issues | `.lb-issue-list` | the GM's line in the second ink |
+| SHOW TO TABLE (#2) | `components/ui/spotlight-card/` | the card's own ink; its head rule in the line |
+| Books (#221) | `components/ui/cite/` (`.book-page-frame`) | tokens only; the frame reads the line |
 
 ## Screens in pull requests still open
 
@@ -65,6 +67,4 @@ their restyling to `theme/world.css`, or a reason to `KEEPS_ITS_MATERIAL`.
 - printing: printed cards and sheets are built in the GM's browser and print on white, so check that a World's dark set
   never reaches the print stylesheet (`@media print`);
 - pictures: the picture canvas fills with the base paper (`lib/entry-picture`), by house decision (see #235's rows);
-- SHOW TO TABLE: the TV's shown card;
-- books: the book relay's page viewer (`book:*`), whose frame should read the line;
 - the engine stack's UI: any new widget under `components/sheet/widgets/`.

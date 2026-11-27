@@ -9,7 +9,17 @@ import { LANGUAGES, localRuleset } from "@inconsistable/rules-engine";
 import { LOCALES } from "@/lib/locale/locale";
 
 import { SAMPLE_WORDS, SAMPLE_WORLD_WORDS } from "../../../../packages/rules-engine/src/fixtures/sample-words.ts";
-import { appTerms, escapeIcu, fillTerms, roomTerms, type TermSet, tokenOf, withTerms } from "./terms";
+import {
+  appTerms,
+  changedMessages,
+  escapeIcu,
+  fillTerms,
+  mergeMessages,
+  roomTerms,
+  type TermSet,
+  tokenOf,
+  withTerms,
+} from "./terms";
 
 const load = (locale: string) =>
   JSON.parse(readFileSync(new URL(`../../messages/${locale}.json`, import.meta.url), "utf8")) as { terms: TermSet };
@@ -63,9 +73,41 @@ test("a plural message counts with the term's own plural, and a word with ICU's 
   const t = createTranslator({ locale: "en", messages, namespace: "m" });
   assert.equal(t("count", { count: 1 }), "1 Thing {x}");
   assert.equal(t("count", { count: 3 }), "3 Things #'s <b>");
-  assert.equal(escapeIcu("it's"), "it''s");
+  assert.equal(escapeIcu("it's", { inPlural: false }), "it''s");
   // The terms namespace becomes the room's words, for useTerm.
   assert.deepEqual(messages.terms.creature, words.creature);
+});
+
+test("a # is the count only inside a plural, and a | is never special", () => {
+  const words: TermSet = { ...en, party: "Crew #1", foe: "A|B" };
+  const messages = withTerms(
+    {
+      terms: en,
+      m: {
+        plain: "[Party] meets [foe] ({name})",
+        counted: "{n, plural, one {# [party], {name}} other {# [party] of [foe]}}",
+        ordinal: "{n, selectordinal, other {#th [party]}}",
+        chosen: "{g, select, a {[party]} other {[foe]}}",
+      },
+    },
+    words,
+  );
+  assert.equal(messages.m.plain, "Crew #1 meets A|B ({name})");
+  const t = createTranslator({ locale: "en", messages, namespace: "m" });
+  assert.equal(t("plain", { name: "x" }), "Crew #1 meets A|B (x)");
+  assert.equal(t("counted", { n: 1, name: "x" }), "1 Crew #1, x");
+  assert.equal(t("counted", { n: 2, name: "x" }), "2 Crew #1 of A|B");
+  assert.equal(t("ordinal", { n: 3 }), "3th Crew #1");
+  assert.equal(t("chosen", { g: "a" }), "Crew #1");
+});
+
+test("a room sends only the messages it words differently, laid over the page's", () => {
+  const base = { a: "x", g: { b: "y", c: "z" }, terms: { party: { one: "party", other: "parties" } } };
+  const next = { a: "x", g: { b: "y", c: "Z" }, terms: { party: "Crew" } };
+  const changes = changedMessages(base, next);
+  assert.deepEqual(changes, { g: { c: "Z" }, terms: { party: "Crew" } });
+  assert.deepEqual(mergeMessages(base, changes), next);
+  assert.deepEqual(changedMessages(base, base), {});
 });
 
 test("every token in both message files names a term, and en and vi have a word for every term", () => {

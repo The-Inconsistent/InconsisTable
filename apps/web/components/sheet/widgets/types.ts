@@ -24,4 +24,6 @@ export type WidgetEnv = {
   onError: (error: string | null) => void;
   /** A sheet read only (a foe's card on a phone, house decision #117): nothing in it writes. */
   readOnly?: boolean;
+  /** A screen nobody touches (the table screen, house decision #127): read only, and no breakdown or meaning opens. */
+  still?: boolean;
 };

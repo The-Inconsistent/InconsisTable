@@ -25,7 +25,7 @@ export function Grid({ model, env }: GridProps) {
       return (
         <div key={r.rating.id} role="row" className="w-pairs-row" data-stat={r.rating.id}>
           <span role="rowheader" className="w-pairs-name">
-            <Term term={termOf(r.rating)} env={env} />
+            <Term term={termOf(r.rating)} env={env.still ? undefined : env} />
           </span>
           {columns.link && (
             <span role="cell" className="w-pairs-link">
@@ -82,7 +82,7 @@ export function Grid({ model, env }: GridProps) {
         <span role="columnheader" />
         {rows.map((r) => (
           <span key={r.rating.id} role="columnheader">
-            <Term term={termOf(r.rating)} env={env} />
+            <Term term={termOf(r.rating)} env={env.still ? undefined : env} />
           </span>
         ))}
       </div>

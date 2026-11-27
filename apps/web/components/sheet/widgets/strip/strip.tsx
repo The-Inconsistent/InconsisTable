@@ -28,7 +28,7 @@ export function Strip({ title, values, env }: StripProps) {
           {values.map((v) => (
             <div key={`${v.kind}-${v.id}`} className="w-strip-cell" data-stat={v.id}>
               <dt>
-                <Term term={termOf(v)} env={env} />
+                <Term term={termOf(v)} env={env.still ? undefined : env} />
               </dt>
               <dd>{print(v)}</dd>
             </div>

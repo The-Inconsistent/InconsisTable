@@ -17,8 +17,9 @@ export function Folds({ model, env }: FoldsProps) {
     ...(variant === "talents" ? [] : lines.abilities.map((r) => ({ ...r, talent: false }))),
     ...(variant === "abilities" ? [] : lines.talents.map((r) => ({ ...r, talent: variant === "both" }))),
   ];
+  // On the TV (`still`) every entry lies open and nothing in it takes focus.
   return (
-    <div className="w-folds">
+    <div className="w-folds" inert={env.still}>
       {entries.map((e, i) => {
         const head = (
           <>
@@ -30,7 +31,7 @@ export function Folds({ model, env }: FoldsProps) {
           <Cite cite={e.page} ruleset={env.ruleset} books={env.books} requestPage={env.requestPage} />
         );
         return e.summary ? (
-          <details key={i} className="w-fold">
+          <details key={i} className="w-fold" open={env.still}>
             <summary>
               {head}
               {e.page && <span className="w-fold-page">{e.page}</span>}

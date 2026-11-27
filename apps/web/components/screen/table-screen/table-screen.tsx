@@ -1,6 +1,10 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 
+import { compileRuleset } from "@inconsistable/rules-engine";
+
+import { ScreenCard } from "@/components/screen/table-screen/components/screen-card/screen-card";
 import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
 import { EntryFields } from "@/components/ui/entry-fields/entry-fields";
 import { PoolsView } from "@/components/ui/pools-view/pools-view";
@@ -16,20 +20,41 @@ import { useTable } from "@/hooks/use-table/use-table";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import { heldChips } from "@/lib/held/held";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
+import { rangeOf } from "@/lib/sheet/sheet";
+import { screenCardsOf, type ScreenCardOf } from "@/lib/table-screen/table-screen";
 import { testWords } from "@/lib/test-inputs/test-inputs";
 
 type TableScreenProps = { campaignId: string; view: RulesView | null };
 
 // The TV at the table (docs/design.md §1.1): read from across the room, no input. It joins by a screen token and sees
-// the party view; turn order, party bars and the revealed map join it with the first ruleset (P1) and maps (P2).
+// the party view; turn order, party bars and the revealed map join it with the first ruleset (P1) and maps (P2). A
+// ruleset that lays out the screen adds a card per character, and one per creature the GM shows in full (#127).
 export function TableScreen({ campaignId, view }: TableScreenProps) {
   const t = useTranslations("tableScreen");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
-  const { state, codex, online, xcard } = useTable(campaignId);
+  const { state, codex, online, xcard, send, requestPage } = useTable(campaignId);
   useWorldRefresh({ rendered: view?.first.world?.versionId ?? null, live: state?.campaign.worldVersionId });
+  const ruleset = view?.ruleset ?? null;
+  const compiled = useMemo(() => {
+    const c = ruleset ? compileRuleset(ruleset) : null;
+    return c?.ok ? c.compiled : null;
+  }, [ruleset]);
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   const revealed = (codex?.entries ?? []).filter((e) => e.audienceMode === "all");
+  const cards = screenCardsOf({ ruleset, state });
+  const characters = state.actors.filter((a) => a.kind === "pc").length;
+  // One card per actor, its bounds worked out from what the screen received.
+  const cardOf = ({ actor, rows }: ScreenCardOf) =>
+    ruleset && (
+      <ScreenCard
+        key={actor.id}
+        range={(resource) =>
+          compiled ? rangeOf({ compiled, resource, actor, characters, campaign: state.campaign.fields }) : null
+        }
+        {...{ actor, ruleset, rows, send, requestPage }}
+      />
+    );
   return (
     <div className="surface-table" data-density="tv">
       <XCardOverlay signal={xcard} tv />
@@ -53,6 +78,7 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
         <PoolsView pools={state.pools} />
         <ClocksView clocks={state.clocks} />
         <RollsView rolls={state.rolls} />
+        {cards.party.length > 0 && <div className="screen-cards">{cards.party.map(cardOf)}</div>}
         {state.encounter && (
           <OrderView
             encounter={state.encounter}
@@ -61,6 +87,7 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
             heldOf={(id) => heldChips({ ruleset: view?.ruleset, actor: state.actors.find((a) => a.id === id) })}
           />
         )}
+        {cards.shown.length > 0 && <div className="screen-cards">{cards.shown.map(cardOf)}</div>}
         {/* The newest ended game stays up until the next one starts. */}
         {!state.encounter && state.games[0] && <GameResult game={state.games[0]} />}
         {/* A Test in progress: that it is, and how far along. Never who, or any number (the state carries none). */}

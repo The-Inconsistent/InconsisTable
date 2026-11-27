@@ -701,7 +701,7 @@ const meant = <T extends object>(id: string, def: T): T => (MEANINGS[id] ? { ...
  * 0.1.11 (house decision #126): a field, a derived value, a resource, a Condition, a campaign field and the GM's own
  * field each say what they mean in a line of our own. 0.1.10 hashes as it did.
  */
-export const SAMPLE_D20: RulesetInput = {
+export const SAMPLE_D20_0_1_11: RulesetInput = {
   ...SAMPLE_D20_0_1_10,
   version: "0.1.11",
   entities: SAMPLE_D20_0_1_10.entities.map((e) =>
@@ -725,5 +725,27 @@ export const SAMPLE_D20: RulesetInput = {
         { ...k, fields: Object.fromEntries(Object.entries(k.fields).map(([id, f]) => [id, meant(id, f)])) },
       ]),
     ),
+  },
+};
+
+const layout0_1_11 = SAMPLE_D20_0_1_11.layout ?? {};
+
+/**
+ * 0.1.12 (house decision #127): the table screen shows each character's Vigour against its most, its Defense and its
+ * level. No creature row: a creature's most Vigour is the GM's here, so the screen's seat is served no Vigour for one.
+ * 0.1.11 hashes as it did.
+ */
+export const SAMPLE_D20: RulesetInput = {
+  ...SAMPLE_D20_0_1_11,
+  version: "0.1.12",
+  layout: {
+    ...layout0_1_11,
+    character: {
+      ...layout0_1_11.character!,
+      screen: [
+        { widget: "track", bind: { value: "res.hp", max: "derived.maxHp" } },
+        { widget: "frames", bind: { values: ["derived.defense", "level"] } },
+      ],
+    },
   },
 };

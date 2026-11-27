@@ -30,7 +30,7 @@ export type SheetSection = { id: string; label: string | null; parts: SheetPart[
 export const SHARED_LAYOUT = "sheet";
 
 /** A section's rows as parts: consecutive value rows run together, each widget stands alone; nothing drawn is dropped. */
-function partsOf({ ruleset, actor, show }: { ruleset: Ruleset; actor: SheetActor; show: readonly LayoutRow[] }) {
+export function partsOf({ ruleset, actor, show }: { ruleset: Ruleset; actor: SheetActor; show: readonly LayoutRow[] }) {
   const parts: SheetPart[] = [];
   for (const item of show) {
     if (typeof item !== "string") {

@@ -12,6 +12,7 @@
     "@inconsistable/auth": "workspace:*",
     "@inconsistable/core-schema": "workspace:*",
     "@inconsistable/rules-engine": "workspace:*",
+    "@react-pdf/renderer": "^4.9.0",
     "next": "^16.4.6",
     "next-intl": "^4.14.9",
     "pdfjs-dist": "^6.3.289",

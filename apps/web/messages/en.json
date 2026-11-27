@@ -3179,6 +3179,122 @@
       "hint": "Saved at once; the build is not saved with them."
     }
   },
+  "print": {
+    "dialog": {
+      "paper": "Paper",
+      "papers": {
+        "A5": "A5",
+        "A4": "A4",
+        "LETTER": "Letter"
+      },
+      "build": "BUILD PDF",
+      "building": "BUILDING…",
+      "download": "DOWNLOAD PDF",
+      "open": "OPEN",
+      "close": "CLOSE",
+      "failed": "The PDF could not be built: {error}"
+    },
+    "sheet": {
+      "one": "PRINT",
+      "oneLabel": "Print {name}'s sheet",
+      "oneTitle": "Print {name}'s sheet",
+      "all": "PRINT SHEETS",
+      "allLabel": "Print every character's sheet",
+      "allTitle": "Print the party's sheets",
+      "hint": "Each character starts a new page. Boxes left blank are for pencil: what changes in play.",
+      "file": "character-sheets.pdf"
+    },
+    "tents": {
+      "button": "PRINT TENT CARDS",
+      "label": "Print a tent card for every character",
+      "title": "Print tent cards",
+      "file": "tent-cards.pdf"
+    },
+    "cards": {
+      "button": "PRINT CARDS",
+      "label": "Print the cards of {title}",
+      "title": "Print cards",
+      "one": "PRINT CARD",
+      "oneLabel": "Print the card of {name}",
+      "hint": "Print at 100 % (actual size), not fit to page, so each card is 63 × 88 mm. Cut on the grey lines; fold a tent card on the dashed line, the name facing the players.",
+      "file": "cards.pdf"
+    },
+    "handouts": {
+      "button": "PRINT HANDOUTS",
+      "label": "Print the handouts of {title}",
+      "title": "Print handouts",
+      "one": "PRINT HANDOUT",
+      "oneLabel": "Print the handout {title}",
+      "hint": "One handout to a page; a long one runs on to the next. For two A5 handouts on one A4 sheet, pick 2 pages per sheet in the print dialog.",
+      "file": "handouts.pdf"
+    },
+    "runSheet": {
+      "button": "PRINT RUN SHEET",
+      "label": "Print the run sheet of {title}",
+      "title": "Print the run sheet",
+      "hint": "For the GM's eyes only: it holds the GM notes and what each Test's result does.",
+      "breaks": "Each scene on a new page",
+      "readAloud": "Read aloud",
+      "gmNotes": "GM notes",
+      "budget": "Encounter budget",
+      "fields": "Details",
+      "file": "run-sheet.pdf"
+    },
+    "words": {
+      "yes": "Yes",
+      "no": "No",
+      "name": "Name",
+      "link": "Linked to",
+      "rating": "Rating",
+      "bonus": "Bonus",
+      "total": "Total",
+      "damage": "Damage",
+      "ap": "AP",
+      "rules": "Rules",
+      "ed": "+{ed} ED",
+      "range": "Range {range}",
+      "salvo": "Salvo {salvo}",
+      "count": "{name} ×{count}",
+      "with": "with {list}",
+      "weapons": "Weapons",
+      "armourTitle": "Armour",
+      "armour": "AR {ar}",
+      "gear": "Gear",
+      "powers": "Powers",
+      "power": "DN {dn} · {activation} · {duration} · Range {range}",
+      "talent": "Talent",
+      "talents": "Talents",
+      "abilities": "Abilities",
+      "items": "Carried",
+      "more": "Also held",
+      "conditions": "Conditions",
+      "section": {
+        "derived": "Numbers",
+        "resources": "Resources",
+        "fields": "Details"
+      },
+      "kind": {
+        "npc": "NPCs",
+        "location": "Places",
+        "faction": "Factions",
+        "item": "Items",
+        "handout": "Handouts",
+        "lore": "Lore",
+        "quest": "Quests"
+      },
+      "line": {
+        "reveals": "Shown to the party",
+        "picks": "Picked from a place",
+        "tests": "Tests",
+        "pools": "Pools",
+        "roster": "Creatures",
+        "exits": "Where next",
+        "planned": "Planned Tests"
+      },
+      "budgetLine": "{label}: {used} of {budget}",
+      "budgetUnread": "{label}: {used}"
+    }
+  },
   "journal": {
     "heading": "Journal",
     "empty": "No sessions yet. Each session appears here once it starts.",

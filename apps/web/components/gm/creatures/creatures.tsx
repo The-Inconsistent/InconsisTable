@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { CombatVisibility, type LiveState, type Marker } from "@inconsistable/core-schema";
 import { Ruleset } from "@inconsistable/rules-engine";
 
+import { PrintCreature } from "@/components/print/print-creature/print-creature";
 import { BudgetLines } from "@/components/ui/budget-lines/budget-lines";
 import { MarkerPicker } from "@/components/ui/marker-swatch/marker-swatch";
 import { SpawnOptions } from "@/components/ui/spawn-options/spawn-options";
@@ -199,6 +200,7 @@ export function Creatures({ campaignId, send, state, ruleset }: CreaturesProps) 
       {picked && (
         <div className="card">
           <strong>{picked.name}</strong>
+          {found && <PrintCreature entry={picked} ruleset={found.ruleset} />}
           <div className="row">
             <span className="stepper">
               <button

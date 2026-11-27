@@ -142,6 +142,7 @@ test("a ruleset without ascension, gone and award validates as before, with none
   delete m.build.gone;
   delete m.build.award;
   delete m.build.keep; // house decision #96
+  delete m.build.libraryLine; // house decision #187
   const r = validateRuleset(m);
   assert.ok(r.ok);
   if (r.ok) assert.deepEqual(Object.keys(r.ruleset.build ?? {}).slice(-3), ["tier", "xp", "cite"]);

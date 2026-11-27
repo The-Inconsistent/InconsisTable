@@ -608,6 +608,10 @@ var LedgerKinds = []string{
 	"packages", "disciplines", "powers", "languages", "wargear",
 }
 
+// LibraryLineKinds are the kinds the resolved sheet names one record of (LIBRARY_LINE_KINDS, manifest.ts): a library
+// card's line (house decision #187).
+var LibraryLineKinds = []string{"archetypes", "species"}
+
 func ledgerKindsSchema() schema.Schema {
 	fields := make([]schema.Field, len(LedgerKinds))
 	for i, k := range LedgerKinds {
@@ -650,6 +654,7 @@ var buildSchema = schema.Object(
 		schema.Def("fields", schema.Array(fieldIDSchema).Max(50), []any{}),
 		schema.Def("resources", schema.Array(idSchema).Max(20), []any{}),
 	)),
+	schema.Opt("libraryLine", schema.Enum(LibraryLineKinds...)),
 	schema.Req("cite", citeSchema),
 )
 

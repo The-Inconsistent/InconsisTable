@@ -14,6 +14,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine/ledger"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/pack"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
@@ -32,9 +33,12 @@ type Version struct {
 
 // Card is a character as the list shows it.
 type Card struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	Done      bool    `json:"done"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Done bool   `json:"done"`
+	// Line is the card's line (house decision #187): the chosen archetype's or species' name of a finished character,
+	// as its ruleset names; nil without one.
+	Line      *string `json:"line"`
 	Ruleset   Version `json:"ruleset"`
 	Rev       int64   `json:"rev"`
 	UpdatedAt string  `json:"updatedAt"`
@@ -44,18 +48,20 @@ type Card struct {
 // catalogue comes from, and whether its owner may edit it here (they own its ruleset and every pack).
 type Entry struct {
 	Card
+	// UserID is its owner, the caller: the browser keeps each user's draft apart (house decision #188).
+	UserID   string    `json:"userId"`
 	Build    *string   `json:"build"`
 	Packs    []Version `json:"packs"`
 	Editable bool      `json:"editable"`
 }
 
-const cardSelect = `SELECT c.id::text, c.name, c.done, r.slug, v.version, r.title, c.rev, c.updated_at
+const cardSelect = `SELECT c.id::text, c.name, c.done, c.line, r.slug, v.version, r.title, c.rev, c.updated_at
 	FROM library_character c JOIN ruleset_version v ON v.id = c.ruleset_version_id JOIN ruleset r ON r.id = v.ruleset_id`
 
 func scanCard(row pgx.Row, extra ...any) (Card, error) {
 	var c Card
 	var updated time.Time
-	err := row.Scan(append([]any{&c.ID, &c.Name, &c.Done, &c.Ruleset.Slug, &c.Ruleset.Version, &c.Ruleset.Title, &c.Rev, &updated}, extra...)...)
+	err := row.Scan(append([]any{&c.ID, &c.Name, &c.Done, &c.Line, &c.Ruleset.Slug, &c.Ruleset.Version, &c.Ruleset.Title, &c.Rev, &updated}, extra...)...)
 	c.UpdatedAt = core.ISOTime(updated)
 	return c, err
 }
@@ -94,7 +100,7 @@ type row struct {
 func load(ctx context.Context, conn core.Conn, userID, id string) (*row, error) {
 	var r row
 	var rulesetOwner string
-	card, err := scanCard(conn.QueryRow(ctx, `SELECT c.id::text, c.name, c.done, r.slug, v.version, r.title, c.rev, c.updated_at,
+	card, err := scanCard(conn.QueryRow(ctx, `SELECT c.id::text, c.name, c.done, c.line, r.slug, v.version, r.title, c.rev, c.updated_at,
 			c.build::text, r.owner_user_id, c.ruleset_version_id::text, c.pack_version_ids::text[]
 		FROM library_character c JOIN ruleset_version v ON v.id = c.ruleset_version_id JOIN ruleset r ON r.id = v.ruleset_id
 		WHERE c.owner_user_id = $1 AND c.id = $2`, userID, id), &r.Build, &rulesetOwner, &r.rulesetVersionID, &r.packIDs)
@@ -104,7 +110,7 @@ func load(ctx context.Context, conn core.Conn, userID, id string) (*row, error) 
 	if err != nil {
 		return nil, err
 	}
-	r.Card = card
+	r.Card, r.UserID = card, userID
 	rows, err := conn.Query(ctx, `SELECT p.slug, v.version, p.owner_user_id = $2 AND p.disabled_at IS NULL FROM pack_version v
 		JOIN pack p ON p.id = v.pack_id WHERE v.id = ANY($1::uuid[]) ORDER BY p.slug`, r.packIDs, userID)
 	if err != nil {
@@ -168,28 +174,55 @@ func buildOf(text string) (*schema.Obj, error) {
 }
 
 // ready resolves a build against the character's own catalogue, as a first build.save does (no play), and refuses one
-// with problems or choices left.
-func ready(ctx context.Context, conn core.Conn, userID string, r *row, build *schema.Obj) error {
+// with problems or choices left. It answers the card's line from the resolved sheet.
+func ready(ctx context.Context, conn core.Conn, userID string, r *row, build *schema.Obj) (*string, error) {
 	rules, err := compiled.LoadVersion(ctx, conn, r.rulesetVersionID)
 	if err != nil || rules == nil || rules.Build == nil {
-		return cmpErr(err, cs.Fail("notLedgerBuilt"))
+		return nil, cmpErr(err, cs.Fail("notLedgerBuilt"))
 	}
 	c, err := pack.LoadOwnCatalogue(ctx, conn, userID, r.packIDs, rules.Build)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	cat, err := c.Ledger(rules.Build.Params)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	resolved, err := ledger.Resolve(rules.Build.Params, cat, build, nil)
 	if err != nil {
-		return cs.Fail("buildInvalid", cs.Params{"detail": err.Error()})
+		return nil, cs.Fail("buildInvalid", cs.Params{"detail": err.Error()})
 	}
 	if !ledger.Ready(resolved) {
-		return cs.Fail("buildNotReady", cs.Params{"detail": actor.NotReady(resolved)})
+		return nil, cs.Fail("buildNotReady", cs.Params{"detail": actor.NotReady(resolved)})
 	}
-	return nil
+	sheet, _ := resolved.Sheet.(*schema.Obj)
+	key, _ := lineKey(rules.Ruleset.Build)
+	if sheet == nil || key == "" {
+		return nil, nil
+	}
+	name, _ := sheet.Get(key)
+	return lineOf(name), nil
+}
+
+// lineKey is the resolved sheet's key the ruleset's libraryLine names (house decision #187) and the actor field the
+// sheet lands it in; "" for none.
+func lineKey(b *engine.LedgerBuild) (key, field string) {
+	switch {
+	case b == nil || b.LibraryLine == nil:
+		return "", ""
+	case *b.LibraryLine == "archetypes":
+		return "archetype", b.Sheet.Archetype
+	}
+	return "species", b.Sheet.Species
+}
+
+// lineOf is a name as a card's line: nil when it is not a name, cut to the column's 100 characters.
+func lineOf(v any) *string {
+	name, _ := v.(string)
+	if name == "" {
+		return nil
+	}
+	return new(string(([]rune(name))[:min(len([]rune(name)), 100)]))
 }
 
 // Patch is a save: at the revision the caller read, a new name, and a new build that is a draft unless done says it is
@@ -211,8 +244,9 @@ func Save(ctx context.Context, db core.Conn, userID, id string, p Patch) (Card, 
 	if r.Rev != p.Rev {
 		return Card{}, cs.Fail("libraryChanged")
 	}
-	build, done := r.Build, r.Done
+	build, done, line := r.Build, r.Done, r.Line
 	if p.Build != nil {
+		line = nil // a draft has no line (house decision #187)
 		if !r.Editable {
 			return Card{}, cs.Fail("libraryNotEditable")
 		}
@@ -221,7 +255,7 @@ func Save(ctx context.Context, db core.Conn, userID, id string, p Patch) (Card, 
 			return Card{}, err
 		}
 		if p.Done {
-			if err := ready(ctx, db, userID, r, doc); err != nil {
+			if line, err = ready(ctx, db, userID, r, doc); err != nil {
 				return Card{}, err
 			}
 		}
@@ -237,10 +271,10 @@ func Save(ctx context.Context, db core.Conn, userID, id string, p Patch) (Card, 
 		name = *p.Name
 	}
 	card, err := scanCard(db.QueryRow(ctx, `WITH saved AS (UPDATE library_character SET name = $4, build = $5::json, done = $6,
-			rev = rev + 1, updated_at = now() WHERE owner_user_id = $1 AND id = $2 AND rev = $3 RETURNING *)
-		SELECT c.id::text, c.name, c.done, r.slug, v.version, r.title, c.rev, c.updated_at
+			line = $7, rev = rev + 1, updated_at = now() WHERE owner_user_id = $1 AND id = $2 AND rev = $3 RETURNING *)
+		SELECT c.id::text, c.name, c.done, c.line, r.slug, v.version, r.title, c.rev, c.updated_at
 		FROM saved c JOIN ruleset_version v ON v.id = c.ruleset_version_id JOIN ruleset r ON r.id = v.ruleset_id`,
-		userID, id, p.Rev, name, build, done))
+		userID, id, p.Rev, name, build, done, line))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Card{}, cs.Fail("libraryChanged")
 	}
@@ -248,7 +282,8 @@ func Save(ctx context.Context, db core.Conn, userID, id string, p Patch) (Card, 
 }
 
 // create inserts a character within the cap: the user's row is locked first, so two creations at once count each other.
-func create(ctx context.Context, tx pgx.Tx, userID, name, rulesetVersionID string, packIDs []string, build *string, done bool) (Card, error) {
+func create(ctx context.Context, tx pgx.Tx, userID, name, rulesetVersionID string, packIDs []string, build *string, done bool,
+	line *string) (Card, error) {
 	if _, err := tx.Exec(ctx, `SELECT 1 FROM app_user WHERE id = $1 FOR UPDATE`, userID); err != nil {
 		return Card{}, err
 	}
@@ -260,8 +295,9 @@ func create(ctx context.Context, tx pgx.Tx, userID, name, rulesetVersionID strin
 		return Card{}, cs.Fail("libraryFull", cs.Params{"cap": Cap})
 	}
 	var id string
-	if err := tx.QueryRow(ctx, `INSERT INTO library_character (owner_user_id, name, ruleset_version_id, pack_version_ids, build, done)
-		VALUES ($1, $2, $3, $4::uuid[], $5::json, $6) RETURNING id::text`, userID, name, rulesetVersionID, packIDs, build, done).Scan(&id); err != nil {
+	if err := tx.QueryRow(ctx, `INSERT INTO library_character (owner_user_id, name, ruleset_version_id, pack_version_ids, build, done, line)
+		VALUES ($1, $2, $3, $4::uuid[], $5::json, $6, $7) RETURNING id::text`, userID, name, rulesetVersionID, packIDs, build, done,
+		line).Scan(&id); err != nil {
 		return Card{}, err
 	}
 	return scanCard(tx.QueryRow(ctx, cardSelect+` WHERE c.id = $1`, id))
@@ -297,7 +333,7 @@ func New(ctx context.Context, tx pgx.Tx, userID, name, rulesetVersionID string) 
 	if err != nil {
 		return Card{}, err
 	}
-	return create(ctx, tx, userID, name, rulesetVersionID, packs, nil, false)
+	return create(ctx, tx, userID, name, rulesetVersionID, packs, nil, false, nil)
 }
 
 // FromRoom copies a character the caller's seat holds out of a room, saved build and all, as a done character of the
@@ -350,8 +386,28 @@ func fromRoom(ctx context.Context, tx pgx.Tx, userID, campaignID, actorID string
 	if err != nil {
 		return Card{}, err
 	}
+	// The card's line is what the room's sheet already shows of that kind (house decision #187): no catalogue read here.
+	var line *string
+	rules, err := compiled.LoadVersion(ctx, tx, *version)
+	if err != nil {
+		return Card{}, err
+	}
+	field := ""
+	if rules != nil {
+		_, field = lineKey(rules.Ruleset.Build)
+	}
+	if field != "" {
+		var chosen *string
+		if err := tx.QueryRow(ctx, `SELECT text_value FROM actor_field WHERE actor_id = $1 AND field_id = $2 ORDER BY ordinal LIMIT 1`,
+			actorID, field).Scan(&chosen); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return Card{}, err
+		}
+		if chosen != nil {
+			line = lineOf(*chosen)
+		}
+	}
 	s := string(text)
-	return create(ctx, tx, userID, name, *version, packs, &s, true)
+	return create(ctx, tx, userID, name, *version, packs, &s, true, line)
 }
 
 // Delete removes one of the user's characters.

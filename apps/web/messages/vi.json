@@ -205,6 +205,9 @@
       "removeTitle": "Gỡ {name} khỏi mọi phòng?",
       "removeExplain": "{count, plural, other {# ghế của họ bị gỡ}}; nhân vật của họ vẫn ở lại. Phòng họ làm chủ vẫn giữ họ.",
       "typeName": "Gõ {name} để xác nhận",
+      "tag": "#{tag}",
+      "seen": "thấy lần cuối {when}",
+      "typeTag": "Gõ {tag}, đuôi mã của thiết bị này, để xác nhận",
       "removeConfirm": "Gỡ",
       "cancel": "Huỷ",
       "removed": "{name}: đã gỡ khỏi {count, plural, other {# phòng}}",
@@ -294,6 +297,7 @@
       "failed": "Không kết nối được thư viện của bạn. Hãy thử lại."
     },
     "builder": {
+      "restored": "Khôi phục từ trình duyệt này: những thay đổi máy chủ chưa kịp lưu.",
       "back": "← Nhân vật của bạn",
       "unnamed": "Nhân vật chưa đặt tên",
       "lede": "{ruleset} · sửa lần cuối {when}. Mọi thay đổi được giữ ngay khi bạn làm.",

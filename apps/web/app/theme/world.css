@@ -11,7 +11,7 @@ html:has([data-world]) {
   background: var(--paper);
 }
 /* The table is no longer forced dark, and a card no longer forced light: both follow the set the root shows. */
-[data-world] :is(.surface-table, .parchment, .card, .combatant, .bottom-sheet, .sheet-card) {
+[data-world] :is(.surface-table, .band, .parchment, .card, .combatant, .bottom-sheet, .sheet-card) {
   color-scheme: inherit;
 }
 /* A plate in a card is lit and shaded in the card's own colours, so a dark card's buttons carry no cream edge. */
@@ -127,7 +127,9 @@ html:has([data-world]) {
     .spend-notice,
     .turn-banner,
     .game-outcome,
-    .playing-card[data-up="false"]
+    .playing-card[data-up="false"],
+    .phone-strip,
+    .fight-plate
   ) {
   --paper: var(--band);
   --paper-2: var(--band);
@@ -208,6 +210,26 @@ html:has([data-world]) {
   color: var(--ink);
 }
 
+/* The phone's strip and its fight plate are the phone's header and its NOW ACTING board: chrome on the band (#235).
+   The seat's own turn keeps the main action's colour on its frame. */
+[data-world] :is(.phone-strip, .fight-plate) {
+  background: var(--grain-h), var(--band);
+  background-size:
+    360px 120px,
+    auto;
+  border-color: var(--line);
+}
+[data-world] .phone-strip[data-folded="true"] .value-cell {
+  border-inline-start-color: var(--line);
+}
+[data-world] .fight-plate[data-mine="true"] {
+  border-color: var(--brass);
+  box-shadow: none;
+}
+[data-world] .fight-plate-kicker {
+  color: var(--ink);
+}
+
 /* ---------- Rules and outlines read the line tokens; brass stays for the main action ---------- */
 [data-world] :is(.mention, .tabs, .tab:not([aria-selected="true"]), .playing-card, .request-bar, .build-bar) {
   border-color: var(--line);
@@ -238,8 +260,26 @@ html:has([data-world]) {
   background: var(--brass);
   color: var(--brass-ink);
 }
+/* Frames and stripes that are no action and no state read the line and the second ink, never brass or wax (#235). */
+[data-world] .entry-picture {
+  border-color: var(--line);
+}
+[data-world] :is(.reminders, .lb-issue-list > li[data-kind="gm"]) {
+  border-left-color: var(--ink-2);
+}
+[data-world] .sheet-name {
+  text-shadow: none;
+}
+[data-world] .roll-card::before {
+  box-shadow:
+    inset 0 0 0 7px var(--paper),
+    inset 0 0 0 8px var(--line),
+    inset 0 0 0 10px var(--paper),
+    inset 0 0 0 11px color-mix(in srgb, var(--line) 50%, transparent),
+    inset 0 0 34px color-mix(in srgb, var(--card-shade) 30%, transparent);
+}
 /* The pin on a card is a plain stud in the card's own line. */
-[data-world] :is(.card, .sheet-card)::after,
+[data-world] :is(.card, .sheet-card, .roll-card)::after,
 [data-world] :is(.card, .sheet-card):nth-child(even)::after {
   background: radial-gradient(circle at 35% 30%, var(--paper), var(--line) 55%, var(--ink-2));
 }
@@ -364,6 +404,9 @@ html:has([data-world]) {
 /* square: 2px everywhere a corner is drawn, a radio still round */
 [data-corners="square"] {
   --radius-btn: 2px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
 }
 [data-corners="square"]
   :is(

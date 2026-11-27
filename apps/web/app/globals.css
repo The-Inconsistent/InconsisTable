@@ -274,7 +274,7 @@ span.mention {
   width: auto;
   height: auto;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 2px solid var(--brass);
 }
 .small {
@@ -330,6 +330,8 @@ fieldset {
 
 /* ---------- The header beam ---------- */
 .band {
+  /* always wood, so a plate and the ink inside it are the dark set's on a light app page too (#235) */
+  color-scheme: dark;
   position: relative;
   z-index: 3;
   display: flex;
@@ -463,7 +465,7 @@ fieldset {
   background: linear-gradient(180deg, var(--wood-3), var(--wood-2));
   border: 1px solid var(--brass-lo);
   border-bottom: 0;
-  border-radius: 7px 7px 0 0;
+  border-radius: var(--radius-btn) var(--radius-btn) 0 0;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--brass-hi) 20%, transparent);
   cursor: pointer;
   transition:
@@ -780,7 +782,7 @@ input[type="radio"] {
   margin: 0;
   padding: 0;
   border: 2px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--paper-2);
   color: var(--accent-ink);
   box-shadow: inset 0 2px 3px rgb(0 0 0 / 0.25);
@@ -892,7 +894,7 @@ label {
 .qr {
   width: min(100%, 320px);
   height: auto;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--paper);
 }
 .list {
@@ -1417,7 +1419,7 @@ label {
   width: 168px;
   min-height: 224px;
   padding: 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: 2px solid var(--brass);
   color: var(--ink);
   font: inherit;
@@ -1574,7 +1576,7 @@ textarea.json {
   background: var(--paper);
   border: 1px solid var(--line);
   border-left-width: 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 .problem[data-tone="error"] {
@@ -1660,7 +1662,7 @@ summary {
   min-width: 0;
   min-height: 92px;
   border: 2px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--paper);
   color: var(--ink);
   font-size: 56px;
@@ -1683,7 +1685,7 @@ summary {
 .roll-key {
   min-height: var(--tap-key);
   border: 1px solid var(--plate-line);
-  border-radius: 10px;
+  border-radius: calc(var(--radius-md) + 2px);
   background: var(--plate);
   color: var(--ink);
   font: inherit;
@@ -1751,7 +1753,7 @@ summary {
   min-height: 56px;
   padding: 10px 12px;
   border: 2px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--paper);
   cursor: pointer;
 }
@@ -1811,7 +1813,7 @@ summary {
 }
 .derived-list div {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 8px 12px;
   background: var(--paper);
 }
@@ -1852,7 +1854,7 @@ summary {
   min-height: 56px;
   padding: 8px 12px;
   border: 2px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--paper);
   color: var(--ink);
   font: inherit;
@@ -1977,7 +1979,7 @@ summary {
   gap: 10px;
   padding: 12px;
   border: 2px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 .lb-card-name {
   margin: 0;
@@ -1989,7 +1991,7 @@ summary {
 .lb-choice {
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 .lb-choice legend {
   padding: 0 4px;
@@ -2144,7 +2146,7 @@ summary {
   margin: 0;
   padding: 12px;
   border: 2px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 .lb-award p {
   margin: 0;
@@ -3095,7 +3097,7 @@ summary {
 .bar {
   height: 14px;
   min-width: 90px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--wood-2);
   background: var(--wood-2);
   overflow: hidden;
@@ -3212,7 +3214,7 @@ summary {
   margin: 0;
   min-height: 52px;
   padding: 2px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--card-shade) 14%, transparent);
   box-shadow: inset 0 3px 6px color-mix(in srgb, var(--card-shade) 30%, transparent);
   font-size: 48px;
@@ -3241,7 +3243,7 @@ summary {
     360px 120px,
     auto;
   border: 3px solid var(--brass);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   box-shadow:
     inset 0 0 0 4px var(--wood-0),
     inset 0 0 0 5px var(--brass-lo),
@@ -3384,7 +3386,7 @@ summary {
   width: 30px;
   height: 30px;
   border: 2px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
   font-size: 14px;
@@ -3443,7 +3445,7 @@ summary {
   font-size: 36px;
   font-weight: 800;
   font-variant-numeric: lining-nums tabular-nums;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--card-shade) 14%, transparent);
   box-shadow: inset 0 3px 6px color-mix(in srgb, var(--card-shade) 30%, transparent);
 }
@@ -3499,7 +3501,7 @@ summary {
   font-weight: 800;
 }
 .flag {
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 2px 10px;
   font-size: var(--fs-small);
   font-weight: 800;
@@ -3794,7 +3796,7 @@ fieldset:disabled select {
 }
 .ws-link:hover {
   border-color: var(--brass-lo);
-  background: rgb(255 215 150 / 0.08);
+  background: color-mix(in srgb, var(--brass-hi) 8%, transparent);
 }
 /* The lit plate, with its label, glides from the old page's link to the new one's on a page change. */
 .ws-link[aria-current="page"] {
@@ -3803,9 +3805,9 @@ fieldset:disabled select {
   background: var(--plate-main);
   border-color: var(--brass-hi);
   box-shadow:
-    inset 0 1px 0 rgb(255 240 191 / 0.8),
+    inset 0 1px 0 color-mix(in srgb, var(--halo-light) 80%, transparent),
     0 2px 0 var(--brass-lo),
-    0 0 18px rgb(255 182 79 / 0.3);
+    0 0 18px color-mix(in srgb, var(--candle) 30%, transparent);
   view-transition-name: nav-mark;
 }
 .ws-link:focus-visible {
@@ -3826,7 +3828,7 @@ fieldset:disabled select {
 }
 .ws-link[aria-current="page"] .ws-count {
   border-color: var(--brass-ink);
-  background: rgb(255 240 191 / 0.45);
+  background: color-mix(in srgb, var(--halo-light) 45%, transparent);
 }
 .ws-foot {
   display: grid;
@@ -4097,7 +4099,7 @@ fieldset:disabled select {
   gap: 10px;
   padding: 10px 14px;
   border-left: 4px solid var(--brass);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-name);
 }
 .reminders .reminder-note {
@@ -4119,7 +4121,7 @@ fieldset:disabled select {
   margin: 0;
   padding: 10px 16px;
   border: 2px dashed var(--brass);
-  border-radius: 10px;
+  border-radius: calc(var(--radius-md) + 2px);
   font-weight: 700;
   text-align: center;
   color: var(--candle);
@@ -4155,7 +4157,7 @@ fieldset:disabled select {
   color: var(--parchment-hi);
   background: linear-gradient(180deg, var(--wood-3), var(--wood-2));
   border: 2px solid var(--brass);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
 }
 .game-outcome[data-outcome="lose"] {
   text-decoration: underline wavy;
@@ -4175,7 +4177,7 @@ fieldset:disabled select {
   background: var(--plate);
   color: var(--ink);
   border: 2px solid var(--brass);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
 }
 
 /* ---------- Page change ----------
@@ -4590,7 +4592,7 @@ button.chip {
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-left: 5px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--paper-2);
 }
 .mf-row[data-invalid] {
@@ -4730,7 +4732,7 @@ textarea.mf-json {
 }
 .scene-closed {
   border: 1px dashed var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 4px 12px 12px;
 }
 .scene-closed > summary {
@@ -4974,7 +4976,7 @@ textarea.mf-json {
     360px 120px,
     auto;
   border: 2px solid var(--brass-lo);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
 }
 .fight-plate[data-mine="true"] {
   border: 3px solid var(--brass);

@@ -172,3 +172,89 @@ test("the style guide's floors hold: no hex in TSX, text of at least 12px", () =
     [],
   );
 });
+
+// ---------- what a World can reach (#235): a screen paints from the tokens, or from a listed exemption ----------
+
+const PLAIN_COLOUR = /#[0-9a-f]{3,8}\b|\brgba?\((?!\s*0 0 0\b|\s*128 128 128\b)/i;
+// The safety screen is plain black and white on purpose: it must look the same in every Theme and every World.
+const PLAIN_ON_PURPOSE = new Set([".xcard", ".xcard-mark"]);
+
+test("globals.css paints no literal colour a World cannot reach: only black and grey shades, and the safety screen", () => {
+  const found = globals.flatMap((r) =>
+    r.selector.split(",").every((s) => PLAIN_ON_PURPOSE.has(s.trim()))
+      ? []
+      : [...r.decls]
+          .filter(([, value]) => PLAIN_COLOUR.test(value))
+          .map(([prop, value]) => `${r.selector} { ${prop}: ${value} }`),
+  );
+  assert.deepEqual(found, []);
+});
+
+test("rounded boxes read the radius tokens, so a World's square corners reach them: no literal radius over 4px", () => {
+  const found = globals.flatMap((r) =>
+    [...r.decls]
+      .filter(([prop, value]) => /^border(-[\w-]+)?-radius$/.test(prop) && /\b([5-9]|\d\d+)px/.test(value))
+      // a pill, or a cap on a token (min(var(--radius-btn), 10px)), is not a fixed rounding
+      .filter(([, value]) => !/\b999px|var\(--radius/.test(value))
+      .map(([prop, value]) => `${r.selector} { ${prop}: ${value} }`),
+  );
+  assert.deepEqual(found, []);
+});
+
+test("inline styles in TSX read tokens: no numeric font size, no literal colour", () => {
+  const found = [...sourceFiles("components/"), ...sourceFiles("app/")]
+    .filter((f) => f.endsWith(".tsx"))
+    .flatMap((f) =>
+      [...read(f).matchAll(/style=\{\{([^}]*)\}\}/g)]
+        .filter((m) =>
+          /fontSize:\s*\d|(?:color|background\w*|border\w*|fill|stroke):\s*["'`](?:#|rgb|hsl)/i.test(m[1]!),
+        )
+        .map((m) => `${f}: ${m[0]}`),
+    );
+  assert.deepEqual(found, []);
+});
+
+// The palette names (wood, brass, candle, wax ...) are lantern's own materials. A rule that paints with one is restyled
+// under a World (theme/world.css names its class), or is listed here with why it may keep the material.
+const PALETTE = /var\(--(wood(-\d)?|brass(-\w+)?|candle|wax|cream|leaf|moss|parchment(-[\w-]+)?|ink-blue|halo-\w+)\)/;
+const KEEPS_ITS_MATERIAL: Record<string, string> = {
+  "tabs-bottom": "is also a .tabs, whose outline world.css restyles",
+  "clock-face": "a full clock is a state: its lit wedges keep the candle and the wax",
+  term: "a term chip lies in a card and reads the card's own line, which a World sets",
+  "game-card": "the picked card's outline is a state, in the main action's colour",
+  "ws-brand": "the workspace shell is outside every room, so no World reaches it",
+  "ws-nav": "outside every room",
+  "ws-foot": "outside every room",
+  "ws-mark": "outside every room",
+  "ws-link": "outside every room",
+  "ws-count": "outside every room",
+  "ws-tile": "outside every room",
+  "ws-rail": "outside every room",
+};
+
+test("a rule that paints with lantern's palette is restyled under a World, or listed with its reason", () => {
+  const worldCss = read("app/theme/world.css");
+  const found = new Set<string>();
+  for (const r of globals) {
+    if (![...r.decls].some(([prop, value]) => !prop.startsWith("--") && PALETTE.test(value))) continue;
+    for (const s of r.selector.split(",")) {
+      const cls = /\.([\w-]+)/.exec(s)?.[1];
+      if (cls && !worldCss.includes(`.${cls}`) && !(cls in KEEPS_ITS_MATERIAL)) found.add(s.trim());
+    }
+  }
+  assert.deepEqual([...found], []);
+});
+
+test("a plate on a light app page carries the page's ink (the admin console's buttons, #235)", () => {
+  for (const [theme, rules] of [
+    ["lantern", [lanternRoot!]],
+    ["felt", [lanternRoot!, feltRoot!]],
+  ] as const) {
+    const decls = merge(...rules);
+    const ink = resolve({ value: "var(--ink)", decls, mode: "light" });
+    const plate = resolve({ value: "var(--plate)", decls, mode: "light" });
+    const stops = plate.match(/#[0-9a-f]{3,8}\b/gi) ?? [];
+    assert.ok(stops.length > 0, `${theme}: the light plate resolves to colours, got ${plate}`);
+    for (const stop of stops) assert.ok(ratio(ink, stop) >= 4.5, `${theme}: ink on the light plate's ${stop}`);
+  }
+});

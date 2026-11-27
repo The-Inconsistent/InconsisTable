@@ -187,7 +187,7 @@ export function HarmPad({ combatant: c, actor, pad, maxOf, run }: HarmPadProps) 
       {pad.injuries && (
         <div className="row">
           <span className="stat-label">{pad.injuries.label}</span>
-          <strong style={{ fontSize: 22, fontVariantNumeric: "tabular-nums" }}>{injuries}</strong>
+          <strong style={{ fontSize: "var(--fs-name)", fontVariantNumeric: "tabular-nums" }}>{injuries}</strong>
           <button
             type="button"
             className="btn"

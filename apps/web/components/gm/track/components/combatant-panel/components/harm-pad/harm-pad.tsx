@@ -18,7 +18,7 @@ import {
 } from "@/lib/harm/harm";
 
 type HarmPadProps = {
-  combatant: Combatant;
+  combatant: Pick<Combatant, "actorId" | "name" | "members">;
   actor: Actor;
   pad: Pad;
   /** A resource's max for this actor, when the manifest's formula can be worked out here. */

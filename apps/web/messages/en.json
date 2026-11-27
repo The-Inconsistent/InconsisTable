@@ -1372,7 +1372,6 @@
       "toSpend": "{xp} XP to spend"
     },
     "ascension": "Ascension · Tier {tier}",
-    "guest": "Guest",
     "qrFailed": "Couldn't draw the QR code. Try again",
     "campaignInviteTitle": "Campaign invite · {role}",
     "guestQrTitle": "Guest QR · {name}",
@@ -1486,7 +1485,9 @@
       "removeLabel": "Take {title} off {name}",
       "new": "New objective",
       "add": "Add"
-    }
+    },
+    "hitPad": "Deal or heal harm",
+    "xpShort": "XP <b>{xp}</b>"
   },
   "roomExport": {
     "title": "Export",

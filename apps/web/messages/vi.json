@@ -1372,7 +1372,6 @@
       "toSpend": "còn {xp} XP để tiêu"
     },
     "ascension": "Ascension · Tier {tier}",
-    "guest": "Khách",
     "qrFailed": "Không vẽ được mã QR. Hãy thử lại",
     "campaignInviteTitle": "Lời mời campaign · {role}",
     "guestQrTitle": "QR khách · {name}",
@@ -1486,7 +1485,9 @@
       "removeLabel": "Bỏ {title} khỏi {name}",
       "new": "Mục tiêu mới",
       "add": "Thêm"
-    }
+    },
+    "hitPad": "Gây hoặc chữa thương",
+    "xpShort": "XP <b>{xp}</b>"
   },
   "roomExport": {
     "title": "Xuất",

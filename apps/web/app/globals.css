@@ -5239,7 +5239,7 @@ textarea.mf-json {
   display: grid;
   gap: calc(var(--gap) * 1.2);
   padding-top: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
 }
 .party-cell {
   display: grid;
@@ -5273,15 +5273,17 @@ textarea.mf-json {
 }
 .party-vital {
   display: grid;
-  grid-template-columns: minmax(0, 5.5em) 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 2px 8px;
 }
 .party-vital .bar {
+  grid-column: 1 / -1;
   min-width: 0;
 }
 .party-num {
   font-variant-numeric: tabular-nums;
+  text-align: end;
 }
 .party-numbers {
   display: flex;
@@ -5355,4 +5357,8 @@ textarea.mf-json {
 .party-drawer .sheet-card::before,
 .party-drawer .sheet-card::after {
   display: none;
+}
+/* The drawer is a phone's width: its sheet stands in one column, as on a phone. */
+.party-drawer .sheet {
+  grid-template-columns: minmax(0, 1fr);
 }

@@ -79,7 +79,12 @@ export function Party({ me, state, send, draftRecap, sheet, entries, autoQr = fa
   const quests = entries?.filter((e) => e.kind === "quest") ?? null;
   const memberOf = (actorId: string) => state.access.members.find((m) => m.characterIds.includes(actorId)) ?? null;
   const guestOf = (actorId: string) => state.access.guests.some((g) => g.actorId === actorId);
-  const holderOf = (actorId: string) => memberOf(actorId)?.name ?? (guestOf(actorId) ? t("guest") : null);
+  // Who plays it, as the card and the drawer say it.
+  const seatOf = (actorId: string) => {
+    const member = memberOf(actorId);
+    if (member) return t("playedBy", { name: member.name });
+    return guestOf(actorId) ? t("playedByGuest") : t("openSeat");
+  };
 
   // Sends an action and shows its refusal, if any.
   const act = async (a: ActionInput) => {
@@ -129,8 +134,9 @@ export function Party({ me, state, send, draftRecap, sheet, entries, autoQr = fa
           campaignId={state.campaign.id}
           actor={a}
           card={card}
-          holder={holderOf(a.id)}
+          seat={seatOf(a.id)}
           objectives={objectives}
+          xp={ruleset ? (xpFiguresOf({ ruleset, actor: a })?.earned ?? null) : null}
           onOpen={setOpenId}
         />
         {whispers && (
@@ -171,8 +177,7 @@ export function Party({ me, state, send, draftRecap, sheet, entries, autoQr = fa
         key={a.id}
         actor={a}
         line={partyCardOf({ ruleset: rs, compiled: null, actor: a, characters: pcs.length }).line}
-        member={member}
-        guest={guestOf(a.id)}
+        seat={seatOf(a.id)}
         rank={xp ? t("rank", { rank: xp.rank }) : null}
         xp={xp ? String(xp.earned) : null}
         error={error}

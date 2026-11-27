@@ -6,9 +6,11 @@ import type { ActionInput, ActionResult, Actor, CodexEntry, LiveState } from "@i
 import type { CompiledRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import { SpendButtons } from "@/components/gm/spend-buttons/spend-buttons";
+import { HarmPad } from "@/components/gm/track/components/combatant-panel/components/harm-pad/harm-pad";
 import { CallForm } from "@/components/gm/tests/components/call-form/call-form";
 import { ResourceRow } from "@/components/ui/resource-row/resource-row";
 import type { Send } from "@/hooks/use-table/use-table";
+import { harmPadOf } from "@/lib/harm/harm";
 import { rangeOf, restsOf, stepAction, stepsOf } from "@/lib/sheet/sheet";
 
 import { Objectives } from "../objectives/objectives";
@@ -28,8 +30,8 @@ type StatusTabProps = {
   quests: { mine: readonly CodexEntry[]; all: readonly CodexEntry[] } | null;
 };
 
-// STATUS: the character's resources with their steppers, its conditions, its objectives, then what the ruleset lets the
-// GM do for it now (rests, spends, a Test).
+// STATUS: the character's resources with their steppers (harm, which moves only by a hit, through the tracker's hit
+// pad), its conditions, its objectives, then what the ruleset lets the GM do for it now (rests, spends, a Test).
 export function StatusTab({ actor, ruleset, compiled, state, send, act, gm, may, quests }: StatusTabProps) {
   const t = useTranslations("party");
   const tRest = useTranslations("rest");
@@ -38,6 +40,11 @@ export function StatusTab({ actor, ruleset, compiled, state, send, act, gm, may,
   const held = actor.conditions.flatMap((id) => ruleset.conditions.find((c) => c.id === id) ?? []);
   const addable = ruleset.conditions.filter((c) => !actor.conditions.includes(c.id));
   const rests = gm ? restsOf(ruleset) : [];
+  const rangeFor = (resource: string) =>
+    compiled ? rangeOf({ compiled, resource, actor, characters, campaign: state.campaign.fields }) : null;
+  const harm = gm ? harmPadOf({ ruleset, actor, combatant: { members: null } }) : null;
+  // The hit pad's run: the action, and whether it went through.
+  const run = async (a: ActionInput) => (await act(a)).ok;
 
   // + CONDITION: the picked condition goes on at once; the picker goes back to its prompt.
   const handleAddCondition = (e: ChangeEvent<HTMLSelectElement>) => {
@@ -56,17 +63,25 @@ export function StatusTab({ actor, ruleset, compiled, state, send, act, gm, may,
               stat={r.id}
               label={r.label}
               value={actor.resources[r.id] ?? 0}
-              range={
-                compiled
-                  ? rangeOf({ compiled, resource: r.id, actor, characters, campaign: state.campaign.fields })
-                  : null
-              }
+              range={rangeFor(r.id)}
               steps={stepsOf({ ruleset, resource: r.id, gm })}
               holder={actor.name}
               onStep={(delta) => void act(stepAction({ ruleset, actorId: actor.id, resource: r.id, delta }))}
             />
           ))}
         </div>
+      )}
+      {harm && (
+        <details className="stack ws-fold">
+          <summary className="head">{t("hitPad")}</summary>
+          <HarmPad
+            combatant={{ actorId: actor.id, name: actor.name, members: null }}
+            actor={actor}
+            pad={harm}
+            maxOf={(resource) => rangeFor(resource)?.max ?? null}
+            run={run}
+          />
+        </details>
       )}
 
       <section className="stack">

@@ -10,15 +10,17 @@ type PartyCardProps = {
   campaignId: string;
   actor: Actor;
   card: CardModel;
-  /** Who plays it, or null for an open seat. */
-  holder: string | null;
+  /** Who plays it ("Played by Ana", "Open seat"). */
+  seat: string;
   objectives: { total: number; done: number };
+  /** Its XP earned, where the ruleset keeps XP (house decision #64); null otherwise. */
+  xp: number | null;
   onOpen: (actorId: string) => void;
 };
 
 // One character on PARTY (house decision #222): its picture, name, line and player, its health as bars, its other
 // numbers in one line, the states that hold and its objectives. The whole card is one button: it opens the drawer.
-export function PartyCard({ campaignId, actor, card, holder, objectives, onOpen }: PartyCardProps) {
+export function PartyCard({ campaignId, actor, card, seat, objectives, xp, onOpen }: PartyCardProps) {
   const t = useTranslations("party");
   return (
     // Its name is its text (name, player, each bar's numbers), read in full; the drawer it opens is a dialog.
@@ -28,14 +30,20 @@ export function PartyCard({ campaignId, actor, card, holder, objectives, onOpen 
         <span className="stack" style={{ gap: 2, minWidth: 0 }}>
           <strong className="party-card-name">{actor.name}</strong>
           {card.line && <span className="small dim">{card.line}</span>}
-          <span className="small">{holder ? t("playedBy", { name: holder }) : t("openSeat")}</span>
+          <span className="small">{seat}</span>
         </span>
       </span>
       {card.bars.map((b) => {
         const percent = Math.round((b.left / b.max) * 100);
         return (
           <span key={b.id} className="party-vital" data-stat={b.id}>
-            <span className="small">{b.label}</span>
+            {/* The bar's own label says it all to a screen reader; the words above it are for the eye. */}
+            <span className="small" aria-hidden>
+              {b.label}
+            </span>
+            <strong className="small party-num" aria-hidden>
+              {t("leftOf", { left: b.left, max: b.max })}
+            </strong>
             <span
               className="bar"
               role="img"
@@ -44,17 +52,17 @@ export function PartyCard({ campaignId, actor, card, holder, objectives, onOpen 
             >
               <span style={{ transform: `scaleX(${percent / 100})` }} />
             </span>
-            <strong className="small party-num">{t("leftOf", { left: b.left, max: b.max })}</strong>
           </span>
         );
       })}
-      {card.numbers.length > 0 && (
+      {(card.numbers.length > 0 || xp !== null) && (
         <span className="small party-numbers">
           {card.numbers.map((n) => (
             <span key={n.id} data-stat={n.id}>
               {n.label} <strong>{n.value}</strong>
             </span>
           ))}
+          {xp !== null && <span data-stat="xp">{t.rich("xpShort", { xp, b: (x) => <strong>{x}</strong> })}</span>}
         </span>
       )}
       {(card.states.length > 0 || objectives.total > 0) && (

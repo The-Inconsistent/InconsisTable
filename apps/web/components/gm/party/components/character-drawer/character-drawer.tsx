@@ -1,8 +1,8 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import type { Actor, Member } from "@inconsistable/core-schema";
+import type { Actor } from "@inconsistable/core-schema";
 
 import { DRAWER_TABS, type DrawerTab } from "./constants";
 
@@ -10,8 +10,8 @@ type CharacterDrawerProps = {
   actor: Actor;
   /** The card's line, who plays it and its rank, as the sub-line. */
   line: string | null;
-  member: Member | null;
-  guest: boolean;
+  /** Who plays it ("Played by Ana", "Open seat"). */
+  seat: string;
   /** "Rank 2"-like, from its XP; null when the ruleset keeps none. */
   rank: string | null;
   /** The ADVANCE tab's count ("12 XP"), or null. */
@@ -25,7 +25,7 @@ type CharacterDrawerProps = {
 // The character drawer (house decision #222, as Auspex's dossier): one panel from the right edge with the character's
 // name, a sub-line, and its tabs. Like the bottom sheet it has no backdrop and holds no focus, so the table stays in reach;
 // focus goes to CLOSE when it opens and back to the card when it closes, and Escape puts it away.
-export function CharacterDrawer({ actor, line, member, guest, rank, xp, tabs, error, onClose }: CharacterDrawerProps) {
+export function CharacterDrawer({ actor, line, seat, rank, xp, tabs, error, onClose }: CharacterDrawerProps) {
   const t = useTranslations("party");
   const [tab, setTab] = useState<DrawerTab>("status");
   const close = useRef<HTMLButtonElement>(null);
@@ -37,23 +37,27 @@ export function CharacterDrawer({ actor, line, member, guest, rank, xp, tabs, er
       if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
     };
   }, [trigger]);
-
-  // Escape closes the drawer, unless a sheet opened from inside it takes it first.
-  const handleKey = (e: KeyboardEvent) => {
-    if (e.key !== "Escape") return;
-    e.stopPropagation();
-    onClose();
-  };
+  // External system: the document's keys. Escape closes the drawer wherever focus is (a button that went away leaves it
+  // on the page); a sheet above it stops its own Escape first.
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeRef.current();
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, []);
 
   const shown = DRAWER_TABS.filter((id) => tabs[id] !== undefined);
   const current = shown.includes(tab) ? tab : (shown[0] ?? "status");
-  const sub = [line, member ? t("playedBy", { name: member.name }) : guest ? t("playedByGuest") : t("openSeat"), rank]
-    .filter(Boolean)
-    .join(" · ");
+  const sub = [line, seat, rank].filter(Boolean).join(" · ");
   const label = (id: DrawerTab) => (id === "advance" && xp ? t("drawer.advanceXp", { xp }) : t(`drawer.${id}`));
 
   return (
-    <aside className="party-drawer" role="dialog" aria-label={actor.name} onKeyDown={handleKey}>
+    <aside className="party-drawer" role="dialog" aria-label={actor.name}>
       <header className="party-drawer-head">
         <h2 className="head">{actor.name}</h2>
         <p className="small">{sub}</p>

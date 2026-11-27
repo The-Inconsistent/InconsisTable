@@ -4,17 +4,21 @@ import { useState } from "react";
 
 import { checklistTicks, type ChecklistRoom, type ChecklistStep } from "@inconsistable/rules-engine";
 
+import { TermMark, type TermEnv } from "@/components/ui/term-card/term-card";
+
 type SetupChecklistProps = {
   steps: readonly ChecklistStep[];
   room: ChecklistRoom;
   /** GO TO: opens the place of the GM's app where the step is done. */
   onGo: (goto: NonNullable<ChecklistStep["goto"]>) => void;
+  /** Given, a step's note sits behind its ⓘ with its page (house decision #126); else the note is printed under it. */
+  terms?: TermEnv;
 };
 
 // The setup checklist the ruleset declares (house decision #90), on the GM's PARTY tab where a new room lands: each step
 // in the book's order, ticked from what the room holds and never stored, the first step not done marked NEXT, its page,
 // and a GO TO. Once every step that is not optional is done it folds to one line; the GM can open or fold it.
-export function SetupChecklist({ steps, room, onGo }: SetupChecklistProps) {
+export function SetupChecklist({ steps, room, onGo, terms }: SetupChecklistProps) {
   const t = useTranslations("checklist");
   const tTabs = useTranslations("gmApp.tabs");
   const tKind = useTranslations("codex.kind");
@@ -50,12 +54,13 @@ export function SetupChecklist({ steps, room, onGo }: SetupChecklistProps) {
                   {step.id === next && <span className="chip">{t("next")}</span>}
                   {step.optional && !done && <span className="chip">{t("optional")}</span>}
                   <strong style={{ overflowWrap: "anywhere" }}>{step.label}</strong>
+                  <TermMark term={{ label: step.label, summary: step.note, cite: step.cite }} env={terms} />
                 </span>
                 <span className="small dim">
                   {t("now", { count })}
                   {step.cite && ` · ${step.cite}`}
                 </span>
-                {step.note && <span className="small">{step.note}</span>}
+                {step.note && !terms && <span className="small">{step.note}</span>}
               </span>
               {step.goto && (
                 <button

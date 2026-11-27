@@ -7,6 +7,7 @@ import { SAMPLE_D20, SAMPLE_D20_BEFORE_WIDGETS } from "../../../../packages/rule
 import { SAMPLE_HARM } from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import {
   canAskToSpend,
+  guideOf,
   pageOfCite,
   rangeOf,
   restsOf,
@@ -66,6 +67,19 @@ test("value rows between widgets run together, and each widget stands alone in i
     ["track", ["tempHp"]], // focus is not sent to this seat: its track is not drawn
   );
   assert.equal(showJump(sections), true);
+});
+
+test("the guide lists each section's rows that say what they mean, once each; a game without any has no guide", () => {
+  const guide = guideOf(sectionsOf({ ruleset, actor: { ...actor, derived: { ...actor.derived, initBonus: 3 } } }));
+  assert.deepEqual(
+    guide.map((s) => [s.id, s.terms.map((r) => r.id)]),
+    [
+      ["abilities", ["attr.str"]],
+      ["vigour", ["hp"]],
+      ["defense", ["guard", "defense"]],
+    ],
+  );
+  assert.deepEqual(guideOf(sectionsOf({ ruleset: plain, actor })), []);
 });
 
 test("paths name a field, a derived value or a resource, and a value the seat does not hold is left out", () => {

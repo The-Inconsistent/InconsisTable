@@ -6,6 +6,7 @@ import type { BookSource } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { Cite } from "@/components/ui/cite/cite";
+import { Term } from "@/components/ui/term-card/term-card";
 import type { RequestPage } from "@/hooks/use-table/use-table";
 import { summaryOf } from "@/lib/builder/builder";
 import { RulesReply } from "@/lib/library/library";
@@ -106,7 +107,9 @@ export function RulesReader({ campaignId, ruleset, first, books, requestPage }: 
             {conditions.map((c) => (
               <li key={c.id}>
                 <span className="stack" style={{ gap: 2 }}>
-                  <strong>{c.label}</strong>
+                  <strong>
+                    <Term term={c} env={ruleset ? { ruleset, books, requestPage } : undefined} />
+                  </strong>
                   <span className="small dim">{t("lasts", { duration: tDuration(c.duration) })}</span>
                   {cite(c.cite)}
                 </span>

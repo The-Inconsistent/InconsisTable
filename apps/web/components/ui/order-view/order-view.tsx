@@ -8,6 +8,7 @@ import { SideLine } from "@/components/ui/order-view/components/side-line/side-l
 import { TurnMark } from "@/components/ui/order-view/components/turn-mark/turn-mark";
 import { EndNotice } from "@/components/ui/end-notice/end-notice";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
+import type { TermEnv } from "@/components/ui/term-card/term-card";
 import type { HeldOf } from "@/lib/held/held";
 import { groupBySide, markOf } from "@/lib/sides/sides";
 import { phaseOf, stateKey } from "@/lib/track/track";
@@ -19,19 +20,21 @@ import { phaseOf, stateKey } from "@/lib/track/track";
 type OrderViewProps = {
   encounter: Encounter;
   sides?: SidesInitiative;
-  conditions?: readonly { id: string; label: string }[];
+  conditions?: readonly { id: string; label: string; summary?: string; cite?: string }[];
   /** What each combatant holds up (house decision #91), as chips beside its conditions. */
   heldOf?: HeldOf;
   /** A phone's own characters (actor ids), each row marked YOU (house decision #117). */
   you?: readonly string[];
   /** A phone's foe rows open a card under them (house decision #117): which is open, the toggle, and the card. */
   foes?: { open: string | null; onToggle: (combatantId: string) => void; card: (c: Combatant) => ReactNode };
+  /** A phone's conditions open what they mean on a tap (house decision #126); the TV takes no input and has none. */
+  terms?: TermEnv;
 };
 
 // The turn order as a seat that doesn't run the fight sees it (the table screen, a phone): who acts, in order, with the
 // health the seat was sent. The acting row is marked by an edge and by the word ACTING, not by colour alone.
 // A sides fight (its snapshot carries `begun`) is grouped by side, each row marked with its turn.
-export function OrderView({ encounter, sides, conditions = [], heldOf, you = [], foes }: OrderViewProps) {
+export function OrderView({ encounter, sides, conditions = [], heldOf, you = [], foes, terms }: OrderViewProps) {
   const t = useTranslations("orderView");
   const tState = useTranslations("combatState");
   const phase = phaseOf(encounter);
@@ -41,18 +44,16 @@ export function OrderView({ encounter, sides, conditions = [], heldOf, you = [],
   const isFoe = (c: Combatant) =>
     foes !== undefined && !you.includes(c.actorId) && (mySides.size === 0 || !mySides.has(c.side));
 
-  // The row's name: a foe's opens its card, anyone else's is a plain label.
+  // The row's name: a foe's opens its card, anyone else's is a plain label. A foe's health stays outside its button, so
+  // a condition in it can open its own meaning.
   const who = (c: Combatant, rest: ReactNode) =>
     isFoe(c) ? (
-      <button
-        className="who"
-        aria-expanded={foes?.open === c.id}
-        onClick={() => foes?.onToggle(c.id)}
-        style={{ textAlign: "start" }}
-      >
-        <span className="name">{c.name}</span>
+      <span className="who" style={{ cursor: "default" }}>
+        <button className="who-toggle" aria-expanded={foes?.open === c.id} onClick={() => foes?.onToggle(c.id)}>
+          <span className="name">{c.name}</span>
+        </button>
         {rest}
-      </button>
+      </span>
     ) : (
       <span className="who" style={{ cursor: "default" }}>
         <span className="name">{c.name}</span>
@@ -103,7 +104,7 @@ export function OrderView({ encounter, sides, conditions = [], heldOf, you = [],
                   data-acting={c.id === encounter.currentId}
                   data-you={you.includes(c.actorId) || undefined}
                 >
-                  {who(c, <HealthBar combatant={c} conditions={conditions} held={heldOf?.(c.actorId)} />)}
+                  {who(c, <HealthBar combatant={c} conditions={conditions} held={heldOf?.(c.actorId)} terms={terms} />)}
                   <TurnMark mark={markOf({ encounter, combatant: c, sides })} />
                 </li>,
                 card(c),
@@ -128,7 +129,7 @@ export function OrderView({ encounter, sides, conditions = [], heldOf, you = [],
                         {t("first")}
                       </span>
                     )}
-                    <HealthBar combatant={c} conditions={conditions} held={heldOf?.(c.actorId)} />
+                    <HealthBar combatant={c} conditions={conditions} held={heldOf?.(c.actorId)} terms={terms} />
                   </>,
                 )}
                 {done && <span className="chip">{t("done")}</span>}

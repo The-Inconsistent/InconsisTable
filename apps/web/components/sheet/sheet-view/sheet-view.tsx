@@ -11,11 +11,13 @@ import { AcquireBox } from "@/components/sheet/components/acquire-box/acquire-bo
 import { ItemsBox } from "@/components/sheet/components/items-box/items-box";
 import { LedgerLines } from "@/components/sheet/components/ledger-lines/ledger-lines";
 import { OverrideField } from "@/components/sheet/components/override-field/override-field";
+import { SheetGuide } from "@/components/sheet/components/sheet-guide/sheet-guide";
 import { SpendList } from "@/components/sheet/components/spend-ask/components/spend-list/spend-list";
 import { SpendAsk } from "@/components/sheet/components/spend-ask/spend-ask";
 import { SheetWidget } from "@/components/sheet/widgets/sheet-widget/sheet-widget";
 import type { WidgetEnv } from "@/components/sheet/widgets/types";
 import { Cite } from "@/components/ui/cite/cite";
+import { Term, type TermEnv } from "@/components/ui/term-card/term-card";
 import { HeldListEditor } from "@/components/ui/held-list/held-list";
 import { ResourceRow } from "@/components/ui/resource-row/resource-row";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
@@ -27,6 +29,7 @@ import { ledgerLaidOut } from "@/lib/sheet-widgets/sheet-widgets";
 import { pendingFor, resourceLabels } from "@/lib/spend-request/spend-request";
 import {
   canAskToSpend,
+  guideOf,
   stepAction,
   printValue,
   rangeOf,
@@ -130,8 +133,9 @@ export function SheetView({
   const range = (resource: string) =>
     compiled ? rangeOf({ compiled, resource, actor, characters, campaign: inPlay }) : null;
 
+  const terms: TermEnv = { ruleset, books, requestPage };
   const rowView = (row: SheetRow) => {
-    const cite = row.cite && <Cite cite={row.cite} {...{ ruleset, books, requestPage }} />;
+    const cite = row.cite && <Cite cite={row.cite} {...terms} />;
     if (row.kind === "resource") {
       const resets = resetsOn({ ruleset, resource: row.id });
       const ask = !gm && !readOnly && canAskToSpend({ ruleset, resource: row.id });
@@ -140,6 +144,7 @@ export function SheetView({
           <ResourceRow
             stat={row.id}
             label={row.label}
+            title={<Term term={row} env={terms} />}
             value={actor.resources[row.id] ?? 0}
             range={range(row.id)}
             steps={readOnly ? { dec: false, inc: false } : stepsOf({ ruleset, resource: row.id, gm })}
@@ -182,7 +187,7 @@ export function SheetView({
     return (
       <div key={`f-${row.id}`} className="sheet-row" data-stat={row.id} data-kind="field">
         <span className="stack" style={{ gap: 2 }}>
-          <span className="stat-label">{row.label}</span>
+          <Term term={row} env={terms} className="stat-label" />
           {cite}
         </span>
         <strong className="sheet-num sheet-text">
@@ -211,7 +216,12 @@ export function SheetView({
   const openedDef = open
     ? ruleset.entities.find((e) => e.id === actor.entity)?.derived.find((d) => d.id === open)
     : undefined;
-  const opened = openedDef && { id: openedDef.id, label: openedDef.label, cite: openedDef.cite ?? null };
+  const opened = openedDef && {
+    id: openedDef.id,
+    label: openedDef.label,
+    cite: openedDef.cite ?? null,
+    summary: openedDef.summary ?? null,
+  };
   const lines =
     opened && compiled
       ? breakdownOf({
@@ -268,6 +278,7 @@ export function SheetView({
           ))}
         </nav>
       )}
+      {!readOnly && <SheetGuide guide={guideOf(sections)} env={terms} />}
       {sections.map((s) => (
         <section key={s.id} className="stack sheet-card" id={jump ? anchor(s.id) : undefined}>
           <h2 className="head">{s.label ?? t(`section.${s.id as "derived" | "resources" | "fields"}`)}</h2>
@@ -324,7 +335,9 @@ export function SheetView({
             {conditions.map((c) => (
               <li key={c.id}>
                 <span className="stack" style={{ gap: 2 }}>
-                  <strong>{c.label}</strong>
+                  <strong>
+                    <Term term={c} env={terms} />
+                  </strong>
                   <span className="small dim">
                     {tDuration(c.duration)}
                     {leftText(c.id) && `, ${leftText(c.id)}`}
@@ -342,6 +355,7 @@ export function SheetView({
           total={actor.derived[opened.id] ?? 0}
           lines={lines}
           cite={opened.cite}
+          summary={opened.summary}
           {...{ ruleset, books, requestPage }}
           onClose={() => setOpen(null)}
         >

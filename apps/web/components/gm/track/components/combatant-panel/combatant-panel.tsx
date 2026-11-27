@@ -23,6 +23,7 @@ import {
 } from "@/components/gm/track/constants";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
 import { MarkerPicker } from "@/components/ui/marker-swatch/marker-swatch";
+import { Term, type TermEnv } from "@/components/ui/term-card/term-card";
 import type { HarmPad as HarmPadOf } from "@/lib/harm/harm";
 import { amountOf, leftOf, pressKey } from "@/lib/track/track";
 
@@ -50,6 +51,8 @@ type CombatantPanelProps = {
   held?: ReactNode;
   /** The strike guide for this combatant as the attacker (house decision #99); absent where it has no strike. */
   strike?: ReactNode;
+  /** The ruleset as the GM reads it with the page relay: a condition opens what it means (house decision #126). */
+  terms?: TermEnv;
 };
 
 // A refusal shown in the panel is brought into view when it appears: on a phone the panel's controls sit far below.
@@ -74,6 +77,7 @@ export function CombatantPanel({
   spends,
   held,
   strike,
+  terms,
 }: CombatantPanelProps) {
   const t = useTranslations("combatantPanel");
   const tSave = useTranslations("deathSave");
@@ -258,7 +262,13 @@ export function CombatantPanel({
           {c.conditions.map((k) => (
             <li key={k.id}>
               <span>
-                {stackedLabel(encounter.conditionDefs.find((d) => d.id === k.id)?.label ?? k.id, k.stacks)}{" "}
+                <Term
+                  term={{
+                    ...terms?.ruleset.conditions.find((d) => d.id === k.id),
+                    label: stackedLabel(encounter.conditionDefs.find((d) => d.id === k.id)?.label ?? k.id, k.stacks),
+                  }}
+                  env={terms}
+                />{" "}
                 <span className="dim">{leftText(k)}</span>
               </span>
               <button

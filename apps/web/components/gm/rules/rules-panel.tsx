@@ -3,20 +3,28 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type ChangeEvent } from "react";
 
-import { canInCampaign, type ActionInput, type LiveState, type Me } from "@inconsistable/core-schema";
+import { canInCampaign, type ActionInput, type BookSource, type LiveState, type Me } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 import { CampaignSettings } from "@/components/gm/rules/campaign-settings/campaign-settings";
 import { RoomExport } from "@/components/gm/rules/room-export/room-export";
-import type { Send } from "@/hooks/use-table/use-table";
+import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import type { RulesTabData } from "@/lib/library/library";
 
-type RulesPanelProps = { me: Me; send: Send; data: RulesTabData | null; state: LiveState; ruleset: Ruleset | null };
+type RulesPanelProps = {
+  me: Me;
+  send: Send;
+  data: RulesTabData | null;
+  state: LiveState;
+  ruleset: Ruleset | null;
+  books: readonly BookSource[];
+  requestPage: RequestPage;
+};
 
 // RULES: the ruleset this room plays, the World it wears and the packs attached to it. The owner pins a ruleset and a
 // World they imported and attaches or detaches their packs; a refusal (characters already use another version, a private pack in the wrong room) shows
 // under the thing that was tapped. Everything imported lives in the library (/library).
-export function RulesPanel({ me, send, data, state, ruleset }: RulesPanelProps) {
+export function RulesPanel({ me, send, data, state, ruleset, books, requestPage }: RulesPanelProps) {
   const t = useTranslations("rulesPanel");
   const router = useRouter();
   const canEdit = canInCampaign({ ctx: me, perm: "campaign:ruleset" });
@@ -159,6 +167,8 @@ export function RulesPanel({ me, send, data, state, ruleset }: RulesPanelProps) 
         state={state}
         send={send}
         canEdit={canInCampaign({ ctx: me, perm: "campaign:update" })}
+        books={books}
+        requestPage={requestPage}
       />
 
       <section className="stack">

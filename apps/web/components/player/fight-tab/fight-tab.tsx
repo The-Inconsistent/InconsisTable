@@ -131,6 +131,7 @@ export function FightTab(props: FightTabProps) {
         heldOf={(id) => heldChips({ ruleset, actor: state.actors.find((a) => a.id === id) })}
         you={held}
         foes={{ open: foe, onToggle: handleFoe, card }}
+        terms={ruleset ? { ruleset, books, requestPage } : undefined}
       />
     </div>
   );

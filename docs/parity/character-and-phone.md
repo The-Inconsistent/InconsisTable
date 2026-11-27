@@ -94,7 +94,7 @@ The source draws the whole sheet from one component (wc/ui/book-sheet/book-sheet
 | 59 | CORRUPTION points with level name, DN modifier, rows of pips, Chaos Spawn | injuries-box.tsx:61-80 | PARTIAL: `corruption` resource (owner), `corruptionMod` derived (owner), `lost` health state (port/ruleset.ts:926-). No pips or level name | B (a pip-row widget) | M |
 | 60 | NOTES: WHO YOU ARE with EDIT and SAVE, (?) help | notes-box.tsx:15-56; character-detail.tsx | HAS: `detail.*` text fields, `editableBy owner`, section "who" (port/ruleset.ts:461, 903). No (?) help | – | – |
 | 61 | Foot: Passive Awareness, XP EARNED, CURRENT XP, and the way to spend | xp-box.tsx:11-41 | HAS: derived `passiveAwareness`; XpBox | none | – |
-| 62 | HOW TO READ THIS SHEET guide, tap-for-meaning on 63 terms (own words, page cite), FULL RULE | sheet-guide.tsx; term.tsx; S/apps/web/lib/sheet-terms | MISSING: `terms` is declared in the manifest and read by nothing (plan item 15, issue #159) | B (a World or ruleset `terms` reader plus tap popover) | M |
+| 62 | HOW TO READ THIS SHEET guide, tap-for-meaning on 63 terms (own words, page cite), FULL RULE | sheet-guide.tsx; term.tsx; S/apps/web/lib/sheet-terms | DONE (#222, house decision #126): a `summary` on each definition, one card (name, summary, the cite as the page button), the folded guide from the layout; traits stay untappable; the World's words are #159 | – | – |
 | 63 | Sheet jump strip and AT A GLANCE (traits row, weapons with pools, top 5 skills) | player-sheet.tsx:18-46; glance.tsx:17-88 | MISSING | B (phone-turn layout target, ADR 0010 #3) | M |
 | 64 | GM's SHEET dialog, same sheet with working buttons | sheet-dialog.tsx:18 | HAS: SheetView with `gm` (sheet-view.tsx:51) | none | – |
 | 65 | Printed sheet PDF: official art, print or full-art, A4 or Letter, built in the browser | sheet-export.tsx:28; print/character-sheet/**; sheet-input.ts | MISSING (no print code, T) | B (a print target) plus Decision 2 | L |
@@ -212,7 +212,7 @@ The source draws the whole sheet from one component (wc/ui/book-sheet/book-sheet
 | 137 | X-card and safety tools | the source has no X-card; only KIND OF GAME and LEAVE OUT lines (§79) | HAS and beyond: `safety.xcard`, `safety.suggest`, `campaign.setSafety` (ca:265-267) | none | – |
 | 138 | Print: GM tents (fold-over name cards per Agent), threat cards, item cards, handouts | more-panel.tsx:50-70; wc/print/card-sheet/** | MISSING (no print code) | B (print target) | L |
 | 139 | Locales | English only (`lang="en"`, Intl dates) | HAS and beyond: en and vi (T/apps/web/i18n/request.ts, messages) | none | – |
-| 140 | Help text: SheetGuide, Term popovers, Help (?) in setup, DetailHelp | sheet-guide.tsx; term.tsx:62-74 | MISSING (plan item 16 help text) | see row 62 | – |
+| 140 | Help text: SheetGuide, Term popovers, Help (?) in setup, DetailHelp | sheet-guide.tsx; term.tsx:62-74 | DONE (#222, house decision #126): the guide and cards of row 62, an ⓘ beside a campaign field, a codex field and a checklist step | – | – |
 | 141 | Theme toggle per device | theme-toggle | HAS: scheme-switch, theme-switch | none | – |
 
 ### M. Additions from the builder survey

@@ -83,6 +83,47 @@ export function sectionsOf({ ruleset, actor }: { ruleset: Ruleset; actor: SheetA
 /** The value rows of a section, in order (widgets left out). */
 export const rowsOf = (s: SheetSection): SheetRow[] => s.parts.flatMap((p) => (p.kind === "rows" ? p.rows : []));
 
+/** The value rows a widget draws, in order: the ones a guide can name. Cards, folds and held records name none. */
+function modelRows(m: WidgetModel): (SheetRow | null)[] {
+  switch (m.widget) {
+    case "strip":
+      return [m.title, ...m.values];
+    case "grid":
+      return m.rows.flatMap((r) => [r.rating, r.bonus, r.total, r.link]);
+    case "frames":
+      return m.values;
+    case "sum":
+      return [...m.parts, m.total];
+    case "track":
+      return [m.value, m.max];
+    case "pips":
+      return [m.value];
+    case "notes":
+      return m.fields;
+    default:
+      return [];
+  }
+}
+
+/** A section of HOW TO READ THIS SHEET (house decision #126): its label and the rows in it that say what they mean. */
+export type GuideSection = { id: string; label: string | null; terms: SheetRow[] };
+
+/** The sheet's own sections, each with its rows that carry a summary, once each; a section with none is left out. */
+export function guideOf(sections: readonly SheetSection[]): GuideSection[] {
+  const seen = new Set<string>();
+  return sections.flatMap((s) => {
+    const terms = s.parts
+      .flatMap((p) => (p.kind === "rows" ? p.rows : modelRows(p.model)))
+      .flatMap((r) => {
+        const key = r && `${r.kind}.${r.id}`;
+        if (!r?.summary || !key || seen.has(key)) return [];
+        seen.add(key);
+        return [r];
+      });
+    return terms.length > 0 ? [{ id: s.id, label: s.label, terms }] : [];
+  });
+}
+
 /** The fewest sections a sheet has before it gets a strip of links to them at the top. */
 export const JUMP_FROM = 4;
 /** Whether a sheet is long enough for the strip of links to its sections. */

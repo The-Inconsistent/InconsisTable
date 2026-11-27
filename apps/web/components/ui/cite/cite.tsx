@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { BookSource } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
-import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
+import { FloatingSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
 import type { RequestPage } from "@/hooks/use-table/use-table";
 import { pageOfCite } from "@/lib/sheet/sheet";
 
@@ -42,7 +42,7 @@ export function Cite({ cite, ruleset, books, requestPage }: CiteProps) {
         {cite}
       </button>
       {shown && (
-        <BottomSheet title={cite} onClose={handleClose}>
+        <FloatingSheet title={cite} onClose={handleClose}>
           {"url" in shown ? (
             // A blob made in this browser from the relayed page; next/image has nothing to optimise.
             // eslint-disable-next-line @next/next/no-img-element
@@ -52,7 +52,7 @@ export function Cite({ cite, ruleset, books, requestPage }: CiteProps) {
               {shown.error}
             </p>
           )}
-        </BottomSheet>
+        </FloatingSheet>
       )}
     </>
   );

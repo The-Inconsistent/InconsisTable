@@ -567,6 +567,19 @@ test("a player's manifest without the checklist still carries spends, requests a
   assert.ok(Object.keys(shown.held ?? {}).length > 0);
 });
 
+// House decision #126: a summary goes with its definition, so a seat that may not read a `gm` field never reads its
+// meaning, and one that may read a field reads its meaning too.
+test("a player's manifest carries the summaries of what it may read and none of a gm field's", () => {
+  const rules = compileRuleset(SAMPLE_D20);
+  assert.ok(rules.ok);
+  const character = (c: Ctx) =>
+    seatManifest({ ruleset: rules.compiled.ruleset, ctx: c }).entities.find((e) => e.id === "character");
+  const player = character(ctx(member("player", [], ["lyra"]), "u-lyra"));
+  assert.equal(player?.fields.gmNote, undefined);
+  assert.ok(player?.fields.guard?.summary);
+  assert.ok(character(ctx(member("gm"), "u-gm"))?.fields.gmNote?.summary);
+});
+
 // House decision #101: whatever a seat is served compiles, so its phone can work its numbers out, and cutting what
 // names a hidden definition never brings one back.
 describe("the manifest a seat is served compiles", () => {

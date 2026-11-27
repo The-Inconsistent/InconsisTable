@@ -262,7 +262,11 @@ func Approve(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resul
 	var actionID string
 	switch {
 	case w.acquireKey != "":
-		actionID, err = callAcquire(ctx, tx, c, askOf(w)) // a Test call's id, not a logged action: nothing to reopen
+		ask := askOf(w)
+		ask.Item, _ = a["item"].(map[string]any)
+		actionID, err = callAcquire(ctx, tx, c, ask) // a Test call's id, not a logged action: nothing to reopen
+	case a["item"] != nil:
+		err = cs.Fail("badRequest", cs.Params{"detail": "only an acquisition's item can be changed"})
 	case w.spendID != "":
 		actionID, err = doSpend(ctx, tx, c, w.spendID, w.actorID, w.inputs)
 	default:

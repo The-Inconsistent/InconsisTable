@@ -3,6 +3,8 @@ package item
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
@@ -21,6 +23,9 @@ import (
 type Ask struct {
 	ActorID, Type, Key, To, Line string
 	Picks                        map[string]any
+	// Item is the entry's values the GM changed when approving (request.approve's `item`, house decision #196): its
+	// `fields` and `tags`, read by this call only; nil for none.
+	Item map[string]any
 }
 
 // AskOf reads request.send's acquire form.
@@ -85,8 +90,11 @@ func Plan(ctx context.Context, tx core.Conn, c cs.Ctx, ask Ask) (string, *Acquir
 	}
 	state := *b.State
 	state.Scope = b.Scope
-	p, refusal := engine.PlanAcquire(r.rc.Compiled.Ruleset, &state,
-		engine.AcquireItem{Type: ask.Type, Key: ask.Key, Name: s.Name, Tags: s.Tags, Body: s.Body}, ask.Picks)
+	item, err := r.changed(s, ask)
+	if err != nil {
+		return "", nil, err
+	}
+	p, refusal := engine.PlanAcquire(r.rc.Compiled.Ruleset, &state, item, ask.Picks)
 	if refusal != nil {
 		return "", nil, cs.Fail(refusal.Code, cs.Params{"name": b.Row.Name, "entry": s.Name, "kind": "", "detail": refusal.Message})
 	}
@@ -264,4 +272,52 @@ func LoadAcquired(ctx context.Context, conn core.Conn, callIDs []string) (map[st
 		out[id] = &a
 	}
 	return out, rows.Err()
+}
+
+// changed is the entry as this acquisition reads it: the pack's, with the values the GM changed when approving (house
+// decision #196) laid over it. A changed field must be one the entry type declares and fit it, and tags that would
+// make the entry another kind of item are refused, so the change moves the Test's number and nothing else.
+func (r *room) changed(s *served, ask Ask) (engine.AcquireItem, error) {
+	item := engine.AcquireItem{Type: ask.Type, Key: ask.Key, Name: s.Name, Tags: s.Tags, Body: s.Body}
+	if ask.Item == nil {
+		return item, nil
+	}
+	var def *engine.EntityType
+	for i, e := range r.rc.Compiled.Ruleset.Entities {
+		if e.ID == ask.Type {
+			def = &r.rc.Compiled.Ruleset.Entities[i]
+		}
+	}
+	fields, _ := ask.Item["fields"].(map[string]any)
+	if len(fields) > 0 {
+		item.Body = maps.Clone(s.Body)
+		if item.Body == nil {
+			item.Body = map[string]any{}
+		}
+	}
+	for _, id := range slices.Sorted(maps.Keys(fields)) {
+		f, declared := engine.FieldDef{}, false
+		if def != nil {
+			f, declared = def.Fields[id]
+		}
+		if !declared {
+			return item, cs.Fail("badRequest", cs.Params{"detail": fmt.Sprintf("%s has no field %q", ask.Type, id)})
+		}
+		if bad := engine.CheckFieldValue(&f, fields[id]); bad != "" {
+			return item, cs.Fail("fieldInvalid", cs.Params{"label": f.Label, "detail": bad})
+		}
+		item.Body[id] = fields[id]
+	}
+	if tags, has := ask.Item["tags"].([]any); has {
+		item.Tags = []string{}
+		for _, t := range tags {
+			if w, ok := t.(string); ok {
+				item.Tags = append(item.Tags, w)
+			}
+		}
+		if before, after := r.items.KindOf(ask.Type, s.Tags), r.items.KindOf(ask.Type, item.Tags); before != after {
+			return item, cs.Fail("badRequest", cs.Params{"detail": "those tags make it another kind of item"})
+		}
+	}
+	return item, nil
 }

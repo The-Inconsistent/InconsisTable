@@ -364,7 +364,19 @@ export const Action = z.discriminatedUnion("type", [
     inputs: SpendInputs.optional(),
   }),
   z.object({ type: z.literal("request.cancel"), id }),
-  z.object({ type: z.literal("request.approve"), id }),
+  // An acquisition approved with the entry's values the GM changed for this call only (house decision #196).
+  z.object({
+    type: z.literal("request.approve"),
+    id,
+    item: z
+      .object({
+        fields: z
+          .record(z.string().min(1).max(64), z.union([z.int().min(-100000).max(100000), z.string().max(200), z.boolean()]))
+          .optional(),
+        tags: z.array(z.string().min(1).max(60)).max(30).optional(),
+      })
+      .optional(),
+  }),
   z.object({ type: z.literal("request.deny"), id, reason: RequestText.optional() }),
   // Session Zero (docs/p2-plan.md group E): the table's lines and veils, and the anonymous X-Card.
   z.object({ type: z.literal("campaign.setSafety"), lines: SafetyList, veils: SafetyList, xCard: z.boolean() }),

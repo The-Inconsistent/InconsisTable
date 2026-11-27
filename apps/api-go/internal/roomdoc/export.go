@@ -19,6 +19,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/pack"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
@@ -153,6 +154,8 @@ type exporter struct {
 	// When it is written: a session still running ends then (#232).
 	at     time.Time
 	report Report
+	// The pack entries the room is served, for what names one it is no longer served (#232, house decision #183).
+	packEntries []pack.StoredEntry
 }
 
 // exportRoom is the document without its pictures' bytes, and the pictures it carries in the order they are written.
@@ -164,6 +167,9 @@ func exportRoom(ctx context.Context, conn core.Conn, campaignID string, pictures
 	ex := &exporter{ctx: ctx, conn: conn, id: campaignID, rules: rules, entries: map[string]bool{}, actors: map[string]bool{},
 		pictureIDs: map[string]bool{}, at: time.Now().UTC()}
 	d := map[string]any{"format": cs.RoomFormat, "version": cs.RoomVersion, "exportedAt": ex.at.Format(time.RFC3339Nano)}
+	if ex.packEntries, err = pack.LoadServedEntries(ctx, conn, campaignID, pack.ServedOptions{}); err != nil {
+		return nil, nil, Report{}, err
+	}
 	room, expects, err := ex.room()
 	if err != nil {
 		return nil, nil, Report{}, err
@@ -370,6 +376,7 @@ func (ex *exporter) actorList() ([]any, error) {
 					fields[key] = v
 				}
 			}
+			ex.heldServed(b.Entity, fields)
 			if len(fields) > 0 {
 				a["fields"] = fields
 			}
@@ -402,6 +409,29 @@ func (ex *exporter) actorList() ([]any, error) {
 		out = append(out, a)
 	}
 	return out, nil
+}
+
+// heldServed leaves out of an actor's held records (house decision #88) each the room is no longer served, counted with
+// the sources (#232): the import refuses one (heldNoEntry).
+func (ex *exporter) heldServed(entity string, fields map[string]any) {
+	if ex.rules == nil {
+		return
+	}
+	for _, kind := range ex.rules.Ruleset.Held {
+		keys, isList := fields[kind.Field].([]any)
+		if !isList || !slices.Contains(kind.Entities, entity) {
+			continue
+		}
+		kept := []any{}
+		for _, key := range keys {
+			if ex.served(kind.Entry, key, true) {
+				kept = append(kept, key)
+			} else {
+				ex.report.Sources++
+			}
+		}
+		fields[kind.Field] = kept
+	}
 }
 
 // items are an actor's items as the document holds them, a GIVE's codex entry only while the room still has it.
@@ -546,7 +576,7 @@ func (ex *exporter) codex(entries []cs.CodexEntry, pictures bool) []any {
 		// The pack entry it was made from (house decision #97), while the room is served it; the import checks it is and
 		// reads its page again. One no longer served is left out and counted (#232).
 		if source, has := e.Source.(map[string]any); has {
-			if entity, _ := source["entity"].(string); ex.served(entity, source["key"]) {
+			if entity, _ := source["entity"].(string); ex.served(entity, source["key"], true) {
 				x["source"] = e.Source
 			} else {
 				ex.report.Sources++
@@ -560,13 +590,18 @@ func (ex *exporter) codex(entries []cs.CodexEntry, pictures bool) []any {
 	return out
 }
 
-// served says whether the room is served the pack entry of that type and key.
-func (ex *exporter) served(entity string, key any) bool {
-	var served bool
-	err := ex.conn.QueryRow(ex.ctx, `SELECT EXISTS (SELECT 1 FROM campaign_pack JOIN pack_version v ON v.id = campaign_pack.pack_version_id
-		JOIN pack ON pack.id = v.pack_id JOIN pack_entry e ON e.pack_version_id = v.id
-		WHERE e.type = $2 AND e.key = $3 AND `+actor.ServedPacks("$1")+`)`, ex.id, entity, key).Scan(&served)
-	return err == nil && served
+// served says whether the room is served the pack entry of that type and key, as the import reads it: a `gm` entry
+// counts only for a reader on the GM side (gm), as a party field's value may not name one (codex fields.go).
+func (ex *exporter) served(entity string, key any, gm bool) bool {
+	k, _ := key.(string)
+	return pack.EntryLookup(ex.packEntries, gm)(entity, k) != nil
+}
+
+// servedName says whether a served entry of one of the types bears that name: a tags field's word (house decision #89).
+func (ex *exporter) servedName(types []string, name string, gm bool) bool {
+	return slices.ContainsFunc(ex.packEntries, func(e pack.StoredEntry) bool {
+		return e.Name == name && slices.Contains(types, e.Type) && pack.SeesEntry(e.Visibility, gm)
+	})
 }
 
 // mentions is a text with every mention of an entry the room no longer has turned into its words.
@@ -580,22 +615,65 @@ func (ex *exporter) mentions(text string) string {
 	})
 }
 
-// fields are an entry's field values, a link field (`entry`, house decision #76) only while it names an entry here, a
-// pack field (`ref`) only while the room is served what it names (#232, counted with the sources).
+// fields are an entry's field values, a link field (`entry`, house decision #76) only while it names an entry here. What
+// names a pack entry the room is no longer served (#232, house decision #183) is left out and counted with the sources,
+// as the import would refuse it (codex fields.go): a `ref` field's value, a `tags` word that is no suggestion, a row's
+// `from` (the row stays, written by hand) and a `ref` cell.
 func (ex *exporter) fields(kind string, given map[string]any) map[string]any {
 	out := maps.Clone(given)
 	if ex.rules == nil || ex.rules.Ruleset.Codex == nil {
 		return out
 	}
 	for key, def := range ex.rules.Ruleset.Codex.Kinds[kind].Fields {
+		gm := def.Visibility == "gm"
 		id, isID := out[key].(string)
+		list, isList := out[key].([]any)
 		switch {
 		case def.Type == "entry" && isID && !ex.entries[id]:
 			delete(out, key)
-		case def.Type == "ref" && isID && !ex.served(def.Entity, id):
+		case def.Type == "ref" && isID && !ex.served(def.Entity, id, gm):
 			delete(out, key)
 			ex.report.Sources++
+		case def.Type == "tags" && isList && !def.WriteIn:
+			words := []any{}
+			for _, w := range list {
+				if word, _ := w.(string); slices.Contains(def.Options, word) || ex.servedName(def.Entities, word, gm) {
+					words = append(words, w)
+				} else {
+					ex.report.Sources++
+				}
+			}
+			out[key] = words
+		case def.Type == "rows" && isList:
+			out[key] = ex.rows(def, list, gm)
 		}
+	}
+	return out
+}
+
+// rows are a rows field's rows without a `from` or a `ref` cell naming a pack entry the room is no longer served.
+func (ex *exporter) rows(def engine.FieldDef, list []any, gm bool) []any {
+	out := make([]any, len(list))
+	for i, raw := range list {
+		row, _ := raw.(map[string]any)
+		row = maps.Clone(row)
+		if from, has := row["from"].(map[string]any); has {
+			if entity, _ := from["entity"].(string); !ex.served(entity, from["key"], gm) {
+				delete(row, "from")
+				ex.report.Sources++
+			}
+		}
+		if values, has := row["values"].(map[string]any); has {
+			values = maps.Clone(values)
+			for _, col := range def.Columns {
+				if cell, has := values[col.ID]; has && col.Type == "ref" && !ex.served(col.Entity, cell, gm) {
+					delete(values, col.ID)
+					ex.report.Sources++
+				}
+			}
+			row["values"] = values
+		}
+		out[i] = row
 	}
 	return out
 }

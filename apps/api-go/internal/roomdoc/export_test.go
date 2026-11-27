@@ -623,6 +623,30 @@ func TestAnExportLeavesUnservedPacksOut(t *testing.T) {
 		t.Errorf("the detached room's document: %v", err)
 	}
 
+	// A detached bestiary: the quay's danger row filled from a creature keeps its words and loses its `from`, the person
+	// made from one loses its source, Mara's charm goes, and the document imports.
+	detachedD20 := imported(t, db, owner, v.document(t, "d20"), Options{})
+	_ = db.QueryRow(ctx, `SELECT pack_version_id::text FROM campaign_pack WHERE campaign_id = $1`, detachedD20).Scan(&pack)
+	act(t, db, owner, detachedD20, map[string]any{"type": "campaign.detachPack", "packVersionId": pack})
+	if r := report(detachedD20); r != (Report{Pictures: 1, Sources: 3}) {
+		t.Errorf("detached d20: %+v", r)
+	}
+	e20 := exported(t, db, detachedD20, true)
+	if charms := doc(e20).list("actors")[0]["fields"].(map[string]any)["charms"]; len(charms.([]any)) != 0 {
+		t.Errorf("a charm of a detached pack: %v", charms)
+	}
+	for _, x := range doc(e20).list("codex") {
+		fields, _ := x["fields"].(map[string]any)
+		for _, row := range doc(fields).list("dangers") {
+			if _, has := row["from"]; has {
+				t.Errorf("a row keeps a detached pack's entry: %v", row)
+			}
+		}
+	}
+	if _, err := Import(ctx, db, owner, e20, Options{DryRun: true}); err != nil {
+		t.Errorf("the detached d20 room's document: %v", err)
+	}
+
 	d20 := imported(t, db, owner, v.document(t, "d20"), Options{})
 	if _, err := db.Exec(ctx, `UPDATE pack SET disabled_at = now() WHERE owner_user_id = $1 AND slug = 'sample-bestiary'`, owner.UserID); err != nil {
 		t.Fatal(err)
@@ -630,7 +654,7 @@ func TestAnExportLeavesUnservedPacksOut(t *testing.T) {
 	t.Cleanup(func() {
 		_, _ = db.Exec(ctx, `UPDATE pack SET disabled_at = NULL WHERE owner_user_id = $1`, owner.UserID)
 	})
-	if r := report(d20); r != (Report{Pictures: 1, Packs: 1, Sources: 1}) {
+	if r := report(d20); r != (Report{Pictures: 1, Packs: 1, Sources: 3}) {
 		t.Errorf("taken down: %+v", r)
 	}
 	e := exported(t, db, d20, true)

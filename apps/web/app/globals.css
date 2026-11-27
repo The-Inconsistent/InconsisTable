@@ -1215,16 +1215,18 @@ label {
 /* ---------- Random tables: a result called out on the GM's panel, cards face down in the hand, the TV's last roll ----------
    A roll is a word set large and dealt onto the table (the existing `deal` drop); a card in the hand shows a patterned
    back until it is tapped, then drops its face in. Only opacity and transform move. */
-.table-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: var(--gap);
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* The drawer of one table (house decision #225): ROLL across the drawer, "or I rolled [ ] LOG IT" under it. */
+.table-roll {
+  width: 100%;
+  min-height: calc(var(--tap) * 1.4);
+  font-size: var(--fs-title);
 }
-.table-head {
-  align-items: baseline;
+.table-typed-line {
+  align-items: center;
+}
+/* The lookups on a combatant's panel: one toggle per table, wrapping when there are many. */
+.panel-lookups .seg {
+  flex-wrap: wrap;
 }
 .table-result {
   display: grid;

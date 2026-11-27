@@ -51,6 +51,8 @@ type CombatantPanelProps = {
   held?: ReactNode;
   /** The strike guide for this combatant as the attacker (house decision #99); absent where it has no strike. */
   strike?: ReactNode;
+  /** The lookups for this combatant (house decision #225): the ruleset's lookup tables, applied to it. */
+  lookups?: ReactNode;
   /** The ruleset as the GM reads it with the page relay: a condition opens what it means (house decision #126). */
   terms?: TermEnv;
 };
@@ -77,6 +79,7 @@ export function CombatantPanel({
   spends,
   held,
   strike,
+  lookups,
   terms,
 }: CombatantPanelProps) {
   const t = useTranslations("combatantPanel");
@@ -232,6 +235,8 @@ export function CombatantPanel({
           </div>
         </div>
       )}
+
+      {lookups}
 
       <div className="stack" role="group" aria-label={t("tableSees")}>
         <strong>{t("tableSees")}</strong>

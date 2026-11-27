@@ -11,15 +11,14 @@ import { TableTrail, type TrailStep } from "@/components/ui/table-trail/table-tr
 import type { RequestPage } from "@/hooks/use-table/use-table";
 
 type PanelLookupsProps = {
-  /** The lookups the panel holds in a fight (`trackTables`, house decision #225). */
+  /** The lookups that apply to this combatant (`trackTables`, `lookupFor`, house decision #225). */
   lookups: readonly [string, RandomTable][];
   /** The selected combatant's actor: every lookup here is for it. */
   actor: Actor;
-  /** A table a spend or the strike guide opened for this actor, here rather than in the drawer. */
+  /** A table a spend or the strike guide opened for this actor, here rather than in the drawer; cleared on reselect. */
   opened: OpenedTable | null;
-  /** A line names a table the panel does not hold: it opens in the drawer, for this actor. */
+  /** A line names a table the panel does not hold: TRACK opens it where it applies. */
   onOpen: (open: Omit<OpenedTable, "n">) => void;
-  hasGm: boolean;
   campaignId: string;
   compiled: CompiledRuleset;
   ruleset: Ruleset;
@@ -34,14 +33,8 @@ type PanelLookupsProps = {
 // The lookups on the selected combatant's panel (house decision #225): one toggle per table it can be looked up on, then
 // the lookup for this combatant, with no target to pick. A second tap on the toggle folds it away.
 export function PanelLookups(props: PanelLookupsProps) {
-  const { lookups, actor, opened, onOpen, hasGm, ...env } = props;
+  const { lookups: mine, actor, opened, onOpen, ...env } = props;
   const t = useTranslations("tables");
-  const mine = lookups.filter(
-    ([, x]) =>
-      actor.entity !== "" &&
-      (hasGm || x.visibility !== "gm") &&
-      (x.entities === undefined || x.entities.includes(actor.entity)),
-  );
   const mineHas = (id: string) => mine.some(([x]) => x === id);
   const [current, setCurrent] = useState<string | null>(opened?.actorId === actor.id ? opened.tableId : null);
   // The chain so far (house decision #88), as in the drawer.

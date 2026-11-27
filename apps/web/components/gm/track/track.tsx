@@ -44,7 +44,7 @@ import { gmSideOf } from "@/lib/ledger/table";
 import { heldChips } from "@/lib/held/held";
 import { rangeOf } from "@/lib/sheet/sheet";
 import { currentOf } from "@/lib/track/track";
-import { trackTables } from "@/lib/track-tables/track-tables";
+import { lookupFor, trackTables } from "@/lib/track-tables/track-tables";
 import { type OpenedTable, type TrackMode } from "@/components/gm/track/constants";
 
 type TrackProps = {
@@ -97,10 +97,12 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
   const characters = state.actors.filter((x) => x.kind === "pc").length;
   const trackerRefusal = refusalAt({ refusal, at: null });
 
-  // SELECT: another combatant's panel opens; a refusal about the one before goes.
+  // SELECT: another combatant's panel opens; a refusal about the one before goes, and so does a table opened on a panel,
+  // which has been shown once and must not come back each time its combatant is picked again.
   const handleSelect = (id: string) => {
     setRefusal(afterSelect({ refusal, was: selected?.id, now: id }));
     setSelectedId(id);
+    if (opened?.panel) setOpened(null);
   };
 
   // What each combatant holds up, for its row (house decision #91).
@@ -114,21 +116,26 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
     return c?.ok ? c.compiled : null;
   }, [rules]);
 
-  // Where the tables show (house decision #225): listed, or in a fight a lookup on the selected combatant's panel.
-  const fight = compiled !== null && selected !== undefined;
-  const tables = rules ? trackTables({ ruleset: rules, fight }) : { listed: [], onPanel: [] };
-
-  // OPEN TABLE: a spend's next table (house decision #91), the strike guide's or a line's, with its inputs: a lookup the
-  // panel holds, for a combatant of the fight, selects that combatant and opens on its panel; anything else opens in the
-  // tables drawer for that actor.
-  const handleOpenTable = (open: Omit<OpenedTable, "n">) => {
-    const on = tables.onPanel.some(([id]) => id === open.tableId)
-      ? encounter?.combatants.find((c) => c.actorId === open.actorId)
-      : undefined;
-    if (on) handleSelect(on.id);
-    setOpened((was) => ({ table: { ...open, n: (was?.table.n ?? 0) + 1 }, panel: on !== undefined }));
-  };
   const selectedActor = selected && actors.get(selected.actorId);
+  const hasGm = me.tableMode === "gm";
+
+  // Where the tables show (house decision #225): listed, or a lookup that applies to the selected combatant on its panel.
+  const panelFor = compiled !== null && selectedActor ? selectedActor : null;
+  const tables = rules ? trackTables({ ruleset: rules, panelFor, hasGm }) : { listed: [], onPanel: [] };
+
+  // OPEN TABLE: a spend's next table (house decision #91), the strike guide's or a line's, with its inputs: a lookup that
+  // applies to a combatant of the fight selects that combatant and opens on its panel; anything else opens in the tables
+  // drawer with that actor picked.
+  const handleOpenTable = (open: Omit<OpenedTable, "n">) => {
+    const table = rules?.tables?.[open.tableId];
+    const actor = actors.get(open.actorId);
+    const on =
+      compiled !== null && table && actor && lookupFor({ table, actor, hasGm })
+        ? encounter?.combatants.find((c) => c.actorId === open.actorId)
+        : undefined;
+    if (on) handleSelect(on.id);
+    setOpened({ table: { ...open, n: (opened?.table.n ?? 0) + 1 }, panel: on !== undefined });
+  };
   const harmPad = selected ? harmPadOf({ ruleset: rules, actor: selectedActor, combatant: selected }) : null;
   const maxOf = (resource: string) =>
     compiled && selectedActor
@@ -271,7 +278,6 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
                       actor={selectedActor}
                       opened={opened?.panel ? opened.table : null}
                       onOpen={handleOpenTable}
-                      hasGm={me.tableMode === "gm"}
                       campaignId={state.campaign.id}
                       compiled={compiled}
                       ruleset={sheet.ruleset}
@@ -366,7 +372,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
           dealt={state.dealt}
           actors={state.actors}
           fighting={encounter?.combatants.map((c) => c.actorId) ?? []}
-          hasGm={me.tableMode === "gm"}
+          hasGm={hasGm}
           campaign={state.campaign.fields}
           pools={state.pools}
           books={sheet.books}

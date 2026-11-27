@@ -629,7 +629,7 @@ func TestAnExportLeavesUnservedPacksOut(t *testing.T) {
 	detachedD20 := imported(t, db, owner, v.document(t, "d20"), Options{})
 	_ = db.QueryRow(ctx, `SELECT pack_version_id::text FROM campaign_pack WHERE campaign_id = $1`, detachedD20).Scan(&pack)
 	act(t, db, owner, detachedD20, map[string]any{"type": "campaign.detachPack", "packVersionId": pack})
-	if r := report(detachedD20); r != (Report{Pictures: 1, Sources: 3}) {
+	if r := report(detachedD20); r != (Report{Pictures: 3, Sources: 3}) {
 		t.Errorf("detached d20: %+v", r)
 	}
 	e20 := exported(t, db, detachedD20, true)
@@ -655,7 +655,7 @@ func TestAnExportLeavesUnservedPacksOut(t *testing.T) {
 	t.Cleanup(func() {
 		_, _ = db.Exec(ctx, `UPDATE pack SET disabled_at = NULL WHERE owner_user_id = $1`, owner.UserID)
 	})
-	if r := report(d20); r != (Report{Pictures: 1, Packs: 1, Sources: 3}) {
+	if r := report(d20); r != (Report{Pictures: 3, Packs: 1, Sources: 3}) {
 		t.Errorf("taken down: %+v", r)
 	}
 	e := exported(t, db, d20, true)

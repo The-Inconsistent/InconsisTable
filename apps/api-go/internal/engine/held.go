@@ -29,7 +29,18 @@ type HeldKind struct {
 	Max      *int     `json:"max"`
 	// Includes is a list field of the entry type naming the records a record brings with it (house decision #165).
 	Includes *string `json:"includes"`
-	Cite     *string `json:"cite"`
+	// ExtraRolls is an int field of the entry type: a grant of a record above 0 there tells the GM to roll that many
+	// more (house decision #191).
+	ExtraRolls *string `json:"extraRolls"`
+	// Gear names a list field of the entry type holding entries of the item kind Kind, given with the record (#191).
+	Gear *HeldGear `json:"gear"`
+	Cite *string   `json:"cite"`
+}
+
+// HeldGear is a held kind's gear (manifest.ts HeldKind.gear): the entry's list Field of item entries of Kind.
+type HeldGear struct {
+	Field string `json:"field"`
+	Kind  string `json:"kind"`
 }
 
 // MaxOrDefault is how many of the kind an actor may hold.
@@ -50,6 +61,8 @@ var heldKindSchema = schema.Object(
 	schema.Opt("unseen", label(60)),
 	schema.Opt("max", schema.Int().Min(1).Max(50)),
 	schema.Opt("includes", fieldIDSchema),
+	schema.Opt("extraRolls", fieldIDSchema),
+	schema.Opt("gear", schema.Object(schema.Req("field", fieldIDSchema), schema.Req("kind", idSchema))),
 	schema.Opt("cite", citeSchema),
 )
 
@@ -67,6 +80,29 @@ func (p *problems) held(r *Ruleset, needCite func(*string, string)) {
 			p.add(path+".entry", `"%s" is an actor`, k.Entry)
 		case k.Includes != nil && entry.Fields[*k.Includes].Type != "list":
 			p.add(path+".includes", `"%s" has no list field "%s"`, k.Entry, *k.Includes)
+		}
+		if entry != nil && entry.Base != "actor" {
+			if k.ExtraRolls != nil && entry.Fields[*k.ExtraRolls].Type != "int" {
+				p.add(path+".extraRolls", `"%s" has no int field "%s"`, k.Entry, *k.ExtraRolls)
+			}
+			if k.Gear != nil && entry.Fields[k.Gear.Field].Type != "list" {
+				p.add(path+".gear.field", `"%s" has no list field "%s"`, k.Entry, k.Gear.Field)
+			}
+		}
+		if k.Gear != nil {
+			var kind *ItemKind
+			if r.Items != nil {
+				kind = r.Items.Kind(k.Gear.Kind)
+			}
+			if kind == nil {
+				p.add(path+".gear.kind", `unknown item kind "%s"`, k.Gear.Kind)
+			} else {
+				for _, e := range k.Entities {
+					if !slices.Contains(kind.Entities, e) {
+						p.add(path+".gear.kind", `%s holds no "%s"`, e, k.Gear.Kind)
+					}
+				}
+			}
 		}
 		for i, e := range k.Entities {
 			holder := entityByID(r, e)

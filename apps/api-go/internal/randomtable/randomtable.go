@@ -109,11 +109,11 @@ func Roll(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 		scope, name = b.Scope, b.Row.Name
 	}
 	inputs, _ := a["inputs"].(map[string]any)
-	compiled, err := ruleset.LoadCompiled(ctx, tx, c.CampaignID)
+	rc, err := ruleset.Open(ctx, tx, c)
 	if err != nil {
 		return cs.Result{}, err
 	}
-	read, refused := compiled.ReadLookup(tableID, result, inputs, scope)
+	read, refused := rc.Compiled.ReadLookup(tableID, result, inputs, scope, rc.PoolValues(), rc.Campaign())
 	if refused != nil {
 		return cs.Result{}, refusal(refused, name)
 	}

@@ -9,7 +9,7 @@ import {
   SAMPLE_HARM_BEFORE_STRIKES,
 } from "./fixtures/sample-harm.ts";
 import { SAMPLE_SKIRMISH } from "./fixtures/sample-skirmish.ts";
-import { planLookup, readLookup, rowOf, withLists } from "./lookups.ts";
+import { lookupMaxes, planLookup, readLookup, rowOf, withLists } from "./lookups.ts";
 import { validateRuleset, type RulesetInput } from "./manifest.ts";
 
 // Lookups (house decision #87): a typed result, the inputs and the target pick one line, whose effects become steps.
@@ -223,4 +223,30 @@ test("has() asks whether the target has a resource its type may lack, and a die 
     entry: 0,
     steps: [{ kind: "harm", wounds: 2, shock: 1 }],
   });
+});
+
+test("a stepper's max may read a shared pool as it stands, never below its min (house decision #192)", () => {
+  const r = compileRuleset(SAMPLE_SKIRMISH);
+  assert.ok(r.ok);
+  const read = (pools: Record<string, number>, eased: number) =>
+    readLookup({
+      compiled: r.compiled,
+      tableId: "backlash",
+      result: 4,
+      inputs: { eased },
+      scope: actorScope({ fields: {} }),
+      pools,
+    });
+  assert.deepEqual(lookupMaxes({ compiled: r.compiled, tableId: "backlash", pools: { momentum: 3 } }), {
+    ok: true,
+    maxes: { eased: 3 },
+  });
+  assert.equal(read({ momentum: 3 }, 3).ok, true);
+  assert.deepEqual(read({ momentum: 2 }, 3), { ok: false, code: "tableInput", input: "eased" });
+  assert.equal(read({ momentum: -1 }, 0).ok, true);
+  assert.equal(read({}, 0).ok, false);
+  const bad = structuredClone(SAMPLE_SKIRMISH) as RulesetInput & { tables: Record<string, { inputs: object[] }> };
+  bad.tables.backlash!.inputs[1] = { id: "eased", label: "E", type: "bool", max: "pools.momentum" };
+  const v = validateRuleset(bad);
+  assert.ok(!v.ok && v.problems.some((p) => p.message === "only a stepper's max is an expression"));
 });

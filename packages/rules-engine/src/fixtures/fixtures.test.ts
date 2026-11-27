@@ -29,6 +29,7 @@ import {
   SAMPLE_HARM_0_1_10,
   SAMPLE_HARM_0_1_11,
   SAMPLE_HARM_0_1_12,
+  SAMPLE_HARM_0_1_13,
   SAMPLE_HARM_BEFORE_GENERATORS,
   SAMPLE_HARM_BEFORE_HELD,
   SAMPLE_HARM_BEFORE_OWNER,
@@ -46,6 +47,7 @@ import {
   SAMPLE_SKIRMISH_0_1_10,
   SAMPLE_SKIRMISH_0_1_11,
   SAMPLE_SKIRMISH_0_1_12,
+  SAMPLE_SKIRMISH_0_1_13,
   SAMPLE_SKIRMISH_BEFORE_CHECKLIST,
   SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND,
   SAMPLE_SKIRMISH_BEFORE_PANELS,
@@ -60,11 +62,11 @@ const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f7
 const PINNED: Record<string, string> = {
   "sample-d20@0.1.16": "d4fa93828de012392447c4315886e5f873768cf748223030a41533f993e36ec6",
   "sample-ledger@0.1.6": "717025a2783d882c3738ec979b565b9d330ee31297becd9560c0264be790ca73",
-  "sample-skirmish@0.1.13": "c8afb14f386ead519a2d5c28e6337fd606ea0ad3025fed0f423337d11d03e547",
+  "sample-skirmish@0.1.14": "2365ae8d6814618eaeb196dc521d37c7779df6a8f566655f426eb4fcdbcc8ae8",
   "sample-pool@0.1.4": "20a6d1b8a8d6031a0d3abfab5e5ceaade06eed14c7748e8226b4b1a68e35e182",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
-  "sample-harm@0.1.13": "fe4731a115b51ad2c37f2637a4607199cbbde99670b4723ba7651d3fe9ac5bf9",
+  "sample-harm@0.1.14": "5a3e0d7554c41a4fb5d05aa0b85243b924d4de1f29eca644fa79d1cc7aed2fb8",
   "sample-duel@0.1.2": "906d7745550475b5fccd07ec48bec073a7db8ad4c1908da63bd3fab06493f614",
 };
 const PINNED_BEFORE_LOOKUPS = "60f2e297678d64e1fc72e4a9598943476c49c1e23c3c8dd5c4df500cc28fae7c";
@@ -177,6 +179,18 @@ test("a ruleset without warnings for the fight's log hashes as before them (hous
     sha256Hex(canonicalJson(result.compiled.ruleset)),
     "eb5dec2209c7691f48cfe4f32ff34a07836290e151c720587ada76a64139abe5",
   );
+});
+
+test("a ruleset without a record's extras, a pool-capped stepper or the players' fallback hashes as before (#191, #192)", () => {
+  const before: [RulesetInput, string][] = [
+    [SAMPLE_HARM_0_1_13, "fe4731a115b51ad2c37f2637a4607199cbbde99670b4723ba7651d3fe9ac5bf9"],
+    [SAMPLE_SKIRMISH_0_1_13, "c8afb14f386ead519a2d5c28e6337fd606ea0ad3025fed0f423337d11d03e547"],
+  ];
+  for (const [fixture, pinned] of before) {
+    const result = compileRuleset(fixture);
+    assert.ok(result.ok, `${fixture.id}@${fixture.version} compiles`);
+    assert.equal(sha256Hex(canonicalJson(result.compiled.ruleset)), pinned);
+  }
 });
 
 test("a ruleset without the keys of #177 to #179 hashes as before them", () => {

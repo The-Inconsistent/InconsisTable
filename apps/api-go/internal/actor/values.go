@@ -241,16 +241,23 @@ func (h Held) Record() cs.HeldRecord {
 // ServedEntryName is the name of the entry of that type and key among the packs the room is served (house decision
 // #61's rule, the first by pack slug), and false when it is served none.
 func ServedEntryName(ctx context.Context, conn core.Conn, campaignID, typ, key string) (string, bool, error) {
+	name, _, served, err := ServedEntryTags(ctx, conn, campaignID, typ, key)
+	return name, served, err
+}
+
+// ServedEntryTags is ServedEntryName with the entry's tags, which decide its item kind (`ItemsBlock.KindOf`).
+func ServedEntryTags(ctx context.Context, conn core.Conn, campaignID, typ, key string) (string, []string, bool, error) {
 	var name string
-	err := conn.QueryRow(ctx, `SELECT e.name FROM campaign_pack
+	var tags []string
+	err := conn.QueryRow(ctx, `SELECT e.name, e.tags FROM campaign_pack
 		JOIN pack_entry e ON e.pack_version_id = campaign_pack.pack_version_id
 		JOIN pack_version ON pack_version.id = e.pack_version_id JOIN pack ON pack.id = pack_version.pack_id
 		WHERE campaign_pack.campaign_id = $1 AND e.type = $2 AND e.key = $3 AND `+ServedPacks("$1")+`
-		ORDER BY pack.slug LIMIT 1`, campaignID, typ, key).Scan(&name)
+		ORDER BY pack.slug LIMIT 1`, campaignID, typ, key).Scan(&name, &tags)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", false, nil
+		return "", nil, false, nil
 	}
-	return name, err == nil, err
+	return name, tags, err == nil, err
 }
 
 // HeldEntry is a served pack entry a list field of the actor names by key, with the field that names it.

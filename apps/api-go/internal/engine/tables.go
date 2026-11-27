@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 )
@@ -44,6 +45,9 @@ type (
 		Dice    *string       `json:"dice"`
 		Cite    *string       `json:"cite"`
 		Options []InputOption `json:"options"`
+		// MaxExpr is a lookup stepper's max written as an expression over `pools` and `campaign` (house decision #192);
+		// Max is then nil.
+		MaxExpr *string `json:"-"`
 	}
 	// InputOption is one option of a choice: its label and the whole number it reads as.
 	InputOption struct {
@@ -239,16 +243,19 @@ func (p *problems) lookup(r *Ruleset, id string, t *RandomTable) {
 	p.duplicates(path+".inputs", idsOf(t.Inputs, func(x TableInput) string { return x.ID }))
 	for i, x := range t.Inputs {
 		at := fmt.Sprintf("%s.inputs[%d]", path, i)
-		if x.Type == "bool" && (x.Min != nil || x.Max != nil) {
+		if x.Type == "bool" && (x.Min != nil || x.Max != nil || x.MaxExpr != nil) {
 			p.add(at, "a switch has no bounds")
 		}
 		if x.Min != nil && x.Max != nil && *x.Max < *x.Min {
 			p.add(at+".max", "max is below min")
 		}
+		if x.MaxExpr != nil && x.Type != "int" {
+			p.add(at+".max", "only a stepper's max is an expression")
+		}
 		if x.Dice != nil {
 			if x.Type != "int" {
 				p.add(at+".dice", "only a number is typed from dice")
-			} else if x.Min != nil || x.Max != nil {
+			} else if x.Min != nil || x.Max != nil || x.MaxExpr != nil {
 				p.add(at, "a dice amount takes its bounds from its dice")
 			}
 			if count, sides, ok := PlainDice(*x.Dice); !ok || count*sides > 1000 {
@@ -436,4 +443,25 @@ func (x TableInput) Bounds() (lo, hi *int) {
 	}
 	most := count * sides
 	return &count, &most
+}
+
+// UnmarshalJSON reads `max` as a whole number into Max or as an expression into MaxExpr (manifest.ts TableInput).
+func (x *TableInput) UnmarshalJSON(b []byte) error {
+	type plain TableInput
+	var raw struct {
+		plain
+		Max any `json:"max"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	*x = TableInput(raw.plain)
+	switch m := raw.Max.(type) {
+	case float64:
+		n := int(m)
+		x.Max = &n
+	case string:
+		x.MaxExpr = &m
+	}
+	return nil
 }

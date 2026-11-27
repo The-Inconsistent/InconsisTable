@@ -2,13 +2,16 @@
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
-import type { ActionInput, ActionResult, Actor, BookSource } from "@inconsistable/core-schema";
+import type { ActionInput, ActionResult, Actor, BookSource, PoolState } from "@inconsistable/core-schema";
 import {
+  campaignValues,
   inputBounds,
+  lookupMaxes,
   type CompiledRuleset,
   type LookupStep,
   type RandomTable,
   type Ruleset,
+  type TableInput,
 } from "@inconsistable/rules-engine";
 
 import { Cite } from "@/components/ui/cite/cite";
@@ -26,6 +29,7 @@ type TableLookupProps = {
   target: Actor | undefined;
   characters: number;
   campaign: Readonly<Record<string, unknown>>;
+  pools: readonly Pick<PoolState, "id" | "value">[];
   books: readonly BookSource[];
   requestPage: RequestPage;
   ask: (a: ActionInput) => Promise<ActionResult>;
@@ -52,6 +56,7 @@ export function TableLookup(props: TableLookupProps) {
     target,
     characters,
     campaign,
+    pools,
     books,
     requestPage,
     ask,
@@ -66,7 +71,16 @@ export function TableLookup(props: TableLookupProps) {
   // The served names of the records the table grants, by key; null until the first result is typed.
   const [names, setNames] = useState<Record<string, string> | null>(null);
   const result = typedOf(typed);
-  const plan = previewOf({ compiled, tableId, result, inputs, target, characters, campaign });
+  const poolValues = Object.fromEntries(pools.map((p) => [p.id, p.value]));
+  const plan = previewOf({ compiled, tableId, result, inputs, target, characters, campaign, pools: poolValues });
+  // A stepper's max written over the pools (house decision #192), as the server will read it.
+  const read = lookupMaxes({
+    compiled,
+    tableId,
+    pools: poolValues,
+    campaign: campaignValues({ compiled, stored: campaign }),
+  });
+  const maxOf = (x: TableInput) => (read.ok ? read.maxes[x.id] : undefined) ?? inputBounds(x).max ?? 99;
   const entry = plan?.ok ? table.entries[plan.entry] : undefined;
   const label = (id: string) => ruleset.resources.find((r) => r.id === id)?.label ?? id;
   const harm = ruleset.health.harm;
@@ -195,7 +209,7 @@ export function TableLookup(props: TableLookupProps) {
                 type="button"
                 className="btn"
                 aria-label={t("less", { label: x.label })}
-                onClick={() => handleStep(x.id, -1, inputBounds(x).min ?? 0, inputBounds(x).max ?? 99)}
+                onClick={() => handleStep(x.id, -1, inputBounds(x).min ?? 0, maxOf(x))}
               >
                 −
               </button>
@@ -204,7 +218,7 @@ export function TableLookup(props: TableLookupProps) {
                 type="button"
                 className="btn"
                 aria-label={t("more", { label: x.label })}
-                onClick={() => handleStep(x.id, 1, inputBounds(x).min ?? 0, inputBounds(x).max ?? 99)}
+                onClick={() => handleStep(x.id, 1, inputBounds(x).min ?? 0, maxOf(x))}
               >
                 +
               </button>

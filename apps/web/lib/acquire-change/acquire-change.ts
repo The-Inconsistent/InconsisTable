@@ -20,7 +20,8 @@ export function changeFields({ ruleset, type }: { ruleset: Pick<Ruleset, "entiti
 
 /**
  * The `item` of request.approve from what the GM typed: a number field's whole number, a choice as picked, the tags
- * split at commas; undefined when nothing was changed. A number that is not whole is left out.
+ * split at commas; undefined when nothing was changed. A number that is not whole is sent as typed, so the server
+ * refuses it (`fieldInvalid`) rather than the Test silently reading the pack's value.
  */
 export function itemChange({
   fields,
@@ -35,8 +36,7 @@ export function itemChange({
   for (const f of fields) {
     const v = (typed[f.id] ?? "").trim();
     if (v === "") continue;
-    if (f.options !== undefined) changed[f.id] = v;
-    else if (/^-?\d+$/.test(v)) changed[f.id] = Number(v);
+    changed[f.id] = f.options === undefined && /^-?\d+$/.test(v) ? Number(v) : v;
   }
   const words = tags
     .split(",")

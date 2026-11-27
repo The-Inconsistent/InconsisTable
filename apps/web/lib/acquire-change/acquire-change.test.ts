@@ -14,5 +14,6 @@ test("the change form offers the entry type's number and choice fields, and send
     fields: { rating: 2 },
     tags: ["WARDEN", "RARE"],
   });
-  assert.equal(itemChange({ fields, typed: { rating: "2.5" }, tags: "" }), undefined);
+  // Not a whole number: sent as typed, for the server to refuse, never dropped.
+  assert.deepEqual(itemChange({ fields, typed: { rating: "2.5" }, tags: "" }), { fields: { rating: "2.5" } });
 });

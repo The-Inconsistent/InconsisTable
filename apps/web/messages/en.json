@@ -929,7 +929,10 @@
     "readHidden": "Read the die. Your modifier is added for you.",
     "readModifier": "Read the die. {modifier} is added for you.",
     "lastClosed": "Last Test closed",
-    "gotIt": "Got it"
+    "gotIt": "Got it",
+    "choicesFor": "Choices for {who} before reporting",
+    "less": "Less {label}",
+    "more": "More {label}"
   },
   "tableScreen": {
     "between": "Between sessions",

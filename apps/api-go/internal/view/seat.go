@@ -702,8 +702,9 @@ func seatTests(tests []cs.TestCall, c cs.Ctx, sight Sight) []cs.TestCall {
 			}
 			if t.Report != nil {
 				r := cs.TestResult{Natural: t.Report.Natural, Flags: t.Report.Flags}
+				// A choice moves the number to beat (house decision #170), so it is told as the total is.
 				if own && call.ShowModifier {
-					r.Total = t.Report.Total
+					r.Total, r.Choices = t.Report.Total, t.Report.Choices
 				}
 				if !own || call.ShowOutcome || call.Revealed {
 					r.Outcome = t.Report.Outcome

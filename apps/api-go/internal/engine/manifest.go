@@ -19,10 +19,11 @@ const MaxCampaignFields = 50
 // MaxFields caps the fields and derived values across a manifest.
 const MaxFields = 2000
 
-// MaxOffers caps a Test's offers and MaxMarks its marks (house decision #80).
+// MaxOffers caps a Test's offers and MaxMarks its marks (house decision #80), MaxChoices its choices (#170).
 const (
-	MaxOffers = 10
-	MaxMarks  = 10
+	MaxOffers  = 10
+	MaxMarks   = 10
+	MaxChoices = 5
 )
 
 // MaxNotices caps a manifest's notice rules, MaxNoticeText a rule's words (house decision #79) and MaxNoticeParams its
@@ -294,6 +295,8 @@ type (
 		// absent.
 		Marks  map[string]TestMark `json:"marks"`
 		Offers []TestOffer         `json:"offers"`
+		// Choices are what the taker sets when reporting (house decision #170); nil when absent.
+		Choices map[string]TestChoice `json:"choices"`
 		// Entities names the actor types that take the Test (house decision #50); nil is every actor type.
 		Entities  *[]string `json:"entities"`
 		Cite      *string   `json:"cite"`
@@ -637,6 +640,13 @@ type (
 	TestMark struct {
 		Label string  `json:"label"`
 		Cite  *string `json:"cite"`
+	}
+	// TestChoice is what a Test's taker sets when reporting (house decision #170), read as ctx.<id> by the target and
+	// the offers: a switch, or with Max a whole number from 0 to Max.
+	TestChoice struct {
+		Label string   `json:"label"`
+		Max   *float64 `json:"max"`
+		Cite  *string  `json:"cite"`
 	}
 	// TestOffer is what a called Test's result offers the GM: when When holds, Changes, once.
 	TestOffer struct {
@@ -1146,6 +1156,16 @@ func (p *problems) testOutcomes(r *Ruleset, id string, t *Test, needCite func(*s
 		if _, input := t.Inputs[key]; input {
 			p.add(path+".marks."+key, `"%s" is also an input`, key)
 		}
+	}
+	// A choice (house decision #170) is a rule like an offer, and shares ctx with the inputs and marks.
+	for _, key := range sortedKeys(t.Choices) {
+		if _, input := t.Inputs[key]; input {
+			p.add(path+".choices."+key, `"%s" is also an input`, key)
+		}
+		if _, mark := t.Marks[key]; mark {
+			p.add(path+".choices."+key, `"%s" is also a mark`, key)
+		}
+		needCite(t.Choices[key].Cite, path+".choices."+key)
 	}
 	p.duplicates(path+".offers", idsOf(t.Offers, func(o TestOffer) string { return o.ID }))
 	var takers []*EntityType

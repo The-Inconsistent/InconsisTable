@@ -52,6 +52,8 @@ export function seatTests({ tests, ctx, sight }: { tests: readonly TestCall[]; c
         margin: knowsNumber ? t.report.margin : null,
         shifts: knowsNumber ? t.report.shifts : null,
         flags: t.report.flags,
+        // A choice moves the number to beat (house decision #170), so it is told as the total is.
+        ...(own && c.showModifier && t.report.choices !== undefined ? { choices: t.report.choices } : {}),
       };
       return {
         actorId: t.actorId,

@@ -3523,6 +3523,33 @@ function offersCrafted(): object[] {
         },
       },
     },
+    // Choices the taker makes while reporting (house decision #170): read by the target and the offers, not the
+    // modifier or the pool; a switch reads as yes or no, a number as a whole number.
+    test({
+      target: "max(1, 3 - ctx.wrath)",
+      choices: { wrath: { label: "Wrath", max: 2 }, brace: { label: "Braced" } },
+      offers: [offer({ when: "!result.passed && !ctx.brace", changes: [{ pool: "dread", by: "1 + ctx.wrath" }] })],
+    }),
+    test({ choices: { brace: { label: "B" } } }, sumTest),
+    test({ choices: { brace: { label: "B" } } }, reportedTest(["a", "b"])),
+    test({ choices: {} }),
+    test({ choices: { brace: { label: "" } } }),
+    test({ choices: { w: { label: "W", max: 0 } } }),
+    test({ choices: { w: { label: "W", max: 21 } } }),
+    test({ choices: { w: { label: "W", max: 1.5 } } }),
+    test({ choices: Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`c${i}`, { label: "C" }])) }),
+    test({ choices: { fear: { label: "F" } } }),
+    test({ inputs: { brace: "bool" }, choices: { brace: { label: "B" } } }),
+    test({ modifier: "ctx.wrath", choices: { wrath: { label: "W", max: 2 } } }),
+    test({ pool: "ctx.wrath", choices: { wrath: { label: "W", max: 2 } } }),
+    test({ target: "ctx.brace", choices: { brace: { label: "B" } } }),
+    test({ target: "ctx.wrath ? 1 : 2", choices: { wrath: { label: "W", max: 2 } } }),
+    {
+      sources: [{ id: "s", title: "T", license: "srd" }],
+      resources: pools.map((x) => ({ ...x, cite: "p1" })),
+      initiative: undefined,
+      tests: { t: { ...poolTest, cite: "p1", choices: { a: { label: "A" }, b: { label: "B", cite: "p2" } } } },
+    },
   ];
 }
 

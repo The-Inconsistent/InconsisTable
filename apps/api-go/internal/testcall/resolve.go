@@ -67,6 +67,54 @@ func CheckInputs(test *engine.CompiledTest, inputs map[string]any) string {
 	return ""
 }
 
+// CheckChoices is the report's choices with every one the Test declares (house decision #170), a switch left out false
+// and a number left out 0, or why they don't fit: an undeclared choice, a switch that is not yes or no, a number that is
+// not whole or out of 0 to its max.
+func CheckChoices(test *engine.CompiledTest, chosen map[string]any) (map[string]any, string) {
+	for _, key := range slices.Sorted(maps.Keys(chosen)) {
+		if _, ok := test.Def.Choices[key]; !ok {
+			return nil, fmt.Sprintf(`This Test has no choice "%s"`, key)
+		}
+	}
+	out := map[string]any{}
+	for _, key := range slices.Sorted(maps.Keys(test.Def.Choices)) {
+		top := test.Def.Choices[key].Max
+		v, has := chosen[key]
+		switch {
+		case !has && top == nil:
+			v = false
+		case !has:
+			v = 0.0
+		case top == nil && !isBool(v):
+			return nil, fmt.Sprintf(`"%s" is yes or no`, key)
+		case top != nil && (!eventlog.IsWhole(v) || v.(float64) < 0 || v.(float64) > *top):
+			return nil, fmt.Sprintf(`"%s" takes a whole number from 0 to %s`, key, jsString(*top))
+		}
+		out[key] = v
+	}
+	return out, ""
+}
+
+// choicesOf is a stored report's choices as the Test reads them now: every declared one, none made when what was
+// stored no longer fits the pinned ruleset.
+func choicesOf(test *engine.CompiledTest, stored map[string]any) map[string]any {
+	if out, bad := CheckChoices(test, stored); bad == "" {
+		return out
+	}
+	out, _ := CheckChoices(test, nil)
+	return out
+}
+
+// withChoices is the call's inputs with the taker's choices, as the target and the offers read them as ctx.
+func withChoices(inputs, chosen map[string]any) map[string]any {
+	out := maps.Clone(inputs)
+	if out == nil {
+		out = map[string]any{}
+	}
+	maps.Copy(out, chosen)
+	return out
+}
+
 func isBool(v any) bool {
 	_, ok := v.(bool)
 	return ok

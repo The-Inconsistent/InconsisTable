@@ -488,6 +488,41 @@ const STATE = {
     call(U(201), { showTarget: true, secretInputs: [], showOutcome: true }),
     call(U(202), { status: "closed", revealed: true, showModifier: false }),
     call(U(203), { targets: [{ actorId: PC2, modifier: 1, target: 9, pool: null, report: report(4) }], called: 1 }),
+    // Choices made while reporting (house decision #170): told as the total is, so an own seat reads its own while the
+    // modifier is shown, never another character's, even revealed.
+    call(U(206), {
+      choices: [
+        { id: "wrath", label: "Wrath spent", max: 2 },
+        { id: "brace", label: "Braced" },
+      ],
+      revealed: true,
+      status: "closed",
+      reported: 2,
+      targets: [
+        {
+          actorId: PC1,
+          modifier: 2,
+          target: 14,
+          pool: null,
+          report: { ...report(9), choices: { wrath: 1, brace: true } },
+        },
+        {
+          actorId: PC2,
+          modifier: 1,
+          target: 15,
+          pool: null,
+          report: { ...report(5), choices: { wrath: 0, brace: false } },
+        },
+      ],
+    }),
+    call(U(207), {
+      choices: [{ id: "brace", label: "Braced" }],
+      showModifier: false,
+      targets: [
+        { actorId: PC2, modifier: 1, target: 9, pool: null, report: { ...report(6), choices: { brace: true } } },
+      ],
+      called: 1,
+    }),
     // A call made for an acquisition (house decision #102): its taker's seat reads what it asks, the table screen does not.
     call(U(205), {
       targets: [{ actorId: PC2, modifier: 0, target: 11, pool: null, report: null }],
@@ -1494,6 +1529,15 @@ for (const extra of [
   { roll: { faces: [1] } },
   { roll: { faces: [1] }, advantage: "advantage" },
   {},
+  // Choices made while reporting (house decision #170): a switch or a whole number from 0 to 20 at the boundary.
+  { roll: { faces: [1] }, choices: { wrath: 1, brace: true } },
+  { outcome: "clean", choices: {} },
+  { roll: { faces: [1] }, choices: { wrath: 21 } },
+  { roll: { faces: [1] }, choices: { wrath: -1 } },
+  { roll: { faces: [1] }, choices: { wrath: 1.5 } },
+  { roll: { faces: [1] }, choices: { wrath: "1" } },
+  { roll: { faces: [1] }, choices: [true] },
+  { roll: { faces: [1] }, choices: { ["x".repeat(65)]: true } },
 ]) {
   record("Action", { ...reportBase, ...extra });
 }

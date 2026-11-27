@@ -304,6 +304,11 @@ var testOutcomes = []schema.Field{
 		schema.Req("label", label(60)),
 		schema.Opt("cite", citeSchema),
 	)), func(v any) bool { return len(v.(map[string]any)) <= MaxMarks }, "at most 10 marks")),
+	schema.Opt("choices", schema.Refined(schema.Record(idSchema, schema.Object(
+		schema.Req("label", label(60)),
+		schema.Opt("max", schema.Int().Min(1).Max(20)),
+		schema.Opt("cite", citeSchema),
+	)), func(v any) bool { return len(v.(map[string]any)) <= MaxChoices }, "at most 5 choices")),
 	schema.Opt("offers", schema.Array(schema.Object(
 		schema.Req("id", idSchema),
 		schema.Req("label", label(60)),
@@ -326,7 +331,7 @@ func testVariant(tag string, extra ...schema.Field) schema.Variant {
 		schema.Opt("entities", actorTypesSchema),
 		schema.Opt("cite", citeSchema),
 		testWords[0], testWords[1], testWords[2],
-		testOutcomes[0], testOutcomes[1],
+		testOutcomes[0], testOutcomes[1], testOutcomes[2],
 		schema.Req("kind", schema.Literal(tag)),
 	}, extra...)
 	return schema.Variant{Tag: tag, Schema: schema.Object(fields...)}
@@ -378,7 +383,7 @@ var diceMechanicSchema = schema.Union("kind",
 		schema.Opt("entities", actorTypesSchema),
 		schema.Opt("cite", citeSchema),
 		testWords[0], testWords[1], testWords[2],
-		testOutcomes[0], testOutcomes[1],
+		testOutcomes[0], testOutcomes[1], testOutcomes[2],
 	)},
 )
 

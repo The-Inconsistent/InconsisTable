@@ -94,7 +94,7 @@ func offersOf(rules *engine.CompiledRuleset, test *engine.CompiledTest, b *actor
 	if len(test.Offers) == 0 || t.Report == nil || b == nil || b.Scope == nil {
 		return nil
 	}
-	scope := offerScope(b.Scope, inputs, t.Report, number(t.Target))
+	scope := offerScope(b.Scope, withChoices(inputs, t.Report.Choices), t.Report, number(t.Target))
 	var out []cs.TestOfferState
 	for i := range test.Offers {
 		o := &test.Offers[i]
@@ -214,7 +214,7 @@ func applyOffer(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	if err := json.Unmarshal(rawInputs, &inputs); err != nil {
 		return cs.Result{}, err
 	}
-	scope := offerScope(b.Scope, inputs, report, float64(target))
+	scope := offerScope(b.Scope, withChoices(inputs, choicesOf(test, report.Choices)), report, float64(target))
 	// The GM may have changed the report since the card offered it.
 	if !offerHolds(offer, scope) {
 		return cs.Result{}, cs.Fail("offerNotOffered")
@@ -255,12 +255,13 @@ func reportOf(ctx context.Context, conn core.Conn, callID, actorID string) (*cs.
 	var total int32
 	var outcome string
 	var flags []string
-	err := conn.QueryRow(ctx, `SELECT "natural", total, outcome, margin, shifts, flags FROM test_report
-		WHERE call_id = $1 AND actor_id = $2`, callID, actorID).Scan(&natural, &total, &outcome, &margin, &shifts, &flags)
+	var choices map[string]any
+	err := conn.QueryRow(ctx, `SELECT "natural", total, outcome, margin, shifts, flags, choices FROM test_report
+		WHERE call_id = $1 AND actor_id = $2`, callID, actorID).Scan(&natural, &total, &outcome, &margin, &shifts, &flags, &choices)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	t := int(total)
 	return &cs.TestResult{Natural: intPtr(natural), Total: &t, Outcome: &outcome, Margin: intPtr(margin),
-		Shifts: intPtr(shifts), Flags: flags}, err
+		Shifts: intPtr(shifts), Flags: flags, Choices: choices}, err
 }

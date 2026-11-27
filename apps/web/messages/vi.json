@@ -929,7 +929,10 @@
     "readHidden": "Hãy đọc mặt xúc xắc. Modifier của bạn sẽ được cộng giúp bạn.",
     "readModifier": "Hãy đọc mặt xúc xắc. {modifier} sẽ được cộng giúp bạn.",
     "lastClosed": "Test gần nhất đã đóng",
-    "gotIt": "Đã hiểu"
+    "gotIt": "Đã hiểu",
+    "choicesFor": "Lựa chọn của {who} trước khi báo",
+    "less": "Bớt {label}",
+    "more": "Thêm {label}"
   },
   "tableScreen": {
     "between": "Giữa các buổi",

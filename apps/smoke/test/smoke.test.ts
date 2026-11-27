@@ -3968,6 +3968,56 @@ test("offers: a called Test's result offers the GM its changes, applied once, un
   for (const c of [owner, ana, screen]) c.socket.close();
 });
 
+test("choices: a phone reports a choice with its dice, the server moves the number and the offers (house decision #170)", async () => {
+  const { owner, ana, hero } = await d20Room("Choices", SAMPLE_POOL, { hp: 6, tempHp: 0 });
+  ok(await owner.send({ type: "session.start" }));
+  const id = ok(
+    await owner.send({
+      type: "test.call",
+      testId: "skill",
+      actorIds: [hero],
+      inputs: { ability: "str", dn: 4, bonus: 0 },
+      hideTarget: false,
+    }),
+  ).id!;
+  const report = (choices: Record<string, unknown>) =>
+    ({
+      type: "test.report",
+      callId: id,
+      actorId: hero,
+      roll: { kind: "pool", counts: { hit: 1 }, special: [1] },
+      choices,
+    }) as ActionInput;
+  // The phone is told what it may choose.
+  const phone = await ana.until((s) => s.tests.some((c) => c.id === id));
+  assert.deepEqual(phone.tests.find((c) => c.id === id)?.choices, [{ id: "steady", label: "Luck spent", max: 1 }]);
+  // Out of bounds, undeclared, a switch for a number: refused, and nothing is reported.
+  refused(await ana.send(report({ steady: 2 })), "testProblem");
+  refused(await ana.send(report({ nope: true })), "testProblem");
+  refused(await ana.send(report({ steady: true })), "testProblem");
+  refused(await ana.send(report({ steady: 21 })), "badRequest");
+  // One Luck point spent: the number to beat is 3, so one hit fails by 2, doubled on the Omen's complication.
+  ok(await ana.send(report({ steady: 1 })));
+  const target = (s: LiveState) => s.tests.find((c) => c.id === id)?.targets.find((t) => t.actorId === hero);
+  const gm = await owner.until((s) => target(s)?.offers !== undefined);
+  assert.equal(target(gm)?.target, 3);
+  assert.deepEqual(target(gm)?.report?.choices, { steady: 1 });
+  assert.deepEqual(
+    target(gm)?.offers?.map((o) => [o.id, o.changes.map((c) => [c.label, c.by])]),
+    [
+      [
+        "strain",
+        [
+          ["Spare Vigour", 4],
+          ["Luck", 1],
+        ],
+      ],
+      ["steadied", [["Luck", -1]]],
+    ],
+  );
+  for (const c of [owner, ana]) c.socket.close();
+});
+
 test("actor.create: a typed actor needs a ruleset and one of its actor entities", async () => {
   const bare = await newRoom("TypedBare");
   refused(await bare.owner.send({ type: "actor.create", name: "Kay", entityType: "character" }), /no ruleset/);

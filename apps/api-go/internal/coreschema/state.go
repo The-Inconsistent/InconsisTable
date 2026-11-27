@@ -493,6 +493,12 @@ type (
 		ID    string `json:"id"`
 		Label string `json:"label"`
 	}
+	// ChoiceSpec is a choice the taker makes while reporting (house decision #170); Max is nil for a switch.
+	ChoiceSpec struct {
+		ID    string `json:"id"`
+		Label string `json:"label"`
+		Max   *int   `json:"max,omitempty"`
+	}
 	// TestDefInput is one input the call form asks for.
 	TestDefInput struct {
 		ID      string   `json:"id"`
@@ -545,6 +551,9 @@ type (
 		Margin  *int     `json:"margin"`
 		Shifts  *int     `json:"shifts"`
 		Flags   []string `json:"flags"`
+		// Choices is what the taker chose (house decision #170): omitted when the Test declares none or the seat may not
+		// be told the result's numbers.
+		Choices map[string]any `json:"choices,omitempty"`
 	}
 	// TestTargetState is one called character.
 	TestTargetState struct {
@@ -558,12 +567,14 @@ type (
 	}
 	// TestCall is a Test the GM called.
 	TestCall struct {
-		ID           string            `json:"id"`
-		TestID       string            `json:"testId"`
-		Dice         string            `json:"dice"`
-		Advantage    bool              `json:"advantage"`
-		Pool         *PoolSpec         `json:"pool"`
-		Outcomes     []OutcomeSpec     `json:"outcomes"`
+		ID        string        `json:"id"`
+		TestID    string        `json:"testId"`
+		Dice      string        `json:"dice"`
+		Advantage bool          `json:"advantage"`
+		Pool      *PoolSpec     `json:"pool"`
+		Outcomes  []OutcomeSpec `json:"outcomes"`
+		// Choices is what the taker may choose while reporting (house decision #170); omitted when there is none.
+		Choices      []ChoiceSpec      `json:"choices,omitempty"`
 		Status       string            `json:"status"`
 		CreatedAt    string            `json:"createdAt"`
 		Inputs       map[string]any    `json:"inputs"`

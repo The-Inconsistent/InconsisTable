@@ -61,6 +61,22 @@ func outcomesOf(t *engine.Test) []cs.OutcomeSpec {
 	return out
 }
 
+// choiceSpecsOf is what a taker may choose while reporting (house decision #170), in the manifest's order; nil when the
+// Test declares none.
+func choiceSpecsOf(t *engine.Test) []cs.ChoiceSpec {
+	var out []cs.ChoiceSpec
+	for _, id := range jsonbOrder(t.Choices) {
+		ch := t.Choices[id]
+		spec := cs.ChoiceSpec{ID: id, Label: ch.Label}
+		if ch.Max != nil {
+			top := int(*ch.Max)
+			spec.Max = &top
+		}
+		out = append(out, spec)
+	}
+	return out
+}
+
 // jsonbOrder is the order TypeScript's Object.entries reads a stored manifest's record in: Postgres jsonb keeps object
 // keys shortest first, then bytewise, and ids are never integer-like, which JavaScript would put first.
 func jsonbOrder[V any](m map[string]V) []string {
@@ -209,7 +225,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 		return nil, err
 	}
 	reports := map[string]*cs.TestResult{}
-	rows, err = conn.Query(ctx, `SELECT call_id::text, actor_id::text, "natural", total, outcome, margin, shifts, flags
+	rows, err = conn.Query(ctx, `SELECT call_id::text, actor_id::text, "natural", total, outcome, margin, shifts, flags, choices
 		FROM test_report WHERE call_id = ANY($1::uuid[])`, ids)
 	if err != nil {
 		return nil, err
@@ -219,7 +235,8 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 		var natural, margin, shifts *int32
 		var total int32
 		var flags []string
-		if err := rows.Scan(&callID, &actorID, &natural, &total, &outcome, &margin, &shifts, &flags); err != nil {
+		var choices map[string]any
+		if err := rows.Scan(&callID, &actorID, &natural, &total, &outcome, &margin, &shifts, &flags, &choices); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -229,6 +246,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 		t := int(total)
 		reports[callID+"/"+actorID] = &cs.TestResult{
 			Natural: intPtr(natural), Total: &t, Outcome: &outcome, Margin: intPtr(margin), Shifts: intPtr(shifts), Flags: flags,
+			Choices: choices,
 		}
 	}
 	rows.Close()
@@ -285,6 +303,14 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 			return nil, err
 		}
 		for i := range mine {
+			// Every choice the Test declares, on every report of it (house decision #170); none on a Test without.
+			if r := mine[i].Report; r != nil {
+				stored := r.Choices
+				r.Choices = nil
+				if len(test.Def.Choices) > 0 {
+					r.Choices = choicesOf(test, stored)
+				}
+			}
 			mine[i].Offers = offersOf(compiled, test, built[mine[i].ActorID], inputs, mine[i], applied[c.id+"/"+mine[i].ActorID])
 			// Without a GM the offers go to every seat that may call Tests (house decision #170): only where their
 			// changes read what the whole table sees, and the call shows the number to beat and the total they read.
@@ -302,7 +328,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 		}
 		out = append(out, cs.TestCall{
 			ID: c.id, TestID: c.testID, Dice: diceOf(test.Def), Advantage: test.Def.Kind == "sumVsTarget" && test.Def.Advantage,
-			Pool: poolSpecOf(test.Def), Outcomes: outcomesOf(test.Def), Status: c.status, CreatedAt: core.ISOTime(c.createdAt),
+			Pool: poolSpecOf(test.Def), Outcomes: outcomesOf(test.Def), Choices: choiceSpecsOf(test.Def), Status: c.status, CreatedAt: core.ISOTime(c.createdAt),
 			Inputs: inputs, SecretInputs: secret, ShowTarget: showTarget,
 			ShowModifier: showModifier,
 			ShowOutcome:  c.showOutcome || showTarget || isReported, Revealed: c.revealed, Called: len(mine), Reported: reported,

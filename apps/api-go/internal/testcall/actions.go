@@ -125,18 +125,12 @@ func CallTest(ctx context.Context, tx core.Conn, c cs.Ctx, testID string, inputs
 	if bad := CheckInputs(test, inputs); bad != "" {
 		return "", cs.Fail("testProblem", cs.Params{"detail": bad})
 	}
-	rows, err := actor.LoadRows(ctx, tx, cid)
+	built, err := buildAll(ctx, tx, cid, rules)
 	if err != nil {
 		return "", err
 	}
-	campaign, err := actor.LoadCampaign(ctx, tx, cid, rules)
-	if err != nil {
-		return "", err
-	}
-	built, err := actor.Build(rules, rows, campaign)
-	if err != nil {
-		return "", err
-	}
+	// The target is called with no choice made (house decision #170); a report that makes one works it out again.
+	unchosen, _ := CheckChoices(test, nil)
 	// Computed now, for each character, and kept: what the phone shows must not move under a player's hand.
 	targets := []target{}
 	for _, actorID := range actorIDs {
@@ -155,7 +149,7 @@ func CallTest(ctx context.Context, tx core.Conn, c cs.Ctx, testID string, inputs
 			// The Test names the actor types that take it (house decision #50).
 			return "", cs.Fail("testNotForType", cs.Params{"name": b.Row.Name})
 		}
-		r, problem, err := EvaluateCall(test, b.Scope, inputs)
+		r, problem, err := EvaluateCall(test, b.Scope, withChoices(inputs, unchosen))
 		if err != nil {
 			return "", err
 		}
@@ -211,6 +205,19 @@ func CallTest(ctx context.Context, tx core.Conn, c cs.Ctx, testID string, inputs
 	})
 }
 
+// buildAll is every actor of the room built against the pinned ruleset.
+func buildAll(ctx context.Context, tx core.Conn, cid string, rules *engine.CompiledRuleset) (map[string]*actor.Built, error) {
+	rows, err := actor.LoadRows(ctx, tx, cid)
+	if err != nil {
+		return nil, err
+	}
+	campaign, err := actor.LoadCampaign(ctx, tx, cid, rules)
+	if err != nil {
+		return nil, err
+	}
+	return actor.Build(rules, rows, campaign)
+}
+
 func intOrNil(n *float64) any {
 	if n == nil {
 		return nil
@@ -245,6 +252,7 @@ type reportRow struct {
 	Margin           *float64       `json:"margin"`
 	Shifts           *float64       `json:"shifts"`
 	Flags            []string       `json:"flags"`
+	Choices          map[string]any `json:"choices,omitempty"`
 }
 
 var advantageModes = []string{"none", "advantage", "disadvantage"}
@@ -304,9 +312,28 @@ func report(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 		return cs.Result{}, cs.Fail("badAdvantage", cs.Params{"advantage": a["advantage"]})
 	}
 	roll, _ := a["roll"].(map[string]any)
+	// What the taker chose (house decision #170): checked against the Test, then the number to beat worked out again
+	// with them, from the character's values now, and kept as the call's.
+	asked, _ := a["choices"].(map[string]any)
+	chosen, bad := CheckChoices(test, asked)
+	if bad != "" {
+		return cs.Result{}, cs.Fail("testProblem", cs.Params{"detail": bad})
+	}
+	if len(chosen) > 0 && !reported {
+		if targetNumber, err = rechoose(ctx, tx, c.CampaignID, open.id, actorID, rules, test, chosen); err != nil {
+			return cs.Result{}, err
+		}
+	}
 	row := reportRow{
 		Advantage: advantage, ReportedByUserID: c.UserID, ReportedByRole: c.Seat.SeatRole(), ReportedAt: time.Now(),
 		Flags: []string{},
+	}
+	var choicesJSON any
+	if len(chosen) > 0 {
+		row.Choices = chosen
+		if choicesJSON, err = json.Marshal(chosen); err != nil {
+			return cs.Result{}, err
+		}
 	}
 	params := paramsOf(rules, open.testID)
 	if reported {
@@ -357,16 +384,16 @@ func report(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 		return cs.Result{}, err
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO test_report (call_id, actor_id, advantage, faces, "natural", total, band_counts,
-			special_faces, margin, shifts, flags, outcome, reported_by_user_id, reported_by_role, reported_at)
+			special_faces, margin, shifts, flags, outcome, reported_by_user_id, reported_by_role, reported_at, choices)
 		VALUES ($1, $2, $3, $4::float8[]::integer[], $5::float8::integer, $6::float8::integer, $7, $8::float8[]::integer[],
-			$9::float8::integer, $10::float8::integer, $11, $12, $13, $14, $15)
+			$9::float8::integer, $10::float8::integer, $11, $12, $13, $14, $15, $16)
 		ON CONFLICT (call_id, actor_id) DO UPDATE SET advantage = excluded.advantage, faces = excluded.faces,
 			"natural" = excluded."natural", total = excluded.total, band_counts = excluded.band_counts,
 			special_faces = excluded.special_faces, margin = excluded.margin, shifts = excluded.shifts, flags = excluded.flags,
 			outcome = excluded.outcome, reported_by_user_id = excluded.reported_by_user_id,
-			reported_by_role = excluded.reported_by_role, reported_at = excluded.reported_at`,
+			reported_by_role = excluded.reported_by_role, reported_at = excluded.reported_at, choices = excluded.choices`,
 		open.id, actorID, row.Advantage, row.Faces, row.Natural, row.Total, bandCounts, numbers(row.SpecialFaces), row.Margin,
-		row.Shifts, row.Flags, row.Outcome, row.ReportedByUserID, row.ReportedByRole, row.ReportedAt); err != nil {
+		row.Shifts, row.Flags, row.Outcome, row.ReportedByUserID, row.ReportedByRole, row.ReportedAt, choicesJSON); err != nil {
 		return cs.Result{}, err
 	}
 	payload := map[string]any{"callId": open.id, "actorId": actorID, "replaced": had}
@@ -378,6 +405,43 @@ func report(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 		return cs.Result{}, err
 	}
 	return cs.Done(""), logEvent(ctx, tx, c, "test.report", payload)
+}
+
+// rechoose is the taker's number to beat worked out again with its choices (house decision #170), kept on the call so
+// the seats and the offers read the number the roll was resolved against.
+// ponytail: read from the character's values at report time, so a value changed since the call moves it too; keep the
+// call's scope with the call if a table ever needs the number frozen.
+func rechoose(ctx context.Context, tx core.Conn, cid, callID, actorID string, rules *engine.CompiledRuleset,
+	test *engine.CompiledTest, chosen map[string]any) (int32, error) {
+	var raw []byte
+	if err := tx.QueryRow(ctx, `SELECT inputs FROM test_call WHERE id = $1`, callID).Scan(&raw); err != nil {
+		return 0, err
+	}
+	inputs := map[string]any{}
+	if err := json.Unmarshal(raw, &inputs); err != nil {
+		return 0, err
+	}
+	built, err := buildAll(ctx, tx, cid, rules)
+	if err != nil {
+		return 0, err
+	}
+	b := built[actorID]
+	switch {
+	case b == nil:
+		return 0, cs.Fail("characterNotFound")
+	case b.Scope == nil:
+		return 0, cs.Fail("incomplete", cs.Params{"name": b.Row.Name, "detail": b.Problem})
+	}
+	r, problem, err := EvaluateCall(test, b.Scope, withChoices(inputs, chosen))
+	if err != nil {
+		return 0, err
+	}
+	if problem != "" {
+		return 0, cs.Fail("callProblem", cs.Params{"name": b.Row.Name, "detail": problem})
+	}
+	_, err = tx.Exec(ctx, `UPDATE test_call_target SET target = $3 WHERE call_id = $1 AND actor_id = $2`,
+		callID, actorID, int64(r.Target))
+	return int32(r.Target), err
 }
 
 func jsonOrNil(v map[string]any) (any, error) {

@@ -435,6 +435,19 @@ const testWords = {
 
 export const MAX_OFFERS = 10;
 export const MAX_MARKS = 10;
+export const MAX_CHOICES = 5;
+
+/**
+ * A choice the taker makes while reporting (house decision #170): a switch, or with `max` a whole number from 0 to
+ * `max` (a point spent to lower the number). Read as `ctx.<id>` by the Test's `target` and its offers, never by its
+ * modifier or pool, which the dice already rolled; false or 0 when the report leaves it out.
+ */
+export const TestChoice = z.object({
+  label: z.string().min(1).max(60),
+  max: z.int().min(1).max(20).optional(),
+  cite: Cite.optional(),
+});
+export type TestChoice = z.infer<typeof TestChoice>;
 
 /** One write an offer makes: to a shared pool, or to a resource of the taker, by an integer expression. */
 export const OfferChange = z.object({ pool: Id.optional(), resource: Id.optional(), by: ExprSource });
@@ -461,6 +474,10 @@ const testOutcomes = {
   marks: z
     .record(Id, z.object({ label: z.string().min(1).max(60), cite: Cite.optional() }))
     .refine((o) => Object.keys(o).length <= MAX_MARKS, `at most ${MAX_MARKS} marks`)
+    .optional(),
+  choices: z
+    .record(Id, TestChoice)
+    .refine((o) => Object.keys(o).length <= MAX_CHOICES, `at most ${MAX_CHOICES} choices`)
     .optional(),
   offers: z.array(TestOffer).max(MAX_OFFERS).optional(),
 };
@@ -2364,6 +2381,14 @@ function testOutcomeProblems({
   const path = `tests.${id}`;
   for (const key of Object.keys(t.marks ?? {})) {
     if (Object.hasOwn(t.inputs, key)) out.push({ path: `${path}.marks.${key}`, message: `"${key}" is also an input` });
+  }
+  // A choice (house decision #170) is a rule like an offer, and shares `ctx` with the inputs and marks.
+  for (const [key, c] of Object.entries(t.choices ?? {})) {
+    if (Object.hasOwn(t.inputs, key))
+      out.push({ path: `${path}.choices.${key}`, message: `"${key}" is also an input` });
+    if (Object.hasOwn(t.marks ?? {}, key))
+      out.push({ path: `${path}.choices.${key}`, message: `"${key}" is also a mark` });
+    needCite(c.cite, `${path}.choices.${key}`);
   }
   const offers = t.offers ?? [];
   duplicates({ ids: offers.map((o) => o.id), path: `${path}.offers`, out });

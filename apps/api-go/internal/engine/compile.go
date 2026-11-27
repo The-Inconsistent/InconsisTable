@@ -972,8 +972,17 @@ func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity)
 	for k := range t.Marks {
 		inputs[k] = boolType
 	}
+	// A choice the taker sets when reporting (house decision #170) is read by the target and the offers only.
+	taken := maps.Clone(inputs)
+	for k, ch := range t.Choices {
+		taken[k] = boolType
+		if ch.Max != nil {
+			taken[k] = intType
+		}
+	}
 	takers, actorScopes := c.actorsOf(t.Entities, entities)
 	scopes := withScope(actorScopes, "ctx", RecordType{inputs})
+	takenScopes := withScope(actorScopes, "ctx", RecordType{taken})
 	path := "tests." + id
 	// A reported Test has no numbers: the constant 0 keeps every reader of a compiled Test one shape.
 	modSource, targetSource := t.Modifier, t.Target
@@ -981,7 +990,7 @@ func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity)
 		modSource, targetSource = "0", "0"
 	}
 	modifier := c.expr(modSource, scopes, intType, path+".modifier")
-	target := c.expr(targetSource, scopes, intType, path+".target")
+	target := c.expr(targetSource, takenScopes, intType, path+".target")
 	var pool *CompiledExpr
 	if t.Kind == "poolSuccesses" {
 		pool = c.expr(t.Pool, scopes, intType, path+".pool")
@@ -994,10 +1003,10 @@ func (c *compiler) test(id string, t *Test, entities map[string]*CompiledEntity)
 	for i := range t.Offers {
 		o := &t.Offers[i]
 		at := fmt.Sprintf("%s.offers[%d]", path, i)
-		when := c.expr(o.When, []map[string]ExprType{{"ctx": RecordType{inputs}, "result": ResultScope}}, boolType, at+".when")
+		when := c.expr(o.When, []map[string]ExprType{{"ctx": RecordType{taken}, "result": ResultScope}}, boolType, at+".when")
 		compiled := CompiledOffer{Def: o, When: when}
 		for j, ch := range o.Changes {
-			by := c.expr(ch.By, withScope(scopes, "result", ResultScope), intType, fmt.Sprintf("%s.changes[%d].by", at, j))
+			by := c.expr(ch.By, withScope(takenScopes, "result", ResultScope), intType, fmt.Sprintf("%s.changes[%d].by", at, j))
 			whole = whole && by != nil
 			compiled.Changes = append(compiled.Changes, CompiledChange{ch.Pool, ch.Resource, by})
 		}

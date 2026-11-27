@@ -975,8 +975,17 @@ class Compiler {
       // A mark reads as a yes-or-no input (house decision #80).
       const marks = Object.fromEntries(Object.keys(t.marks ?? {}).map((k) => [k, "bool" as const]));
       const ctx: ExprType = { record: { ...t.inputs, ...marks } };
+      // A choice the taker sets when reporting (house decision #170) is read by the target and the offers only.
+      const choices = Object.fromEntries(
+        Object.entries(t.choices ?? {}).map(([k, c]) => [
+          k,
+          c.max === undefined ? ("bool" as const) : ("int" as const),
+        ]),
+      );
+      const taken: ExprType = { record: { ...t.inputs, ...marks, ...choices } };
       const takers = actorsOf(t.entities);
       const scopes = takers.map(({ ce }) => ({ ...ce.scope, ctx }));
+      const takenScopes = takers.map(({ ce }) => ({ ...ce.scope, ctx: taken }));
       // A reported Test has no numbers: the constant 0 keeps every reader of a compiled Test one shape.
       const modifier = this.expr({
         source: t.kind === "reported" ? "0" : t.modifier,
@@ -986,7 +995,7 @@ class Compiler {
       });
       const target = this.expr({
         source: t.kind === "reported" ? "0" : t.target,
-        scopes,
+        scopes: takenScopes,
         expect: "int",
         path: `tests.${id}.target`,
       });
@@ -1001,7 +1010,7 @@ class Compiler {
         const at = `tests.${id}.offers[${i}]`;
         const when = this.expr({
           source: o.when,
-          scopes: [{ ctx, result: RESULT_SCOPE }],
+          scopes: [{ ctx: taken, result: RESULT_SCOPE }],
           expect: "bool",
           path: `${at}.when`,
         });
@@ -1010,7 +1019,7 @@ class Compiler {
           resource: c.resource ?? null,
           by: this.expr({
             source: c.by,
-            scopes: scopes.map((x) => ({ ...x, result: RESULT_SCOPE })),
+            scopes: takenScopes.map((x) => ({ ...x, result: RESULT_SCOPE })),
             expect: "int",
             path: `${at}.changes[${j}].by`,
           }),

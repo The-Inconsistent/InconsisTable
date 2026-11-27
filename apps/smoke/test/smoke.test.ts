@@ -5712,8 +5712,17 @@ test("strikes: a typed total lands on a creature and on a swarm as the strike gi
   refused(await ana.send(sweep(1)), "strikeNotYourTurn");
   ok(await owner.send({ type: "rule.op", primitive: "initiative.seated", op: "next", input: {} }));
   ok(await owner.send({ type: "encounter.setVisibility", combatantId: ratsIn, visibility: "bar" }));
+  // A foe shown as a bar, or hidden as the ogre is, sends Ana's phone no actor (house decision #114).
+  let atBar = await owner.until((x) => x.encounter?.combatants.find((c) => c.id === ratsIn)?.visibility === "bar");
+  atBar = await ana.until((x) => x.stateVersion >= atBar.stateVersion);
+  assert.equal(actorIn(atBar, rats), undefined);
+  assert.equal(actorIn(atBar, ogre), undefined);
   refused(await ana.send(sweep(1)), "strikeTargetHidden");
   ok(await owner.send({ type: "encounter.setVisibility", combatantId: ratsIn, visibility: "full" }));
+  // Shown in full, its actor reaches the phone with what a seat that does not hold it reads, never its owner.
+  const full = await ana.until((x) => actorIn(x, rats) !== undefined);
+  assert.equal(actorIn(full, rats)?.ownerUserId, null);
+  assert.equal(actorIn(full, ogre), undefined);
   ok(await ana.send(sweep(1)));
   s = await owner.until((x) => actorIn(x, rats)?.resources.members === 3);
   assert.deepEqual(s.encounter?.log?.[0]?.strike?.outcome, "thinned");

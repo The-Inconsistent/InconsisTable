@@ -209,6 +209,16 @@ func readRoom(t *testing.T, db *pgxpool.Pool, id string, d map[string]any) *room
 			r.local[rowID] = picture
 		}
 	}
+	for _, a := range doc(r.parsed).list("actors") {
+		if picture, has := a["imageId"].(string); has {
+			var rowID string
+			if err := db.QueryRow(context.Background(), `SELECT image_id::text FROM actor WHERE campaign_id = $1 AND name = $2`,
+				id, a["name"]).Scan(&rowID); err != nil {
+				t.Fatal(err)
+			}
+			r.local[rowID] = picture
+		}
+	}
 	return r
 }
 
@@ -358,9 +368,14 @@ func (r *room) entries() {
 // actors compares each actor's kind and type, the fields, resources and conditions the document gave, and a build.
 func (r *room) actors() {
 	for _, a := range doc(r.parsed).list("actors") {
-		row := r.query(`SELECT id::text, kind, entity_type FROM actor WHERE campaign_id = $1 AND name = $2`, r.id, a["name"])[0]
+		row := r.query(`SELECT id::text, kind, entity_type, image_id IS NOT NULL, image_revealed FROM actor
+			WHERE campaign_id = $1 AND name = $2`, r.id, a["name"])[0]
 		id := row[0].(string)
 		r.equal("actor "+a["name"].(string)+" kind", a["kind"], row[1])
+		// Its picture and whether the table sees it (house decision #155).
+		_, pictured := a["imageId"]
+		r.equal("actor picture", pictured, row[3])
+		r.equal("actor picture shown", a["imageRevealed"] == true, row[4])
 		if entity, has := a["entityType"]; has {
 			r.equal("actor type", entity, row[2])
 		}
@@ -602,7 +617,7 @@ func TestADryRunLeavesNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	if answer.CampaignID != nil || answer.Name != "Harbour Watch" || answer.Counts.Entries["scene"] != 2 || answer.Counts.Actors["pc"] != 2 ||
-		answer.Counts.Pictures != 1 || answer.Counts.Sessions != 2 || answer.Counts.Clocks != 1 {
+		answer.Counts.Pictures != 3 || answer.Counts.Sessions != 2 || answer.Counts.Clocks != 1 {
 		t.Errorf("answer: %+v", answer)
 	}
 	if want := []Expect{{"ruleset", "sample-d20", "0.1.10-room", true}, {"pack", "sample-bestiary", "0.1.0", true},
@@ -611,6 +626,19 @@ func TestADryRunLeavesNothing(t *testing.T) {
 	}
 	if rows := rowsOf(t, db, owner.UserID); !empty(rows) {
 		t.Errorf("a dry run left rows: %v", rows)
+	}
+}
+
+// A character may show the picture an entry shows (house decision #155): the actor takes it first, the entry after.
+func TestACharacterAndAnEntryShareAPicture(t *testing.T) {
+	db := dbtest.Open(t)
+	v := load(t)
+	owner := library(t, db, v)
+	d := v.document(t, "d20")
+	at(d, "00000000-0000-4000-8000-000000000030", "actors", 0, "imageId")
+	answer, err := Import(context.Background(), db, owner, d, Options{DryRun: true})
+	if err != nil || answer.Counts.Pictures != 3 {
+		t.Fatalf("%+v %v", answer, err)
 	}
 }
 
@@ -663,7 +691,13 @@ func TestARefusedDocumentNamesItsPathAndLeavesNothing(t *testing.T) {
 		{"a parent not in the document", "d20", func(d map[string]any) {
 			at(d, "00000000-0000-4000-8000-000000000999", "codex", 1, "parentId")
 		}, "codex[1].parentId", "roomNoSuchEntry"},
-		{"a missing picture", "d20", func(d map[string]any) { d["images"] = []any{} }, "codex[1].imageId", "roomNoSuchPicture"},
+		{"a missing picture", "d20", func(d map[string]any) { d["images"] = []any{} }, "actors[0].imageId", "roomNoSuchPicture"},
+		{"a picture two characters share", "d20", func(d map[string]any) {
+			at(d, "00000000-0000-4000-8000-000000000031", "actors", 1, "imageId")
+		}, "actors[1].imageId", "roomPictureShared"},
+		{"a missing entry picture", "d20", func(d map[string]any) {
+			at(d, "00000000-0000-4000-8000-000000000999", "codex", 1, "imageId")
+		}, "codex[1].imageId", "roomNoSuchPicture"},
 		{"a pack not imported", "d20", func(d map[string]any) { at(d, "not-mine", "expects", "packs", 0, "slug") }, "expects.packs[0]", "roomImportFirst"},
 		{"another version", "d20", func(d map[string]any) { at(d, "9.9.9", "expects", "ruleset", "version") }, "expects.ruleset", "roomImportFirst"},
 		{"a hash that differs", "d20", func(d map[string]any) { at(d, "deadbeef", "expects", "world", "hash") }, "expects.world", "roomHashDiffers"},

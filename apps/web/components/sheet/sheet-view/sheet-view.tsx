@@ -17,6 +17,8 @@ import { SpendList } from "@/components/sheet/components/spend-ask/components/sp
 import { SpendAsk } from "@/components/sheet/components/spend-ask/spend-ask";
 import { SheetWidget } from "@/components/sheet/widgets/sheet-widget/sheet-widget";
 import type { WidgetEnv } from "@/components/sheet/widgets/types";
+import { ActorPicture } from "@/components/ui/actor-picture/actor-picture";
+import { ActorPictureField } from "@/components/ui/actor-picture-field/actor-picture-field";
 import { Cite } from "@/components/ui/cite/cite";
 import { Term, type TermEnv } from "@/components/ui/term-card/term-card";
 import { HeldListEditor } from "@/components/ui/held-list/held-list";
@@ -246,9 +248,17 @@ export function SheetView({
         })
       : null;
 
+  // Its picture (house decision #155): the GM side, or the phone holding it (a phone opens only its own sheet), runs it.
+  const room = campaignId ?? table?.campaign.id ?? null;
   return (
     <div className="stack sheet">
       <PrintSheets actors={[actor]} {...{ ruleset, characters, campaign }} />
+      {room &&
+        (gm || table ? (
+          <ActorPictureField campaignId={room} actor={actor} send={send} className="stack sheet-card sheet-picture" />
+        ) : (
+          <ActorPicture campaignId={room} actor={actor} portrait />
+        ))}
       {gm && rests.length > 0 && (
         <div className="row">
           {rests.map((b) => (

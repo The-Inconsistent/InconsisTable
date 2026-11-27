@@ -401,6 +401,10 @@ func seatState(state cs.LiveState, compiled *engine.CompiledRuleset, c cs.Ctx, s
 			out.SpawnOptions = nil
 			// The items it holds, as its saved build's lines (house decision #95).
 			out.Items = []cs.ActorItem{}
+			// Its picture, once shown to the table (house decision #155).
+			if !out.ImageRevealed {
+				out.ImageID = nil
+			}
 		}
 		if out.Items == nil {
 			out.Items = []cs.ActorItem{}

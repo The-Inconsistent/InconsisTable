@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { BuildCatalogue, BuildParams } from "@inconsistable/rules-engine";
 
@@ -29,6 +29,8 @@ export type LedgerFormProps = {
   sentNote: string;
   /** Every change at once, as the text it would be saved as: the library keeps a copy in the browser (#188). */
   onDraft?: ((text: string) => void) | undefined;
+  /** What the caller adds to the last step (a room's character picture). */
+  lastStep?: ReactNode;
 };
 
 // The ledger builder with its save bar: every change kept as the draft a moment after the last one, the draft button
@@ -47,6 +49,7 @@ export function LedgerForm({
   draftLabel,
   sentNote,
   onDraft,
+  lastStep,
 }: LedgerFormProps) {
   const t = useTranslations("ledgerBuilder.table");
   const [build, setBuild] = useState(initial);
@@ -105,6 +108,7 @@ export function LedgerForm({
         tier={tier === undefined ? undefined : (build.tier ?? tier)}
         play={play}
         step={step}
+        lastStep={lastStep}
         footer={({ ready }) => (
           <>
             {error && (

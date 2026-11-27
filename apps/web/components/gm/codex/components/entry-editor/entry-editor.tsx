@@ -14,7 +14,6 @@ import {
 } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
-import { PictureField } from "@/components/gm/codex/components/entry-editor/components/picture-field/picture-field";
 import { AddToScene } from "@/components/gm/codex/components/add-to-scene/add-to-scene";
 import {
   EntryFieldsForm,
@@ -27,9 +26,11 @@ import { PrintEntry } from "@/components/print/print-entry/print-entry";
 import { Cite } from "@/components/ui/cite/cite";
 import { EntryFields, EntryReminders } from "@/components/ui/entry-fields/entry-fields";
 import { EntryPath } from "@/components/ui/entry-path/entry-path";
+import { EntryPicture } from "@/components/ui/entry-picture/entry-picture";
 import { HandoutDoc } from "@/components/ui/handout-doc/handout-doc";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { MentionTextarea } from "@/components/ui/mention-textarea/mention-textarea";
+import { PictureField } from "@/components/ui/picture-field/picture-field";
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
 import { useRoomHandouts } from "@/components/ui/room-handouts/room-handouts";
 import type { RequestPage } from "@/hooks/use-table/use-table";
@@ -328,7 +329,15 @@ export function EntryEditor(props: EntryEditorProps) {
           )}
         </div>
       )}
-      <PictureField campaignId={campaignId} entry={entry} can={can} act={act} />
+      <PictureField
+        imageId={entry.imageId}
+        shown={entry.imageRevealed}
+        preview={<EntryPicture campaignId={campaignId} entry={entry} />}
+        uploadUrl={`/api/campaigns/${encodeURIComponent(campaignId)}/images`}
+        can={can}
+        onAttach={(imageId) => act({ type: "codex.save", id: entry.id, kind: entry.kind, imageId })}
+        onShow={(imageRevealed) => act({ type: "codex.reveal", id: entry.id, imageRevealed })}
+      />
       <PrintEntry campaignId={campaignId} entry={entry} entries={entries} ruleset={ruleset} />
       {entry.kind === "item" && can.write && ruleset?.items?.give && (
         <ItemGive entry={entry} characters={characters} act={act} />

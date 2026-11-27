@@ -40,6 +40,7 @@ func names(t *testing.T, db *pgxpool.Pool, id string) map[string]string {
 		`SELECT id::text, 'actor:' || name FROM actor WHERE campaign_id = $1`,
 		`SELECT id::text, 'entry:' || title FROM codex_entry WHERE campaign_id = $1`,
 		`SELECT image_id::text, 'picture:' || title FROM codex_entry WHERE campaign_id = $1 AND image_id IS NOT NULL`,
+		`SELECT image_id::text, 'portrait:' || name FROM actor WHERE campaign_id = $1 AND image_id IS NOT NULL`,
 		`SELECT id::text, 'session:' || number FROM session WHERE campaign_id = $1`,
 		`SELECT id::text, 'clock:' || name FROM clock WHERE campaign_id = $1`,
 		`SELECT i.id::text, 'item:' || a.name || ':' || i.ordinal FROM actor_item i JOIN actor a ON a.id = i.actor_id WHERE a.campaign_id = $1`,
@@ -171,9 +172,9 @@ func TestAnExportWithoutPictures(t *testing.T) {
 	if _, has := e["images"]; has {
 		t.Error("pictures in a document without them")
 	}
-	for _, x := range doc(e).list("codex") {
+	for _, x := range append(doc(e).list("codex"), doc(e).list("actors")...) {
 		if _, has := x["imageId"]; has {
-			t.Errorf("%v names a picture", x["title"])
+			t.Errorf("%v%v names a picture", x["title"], x["name"])
 		}
 	}
 	copied := imported(t, db, owner, e, Options{})
@@ -628,7 +629,7 @@ func TestAnExportLeavesUnservedPacksOut(t *testing.T) {
 	detachedD20 := imported(t, db, owner, v.document(t, "d20"), Options{})
 	_ = db.QueryRow(ctx, `SELECT pack_version_id::text FROM campaign_pack WHERE campaign_id = $1`, detachedD20).Scan(&pack)
 	act(t, db, owner, detachedD20, map[string]any{"type": "campaign.detachPack", "packVersionId": pack})
-	if r := report(detachedD20); r != (Report{Pictures: 1, Sources: 3}) {
+	if r := report(detachedD20); r != (Report{Pictures: 3, Sources: 3}) {
 		t.Errorf("detached d20: %+v", r)
 	}
 	e20 := exported(t, db, detachedD20, true)
@@ -654,7 +655,7 @@ func TestAnExportLeavesUnservedPacksOut(t *testing.T) {
 	t.Cleanup(func() {
 		_, _ = db.Exec(ctx, `UPDATE pack SET disabled_at = NULL WHERE owner_user_id = $1`, owner.UserID)
 	})
-	if r := report(d20); r != (Report{Pictures: 1, Packs: 1, Sources: 3}) {
+	if r := report(d20); r != (Report{Pictures: 3, Packs: 1, Sources: 3}) {
 		t.Errorf("taken down: %+v", r)
 	}
 	e := exported(t, db, d20, true)

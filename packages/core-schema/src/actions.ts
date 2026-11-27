@@ -180,6 +180,13 @@ export const Action = z.discriminatedUnion("type", [
   z.object({ type: z.literal("draft.save"), body: BuilderDraftBody }),
   z.object({ type: z.literal("draft.discard") }),
   z.object({ type: z.literal("actor.rename"), id, name: ActorName }),
+  // Its picture (house decision #155): one uploaded for it (null removes it), and whether the table sees it; either alone.
+  z.object({
+    type: z.literal("actor.picture"),
+    actorId: id,
+    imageId: id.nullable().optional(),
+    imageRevealed: z.boolean().optional(),
+  }),
   z.object({ type: z.literal("actor.delete"), id }),
 
   // Ruleset actions (docs/design.md §5.3). `rule.op` runs one op of a primitive the engine registers: the op declares
@@ -518,6 +525,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "draft.save": null, // a signed-in member's own draft; the handler checks the caller
   "draft.discard": null,
   "actor.rename": "character:edit:own",
+  "actor.picture": "character:edit:own",
   "actor.delete": "character:edit:any",
   "rule.op": null, // the op declares it (a primitive's `perm`); the ruleset pipeline checks it
   "field.set": "character:edit:own", // then the field's `editableBy`

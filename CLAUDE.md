@@ -30,7 +30,8 @@ These rules decide reviews. Breaking one blocks a merge.
    a user importing a room document as a new room they own (house decision #74), a user importing and deleting their
    own game modules (`/api/modules`) and creating a room from one (`/api/campaigns/from-module`, house decision #125),
    the admin console, a seat that may
-   write the codex uploading a picture into its room (house decision #70), a user keeping their own characters in the
+   write the codex uploading a picture into its room (house decision #70), a seat uploading a picture of a character it
+   holds (house decision #155), a user keeping their own characters in the
    character library (`/api/library`, house decision #104; one goes into a room only as an ordinary `build.save`
    draft), and a user's own sign-in, sign-out and sign-in methods (house decision #35).
 7. **Shortcuts are marked:** `// ponytail: <ceiling>, <upgrade path>`.

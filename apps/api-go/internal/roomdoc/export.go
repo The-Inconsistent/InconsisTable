@@ -148,6 +148,7 @@ type exporter struct {
 	entries    map[string]bool // the room's codex entries and actors, for a reference to be kept only when it holds
 	actors     map[string]bool
 	pictureIDs map[string]bool
+	pictures   bool // whether the document carries pictures
 	// What the actors were built with, for the pools' bounds.
 	characters float64
 	campaign   map[string]any
@@ -165,7 +166,7 @@ func exportRoom(ctx context.Context, conn core.Conn, campaignID string, pictures
 		return nil, nil, Report{}, err
 	}
 	ex := &exporter{ctx: ctx, conn: conn, id: campaignID, rules: rules, entries: map[string]bool{}, actors: map[string]bool{},
-		pictureIDs: map[string]bool{}, at: time.Now().UTC()}
+		pictureIDs: map[string]bool{}, pictures: pictures, at: time.Now().UTC()}
 	d := map[string]any{"format": cs.RoomFormat, "version": cs.RoomVersion, "exportedAt": ex.at.Format(time.RFC3339Nano)}
 	if ex.packEntries, err = pack.LoadServedEntries(ctx, conn, campaignID, pack.ServedOptions{}); err != nil {
 		return nil, nil, Report{}, err
@@ -405,6 +406,13 @@ func (ex *exporter) actorList() ([]any, error) {
 		}
 		if items := ex.items(r.Items); len(items) > 0 {
 			a["items"] = items
+		}
+		if ex.pictures && r.Actor.ImageID != nil { // house decision #155
+			a["imageId"] = *r.Actor.ImageID
+			ex.pictureIDs[*r.Actor.ImageID] = true
+			if r.Actor.ImageRevealed {
+				a["imageRevealed"] = true
+			}
 		}
 		out = append(out, a)
 	}

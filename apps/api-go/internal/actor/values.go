@@ -28,6 +28,9 @@ type Row struct {
 	EntityType  string
 	// SpawnOptions are the spawn options it was spawned with (house decision #92).
 	SpawnOptions []string
+	// ImageID is its picture and ImageRevealed whether the table sees it (house decision #155).
+	ImageID       *string
+	ImageRevealed bool
 }
 
 // FieldRow is one actor_field row.
@@ -121,14 +124,15 @@ func byActor[T any](ctx context.Context, conn core.Conn, sql, campaignID string,
 
 // LoadRows reads every actor of the campaign with its value rows. Five queries, each scoped to the campaign.
 func LoadRows(ctx context.Context, conn core.Conn, campaignID string) ([]Rows, error) {
-	rows, err := conn.Query(ctx, `SELECT id::text, kind, name, status, owner_user_id, entity_type, spawn_options FROM actor
-		WHERE campaign_id = $1 ORDER BY created_at, id`, campaignID)
+	rows, err := conn.Query(ctx, `SELECT id::text, kind, name, status, owner_user_id, entity_type, spawn_options,
+		image_id::text, image_revealed FROM actor WHERE campaign_id = $1 ORDER BY created_at, id`, campaignID)
 	if err != nil {
 		return nil, err
 	}
 	actors, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (Row, error) {
 		var a Row
-		err := r.Scan(&a.ID, &a.Kind, &a.Name, &a.Status, &a.OwnerUserID, &a.EntityType, &a.SpawnOptions)
+		err := r.Scan(&a.ID, &a.Kind, &a.Name, &a.Status, &a.OwnerUserID, &a.EntityType, &a.SpawnOptions, &a.ImageID,
+			&a.ImageRevealed)
 		return a, err
 	})
 	if err != nil {
@@ -578,6 +582,7 @@ func ToLive(b *Built) cs.Actor {
 		ID: b.Row.ID, Kind: b.Row.Kind, Name: b.Row.Name, Status: b.Row.Status, OwnerUserID: b.Row.OwnerUserID,
 		Entity: b.Entity, Fields: b.Fields, Resources: b.Resources, Derived: b.Derived,
 		Conditions: activeIDs(b.Conditions), ConditionTimers: timers, Held: held, SpawnOptions: b.Row.SpawnOptions, Items: items,
+		ImageID: b.Row.ImageID, ImageRevealed: b.Row.ImageRevealed,
 	}
 }
 

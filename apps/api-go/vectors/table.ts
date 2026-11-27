@@ -224,8 +224,9 @@ const draftOnly = (archetypeId: string) => ({
 const playOnly = { build: null, sheet: null, draft: null, xpSpent: 0, xpAtAscension: 25, packageWaived: true };
 
 const ACTORS = [
-  actor(PC1, "pc", "One", "player1", { ledger: ledger("one"), held: HELD, items: ITEMS }),
-  actor(PC2, "pc", "Two", null, { ledger: draftOnly("two") }),
+  // Pictures (house decision #155): One's held back, Two's shown to the table, the Goblin's held back.
+  actor(PC1, "pc", "One", "player1", { ledger: ledger("one"), held: HELD, items: ITEMS, imageId: U(1101) }),
+  actor(PC2, "pc", "Two", null, { ledger: draftOnly("two"), imageId: U(1102), imageRevealed: true }),
   actor(PAL, "companion", "Pal", "player1", { conditions: ["staggered"], conditionTimers: [], ledger: playOnly }),
   actor(NPC, "npc", "Keeper", null, {
     entity: "creature",
@@ -240,6 +241,7 @@ const ACTORS = [
     held: [...HELD, heldRecord("trait", "venom", "Venom")],
     resources: { hp: 4 },
     derived: { maxHp: 7 },
+    imageId: U(1103),
   }),
   actor(GHOST, "creature", "Ghost", null, { entity: "noSuchEntity" }),
 ];
@@ -1319,6 +1321,7 @@ const VALID: Record<string, Record<string, unknown>> = {
   "draft.save": { body: { actorId: ID, answers: { a: [1, 2] } } },
   "draft.discard": {},
   "actor.rename": { id: ID, name: "New" },
+  "actor.picture": { actorId: ID, imageId: ID, imageRevealed: true },
   "actor.delete": { id: ID },
   "rule.op": { primitive: "resource.capped", op: "adjust", input: { delta: -1 } },
   "field.set": { actorId: ID, field: "level", value: 3 },

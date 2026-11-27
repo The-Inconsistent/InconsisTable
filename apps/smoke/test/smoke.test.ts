@@ -1378,6 +1378,70 @@ test("pictures: uploaded, attached, shown to the table apart from the entry; a r
   ana.socket.close();
 });
 
+// House decision #155: a character's picture is its player's to upload and show; the GM side's too.
+test("a character's picture: its player uploads and shows it, another phone sees it only then (#238)", async () => {
+  const { owner, campaignId, ownerDevice } = await newRoom("Portraits");
+  const anaDevice = await seatPlayer(owner, "ana-portrait");
+  const bobDevice = await seatPlayer(owner, "bob-portrait");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  const bob = connect({ auth: { campaignId, cookie: bobDevice } });
+  const wren = (await owner.until((s) => s.actors.some((a) => a.name === "ana-portrait"))).actors.find(
+    (a) => a.name === "ana-portrait",
+  )!.id;
+  await Promise.all([
+    ana.until((s) => actorIn(s, wren) !== undefined),
+    bob.until((s) => actorIn(s, wren) !== undefined),
+  ]);
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 9]);
+  const upload = (cookie: string, actorId = wren, type = "image/jpeg") =>
+    fetch(`${API}/api/campaigns/${campaignId}/actors/${actorId}/images`, {
+      method: "POST",
+      headers: { "content-type": type, ...SAME_ORIGIN, cookie, "cf-connecting-ip": nextSocketIp() },
+      body: jpeg,
+    });
+  const picture = (cookie: string, id: string) =>
+    get(`/campaigns/${campaignId}/images/${id}`, { cookie, "cf-connecting-ip": nextSocketIp() });
+
+  assert.equal((await upload(bobDevice)).status, 403, "another player uploads nothing for Wren");
+  assert.equal((await upload(await device("stranger-portrait"))).status, 401, "a device without a seat neither");
+  const refusedUpload = await upload(anaDevice, wren, "image/webp");
+  assert.equal(((await refusedUpload.json()) as { code?: string }).code, "pictureNotPicture");
+  const res = await upload(anaDevice);
+  assert.equal(res.status, 200);
+  const id = ((await res.json()) as { id: string }).id;
+
+  refused(await bob.send({ type: "actor.picture", actorId: wren, imageId: id }), "notYourCharacter");
+  ok(await ana.send({ type: "actor.picture", actorId: wren, imageId: id }));
+  await ana.until((s) => actorIn(s, wren)?.imageId === id);
+  await owner.until((s) => actorIn(s, wren)?.imageId === id);
+  const bobSees = await bob.until(() => true);
+  assert.equal(actorIn(bobSees, wren)?.imageId, undefined, "held back: another phone has no id");
+  assert.ok(!JSON.stringify(bobSees).includes(id), "nor the id anywhere");
+  assert.equal((await picture(bobDevice, id)).status, 404);
+  assert.equal((await picture(anaDevice, id)).status, 200);
+  assert.equal((await picture(ownerDevice, id)).status, 200);
+
+  ok(await ana.send({ type: "actor.picture", actorId: wren, imageRevealed: true }));
+  await bob.until((s) => actorIn(s, wren)?.imageId === id && actorIn(s, wren)?.imageRevealed === true);
+  assert.equal((await picture(bobDevice, id)).status, 200, "shown: another phone sees it");
+  ok(await owner.send({ type: "actor.picture", actorId: wren, imageRevealed: false }));
+  await bob.until((s) => actorIn(s, wren)?.imageId === undefined);
+  assert.equal((await picture(bobDevice, id)).status, 404, "held back again by the GM");
+
+  // A creature gets one only from the GM side.
+  const gull = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Gull" })).id!;
+  assert.equal((await upload(anaDevice, gull)).status, 403);
+  assert.equal((await upload(ownerDevice, gull)).status, 200);
+
+  // A player keeps at most two pictures waiting to be attached; the GM is never held back by them.
+  assert.equal((await upload(anaDevice)).status, 200);
+  assert.equal((await upload(anaDevice)).status, 200);
+  const waiting = await upload(anaDevice);
+  assert.equal(((await waiting.json()) as { code?: string }).code, "picturesWaiting");
+  assert.equal((await upload(ownerDevice, gull)).status, 200);
+  for (const s of [owner, ana, bob]) s.socket.close();
+});
+
 test("prep: scenes under an adventure, reordered and linked; a player sees only the visible ends", async () => {
   const { owner, campaignId } = await newRoom("Prep");
   const inv = ok(await owner.send({ type: "invite.create", mode: "room" })).token!;
@@ -6868,21 +6932,21 @@ test("room document: exported by its owner, imported back as the same room, and 
   const res = await get(`/campaigns/${campaignId}/export`, headers);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-disposition"), 'attachment; filename="harbour-watch.room.json"');
-  // What it carries and leaves out (#232): its picture, nothing of a pack the room is no longer served.
+  // What it carries and leaves out (#232): its pictures, nothing of a pack the room is no longer served.
   assert.deepEqual(JSON.parse(res.headers.get("x-room-export") ?? "null"), {
-    pictures: 1,
+    pictures: 3,
     packs: 0,
     items: 0,
     sources: 0,
   });
   const exported = (await res.json()) as RoomDocumentInput;
-  assert.equal(exported.images?.length, 1);
+  assert.equal(exported.images?.length, 3, "the entry's picture and two characters' (house decision #156)");
   assert.equal(exported.codex?.length, 10);
   const bare = (await (await get(`/campaigns/${campaignId}/export?pictures=0`, headers)).json()) as RoomDocumentInput;
   assert.equal(bare.images, undefined);
   assert.ok(
-    bare.codex!.every((e) => e.imageId === undefined),
-    "no entry names a picture left out",
+    bare.codex!.every((e) => e.imageId === undefined) && bare.actors!.every((a) => a.imageId === undefined),
+    "no entry or character names a picture left out",
   );
 
   // Imported back: the same room to its GM, with the document's own ids gone.
@@ -6901,6 +6965,10 @@ test("room document: exported by its owner, imported back as the same room, and 
     ],
     "each session keeps when it was played (#232)",
   );
+  const maraCopy = s.actors.find((a) => a.name === "Mara")!;
+  assert.ok(maraCopy.imageId && maraCopy.imageRevealed, "her picture came back, shown");
+  assert.equal((await get(`/campaigns/${again.body.campaignId}/images/${maraCopy.imageId}`, headers)).status, 200);
+  assert.equal(s.journal.length, 2);
   await eventually(() => copy.codex()?.entries.length === 10, "every entry comes back");
   const entry = (title: string) => copy.codex()!.entries.find((e) => e.title === title)!;
   assert.equal(entry("Quay").parentId, entry("Harbour town").id);

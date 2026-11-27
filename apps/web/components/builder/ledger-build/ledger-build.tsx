@@ -8,6 +8,7 @@ import type { BuildCatalogue, Ruleset } from "@inconsistable/rules-engine";
 
 import { ImportFromLibrary } from "@/components/builder/import-from-library/import-from-library";
 import { LedgerForm as SharedForm, type SaveBuild } from "@/components/builder/ledger-form/ledger-form";
+import { ActorPictureField } from "@/components/ui/actor-picture-field/actor-picture-field";
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
 import type { Send } from "@/hooks/use-table/use-table";
@@ -150,6 +151,7 @@ function LedgerForm({ campaignId, ruleset, actor, me, send, campaign, catalogue,
         {...{ params, catalogue, tier, play, gm, step, save }}
         initial={seed.initial}
         onSaved={() => router.push(`/c/${campaignId}`)}
+        lastStep={<ActorPictureField campaignId={campaignId} actor={actor} send={send} className="stack" />}
         draftLabel={gm ? t("saveForLater") : t("sendToGm")}
         sentNote={gm ? t("savedForLater") : t("sentToGm")}
       />

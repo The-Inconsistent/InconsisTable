@@ -277,6 +277,28 @@ span.mention {
   border-radius: var(--radius-md);
   border: 2px solid var(--brass);
 }
+/* A character's picture (house decision #155): the sheet's portrait, cropped from the top where a face sits; a row's
+   thumbnail, the height of two lines of its text, beside the name. */
+.actor-picture {
+  display: block;
+  width: min(100%, 12rem);
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--brass);
+}
+.actor-thumb {
+  display: inline-block;
+  vertical-align: middle;
+  width: 2.4em;
+  height: 2.4em;
+  margin-inline-end: 0.5em;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 50%;
+  border: 1px solid var(--brass);
+}
 .small {
   font-size: var(--fs-small);
 }

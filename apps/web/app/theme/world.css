@@ -261,7 +261,7 @@ html:has([data-world]) {
   color: var(--brass-ink);
 }
 /* Frames and stripes that are no action and no state read the line and the second ink, never brass or wax (#235). */
-[data-world] .entry-picture {
+[data-world] :is(.entry-picture, .actor-picture, .actor-thumb) {
   border-color: var(--line);
 }
 [data-world] :is(.reminders, .lb-issue-list > li[data-kind="gm"]) {

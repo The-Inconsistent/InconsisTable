@@ -3,6 +3,8 @@ import { useTranslations } from "next-intl";
 
 import type { ActionInput, ActionResult, Actor, Member } from "@inconsistable/core-schema";
 
+import { ConfirmButton } from "@/components/ui/confirm-button/confirm-button";
+
 type SeatTabProps = {
   actor: Actor;
   /** The member holding it, if any. */
@@ -12,7 +14,8 @@ type SeatTabProps = {
   /** Shows a join link as a QR (PARTY's sheet). */
   onShow: (link: { title: string; path: string }) => void;
   onWhisper: (() => void) | null;
-  may: { invite: boolean; remove: boolean };
+  /** The seat may: invite a player, issue and revoke guest QRs (`token:issue`), remove this player. */
+  may: { invite: boolean; guest: boolean; remove: boolean };
 };
 
 // SEAT: who plays the character and how a phone takes it: a one-use INVITE for a signed-in player, a GUEST QR for a phone
@@ -41,34 +44,32 @@ export function SeatTab({ actor, member, guest, act, onShow, onWhisper, may }: S
             {t("inviteCharacter")}
           </button>
         )}
-        <button className="btn" aria-label={t("guestQrLabel", { name })} onClick={handleGuest}>
-          {t("guestQr")}
-        </button>
+        {may.guest && (
+          <button className="btn" aria-label={t("guestQrLabel", { name })} onClick={handleGuest}>
+            {t("guestQr")}
+          </button>
+        )}
         {onWhisper && (
           <button className="btn" aria-label={t("whisperLabel", { name })} onClick={onWhisper}>
             {t("whisper")}
           </button>
         )}
       </div>
-      {(guest || (member && may.remove)) && (
+      {((guest && may.guest) || (member && may.remove)) && (
         <div className="row">
-          {guest && (
-            <button
-              className="btn"
-              aria-label={t("revokeGuestLabel", { name })}
-              onClick={() => act({ type: "token.revoke", actorId: actor.id })}
-            >
-              {t("revokeGuest")}
-            </button>
+          {guest && may.guest && (
+            <ConfirmButton
+              label={t("revokeGuest")}
+              ariaLabel={t("revokeGuestLabel", { name })}
+              onConfirm={() => void act({ type: "token.revoke", actorId: actor.id })}
+            />
           )}
           {member && may.remove && (
-            <button
-              className="btn"
-              aria-label={t("removeLabel", { name: member.name })}
-              onClick={() => act({ type: "member.remove", userId: member.userId })}
-            >
-              {t("removePlayer", { name: member.name })}
-            </button>
+            <ConfirmButton
+              label={t("removePlayer", { name: member.name })}
+              ariaLabel={t("removeLabel", { name: member.name })}
+              onConfirm={() => void act({ type: "member.remove", userId: member.userId })}
+            />
           )}
         </div>
       )}

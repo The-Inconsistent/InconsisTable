@@ -24,6 +24,7 @@ import { Journal } from "@/components/gm/party/components/journal/journal";
 import { OpenInvites } from "@/components/gm/party/components/open-invites/open-invites";
 import { SafetyPanel } from "@/components/gm/party/safety-panel";
 import { PrintParty } from "@/components/print/print-party/print-party";
+import { ConfirmButton } from "@/components/ui/confirm-button/confirm-button";
 import type { Send } from "@/hooks/use-table/use-table";
 import { anchorId } from "@/lib/checklist/checklist";
 import { ascensionMembersOf, roomTier } from "@/lib/ledger/table";
@@ -216,9 +217,10 @@ export function MorePanel({ me, state, send, act, onError, ruleset, onShow, chil
           />
           {!state.session && latest && (
             <div className="row">
-              <button className="btn" onClick={() => act({ type: "session.delete", sessionId: latest.id })}>
-                {t("deleteSession", { number: latest.number })}
-              </button>
+              <ConfirmButton
+                label={t("deleteSession", { number: latest.number })}
+                onConfirm={() => void act({ type: "session.delete", sessionId: latest.id })}
+              />
             </div>
           )}
         </>

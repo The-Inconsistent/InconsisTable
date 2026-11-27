@@ -10,13 +10,17 @@ type ObjectivesProps = {
   objectives: readonly CodexEntry[];
   /** Every quest of the room, for the link an objective sits under. */
   quests: readonly CodexEntry[];
+  /** Sends an action and shows its refusal on the drawer's error line. */
   act: (a: ActionInput) => Promise<ActionResult>;
+  /** Sends an action without touching the error line (a clean-up after a refusal keeps that refusal shown). */
+  send: (a: ActionInput) => Promise<ActionResult>;
 };
 
 // OBJECTIVES (house decision #223, as Auspex's): the quests revealed to this character alone, which only its player sees
 // (the notebook's YOUR ORDERS). DONE is the quest's status, the select the quest it sits under, × takes it from this
-// character (deletes it when it was the only reader), ADD writes a quest and lists it to this character.
-export function Objectives({ actor, objectives, quests, act }: ObjectivesProps) {
+// character (seals it back to the GM's codex when it was the only reader; nothing is deleted from here), ADD writes a
+// quest and lists it to this character.
+export function Objectives({ actor, objectives, quests, act, send }: ObjectivesProps) {
   const t = useTranslations("party.objectives");
   const newId = useId();
   const [text, setText] = useState("");
@@ -29,15 +33,16 @@ export function Objectives({ actor, objectives, quests, act }: ObjectivesProps) 
   const handleLink = (e: CodexEntry) => (ev: ChangeEvent<HTMLSelectElement>) =>
     void act({ type: "codex.move", id: e.id, parentId: ev.target.value || null, position: 0 });
 
-  // ×: off this character's list; a quest no one else reads is deleted.
+  // ×: off this character's list; a quest no one else reads is sealed back to the GM's codex, where it is kept.
   const handleRemove = (e: CodexEntry) => {
     const others = e.audience.filter((id) => id !== actor.id);
     return others.length > 0
       ? act({ type: "codex.reveal", id: e.id, visibility: e.visibility, audienceMode: "listed", audience: others })
-      : act({ type: "codex.delete", id: e.id });
+      : act({ type: "codex.reveal", id: e.id, visibility: "gm", audienceMode: "all", audience: [] });
   };
 
-  // ADD: a new open quest, then listed to this character; it stays the GM's alone if the listing is refused.
+  // ADD: a new open quest, then listed to this character. When the listing is refused, the quest just made (nothing
+  // else holds it yet) is taken back, the text stays in the box and the refusal stays shown.
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
     const title = CodexTitle.safeParse(text);
@@ -52,6 +57,7 @@ export function Objectives({ actor, objectives, quests, act }: ObjectivesProps) 
       audience: [actor.id],
     });
     if (listed.ok) setText("");
+    else await send({ type: "codex.delete", id: made.id });
   };
 
   return (

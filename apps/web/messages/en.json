@@ -3517,5 +3517,10 @@
     "replaceLabel": "Replace the PDF of {title}",
     "remove": "REMOVE",
     "removeLabel": "Remove the PDF of {title}"
+  },
+  "confirmButton": {
+    "again": "{action}: tap again",
+    "againLabel": "{action}: confirm",
+    "cancel": "Cancel"
   }
 }

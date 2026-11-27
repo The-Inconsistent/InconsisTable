@@ -119,6 +119,12 @@ export function Party({ me, state, send, draftRecap, sheet, entries, autoQr = fa
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
   }, []);
 
+  // A card: its drawer, with no refusal left over from before.
+  const handleOpen = (actorId: string) => {
+    setError(null);
+    setOpenId(actorId);
+  };
+
   // MORE's panel: its open state follows the fold, so a checklist GO TO that opens it shows it too.
   const handleMoreToggle = (e: SyntheticEvent<HTMLDetailsElement>) => setMore(e.currentTarget.open);
 
@@ -137,7 +143,7 @@ export function Party({ me, state, send, draftRecap, sheet, entries, autoQr = fa
           seat={seatOf(a.id)}
           objectives={objectives}
           xp={ruleset ? (xpFiguresOf({ ruleset, actor: a })?.earned ?? null) : null}
-          onOpen={setOpenId}
+          onOpen={ruleset ? handleOpen : null}
         />
         {whispers && (
           <button
@@ -182,6 +188,7 @@ export function Party({ me, state, send, draftRecap, sheet, entries, autoQr = fa
         xp={xp ? String(xp.earned) : null}
         error={error}
         onClose={() => setOpenId(null)}
+        paused={shown !== null || whisperTo !== null}
         tabs={{
           status: (
             <StatusTab
@@ -196,7 +203,8 @@ export function Party({ me, state, send, draftRecap, sheet, entries, autoQr = fa
                 conditions: can("encounter:run"),
                 spend: can("request:resolve"),
                 call: can("test:call"),
-                objectives: can("codex:write") && can("codex:reveal"),
+                // Private orders need a GM to keep them (a sealed quest is the GM's).
+                objectives: state.campaign.tableMode === "gm" && can("codex:write") && can("codex:reveal"),
               }}
               quests={quests && entries ? { mine: objectivesOf({ entries, actorId: a.id }), all: quests } : null}
             />
@@ -239,6 +247,7 @@ export function Party({ me, state, send, draftRecap, sheet, entries, autoQr = fa
               onWhisper={whispers ? () => setWhisperTo(a.id) : null}
               may={{
                 invite: can("member:invite"),
+                guest: can("token:issue"),
                 remove:
                   member !== null &&
                   member.userId !== me.userId &&

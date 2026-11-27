@@ -121,7 +121,9 @@ export function StatusTab({ actor, ruleset, compiled, state, send, act, gm, may,
         </div>
       </section>
 
-      {quests && may.objectives && <Objectives actor={actor} objectives={quests.mine} quests={quests.all} act={act} />}
+      {quests && may.objectives && (
+        <Objectives actor={actor} objectives={quests.mine} quests={quests.all} act={act} send={send} />
+      )}
 
       {(rests.length > 0 || may.spend) && (
         <div className="row">

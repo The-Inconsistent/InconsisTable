@@ -3517,5 +3517,10 @@
     "replaceLabel": "Đổi PDF của {title}",
     "remove": "GỠ",
     "removeLabel": "Gỡ PDF của {title}"
+  },
+  "confirmButton": {
+    "again": "{action}: chạm lần nữa",
+    "againLabel": "{action}: xác nhận",
+    "cancel": "Huỷ"
   }
 }

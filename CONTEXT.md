@@ -94,13 +94,13 @@ _Avoid_: Snapshot (that is the unfiltered whole), filtered state, player view
 The read-only token seat of the TV that shows the shared view.
 _Avoid_: TV seat, display
 
-**World**:
-The setting a campaign is played in: its theme, the words it uses in place of the ruleset's, and its shared lore.
-_Avoid_: Setting (alone), universe, campaign
+**Realm**:
+The setting a module's rooms are played in: its shared lore (places, factions, NPCs) and its handout styles.
+_Avoid_: World, setting (alone), universe, campaign
 
 **Theme**:
-The look of the app (colours, type, texture); there is one base theme, and a World may bring its own.
-_Avoid_: Skin, style, World (that is the whole setting)
+The look of the app (colours, type, texture) as validated tokens; there is one base theme, and a module brings its own.
+_Avoid_: Skin, style, Realm (that is the lore)
 
 ### Written decisions
 
@@ -126,7 +126,21 @@ _Avoid_: Custom, house rules (see House rule)
 **Pack**:
 A user-imported set of entries (creatures, gear, options, a board game's expansion) for one ruleset, with a license that
 decides who may see it.
-_Avoid_: Module, sourcebook, expansion
+_Avoid_: Module (that is the whole game), sourcebook, expansion
+
+**Module**:
+One game as a user picks, owns and manages it: its ruleset, packs, realm, theme and words, released together as
+immutable versions; a campaign pins one module version.
+_Avoid_: Game, system, bundle, plugin
+
+**Gallery**:
+The cards NEW ROOM opens on: the approved, open-license modules anyone may pick, beside the user's own.
+_Avoid_: Store, marketplace, catalog
+
+**Skeleton**:
+A public module version with a theme, words and empty rule slots for a game whose rules are not openly licensed; a GM
+forks it and fills the slots from their own book into a private module. It names no game or publisher.
+_Avoid_: Template, starter, stub
 
 **Entry**:
 One item of a pack, such as a creature or a piece of gear, with its values and a short summary in the importer's own

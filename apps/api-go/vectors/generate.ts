@@ -3745,6 +3745,12 @@ function checklistCrafted(): object[] {
     list(step({ count: "sessions" }, { goto: { tab: "settings" } })),
     list(step({ count: "sessions" }, { goto: { tab: "prep", kind: "npc" } })),
     list(step({ count: "sessions" }, { goto: { tab: "codex", kind: "ship" } })),
+    // A place inside the tab (house decision #200): one of the tab's own, never another's.
+    list(step({ count: "sessions" }, { goto: { tab: "party", anchor: "session" } })),
+    list(step({ count: "sessions" }, { goto: { tab: "rules", anchor: "settings" } })),
+    list(step({ count: "sessions" }, { goto: { tab: "party", anchor: "settings" } })),
+    list(step({ count: "sessions" }, { goto: { tab: "codex", anchor: "open" } })),
+    list(step({ count: "sessions" }, { goto: { tab: "party", anchor: "nope" } })),
     list(step({ count: "sessions" }, { label: "" })),
     list(step({ count: "sessions" }, { note: "x".repeat(201) })),
     list(step({ count: "sessions" }), step({ count: "safety" }, { id: "s0" })),

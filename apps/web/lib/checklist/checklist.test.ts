@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { CodexEntry, LiveState } from "@inconsistable/core-schema";
+import { CHECKLIST_ANCHOR_IDS } from "@inconsistable/rules-engine";
 
-import { checklistRoom } from "./checklist.ts";
+import { anchorId, checklistRoom } from "./checklist.ts";
 
 // House decision #90: the checklist counts what the GM's page already holds.
 test("the room the checklist counts is the live state, the codex and the attached packs", () => {
@@ -26,4 +27,11 @@ test("the room the checklist counts is the live state, the codex and the attache
   assert.deepEqual(room.pools, [{ id: "momentum", value: 1 }]);
   assert.deepEqual(room.safety.lines, ["Fire"]);
   assert.deepEqual(room.entries, [{ kind: "scene", fields: {}, prep: null }]);
+});
+
+// House decision #200: each place GO TO lands on has an element id of its own.
+test("every checklist anchor has its own element id", () => {
+  const ids = CHECKLIST_ANCHOR_IDS.map((a) => anchorId(a));
+  assert.equal(new Set(ids).size, ids.length);
+  assert.equal(anchorId("session"), "goto-session");
 });

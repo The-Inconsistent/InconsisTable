@@ -33,6 +33,7 @@ import { DraftRecap as DraftRecapButton } from "@/components/ui/draft-recap/draf
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import type { DraftRecap, RequestPage, Send } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
+import { anchorId } from "@/lib/checklist/checklist";
 import { startingAward } from "@/lib/ledger/play";
 import { ascensionMembersOf, gmEntryOf, gmSideOf, roomTier, usesLedger, xpFiguresOf } from "@/lib/ledger/table";
 import { restsOf } from "@/lib/sheet/sheet";
@@ -275,7 +276,7 @@ export function Party({ me, state, send, draftRecap, sheet, autoQr = false }: Pa
       )}
 
       {can("session:run") && (
-        <section className="row">
+        <section className="row" id={anchorId("session")} tabIndex={-1}>
           {state.session ? (
             recap === null ? (
               <>
@@ -360,7 +361,7 @@ export function Party({ me, state, send, draftRecap, sheet, autoQr = false }: Pa
         />
       )}
 
-      <section className="stack">
+      <section className="stack" id={anchorId("invite")} tabIndex={-1}>
         <h2 className="head">{t("invite")}</h2>
         <div className="row">
           <label>
@@ -395,7 +396,7 @@ export function Party({ me, state, send, draftRecap, sheet, autoQr = false }: Pa
 
       {can("session:run") && <SafetyPanel safety={state.campaign.safety} send={send} />}
 
-      <section className="stack">
+      <section className="stack" id={anchorId("characters")} tabIndex={-1}>
         <h2 className="head">{t("characters")}</h2>
         <ul className="list">
           {state.actors
@@ -532,7 +533,7 @@ export function Party({ me, state, send, draftRecap, sheet, autoQr = false }: Pa
           </div>
         )}
         {sheet.ruleset && ledgerBuild?.ascension && ledgerBuild.xp && can("campaign:update") && (
-          <details className="stack ws-fold">
+          <details className="stack ws-fold" id={anchorId("ascension")} tabIndex={-1}>
             <summary className="head">{t("ascension", { tier })}</summary>
             <AscensionPanel
               tier={tier}

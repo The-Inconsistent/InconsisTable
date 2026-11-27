@@ -658,8 +658,9 @@ type (
 		Cite *string        `json:"cite"`
 		Done ChecklistCount `json:"done"`
 		Goto *struct {
-			Tab  string  `json:"tab"`
-			Kind *string `json:"kind"`
+			Tab    string  `json:"tab"`
+			Kind   *string `json:"kind"`
+			Anchor *string `json:"anchor"`
 		} `json:"goto"`
 		// Now is a room value the step shows, an expression over `campaign` (house decision #173).
 		Now *string `json:"now"`
@@ -1970,6 +1971,9 @@ func (r *Ruleset) semanticProblems() problems {
 		p.checklist(r, &s.Done, path+".done")
 		if s.Goto != nil && s.Goto.Kind != nil && s.Goto.Tab != "codex" {
 			p.add(path+".goto.kind", "only the codex tab takes a kind")
+		}
+		if s.Goto != nil && s.Goto.Anchor != nil && !slices.Contains(ChecklistAnchors[s.Goto.Tab], *s.Goto.Anchor) {
+			p.add(path+".goto.anchor", `the %s tab has no "%s"`, s.Goto.Tab, *s.Goto.Anchor)
 		}
 	}
 	p.duplicates("checklist", idsOf(r.Checklist, func(s ChecklistStep) string { return s.ID }))

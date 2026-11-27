@@ -945,6 +945,18 @@
     "rolledCount": "{test}: {reported}/{called} người đã đổ"
   },
   "checklist": {
+    "anchors": {
+      "session": "Buổi chơi",
+      "characters": "Nhân vật",
+      "invite": "Mời",
+      "ascension": "Ascension",
+      "safety": "Ranh giới và màn che",
+      "tableMode": "Bàn ngồi kiểu nào",
+      "settings": "Thiết lập campaign",
+      "packs": "Pack",
+      "world": "World",
+      "open": "Đang mở"
+    },
     "title": "Chuẩn bị",
     "progress": "Xong {done}/{count} bước · đánh dấu theo phòng, không lưu lại",
     "fold": "Thu gọn",

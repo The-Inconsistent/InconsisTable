@@ -945,6 +945,18 @@
     "rolledCount": "{test}: {reported} of {called} have rolled"
   },
   "checklist": {
+    "anchors": {
+      "session": "Session",
+      "characters": "Characters",
+      "invite": "Invite",
+      "ascension": "Ascension",
+      "safety": "Lines and veils",
+      "tableMode": "How the table sits",
+      "settings": "Campaign settings",
+      "packs": "Packs",
+      "world": "World",
+      "open": "Open"
+    },
     "title": "Setting up",
     "progress": "{done} of {count} steps done · ticked from the room, never stored",
     "fold": "Fold away",

@@ -4,9 +4,9 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { canInCampaign, type Me } from "@inconsistable/core-schema";
-import type { ChecklistStep, Ruleset } from "@inconsistable/rules-engine";
+import type { ChecklistAnchor, ChecklistStep, Ruleset } from "@inconsistable/rules-engine";
 
-import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
+import { GM_TABS, GOTO_FRAMES, type GmTab } from "@/components/gm/gm-app/constants";
 import { HeaderItems } from "@/components/gm/gm-app/components/header-items/header-items";
 import { CallBand } from "@/components/gm/header/call-band/call-band";
 import { CallButton } from "@/components/gm/header/call-button/call-button";
@@ -37,7 +37,7 @@ import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useBookServer } from "@/hooks/use-book-server/use-book-server";
 import { useTable } from "@/hooks/use-table/use-table";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
-import { checklistRoom } from "@/lib/checklist/checklist";
+import { anchorId, checklistRoom, revealAnchor } from "@/lib/checklist/checklist";
 import { headerItems } from "@/lib/header/header";
 import { gmAddress, parseGmAddress, type GmAddress } from "@/lib/gm-address/gm-address";
 import type { RulesTabData } from "@/lib/library/library";
@@ -130,11 +130,32 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
     openTab("codex", { entry: entryId });
   };
 
-  // A checklist step's GO TO (house decision #90): its tab, the codex listing its kind.
+  // A checklist step's GO TO (house decision #90): its tab, the codex listing its kind, the place inside it (#200).
+  const [anchor, setAnchor] = useState<ChecklistAnchor | null>(null);
   const handleGo = (goto: NonNullable<ChecklistStep["goto"]>) => {
     // A checklist step may still name the old TRACK tab: it is SCENE's FIGHT layer now.
     if (goto.tab === "track") openTab("scene", { layer: "fight" });
     else openTab(goto.tab, goto.kind ? { kind: goto.kind } : {});
+    setAnchor(goto.anchor ?? null);
+  };
+  // Syncs with the DOM: looks for the place GO TO named for a few frames while its tab draws, scrolls to it, and gives up
+  // when the tab never draws it (a place this seat's scopes leave out), so a later visit does not jump there.
+  useEffect(() => {
+    if (anchor === null) return;
+    let frame = 0;
+    let tries = 0;
+    const look = () => {
+      tries++;
+      if (revealAnchor(anchor) || tries >= GOTO_FRAMES) setAnchor(null);
+      else frame = requestAnimationFrame(look);
+    };
+    frame = requestAnimationFrame(look);
+    return () => cancelAnimationFrame(frame);
+  }, [anchor]);
+  // A tab picked by hand: no GO TO is waiting any more.
+  const handleTab = (name: GmTab) => {
+    setAnchor(null);
+    openTab(name);
   };
 
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
@@ -190,7 +211,7 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
         <TransferOffer me={me} state={state} send={send} />
         <nav className="tabs" role="tablist" aria-label={t("tabsLabel")}>
           {tabs.map((name) => (
-            <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => openTab(name)}>
+            <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => handleTab(name)}>
               {t(`tabs.${name}`)}
             </button>
           ))}
@@ -238,7 +259,9 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
                   terms={view?.ruleset ? { ruleset: view.ruleset, books, requestPage } : undefined}
                 />
               )}
-              <TableModePicker me={me} state={state} ruleset={view?.ruleset ?? null} send={send} />
+              <div id={anchorId("tableMode")} tabIndex={-1}>
+                <TableModePicker me={me} state={state} ruleset={view?.ruleset ?? null} send={send} />
+              </div>
               <Party
                 me={me}
                 state={state}

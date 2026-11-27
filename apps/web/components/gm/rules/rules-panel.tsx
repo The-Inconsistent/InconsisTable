@@ -10,6 +10,7 @@ import { CampaignSettings } from "@/components/gm/rules/campaign-settings/campai
 import { RoomExport } from "@/components/gm/rules/room-export/room-export";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import type { RulesTabData } from "@/lib/library/library";
+import { anchorId } from "@/lib/checklist/checklist";
 
 type RulesPanelProps = {
   me: Me;
@@ -109,7 +110,7 @@ export function RulesPanel({ me, send, data, state, ruleset, books, requestPage,
         )}
       </section>
 
-      <section className="stack">
+      <section className="stack" id={anchorId("world")} tabIndex={-1}>
         <h2 className="head">{t("world")}</h2>
         {world ? (
           <p>
@@ -172,7 +173,7 @@ export function RulesPanel({ me, send, data, state, ruleset, books, requestPage,
         requestPage={requestPage}
       />
 
-      <section className="stack">
+      <section className="stack" id={anchorId("packs")} tabIndex={-1}>
         <h2 className="head">{t("packs")}</h2>
         {!pinned && <p className="dim">{t("pinFirst")}</p>}
         {pinned && !canEdit && (

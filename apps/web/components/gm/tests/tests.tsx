@@ -7,6 +7,7 @@ import type { LiveState } from "@inconsistable/core-schema";
 import { CallCard } from "@/components/gm/tests/components/call-card/call-card";
 import { CallForm } from "@/components/gm/tests/components/call-form/call-form";
 import type { Send } from "@/hooks/use-table/use-table";
+import { anchorId } from "@/lib/checklist/checklist";
 
 type TestsProps = { state: LiveState; send: Send; /** A Test to preselect (PREP's Call button). */ testId?: string };
 
@@ -26,7 +27,7 @@ export function Tests({ state, send, testId }: TestsProps) {
         send={send}
         initialTestId={testId}
       />
-      <section className="stack">
+      <section className="stack" id={anchorId("open")} tabIndex={-1}>
         <h2 className="head">{t("open")}</h2>
         {open.length === 0 && <p className="dim">{t("noneOpen")}</p>}
         <div className="grid">

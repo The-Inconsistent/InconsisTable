@@ -8,6 +8,7 @@ import type { CampaignField, Ruleset } from "@inconsistable/rules-engine";
 import { TermMark, type TermEnv } from "@/components/ui/term-card/term-card";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { controlOf } from "@/lib/campaign-field/campaign-field";
+import { anchorId } from "@/lib/checklist/checklist";
 
 type Value = number | string | boolean;
 type CampaignSettingsProps = {
@@ -107,7 +108,7 @@ export function CampaignSettings({ ruleset, state, send, canEdit, books, request
   };
 
   return (
-    <section className="stack">
+    <section className="stack" id={anchorId("settings")} tabIndex={-1}>
       <h2 className="head">{t("settings")}</h2>
       <p className="small dim">{t("settingsHint")}</p>
       {fields.map(([id, field]) => (

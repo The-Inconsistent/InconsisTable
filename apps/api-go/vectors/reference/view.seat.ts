@@ -419,11 +419,15 @@ function seatState({
   const held = heldBy(ctx);
   // Fail-closed: with no ruleset to say who sees a value, none is sent.
   const views = compiled ? actorViews({ actors: state.actors, compiled, ctx }) : new Map<string, ActorView>();
+  // House decision #117: a combatant the GM shows in full reaches every seat, cut to what the seat may read.
+  const shown = new Set(
+    (state.encounter?.combatants ?? []).filter((c) => c.visibility === "full").map((c) => c.actorId),
+  );
   return {
     ...state,
     // Everyone sees the party by name and what the seat holds; the rest of the cast is for the combat side.
     actors: state.actors
-      .filter((a) => PARTY_KINDS.has(a.kind) || held.includes(a.id) || sight.combat)
+      .filter((a) => PARTY_KINDS.has(a.kind) || held.includes(a.id) || sight.combat || shown.has(a.id))
       .map(({ spawnOptions, ...a }) => {
         const v = views.get(a.id);
         const own = held.includes(a.id) || actorGmSide({ ctx, kind: a.kind });
@@ -440,7 +444,7 @@ function seatState({
           ...(v ? copyValues(v) : NO_VALUES),
           // The durations of the conditions the seat sees.
           conditionTimers: a.conditionTimers.filter((t) => v?.conditions.includes(t.id)),
-          held: seatHeld({ held: a.held ?? [], compiled, seen: v !== undefined, named: own }),
+          held: seatHeld({ held: a.held ?? [], compiled, seen: v !== undefined, named: own, fields: v?.fields ?? {} }),
         };
       }),
     session: state.session && { ...state.session, notes: sight.session ? state.session.notes : "" },
@@ -461,18 +465,22 @@ function seatState({
 /**
  * The records an actor holds as one seat receives them (house decision #88): none where the seat does not see the
  * actor's values; whole for the seat holding it and the GM side; otherwise a kind with an unseen word shows that word
- * and the effects, never the entry's name, key or cite. A kind the ruleset no longer has is left out.
+ * and the effects, never the entry's name, key or cite. A kind the ruleset no longer has is left out, and so is a record
+ * of a kind without an unseen word whose list field the seat may not read (house decision #117: a creature shown in full
+ * reaches every seat). `fields` is the actor's fields as the seat reads them.
  */
 function seatHeld({
   held,
   compiled,
   seen,
   named,
+  fields,
 }: {
   held: readonly HeldRecord[];
   compiled: CompiledRuleset | null;
   seen: boolean;
   named: boolean;
+  fields: Readonly<Record<string, unknown>>;
 }): HeldRecord[] {
   if (!seen || compiled === null) return [];
   return held.flatMap((r) => {
@@ -480,6 +488,7 @@ function seatHeld({
     if (kind === undefined) return [];
     if (kind.unseen !== undefined && !named)
       return [{ kind: r.kind, key: null, name: kind.unseen, cite: null, effects: r.effects }];
+    if (!named && !Object.hasOwn(fields, kind.field)) return [];
     return [r];
   });
 }

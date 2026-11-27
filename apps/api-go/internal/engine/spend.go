@@ -73,14 +73,20 @@ func (r *Ruleset) SpendOf(id string) *Spend {
 	return nil
 }
 
-// fightOf is ctx.fight: a fight runs, the actor is in it, the round, the actor is barred this round.
+// fightOf is spend.ts fightOf, ctx.fight: a fight runs, the actor is in it, the round, the actor is barred this round;
+// and (house decision #116) it acts now, holds an action, and in the fight a combatant of another side acts now.
 func fightOf(state *RuleState, id string) *Record {
 	t := state.Turn
 	if t == nil {
-		return &Record{map[string]any{"on": false, "in": false, "round": 0.0, "barred": false}}
+		return &Record{map[string]any{"on": false, "in": false, "round": 0.0, "barred": false,
+			"acting": false, "held": false, "foeActing": false}}
 	}
+	in := slices.Contains(t.Order, id)
+	acting := t.CurrentID != nil && *t.CurrentID == id
 	return &Record{map[string]any{
-		"on": true, "in": slices.Contains(t.Order, id), "round": t.Round, "barred": slices.Contains(t.Barred, id),
+		"on": true, "in": in, "round": t.Round, "barred": slices.Contains(t.Barred, id),
+		"acting": acting, "held": slices.Contains(t.Held, id),
+		"foeActing": in && t.CurrentID != nil && !acting && t.SideOf[*t.CurrentID] != t.SideOf[id],
 	}}
 }
 

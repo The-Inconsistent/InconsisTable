@@ -5603,6 +5603,13 @@ test("health.harm: hit down, scarred, healed, destroyed, a mob thinned and muste
     );
     assert.deepEqual(cb(v, hero).states, [{ id: "hurt", label: "Hurt" }]);
     assert.equal(cb(v, hero).hp, null);
+    // The Ogre the GM shows in full reaches the seat without its GM-only values; the swarm (a bar) and the hidden one
+    // do not (house decision #117).
+    assert.ok(actorIn(v, ogre));
+    assert.equal(actorIn(v, ogre)?.fields.hide, undefined);
+    assert.equal(actorIn(v, ogre)?.fields.gone, undefined);
+    assert.equal(actorIn(v, rats), undefined);
+    assert.equal(actorIn(v, lurker), undefined);
     // The condition the felling hit laid is `party` in the ruleset, so every seat reads it on the combatant (#67).
     assert.deepEqual(
       cb(v, hero).conditions.map((x) => x.id),

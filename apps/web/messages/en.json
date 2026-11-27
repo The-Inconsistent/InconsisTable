@@ -707,7 +707,8 @@
       "holding": "holding",
       "noTurn": "no turn this round",
       "out": "out"
-    }
+    },
+    "you": "You"
   },
   "endNotice": {
     "reached": "The game can end now"
@@ -2311,7 +2312,8 @@
     "spendDoAria": "{label} for {name}",
     "usedThisRound": "{label}: used this round",
     "openTable": "Open {title}",
-    "openTableAria": "Open the {title} table for {name}"
+    "openTableAria": "Open the {title} table for {name}",
+    "quickAria": "{label}: {input} {value}"
   },
   "clocks": {
     "title": "Clocks",
@@ -2949,5 +2951,33 @@
       "title": "Overrides",
       "hint": "Saved at once; the build is not saved with them."
     }
+  },
+  "fightTab": {
+    "noFight": "No fight right now. When the GM starts one, this tab fills in.",
+    "nowActing": "Now acting",
+    "yourTurn": "Your turn",
+    "you": "You",
+    "settingUp": "The GM is setting the scene",
+    "unseen": "Someone unseen",
+    "nobody": "Nobody yet",
+    "pick": "{side} pick who acts",
+    "complete": "Round {round} complete",
+    "upNext": "Up next: {name}",
+    "after": "{after} of {of} still to act after you",
+    "paused": "Paused",
+    "foeHidden": "No numbers on this one. Ask the GM whether a Test could tell you more."
+  },
+  "phoneStrip": {
+    "label": "{name} at a glance",
+    "chips": "Conditions and what is held up"
+  },
+  "panel": {
+    "options": "Options",
+    "showOptions": "Show the options",
+    "hideOptions": "Hide the options",
+    "readFailed": "Couldn't read the options. Check the connection and try again.",
+    "noOptions": "None of these are attached to this table.",
+    "needs": "Needs {needs}",
+    "cannotUse": "Not now"
   }
 }

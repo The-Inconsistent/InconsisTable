@@ -707,7 +707,8 @@
       "holding": "đang giữ",
       "noTurn": "không có lượt",
       "out": "ngoài trận"
-    }
+    },
+    "you": "Bạn"
   },
   "endNotice": {
     "reached": "Ván có thể kết thúc"
@@ -2311,7 +2312,8 @@
     "spendDoAria": "{label} cho {name}",
     "usedThisRound": "{label}: đã dùng trong vòng này",
     "openTable": "Mở {title}",
-    "openTableAria": "Mở bảng {title} cho {name}"
+    "openTableAria": "Mở bảng {title} cho {name}",
+    "quickAria": "{label}: {input} {value}"
   },
   "clocks": {
     "title": "Đồng hồ",
@@ -2949,5 +2951,33 @@
       "title": "Ghi đè",
       "hint": "Lưu ngay; bản dựng không được lưu cùng."
     }
+  },
+  "fightTab": {
+    "noFight": "Chưa có trận đánh. Khi GM bắt đầu, thẻ này sẽ hiện ra.",
+    "nowActing": "Đang hành động",
+    "yourTurn": "Lượt của bạn",
+    "you": "Bạn",
+    "settingUp": "GM đang dựng cảnh",
+    "unseen": "Ai đó không thấy được",
+    "nobody": "Chưa có ai",
+    "pick": "{side} chọn người hành động",
+    "complete": "Hết vòng {round}",
+    "upNext": "Kế tiếp: {name}",
+    "after": "Còn {after} trên {of} người hành động sau bạn",
+    "paused": "Tạm dừng",
+    "foeHidden": "Không có số liệu về kẻ này. Hãy hỏi GM xem một lần Thử có giúp biết thêm không."
+  },
+  "phoneStrip": {
+    "label": "{name} tóm tắt",
+    "chips": "Trạng thái và những gì đang giữ"
+  },
+  "panel": {
+    "options": "Lựa chọn",
+    "showOptions": "Xem các lựa chọn",
+    "hideOptions": "Ẩn các lựa chọn",
+    "readFailed": "Không đọc được các lựa chọn. Kiểm tra kết nối rồi thử lại.",
+    "noOptions": "Bàn này chưa gắn mục nào loại này.",
+    "needs": "Cần {needs}",
+    "cannotUse": "Chưa dùng được"
   }
 }

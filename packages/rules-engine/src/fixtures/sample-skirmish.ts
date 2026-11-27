@@ -23,9 +23,9 @@ const CREATURE_FIELDS: Record<string, FieldDef> = {
  * and a long rest refused while downed (house decision #81). Its codex is sample-d20's of 0.1.7 plus a second shape of
  * rows (house decision #89): a quest's road log the crew reads, text only, filled by hand and never picked by a scene;
  * and a setup checklist with a campaign field it reads (house decision #90).
- * Every name, number and cite is our own invention.
+ * Every name, number and cite is our own invention. This is 0.1.9, before its phone's panels and strip.
  */
-export const SAMPLE_SKIRMISH: RulesetInput = {
+export const SAMPLE_SKIRMISH_BEFORE_PANELS: RulesetInput = {
   ...SAMPLE_D20_0_1_8,
   id: "sample-skirmish",
   version: "0.1.9",
@@ -366,9 +366,114 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
   ],
 };
 
+const characterLayout = SAMPLE_SKIRMISH_BEFORE_PANELS.layout?.character ?? { sections: [] };
+
+/**
+ * sample-skirmish 0.1.10 (house decisions #114, #115), the second shape of a phone's fight: a sides order. The strip
+ * shows the warden's name and status, its vigour against its maximum, its nerve and defense. While it is barred, a
+ * panel offers to shake it off; while a foe acts, its defense and, when it holds an action, the reminder to cut in;
+ * while its status field reads dying (a field, not a health state), its saves; on its turn the moves it may make,
+ * grouped by kind, the ones its nerve cannot pay sunk with what they need, hidden while dying; and its asks.
+ */
+export const SAMPLE_SKIRMISH: RulesetInput = {
+  ...SAMPLE_SKIRMISH_BEFORE_PANELS,
+  version: "0.1.10",
+  entities: [
+    ...(SAMPLE_SKIRMISH_BEFORE_PANELS.entities ?? []),
+    {
+      id: "move",
+      label: "Move",
+      base: "ability",
+      fields: {
+        kind: {
+          type: "enum",
+          label: "Kind",
+          values: ["strike", "guard", "step"],
+          labels: { strike: "Strikes", guard: "Guards", step: "Steps" },
+          visibility: "party",
+        },
+        nerve: { type: "int", label: "Nerve", min: 0, max: 4, visibility: "party" },
+        needs: { type: "text", label: "Needs", visibility: "party" },
+      },
+    },
+  ],
+  layout: {
+    ...SAMPLE_SKIRMISH_BEFORE_PANELS.layout,
+    character: {
+      ...characterLayout,
+      phoneStrip: [
+        { widget: "strip", bind: { title: "name", values: ["healthState"] } },
+        { widget: "track", bind: { value: "res.hp", max: "derived.maxHp" } },
+        { widget: "frames", bind: { values: ["res.nerve", "derived.defense"] } },
+      ],
+      phoneTurn: [
+        { widget: "panel", variant: "ambushed" },
+        { widget: "panel", variant: "incoming" },
+        { widget: "panel", variant: "dying" },
+        { widget: "panel", variant: "moves" },
+        { widget: "spends" },
+      ],
+    },
+  },
+  panels: [
+    {
+      id: "ambushed",
+      label: "Ambushed",
+      cite: "Sample p.18",
+      entities: ["character"],
+      when: "ctx.fight.barred",
+      lines: [{ text: "Caught unready: no turn this round unless you shake it off", cite: "Sample p.18" }],
+      spends: ["shake"],
+    },
+    {
+      id: "incoming",
+      label: "Incoming",
+      cite: "Sample p.26",
+      entities: ["character"],
+      when: "ctx.fight.foeActing",
+      lines: [
+        { text: "Keep your guard up: the foe beats your defense to hit", cite: "Sample p.26" },
+        { text: "You hold an action: cut in now if you will", when: "ctx.fight.held", cite: "Sample p.17" },
+      ],
+      figures: [{ label: "Defense", expr: "derived.defense", cite: "Sample p.4" }],
+    },
+    {
+      id: "dying",
+      label: "Dying",
+      cite: "Sample p.6",
+      entities: ["character"],
+      when: 'healthState == "dying"',
+      lines: [
+        { text: "Roll a save at the start of each turn", cite: "Sample p.6" },
+        { text: "Three passed and you are stable; three failed and you are gone", cite: "Sample p.6" },
+      ],
+      figures: [
+        { label: "Saves passed", expr: "deathSaveSuccesses", cite: "Sample p.6" },
+        { label: "Saves failed", expr: "deathSaveFailures", cite: "Sample p.6" },
+      ],
+    },
+    {
+      id: "moves",
+      label: "This turn",
+      cite: "Sample p.27",
+      entities: ["character"],
+      when: 'ctx.fight.acting && healthState != "dying"',
+      options: { entry: "move", group: "kind", usable: "res.nerve >= entry.nerve", needs: "needs" },
+    },
+  ],
+};
+
+/** Moves for SAMPLE_SKIRMISH 0.1.10: the entries its `moves` panel lists (house decision #114). */
+export const SAMPLE_SKIRMISH_MOVES = [
+  { key: "lunge", name: "Lunge", body: { kind: "strike", nerve: 0 } },
+  { key: "feint", name: "Feint", body: { kind: "strike", nerve: 2, needs: "2 Nerve" } },
+  { key: "brace", name: "Brace", body: { kind: "guard", nerve: 1, needs: "1 Nerve" } },
+  { key: "sidestep", name: "Sidestep", body: { kind: "step", nerve: 0 } },
+].map(({ key, name, body }) => ({ key, type: "move", name, tags: [], cite: "Sample p.27", visibility: "party", body }));
+
 /** SAMPLE_SKIRMISH as it was at 0.1.5, before its spawn block, the fields, Spite and Peril it reads (#92) and its scene kind (#107). */
 export const SAMPLE_SKIRMISH_BEFORE_SPAWN: RulesetInput = (() => {
-  const { spawn: _spawn, layout: _layout, header: _header, ...before } = SAMPLE_SKIRMISH;
+  const { spawn: _spawn, layout: _layout, header: _header, ...before } = SAMPLE_SKIRMISH_BEFORE_PANELS;
   const { peril: _peril, ...campaignFields } = before.campaignFields ?? {};
   const { scene: _scene, ...kinds } = before.codex?.kinds ?? {};
   return {

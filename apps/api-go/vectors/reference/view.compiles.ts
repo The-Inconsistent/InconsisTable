@@ -47,10 +47,16 @@ const PARTS: readonly { at: readonly string[]; answer: Answer }[] = [
   { at: ["strikes", "*", "notes", "*"], answer: "cut" },
   // A step's `when` or a pick's `filter` cut alone would ask what the server's run check refuses (house decision #98).
   { at: ["generators", "*"], answer: "cut" },
+  // A panel narrows like a spend's part of the sheet; a line or a figure it cannot read goes alone (house decision #114).
+  { at: ["panels", "*"], answer: "narrow" },
+  { at: ["panels", "*", "lines", "*"], answer: "cut" },
+  { at: ["panels", "*", "figures", "*"], answer: "cut" },
+  { at: ["panels", "*", "options"], answer: "cut" },
 ];
 
 /** A guard: cut alone it would make its part hold always, so the part goes with it. */
-const GUARDS = new Set(["if", "when"]);
+// A panel's `opensOn` guards it as `when` does (house decision #114).
+const GUARDS = new Set(["if", "when", "opensOn"]);
 const MAX_CUTS = 200;
 
 /** The manifest as served, cut until it compiles; returned as it came when it already does. */

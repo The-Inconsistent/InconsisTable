@@ -4658,3 +4658,177 @@ textarea.mf-json {
 .call-band {
   padding: 8px 16px;
 }
+
+/* ---------- The phone's strip and Fight tab (house decisions #114, #115, #117) ---------- */
+/* The strip under the header on every tab: the character's short values, sticking to the top; once the page scrolls
+   it folds to one line of the name and the values (no chips), so the tab keeps the screen. */
+.phone-strip-mark {
+  height: 1px;
+}
+.phone-strip {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: grid;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--grain-h), linear-gradient(180deg, var(--wood-2), var(--wood-0));
+  background-size:
+    360px 120px,
+    auto;
+  color: var(--band-ink);
+  border-bottom: 2px solid var(--brass-lo);
+  box-shadow: 0 6px 12px rgb(0 0 0 / 0.45);
+}
+.phone-strip-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-name);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.phone-strip-chips {
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.phone-strip[data-folded="true"] {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding-block: 4px;
+}
+.phone-strip[data-folded="true"] .phone-strip-name {
+  font-size: 17px;
+}
+/* Folded, each value is its label then its number on one line, the values apart by a gap and a rule, wrapping. */
+.phone-strip[data-folded="true"] .value-cells {
+  gap: 2px 12px;
+}
+.phone-strip[data-folded="true"] .value-cell {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid var(--brass-lo);
+}
+.phone-strip[data-folded="true"] .value-cell:first-child {
+  padding-inline-start: 0;
+  border-inline-start: 0;
+}
+.phone-strip[data-folded="true"] .value-cell dd {
+  font-size: 17px;
+}
+.phone-strip[data-folded="true"] .phone-strip-chips {
+  display: none;
+}
+
+/* Short values: each its label over its number, side by side, wrapping; the limit after a slash, quieter. */
+.value-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+}
+.value-cell {
+  display: grid;
+  min-width: 0;
+}
+.value-cell dt {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.value-cell dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-name);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.value-max {
+  font-size: 0.75em;
+  opacity: 0.8;
+}
+
+/* NOW ACTING: the name large enough to read from across the table; the seat's own turn lit like the turn banner. */
+.fight-plate {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  color: var(--parchment-hi);
+  background: var(--grain-h), linear-gradient(180deg, var(--wood-3), var(--wood-2));
+  background-size:
+    360px 120px,
+    auto;
+  border: 2px solid var(--brass-lo);
+  border-radius: 12px;
+}
+.fight-plate[data-mine="true"] {
+  border: 3px solid var(--brass);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--candle) 30%, transparent);
+}
+.fight-plate-kicker {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brass-hi);
+}
+.fight-plate-name {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-family: var(--font-display);
+  font-size: var(--fs-banner);
+  font-weight: 700;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.combatant[data-you="true"] .name {
+  text-decoration: underline 3px var(--accent);
+  text-underline-offset: 5px;
+}
+.foe-card {
+  list-style: none;
+  padding: 0 4px 8px 18px;
+}
+
+/* A panel: the ruleset's own lines, its numbers, its asks and its options. */
+.panel-lines {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-inline-start: 1.2em;
+}
+.option-lines {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.option-line {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-inline-start: 4px solid var(--accent);
+}
+/* One the character cannot use now sinks: quieter, a dashed edge, and its needs in words (never colour alone). */
+.option-line[data-usable="false"] {
+  opacity: 0.7;
+  border-inline-start-style: dashed;
+  border-inline-start-color: var(--line);
+}
+.option-needs {
+  font-style: italic;
+}
+.spend-quick {
+  gap: 6px;
+}
+.spend-quick .btn {
+  min-width: var(--tap);
+}

@@ -55,6 +55,11 @@ var compilableParts = []struct {
 	{[]string{"strikes", "*", "notes", "*"}, cutPart},
 	// A step's `when` or a pick's `filter` cut alone would ask what the server's run check refuses (house decision #98).
 	{[]string{"generators", "*"}, cutPart},
+	// A panel narrows; a line, a figure or the options it cannot read go alone (house decision #114).
+	{[]string{"panels", "*"}, narrowPart},
+	{[]string{"panels", "*", "lines", "*"}, cutPart},
+	{[]string{"panels", "*", "figures", "*"}, cutPart},
+	{[]string{"panels", "*", "options"}, cutPart},
 }
 
 const maxCuts = 200
@@ -222,8 +227,9 @@ func answerProblem(m map[string]any, problem engine.Problem) map[string]any {
 	if len(keys) == 0 {
 		return nil
 	}
-	// The node the problem names, or the one holding the required part an earlier cut took; a guard takes its part.
-	if last, ok := keys[len(keys)-1].(string); whole && ok && (last == "if" || last == "when") {
+	// The node the problem names, or the one holding the required part an earlier cut took; a guard takes its part (a
+	// panel's opensOn is one, house decision #114).
+	if last, ok := keys[len(keys)-1].(string); whole && ok && (last == "if" || last == "when" || last == "opensOn") {
 		return cutAt(m, keys[:len(keys)-1])
 	}
 	return cutAt(m, keys)

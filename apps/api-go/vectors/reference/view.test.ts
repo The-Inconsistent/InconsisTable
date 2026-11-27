@@ -20,7 +20,7 @@ import { SAMPLE_HARM } from "../../../../packages/rules-engine/src/fixtures/samp
 import { SAMPLE_PACK } from "../../../../packages/rules-engine/src/fixtures/sample-pack.ts";
 import { SAMPLE_HARVEST } from "../../../../packages/rules-engine/src/fixtures/sample-harvest.ts";
 import { Ruleset, type RulesetInput } from "../../../../packages/rules-engine/src/manifest.ts";
-import { seatManifest, seatView, type Snapshot } from "./view.ts";
+import { ownerStrikeProblems, seatManifest, seatView, type Snapshot } from "./view.ts";
 import { CRAFTED_SEAT_CUTS, SAMPLE_RULESETS } from "./samples.ts";
 import type { PoolState } from "../../../../packages/core-schema/src/index.ts";
 
@@ -339,7 +339,9 @@ const ALL = {
 };
 // A seat that holds nothing: the party by name and what it may know of it, the shared view of the fight.
 const NOBODY = {
-  actors: ["lyra", "bran"],
+  // The Creature the GM shows in full reaches every seat, without its `gm` values (house decision #117); the `bar` one
+  // does not.
+  actors: ["lyra", "bran", "ogre"],
   lyraGmField: undefined,
   lyraOwnerField: undefined,
   lyraConditions: ["dazed"],
@@ -364,7 +366,7 @@ const NOBODY = {
 };
 // What a seat holding Lyra adds.
 const HOLDING_LYRA = {
-  actors: ["lyra", "bran"],
+  actors: ["lyra", "bran", "ogre"],
   lyraOwnerField: "dear diary",
   sum: { target: null, modifier: 3, pool: null, shifts: null, secret: [] }, // the DC stays hidden, the modifier is theirs
   pool: { target: null, modifier: null, pool: null, shifts: null, secret: [] }, // no number to work the DC out from
@@ -634,6 +636,43 @@ test("a strike, a generator and a codex kind's prefill are cut where they read w
   const secrets = served(CRAFTED_SEAT_CUTS.d20Cuts!, ctx(member("cogm", ["codex", "codex.secrets"]), "u-co"));
   assert.deepEqual(secrets.generators, []);
   assert.deepEqual(secrets.codex?.kinds.location?.from, [{ entity: "site", values: {}, children: "within" }]);
+});
+
+test("a second phone's copy carries no gm panel line or figure, and no panel guarded by a gm value (#114)", () => {
+  const rules = compileRuleset(CRAFTED_SEAT_CUTS.harmPanelCuts!);
+  assert.ok(rules.ok);
+  const gm = seatManifest({ ruleset: rules.compiled.ruleset, ctx: ctx(member("gm"), "u-gm") });
+  assert.equal(gm.panels?.length, 6);
+  const phone = seatManifest({ ruleset: rules.compiled.ruleset, ctx: ctx(member("player", [], ["bran"]), "u-bran") });
+  assert.ok(compileRuleset(phone).ok);
+  assert.deepEqual(
+    phone.panels?.map((p) => p.id),
+    ["incoming", "hit", "fallen", "stances"],
+  );
+  const incoming = phone.panels![0]!;
+  assert.deepEqual(
+    incoming.lines?.map((l) => l.text),
+    ["Say how you meet the blow before the dice land", "Resolve left: you may try again"],
+  );
+  assert.deepEqual(
+    incoming.figures?.map((f) => f.label),
+    ["Grit", "Wounds before you fall"],
+  );
+  assert.ok(!JSON.stringify(phone).includes("doom") && !JSON.stringify(phone).includes("dread"));
+  assert.deepEqual(
+    phone.layout.hero?.phoneTurn?.flatMap((r) => (typeof r === "string" ? [] : [r.variant])),
+    ["incoming", "hit", "fallen", "stances", "sweep"],
+  );
+  // The importer refuses each such panel, as it does an owner's strike (house decisions #113, #114); the samples pass.
+  assert.deepEqual(
+    ownerStrikeProblems(rules.compiled.ruleset).map((p) => p.path),
+    ["panels[0]", "panels[4]", "panels[5]"],
+  );
+  for (const sample of [SAMPLE_RULESETS.harm, SAMPLE_RULESETS.skirmish, SAMPLE_RULESETS.duel]) {
+    const c = compileRuleset(sample!);
+    assert.ok(c.ok);
+    assert.deepEqual(ownerStrikeProblems(c.compiled.ruleset), []);
+  }
 });
 
 // House decision #76: a link to another entry reaches a seat only when the seat may read the entry it names.
@@ -1487,5 +1526,54 @@ test("a held record's name, key and cite reach only the holder and the GM side",
     assert.deepEqual(heldOn(c), [{ kind: "mark", key: null, name: "Unseen", cite: null, effects }]);
     const sent = JSON.stringify(seatView({ snapshot: marked, compiled: made.compiled, ctx: c }));
     for (const secret of ["Third Eye", "third-eye", "Sample p.31"]) assert.ok(!sent.includes(secret), secret);
+  }
+});
+
+test("a creature shown in full reaches a phone and the TV without its gm traits, values or conditions (#117)", () => {
+  const made = compileRuleset({
+    ...SAMPLE_D20,
+    entities: [
+      ...(SAMPLE_D20.entities ?? []).map((e) =>
+        e.id === "creature" ? { ...e, fields: { ...e.fields, traits: { type: "list" as const, label: "Traits" } } } : e,
+      ),
+      { id: "trait", label: "Trait", base: "ability", fields: {} },
+    ],
+    held: { trait: { label: "Traits", entry: "trait", field: "traits", entities: ["creature"], cite: "S p.1" } },
+  });
+  assert.ok(made.ok);
+  const effects = [{ path: "derived.maxHp", mode: "add", value: "1", phase: "derived" }];
+  const record = { kind: "trait", key: "venom", name: "Venom", cite: "Sample p.31", effects };
+  const shown: Snapshot = {
+    ...snapshot,
+    state: {
+      ...state,
+      actors: state.actors.map((a) =>
+        a.id === "ogre"
+          ? {
+              ...a,
+              fields: { ...a.fields, traits: ["venom"] },
+              derived: { maxHp: 30 },
+              conditions: ["marked"],
+              held: [record],
+            }
+          : a,
+      ),
+    },
+  };
+  const ogreOn = (c: Ctx) =>
+    seatView({ snapshot: shown, compiled: made.compiled, ctx: c }).state.actors.find((a) => a.id === "ogre");
+  assert.deepEqual(ogreOn(ctx(member("gm"), "u-gm"))?.held, [record]);
+  for (const c of [
+    ctx(member("player", [], ["bran"]), "u-bran"),
+    ctx({ kind: "token", role: "screen", characterIds: [] }, null),
+  ]) {
+    const ogre = ogreOn(c);
+    assert.ok(ogre, "the shown Ogre is sent");
+    assert.deepEqual(ogre.held, []);
+    assert.equal(ogre.fields.traits, undefined);
+    assert.equal(ogre.fields["attr.con"], undefined);
+    assert.equal(ogre.derived.maxHp, undefined);
+    assert.ok(!ogre.conditions.includes("marked"));
+    assert.ok(!JSON.stringify(ogre).includes("Venom"));
   }
 });

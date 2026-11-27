@@ -36,6 +36,8 @@ export type WidgetSpec = {
   readonly held?: boolean;
   /** Its variant names one of the ruleset's strike kinds (house decision #99) instead of one of `variants`. */
   readonly strike?: boolean;
+  /** Its variant names one of the ruleset's panels (house decision #114) instead of one of `variants`. */
+  readonly panel?: boolean;
 };
 
 const one = (id: string, takes: SlotTakes, required: boolean, about: string): WidgetSlot => ({
@@ -169,14 +171,34 @@ export const WIDGETS = [
     slots: [],
     strike: true,
   },
+  {
+    id: "panel",
+    about:
+      "One of the ruleset's panels (house decision #114), the variant naming it: its lines, figures, asks and options, " +
+      "drawn only while it holds (its `when`, its health states, or the sheet it opens when a resource rises).",
+    variants: [],
+    slots: [],
+    panel: true,
+  },
+  {
+    id: "spends",
+    about:
+      "The asks the character may make now, each spend with its cost and inputs, and the asks waiting for the GM " +
+      "(house decisions #84, #114).",
+    variants: [],
+    slots: [],
+  },
 ] as const satisfies readonly WidgetSpec[];
 
 export type WidgetId = (typeof WIDGETS)[number]["id"];
 /** The variants of one widget; `never` for a widget with one look. */
 export type WidgetVariant<W extends WidgetId> = Extract<(typeof WIDGETS)[number], { id: W }>["variants"][number];
 
-/** The layout keys beyond the sheet's sections (ADR 0010, decision 3): each a list of rows. Drawn by later layers. */
-export const LAYOUT_TARGETS = ["phoneTurn", "trackerRow", "screen"] as const;
+/**
+ * The layout keys beyond the sheet's sections (ADR 0010, decision 3): each a list of rows. `phoneStrip` is the strip
+ * under the phone's header on every tab (house decision #115).
+ */
+export const LAYOUT_TARGETS = ["phoneTurn", "trackerRow", "screen", "phoneStrip"] as const;
 export type LayoutTarget = (typeof LAYOUT_TARGETS)[number];
 
 /** The most steps a pips row has, and pips in one step. */

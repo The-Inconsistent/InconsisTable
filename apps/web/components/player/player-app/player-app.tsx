@@ -1,9 +1,10 @@
 "use client";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { canInCampaign, type Me } from "@inconsistable/core-schema";
+import { compileRuleset } from "@inconsistable/rules-engine";
 
 import { TAB_PARAM } from "@/components/gm/gm-app/constants";
 import { PLAYER_TABS, type PlayerTab } from "@/components/player/player-app/constants";
@@ -12,6 +13,9 @@ import { RecapCard } from "@/components/ui/recap-card/recap-card";
 import { RulesReader } from "@/components/rules/rules-reader/rules-reader";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import { DoneButton } from "@/components/player/done-button/done-button";
+import { FightTab } from "@/components/player/fight-tab/fight-tab";
+import { HitSheet } from "@/components/player/hit-sheet/hit-sheet";
+import { PhoneStrip } from "@/components/player/phone-strip/phone-strip";
 import { TurnBanner } from "@/components/player/turn-banner/turn-banner";
 import { WhisperSheet } from "@/components/player/whisper-sheet/whisper-sheet";
 import { ArchivedBanner } from "@/components/ui/archived-banner/archived-banner";
@@ -25,7 +29,6 @@ import { SpendAsks } from "@/components/ui/spend-asks/spend-asks";
 import { resourceLabels, spendLabels } from "@/lib/spend-request/spend-request";
 import { GameResult } from "@/components/ui/game-result/game-result";
 import { Standings } from "@/components/ui/standings/standings";
-import { OrderView } from "@/components/ui/order-view/order-view";
 import { TestPrompt } from "@/components/player/test-prompt/test-prompt";
 import { XCardButton } from "@/components/ui/xcard/xcard-button";
 import { XCardOverlay } from "@/components/ui/xcard/xcard-overlay";
@@ -38,11 +41,12 @@ import { useSeen } from "@/hooks/use-seen/use-seen";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import { needsBuild } from "@/lib/builder/builder";
 import { playerEntryOf, usesLedger, xpToSpendOf } from "@/lib/ledger/table";
-import { heldChips } from "@/lib/held/held";
+import { layoutRows } from "@/lib/panels/panels";
 import { phoneStatusOf } from "@/lib/phone-status/phone-status";
 import { parsePlayerTab, playerAddress, settledTab } from "@/lib/player-address/player-address";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 import { seenKey } from "@/lib/seen/seen";
+import { rangeOf } from "@/lib/sheet/sheet";
 
 type PlayerAppProps = { me: Me; view: RulesView | null; quick?: boolean };
 
@@ -63,6 +67,13 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   const [error, setError] = useState<string | null>(null);
 
   const [dismissedNow, setDismissedNow] = useState<string | null>(null);
+  // The seat's manifest compiled once (house decision #101), for the strip's limits, the panels and the strike guide.
+  const seatRuleset = view?.ruleset ?? null;
+  const compiled = useMemo(() => {
+    if (seatRuleset === null) return null;
+    const c = compileRuleset(seatRuleset);
+    return c.ok ? c.compiled : null;
+  }, [seatRuleset]);
 
   // The open tab is the address (house decision #112): read from the query, written with replaceState on a tap. A tab the
   // seat may not open (run without the table to run, standings before a game) falls back to the default, replaced.
@@ -120,6 +131,16 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
   const handleTab = (next: PlayerTab) =>
     window.history.replaceState(null, "", `${pathname}?${playerAddress({ tab: next, keep: params.entries() })}`);
   const status = phoneStatusOf({ encounter: state.encounter, held, showRound: view?.ruleset?.header?.round === true });
+  const characters = state.actors.filter((a) => a.kind === "pc").length;
+  // A resource's limit for the shown character, worked out on this device from the seat's manifest.
+  const maxOf = (resource: string) =>
+    compiled && character
+      ? (rangeOf({ compiled, resource, actor: character, characters, campaign: state.campaign.fields })?.max ?? null)
+      : null;
+  const strip =
+    ruleset && character && !needsBuild(character)
+      ? layoutRows({ ruleset, entity: character.entity, target: "phoneStrip" })
+      : null;
 
   // LEAVE: give up this seat; the character stays at the table for the GM.
   const handleLeave = async () => {
@@ -151,6 +172,16 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
         </span>
       </header>
       {state.campaign.archived && <ArchivedBanner />}
+      {ruleset && character && strip && <PhoneStrip ruleset={ruleset} actor={character} rows={strip} maxOf={maxOf} />}
+      {ruleset && character && (
+        <HitSheet
+          key={character.id}
+          actor={character}
+          table={state}
+          requests={state.requests}
+          {...{ ruleset, compiled, characters, send, books, requestPage }}
+        />
+      )}
       <XCardOverlay signal={xcard} />
       <TransferOffer me={me} state={state} send={send} />
       <WhisperSheet
@@ -218,14 +249,6 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
           actors={state.actors}
           titles={Object.fromEntries(Object.entries(view?.ruleset?.tables ?? {}).map(([id, tb]) => [id, tb.title]))}
         />
-        {state.encounter && (
-          <OrderView
-            encounter={state.encounter}
-            sides={view?.ruleset?.initiative?.strategy === "sides" ? view.ruleset.initiative : undefined}
-            conditions={view?.ruleset?.conditions}
-            heldOf={(id) => heldChips({ ruleset: view?.ruleset, actor: state.actors.find((a) => a.id === id) })}
-          />
-        )}
         {!state.encounter && state.games[0] && <GameResult game={state.games[0]} held={held} />}
         {tab === "notebook" ? (
           <Notebook
@@ -238,6 +261,8 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
             ruleset={ruleset}
             known={view?.first.entries ?? []}
           />
+        ) : tab === "fight" ? (
+          <FightTab {...{ state, ruleset, compiled, character, held, characters, send, books, requestPage, maxOf }} />
         ) : tab === "standings" ? (
           <Standings games={state.games} />
         ) : tab === "rules" ? (
@@ -270,7 +295,7 @@ export function PlayerApp({ me, view, quick = false }: PlayerAppProps) {
               key={character.id}
               actor={character}
               ruleset={view.ruleset}
-              characters={state.actors.filter((a) => a.kind === "pc").length}
+              characters={characters}
               campaign={state.campaign.fields}
               gm={false}
               requests={state.requests}

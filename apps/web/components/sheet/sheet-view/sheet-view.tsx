@@ -2,7 +2,7 @@
 import { useFormatter, useTranslations } from "next-intl";
 import { Fragment, useMemo, useState } from "react";
 
-import type { ActionInput, Actor, ActorItem, BookSource, LiveState, SpendRequest } from "@inconsistable/core-schema";
+import type { Actor, ActorItem, BookSource, LiveState, SpendRequest } from "@inconsistable/core-schema";
 import { breakdownOf, campaignValues, compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { XpBox } from "@/components/builder/ledger/play/xp-box/xp-box";
@@ -18,7 +18,6 @@ import type { WidgetEnv } from "@/components/sheet/widgets/types";
 import { Cite } from "@/components/ui/cite/cite";
 import { HeldListEditor } from "@/components/ui/held-list/held-list";
 import { ResourceRow } from "@/components/ui/resource-row/resource-row";
-import { StrikeGuide } from "@/components/ui/strike-guide/strike-guide";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { heldLists } from "@/lib/held/held";
 import { boxKinds, itemEntries } from "@/lib/items/items";
@@ -52,7 +51,7 @@ type SheetViewProps = {
   /** This seat's pending spend requests (a player's phone); the GM's seat asks for nothing. */
   requests?: readonly SpendRequest[];
   /** The room's pools and fight, for the spends a player may ask for now (house decision #84); a player's phone only. */
-  table?: Pick<LiveState, "pools" | "encounter" | "campaign" | "actors">;
+  table?: Pick<LiveState, "pools" | "encounter" | "campaign">;
   send: Send;
   books: readonly BookSource[];
   requestPage: RequestPage;
@@ -60,6 +59,8 @@ type SheetViewProps = {
   builderHref?: string | null;
   /** The room, for the GM's ADD BY HAND to search its packs (house decision #95). */
   campaignId?: string | null;
+  /** Read only (a foe's card on a phone, house decision #117): no steppers, no asks, no editing, no items box. */
+  readOnly?: boolean;
 };
 
 // SHEET: one character as the ruleset's layout lays it out. Every value is the server's, already cut down to what this
@@ -77,6 +78,7 @@ export function SheetView({
   requestPage,
   builderHref = null,
   campaignId = null,
+  readOnly = false,
 }: SheetViewProps) {
   const t = useTranslations("sheet");
   const tDuration = useTranslations("duration");
@@ -114,12 +116,6 @@ export function SheetView({
     const r = await send(stepAction({ ruleset, actorId: actor.id, resource, delta }));
     setError(r.ok ? null : r.error);
   };
-  // SEND on the strike guide (house decision #113): the strike for this character, refused or not by the server.
-  const handleStrike = async (a: ActionInput) => {
-    const r = await send(a);
-    setError(r.ok ? null : r.error);
-    return r.ok;
-  };
   // TAKE OFF: an item fitted to a line of the saved build comes loose (house decision #102).
   const handleTakeOff = async (x: ActorItem) => {
     const r = await send({ type: "item.fit", itemId: x.id, to: null });
@@ -138,7 +134,7 @@ export function SheetView({
     const cite = row.cite && <Cite cite={row.cite} {...{ ruleset, books, requestPage }} />;
     if (row.kind === "resource") {
       const resets = resetsOn({ ruleset, resource: row.id });
-      const ask = !gm && canAskToSpend({ ruleset, resource: row.id });
+      const ask = !gm && !readOnly && canAskToSpend({ ruleset, resource: row.id });
       return (
         <Fragment key={`r-${row.id}`}>
           <ResourceRow
@@ -146,7 +142,7 @@ export function SheetView({
             label={row.label}
             value={actor.resources[row.id] ?? 0}
             range={range(row.id)}
-            steps={stepsOf({ ruleset, resource: row.id, gm })}
+            steps={readOnly ? { dec: false, inc: false } : stepsOf({ ruleset, resource: row.id, gm })}
             holder={actor.name}
             note={
               <span className="row small dim" style={{ gap: 6 }}>
@@ -207,6 +203,7 @@ export function SheetView({
     range,
     onOpen: setOpen,
     onError: setError,
+    readOnly,
   };
   const models = sections.flatMap((s) => s.parts.flatMap((p) => (p.kind === "widget" ? [p.model] : [])));
   const anchor = (id: string) => `sheet-${actor.id}-${id}`;
@@ -293,20 +290,6 @@ export function SheetView({
         />
       )}
       {!gm && table && <AcquireBox {...{ ruleset, compiled, actor, table, characters, requests, send }} />}
-      {/* ponytail: the guide sits on the Sheet tab until the phone's Fight tab (#215 part B) draws phoneTurn; move it there. */}
-      {!gm && table?.encounter && compiled && table.encounter.combatants.some((c) => c.actorId === actor.id) && (
-        <section className="stack sheet-card">
-          <StrikeGuide
-            attacker={actor}
-            fighting={table.encounter.combatants.flatMap((c) => table.actors.find((a) => a.id === c.actorId) ?? [])}
-            campaignId={table.campaign.id}
-            campaign={table.campaign.fields}
-            phone={{ encounter: table.encounter, tableMode: table.campaign.tableMode }}
-            run={handleStrike}
-            {...{ ruleset, compiled, characters, books, requestPage }}
-          />
-        </section>
-      )}
       {!gm && table && heldLists({ ruleset, actor }).some((l) => l.owner) && (
         <section className="stack sheet-card">
           <HeldListEditor ruleset={ruleset} actor={actor} campaignId={table.campaign.id} gm={false} send={send} />
@@ -319,7 +302,7 @@ export function SheetView({
         onTakeOff={handleTakeOff}
         {...{ ruleset, books, requestPage }}
       />
-      {actor.items !== undefined && (
+      {!readOnly && actor.items !== undefined && (
         <ItemsBox env={env} kinds={boxKinds({ ruleset, drawn: ledgerLaidOut(models) })} campaignId={campaignId} />
       )}
       {build?.xp && ledger && (

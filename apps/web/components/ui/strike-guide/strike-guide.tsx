@@ -43,6 +43,8 @@ type StrikeGuideProps = {
    * the result out for the GM to apply. Absent: the side that runs the fight, which APPLIES any strike.
    */
   phone?: { encounter: Pick<Encounter, "currentId" | "paused" | "combatants">; tableMode: TableMode };
+  /** The one strike kind a layout's `strike` row names (house decision #99); absent, every kind of the attacker's. */
+  only?: string;
 };
 
 const ENTRIES = 200;
@@ -65,10 +67,11 @@ export function StrikeGuide(props: StrikeGuideProps) {
     run,
     onTable,
     phone,
+    only,
   } = props;
   const t = useTranslations("strike");
   const tr = useRefusal();
-  const kinds = strikesFor({ ruleset, actor: attacker });
+  const kinds = strikesFor({ ruleset, actor: attacker }).filter((k) => only === undefined || k.id === only);
   const [open, setOpen] = useState(false);
   const [kindId, setKindId] = useState(kinds[0]?.id ?? "");
   const [entries, setEntries] = useState<RulesEntry[]>([]);

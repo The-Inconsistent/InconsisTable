@@ -1,6 +1,7 @@
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 
-import type { Encounter } from "@inconsistable/core-schema";
+import type { Combatant, Encounter } from "@inconsistable/core-schema";
 import type { SidesInitiative } from "@inconsistable/rules-engine";
 
 import { SideLine } from "@/components/ui/order-view/components/side-line/side-line";
@@ -21,16 +22,55 @@ type OrderViewProps = {
   conditions?: readonly { id: string; label: string }[];
   /** What each combatant holds up (house decision #91), as chips beside its conditions. */
   heldOf?: HeldOf;
+  /** A phone's own characters (actor ids), each row marked YOU (house decision #117). */
+  you?: readonly string[];
+  /** A phone's foe rows open a card under them (house decision #117): which is open, the toggle, and the card. */
+  foes?: { open: string | null; onToggle: (combatantId: string) => void; card: (c: Combatant) => ReactNode };
 };
 
 // The turn order as a seat that doesn't run the fight sees it (the table screen, a phone): who acts, in order, with the
 // health the seat was sent. The acting row is marked by an edge and by the word ACTING, not by colour alone.
 // A sides fight (its snapshot carries `begun`) is grouped by side, each row marked with its turn.
-export function OrderView({ encounter, sides, conditions = [], heldOf }: OrderViewProps) {
+export function OrderView({ encounter, sides, conditions = [], heldOf, you = [], foes }: OrderViewProps) {
   const t = useTranslations("orderView");
   const tState = useTranslations("combatState");
   const phase = phaseOf(encounter);
   const sided = encounter.begun !== undefined;
+  const mySides = new Set(encounter.combatants.filter((c) => you.includes(c.actorId)).map((c) => c.side));
+  // A phone's foe: a row of another side than its characters', or any row it does not hold when none of them fights.
+  const isFoe = (c: Combatant) =>
+    foes !== undefined && !you.includes(c.actorId) && (mySides.size === 0 || !mySides.has(c.side));
+
+  // The row's name: a foe's opens its card, anyone else's is a plain label.
+  const who = (c: Combatant, rest: ReactNode) =>
+    isFoe(c) ? (
+      <button
+        className="who"
+        aria-expanded={foes?.open === c.id}
+        onClick={() => foes?.onToggle(c.id)}
+        style={{ textAlign: "start" }}
+      >
+        <span className="name">{c.name}</span>
+        {rest}
+      </button>
+    ) : (
+      <span className="who" style={{ cursor: "default" }}>
+        <span className="name">{c.name}</span>
+        {you.includes(c.actorId) && (
+          <span className="chip" data-you="true">
+            {t("you")}
+          </span>
+        )}
+        {rest}
+      </span>
+    );
+  const card = (c: Combatant) =>
+    isFoe(c) && foes?.open === c.id ? (
+      <li key={`${c.id}-card`} className="foe-card">
+        {foes.card(c)}
+      </li>
+    ) : null;
+
   return (
     <section className="stack order-view" aria-label={t("label")}>
       <h2 className="title">
@@ -44,8 +84,9 @@ export function OrderView({ encounter, sides, conditions = [], heldOf }: OrderVi
       </h2>
       <EndNotice encounter={encounter} />
       {sided && <SideLine encounter={encounter} sides={sides} />}
-      {/* A ranked or seated order has no side line: say here that a hidden combatant holds the turn (#68). */}
-      {!sided && encounter.unseen && (
+      {/* A ranked or seated order has no side line: say here that a hidden combatant holds the turn (#68). The phone's
+          Fight tab (with `foes`) says it on its plate already. */}
+      {!sided && encounter.unseen && foes === undefined && (
         <p className="side-line" role="status">
           {t("lineUnseen")}
         </p>
@@ -55,44 +96,50 @@ export function OrderView({ encounter, sides, conditions = [], heldOf }: OrderVi
           <section key={g.id} className="stack" aria-label={g.label}>
             <h3 className="head">{g.label}</h3>
             <ol className="order seat-strip">
-              {g.combatants.map((c) => (
-                <li key={c.id} className="combatant" data-acting={c.id === encounter.currentId}>
-                  <span className="who" style={{ cursor: "default" }}>
-                    <span className="name">{c.name}</span>
-                    <HealthBar combatant={c} conditions={conditions} held={heldOf?.(c.actorId)} />
-                  </span>
+              {g.combatants.flatMap((c) => [
+                <li
+                  key={c.id}
+                  className="combatant"
+                  data-acting={c.id === encounter.currentId}
+                  data-you={you.includes(c.actorId) || undefined}
+                >
+                  {who(c, <HealthBar combatant={c} conditions={conditions} held={heldOf?.(c.actorId)} />)}
                   <TurnMark mark={markOf({ encounter, combatant: c, sides })} />
-                </li>
-              ))}
+                </li>,
+                card(c),
+              ])}
             </ol>
           </section>
         ))
       ) : (
         <ol className="order seat-strip">
-          {encounter.combatants.map((c) => {
+          {encounter.combatants.flatMap((c) => {
             const acting = c.id === encounter.currentId;
             const first = c.id === encounter.firstId;
             const done = phase?.mode === "simultaneous" && encounter.done.includes(c.id);
             const word = stateKey({ current: acting, healthState: undefined });
-            return (
-              <li key={c.id} className="combatant" data-acting={acting}>
-                <span className="who" style={{ cursor: "default" }}>
-                  <span className="name">{c.name}</span>
-                  {first && (
-                    <span className="chip" data-first="true">
-                      {t("first")}
-                    </span>
-                  )}
-                  <HealthBar combatant={c} conditions={conditions} held={heldOf?.(c.actorId)} />
-                </span>
+            return [
+              <li key={c.id} className="combatant" data-acting={acting} data-you={you.includes(c.actorId) || undefined}>
+                {who(
+                  c,
+                  <>
+                    {first && (
+                      <span className="chip" data-first="true">
+                        {t("first")}
+                      </span>
+                    )}
+                    <HealthBar combatant={c} conditions={conditions} held={heldOf?.(c.actorId)} />
+                  </>,
+                )}
                 {done && <span className="chip">{t("done")}</span>}
                 {word && (
                   <span className="state-word" data-state={word}>
                     {tState(word)}
                   </span>
                 )}
-              </li>
-            );
+              </li>,
+              card(c),
+            ];
           })}
         </ol>
       )}

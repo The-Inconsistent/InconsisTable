@@ -244,6 +244,63 @@
     "nameRequired": "Give the room a name",
     "failed": "Couldn't start the game"
   },
+  "newCampaign": {
+    "title": "New campaign",
+    "lede": "A few steps, one room at the end. Leave at any step and nothing is made.",
+    "cancel": "Cancel",
+    "stepsLabel": "Steps",
+    "stepTab": "{n}. {step}",
+    "steps": {
+      "game": "Game",
+      "campaign": "Campaign",
+      "premise": "Premise",
+      "table": "Table",
+      "name": "Name"
+    },
+    "hints": {
+      "game": "Pick the game, and the packs this campaign uses.",
+      "campaign": "The values the game keeps for the whole campaign. Change them later in Rules.",
+      "premise": "What the campaign is about. The party reads it; a hidden field stays with you.",
+      "table": "How the table sits, and what it leaves out. Everyone agrees, nobody has to say why.",
+      "name": "Check the name, then create."
+    },
+    "packs": "Packs",
+    "packsHint": "Tick the ones this campaign uses. The builder offers what they hold.",
+    "fromModule": "Comes with the game",
+    "premiseTitle": "Title",
+    "premiseLater": "A printed premise can be picked right after, on the first steps of the room.",
+    "limitsHint": "One per line, up to {items}, each up to {chars} characters.",
+    "examples": "Suggested",
+    "name": "Name",
+    "back": "Back",
+    "next": "Next",
+    "create": "Create",
+    "creating": "Creating…",
+    "pickGame": "Pick a game first",
+    "freeformFailed": "Couldn't add Freeform to your library",
+    "failed": "Couldn't create the campaign",
+    "problems": {
+      "game": "One of the packs or the game can't be used as it is.",
+      "campaign": "A campaign value is not one this game allows.",
+      "premise": "A premise field is too long or not one this game allows.",
+      "table": "Each line or veil is at most 80 characters, and a list holds at most 30.",
+      "name": "Give the campaign a name, up to 100 characters.",
+      "other": "Something in the campaign can't be saved as it is."
+    }
+  },
+  "firstRun": {
+    "title": "First steps",
+    "progress": "Step {n} of {count}",
+    "skipAll": "Skip to the table",
+    "nothing": "This game lists no setup steps. The table is ready.",
+    "generate": "Run {name}",
+    "openThere": "Open {place}",
+    "back": "Back",
+    "skip": "Skip",
+    "next": "Next",
+    "toTable": "To the table",
+    "value": "Set to {value}"
+  },
   "lobby": {
     "quickGame": "Quick game",
     "sits": "How the table sits",

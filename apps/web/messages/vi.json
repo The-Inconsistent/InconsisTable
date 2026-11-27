@@ -222,7 +222,7 @@
     "solo": "một mình"
   },
   "chooseGame": {
-    "title": "Chọn game",
+    "title": "Chọn trò chơi",
     "playersLabel": "Số người ở bàn",
     "players": "{count} người",
     "anyPlayers": "Bao nhiêu cũng được",
@@ -243,6 +243,63 @@
     "creating": "Đang bắt đầu…",
     "nameRequired": "Đặt tên cho phòng",
     "failed": "Không bắt đầu được game"
+  },
+  "newCampaign": {
+    "title": "Chiến dịch mới",
+    "lede": "Vài bước, cuối cùng là một phòng. Rời đi ở bước nào cũng không tạo gì cả.",
+    "cancel": "Huỷ",
+    "stepsLabel": "Các bước",
+    "stepTab": "{n}. {step}",
+    "steps": {
+      "game": "Trò chơi",
+      "campaign": "Chiến dịch",
+      "premise": "Tiền đề",
+      "table": "Bàn chơi",
+      "name": "Tên"
+    },
+    "hints": {
+      "game": "Chọn trò chơi, và các gói chiến dịch này dùng.",
+      "campaign": "Các giá trị trò chơi giữ cho cả chiến dịch. Đổi sau trong Luật.",
+      "premise": "Chiến dịch nói về điều gì. Cả nhóm đọc được; trường ẩn chỉ bạn thấy.",
+      "table": "Bàn ngồi thế nào, và những gì bàn bỏ qua. Mọi người đồng ý, không ai phải giải thích.",
+      "name": "Xem lại tên, rồi tạo."
+    },
+    "packs": "Gói",
+    "packsHint": "Đánh dấu những gói chiến dịch này dùng. Trình tạo nhân vật sẽ đưa ra nội dung của chúng.",
+    "fromModule": "Đi kèm trò chơi",
+    "premiseTitle": "Tiêu đề",
+    "premiseLater": "Có thể chọn một tiền đề in sẵn ngay sau đó, ở các bước đầu của phòng.",
+    "limitsHint": "Mỗi dòng một mục, tối đa {items} mục, mỗi mục tối đa {chars} ký tự.",
+    "examples": "Gợi ý",
+    "name": "Tên",
+    "back": "Quay lại",
+    "next": "Tiếp",
+    "create": "Tạo",
+    "creating": "Đang tạo…",
+    "pickGame": "Hãy chọn trò chơi trước",
+    "freeformFailed": "Không thêm được Freeform vào thư viện của bạn",
+    "failed": "Không tạo được chiến dịch",
+    "problems": {
+      "game": "Một gói hoặc trò chơi không dùng được như hiện tại.",
+      "campaign": "Một giá trị của chiến dịch không nằm trong những gì trò chơi cho phép.",
+      "premise": "Một trường của tiền đề quá dài hoặc không được trò chơi cho phép.",
+      "table": "Mỗi dòng hoặc mục che mờ tối đa 80 ký tự, và mỗi danh sách tối đa 30 mục.",
+      "name": "Hãy đặt tên chiến dịch, tối đa 100 ký tự.",
+      "other": "Có phần của chiến dịch chưa lưu được như hiện tại."
+    }
+  },
+  "firstRun": {
+    "title": "Những bước đầu",
+    "progress": "Bước {n} trên {count}",
+    "skipAll": "Bỏ qua, vào bàn",
+    "nothing": "Trò chơi này không có bước chuẩn bị nào. Bàn đã sẵn sàng.",
+    "generate": "Chạy {name}",
+    "openThere": "Mở {place}",
+    "back": "Quay lại",
+    "skip": "Bỏ qua",
+    "next": "Tiếp",
+    "toTable": "Vào bàn",
+    "value": "Đã đặt: {value}"
   },
   "lobby": {
     "quickGame": "Chơi nhanh",
@@ -446,7 +503,7 @@
     "worlds": "World",
     "worldsHint": "World là diện mạo của một phòng: màu, kiểu chữ và hình dáng. Nhập dưới dạng JSON, rồi khoác nó từ thẻ Luật của phòng.",
     "modules": "Game module",
-    "modulesHint": "Một game module gom một bộ luật, các pack của nó và một World thành một trò chơi. Nhập tệp của nó (tệp có thể mang luôn các phần đó), rồi chọn nó ở Chọn game khi tạo phòng."
+    "modulesHint": "Một game module gom một bộ luật, các pack của nó và một World thành một trò chơi. Nhập tệp của nó (tệp có thể mang luôn các phần đó), rồi chọn nó ở Chọn trò chơi khi tạo phòng."
   },
   "importPanel": {
     "template": "Bắt đầu từ một mẫu",
@@ -495,7 +552,7 @@
     "worldSaved": "Đã lưu World {slug} {version}. Khoác nó cho phòng từ thẻ Luật của phòng.",
     "worldUnchanged": "World {slug} {version} đã được nhập từ trước. Không có gì thay đổi.",
     "moduleNoForm": "Game module không có form: hãy nhập nguyên JSON của nó.",
-    "moduleSaved": "Đã lưu game module {slug} {version}. Chọn nó ở Chọn game khi tạo phòng.",
+    "moduleSaved": "Đã lưu game module {slug} {version}. Chọn nó ở Chọn trò chơi khi tạo phòng.",
     "moduleUnchanged": "Game module {slug} {version} đã được nhập từ trước. Không có gì thay đổi."
   },
   "worldList": {
@@ -1243,7 +1300,7 @@
     "startSession": "Bắt đầu buổi chơi",
     "invite": "Mời",
     "as": "Vai trò",
-    "campaignQr": "QR campaign",
+    "campaignQr": "Mã QR chiến dịch",
     "screenQr": "QR màn hình",
     "revokeScreens": "Thu hồi màn hình ({count})",
     "qrAlt": "Mã QR của {title}",

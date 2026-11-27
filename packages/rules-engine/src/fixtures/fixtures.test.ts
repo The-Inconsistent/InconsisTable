@@ -57,6 +57,7 @@ import {
   SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND,
   SAMPLE_SKIRMISH_BEFORE_PANELS,
   SAMPLE_SKIRMISH_BEFORE_SPAWN,
+  SAMPLE_SKIRMISH_PREMISE,
 } from "./sample-skirmish.ts";
 
 // An imported ruleset version is immutable: the api refuses the same version with a different normalized manifest, so
@@ -69,6 +70,7 @@ const PINNED: Record<string, string> = {
   "sample-ledger@0.1.7": "e058c074efe9786ff8d87cbe51fcbe2163756f16b3fd27071199d9f58b53c6d2",
   "sample-skirmish@0.1.15": "f490f06e6cbf1f6850d41a6ede915c21f2889f92e82dafdf052f07179a562e49",
   "sample-pool@0.1.4": "20a6d1b8a8d6031a0d3abfab5e5ceaade06eed14c7748e8226b4b1a68e35e182",
+  "sample-skirmish-premise@0.1.0": "4116e6747d1d244d529691dcbd5c8fd088925472a0622b67b349dd939c609a56",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
   "sample-harm@0.1.15": "1c0c90b4e8122dc797d1c6b750e4dcc6656d5c85ffbd74c9424a1ff49a12b125",
@@ -261,6 +263,7 @@ test("a sample ruleset's normalized manifest changes only with its version", () 
     SAMPLE_NO_ORDER,
     SAMPLE_HARM,
     SAMPLE_SKIRMISH,
+    SAMPLE_SKIRMISH_PREMISE,
     SAMPLE_DUEL,
   ]) {
     const key = `${fixture.id}@${fixture.version}`;

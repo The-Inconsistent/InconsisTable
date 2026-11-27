@@ -21,6 +21,7 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/codex"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/module"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset/compiled"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/schema"
@@ -72,6 +73,9 @@ type Options struct {
 	TableMode string
 	// Fresh imports the room as a new group would start it (house decision #103): see fresh.
 	Fresh bool
+	// Module is a version of the importer's own game module the room is made from, as POST /api/campaigns/from-module
+	// makes one (its ruleset, packs and World); the document then names no ruleset or World (house decision #143).
+	Module string
 }
 
 // Import reads a document and applies it in one transaction, committed unless it is a dry run. On a problem the answer
@@ -96,7 +100,7 @@ func Import(ctx context.Context, db *pgxpool.Pool, owner campaign.Owner, body an
 	if err != nil {
 		return answer, err
 	}
-	id, err := apply(ctx, tx, owner, doc, versions, opts.TableMode)
+	id, err := apply(ctx, tx, owner, doc, versions, opts)
 	if err != nil || opts.DryRun {
 		return answer, err
 	}
@@ -341,11 +345,39 @@ func (im *importer) run(action map[string]any, path ...any) (string, error) {
 }
 
 // apply makes the room in tx, in the order house decision #74 sets: the room, its sessions, the versions it expects,
-// campaign fields and pools, pictures, actors, the codex in two passes, clocks, and how the table sits.
-func apply(ctx context.Context, tx pgx.Tx, owner campaign.Owner, d doc, v versions, tableMode string) (string, error) {
-	id, err := campaign.NewRoom(ctx, tx, d.str("room", "name"), &owner, nil, nil)
+// campaign fields and pools, pictures, actors, the codex in two passes, clocks, and how the table sits. A room made to
+// sit without a GM is made so with its ruleset, as POST /api/campaigns makes one, since a game played only that way
+// cannot be pinned to a room with a GM; one from a game module is made by the module (house decision #143). Either
+// way the import goes on as the room's GM, as it always has.
+func apply(ctx context.Context, tx pgx.Tx, owner campaign.Owner, d doc, v versions, opts Options) (string, error) {
+	name, mode := d.str("room", "name"), opts.TableMode
+	sits := mode != "" && mode != cs.TableModeGM
+	pinned := true // the ruleset, as the room is made
+	var id string
+	var err error
+	switch {
+	case opts.Module != "":
+		expects, _ := d["expects"].(map[string]any)
+		for _, part := range []string{"ruleset", "world"} {
+			if _, has := expects[part]; has {
+				return "", problem("badRequest", cs.Params{"detail": "a room from a game module takes its ruleset and World from the module"},
+					"expects", part)
+			}
+		}
+		id, err = module.CreateRoomTx(ctx, tx, owner, name, opts.Module, mode)
+		err = refusedAt(err, "module")
+	case sits && v.ruleset != "":
+		id, err = campaign.NewRoom(ctx, tx, name, &owner, &v.ruleset, &mode)
+		err = refusedAt(err, "tableMode")
+	default:
+		pinned = false
+		id, err = campaign.NewRoom(ctx, tx, name, &owner, nil, nil)
+	}
 	if err != nil {
 		return "", err
+	}
+	if pinned {
+		v.ruleset = ""
 	}
 	im := &importer{ctx: ctx, tx: tx, d: d, actors: map[string]string{}, entries: map[string]string{}, images: map[string]string{},
 		gm: cs.Ctx{CampaignID: id, UserID: &owner.UserID, CampaignOwnerID: &owner.UserID, TableMode: cs.TableModeGM,
@@ -358,8 +390,8 @@ func apply(ctx context.Context, tx pgx.Tx, owner campaign.Owner, d doc, v versio
 			return "", err
 		}
 	}
-	if tableMode != "" && tableMode != cs.TableModeGM {
-		if _, err := im.run(map[string]any{"type": "campaign.setTableMode", "mode": tableMode}, "tableMode"); err != nil {
+	if sits && !pinned {
+		if _, err := im.run(map[string]any{"type": "campaign.setTableMode", "mode": mode}, "tableMode"); err != nil {
 			return "", err
 		}
 	}

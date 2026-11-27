@@ -1811,6 +1811,21 @@ export const ChecklistStep = z.object({
 });
 export type ChecklistStep = z.infer<typeof ChecklistStep>;
 
+/** The most suggested lines a ruleset offers (core-schema MAX_SAFETY_ITEMS, which it can't import). */
+export const MAX_SAFETY_EXAMPLES = 30;
+/** How long one may be (core-schema SAFETY_LINE_MAX). */
+export const SAFETY_EXAMPLE_MAX = 80;
+
+/**
+ * The book's suggested lines for what the table leaves out (house decision #145), in the ruleset's own words: the
+ * campaign wizard offers them as toggles beside the lines the table types. Only offered; a room keeps what it picks.
+ */
+export const SafetyExamples = z.object({
+  lines: z.array(z.string().min(1).max(SAFETY_EXAMPLE_MAX)).min(1).max(MAX_SAFETY_EXAMPLES),
+  cite: Cite.optional(),
+});
+export type SafetyExamples = z.infer<typeof SafetyExamples>;
+
 // Generators (house decision #98): ordered steps the GM runs in prep, ending in entries the server makes.
 export const MAX_GENERATORS = 20;
 export const MAX_GENERATOR_STEPS = 12;
@@ -1952,6 +1967,8 @@ export const Ruleset = z.object({
   requests: z.object({ max: z.int().min(1).max(20) }).optional(),
   /** The setup checklist the GM works through (house decision #90). Absent: none. */
   checklist: z.array(ChecklistStep).max(MAX_CHECKLIST_STEPS).optional(),
+  /** The book's suggested lines to leave out (house decision #145). Absent: none. */
+  safetyExamples: SafetyExamples.optional(),
   /** Spawn options, adjustments fixed at spawn, and the encounter budget (house decision #92). Absent: none. */
   spawn: SpawnBlock.optional(),
   /** The kinds of strike the GM's guide offers (house decision #99). Absent: none. */
@@ -3702,6 +3719,7 @@ function semanticProblems(r: Ruleset): Problem[] {
       out.push({ path: `checklist[${i}].goto.anchor`, message: `the ${s.goto.tab} tab has no "${s.goto.anchor}"` });
   });
   duplicates({ ids: (r.checklist ?? []).map((s) => s.id), path: "checklist", out });
+  if (r.safetyExamples) needCite(r.safetyExamples.cite, "safetyExamples");
   r.generators?.forEach((g, i) => {
     needCite(g.cite, `generators[${i}]`);
     generatorProblems({ r, g, path: `generators[${i}]`, out });

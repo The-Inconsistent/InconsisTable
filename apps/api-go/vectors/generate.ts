@@ -3198,6 +3198,16 @@ function generatorCrafted(): object[] {
     gen({ make: { kind: "location", title: "r", fields: { name: "nope", on: "r", n: "r", mood: "r", at: "r" } } }),
     gen({ each: { times: "1", steps: [{ ...roll, id: "e" }] } }),
     gen({ make: { kind: "location", title: "r", each: { title: "r" } } }),
+    // A run with no entry of its own (house decision #202): only with rounds, and `root` is false or absent.
+    gen({ make: { kind: "location", title: "r", root: false } }),
+    gen({
+      each: { times: "1", steps: [{ ...roll }] },
+      make: { kind: "location", title: "r", root: false, each: { title: "r" } },
+    }),
+    gen({
+      each: { times: "1", steps: [{ ...roll }] },
+      make: { kind: "location", title: "r", root: true, each: { title: "r" } },
+    }),
     gen({
       each: { times: "1", steps: [{ ...roll, id: "e" }] },
       make: { kind: "scene", title: "r", each: { title: "e" } },
@@ -3359,6 +3369,20 @@ function generatorRunVectors(): object[] {
       run: { values: { origin: { rows: ["flooded"] }, keeper: { key: "rat" } }, each: [] },
     },
     { manifest: 1, generator: "portent", run: { values: { sign: { rows: ["crow"] } }, each: [] } },
+    // Chambers for a warren already made (house decision #202): no root, the rounds' entries only.
+    {
+      manifest: 0,
+      generator: "chambers",
+      run: {
+        values: { rooms: { value: 2 } },
+        each: [{ chamber: { rows: ["pit"] } }, { chamber: { rows: ["vault"] } }],
+      },
+    },
+    {
+      manifest: 0,
+      generator: "chambers",
+      run: { values: { rooms: { value: 2 } }, each: [{ chamber: { rows: ["pit"] } }] },
+    },
     { manifest: 1, generator: "portent", run: { values: { sign: { rows: ["crow"] } }, each: [{}] } },
   ];
   return cases.map((c) => {

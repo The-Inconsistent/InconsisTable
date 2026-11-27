@@ -1872,8 +1872,16 @@ export const Generator = z.object({
   steps: z.array(GeneratorStep).min(1).max(MAX_GENERATOR_STEPS),
   /** Steps asked `times` over (an integer over the steps above, 0 to 60), each round making one nested entry. */
   each: z.object({ times: ExprSource, steps: z.array(GeneratorStep).min(1).max(MAX_EACH_STEPS) }).optional(),
-  /** One entry of `kind`, and with `each` one entry of the same kind under it per round. */
-  make: GeneratedEntry.extend({ kind: CodexEntryKind, each: GeneratedEntry.optional() }),
+  /**
+   * One entry of `kind`, and with `each` one entry of the same kind under it per round. `root: false`: the run makes no
+   * entry of its own, only its rounds' entries, under the entry the GM names or loose (house decision #202); its own
+   * title, `from` and fields are then not made.
+   */
+  make: GeneratedEntry.extend({
+    kind: CodexEntryKind,
+    each: GeneratedEntry.optional(),
+    root: z.literal(false).optional(),
+  }),
 });
 export type Generator = z.infer<typeof Generator>;
 
@@ -3777,6 +3785,8 @@ function generatorProblems({ r, g, path, out }: { r: Ruleset; g: Generator; path
   if (g.make.each !== undefined) made(g.make.each, [...g.steps, ...(g.each?.steps ?? [])], `${path}.make.each`);
   if (g.each !== undefined && g.make.each === undefined) push(`${path}.make`, "each round needs what it makes");
   if (g.each === undefined && g.make.each !== undefined) push(`${path}.make.each`, "nothing repeats");
+  if (g.make.root === false && g.make.each === undefined)
+    push(`${path}.make.root`, "a run that makes no entry of its own makes its rounds' entries");
   if (g.make.each !== undefined && g.make.kind === "scene")
     push(`${path}.make.each`, "a scene sits under an adventure, not a scene");
 }

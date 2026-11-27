@@ -15,6 +15,7 @@ import {
   SAMPLE_D20_0_1_14,
   SAMPLE_D20_0_1_15,
   SAMPLE_D20_0_1_16,
+  SAMPLE_D20_0_1_17,
   SAMPLE_D20_BEFORE_WIDGETS,
 } from "./sample-d20.ts";
 import {
@@ -64,7 +65,7 @@ import {
 const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9cb58c5d";
 const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf";
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.17": "32a080fd97e800df941bdbfaad6eb56fad789fc8fcd6616ddfa5d87a5d2d0af4",
+  "sample-d20@0.1.18": "1e8ddeb4c3f41825ed4da8216c09911f1ec544309660d197fb3d15cce0eea639",
   "sample-ledger@0.1.7": "e058c074efe9786ff8d87cbe51fcbe2163756f16b3fd27071199d9f58b53c6d2",
   "sample-skirmish@0.1.15": "f490f06e6cbf1f6850d41a6ede915c21f2889f92e82dafdf052f07179a562e49",
   "sample-pool@0.1.4": "20a6d1b8a8d6031a0d3abfab5e5ceaade06eed14c7748e8226b4b1a68e35e182",
@@ -204,6 +205,15 @@ test("a ruleset without a record's extras, a pool-capped stepper or the players'
     assert.ok(result.ok, `${fixture.id}@${fixture.version} compiles`);
     assert.equal(sha256Hex(canonicalJson(result.compiled.ruleset)), pinned);
   }
+});
+
+test("a ruleset without a run that makes no entry of its own hashes as before it (house decision #202)", () => {
+  const result = compileRuleset(SAMPLE_D20_0_1_17);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "32a080fd97e800df941bdbfaad6eb56fad789fc8fcd6616ddfa5d87a5d2d0af4",
+  );
 });
 
 test("a checklist without GO TO anchors hashes as before them (house decision #200)", () => {

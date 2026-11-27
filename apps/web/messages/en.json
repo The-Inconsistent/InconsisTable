@@ -2310,6 +2310,8 @@
     "useTyped": "Use"
   },
   "generators": {
+    "under": "Make them under",
+    "loose": "No entry: each on its own",
     "roll": "Roll",
     "rollOn": "Go on: roll {title}",
     "typed": "I rolled",

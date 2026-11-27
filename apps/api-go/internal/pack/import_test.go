@@ -146,3 +146,61 @@ func TestAPrivatePackIsNotServedToAnotherOwnersRoom(t *testing.T) {
 		t.Fatalf("the owner's room serves its creature, got %d entries, %v", len(loaded), err)
 	}
 }
+
+// Entries come in the pack file's order, the book's (house decision #201): recorded at import, not part of the hash.
+func TestServedEntriesComeInTheFilesOrder(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+	owner := newOwner(t, db)
+	rs, err := ruleset.Import(ctx, db, owner, fixture(t, "sample-d20.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := fixture(t, "sample-pack.json")
+	entries := doc["entries"].([]any)
+	late := map[string]any{}
+	for k, v := range entries[0].(map[string]any) {
+		late[k] = v
+	}
+	late["key"], late["name"] = "zz-reed", "Zed Reed"
+	doc["entries"] = append([]any{late}, entries...)
+	imported, err := Import(ctx, db, owner, doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var room string
+	if err := db.QueryRow(ctx, `INSERT INTO campaign (name, owner_user_id, ruleset_version_id) VALUES ('room', $1, $2) RETURNING id::text`,
+		owner, rs.VersionID).Scan(&room); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `INSERT INTO membership (campaign_id, user_id, role) VALUES ($1, $2, 'gm')`, room, owner); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `INSERT INTO campaign_pack (campaign_id, pack_version_id) VALUES ($1, $2)`, room, imported.VersionID); err != nil {
+		t.Fatal(err)
+	}
+	served, err := LoadServedEntries(ctx, db, room, ServedOptions{Types: []string{"lineage"}})
+	if err != nil || len(served) != 2 || served[0].Key != "zz-reed" || served[1].Key != "reedfolk" {
+		t.Fatalf("want zz-reed then reedfolk, got %+v, %v", served, err)
+	}
+	c := coreschema.Ctx{CampaignID: room, UserID: &owner, Seat: coreschema.Seat{Kind: coreschema.SeatMember, Role: "gm"}}
+	read, err := ReadRules(ctx, db, c, RulesQuery{Type: "lineage", Limit: defaultRulesPage})
+	if err != nil || len(read.Entries) != 2 || read.Entries[0].Key != "zz-reed" {
+		t.Fatalf("the rules read lists them in the file's order too, got %+v, %v", read, err)
+	}
+
+	// The same entries in another order: the same version, which takes the new file's order, and exports in it.
+	doc["entries"] = append(entries[:1:1], append(entries[1:], late)...)
+	again, err := Import(ctx, db, owner, doc)
+	if err != nil || !again.Unchanged || again.VersionID != imported.VersionID {
+		t.Fatalf("want the same version, unchanged, got %+v, %v", again, err)
+	}
+	served, err = LoadServedEntries(ctx, db, room, ServedOptions{Types: []string{"lineage"}})
+	if err != nil || len(served) != 2 || served[0].Key != "reedfolk" || served[1].Key != "zz-reed" {
+		t.Fatalf("want reedfolk then zz-reed after the re-import, got %+v, %v", served, err)
+	}
+	exported, err := Export(ctx, db, owner, imported.PackID)
+	if err != nil || exported == nil || len(exported.Entries) != len(entries)+1 || exported.Entries[len(entries)].Key != "zz-reed" {
+		t.Fatalf("the export follows the file's order, got %+v, %v", exported, err)
+	}
+}

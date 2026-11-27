@@ -67,6 +67,8 @@ type (
 			GeneratedEntry
 			Kind string          `json:"kind"`
 			Each *GeneratedEntry `json:"each"`
+			// Root false: the run makes only its rounds' entries (house decision #202).
+			Root *bool `json:"root"`
 		} `json:"make"`
 	}
 )
@@ -126,6 +128,7 @@ var (
 		schema.Req("make", schema.Object(append(slices.Clone(generatedEntry),
 			schema.Req("kind", schema.Enum(CodexKinds...)),
 			schema.Opt("each", schema.Object(generatedEntry...)),
+			schema.Opt("root", schema.Literal(false)),
 		)...)),
 	)
 )
@@ -261,6 +264,9 @@ func (p *problems) generator(r *Ruleset, g *Generator, path string) {
 	}
 	if g.Each == nil && g.Make.Each != nil {
 		p.add(path+".make.each", "nothing repeats")
+	}
+	if g.Make.Root != nil && !*g.Make.Root && g.Make.Each == nil {
+		p.add(path+".make.root", "a run that makes no entry of its own makes its rounds' entries")
 	}
 	if g.Make.Each != nil && g.Make.Kind == "scene" {
 		p.add(path+".make.each", "a scene sits under an adventure, not a scene")
@@ -603,12 +609,17 @@ func CheckRun(r *Ruleset, g *Generator, run GeneratorRun, served ServedFn, campa
 	if err := answer(r, g.Steps, nil, run.Values, served, campaign, top); err != nil {
 		return nil, nil, refusal(err)
 	}
-	root := plan(r, g, &g.Make.GeneratedEntry, top)
+	// A run with no entry of its own makes only its rounds' (house decision #202).
+	var root *PlannedEntry
+	if g.Make.Root == nil || *g.Make.Root {
+		p := plan(r, g, &g.Make.GeneratedEntry, top)
+		root = &p
+	}
 	if g.Each == nil || g.Make.Each == nil {
 		if len(run.Each) > 0 {
 			return nil, nil, &RunRefusal{"generateCount", map[string]any{"count": 0.0}}
 		}
-		return &root, []PlannedEntry{}, nil
+		return root, []PlannedEntry{}, nil
 	}
 	times := 0.0
 	if expr, err := CompileExpr(g.Each.Times, generatorScope(r, g.Steps, ""), intType); err == nil {
@@ -630,5 +641,5 @@ func CheckRun(r *Ruleset, g *Generator, run GeneratorRun, served ServedFn, campa
 		}
 		each[i] = plan(r, g, g.Make.Each, done)
 	}
-	return &root, each, nil
+	return root, each, nil
 }

@@ -27,7 +27,7 @@ const (
 	MaxPackBytesPerUser = 50 * 1024 * 1024
 )
 
-const entryInsertChunk = 1000 // 1000 rows x 12 columns stays well under Postgres' 65535 parameters
+const entryInsertChunk = 1000 // 1000 rows x 13 columns stays well under Postgres' 65535 parameters
 
 // Which ruleset a pack names, read before the pack is checked (the check needs that ruleset).
 var rulesetRef = schema.Object(schema.Req("ruleset", schema.Object(
@@ -220,6 +220,16 @@ func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*I
 		}
 		result := Imported{OK: true, PackID: packID, Version: p.Version, Diff: engine.DiffHashes(before, after), Warnings: warnings}
 		if hasPrev && prevHash == next.hash {
+			// The order is outside the hash: the same entries in a new order keep the version and take the file's order.
+			keys := make([]string, len(next.entries))
+			for i, e := range next.entries {
+				keys[i] = e.key
+			}
+			if _, err := tx.Exec(ctx, `UPDATE pack_entry SET ordinal = f.n - 1
+				FROM unnest($2::text[]) WITH ORDINALITY AS f(key, n)
+				WHERE pack_entry.pack_version_id = $1 AND pack_entry.key = f.key`, prevID, keys); err != nil {
+				return err
+			}
 			result.VersionID, result.Unchanged = prevID, true
 			out = &result
 			return nil
@@ -232,7 +242,7 @@ func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*I
 			return err
 		}
 		for from := 0; from < len(next.entries); from += entryInsertChunk {
-			if err := insertEntries(ctx, tx, result.VersionID, next.entries[from:min(from+entryInsertChunk, len(next.entries))]); err != nil {
+			if err := insertEntries(ctx, tx, result.VersionID, from, next.entries[from:min(from+entryInsertChunk, len(next.entries))]); err != nil {
 				return err
 			}
 		}
@@ -255,16 +265,18 @@ func Import(ctx context.Context, db *pgxpool.Pool, userID string, input any) (*I
 	return out, err
 }
 
-func insertEntries(ctx context.Context, tx pgx.Tx, versionID string, entries []normalizedEntry) error {
+// insertEntries writes entries, the first at position from of the file: each keeps its place in the file as its
+// ordinal, the book's order (house decision #201).
+func insertEntries(ctx context.Context, tx pgx.Tx, versionID string, from int, entries []normalizedEntry) error {
 	var sql strings.Builder
-	sql.WriteString(`INSERT INTO pack_entry (pack_version_id, key, type, name, level, tags, visibility, cite, content_hash, body, effects, record) VALUES `)
-	args := make([]any, 0, len(entries)*12)
+	sql.WriteString(`INSERT INTO pack_entry (pack_version_id, key, type, name, level, tags, visibility, cite, content_hash, body, effects, record, ordinal) VALUES `)
+	args := make([]any, 0, len(entries)*13)
 	for i, e := range entries {
 		if i > 0 {
 			sql.WriteByte(',')
 		}
 		n := len(args)
-		fmt.Fprintf(&sql, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", n+1, n+2, n+3, n+4, n+5, n+6, n+7, n+8, n+9, n+10, n+11, n+12)
+		fmt.Fprintf(&sql, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", n+1, n+2, n+3, n+4, n+5, n+6, n+7, n+8, n+9, n+10, n+11, n+12, n+13)
 		var level *int
 		if v, ok := e.fields["level"].(float64); ok {
 			l := int(v)
@@ -295,7 +307,7 @@ func insertEntries(ctx context.Context, tx pgx.Tx, versionID string, entries []n
 			}
 			record = string(text)
 		}
-		args = append(args, versionID, e.key, e.fields["type"], e.fields["name"], level, tags, e.fields["visibility"], cite, e.contentHash, body, effects, record)
+		args = append(args, versionID, e.key, e.fields["type"], e.fields["name"], level, tags, e.fields["visibility"], cite, e.contentHash, body, effects, record, from+i)
 	}
 	_, err := tx.Exec(ctx, sql.String(), args...)
 	return err
@@ -460,7 +472,7 @@ func Export(ctx context.Context, conn core.Conn, userID, packID string) (*export
 		return nil, err
 	}
 	rows, err := conn.Query(ctx, `SELECT key, type, name, level, tags, cite, visibility, body, effects, record FROM pack_entry
-		WHERE pack_version_id = $1 ORDER BY type, key`, versionID)
+		WHERE pack_version_id = $1 ORDER BY ordinal, key`, versionID)
 	if err != nil {
 		return nil, err
 	}

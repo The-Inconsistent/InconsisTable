@@ -218,7 +218,7 @@ func ReadRules(ctx context.Context, conn core.Conn, c cs.Ctx, query RulesQuery) 
 	}
 	args = append(args, query.Limit, query.Offset)
 	entries, err := conn.Query(ctx, `SELECT pack_version_id::text, key, type, name, level, tags, cite, visibility, body, effects, record FROM pack_entry
-		WHERE `+where+fmt.Sprintf(` ORDER BY type ASC, name ASC, key ASC LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
+		WHERE `+where+fmt.Sprintf(` ORDER BY type ASC, pack_version_id ASC, ordinal ASC, key ASC LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, err
 	}

@@ -49,6 +49,12 @@ func generateFixture(t *testing.T) string {
 				map[string]any{"id": "chamber", "label": "Chamber", "kind": "roll", "table": "chamber"}}},
 			"make": map[string]any{"kind": "location", "title": "origin", "fields": map[string]any{"peril": "rooms"},
 				"each": map[string]any{"title": "chamber"}}},
+		// House decision #202: more chambers, under a warren the GM names, with no warren of their own.
+		map[string]any{"id": "chambers", "label": "Chambers", "cite": "Fixture p.9",
+			"steps": []any{map[string]any{"id": "rooms", "label": "Rooms", "kind": "number", "min": 1, "max": 3}},
+			"each": map[string]any{"times": "steps.rooms", "steps": []any{
+				map[string]any{"id": "chamber", "label": "Chamber", "kind": "roll", "table": "chamber"}}},
+			"make": map[string]any{"kind": "location", "title": "rooms", "root": false, "each": map[string]any{"title": "chamber"}}},
 		map[string]any{"id": "event", "label": "Event", "cite": "Fixture p.9",
 			"steps": []any{map[string]any{"id": "event", "label": "Event", "kind": "pick", "entity": "incident"}},
 			"make":  map[string]any{"kind": "scene", "title": "event", "from": "event"}},
@@ -147,5 +153,44 @@ func TestAGeneratorRunIsCheckedAgainstItsDeclaration(t *testing.T) {
 		run := warrenRun(nil)
 		run["parentId"] = npc
 		p.refused(gm, run, "parentOtherKind")
+	})
+}
+
+// A run with no entry of its own (house decision #202): its rounds' entries under the entry the GM names, or loose,
+// and one Undo takes them back.
+func TestARunWithNoEntryOfItsOwnMakesItsRoundsUnderTheNamedEntry(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		p := newGeneratePlay(t, tx)
+		gm := p.room.GM()
+		warren := p.send(gm, map[string]any{"type": "codex.save", "kind": "location", "title": "Old warren"}).ID
+		run := func(under string) map[string]any {
+			a := map[string]any{"type": "codex.generate", "generatorId": "chambers",
+				"values": map[string]any{"rooms": map[string]any{"value": 2.0}},
+				"each": []any{map[string]any{"chamber": map[string]any{"rows": []any{"pit"}}},
+					map[string]any{"chamber": map[string]any{"rows": []any{"roots"}}}}}
+			if under != "" {
+				a["parentId"] = under
+			}
+			return a
+		}
+		made := p.send(gm, run(warren))
+		if len(made.IDs) != 2 {
+			t.Fatalf("two chambers and nothing else: %+v", made)
+		}
+		for _, id := range made.IDs {
+			if e := p.entry(id); e == nil || e.Parent == nil || *e.Parent != warren {
+				t.Fatalf("each chamber under the warren: %+v", e)
+			}
+		}
+		p.send(gm, map[string]any{"type": "event.undo"})
+		for _, id := range made.IDs {
+			if p.entry(id) != nil {
+				t.Fatalf("undo leaves %s", id)
+			}
+		}
+		loose := p.send(gm, run(""))
+		if len(loose.IDs) != 2 || p.entry(loose.IDs[0]).Parent != nil || p.entry(loose.IDs[1]).Parent != nil {
+			t.Fatalf("without a parent, each chamber on its own: %+v", loose)
+		}
 	})
 }

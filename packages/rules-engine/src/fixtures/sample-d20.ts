@@ -1008,4 +1008,24 @@ export const SAMPLE_D20_0_1_17: RulesetInput = {
   },
 };
 
-export const SAMPLE_D20 = SAMPLE_D20_0_1_17;
+/**
+ * 0.1.18 (house decision #202): more chambers for a warren already in the codex, made under it with no new warren.
+ * 0.1.17 hashes as it did. Invented.
+ */
+export const SAMPLE_D20_0_1_18: RulesetInput = {
+  ...SAMPLE_D20_0_1_17,
+  version: "0.1.18",
+  generators: [
+    ...(SAMPLE_D20_0_1_17.generators ?? []),
+    {
+      id: "chambers",
+      label: "More chambers",
+      cite: "Sample p.90",
+      steps: [{ id: "rooms", label: "Chambers", kind: "number", min: 1, max: 6 }],
+      each: { times: "steps.rooms", steps: [{ id: "chamber", label: "Chamber", kind: "roll", table: "chamber" }] },
+      make: { kind: "location", title: "rooms", root: false, each: { title: "chamber" } },
+    },
+  ],
+};
+
+export const SAMPLE_D20 = SAMPLE_D20_0_1_18;

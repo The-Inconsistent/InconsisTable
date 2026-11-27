@@ -51,12 +51,12 @@ func loadCatalogue(ctx context.Context, conn core.Conn, b *engine.CompiledBuild,
 		}
 	}
 	params := append([]any{args[0], types}, args[1:]...)
-	// pack_entry.id is uuidv7, written in the pack's order at import, so it orders a pack's entries as its file does.
+	// The pack's own order, the file's (house decision #201).
 	rows, err := conn.Query(ctx, `SELECT pack_entry.type, pack_entry.record::text FROM pack_entry
 		JOIN pack_version ON pack_version.id = pack_entry.pack_version_id
 		JOIN pack ON pack.id = pack_version.pack_id
 		`+where+` AND pack_entry.record IS NOT NULL AND pack_entry.type = ANY($2)
-		ORDER BY pack.slug ASC, pack_entry.id ASC`, params...)
+		ORDER BY pack.slug ASC, pack_entry.ordinal ASC, pack_entry.id ASC`, params...)
 	if err != nil {
 		return nil, err
 	}

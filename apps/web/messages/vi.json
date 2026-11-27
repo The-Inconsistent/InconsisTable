@@ -2310,6 +2310,8 @@
     "useTyped": "Dùng"
   },
   "generators": {
+    "under": "Tạo bên dưới",
+    "loose": "Không mục nào: mỗi cái riêng",
     "roll": "Gieo",
     "rollOn": "Tiếp: gieo {title}",
     "typed": "Tôi đã gieo",

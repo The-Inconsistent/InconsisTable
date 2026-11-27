@@ -217,6 +217,7 @@ export function Codex({
           campaignId={me.campaignId}
           campaign={state.campaign.fields}
           act={act}
+          under={{ entries: entries.map((e) => ({ id: e.id, title: e.title })), open: openId }}
           onMade={(ids) => {
             setGenerating(null);
             if (ids[0]) setOpenId(ids[0]);

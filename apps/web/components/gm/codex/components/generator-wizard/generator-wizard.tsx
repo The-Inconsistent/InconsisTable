@@ -25,6 +25,8 @@ type GeneratorWizardProps = {
   campaignId: string;
   campaign: Readonly<Record<string, string | number | boolean>>;
   act: (a: ActionInput) => Promise<ActionResult>;
+  /** The codex entries a run that makes no entry of its own may put its rounds under, and the one open (#202). */
+  under?: { entries: readonly { id: string; title: string }[]; open: string | null };
   /** The entries the confirm made, root first. */
   onMade: (ids: readonly string[]) => void;
   onClose: () => void;
@@ -38,10 +40,14 @@ export function GeneratorWizard({
   campaignId,
   campaign,
   act,
+  under,
   onMade,
   onClose,
 }: GeneratorWizardProps) {
   const t = useTranslations("generators");
+  // A run with no entry of its own puts its rounds under an entry the GM names, the open one to start with (#202).
+  const rootless = g.make.root === false;
+  const [parentId, setParentId] = useState(under?.open ?? "");
   const [answers, setAnswers] = useState<Answers>({});
   const [rounds, setRounds] = useState<readonly Answers[]>([]);
   const [names, setNames] = useState<Readonly<Record<string, string>>>({});
@@ -79,6 +85,7 @@ export function GeneratorWizard({
       generatorId: g.id,
       values: only(g.steps, answers, asked),
       each: Array.from({ length: count }, (_, i) => only(eachSteps, rounds[i] ?? {}, roundAsked(i))),
+      ...(rootless && parentId !== "" ? { parentId } : {}),
     });
     setBusy(false);
     if (r.ok) onMade(r.ids ?? (r.id ? [r.id] : []));
@@ -137,6 +144,19 @@ export function GeneratorWizard({
             </fieldset>
           );
         })}
+      {rootless && (
+        <label className="stack">
+          <span className="small">{t("under")}</span>
+          <select value={parentId} onChange={(e) => setParentId(e.target.value)}>
+            <option value="">{t("loose")}</option>
+            {under?.entries.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="row">
         <button type="button" className="btn primary" disabled={!ready || busy} onClick={handleConfirm}>
           {t("confirm")}

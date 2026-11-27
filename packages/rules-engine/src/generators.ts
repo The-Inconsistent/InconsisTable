@@ -92,7 +92,7 @@ export const GENERATE_REFUSALS = [
 ] as const;
 export type GenerateRefusal = (typeof GENERATE_REFUSALS)[number];
 export type RunResult =
-  | { ok: true; root: PlannedEntry; each: PlannedEntry[] }
+  | { ok: true; root: PlannedEntry | null; each: PlannedEntry[] }
   | { ok: false; code: GenerateRefusal; params: Record<string, string | number> };
 
 /** A step as the run answered it. */
@@ -289,7 +289,8 @@ export function checkRun({
   try {
     const top = new Map<string, Answered>();
     answer({ r: ruleset, steps: g.steps, above: [], given: run.values, served, campaign, answered: top });
-    const root = planned({ r: ruleset, g, made: g.make, answered: top });
+    // A run with no entry of its own makes only its rounds' (house decision #202).
+    const root = g.make.root === false ? null : planned({ r: ruleset, g, made: g.make, answered: top });
     if (g.each === undefined || g.make.each === undefined) {
       if (run.each.length > 0) throw new Refused("generateCount", { count: 0 });
       return { ok: true, root, each: [] };

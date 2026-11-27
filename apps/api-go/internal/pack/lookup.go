@@ -99,7 +99,7 @@ func LoadServedEntries(ctx context.Context, conn core.Conn, campaignID string, o
 		JOIN campaign_pack ON campaign_pack.pack_version_id = pack_entry.pack_version_id
 		JOIN pack_version ON pack_version.id = pack_entry.pack_version_id
 		JOIN pack ON pack.id = pack_version.pack_id
-		WHERE `+where.String()+` ORDER BY pack.slug ASC, pack_entry.key ASC`, args...)
+		WHERE `+where.String()+` ORDER BY pack.slug ASC, pack_entry.ordinal ASC, pack_entry.key ASC`, args...)
 	if err != nil {
 		return nil, err
 	}

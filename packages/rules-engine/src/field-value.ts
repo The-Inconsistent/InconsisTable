@@ -71,7 +71,8 @@ export function checkFieldValue({ def, value }: { def: FieldDef | CodexField; va
       const words = value as string[];
       if (words.some((v) => v.trim() === "")) return "a word is empty";
       if (words.some((v) => v.length > MAX_TAG_CHARS)) return `a word is over ${MAX_TAG_CHARS} characters`;
-      return new Set(words).size === words.length ? null : "a word is there twice";
+      // Words are compared folded (house decision #197): "Brutal" and "brutal" are one word.
+      return new Set(words.map((w) => w.toLowerCase())).size === words.length ? null : "a word is there twice";
     }
     case "rows":
       return checkRows({ def, value });

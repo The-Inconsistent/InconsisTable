@@ -298,6 +298,8 @@ export const CodexField = z.discriminatedUnion("type", [
     labels: z.record(Id, z.string().min(1).max(MAX_TAG_CHARS)).optional(),
     /** Whether a word outside the suggestions may be written in. */
     writeIn: z.boolean().default(false),
+    /** A write-in is kept upper-cased, as the game prints its tags (house decision #197). */
+    upper: z.literal(true).optional(),
   }),
   z.object({
     ...codexFieldBase,

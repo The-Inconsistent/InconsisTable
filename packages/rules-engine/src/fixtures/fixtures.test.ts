@@ -14,6 +14,7 @@ import {
   SAMPLE_D20_0_1_13,
   SAMPLE_D20_0_1_14,
   SAMPLE_D20_0_1_15,
+  SAMPLE_D20_0_1_16,
   SAMPLE_D20_BEFORE_WIDGETS,
 } from "./sample-d20.ts";
 import {
@@ -60,7 +61,7 @@ import {
 const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9cb58c5d";
 const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf";
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.16": "d4fa93828de012392447c4315886e5f873768cf748223030a41533f993e36ec6",
+  "sample-d20@0.1.17": "32a080fd97e800df941bdbfaad6eb56fad789fc8fcd6616ddfa5d87a5d2d0af4",
   "sample-ledger@0.1.6": "717025a2783d882c3738ec979b565b9d330ee31297becd9560c0264be790ca73",
   "sample-skirmish@0.1.14": "2365ae8d6814618eaeb196dc521d37c7779df6a8f566655f426eb4fcdbcc8ae8",
   "sample-pool@0.1.4": "20a6d1b8a8d6031a0d3abfab5e5ceaade06eed14c7748e8226b4b1a68e35e182",
@@ -191,6 +192,15 @@ test("a ruleset without a record's extras, a pool-capped stepper or the players'
     assert.ok(result.ok, `${fixture.id}@${fixture.version} compiles`);
     assert.equal(sha256Hex(canonicalJson(result.compiled.ruleset)), pinned);
   }
+});
+
+test("a ruleset without upper-cased write-ins hashes as before them (house decision #197)", () => {
+  const result = compileRuleset(SAMPLE_D20_0_1_16);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "d4fa93828de012392447c4315886e5f873768cf748223030a41533f993e36ec6",
+  );
 });
 
 test("a ruleset without the keys of #177 to #179 hashes as before them", () => {

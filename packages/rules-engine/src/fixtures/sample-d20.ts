@@ -981,4 +981,31 @@ export const SAMPLE_D20_0_1_16: RulesetInput = {
   ],
 };
 
-export const SAMPLE_D20 = SAMPLE_D20_0_1_16;
+/** 0.1.17 (house decision #197): a faction's written-in marks are kept upper-cased, as the sample prints them. */
+export const SAMPLE_D20_0_1_17: RulesetInput = {
+  ...SAMPLE_D20_0_1_16,
+  version: "0.1.17",
+  codex: {
+    ...SAMPLE_D20_0_1_16.codex!,
+    kinds: {
+      ...SAMPLE_D20_0_1_16.codex!.kinds,
+      faction: {
+        ...SAMPLE_D20_0_1_16.codex!.kinds.faction!,
+        fields: {
+          ...SAMPLE_D20_0_1_16.codex!.kinds.faction!.fields,
+          marks: {
+            type: "tags",
+            label: "Marks",
+            entities: ["lineage"],
+            writeIn: true,
+            upper: true,
+            maxItems: 10,
+            cite: "Sample p.16",
+          },
+        },
+      },
+    },
+  },
+};
+
+export const SAMPLE_D20 = SAMPLE_D20_0_1_17;

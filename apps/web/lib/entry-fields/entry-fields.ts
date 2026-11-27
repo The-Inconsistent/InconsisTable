@@ -179,7 +179,10 @@ export function tagSuggestions({
     .sort((a, b) => rank(a.word.toLowerCase()) - rank(b.word.toLowerCase()) || a.word.localeCompare(b.word));
 }
 
-/** What Enter adds from what was typed: a suggestion spelled exactly so, else the words themselves when write-ins are allowed. */
+/**
+ * What Enter adds from what was typed: a suggestion spelled so in any case, else the words themselves when write-ins
+ * are allowed, upper-cased where the field says the game prints its tags so (house decision #197).
+ */
 export function tagToAdd({
   def,
   suggestions,
@@ -192,7 +195,7 @@ export function tagToAdd({
   const text = q.trim();
   if (text === "") return null;
   const exact = suggestions.find((s) => s.word.toLowerCase() === text.toLowerCase());
-  return exact?.tag ?? (def.writeIn ? text : null);
+  return exact?.tag ?? (def.writeIn ? (def.upper ? text.toUpperCase() : text) : null);
 }
 
 /** A Test as the ruleset names it (house decision #77), from the manifest the seat was served. */

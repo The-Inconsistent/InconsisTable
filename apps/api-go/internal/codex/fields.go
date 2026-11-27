@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"sort"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -120,8 +120,16 @@ func listProblem(ctx context.Context, tx core.Conn, c cs.Ctx, rules *engine.Comp
 				names[e.Name] = names[e.Name] || pack.SeesEntry(e.Visibility, gm)
 			}
 		}
+		// A word is one of the suggestions folded (house decision #197).
+		offered := map[string]bool{}
+		for _, o := range def.Options {
+			offered[strings.ToLower(o)] = true
+		}
+		for name, seen := range names {
+			offered[strings.ToLower(name)] = offered[strings.ToLower(name)] || seen
+		}
 		for i, w := range value.([]any) {
-			if word := w.(string); !slices.Contains(def.Options, word) && !names[word] {
+			if word := w.(string); !offered[strings.ToLower(word)] {
 				return fmt.Sprintf(`[%d]: "%s" is not one of the suggestions`, i, word), nil
 			}
 		}

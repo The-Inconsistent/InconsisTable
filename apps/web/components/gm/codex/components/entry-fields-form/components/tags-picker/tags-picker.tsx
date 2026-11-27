@@ -35,7 +35,10 @@ export function TagsPicker({ id, def, campaignId, value, disabled, onChange }: T
   const full = value.length >= max;
   const suggestions = q.trim() === "" ? [] : tagSuggestions({ def, names, picked: value, q });
   const exact = tagToAdd({ def: { ...def, writeIn: false }, suggestions, q }) !== null;
-  const writeIn = def.writeIn && q.trim() !== "" && !exact && !value.includes(q.trim()) ? q.trim() : null;
+  // A write-in the field holds already in any case is not offered again (house decision #197).
+  const typed = tagToAdd({ def: { ...def, entities: undefined, options: undefined }, suggestions: [], q });
+  const held = value.some((w) => w.toLowerCase() === q.trim().toLowerCase());
+  const writeIn = def.writeIn && typed !== null && !exact && !held ? typed : null;
 
   // Typing asks the room's packs for entries of the suggested types by name; an answer to an older search is dropped.
   const handleType = async (e: ChangeEvent<HTMLInputElement>) => {

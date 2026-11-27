@@ -148,12 +148,13 @@ func checkTags(def *FieldDef, value any) string {
 			return fmt.Sprintf("a word is over %d characters", MaxTagChars)
 		}
 	}
+	// Words are compared folded (field-value.ts, house decision #197): "Brutal" and "brutal" are one word.
 	seen := map[string]bool{}
 	for _, w := range words {
-		if seen[w] {
+		if seen[strings.ToLower(w)] {
 			return "a word is there twice"
 		}
-		seen[w] = true
+		seen[strings.ToLower(w)] = true
 	}
 	return ""
 }

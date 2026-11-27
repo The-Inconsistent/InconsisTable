@@ -1719,6 +1719,11 @@ test("tags, rows, a scene's picks with their switch and a reminder; a player rea
     await owner.send({ type: "codex.save", id: band, kind: "faction", fields: { marks: ["Outsider", "Outsider"] } }),
     "badEntryField",
   );
+  // House decision #197: words are compared folded, so the same word in another case is there twice.
+  refused(
+    await owner.send({ type: "codex.save", id: band, kind: "faction", fields: { marks: ["Outsider", "OUTSIDER"] } }),
+    "badEntryField",
+  );
 
   // A scene picks the place's first danger; its switch is ticked by saving the prep again.
   const scene = ok(await owner.send({ type: "codex.save", kind: "scene", title: "At the ford" })).id!;

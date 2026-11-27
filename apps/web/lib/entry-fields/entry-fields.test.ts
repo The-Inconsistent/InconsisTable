@@ -225,8 +225,11 @@ test("a tags field suggests its pack names ranked, adds an exact one on Enter, a
     ["Reedfolk", "Hill reed"],
   );
   assert.equal(tagToAdd({ def: marks, suggestions: found, q: "reedfolk" }), "Reedfolk");
-  assert.equal(tagToAdd({ def: marks, suggestions: found, q: "Outsider" }), "Outsider");
+  assert.equal(tagToAdd({ def: marks, suggestions: found, q: "Outsider" }), "OUTSIDER");
   assert.equal(tagToAdd({ def: { ...marks, writeIn: false }, suggestions: found, q: "Outsider" }), null);
+  // House decision #197: a write-in kept as typed, or upper-cased where the field says so.
+  assert.equal(tagToAdd({ def: { ...marks, upper: undefined }, suggestions: found, q: "Outsider" }), "Outsider");
+  assert.equal(tagToAdd({ def: { ...marks, upper: true }, suggestions: found, q: "Outsider" }), "OUTSIDER");
 });
 
 test("lists show a tags field's words and how many rows a field holds; a save sends a list only when it changed", () => {

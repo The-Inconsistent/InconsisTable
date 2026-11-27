@@ -157,6 +157,7 @@ var codexSchema = schema.Object(
 				schema.Opt("options", schema.Array(idSchema).Min(1).Max(200)),
 				schema.Opt("labels", schema.Record(idSchema, label(MaxTagChars))),
 				schema.Def("writeIn", schema.Bool(), false),
+				schema.Opt("upper", schema.Literal(true)),
 			),
 			codexFieldVariant("rows",
 				schema.Req("columns", schema.Array(rowColumn).Min(1).Max(MaxRowColumns)),

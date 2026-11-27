@@ -337,3 +337,16 @@ func CheckRuleset(input any) (normalized *engine.Ruleset, hash string, problems 
 	}
 	return rules.Ruleset, engine.Sha256Hex(engine.CanonicalJSON(rules.Ruleset.Normalized)), nil
 }
+
+// PoolValues are the shared pools' values as they stand, by resource id, which a lookup stepper's max reads (house
+// decision #192).
+func (rc *Context) PoolValues() map[string]float64 {
+	out := make(map[string]float64, len(rc.Pools))
+	for id, p := range rc.Pools {
+		out[id] = p.State.Value
+	}
+	return out
+}
+
+// Campaign is the campaign values the actors were built with.
+func (rc *Context) Campaign() map[string]any { return rc.campaign }

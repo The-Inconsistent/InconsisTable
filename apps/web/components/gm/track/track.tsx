@@ -331,6 +331,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
           fighting={encounter?.combatants.map((c) => c.actorId) ?? []}
           hasGm={me.tableMode === "gm"}
           campaign={state.campaign.fields}
+          pools={state.pools}
           books={sheet.books}
           requestPage={sheet.requestPage}
           ask={askFrom(null)}

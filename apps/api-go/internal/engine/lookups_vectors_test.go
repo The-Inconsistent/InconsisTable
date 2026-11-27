@@ -18,6 +18,7 @@ type lookupVectorFile struct {
 		Derived   map[string]any     `json:"derived"`
 		Resources map[string]float64 `json:"resources"`
 		Entity    string             `json:"entity"`
+		Pools     map[string]float64 `json:"pools"`
 		Plan      any                `json:"plan"`
 	} `json:"lookups"`
 }
@@ -63,7 +64,7 @@ func TestLookupsMatchTypeScript(t *testing.T) {
 	applied, refused := 0, 0
 	for i, x := range v.Lookups {
 		scope := ActorScope(x.Fields, &Record{x.Derived}, x.Resources, 0, nil)
-		read, steps, no := compiled[x.Manifest].PlanLookup(x.TableID, x.Result, x.Inputs, scope, x.Entity)
+		read, steps, no := compiled[x.Manifest].PlanLookup(x.TableID, x.Result, x.Inputs, scope, x.Entity, x.Pools, nil)
 		if no == nil {
 			applied++
 		} else {

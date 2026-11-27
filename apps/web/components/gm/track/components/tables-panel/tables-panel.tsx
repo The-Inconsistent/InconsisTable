@@ -2,7 +2,15 @@
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
-import type { ActionInput, ActionResult, Actor, BookSource, DealtRow, RollRow } from "@inconsistable/core-schema";
+import type {
+  ActionInput,
+  ActionResult,
+  Actor,
+  BookSource,
+  DealtRow,
+  PoolState,
+  RollRow,
+} from "@inconsistable/core-schema";
 import type { CompiledRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import { TableLookup } from "@/components/gm/track/components/tables-panel/components/table-lookup/table-lookup";
@@ -23,6 +31,8 @@ type TablesPanelProps = {
   /** Whether a GM runs the room: without one a `gm` table keeps nothing from anyone, so it is not used. */
   hasGm: boolean;
   campaign: Readonly<Record<string, unknown>>;
+  /** The shared pools as this seat holds them, which a stepper's max may read (house decision #192). */
+  pools: readonly Pick<PoolState, "id" | "value">[];
   books: readonly BookSource[];
   requestPage: RequestPage;
   /** Sends one action and answers with the server's reply; the tracker shows a refusal itself. */
@@ -47,6 +57,7 @@ export function TablesPanel(props: TablesPanelProps) {
     fighting,
     hasGm,
     campaign,
+    pools,
     books,
     requestPage,
     ask,
@@ -178,7 +189,19 @@ export function TablesPanel(props: TablesPanelProps) {
                   // Opened by a spend, the lookup starts again from the spend's inputs.
                   key={opened?.tableId === id ? opened.n : 0}
                   start={opened?.tableId === id ? opened.inputs : undefined}
-                  {...{ campaignId, tableId: id, table, compiled, ruleset, target, campaign, books, requestPage, ask }}
+                  {...{
+                    campaignId,
+                    tableId: id,
+                    table,
+                    compiled,
+                    ruleset,
+                    target,
+                    campaign,
+                    pools,
+                    books,
+                    requestPage,
+                    ask,
+                  }}
                   characters={characters.length}
                   onNext={handleNext}
                   onApplied={() => setTrail([])}

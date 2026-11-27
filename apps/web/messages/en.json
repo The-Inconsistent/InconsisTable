@@ -2353,6 +2353,7 @@
     "rule": "{name}: {rule}",
     "conditionSkipped": "{name} is immune to {condition}: left out",
     "shockSkipped": "{name} never takes {shock}: left out",
+    "extraRolls": "{entry}: roll {count} more on this table",
     "dismiss": "Dismiss",
     "advanced": "{field} raised from {from} to {to}: counted as {steps} advance(s); every count starts again"
   },

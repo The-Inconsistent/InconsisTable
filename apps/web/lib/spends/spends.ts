@@ -3,6 +3,7 @@ import {
   actorScope,
   evaluate,
   fightOf,
+  inputBounds,
   parseExpr,
   planSpend,
   resourceBounds,
@@ -128,7 +129,8 @@ export function nextTable({
     const v = from === undefined ? undefined : (inputs[from] ?? spend.inputs?.[from]?.min);
     if (v === undefined) continue;
     const n = Number(v);
-    carried[x.id] = x.type === "bool" ? n !== 0 : Math.max(x.min ?? -Infinity, Math.min(x.max ?? Infinity, n));
+    carried[x.id] =
+      x.type === "bool" ? n !== 0 : Math.max(x.min ?? -Infinity, Math.min(inputBounds(x).max ?? Infinity, n));
   }
   return { tableId: then.table, title: table.title, inputs: carried };
 }

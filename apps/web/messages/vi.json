@@ -2353,6 +2353,7 @@
     "rule": "{name}: {rule}",
     "conditionSkipped": "{name} miễn nhiễm với {condition}: bỏ qua",
     "shockSkipped": "{name} không bao giờ chịu {shock}: bỏ qua",
+    "extraRolls": "{entry}: gieo thêm {count} lần trên bảng này",
     "dismiss": "Đóng",
     "advanced": "{field} tăng từ {from} lên {to}: tính là {steps} lần thăng tiến; mọi bộ đếm bắt đầu lại"
   },

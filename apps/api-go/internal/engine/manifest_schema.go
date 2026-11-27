@@ -919,7 +919,7 @@ var tableInputSchema = schema.Object(
 	schema.Req("label", label(60)),
 	schema.Req("type", schema.Enum("bool", "int")),
 	schema.Opt("min", schema.Int().Min(-1000).Max(1000)),
-	schema.Opt("max", schema.Int().Min(-1000).Max(1000)),
+	schema.Opt("max", schema.AnyOf(schema.Int().Min(-1000).Max(1000), exprSource)),
 	schema.Opt("dice", label(20)),
 	schema.Opt("cite", citeSchema),
 )

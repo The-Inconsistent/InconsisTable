@@ -589,7 +589,10 @@ export const SAMPLE_SKIRMISH_0_1_12: RulesetInput = {
  * with its row. 0.1.12 hashes as it did. Invented.
  */
 const skirmishLayout = SAMPLE_SKIRMISH_0_1_12.layout ?? {};
-export const SAMPLE_SKIRMISH: RulesetInput = {
+/** The number of players, or every character while nobody holds a seat (house decision #92). */
+const PLAYERS = "(party.seated > 0 ? party.seated : party.characters)";
+
+export const SAMPLE_SKIRMISH_0_1_13: RulesetInput = {
   ...SAMPLE_SKIRMISH_0_1_12,
   version: "0.1.13",
   layout: {
@@ -597,6 +600,41 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
     character: {
       ...skirmishLayout.character!,
       phoneStrip: [...(skirmishLayout.character?.phoneStrip ?? []), "pools.momentum", "pools.pressure"],
+    },
+  },
+};
+
+/**
+ * 0.1.14: the number of players a spawn reads falls back to every character while nobody holds a seat (house decision
+ * #92, as the source app counts), and a backlash may be eased by momentum spent, at most what the pool holds (house
+ * decision #192). 0.1.13 hashes as it did. Invented.
+ */
+export const SAMPLE_SKIRMISH: RulesetInput = {
+  ...SAMPLE_SKIRMISH_0_1_13,
+  version: "0.1.14",
+  spawn: {
+    ...SAMPLE_SKIRMISH_0_1_13.spawn!,
+    adjust: SAMPLE_SKIRMISH_0_1_13.spawn!.adjust?.map((a) => ({
+      ...a,
+      add: Object.fromEntries(Object.entries(a.add).map(([k, v]) => [k, v.replaceAll("party.seated", PLAYERS)])),
+    })),
+    budget: {
+      ...SAMPLE_SKIRMISH_0_1_13.spawn!.budget!,
+      lines: SAMPLE_SKIRMISH_0_1_13.spawn!.budget!.lines.map((l) => ({
+        ...l,
+        budget: l.budget.replaceAll("party.seated", PLAYERS),
+      })),
+    },
+  },
+  tables: {
+    ...SAMPLE_SKIRMISH_0_1_13.tables,
+    backlash: {
+      ...SAMPLE_SKIRMISH_0_1_13.tables!.backlash!,
+      inputs: [
+        ...SAMPLE_SKIRMISH_0_1_13.tables!.backlash!.inputs!,
+        { id: "eased", label: "Momentum spent", type: "int", min: 0, max: "pools.momentum", cite: "Sample p.22" },
+      ],
+      modifier: "ctx.extra - ctx.eased",
     },
   },
 };

@@ -763,6 +763,16 @@ export const HeldKind = z.object({
    * grants each of them the actor does not hold yet, skipping the ones it holds; the record itself still refuses twice.
    */
   includes: FieldId.optional(),
+  /**
+   * A whole-number field of the entry type: a grant of a record whose value there is above 0 tells the GM to roll that
+   * many more on the table (house decision #191). Nothing rolls.
+   */
+  extraRolls: FieldId.optional(),
+  /**
+   * A list field of the entry type naming entries of the item kind `kind` (house decision #95): a grant also gives the
+   * actor each of them the room is served (house decision #191).
+   */
+  gear: z.object({ field: FieldId, kind: Id }).optional(),
   cite: Cite.optional(),
 });
 export type HeldKind = z.infer<typeof HeldKind>;
@@ -918,7 +928,11 @@ export const TableInput = z.object({
   label: z.string().min(1).max(60),
   type: z.enum(["bool", "int"]),
   min: z.int().min(-1000).max(1000).optional(),
-  max: z.int().min(-1000).max(1000).optional(),
+  /**
+   * A whole number, or on a lookup's stepper an int expression over `pools.<id>` (the shared pools as they stand) and
+   * `campaign`, read when the line is applied, so a spend is capped at what the pool holds (house decision #192).
+   */
+  max: z.union([z.int().min(-1000).max(1000), ExprSource]).optional(),
   /**
    * A die the GM rolls at the table and types (house decision #164), plain `NdX` ("1d3 more wounds"): a whole number
    * from N to N*X, which are its bounds in place of `min` and `max`. Only a lookup's input takes one.
@@ -928,10 +942,13 @@ export const TableInput = z.object({
 });
 export type TableInput = z.infer<typeof TableInput>;
 
-/** An input's bounds: its dice notation's range (house decision #164), else its own `min` and `max`. */
+/**
+ * An input's bounds: its dice notation's range (house decision #164), else its own `min` and `max`; a `max` written as
+ * an expression is not known here (`lookupMaxes` reads it, house decision #192).
+ */
 export function inputBounds(x: Pick<TableInput, "min" | "max" | "dice">): { min?: number; max?: number } {
   const d = x.dice === undefined ? null : plainDice(x.dice);
-  if (d === null) return { min: x.min, max: x.max };
+  if (d === null) return { min: x.min, max: typeof x.max === "number" ? x.max : undefined };
   return { min: d.count, max: d.count * d.sides };
 }
 
@@ -1478,8 +1495,9 @@ export type StrikeOutcome = z.infer<typeof StrikeOutcome>;
  * labelled options, each a whole number read as `ctx.<id>` as a stepper's is (the first option's when none is picked).
  * A choice has no bounds, and only a choice has options.
  */
-export const StrikeInput = TableInput.omit({ dice: true }).extend({
+export const StrikeInput = TableInput.omit({ dice: true, max: true }).extend({
   type: z.enum(["bool", "int", "choice"]),
+  max: z.int().min(-1000).max(1000).optional(),
   options: z
     .array(z.object({ label: z.string().min(1).max(60), value: z.int().min(-1000).max(1000) }))
     .min(2)
@@ -2012,8 +2030,10 @@ function lookupProblems({ id, t, r, out }: { id: string; t: RandomTable; r: Rule
     const at = `${path}.inputs[${i}]`;
     if (x.type === "bool" && (x.min !== undefined || x.max !== undefined))
       out.push({ path: at, message: "a switch has no bounds" });
-    if (x.min !== undefined && x.max !== undefined && x.max < x.min)
+    if (x.min !== undefined && typeof x.max === "number" && x.max < x.min)
       out.push({ path: `${at}.max`, message: "max is below min" });
+    if (typeof x.max === "string" && x.type !== "int")
+      out.push({ path: `${at}.max`, message: "only a stepper's max is an expression" });
     if (x.dice !== undefined) {
       if (x.type !== "int") out.push({ path: `${at}.dice`, message: "only a number is typed from dice" });
       else if (x.min !== undefined || x.max !== undefined)
@@ -2082,6 +2102,20 @@ function heldProblems({
     else if (entry.base === "actor") out.push({ path: `${path}.entry`, message: `"${k.entry}" is an actor` });
     else if (k.includes !== undefined && own(entry.fields, k.includes)?.type !== "list")
       out.push({ path: `${path}.includes`, message: `"${k.entry}" has no list field "${k.includes}"` });
+    if (entry !== undefined && entry.base !== "actor") {
+      if (k.extraRolls !== undefined && own(entry.fields, k.extraRolls)?.type !== "int")
+        out.push({ path: `${path}.extraRolls`, message: `"${k.entry}" has no int field "${k.extraRolls}"` });
+      if (k.gear !== undefined && own(entry.fields, k.gear.field)?.type !== "list")
+        out.push({ path: `${path}.gear.field`, message: `"${k.entry}" has no list field "${k.gear.field}"` });
+    }
+    if (k.gear !== undefined) {
+      const kind = r.items?.kinds.find((x) => x.id === k.gear!.kind);
+      if (kind === undefined) out.push({ path: `${path}.gear.kind`, message: `unknown item kind "${k.gear.kind}"` });
+      else
+        for (const e of k.entities)
+          if (!kind.entities.includes(e))
+            out.push({ path: `${path}.gear.kind`, message: `${e} holds no "${k.gear.kind}"` });
+    }
     k.entities.forEach((e, i) => {
       const holder = r.entities.find((x) => x.id === e && x.base === "actor");
       if (holder === undefined) {

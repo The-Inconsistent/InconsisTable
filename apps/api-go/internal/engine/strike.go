@@ -491,7 +491,7 @@ func (c *CompiledRuleset) PlanStrike(strikeID string, attacker, target StrikeSid
 	if s.Means == nil && means != nil {
 		return nil, refuse("noMeans", `"%s" takes no means`, strikeID)
 	}
-	picked, bad := LookupInputs(&RandomTable{Inputs: s.Inputs}, inputs)
+	picked, bad := LookupInputs(&RandomTable{Inputs: s.Inputs}, inputs, nil)
 	if bad != "" {
 		return nil, refuse("badInput", `bad input "%s"`, bad)
 	}

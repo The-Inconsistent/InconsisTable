@@ -240,3 +240,46 @@ func TestAGrantBringsTheRecordsItIncludesThatAreNotHeld(t *testing.T) {
 		}
 	})
 }
+
+// A record's extras (house decision #191): Scales asks for two more rolls and brings a claw the hero then carries (a
+// second claw, and an arm the room is not served, add nothing); a unique arm held already is not given again.
+func TestAGrantGivesTheRecordsGearAndSaysHowManyMoreToRoll(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		p := newHeldPlay(t, tx, func(m map[string]any) {
+			kind := m["held"].(map[string]any)["growth"].(map[string]any)
+			kind["extraRolls"], kind["gear"] = "more", map[string]any{"field": "arms", "kind": "carried"}
+			for _, e := range m["entities"].([]any) {
+				if e := e.(map[string]any); e["id"] == "growth" {
+					e["fields"] = map[string]any{"more": map[string]any{"type": "int", "label": "More"},
+						"arms": map[string]any{"type": "list", "label": "Arms"}}
+				}
+			}
+			m["entities"] = append(m["entities"].([]any), map[string]any{"id": "arm", "label": "Arm", "base": "item", "fields": map[string]any{}})
+			m["items"] = map[string]any{"kinds": []any{map[string]any{"id": "carried", "label": "Carried arms", "entry": "arm",
+				"entities": []any{"hero"}, "unique": true, "cite": "Fixture p.17"}}}
+		})
+		version := dbtest.Scalar[string](t, tx, `SELECT pack_version_id::text FROM pack_entry WHERE key = 'scales'`)
+		dbtest.Exec(t, tx, `INSERT INTO pack_entry (pack_version_id, key, type, name, tags, visibility, cite, content_hash, body)
+			VALUES ($1, 'claw', 'arm', 'Claw', '{}', 'gm', 'Fixture p.17', 'h', '{}')`, version)
+		dbtest.Exec(t, tx, `UPDATE pack_entry SET body = '{"more": 2, "arms": ["claw", "claw", "gone"]}' WHERE key = 'scales'`)
+		dbtest.Exec(t, tx, `UPDATE pack_entry SET body = '{"arms": ["claw"]}' WHERE key = 'horn'`)
+		gm := p.room.GM()
+		hal := p.hero("Hal", 0, 0)
+		r := p.send(gm, grant("lesser", hal, 41))
+		if len(r.Notices) != 1 || r.Notices[0].Code != "extraRolls" || r.Notices[0].Params["entry"] != "Scales" ||
+			r.Notices[0].Params["count"] != 2 {
+			t.Fatalf("want one extraRolls notice for Scales, 2, got %+v", r.Notices)
+		}
+		carried := func() string {
+			return strings.Join(dbtest.Scalar[[]string](t, tx, `SELECT coalesce(array_agg(entry_key ORDER BY ordinal), '{}')
+				FROM actor_item WHERE actor_id = $1 AND kind = 'carried'`, hal), ",")
+		}
+		if got := carried(); got != "claw" {
+			t.Fatalf("want one claw carried, got %q", got)
+		}
+		// Horn brings a claw too: already held, so nothing more, and no notice without extra rolls.
+		if r := p.send(gm, grant("lesser", hal, 13)); len(r.Notices) != 0 || carried() != "claw" {
+			t.Fatalf("want nothing more, got %q and %+v", carried(), r.Notices)
+		}
+	})
+}

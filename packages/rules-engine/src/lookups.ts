@@ -62,10 +62,13 @@ export function rowOf({ entries, total }: { entries: readonly TableEntry[]; tota
 export function lookupInputs({
   table,
   given,
+  maxes = {},
 }: {
   /** A lookup's table, or anything else that takes its inputs' shape (a strike, house decision #99). */
   table: { inputs?: readonly (StrikeInput | TableInput)[] | undefined };
   given: Readonly<Record<string, unknown>>;
+  /** The steppers' maxes written as expressions, as read now (`lookupMaxes`, house decision #192). */
+  maxes?: Readonly<Record<string, number>>;
 }): { ok: true; ctx: Record<string, number | boolean> } | { ok: false; input: string } {
   const ctx: Record<string, number | boolean> = {};
   const declared = table.inputs ?? [];
@@ -85,13 +88,45 @@ export function lookupInputs({
       ctx[x.id] = n as number;
       continue;
     }
-    const { min, max } = inputBounds(x);
+    const { min } = inputBounds(x);
+    const max = own(maxes, x.id) ?? inputBounds(x).max;
     const n = v ?? min ?? 0;
     if (typeof n !== "number" || !Number.isInteger(n)) return { ok: false, input: x.id };
     if ((min !== undefined && n < min) || (max !== undefined && n > max)) return { ok: false, input: x.id };
     ctx[x.id] = n;
   }
   return { ok: true, ctx };
+}
+
+/**
+ * A lookup's steppers' maxes written as expressions (house decision #192), read over the shared pools as they stand and
+ * the campaign values; a stepper whose max reads below its min (an empty pool) takes its min. Refused (`unreadable`)
+ * when one cannot be read.
+ */
+export function lookupMaxes({
+  compiled,
+  tableId,
+  pools = {},
+  campaign,
+}: {
+  compiled: CompiledRuleset;
+  tableId: string;
+  pools?: Readonly<Record<string, number>>;
+  campaign?: Readonly<Record<string, number | string | boolean>>;
+}): { ok: true; maxes: Record<string, number> } | ({ ok: false } & LookupRefusal) {
+  const lookup = own(compiled.lookups, tableId);
+  const inputs = own(compiled.ruleset.tables ?? {}, tableId)?.inputs ?? [];
+  const maxes: Record<string, number> = {};
+  for (const [id, expr] of Object.entries(lookup?.maxes ?? {})) {
+    try {
+      const n = evaluateInt({ expr, scope: { pools, ...(campaign === undefined ? {} : { campaign }) } });
+      maxes[id] = Math.max(n, inputBounds(inputs.find((x) => x.id === id) ?? {}).min ?? n);
+    } catch (e) {
+      if (e instanceof ExprError) return { ok: false, code: "unreadable", detail: e.message };
+      throw e;
+    }
+  }
+  return { ok: true, maxes };
 }
 
 /** What a typed result reads on a table: the total (result plus modifier) and the line, before any effect is worked out. */
@@ -101,6 +136,8 @@ export function readLookup({
   result,
   inputs,
   scope,
+  pools,
+  campaign,
 }: {
   compiled: CompiledRuleset;
   tableId: string;
@@ -108,6 +145,9 @@ export function readLookup({
   inputs: Readonly<Record<string, unknown>>;
   /** The target's scope; null without a target, which a table with a modifier cannot be read without. */
   scope: ExprRecord | null;
+  /** The shared pools and the campaign values, which a stepper's max may read (house decision #192). */
+  pools?: Readonly<Record<string, number>>;
+  campaign?: Readonly<Record<string, number | string | boolean>>;
 }):
   { ok: true; total: number; entry: number; ctx: Record<string, number | boolean> } | ({ ok: false } & LookupRefusal) {
   const table = own(compiled.ruleset.tables ?? {}, tableId);
@@ -116,7 +156,9 @@ export function readLookup({
   if (table === undefined || lookup === undefined || die === null) return { ok: false, code: "tableNotFound" };
   if (!Number.isInteger(result) || !die.has(result))
     return { ok: false, code: "tableResultOut", min: die.min, max: die.max };
-  const read = lookupInputs({ table, given: inputs });
+  const bounds = lookupMaxes({ compiled, tableId, pools, campaign });
+  if (!bounds.ok) return bounds;
+  const read = lookupInputs({ table, given: inputs, maxes: bounds.maxes });
   if (!read.ok) return { ok: false, code: "tableInput", input: read.input };
   let total = result;
   if (lookup.modifier !== null) {
@@ -147,6 +189,8 @@ export function planLookup(args: {
   scope: ExprRecord;
   /** The target's actor type, which an immunity's `entities` reads (house decision #174). */
   entity?: string;
+  pools?: Readonly<Record<string, number>>;
+  campaign?: Readonly<Record<string, number | string | boolean>>;
 }): LookupPlan {
   const read = readLookup(args);
   if (!read.ok) return read;

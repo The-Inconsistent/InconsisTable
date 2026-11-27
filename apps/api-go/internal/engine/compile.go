@@ -138,6 +138,8 @@ type (
 	CompiledLookup struct {
 		Modifier *CompiledExpr
 		Effects  [][]CompiledTableEffect
+		// Maxes are the steppers' maxes written as expressions, by input id, over `pools` and `campaign` (#192).
+		Maxes map[string]*CompiledExpr
 	}
 	// CompiledTableEffect is one effect of a lookup line, its expressions compiled over the target and the inputs; nil
 	// where the effect has none.
@@ -1269,7 +1271,27 @@ func (c *compiler) lookups(entities map[string]*CompiledEntity) map[string]*Comp
 			}
 			return c.expr(*source, scopes, expect, path)
 		}
-		compiled := &CompiledLookup{Modifier: one(t.Modifier, intType, at+".modifier"), Effects: make([][]CompiledTableEffect, len(t.Entries))}
+		// A stepper's max read from the shared pools as they stand (house decision #192).
+		pools := map[string]ExprType{}
+		for _, x := range c.r.Resources {
+			if x.Scope != "entity" {
+				pools[x.ID] = intType
+			}
+		}
+		maxScope := map[string]ExprType{"pools": RecordType{pools}}
+		if campaign := campaignScope(c.r); campaign != nil {
+			maxScope["campaign"] = campaign
+		}
+		maxes := map[string]*CompiledExpr{}
+		for i, x := range t.Inputs {
+			if x.MaxExpr == nil {
+				continue
+			}
+			if expr := c.expr(*x.MaxExpr, []map[string]ExprType{maxScope}, intType, fmt.Sprintf("%s.inputs[%d].max", at, i)); expr != nil {
+				maxes[x.ID] = expr
+			}
+		}
+		compiled := &CompiledLookup{Modifier: one(t.Modifier, intType, at+".modifier"), Effects: make([][]CompiledTableEffect, len(t.Entries)), Maxes: maxes}
 		for i, e := range t.Entries {
 			compiled.Effects[i] = []CompiledTableEffect{}
 			for j := range e.Apply {

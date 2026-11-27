@@ -654,3 +654,59 @@ func Adjust(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	}
 	return r.write()
 }
+
+// Given are the writes that give b one item of kind for each entry key, as item.add writes a pack entry's line (house
+// decision #191: a held record's gear): a counted kind's line one more, a unique kind's entry held already skipped, and
+// refused `itemsFull` when the kind would pass its max. The keys are ones the room is served.
+func Given(b *actor.Built, kind *engine.ItemKind, keys []string) ([]engine.Delta, error) {
+	out := []engine.Delta{}
+	held, ordinal := 0, 0
+	for _, x := range b.Items {
+		ordinal = max(ordinal, x.Ordinal+1)
+		if x.Kind == kind.ID {
+			held++
+		}
+	}
+	// A key given twice in one grant: a counted line's quantity is raised again, an uncounted kind takes it once more
+	// unless it is unique.
+	made := map[string]int{}
+	for _, key := range keys {
+		if i, has := made[key]; has && (kind.Counted() || (kind.Unique != nil && *kind.Unique)) {
+			if v, _ := out[i].Value.(map[string]any); kind.Counted() {
+				q, _ := v["quantity"].(float64)
+				v["quantity"] = min(float64(MaxQuantity), q+1)
+			}
+			continue
+		}
+		var line *actor.ItemRow
+		for i, x := range b.Items {
+			if x.Kind == kind.ID && x.EntryKey != nil && *x.EntryKey == key {
+				line = &b.Items[i]
+			}
+		}
+		if line != nil && kind.Counted() {
+			made[key] = len(out)
+			out = append(out, engine.Delta{Target: engine.DeltaTarget{Item: line.ID}, Kind: "set",
+				Value: value(b.Row.ID, *line, map[string]any{"quantity": float64(min(MaxQuantity, *line.Quantity+1))})})
+			continue
+		}
+		if line != nil && kind.Unique != nil && *kind.Unique {
+			continue
+		}
+		if held >= kind.MaxOrDefault() {
+			return nil, cs.Fail("itemsFull", cs.Params{"name": b.Row.Name, "kind": kind.Label, "max": kind.MaxOrDefault()})
+		}
+		var quantity any
+		if kind.Counted() {
+			quantity = 1.0
+		}
+		made[key] = len(out)
+		out = append(out, engine.Delta{Target: engine.DeltaTarget{Item: core.NewUUID()}, Kind: "set", Value: map[string]any{
+			"actorId": b.Row.ID, "kind": kind.ID, "entryType": kind.Entry, "entryKey": key, "name": "", "note": "",
+			"quantity": quantity, "fittedTo": nil, "fittedLine": nil, "codexEntryId": nil, "source": "hand",
+			"ordinal": float64(ordinal)}})
+		held++
+		ordinal++
+	}
+	return out, nil
+}

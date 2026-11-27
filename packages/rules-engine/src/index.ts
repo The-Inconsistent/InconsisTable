@@ -96,6 +96,7 @@ export {
   heldKeys,
   immuneTo,
   lookupInputs,
+  lookupMaxes,
   planLookup,
   readLookup,
   rowOf,

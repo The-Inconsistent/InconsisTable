@@ -141,6 +141,8 @@ export interface CompiledTableEffect {
 export interface CompiledLookup {
   modifier: CompiledExpr | null;
   effects: CompiledTableEffect[][];
+  /** Each stepper's `max` written as an expression, by input id, over `pools` and `campaign` (house decision #192). */
+  maxes: Record<string, CompiledExpr>;
 }
 
 export interface CompiledTest {
@@ -1259,7 +1261,19 @@ class Compiler {
       const at = `tables.${id}`;
       const one = (source: string | undefined, expect: "int" | "bool", path: string) =>
         source === undefined ? null : this.expr({ source, scopes, expect, path });
+      // A stepper's max read from the shared pools as they stand (house decision #192).
+      const pools: ExprType = {
+        record: Object.fromEntries(this.r.resources.filter((x) => x.scope !== "entity").map((x) => [x.id, "int"])),
+      };
+      const maxScope = { pools, ...this.campaignRoot() };
+      const maxes: Record<string, CompiledExpr> = {};
+      (t.inputs ?? []).forEach((x, i) => {
+        if (typeof x.max !== "string") return;
+        const expr = this.expr({ source: x.max, scopes: [maxScope], expect: "int", path: `${at}.inputs[${i}].max` });
+        if (expr !== null) maxes[x.id] = expr;
+      });
       out[id] = {
+        maxes,
         modifier: one(t.modifier, "int", `${at}.modifier`),
         effects: t.entries.map((e, i) =>
           (e.apply ?? []).map((x, j) => {

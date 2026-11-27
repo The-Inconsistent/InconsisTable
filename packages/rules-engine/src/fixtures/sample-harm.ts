@@ -782,7 +782,7 @@ export const SAMPLE_HARM_0_1_12: RulesetInput = {
  * 0.1.13 (house decision #190): the fight's log warns, in the ruleset's own words, when a hit fells a hero or brute or
  * destroys one outright, and when a blow thins a swarm. 0.1.12 hashes as it did. Invented.
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_0_1_13: RulesetInput = {
   ...SAMPLE_HARM_0_1_12,
   version: "0.1.13",
   health: {
@@ -804,6 +804,30 @@ export const SAMPLE_HARM: RulesetInput = {
     ...k,
     outcomes: k.outcomes.map((o) => (o.id === "thinned" ? { ...o, warn: "One of the swarm drops" } : o)),
   })),
+};
+
+/**
+ * 0.1.14 (house decision #191): a growth may ask for more rolls on its table and bring arms the hero then carries.
+ * 0.1.13 hashes as it did. Invented.
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_0_1_13,
+  version: "0.1.14",
+  entities: SAMPLE_HARM_0_1_13.entities.map((e) =>
+    e.id === "growth"
+      ? {
+          ...e,
+          fields: {
+            ...e.fields,
+            more: { type: "int", label: "Roll again", min: 0, max: 3 },
+            arms: { type: "list", label: "Arms it brings", maxItems: 4 },
+          },
+        }
+      : e,
+  ) as RulesetInput["entities"],
+  held: {
+    growth: { ...SAMPLE_HARM_0_1_13.held!.growth!, extraRolls: "more", gear: { field: "arms", kind: "carried" } },
+  },
 };
 
 /**

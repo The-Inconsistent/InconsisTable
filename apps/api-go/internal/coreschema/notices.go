@@ -21,6 +21,8 @@ var NoticeParams = map[string][]string{
 	"conditionSkipped": {"name", "condition"},
 	// shockSkipped answers table.apply: the shock of a hit its target never takes (house decision #163).
 	"shockSkipped": {"name", "shock"},
+	// extraRolls answers table.apply: a granted record tells the GM to roll that many more (house decision #191).
+	"extraRolls": {"entry", "count"},
 	// advanced answers campaign.setField raising the field an advance follows (house decision #96).
 	"advanced": {"field", "from", "to", "steps"},
 }
@@ -101,4 +103,9 @@ func Notify(ctx context.Context, n Notice) {
 		}
 	}
 	*list = append(*list, n)
+}
+
+// ExtraRolls is the notice that a granted record asks for that many more rolls on its table (house decision #191).
+func ExtraRolls(entry string, count int) Notice {
+	return Notice{Code: "extraRolls", Params: Params{"entry": entry, "count": count}}
 }

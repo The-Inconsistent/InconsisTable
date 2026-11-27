@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"slices"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/core"
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
+	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/item"
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/ruleset"
 )
 
@@ -38,7 +40,7 @@ func Apply(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	name := b.Row.Name
 	result, _ := a["result"].(float64)
 	inputs, _ := a["inputs"].(map[string]any)
-	read, steps, refused := rc.Compiled.PlanLookup(tableID, result, inputs, b.Scope, b.Entity)
+	read, steps, refused := rc.Compiled.PlanLookup(tableID, result, inputs, b.Scope, b.Entity, rc.PoolValues(), rc.Campaign())
 	if refused != nil {
 		return cs.Result{}, refusal(refused, name)
 	}
@@ -98,7 +100,11 @@ func grantDeltas(ctx context.Context, tx core.Conn, rc *ruleset.Context, campaig
 		next = append(next, k)
 	}
 	next = append(next, s.Entry)
-	included, err := includedKeys(ctx, tx, campaignID, kind, s.Entry)
+	body, err := entryBody(ctx, tx, campaignID, kind.Entry, s.Entry)
+	if err != nil {
+		return nil, err
+	}
+	included, err := includedKeys(ctx, tx, campaignID, kind, s.Entry, body)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +116,50 @@ func grantDeltas(ctx context.Context, tx core.Conn, rc *ruleset.Context, campaig
 	if len(next) > kind.MaxOrDefault() {
 		return nil, cs.Fail("heldFull", cs.Params{"name": name, "kind": kind.Label})
 	}
-	return []engine.Delta{{Target: engine.DeltaTarget{ActorID: actorID, Field: kind.Field}, Kind: "set", Value: next}}, nil
+	deltas := []engine.Delta{{Target: engine.DeltaTarget{ActorID: actorID, Field: kind.Field}, Kind: "set", Value: next}}
+	// The record's gear and extra rolls (house decision #191): the items it gives, and how many more to roll.
+	if kind.Gear != nil {
+		items := rc.Compiled.Ruleset.Items.Kind(kind.Gear.Kind)
+		keys := []string{}
+		for _, k := range heldList(body[kind.Gear.Field]) {
+			_, served, err := actor.ServedEntryName(ctx, tx, campaignID, items.Entry, k)
+			if err != nil {
+				return nil, err
+			}
+			if served {
+				keys = append(keys, k)
+			}
+		}
+		given, err := item.Given(b, items, keys)
+		if err != nil {
+			return nil, err
+		}
+		deltas = append(deltas, given...)
+	}
+	if kind.ExtraRolls != nil {
+		if n, _ := body[*kind.ExtraRolls].(float64); n >= 1 && n == math.Trunc(n) {
+			cs.Notify(ctx, cs.ExtraRolls(entry, int(n)))
+		}
+	}
+	return deltas, nil
+}
+
+// entryBody is the body of the served entry of that type and key (the first by pack slug); empty when it is not one.
+func entryBody(ctx context.Context, tx core.Conn, campaignID, typ, key string) (map[string]any, error) {
+	var body []byte
+	err := tx.QueryRow(ctx, `SELECT e.body FROM campaign_pack
+		JOIN pack_entry e ON e.pack_version_id = campaign_pack.pack_version_id
+		JOIN pack_version ON pack_version.id = e.pack_version_id JOIN pack ON pack.id = pack_version.pack_id
+		WHERE campaign_pack.campaign_id = $1 AND e.type = $2 AND e.key = $3 AND `+actor.ServedPacks("$1")+`
+		ORDER BY pack.slug LIMIT 1`, campaignID, typ, key).Scan(&body)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]any{}
+	if json.Unmarshal(body, &fields) != nil {
+		return map[string]any{}, nil
+	}
+	return fields, nil
 }
 
 // heldList is a list field's value as keys.
@@ -191,21 +240,8 @@ func stepDeltas(ctx context.Context, tx core.Conn, rc *ruleset.Context, campaign
 
 // includedKeys is the records a served entry brings with it (house decision #165): the keys its kind's `includes` list
 // field names that the room is served, in the entry's order. None for a kind without `includes`.
-func includedKeys(ctx context.Context, tx core.Conn, campaignID string, kind engine.HeldKind, key string) ([]string, error) {
+func includedKeys(ctx context.Context, tx core.Conn, campaignID string, kind engine.HeldKind, key string, fields map[string]any) ([]string, error) {
 	if kind.Includes == nil {
-		return nil, nil
-	}
-	var body []byte
-	err := tx.QueryRow(ctx, `SELECT e.body FROM campaign_pack
-		JOIN pack_entry e ON e.pack_version_id = campaign_pack.pack_version_id
-		JOIN pack_version ON pack_version.id = e.pack_version_id JOIN pack ON pack.id = pack_version.pack_id
-		WHERE campaign_pack.campaign_id = $1 AND e.type = $2 AND e.key = $3 AND `+actor.ServedPacks("$1")+`
-		ORDER BY pack.slug LIMIT 1`, campaignID, kind.Entry, key).Scan(&body)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]any{}
-	if json.Unmarshal(body, &fields) != nil {
 		return nil, nil
 	}
 	out := []string{}

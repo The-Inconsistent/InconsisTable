@@ -1722,8 +1722,10 @@ const LOOKUP_MANIFEST = {
         inputs: [
           { id: "on", label: "On", type: "bool" },
           { id: "n", label: "N", type: "int", min: 0, max: 3, cite: "p1" },
+          // House decision #192: capped at a shared pool as it stands.
+          { id: "k", label: "K", type: "int", min: 1, max: "pools.dread" },
         ],
-        modifier: "ctx.n * 10 + attr.dex",
+        modifier: "ctx.n * 10 + attr.dex + ctx.k",
         entities: ["pc"],
       },
     ),
@@ -3532,6 +3534,29 @@ function heldCrafted(): object[] {
     one({ includes: "with" }, { entities: [pc, { ...mark, fields: { with: { label: "W", type: "text" } } }] }),
     one({ includes: "with" }),
     one({ includes: "Bad" }),
+    // A record's extra rolls and gear (house decision #191).
+    ...(() => {
+      const fields = {
+        more: { label: "R", type: "int" },
+        arms: { label: "A", type: "list" },
+        word: { label: "W", type: "text" },
+      };
+      const typed = { entities: [pc, { ...mark, fields }] };
+      const kinds = (holders: string[]) => ({
+        ...typed,
+        items: { kinds: [{ id: "kit", label: "K", entry: "mark", entities: holders, cite: "p1" }] },
+      });
+      return [
+        one({ extraRolls: "more" }, typed),
+        one({ extraRolls: "word" }, typed),
+        one({ extraRolls: "nope" }, typed),
+        one({ gear: { field: "arms", kind: "kit" } }, kinds(["pc"])),
+        one({ gear: { field: "word", kind: "kit" } }, kinds(["pc"])),
+        one({ gear: { field: "arms", kind: "nope" } }, kinds(["pc"])),
+        one({ gear: { field: "arms", kind: "kit" } }, typed),
+        one({ gear: { field: "arms" } }, kinds(["pc"])),
+      ];
+    })(),
     one({ unseen: "" }),
     one({ label: "x".repeat(61) }),
     { ...HELD_MANIFEST, held: Object.fromEntries(Array.from({ length: 11 }, (_, i) => [`k${i}`, HELD_KIND])) },
@@ -3570,6 +3595,17 @@ function lookupCrafted(): object[] {
     one({ ...line([pool]), typedOnly: false }),
     one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "bool", min: 1 }] }),
     one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "int", min: 3, max: 1 }] }),
+    // A stepper's max over the shared pools (house decision #192).
+    ...[
+      { type: "int", min: 0, max: "pools.dread" },
+      { type: "int", max: "pools.dread + campaign.x" },
+      { type: "int", max: "pools.hp" },
+      { type: "int", max: "pools.dread > 1" },
+      { type: "int", max: "res.hp" },
+      { type: "int", max: "" },
+      { type: "bool", max: "pools.dread" },
+      { type: "int", dice: "1d3", max: "pools.dread" },
+    ].map((x) => one({ ...line([pool]), inputs: [{ id: "x", label: "X", ...x }] })),
     // A die the GM types (house decision #164): plain NdX of at most 1000, a number, its own bounds.
     one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "int", dice: "1d3" }] }),
     one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "int", dice: "1d3", min: 1 }] }),
@@ -5074,7 +5110,10 @@ function lookupVectors() {
       const odd = rnd(8) === 0; // now and then a value the input does not take, or one the table does not declare
       for (const x of r.compiled.ruleset.tables?.[tableId]?.inputs ?? []) {
         if (rnd(4) === 0) continue;
-        const fine = x.type === "bool" ? rnd(2) === 0 : (x.min ?? 0) + rnd(1 + (x.max ?? 3) - (x.min ?? 0));
+        const fine =
+          x.type === "bool"
+            ? rnd(2) === 0
+            : (x.min ?? 0) + rnd(1 + (typeof x.max === "number" ? x.max : 3) - (x.min ?? 0));
         inputs[x.id] = odd ? pick([1, "yes", 1.5, 99, true]) : fine;
       }
       if (rnd(20) === 0) inputs.nope = true;
@@ -5087,6 +5126,9 @@ function lookupVectors() {
       for (const key of ["luck", "hp"]) if (rnd(3) !== 0) resources[key] = rnd(5);
       const scope = actorScope({ fields, derived, resources });
       const entity = pick(["pc", "hero", "brute", "nope", undefined]);
+      // The shared pools a stepper's max may read (house decision #192); now and then none.
+      const pools: Record<string, number> = {};
+      if (rnd(6) !== 0) for (const key of ["dread", "luck"]) pools[key] = rnd(4);
       out.push({
         manifest: index,
         tableId,
@@ -5096,7 +5138,8 @@ function lookupVectors() {
         derived,
         resources,
         entity,
-        plan: planLookup({ compiled: r.compiled, tableId, result, inputs, scope, entity }),
+        pools,
+        plan: planLookup({ compiled: r.compiled, tableId, result, inputs, scope, entity, pools }),
       });
     }
   });

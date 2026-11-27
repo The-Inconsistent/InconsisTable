@@ -67,6 +67,7 @@ export function previewOf({
   target,
   characters,
   campaign,
+  pools = {},
 }: {
   compiled: CompiledRuleset;
   tableId: string;
@@ -75,14 +76,17 @@ export function previewOf({
   target: Target | undefined;
   characters: number;
   campaign: Readonly<Record<string, unknown>>;
+  /** The shared pools' values, which a stepper's max may read (house decision #192). */
+  pools?: Readonly<Record<string, number>>;
 }): (LookupPlan & { shockless: boolean }) | null {
   if (target === undefined || result === null || !Number.isInteger(result)) return null;
+  const inPlay = campaignValues({ compiled, stored: campaign });
   const scope = actorScope({
     fields: target.fields,
     derived: target.derived,
     resources: target.resources,
     party: { characters },
-    campaign: campaignValues({ compiled, stored: campaign }),
+    campaign: inPlay,
   });
   const profile = compiled.ruleset.health.harm?.profiles.find((p) => p.entities.includes(target.entity));
   let shockless = false;
@@ -91,7 +95,10 @@ export function previewOf({
   } catch {
     // A value the GM side cannot read yet: the preview shows the shock, the server decides.
   }
-  return { ...planLookup({ compiled, tableId, result, inputs, scope, entity: target.entity }), shockless };
+  return {
+    ...planLookup({ compiled, tableId, result, inputs, scope, entity: target.entity, pools, campaign: inPlay }),
+    shockless,
+  };
 }
 
 /** Steps in order, each run of equal ones as one line with its count ("Dazed ×2"). */

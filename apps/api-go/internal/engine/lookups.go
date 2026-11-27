@@ -60,7 +60,7 @@ func (s LookupStep) JSON() map[string]any {
 // LookupInputs is the inputs as the lookup reads them (lookups.ts lookupInputs): each declared one given or its default
 // (a switch off, a stepper at its min or 0). The name of the first that is undeclared, of the wrong type, not whole or
 // outside its bounds, else "".
-func LookupInputs(t *RandomTable, given map[string]any) (map[string]any, string) {
+func LookupInputs(t *RandomTable, given map[string]any, maxes map[string]int) (map[string]any, string) {
 	ctx := map[string]any{}
 	declared := map[string]bool{}
 	for _, x := range t.Inputs {
@@ -98,6 +98,9 @@ func LookupInputs(t *RandomTable, given map[string]any) (map[string]any, string)
 		}
 		n := 0.0
 		lo, hi := x.Bounds()
+		if m, read := maxes[x.ID]; read {
+			hi = &m
+		}
 		switch {
 		case has:
 			f, isNumber := v.(float64)
@@ -116,9 +119,42 @@ func LookupInputs(t *RandomTable, given map[string]any) (map[string]any, string)
 	return ctx, ""
 }
 
+// LookupMaxes is a lookup's steppers' maxes written as expressions (lookups.ts lookupMaxes, house decision #192), read
+// over the shared pools as they stand and the campaign values; one below its min takes its min.
+func (c *CompiledRuleset) LookupMaxes(tableID string, pools map[string]float64, campaign map[string]any) (map[string]int, *LookupRefusal) {
+	lookup := c.Lookups[tableID]
+	maxes := map[string]int{}
+	if lookup == nil {
+		return maxes, nil
+	}
+	values := map[string]any{}
+	for id, v := range pools {
+		values[id] = v
+	}
+	scope := &Record{Fields: map[string]any{"pools": ValueFromJSON(values)}}
+	if campaign != nil {
+		scope.Fields["campaign"] = ValueFromJSON(campaign)
+	}
+	t := c.Ruleset.Tables[tableID]
+	for _, id := range sortedKeys(lookup.Maxes) {
+		n, err := evaluateInt(lookup.Maxes[id], scope)
+		if err != nil {
+			return nil, unreadable(err)
+		}
+		m := int(n)
+		for _, x := range t.Inputs {
+			if lo, _ := x.Bounds(); x.ID == id && lo != nil && m < *lo {
+				m = *lo
+			}
+		}
+		maxes[id] = m
+	}
+	return maxes, nil
+}
+
 // ReadLookup is what a typed result reads on a table (lookups.ts readLookup): the total and the line. A nil scope is
 // no target, which a table with a modifier cannot be read without.
-func (c *CompiledRuleset) ReadLookup(tableID string, result float64, inputs map[string]any, scope *Record) (*LookupRead, *LookupRefusal) {
+func (c *CompiledRuleset) ReadLookup(tableID string, result float64, inputs map[string]any, scope *Record, pools map[string]float64, campaign map[string]any) (*LookupRead, *LookupRefusal) {
 	t, known := c.Ruleset.Tables[tableID]
 	lookup := c.Lookups[tableID]
 	if !known || lookup == nil || t.Die == nil {
@@ -131,7 +167,11 @@ func (c *CompiledRuleset) ReadLookup(tableID string, result float64, inputs map[
 	if result != math.Trunc(result) || !die.Has(int(result)) {
 		return nil, &LookupRefusal{Code: "tableResultOut", Min: die.Min, Max: die.Max}
 	}
-	ctx, bad := LookupInputs(&t, inputs)
+	maxes, refused := c.LookupMaxes(tableID, pools, campaign)
+	if refused != nil {
+		return nil, refused
+	}
+	ctx, bad := LookupInputs(&t, inputs, maxes)
 	if bad != "" {
 		return nil, &LookupRefusal{Code: "tableInput", Input: bad}
 	}
@@ -152,8 +192,8 @@ func (c *CompiledRuleset) ReadLookup(tableID string, result float64, inputs map[
 // PlanLookup is a typed result applied to a target (lookups.ts planLookup): the line and its effects as steps, in the
 // line's order, each repeated Times and left out when its When does not hold or its amounts are all 0.
 // Entity is the target's actor type, which an immunity's entities read (house decision #174); "" when not known.
-func (c *CompiledRuleset) PlanLookup(tableID string, result float64, inputs map[string]any, scope *Record, entity string) (*LookupRead, []LookupStep, *LookupRefusal) {
-	read, refused := c.ReadLookup(tableID, result, inputs, scope)
+func (c *CompiledRuleset) PlanLookup(tableID string, result float64, inputs map[string]any, scope *Record, entity string, pools map[string]float64, campaign map[string]any) (*LookupRead, []LookupStep, *LookupRefusal) {
+	read, refused := c.ReadLookup(tableID, result, inputs, scope, pools, campaign)
 	if refused != nil {
 		return nil, nil, refused
 	}

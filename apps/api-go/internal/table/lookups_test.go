@@ -253,3 +253,39 @@ func TestATypedRollReadsItsLine(t *testing.T) {
 		}
 	})
 }
+
+// A stepper capped at a shared pool (house decision #192): Press may be at most what Grim holds as the line is applied.
+func TestALookupStepperIsCappedAtThePoolAsItStands(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		var m, extra map[string]any
+		if err := json.Unmarshal([]byte(harmFixture), &m); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal([]byte(lookupTables), &extra); err != nil {
+			t.Fatal(err)
+		}
+		m["conditions"] = append(m["conditions"].([]any), extra["conditions"].([]any)...)
+		m["resources"] = append(m["resources"].([]any), map[string]any{"id": "grim", "label": "Grim", "cite": "Fixture p.8",
+			"scope": "party", "max": "5", "visibility": "party"})
+		blow := extra["tables"].(map[string]any)["blow"].(map[string]any)
+		blow["inputs"].([]any)[2].(map[string]any)["max"] = "pools.grim"
+		m["tables"] = extra["tables"]
+		out, err := json.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		room := dbtest.NewRoom(t, tx)
+		room.Pin(t, tx, string(out))
+		dbtest.Exec(t, tx, `INSERT INTO session (campaign_id, number) VALUES ($1, 1)`, room.ID)
+		p := &play{t, tx, room}
+		gm := room.GM()
+		hal := p.hero("Hal", 0, 0)
+		p.refused(gm, applyBlow(hal, 44, map[string]any{"press": 1.0}), "tableInput")
+		dbtest.Exec(t, tx, `INSERT INTO resource_pool (campaign_id, scope, resource_id, value) VALUES ($1, 'party', 'grim', 2)`, room.ID)
+		p.send(gm, applyBlow(hal, 44, map[string]any{"press": 2.0}))
+		if p.res(hal, "wounds") != 1 {
+			t.Fatalf("want the Reel's one wound, got %d", p.res(hal, "wounds"))
+		}
+		p.refused(gm, applyBlow(hal, 44, map[string]any{"press": 3.0}), "tableInput")
+	})
+}

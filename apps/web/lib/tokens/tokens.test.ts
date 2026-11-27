@@ -403,6 +403,22 @@ test("the restyle guard needs every class, the same pseudo-element and the same 
   assert.ok(!restyled({ selector: ".chip::before", prop: "background", world }), "the same pseudo-element");
 });
 
+// The TV's creature card is itself a .sheet-card, so its name (.head.stat-title) is a section head too: a stat block's
+// band rules for section heads must leave the title alone, or they outrank its bar (house decision #219).
+const bandsTheTitle = (selector: string) =>
+  selectorItems(selector).some(
+    (item) => item.includes(".stat-block") && /\.head(?![\w-])(?!:not\(\.stat-title\))/.test(item),
+  );
+
+test("a stat block's section-head rules never reach its title", () => {
+  assert.ok(bandsTheTitle('[data-stat-block="printed"] .stat-block :is(.sheet-card > .head, .w-label)'));
+  assert.ok(!bandsTheTitle('[data-stat-block="printed"] .stat-block :is(.sheet-card > .head:not(.stat-title))'));
+  assert.deepEqual(
+    world.filter((r) => bandsTheTitle(r.selector)).map((r) => r.selector),
+    [],
+  );
+});
+
 test("a rule that paints with lantern's palette is restyled under a World, or listed with its reason", () => {
   const found = new Set<string>();
   for (const r of globals) {

@@ -285,7 +285,7 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
       {!encounter && state.games[0] && <GameResult game={state.games[0]} onCorrect={handleCorrect} />}
       {sheet.ruleset && sheetActor && (
         <BottomSheet title={t("sheetOf", { name: sheetActor.name })} onClose={() => setSheetOf(null)}>
-          <StatBlock actor={sheetActor}>
+          <StatBlock actor={sheetActor} named>
             <SheetView
               key={sheetActor.id}
               actor={sheetActor}

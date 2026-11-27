@@ -2450,6 +2450,9 @@ summary {
 /* A grid of many ratings: whole where it fits, else in two halves one over the other (grid.tsx), so a phone never
    squeezes seven headings into a word's width. */
 .w-grid-wrap {
+  /* a size container has no width of its own: it takes its parent's, even in a parent that shrinks to its content */
+  width: 100%;
+  min-width: 0;
   container-type: inline-size;
 }
 .w-grid-halves {

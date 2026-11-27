@@ -873,7 +873,7 @@
     "roundPhase": "[Round] {round} · {phase}",
     "done": "Done",
     "paused": "Paused",
-    "first": "First [player]",
+    "first": "First player",
     "lineSetup": "Setting up",
     "linePick": "{side}: pick who acts",
     "lineComplete": "[Round] {round} complete",
@@ -1574,7 +1574,7 @@
     "moveDown": "Move {name} down among equal initiatives",
     "moveUpSeat": "Move {name} up one seat",
     "moveDownSeat": "Move {name} down one seat",
-    "first": "First [player]",
+    "first": "First player",
     "makeFirst": "Make {name} the first [player]"
   },
   "combatSide": {
@@ -2496,7 +2496,7 @@
     "viewsLabel": "Notebook views",
     "views": {
       "inbox": "Inbox",
-      "mission": "[Mission]",
+      "mission": "Mission",
       "archive": "Archive"
     },
     "viewNew": "{view}, {count} new",
@@ -2628,6 +2628,7 @@
     "nothing": "Nothing to draft yet. Tests, reveals, encounters and clocks show up here."
   },
   "manifestForm": {
+    "inLanguage": "{label} in {language}",
     "choose": "Not set",
     "citePlaceholder": "Core p.142",
     "citeHint": "Printed page, e.g. Core p.142.",
@@ -2762,7 +2763,7 @@
       "score": "Score",
       "rerollEachRound": "Roll again each [round]",
       "tiebreak": "Tiebreakers",
-      "firstPlayer": "First [player]",
+      "firstPlayer": "First player",
       "actor": "Actor entity",
       "optional": "Can be skipped",
       "pick": "Pick from",

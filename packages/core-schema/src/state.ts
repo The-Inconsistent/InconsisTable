@@ -186,8 +186,9 @@ export const Session = z.object({
 export type Session = z.infer<typeof Session>;
 
 // One session of the GM's journal (house decision #85): every session of the room, newest first; `abandoned` when it
-// ended without an award (session.abandon).
-export const JournalSession = Session.extend({ abandoned: z.boolean() });
+// ended without an award (session.abandon). `award`: the XP each character was given at its end (house decision #120),
+// null while it runs, when abandoned, in a ruleset that gives none, or for a session ended before it was kept.
+export const JournalSession = Session.extend({ abandoned: z.boolean(), award: z.number().int().nullable() });
 export type JournalSession = z.infer<typeof JournalSession>;
 
 // A builder draft is one JSON document read and written whole (docs/p1-plan.md decision 4): the character being built

@@ -12,8 +12,11 @@ export const AdminCampaign = z.object({
   archived: z.boolean(),
   tableMode: z.string(),
   // The room's last session, running while endedAt is null (house decision #94).
-  latestSession: z.object({ id: z.uuid(), number: z.number().int(), endedAt: z.string().nullable() }).nullable(),
-  gms: z.array(z.string()),
+  latestSession: z
+    .object({ id: z.uuid(), number: z.number().int(), startedAt: z.string(), endedAt: z.string().nullable() })
+    .nullable(),
+  // The room's GM seats, each removable on its own (house decision #121; the owner's is refused).
+  gms: z.array(z.object({ userId: z.string(), name: z.string() })),
 });
 export type AdminCampaign = z.infer<typeof AdminCampaign>;
 export const AdminCampaigns = z.array(AdminCampaign);

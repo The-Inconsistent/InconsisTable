@@ -209,7 +209,6 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
               state={state}
               send={send}
               draftRecap={draftRecap}
-              recaps={codex?.recaps ?? []}
               autoQr={quick}
               sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
             />

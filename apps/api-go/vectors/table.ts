@@ -324,7 +324,7 @@ const STATE = {
   stateVersion: 9,
   session: {
     id: U(101),
-    number: 2,
+    number: 3,
     title: "Two",
     startedAt: "2026-11-01T09:00:00.000Z",
     endedAt: null,
@@ -334,13 +334,26 @@ const STATE = {
   journal: [
     {
       id: U(101),
-      number: 2,
+      number: 3,
       title: "Two",
       startedAt: "2026-11-01T09:00:00.000Z",
       endedAt: null,
       recap: "",
       notes: "GM notes",
       abandoned: false,
+      award: null,
+    },
+    // An ended session with its award (house decision #120).
+    {
+      id: U(103),
+      number: 2,
+      title: "The road",
+      startedAt: "2026-10-15T09:00:00.000Z",
+      endedAt: "2026-10-15T13:00:00.000Z",
+      recap: "They took the road.",
+      notes: "",
+      abandoned: false,
+      award: 4,
     },
     {
       id: U(102),
@@ -351,6 +364,7 @@ const STATE = {
       recap: `They met @[Hidden one](${U(500)}) and @[Shown](${U(501)}).`,
       notes: "Old notes",
       abandoned: true,
+      award: null,
     },
   ],
   actors: ACTORS,

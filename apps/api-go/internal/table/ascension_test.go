@@ -73,6 +73,15 @@ func TestASessionsEndAwardsXPToEveryLedgerCharacter(t *testing.T) {
 		if n := dbtest.Scalar[int](t, tx, `SELECT count(*)::int FROM session WHERE campaign_id = $1 AND ended_at IS NULL`, p.room.ID); n != 0 {
 			t.Fatal("the session is still running")
 		}
+		// The award is kept with the session for the journal (house decision #120); an abandoned one keeps none.
+		if got := dbtest.Scalar[int](t, tx, `SELECT award FROM session WHERE campaign_id = $1 AND number = 1`, p.room.ID); got != 5 {
+			t.Fatalf("stored award %d", got)
+		}
+		dbtest.Exec(t, tx, `INSERT INTO session (campaign_id, number) VALUES ($1, 2)`, p.room.ID)
+		p.send(gm, map[string]any{"type": "session.abandon"})
+		if dbtest.Scalar[bool](t, tx, `SELECT award IS NOT NULL FROM session WHERE campaign_id = $1 AND number = 2`, p.room.ID) {
+			t.Fatal("an abandoned session kept an award")
+		}
 		// No session running: refused, and the transaction (not this test's) rolls the award back.
 		p.refused(gm, endSession(5), "noSessionRunning")
 
@@ -80,6 +89,9 @@ func TestASessionsEndAwardsXPToEveryLedgerCharacter(t *testing.T) {
 		plain := newPlay(t, tx)
 		plain.refused(plain.room.GM(), endSession(1), "noAward")
 		plain.send(plain.room.GM(), endSession(0))
+		if dbtest.Scalar[bool](t, tx, `SELECT award IS NOT NULL FROM session WHERE campaign_id = $1`, plain.room.ID) {
+			t.Fatal("a ruleset without an award kept one")
+		}
 	})
 }
 

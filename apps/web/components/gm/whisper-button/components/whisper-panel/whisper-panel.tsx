@@ -6,16 +6,21 @@ import { PARTY_KINDS, WHISPER_MAX, type LiveState } from "@inconsistable/core-sc
 
 import type { Send } from "@/hooks/use-table/use-table";
 
-type WhisperPanelProps = { state: LiveState; send: Send };
+type WhisperPanelProps = {
+  state: LiveState;
+  send: Send;
+  /** The characters picked when the panel opens: a party card's WHISPER opens it on that character (#220). */
+  to?: readonly string[];
+};
 
 // The GM's whispers (house decision #93): pick the party's characters (all or some), one line, send; then this
 // session's whispers, each with who has read it and each reply, and a take-back.
-export function WhisperPanel({ state, send }: WhisperPanelProps) {
+export function WhisperPanel({ state, send, to = [] }: WhisperPanelProps) {
   const t = useTranslations("whisper");
   const id = useId();
   const party = state.actors.filter((a) => PARTY_KINDS.has(a.kind));
   const names = useMemo(() => new Map(state.actors.map((a) => [a.id, a.name])), [state.actors]);
-  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(to));
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

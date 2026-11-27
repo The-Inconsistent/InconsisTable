@@ -2085,17 +2085,22 @@ test("the admin ends a room's session without an award and deletes the last one"
     (await (await post(`/admin/campaigns/${campaignId}/action`, body, ownIp())).json()) as ActionResult;
   refused(await act({ type: "session.abandon" }), "noSessionRunning");
   const id = ok(await owner.send({ type: "session.start", title: "Left open" })).id!;
+  // The journal carries the title, and no award while the session runs (house decision #120).
+  await owner.until((s) => s.journal[0]?.title === "Left open" && s.journal[0].award === null);
   const room = async () =>
     (
       (await (await get("/admin/campaigns", ownIp())).json()) as {
         id: string;
-        latestSession: { id: string; number: number; endedAt: string | null } | null;
-        gms: string[];
+        latestSession: { id: string; number: number; startedAt: string; endedAt: string | null } | null;
+        gms: { userId: string; name: string }[];
       }[]
     ).find((c) => c.id === campaignId)!;
   const running = await room();
   assert.deepEqual([running.latestSession?.id, running.latestSession?.endedAt], [id, null]);
   assert.equal(running.gms.length, 1, "the owner's GM seat");
+  assert.ok(running.latestSession?.startedAt, "the open session's start, for the rooms list");
+  // One GM removed at a time (house decision #121); the owner never.
+  refused(await act({ type: "member.remove", userId: running.gms[0]!.userId }), "ownerNotRemovable");
   refused(await act({ type: "session.delete", sessionId: id }), "endSessionFirst");
   ok(await act({ type: "session.abandon" }));
   await owner.until((s) => s.session === null);

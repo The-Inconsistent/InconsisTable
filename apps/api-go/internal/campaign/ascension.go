@@ -23,21 +23,23 @@ const shortNames = 5
 
 // checkAward refuses a session's award the pinned ruleset does not give: none without an `xp` field and an `award`, and
 // never more than its max. An award of 0 is always allowed.
-func checkAward(ctx context.Context, tx core.Conn, cid string, award float64) error {
-	if award == 0 {
-		return nil
-	}
+// It answers whether the ruleset gives an award at all, so the session keeps the number only where one is given.
+func checkAward(ctx context.Context, tx core.Conn, cid string, award float64) (bool, error) {
 	rules, err := compiled.Load(ctx, tx, cid)
 	if err != nil {
-		return err
+		return false, err
 	}
-	if rules == nil || rules.Ruleset.Build == nil || rules.Ruleset.Build.XP == nil || rules.Ruleset.Build.Award == nil {
-		return cs.Fail("noAward")
+	gives := rules != nil && rules.Ruleset.Build != nil && rules.Ruleset.Build.XP != nil && rules.Ruleset.Build.Award != nil
+	if award == 0 {
+		return gives, nil
+	}
+	if !gives {
+		return false, cs.Fail("noAward")
 	}
 	if max := rules.Ruleset.Build.Award.Max; award > max {
-		return cs.Fail("awardTooHigh", cs.Params{"max": max})
+		return false, cs.Fail("awardTooHigh", cs.Params{"max": max})
 	}
-	return nil
+	return true, nil
 }
 
 // characters are the room's player characters of the type the ledger builds, in load order.

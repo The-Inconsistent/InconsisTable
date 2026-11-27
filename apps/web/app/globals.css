@@ -3570,6 +3570,13 @@ fieldset:disabled select {
 .ledger-confirm .row {
   margin-top: 12px;
 }
+/* The room's MANAGE dialog holds a whole room's controls: a card's corners and a working width, whatever a World
+   makes of a button's radius (a pill would clip its corners). The short confirm dialogs keep theirs. */
+.ledger-confirm.admin-manage {
+  width: min(560px, calc(100vw - 32px));
+  max-width: none;
+  border-radius: var(--radius-card);
+}
 
 /* ---------- The workspace: rooms, characters, rulesets and packs ----------
    A wooden rail on the left with brass trim, the candle lit at its head; the page beside it on parchment. The current

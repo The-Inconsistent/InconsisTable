@@ -17,15 +17,18 @@ import {
   type LiveState,
   type Me,
   type Member,
-  type SessionRecap,
 } from "@inconsistable/core-schema";
 import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { AscensionPanel } from "@/components/builder/ledger/play/ascension-panel/ascension-panel";
 import { SessionAward } from "@/components/builder/ledger/play/session-award/session-award";
-import { Recaps } from "@/components/gm/party/recaps";
+import { Journal } from "@/components/gm/party/components/journal/journal";
+import { NextSessionForm } from "@/components/gm/party/components/next-session-form/next-session-form";
+import { OpenInvites } from "@/components/gm/party/components/open-invites/open-invites";
 import { SafetyPanel } from "@/components/gm/party/safety-panel";
 import { SpendButtons } from "@/components/gm/spend-buttons/spend-buttons";
+import { WhisperPanel } from "@/components/gm/whisper-button/components/whisper-panel/whisper-panel";
+import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
 import { DraftRecap as DraftRecapButton } from "@/components/ui/draft-recap/draft-recap";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
 import type { DraftRecap, RequestPage, Send } from "@/hooks/use-table/use-table";
@@ -42,8 +45,6 @@ type PartyProps = {
   state: LiveState;
   send: Send;
   draftRecap: DraftRecap;
-  /** Past recaps, from the codex snapshot. */
-  recaps: readonly SessionRecap[];
   /** What a character sheet needs: the ruleset as the GM reads it, the served books and the page relay. */
   sheet: { ruleset: Ruleset | null; books: readonly BookSource[]; requestPage: RequestPage };
   /** A quick game just made this room: the player invite QR is up on arrival. */
@@ -66,8 +67,9 @@ type Shown = { title: string; url: string; qr: string; at: string | null };
 const bringIntoView = (el: HTMLElement | null) => el?.scrollIntoView({ block: "nearest" });
 
 // PARTY: who sits at this table, how others join, and the room's owner controls (docs/design.md §3.6, §3.7).
-export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = false }: PartyProps) {
+export function Party({ me, state, send, draftRecap, sheet, autoQr = false }: PartyProps) {
   const t = useTranslations("party");
+  const tWhisper = useTranslations("whisper");
   const tRoles = useTranslations("roles");
   const tRest = useTranslations("rest");
   const router = useRouter();
@@ -82,6 +84,8 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
   const [award, setAward] = useState(0); // the session's XP award, set when the end-of-session form opens
   const [ascending, setAscending] = useState(false);
   const [ascendRefusal, setAscendRefusal] = useState<string | null>(null);
+  const [title, setTitle] = useState(""); // START SESSION's optional title
+  const [whisperTo, setWhisperTo] = useState<string | null>(null); // the character a row's WHISPER opened the panel on
   const isOwner = me.userId !== null && me.userId === state.campaign.ownerUserId;
   const can = (perm: Parameters<typeof canInCampaign>[0]["perm"]) => canInCampaign({ ctx: me, perm });
   const holderOf = (actorId: string) =>
@@ -100,6 +104,9 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
   // In play with the ledger builder (house decision #64): the XP a session's end awards, and the group's Ascension.
   const ledgerBuild = sheet.ruleset?.build;
   const awardRule = ledgerBuild?.xp ? ledgerBuild.award : undefined;
+  // Whispers need a GM (house decision #93) and go from the side that runs the session, as the header's WHISPER.
+  const whispers =
+    state.campaign.tableMode === "gm" && canInCampaign({ ctx: { ...me, tableMode: "gm" }, perm: "session:run" });
   const tier = sheet.ruleset ? roomTier({ ruleset: sheet.ruleset, campaign: state.campaign.fields }) : 0;
 
   // Sends an action and shows its refusal, if any.
@@ -143,6 +150,19 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
     void handleInvite();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
   }, []);
+
+  // INVITE for one character: one link, used once, that a signed-in player takes that seat with (Auspex P21).
+  const handleCharacterInvite = async ({ actorId, name }: { actorId: string; name: string }) => {
+    const r = await act({ type: "invite.create", mode: "character", actorId, allowGuests: false });
+    if (r.ok && r.token)
+      await show({ title: t("characterInviteTitle", { name }), path: `/invite/${r.token}`, at: actorId });
+  };
+
+  // START SESSION, with the title typed, if any (the box holds at most 100 characters); it clears once started.
+  const handleStart = async (e: FormEvent) => {
+    e.preventDefault();
+    if ((await act({ type: "session.start", title: title.trim() })).ok) setTitle("");
+  };
 
   // GUEST QR for one character: a phone without an account plays it.
   const handleGuest = async ({ actorId, name }: { actorId: string; name: string }) => {
@@ -258,9 +278,16 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
         <section className="row">
           {state.session ? (
             recap === null ? (
-              <button className="btn" onClick={handleOpenEnd}>
-                {t("endSession", { number: state.session.number })}
-              </button>
+              <>
+                <span role="status">
+                  {state.session.title
+                    ? t("runningTitled", { number: state.session.number, title: state.session.title })
+                    : t("running", { number: state.session.number })}
+                </span>
+                <button className="btn" onClick={handleOpenEnd}>
+                  {t("endSession", { number: state.session.number })}
+                </button>
+              </>
             ) : (
               <form className="card stack" onSubmit={handleEndSession} style={{ width: "100%" }}>
                 <DraftRecapButton draft={draftRecap} text={recap} onFill={setRecap} onError={setError} />
@@ -292,9 +319,18 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
             )
           ) : (
             <>
-              <button className="btn primary" onClick={() => act({ type: "session.start" })}>
-                {t("startSession")}
-              </button>
+              <form className="row" onSubmit={handleStart} style={{ flex: 1, minWidth: 0 }}>
+                <input
+                  id="session-title"
+                  aria-label={t("sessionTitle")}
+                  placeholder={t("sessionTitle")}
+                  value={title}
+                  maxLength={100}
+                  onChange={(e) => setTitle(e.target.value)}
+                  style={{ flex: 1, minWidth: 0 }}
+                />
+                <button className="btn primary">{t("startSession")}</button>
+              </form>
               {latest && (
                 <button className="btn" onClick={() => act({ type: "session.delete", sessionId: latest.id })}>
                   {t("deleteSession", { number: latest.number })}
@@ -305,7 +341,24 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
         </section>
       )}
 
-      {can("session:run") && <Recaps recaps={recaps} send={send} onError={setError} />}
+      {can("session:run") && (
+        <Journal
+          journal={state.journal}
+          send={send}
+          onError={setError}
+          showAward={awardRule !== undefined}
+          notes={state.campaign.tableMode === "gm"}
+        />
+      )}
+
+      {can("campaign:update") && (
+        <NextSessionForm
+          key={`${state.campaign.nextSessionAt}|${state.campaign.nextSessionPlace}`}
+          campaign={state.campaign}
+          send={send}
+          onError={setError}
+        />
+      )}
 
       <section className="stack">
         <h2 className="head">{t("invite")}</h2>
@@ -335,6 +388,9 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
           )}
         </div>
         {shown?.at === null && qrCard}
+        {can("member:invite") && (
+          <OpenInvites invites={state.access.invites} names={actorNames} send={send} onError={setError} />
+        )}
       </section>
 
       {can("session:run") && <SafetyPanel safety={state.campaign.safety} send={send} />}
@@ -399,6 +455,24 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
                           {state.myDraft?.actorId === a.id ? t("continueBuilding") : t("build")}
                         </a>
                       )}
+                    {can("member:invite") && (
+                      <button
+                        className="btn sm"
+                        aria-label={t("inviteCharacterLabel", { name: a.name })}
+                        onClick={() => handleCharacterInvite({ actorId: a.id, name: a.name })}
+                      >
+                        {t("inviteCharacter")}
+                      </button>
+                    )}
+                    {whispers && (
+                      <button
+                        className="btn sm"
+                        aria-label={t("whisperLabel", { name: a.name })}
+                        onClick={() => setWhisperTo(a.id)}
+                      >
+                        {t("whisper")}
+                      </button>
+                    )}
                     <button
                       className="btn sm"
                       aria-label={t("guestQrLabel", { name: a.name })}
@@ -582,6 +656,12 @@ export function Party({ me, state, send, draftRecap, recaps, sheet, autoQr = fal
           </p>
         )}
       </section>
+
+      {whispers && whisperTo !== null && (
+        <BottomSheet title={tWhisper("title")} onClose={() => setWhisperTo(null)}>
+          <WhisperPanel key={whisperTo} state={state} send={send} to={[whisperTo]} />
+        </BottomSheet>
+      )}
 
       {(can("campaign:archive") || can("campaign:update")) && (
         <section className="stack">

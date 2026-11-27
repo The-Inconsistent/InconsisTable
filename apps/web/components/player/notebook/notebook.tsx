@@ -11,6 +11,7 @@ import { Inbox } from "@/components/player/notebook/components/inbox/inbox";
 import { Mission } from "@/components/player/notebook/components/mission/mission";
 import { NOTEBOOK_VIEWS, type NotebookView } from "@/components/player/notebook/constants";
 import { SafetySection } from "@/components/player/notebook/safety-section";
+import { NextSessionCard } from "@/components/ui/next-session-card/next-session-card";
 import { WhisperReply } from "@/components/ui/whisper-reply/whisper-reply";
 import type { Send } from "@/hooks/use-table/use-table";
 import type { RulesEntry } from "@/lib/library/library";
@@ -38,6 +39,8 @@ type NotebookProps = {
   onMarkAll: () => void;
   /** Opens an entry's peek. */
   onPeek: (entryId: string) => void;
+  /** When and where the table meets next (campaign.nextSessionAt and nextSessionPlace), for the NEXT SESSION card. */
+  next: { at: string | null; place: string };
 };
 
 // The phone's notebook (#218), three views in one tab: INBOX (this session's whispers and what is new since the last
@@ -57,6 +60,7 @@ export function Notebook({
   fresh,
   onMarkAll,
   onPeek,
+  next,
 }: NotebookProps) {
   const t = useTranslations("notebook");
   const tWhisper = useTranslations("whisper");
@@ -92,6 +96,7 @@ export function Notebook({
   );
   return (
     <div className="stack">
+      <NextSessionCard campaignId={me.campaignId} at={next.at} place={next.place} />
       <div className="seg notebook-views" role="group" aria-label={t("viewsLabel")}>
         {NOTEBOOK_VIEWS.map((v) => {
           const count = v === "inbox" ? inbox.length : 0;

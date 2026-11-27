@@ -152,6 +152,7 @@ const state: LiveState = {
       recap: "",
       notes: "session notes",
       abandoned: false,
+      award: null,
     },
   ],
   actors,

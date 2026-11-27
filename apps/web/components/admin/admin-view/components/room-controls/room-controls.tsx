@@ -16,7 +16,8 @@ type RoomControlsProps = {
   onChanged: () => void;
 };
 
-// One room's housekeeping in the admin console (house decision #94): seat a known user as GM, end the running session
+// One room's housekeeping in the admin console (house decision #94): seat a known user as GM or remove one (#121, the
+// owner refused with the reason shown), end the running session
 // without an award or delete the last one, archive or unarchive, delete an archived room after typing its name, and the
 // room's rows of the admin log. Each step is an admin action at the room, logged by the api.
 export function RoomControls({ campaign: c, users, onChanged }: RoomControlsProps) {
@@ -111,7 +112,21 @@ export function RoomControls({ campaign: c, users, onChanged }: RoomControlsProp
 
   return (
     <div className="stack">
-      <p className="small dim">{t("gms", { names: c.gms.join(", ") || t("none") })}</p>
+      <p className="small dim">{t("gms", { names: c.gms.map((g) => g.name).join(", ") || t("none") })}</p>
+      {c.gms.length > 0 && (
+        <div className="row" style={{ flexWrap: "wrap" }}>
+          {c.gms.map((g) => (
+            <button
+              key={g.userId}
+              className="btn sm"
+              disabled={busy}
+              onClick={() => act({ type: "member.remove", userId: g.userId }, t("removed", { name: g.name }))}
+            >
+              {t("removeGm", { name: g.name })}
+            </button>
+          ))}
+        </div>
+      )}
       {c.tableMode === "gm" && (
         <form className="row" onSubmit={handleSeat}>
           <label className="sr-only" htmlFor={pickId}>

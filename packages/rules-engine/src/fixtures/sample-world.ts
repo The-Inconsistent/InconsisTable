@@ -3,8 +3,8 @@ import type { WorldInput } from "../world.ts";
 /**
  * An invented World for tests: a tide-washed harbour town. Every name and colour is made up; it dresses no real book.
  * It brings both colour sets, moves the light card through the palette (`parchment`) and the rest by semantic name,
- * and picks every look a World can (#235): its own side colours, light handouts at night, slate readouts, a GM crest and
- * banded table heads.
+ * and picks every look a World can (#235): its own side colours, light handouts at night, slate readouts, a GM crest,
+ * banded table heads, printed stat blocks and a chapter rail.
  */
 export const SAMPLE_WORLD: WorldInput = {
   id: "sample-tidewater",
@@ -53,6 +53,8 @@ export const SAMPLE_WORLD: WorldInput = {
       readout: "slate",
       gmSeal: "crest",
       tableHead: "band",
+      statBlock: "printed",
+      gmNav: "rail",
     },
   },
   // Three of the five layouts, in its own order and under its own names (ADR 0012, decision 6).

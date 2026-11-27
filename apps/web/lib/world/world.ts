@@ -30,6 +30,8 @@ export const SHAPE_ATTRIBUTES = {
   readout: "data-readout",
   gmSeal: "data-gm-seal",
   tableHead: "data-table-head",
+  statBlock: "data-stat-block",
+  gmNav: "data-gm-nav",
 } as const satisfies Record<WorldShape, `data-${string}`>;
 
 /** The data attribute each typeface pick is written to. */

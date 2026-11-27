@@ -161,7 +161,7 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   return (
     <CiteProvider ruleset={view?.ruleset ?? null} books={books} requestPage={requestPage}>
-      <div className="surface-table">
+      <div className="surface-table gm-shell">
         <header className="band">
           {!online && (
             <span className="badge-offline" role="status">
@@ -209,7 +209,7 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
         </header>
         <XCardOverlay signal={xcard} />
         <TransferOffer me={me} state={state} send={send} />
-        <nav className="tabs" role="tablist" aria-label={t("tabsLabel")}>
+        <nav className="tabs gm-tabs" role="tablist" aria-label={t("tabsLabel")}>
           {tabs.map((name) => (
             <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => handleTab(name)}>
               {t(`tabs.${name}`)}

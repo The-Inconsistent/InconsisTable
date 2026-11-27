@@ -168,7 +168,15 @@ test("a World without handouts or the #235 keys hashes as it did before they exi
   // The sample as it was written before #235: no side colours, none of the four later picks.
   const { handouts: _, theme, ...rest } = SAMPLE_WORLD;
   const drop = ({ "side-ally": _a, "side-foe": _f, ...set }: Record<string, string> = {}) => set;
-  const { handoutPaper: _p, readout: _r, gmSeal: _g, tableHead: _t, ...shapes } = theme.shapes ?? {};
+  const {
+    handoutPaper: _p,
+    readout: _r,
+    gmSeal: _g,
+    tableHead: _t,
+    statBlock: _s,
+    gmNav: _n,
+    ...shapes
+  } = theme.shapes ?? {};
   const before = {
     ...rest,
     theme: { ...theme, schemes: { light: drop(theme.schemes.light), dark: drop(theme.schemes.dark) }, shapes },

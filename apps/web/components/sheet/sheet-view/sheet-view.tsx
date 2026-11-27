@@ -45,6 +45,8 @@ import {
   type SheetRow,
 } from "@/lib/sheet/sheet";
 
+import type { SheetViewPart } from "./constants";
+
 type SheetViewProps = {
   actor: Actor;
   ruleset: Ruleset;
@@ -67,6 +69,11 @@ type SheetViewProps = {
   campaignId?: string | null;
   /** Read only (a foe's card on a phone, house decision #117): no steppers, no asks, no editing, no items box. */
   readOnly?: boolean;
+  /**
+   * The part drawn (PARTY's character drawer, house decision #222): `gear` its items alone, `advance` the sheet without
+   * its items, conditions and rests (the drawer's STATUS has those); the whole sheet by default.
+   */
+  part?: SheetViewPart;
 };
 
 // SHEET: one character as the ruleset's layout lays it out. Every value is the server's, already cut down to what this
@@ -85,6 +92,7 @@ export function SheetView({
   builderHref = null,
   campaignId = null,
   readOnly = false,
+  part = "all",
 }: SheetViewProps) {
   const t = useTranslations("sheet");
   const tDuration = useTranslations("duration");
@@ -250,6 +258,21 @@ export function SheetView({
 
   // Its picture (house decision #155): the GM side, or the phone holding it (a phone opens only its own sheet), runs it.
   const room = campaignId ?? table?.campaign.id ?? null;
+  const whole = part === "all";
+  const itemsBox = !readOnly && actor.items !== undefined && (
+    <ItemsBox env={env} kinds={boxKinds({ ruleset, drawn: ledgerLaidOut(models) })} campaignId={campaignId} />
+  );
+  if (part === "gear")
+    return (
+      <div className="stack sheet">
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        {itemsBox}
+      </div>
+    );
   return (
     <div className="stack sheet">
       <PrintSheets actors={[actor]} {...{ ruleset, characters, campaign }} />
@@ -259,7 +282,7 @@ export function SheetView({
         ) : (
           <ActorPicture campaignId={room} actor={actor} portrait />
         ))}
-      {gm && rests.length > 0 && (
+      {whole && gm && rests.length > 0 && (
         <div className="row">
           {rests.map((b) => (
             <button
@@ -327,9 +350,7 @@ export function SheetView({
         onTakeOff={handleTakeOff}
         {...{ ruleset, books, requestPage }}
       />
-      {!readOnly && actor.items !== undefined && (
-        <ItemsBox env={env} kinds={boxKinds({ ruleset, drawn: ledgerLaidOut(models) })} campaignId={campaignId} />
-      )}
+      {whole && itemsBox}
       {build?.xp && ledger && (
         <XpBox
           earned={earned}
@@ -340,29 +361,31 @@ export function SheetView({
         />
       )}
 
-      <section className="stack sheet-card">
-        <h2 className="head">{t("conditions")}</h2>
-        {conditions.length === 0 ? (
-          <p className="dim">{t("none")}</p>
-        ) : (
-          <ul className="list">
-            {conditions.map((c) => (
-              <li key={c.id}>
-                <span className="stack" style={{ gap: 2 }}>
-                  <strong>
-                    <Term term={c} env={terms} />
-                  </strong>
-                  <span className="small dim">
-                    {tDuration(c.duration)}
-                    {leftText(c.id) && `, ${leftText(c.id)}`}
+      {whole && (
+        <section className="stack sheet-card">
+          <h2 className="head">{t("conditions")}</h2>
+          {conditions.length === 0 ? (
+            <p className="dim">{t("none")}</p>
+          ) : (
+            <ul className="list">
+              {conditions.map((c) => (
+                <li key={c.id}>
+                  <span className="stack" style={{ gap: 2 }}>
+                    <strong>
+                      <Term term={c} env={terms} />
+                    </strong>
+                    <span className="small dim">
+                      {tDuration(c.duration)}
+                      {leftText(c.id) && `, ${leftText(c.id)}`}
+                    </span>
+                    {c.cite && <Cite cite={c.cite} {...{ ruleset, books, requestPage }} />}
                   </span>
-                  {c.cite && <Cite cite={c.cite} {...{ ruleset, books, requestPage }} />}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
       {opened && (
         <Breakdown
           label={opened.label}

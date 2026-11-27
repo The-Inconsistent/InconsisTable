@@ -2,6 +2,7 @@ import {
   MENTION_RE,
   type ActionInput,
   type CodexKind,
+  type RefusalKey,
   type RoomDocument,
   type RoomEntry,
 } from "@inconsistable/core-schema";
@@ -14,9 +15,13 @@ import {
 /** The room's own ids for the document's: what each made or matched entry, and each uploaded picture, became. */
 export type Ids = Record<string, string>;
 
-/** One step, in the order it is sent. `makes` is the document id whose new id the action's answer carries. */
+/**
+ * One step, in the order it is sent. `makes` is the document id whose new id the action's answer carries.
+ * `withoutSource` is the same save without the pack entry it came from, sent instead when the room is not served that
+ * entry (a refusal in `UNSERVED_SOURCE`), and counted (#232): the slicer cannot see what the room is served.
+ */
 export type Step =
-  | { kind: "action"; makes?: string; action: (ids: Ids) => ActionInput }
+  | { kind: "action"; makes?: string; action: (ids: Ids) => ActionInput; withoutSource?: (ids: Ids) => ActionInput }
   | { kind: "picture"; imageId: string; mime: string; base64: string };
 
 type Named = { id: string; kind: CodexKind; title: string };
@@ -48,6 +53,9 @@ export function adventuresIn(doc: RoomDocument): { id: string; title: string; sc
 export const matchKey = (kind: string, title: string) => `${kind}/${title.trim().toLowerCase()}`;
 
 const NEVER_MATCHED = new Set<CodexKind>(["adventure", "scene"]);
+
+/** codex.save's refusals of a `source` the room is not served (house decision #97). */
+export const UNSERVED_SOURCE: ReadonlySet<RefusalKey> = new Set(["fromPackNotFor", "fromPackNoEntry"]);
 
 /** The ids an entry's texts, links, prepared lines and fields name. */
 function namedBy(e: RoomEntry, ids: ReadonlySet<string>): string[] {
@@ -178,39 +186,41 @@ export function planAdventures({
     const linked = Object.entries(e.fields ?? {}).filter(([, v]) => typeof v === "string" && ids.has(v));
     dropped += linked.filter(([, v]) => target(v as string) === null).length;
     const pic = picture(e);
+    const save = (got: Ids, withSource: boolean) => {
+      const text = (s: string | undefined) =>
+        s?.replace(MENTION_RE, (m, label: string, id: string) =>
+          target(id) !== null ? `@[${label}](${resolve(got, id)})` : label,
+        );
+      const fields = Object.fromEntries(
+        Object.entries(e.fields ?? {}).flatMap(([k, v]) =>
+          typeof v === "string" && ids.has(v) ? (target(v) ? [[k, resolve(got, v)]] : []) : [[k, v]],
+        ),
+      );
+      const p = prep && {
+        ...prep,
+        exits: prep.exits.map((l) => ({ ...l, sceneId: resolve(got, l.sceneId) })),
+        reveals: prep.reveals.map((l) => ({ ...l, entryId: resolve(got, l.entryId) })),
+        picks: prep.picks.map((l) => ({ ...l, entryId: resolve(got, l.entryId) })),
+      };
+      return {
+        type: "codex.save",
+        id: got[e.id]!,
+        kind: e.kind,
+        ...(e.body ? { body: text(e.body) } : {}),
+        ...(e.gmNotes ? { gmNotes: text(e.gmNotes) } : {}),
+        ...(Object.keys(fields).length ? { fields } : {}),
+        ...(e.layout ? { layout: e.layout } : {}),
+        ...(e.header ? { header: e.header } : {}),
+        ...(e.source && withSource ? { source: e.source } : {}),
+        ...(e.plannedTests?.length ? { plannedTests: e.plannedTests } : {}),
+        ...(p ? { prep: p } : {}),
+        ...(pic && got[pic.id] ? { imageId: got[pic.id] } : {}),
+      } as ActionInput;
+    };
     steps.push({
       kind: "action",
-      action: (got) => {
-        const text = (s: string | undefined) =>
-          s?.replace(MENTION_RE, (m, label: string, id: string) =>
-            target(id) !== null ? `@[${label}](${resolve(got, id)})` : label,
-          );
-        const fields = Object.fromEntries(
-          Object.entries(e.fields ?? {}).flatMap(([k, v]) =>
-            typeof v === "string" && ids.has(v) ? (target(v) ? [[k, resolve(got, v)]] : []) : [[k, v]],
-          ),
-        );
-        const p = prep && {
-          ...prep,
-          exits: prep.exits.map((l) => ({ ...l, sceneId: resolve(got, l.sceneId) })),
-          reveals: prep.reveals.map((l) => ({ ...l, entryId: resolve(got, l.entryId) })),
-          picks: prep.picks.map((l) => ({ ...l, entryId: resolve(got, l.entryId) })),
-        };
-        return {
-          type: "codex.save",
-          id: got[e.id]!,
-          kind: e.kind,
-          ...(e.body ? { body: text(e.body) } : {}),
-          ...(e.gmNotes ? { gmNotes: text(e.gmNotes) } : {}),
-          ...(Object.keys(fields).length ? { fields } : {}),
-          ...(e.layout ? { layout: e.layout } : {}),
-          ...(e.header ? { header: e.header } : {}),
-          ...(e.source ? { source: e.source } : {}),
-          ...(e.plannedTests?.length ? { plannedTests: e.plannedTests } : {}),
-          ...(p ? { prep: p } : {}),
-          ...(pic && got[pic.id] ? { imageId: got[pic.id] } : {}),
-        } as ActionInput;
-      },
+      action: (got) => save(got, true),
+      ...(e.source ? { withoutSource: (got: Ids) => save(got, false) } : {}),
     });
     for (const id of links) {
       steps.push({

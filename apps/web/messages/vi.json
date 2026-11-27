@@ -324,6 +324,7 @@
     }
   },
   "importAdventure": {
+    "unserved": "{count, plural, other {# mục đến từ mục gói mà phòng này không được cấp, nên được tạo mà không kèm nguồn đó.}}",
     "open": "Nhập cuộc phiêu lưu",
     "tooLarge": "Tệp này vượt 100 MB. Hãy xuất lại không kèm ảnh.",
     "notADocument": "Tệp này không phải tài liệu phòng.",
@@ -344,6 +345,7 @@
     "pictureFailed": "Một ảnh không tải lên được."
   },
   "importRoom": {
+    "tooLarge": "Tệp này vượt 100 MB. Hãy xuất lại không kèm ảnh.",
     "title": "Nhập một phòng",
     "lede": "Tài liệu phòng sẽ thành một phòng mới do bạn sở hữu và điều hành với vai GM. Người chơi vào bằng lời mời, như mọi phòng khác.",
     "file": "Tài liệu phòng (.json)",

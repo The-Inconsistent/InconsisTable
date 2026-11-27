@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { RoomDocument, type ActionInput, type RoomDocumentInput } from "@inconsistable/core-schema";
 
-import { adventuresIn, planAdventures, type Ids } from "./adventure-import";
+import { adventuresIn, planAdventures, UNSERVED_SOURCE, type Ids } from "./adventure-import";
 
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString().padStart(12, "0")}`;
 const I = {
@@ -160,6 +160,22 @@ test("the steps, run, are the table's ordinary actions with the room's ids", () 
     key: "tide-song",
     cite: "Sample p.9",
   });
+});
+
+test("an entry from a pack entry has a step without it, for a room not served that entry (#232)", () => {
+  const plan = planAdventures({ doc, picked: [I.road], room: ROOM });
+  const ids: Ids = {};
+  const fallbacks: ActionInput[] = [];
+  for (const step of plan.steps) {
+    if (step.kind !== "action") continue;
+    if (step.withoutSource) fallbacks.push(step.withoutSource(ids));
+    if (step.makes) ids[step.makes] = `new-${step.makes}`;
+  }
+  assert.equal(fallbacks.length, 1, "only the entry with a source has one");
+  const tides = fallbacks[0];
+  assert.ok(tides && tides.type === "codex.save" && tides.id === `new-${I.lore}`);
+  assert.equal("source" in tides, false);
+  assert.ok(UNSERVED_SOURCE.has("fromPackNoEntry") && UNSERVED_SOURCE.has("fromPackNotFor"));
 });
 
 test("a made entry's link field names the made entry; one not brought is left out", () => {

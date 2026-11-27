@@ -21,7 +21,7 @@ are not open:
 
 1. **Reminders, not automation,** for Condition numbers (Auspex reminds; it does not change the numbers).
 2. **TURN BACK** is the undo of Auspex's `main`: the last turn step and the damage since, with what a Seize or an
-   Aware cost given back. The journal with redo and a history, on an unmerged Auspex branch, is not built.
+   Aware cost given back. The journal with redo and a history, merged into Auspex `main` on 2026-11-21 (commit 7391d928), is not built here.
 3. **The app never rolls a Test.** Book tables offer ROLL and I ROLLED; the Critical Hit and Perils lookups take a
    typed result only.
 4. **Beginning a scene sends its reveals,** as one tap of the GM's, each reveal its own action in the log, and the

@@ -6,7 +6,7 @@ import { ROOM_LIMITS, RoomDocument, type CodexEntry } from "@inconsistable/core-
 
 import type { Send } from "@/hooks/use-table/use-table";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
-import { adventuresIn, planAdventures, type Ids } from "@/lib/adventure-import/adventure-import";
+import { adventuresIn, planAdventures, UNSERVED_SOURCE, type Ids } from "@/lib/adventure-import/adventure-import";
 import { ApiMessage, PictureSaved, readJson } from "@/lib/api-reply/api-reply";
 
 type ImportAdventureProps = {
@@ -16,12 +16,14 @@ type ImportAdventureProps = {
   send: Send;
 };
 
-type Progress = { done: number; total: number; stopped: string | null; finished: boolean };
+// `unserved`: entries saved without the pack entry they came from, which this room is not served (#232).
+type Progress = { done: number; total: number; stopped: string | null; finished: boolean; unserved: number };
 
 // IMPORT ADVENTURE (house decision #103): the GM picks a room document on this device, which never sends it anywhere,
 // picks the adventures to bring, reads what will be made and what the room already has by name, and confirms. The
 // adventures come in as the table's ordinary codex actions, one at a time, the pictures through the picture upload;
-// the first refusal stops the run and what was made stays, as any prep does.
+// the first refusal stops the run and what was made stays, as any prep does. An entry whose pack entry this room is not
+// served is saved without it and counted, rather than stopping the run (#232).
 export function ImportAdventure({ campaignId, entries, actors, send }: ImportAdventureProps) {
   const t = useTranslations("importAdventure");
   const tKind = useTranslations("codex.kind");
@@ -79,25 +81,30 @@ export function ImportAdventure({ campaignId, entries, actors, send }: ImportAdv
     }
   };
 
-  // IMPORT: every step in order; the first refusal stops the run.
+  // IMPORT: every step in order; the first refusal stops the run, except a pack entry the room is not served.
   const handleImport = async () => {
     if (!plan) return;
     const total = plan.steps.length;
     const ids: Ids = {};
-    setProgress({ done: 0, total, stopped: null, finished: false });
+    let unserved = 0;
+    setProgress({ done: 0, total, stopped: null, finished: false, unserved });
     for (const [i, step] of plan.steps.entries()) {
       if (step.kind === "picture") {
         const r = await upload(step.mime, step.base64);
-        if ("error" in r) return setProgress({ done: i, total, stopped: r.error, finished: false });
+        if ("error" in r) return setProgress({ done: i, total, stopped: r.error, finished: false, unserved });
         ids[step.imageId] = r.id;
       } else {
-        const r = await send(step.action(ids));
-        if (!r.ok) return setProgress({ done: i, total, stopped: r.error, finished: false });
+        let r = await send(step.action(ids));
+        if (!r.ok && step.withoutSource && r.code && UNSERVED_SOURCE.has(r.code)) {
+          r = await send(step.withoutSource(ids));
+          if (r.ok) unserved++;
+        }
+        if (!r.ok) return setProgress({ done: i, total, stopped: r.error, finished: false, unserved });
         if (step.makes && r.id) ids[step.makes] = r.id;
       }
-      setProgress({ done: i + 1, total, stopped: null, finished: false });
+      setProgress({ done: i + 1, total, stopped: null, finished: false, unserved });
     }
-    setProgress({ done: total, total, stopped: null, finished: true });
+    setProgress({ done: total, total, stopped: null, finished: true, unserved });
     setPicked([]);
   };
 
@@ -175,6 +182,7 @@ export function ImportAdventure({ campaignId, entries, actors, send }: ImportAdv
               : t("progress", { done: progress.done, total: progress.total })}
         </p>
       )}
+      {progress && progress.unserved > 0 && <p className="small dim">{t("unserved", { count: progress.unserved })}</p>}
     </section>
   );
 }

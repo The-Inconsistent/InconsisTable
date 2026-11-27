@@ -283,3 +283,32 @@ func TestAGrantGivesTheRecordsGearAndSaysHowManyMoreToRoll(t *testing.T) {
 		}
 	})
 }
+
+// A record's gear is given as its kind only: an arm tagged for another kind of the same entry type is refused, as
+// item.add and GIVE refuse it, so a line never lands under the wrong kind's max and uniqueness.
+func TestAGrantRefusesGearTaggedForAnotherKind(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		p := newHeldPlay(t, tx, func(m map[string]any) {
+			kind := m["held"].(map[string]any)["growth"].(map[string]any)
+			kind["gear"] = map[string]any{"field": "arms", "kind": "carried"}
+			for _, e := range m["entities"].([]any) {
+				if e := e.(map[string]any); e["id"] == "growth" {
+					e["fields"] = map[string]any{"arms": map[string]any{"type": "list", "label": "Arms"}}
+				}
+			}
+			m["entities"] = append(m["entities"].([]any), map[string]any{"id": "arm", "label": "Arm", "base": "item", "fields": map[string]any{}})
+			m["items"] = map[string]any{"kinds": []any{
+				map[string]any{"id": "slung", "label": "Slung arms", "entry": "arm", "tag": "slung", "entities": []any{"hero"}, "cite": "Fixture p.17"},
+				map[string]any{"id": "carried", "label": "Carried arms", "entry": "arm", "entities": []any{"hero"}, "cite": "Fixture p.17"}}}
+		})
+		version := dbtest.Scalar[string](t, tx, `SELECT pack_version_id::text FROM pack_entry WHERE key = 'scales'`)
+		dbtest.Exec(t, tx, `INSERT INTO pack_entry (pack_version_id, key, type, name, tags, visibility, cite, content_hash, body)
+			VALUES ($1, 'sling', 'arm', 'Sling', '{slung}', 'gm', 'Fixture p.17', 'h', '{}')`, version)
+		dbtest.Exec(t, tx, `UPDATE pack_entry SET body = '{"arms": ["sling"]}' WHERE key = 'scales'`)
+		hal := p.hero("Hal", 0, 0)
+		p.refused(p.room.GM(), grant("lesser", hal, 41), "itemNotAnItem")
+		if n := dbtest.Scalar[int](t, tx, `SELECT count(*)::int FROM actor_item WHERE actor_id = $1`, hal); n != 0 {
+			t.Fatalf("want nothing carried, got %d", n)
+		}
+	})
+}

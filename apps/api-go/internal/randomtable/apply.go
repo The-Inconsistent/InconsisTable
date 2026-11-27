@@ -122,13 +122,18 @@ func grantDeltas(ctx context.Context, tx core.Conn, rc *ruleset.Context, campaig
 		items := rc.Compiled.Ruleset.Items.Kind(kind.Gear.Kind)
 		keys := []string{}
 		for _, k := range heldList(body[kind.Gear.Field]) {
-			_, served, err := actor.ServedEntryName(ctx, tx, campaignID, items.Entry, k)
+			entry, tags, served, err := actor.ServedEntryTags(ctx, tx, campaignID, items.Entry, k)
 			if err != nil {
 				return nil, err
 			}
-			if served {
-				keys = append(keys, k)
+			if !served {
+				continue
 			}
+			// The entry's tags pick its kind, as item.add and GIVE check: gear tagged for another kind is refused.
+			if got := rc.Compiled.Ruleset.Items.KindOf(items.Entry, tags); got == nil || got.ID != items.ID {
+				return nil, cs.Fail("itemNotAnItem", cs.Params{"entry": entry, "kind": items.Label})
+			}
+			keys = append(keys, k)
 		}
 		given, err := item.Given(b, items, keys)
 		if err != nil {

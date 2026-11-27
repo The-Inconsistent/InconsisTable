@@ -224,6 +224,7 @@ export const SAMPLE_LEDGER_RULESET: RulesetInput = {
     gone: ["lost"],
     award: { max: 50, suggested: [5, 10, 20], cite: "Base p.31" },
     keep: { fields: ["armourRating"], resources: ["wealth"] },
+    libraryLine: "archetypes",
     cite: "Base p.1",
   },
 };

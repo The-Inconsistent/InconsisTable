@@ -13,6 +13,8 @@ export const LibraryCard = z.object({
   id: z.string(),
   name: z.string(),
   done: z.boolean(),
+  /** The chosen archetype's or species' name of a finished character, as its ruleset names (house decision #187). */
+  line: z.string().nullable(),
   ruleset: Version,
   rev: z.number().int(),
   updatedAt: z.string(),

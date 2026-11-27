@@ -6206,19 +6206,22 @@ test("character library: create, autosave, into a room and back, another user re
   const pk = await me.post<PackReply>("/packs", SAMPLE_LEDGER_PACK);
   assert.deepEqual([rs.status, pk.status], [201, 201]);
 
-  type Card = { id: string; rev: number; done: boolean; name: string };
+  type Card = { id: string; rev: number; done: boolean; name: string; line: string | null };
   const made = await me.post<Card>("/library", { rulesetVersionId: rs.body.versionId, name: "Wren" });
   assert.equal(made.status, 201);
   const id = made.body.id;
   const draft = JSON.stringify({ tier: 1, archetypeId: "lamplighter" });
   const kept = await patch(`/library/${id}`, { rev: 1, build: draft });
   assert.equal(kept.status, 200);
-  assert.equal(((await kept.json()) as Card).rev, 2);
+  const keptCard = (await kept.json()) as Card;
+  assert.deepEqual([keptCard.rev, keptCard.line], [2, null], "a draft has no card line (#187)");
   const stale = await patch(`/library/${id}`, { rev: 1, name: "Other tab" });
   assert.equal(stale.status, 409, "a save at a revision since passed is refused");
   const ready = await patch(`/library/${id}`, { rev: 2, build: LEDGER_BUILD, done: true });
   assert.equal(ready.status, 200);
-  assert.equal(((await ready.json()) as Card).done, true);
+  const readyCard = (await ready.json()) as Card;
+  assert.equal(readyCard.done, true);
+  assert.ok(readyCard.line, "a finished character's card names its archetype (#187)");
   const list = await me.get<Card[]>("/library");
   assert.deepEqual(
     list.body.map((c) => [c.name, c.done]),
@@ -6266,6 +6269,7 @@ test("character library: create, autosave, into a room and back, another user re
   const saved = await asPlayer.post<Card>("/library/from-room", { campaignId, actorId: held });
   assert.equal(saved.status, 201);
   assert.equal(saved.body.done, true);
+  assert.equal(saved.body.line, readyCard.line, "the room's archetype on the copy's card");
   const refusedGm = await me.post<{ code: string }>("/library/from-room", { campaignId, actorId: held });
   assert.equal(refusedGm.body.code, "libraryNotYours");
   for (const c of [owner, seat]) c.socket.close();

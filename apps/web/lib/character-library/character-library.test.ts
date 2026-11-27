@@ -9,6 +9,7 @@ const ENTRY: LibraryEntry = {
   id: "c1",
   name: "Wren",
   done: true,
+  line: null,
   ruleset: { slug: "sample-ledger", version: "0.1.2" },
   rev: 3,
   updatedAt: "2026-11-21T10:00:00.000Z",

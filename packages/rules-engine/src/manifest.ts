@@ -1043,6 +1043,9 @@ export const LEDGER_KINDS = [
 ] as const;
 export type LedgerKind = (typeof LEDGER_KINDS)[number];
 
+/** The kinds the resolved sheet names one record of (`sheet.archetype`, `sheet.species`): a library card's line. */
+export const LIBRARY_LINE_KINDS = ["archetypes", "species"] as const satisfies readonly LedgerKind[];
+
 const VocabName = z.string().min(1).max(60);
 
 /**
@@ -1089,6 +1092,11 @@ export const LedgerBuild = z.object({
   keep: z
     .object({ fields: z.array(FieldId).max(50).default([]), resources: z.array(Id).max(20).default([]) })
     .optional(),
+  /**
+   * The kind of record whose chosen one names a finished character on its library card (house decision #187): the
+   * archetype's name, or the species'. Absent: the card shows none.
+   */
+  libraryLine: z.enum(LIBRARY_LINE_KINDS).optional(),
   cite: Cite,
 });
 export type LedgerBuild = z.infer<typeof LedgerBuild>;

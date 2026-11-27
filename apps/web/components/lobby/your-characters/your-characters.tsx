@@ -14,9 +14,10 @@ import {
 } from "@/lib/character-library/character-library";
 import type { RulesetList } from "@/lib/library/library";
 
-// YOUR CHARACTERS (house decision #104): the user's library, the last edited first, each with its ruleset, whether it
-// is ready and when it was last edited; NEW with one of the user's own rulesets opens the builder outside a room;
-// DELETE asks once more. A user who keeps no library (no account on a deployment that signs in) is told why.
+// YOUR CHARACTERS (house decision #104): the user's library, the last edited first, each with its line (#187), its
+// ruleset, whether it is ready and when it was last edited; NEW with one of the user's own rulesets opens the builder
+// outside a room; DELETE asks once more. A user who keeps no library (no account on a deployment that signs in) is told
+// why.
 export function YourCharacters({ rulesets }: { rulesets: RulesetList }) {
   const t = useTranslations("characterLibrary.lobby");
   const tr = useRefusal();
@@ -69,6 +70,7 @@ export function YourCharacters({ rulesets }: { rulesets: RulesetList }) {
           {cards.map((c, i) => (
             <div key={c.id} className="card ws-tile stack" style={{ "--i": i } as CSSProperties}>
               <strong className="card-name">{c.name || t("unnamed")}</strong>
+              {c.line && <span className="small">{c.line}</span>}
               <span className="small dim">
                 {c.ruleset.title ?? c.ruleset.slug} {c.ruleset.version}
               </span>

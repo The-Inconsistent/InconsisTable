@@ -210,6 +210,16 @@ func TestTheLibraryIsItsOwners(t *testing.T) {
 	if code != http.StatusOK || saved["done"] != true || saved["rev"] != 3.0 {
 		t.Fatalf("save: %d %v", code, saved)
 	}
+	// The card's line: the archetype the ruleset names, off the resolved sheet (house decision #187); a draft has none.
+	if line, _ := saved["line"].(string); line == "" {
+		t.Errorf("a done character's line: %v", saved["line"])
+	}
+	if _, again := c.do("PATCH", "/api/library/"+id, map[string]any{"rev": 3, "name": "Wren"}); again["line"] != saved["line"] {
+		t.Errorf("a rename keeps the line: %v", again["line"])
+	}
+	if _, drafted := c.do("PATCH", "/api/library/"+id, map[string]any{"rev": 4, "build": draft}); drafted["line"] != nil {
+		t.Errorf("a draft's line: %v", drafted["line"])
+	}
 	if code, list := c.do("GET", "/api/library", nil); code != http.StatusOK || len(list["list"].([]any)) != 1 {
 		t.Errorf("list: %d %v", code, list)
 	}
@@ -344,6 +354,12 @@ func TestARoomCharacterToTheLibraryAndBack(t *testing.T) {
 	code, card := p.do("POST", "/api/library/from-room", map[string]any{"campaignId": room, "actorId": wren})
 	if code != http.StatusCreated || card["name"] != "Wren" || card["done"] != true {
 		t.Fatalf("from the room: %d %v", code, card)
+	}
+	// Its line is what the room's sheet shows (house decision #187).
+	var archetype string
+	_ = db.QueryRow(ctx, `SELECT text_value FROM actor_field WHERE actor_id = $1 AND field_id = 'archetype'`, wren).Scan(&archetype)
+	if archetype == "" || card["line"] != archetype {
+		t.Errorf("the copy's line: %v, the room's %q", card["line"], archetype)
 	}
 	_, entry := p.do("GET", "/api/library/"+card["id"].(string), nil)
 	build, _ := entry["build"].(string)

@@ -691,6 +691,9 @@ type (
 			Fields    []string `json:"fields"`
 			Resources []string `json:"resources"`
 		} `json:"keep"`
+		// LibraryLine is the kind whose chosen record names a finished character on its library card (house decision
+		// #187): "archetypes" or "species"; nil when the card shows none.
+		LibraryLine *string `json:"libraryLine"`
 	}
 	// GameInfo is the manifest's `game` block: what the game is and how a table can sit for it.
 	GameInfo struct {

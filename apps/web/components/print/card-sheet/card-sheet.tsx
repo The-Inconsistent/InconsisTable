@@ -45,9 +45,7 @@ function Tent({ card }: { card: Extract<PrintCard, { kind: "tent" }> }) {
 function Face({ card }: { card: Exclude<PrintCard, { kind: "tent" }> }) {
   return (
     <View style={{ padding: "3mm", height: "100%" }}>
-      <Text style={s.cardTitle}>
-        {card.name}
-      </Text>
+      <Text style={s.cardTitle}>{card.name}</Text>
       {card.kind === "creature" && card.tags.length > 0 && <Text style={s.small}>{card.tags.join(", ")}</Text>}
       <View style={{ marginTop: "2mm" }}>
         <Stats stats={card.stats} columns={2} />

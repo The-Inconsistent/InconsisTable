@@ -6397,8 +6397,11 @@ test("sides fixture: TURN BACK takes the last turn step and the hits since, and 
   ok(await owner.send({ type: "session.start" }));
   ok(await owner.send({ type: "encounter.start" }));
   ok(await owner.send({ type: "encounter.add", actorIds: [hal, bea, brute], visibility: "full" }));
-  ok(await sides("begin", {}));
   refused(await owner.send({ type: "event.turnBack" }), "nothingToTurnBack");
+  ok(await sides("begin", {}));
+  // BEGIN ROUND 1 is a step of its own (house decision #130).
+  let s = await owner.until((x) => x.encounter?.turnBack !== undefined);
+  assert.deepEqual(s.encounter!.turnBack, { kind: "begin", round: 1, later: 0 });
   ok(
     await owner.send({
       type: "rule.op",
@@ -6417,7 +6420,7 @@ test("sides fixture: TURN BACK takes the last turn step and the hits since, and 
     ok(await owner.send(hpStep(brute, "hp", -2)));
     return owner.until((x) => x.encounter?.currentId === cb(x, bea).id && hp(x) === 15 && momentum(x) === 1);
   };
-  let s = await step();
+  s = await step();
   assert.deepEqual(s.encounter!.turnBack, { kind: "turnStart", name: "Bea", round: 1, later: 3 });
   for (const c of [ana, screen]) {
     const v = await c.until((x) => x.stateVersion >= s.stateVersion);

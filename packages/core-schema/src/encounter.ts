@@ -130,11 +130,12 @@ export const Encounter = z.object({
   reminders: z.array(EncounterReminder).optional(),
   /**
    * What TURN BACK would take back (house decision #82): the last step's kind, whose turn (absent for a round), its
-   * round, and how many later actions go back with it. The combat side's only; absent with nothing to take back.
+   * round, and how many later actions go back with it; `begin` is a sides fight's BEGIN ROUND 1 (house decision #130).
+   * The combat side's only; absent with nothing to take back.
    */
   turnBack: z
     .object({
-      kind: z.enum(["turnStart", "turnEnd", "round"]),
+      kind: z.enum(["turnStart", "turnEnd", "round", "begin"]),
       name: z.string().optional(),
       round: z.number().int(),
       later: z.number().int(),

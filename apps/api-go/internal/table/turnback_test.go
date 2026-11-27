@@ -154,3 +154,24 @@ func TestTurnBackTakesBackAnAppliedOfferAndOffersItAgain(t *testing.T) {
 		}
 	})
 }
+
+// BEGIN ROUND 1 of a sides fight with a setup is a turn step of its own (house decision #130): TURN BACK straight after
+// it takes the begin back, and the fight is in its setup again.
+func TestTurnBackTakesBackTheBegin(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		p := newSidesPlay(t, tx, map[string]any{"setup": map[string]any{"cite": "Fixture p.4"}})
+		gm := p.room.GM()
+		_, w2, _ := p.sidesFight()
+		p.send(gm, sidesOp("bar", map[string]any{"id": w2, "barred": true}))
+		p.wantTurnBack(nil)
+		p.send(gm, sidesOp("begin", map[string]any{}))
+		p.wantTurnBack(&cs.EncounterTurnBack{Kind: "begin", Round: 1, Later: 0})
+		p.send(gm, turnBack)
+		if tr := p.turn(); tr.Begun == nil || *tr.Begun {
+			t.Fatal("TURN BACK did not take the begin back")
+		}
+		// The bar set in the setup is no step: it goes back with Undo, not TURN BACK.
+		p.wantTurnBack(nil)
+		p.refused(gm, turnBack, "nothingToTurnBack")
+	})
+}

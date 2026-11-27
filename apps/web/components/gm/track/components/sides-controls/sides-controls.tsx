@@ -18,17 +18,17 @@ export function SidesControls({ encounter, run }: SidesControlsProps) {
   return (
     <>
       {primary?.key === "begin" && (
-        <button className="btn primary" disabled={encounter.paused} onClick={op("begin")} style={{ minWidth: 120 }}>
+        <button className="btn primary turn-primary" disabled={encounter.paused} onClick={op("begin")}>
           {t("begin")}
         </button>
       )}
       {primary?.key === "endTurn" && (
-        <button className="btn primary" disabled={encounter.paused} onClick={op("next")} style={{ minWidth: 120 }}>
+        <button className="btn primary turn-primary" disabled={encounter.paused} onClick={op("next")}>
           {t("endTurn", { name: primary.name })}
         </button>
       )}
       {primary?.key === "newRound" && (
-        <button className="btn primary" disabled={encounter.paused} onClick={op("newRound")} style={{ minWidth: 120 }}>
+        <button className="btn primary turn-primary" disabled={encounter.paused} onClick={op("newRound")}>
           {t("newRound", { round: primary.round })}
         </button>
       )}

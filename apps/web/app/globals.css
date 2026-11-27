@@ -3086,6 +3086,31 @@ summary {
   color: var(--candle);
   text-shadow: 0 0 14px color-mix(in srgb, var(--candle) 60%, transparent);
 }
+/* The turn's main button keeps a width a thumb finds. */
+.fightbar .turn-primary {
+  min-width: 120px;
+}
+/* Phone: the round on a line of its own, then the buttons three to a row, so five of them take two rows (#223). TURN
+   BACK spans two columns; a long label wraps inside its button rather than pushing a row of its own. */
+@media (max-width: 480px) {
+  .fightbar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .fightbar .round {
+    grid-column: 1 / -1;
+  }
+  .fightbar > .btn {
+    min-width: 0;
+    padding: 4px 8px;
+    font-size: var(--fs-small);
+    line-height: 1.2;
+    white-space: normal;
+  }
+  .fightbar .turn-back {
+    grid-column: span 2;
+  }
+}
 .track {
   display: grid;
   gap: 28px;

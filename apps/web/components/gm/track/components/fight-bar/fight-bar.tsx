@@ -64,10 +64,9 @@ export function FightBar({ encounter, sessionRunning, run, mode, sides }: FightB
                 {t("prev")}
               </button>
               <button
-                className="btn primary"
+                className="btn primary turn-primary"
                 disabled={encounter.paused}
                 onClick={() => run({ type: "turn.next" })}
-                style={{ minWidth: 120 }}
               >
                 {t("next")}
               </button>
@@ -92,7 +91,7 @@ export function FightBar({ encounter, sessionRunning, run, mode, sides }: FightB
       </button>
       {encounter && (
         <button
-          className="btn"
+          className="btn turn-back"
           disabled={back === undefined}
           onClick={handleTurnBack}
           onBlur={() => setTurningBack(false)}

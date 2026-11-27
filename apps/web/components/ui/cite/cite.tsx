@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { createContext, use, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, use, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import type { BookSource } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
@@ -55,6 +55,14 @@ export function Cite({ cite, ...props }: CiteProps) {
   const [zoomed, setZoomed] = useState(false);
   // The newest open: a reply for a page already put away is dropped, its picture never made.
   const asked = useRef(0);
+  // Lets go of a page's picture once another replaces it, the sheet is put away or the cite unmounts.
+  const url = shown?.url;
+  useEffect(
+    () => () => {
+      if (url) URL.revokeObjectURL(url);
+    },
+    [url],
+  );
   const page = env.ruleset && pageOfCite({ cite, ruleset: env.ruleset });
   if (!page || !env.books.includes(page.source)) return <span className="small dim">{cite}</span>;
 
@@ -67,10 +75,9 @@ export function Cite({ cite, ...props }: CiteProps) {
     if (asked.current !== n) return;
     setShown(r.ok ? { url: URL.createObjectURL(new Blob([r.image], { type: "image/jpeg" })) } : { error: r.error });
   };
-  // Puts the page away and lets go of its picture.
+  // Puts the page away; the effect above lets go of its picture.
   const handleClose = () => {
     asked.current++;
-    if (shown?.url) URL.revokeObjectURL(shown.url);
     setShown(null);
   };
 

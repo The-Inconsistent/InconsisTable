@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { needsRefresh, roomLook } from "./room.ts";
+import { needsRefresh, roomBand, roomLook } from "./room.ts";
 import { SAMPLE_WORLDS } from "./sample.ts";
 import { worldLook, worldStyle } from "./world.ts";
 
@@ -16,6 +16,20 @@ const served = {
 
 test("a room with no World served wears no look", () => {
   assert.equal(roomLook(null), null);
+  assert.equal(roomBand({ world: null }), null);
+});
+
+test("the browser's colour is the World's band: one colour for one set, one per system setting for two", () => {
+  const one = { ...served, theme: { ...served.theme, schemes: { dark: { band: "#101820" } } } };
+  assert.equal(roomBand({ world: one }), "#101820");
+  assert.equal(roomBand({ world: one, picked: "light" }), "#101820", "a World with one set always shows it");
+  const two = { ...served, theme: { ...served.theme, schemes: { light: { "wood-0": "#203040" }, dark: {} } } };
+  assert.deepEqual(roomBand({ world: two }), [
+    { media: "(prefers-color-scheme: light)", color: "#203040" },
+    { media: "(prefers-color-scheme: dark)", color: "#170d07" },
+  ]);
+  assert.equal(roomBand({ world: two, picked: "light" }), "#203040", "the device's own pick wins");
+  assert.equal(roomBand({ world: two, picked: "dark" }), "#170d07");
 });
 
 test("a room's served World is worn as the World's attributes and style", () => {

@@ -74,7 +74,7 @@ export function PlayPage({
         </p>
       )}
       {secrets && (closed.length > 0 || scene.gmNotes) && (
-        <details className="scene-closed">
+        <details className="scene-closed sealed">
           <summary>{t("closed")}</summary>
           <div className="stack">
             <FieldBlocks {...fieldProps} fields={closed} />

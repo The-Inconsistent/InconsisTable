@@ -2440,10 +2440,28 @@ summary {
   font-size: 12px;
   font-weight: 700;
   line-height: 1.1;
-  overflow-wrap: anywhere;
+  /* a heading wraps between words, hyphenates where the language allows, and breaks a word only when nothing else fits */
+  hyphens: auto;
+  overflow-wrap: break-word;
 }
 .w-grid-head > span:first-child {
   background: transparent;
+}
+/* A grid of many ratings: whole where it fits, else in two halves one over the other (grid.tsx), so a phone never
+   squeezes seven headings into a word's width. */
+.w-grid-wrap {
+  container-type: inline-size;
+}
+.w-grid-halves {
+  display: none;
+}
+@container (max-width: 34rem) {
+  .w-grid-whole {
+    display: none;
+  }
+  .w-grid-halves {
+    display: grid;
+  }
 }
 .w-grid-row[data-row="bonus"] > span {
   color: var(--accent);

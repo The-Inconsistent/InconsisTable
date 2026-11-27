@@ -15,7 +15,27 @@ const BASE_ATTRIBUTES = {
   "data-heading-rule": "none",
   "data-heading-case": "normal",
   "data-button-frame": "plate",
+  "data-handout-paper": "follow",
+  "data-readout": "plain",
+  "data-gm-seal": "none",
+  "data-table-head": "plain",
 };
+
+test("light handout paper: the light set's palette, resolved, on a paper handout in either set; not its semantic names", () => {
+  const theme = WorldTheme.parse({
+    schemes: { light: { parchment: "#f0f2f4", ink: "#101214" }, dark: { paper: "#101820" } },
+    shapes: { handoutPaper: "light" },
+  });
+  const look = worldLook(theme);
+  assert.equal(look.attributes["data-handout-paper"], "light");
+  assert.equal(look.handoutPaper?.["--parchment"], "#f0f2f4");
+  assert.equal(look.handoutPaper?.["--parchment-ink"], "#2a1b10", "a palette name the World leaves keeps the base");
+  assert.equal(look.handoutPaper?.["--ink"], undefined, "the card re-declares its ink from the palette itself");
+  assert.match(worldStyle(look), /\[data-handout-paper="light"\] \.handout\.parchment\{color-scheme:light;--wood-0:/);
+  // Without a light set there is no light paper to keep: nothing is declared.
+  const dark = worldLook(WorldTheme.parse({ schemes: { dark: {} }, shapes: { handoutPaper: "light" } }));
+  assert.equal(dark.handoutPaper, undefined);
+});
 
 test("one set: its tokens only, the first of every list for the picks left out, no typeface written", () => {
   const look = worldLook(WorldTheme.parse({ schemes: { dark: { paper: "#101820", ink: "#e8eef4" } } }));

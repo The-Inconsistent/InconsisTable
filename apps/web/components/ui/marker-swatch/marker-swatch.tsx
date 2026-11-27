@@ -5,6 +5,8 @@ import { Marker } from "@inconsistable/core-schema";
 type MarkerSwatchProps = { marker: Marker };
 
 // A combatant's marker (house decision #92): the colour's square and its word, so it is never told by colour alone.
+// The colour is the platform's; the word is the hook for a World's own (house decision #209): once a World's terms
+// exist (#159), a term `marker.<colour>` replaces `t(marker)` here and in the picker below, the app's word its default.
 export function MarkerSwatch({ marker }: MarkerSwatchProps) {
   const t = useTranslations("marker");
   return (

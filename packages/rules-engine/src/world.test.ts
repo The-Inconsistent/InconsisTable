@@ -33,6 +33,16 @@ test("the sample World and the base Theme itself pass", () => {
   assert.deepEqual(problems(world({ light: {}, dark: {} })), []);
 });
 
+test("the slate readout holds the band's pair to 5:1, so its scanlines keep 4.5:1 (house decision #204)", () => {
+  const dim = { dark: { band: "#000000", "band-ink": "#757575" } }; // 4.55:1
+  assert.deepEqual(problems(world(dim)), []);
+  assert.deepEqual(problems({ ...world(dim), theme: { schemes: dim, shapes: { readout: "slate" } } }), [
+    'theme.schemes.dark | "band-ink" on "band" is 4.55:1, under 5:1',
+  ]);
+  const bright = { dark: { band: "#000000", "band-ink": "#808080" } };
+  assert.deepEqual(problems({ ...world(bright), theme: { schemes: bright, shapes: { readout: "slate" } } }), []);
+});
+
 test("the base table covers every token in both sets, and every source is a token the set holds", () => {
   for (const scheme of ["light", "dark"] as const) {
     assert.deepEqual(Object.keys(WORLD_BASE_COLOURS[scheme]).sort(), [...WORLD_COLOUR_TOKENS].sort());
@@ -154,8 +164,15 @@ test("handout layouts: an unknown layout, a repeat and a name too long are refus
   );
 });
 
-test("a World without handouts hashes as it did before the part existed", () => {
-  const { handouts: _, ...before } = SAMPLE_WORLD;
+test("a World without handouts or the #235 keys hashes as it did before they existed", () => {
+  // The sample as it was written before #235: no side colours, none of the four later picks.
+  const { handouts: _, theme, ...rest } = SAMPLE_WORLD;
+  const drop = ({ "side-ally": _a, "side-foe": _f, ...set }: Record<string, string> = {}) => set;
+  const { handoutPaper: _p, readout: _r, gmSeal: _g, tableHead: _t, ...shapes } = theme.shapes ?? {};
+  const before = {
+    ...rest,
+    theme: { ...theme, schemes: { light: drop(theme.schemes.light), dark: drop(theme.schemes.dark) }, shapes },
+  };
   const r = validateWorld(before);
   assert.ok(r.ok);
   assert.equal(worldHash(r.world), "e880b4daac6decc62673b27326037fefa7b1475309cae24603ce4f058d8194e1");

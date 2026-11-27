@@ -40,6 +40,8 @@ export const WORLD_COLOUR_TOKENS = [
   "ink-blue",
   "halo-light",
   "halo-dark",
+  "side-ally",
+  "side-foe",
   "paper",
   "paper-2",
   "ink",
@@ -94,6 +96,14 @@ export const WORLD_SHAPES = {
   headingCase: ["normal", "caps"],
   /** How a button is built. */
   buttonFrame: ["plate", "flat", "double"],
+  /** A handout's paper in the dark set: the set's own card, or the World's light card kept (house decision #203). */
+  handoutPaper: ["follow", "light"],
+  /** The phone's readouts (its strip, the fight plate): the band, or a slate (house decision #204). */
+  readout: ["plain", "slate"],
+  /** What marks GM-only content: nothing, a spiked crest bar, or the bar with a winged skull (house decision #205). */
+  gmSeal: ["none", "crest", "skull"],
+  /** The header row of a sheet's grid and card list: the page's ink, or the band (house decision #206). */
+  tableHead: ["plain", "band"],
 } as const;
 export type WorldShape = keyof typeof WORLD_SHAPES;
 
@@ -139,6 +149,10 @@ export const WorldTheme = z.object({
       headingRule: shape("headingRule"),
       headingCase: shape("headingCase"),
       buttonFrame: shape("buttonFrame"),
+      handoutPaper: shape("handoutPaper"),
+      readout: shape("readout"),
+      gmSeal: shape("gmSeal"),
+      tableHead: shape("tableHead"),
     })
     .default({}),
 });
@@ -193,6 +207,16 @@ export const WORLD_CONTRAST_PAIRS = [
   { fg: "focus", bg: "focus-halo", min: 3 },
 ] as const satisfies readonly { fg: WorldColourToken; bg: WorldColourToken; min: number }[];
 
+/**
+ * The slate readout's scanlines (house decision #204) mix 4% of the band's ink into the band under text: a World that
+ * picks it holds the band's pair to 5:1, so a line keeps at least 4.5:1.
+ */
+export const WORLD_SLATE_PAIR = { fg: "band-ink", bg: "band", min: 5 } as const satisfies {
+  fg: WorldColourToken;
+  bg: WorldColourToken;
+  min: number;
+};
+
 // ---------- the base values, the contrast check, the validator and the hash (house decision #65) ----------
 
 // The palette is declared once in lantern.css, so it is the same in both sets.
@@ -219,6 +243,9 @@ const BASE_PALETTE = {
   "ink-blue": "#123a8f",
   "halo-light": "#fff3cf",
   "halo-dark": "#120a05",
+  // the two sides of a fight on the phone's order (house decision #207), tuned for a card, which lantern keeps light
+  "side-ally": "#2f5f9e",
+  "side-foe": "#b3541e",
 } as const;
 
 /**
@@ -343,7 +370,8 @@ export function contrastProblems(theme: WorldTheme): Problem[] {
     const set = theme.schemes[scheme];
     if (set === undefined) return [];
     const colour = worldColours({ scheme, colours: set });
-    return WORLD_CONTRAST_PAIRS.flatMap(({ fg, bg, min }) => {
+    const pairs = theme.shapes.readout === "slate" ? [...WORLD_CONTRAST_PAIRS, WORLD_SLATE_PAIR] : WORLD_CONTRAST_PAIRS;
+    return pairs.flatMap(({ fg, bg, min }) => {
       const h = contrastHundredths(colour[fg], colour[bg]);
       return h >= min * 100
         ? []

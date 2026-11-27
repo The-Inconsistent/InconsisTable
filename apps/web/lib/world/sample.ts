@@ -77,7 +77,8 @@ const meadow = WorldTheme.parse({
   shapes: { corners: "pill", cardEdge: "rounded", headingRule: "line", buttonFrame: "flat" },
 });
 
-/** Cold and square: a grey printed page, crimson kept for the main action, dark cards at night, the book ornaments. */
+/** Cold and square: a grey printed page, crimson kept for the main action, dark cards at night, the book ornaments,
+ * handouts kept on light paper at night, slate readouts, a sealed GM plate and banded table heads. */
 const hoarfrost = WorldTheme.parse({
   schemes: {
     light: {
@@ -153,6 +154,10 @@ const hoarfrost = WorldTheme.parse({
     headingRule: "quill",
     headingCase: "caps",
     buttonFrame: "double",
+    handoutPaper: "light",
+    readout: "slate",
+    gmSeal: "skull",
+    tableHead: "band",
   },
 });
 

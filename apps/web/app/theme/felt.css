@@ -55,6 +55,10 @@
   --marker-purple: rgb(154 90 214);
   --marker-white: rgb(244 241 234);
   --focus-halo: light-dark(var(--halo-light), var(--halo-dark));
+  /* The two sides of a fight on a phone's order, a stripe on a card (house decision #207): blue for the seat's side,
+     orange for the other, so a foe never reads as the accent's "now". Drawn only under a World. */
+  --side-ally: #2f5f9e;
+  --side-foe: #b3541e;
 
   --plate: light-dark(var(--parchment-2), var(--wood-2));
   --plate-line: var(--brass);

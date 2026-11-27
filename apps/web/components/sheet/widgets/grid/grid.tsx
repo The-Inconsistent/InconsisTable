@@ -7,6 +7,7 @@ import { type GridRow, numberOf, signed, termOf, type WidgetModel } from "@/lib/
 
 import { Num } from "../num/num";
 import type { WidgetEnv } from "../types";
+import { GRID_WHOLE_UP_TO } from "./constants";
 
 type GridProps = { model: Extract<WidgetModel, { widget: "grid" }>; env: WidgetEnv };
 
@@ -58,10 +59,10 @@ export function Grid({ model, env }: GridProps) {
       </div>
     );
   }
-  const line = (key: "rating" | "bonus" | "total") => (
+  const line = ({ key, cols }: { key: "rating" | "bonus" | "total"; cols: GridRow[] }) => (
     <div role="row" className="w-grid-row" data-row={key}>
       <b role="rowheader">{t(key)}</b>
-      {rows.map((r) => {
+      {cols.map((r) => {
         const row = key === "rating" ? r.rating : r[key];
         return (
           <span key={r.rating.id} role="cell">
@@ -71,24 +72,37 @@ export function Grid({ model, env }: GridProps) {
       })}
     </div>
   );
-  return (
+  const table = ({ cols, className }: { cols: GridRow[]; className: string }) => (
     <div
       role="table"
-      className="w-grid"
+      className={className}
       aria-label={model.label ?? undefined}
-      style={{ "--cols": rows.length } as CSSProperties}
+      style={{ "--cols": cols.length } as CSSProperties}
     >
       <div role="row" className="w-grid-row w-grid-head">
         <span role="columnheader" />
-        {rows.map((r) => (
+        {cols.map((r) => (
           <span key={r.rating.id} role="columnheader">
             <Term term={termOf(r.rating)} env={env.still ? undefined : env} />
           </span>
         ))}
       </div>
-      {line("rating")}
-      {columns.bonus && line("bonus")}
-      {columns.total && line("total")}
+      {line({ key: "rating", cols })}
+      {columns.bonus && line({ key: "bonus", cols })}
+      {columns.total && line({ key: "total", cols })}
+    </div>
+  );
+  if (rows.length <= GRID_WHOLE_UP_TO) return table({ cols: rows, className: "w-grid" });
+  // Many columns: the whole grid where it fits, else the same grid in two halves, one over the other, so a heading is
+  // never broken inside a word (a container query shows one or the other; the hidden one is out of the reading order).
+  const half = Math.ceil(rows.length / 2);
+  return (
+    <div className="w-grid-wrap">
+      {table({ cols: rows, className: "w-grid w-grid-whole" })}
+      <div className="stack w-grid-halves">
+        {table({ cols: rows.slice(0, half), className: "w-grid" })}
+        {table({ cols: rows.slice(half), className: "w-grid" })}
+      </div>
     </div>
   );
 }

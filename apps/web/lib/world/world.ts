@@ -1,10 +1,12 @@
 import {
+  WORLD_COLOUR_SOURCES,
   WORLD_COLOUR_TOKENS,
   WORLD_SCHEMES,
   WORLD_SHAPES,
   WORLD_TEXTURES,
   WORLD_TYPE_ROLES,
   WorldColour,
+  worldColours,
   type WorldScheme,
   type WorldShape,
   type WorldTheme,
@@ -24,6 +26,10 @@ export const SHAPE_ATTRIBUTES = {
   headingRule: "data-heading-rule",
   headingCase: "data-heading-case",
   buttonFrame: "data-button-frame",
+  handoutPaper: "data-handout-paper",
+  readout: "data-readout",
+  gmSeal: "data-gm-seal",
+  tableHead: "data-table-head",
 } as const satisfies Record<WorldShape, `data-${string}`>;
 
 /** The data attribute each typeface pick is written to. */
@@ -41,7 +47,17 @@ export type WorldLook = {
   attributes: WorldAttributes;
   /** Each set the World brings: only the tokens it gives a value, so the base Theme's value stands for the rest. */
   schemes: Partial<Record<WorldScheme, WorldVars>>;
+  /** A paper handout kept light in the dark set (house decision #203): the light set's palette, resolved. */
+  handoutPaper?: WorldVars;
 };
+
+// The names a card re-declares from the palette (lantern's .parchment scope), and the band's ink. A light handout takes
+// the palette alone, so the card reads its paper and ink from it as it does in the light set.
+const SEMANTIC = new Set<string>([
+  ...Object.keys(WORLD_COLOUR_SOURCES.light),
+  ...Object.keys(WORLD_COLOUR_SOURCES.dark),
+  "band-ink",
+]);
 
 const isToken = (name: string): name is (typeof WORLD_COLOUR_TOKENS)[number] =>
   (WORLD_COLOUR_TOKENS as readonly string[]).includes(name);
@@ -75,7 +91,14 @@ export function worldLook(theme: WorldTheme): WorldLook {
     const face = theme.typefaces[role];
     if (face) attributes[TYPEFACE_ATTRIBUTES[role]] = face;
   }
-  return { attributes, schemes };
+  const light = theme.schemes.light;
+  // ponytail: a World with no light set has no light paper to keep, so the pick draws nothing; the importer could refuse
+  // that pairing once Worlds are edited in the app
+  if (attributes["data-handout-paper"] !== "light" || !light) return { attributes, schemes };
+  const all = worldColours({ scheme: "light", colours: light });
+  const handoutPaper: WorldVars = {};
+  for (const t of WORLD_COLOUR_TOKENS) if (!SEMANTIC.has(t)) handoutPaper[`--${t}`] = all[t];
+  return { attributes, schemes, handoutPaper };
 }
 
 // The root wears the World's colours while a wrapper is on the page, so the page ground and the overscroll match it.
@@ -91,7 +114,14 @@ const block = (selector: string, scheme: WorldScheme, vars: WorldVars) =>
  * so a token the dark set leaves out falls back to the base Theme, never to the light set's value.
  */
 export function worldStyle(look: WorldLook): string {
-  const { light, dark } = look.schemes;
+  // A paper handout keeps the light set's card whichever set the root shows (house decision #203).
+  const paper = look.handoutPaper
+    ? `\n${block('[data-handout-paper="light"] .handout.parchment', "light", look.handoutPaper)}`
+    : "";
+  return setsStyle(look.schemes) + paper;
+}
+
+function setsStyle({ light, dark }: WorldLook["schemes"]): string {
   if (light && dark) {
     return [
       `@media (prefers-color-scheme: light){${block(':root:not([data-scheme="dark"]):has([data-world])', "light", light)}}`,

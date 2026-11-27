@@ -483,6 +483,16 @@ html:has([data-world]) {
 [data-card-crest="spiked"] :is(.card, .sheet-card)::after {
   display: none;
 }
+/* A bottom sheet (the peek, a term's meaning) wears the same crest along its top in place of its rule, as Auspex's
+   sheets carry the stat block's spikes; the sheet scrolls, so the crest is a background layer, which stays put. */
+[data-card-crest="spiked"] .bottom-sheet {
+  padding-top: 24px;
+  border-top: 0;
+  background:
+    conic-gradient(from 148deg at 50% 0, var(--ink-2) 0 64deg, transparent 64deg) 0 0 / 8px 8px repeat-x,
+    linear-gradient(var(--ink-2), var(--ink-2)) 0 8px / 100% 2px no-repeat,
+    var(--bg-card);
+}
 
 /* ---------- Band edge: the lower edge of a header band ---------- */
 [data-band-edge="straight"] .band {
@@ -622,4 +632,107 @@ html:has([data-world]) {
 }
 [data-button-frame="double"] .btn.sm:not([aria-pressed="true"], :disabled) {
   box-shadow: none;
+}
+
+/* ---------- Sides: the phone's order marks each row's side with a stripe (house decision #207) ----------
+   The seat's side and the other side, in --side-ally and --side-foe. The acting row keeps the accent's stripe: "now"
+   wins, and the word ACTING says it too. The stripe is never the only sign: a foe's name is its card's toggle, and the
+   seat's own rows say YOU. */
+[data-world] .combatant[data-side]:not([data-acting="true"])::before {
+  box-shadow:
+    inset 6px 0 0 var(--side-mark),
+    inset 0 0 20px color-mix(in srgb, var(--card-shade) 28%, transparent);
+}
+[data-world] .combatant[data-side="ally"] {
+  --side-mark: var(--side-ally);
+}
+[data-world] .combatant[data-side="foe"] {
+  --side-mark: var(--side-foe);
+}
+
+/* ---------- Handout paper: a paper handout keeps the light card in the dark set (house decision #203) ----------
+   The World's light palette is declared on the handout by the room's <style> (lib/world/world.ts); here the handout
+   only says which set its colours come from. */
+[data-handout-paper="follow"] .handout.parchment {
+  color-scheme: inherit;
+}
+[data-handout-paper="light"] .handout.parchment {
+  color-scheme: light;
+}
+
+/* ---------- Readouts: the phone's strip and its fight plate (house decision #204) ----------
+   slate: scanlines across the band, and the plate's corners clipped. The clip takes the plate's border at two corners,
+   as a printed readout's would; the plate holds no control, so no focus ring is cut.
+   The lines mix 4% of the band's ink into the band, under text: a World that picks the slate holds the band's pair to
+   5:1 (WORLD_SLATE_PAIR), so text on a line keeps at least 4.5:1. */
+/* plain: the band, as the chrome above draws it, and the plate's corners as the radius tokens round them */
+[data-readout="plain"] .fight-plate {
+  clip-path: none;
+}
+[data-readout="slate"] :is(.phone-strip, .fight-plate) {
+  background:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--band-ink) 4%, transparent) 0 1px, transparent 1px 3px),
+    var(--band);
+}
+[data-readout="slate"] .fight-plate {
+  border-radius: 0;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+/* ---------- GM seal: what marks GM-only content (.sealed), house decision #205 ----------
+   crest: a spiked crest bar on a rule along the top, in the second ink. skull: the bar with a winged skull at its
+   middle, carried from Auspex's own drawing (its .plate::after mask; auspex_gm docs/frontend.md §7: "None of it uses
+   book art"), an inline SVG mask, no image file. The box itself is the page's second surface. */
+/* none: GM-only content as the page lays it out, unmarked */
+[data-gm-seal="none"] .sealed::before {
+  content: none;
+}
+[data-gm-seal="crest"] .sealed,
+[data-gm-seal="skull"] .sealed {
+  position: relative;
+  margin-top: 14px;
+  padding: 18px 14px 12px;
+  background: var(--paper-2);
+  border: 0;
+}
+[data-gm-seal="crest"] .sealed::before,
+[data-gm-seal="skull"] .sealed::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -9px;
+  height: 13px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--ink-2), var(--ink-2)) 0 100% / 100% 4px no-repeat,
+    conic-gradient(from 148deg at 50% 0, var(--ink-2) 0 64deg, transparent 64deg) 0 0 / 9px 9px repeat-x;
+}
+[data-gm-seal="skull"] .sealed::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 29px);
+  top: -17px;
+  width: 58px;
+  height: 22px;
+  pointer-events: none;
+  background: var(--ink-2);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 24'%3E%3Cpath d='M23 9L1 3L5 7L0 8.5L7 11L2 13.5L11 14.5L6 17L23 16ZM41 9L63 3L59 7L64 8.5L57 11L62 13.5L53 14.5L58 17L41 16Z'/%3E%3Cpath fill-rule='evenodd' transform='translate(24 3)' d='M8 1C4.1 1 1.5 3.7 1.5 7.1c0 2 .9 3.4 2.3 4.2V14h2v-1.4h1.1V14h2.2v-1.4h1.1V14h2v-2.7c1.4-.8 2.3-2.2 2.3-4.2C14.5 3.7 11.9 1 8 1zM5.4 5.6a1.7 1.7 0 1 1 0 3.4a1.7 1.7 0 1 1 0-3.4zM10.6 5.6a1.7 1.7 0 1 1 0 3.4a1.7 1.7 0 1 1 0-3.4zM8 9.4l1 1.8H7z'/%3E%3C/svg%3E")
+    0 0 / 100% 100% no-repeat;
+}
+
+/* ---------- Table head: the header row of a sheet's grid and card list (house decision #206) ----------
+   band: the row lies on the band in both sets, as a printed stat block's header does, under the band's ink. */
+/* plain: the grid's head in the page's ink, the card list's head ruled in the accent */
+[data-table-head="plain"] .w-cards-head {
+  background: transparent;
+}
+[data-table-head="band"] .w-grid-head > span:not(:first-child),
+[data-table-head="band"] .w-cards-head {
+  background: var(--band);
+  color: var(--band-ink);
+}
+[data-table-head="band"] .w-cards-head {
+  border-bottom-color: var(--band);
+  padding-inline: 6px;
 }

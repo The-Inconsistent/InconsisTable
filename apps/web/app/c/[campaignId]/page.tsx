@@ -1,4 +1,7 @@
+import type { Viewport } from "next";
+import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
+import { cache } from "react";
 
 import { Me } from "@inconsistable/core-schema";
 import { Ruleset } from "@inconsistable/rules-engine";
@@ -14,6 +17,8 @@ import { creatureTypes } from "@/lib/creatures/creatures";
 import { PackList, RulesReply, RulesetList, WorldList, type RulesTabData } from "@/lib/library/library";
 import { RULES_PAGE, type RulesView } from "@/lib/rules-reader/rules-reader";
 import type { Spawnable } from "@/lib/scene-prep/scene-prep";
+import { resolveScheme, SCHEME_COOKIE, schemeAttribute } from "@/lib/theme/theme";
+import { roomBand } from "@/lib/world/room";
 
 type TableProps = {
   params: Promise<{ campaignId: string }>;
@@ -55,7 +60,8 @@ async function rulesTab(campaignId: string): Promise<RulesTabData | null> {
 
 // The ruleset as this seat may read it and the first entries of the attached packs, for the sheet and the RULES reader.
 // Null when the read fails; a manifest that does not parse leaves `ruleset` null, so the sheet shows nothing wrong.
-async function rulesView(campaignId: string): Promise<RulesView | null> {
+// Cached for the request: the viewport below and the page read it once between them.
+const rulesView = cache(async (campaignId: string): Promise<RulesView | null> => {
   try {
     const res = await apiGet(`/api/campaigns/${campaignId}/rules?limit=${RULES_PAGE}`);
     const first = RulesReply.safeParse(res.ok ? await res.json() : null);
@@ -65,6 +71,15 @@ async function rulesView(campaignId: string): Promise<RulesView | null> {
   } catch {
     return null;
   }
+});
+
+// The browser's colour in a room wearing a World is the World's band (house decision #208); without one, layout.tsx's.
+export async function generateViewport({ params }: Pick<TableProps, "params">): Promise<Viewport> {
+  const { campaignId } = await params;
+  // The scheme switch refreshes the page, so a new pick reaches the browser's colour through this too.
+  const picked = schemeAttribute(resolveScheme((await cookies()).get(SCHEME_COOKIE)?.value));
+  const band = roomBand({ world: (await rulesView(campaignId))?.first.world ?? null, picked });
+  return band ? { themeColor: band } : {};
 }
 
 // The most entries of one creature type a read of the rules route answers (the api's own page limit).

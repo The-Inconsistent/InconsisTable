@@ -207,6 +207,16 @@ export const WORLD_CONTRAST_PAIRS = [
   { fg: "focus", bg: "focus-halo", min: 3 },
 ] as const satisfies readonly { fg: WorldColourToken; bg: WorldColourToken; min: number }[];
 
+/**
+ * The slate readout's scanlines (house decision #204) mix 4% of the band's ink into the band under text: a World that
+ * picks it holds the band's pair to 5:1, so a line keeps at least 4.5:1.
+ */
+export const WORLD_SLATE_PAIR = { fg: "band-ink", bg: "band", min: 5 } as const satisfies {
+  fg: WorldColourToken;
+  bg: WorldColourToken;
+  min: number;
+};
+
 // ---------- the base values, the contrast check, the validator and the hash (house decision #65) ----------
 
 // The palette is declared once in lantern.css, so it is the same in both sets.
@@ -360,7 +370,8 @@ export function contrastProblems(theme: WorldTheme): Problem[] {
     const set = theme.schemes[scheme];
     if (set === undefined) return [];
     const colour = worldColours({ scheme, colours: set });
-    return WORLD_CONTRAST_PAIRS.flatMap(({ fg, bg, min }) => {
+    const pairs = theme.shapes.readout === "slate" ? [...WORLD_CONTRAST_PAIRS, WORLD_SLATE_PAIR] : WORLD_CONTRAST_PAIRS;
+    return pairs.flatMap(({ fg, bg, min }) => {
       const h = contrastHundredths(colour[fg], colour[bg]);
       return h >= min * 100
         ? []

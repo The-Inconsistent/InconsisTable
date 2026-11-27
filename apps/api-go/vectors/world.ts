@@ -92,6 +92,10 @@ function cases(): unknown[] {
     world({ light: {} }, { shapes: "round" }),
     world({ light: {} }, { shapes: { corners: "round", buttonFrame: "x", headingCase: "caps" } }),
     world({ light: {} }, { extra: true }),
+    // The slate readout holds the band's pair to 5:1 (house decision #204): 4.55 is refused with it, kept without.
+    world({ dark: { band: "#000000", "band-ink": "#757575" } }, { shapes: { readout: "slate" } }),
+    world({ dark: { band: "#000000", "band-ink": "#757575" } }, { shapes: { readout: "plain" } }),
+    world({ dark: { band: "#000000", "band-ink": "#808080" } }, { shapes: { readout: "slate" } }),
     { ...world({ light: {} }), id: "Not Kebab" },
     { ...world({ light: {} }), id: "a".repeat(65) },
     { ...world({ light: {} }), version: "1.0" },

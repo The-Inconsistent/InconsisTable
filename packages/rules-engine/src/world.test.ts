@@ -33,6 +33,16 @@ test("the sample World and the base Theme itself pass", () => {
   assert.deepEqual(problems(world({ light: {}, dark: {} })), []);
 });
 
+test("the slate readout holds the band's pair to 5:1, so its scanlines keep 4.5:1 (house decision #204)", () => {
+  const dim = { dark: { band: "#000000", "band-ink": "#757575" } }; // 4.55:1
+  assert.deepEqual(problems(world(dim)), []);
+  assert.deepEqual(problems({ ...world(dim), theme: { schemes: dim, shapes: { readout: "slate" } } }), [
+    'theme.schemes.dark | "band-ink" on "band" is 4.55:1, under 5:1',
+  ]);
+  const bright = { dark: { band: "#000000", "band-ink": "#808080" } };
+  assert.deepEqual(problems({ ...world(bright), theme: { schemes: bright, shapes: { readout: "slate" } } }), []);
+});
+
 test("the base table covers every token in both sets, and every source is a token the set holds", () => {
   for (const scheme of ["light", "dark"] as const) {
     assert.deepEqual(Object.keys(WORLD_BASE_COLOURS[scheme]).sort(), [...WORLD_COLOUR_TOKENS].sort());

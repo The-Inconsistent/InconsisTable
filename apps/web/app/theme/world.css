@@ -652,14 +652,16 @@ html:has([data-world]) {
 
 /* ---------- Readouts: the phone's strip and its fight plate (house decision #204) ----------
    slate: scanlines across the band, and the plate's corners clipped. The clip takes the plate's border at two corners,
-   as a printed readout's would; the plate holds no control, so no focus ring is cut. */
+   as a printed readout's would; the plate holds no control, so no focus ring is cut.
+   The lines mix 4% of the band's ink into the band, under text: a World that picks the slate holds the band's pair to
+   5:1 (WORLD_SLATE_PAIR), so text on a line keeps at least 4.5:1. */
 /* plain: the band, as the chrome above draws it, and the plate's corners as the radius tokens round them */
 [data-readout="plain"] .fight-plate {
   clip-path: none;
 }
 [data-readout="slate"] :is(.phone-strip, .fight-plate) {
   background:
-    repeating-linear-gradient(0deg, color-mix(in srgb, var(--band-ink) 8%, transparent) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--band-ink) 4%, transparent) 0 1px, transparent 1px 3px),
     var(--band);
 }
 [data-readout="slate"] .fight-plate {
@@ -669,7 +671,8 @@ html:has([data-world]) {
 
 /* ---------- GM seal: what marks GM-only content (.sealed), house decision #205 ----------
    crest: a spiked crest bar on a rule along the top, in the second ink. skull: the bar with a winged skull at its
-   middle, the platform's own drawing (inline SVG, no book art). The box itself is the page's second surface. */
+   middle, carried from Auspex's own drawing (its .plate::after mask; auspex_gm docs/frontend.md §7: "None of it uses
+   book art"), an inline SVG mask, no image file. The box itself is the page's second surface. */
 /* none: GM-only content as the page lays it out, unmarked */
 [data-gm-seal="none"] .sealed::before {
   content: none;

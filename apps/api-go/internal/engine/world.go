@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"slices"
 	"strconv"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/schema"
@@ -55,6 +56,10 @@ var (
 		{"focus", "paper", 3}, {"focus", "focus-halo", 3},
 	}
 )
+
+// worldSlatePair is WORLD_SLATE_PAIR: the band's pair a World holds to 5:1 when it picks the slate readout, whose
+// scanlines mix 4% of the band's ink into the band under text (house decision #204).
+var worldSlatePair = contrastPair{"band-ink", "band", 5}
 
 // contrastPair is one of WORLD_CONTRAST_PAIRS: a foreground on a background, and the least ratio it may have.
 type contrastPair struct {
@@ -212,7 +217,11 @@ func worldContrastProblems(theme map[string]any) []Problem {
 			continue
 		}
 		colour := worldColours(scheme, set)
-		for _, p := range worldContrastPairs {
+		pairs := worldContrastPairs
+		if shapes, _ := theme["shapes"].(map[string]any); shapes["readout"] == "slate" {
+			pairs = append(slices.Clone(worldContrastPairs), worldSlatePair)
+		}
+		for _, p := range pairs {
 			h := contrastHundredths(colour[p.FG], colour[p.BG])
 			if float64(h) >= p.Min*100 {
 				continue

@@ -1,4 +1,5 @@
 import type { Viewport } from "next";
+import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { cache } from "react";
 
@@ -16,6 +17,7 @@ import { creatureTypes } from "@/lib/creatures/creatures";
 import { PackList, RulesReply, RulesetList, WorldList, type RulesTabData } from "@/lib/library/library";
 import { RULES_PAGE, type RulesView } from "@/lib/rules-reader/rules-reader";
 import type { Spawnable } from "@/lib/scene-prep/scene-prep";
+import { resolveScheme, SCHEME_COOKIE, schemeAttribute } from "@/lib/theme/theme";
 import { roomBand } from "@/lib/world/room";
 
 type TableProps = {
@@ -74,7 +76,9 @@ const rulesView = cache(async (campaignId: string): Promise<RulesView | null> =>
 // The browser's colour in a room wearing a World is the World's band (house decision #208); without one, layout.tsx's.
 export async function generateViewport({ params }: Pick<TableProps, "params">): Promise<Viewport> {
   const { campaignId } = await params;
-  const band = roomBand((await rulesView(campaignId))?.first.world ?? null);
+  // The scheme switch refreshes the page, so a new pick reaches the browser's colour through this too.
+  const picked = schemeAttribute(resolveScheme((await cookies()).get(SCHEME_COOKIE)?.value));
+  const band = roomBand({ world: (await rulesView(campaignId))?.first.world ?? null, picked });
   return band ? { themeColor: band } : {};
 }
 

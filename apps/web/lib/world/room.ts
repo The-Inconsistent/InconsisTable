@@ -1,4 +1,4 @@
-import { WORLD_SCHEMES, worldColours } from "@inconsistable/rules-engine";
+import { WORLD_SCHEMES, worldColours, type WorldScheme } from "@inconsistable/rules-engine";
 
 import type { RulesReply } from "@/lib/library/library";
 
@@ -16,14 +16,24 @@ export function roomLook(world: RoomWorld): { attributes: WorldAttributes; style
 
 /**
  * The browser's own colour (its toolbar, the task switcher) in a room wearing a World: the World's band, per set it
- * brings, as Auspex's is its iron band (house decision #208). Null with no World, so the base Theme's band stands.
+ * brings, as Auspex's is its iron band (house decision #208). The set the device picked (`picked`, from the scheme
+ * cookie) wins when the World brings it, as the page's own colours do; with no pick, one colour per system setting.
+ * Null with no World, so the base Theme's band stands.
  */
-export function roomBand(world: RoomWorld): string | { media: string; color: string }[] | null {
+export function roomBand({
+  world,
+  picked,
+}: {
+  world: RoomWorld;
+  picked?: WorldScheme;
+}): string | { media: string; color: string }[] | null {
   if (!world) return null;
   const sets = WORLD_SCHEMES.flatMap((scheme) => {
     const colours = world.theme.schemes[scheme];
     return colours ? [{ scheme, band: worldColours({ scheme, colours }).band }] : [];
   });
+  const chosen = sets.find((s) => s.scheme === picked);
+  if (chosen) return chosen.band;
   if (sets.length === 1) return sets[0]!.band;
   return sets.map((s) => ({ media: `(prefers-color-scheme: ${s.scheme})`, color: s.band }));
 }

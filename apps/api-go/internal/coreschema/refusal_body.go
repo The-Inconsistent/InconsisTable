@@ -51,6 +51,9 @@ func RefusalBody(code string, params Params) Body {
 type Error struct {
 	Code   string
 	Params Params
+	// Write is the logged write an undo's refusal is about, never sent: the table cuts the refusal to what the seat sees
+	// of it (house decision #131).
+	Write *FightLogWrite
 }
 
 func (e *Error) Error() string { return RefusalMessage(e.Code, e.Params) }
@@ -58,7 +61,7 @@ func (e *Error) Error() string { return RefusalMessage(e.Code, e.Params) }
 // Fail makes the refusal for a code.
 func Fail(code string, params ...Params) *Error {
 	if len(params) > 0 {
-		return &Error{code, params[0]}
+		return &Error{Code: code, Params: params[0]}
 	}
 	return &Error{Code: code}
 }

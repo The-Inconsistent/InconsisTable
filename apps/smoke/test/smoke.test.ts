@@ -6362,6 +6362,59 @@ test("sides fixture: reminders, a side barred at once, immunity, stacks and a re
 
 // House decision #82 on the invented sides fixture: TURN BACK takes back the last turn step with every hit since and
 // what a paid start cost, tells only the side running the fight what it would take, and refuses as a whole.
+// House decisions #131 to #133 on the invented sides fixture: HISTORY lists the session's actions for the side that may
+// undo them, a line is undone under later ones, refused while a later one set the same value, and redone.
+test("sides fixture: HISTORY, undo by line and redo", async () => {
+  const ownerDevice = await device("owner-Journal");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_SKIRMISH);
+  assert.equal(rs.status, 201);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Journal",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-Journal") } });
+  const brute = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Brute" })).id!;
+  await equip(brute, "creature", { fields: { level: 6, "attr.con": 10 }, resources: { hp: 20 } });
+  const hp = (s: LiveState) => actorIn(s, brute)?.resources.hp;
+  const burning = { actorId: brute, condition: "burning" };
+
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send(hpStep(brute, "hp", -3)));
+  ok(await owner.send(hpStep(brute, "hp", -2)));
+  ok(await owner.send({ type: "condition.add", ...burning }));
+  ok(await owner.send({ type: "condition.remove", ...burning }));
+  // HISTORY is read on request, never pushed with the state.
+  type HistoryAnswer = { ok: boolean; lines?: { id: string; undone: boolean }[]; code?: string };
+  const history = async (c: ReturnType<typeof connect>) =>
+    (await c.socket.emitWithAck("session:history")) as HistoryAnswer;
+  let s = await owner.until((x) => hp(x) === 15);
+  assert.equal(s.history, undefined, "the state carries no history");
+  const lines = (await history(owner)).lines!;
+  assert.equal(lines.length, 4);
+  const [removed, added, , first] = lines.map((l) => l.id);
+  assert.equal((await history(ana)).code, "noPermission", "a player reads no history");
+
+  // The first hit goes back under the later ones; the add is refused while the later remove stands, naming it.
+  ok(await owner.send({ type: "event.undo", actionId: first! }));
+  s = await owner.until((x) => hp(x) === 18);
+  assert.equal((await history(owner)).lines!.find((l) => l.id === first)?.undone, true);
+  const blocked = await owner.send({ type: "event.undo", actionId: added! });
+  refused(blocked, "undoLaterFirst");
+  assert.equal(blocked.ok ? null : blocked.params?.actionId, removed);
+  refused(await ana.send({ type: "event.redo", actionId: first! }), "noPermission");
+
+  // Redo puts the hit back; a second redo has nothing to redo.
+  ok(await owner.send({ type: "event.redo", actionId: first! }));
+  s = await owner.until((x) => hp(x) === 15);
+  assert.equal((await history(owner)).lines!.find((l) => l.id === first)?.undone, false);
+  refused(await owner.send({ type: "event.redo", actionId: first! }), "nothingToRedo");
+  for (const c of [owner, ana]) c.socket.close();
+});
+
 test("sides fixture: TURN BACK takes the last turn step and the hits since, and is refused whole", async () => {
   const ownerDevice = await device("owner-TurnBack");
   const me = caller(ownerDevice);

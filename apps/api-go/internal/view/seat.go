@@ -68,7 +68,129 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 	state.Requests, state.RequestAnswers = seatRequests(state.Requests, state.RequestAnswers, c, sight, compiled, state.Pools)
 	state.Rolls, state.Dealt = seatTables(state.Rolls, state.Dealt, c, sight)
 	state.Whispers = seatWhispers(state.Whispers, c, sight)
+	state.History = seatHistory(snapshot.State, state, codex, compiled, c, sight)
 	return SeatView{state, codex}
+}
+
+// seatHistory is HISTORY as one seat receives it (house decision #133, vectors/reference/view.seat.ts seatHistory):
+// the side that may undo (the combat side, as Undo is encounter:run), and of each action only the writes of values the
+// seat sees: an actor's field, resource or condition by the ruleset's visibility as that seat sees that actor; a pool, a
+// clock or a codex entry it is sent; the turn; a Test's value to the session side or a table without a GM. An item row
+// and anything else stay home (fail-closed). A condition row is sent without its source, which may hold the GM's words.
+// An action left with no write and no strike is dropped.
+func seatHistory(whole, seat cs.LiveState, codex cs.Codex, compiled *engine.CompiledRuleset, c cs.Ctx, sight Sight) []cs.HistoryLine {
+	if !sight.Combat || len(whole.History) == 0 {
+		return nil
+	}
+	sees := writeSeer(whole, seat, codex, compiled, c, sight)
+	out := []cs.HistoryLine{}
+	for _, line := range whole.History {
+		cut := line
+		cut.Writes = []cs.FightLogWrite{}
+		for _, w := range line.Writes {
+			if sees(w) {
+				if w.Target["condition"] != "" {
+					w.Before, w.After = conditionShown(w.Before), conditionShown(w.After)
+				}
+				cut.Writes = append(cut.Writes, w)
+			}
+		}
+		if len(cut.Writes) > 0 || cut.Strike != nil {
+			out = append(out, cut)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// A condition row as a seat off the GM side reads it: what it is, how many and when it ends; not its source.
+func conditionShown(v any) any {
+	row, isRow := v.(map[string]any)
+	if !isRow {
+		return v
+	}
+	out := map[string]any{}
+	for _, k := range []string{"conditionId", "stacks", "expiresOn", "expiresAfter"} {
+		if x, ok := row[k]; ok {
+			out[k] = x
+		}
+	}
+	return out
+}
+
+// SeesWrite says whether the seat sees the value a logged write changed, by the cut HISTORY makes: an undo's refusal
+// about that write is cut by it too (house decision #131). The GM side sees every one.
+func SeesWrite(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx, w cs.FightLogWrite) bool {
+	c.TableMode = snapshot.State.Campaign.TableMode
+	sight := SightOf(c)
+	if sight.All {
+		return true
+	}
+	seat := Of(snapshot, compiled, c)
+	return writeSeer(snapshot.State, seat.State, seat.Codex, compiled, c, sight)(w)
+}
+
+// writeSeer is the test of one logged write against what the seat sees: whole is the snapshot's state, seat and codex
+// what the seat receives of them.
+func writeSeer(whole, seat cs.LiveState, codex cs.Codex, compiled *engine.CompiledRuleset, c cs.Ctx, sight Sight) func(cs.FightLogWrite) bool {
+	actors := map[string]cs.Actor{}
+	for _, a := range whole.Actors {
+		actors[a.ID] = a
+	}
+	role := "player"
+	if isScreen(c) {
+		role = "screen"
+	}
+	seatViewer := engine.Viewer{Role: role, CharacterIDs: HeldBy(c)}
+	return func(w cs.FightLogWrite) bool {
+		t := w.Target
+		switch {
+		case t["actorId"] != "":
+			a, ok := actors[t["actorId"]]
+			if !ok || compiled == nil {
+				return false
+			}
+			viewer := seatViewer
+			if ActorGmSide(c, a.Kind) {
+				viewer = gmViewer
+			}
+			// The write as one value of the actor, through the one filter every actor value goes through.
+			probe := engine.ActorView{ID: a.ID, Entity: a.Entity, Fields: map[string]any{}, Resources: map[string]float64{},
+				Derived: map[string]float64{}, Conditions: []string{}}
+			switch {
+			case t["resource"] != "":
+				probe.Resources[t["resource"]] = 0
+			case t["field"] != "":
+				probe.Fields[t["field"]] = nil
+			case t["condition"] != "":
+				for _, v := range []any{w.After, w.Before} {
+					if row, isRow := v.(map[string]any); isRow {
+						if id, isID := row["conditionId"].(string); isID {
+							probe.Conditions = []string{id}
+							break
+						}
+					}
+				}
+			default:
+				return false
+			}
+			seen := compiled.ToViewerView(viewer, []engine.ActorView{probe})[0]
+			return len(seen.Resources)+len(seen.Fields)+len(seen.Conditions) > 0
+		case t["pool"] != "":
+			return slices.ContainsFunc(seat.Pools, func(p cs.PoolState) bool { return p.ID == t["pool"] })
+		case t["clock"] != "":
+			return slices.ContainsFunc(seat.Clocks, func(k cs.Clock) bool { return k.ID == t["clock"] })
+		case t["entry"] != "":
+			return slices.ContainsFunc(codex.Entries, func(e cs.CodexEntry) bool { return e.ID == t["entry"] })
+		case t["turn"] != "":
+			return true
+		case t["test"] != "":
+			return sight.Session || sight.TableRun
+		}
+		return false
+	}
 }
 
 // The whispers a seat receives (view.seat.ts seatWhispers, house decision #93): the side that runs the session with a

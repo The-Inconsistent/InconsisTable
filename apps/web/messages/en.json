@@ -1016,7 +1016,8 @@
       "no": "No",
       "callTest": "Call a Test",
       "openCalls": "Open Tests",
-      "moreCalls": "{count} more on Tests"
+      "moreCalls": "{count} more on Tests",
+      "history": "History"
     },
     "tabs": {
       "scene": "Scene",
@@ -1671,6 +1672,14 @@
     "cantUndoKind": "Can't undo that kind of step yet",
     "undoGone": "Can't undo: {target} is gone.",
     "undoChanged": "Can't undo: {target} changed after this step (now {now}, the step left {left}). Undo the later steps first.",
+    "alreadyUndone": "That step is already undone.",
+    "undoLaterFirst": "Can't undo: a later step changed {target}. Undo that step first.",
+    "nothingToRedo": "Nothing to redo: that step is not undone.",
+    "redoLaterFirst": "Can't redo: a later step changed {target}. Undo that step first.",
+    "cantRedoKind": "Can't redo a step that made codex entries: undo deleted them.",
+    "requestAnsweredSince": "Can't redo: the ask it approved was answered or withdrawn since.",
+    "changedUnseen": "Can't take this back: something you don't see changed since. The GM can.",
+    "redoClamped": "Can't redo: the undo was held at a limit of {target}, so a redo would not put back what the step did.",
     "noEncounterRunning": "No encounter is running",
     "encounterRunning": "An encounter is already running",
     "alreadyInFight": "{name} is already in the fight",
@@ -2582,7 +2591,20 @@
     "acts": "{name} acts",
     "ends": "{name}'s turn ends",
     "round": "Round {round} begins",
-    "undone": "(taken back)"
+    "undone": "(taken back)",
+    "other": "{count, plural, one {# change} other {# changes}}"
+  },
+  "history": {
+    "title": "History of this session",
+    "empty": "Nothing logged in this session yet.",
+    "reading": "Reading the session's history…",
+    "noSession": "History lists the running session's actions. Start a session first.",
+    "undo": "Undo",
+    "redo": "Redo",
+    "undoLine": "Undo: {line}",
+    "redoLine": "Redo: {line}",
+    "undone": "(taken back)",
+    "first": "Undo this first"
   },
   "command": {
     "label": "ORDER ›",

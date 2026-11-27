@@ -11,6 +11,7 @@ import { HeaderItems } from "@/components/gm/gm-app/components/header-items/head
 import { CallBand } from "@/components/gm/header/call-band/call-band";
 import { CallButton } from "@/components/gm/header/call-button/call-button";
 import { HeaderPools } from "@/components/gm/header/header-pools/header-pools";
+import { HistoryButton } from "@/components/gm/header/history-button/history-button";
 import { Codex } from "@/components/gm/codex/codex";
 import { Party } from "@/components/gm/party/party";
 import { Prep } from "@/components/gm/prep/prep";
@@ -54,9 +55,20 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
   const t = useTranslations("gmApp");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
-  const { state, codex, online, send, draftRecap, books, requestPage, xcard, notices, dismissNotices } = useTable(
-    me.campaignId,
-  );
+  const {
+    state,
+    codex,
+    online,
+    send,
+    draftRecap,
+    books,
+    requestPage,
+    xcard,
+    notices,
+    dismissNotices,
+    history,
+    watchHistory,
+  } = useTable(me.campaignId);
   useWorldRefresh({ rendered: view?.first.world?.versionId ?? null, live: state?.campaign.worldVersionId });
   const tabs = (Object.keys(GM_TABS) as GmTab[]).filter(
     (k) => canInCampaign({ ctx: me, perm: GM_TABS[k].perm }) && (k !== "standings" || (state?.games.length ?? 0) > 0),
@@ -144,6 +156,16 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
             send={send}
           />
           {canInCampaign({ ctx: me, perm: "test:call" }) && <CallButton state={state} send={send} />}
+          {/* HISTORY is Undo's (house decision #133): the seats that may undo, event.undo's permission. */}
+          {canInCampaign({ ctx: me, perm: "encounter:run" }) && (
+            <HistoryButton
+              state={state}
+              ruleset={view?.ruleset ?? null}
+              send={send}
+              history={history}
+              watch={watchHistory}
+            />
+          )}
           {me.seat.kind === "admin" && <span className="chip">{t("header.admin")}</span>}
           {state.session && <span className="chip">{tTable("session", { number: state.session.number })}</span>}
           {/* Whispers need a GM (house decision #93); the side that runs the session sends them. */}

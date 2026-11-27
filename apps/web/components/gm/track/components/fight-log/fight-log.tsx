@@ -4,7 +4,8 @@ import { useTranslations } from "next-intl";
 import type { Actor, FightLogLine } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
-import { fightLog, type LogPart } from "@/lib/fight-log/fight-log";
+import { useLogWords } from "@/hooks/use-log-words/use-log-words";
+import { fightLog } from "@/lib/fight-log/fight-log";
 
 type FightLogProps = {
   log: readonly FightLogLine[];
@@ -13,38 +14,12 @@ type FightLogProps = {
 };
 
 // LOG (house decision #100): what happened in this fight, newest first, by round and turn, each action worded from what
-// it wrote. Read-only: Undo and TURN BACK stay the tracker's buttons, and what they took back is struck through.
+// it wrote. Read-only: Undo and TURN BACK stay the tracker's buttons, undo and redo by line are HISTORY's (the header),
+// and what was taken back is struck through.
 export function FightLog({ log, actors, ruleset }: FightLogProps) {
   const t = useTranslations("fightLog");
   const rounds = fightLog({ log, names: actors, ruleset });
-
-  // One part in the platform's words.
-  const words = (p: LogPart): string => {
-    switch (p.kind) {
-      case "strike":
-        return p.means === null
-          ? t("strike", { attacker: p.attacker, target: p.target, outcome: p.outcome, total: p.total })
-          : t("strikeWith", {
-              attacker: p.attacker,
-              target: p.target,
-              means: p.means,
-              outcome: p.outcome,
-              total: p.total,
-            });
-      case "change":
-        return p.name === null ? t("pool", { by: p.by, label: p.label }) : t("change", { ...p, name: p.name });
-      case "set":
-        return t("set", p);
-      case "condition":
-        return t(p.on ? "conditionOn" : "conditionOff", { name: p.name, label: p.label });
-      case "acts":
-        return t("acts", { name: p.name });
-      case "ends":
-        return t("ends", { name: p.name });
-      case "round":
-        return t("round", { round: p.round });
-    }
-  };
+  const words = useLogWords();
 
   return (
     <section className="card stack fight-log" aria-label={t("title")}>

@@ -1,4 +1,4 @@
-import type { Actor, FightLogLine } from "@inconsistable/core-schema";
+import type { Actor, FightLogLine, HistoryLine } from "@inconsistable/core-schema";
 import type { Ruleset } from "@inconsistable/rules-engine";
 
 // The fight's log on the GM's tracker (house decision #100): what each logged action of the running fight did, in the
@@ -12,7 +12,9 @@ export type LogPart =
   | { kind: "condition"; name: string; label: string; on: boolean }
   | { kind: "acts"; name: string }
   | { kind: "ends"; name: string }
-  | { kind: "round"; round: number };
+  | { kind: "round"; round: number }
+  /** HISTORY only: an action whose writes the log does not tell, by how many there were. */
+  | { kind: "other"; count: number };
 
 /** One action as a line: its parts in order, and whether Undo or TURN BACK took it back. */
 export type LogLine = { id: string; parts: LogPart[]; undone: boolean };
@@ -71,6 +73,63 @@ function partsOf({
   return [];
 }
 
+/** What one logged action did, in parts: its strike first, then what its writes did; empty when the log tells nothing. */
+export function actionParts({
+  entry,
+  names,
+  ruleset,
+}: {
+  entry: Pick<FightLogLine, "strike" | "writes">;
+  names: Names;
+  ruleset: Pick<Ruleset, "resources" | "conditions" | "entities" | "strikes"> | null;
+}): LogPart[] {
+  const s = entry.strike;
+  const strike: LogPart[] =
+    s === undefined
+      ? []
+      : [
+          {
+            kind: "strike",
+            attacker: names.get(s.attackerId)?.name ?? "",
+            target: names.get(s.targetId)?.name ?? "",
+            means: s.means,
+            outcome:
+              ruleset?.strikes?.find((k) => k.id === s.strikeId)?.outcomes.find((o) => o.id === s.outcome)?.label ??
+              s.outcome,
+            total: s.total,
+          },
+        ];
+  return [...strike, ...entry.writes.flatMap((w) => partsOf({ w, names, ruleset }))];
+}
+
+/** One HISTORY line: an action of the session, when it was taken, and what it did. */
+export type HistoryEntry = LogLine & { at: string };
+
+/**
+ * HISTORY (house decision #133): every logged action of the session the seat is sent, newest first, each worded as the
+ * fight's log words it. Unlike the log it leaves none out, since each line can be undone: one the log tells nothing of
+ * reads as its count of changes.
+ */
+export function historyLines({
+  history,
+  names,
+  ruleset,
+}: {
+  history: readonly HistoryLine[];
+  names: Names;
+  ruleset: Pick<Ruleset, "resources" | "conditions" | "entities" | "strikes"> | null;
+}): HistoryEntry[] {
+  return history.map((entry) => {
+    const parts = actionParts({ entry, names, ruleset });
+    return {
+      id: entry.id,
+      at: entry.at,
+      undone: entry.undone,
+      parts: parts.length > 0 ? parts : [{ kind: "other", count: entry.writes.length }],
+    };
+  });
+}
+
 /**
  * The log as rounds of turns of lines, newest first, from the encounter's `log` (already newest first). A strike is one
  * part before what its writes did; an action that left nothing the log tells is left out.
@@ -86,23 +145,7 @@ export function fightLog({
 }): LogRound[] {
   const rounds: LogRound[] = [];
   for (const entry of log) {
-    const s = entry.strike;
-    const strike: LogPart[] =
-      s === undefined
-        ? []
-        : [
-            {
-              kind: "strike",
-              attacker: names.get(s.attackerId)?.name ?? "",
-              target: names.get(s.targetId)?.name ?? "",
-              means: s.means,
-              outcome:
-                ruleset?.strikes?.find((k) => k.id === s.strikeId)?.outcomes.find((o) => o.id === s.outcome)?.label ??
-                s.outcome,
-              total: s.total,
-            },
-          ];
-    const parts = [...strike, ...entry.writes.flatMap((w) => partsOf({ w, names, ruleset }))];
+    const parts = actionParts({ entry, names, ruleset });
     if (parts.length === 0) continue;
     let round = rounds.at(-1);
     if (round?.round !== entry.round) {

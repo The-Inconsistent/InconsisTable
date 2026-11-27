@@ -203,10 +203,13 @@ export const Action = z.discriminatedUnion("type", [
   // The ruleset's `resetOn` for one rest or boundary event, on one actor or on all of them. `event` is the engine's
   // ResetEvent; core-schema can't import the engine, so the api parses it.
   z.object({ type: z.literal("actor.rest"), event: z.string().min(1).max(40), actorId: id.optional() }),
-  // Undoes the newest logged action of the running session that is not undone yet. There is no redo.
-  z.object({ type: z.literal("event.undo") }),
+  // Undoes a logged action of the running session: the one named (undo by line, house decision #131), else the newest
+  // one that is not undone yet.
+  z.object({ type: z.literal("event.undo"), actionId: id.optional() }),
+  // Takes back the undo of a logged action of the running session, so the action stands again (house decision #132).
+  z.object({ type: z.literal("event.redo"), actionId: id }),
   // Undoes the running fight's last turn step: every action back to and including the newest one that changed who acts
-  // or the round (house decision #82). There is no redo.
+  // or the round (house decision #82). The step is not redone whole; each action it took back is, by line.
   z.object({ type: z.literal("event.turnBack") }),
 
   // A Test the GM calls, the physical roll a player or the GM reports, and the close (docs/design.md §6.3). The api
@@ -502,6 +505,7 @@ export const ACTION_PERMS: Record<ActionType, Permission | null> = {
   "condition.remove": "encounter:run",
   "actor.rest": "session:run",
   "event.undo": "encounter:run", // the GM, and a co-GM with the combat scope
+  "event.redo": "encounter:run", // as Undo (house decision #132)
   "event.turnBack": "encounter:run",
   "encounter.start": "encounter:run",
   "encounter.end": "encounter:run",

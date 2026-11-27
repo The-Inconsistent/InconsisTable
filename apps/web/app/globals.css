@@ -1326,6 +1326,37 @@ label {
 .fight-log-lines li[data-state="undone"] {
   color: var(--ink-2);
 }
+/* HISTORY (house decision #133): one line per action, its time, its words and UNDO or REDO at the end. The line a
+   refusal names (the later step to undo first) carries an accent edge as well as its words. */
+.history-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.history-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 4px 8px;
+  border-inline-start: 3px solid transparent;
+}
+.history-what {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.history-line[data-state="undone"] .history-what {
+  color: var(--ink-2);
+}
+.history-line[data-first] {
+  border-inline-start-color: var(--accent);
+}
+.history-first {
+  color: var(--accent);
+  font-size: var(--fs-small);
+}
 /* A chain of tables (house decision #88): the steps taken so far, in order, wrapping on a phone. */
 .table-trail {
   flex-wrap: wrap;

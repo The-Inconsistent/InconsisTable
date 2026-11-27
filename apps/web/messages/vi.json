@@ -1016,7 +1016,8 @@
       "no": "Không",
       "callTest": "Gọi một Test",
       "openCalls": "Test đang mở",
-      "moreCalls": "Còn {count} ở tab Test"
+      "moreCalls": "Còn {count} ở tab Test",
+      "history": "Lịch sử"
     },
     "tabs": {
       "scene": "Cảnh",
@@ -1671,6 +1672,14 @@
     "cantUndoKind": "Chưa hoàn tác được loại bước này",
     "undoGone": "Không hoàn tác được: {target} không còn nữa.",
     "undoChanged": "Không hoàn tác được: {target} đã đổi sau bước này (hiện là {now}, bước này để lại {left}). Hãy hoàn tác các bước sau trước.",
+    "alreadyUndone": "Bước này đã được hoàn tác.",
+    "undoLaterFirst": "Không hoàn tác được: một bước sau đã đổi {target}. Hãy hoàn tác bước đó trước.",
+    "nothingToRedo": "Không có gì để làm lại: bước này chưa được hoàn tác.",
+    "redoLaterFirst": "Không làm lại được: một bước sau đã đổi {target}. Hãy hoàn tác bước đó trước.",
+    "cantRedoKind": "Không làm lại được bước đã tạo mục codex: hoàn tác đã xoá chúng.",
+    "requestAnsweredSince": "Không làm lại được: yêu cầu nó đã duyệt đã được trả lời hoặc rút lại từ đó.",
+    "changedUnseen": "Không hoàn tác được: một thứ bạn không thấy đã đổi từ đó. GM làm được.",
+    "redoClamped": "Không làm lại được: lần hoàn tác bị chặn ở giới hạn của {target}, nên làm lại sẽ không trả đúng những gì bước đó đã làm.",
     "noEncounterRunning": "Không có trận nào đang chạy",
     "encounterRunning": "Đang có một trận chạy",
     "alreadyInFight": "{name} đã ở trong trận",
@@ -2582,7 +2591,20 @@
     "acts": "{name} hành động",
     "ends": "Hết lượt của {name}",
     "round": "Bắt đầu vòng {round}",
-    "undone": "(đã hoàn tác)"
+    "undone": "(đã hoàn tác)",
+    "other": "{count} thay đổi"
+  },
+  "history": {
+    "title": "Lịch sử buổi này",
+    "empty": "Buổi này chưa ghi lại gì.",
+    "reading": "Đang đọc lịch sử buổi này…",
+    "noSession": "Lịch sử liệt kê các hành động của buổi đang chơi. Hãy bắt đầu một buổi trước.",
+    "undo": "Hoàn tác",
+    "redo": "Làm lại",
+    "undoLine": "Hoàn tác: {line}",
+    "redoLine": "Làm lại: {line}",
+    "undone": "(đã hoàn tác)",
+    "first": "Hoàn tác bước này trước"
   },
   "command": {
     "label": "LỆNH ›",

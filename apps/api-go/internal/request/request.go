@@ -282,11 +282,32 @@ func Approve(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resul
 }
 
 // Reopen puts back to pending the request whose approval was the logged action actionID, which Undo has just taken back
-// (#227, house decision #119): the cost is returned, so the GM side may answer the ask again.
-func Reopen(ctx context.Context, tx core.Conn, campaignID, actionID string) error {
-	_, err := tx.Exec(ctx, `UPDATE spend_request SET status = 'pending', resolved_at = NULL, action_id = NULL
-		WHERE campaign_id = $1 AND action_id = $2 AND status = 'approved'`, campaignID, actionID)
-	return err
+// (#227, house decision #119): the cost is returned, so the GM side may answer the ask again. It answers the requests
+// it reopened, which the undo keeps for a redo (Reapprove).
+func Reopen(ctx context.Context, tx core.Conn, campaignID, actionID string) ([]string, error) {
+	rows, err := tx.Query(ctx, `UPDATE spend_request SET status = 'pending', resolved_at = NULL, action_id = NULL
+		WHERE campaign_id = $1 AND action_id = $2 AND status = 'approved' RETURNING id::text`, campaignID, actionID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
+}
+
+// Reapprove is the redo of an undone approval (house decision #132): each request the undo reopened is approved again
+// by the same logged action, while it is still waiting. One answered or withdrawn since refuses the redo, which would
+// otherwise spend the cost twice.
+func Reapprove(ctx context.Context, tx core.Conn, campaignID string, requestIDs []string, actionID string) error {
+	for _, id := range requestIDs {
+		tag, err := tx.Exec(ctx, `UPDATE spend_request SET status = 'approved', resolved_at = now(), action_id = $3
+			WHERE campaign_id = $1 AND id = $2 AND status = 'pending'`, campaignID, id, actionID)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return cs.Fail("requestAnsweredSince")
+		}
+	}
+	return nil
 }
 
 // spend takes amount off the resource: the resource.capped adjust op and the actor pipeline, as a GM's own delta. It

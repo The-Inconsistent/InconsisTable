@@ -5,7 +5,7 @@ import type { FightLogLine } from "@inconsistable/core-schema";
 import { Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_HARM } from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
-import { fightLog } from "./fight-log.ts";
+import { fightLog, historyLines } from "./fight-log.ts";
 
 const ruleset = Ruleset.parse(SAMPLE_HARM);
 const names = new Map([
@@ -119,4 +119,36 @@ test("a new round and a turn's end start their own groups", () => {
       ],
     ],
   );
+});
+
+test("HISTORY keeps every action, newest first, and counts the writes the log does not tell", () => {
+  const lines = historyLines({
+    history: [
+      {
+        id: "hit",
+        at: "2026-11-01T10:01:00.000Z",
+        undone: true,
+        writes: [{ target: { actorId: "ogre", resource: "hp" }, kind: "add", before: 9, after: 6 }],
+      },
+      {
+        id: "quiet",
+        at: "2026-11-01T10:00:00.000Z",
+        undone: false,
+        writes: [
+          { target: { turn: "used" }, kind: "set", before: [], after: ["hal"] },
+          { target: { turn: "barred" }, kind: "set", before: [], after: [] },
+        ],
+      },
+    ],
+    names,
+    ruleset,
+  });
+  assert.deepEqual(
+    lines.map((l) => [l.id, l.undone, l.parts.map((p) => p.kind)]),
+    [
+      ["hit", true, ["change"]],
+      ["quiet", false, ["other"]],
+    ],
+  );
+  assert.deepEqual(lines[1]?.parts, [{ kind: "other", count: 2 }]);
 });

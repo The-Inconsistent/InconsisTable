@@ -8,6 +8,7 @@ import {
   BookPage,
   BookSource,
   Codex,
+  HistoryLine,
   LiveState,
   Notice,
   RefusalKey,
@@ -55,6 +56,11 @@ const DraftReply = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(false), error: z.string(), ...Refusal }),
 ]);
 
+const HistoryReply = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), lines: z.array(HistoryLine) }),
+  z.object({ ok: z.literal(false), error: z.string(), ...Refusal }),
+]);
+
 const ACK_TIMEOUT_MS = 5000;
 const REFUSED_RETRY_MS = 3000;
 const TAP_WINDOW_MS = 1000;
@@ -88,6 +94,32 @@ export function useTable(campaignId: string) {
   const [notices, setNotices] = useState<Notice[]>([]);
   // GM only: what this tab serves, re-announced on every reconnect (the server forgets it with the old socket).
   const serving = useRef<{ sources: BookSource[]; render: RenderPage } | null>(null);
+  // HISTORY (house decision #133): read when the sheet opens and after every state while it stays open, never pushed.
+  // null while closed or not read yet; only the newest read's answer lands.
+  const [history, setHistory] = useState<HistoryLine[] | null>(null);
+  const watching = useRef(false);
+  const historyAsk = useRef(0);
+  const readHistory = useCallback(async () => {
+    const s = socket.current;
+    if (!s?.connected || !watching.current) return;
+    const ask = ++historyAsk.current;
+    try {
+      const reply = HistoryReply.safeParse(await s.timeout(ACK_TIMEOUT_MS).emitWithAck("session:history"));
+      if (reply.success && reply.data.ok && watching.current && ask === historyAsk.current)
+        setHistory(reply.data.lines);
+    } catch {
+      // No answer: the last lines stay; the next state asks again.
+    }
+  }, []);
+  // HISTORY opened (true) or closed (false).
+  const watchHistory = useCallback(
+    (on: boolean) => {
+      watching.current = on;
+      if (on) void readHistory();
+      else setHistory(null);
+    },
+    [readHistory],
+  );
 
   // External system: the Socket.IO connection to the api.
   useEffect(() => {
@@ -124,6 +156,7 @@ export function useTable(campaignId: string) {
       if (!parsed.success) return;
       const next = parsed.data;
       setState((cur) => (cur && cur.stateVersion > next.stateVersion ? cur : next));
+      void readHistory(); // only while HISTORY is open
     });
     s.on("codex", (raw: unknown) => {
       const parsed = Codex.safeParse(raw);
@@ -150,7 +183,7 @@ export function useTable(campaignId: string) {
       clearTimeout(retry);
       s.close();
     };
-  }, [campaignId]);
+  }, [campaignId, readHistory]);
 
   // External system: the Screen Wake Lock API. Phones and tablets shouldn't dim mid-session; re-acquired when the tab
   // comes back.
@@ -245,7 +278,21 @@ export function useTable(campaignId: string) {
     socket.current?.emit("book:serving", { sources: next?.sources ?? [] });
   }, []);
 
-  return { state, codex, online, send, draftRecap, books, requestPage, serveBooks, xcard, notices, dismissNotices };
+  return {
+    state,
+    codex,
+    online,
+    send,
+    draftRecap,
+    books,
+    requestPage,
+    serveBooks,
+    xcard,
+    notices,
+    dismissNotices,
+    history,
+    watchHistory,
+  };
 }
 
 type EmitWords = { noSignal: string; unreadable: string; noReply: string };

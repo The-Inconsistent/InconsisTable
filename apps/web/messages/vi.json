@@ -1372,7 +1372,6 @@
       "toSpend": "còn {xp} XP để tiêu"
     },
     "ascension": "Ascension · Tier {tier}",
-    "guest": "Khách",
     "qrFailed": "Không vẽ được mã QR. Hãy thử lại",
     "campaignInviteTitle": "Lời mời campaign · {role}",
     "guestQrTitle": "QR khách · {name}",
@@ -1385,12 +1384,7 @@
     "screenQr": "QR màn hình",
     "revokeScreens": "Thu hồi màn hình ({count})",
     "qrAlt": "Mã QR của {title}",
-    "hide": "Ẩn",
     "characters": "[Character]",
-    "open": "Còn trống",
-    "closeSheet": "Đóng sheet của {name}",
-    "openSheet": "Mở sheet của {name}",
-    "sheet": "Sheet",
     "buildLabel": "Tạo {name}",
     "continueBuilding": "Tạo tiếp",
     "build": "Tạo",
@@ -1434,7 +1428,6 @@
     "endSessionConfirm": "Kết thúc [session] {number}",
     "abandonSession": "Kết thúc không thưởng",
     "deleteSession": "Xóa [session] {number}",
-    "cancel": "Hủy",
     "ledger": {
       "build": "Tạo",
       "buildLabel": "Tạo {name}",
@@ -1444,13 +1437,57 @@
       "openLabel": "Mở trình tạo cho {name}"
     },
     "sessionTitle": "Tiêu đề [session] (không bắt buộc)",
-    "running": "[Session] {number} đang diễn ra",
-    "runningTitled": "[Session] {number}: {title} đang diễn ra",
     "inviteCharacter": "Mời",
     "inviteCharacterLabel": "Mời một [player] vào {name}: liên kết dùng một lần, cần đăng nhập",
     "characterInviteTitle": "Lời mời cho {name}",
     "whisper": "Thì thầm",
-    "whisperLabel": "Thì thầm với {name}"
+    "whisperLabel": "Thì thầm với {name}",
+    "live": "[Session] {number} · đang chơi",
+    "liveTitled": "[Session] {number} · đang chơi · {title}",
+    "endSessionOpen": "Kết thúc [session]…",
+    "nextSetDate": "[Session] sau: đặt ngày",
+    "nextOn": "Lần sau: {when}",
+    "active": "[Character] đang chơi · {count}",
+    "reserve": "Dự bị · {count}",
+    "noneActive": "Chưa có [character] nào có người chơi.",
+    "roomQr": "QR phòng",
+    "more": "Thêm",
+    "playedBy": "{name} chơi",
+    "playedByGuest": "Một khách chơi",
+    "openSeat": "Ghế trống",
+    "barLabel": "{label}: còn {left} trên {max}",
+    "leftOf": "{left}/{max}",
+    "objectivesLine": "{total} mục tiêu · {done} xong",
+    "rank": "Rank {rank}",
+    "conditions": "Trạng thái",
+    "noConditions": "Không có.",
+    "removeCondition": "Gỡ {condition} khỏi {name}",
+    "addCondition": "+ Trạng thái",
+    "addConditionLabel": "Thêm trạng thái cho {name}",
+    "restFor": "{rest} cho {name}",
+    "callTest": "Gọi một Test",
+    "removePlayer": "Mời {name} ra",
+    "drawer": {
+      "status": "Tình trạng",
+      "gear": "Trang bị",
+      "advance": "Thăng tiến",
+      "advanceXp": "Thăng tiến · {xp} XP",
+      "seat": "Ghế",
+      "tabs": "Ngăn của {name}",
+      "close": "Đóng",
+      "closeLabel": "Đóng ngăn của {name}"
+    },
+    "objectives": {
+      "heading": "Mục tiêu (chỉ [player] của {name} thấy)",
+      "none": "Chưa có mục tiêu.",
+      "linkLabel": "Nhiệm vụ mà {title} nằm dưới",
+      "noLink": "Không gắn",
+      "removeLabel": "Bỏ {title} khỏi {name}",
+      "new": "Mục tiêu mới",
+      "add": "Thêm"
+    },
+    "hitPad": "Gây hoặc chữa thương",
+    "xpShort": "XP <b>{xp}</b>"
   },
   "roomExport": {
     "title": "Xuất",
@@ -3480,5 +3517,10 @@
     "replaceLabel": "Đổi PDF của {title}",
     "remove": "GỠ",
     "removeLabel": "Gỡ PDF của {title}"
+  },
+  "confirmButton": {
+    "again": "{action}: chạm lần nữa",
+    "againLabel": "{action}: xác nhận",
+    "cancel": "Huỷ"
   }
 }

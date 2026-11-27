@@ -250,27 +250,30 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
         )}
         <main className="page">
           {tab === "party" ? (
-            <div className="stack" style={{ gap: 24 }}>
-              {checklist.length > 0 && (
-                <SetupChecklist
-                  steps={checklist}
-                  room={checklistRoom({ state, entries: codex?.entries ?? [], packs: view?.first.packs ?? [] })}
-                  onGo={handleGo}
-                  terms={view?.ruleset ? { ruleset: view.ruleset, books, requestPage } : undefined}
-                />
-              )}
-              <div id={anchorId("tableMode")} tabIndex={-1}>
-                <TableModePicker me={me} state={state} ruleset={view?.ruleset ?? null} send={send} />
-              </div>
-              <Party
-                me={me}
-                state={state}
-                send={send}
-                draftRecap={draftRecap}
-                autoQr={quick}
-                sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
-              />
-            </div>
+            <Party
+              me={me}
+              state={state}
+              send={send}
+              draftRecap={draftRecap}
+              autoQr={quick}
+              sheet={{ ruleset: view?.ruleset ?? null, books, requestPage }}
+              entries={codex?.entries}
+              setup={
+                <>
+                  {checklist.length > 0 && (
+                    <SetupChecklist
+                      steps={checklist}
+                      room={checklistRoom({ state, entries: codex?.entries ?? [], packs: view?.first.packs ?? [] })}
+                      onGo={handleGo}
+                      terms={view?.ruleset ? { ruleset: view.ruleset, books, requestPage } : undefined}
+                    />
+                  )}
+                  <div id={anchorId("tableMode")} tabIndex={-1}>
+                    <TableModePicker me={me} state={state} ruleset={view?.ruleset ?? null} send={send} />
+                  </div>
+                </>
+              }
+            />
           ) : tab === "scene" ? (
             <Scene
               me={me}

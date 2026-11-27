@@ -1372,7 +1372,6 @@
       "toSpend": "{xp} XP to spend"
     },
     "ascension": "Ascension · Tier {tier}",
-    "guest": "Guest",
     "qrFailed": "Couldn't draw the QR code. Try again",
     "campaignInviteTitle": "Campaign invite · {role}",
     "guestQrTitle": "Guest QR · {name}",
@@ -1385,12 +1384,7 @@
     "screenQr": "Screen QR",
     "revokeScreens": "Revoke screens ({count})",
     "qrAlt": "QR code for {title}",
-    "hide": "Hide",
     "characters": "[Character*]",
-    "open": "Open",
-    "closeSheet": "Close the sheet of {name}",
-    "openSheet": "Open the sheet of {name}",
-    "sheet": "Sheet",
     "buildLabel": "Build {name}",
     "continueBuilding": "Continue building",
     "build": "Build",
@@ -1434,7 +1428,6 @@
     "endSessionConfirm": "End [session] {number}",
     "abandonSession": "End without an award",
     "deleteSession": "Delete [session] {number}",
-    "cancel": "Cancel",
     "ledger": {
       "build": "Build",
       "buildLabel": "Build {name}",
@@ -1444,13 +1437,57 @@
       "openLabel": "Open the builder for {name}"
     },
     "sessionTitle": "Title of the [session] (optional)",
-    "running": "[Session] {number} is running",
-    "runningTitled": "[Session] {number}: {title} is running",
     "inviteCharacter": "Invite",
     "inviteCharacterLabel": "Invite a [player] to {name}: a link used once, signed in",
     "characterInviteTitle": "Invite for {name}",
     "whisper": "Whisper",
-    "whisperLabel": "Whisper to {name}"
+    "whisperLabel": "Whisper to {name}",
+    "live": "[Session] {number} · live",
+    "liveTitled": "[Session] {number} · live · {title}",
+    "endSessionOpen": "End [session]…",
+    "nextSetDate": "Next [session]: set date",
+    "nextOn": "Next: {when}",
+    "active": "Active [character*] · {count}",
+    "reserve": "In reserve · {count}",
+    "noneActive": "No [character] has a seat yet.",
+    "roomQr": "Room QR",
+    "more": "More",
+    "playedBy": "Played by {name}",
+    "playedByGuest": "Played by a guest",
+    "openSeat": "Open seat",
+    "barLabel": "{label}: {left} of {max} left",
+    "leftOf": "{left}/{max}",
+    "objectivesLine": "{total, plural, one {# objective} other {# objectives}} · {done} done",
+    "rank": "Rank {rank}",
+    "conditions": "Conditions",
+    "noConditions": "None.",
+    "removeCondition": "Remove {condition} from {name}",
+    "addCondition": "+ Condition",
+    "addConditionLabel": "Add a condition to {name}",
+    "restFor": "{rest} for {name}",
+    "callTest": "Call a Test",
+    "removePlayer": "Remove {name}",
+    "drawer": {
+      "status": "Status",
+      "gear": "Gear",
+      "advance": "Advance",
+      "advanceXp": "Advance · {xp} XP",
+      "seat": "Seat",
+      "tabs": "Drawer of {name}",
+      "close": "Close",
+      "closeLabel": "Close the drawer of {name}"
+    },
+    "objectives": {
+      "heading": "Objectives (only {name}'s [player] sees them)",
+      "none": "No objectives yet.",
+      "linkLabel": "The quest {title} sits under",
+      "noLink": "No link",
+      "removeLabel": "Take {title} off {name}",
+      "new": "New objective",
+      "add": "Add"
+    },
+    "hitPad": "Deal or heal harm",
+    "xpShort": "XP <b>{xp}</b>"
   },
   "roomExport": {
     "title": "Export",
@@ -3480,5 +3517,10 @@
     "replaceLabel": "Replace the PDF of {title}",
     "remove": "REMOVE",
     "removeLabel": "Remove the PDF of {title}"
+  },
+  "confirmButton": {
+    "again": "{action}: tap again",
+    "againLabel": "{action}: confirm",
+    "cancel": "Cancel"
   }
 }

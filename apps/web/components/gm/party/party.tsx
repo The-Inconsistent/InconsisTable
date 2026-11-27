@@ -1,46 +1,36 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type SyntheticEvent } from "react";
 
 import {
-  CampaignName,
-  CogmScope,
   canActOnMember,
-  canGrantRole,
   canInCampaign,
   gmPermOf,
-  MemberRole,
   type ActionInput,
-  type AscendKind,
+  type Actor,
   type BookSource,
+  type CodexEntry,
   type LiveState,
   type Me,
-  type Member,
 } from "@inconsistable/core-schema";
 import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
-import { AscensionPanel } from "@/components/builder/ledger/play/ascension-panel/ascension-panel";
-import { SessionAward } from "@/components/builder/ledger/play/session-award/session-award";
-import { Journal } from "@/components/gm/party/components/journal/journal";
-import { NextSessionForm } from "@/components/gm/party/components/next-session-form/next-session-form";
-import { OpenInvites } from "@/components/gm/party/components/open-invites/open-invites";
-import { SafetyPanel } from "@/components/gm/party/safety-panel";
-import { SpendButtons } from "@/components/gm/spend-buttons/spend-buttons";
+import { CharacterDrawer } from "@/components/gm/party/components/character-drawer/character-drawer";
+import { SeatTab } from "@/components/gm/party/components/character-drawer/components/seat-tab/seat-tab";
+import { StatusTab } from "@/components/gm/party/components/character-drawer/components/status-tab/status-tab";
+import { MorePanel } from "@/components/gm/party/components/more-panel/more-panel";
+import { PartyCard } from "@/components/gm/party/components/party-card/party-card";
+import { SessionBand } from "@/components/gm/party/components/session-band/session-band";
 import { WhisperPanel } from "@/components/gm/whisper-button/components/whisper-panel/whisper-panel";
-import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
-import { PrintParty } from "@/components/print/print-party/print-party";
-import { ActorPicture } from "@/components/ui/actor-picture/actor-picture";
-import { DraftRecap as DraftRecapButton } from "@/components/ui/draft-recap/draft-recap";
 import { SheetView } from "@/components/sheet/sheet-view/sheet-view";
+import { BottomSheet } from "@/components/ui/bottom-sheet/bottom-sheet";
 import type { DraftRecap, RequestPage, Send } from "@/hooks/use-table/use-table";
 import { needsBuild } from "@/lib/builder/builder";
 import { anchorId } from "@/lib/checklist/checklist";
-import { startingAward } from "@/lib/ledger/play";
-import { ascensionMembersOf, gmEntryOf, gmSideOf, roomTier, usesLedger, xpFiguresOf } from "@/lib/ledger/table";
-import { restsOf } from "@/lib/sheet/sheet";
-import { RECAP_MAX } from "@/lib/codex/codex";
+import { gmEntryOf, gmSideOf, usesLedger, xpFiguresOf } from "@/lib/ledger/table";
+import { isSeated, objectivesOf, partyCardOf } from "@/lib/party-card/party-card";
 import { qrImage } from "@/lib/qr/qr";
+import { restsOf } from "@/lib/sheet/sheet";
 import { shareOrigin } from "@/lib/share-origin/share-origin";
 
 type PartyProps = {
@@ -50,67 +40,51 @@ type PartyProps = {
   draftRecap: DraftRecap;
   /** What a character sheet needs: the ruleset as the GM reads it, the served books and the page relay. */
   sheet: { ruleset: Ruleset | null; books: readonly BookSource[]; requestPage: RequestPage };
+  /** The room's codex entries as this seat holds them: a character's objectives are the quests listed to it. */
+  entries?: readonly CodexEntry[];
   /** A quick game just made this room: the player invite QR is up on arrival. */
   autoQr?: boolean;
+  /** The host's setup pieces (the setup checklist, how the table sits), drawn first under MORE. */
+  setup?: ReactNode;
 };
 
-const SCOPE_KEY = {
-  combat: "combat",
-  codex: "codex",
-  "codex.secrets": "secrets",
-  party: "party",
-  session: "session",
-} as const satisfies Record<CogmScope, string>;
-
 // A link the phones open, shown as a QR and as text to copy.
-// `at`: the character whose Guest QR was pressed (the QR shows under its row), or null for the invite row's QRs.
-type Shown = { title: string; url: string; qr: string; at: string | null };
+type Shown = { title: string; url: string; qr: string };
 
-// Brings a QR that just appeared on screen. Stable, so it runs when the card mounts, not on every render.
-const bringIntoView = (el: HTMLElement | null) => el?.scrollIntoView({ block: "nearest" });
-
-// PARTY: who sits at this table, how others join, and the room's owner controls (docs/design.md §3.6, §3.7).
-export function Party({ me, state, send, draftRecap, sheet, autoQr = false }: PartyProps) {
+// PARTY (docs/design.md §3.6, §3.7; house decision #222, as Auspex's): the session band, the seated characters as
+// cards, those in reserve folded below; a card opens the character's drawer. Everything else waits under MORE.
+export function Party({ me, state, send, draftRecap, sheet, entries, autoQr = false, setup }: PartyProps) {
   const t = useTranslations("party");
   const tWhisper = useTranslations("whisper");
-  const tRoles = useTranslations("roles");
   const tRest = useTranslations("rest");
-  const router = useRouter();
+  const tRoles = useTranslations("roles");
   const [shown, setShown] = useState<Shown | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
-  const [renameTo, setRenameTo] = useState("");
-  const [inviteRole, setInviteRole] = useState<MemberRole>("player");
-  const [deleteName, setDeleteName] = useState("");
-  const [recap, setRecap] = useState<string | null>(null); // the end-of-session form, open while not null
-  const [sheetOf, setSheetOf] = useState<string | null>(null);
-  const [award, setAward] = useState(0); // the session's XP award, set when the end-of-session form opens
-  const [ascending, setAscending] = useState(false);
-  const [ascendRefusal, setAscendRefusal] = useState<string | null>(null);
-  const [title, setTitle] = useState(""); // START SESSION's optional title
-  const [whisperTo, setWhisperTo] = useState<string | null>(null); // the character a row's WHISPER opened the panel on
-  const isOwner = me.userId !== null && me.userId === state.campaign.ownerUserId;
+  const [more, setMore] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null); // the character whose drawer is open
+  const [whisperTo, setWhisperTo] = useState<string | null>(null);
   const can = (perm: Parameters<typeof canInCampaign>[0]["perm"]) => canInCampaign({ ctx: me, perm });
-  const holderOf = (actorId: string) =>
-    state.access.members.find((m) => m.characterIds.includes(actorId))?.name ??
-    (state.access.guests.some((g) => g.actorId === actorId) ? t("guest") : null);
-  const actorNames = useMemo(() => new Map(state.actors.map((a) => [a.id, a.name])), [state.actors]);
+  const ruleset = sheet.ruleset;
   const compiled = useMemo(() => {
-    const c = sheet.ruleset ? compileRuleset(sheet.ruleset) : null;
+    const c = ruleset ? compileRuleset(ruleset) : null;
     return c?.ok ? c.compiled : null;
-  }, [sheet.ruleset]);
-  // A ruleset with no creation steps (a board game) has nothing to build: a new character takes its only actor type
-  // at once, so the server gives it its starting resources (house decision #23), and its sheet is open from the start.
-  const builds = (sheet.ruleset?.creation.length ?? 0) > 0;
-  const actorTypes = sheet.ruleset?.entities.filter((e) => e.base === "actor") ?? [];
-  const typeOnCreate = !builds && actorTypes.length === 1 ? actorTypes[0]?.id : undefined;
-  // In play with the ledger builder (house decision #64): the XP a session's end awards, and the group's Ascension.
-  const ledgerBuild = sheet.ruleset?.build;
-  const awardRule = ledgerBuild?.xp ? ledgerBuild.award : undefined;
+  }, [ruleset]);
+  const builds = (ruleset?.creation.length ?? 0) > 0;
   // Whispers need a GM (house decision #93) and go from the side that runs the session, as the header's WHISPER.
   const whispers =
     state.campaign.tableMode === "gm" && canInCampaign({ ctx: { ...me, tableMode: "gm" }, perm: "session:run" });
-  const tier = sheet.ruleset ? roomTier({ ruleset: sheet.ruleset, campaign: state.campaign.fields }) : 0;
+  const pcs = state.actors.filter((a) => a.kind === "pc");
+  const active = pcs.filter((a) => a.status === "active" && isSeated({ access: state.access, actorId: a.id }));
+  const reserve = pcs.filter((a) => !active.includes(a));
+  const quests = entries?.filter((e) => e.kind === "quest") ?? null;
+  const memberOf = (actorId: string) => state.access.members.find((m) => m.characterIds.includes(actorId)) ?? null;
+  const guestOf = (actorId: string) => state.access.guests.some((g) => g.actorId === actorId);
+  // Who plays it, as the card and the drawer say it.
+  const seatOf = (actorId: string) => {
+    const member = memberOf(actorId);
+    if (member) return t("playedBy", { name: member.name });
+    return guestOf(actorId) ? t("playedByGuest") : t("openSeat");
+  };
 
   // Sends an action and shows its refusal, if any.
   const act = async (a: ActionInput) => {
@@ -119,30 +93,21 @@ export function Party({ me, state, send, draftRecap, sheet, autoQr = false }: Pa
     return r;
   };
 
-  // REST (PARTY): rests everyone; the ones the ruleset refuses this rest in their state are left out, and the GM app's
-  // notices strip names them (the restSkipped notice, house decision #81), once.
-  const handleRestParty = (event: string) => act({ type: "actor.rest", event });
-
   // Shows a join link for a token or invite code as a QR the phones can scan.
-  const show = async ({ title, path, at = null }: { title: string; path: string; at?: string | null }) => {
+  const show = async ({ title, path }: { title: string; path: string }) => {
     const url = `${shareOrigin(location)}${path}`;
     try {
-      setShown({ title, url, qr: await qrImage(url), at });
+      setShown({ title, url, qr: await qrImage(url) });
     } catch {
       setError(t("qrFailed"));
     }
   };
 
-  // ROOM QR / INVITE: a room invite for the chosen role (players by anyone allowed; GMs and co-GMs by the owner).
-  const handleInvite = async () => {
-    const r = await act({
-      type: "invite.create",
-      mode: "room",
-      role: inviteRole,
-      allowGuests: inviteRole === "player",
-    });
+  // ROOM QR: a player invite to the room, the QR up at once.
+  const handleRoomQr = async () => {
+    const r = await act({ type: "invite.create", mode: "room", role: "player", allowGuests: true });
     if (r.ok && r.token)
-      await show({ title: t("campaignInviteTitle", { role: tRoles(inviteRole) }), path: `/invite/${r.token}` });
+      await show({ title: t("campaignInviteTitle", { role: tRoles("player") }), path: `/invite/${r.token}` });
   };
 
   // QUICK GAME: syncs with the api, which issues the invite; asked once however often the effect runs (dev strict mode).
@@ -150,570 +115,245 @@ export function Party({ me, state, send, draftRecap, sheet, autoQr = false }: Pa
   useEffect(() => {
     if (!autoQr || asked.current || !can("member:invite")) return;
     asked.current = true;
-    void handleInvite();
+    void handleRoomQr();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
   }, []);
 
-  // INVITE for one character: one link, used once, that a signed-in player takes that seat with (Auspex P21).
-  const handleCharacterInvite = async ({ actorId, name }: { actorId: string; name: string }) => {
-    const r = await act({ type: "invite.create", mode: "character", actorId, allowGuests: false });
-    if (r.ok && r.token)
-      await show({ title: t("characterInviteTitle", { name }), path: `/invite/${r.token}`, at: actorId });
+  // A card: its drawer, with no refusal left over from before.
+  const handleOpen = (actorId: string) => {
+    setError(null);
+    setOpenId(actorId);
   };
 
-  // START SESSION, with the title typed, if any (the box holds at most 100 characters); it clears once started.
-  const handleStart = async (e: FormEvent) => {
-    e.preventDefault();
-    if ((await act({ type: "session.start", title: title.trim() })).ok) setTitle("");
+  // MORE's panel: its open state follows the fold, so a checklist GO TO that opens it shows it too.
+  const handleMoreToggle = (e: SyntheticEvent<HTMLDetailsElement>) => setMore(e.currentTarget.open);
+
+  const cardOf = (a: Actor) => {
+    const card = ruleset
+      ? partyCardOf({ ruleset, compiled, actor: a, characters: pcs.length, campaign: state.campaign.fields })
+      : { line: null, bars: [], numbers: [], states: [] };
+    const mine = entries ? objectivesOf({ entries, actorId: a.id }) : [];
+    const objectives = { total: mine.length, done: mine.filter((e) => e.status === "done").length };
+    return (
+      <div key={a.id} className="party-cell">
+        <PartyCard
+          campaignId={state.campaign.id}
+          actor={a}
+          card={card}
+          seat={seatOf(a.id)}
+          objectives={objectives}
+          xp={ruleset ? (xpFiguresOf({ ruleset, actor: a })?.earned ?? null) : null}
+          onOpen={ruleset ? handleOpen : null}
+        />
+        {whispers && (
+          <button
+            className="btn sm"
+            aria-label={t("whisperLabel", { name: a.name })}
+            onClick={() => setWhisperTo(a.id)}
+          >
+            {t("whisper")}
+          </button>
+        )}
+      </div>
+    );
   };
 
-  // GUEST QR for one character: a phone without an account plays it.
-  const handleGuest = async ({ actorId, name }: { actorId: string; name: string }) => {
-    const r = await act({ type: "token.issue", actorId });
-    if (r.ok && r.token) await show({ title: t("guestQrTitle", { name }), path: `/join/${r.token}`, at: actorId });
+  // The drawer of one character: STATUS, GEAR, ADVANCE and SEAT.
+  const drawerOf = (a: Actor, rs: Ruleset) => {
+    const gm = canInCampaign({ ctx: me, perm: gmPermOf(a.kind) });
+    const xp = xpFiguresOf({ ruleset: rs, actor: a });
+    const sheetOpen = !builds || !needsBuild(a);
+    const ledgerEntry = gmSideOf({ me, kind: a.kind }) ? gmEntryOf({ ruleset: rs, actor: a }) : null;
+    const buildHref = `/c/${state.campaign.id}/build/${a.id}`;
+    const sheetProps = {
+      actor: a,
+      ruleset: rs,
+      characters: pcs.length,
+      campaign: state.campaign.fields,
+      gm,
+      send,
+      books: sheet.books,
+      campaignId: state.campaign.id,
+      requestPage: sheet.requestPage,
+      builderHref: gmSideOf({ me, kind: a.kind }) ? `${buildHref}?step=advance` : null,
+    };
+    const member = memberOf(a.id);
+    return (
+      <CharacterDrawer
+        key={a.id}
+        actor={a}
+        line={partyCardOf({ ruleset: rs, compiled: null, actor: a, characters: pcs.length }).line}
+        seat={seatOf(a.id)}
+        rank={xp ? t("rank", { rank: xp.rank }) : null}
+        xp={xp ? String(xp.earned) : null}
+        error={error}
+        onClose={() => setOpenId(null)}
+        paused={shown !== null || whisperTo !== null}
+        tabs={{
+          status: (
+            <StatusTab
+              actor={a}
+              ruleset={rs}
+              compiled={compiled}
+              state={state}
+              send={send}
+              act={act}
+              gm={gm}
+              may={{
+                conditions: can("encounter:run"),
+                spend: can("request:resolve"),
+                call: can("test:call"),
+                // Private orders need a GM to keep them (a sealed quest is the GM's).
+                objectives: state.campaign.tableMode === "gm" && can("codex:write") && can("codex:reveal"),
+              }}
+              quests={quests && entries ? { mine: objectivesOf({ entries, actorId: a.id }), all: quests } : null}
+            />
+          ),
+          gear: sheetOpen && a.items !== undefined ? <SheetView {...sheetProps} part="gear" /> : undefined,
+          advance: (
+            <div className="stack">
+              {xp && (
+                <p data-stat="xp">
+                  {t("xp.line", { xp: xp.earned, rank: xp.rank })}
+                  {xp.toSpend > 0 && <strong> · {t("xp.toSpend", { xp: xp.toSpend })}</strong>}
+                </p>
+              )}
+              {ledgerEntry && (
+                <a
+                  className="btn"
+                  data-state={ledgerEntry}
+                  aria-label={t(`ledger.${ledgerEntry}Label`, { name: a.name })}
+                  href={buildHref}
+                >
+                  {ledgerEntry === "review" && <span aria-hidden>● </span>}
+                  {t(`ledger.${ledgerEntry}`)}
+                </a>
+              )}
+              {builds && needsBuild(a) && !usesLedger({ ruleset: rs, actor: a }) && can("character:edit:any") && (
+                <a className="btn" aria-label={t("buildLabel", { name: a.name })} href={buildHref}>
+                  {state.myDraft?.actorId === a.id ? t("continueBuilding") : t("build")}
+                </a>
+              )}
+              {sheetOpen && <SheetView {...sheetProps} part="advance" />}
+            </div>
+          ),
+          seat: (
+            <SeatTab
+              actor={a}
+              member={member}
+              guest={guestOf(a.id)}
+              act={act}
+              onShow={(link) => void show(link)}
+              onWhisper={whispers ? () => setWhisperTo(a.id) : null}
+              may={{
+                invite: can("member:invite"),
+                guest: can("token:issue"),
+                remove:
+                  member !== null &&
+                  member.userId !== me.userId &&
+                  canActOnMember({ ctx: me, target: { userId: member.userId, role: member.role } }),
+              }}
+            />
+          ),
+        }}
+      />
+    );
   };
-
-  // SCREEN QR: the TV at the table joins read-only.
-  const handleScreen = async () => {
-    const r = await act({ type: "screen.issue" });
-    if (r.ok && r.token) await show({ title: t("tableScreen"), path: `/join/${r.token}` });
-  };
-
-  // NEW CHARACTER, for a pregen or a player who'll claim it from the room QR.
-  const handleNewCharacter = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    const r = await act({ type: "actor.create", kind: "pc", name: newName.trim(), entityType: typeOnCreate });
-    if (r.ok) setNewName("");
-  };
-
-  // INVITE AS: the role picker; only a role from the closed set is taken.
-  const handleInviteRole = (e: ChangeEvent<HTMLSelectElement>) => {
-    const role = MemberRole.safeParse(e.target.value);
-    if (role.success) setInviteRole(role.data);
-  };
-
-  // The owner re-seats a member at the picked role.
-  const handleAppoint = (m: Member) => (e: ChangeEvent<HTMLSelectElement>) => {
-    const role = MemberRole.safeParse(e.target.value);
-    if (role.success) void act({ type: "member.appoint", userId: m.userId, role: role.data });
-  };
-
-  // The owner's scope ticks for a co-GM.
-  const handleScope = (m: Member, scope: CogmScope) => {
-    const scopes = m.scopes.includes(scope) ? m.scopes.filter((s) => s !== scope) : [...m.scopes, scope];
-    void act({ type: "member.appoint", userId: m.userId, role: "cogm", scopes });
-  };
-
-  // END SESSION: opens the form, the award on the middle suggested amount.
-  const handleOpenEnd = () => {
-    setRecap("");
-    setAward(startingAward(awardRule?.suggested ?? []));
-  };
-  // END SESSION (confirm): sends the recap typed in the form (it may be empty) and, where the ruleset gives XP, the
-  // award picked; then closes the form.
-  const handleEndSession = async (e: FormEvent) => {
-    e.preventDefault();
-    const r = await act({ type: "session.end", recap: recap ?? "", ...(awardRule ? { award } : {}) });
-    if (r.ok) setRecap(null);
-  };
-
-  // END WITHOUT AN AWARD: the recap typed so far, no award step (house decision #85).
-  const handleAbandon = async () => {
-    const r = await act({ type: "session.abandon", recap: recap ?? "" });
-    if (r.ok) setRecap(null);
-  };
-  // The latest session, offered for deleting between sessions (the journal reaches only the seats that run the room).
-  const latest = state.journal[0];
-
-  // ASCEND: the whole group, one Tier; a refusal stays in the panel.
-  const handleAscend = async ({ kind, waivePackage }: { kind: AscendKind; waivePackage: boolean }) => {
-    setAscending(true);
-    const r = await send({ type: "build.ascend", kind, waivePackage });
-    setAscending(false);
-    setAscendRefusal(r.ok ? null : r.error);
-  };
-
-  // DELETE FOR GOOD: only an archived room, after typing its name; then back to the lobby.
-  const handleDelete = async () => {
-    if ((await act({ type: "campaign.delete", name: deleteName })).ok) router.push("/");
-  };
-
-  // RENAME: the action's own name rule is checked here; the server's refusal shows in the tab's error line.
-  const handleRename = async (e: FormEvent) => {
-    e.preventDefault();
-    const parsed = CampaignName.safeParse(renameTo);
-    if (!parsed.success) return setError(t("renameInvalid"));
-    if ((await act({ type: "campaign.update", name: parsed.data })).ok) setRenameTo("");
-  };
-
-  const transferTo = state.access.transfer;
-  // The QR last asked for, where it was asked for; keyed by its link, so a new one scrolls into view again.
-  const qrCard = shown && (
-    <div
-      key={shown.url}
-      ref={bringIntoView}
-      className="card"
-      style={{ justifyItems: "center", textAlign: "center", width: "100%" }}
-    >
-      <strong>{shown.title}</strong>
-      {/* A data: URL made in this browser; next/image has nothing to optimise. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img className="qr" src={shown.qr} alt={t("qrAlt", { title: shown.title })} />
-      <code className="small" style={{ wordBreak: "break-all" }}>
-        {shown.url}
-      </code>
-      <button className="btn sm" onClick={() => setShown(null)}>
-        {t("hide")}
-      </button>
-    </div>
-  );
+  const opened = pcs.find((a) => a.id === openId) ?? null;
+  const drawer = opened && ruleset && drawerOf(opened, ruleset);
 
   return (
-    <div className="stack" style={{ gap: 24 }}>
-      {error && (
+    <div className="stack party">
+      {error && !drawer && (
         <p className="error" role="alert">
           {error}
         </p>
       )}
 
-      {can("session:run") && (
-        <section className="row" id={anchorId("session")} tabIndex={-1}>
-          {state.session ? (
-            recap === null ? (
-              <>
-                <span role="status">
-                  {state.session.title
-                    ? t("runningTitled", { number: state.session.number, title: state.session.title })
-                    : t("running", { number: state.session.number })}
-                </span>
-                <button className="btn" onClick={handleOpenEnd}>
-                  {t("endSession", { number: state.session.number })}
-                </button>
-              </>
-            ) : (
-              <form className="card stack" onSubmit={handleEndSession} style={{ width: "100%" }}>
-                <DraftRecapButton draft={draftRecap} text={recap} onFill={setRecap} onError={setError} />
-                <label className="stack">
-                  {t("recap")}
-                  <textarea
-                    id="session-recap"
-                    rows={5}
-                    value={recap}
-                    onChange={(e) => setRecap(e.target.value)}
-                    maxLength={RECAP_MAX}
-                    placeholder={t("recapHint")}
-                    autoFocus
-                  />
-                </label>
-                {awardRule && (
-                  <SessionAward max={awardRule.max} suggested={awardRule.suggested} value={award} onChange={setAward} />
-                )}
-                <div className="row">
-                  <button className="btn primary">{t("endSessionConfirm", { number: state.session.number })}</button>
-                  <button type="button" className="btn" onClick={handleAbandon}>
-                    {t("abandonSession")}
-                  </button>
-                  <button type="button" className="btn" onClick={() => setRecap(null)}>
-                    {t("cancel")}
-                  </button>
-                </div>
-              </form>
-            )
-          ) : (
-            <>
-              <form className="row" onSubmit={handleStart} style={{ flex: 1, minWidth: 0 }}>
-                <input
-                  id="session-title"
-                  aria-label={t("sessionTitle")}
-                  placeholder={t("sessionTitle")}
-                  value={title}
-                  maxLength={100}
-                  onChange={(e) => setTitle(e.target.value)}
-                  style={{ flex: 1, minWidth: 0 }}
-                />
-                <button className="btn primary">{t("startSession")}</button>
-              </form>
-              {latest && (
-                <button className="btn" onClick={() => act({ type: "session.delete", sessionId: latest.id })}>
-                  {t("deleteSession", { number: latest.number })}
-                </button>
-              )}
-            </>
-          )}
-        </section>
-      )}
-
-      {can("session:run") && (
-        <Journal
-          journal={state.journal}
-          send={send}
-          onError={setError}
-          showAward={awardRule !== undefined}
-          notes={state.campaign.tableMode === "gm"}
-        />
-      )}
-
-      {can("campaign:update") && (
-        <NextSessionForm
-          key={`${state.campaign.nextSessionAt}|${state.campaign.nextSessionPlace}`}
-          campaign={state.campaign}
-          send={send}
-          onError={setError}
-        />
-      )}
-
-      <section className="stack" id={anchorId("invite")} tabIndex={-1}>
-        <h2 className="head">{t("invite")}</h2>
-        <div className="row">
-          <label>
-            {t("as")}
-            <select id="invite-role" value={inviteRole} onChange={handleInviteRole}>
-              {MemberRole.options
-                .filter((role) => canGrantRole({ ctx: me, role }))
-                .map((role) => (
-                  <option key={role} value={role}>
-                    {tRoles(role)}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <button className="btn primary" onClick={handleInvite} style={{ alignSelf: "end" }}>
-            {t("campaignQr")}
-          </button>
-          <button className="btn" onClick={handleScreen} style={{ alignSelf: "end" }}>
-            {t("screenQr")}
-          </button>
-          {state.access.screens > 0 && (
-            <button className="btn" onClick={() => act({ type: "screen.revoke" })} style={{ alignSelf: "end" }}>
-              {t("revokeScreens", { count: state.access.screens })}
-            </button>
-          )}
-        </div>
-        {shown?.at === null && qrCard}
-        {can("member:invite") && (
-          <OpenInvites invites={state.access.invites} names={actorNames} send={send} onError={setError} />
-        )}
-      </section>
-
-      {can("session:run") && <SafetyPanel safety={state.campaign.safety} send={send} />}
+      <SessionBand
+        state={state}
+        send={send}
+        act={act}
+        onError={setError}
+        draftRecap={draftRecap}
+        ruleset={ruleset}
+        run={can("session:run")}
+        plan={can("campaign:update")}
+      />
 
       <section className="stack" id={anchorId("characters")} tabIndex={-1}>
-        <h2 className="head">{t("characters")}</h2>
-        <PrintParty state={state} ruleset={sheet.ruleset} />
-        <ul className="list">
-          {state.actors
-            .filter((a) => a.kind === "pc")
-            .map((a) => {
-              const holder = holderOf(a.id);
-              // The ledger builder's entry, for the GM side of the character (it approves the GM's part there).
-              const ledgerEntry = gmSideOf({ me, kind: a.kind })
-                ? gmEntryOf({ ruleset: sheet.ruleset, actor: a })
-                : null;
-              const xp = xpFiguresOf({ ruleset: sheet.ruleset, actor: a });
-              return (
-                <li key={a.id}>
-                  <span>
-                    <ActorPicture campaignId={state.campaign.id} actor={a} />
-                    <strong>{a.name}</strong> <span className="dim small">{holder ?? t("open")}</span>
-                    {xp && (
-                      <span className="small" data-stat="xp">
-                        {" "}
-                        {t("xp.line", { xp: xp.earned, rank: xp.rank })}
-                        {xp.toSpend > 0 && <strong> · {t("xp.toSpend", { xp: xp.toSpend })}</strong>}
-                      </span>
-                    )}
-                  </span>
-                  <span className="row">
-                    {sheet.ruleset && (!builds || !needsBuild(a)) && (
-                      <button
-                        className="btn sm"
-                        aria-label={
-                          sheetOf === a.id ? t("closeSheet", { name: a.name }) : t("openSheet", { name: a.name })
-                        }
-                        aria-expanded={sheetOf === a.id}
-                        onClick={() => setSheetOf(sheetOf === a.id ? null : a.id)}
-                      >
-                        {t("sheet")}
-                      </button>
-                    )}
-                    {ledgerEntry && (
-                      <a
-                        className="btn sm"
-                        data-state={ledgerEntry}
-                        aria-label={t(`ledger.${ledgerEntry}Label`, { name: a.name })}
-                        href={`/c/${state.campaign.id}/build/${a.id}`}
-                      >
-                        {ledgerEntry === "review" && <span aria-hidden>● </span>}
-                        {t(`ledger.${ledgerEntry}`)}
-                      </a>
-                    )}
-                    {builds &&
-                      needsBuild(a) &&
-                      !usesLedger({ ruleset: sheet.ruleset, actor: a }) &&
-                      can("character:edit:any") && (
-                        <a
-                          className="btn sm"
-                          aria-label={t("buildLabel", { name: a.name })}
-                          href={`/c/${state.campaign.id}/build/${a.id}`}
-                        >
-                          {state.myDraft?.actorId === a.id ? t("continueBuilding") : t("build")}
-                        </a>
-                      )}
-                    {can("member:invite") && (
-                      <button
-                        className="btn sm"
-                        aria-label={t("inviteCharacterLabel", { name: a.name })}
-                        onClick={() => handleCharacterInvite({ actorId: a.id, name: a.name })}
-                      >
-                        {t("inviteCharacter")}
-                      </button>
-                    )}
-                    {whispers && (
-                      <button
-                        className="btn sm"
-                        aria-label={t("whisperLabel", { name: a.name })}
-                        onClick={() => setWhisperTo(a.id)}
-                      >
-                        {t("whisper")}
-                      </button>
-                    )}
-                    <button
-                      className="btn sm"
-                      aria-label={t("guestQrLabel", { name: a.name })}
-                      onClick={() => handleGuest({ actorId: a.id, name: a.name })}
-                    >
-                      {t("guestQr")}
-                    </button>
-                    {state.access.guests.some((g) => g.actorId === a.id) && (
-                      <button
-                        className="btn sm"
-                        aria-label={t("revokeGuestLabel", { name: a.name })}
-                        onClick={() => act({ type: "token.revoke", actorId: a.id })}
-                      >
-                        {t("revokeGuest")}
-                      </button>
-                    )}
-                  </span>
-                  {sheet.ruleset && can("request:resolve") && (
-                    <SpendButtons ruleset={sheet.ruleset} compiled={compiled} state={state} actor={a} send={send} />
-                  )}
-                  {sheet.ruleset && sheetOf === a.id && (
-                    <div className="card" style={{ width: "100%" }}>
-                      <SheetView
-                        key={a.id}
-                        actor={a}
-                        ruleset={sheet.ruleset}
-                        characters={state.actors.filter((x) => x.kind === "pc").length}
-                        campaign={state.campaign.fields}
-                        gm={canInCampaign({ ctx: me, perm: gmPermOf(a.kind) })}
-                        send={send}
-                        books={sheet.books}
-                        campaignId={state.campaign.id}
-                        requestPage={sheet.requestPage}
-                        builderHref={
-                          gmSideOf({ me, kind: a.kind }) ? `/c/${state.campaign.id}/build/${a.id}?step=advance` : null
-                        }
-                      />
-                    </div>
-                  )}
-                  {shown?.at === a.id && qrCard}
-                </li>
-              );
-            })}
-        </ul>
-        {can("session:run") && sheet.ruleset && (
+        <div className="party-head">
+          <h2 className="head">{t("active", { count: active.length })}</h2>
           <div className="row">
-            {restsOf(sheet.ruleset).map((b) => (
-              <button
-                key={b.event}
-                className="btn"
-                aria-label={t("restParty", { rest: tRest(b.event) })}
-                onClick={() => handleRestParty(b.event)}
-              >
-                {t("restPartyButton", { rest: tRest(b.event) })}
+            {can("member:invite") && (
+              <button className="btn" onClick={handleRoomQr}>
+                {t("roomQr")}
               </button>
-            ))}
+            )}
+            {can("session:run") &&
+              ruleset &&
+              restsOf(ruleset).map((b) => (
+                <button
+                  key={b.event}
+                  className="btn"
+                  aria-label={t("restParty", { rest: tRest(b.event) })}
+                  onClick={() => act({ type: "actor.rest", event: b.event })}
+                >
+                  {t("restPartyButton", { rest: tRest(b.event) })}
+                </button>
+              ))}
+            <button className="btn" aria-expanded={more} onClick={() => setMore(!more)}>
+              {t("more")}
+            </button>
           </div>
+        </div>
+
+        <details className="card party-more" open={more} onToggle={handleMoreToggle}>
+          <summary className="head">{t("more")}</summary>
+          <MorePanel
+            me={me}
+            state={state}
+            send={send}
+            act={act}
+            onError={setError}
+            ruleset={ruleset}
+            onShow={(link) => void show(link)}
+          >
+            {setup}
+          </MorePanel>
+        </details>
+
+        {active.length > 0 ? (
+          <div className="party-grid">{active.map(cardOf)}</div>
+        ) : (
+          <p className="dim">{t("noneActive")}</p>
         )}
-        {sheet.ruleset && ledgerBuild?.ascension && ledgerBuild.xp && can("campaign:update") && (
-          <details className="stack ws-fold" id={anchorId("ascension")} tabIndex={-1}>
-            <summary className="head">{t("ascension", { tier })}</summary>
-            <AscensionPanel
-              tier={tier}
-              topTier={ledgerBuild.params.tiers.max}
-              needed={ledgerBuild.ascension.xp}
-              members={ascensionMembersOf({
-                ruleset: sheet.ruleset,
-                actors: state.actors,
-                campaign: state.campaign.fields,
-              })}
-              busy={ascending}
-              refusal={ascendRefusal}
-              onAscend={handleAscend}
-            />
+        {reserve.length > 0 && (
+          <details className="stack ws-fold" open={active.length === 0 || undefined}>
+            <summary className="head">{t("reserve", { count: reserve.length })}</summary>
+            <div className="party-grid">{reserve.map(cardOf)}</div>
           </details>
         )}
-        {can("character:create") && (
-          <form className="row" onSubmit={handleNewCharacter}>
-            <input
-              id="party-new-character"
-              aria-label={t("newCharacter")}
-              placeholder={t("newCharacter")}
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              maxLength={100}
-              style={{ flex: 1 }}
-            />
-            <button className="btn">{t("add")}</button>
-          </form>
-        )}
       </section>
 
-      <section className="stack">
-        <h2 className="head">{t("seats")}</h2>
-        <ul className="list">
-          {state.access.members.map((m) => {
-            const owner = m.userId === state.campaign.ownerUserId;
-            const removable = canActOnMember({ ctx: me, target: { userId: m.userId, role: m.role } });
-            return (
-              <li key={m.userId}>
-                <span>
-                  <strong>{m.name}</strong> <span className="chip">{owner ? t("owner") : tRoles(m.role)}</span>
-                  {m.characterIds.length > 0 && (
-                    <span className="dim small">
-                      {" "}
-                      {m.characterIds.map((id) => actorNames.get(id) ?? "?").join(", ")}
-                    </span>
-                  )}
-                </span>
-                <span className="row">
-                  {isOwner && !owner && (
-                    <select
-                      id={`role-${m.userId}`}
-                      aria-label={t("seatOf", { name: m.name })}
-                      value={m.role}
-                      onChange={handleAppoint(m)}
-                    >
-                      {MemberRole.options.map((r) => (
-                        <option key={r} value={r}>
-                          {tRoles(r)}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {isOwner && !owner && m.role !== "player" && (
-                    <button
-                      className="btn sm"
-                      aria-label={t("offerLabel", { name: m.name })}
-                      disabled={transferTo?.toUserId === m.userId}
-                      onClick={() => act({ type: "campaign.transfer", toUserId: m.userId })}
-                    >
-                      {t("offer")}
-                    </button>
-                  )}
-                  {removable && m.userId !== me.userId && (
-                    <button
-                      className="btn sm"
-                      aria-label={t("removeLabel", { name: m.name })}
-                      onClick={() => act({ type: "member.remove", userId: m.userId })}
-                    >
-                      {t("remove")}
-                    </button>
-                  )}
-                </span>
-                {isOwner && m.role === "cogm" && (
-                  <div
-                    className="row"
-                    role="group"
-                    aria-label={t("scopesOf", { name: m.name })}
-                    style={{ width: "100%" }}
-                  >
-                    {CogmScope.options.map((s) => (
-                      // The whole label is the touch target (44px); the box itself stays small.
-                      <label key={s} className="row small" style={{ gap: 4, minHeight: 44 }}>
-                        <input
-                          type="checkbox"
-                          id={`scope-${m.userId}-${s}`}
-                          checked={m.scopes.includes(s)}
-                          onChange={() => handleScope(m, s)}
-                          style={{ minHeight: 24 }}
-                        />
-                        {t(`scope.${SCOPE_KEY[s]}`)}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-        {isOwner && transferTo && (
-          <p className="row">
-            <span className="dim">
-              {t("waitingFor", {
-                name: state.access.members.find((m) => m.userId === transferTo.toUserId)?.name ?? t("them"),
-              })}
-            </span>
-            <button className="btn sm" onClick={() => act({ type: "campaign.transferCancel" })}>
-              {t("cancelOffer")}
-            </button>
-          </p>
-        )}
-      </section>
+      {drawer}
 
+      {shown && (
+        <BottomSheet title={shown.title} onClose={() => setShown(null)}>
+          <div className="stack" style={{ justifyItems: "center", textAlign: "center" }}>
+            {/* A data: URL made in this browser; next/image has nothing to optimise. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="qr" src={shown.qr} alt={t("qrAlt", { title: shown.title })} />
+            <code className="small" style={{ wordBreak: "break-all" }}>
+              {shown.url}
+            </code>
+          </div>
+        </BottomSheet>
+      )}
       {whispers && whisperTo !== null && (
         <BottomSheet title={tWhisper("title")} onClose={() => setWhisperTo(null)}>
           <WhisperPanel key={whisperTo} state={state} send={send} to={[whisperTo]} />
         </BottomSheet>
-      )}
-
-      {(can("campaign:archive") || can("campaign:update")) && (
-        <section className="stack">
-          <h2 className="head">{t("campaign")}</h2>
-          {can("campaign:update") && (
-            <form className="row" onSubmit={handleRename}>
-              <input
-                id="rename-room"
-                aria-label={t("renameLabel")}
-                placeholder={state.campaign.name}
-                maxLength={100}
-                value={renameTo}
-                onChange={(e) => setRenameTo(e.target.value)}
-              />
-              <button className="btn" type="submit" disabled={renameTo.trim() === ""}>
-                {t("renameSave")}
-              </button>
-            </form>
-          )}
-          {can("campaign:archive") && (
-            <div className="row">
-              {state.campaign.archived ? (
-                <button className="btn" onClick={() => act({ type: "campaign.unarchive" })}>
-                  {t("unarchive")}
-                </button>
-              ) : (
-                <button className="btn" onClick={() => act({ type: "campaign.archive" })}>
-                  {t("archive")}
-                </button>
-              )}
-            </div>
-          )}
-          {can("campaign:archive") && isOwner && state.campaign.archived && (
-            <div className="row">
-              <input
-                id="delete-room-name"
-                aria-label={t("deleteLabel")}
-                placeholder={state.campaign.name}
-                value={deleteName}
-                onChange={(e) => setDeleteName(e.target.value)}
-              />
-              <button className="btn" disabled={deleteName.trim() !== state.campaign.name} onClick={handleDelete}>
-                {t("deleteForGood")}
-              </button>
-            </div>
-          )}
-        </section>
       )}
     </div>
   );

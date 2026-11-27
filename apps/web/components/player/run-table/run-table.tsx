@@ -143,7 +143,15 @@ export function RunTable({
         ) : (
           <div className="stack" style={{ gap: 24 }}>
             <TableModePicker me={me} state={state} ruleset={ruleset} send={send} />
-            <Party me={me} state={state} send={send} draftRecap={draftRecap} sheet={sheet} autoQr={quick} />
+            <Party
+              me={me}
+              state={state}
+              send={send}
+              draftRecap={draftRecap}
+              sheet={sheet}
+              autoQr={quick}
+              entries={codex?.entries}
+            />
           </div>
         )}
       </div>

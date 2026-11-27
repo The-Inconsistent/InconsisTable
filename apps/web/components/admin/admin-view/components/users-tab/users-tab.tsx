@@ -1,27 +1,31 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useId, useRef, useState, type FormEvent } from "react";
 
 import { MemberRole } from "@inconsistable/core-schema";
 
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
-import { adminFetch, Unseated, type AdminUser } from "@/lib/admin/admin";
+import { adminFetch, confirmWord, deviceTag, Unseated, type AdminUser } from "@/lib/admin/admin";
 
 type UsersTabProps = { users: AdminUser[]; onChanged: () => void };
 
-// The console's users (house decision #94): each with the platform role, an account or a device, and every seat (the
-// room, the seat's role, the characters it holds). REMOVE FROM EVERY ROOM takes their seats, after their name is typed;
-// rooms they own keep them. Only the display name shows: no email, no device secret.
+// The console's users (house decision #94): each with the platform role, an account or a device, when last seen, and
+// every seat (the room, the seat's role, the characters it holds). An anonymous device also shows its tag, the end of its
+// user id, since devices share a name (house decision #185). REMOVE FROM EVERY ROOM takes their seats, after an
+// account's name or a device's tag is typed; rooms they own keep them. No email, no device secret.
 export function UsersTab({ users, onChanged }: UsersTabProps) {
   const t = useTranslations("admin.users");
   const tRole = useTranslations("admin.room");
   const refusal = useRefusal();
+  const format = useFormatter();
   const typedId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const [target, setTarget] = useState<AdminUser | null>(null);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [line, setLine] = useState<{ ok: boolean; text: string } | null>(null);
+  // A user as the console names them: a device with its tag, since devices share a name.
+  const label = (u: AdminUser) => (u.account ? u.name : `${u.name} ${t("tag", { tag: deviceTag(u.id) })}`);
   const roleName = (role: string) => {
     const known = MemberRole.safeParse(role);
     return known.success ? tRole(`roles.${known.data}`) : role;
@@ -46,7 +50,7 @@ export function UsersTab({ users, onChanged }: UsersTabProps) {
         const kept = parsed.data.kept.map((k) => `${k.campaignName}: ${refusal({ code: k.code, message: k.code })}`);
         setLine({
           ok: true,
-          text: [t("removed", { name: target.name, count: parsed.data.removed.length }), ...kept].join(" · "),
+          text: [t("removed", { name: label(target), count: parsed.data.removed.length }), ...kept].join(" · "),
         });
         onChanged();
       }
@@ -85,6 +89,12 @@ export function UsersTab({ users, onChanged }: UsersTabProps) {
                   <th scope="row">
                     {u.name}
                     <span className="dim small"> ({u.account ? t("account") : t("device")})</span>
+                    {!u.account && <span className="small"> {t("tag", { tag: deviceTag(u.id) })}</span>}
+                    <span className="dim small" style={{ display: "block" }}>
+                      {t("seen", {
+                        when: format.dateTime(new Date(u.lastSeenAt), { dateStyle: "short", timeStyle: "short" }),
+                      })}
+                    </span>
                   </th>
                   <td>{u.role}</td>
                   <td>
@@ -106,7 +116,7 @@ export function UsersTab({ users, onChanged }: UsersTabProps) {
                     {u.seats.length > 0 && (
                       <button type="button" className="btn sm" onClick={() => handleAsk(u)}>
                         {t("remove")}
-                        <span className="sr-only"> {u.name}</span>
+                        <span className="sr-only"> {label(u)}</span>
                       </button>
                     )}
                   </td>
@@ -119,15 +129,21 @@ export function UsersTab({ users, onChanged }: UsersTabProps) {
       <dialog ref={dialog} className="ledger-confirm" aria-labelledby="admin-unseat-title">
         <form className="stack" onSubmit={handleRemove}>
           <h2 className="head" id="admin-unseat-title">
-            {t("removeTitle", { name: target?.name ?? "" })}
+            {t("removeTitle", { name: target ? label(target) : "" })}
           </h2>
           <p>{t("removeExplain", { count: target?.seats.length ?? 0 })}</p>
           <label className="small" htmlFor={typedId}>
-            {t("typeName", { name: target?.name ?? "" })}
+            {target?.account === false
+              ? t("typeTag", { tag: confirmWord(target) })
+              : t("typeName", { name: target?.name ?? "" })}
           </label>
           <input id={typedId} value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
           <div className="row">
-            <button className="btn primary" type="submit" disabled={busy || typed.trim() !== target?.name.trim()}>
+            <button
+              className="btn primary"
+              type="submit"
+              disabled={busy || !target || typed.trim() !== confirmWord(target)}
+            >
               {t("removeConfirm")}
             </button>
             <button type="button" className="btn" onClick={() => dialog.current?.close()} autoFocus>

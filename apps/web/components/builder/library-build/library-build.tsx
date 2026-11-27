@@ -2,7 +2,7 @@
 import { useFormatter, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
 
 import type { Ruleset } from "@inconsistable/rules-engine";
 
@@ -11,6 +11,7 @@ import { PageHead } from "@/components/ui/page-head/page-head";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { buildOf, saveCharacter, type LibraryEntry } from "@/lib/character-library/character-library";
 import { catalogueOf } from "@/lib/ledger/table";
+import { keepLocal, newerLocal, readLocal, restampLocal } from "@/lib/library-draft/library-draft";
 
 type LibraryBuildProps = {
   entry: LibraryEntry;
@@ -22,9 +23,13 @@ type LibraryBuildProps = {
 
 const NAME_DELAY_MS = 800;
 
+const subscribeNothing = () => () => {};
+
 // A library character outside any room (house decision #104): its name, and the room's own builder with a library
 // save in place of the socket. Every save carries the revision it read, so two tabs never overwrite each other: the
-// saves of this page go one after another, each with the revision the last one answered.
+// saves of this page go one after another, each with the revision the last one answered. Every change is also kept in
+// this browser at once (house decision #188): opened again, the page starts from that copy when the server has not
+// saved since it was made, so a tab closed inside the autosave second loses nothing; otherwise the server's wins.
 export function LibraryBuild({ entry, ruleset, catalogue }: LibraryBuildProps) {
   const t = useTranslations("characterLibrary.builder");
   const tr = useRefusal();
@@ -37,6 +42,14 @@ export function LibraryBuild({ entry, ruleset, catalogue }: LibraryBuildProps) {
   const [nameError, setNameError] = useState<string | null>(null);
   const read = useMemo(() => catalogueOf(catalogue), [catalogue]);
   const params = ruleset?.build?.params;
+  // This browser's copy of the draft, read once (none on the server, where the builder is not drawn).
+  const [local] = useState(() => newerLocal({ stored: readLocal(entry.id), rev: entry.rev }));
+  const hydrated = useSyncExternalStore(
+    subscribeNothing,
+    () => true,
+    () => false,
+  );
+  const restored = local !== null && local !== entry.build;
 
   // One save after another, each at the revision the last answered.
   const patch = useCallback(
@@ -44,6 +57,7 @@ export function LibraryBuild({ entry, ruleset, catalogue }: LibraryBuildProps) {
       const run = queue.current.then(async () => {
         const r = await saveCharacter(entry.id, { rev: rev.current, ...body });
         if (r.ok) rev.current = r.value.rev;
+        if (r.ok && body.build !== undefined) restampLocal({ id: entry.id, rev: r.value.rev });
         return r;
       });
       queue.current = run.catch(() => undefined);
@@ -57,6 +71,11 @@ export function LibraryBuild({ entry, ruleset, catalogue }: LibraryBuildProps) {
       return r.ok ? { ok: true } : { ok: false, error: r.error ? tr(r.error) : t("failed") };
     },
     [patch, tr, t],
+  );
+  // Every change of the build, kept in this browser over the revision the server last answered.
+  const handleLocal = useCallback(
+    (text: string) => keepLocal({ id: entry.id, rev: rev.current, build: text }),
+    [entry.id],
   );
   // NAME: kept a moment after the last key.
   const handleName = (e: ChangeEvent<HTMLInputElement>) => {
@@ -94,16 +113,26 @@ export function LibraryBuild({ entry, ruleset, catalogue }: LibraryBuildProps) {
       {!ruleset || !params || !read ? (
         <p className="card">{entry.editable ? t("unreadable") : t("inARoom")}</p>
       ) : (
-        <LedgerForm
-          params={params}
-          catalogue={read}
-          initial={buildOf(entry) ?? { tier: params.tiers.min }}
-          gm
-          save={save}
-          onSaved={() => router.push("/")}
-          draftLabel={t("keep")}
-          sentNote={t("kept")}
-        />
+        hydrated && (
+          <>
+            {restored && (
+              <p className="small" role="status">
+                {t("restored")}
+              </p>
+            )}
+            <LedgerForm
+              params={params}
+              catalogue={read}
+              initial={buildOf({ build: local }) ?? buildOf(entry) ?? { tier: params.tiers.min }}
+              onDraft={handleLocal}
+              gm
+              save={save}
+              onSaved={() => router.push("/")}
+              draftLabel={t("keep")}
+              sentNote={t("kept")}
+            />
+          </>
+        )
       )}
     </main>
   );

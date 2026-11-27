@@ -39,6 +39,19 @@ export const AdminUser = z.object({
   ),
 });
 export type AdminUser = z.infer<typeof AdminUser>;
+
+/**
+ * An anonymous device's tag in the console (house decision #185): the last six characters of its user id, which tell
+ * two devices named alike apart. The id is no secret (the device's cookie is); an account goes by its name.
+ */
+export function deviceTag(userId: string): string {
+  return userId.replaceAll("-", "").slice(-6);
+}
+
+/** What the admin types to remove a user from every room: an account's name, a device's tag. */
+export function confirmWord(u: Pick<AdminUser, "id" | "name" | "account">): string {
+  return u.account ? u.name.trim() : deviceTag(u.id);
+}
 export const AdminUsers = z.array(AdminUser);
 
 // DELETE /api/admin/users/:id/seats: the rooms left, and those kept with the refusal that kept them.

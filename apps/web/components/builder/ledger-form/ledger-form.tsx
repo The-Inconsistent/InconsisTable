@@ -27,6 +27,8 @@ export type LedgerFormProps = {
   /** The draft button's words, and what the save bar says once it went. */
   draftLabel: string;
   sentNote: string;
+  /** Every change at once, as the text it would be saved as: the library keeps a copy in the browser (#188). */
+  onDraft?: ((text: string) => void) | undefined;
 };
 
 // The ledger builder with its save bar: every change kept as the draft a moment after the last one, the draft button
@@ -44,6 +46,7 @@ export function LedgerForm({
   onSaved,
   draftLabel,
   sentNote,
+  onDraft,
 }: LedgerFormProps) {
   const t = useTranslations("ledgerBuilder.table");
   const [build, setBuild] = useState(initial);
@@ -64,10 +67,11 @@ export function LedgerForm({
   const handleChange = useCallback(
     (next: LedgerBuild) => {
       setBuild(next);
+      onDraft?.(JSON.stringify(next));
       clearTimeout(timer.current);
       timer.current = setTimeout(async () => kept(await sendDraft(next), "kept"), DRAFT_DELAY_MS);
     },
-    [sendDraft, kept],
+    [sendDraft, kept, onDraft],
   );
 
   // SAVE CHARACTER: resolved again where it is kept and saved only when ready; then on, or its refusal.

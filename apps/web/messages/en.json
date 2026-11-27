@@ -205,6 +205,9 @@
       "removeTitle": "Remove {name} from every room?",
       "removeExplain": "{count, plural, one {Their # seat goes} other {Their # seats go}}; their characters stay. A room they own keeps them.",
       "typeName": "Type {name} to confirm",
+      "tag": "#{tag}",
+      "seen": "seen {when}",
+      "typeTag": "Type {tag}, the end of this device's id, to confirm",
       "removeConfirm": "Remove",
       "cancel": "Cancel",
       "removed": "{name}: removed from {count, plural, one {# room} other {# rooms}}",
@@ -294,6 +297,7 @@
       "failed": "Couldn't reach your library. Try again."
     },
     "builder": {
+      "restored": "Restored from this browser: changes the server had not kept yet.",
       "back": "← Your characters",
       "unnamed": "Unnamed character",
       "lede": "{ruleset} · last edited {when}. Every change is kept as you go.",

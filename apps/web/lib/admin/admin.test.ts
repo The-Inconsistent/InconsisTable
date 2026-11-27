@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { filterCampaigns, sortByLastPlayed, type AdminCampaign } from "./admin.ts";
+import { confirmWord, deviceTag, filterCampaigns, sortByLastPlayed, type AdminCampaign } from "./admin.ts";
+
+test("a device goes by the end of its id, an account by its name", () => {
+  const id = "0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b";
+  assert.equal(deviceTag(id), "3f4a5b");
+  assert.equal(confirmWord({ id, name: "Player", account: false }), "3f4a5b");
+  assert.equal(confirmWord({ id, name: " Dana ", account: true }), "Dana");
+});
 
 const room = (name: string, ownerName: string | null, lastPlayedAt: string | null): AdminCampaign => ({
   id: "0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",

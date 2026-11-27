@@ -7,6 +7,7 @@ import { buildOf, notHere, type LibraryEntry } from "./character-library";
 
 const ENTRY: LibraryEntry = {
   id: "c1",
+  userId: "u1",
   name: "Wren",
   done: true,
   line: null,

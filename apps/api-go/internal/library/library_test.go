@@ -169,7 +169,8 @@ func TestTheLibraryIsItsOwners(t *testing.T) {
 		t.Errorf("another's ruleset: %d", code)
 	}
 	code, entry := c.do("GET", "/api/library/"+id, nil)
-	if code != http.StatusOK || entry["editable"] != true || entry["build"] != nil || len(entry["packs"].([]any)) != 1 {
+	if code != http.StatusOK || entry["editable"] != true || entry["build"] != nil || len(entry["packs"].([]any)) != 1 ||
+		entry["userId"] != me.id {
 		t.Errorf("read: %d %v", code, entry)
 	}
 	if code, rules := c.do("GET", "/api/library/"+id+"/rules", nil); code != http.StatusOK || rules["manifest"] == nil || rules["kinds"] == nil {

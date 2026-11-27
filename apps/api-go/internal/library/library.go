@@ -48,6 +48,8 @@ type Card struct {
 // catalogue comes from, and whether its owner may edit it here (they own its ruleset and every pack).
 type Entry struct {
 	Card
+	// UserID is its owner, the caller: the browser keeps each user's draft apart (house decision #188).
+	UserID   string    `json:"userId"`
 	Build    *string   `json:"build"`
 	Packs    []Version `json:"packs"`
 	Editable bool      `json:"editable"`
@@ -108,7 +110,7 @@ func load(ctx context.Context, conn core.Conn, userID, id string) (*row, error) 
 	if err != nil {
 		return nil, err
 	}
-	r.Card = card
+	r.Card, r.UserID = card, userID
 	rows, err := conn.Query(ctx, `SELECT p.slug, v.version, p.owner_user_id = $2 AND p.disabled_at IS NULL FROM pack_version v
 		JOIN pack p ON p.id = v.pack_id WHERE v.id = ANY($1::uuid[]) ORDER BY p.slug`, r.packIDs, userID)
 	if err != nil {

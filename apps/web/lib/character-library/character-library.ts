@@ -23,6 +23,8 @@ export type LibraryCard = z.infer<typeof LibraryCard>;
 export const LibraryCards = z.array(LibraryCard);
 
 export const LibraryEntry = LibraryCard.extend({
+  /** Its owner, the caller: a browser keeps each user's draft apart (house decision #188). */
+  userId: z.string(),
   /** The builder's document as it wrote it: kept as text, so its keys keep their order (house decision #63). */
   build: z.string().nullable(),
   packs: z.array(Version),

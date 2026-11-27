@@ -11,7 +11,7 @@ import { PageHead } from "@/components/ui/page-head/page-head";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { buildOf, saveCharacter, type LibraryEntry } from "@/lib/character-library/character-library";
 import { catalogueOf } from "@/lib/ledger/table";
-import { keepLocal, newerLocal, readLocal, restampLocal } from "@/lib/library-draft/library-draft";
+import { afterSave, forgetLocal, keepLocal, newerLocal, readLocal, sameBuild } from "@/lib/library-draft/library-draft";
 
 type LibraryBuildProps = {
   entry: LibraryEntry;
@@ -43,13 +43,15 @@ export function LibraryBuild({ entry, ruleset, catalogue }: LibraryBuildProps) {
   const read = useMemo(() => catalogueOf(catalogue), [catalogue]);
   const params = ruleset?.build?.params;
   // This browser's copy of the draft, read once (none on the server, where the builder is not drawn).
-  const [local] = useState(() => newerLocal({ stored: readLocal(entry.id), rev: entry.rev }));
+  const [local] = useState(() =>
+    newerLocal({ stored: readLocal({ userId: entry.userId, id: entry.id }), rev: entry.rev }),
+  );
   const hydrated = useSyncExternalStore(
     subscribeNothing,
     () => true,
     () => false,
   );
-  const restored = local !== null && local !== entry.build;
+  const restored = local !== null && !sameBuild(local, entry.build);
 
   // One save after another, each at the revision the last answered.
   const patch = useCallback(
@@ -57,13 +59,16 @@ export function LibraryBuild({ entry, ruleset, catalogue }: LibraryBuildProps) {
       const run = queue.current.then(async () => {
         const r = await saveCharacter(entry.id, { rev: rev.current, ...body });
         if (r.ok) rev.current = r.value.rev;
-        if (r.ok && body.build !== undefined) restampLocal({ id: entry.id, rev: r.value.rev });
+        // The server holds this build now: a done one forgets the browser's copy, a draft's goes once it is the same.
+        if (r.ok && body.build !== undefined && body.done) forgetLocal(entry.id);
+        else if (r.ok && body.build !== undefined)
+          afterSave({ userId: entry.userId, id: entry.id, rev: r.value.rev, build: body.build });
         return r;
       });
       queue.current = run.catch(() => undefined);
       return run;
     },
-    [entry.id],
+    [entry.id, entry.userId],
   );
   const save = useCallback<SaveBuild>(
     async (text, draft) => {
@@ -74,8 +79,8 @@ export function LibraryBuild({ entry, ruleset, catalogue }: LibraryBuildProps) {
   );
   // Every change of the build, kept in this browser over the revision the server last answered.
   const handleLocal = useCallback(
-    (text: string) => keepLocal({ id: entry.id, rev: rev.current, build: text }),
-    [entry.id],
+    (text: string) => keepLocal({ userId: entry.userId, id: entry.id, rev: rev.current, build: text }),
+    [entry.id, entry.userId],
   );
   // NAME: kept a moment after the last key.
   const handleName = (e: ChangeEvent<HTMLInputElement>) => {

@@ -12,6 +12,7 @@ import {
   newCharacter,
   type LibraryCard,
 } from "@/lib/character-library/character-library";
+import { forgetLocal } from "@/lib/library-draft/library-draft";
 import type { RulesetList } from "@/lib/library/library";
 
 // YOUR CHARACTERS (house decision #104): the user's library, the last edited first, each with its line (#187), its
@@ -49,6 +50,7 @@ export function YourCharacters({ rulesets }: { rulesets: RulesetList }) {
     const r = await deleteCharacter(id);
     setBusy(false);
     setConfirm(null);
+    if (r.ok) forgetLocal(id); // this browser's copy of its draft (house decision #188)
     if (r.ok) setCards((was) => was?.filter((c) => c.id !== id) ?? null);
     else setProblem(r.error ? tr(r.error) : t("failed"));
   };

@@ -21,3 +21,7 @@ export type GmTab = keyof typeof GM_TABS;
 // ?tab=track opens SCENE on its FIGHT layer, so links made before the tracker moved keep working.
 export const TAB_PARAM = "tab";
 export const FIGHT_TAB = "track";
+
+// How many frames a checklist step's GO TO looks for its place while the tab draws (about half a second), then gives up
+// (house decision #200).
+export const GOTO_FRAMES = 30;

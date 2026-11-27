@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { canInCampaign, type Me } from "@inconsistable/core-schema";
 import type { ChecklistAnchor, ChecklistStep, Ruleset } from "@inconsistable/rules-engine";
 
-import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
+import { GM_TABS, GOTO_FRAMES, type GmTab } from "@/components/gm/gm-app/constants";
 import { HeaderItems } from "@/components/gm/gm-app/components/header-items/header-items";
 import { CallBand } from "@/components/gm/header/call-band/call-band";
 import { CallButton } from "@/components/gm/header/call-button/call-button";
@@ -138,14 +138,25 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
     else openTab(goto.tab, goto.kind ? { kind: goto.kind } : {});
     setAnchor(goto.anchor ?? null);
   };
-  // Syncs with the DOM: once the tab GO TO opened has drawn the place, scrolls to it; it waits while the tab changes.
+  // Syncs with the DOM: looks for the place GO TO named for a few frames while its tab draws, scrolls to it, and gives up
+  // when the tab never draws it (a place this seat's scopes leave out), so a later visit does not jump there.
   useEffect(() => {
     if (anchor === null) return;
-    const frame = requestAnimationFrame(() => {
-      if (revealAnchor(anchor)) setAnchor(null);
-    });
+    let frame = 0;
+    let tries = 0;
+    const look = () => {
+      tries++;
+      if (revealAnchor(anchor) || tries >= GOTO_FRAMES) setAnchor(null);
+      else frame = requestAnimationFrame(look);
+    };
+    frame = requestAnimationFrame(look);
     return () => cancelAnimationFrame(frame);
-  }, [anchor, tab]);
+  }, [anchor]);
+  // A tab picked by hand: no GO TO is waiting any more.
+  const handleTab = (name: GmTab) => {
+    setAnchor(null);
+    openTab(name);
+  };
 
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   return (
@@ -200,7 +211,7 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
         <TransferOffer me={me} state={state} send={send} />
         <nav className="tabs" role="tablist" aria-label={t("tabsLabel")}>
           {tabs.map((name) => (
-            <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => openTab(name)}>
+            <button key={name} className="tab" role="tab" aria-selected={tab === name} onClick={() => handleTab(name)}>
               {t(`tabs.${name}`)}
             </button>
           ))}

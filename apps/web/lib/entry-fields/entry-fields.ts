@@ -206,6 +206,7 @@ export type RowChip = { key: string; text: string; tone: EnumTone | null; broken
  * One row as compact chips (house decision #89), in its columns' order: text as written, a number after its column's
  * label, an enum by its label and tone, a true yes/no by its column's label, a ref by the entry's name where this seat
  * read it, a Test by its label and its inputs in the Test's words. A Test the ruleset no longer has is marked broken.
+ * A row filled from a pack entry comes here as `followRow` reads it.
  */
 export function rowChips({
   ruleset,
@@ -221,62 +222,63 @@ export function rowChips({
   /** The campaign fields in play, which a Test column's inputs read (house decision #173). */
   campaign?: Readonly<Record<string, unknown>>;
 }): RowChip[] {
-  return def.columns.flatMap((col): RowChip[] => {
-    const v = Object.hasOwn(row.values, col.id) ? row.values[col.id] : undefined;
-    const key = col.id;
-    if (v === undefined || v === null || v === "" || v === false) return [];
-    switch (col.type) {
-      case "text":
-        return [{ key, text: String(v), tone: null }];
-      case "int":
-        return [{ key, text: `${col.label} ${String(v)}`, tone: null }];
-      case "bool":
-        return [{ key, text: col.label, tone: null }];
-      case "enum": {
-        const w = enumWords({ def: { ...col, visibility: "gm" }, value: String(v) });
-        return [{ key, text: w.label, tone: w.tone }];
+  // A followed row this seat cannot read the entry of, without a name of the GM's, is named by the entry's key.
+  const named = def.from?.find((f) => f.entity === row.from?.entity)?.name;
+  const keyChip: RowChip[] =
+    row.from && named !== undefined && !row.values[named] ? [{ key: named, text: row.from.key, tone: null }] : [];
+  return keyChip.concat(
+    def.columns.flatMap((col): RowChip[] => {
+      const v = Object.hasOwn(row.values, col.id) ? row.values[col.id] : undefined;
+      const key = col.id;
+      if (v === undefined || v === null || v === "" || v === false) return [];
+      switch (col.type) {
+        case "text":
+          return [{ key, text: String(v), tone: null }];
+        case "int":
+          return [{ key, text: `${col.label} ${String(v)}`, tone: null }];
+        case "bool":
+          return [{ key, text: col.label, tone: null }];
+        case "enum": {
+          const w = enumWords({ def: { ...col, visibility: "gm" }, value: String(v) });
+          return [{ key, text: w.label, tone: w.tone }];
+        }
+        case "ref": {
+          const named = known.find((k) => k.type === col.entity && k.key === v);
+          return [{ key, text: named?.name ?? String(v), tone: null }];
+        }
+        case "test": {
+          // One chip per word the cell lists, each with the column's worked-out inputs (house decision #173).
+          const cell = v as TestCell;
+          const test = testOf({ ruleset, testId: cell.testId });
+          const words = testWords(test ?? { id: cell.testId });
+          return rowTests({ col, inputs: cell.inputs ?? {}, values: row.values, campaign }).map((set, i) => {
+            const inputs = Object.entries(set)
+              .map(([k, x]) => `${words.input(k)} ${words.value(k, x)}`)
+              .join(", ");
+            const text = inputs === "" ? words.test : `${words.test} · ${inputs}`;
+            return { key: i === 0 ? key : `${key}-${i}`, text, tone: null, broken: !test };
+          });
+        }
       }
-      case "ref": {
-        const named = known.find((k) => k.type === col.entity && k.key === v);
-        return [{ key, text: named?.name ?? String(v), tone: null }];
-      }
-      case "test": {
-        // One chip per word the cell lists, each with the column's worked-out inputs (house decision #173).
-        const cell = v as TestCell;
-        const test = testOf({ ruleset, testId: cell.testId });
-        const words = testWords(test ?? { id: cell.testId });
-        return rowTests({ col, inputs: cell.inputs ?? {}, values: row.values, campaign }).map((set, i) => {
-          const inputs = Object.entries(set)
-            .map(([k, x]) => `${words.input(k)} ${words.value(k, x)}`)
-            .join(", ");
-          const text = inputs === "" ? words.test : `${words.test} · ${inputs}`;
-          return { key: i === 0 ? key : `${key}-${i}`, text, tone: null, broken: !test };
-        });
-      }
-    }
-  });
+    }),
+  );
 }
 
-/** What names a row in a picker: its first text cell, else its id. */
+/** What names a row in a picker: its first text cell, else the key of the entry it follows, else its id. */
 export const rowName = ({ def, row }: { def: RowsDef; row: EntryRow }) => {
   const col = def.columns.find((c) => c.type === "text" && typeof row.values[c.id] === "string" && row.values[c.id]);
-  return col ? String(row.values[col.id]) : row.id;
+  return col ? String(row.values[col.id]) : (row.from?.key ?? row.id);
 };
 
-/** A row filled from a pack entry by the field's declaration for its type: its name and mapped values, its key and cite. */
-export function prefillRow({ def, entry, id }: { def: RowsDef; entry: RulesEntry; id: string }): EntryRow {
-  const from = def.from?.find((f) => f.entity === entry.type);
-  const values: Record<string, unknown> = {};
-  if (from?.name !== undefined) values[from.name] = entry.name;
-  for (const [col, field] of Object.entries(from?.values ?? {})) {
-    if (Object.hasOwn(entry.body, field)) values[col] = entry.body[field];
-  }
-  return {
-    id,
-    from: { entity: entry.type, key: entry.key, ...(entry.cite ? { cite: entry.cite } : {}) },
-    values,
-  };
-}
+/**
+ * A row filled from a pack entry: its key and cite, and no cells of its own. It follows the entry live (`followRow`),
+ * so a pack update shows in it; what the GM types is stored over it (house decision #89).
+ */
+export const prefillRow = ({ entry, id }: { entry: RulesEntry; id: string }): EntryRow => ({
+  id,
+  from: { entity: entry.type, key: entry.key, ...(entry.cite ? { cite: entry.cite } : {}) },
+  values: {},
+});
 
 /** The rows fields of a kind a scene may pick from (house decision #89). */
 export const pickableFields = ({ ruleset, kind }: { ruleset: Ruleset | null; kind: CodexKind }) =>

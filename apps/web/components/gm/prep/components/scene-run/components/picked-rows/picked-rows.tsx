@@ -33,6 +33,7 @@ export function PickedRows({ line, world, onSwitch, busy }: PickedRowsProps) {
                 def={field.def}
                 row={row}
                 campaign={world.state.campaign.fields}
+                campaignId={world.state.campaign.id}
               />
               <button
                 className="btn"

@@ -3,9 +3,18 @@ import { useTranslations } from "next-intl";
 import { useState, type ChangeEvent } from "react";
 
 import type { ActionInput, ActionResult } from "@inconsistable/core-schema";
-import { MAX_CELL_CHARS, MAX_ROWS, offeredValues, type CodexField, type Ruleset } from "@inconsistable/rules-engine";
+import {
+  entryCells,
+  followRow,
+  MAX_CELL_CHARS,
+  MAX_ROWS,
+  offeredValues,
+  type CodexField,
+  type Ruleset,
+} from "@inconsistable/rules-engine";
 
 import { RowChips } from "@/components/ui/entry-fields/entry-fields";
+import { SourceEntry } from "@/components/ui/source-entry/source-entry";
 import {
   newRowId,
   prefillRow,
@@ -42,7 +51,8 @@ type RowsEditorProps = {
 
 // A rows field in the GM's editor (house decision #89): each row as its chips and one input per column, from the
 // declaration (text, a number, an enum's labels, a yes/no, a pack entry, a Test of the ruleset with its inputs); a row
-// written by hand, or filled from a pack entry of a type the field declares, keeping that entry's key and cite.
+// written by hand, or filled from a pack entry of a type the field declares, which it follows: the inputs show the
+// entry's values, and only what the GM changes is stored over them.
 export function RowsEditor(props: RowsEditorProps) {
   const { id, def, ruleset, campaignId, known, value, disabled, onChange, onPicked, act, campaign } = props;
   const t = useTranslations("entryFields");
@@ -73,21 +83,25 @@ export function RowsEditor(props: RowsEditorProps) {
     if (labels.length > 0) onChange(rolledRows({ def, rows: value, labels }));
   };
 
-  // One cell of one row: a value sets it, null clears it.
-  const setCell = (rowId: string, col: string, v: unknown) =>
+  // One cell of one row: a value sets it, null clears it. A value the row's pack entry gives is not stored: the row
+  // follows the entry there (house decision #89).
+  const setCell = (rowId: string, col: string, v: unknown, source: RulesEntry | undefined) => {
+    const given = source ? entryCells({ def, entry: source })[col] : undefined;
+    const own = v !== null && v !== undefined && v !== "" && JSON.stringify(v) !== JSON.stringify(given);
     onChange(
       value.map((r) => {
         if (r.id !== rowId) return r;
         const { [col]: _old, ...rest } = r.values;
-        return { ...r, values: v === null || v === undefined || v === "" ? rest : { ...rest, [col]: v } };
+        return { ...r, values: own ? { ...rest, [col]: v } : rest };
       }),
     );
+  };
 
   // A row filled from the picked pack entry.
   const handleFill = (entry: RulesEntry | null) => {
     if (!entry || full) return;
     onPicked(entry);
-    onChange([...value, prefillRow({ def, entry, id: newRowId() })]);
+    onChange([...value, prefillRow({ entry, id: newRowId() })]);
   };
 
   return (
@@ -109,22 +123,32 @@ export function RowsEditor(props: RowsEditorProps) {
                 </button>
               )}
             </div>
-            <RowChips ruleset={ruleset} def={def} row={row} known={known} campaign={campaign} />
-            {!disabled &&
-              def.columns.map((col) => (
-                <Cell
-                  key={col.id}
-                  id={`${id}-${row.id}-${col.id}`}
-                  col={col}
-                  body={known.find((k) => k.type === row.from?.entity && k.key === row.from.key)?.body}
-                  ruleset={ruleset}
-                  campaignId={campaignId}
-                  known={known}
-                  value={Object.hasOwn(row.values, col.id) ? row.values[col.id] : undefined}
-                  onValue={(v) => setCell(row.id, col.id, v)}
-                  onPicked={onPicked}
-                />
-              ))}
+            <SourceEntry campaignId={campaignId} from={row.from} known={known}>
+              {(source) => {
+                const shown = followRow({ def, row, entry: source });
+                const held = source ? [source, ...known] : known;
+                return (
+                  <>
+                    <RowChips ruleset={ruleset} def={def} row={row} known={held} campaign={campaign} />
+                    {!disabled &&
+                      def.columns.map((col) => (
+                        <Cell
+                          key={col.id}
+                          id={`${id}-${row.id}-${col.id}`}
+                          col={col}
+                          body={source?.body}
+                          ruleset={ruleset}
+                          campaignId={campaignId}
+                          known={known}
+                          value={Object.hasOwn(shown.values, col.id) ? shown.values[col.id] : undefined}
+                          onValue={(v) => setCell(row.id, col.id, v, source)}
+                          onPicked={onPicked}
+                        />
+                      ))}
+                  </>
+                );
+              }}
+            </SourceEntry>
           </li>
         ))}
       </ol>

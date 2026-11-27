@@ -20,7 +20,7 @@ import type {
   RoomImportReply,
 } from "@inconsistable/core-schema";
 import { HandoutLayout, MAX_PAGE_BYTES, RoomDocument } from "@inconsistable/core-schema";
-import type { CodexField, RulesetInput } from "@inconsistable/rules-engine";
+import { followRow, type CodexField, type RulesetInput } from "@inconsistable/rules-engine";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import {
@@ -1769,6 +1769,71 @@ test("tags, rows, a scene's picks with their switch and a reminder; a player rea
   await eventually(() => fieldsOf(bo, road)?.log !== undefined, "the party's road log");
   assert.deepEqual(fieldsOf(bo, road), { log });
   for (const c of [owner, ana, owner2, bo]) c.socket.close();
+});
+
+// House decision #89 (#230): a row filled from a pack entry follows it. On a crafted copy of the d20 sample whose
+// dangers the party reads, and a crafted pack: a pack update renames the followed row, the GM's own threat survives it,
+// and once the update makes the creature the GM's, a player is sent nothing of it (neither in the row nor by the rules).
+test("a row filled from a pack entry follows the pack, the GM's cells over it; a seat that may not read it gets none (#89)", async () => {
+  const ownerDevice = await device("lr-owner");
+  const me = caller(ownerDevice);
+  const ruleset = structuredClone(SAMPLE_D20);
+  const dangers = ruleset.codex?.kinds.location?.fields.dangers;
+  assert.ok(dangers?.type === "rows");
+  dangers.visibility = "party";
+  const def = dangers as Extract<CodexField, { type: "rows" }>;
+  const rs = await me.post<RulesetReply>("/rulesets", { ...ruleset, version: "0.1.99" });
+  assert.equal(rs.status, 201);
+  const pack = (name: string, visibility: string, level: number, version: string) => ({
+    ...SAMPLE_PACK,
+    id: "live-bestiary",
+    version,
+    entries: SAMPLE_PACK.entries.map((e) =>
+      e.key === "ember-wisp" ? { ...e, name, visibility, body: { ...e.body, name, level } } : e,
+    ),
+  });
+  const v1 = await me.post<PackReply>("/packs", pack("Ember Wisp", "party", 1, "0.1.0"));
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Lr", rulesetVersionId: rs.body.versionId })
+  ).body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: v1.body.versionId }));
+  const anaDevice = await seatPlayer(owner, "lr-ana");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  await ana.until(() => true);
+
+  // The GM fills a row from the creature and sets its threat: only the key, the cite and the GM's cell are stored.
+  const row = { id: "d1", from: { entity: "creature", key: "ember-wisp", cite: "Sample p.40" }, values: { threat: 4 } };
+  const place = ok(
+    await owner.send({ type: "codex.save", kind: "location", title: "Ford", fields: { dangers: [row] } }),
+  ).id!;
+  ok(await owner.send({ type: "codex.reveal", id: place, visibility: "party", audienceMode: "all", audience: [] }));
+  const rowOf = (c: typeof owner) =>
+    (c.codex()?.entries.find((e) => e.id === place)?.fields.dangers as (typeof row)[] | undefined)?.[0];
+  await eventually(() => rowOf(ana) !== undefined, "the player reads the place's dangers");
+  assert.deepEqual(rowOf(owner), row);
+  assert.deepEqual(rowOf(ana), row);
+  type Served = {
+    entries: { type: string; key: string; name: string; cite: string | null; body: Record<string, unknown> }[];
+  };
+  const wispFor = async (token: string) =>
+    (await caller(token).get<Served>(`/campaigns/${campaignId}/rules?type=creature&key=ember-wisp&limit=1`)).body
+      .entries[0];
+  const read = async (token: string, c: typeof owner) =>
+    followRow({ def, row: rowOf(c)!, entry: await wispFor(token) }).values;
+  assert.deepEqual(await read(ownerDevice, owner), { name: "Ember Wisp", threat: 4 });
+  assert.deepEqual(await read(anaDevice, ana), { name: "Ember Wisp", threat: 4 });
+
+  // The pack's next version renames the creature and makes it the GM's; the room takes it in place of the first.
+  const v2 = await me.post<PackReply>("/packs", pack("Ember Spirit", "gm", 2, "0.2.0"));
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: v2.body.versionId }));
+  assert.deepEqual(await read(ownerDevice, owner), { name: "Ember Spirit", threat: 4 }, "followed, the GM's cell kept");
+  assert.deepEqual(rowOf(owner), row, "nothing of the pack was written into the row");
+  assert.equal(await wispFor(anaDevice), undefined, "the rules no longer serve the player the creature");
+  assert.deepEqual(await read(anaDevice, ana), { threat: 4 }, "the GM's cells alone");
+  assert.ok(!JSON.stringify(ana.codex()).includes("Ember"), "the player's codex holds nothing of the entry");
+  for (const c of [owner, ana]) c.socket.close();
 });
 
 // House decision #97 on the invented fixtures: a place made from a pack entry brings the places inside it, nested, each

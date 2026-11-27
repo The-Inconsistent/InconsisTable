@@ -179,6 +179,61 @@ export function fitRows({ def, value }: { def: RowsDef; value: unknown }): unkno
   return out;
 }
 
+/** A pack entry as a row reads it: what the seat-scoped rules read answers. */
+export type RowSource = {
+  type: string;
+  key: string;
+  name: string;
+  cite?: string | null;
+  body: Readonly<Record<string, unknown>>;
+};
+type FollowedRow = { from?: { entity: string; key: string; cite?: string }; values: Record<string, unknown> };
+
+/**
+ * The cells a pack entry gives a row of this field, by the field's `from` declaration for its type: the name and the
+ * mapped values that fit their column (house decision #89).
+ */
+export function entryCells({ def, entry }: { def: RowsDef; entry: RowSource }): Record<string, unknown> {
+  const from = def.from?.find((f) => f.entity === entry.type);
+  const given: [string, unknown][] = [
+    ...(from?.name === undefined ? [] : [[from.name, entry.name] as [string, unknown]]),
+    ...Object.entries(from?.values ?? {}).map(([col, field]): [string, unknown] => [
+      col,
+      Object.hasOwn(entry.body, field) ? entry.body[field] : undefined,
+    ]),
+  ];
+  return Object.fromEntries(
+    given.filter(([col, v]) => {
+      const c = def.columns.find((x) => x.id === col);
+      return v !== undefined && c !== undefined && checkCell({ col: c, value: v }) === null;
+    }),
+  );
+}
+
+/**
+ * A row as a seat reads it (house decision #89): a row filled from a pack entry follows that entry live, its cells the
+ * entry's current ones with the GM's stored cells laid over them, its cite the entry's. Without the entry (gone, or not
+ * served to this seat) the row is what is stored: the GM's cells, nothing of the entry.
+ */
+export function followRow<R extends FollowedRow>({
+  def,
+  row,
+  entry,
+}: {
+  def: RowsDef;
+  row: R;
+  entry: RowSource | undefined;
+}): R {
+  if (row.from === undefined || entry === undefined || entry.type !== row.from.entity || entry.key !== row.from.key)
+    return row;
+  const cite = entry.cite ?? row.from.cite;
+  return {
+    ...row,
+    from: { entity: row.from.entity, key: row.from.key, ...(cite ? { cite } : {}) },
+    values: { ...entryCells({ def, entry }), ...row.values },
+  };
+}
+
 /** Why `value` does not fit a campaign field, or null when it does; worded like `checkFieldValue`. */
 export function checkCampaignValue({ def, value }: { def: CampaignField; value: unknown }): string | null {
   switch (def.type) {

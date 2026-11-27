@@ -15,6 +15,11 @@ const words: CommandWords = {
   mob: ["mob"],
   reveal: ["reveal"],
   hide: ["hide"],
+  go: ["go"],
+  seize: ["seize"],
+  aware: ["aware"],
+  ambush: ["ambush"],
+  remove: ["remove"],
 };
 const hal = { combatantId: "c-hal", actorId: "hal", name: "Hal" };
 const fighters = [
@@ -123,4 +128,33 @@ test("an order that does not parse says why and sends nothing", () => {
   assert.deepEqual(order("+bleeding hal"), { ok: false, why: { kind: "noCondition", words: "bleeding" } });
   assert.deepEqual(order("rats mob"), { ok: false, why: { kind: "needsCount" } });
   assert.deepEqual(order("dmg 2", { selected: null }), { ok: false, why: { kind: "noTarget" } });
+});
+
+test("go, seize, ambush and aware are the sides order's ops on a fighter; remove takes one out of the fight", () => {
+  const sides = (text: string) => {
+    const o = order(text, { sides: true });
+    return o?.ok ? [o.said, o.action] : o;
+  };
+  const op = (name: string, input: object) => ({ type: "rule.op", primitive: "initiative.sides", op: name, input });
+  assert.deepEqual(sides("go ogre 2"), [
+    { kind: "side", verb: "go", name: "Ogre 2" },
+    op("pick", { id: "o2", force: true }),
+  ]);
+  assert.deepEqual(sides("hal seize"), [{ kind: "side", verb: "seize", name: "Hal" }, op("seize", { id: "hal" })]);
+  assert.deepEqual(sides("ambush rats"), [
+    { kind: "side", verb: "ambush", name: "Rats ×6" },
+    op("bar", { id: "rats", barred: true }),
+  ]);
+  assert.deepEqual(sides("aware"), [
+    { kind: "side", verb: "aware", name: "Hal" },
+    op("bar", { id: "hal", barred: false }),
+  ]);
+  // A turn order without sides has none of them; remove is every fight's.
+  assert.deepEqual(order("go hal"), { ok: false, why: { kind: "notHere" } });
+  assert.deepEqual(order("remove ogre 1"), {
+    ok: true,
+    said: { kind: "remove", name: "Ogre 1" },
+    action: { type: "encounter.remove", combatantId: "c-o1" },
+  });
+  assert.deepEqual(order("remove zed"), { ok: false, why: { kind: "noMatch", words: "zed" } });
 });

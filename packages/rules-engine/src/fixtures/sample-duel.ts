@@ -65,7 +65,7 @@ export const SAMPLE_DUEL_BEFORE_PANELS: RulesetInput = {
  * duelist's skill and parry and its cuts against its limit; when its cuts rise, a sheet with one line and no ask; on its
  * turn the lunge guide, which only the GM applies (the lunge is not `byOwner`).
  */
-export const SAMPLE_DUEL: RulesetInput = {
+export const SAMPLE_DUEL_BEFORE_LISTS: RulesetInput = {
   ...SAMPLE_DUEL_BEFORE_PANELS,
   version: "0.1.1",
   layout: {
@@ -93,8 +93,24 @@ export const SAMPLE_DUEL: RulesetInput = {
   ],
 };
 
+/**
+ * sample-duel 0.1.2 (house decision #159), the second shape of a list value: a blade's marks, a list of its own that the
+ * guide only shows as chips and no expression reads.
+ */
+export const SAMPLE_DUEL: RulesetInput = {
+  ...SAMPLE_DUEL_BEFORE_LISTS,
+  version: "0.1.2",
+  entities: (SAMPLE_DUEL_BEFORE_LISTS.entities ?? []).map((e) =>
+    e.id === "blade" ? { ...e, fields: { ...e.fields, marks: { type: "list", label: "Marks", maxItems: 4 } } } : e,
+  ) as RulesetInput["entities"],
+  strikes: (SAMPLE_DUEL_BEFORE_LISTS.strikes ?? []).map((s) => ({
+    ...s,
+    values: { ...s.values, marks: { key: "marks", type: "list" as const } },
+  })),
+};
+
 /** Blades for SAMPLE_DUEL: the flat cut a hit does. */
 export const SAMPLE_DUEL_BLADES = [
-  { key: "rapier", name: "Rapier", body: { cut: 2 } },
+  { key: "rapier", name: "Rapier", body: { cut: 2, marks: ["Swift", "Fine"] } },
   { key: "sabre", name: "Sabre", body: { cut: 3 } },
 ].map(({ key, name, body }) => ({ key, type: "blade", name, tags: [], cite: "Sample p.6", visibility: "party", body }));

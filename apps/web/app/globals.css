@@ -1264,9 +1264,19 @@ label {
 .strike-means {
   flex-wrap: wrap;
 }
-.strike-means-text {
+/* A means' traits and lists as chips (house decision #159), wrapping on a narrow guide. */
+.strike-means-chips {
+  flex-wrap: wrap;
+  gap: 6px;
   margin: 0;
+  padding: 0;
+  list-style: none;
   overflow-wrap: anywhere;
+}
+/* The say-it-aloud line (house decision #160): a reminder in the guide's own voice, not a warning. */
+.strike-aloud {
+  margin: 0;
+  font-style: italic;
 }
 /* A choice's options (house decision #112): up to ten, so they wrap on a phone rather than run off it. */
 .strike-choice {

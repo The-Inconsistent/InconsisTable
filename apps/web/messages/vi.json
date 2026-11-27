@@ -2639,7 +2639,12 @@
       "begin": "bắtđầu begin",
       "mob": "đám mob",
       "reveal": "hiện reveal show",
-      "hide": "ẩn hide"
+      "hide": "ẩn hide",
+      "go": "đi go",
+      "seize": "giành seize",
+      "aware": "tỉnh aware",
+      "ambush": "phụckích ambush",
+      "remove": "bỏ remove"
     },
     "said": {
       "change": "{name}: {by, number, ::sign-always} {label}",
@@ -2652,7 +2657,12 @@
       "mob": "{name} còn {members} thành viên",
       "reveal": "cho bàn thấy {name}",
       "hide": "giấu {name} khỏi bàn",
-      "pool": "{label} {by, number, ::sign-always}"
+      "pool": "{label} {by, number, ::sign-always}",
+      "go": "{name} hành động ngay, ngoài thứ tự",
+      "seize": "{name} giành lượt",
+      "aware": "{name} đã cảnh giác: có lượt đầu",
+      "ambush": "{name} bị phục kích: không có lượt đầu",
+      "remove": "đưa {name} ra khỏi trận"
     },
     "why": {
       "unknown": "Không phải lệnh: thử một cái tên và đánh 3, +một trạng thái, tiếp, giữ, lùi hoặc bắtđầu.",
@@ -2672,6 +2682,8 @@
     "kinds": "Loại đòn",
     "means": "Ra đòn bằng",
     "noMeans": "{name} không có gì để ra đòn.",
+    "meansChips": "Đặc tính của nó",
+    "sayAloud": "Người chơi chỉ thấy thanh máu: hãy đọc to {label}, {number}.",
     "target": "Mục tiêu",
     "noTarget": "Không ai trong trận mà đòn này có thể trúng.",
     "less": "Bớt {label}",

@@ -27,7 +27,7 @@ const strikeParts = `{
 		"id": "blow", "label": "Blow", "cite": "Fixture p.15",
 		"means": [{"from": "list", "field": "arms", "entry": "arm"}, {"from": "items", "kind": "carried"}],
 		"values": {"damage": {"key": "damage", "type": "int"}, "edge": {"key": "edge", "type": "int"},
-			"pierce": {"key": "pierce", "type": "int"}, "close": {"key": "close", "type": "bool"}},
+			"pierce": {"key": "pierce", "type": "int"}, "close": {"key": "close", "type": "bool"}, "ap": {"key": "ap", "type": "int"}},
 		"inputs": [{"id": "aim", "label": "Aim", "type": "bool"}, {"id": "far", "label": "Far shots", "type": "int", "min": 0, "max": 3}],
 		"pool": {"label": "Might", "expr": "derived.might", "adds": [
 			{"label": "Aim", "when": "ctx.aim", "by": "1"},
@@ -35,7 +35,7 @@ const strikeParts = `{
 		"beat": {"label": "Guard", "expr": "ctx.target.derived.guard", "adds": [
 			{"label": "Hurt", "when": "res.wounds > 0", "by": "1"},
 			{"label": "Far", "when": "!ctx.means.close", "by": "ctx.far"}]},
-		"soak": {"label": "Toughness", "expr": "ctx.target.derived.toughness", "adds": [{"label": "Pierce", "by": "ctx.means.pierce"}]},
+		"soak": {"label": "Toughness", "expr": "ctx.target.derived.toughness", "adds": [{"label": "Pierce", "by": "ctx.means.pierce"}, {"label": "AP", "by": "ctx.means.ap"}]},
 		"outcomes": [
 			{"id": "thinned", "label": "Thinned", "when": "ctx.targetMob > 0 && ctx.total > ctx.soak", "wounds": "1"},
 			{"id": "wounded", "label": "Wounded", "when": "ctx.targetMob == 0 && ctx.total > ctx.soak", "wounds": "ctx.total - ctx.soak"},
@@ -281,6 +281,32 @@ func TestAStrikeWithAHeldItemAsItsMeans(t *testing.T) {
 			ORDER BY id DESC LIMIT 1`, p.room.ID)
 		if means != "Sling" {
 			t.Fatalf("the logged means: want Sling, got %q", means)
+		}
+	})
+}
+
+// A held weapon strikes with what is fitted to it (house decision #102): a keen edge fitted to Hal's sling takes 2 off
+// the target's soak, as the card shows it.
+func TestAStrikeReadsWhatIsFittedToItsWeapon(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		p := newStrikePlay(t, tx)
+		version := dbtest.Scalar[string](t, tx, `SELECT pack_version_id::text FROM campaign_pack WHERE campaign_id = $1`, p.room.ID)
+		dbtest.Exec(t, tx, `INSERT INTO pack_entry (pack_version_id, key, type, name, tags, visibility, cite, content_hash, body, effects)
+			VALUES ($1, 'keen', 'arm', 'Keen', '{}', 'gm', 'Fixture p.17', 'h', '{}',
+			'[{"path": "host.ap", "mode": "add", "value": "-2", "phase": "derived"}]')`, version)
+		gm := p.room.GM()
+		hal := p.hero("Hal", 0, 0)
+		ogre := p.brute("Ogre", 5)
+		sling := p.carry(hal, "sling", "")
+		keen := p.carry(hal, "keen", "")
+		dbtest.Exec(t, tx, `UPDATE actor_item SET fitted_to = $1 WHERE id = $2`, sling, keen)
+		p.fight([]string{hal}, []string{ogre})
+		a := strikeOf(hal, ogre, "", 9, map[string]any{})
+		a["means"] = map[string]any{"source": 1.0, "ref": sling}
+		// Ogre's toughness 5, less the sling's pierce 1 and the keen edge's 2: 9 is 7 wounds (5 without the edge).
+		p.send(gm, a)
+		if w := p.res(ogre, "wounds"); w != 7 {
+			t.Fatalf("Ogre's wounds: want 7, got %d", w)
 		}
 	})
 }

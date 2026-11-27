@@ -1270,6 +1270,8 @@ export type SpawnBlock = z.infer<typeof SpawnBlock>;
  */
 export const MAX_STRIKES = 20;
 export const MAX_STRIKE_VALUES = 20;
+/** The most items a means' `list` value holds (house decision #159); the rest are left off. */
+export const MAX_MEANS_LIST = 20;
 export const MAX_STRIKE_SHOWS = 6;
 /** The lists of the saved build's sheet a strike's means may come from. */
 export const STRIKE_LEDGER_LINES = ["weapons", "powers"] as const;
@@ -1371,10 +1373,12 @@ export const Strike = z.object({
   means: z.array(StrikeMeans).min(1).max(4).optional(),
   /**
    * What it reads of a means, as `ctx.means.<id>`: the means' `key`, 0, false or "" where the means has none. A `text`
-   * value (a weapon's traits) is shown beside the means; an expression that wants a number cannot read it.
+   * value (a weapon's traits) is shown beside the means; an expression that wants a number cannot read it. A `list`
+   * value (house decision #159) is a list of text shown as chips, read by `contains` and `overlap`: the means' list
+   * (a whole number as its digits) or its text split at commas, at most MAX_MEANS_LIST items; empty where it has none.
    */
   values: z
-    .record(Id, z.object({ key: z.string().min(1).max(64), type: z.enum(["int", "bool", "text"]) }))
+    .record(Id, z.object({ key: z.string().min(1).max(64), type: z.enum(["int", "bool", "text", "list"]) }))
     .refine((o) => Object.keys(o).length <= MAX_STRIKE_VALUES, `at most ${MAX_STRIKE_VALUES} values`)
     .optional(),
   inputs: z.array(StrikeInput).min(1).max(MAX_LOOKUP_INPUTS).optional(),

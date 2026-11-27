@@ -5,6 +5,7 @@ import {
   meansValues,
   planStrike,
   strikeTargets,
+  withFittedCard,
   type CompiledRuleset,
   type Ruleset,
   type Strike,
@@ -42,7 +43,8 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "obj
  * The means the attacker has now, source by source: each line of its saved sheet's list (its index the ref), each key
  * its list field holds that names a loaded entry of the source's type (the key the ref), and each item of the source's
  * kind it holds whose entry is loaded (the item's id the ref). A key or an item no loaded entry has is left out, as the
- * server would refuse it.
+ * server would refuse it. A held weapon is read as its card shows it (house decision #102): an item's entry with its
+ * printed profile over it, or a sheet's line, with what is fitted to it.
  */
 export function meansOf({
   ruleset,
@@ -58,15 +60,28 @@ export function meansOf({
   return (strike.means ?? []).flatMap((m, source): StrikeMeansOption[] => {
     if (m.from === "ledger") {
       const lines = actor.ledger?.sheet?.[m.lines];
-      return (Array.isArray(lines) ? lines : []).flatMap((line, i) =>
-        isRecord(line) ? [{ source, ref: String(i), name: String(line.name ?? i + 1), values: line }] : [],
-      );
+      return (Array.isArray(lines) ? lines : []).flatMap((line, i) => {
+        if (!isRecord(line)) return [];
+        const ref = typeof line.name === "string" ? `${m.lines}/${line.name}` : null;
+        const fitted = (actor.items ?? []).filter((x) => ref !== null && x.fittedLine === ref);
+        return [
+          {
+            source,
+            ref: String(i),
+            name: String(line.name ?? i + 1),
+            values: withFittedCard({ card: line, fitted }).card,
+          },
+        ];
+      });
     }
     if (m.from === "items") {
       const type = ruleset.items?.kinds.find((k) => k.id === m.kind)?.entry;
       return (actor.items ?? []).flatMap((item) => {
         const e = item.kind === m.kind ? entries.find((x) => x.type === type && x.key === item.entry) : undefined;
-        return e === undefined ? [] : [{ source, ref: item.id, name: item.name, values: e.body }];
+        if (e === undefined) return [];
+        const fitted = (actor.items ?? []).filter((x) => x.fittedTo === item.id);
+        const card = withFittedCard({ card: { ...e.body, ...item.profile }, fitted }).card;
+        return [{ source, ref: item.id, name: item.name, values: card }];
       });
     }
     const keys = actor.fields[m.field];
@@ -77,13 +92,17 @@ export function meansOf({
   });
 }
 
-/** A means' text values (a weapon's traits), in the strike's order, the empty ones left out: shown beside the means. */
+/**
+ * A means' chips, shown beside it: each text value (a weapon's traits), and each item of a list value (house decision
+ * #159), in the strike's order, the empty ones left out.
+ */
 export const meansTexts = ({ strike, means }: { strike: Strike; means: StrikeMeansOption | undefined }): string[] => {
   if (means === undefined) return [];
   const read = meansValues({ values: strike.values ?? {}, means: means.values });
   return Object.entries(strike.values ?? {}).flatMap(([id, v]) => {
-    const text = read[id];
-    return v.type === "text" && typeof text === "string" && text !== "" ? [text] : [];
+    const value = read[id];
+    if (v.type === "list" && Array.isArray(value)) return value.map(String);
+    return v.type === "text" && typeof value === "string" && value !== "" ? [value] : [];
   });
 };
 
@@ -179,6 +198,21 @@ export function strikeHold({
   if (strike.limit !== undefined && used >= strike.limit.max) return "usedThisRound";
   return null;
 }
+
+/**
+ * Whether the GM should say the number to beat aloud (house decision #160): the target's players see it only as a bar,
+ * or not at all, so they cannot read it off their phones.
+ */
+export const sayAloud = ({
+  combatants,
+  targetId,
+}: {
+  combatants: readonly Pick<Encounter["combatants"][number], "actorId" | "visibility">[];
+  targetId: string | undefined;
+}): boolean => {
+  const seen = combatants.find((c) => c.actorId === targetId)?.visibility;
+  return seen === "bar" || seen === "hidden";
+};
 
 /** Whether a plan is one (and not a refusal). */
 export const isPlan = (p: ReturnType<typeof planStrike> | null): p is StrikePlan => p !== null && !("code" in p);

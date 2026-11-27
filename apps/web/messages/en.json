@@ -2639,7 +2639,12 @@
       "begin": "begin",
       "mob": "mob",
       "reveal": "reveal show",
-      "hide": "hide"
+      "hide": "hide",
+      "go": "go",
+      "seize": "seize",
+      "aware": "aware",
+      "ambush": "ambush",
+      "remove": "remove"
     },
     "said": {
       "change": "{name}: {by, number, ::sign-always} {label}",
@@ -2652,7 +2657,12 @@
       "mob": "{name} stands at {members} members",
       "reveal": "show {name} to the table",
       "hide": "hide {name} from the table",
-      "pool": "{label} {by, number, ::sign-always}"
+      "pool": "{label} {by, number, ::sign-always}",
+      "go": "{name} acts now, out of order",
+      "seize": "{name} seizes the turn",
+      "aware": "{name} is aware: takes a first turn",
+      "ambush": "{name} is ambushed: no first turn",
+      "remove": "take {name} out of the fight"
     },
     "why": {
       "unknown": "Not an order: try a name and hit 3, +a condition, next, hold, back or begin.",
@@ -2672,6 +2682,8 @@
     "kinds": "Kind of strike",
     "means": "Strike with",
     "noMeans": "{name} has nothing to strike with.",
+    "meansChips": "What it carries",
+    "sayAloud": "Its players see only a bar: say the {label} aloud, {number}.",
     "target": "Target",
     "noTarget": "No one in the fight this strike can land on.",
     "less": "Less {label}",

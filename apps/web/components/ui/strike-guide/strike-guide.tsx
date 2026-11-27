@@ -18,6 +18,7 @@ import {
   meansOf,
   meansTexts,
   previewStrike,
+  sayAloud,
   strikeHold,
   strikesFor,
   targetsOf,
@@ -45,6 +46,8 @@ type StrikeGuideProps = {
   phone?: { encounter: Pick<Encounter, "currentId" | "paused" | "combatants">; tableMode: TableMode };
   /** The one strike kind a layout's `strike` row names (house decision #99); absent, every kind of the attacker's. */
   only?: string;
+  /** The fight's combatants, for how the target's players see it (house decision #160); the side running the fight. */
+  combatants?: Encounter["combatants"];
 };
 
 const ENTRIES = 200;
@@ -68,6 +71,7 @@ export function StrikeGuide(props: StrikeGuideProps) {
     onTable,
     phone,
     only,
+    combatants,
   } = props;
   const t = useTranslations("strike");
   const tr = useRefusal();
@@ -241,7 +245,15 @@ export function StrikeGuide(props: StrikeGuideProps) {
             ))}
           </div>
         ))}
-      {texts.length > 0 && <p className="small strike-means-text">{texts.join(" · ")}</p>}
+      {texts.length > 0 && (
+        <ul className="row wrap strike-means-chips" aria-label={t("meansChips")}>
+          {texts.map((text, i) => (
+            <li key={`${i}-${text}`} className="chip">
+              {text}
+            </li>
+          ))}
+        </ul>
+      )}
       {targets.length === 0 ? (
         <p className="dim">{t("noTarget")}</p>
       ) : (
@@ -322,6 +334,11 @@ export function StrikeGuide(props: StrikeGuideProps) {
             {plan.soak && strike.soak && figure(plan.soak, strike.soak.label)}
             {plan.shows.map((f, j) => figure(f, strike.shows?.[j]?.label ?? f.id, `show:${f.id}`))}
           </div>
+          {combatants && sayAloud({ combatants, targetId: target?.id }) && (
+            <p className="small strike-aloud" role="note">
+              {t("sayAloud", { label: strike.beat.label, number: plan.beat.total })}
+            </p>
+          )}
           <form className="stack strike-total" onSubmit={handleApply}>
             <label className="stack table-typed">
               <span className="small">{t("total")}</span>

@@ -844,7 +844,10 @@ class Compiler {
       const path = `strikes[${i}]`;
       const targets = actorsOf(strikeTargets(this.r, s)).map(({ ce }) => ce.scope);
       const values = Object.fromEntries(
-        Object.entries(s.values ?? {}).map(([k, v]): [string, ExprType] => [k, v.type]),
+        Object.entries(s.values ?? {}).map(([k, v]): [string, ExprType] => [
+          k,
+          v.type === "list" ? { list: "text" } : v.type,
+        ]),
       );
       const base: Record<string, ExprType> = {
         ...Object.fromEntries((s.inputs ?? []).map((x) => [x.id, x.type === "choice" ? "int" : x.type])),

@@ -7,7 +7,7 @@ import { SAMPLE_DUEL } from "./fixtures/sample-duel.ts";
 import { SAMPLE_HARM } from "./fixtures/sample-harm.ts";
 import type { RulesetInput } from "./manifest.ts";
 import { isRefusal } from "./primitives/primitive.ts";
-import { planStrike, type StrikePlan } from "./strike.ts";
+import { meansValues, planStrike, type StrikePlan } from "./strike.ts";
 
 const compiled = (input: RulesetInput) => {
   const r = compileRuleset(input);
@@ -307,4 +307,29 @@ test("a choice has options and no bounds, only a choice has options, and its val
   const sweep = SAMPLE_HARM.strikes![1]!;
   assert.ok(!compileRuleset({ ...SAMPLE_HARM, strikes: [{ ...sweep, byOwner: false as never }] }).ok);
   assert.ok(!compileRuleset({ ...SAMPLE_HARM, strikes: [{ ...sweep, limit: { per: "turn" as never, max: 1 } }] }).ok);
+});
+
+test("a list value reads the means' list or its text split at commas, as text, at most 20 (house decision #159)", () => {
+  const values = { traits: { key: "traits", type: "list" as const } };
+  assert.deepEqual(meansValues({ values, means: { traits: ["Brutal", " Heavy ", "", 2, 1.5, true] } }), {
+    traits: ["Brutal", "Heavy", "2"],
+  });
+  assert.deepEqual(meansValues({ values, means: { traits: "Far,, Light " } }), { traits: ["Far", "Light"] });
+  assert.deepEqual(meansValues({ values, means: {} }), { traits: [] });
+  const many = Array.from({ length: 25 }, (_, i) => `T${i}`);
+  assert.equal((meansValues({ values, means: { traits: many } }).traits as string[]).length, 20);
+  // The brutal note asks the list, so "Far, Light" is no brutal arm and "Brutal, Heavy" is.
+  const blow = (traits: string) =>
+    planStrike({
+      ruleset: HARM,
+      strikeId: "blow",
+      attacker: { entity: "hero", scope: hero() },
+      target: { entity: "brute", scope: brute },
+      means: { damage: 1, edge: 0, pierce: 0, close: true, traits },
+      inputs: {},
+      total: null,
+    });
+  const brutal = (p: ReturnType<typeof blow>) => !isRefusal(p) && p.notes.some((n) => n.text.includes("brutal"));
+  assert.equal(brutal(blow("Far, Light")), false);
+  assert.equal(brutal(blow("Brutal, Heavy")), true);
 });

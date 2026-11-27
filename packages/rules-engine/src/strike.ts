@@ -3,7 +3,7 @@ import { ExprError, type ExprRecord, type ExprValue } from "./expr/expr.ast.ts";
 import { evaluate } from "./expr/expr.eval.ts";
 import { parseExpr } from "./expr/expr.parser.ts";
 import { lookupInputs, withLists } from "./lookups.ts";
-import { strikeTargets, type Ruleset, type StrikeFigure } from "./manifest.ts";
+import { MAX_MEANS_LIST, strikeTargets, type Ruleset, type StrikeFigure } from "./manifest.ts";
 import { own } from "./own.ts";
 import { isRefusal, refuse, type Refusal } from "./primitives/primitive.ts";
 
@@ -91,18 +91,31 @@ function membersOf(ruleset: Pick<Ruleset, "health">, scope: ExprRecord): number 
   return typeof v === "number" ? v : 0;
 }
 
+/**
+ * A means' `list` value (house decision #159): its list's text and whole numbers (as their digits), or its text split
+ * at commas, each trimmed, the empty ones left out, at most MAX_MEANS_LIST.
+ */
+function listOf(x: unknown): string[] {
+  const items = Array.isArray(x) ? x : typeof x === "string" ? x.split(",") : [];
+  return items
+    .flatMap((i) => (typeof i === "string" ? [i.trim()] : Number.isSafeInteger(i) ? [String(i)] : []))
+    .filter((i) => i !== "")
+    .slice(0, MAX_MEANS_LIST);
+}
+
 /** What the strike reads of a means: each declared value's key, 0, false or "" where the means has none of that type. */
 export function meansValues({
   values,
   means,
 }: {
-  values: Readonly<Record<string, { key: string; type: "int" | "bool" | "text" }>>;
+  values: Readonly<Record<string, { key: string; type: "int" | "bool" | "text" | "list" }>>;
   means: Readonly<Record<string, unknown>>;
 }): ExprRecord {
   const out: Record<string, ExprValue> = {};
   for (const [id, v] of Object.entries(values)) {
     const x = own(means, v.key);
-    if (v.type === "bool") out[id] = typeof x === "boolean" ? x : false;
+    if (v.type === "list") out[id] = listOf(x);
+    else if (v.type === "bool") out[id] = typeof x === "boolean" ? x : false;
     else if (v.type === "text") out[id] = typeof x === "string" ? x : "";
     else out[id] = typeof x === "number" && Number.isInteger(x) ? x : 0;
   }

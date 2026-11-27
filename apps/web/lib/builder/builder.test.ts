@@ -67,6 +67,17 @@ test("the preview runs the creation and derives the numbers; incomplete answers 
   assert.ok(partial.problems.some((p) => p.path === "calling"));
 });
 
+test("the preview finds entries as the rules route serves them: no catalogue record is null, effects a list", () => {
+  const served: RulesEntry[] = entries.map((e) => ({ ...e, effects: [], record: null }));
+  const answers = {
+    lineage: ["reedfolk"],
+    calling: ["wayfinder"],
+    scores: { "attr.str": 12, "attr.dex": 9, "attr.con": 15 },
+    identity: { name: "Lyra", level: 2 },
+  };
+  assert.deepEqual(previewBuild({ ruleset, entity: "character", answers, entries: served }).problems, []);
+});
+
 test("the preview reads the room's campaign values, and the ruleset's defaults where the room has set none", () => {
   const tiered = Ruleset.parse(SAMPLE_TIERED);
   const answers = {

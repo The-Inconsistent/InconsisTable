@@ -128,10 +128,12 @@ export function previewBuild({
   const lookup = ({ type, key }: { type: string; key: string }) => {
     const e = entries.find((x) => x.type === type && x.key === key);
     if (!e) return undefined;
+    // The route sends null for what the entry lacks; the pack schema reads an absent key.
     const parsed = PackEntry.safeParse({
       ...e,
       level: e.level ?? undefined,
       cite: e.cite ?? undefined,
+      record: e.record ?? undefined,
     });
     return parsed.success ? parsed.data : undefined;
   };

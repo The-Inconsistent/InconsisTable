@@ -2,6 +2,8 @@ import type { Actor } from "@inconsistable/core-schema";
 import {
   actorScope,
   campaignValues,
+  evaluate,
+  parseExpr,
   planLookup,
   type CompiledRuleset,
   type LookupPlan,
@@ -53,7 +55,10 @@ export function targetsOf<A extends Pick<Actor, "id" | "entity">>({
   };
 }
 
-/** What the typed result does to the target, as the server will work it out; null without a whole number or a target. */
+/**
+ * What the typed result does to the target, as the server will work it out; null without a whole number or a target.
+ * `shockless`: the target's harm profile says it never takes shock, so the server leaves a hit's shock out (#163).
+ */
 export function previewOf({
   compiled,
   tableId,
@@ -70,7 +75,7 @@ export function previewOf({
   target: Target | undefined;
   characters: number;
   campaign: Readonly<Record<string, unknown>>;
-}): LookupPlan | null {
+}): (LookupPlan & { shockless: boolean }) | null {
   if (target === undefined || result === null || !Number.isInteger(result)) return null;
   const scope = actorScope({
     fields: target.fields,
@@ -79,7 +84,14 @@ export function previewOf({
     party: { characters },
     campaign: campaignValues({ compiled, stored: campaign }),
   });
-  return planLookup({ compiled, tableId, result, inputs, scope });
+  const profile = compiled.ruleset.health.harm?.profiles.find((p) => p.entities.includes(target.entity));
+  let shockless = false;
+  try {
+    shockless = profile?.shockless !== undefined && evaluate({ node: parseExpr(profile.shockless), scope }) === true;
+  } catch {
+    // A value the GM side cannot read yet: the preview shows the shock, the server decides.
+  }
+  return { ...planLookup({ compiled, tableId, result, inputs, scope }), shockless };
 }
 
 /** Steps in order, each run of equal ones as one line with its count ("Dazed ×2"). */

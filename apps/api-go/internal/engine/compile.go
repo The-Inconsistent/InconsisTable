@@ -377,6 +377,13 @@ func (c *compiler) entityScope(e *EntityType, withDerived, withRes bool) map[str
 			fields[id] = intType
 		}
 		scope["res"] = RecordType{fields}
+		elsewhere := map[string]ExprType{}
+		for _, x := range c.r.Resources {
+			if _, carried := fields[x.ID]; !carried {
+				elsewhere[x.ID] = intType
+			}
+		}
+		scope[resElsewhere] = RecordType{elsewhere}
 	}
 	return scope
 }

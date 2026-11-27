@@ -1715,14 +1715,14 @@ const LOOKUP_MANIFEST = {
       },
     ),
     plain: tbl("2d6", [span("x", 2, 7), span("y", 8, 12)]),
-    // A die the GM types (house decision #164) and has() of a resource no type declares (#166).
+    // A die the GM types (house decision #164) and has() of a resource the target does not carry, a party pool (#166).
     more: tbl(
       "d6",
       [
         span("m", 1, 3, {
           apply: [
             { kind: "resource", resource: "luck", by: "ctx.more", when: "has(res.luck)" },
-            { kind: "resource", resource: "hp", by: "-ctx.more", when: "!has(res.gone)" },
+            { kind: "resource", resource: "hp", by: "-ctx.more", when: "!has(res.dread)" },
           ],
         }),
         span("n", 4, 6, { apply: [{ kind: "pool", pool: "dread", by: "has(res.hp) ? 1 : 2" }] }),

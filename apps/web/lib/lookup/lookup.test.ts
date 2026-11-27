@@ -18,6 +18,15 @@ const hal = {
   resources: {},
 };
 
+test("a preview says a target that never takes shock has it left out (house decision #163)", () => {
+  const brute = { ...hal, id: "b", entity: "brute", derived: { limit: 5, strainCap: 0 } };
+  const at = (target: typeof hal) =>
+    previewOf({ compiled, tableId: "blow", result: 44, inputs: {}, target, characters: 1, campaign: {} })?.shockless;
+  assert.equal(at(brute), true);
+  assert.equal(at({ ...brute, derived: { limit: 5, strainCap: 1 } }), false);
+  assert.equal(at(hal), false);
+});
+
 test("a preview is the line the server will read, for the picked target", () => {
   const plan = previewOf({
     compiled,

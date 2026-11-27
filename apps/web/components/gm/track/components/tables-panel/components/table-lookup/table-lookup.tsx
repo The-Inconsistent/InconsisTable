@@ -119,7 +119,13 @@ export function TableLookup(props: TableLookupProps) {
       case "harm":
         return [
           ...(s.wounds !== 0 && harm ? [t("change", { by: s.wounds, label: label(harm.wounds) })] : []),
-          ...(s.shock !== 0 && harm?.shock ? [t("change", { by: s.shock, label: label(harm.shock) })] : []),
+          ...(s.shock !== 0 && harm?.shock
+            ? [
+                plan?.shockless
+                  ? t("immune", { label: label(harm.shock) })
+                  : t("change", { by: s.shock, label: label(harm.shock) }),
+              ]
+            : []),
         ];
       case "condition": {
         const name = ruleset.conditions.find((c) => c.id === s.condition)?.label ?? s.condition;

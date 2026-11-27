@@ -128,6 +128,8 @@ test("ids, references and engine constraints", () => {
   const character = m.entities[0];
   assert.ok(character?.fields !== undefined);
   character.fields["derived"] = { type: "int", label: "Bad" };
+  character.fields["result"] = { type: "int", label: "Bad" };
+  character.fields["build"] = { type: "int", label: "Bad" };
   character.fields["attr"] = { type: "int", label: "Clash" };
   character.fields["patron"] = { type: "ref", label: "Patron", entity: "deity" };
   m.health = {
@@ -140,6 +142,8 @@ test("ids, references and engine constraints", () => {
   const list = problems(m);
   hasProblem(list, "resources[7].id", /duplicate id "hp"/);
   hasProblem(list, "entities[0].fields.derived", /reserved/);
+  hasProblem(list, "entities[0].fields.result", /reserved/);
+  hasProblem(list, "entities[0].fields.build", /reserved/);
   hasProblem(list, "entities[0].fields.attr", /also a group/);
   hasProblem(list, "entities[0].fields.patron.entity", /unknown entity "deity"/);
   hasProblem(list, "health.tracks[1].resource", /entity-scoped/);

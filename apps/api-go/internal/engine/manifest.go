@@ -1098,7 +1098,9 @@ func (p *problems) pool(t *Test, path string) {
 	}
 }
 
-var reservedRoots = []string{"derived", "res", "party", "campaign", "ctx", "max", "min", "true", "false"}
+// result is a Test's report as its offers read it and build the builder's draft in a notice's scope: a field of either
+// name would be shadowed or judged public.
+var reservedRoots = []string{"derived", "result", "build", "res", "party", "campaign", "ctx", "max", "min", "true", "false"}
 
 // Words an expression reads as themselves, so a campaign field may not take them.
 var expressionWords = []string{"true", "false", "max", "min"}

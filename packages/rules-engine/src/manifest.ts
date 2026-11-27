@@ -1721,9 +1721,15 @@ export const Ruleset = z.object({
 export type Ruleset = z.infer<typeof Ruleset>;
 export type RulesetInput = z.input<typeof Ruleset>;
 
-/** Scope roots the expression language reserves; a field id may not start with one. */
+/**
+ * Scope roots the expression language reserves; a field id may not start with one. `result` is a Test's report as its
+ * offers read it and `build` the builder's draft in a notice's scope: a field of either name would be shadowed or judged
+ * public.
+ */
 export const RESERVED_ROOTS: ReadonlySet<string> = new Set([
   "derived",
+  "result",
+  "build",
   "res",
   "party",
   "campaign",

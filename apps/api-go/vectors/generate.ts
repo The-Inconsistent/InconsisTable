@@ -2280,6 +2280,9 @@ const WIDGET_CRAFTED: object[] = [
 
 const CRAFTED: object[] = [
   ...WIDGET_CRAFTED,
+  // result and build are roots of a Test's offers and a notice's scope: a field may not take either (#227).
+  withFields({ result: { type: "int", label: "R", visibility: "gm" } }),
+  withFields({ "build.x": { type: "int", label: "B" } }),
   // An entity id declared twice: both engines check a creation step against the first definition.
   { entities: [pcBase, { ...pcBase, base: "item" }], creation: [step({})] },
   { entities: [{ ...pcBase, base: "item" }, pcBase], creation: [step({})] },

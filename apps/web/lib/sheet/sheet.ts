@@ -252,8 +252,9 @@ export function pageOfCite({ cite, ruleset }: { cite: string; ruleset: Ruleset }
   if (!m || !Number.isInteger(page) || page < 1) return null;
   const name = (m[1] ?? "").trim().toLowerCase();
   const source =
-    ruleset.sources.find((s) => name !== "" && (s.id === name || s.title.toLowerCase().startsWith(name))) ??
-    (name === "" && ruleset.sources.length === 1 ? ruleset.sources[0] : undefined);
+    ruleset.sources.find(
+      (s) => name !== "" && (s.id.toLowerCase() === name || s.title.toLowerCase().startsWith(name)),
+    ) ?? (name === "" && ruleset.sources.length === 1 ? ruleset.sources[0] : undefined);
   return source ? { source: source.id, page } : null;
 }
 

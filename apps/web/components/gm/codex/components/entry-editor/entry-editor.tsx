@@ -176,12 +176,7 @@ export function EntryEditor(props: EntryEditorProps) {
       {entry.source && (
         <p className="row small dim" data-field="source">
           <span>{t("madeFrom", { key: entry.source.key })}</span>
-          {entry.source.cite &&
-            (ruleset && props.books && props.requestPage ? (
-              <Cite cite={entry.source.cite} ruleset={ruleset} books={props.books} requestPage={props.requestPage} />
-            ) : (
-              <span>{entry.source.cite}</span>
-            ))}
+          {entry.source.cite && <Cite cite={entry.source.cite} />}
         </p>
       )}
       {(parents.length > 0 || entry.parentId !== null) && (

@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useState, type ChangeEvent, type FormEvent } from "react";
 
+import { Cite } from "@/components/ui/cite/cite";
 import {
   gearName,
   setGmMod,
@@ -62,7 +63,10 @@ export function GmRulings() {
     <section className="stack lb-gm" aria-labelledby="lb-gm">
       <h3 id="lb-gm" className="lb-sub">
         {t("title")}
-        <span className="small dim"> · {params.cites.gm}</span>
+        <span className="small dim">
+          {" "}
+          · <Cite cite={params.cites.gm} />
+        </span>
       </h3>
 
       <div className="row">

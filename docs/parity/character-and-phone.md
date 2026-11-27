@@ -161,8 +161,8 @@ The source draws the whole sheet from one component (wc/ui/book-sheet/book-sheet
 | 106 | MISSION view: framework, bonus, patron, KIND OF GAME and LEAVE OUT, adventures ACTIVE, OFFERED, DONE, FAILED, NEXT SESSION with .ics | mission.tsx:61-159 | PARTIAL: safety lines and veils (SafetySection) and quest status; no framework text (the Tier is the only campaign value shown), no .ics link found | R (framework as a quest or entry body) | S |
 | 107 | Recaps: all, newest first, latest open | mission.tsx:134-159 | HAS: notebook recaps; RecapCard "last time" | none | – |
 | 108 | RULES tab: searchable reference, filters COND, WEAPON, ARMOUR, ACTIONS, STATS, TESTS | rules-ref.tsx:17-55 | PARTIAL: RulesReader (tw/rules/rules-reader): conditions, decisions, pack entries, search and type filter. No rule text exists to read | see Decision 1 | – |
-| 109 | Tap a Condition, weapon trait or term to read its rule (RuleLink, 63 terms) | rule-link; term.tsx | PARTIAL: Cite opens the GM tablet's book page over `book:request` (tw/ui/cite/cite.tsx:20-59), but no GM UI calls `serveBooks` (T/apps/web/hooks/use-table/use-table.ts:228) | S (GM render side) | M |
-| 110 | Book page cites open the page while the GM serves that book | page-cite.tsx:11-27 | PARTIAL: same as row 109 | S | M |
+| 109 | Tap a Condition, weapon trait or term to read its rule (RuleLink, 63 terms) | rule-link; term.tsx | HAS for the page (#221): every cite at the table is `Cite`, read from `CiteProvider`, and opens the page a serving device draws (`T/hooks/use-book-server`, `T/gm/book-shelf`); the meaning card is #222 | – | – |
+| 110 | Book page cites open the page while the GM serves that book | page-cite.tsx:11-27 | HAS (#221): `T/ui/cite/cite.tsx`, the page sheet with ZOOM; house decision #147 | – | – |
 | 111 | MAP tab | none in the source (printed maps are physical, S/CLAUDE.md) | stub (`tabPending`); no code | none | – |
 | 112 | Notebook the player writes in | none in the source (only WHO YOU ARE) | the target notebook is read-only (notebook.tsx) | none | – |
 

@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 
 import type { BuildStep, LedgerRow } from "@inconsistable/rules-engine";
 
+import { Cite } from "@/components/ui/cite/cite";
 import { ledgerGroups } from "@/lib/ledger/ledger";
 
 import { useLedger } from "../../ledger-context";
@@ -91,7 +92,12 @@ export function LedgerPanel({ onGo }: LedgerPanelProps) {
             {resolved.effects.map((e, i) => (
               <li key={i}>
                 {e.what}
-                {e.cite && <span className="small dim"> · {e.cite}</span>}
+                {e.cite && (
+                  <span className="small dim">
+                    {" "}
+                    · <Cite cite={e.cite} />
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -141,7 +147,7 @@ function Rows({ title, rows }: RowsProps) {
           <li key={i}>
             <span className="lb-row-text">
               <span>{r.what}</span>
-              {r.cite && <span className="small dim">{r.cite}</span>}
+              {r.cite && <Cite cite={r.cite} />}
             </span>
             <span className="lb-xp">{r.xp}</span>
           </li>

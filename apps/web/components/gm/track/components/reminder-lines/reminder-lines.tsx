@@ -5,6 +5,7 @@ import { EncounterReminder, type Encounter } from "@inconsistable/core-schema";
 import type { SidesInitiative } from "@inconsistable/rules-engine";
 
 import type { Run } from "@/components/gm/track/constants";
+import { Cite } from "@/components/ui/cite/cite";
 import { endingThisTurn } from "@/lib/reminders/reminders";
 
 type ReminderLinesProps = {
@@ -64,7 +65,7 @@ export function ReminderLines({ encounter, sides, run }: ReminderLinesProps) {
                     )}
                     {l.text}
                   </span>
-                  {l.cite !== null && <span className="dim small">{l.cite}</span>}
+                  {l.cite !== null && <Cite cite={l.cite} />}
                 </li>
               ))}
               {endingHere && (

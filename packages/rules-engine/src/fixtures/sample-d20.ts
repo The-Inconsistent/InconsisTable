@@ -735,7 +735,7 @@ const layout0_1_11 = SAMPLE_D20_0_1_11.layout ?? {};
  * level. No creature row: a creature's most Vigour is the GM's here, so the screen's seat is served no Vigour for one.
  * 0.1.11 hashes as it did.
  */
-export const SAMPLE_D20: RulesetInput = {
+export const SAMPLE_D20_0_1_12: RulesetInput = {
   ...SAMPLE_D20_0_1_11,
   version: "0.1.12",
   layout: {
@@ -748,4 +748,18 @@ export const SAMPLE_D20: RulesetInput = {
       ],
     },
   },
+};
+
+/**
+ * 0.1.13 (#221): a second book whose PDF starts two pages before its page 1 (`pageOffset`), and Braced cited in it, so
+ * a served page can be shown to land on the printed page plus the offset. 0.1.12 hashes as it did.
+ */
+export const SAMPLE_D20: RulesetInput = {
+  ...SAMPLE_D20_0_1_12,
+  version: "0.1.13",
+  sources: [
+    ...SAMPLE_D20_0_1_12.sources,
+    { id: "companion", title: "Sample d20 Companion", license: "private", pageOffset: 2 },
+  ],
+  conditions: SAMPLE_D20_0_1_12.conditions?.map((c) => (c.id === "braced" ? { ...c, cite: "Companion p.3" } : c)),
 };

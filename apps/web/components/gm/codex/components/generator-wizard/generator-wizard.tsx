@@ -12,6 +12,7 @@ import {
   type StepValue,
 } from "@inconsistable/rules-engine";
 
+import { Cite } from "@/components/ui/cite/cite";
 import type { RulesEntry } from "@/lib/library/library";
 
 import { StepInput } from "./components/step-input/step-input";
@@ -109,7 +110,7 @@ export function GeneratorWizard({
     <section className="card stack generator-wizard" aria-label={g.label}>
       <div className="row between">
         <h3 className="head">{g.label}</h3>
-        {g.cite && <span className="small dim">{g.cite}</span>}
+        {g.cite && <Cite cite={g.cite} />}
       </div>
       <ol className="stack">
         {g.steps.map((s, j) =>

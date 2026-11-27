@@ -1609,7 +1609,7 @@ for (const nextSessionAt of [
   record("Action", { type: "campaign.update", nextSessionAt });
 }
 
-for (const source of ["sample", "a-b-9", "-a", "A", "", "x".repeat(60), "x".repeat(61), 1, null]) {
+for (const source of ["sample", "a-b-9", "coreRules", "-a", "A", "", "x".repeat(64), "x".repeat(65), 1, null]) {
   for (const page of [1, 0, 5000, 5001, 1.5, "1", null]) record("BookPage", { source, page });
   record("BookServing", { sources: [source] });
 }

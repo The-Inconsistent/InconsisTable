@@ -584,7 +584,7 @@ const MaxPageBytes = 1_500_000
 // MaxServedSources caps the sources one GM socket says it serves.
 const MaxServedSources = 100
 
-var bookSource = schema.String().Min(1).Max(60).Regex(`^[a-z0-9][a-z0-9-]*$`, "Invalid string: must match pattern /^[a-z0-9][a-z0-9-]*$/")
+var bookSource = schema.String().Min(1).Max(64).Regex(`^[a-z0-9][a-zA-Z0-9-]*$`, "Invalid string: must match pattern /^[a-z0-9][a-zA-Z0-9-]*$/")
 
 var (
 	// BookPage is a seat's request for one page.

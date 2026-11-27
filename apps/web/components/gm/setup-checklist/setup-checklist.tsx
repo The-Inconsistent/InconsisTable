@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { checklistTicks, type ChecklistRoom, type ChecklistStep } from "@inconsistable/rules-engine";
 
+import { Cite } from "@/components/ui/cite/cite";
 import { TermMark, type TermEnv } from "@/components/ui/term-card/term-card";
 
 type SetupChecklistProps = {
@@ -58,7 +59,12 @@ export function SetupChecklist({ steps, room, onGo, terms }: SetupChecklistProps
                 </span>
                 <span className="small dim">
                   {t("now", { count })}
-                  {step.cite && ` · ${step.cite}`}
+                  {step.cite && (
+                    <>
+                      {" · "}
+                      <Cite cite={step.cite} />
+                    </>
+                  )}
                 </span>
                 {step.note && !terms && <span className="small">{step.note}</span>}
               </span>

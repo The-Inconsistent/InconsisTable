@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 
 import { wargearMatches, type BuildChoicePrompt } from "@inconsistable/rules-engine";
 
+import { Cite } from "@/components/ui/cite/cite";
 import { answerChoice, declineChoice } from "@/lib/ledger/ledger";
 
 import { useLedger, useRowOf } from "../../ledger-context";
@@ -72,7 +73,7 @@ export function ChoiceCard({ prompt }: ChoiceCardProps) {
     <fieldset className="lb-choice stack">
       <legend className="pick-name">{prompt.what}</legend>
       <p className="small row">
-        {prompt.cite && <span className="dim">{prompt.cite}</span>}
+        {prompt.cite && <Cite cite={prompt.cite} />}
         <strong data-state={left > 0 ? "open" : "done"}>{left > 0 ? t("toPick", { count: left }) : t("chosen")}</strong>
         {prompt.of && pick.kind !== "option" && <span className="dim">{prompt.of}</span>}
       </p>

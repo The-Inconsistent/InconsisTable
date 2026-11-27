@@ -4,6 +4,7 @@ import type { ChangeEvent } from "react";
 
 import type { CreationStep, EntityType } from "@inconsistable/rules-engine";
 
+import { Cite } from "@/components/ui/cite/cite";
 import type { RulesEntry } from "@/lib/library/library";
 import { summaryOf } from "@/lib/builder/builder";
 
@@ -44,7 +45,7 @@ export function ChooseStep({ step, entries, def, value, onChange }: ChooseStepPr
           <span className="stack" style={{ gap: 2 }}>
             <span className="pick-name">{e.name}</span>
             <span className="small dim">{summaryOf({ entry: e, def })}</span>
-            {e.cite && <span className="small dim">{e.cite}</span>}
+            {e.cite && <Cite cite={e.cite} />}
           </span>
         </label>
       ))}

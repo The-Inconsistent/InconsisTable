@@ -124,7 +124,7 @@ Read on 2026-11-21 from Auspex (`~/antigravity/wrath_glory`) against InconsisTab
 | 106 | Mentions inside recaps and session notes | `session-history.tsx:136-147` | PARTIAL: recaps are plain text (`T/gm/party/recaps.tsx`) | Sc | S |
 | 107 | What each seat receives of each kind: no factions; shown adventures without premise or scenes; revealed places without GM notes or hazards; NPCs without secrets, stat source, faction; handouts by audience; only items given to you; every recap, no notes; no custom threats | `SH/codex.ts:365-401` | HAS, generalised per field (`GO/view`; HD#69-#76; `CS/state.ts` `CodexEntry`) | – | – |
 | 108 | Rules browser: GM also sees `gm` entries; players do not; TV none | `A/campaign/campaign.controller.ts:312-319`; `SH/rules.ts` | HAS `main.go:122`; `T/rules/rules-reader/rules-reader.tsx:23`. TV exclusion not checked | – | – |
-| 109 | BOOKS tab: GM loads own PDFs on this tablet; a player's cite tap shows that page; nothing uploaded | `W/gm/books/books.tsx:13`; `W/ui/books-provider/books-provider.tsx:21`; `A/table/table.gateway.ts:128-160` | PARTIAL: socket relay HAS (`GO/table/books.go`; `T/hooks/use-table/use-table.ts:199-233`); no screen calls `serveBooks`; no PDF renderer in `package.json` | Sc plus a browser PDF renderer | M |
+| 109 | BOOKS tab: GM loads own PDFs on this tablet; a player's cite tap shows that page; nothing uploaded | `W/gm/books/books.tsx:13`; `W/ui/books-provider/books-provider.tsx:21`; `A/table/table.gateway.ts:128-160` | HAS (#221): the GM's BOOKS tab and RUN THE TABLE's for the owner without a GM (`T/gm/book-shelf/book-shelf.tsx`), `T/hooks/use-book-server` with pdf.js (`pdfjs-dist`, loaded on the first request); house decision #147 | – | – |
 | 110 | Cites open the page sheet | `W/ui/page-cite` | HAS `T/ui/cite/cite.tsx` | – | – |
 | **Phones and the TV** | | | | | |
 | 111 | Phone INBOX: what is new since last visit, MARK ALL READ | `W/player/player-app/components/intel/components/inbox/inbox.tsx:22-50`; `lib/seen` | MISSING | Sc (local "seen") | S |
@@ -171,7 +171,7 @@ Source GM tabs are `SCENE, STORY, CODEX, PARTY, RULES, BOOKS, SETUP` (`W/gm/gm-a
 | CODEX | Sub-tabs per kind plus THREATS, search, one-tap reveal, tree, pickers, generators, picture, print | `codex` (`T/gm/codex`) | Rows 53, 81-82, 87-89, 91-94, 97-101, 104-106, 129-130 |
 | PARTY | Session band, journal, Agent cards, MORE (tents, screen QR, access), ASCENSION, RESPITE | `party` | Rows 21, 24, 31-36, 37, 39-40 (Agents and dossier are other domains) |
 | RULES | Rules browser | `rules` (reader plus campaign settings, ruleset, World, packs) | Parity HAS; target adds ruleset pinning |
-| BOOKS | Serve own PDFs for page relay | none | Row 109 |
+| BOOKS | Serve own PDFs for page relay | `books` (`T/gm/book-shelf`) | none |
 | SETUP | Checklist, rename, Framework fields, Kind and Limits, export, archive, delete | `party` bottom section plus `rules` | Rows 8-11, 13-14, 16, 124-125 |
 | Header and overlays | Seals, spend badge, CALL A TEST, WHISPER, admin chip, theme, tally, refusal toast | `gm-app.tsx` header plus request bar | Rows 72, 118-122 |
 | Player INTEL (INBOX, MISSION, ARCHIVE, entry sheet, SHOW THE TABLE) | Phone reading side | notebook (`T/player/notebook/notebook.tsx`) | Rows 39, 111-115 |

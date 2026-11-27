@@ -28,7 +28,7 @@ test("a derived value breaks down into its base and each condition, adding up to
     lines?.map((l) => [l.source, l.cite]),
     [
       ["Defense", "Sample p.4"],
-      ["Braced", "Sample p.8"],
+      ["Braced", "Companion p.3"],
       ["Dazed", "Sample p.8"],
     ],
   );

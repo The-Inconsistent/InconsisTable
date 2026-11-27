@@ -189,9 +189,15 @@ test("only the rests some resource resets on are offered", () => {
 test("a cite becomes a page of the source it names, or of the only source", () => {
   assert.deepEqual(pageOfCite({ cite: "Sample p.164", ruleset }), { source: "sample", page: 164 });
   assert.deepEqual(pageOfCite({ cite: "Sample d20 p.8-9", ruleset }), { source: "sample", page: 8 });
-  assert.deepEqual(pageOfCite({ cite: "p.12", ruleset }), { source: "sample", page: 12 });
+  assert.deepEqual(pageOfCite({ cite: "Companion p.3", ruleset }), { source: "companion", page: 3 });
+  // A cite without a book's name is the only source's, and nobody's when there are two.
+  assert.deepEqual(pageOfCite({ cite: "p.12", ruleset: plain }), { source: "sample", page: 12 });
+  assert.equal(pageOfCite({ cite: "p.12", ruleset }), null);
   assert.equal(pageOfCite({ cite: "Other p.3", ruleset }), null);
   assert.equal(pageOfCite({ cite: "no page", ruleset }), null);
+  // A camelCase source id still matches by id.
+  const camel = { ...plain, sources: [{ ...plain.sources[0]!, id: "coreRules", title: "Unrelated" }] };
+  assert.deepEqual(pageOfCite({ cite: "coreRules p.12", ruleset: camel }), { source: "coreRules", page: 12 });
 });
 
 test("a resource's bounds are worked out from the character, or not at all", () => {

@@ -3623,6 +3623,12 @@ fieldset:disabled select {
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
 }
+/* PRINT's dialog (issue #4): a card's corners, never a button's (felt's pill would clip its heading and buttons). */
+.ledger-confirm.print-dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-width: none;
+  border-radius: var(--radius-card);
+}
 /* A user's seats and a room's admin log: plain lines, no bullets (house decision #94). */
 .admin-seats,
 .admin-events {

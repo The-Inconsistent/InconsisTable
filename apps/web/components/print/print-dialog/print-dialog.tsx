@@ -111,7 +111,7 @@ export function PrintDialog({ label, ariaLabel, title, papers, paperKey, hint, f
       <button type="button" className="btn sm" aria-label={ariaLabel} onClick={handleOpen}>
         {label}
       </button>
-      <dialog ref={dialog} className="ledger-confirm" aria-labelledby={titleId} onClose={reset}>
+      <dialog ref={dialog} className="ledger-confirm print-dialog" aria-labelledby={titleId} onClose={reset}>
         <div className="stack">
           <div className="row between">
             <h2 className="head" id={titleId}>

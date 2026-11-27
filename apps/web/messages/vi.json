@@ -2963,6 +2963,7 @@
     "aCharacter": "Một [character]",
     "reshuffle": "Xáo lại",
     "reshuffleLabel": "Xáo lại {title}: thu hết bài về",
+    "reshuffleWarning": "Không ai hoàn tác được một lần chia.",
     "heading": "Bảng ngẫu nhiên · {count}",
     "orTyped": "hoặc tôi đã gieo",
     "lookupsFor": "Bảng cho {name}",

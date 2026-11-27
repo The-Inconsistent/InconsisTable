@@ -94,13 +94,13 @@ _Avoid_: Snapshot (that is the unfiltered whole), filtered state, player view
 The read-only token seat of the TV that shows the shared view.
 _Avoid_: TV seat, display
 
-**Realm**:
-The setting a module's rooms are played in: its shared lore (places, factions, NPCs) and its handout styles.
-_Avoid_: World, setting (alone), universe, campaign
+**World**:
+The setting a campaign is played in: its theme, the words it uses in place of the ruleset's, and its shared lore.
+_Avoid_: Setting (alone), universe, campaign
 
 **Theme**:
-The look of the app (colours, type, texture) as validated tokens; there is one base theme, and a module brings its own.
-_Avoid_: Skin, style, Realm (that is the lore)
+The look of the app (colours, type, texture); there is one base theme, and a World may bring its own.
+_Avoid_: Skin, style, World (that is the whole setting)
 
 ### Written decisions
 
@@ -126,21 +126,21 @@ _Avoid_: Custom, house rules (see House rule)
 **Pack**:
 A user-imported set of entries (creatures, gear, options, a board game's expansion) for one ruleset, with a license that
 decides who may see it.
-_Avoid_: Module (that is the whole game), sourcebook, expansion
+_Avoid_: Sourcebook, expansion
 
-**Module**:
-One game as a user picks, owns and manages it: its ruleset, packs, realm, theme and words, released together as
-immutable versions; a campaign pins one module version.
-_Avoid_: Game, system, bundle, plugin
+**Game module**:
+The list that makes one game: a ruleset version, the pack versions that go with it and, optionally, a World version,
+which may carry the documents themselves; a room made from it pins those parts, not the module.
+_Avoid_: Module (alone), bundle, plugin, system
 
 **Gallery**:
-The cards NEW ROOM opens on: the approved, open-license modules anyone may pick, beside the user's own.
+The cards NEW ROOM opens on to choose a game: the user's own game modules, and later the approved open-license ones.
 _Avoid_: Store, marketplace, catalog
 
 **Skeleton**:
-A public module version with a theme, words and empty rule slots for a game whose rules are not openly licensed; a GM
-forks it and fills the slots from their own book into a private module. It names no game or publisher.
-_Avoid_: Template, starter, stub
+A public game module for a game whose rules are not openly licensed: a ruleset template with empty cites and a World of
+its genre, which a GM forks and fills from their own book. It names no game or publisher.
+_Avoid_: Starter, stub
 
 **Game module**:
 The list that makes one game of a user's parts: one ruleset version, the pack versions that go with it and optionally a

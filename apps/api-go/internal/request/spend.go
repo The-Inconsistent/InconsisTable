@@ -139,7 +139,7 @@ func sendSpend(ctx context.Context, tx core.Conn, c cs.Ctx, rc *ruleset.Context,
 	if asked {
 		return cs.Result{}, cs.Fail("spendAsked")
 	}
-	if err := underLimit(ctx, tx, c, max); err != nil {
+	if err := underLimit(ctx, tx, c, actorID, max); err != nil {
 		return cs.Result{}, err
 	}
 	stored, err := json.Marshal(inputs)

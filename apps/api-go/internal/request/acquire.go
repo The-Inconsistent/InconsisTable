@@ -71,7 +71,7 @@ func sendAcquire(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, max i
 	if asked {
 		return cs.Result{}, cs.Fail("acquireAsked")
 	}
-	if err := underLimit(ctx, tx, c, max); err != nil {
+	if err := underLimit(ctx, tx, c, ask.ActorID, max); err != nil {
 		return cs.Result{}, err
 	}
 	var id string

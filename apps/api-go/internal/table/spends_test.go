@@ -172,14 +172,18 @@ func TestASpendThePoolCannotPayAtApprovalStaysPending(t *testing.T) {
 	})
 }
 
-func TestTheRulesetCapsPendingAsksPerUser(t *testing.T) {
+// The cap counts per character, as Auspex's three per Agent (house decision #169): a user holding two characters may
+// have the cap waiting on each, and the next ask on either is refused.
+func TestTheRulesetCapsPendingAsksPerCharacter(t *testing.T) {
 	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
 		p := newSpendsPlay(t, tx, 1)
-		wren, _, _ := p.sidesFight()
-		asker := p.room.Seat(t, tx, dbtest.User(t, tx, "P"), wren)
+		wren, wick, _ := p.sidesFight()
+		asker := p.room.Seat(t, tx, dbtest.User(t, tx, "P"), wren, wick)
 		p.fill("momentum", 5)
 		p.send(asker, ask(wren, "rally", map[string]any{"dice": 1.0}))
+		p.send(asker, ask(wick, "rally", map[string]any{"dice": 1.0}))
 		p.refused(asker, ask(wren, "jump", nil), "requestLimit")
+		p.refused(asker, ask(wick, "jump", nil), "requestLimit")
 	})
 }
 

@@ -1707,7 +1707,7 @@ export const Ruleset = z.object({
   notices: z.array(NoticeRule).max(MAX_NOTICES).optional(),
   /** What players may ask the GM to spend, and the GM do in one tap (house decision #84). Absent: none. */
   spends: z.array(Spend).max(50).optional(),
-  /** `max`: pending requests per user. Absent: the platform's five (house decision #43). */
+  /** `max`: pending requests per character (house decision #169). Absent: the platform's five (house decision #43). */
   requests: z.object({ max: z.int().min(1).max(20) }).optional(),
   /** The setup checklist the GM works through (house decision #90). Absent: none. */
   checklist: z.array(ChecklistStep).max(MAX_CHECKLIST_STEPS).optional(),

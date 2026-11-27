@@ -1782,7 +1782,7 @@
     "pictureNotFound": "Picture not found",
     "requestNotFound": "Request not found",
     "requestAnswered": "That request was already answered.",
-    "requestLimit": "You have too many requests waiting.",
+    "requestLimit": "This character has too many requests waiting.",
     "requestNotAllowed": "Players can't spend from that.",
     "requestSpendYourself": "You can spend that yourself.",
     "changeBetweenSessions": "Change how the table sits between sessions.",

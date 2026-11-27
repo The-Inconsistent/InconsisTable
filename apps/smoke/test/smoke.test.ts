@@ -974,7 +974,7 @@ test("clocks: the server clamps a tick, players and the screen see only the part
 });
 
 test("spend requests: a player asks, the GM approves or denies, nobody else sees or cancels it", async () => {
-  const { owner, ana, ben, hero, bram } = await testRoom("Requests");
+  const { owner, ana, ben, hero, bram, campaignId } = await testRoom("Requests");
   const spare = (state: { actors: { id: string; resources: Record<string, number> }[] }, id: string) =>
     state.actors.find((a) => a.id === id)?.resources.tempHp;
   await query("INSERT INTO actor_resource (actor_id, resource_id, value) VALUES ($1, 'tempHp', 5)", [hero]);
@@ -1030,6 +1030,24 @@ test("spend requests: a player asks, the GM approves or denies, nobody else sees
   for (let i = 0; i < 4; i++)
     ok(await ana.send({ type: "request.send", actorId: hero, resourceId: "tempHp", amount: 1 }));
   refused(await ana.send({ type: "request.send", actorId: hero, resourceId: "tempHp", amount: 1 }), "requestLimit");
+  // The limit counts per character (house decision #169): a second character Ana holds has five of its own.
+  const wren = ok(await owner.send({ type: "actor.create", name: "Wren" })).id!;
+  await equip(wren, "character", {
+    fields: { level: 1, "attr.con": 10, "attr.dex": 10, diary: "" },
+    resources: { hp: 8, focus: 1, tempHp: 5 },
+  });
+  await query(
+    `INSERT INTO membership_character (membership_id, actor_id)
+      SELECT id, $2 FROM membership WHERE campaign_id = $1 AND user_id = $3`,
+    [campaignId, wren, uid("ana-Requests")],
+  );
+  const ana2 = connect({ auth: { campaignId, cookie: await device("ana-Requests") } });
+  await ana2.until((s) => s.actors.some((a) => a.id === wren && a.entity === "character"));
+  for (let i = 0; i < 5; i++)
+    ok(await ana2.send({ type: "request.send", actorId: wren, resourceId: "tempHp", amount: 1 }));
+  refused(await ana2.send({ type: "request.send", actorId: wren, resourceId: "tempHp", amount: 1 }), "requestLimit");
+  refused(await ana2.send({ type: "request.send", actorId: hero, resourceId: "tempHp", amount: 1 }), "requestLimit");
+  ana2.socket.close();
   ok(await owner.send({ type: "session.end" }));
   await owner.until((s) => s.requests.length === 0);
   ben.socket.close();

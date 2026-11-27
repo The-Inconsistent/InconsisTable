@@ -194,7 +194,7 @@ export const REFUSALS = {
   // Spend requests
   requestNotFound: "Request not found",
   requestAnswered: "That request was already answered.",
-  requestLimit: "You have too many requests waiting.",
+  requestLimit: "This character has too many requests waiting.",
   requestNotAllowed: "Players can't spend from that.",
   requestSpendYourself: "You can spend that yourself.",
   requestNoPool: "Shared pools aren't at this table yet.",

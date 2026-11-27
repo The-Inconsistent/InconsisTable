@@ -555,7 +555,7 @@ type (
 		Generators []Generator `json:"generators"`
 		// Layout is read for its widget rows (house decision #83).
 		Layout map[string]LayoutDef `json:"layout"`
-		// Spends is what players may ask the GM to spend (house decision #84); Requests.Max caps pending asks per user.
+		// Spends is what players may ask the GM to spend (house decision #84); Requests.Max caps pending asks per character.
 		Spends   []Spend `json:"spends"`
 		Requests *struct {
 			Max float64 `json:"max"`

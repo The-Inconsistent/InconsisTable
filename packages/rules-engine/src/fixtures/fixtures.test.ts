@@ -28,6 +28,7 @@ import {
   SAMPLE_HARM,
   SAMPLE_HARM_0_1_10,
   SAMPLE_HARM_0_1_11,
+  SAMPLE_HARM_0_1_12,
   SAMPLE_HARM_BEFORE_GENERATORS,
   SAMPLE_HARM_BEFORE_HELD,
   SAMPLE_HARM_BEFORE_OWNER,
@@ -63,7 +64,7 @@ const PINNED: Record<string, string> = {
   "sample-pool@0.1.4": "20a6d1b8a8d6031a0d3abfab5e5ceaade06eed14c7748e8226b4b1a68e35e182",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
-  "sample-harm@0.1.12": "eb5dec2209c7691f48cfe4f32ff34a07836290e151c720587ada76a64139abe5",
+  "sample-harm@0.1.13": "fe4731a115b51ad2c37f2637a4607199cbbde99670b4723ba7651d3fe9ac5bf9",
   "sample-duel@0.1.2": "906d7745550475b5fccd07ec48bec073a7db8ad4c1908da63bd3fab06493f614",
 };
 const PINNED_BEFORE_LOOKUPS = "60f2e297678d64e1fc72e4a9598943476c49c1e23c3c8dd5c4df500cc28fae7c";
@@ -167,6 +168,15 @@ test("a ruleset without a foe, carried items or a pool on its strip hashes as be
     assert.ok(result.ok, `${fixture.id}@${fixture.version} compiles`);
     assert.equal(sha256Hex(canonicalJson(result.compiled.ruleset)), pinned);
   }
+});
+
+test("a ruleset without warnings for the fight's log hashes as before them (house decision #190)", () => {
+  const result = compileRuleset(SAMPLE_HARM_0_1_12);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "eb5dec2209c7691f48cfe4f32ff34a07836290e151c720587ada76a64139abe5",
+  );
 });
 
 test("a ruleset without the keys of #177 to #179 hashes as before them", () => {

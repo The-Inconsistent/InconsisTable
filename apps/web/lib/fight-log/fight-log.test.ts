@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { FightLogLine } from "@inconsistable/core-schema";
-import { Ruleset } from "@inconsistable/rules-engine";
+import { compileRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import { SAMPLE_HARM } from "../../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { fightLog, historyLines } from "./fight-log.ts";
@@ -151,4 +151,67 @@ test("HISTORY keeps every action, newest first, and counts the writes the log do
     ],
   );
   assert.deepEqual(lines[1]?.parts, [{ kind: "other", count: 2 }]);
+});
+
+test("a strike's outcome and a health state a hit brings an actor into warn in the ruleset's words (#190)", () => {
+  const made = compileRuleset(SAMPLE_HARM);
+  assert.ok(made.ok);
+  const ogre = { name: "Ogre", entity: "brute", fields: { hide: 4 }, resources: { wounds: 9 }, derived: { limit: 4 } };
+  const pack = { name: "Pack", entity: "swarm", fields: { size: 6 }, resources: { members: 5 }, derived: { limit: 1 } };
+  const actors = new Map<string, typeof ogre | typeof pack>([
+    ["ogre", ogre],
+    ["pack", pack],
+  ]);
+  const strike = (targetId: string, outcome: string) => ({
+    strikeId: "blow",
+    attackerId: "ogre",
+    targetId,
+    means: null,
+    total: 9,
+    outcome,
+    wounds: 1,
+    shock: 0,
+  });
+  const rounds = fightLog({
+    log: [
+      line({
+        id: "thin",
+        strike: strike("pack", "thinned"),
+        writes: [{ target: { actorId: "pack", resource: "members" }, kind: "add", before: 6, after: 5 }],
+      }),
+      line({
+        id: "gone",
+        writes: [
+          { target: { actorId: "ogre", resource: "wounds" }, kind: "add", before: 3, after: 9 },
+          { target: { actorId: "ogre", field: "gone" }, kind: "set", before: null, after: true },
+        ],
+      }),
+      // Already down before this one: no new warning.
+      line({
+        id: "again",
+        writes: [{ target: { actorId: "ogre", resource: "wounds" }, kind: "add", before: 8, after: 9 }],
+      }),
+    ],
+    names: actors,
+    ruleset,
+    compiled: made.compiled,
+  });
+  const warns = rounds[0]!.turns[0]!.lines.map((l) => l.parts.filter((p) => p.kind === "warn"));
+  assert.deepEqual(warns, [
+    [{ kind: "warn", name: "Pack", text: "One of the swarm drops" }],
+    [
+      { kind: "warn", name: "Ogre", text: "Falls: each further wound leaves a scar" },
+      { kind: "warn", name: "Ogre", text: "Destroyed outright" },
+    ],
+    [],
+  ]);
+  // Without the compiled ruleset no health state is told.
+  const gone = line({
+    writes: [{ target: { actorId: "ogre", field: "gone" }, kind: "set", before: null, after: true }],
+  });
+  const bare = fightLog({ log: [gone], names: actors, ruleset });
+  assert.deepEqual(
+    bare[0]!.turns[0]!.lines[0]!.parts.map((p) => p.kind),
+    ["set"],
+  );
 });

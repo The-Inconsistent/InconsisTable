@@ -498,6 +498,7 @@ var healthSchema = schema.Object(
 		schema.Opt("label", label(80)),
 		schema.Req("when", exprSource),
 		schema.Opt("entities", actorTypesSchema),
+		schema.Opt("warn", label(80)),
 	)).Max(20), []any{}),
 	schema.Opt("cite", citeSchema),
 	schema.Opt("harm", harmSchema),
@@ -989,6 +990,7 @@ var (
 			schema.Opt("wounds", exprSource),
 			schema.Opt("shock", exprSource),
 			schema.Opt("cite", citeSchema),
+			schema.Opt("warn", label(80)),
 		)).Min(1).Max(10)),
 		schema.Opt("notes", schema.Array(schema.Object(
 			schema.Req("text", label(200)),

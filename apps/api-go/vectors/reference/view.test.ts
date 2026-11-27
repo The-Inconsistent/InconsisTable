@@ -697,6 +697,22 @@ test("a strike, a generator and a codex kind's prefill are cut where they read w
   assert.deepEqual(secrets.codex?.kinds.location?.from, [{ entity: "site", values: {}, children: "within" }]);
 });
 
+test("in a room without a GM a player's seat is served the strikes its values let it read, as in one with (#189)", () => {
+  const rules = compileRuleset(CRAFTED_SEAT_CUTS.duelCuts!);
+  assert.ok(rules.ok);
+  for (const tableMode of ["gmless", "solo"] as const) {
+    const seat = { ...ctx(member("player", [], ["lyra"]), "u-lyra"), tableMode };
+    const served = seatManifest({ ruleset: rules.compiled.ruleset, ctx: seat });
+    assert.ok(compileRuleset(served).ok);
+    // The lunge reads only what a player reads once its gm means, number and note are cut; the feint asks a gm value.
+    assert.deepEqual(
+      served.strikes?.map((s) => s.id),
+      ["lunge"],
+    );
+    assert.ok(!JSON.stringify(served.strikes).includes("nerve"));
+  }
+});
+
 test("a second phone's copy carries no gm panel line or figure, and no panel guarded by a gm value (#114)", () => {
   const rules = compileRuleset(CRAFTED_SEAT_CUTS.harmPanelCuts!);
   assert.ok(rules.ok);

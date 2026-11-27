@@ -106,6 +106,7 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
             sides={view?.ruleset?.initiative?.strategy === "sides" ? view.ruleset.initiative : undefined}
             conditions={view?.ruleset?.conditions}
             heldOf={(id) => heldChips({ ruleset: view?.ruleset, actor: state.actors.find((a) => a.id === id) })}
+            party={state.actors.filter((a) => a.kind === "pc").map((a) => a.id)}
           />
         )}
         {cards.shown.length > 0 && <div className="screen-cards">{cards.shown.map(cardOf)}</div>}

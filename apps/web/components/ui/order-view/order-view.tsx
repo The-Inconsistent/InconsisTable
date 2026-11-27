@@ -29,12 +29,14 @@ type OrderViewProps = {
   foes?: { open: string | null; onToggle: (combatantId: string) => void; card: (c: Combatant) => ReactNode };
   /** A phone's conditions open what they mean on a tap (house decision #126); the TV takes no input and has none. */
   terms?: TermEnv;
+  /** The TV: the players' characters (actor ids), so each row's side can say ally or foe (house decision #207). */
+  party?: readonly string[];
 };
 
 // The turn order as a seat that doesn't run the fight sees it (the table screen, a phone): who acts, in order, with the
 // health the seat was sent. The acting row is marked by an edge and by the word ACTING, not by colour alone.
 // A sides fight (its snapshot carries `begun`) is grouped by side, each row marked with its turn.
-export function OrderView({ encounter, sides, conditions = [], heldOf, you = [], foes, terms }: OrderViewProps) {
+export function OrderView({ encounter, sides, conditions = [], heldOf, you = [], foes, terms, party }: OrderViewProps) {
   const t = useTranslations("orderView");
   const tState = useTranslations("combatState");
   const phase = phaseOf(encounter);
@@ -43,8 +45,14 @@ export function OrderView({ encounter, sides, conditions = [], heldOf, you = [],
   // A phone's foe: a row of another side than its characters', or any row it does not hold when none of them fights.
   const isFoe = (c: Combatant) =>
     foes !== undefined && !you.includes(c.actorId) && (mySides.size === 0 || !mySides.has(c.side));
-  // A phone's row says its side for a World's stripe (house decision #207); the TV's rows have no seat to side with.
-  const sideOf = (c: Combatant) => (foes === undefined ? undefined : isFoe(c) ? "foe" : "ally");
+  // A row says its side for a World's stripe (house decision #207): a phone's, against its own characters; the TV's,
+  // against the players' characters (`party`), so a side holding one of them is the ally.
+  const partySides = new Set(encounter.combatants.filter((c) => party?.includes(c.actorId)).map((c) => c.side));
+  const sideOf = (c: Combatant) => {
+    if (foes !== undefined) return isFoe(c) ? "foe" : "ally";
+    if (partySides.size === 0) return undefined;
+    return partySides.has(c.side) ? "ally" : "foe";
+  };
 
   // The row's name: a foe's opens its card, anyone else's is a plain label. A foe's health stays outside its button, so
   // a condition in it can open its own meaning.

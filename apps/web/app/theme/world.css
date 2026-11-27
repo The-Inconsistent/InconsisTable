@@ -483,6 +483,16 @@ html:has([data-world]) {
 [data-card-crest="spiked"] :is(.card, .sheet-card)::after {
   display: none;
 }
+/* A bottom sheet (the peek, a term's meaning) wears the same crest along its top in place of its rule, as Auspex's
+   sheets carry the stat block's spikes; the sheet scrolls, so the crest is a background layer, which stays put. */
+[data-card-crest="spiked"] .bottom-sheet {
+  padding-top: 24px;
+  border-top: 0;
+  background:
+    conic-gradient(from 148deg at 50% 0, var(--ink-2) 0 64deg, transparent 64deg) 0 0 / 8px 8px repeat-x,
+    linear-gradient(var(--ink-2), var(--ink-2)) 0 8px / 100% 2px no-repeat,
+    var(--bg-card);
+}
 
 /* ---------- Band edge: the lower edge of a header band ---------- */
 [data-band-edge="straight"] .band {

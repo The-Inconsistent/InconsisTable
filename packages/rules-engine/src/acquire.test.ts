@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { planAcquire, withFittings, type AcquireItem } from "./acquire.ts";
+import { planAcquire, withFittedCard, withFittings, type AcquireItem } from "./acquire.ts";
 import { compileRuleset } from "./compile.ts";
 import { SAMPLE_LEDGER_PACK } from "./fixtures/sample-ledger-pack.ts";
 import { SAMPLE_LEDGER_RULESET } from "./fixtures/sample-ledger-ruleset.ts";
@@ -147,4 +147,30 @@ test("an acquisition names a non-reported Test, sets every input of it, and its 
   assert.deepEqual(problems({ load: { field: "nope", quantity: "1" } }), [
     'items.acquire.load.field: wargear has no field "nope"',
   ]);
+});
+
+test("a fitting gains, re-rates, sets and takes off its host's Traits, matched by word in any case (#198)", () => {
+  const card = { damage: 5, traits: ["Rapid Fire (2)", "Heavy", "Keen (1)"] };
+  const fit = (name: string, path: string, mode: string, value: string) => ({
+    name,
+    effects: [{ path: `host.trait.${path}`, mode, value }],
+  });
+  const { card: out, by } = withFittedCard({
+    card,
+    fitted: [
+      fit("Drum", "Rapid Fire", "add", "-1"), // 2 → 1
+      fit("Brace", "Heavy", "override", "0"), // off
+      fit("Edge", "keen", "upgrade", "1"), // has 1: the better stands, the word as the fitting writes it
+      fit("Spikes", "Brutal", "upgrade", "0"), // gained, unrated
+      fit("Spare", "Sniper", "add", "2"), // not there: untouched
+      fit("Odd", "Bulky", "multiply", "2"), // not a Trait mode: nothing
+    ],
+  });
+  assert.deepEqual(out.traits, ["Rapid Fire (1)", "keen (1)", "Brutal"]);
+  assert.deepEqual(by, ["Drum", "Brace", "Edge", "Spikes"]);
+  // Comma text is read as words; a fitting that moves a rating to 0 takes the Trait off.
+  const sling = withFittedCard({ card: { traits: "Far, Light (1)" }, fitted: [fit("Cut", "Light", "add", "-1")] });
+  assert.deepEqual(sling.card.traits, ["Far"]);
+  // No Trait effect: the card is as it was.
+  assert.deepEqual(withFittedCard({ card, fitted: [] }).card, card);
 });

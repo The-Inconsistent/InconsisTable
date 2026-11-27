@@ -796,15 +796,30 @@ export const CARD_VALUES: Readonly<Record<(typeof ITEM_CARDS)[number], readonly 
 };
 export const HOST_PREFIX = "host.";
 
-/** The host values a fitting of entry type `type` may change: the card values of every kind its kinds fit to. */
-export function hostValuesOf({ items, type }: { items: ItemsBlock | undefined; type: string }): string[] {
+/**
+ * A fitting's change to a Trait of its host (house decision #198), as `host.trait.<name>`: the Trait's word as the
+ * importer writes it, with no bracket or comma (its rating is the effect's value). A weapon's and an armour's card carry
+ * Traits; a gear line does not.
+ */
+export const TRAIT_PREFIX = "trait.";
+export const TRAIT_CARDS: readonly (typeof ITEM_CARDS)[number][] = ["weapons", "armour"];
+export const TRAIT_NAME = /^[^\t\n\r (),]([^\t\n\r(),]{0,38}[^\t\n\r (),])?$/;
+
+/** The `cards` variants of every kind the kinds of entry type `type` fit to. */
+function hostCardsOf({ items, type }: { items: ItemsBlock | undefined; type: string }) {
   const kinds = items?.kinds ?? [];
   const hosts = kinds.filter((k) => k.entry === type).flatMap((k) => k.fits?.to ?? []);
-  return [
-    ...new Set(
-      kinds.filter((k) => hosts.includes(k.id)).flatMap((k) => (k.card === undefined ? [] : CARD_VALUES[k.card])),
-    ),
-  ];
+  return kinds.filter((k) => hosts.includes(k.id)).flatMap((k) => (k.card === undefined ? [] : [k.card]));
+}
+
+/** The host values a fitting of entry type `type` may change: the card values of every kind its kinds fit to. */
+export function hostValuesOf({ items, type }: { items: ItemsBlock | undefined; type: string }): string[] {
+  return [...new Set(hostCardsOf({ items, type }).flatMap((c) => CARD_VALUES[c]))];
+}
+
+/** Whether a fitting of entry type `type` fits to a kind whose card carries Traits. */
+export function hostTakesTraits({ items, type }: { items: ItemsBlock | undefined; type: string }): boolean {
+  return hostCardsOf({ items, type }).some((c) => TRAIT_CARDS.includes(c));
 }
 
 /**

@@ -27,9 +27,14 @@ type RawGear = RawRecord & { kind: string; value?: number; keywords?: string[]; 
 const GUARD = [{ path: "derived.guard", mode: "add", value: "1", phase: "derived" }] as const;
 // House decision #102: the Sight Lens also sharpens the weapon it is fitted to.
 const SHARPER = [{ path: "host.ed", mode: "add", value: "1", phase: "base" }] as const;
+// House decision #198: a Bow String makes its bow Keen; a Twin Mount steadies its weapon, so a Slow rating drops by one.
+const KEEN = [{ path: "host.trait.Keen", mode: "upgrade", value: "1", phase: "base" }] as const;
+const STEADY = [{ path: "host.trait.Slow", mode: "add", value: "-1", phase: "base" }] as const;
 const GEAR_EFFECTS: Record<string, readonly { path: string; mode: string; value: string; phase: string }[]> = {
   lens: GUARD,
   "sight-lens": [...GUARD, ...SHARPER],
+  "twin-mount": STEADY,
+  "bow-string": KEEN,
 };
 // The stores a weapon loads (house decision #102).
 const LOADS: Record<string, string> = { sling: "supply.pellets" };
@@ -79,7 +84,8 @@ export const SAMPLE_LEDGER_PACK: PackInput = {
   // and stores open to any hero, rated (house decision #102).
   // 0.1.3: a Bow String only a bow takes, a Ribbon that goes on twice and counts toward neither the two fittings nor the
   // slots, and a Long Sight in a slot of its own on kit (house decision #176).
-  version: "0.1.3",
+  // 0.1.4: a Bow String makes its bow Keen and a Twin Mount takes a point of Slow off (house decision #198).
+  version: "0.1.4",
   ruleset: { id: "sample-ledger", range: "^0.1.0" },
   license: "private",
   entries: [

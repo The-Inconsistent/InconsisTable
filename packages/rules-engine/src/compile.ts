@@ -17,7 +17,10 @@ import {
   acquiredKinds,
   hostValuesOf,
   HOST_PREFIX,
+  hostTakesTraits,
   strikeTargets,
+  TRAIT_NAME,
+  TRAIT_PREFIX,
   validateRuleset,
   immuneOf,
   type Condition,
@@ -629,7 +632,15 @@ class Compiler {
    */
   private hostEffect({ eff, type, path }: { eff: Effect; type: string; path: string }): [] {
     const name = eff.path.slice(HOST_PREFIX.length);
-    if (!hostValuesOf({ items: this.r.items, type }).includes(name))
+    if (name.startsWith(TRAIT_PREFIX)) {
+      if (!TRAIT_NAME.test(name.slice(TRAIT_PREFIX.length)) || !hostTakesTraits({ items: this.r.items, type }))
+        this.problems.push({ path: `${path}.path`, message: `"${eff.path}" is not a Trait of a host's card` });
+      else if (eff.mode !== "upgrade" && eff.mode !== "add" && eff.mode !== "override")
+        this.problems.push({
+          path: `${path}.mode`,
+          message: "a host's Trait is gained (upgrade), re-rated (add) or set",
+        });
+    } else if (!hostValuesOf({ items: this.r.items, type }).includes(name))
       this.problems.push({ path: `${path}.path`, message: `"${eff.path}" is not a value of a host's card` });
     else if (eff.mode !== "add" && eff.mode !== "override")
       this.problems.push({ path: `${path}.mode`, message: "a host's value is added to or overridden" });

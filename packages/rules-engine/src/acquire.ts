@@ -2,7 +2,15 @@ import { nestFields, type FieldValue } from "./derived.ts";
 import { ExprError, type ExprRecord, type ExprValue } from "./expr/expr.ast.ts";
 import { evaluate } from "./expr/expr.eval.ts";
 import { parseExpr } from "./expr/expr.parser.ts";
-import { acquiredKinds, CARD_VALUES, HOST_PREFIX, itemKindOf, type Ruleset } from "./manifest.ts";
+import {
+  acquiredKinds,
+  CARD_VALUES,
+  HOST_PREFIX,
+  itemKindOf,
+  TRAIT_NAME,
+  TRAIT_PREFIX,
+  type Ruleset,
+} from "./manifest.ts";
 import { own } from "./own.ts";
 import { isRefusal, refuse, type ActorState, type Refusal } from "./primitives/primitive.ts";
 
@@ -200,6 +208,7 @@ export function withFittings({
     for (const eff of item.effects) {
       if (!eff.path.startsWith(HOST_PREFIX)) continue;
       const name = eff.path.slice(HOST_PREFIX.length);
+      if (name.startsWith(TRAIT_PREFIX)) continue; // a Trait: fittedTraits
       const r = read(eff.value, {}, eff.path);
       if (isRefusal(r) || typeof r.v !== "number") continue;
       out[name] = eff.mode === "override" ? r.v : (out[name] ?? 0) + r.v;
@@ -235,5 +244,66 @@ export function withFittedCard({
     const v = own(card, k);
     return v === undefined || typeof v === "number";
   });
-  return { card: { ...card, ...Object.fromEntries(numbers) }, by: out.by };
+  const traits = fittedTraits({ card, fitted });
+  const names = fitted.map((f) => f.name).filter((n) => out.by.includes(n) || traits.by.includes(n));
+  return {
+    card: { ...card, ...Object.fromEntries(numbers), ...(traits.list === undefined ? {} : { traits: traits.list }) },
+    by: [...new Set(names)],
+  };
+}
+
+/** A card's Traits as a list: an array's words, or a text's comma-separated words. */
+function traitList(v: unknown): string[] {
+  if (Array.isArray(v)) return v.filter((t): t is string => typeof t === "string");
+  if (typeof v === "string")
+    return v
+      .split(",")
+      .map((t) => t.trim())
+      .filter((t) => t !== "");
+  return [];
+}
+const traitKey = (t: string) => (t.split("(")[0] ?? "").trim().toLowerCase();
+const ratingOf = (t: string) => Number(/\((\d{1,3})\)/.exec(t)?.[1] ?? 0);
+/** A Trait as the card prints it: "Name (rating)", or the bare name for no rating; a rating stays at most 999. */
+const rated = (name: string, rating: number) => (rating > 0 ? `${name} (${Math.min(999, rating)})` : name);
+
+/**
+ * The card's Traits with each fitted item's `host.trait.<name>` effects, in the order the items are fitted (house
+ * decision #198, after Auspex's trait mods): `upgrade` gains the Trait at its value or keeps the better rating it has,
+ * `add` moves a rating it has (none is untouched, 0 or less takes it off), `override` sets the rating (0 or less takes
+ * it off). A Trait is matched by its word, in any case, whatever its rating. `by` names the items that changed one;
+ * `list` is undefined when none did.
+ */
+function fittedTraits({
+  card,
+  fitted,
+}: {
+  card: Readonly<Record<string, unknown>>;
+  fitted: readonly { name: string; effects: readonly CarriedEffect[] }[];
+}): { list?: string[]; by: string[] } {
+  let list: string[] | undefined;
+  const by: string[] = [];
+  for (const item of fitted) {
+    for (const eff of item.effects) {
+      if (!eff.path.startsWith(HOST_PREFIX + TRAIT_PREFIX)) continue;
+      const name = eff.path.slice(HOST_PREFIX.length + TRAIT_PREFIX.length);
+      const r = read(eff.value, {}, eff.path);
+      if (isRefusal(r) || typeof r.v !== "number" || !Number.isInteger(r.v) || !TRAIT_NAME.test(name)) continue;
+      const n = r.v;
+      const traits = list ?? traitList(own(card, "traits"));
+      const key = name.toLowerCase();
+      const at = traits.findIndex((t) => traitKey(t) === key);
+      const had = at < 0 ? 0 : ratingOf(traits[at] ?? "");
+      const set = (rating: number) => traits.map((t, i) => (i === at ? rated(name, rating) : t));
+      // A Trait it has with no rating to raise, or a rating it does not have to move: nothing changes.
+      if ((eff.mode === "upgrade" && at >= 0 && n <= 0) || (eff.mode === "add" && at < 0)) continue;
+      if (eff.mode === "upgrade") list = at < 0 ? [...traits, rated(name, n)] : set(Math.max(had, n));
+      else if (eff.mode === "add") list = had + n <= 0 ? traits.filter((_, i) => i !== at) : set(had + n);
+      else if (eff.mode === "override")
+        list = n <= 0 ? traits.filter((t) => traitKey(t) !== key) : at < 0 ? [...traits, rated(name, n)] : set(n);
+      else continue;
+      if (!by.includes(item.name)) by.push(item.name);
+    }
+  }
+  return { list, by };
 }

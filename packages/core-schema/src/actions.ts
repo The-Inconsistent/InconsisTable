@@ -371,7 +371,10 @@ export const Action = z.discriminatedUnion("type", [
     item: z
       .object({
         fields: z
-          .record(z.string().min(1).max(64), z.union([z.int().min(-100000).max(100000), z.string().max(200), z.boolean()]))
+          .record(
+            z.string().min(1).max(64),
+            z.union([z.int().min(-100000).max(100000), z.string().max(200), z.boolean()]),
+          )
           .optional(),
         tags: z.array(z.string().min(1).max(60)).max(30).optional(),
       })

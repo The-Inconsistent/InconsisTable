@@ -2179,6 +2179,9 @@ const WIDGET_CRAFTED: object[] = [
   rows({ widget: "Bad", bind: { "Bad-Slot": "x" } }),
   rows(42),
   { layout: { sheet: { sections: [], phoneTurn: [{ widget: "track", bind: { value: "res.hp" } }], screen: ["x"] } } },
+  // The held character's spends (house decision #114): no slots, no variant.
+  { layout: { pc: { sections: [], phoneTurn: [{ widget: "spends" }] } } },
+  { layout: { pc: { sections: [], phoneTurn: [{ widget: "spends", variant: "x", bind: { a: "hp" } }] } } },
   { layout: { pc: { sections: [], trackerRow: [{ widget: "frames", bind: { values: ["nope"] } }] } } },
   {
     layout: { nobody: { sections: [{ id: "s", label: "S", show: [{ widget: "frames", bind: { values: ["hp"] } }] }] } },

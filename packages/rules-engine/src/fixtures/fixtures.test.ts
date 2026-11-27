@@ -14,6 +14,7 @@ import {
 import { SAMPLE_DUEL } from "./sample-duel.ts";
 import {
   SAMPLE_HARM,
+  SAMPLE_HARM_BEFORE_FIGHT_TAB,
   SAMPLE_HARM_BEFORE_GENERATORS,
   SAMPLE_HARM_BEFORE_HELD,
   SAMPLE_HARM_BEFORE_OWNER,
@@ -26,6 +27,7 @@ import { SAMPLE_POOL } from "./sample-pool.ts";
 import {
   SAMPLE_SKIRMISH,
   SAMPLE_SKIRMISH_BEFORE_CHECKLIST,
+  SAMPLE_SKIRMISH_BEFORE_FIGHT_TAB,
   SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND,
   SAMPLE_SKIRMISH_BEFORE_SPAWN,
 } from "./sample-skirmish.ts";
@@ -37,11 +39,11 @@ const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9c
 const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf";
 const PINNED: Record<string, string> = {
   "sample-d20@0.1.10": "a425b9fb13540762c37cb12a90bb07b1f718c9b678873f373e32dd99a8058df7",
-  "sample-skirmish@0.1.9": "43ee1b3a05c7d1d08bd353c5864554b3c4f4e45bed7a1ae41b9bb87556ce3e66",
+  "sample-skirmish@0.1.10": "949c5651cce15687e9d4fcf0173763ff3f7d11e049c8930ab2ea26cf72e9c90d",
   "sample-pool@0.1.3": "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
-  "sample-harm@0.1.7": "1376c327be1b5bca8817e6482cd120218ed9edb6ddb80fa1dcef665287bc6a52",
+  "sample-harm@0.1.8": "5a0e1ee372c0607b6ce5da121b2aa2345d0aab387c9a020e4a30b7f3b01ef204",
   "sample-duel@0.1.0": "509f85209788bc47bdd6722b2772e741248a4a35876b1e16d5c8c3e1a782a09f",
 };
 
@@ -265,5 +267,18 @@ test("a ruleset without a strike its owner sends hashes as it did before one (ho
   assert.equal(
     sha256Hex(canonicalJson(result.compiled.ruleset)),
     "c7e19354792885f3b496d296d0ab4725987b0e440733083c796be6113e66a561",
+  );
+});
+
+test("a ruleset without the Fight tab's spends row hashes as it did before one (house decision #114)", () => {
+  const hash = (x: Parameters<typeof compileRuleset>[0]) => {
+    const result = compileRuleset(x);
+    assert.ok(result.ok);
+    return sha256Hex(canonicalJson(result.compiled.ruleset));
+  };
+  assert.equal(hash(SAMPLE_HARM_BEFORE_FIGHT_TAB), "1376c327be1b5bca8817e6482cd120218ed9edb6ddb80fa1dcef665287bc6a52");
+  assert.equal(
+    hash(SAMPLE_SKIRMISH_BEFORE_FIGHT_TAB),
+    "43ee1b3a05c7d1d08bd353c5864554b3c4f4e45bed7a1ae41b9bb87556ce3e66",
   );
 });

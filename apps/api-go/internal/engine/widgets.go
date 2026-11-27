@@ -60,6 +60,7 @@ var Widgets = []WidgetSpec{
 	{ID: "notes", Variants: []string{}, Slots: []WidgetSlot{listSlot("fields", "text", true)}},
 	{ID: "held", Variants: []string{}, Slots: []WidgetSlot{}, Held: true},
 	{ID: "strike", Variants: []string{}, Slots: []WidgetSlot{}, Strike: true},
+	{ID: "spends", Variants: []string{}, Slots: []WidgetSlot{}},
 }
 
 // LayoutTargets is LAYOUT_TARGETS: the layout keys beyond the sheet's sections.

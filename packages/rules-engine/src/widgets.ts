@@ -169,6 +169,14 @@ export const WIDGETS = [
     slots: [],
     strike: true,
   },
+  {
+    id: "spends",
+    about:
+      "The held character's spends (house decision #114): each ask it may send now, with its cost, inputs and why " +
+      "one is not open, as the Sheet tab lists them. Placed on `phoneTurn`.",
+    variants: [],
+    slots: [],
+  },
 ] as const satisfies readonly WidgetSpec[];
 
 export type WidgetId = (typeof WIDGETS)[number]["id"];

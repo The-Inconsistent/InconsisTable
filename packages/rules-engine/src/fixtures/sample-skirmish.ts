@@ -25,7 +25,7 @@ const CREATURE_FIELDS: Record<string, FieldDef> = {
  * and a setup checklist with a campaign field it reads (house decision #90).
  * Every name, number and cite is our own invention.
  */
-export const SAMPLE_SKIRMISH: RulesetInput = {
+export const SAMPLE_SKIRMISH_BEFORE_FIGHT_TAB: RulesetInput = {
   ...SAMPLE_D20_0_1_8,
   id: "sample-skirmish",
   version: "0.1.9",
@@ -366,9 +366,25 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
   ],
 };
 
+/**
+ * SAMPLE_SKIRMISH 0.1.10 (house decision #114): a character's turn on the phone's Fight tab draws its asks, so the
+ * jump, the shake while barred and the once-a-round channel sit where the turn is played.
+ */
+export const SAMPLE_SKIRMISH: RulesetInput = {
+  ...SAMPLE_SKIRMISH_BEFORE_FIGHT_TAB,
+  version: "0.1.10",
+  layout: {
+    ...SAMPLE_SKIRMISH_BEFORE_FIGHT_TAB.layout,
+    character: {
+      sections: SAMPLE_SKIRMISH_BEFORE_FIGHT_TAB.layout?.character?.sections ?? [],
+      phoneTurn: [{ widget: "spends" }],
+    },
+  },
+};
+
 /** SAMPLE_SKIRMISH as it was at 0.1.5, before its spawn block, the fields, Spite and Peril it reads (#92) and its scene kind (#107). */
 export const SAMPLE_SKIRMISH_BEFORE_SPAWN: RulesetInput = (() => {
-  const { spawn: _spawn, layout: _layout, header: _header, ...before } = SAMPLE_SKIRMISH;
+  const { spawn: _spawn, layout: _layout, header: _header, ...before } = SAMPLE_SKIRMISH_BEFORE_FIGHT_TAB;
   const { peril: _peril, ...campaignFields } = before.campaignFields ?? {};
   const { scene: _scene, ...kinds } = before.codex?.kinds ?? {};
   return {

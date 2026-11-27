@@ -517,7 +517,7 @@ export const SAMPLE_HARM_BEFORE_OWNER: RulesetInput = {
  * brute's GM-only numbers, is cut. The force put in is a choice: more dice, more members thinned, and as much strain
  * to pay, a further number the guide shows. Invented like the rest.
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_BEFORE_FIGHT_TAB: RulesetInput = {
   ...SAMPLE_HARM_BEFORE_OWNER,
   version: "0.1.7",
   layout: {
@@ -571,6 +571,21 @@ export const SAMPLE_HARM: RulesetInput = {
       ],
     },
   ],
+};
+
+/**
+ * sample-harm 0.1.8 (house decision #114): the hero's turn on the phone's Fight tab draws its strikes, then its asks
+ * (`endure`, while a fight runs).
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_BEFORE_FIGHT_TAB,
+  version: "0.1.8",
+  layout: {
+    hero: {
+      sections: SAMPLE_HARM_BEFORE_FIGHT_TAB.layout?.hero?.sections ?? [],
+      phoneTurn: [...(SAMPLE_HARM_BEFORE_FIGHT_TAB.layout?.hero?.phoneTurn ?? []), { widget: "spends" }],
+    },
+  },
 };
 
 /**

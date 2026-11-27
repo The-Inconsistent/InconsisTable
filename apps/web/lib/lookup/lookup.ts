@@ -91,7 +91,7 @@ export function previewOf({
   } catch {
     // A value the GM side cannot read yet: the preview shows the shock, the server decides.
   }
-  return { ...planLookup({ compiled, tableId, result, inputs, scope }), shockless };
+  return { ...planLookup({ compiled, tableId, result, inputs, scope, entity: target.entity }), shockless };
 }
 
 /** Steps in order, each run of equal ones as one line with its count ("Dazed ×2"). */

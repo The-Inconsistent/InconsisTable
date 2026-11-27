@@ -233,7 +233,7 @@ export const SAMPLE_LEDGER_RULESET_0_1_3: RulesetInput = {
  * 0.1.4 (house decision #168): what a hero's spent XP says, read as `build`: the Rank a hero reached, with the number in
  * the line, and, as a session ends, that the whole group has spent enough since the last Ascension to Ascend again.
  */
-export const SAMPLE_LEDGER_RULESET: RulesetInput = {
+export const SAMPLE_LEDGER_RULESET_0_1_4: RulesetInput = {
   ...SAMPLE_LEDGER_RULESET_0_1_3,
   version: "0.1.4",
   notices: [
@@ -257,4 +257,31 @@ export const SAMPLE_LEDGER_RULESET: RulesetInput = {
       cite: "Base p.30",
     },
   ],
+};
+
+/**
+ * 0.1.5 (house decision #171): the powers a hero sustains, shown as chips, with quick picks from the powers of its own
+ * saved sheet, declared as a strike's means is.
+ */
+export const SAMPLE_LEDGER_RULESET: RulesetInput = {
+  ...SAMPLE_LEDGER_RULESET_0_1_4,
+  version: "0.1.5",
+  entities: SAMPLE_LEDGER_RULESET_0_1_4.entities.map((e) =>
+    e.id === "hero"
+      ? {
+          ...e,
+          fields: {
+            ...e.fields,
+            sustained: {
+              type: "list",
+              label: "Sustaining",
+              visibility: "party",
+              maxItems: 5,
+              chips: true,
+              picks: { from: "ledger", lines: "powers" },
+            },
+          },
+        }
+      : e,
+  ),
 };

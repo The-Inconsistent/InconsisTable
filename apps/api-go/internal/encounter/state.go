@@ -301,7 +301,7 @@ func remindersNow(rules *engine.CompiledRuleset, built map[string]*actor.Built, 
 		for _, x := range b.Conditions {
 			held = append(held, x.ConditionID)
 		}
-		actors[id] = engine.ReminderActor{Scope: b.Scope, Conditions: held, Held: slices.Contains(ask.held, id),
+		actors[id] = engine.ReminderActor{Scope: b.Scope, Entity: b.Entity, Conditions: held, Held: slices.Contains(ask.held, id),
 			Barred: slices.Contains(ask.barred, id)}
 	}
 	var out []cs.EncounterReminder

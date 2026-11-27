@@ -111,6 +111,18 @@ test("one hit past twice the limit destroys outright and changes nothing else", 
   ]);
 });
 
+test("destroyed only while its `when` holds; otherwise the hit lands as wounds (house decision #174)", () => {
+  const params = {
+    ...HARM,
+    profiles: HARM.profiles.map((p) =>
+      p.destroyed === undefined ? p : { ...p, destroyed: { ...p.destroyed, when: "res.wounds >= 1" } },
+    ),
+  };
+  const gone = [{ target: { actorId: "a", field: "gone" }, kind: "set", value: true }];
+  assert.deepEqual(hit(brute(0), { wounds: 30 }, params), [add("wounds", 30)], "unhurt: not destroyed");
+  assert.deepEqual(hit(brute(1), { wounds: 30 }, params), gone, "already wounded: destroyed");
+});
+
 test("a brute never takes strain; a ruleset without strain refuses it", () => {
   assert.equal(refused(brute(), { shock: 1 }), "neverShocked");
   assert.deepEqual(hit(brute(), { wounds: 2 }), [add("wounds", 2)]);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { codexReminders, partyReadsReminder } from "./codex.ts";
+import { codexReminders, offeredValues, partyReadsReminder, partyReminders, rowTests } from "./codex.ts";
 import { compileRuleset } from "./compile.ts";
 import { checkFieldValue, fitRows } from "./field-value.ts";
 import { SAMPLE_D20_0_1_9 as SAMPLE_D20 } from "./fixtures/sample-d20.ts";
@@ -109,4 +109,84 @@ test("refused at import, by path: a prefill that does not fit, suggestions from 
     problems({ kinds: { faction: { fields: {}, reminders: [{ id: "r", if: "fields.nope", text: "T" }] } } }).length,
     1,
   );
+});
+
+test("in a reminder group only the first that holds shows, and a seat is sent none after one it is not (#172)", () => {
+  const kind: CodexKindDef = {
+    fields: {
+      standing: { type: "enum", label: "S", values: ["ally", "rival"], visibility: "gm" },
+      size: { type: "int", label: "N", visibility: "party" },
+    },
+    reminders: [
+      { id: "secret", if: 'fields.standing == "rival"', text: "A", group: "mix" },
+      { id: "big", if: "fields.size > 3", text: "B", group: "mix" },
+      { id: "huge", if: "fields.size > 5", text: "C", group: "mix" },
+      { id: "alone", if: "fields.size > 5", text: "D" },
+    ],
+  };
+  const met = (fields: Record<string, unknown>) => codexReminders({ kind, fields }).map((r) => r.id);
+  assert.deepEqual(met({ standing: "rival", size: 9 }), ["secret", "alone"]);
+  assert.deepEqual(met({ standing: "ally", size: 9 }), ["big", "alone"]);
+  assert.deepEqual(met({ size: 2 }), []);
+  assert.deepEqual(
+    partyReminders({ kind }).map((r) => r.id),
+    ["alone"],
+  );
+  const open = { ...kind, reminders: kind.reminders?.slice(1) };
+  assert.deepEqual(
+    partyReminders({ kind: open }).map((r) => r.id),
+    ["big", "huge", "alone"],
+  );
+});
+
+test("a rows field rolls a table into rows, offers an enum from its entry and works a Test's inputs out (#173)", () => {
+  const withDangers = (over: object) =>
+    problems({
+      kinds: {
+        ...SAMPLE_D20.codex?.kinds,
+        location: { fields: { dangers: { ...dangers, ...over } as CodexField } },
+      },
+    });
+  assert.deepEqual(withDangers({ rolls: { table: "nope", into: "threat", times: "nope" } }), [
+    'codex.kinds.location.fields.dangers.rolls.table: unknown table "nope"',
+    'codex.kinds.location.fields.dangers.rolls.into: "threat" is not a text column',
+    'codex.kinds.location.fields.dangers.rolls.times: "nope" is not a whole-number campaign field',
+  ]);
+  const columns = (c: object) => ({ columns: [...dangers.columns.filter((x) => x.type !== "test"), c] });
+  assert.deepEqual(withDangers(columns({ id: "how", label: "H", type: "enum", values: ["a"], offer: "level" })), [
+    'codex.kinds.location.fields.dangers.columns[4].offer: "level" is not a list or enum field of "creature"',
+  ]);
+  assert.deepEqual(
+    withDangers(columns({ id: "t", label: "T", type: "test", inputs: { dc: "values.threat + 1" } })),
+    [],
+  );
+  assert.equal(withDangers(columns({ id: "t", label: "T", type: "test", inputs: { dc: "values.nope" } })).length, 1);
+  const cell = (inputs: object) =>
+    checkFieldValue({
+      def: { ...dangers, columns: [{ id: "t", label: "T", type: "test", each: "skill" }] },
+      value: [{ id: "r", values: { t: { testId: "x", inputs } } }],
+    });
+  assert.equal(cell({ skill: ["Climb", "Swim"] }), null);
+  assert.equal(cell({ dc: ["Climb"] }), "[0].values.t: an input is not a number, a word or a yes/no");
+  assert.equal(cell({ skill: [] }), "[0].values.t: an input is not a number, a word or a yes/no");
+});
+
+test("a Test cell's chips: worked-out inputs under the cell's own, one per listed word (#173)", () => {
+  const col = {
+    id: "t",
+    label: "T",
+    type: "test" as const,
+    inputs: { dc: "10 + campaign.season + values.threat" },
+    each: "ability",
+  };
+  const values = { threat: 2 };
+  assert.deepEqual(rowTests({ col, inputs: {}, values, campaign: { season: 3 } }), [{ dc: 15 }]);
+  assert.deepEqual(rowTests({ col, inputs: { dc: 9, ability: ["str", "dex"] }, values, campaign: { season: 3 } }), [
+    { dc: 9, ability: "str" },
+    { dc: 9, ability: "dex" },
+  ]);
+  assert.deepEqual(rowTests({ col, inputs: {}, values: {} }), [{}], "an unreadable input is left for the GM");
+  const strength = { id: "s", label: "S", type: "enum" as const, values: ["faint", "fierce"], offer: "strengths" };
+  assert.deepEqual(offeredValues({ col: strength, body: { strengths: ["fierce", "odd"] } }), ["fierce"]);
+  assert.deepEqual(offeredValues({ col: strength, body: undefined }), ["faint", "fierce"]);
 });

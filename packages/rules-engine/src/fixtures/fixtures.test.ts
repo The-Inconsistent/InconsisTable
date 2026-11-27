@@ -12,13 +12,19 @@ import {
   SAMPLE_D20_0_1_10,
   SAMPLE_D20_0_1_11,
   SAMPLE_D20_0_1_13,
+  SAMPLE_D20_0_1_14,
   SAMPLE_D20_BEFORE_WIDGETS,
 } from "./sample-d20.ts";
-import { SAMPLE_LEDGER_RULESET, SAMPLE_LEDGER_RULESET_0_1_3 } from "./sample-ledger-ruleset.ts";
+import {
+  SAMPLE_LEDGER_RULESET,
+  SAMPLE_LEDGER_RULESET_0_1_3,
+  SAMPLE_LEDGER_RULESET_0_1_4,
+} from "./sample-ledger-ruleset.ts";
 import type { RulesetInput } from "../manifest.ts";
 import { SAMPLE_DUEL, SAMPLE_DUEL_BEFORE_LISTS, SAMPLE_DUEL_BEFORE_PANELS } from "./sample-duel.ts";
 import {
   SAMPLE_HARM,
+  SAMPLE_HARM_0_1_10,
   SAMPLE_HARM_BEFORE_GENERATORS,
   SAMPLE_HARM_BEFORE_HELD,
   SAMPLE_HARM_BEFORE_OWNER,
@@ -34,6 +40,7 @@ import { SAMPLE_POOL, SAMPLE_POOL_0_1_3 } from "./sample-pool.ts";
 import {
   SAMPLE_SKIRMISH,
   SAMPLE_SKIRMISH_0_1_10,
+  SAMPLE_SKIRMISH_0_1_11,
   SAMPLE_SKIRMISH_BEFORE_CHECKLIST,
   SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND,
   SAMPLE_SKIRMISH_BEFORE_PANELS,
@@ -46,13 +53,13 @@ import {
 const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9cb58c5d";
 const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf";
 const PINNED: Record<string, string> = {
-  "sample-d20@0.1.14": "1ec00ae72265d9397be77b839752e8b2c90a6b586a3b2ae8bf0412a30e6dde3b",
-  "sample-ledger@0.1.4": "cfd8e45e21b93d72a886c4d0d171d4b8763f0bdcf7a359e5421c510bc5314bb3",
-  "sample-skirmish@0.1.11": "18e88a8d16b375a70b00cb2904b31043c0273fb7c55a9ed762128487160909e3",
+  "sample-d20@0.1.15": "e7ef8944c7fd22a761ab58b065512e9e40f0595c59fed91c9b43e8d421648a5f",
+  "sample-ledger@0.1.5": "bc200e07badbdacfa62b6977db93d1c233db686ba2df7d0c27cbeece4f99cdf2",
+  "sample-skirmish@0.1.12": "ae10b8252b4c8627a2821f8f183434f510e4ddf054aca13bcaacb9cbbc7dcf4d",
   "sample-pool@0.1.4": "20a6d1b8a8d6031a0d3abfab5e5ceaade06eed14c7748e8226b4b1a68e35e182",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
-  "sample-harm@0.1.10": "fa69eac85323609c4daf9fac3a11578ae2188822abc24a9a24b88b48f9442c43",
+  "sample-harm@0.1.11": "936c14b7194813d93e69d4dad1bba258c0e13f30e0dd43c23118db0d138c27fd",
   "sample-duel@0.1.2": "906d7745550475b5fccd07ec48bec073a7db8ad4c1908da63bd3fab06493f614",
 };
 const PINNED_BEFORE_LOOKUPS = "60f2e297678d64e1fc72e4a9598943476c49c1e23c3c8dd5c4df500cc28fae7c";
@@ -115,6 +122,20 @@ test("a ruleset without the notices and spends of #227 hashes as before them (ho
     [SAMPLE_SKIRMISH_0_1_10, "b225267a9ce44460c52059d5d1037482fd185b6b0ca981606910ac8679fb3f0f"],
     // Nor a choice made while reporting (house decision #170).
     [SAMPLE_POOL_0_1_3, "bb15d7ea7a1c37f42a4dccb05b17797292d22640470049a57e8c149202d76cbb"],
+  ];
+  for (const [fixture, pinned] of before) {
+    const result = compileRuleset(fixture);
+    assert.ok(result.ok, `${fixture.id}@${fixture.version} compiles`);
+    assert.equal(sha256Hex(canonicalJson(result.compiled.ruleset)), pinned);
+  }
+});
+
+test("a ruleset without the keys of #225 and #230 hashes as before them (house decisions #171 to #174)", () => {
+  const before: [RulesetInput, string][] = [
+    [SAMPLE_LEDGER_RULESET_0_1_4, "cfd8e45e21b93d72a886c4d0d171d4b8763f0bdcf7a359e5421c510bc5314bb3"],
+    [SAMPLE_HARM_0_1_10, "fa69eac85323609c4daf9fac3a11578ae2188822abc24a9a24b88b48f9442c43"],
+    [SAMPLE_D20_0_1_14, "1ec00ae72265d9397be77b839752e8b2c90a6b586a3b2ae8bf0412a30e6dde3b"],
+    [SAMPLE_SKIRMISH_0_1_11, "18e88a8d16b375a70b00cb2904b31043c0273fb7c55a9ed762128487160909e3"],
   ];
   for (const [fixture, pinned] of before) {
     const result = compileRuleset(fixture);

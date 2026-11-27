@@ -1,13 +1,25 @@
 "use client";
 import { useTranslations } from "next-intl";
-import type { ChangeEvent } from "react";
+import { useState, type ChangeEvent } from "react";
 
-import { MAX_CELL_CHARS, MAX_ROWS, type CodexField, type Ruleset } from "@inconsistable/rules-engine";
+import type { ActionInput, ActionResult } from "@inconsistable/core-schema";
+import {
+  entryCells,
+  followRow,
+  MAX_CELL_CHARS,
+  MAX_ROWS,
+  offeredValues,
+  type CodexField,
+  type Ruleset,
+} from "@inconsistable/rules-engine";
 
 import { RowChips } from "@/components/ui/entry-fields/entry-fields";
+import { SourceEntry } from "@/components/ui/source-entry/source-entry";
 import {
   newRowId,
   prefillRow,
+  rolledRows,
+  rollTimes,
   testOf,
   type EntryRow,
   type RowColumn,
@@ -31,32 +43,65 @@ type RowsEditorProps = {
   onChange: (rows: EntryRow[]) => void;
   /** A pack entry read here, remembered by the form so a ref names it. */
   onPicked: (entry: RulesEntry) => void;
+  /** Sends an action: a field the ruleset rolls rows into offers ROLL (house decision #173). */
+  act?: (a: ActionInput) => Promise<ActionResult>;
+  /** The campaign fields in play: how many times a roll goes, and what a Test column's inputs read. */
+  campaign?: Readonly<Record<string, string | number | boolean>>;
 };
 
 // A rows field in the GM's editor (house decision #89): each row as its chips and one input per column, from the
 // declaration (text, a number, an enum's labels, a yes/no, a pack entry, a Test of the ruleset with its inputs); a row
-// written by hand, or filled from a pack entry of a type the field declares, keeping that entry's key and cite.
+// written by hand, or filled from a pack entry of a type the field declares, which it follows: the inputs show the
+// entry's values, and only what the GM changes is stored over them.
 export function RowsEditor(props: RowsEditorProps) {
-  const { id, def, ruleset, campaignId, known, value, disabled, onChange, onPicked } = props;
+  const { id, def, ruleset, campaignId, known, value, disabled, onChange, onPicked, act, campaign } = props;
   const t = useTranslations("entryFields");
+  const [rolling, setRolling] = useState(false);
   const max = Math.min(def.maxRows ?? MAX_ROWS, MAX_ROWS);
   const full = value.length >= max;
+  const rolls = def.rolls;
+  const times = rollTimes({ def, campaign });
+  const table = rolls ? (ruleset?.tables?.[rolls.table]?.title ?? rolls.table) : "";
 
-  // One cell of one row: a value sets it, null clears it.
-  const setCell = (rowId: string, col: string, v: unknown) =>
+  // ROLL: the field's table through table.roll, once per the campaign value, each line a new row (house decision
+  // #173); a refusal stops the rolls and the codex shows it.
+  // ponytail: no I ROLLED here, the tables panel takes typed results; a typed list per roll when a table asks for it.
+  const handleRoll = async () => {
+    if (!rolls || !act) return;
+    setRolling(true);
+    const labels: string[] = [];
+    try {
+      for (let n = 0; n < Math.min(times, max - value.length); n++) {
+        const r = await act({ type: "table.roll", tableId: rolls.table });
+        if (!r.ok || !r.roll) break;
+        const entryId = r.roll.entryId;
+        labels.push(ruleset?.tables?.[rolls.table]?.entries.find((e) => e.id === entryId)?.label ?? entryId);
+      }
+    } finally {
+      setRolling(false);
+    }
+    if (labels.length > 0) onChange(rolledRows({ def, rows: value, labels }));
+  };
+
+  // One cell of one row: a value sets it, null clears it. A value the row's pack entry gives is not stored: the row
+  // follows the entry there (house decision #89).
+  const setCell = (rowId: string, col: string, v: unknown, source: RulesEntry | undefined) => {
+    const given = source ? entryCells({ def, entry: source })[col] : undefined;
+    const own = v !== null && v !== undefined && v !== "" && JSON.stringify(v) !== JSON.stringify(given);
     onChange(
       value.map((r) => {
         if (r.id !== rowId) return r;
         const { [col]: _old, ...rest } = r.values;
-        return { ...r, values: v === null || v === undefined || v === "" ? rest : { ...rest, [col]: v } };
+        return { ...r, values: own ? { ...rest, [col]: v } : rest };
       }),
     );
+  };
 
   // A row filled from the picked pack entry.
   const handleFill = (entry: RulesEntry | null) => {
     if (!entry || full) return;
     onPicked(entry);
-    onChange([...value, prefillRow({ def, entry, id: newRowId() })]);
+    onChange([...value, prefillRow({ entry, id: newRowId() })]);
   };
 
   return (
@@ -78,21 +123,32 @@ export function RowsEditor(props: RowsEditorProps) {
                 </button>
               )}
             </div>
-            <RowChips ruleset={ruleset} def={def} row={row} known={known} />
-            {!disabled &&
-              def.columns.map((col) => (
-                <Cell
-                  key={col.id}
-                  id={`${id}-${row.id}-${col.id}`}
-                  col={col}
-                  ruleset={ruleset}
-                  campaignId={campaignId}
-                  known={known}
-                  value={Object.hasOwn(row.values, col.id) ? row.values[col.id] : undefined}
-                  onValue={(v) => setCell(row.id, col.id, v)}
-                  onPicked={onPicked}
-                />
-              ))}
+            <SourceEntry campaignId={campaignId} from={row.from} known={known}>
+              {(source) => {
+                const shown = followRow({ def, row, entry: source });
+                const held = source ? [source, ...known] : known;
+                return (
+                  <>
+                    <RowChips ruleset={ruleset} def={def} row={row} known={held} campaign={campaign} />
+                    {!disabled &&
+                      def.columns.map((col) => (
+                        <Cell
+                          key={col.id}
+                          id={`${id}-${row.id}-${col.id}`}
+                          col={col}
+                          body={source?.body}
+                          ruleset={ruleset}
+                          campaignId={campaignId}
+                          known={known}
+                          value={Object.hasOwn(shown.values, col.id) ? shown.values[col.id] : undefined}
+                          onValue={(v) => setCell(row.id, col.id, v, source)}
+                          onPicked={onPicked}
+                        />
+                      ))}
+                  </>
+                );
+              }}
+            </SourceEntry>
           </li>
         ))}
       </ol>
@@ -109,6 +165,17 @@ export function RowsEditor(props: RowsEditorProps) {
             >
               {t("addRow")}
             </button>
+            {rolls && act && (
+              <button
+                type="button"
+                className="btn sm"
+                style={{ justifySelf: "start" }}
+                disabled={rolling}
+                onClick={handleRoll}
+              >
+                {t("rollRows", { table, count: times })}
+              </button>
+            )}
             {(def.from ?? []).map((f) => (
               <RefPicker
                 key={f.entity}
@@ -132,6 +199,8 @@ export function RowsEditor(props: RowsEditorProps) {
 type CellProps = {
   id: string;
   col: RowColumn;
+  /** The body of the pack entry the row was filled from, where this seat read it: an enum's offered words. */
+  body: Readonly<Record<string, unknown>> | undefined;
   ruleset: Ruleset | null;
   campaignId: string;
   known: readonly RulesEntry[];
@@ -141,7 +210,7 @@ type CellProps = {
 };
 
 // One column's input for one row.
-function Cell({ id, col, ruleset, campaignId, known, value, onValue, onPicked }: CellProps) {
+function Cell({ id, col, body, ruleset, campaignId, known, value, onValue, onPicked }: CellProps) {
   const t = useTranslations("entryFields");
   // A select or text box: empty clears the cell.
   const handleText = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => onValue(e.target.value || null);
@@ -176,7 +245,7 @@ function Cell({ id, col, ruleset, campaignId, known, value, onValue, onPicked }:
           {col.label}
           <select id={id} value={typeof value === "string" ? value : ""} onChange={handleText}>
             <option value="">{t("none")}</option>
-            {col.values.map((v) => (
+            {offeredValues({ col, body }).map((v) => (
               <option key={v} value={v}>
                 {col.labels?.[v] ?? v}
               </option>
@@ -222,6 +291,7 @@ function Cell({ id, col, ruleset, campaignId, known, value, onValue, onPicked }:
         <TestCellInput
           id={id}
           label={col.label}
+          each={col.each ?? null}
           ruleset={ruleset}
           value={value as TestCell | undefined}
           onValue={onValue}
@@ -233,6 +303,8 @@ function Cell({ id, col, ruleset, campaignId, known, value, onValue, onPicked }:
 type TestCellInputProps = {
   id: string;
   label: string;
+  /** The input that may list words, one Test chip each (house decision #173); null without one. */
+  each: string | null;
   ruleset: Ruleset | null;
   value: TestCell | undefined;
   onValue: (v: TestCell | null) => void;
@@ -240,7 +312,7 @@ type TestCellInputProps = {
 
 // A Test cell: a Test of the ruleset in its words and the inputs it takes, as a prepared Test line holds them; an input
 // left empty is left out, for the GM to fill in at the table.
-function TestCellInput({ id, label, ruleset, value, onValue }: TestCellInputProps) {
+function TestCellInput({ id, label, each, ruleset, value, onValue }: TestCellInputProps) {
   const t = useTranslations("entryFields");
   const test = value ? testOf({ ruleset, testId: value.testId }) : undefined;
   const words = testWords(test ?? { id: value?.testId ?? "" });
@@ -251,8 +323,16 @@ function TestCellInput({ id, label, ruleset, value, onValue }: TestCellInputProp
     if (!value) return;
     const { [input]: _old, ...rest } = inputs;
     const raw = e.target.value.trim();
+    // The each input takes words split by commas, one chip each (house decision #173).
+    const words = raw.split(",").flatMap((w) => (w.trim() === "" ? [] : [w.trim()]));
     const v =
-      type === "int" ? (raw === "" || !Number.isSafeInteger(Number(raw)) ? undefined : Number(raw)) : raw || undefined;
+      input === each && words.length > 1
+        ? words
+        : type === "int"
+          ? raw === "" || !Number.isSafeInteger(Number(raw))
+            ? undefined
+            : Number(raw)
+          : raw || undefined;
     onValue({ ...value, inputs: v === undefined ? rest : { ...rest, [input]: v } });
   };
 
@@ -283,7 +363,8 @@ function TestCellInput({ id, label, ruleset, value, onValue }: TestCellInputProp
               return (
                 <label key={input} className="stack">
                   {words.input(input)}
-                  {options ? (
+                  {input === each && <span className="small dim">{t("eachHint")}</span>}
+                  {options && input !== each ? (
                     <select
                       id={`${id}-${input}`}
                       value={String(inputs[input] ?? "")}

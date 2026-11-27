@@ -38,7 +38,7 @@ func Apply(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 	name := b.Row.Name
 	result, _ := a["result"].(float64)
 	inputs, _ := a["inputs"].(map[string]any)
-	read, steps, refused := rc.Compiled.PlanLookup(tableID, result, inputs, b.Scope)
+	read, steps, refused := rc.Compiled.PlanLookup(tableID, result, inputs, b.Scope, b.Entity)
 	if refused != nil {
 		return cs.Result{}, refusal(refused, name)
 	}

@@ -24,7 +24,7 @@ import {
   checkFieldValue,
   compileRuleset,
   fitRows,
-  partyReadsReminder,
+  partyReminders,
   toViewerView,
   type ActorView,
   type CompiledRuleset,
@@ -104,9 +104,7 @@ function seatCodexDefinitions({ ruleset, secrets }: { ruleset: Ruleset; secrets:
       ...(k.reminders === undefined
         ? {}
         : {
-            reminders: k.reminders.filter((reminder) =>
-              partyReadsReminder({ kind: k, reminder, campaign: ruleset.campaignFields }),
-            ),
+            reminders: partyReminders({ kind: k, campaign: ruleset.campaignFields }),
           }),
     },
   ]);

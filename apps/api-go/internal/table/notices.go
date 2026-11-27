@@ -209,7 +209,13 @@ func mayRead(c cs.Ctx, n *engine.CompiledNotice, b *actor.Built) bool {
 }
 
 // words is the rule's text with the actor's name and each param's value filled in; false when a param can't be read.
-func words(n *engine.CompiledNotice, name string, scope *engine.Record) (string, bool) {
+// A rising rule's params also read how far it rose as ctx.rose (house decision #174).
+func words(n *engine.CompiledNotice, name string, scope *engine.Record, rose *float64) (string, bool) {
+	if rose != nil && scope != nil {
+		with := &engine.Record{Fields: maps.Clone(scope.Fields)}
+		with.Fields["ctx"] = &engine.Record{Fields: map[string]any{"rose": *rose}}
+		scope = with
+	}
 	text := strings.ReplaceAll(n.Text, "{name}", name)
 	for _, key := range slices.Sorted(maps.Keys(n.Params)) {
 		v, err := engine.Evaluate(n.Params[key].AST, scope)
@@ -262,6 +268,7 @@ func (r *noticeRead) raise(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Act
 		for _, row := range w.rows {
 			b := w.built[row.Actor.ID]
 			scope := w.scope(r.rules, b)
+			var rose *float64
 			if n.When == "crossed" {
 				// An actor the action made did not cross anything: it was not there before.
 				was, known := r.before[n.ID][row.Actor.ID]
@@ -273,6 +280,8 @@ func (r *noticeRead) raise(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Act
 					if was.level == nil || now == nil || *now <= *was.level {
 						continue
 					}
+					by := *now - *was.level
+					rose = &by
 				} else if was.met {
 					continue
 				}
@@ -282,7 +291,7 @@ func (r *noticeRead) raise(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Act
 			if !meets(n, b, scope) || !mayRead(c, n, b) {
 				continue
 			}
-			if text, ok := words(n, b.Row.Name, scope); ok {
+			if text, ok := words(n, b.Row.Name, scope, rose); ok {
 				cs.Notify(ctx, cs.RuleNotice(n.ID, b.Row.Name, text))
 			}
 		}

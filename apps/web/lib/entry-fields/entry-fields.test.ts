@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { CodexEntry } from "@inconsistable/core-schema";
-import { Ruleset } from "@inconsistable/rules-engine";
+import { followRow, Ruleset } from "@inconsistable/rules-engine";
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 
 import {
@@ -16,6 +16,8 @@ import {
   entryReminders,
   listChips,
   prefillRow,
+  rolledRows,
+  rollTimes,
   rowChips,
   rolledText,
   rowName,
@@ -182,7 +184,7 @@ test("a row reads as chips: text, a number by its column, an enum by its label a
   assert.equal(rowName({ def: dangers, row: gone }), "d2");
 });
 
-test("a row filled from a pack entry takes its name and mapped values, and keeps its key and cite", () => {
+test("a row filled from a pack entry keeps its key and cite and follows it; unread, it is named by the key", () => {
   assert.ok(dangers?.type === "rows");
   const wisp = {
     pack: "sample",
@@ -195,11 +197,22 @@ test("a row filled from a pack entry takes its name and mapped values, and keeps
     visibility: "gm",
     body: { level: 1, guard: 11 },
   };
-  assert.deepEqual(prefillRow({ def: dangers, entry: wisp, id: "r" }), {
-    id: "r",
-    from: { entity: "creature", key: "ember-wisp", cite: "Sample p.40" },
-    values: { name: "Ember Wisp", threat: 1 },
+  const row = prefillRow({ entry: wisp, id: "r" });
+  assert.deepEqual(row, { id: "r", from: { entity: "creature", key: "ember-wisp", cite: "Sample p.40" }, values: {} });
+  assert.deepEqual(followRow({ def: dangers, row, entry: wisp }).values, { name: "Ember Wisp", threat: 1 });
+  // A pack update shows; the GM's own cell stays over it.
+  const edited = { ...row, values: { threat: 5 } };
+  const renamed = { ...wisp, name: "Ember Spirit", body: { level: 2 } };
+  assert.deepEqual(followRow({ def: dangers, row: edited, entry: renamed }).values, {
+    name: "Ember Spirit",
+    threat: 5,
   });
+  // Without the entry, only the GM's cells, and the entry's key names the row.
+  assert.deepEqual(
+    rowChips({ ruleset, def: dangers, row: edited }).map((c) => c.text),
+    ["ember-wisp", "Threat 5"],
+  );
+  assert.equal(rowName({ def: dangers, row: edited }), "ember-wisp");
 });
 
 test("a tags field suggests its pack names ranked, adds an exact one on Enter, and a write-in only where allowed", () => {
@@ -263,5 +276,28 @@ test("rolled lines fill a field in the declared order, joined as declared (house
       ["location", ["site"]],
       ["lore", ["charter"]],
     ],
+  );
+});
+
+test("a field's table rolls into new rows per the campaign value, within the cap; a Test chip per listed word (#173)", () => {
+  assert.ok(dangers?.type === "rows");
+  assert.equal(rollTimes({ def: dangers, campaign: { season: 3 } }), 3);
+  assert.equal(rollTimes({ def: dangers, campaign: {} }), 1);
+  const rows = rolledRows({
+    def: { ...dangers, maxRows: 2 },
+    rows: [{ id: "a", values: {} }],
+    labels: ["Mire", "Rockfall"],
+  });
+  assert.deepEqual(
+    rows.map((r) => r.values),
+    [{}, { name: "Mire" }],
+  );
+  const row = {
+    id: "r",
+    values: { threat: 2, check: { testId: "check", inputs: { ability: ["str", "dex"] } } },
+  };
+  assert.deepEqual(
+    rowChips({ ruleset, def: dangers, row, campaign: { season: 1 } }).map((c) => c.text),
+    ["Threat 2", "Ability check · DC 13, Ability Strength", "Ability check · DC 13, Ability Dexterity"],
   );
 });

@@ -21,7 +21,7 @@ func (rc *Context) ConditionDelta(ctx context.Context, actorID, condition, sourc
 	if !known {
 		return nil, cs.Fail("noCondition", cs.Params{"condition": condition})
 	}
-	if rc.Compiled.ImmuneTo(condition, b.Scope) {
+	if rc.Compiled.ImmuneTo(condition, b.Entity, b.Scope) {
 		return nil, cs.Fail("conditionImmune", cs.Params{"name": b.Row.Name, "condition": def.Label})
 	}
 	t, err := rc.Turn(ctx)

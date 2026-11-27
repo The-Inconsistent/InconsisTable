@@ -201,9 +201,15 @@ function hit({ params, state, input }: { params: P; state: RuleState; input: Hit
   }
   // c. Destroyed: one hit past the line ends the actor outright, and nothing else changes.
   if (profile.destroyed !== undefined) {
-    const over = readNumber({ source: profile.destroyed.over, scope, path: `${path}.destroyed.over` });
+    const when =
+      profile.destroyed.when === undefined
+        ? true
+        : readBool({ source: profile.destroyed.when, scope, path: `${path}.destroyed.when` });
+    if (isRefused(when)) return when;
+    const over = when ? readNumber({ source: profile.destroyed.over, scope, path: `${path}.destroyed.over` }) : 0;
     if (isRefused(over)) return over;
-    if (wounds > over) return [{ target: { actorId: id, field: profile.destroyed.field }, kind: "set", value: true }];
+    if (when && wounds > over)
+      return [{ target: { actorId: id, field: profile.destroyed.field }, kind: "set", value: true }];
   }
   const deltas: Delta[] = [];
   // d. Shock: never below 0, no ceiling.

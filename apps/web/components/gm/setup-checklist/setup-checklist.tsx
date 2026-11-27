@@ -40,7 +40,7 @@ export function SetupChecklist({ steps, room, onGo, terms }: SetupChecklistProps
       <p className="small">{t("progress", { done: doneCount, count: steps.length })}</p>
       {shown && (
         <ol className="list stack">
-          {ticks.map(({ step, count, done }) => (
+          {ticks.map(({ step, count, done, now }) => (
             <li
               key={step.id}
               className="row between"
@@ -58,7 +58,10 @@ export function SetupChecklist({ steps, room, onGo, terms }: SetupChecklistProps
                   <TermMark term={{ label: step.label, summary: step.note, cite: step.cite }} env={terms} />
                 </span>
                 <span className="small dim">
-                  {t("now", { count })}
+                  {/* A step's room value in its place, when the ruleset gives one (house decision #173). */}
+                  {t("now", {
+                    count: now === null ? String(count) : typeof now === "boolean" ? (now ? "✓" : "–") : String(now),
+                  })}
                   {step.cite && (
                     <>
                       {" · "}

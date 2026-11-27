@@ -950,6 +950,9 @@ func (c *compiler) seenBy(takers []*EntityType, entities map[string]*CompiledEnt
 // NOTICE_BUILD_SCOPE).
 var NoticeBuildScope = RecordType{map[string]ExprType{"xpSpent": intType, "xpAtAscension": intType}}
 
+// NoticeRoseScope is a rising rule's `ctx` in its params: how far its number rose in the action (house decision #174).
+var NoticeRoseScope = RecordType{map[string]ExprType{"rose": intType}}
+
 // ResultScope is what an offer reads of a taker's resolved report as `result` (house decision #80; compile.ts
 // RESULT_SCOPE): a number the kind of Test has not is 0.
 var ResultScope = func() ExprType {
@@ -1118,6 +1121,7 @@ func (c *compiler) run() *CompiledRuleset {
 			}
 			if x.Destroyed != nil {
 				check(&x.Destroyed.Over, intType, "destroyed.over")
+				check(x.Destroyed.When, boolType, "destroyed.when")
 			}
 		}
 	}
@@ -1137,9 +1141,14 @@ func (c *compiler) run() *CompiledRuleset {
 		path := fmt.Sprintf("notices[%d]", j)
 		when := c.expr(n.If, scopes, boolType, path+".if")
 		read, whole := []*CompiledExpr{when}, when != nil
+		// A rule that rises reads how far it rose in this action as ctx.rose in its params (house decision #174).
+		paramScopes := scopes
+		if n.Rises != nil {
+			paramScopes = withScope(scopes, "ctx", NoticeRoseScope)
+		}
 		params := map[string]*CompiledExpr{}
 		for _, name := range sortedKeys(n.Params) {
-			x := c.expr(n.Params[name], scopes, nil, path+".params."+name)
+			x := c.expr(n.Params[name], paramScopes, nil, path+".params."+name)
 			params[name], read, whole = x, append(read, x), whole && x != nil
 		}
 		var rises *CompiledExpr
@@ -1156,10 +1165,11 @@ func (c *compiler) run() *CompiledRuleset {
 				c.seenBy(takers, entities, read)})
 		}
 	}
-	reminderScopes := withScope(withScope(withScope(actorScopes, "round", intType), "held", boolType), "barred", boolType)
 	reminders := make([]*CompiledExpr, len(c.r.Reminders))
 	for j, x := range c.r.Reminders {
 		if x.If != nil {
+			_, scopes := c.actorsOf(x.Entities, entities)
+			reminderScopes := withScope(withScope(withScope(scopes, "round", intType), "held", boolType), "barred", boolType)
 			reminders[j] = c.expr(*x.If, reminderScopes, boolType, fmt.Sprintf("reminders[%d].if", j))
 		}
 	}
@@ -1172,6 +1182,35 @@ func (c *compiler) run() *CompiledRuleset {
 			}
 		}
 	}
+	// A rows field's Test inputs read the campaign fields and the row's values (house decision #173).
+	if c.r.Codex != nil {
+		for _, kind := range sortedKeys(c.r.Codex.Kinds) {
+			k := c.r.Codex.Kinds[kind]
+			for _, id := range sortedKeys(k.Fields) {
+				def := k.Fields[id]
+				if def.Type != "rows" {
+					continue
+				}
+				scope := CodexScope(nil, false, c.r.CampaignFields)
+				scope["values"] = RowScope(def.Columns)
+				for i, col := range def.Columns {
+					if col.Type != "test" {
+						continue
+					}
+					for _, name := range sortedKeys(col.Inputs) {
+						c.expr(col.Inputs[name], []map[string]ExprType{scope}, nil,
+							fmt.Sprintf("codex.kinds.%s.fields.%s.columns[%d].inputs.%s", kind, id, i, name))
+					}
+				}
+			}
+		}
+	}
+	// A checklist step's room value reads the campaign fields (house decision #173).
+	for j, x := range c.r.Checklist {
+		if x.Now != nil {
+			c.expr(*x.Now, []map[string]ExprType{CodexScope(nil, false, c.r.CampaignFields)}, nil, fmt.Sprintf("checklist[%d].now", j))
+		}
+	}
 	// A generator's when, filter and each.times read the steps above them (house decision #98).
 	for i := range c.r.Generators {
 		c.generatorExprs(&c.r.Generators[i], fmt.Sprintf("generators[%d]", i))
@@ -1179,7 +1218,8 @@ func (c *compiler) run() *CompiledRuleset {
 	immune := map[string]*CompiledExpr{}
 	for j, x := range c.r.Conditions {
 		if x.Immune != nil {
-			if e := c.expr(*x.Immune, actorScopes, boolType, fmt.Sprintf("conditions[%d].immune", j)); e != nil {
+			_, scopes := c.actorsOf(x.Immune.Entities, entities)
+			if e := c.expr(x.Immune.If, scopes, boolType, fmt.Sprintf("conditions[%d].immune", j)); e != nil {
 				immune[x.ID] = e
 			}
 		}

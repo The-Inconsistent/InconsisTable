@@ -2,11 +2,12 @@
 import { useTranslations } from "next-intl";
 
 import type { CodexEntry } from "@inconsistable/core-schema";
-import type { CodexField, Ruleset } from "@inconsistable/rules-engine";
+import { followRow, type CodexField, type Ruleset } from "@inconsistable/rules-engine";
 
 import { Cite } from "@/components/ui/cite/cite";
 import { PackEntrySheet } from "@/components/ui/pack-entry-sheet/pack-entry-sheet";
 import { RefName } from "@/components/ui/ref-name/ref-name";
+import { SourceEntry } from "@/components/ui/source-entry/source-entry";
 import { usePackEntry } from "@/hooks/use-pack-entry/use-pack-entry";
 import {
   entryReminders,
@@ -68,33 +69,49 @@ export function EntryFieldChips({ ruleset, entry }: { ruleset: Ruleset | null; e
 
 type RowsDef = Extract<CodexField, { type: "rows" }>;
 
-/** One row of a rows field as compact chips (house decision #89); a Test the ruleset no longer has is marked broken. */
+/**
+ * One row of a rows field as compact chips (house decision #89); a Test the ruleset no longer has is marked broken. A
+ * row filled from a pack entry follows it, read for this seat, with the GM's cells over it.
+ */
 export function RowChips({
   ruleset,
   def,
   row,
   known = [],
+  campaign,
+  campaignId = null,
 }: {
   ruleset: Ruleset | null;
   def: RowsDef;
   row: EntryRow;
   known?: readonly RulesEntry[];
+  /** The campaign fields in play, which a Test column's inputs read (house decision #173). */
+  campaign?: Readonly<Record<string, unknown>>;
+  /** The room, to read the entry a row follows; null where nothing is read (the table screen). */
+  campaignId?: string | null;
 }) {
   return (
-    <span className="row" style={{ flex: "1 1 200px", minWidth: 0, gap: 4 }} data-field="row">
-      {rowChips({ ruleset, def, row, known }).map((c) => (
-        <span
-          key={c.key}
-          className="chip"
-          data-field="cell"
-          data-state={c.broken ? "broken" : (c.tone ?? undefined)}
-          style={{ overflowWrap: "anywhere" }}
-        >
-          {c.text}
-        </span>
-      ))}
-      {row.from?.cite && <Cite cite={row.from.cite} />}
-    </span>
+    <SourceEntry campaignId={campaignId} from={row.from} known={known}>
+      {(entry) => {
+        const shown = followRow({ def, row, entry });
+        return (
+          <span className="row" style={{ flex: "1 1 200px", minWidth: 0, gap: 4 }} data-field="row">
+            {rowChips({ ruleset, def, row: shown, known, campaign }).map((c) => (
+              <span
+                key={c.key}
+                className="chip"
+                data-field="cell"
+                data-state={c.broken ? "broken" : (c.tone ?? undefined)}
+                style={{ overflowWrap: "anywhere" }}
+              >
+                {c.text}
+              </span>
+            ))}
+            {shown.from?.cite && <Cite cite={shown.from.cite} />}
+          </span>
+        );
+      }}
+    </SourceEntry>
   );
 }
 
@@ -212,7 +229,14 @@ export function EntryFields({
           <ul className="list" aria-label={def.label}>
             {list.map((row) => (
               <li key={row.id}>
-                <RowChips ruleset={ruleset} def={def} row={row} known={known} />
+                <RowChips
+                  ruleset={ruleset}
+                  def={def}
+                  row={row}
+                  known={known}
+                  campaign={campaign}
+                  campaignId={readNames ? campaignId : null}
+                />
               </li>
             ))}
           </ul>

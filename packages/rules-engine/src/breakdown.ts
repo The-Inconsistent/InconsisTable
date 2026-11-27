@@ -64,19 +64,24 @@ export function breakdownOf({
   });
   // Chosen entries are shown to every viewer: what they add is in the number whoever looks (house decision #61).
   const entries = [...new Map((values.entries ?? []).map((e) => [entrySourceId(e), e])).values()];
-  const valueWith = (conditions: string[], held: typeof entries) =>
-    deriveValues({ compiled, entity, values: { ...values, conditions, entries: held } })[derivedId] ?? 0;
+  // Spawn options count as `gm` (house decision #92): each its own line for the GM side, folded in the base for any
+  // other seat; they always run, so a shown line's amount is worked out with the hidden ones in (house decision #171).
+  const options = [...new Set(values.options ?? [])];
+  const shownOptions =
+    viewer === undefined || canSee({ visibility: "gm", viewer, actorId: actorId ?? "" }) ? options : [];
+  const valueWith = (conditions: string[], held: typeof entries, opts: string[]) =>
+    deriveValues({ compiled, entity, values: { ...values, conditions, entries: held, options: opts } })[derivedId] ?? 0;
   // Without a source that sets a field the formula reads (a base-phase override on an unset field), the value cannot
   // be worked out: that source is credited with the whole value, and the base is what is left.
-  const valueWithout = (conditions: string[], held: typeof entries) => {
+  const valueWithout = (conditions: string[], held: typeof entries, opts: string[]) => {
     try {
-      return valueWith(conditions, held);
+      return valueWith(conditions, held, opts);
     } catch {
       return 0;
     }
   };
   try {
-    const all = valueWith(visible, entries);
+    const all = valueWith(visible, entries, options);
     const lines = [
       ...visible.flatMap((id): BreakdownLine[] => {
         const cond = own(compiled.conditions, id);
@@ -85,6 +90,7 @@ export function breakdownOf({
           valueWithout(
             visible.filter((c) => c !== id),
             entries,
+            options,
           );
         return cond === undefined || amount === 0
           ? []
@@ -96,10 +102,24 @@ export function breakdownOf({
           valueWithout(
             visible,
             entries.filter((e) => e !== entry),
+            options,
           );
         return amount === 0
           ? []
           : [{ source: entry.name, amount, cite: entry.effects.find((e) => e.cite)?.cite ?? null }];
+      }),
+      ...shownOptions.flatMap((id): BreakdownLine[] => {
+        const o = compiled.ruleset.spawn?.options?.find((x) => x.id === id);
+        const amount =
+          all -
+          valueWithout(
+            visible,
+            entries,
+            options.filter((x) => x !== id),
+          );
+        return o === undefined || amount === 0
+          ? []
+          : [{ source: o.label, amount, cite: o.cite ?? o.effects.find((e) => e.cite)?.cite ?? null }];
       }),
     ];
     const base = total - lines.reduce((sum, l) => sum + l.amount, 0);

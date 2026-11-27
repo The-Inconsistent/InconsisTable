@@ -514,7 +514,7 @@ export const SAMPLE_SKIRMISH_BEFORE_CHECKLIST: RulesetInput = (() => {
  * 0.1.11 (house decision #169): an ask to jump the line holds for its round only, and Channel's backlash table
  * is offered only when the use was pushed. 0.1.10 hashes as it did.
  */
-export const SAMPLE_SKIRMISH: RulesetInput = {
+const SKIRMISH_0_1_11: RulesetInput = {
   ...SAMPLE_SKIRMISH_0_1_10,
   version: "0.1.11",
   spends: SAMPLE_SKIRMISH_0_1_10.spends?.map((s) =>
@@ -524,4 +524,62 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
         ? { ...s, then: { ...s.then, if: "ctx.push >= 1" } }
         : s,
   ),
+};
+
+/**
+ * 0.1.12 (house decisions #172 to #174): a boss's reminder read only on creatures, Reeling's immunity read only on
+ * creatures, a warded creature told the Resolve Test each hit calls for with the number worked out, a faction's
+ * stance lines of which only the first that holds shows, and the chapter named in its checklist step. Invented.
+ */
+export const SAMPLE_SKIRMISH_0_1_11 = SKIRMISH_0_1_11;
+export const SAMPLE_SKIRMISH: RulesetInput = {
+  ...SAMPLE_SKIRMISH_0_1_11,
+  version: "0.1.12",
+  conditions: SAMPLE_SKIRMISH_0_1_11.conditions?.map((c) =>
+    c.id === "reeling" ? { ...c, immune: { if: "level >= 5", entities: ["creature"] } } : c,
+  ),
+  reminders: [
+    ...(SAMPLE_SKIRMISH_0_1_11.reminders ?? []),
+    {
+      id: "bossActs",
+      at: "turnEnd",
+      text: "A boss acts twice: take its second turn now",
+      if: 'kind == "boss"',
+      entities: ["creature"],
+      cite: "Sample p.24",
+    },
+  ],
+  notices: [
+    ...(SAMPLE_SKIRMISH_0_1_11.notices ?? []),
+    {
+      id: "warded",
+      when: "crossed",
+      entities: ["creature"],
+      if: "count(wards) > 0",
+      rises: "derived.maxHp - res.hp",
+      params: { dn: "ctx.rose + count(wards)" },
+      text: "{name} keeps its wards up: Resolve Test, DN {dn}",
+      cite: "Sample p.25",
+    },
+  ],
+  codex: {
+    kinds: {
+      ...SAMPLE_SKIRMISH_0_1_11.codex?.kinds,
+      faction: {
+        ...SAMPLE_SKIRMISH_0_1_11.codex?.kinds.faction,
+        fields: SAMPLE_SKIRMISH_0_1_11.codex?.kinds.faction?.fields ?? {},
+        reminders: [
+          {
+            id: "rival",
+            if: 'fields.standing == "rival"',
+            text: "A rival: keep its seat from the crew",
+            group: "stance",
+            cite: "Sample p.23",
+          },
+          { id: "seated", if: 'fields.seat != ""', text: "Its seat is known", group: "stance", cite: "Sample p.23" },
+        ],
+      },
+    },
+  },
+  checklist: SAMPLE_SKIRMISH_0_1_11.checklist?.map((s) => (s.id === "chapter" ? { ...s, now: "campaign.chapter" } : s)),
 };

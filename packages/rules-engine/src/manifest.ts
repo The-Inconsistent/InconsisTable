@@ -116,6 +116,9 @@ const enumShape = { type: z.literal("enum"), values: z.array(Id).min(1).max(200)
 /** A reference to another actor or entry of the given entity type. */
 const refShape = { type: z.literal("ref"), entity: Id };
 
+/** The lists of a saved build sheet a strike's means or a list's quick picks may read (house decisions #99, #171). */
+export const STRIKE_LEDGER_LINES = ["weapons", "powers"] as const;
+
 export const FieldDef = z.discriminatedUnion("type", [
   z.object({ ...fieldBase, ...intShape }),
   z.object({ ...fieldBase, ...textShape }),
@@ -129,8 +132,13 @@ export const FieldDef = z.discriminatedUnion("type", [
     maxItems: z.int().min(1).max(500).optional(),
     /** House decision #91: its items show as chips where Condition chips show, each ended by itself or all at once. */
     chips: z.boolean().optional(),
-    /** House decision #91: where the screen's quick picks come from: the names of pack entries of this entity type. */
-    picks: z.object({ entity: Id }).optional(),
+    /**
+     * House decision #91: where the screen's quick picks come from: the names of pack entries of this entity type, or
+     * (house decision #171) the names of a list of the actor's saved build sheet, declared as a strike's means is.
+     */
+    picks: z
+      .union([z.object({ entity: Id }), z.object({ from: z.literal("ledger"), lines: z.enum(STRIKE_LEDGER_LINES) })])
+      .optional(),
   }),
 ]);
 export type FieldDef = z.infer<typeof FieldDef>;
@@ -185,13 +193,28 @@ export const MAX_CODEX_REMINDERS = 20;
  * its inputs, the two things a scene's prepared Test line holds (`testId`, `inputs`).
  */
 const columnBase = { id: Id, label: z.string().min(1).max(60) };
+export const MAX_COLUMN_INPUTS = 5;
+export const MAX_EACH_WORDS = 10;
 export const RowColumn = z.discriminatedUnion("type", [
   z.object({ ...columnBase, ...intShape }),
   z.object({ ...columnBase, type: z.literal("text"), maxLength: z.int().min(1).max(MAX_CELL_CHARS).optional() }),
-  z.object({ ...columnBase, ...enumShape }),
+  /** `offer`: a list or enum field of the row's `from` entry whose words the editor offers (house decision #173). */
+  z.object({ ...columnBase, ...enumShape, offer: FieldId.optional() }),
   z.object({ ...columnBase, type: z.literal("bool") }),
   z.object({ ...columnBase, ...refShape }),
-  z.object({ ...columnBase, type: z.literal("test") }),
+  /**
+   * `inputs`: a Test input worked out from `campaign` and the row's `values` where the cell does not set it; `each`:
+   * the input a cell may give a list of words for, one Test chip per word (house decision #173).
+   */
+  z.object({
+    ...columnBase,
+    type: z.literal("test"),
+    inputs: z
+      .record(Id, ExprSource)
+      .refine((o) => Object.keys(o).length <= MAX_COLUMN_INPUTS, `at most ${MAX_COLUMN_INPUTS} inputs`)
+      .optional(),
+    each: Id.optional(),
+  }),
 ]);
 export type RowColumn = z.infer<typeof RowColumn>;
 
@@ -265,6 +288,11 @@ export const CodexField = z.discriminatedUnion("type", [
     from: z.array(RowPrefill).min(1).max(MAX_ROW_PREFILLS).optional(),
     /** A scene may pick this field's rows, each with one switch of this name (a prep `picks` line). */
     pick: z.object({ label: z.string().min(1).max(40) }).optional(),
+    /**
+     * A table the GM's editor rolls, `times` (a whole-number campaign field) times or once, each line's label a new row's
+     * `into` text column, within the cap (house decision #173). A prep aid through `table.roll`; nothing else rolls.
+     */
+    rolls: z.object({ table: Id, into: Id, times: Id.optional() }).optional(),
   }),
 ]);
 export type CodexField = z.infer<typeof CodexField>;
@@ -280,6 +308,8 @@ export const CodexReminder = z.object({
   if: ExprSource,
   text: z.string().min(1).max(120),
   cite: Cite.optional(),
+  /** Of the reminders sharing a group, only the first that holds shows (house decision #172). */
+  group: Id.optional(),
 });
 export type CodexReminder = z.infer<typeof CodexReminder>;
 
@@ -381,8 +411,11 @@ export const Condition = z.object({
   /** A reminder line for the side running the fight while an actor holds it (house decision #81); both or neither. */
   at: ReminderAt.optional(),
   text: z.string().min(1).max(120).optional(),
-  /** A boolean in the actor's scope: `condition.add` is refused on an actor it holds for (house decision #81). */
-  immune: ExprSource.optional(),
+  /**
+   * A boolean in the actor's scope: `condition.add` is refused on an actor it holds for (house decision #81). As
+   * `{ if, entities }` it is read only on those actor types; any other is never immune (house decision #174).
+   */
+  immune: z.union([ExprSource, z.object({ if: ExprSource, entities: z.array(Id).min(1).max(50) })]).optional(),
 });
 export type Condition = z.infer<typeof Condition>;
 
@@ -397,8 +430,18 @@ export const Reminder = z.object({
   text: z.string().min(1).max(120),
   cite: Cite.optional(),
   if: ExprSource.optional(),
+  /** The actor types its `if` is read on; a combatant of another type never holds it (house decision #174). */
+  entities: z.array(Id).min(1).max(50).optional(),
 });
 export type Reminder = z.infer<typeof Reminder>;
+
+/** A condition's `immune` as its expression and the actor types it is read on (null: every one). */
+export const immuneOf = (c: Pick<Condition, "immune">): { if: string; entities: readonly string[] | null } | null =>
+  c.immune === undefined
+    ? null
+    : typeof c.immune === "string"
+      ? { if: c.immune, entities: null }
+      : { if: c.immune.if, entities: c.immune.entities };
 
 /** A rest event an actor takes no part in while one of these health states holds for it (house decision #81). */
 export const RestRule = z.object({
@@ -968,8 +1011,11 @@ export const HarmProfile = z.object({
       healTo: ExprSource.optional(),
     })
     .optional(),
-  /** Number: one hit's wounds above `over` destroys the actor outright, which sets the bool `field`. */
-  destroyed: z.object({ over: ExprSource, field: FieldId }).optional(),
+  /**
+   * Number: one hit's wounds above `over` destroys the actor outright, which sets the bool `field`; with `when` (a
+   * boolean in the same scope, house decision #174) only while it holds.
+   */
+  destroyed: z.object({ over: ExprSource, field: FieldId, when: ExprSource.optional() }).optional(),
   /** true: `convert` moves wounds to the second track for this profile (house decision #84). Absent: it is refused. */
   convert: z.boolean().optional(),
 });
@@ -1308,8 +1354,6 @@ export const MAX_STRIKE_VALUES = 20;
 /** The most items a means' `list` value holds (house decision #159); the rest are left off. */
 export const MAX_MEANS_LIST = 20;
 export const MAX_STRIKE_SHOWS = 6;
-/** The lists of the saved build's sheet a strike's means may come from. */
-export const STRIKE_LEDGER_LINES = ["weapons", "powers"] as const;
 /** The names a strike's `ctx` gives its own values; an input may not take one. */
 export const STRIKE_CTX_ROOTS: ReadonlySet<string> = new Set([
   "means",
@@ -1595,6 +1639,8 @@ export const ChecklistStep = z.object({
   goto: z.object({ tab: z.enum(CHECKLIST_TABS), kind: CodexEntryKind.optional() }).optional(),
   note: z.string().min(1).max(200).optional(),
   optional: z.boolean().optional(),
+  /** A room value the step shows as "Now": an expression over `campaign` (house decision #173). */
+  now: ExprSource.optional(),
 });
 export type ChecklistStep = z.infer<typeof ChecklistStep>;
 
@@ -2587,6 +2633,15 @@ function rowsProblems({
     if (c.type === "int" && c.min !== undefined && c.max !== undefined && c.max < c.min)
       out.push({ path: `${at}.max`, message: "max is below min" });
     if (c.type === "enum") enumWordProblems({ def: c, path: at, out });
+    // An enum's offered words come from a list or enum field of every type that fills the row (house decision #173).
+    if (c.type === "enum" && c.offer !== undefined) {
+      if (def.from === undefined) out.push({ path: `${at}.offer`, message: "offer needs from" });
+      for (const f of def.from ?? []) {
+        const type = own(r.entities.find((e) => e.id === f.entity)?.fields ?? {}, c.offer)?.type;
+        if (r.entities.some((e) => e.id === f.entity) && type !== "list" && type !== "enum")
+          out.push({ path: `${at}.offer`, message: `"${c.offer}" is not a list or enum field of "${f.entity}"` });
+      }
+    }
   });
   const column = (id: string) => def.columns.find((c) => c.id === id);
   const seen = new Set<string>();
@@ -2611,6 +2666,18 @@ function rowsProblems({
         out.push({ path: `${at}.values.${col}`, message: `"${fieldId}" does not fit the column` });
     }
   });
+  // A table rolled into new rows, once or per a campaign value (house decision #173).
+  if (def.rolls !== undefined) {
+    const t = own(r.tables ?? {}, def.rolls.table);
+    if (t === undefined) out.push({ path: `${path}.rolls.table`, message: `unknown table "${def.rolls.table}"` });
+    else if (t.visibility === "owner")
+      out.push({ path: `${path}.rolls.table`, message: `"${def.rolls.table}" is dealt, never rolled` });
+    if (column(def.rolls.into)?.type !== "text")
+      out.push({ path: `${path}.rolls.into`, message: `"${def.rolls.into}" is not a text column` });
+    const times = def.rolls.times;
+    if (times !== undefined && own(r.campaignFields ?? {}, times)?.type !== "int")
+      out.push({ path: `${path}.rolls.times`, message: `"${times}" is not a whole-number campaign field` });
+  }
 }
 
 /** Every cost names a declared side and a shared pool. */
@@ -2893,7 +2960,11 @@ function spendProblems({
   r.entities.forEach((e, i) => {
     for (const id of Object.keys(e.fields).sort()) {
       const f = e.fields[id];
-      if (f?.type === "list" && f.picks !== undefined && !r.entities.some((x) => x.id === f.picks?.entity))
+      if (f?.type !== "list" || f.picks === undefined) continue;
+      if ("from" in f.picks) {
+        if (r.build === undefined)
+          out.push({ path: `entities[${i}].fields.${id}.picks`, message: "the ruleset has no build" });
+      } else if (!r.entities.some((x) => x.id === (f.picks as { entity: string }).entity))
         out.push({ path: `entities[${i}].fields.${id}.picks.entity`, message: `unknown entity "${f.picks.entity}"` });
     }
   });
@@ -3260,6 +3331,13 @@ function semanticProblems(r: Ruleset): Problem[] {
       else if (e.base !== "actor") out.push({ path: `${path}[${j}]`, message: `"${id}" is not an actor entity` });
     });
   r.health.states.forEach((s, i) => actorTypes(s.entities, `health.states[${i}].entities`));
+  // A reminder's and an immunity's actor types (house decision #174).
+  r.reminders?.forEach((x, i) => {
+    actorTypes(x.entities, `reminders[${i}].entities`);
+    if (x.entities !== undefined && x.if === undefined)
+      out.push({ path: `reminders[${i}].entities`, message: "entities needs an if" });
+  });
+  r.conditions.forEach((c, i) => actorTypes(immuneOf(c)?.entities ?? undefined, `conditions[${i}].immune.entities`));
   if (r.health.harm !== undefined) harmProblems({ r, harm: r.health.harm, actorTypes, out });
   r.spends?.forEach((s, i) => needCite(s.cite, `spends[${i}]`));
   spendProblems({ r, actorTypes, out });

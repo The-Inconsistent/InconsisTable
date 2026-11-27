@@ -19,6 +19,7 @@ import {
   HOST_PREFIX,
   strikeTargets,
   validateRuleset,
+  immuneOf,
   type Condition,
   type StrikeFigure,
   type Effect,
@@ -36,6 +37,7 @@ import {
   type NoticeWhen,
   type TestOffer,
   type TableEffect,
+  type RowColumn,
 } from "./manifest.ts";
 import { own } from "./own.ts";
 import { declaredPrimitives, opInputKeys } from "./primitives/registry.ts";
@@ -176,6 +178,16 @@ export interface CompiledNotice {
 }
 
 /** What a notice reads of a ledger actor's play (house decision #168), as `build`. */
+/** What a rows field's Test input reads of the row as `values` (house decision #173): its plain columns. */
+export function rowScope(columns: readonly RowColumn[]): ExprType {
+  const type = { int: "int", text: "text", enum: "text", bool: "bool" } as const;
+  return {
+    record: Object.fromEntries(
+      columns.flatMap((c) => (c.type in type ? [[c.id, type[c.type as keyof typeof type]]] : [])),
+    ),
+  };
+}
+
 export const NOTICE_BUILD_SCOPE: ExprScope = { xpSpent: "int", xpAtAscension: "int" };
 
 export type CompiledInitiative =
@@ -1087,6 +1099,7 @@ class Compiler {
       check(p.felled?.when, "bool", "felled.when");
       check(p.felled?.healTo, "int", "felled.healTo");
       check(p.destroyed?.over, "int", "destroyed.over");
+      check(p.destroyed?.when, "bool", "destroyed.when");
     });
 
     const notices = (this.r.notices ?? []).flatMap((n, j): CompiledNotice[] => {
@@ -1097,8 +1110,11 @@ class Compiler {
       );
       const path = `notices[${j}]`;
       const when = this.expr({ source: n.if, scopes, expect: "bool", path: `${path}.if` });
+      // A rule that rises reads how far it rose in this action as `ctx.rose` in its params (house decision #174).
+      const paramScopes =
+        n.rises === undefined ? scopes : scopes.map((s) => ({ ...s, ctx: { record: { rose: "int" as const } } }));
       const params = sortedEntries(n.params ?? {}).map(
-        ([name, source]) => [name, this.expr({ source, scopes, path: `${path}.params.${name}` })] as const,
+        ([name, source]) => [name, this.expr({ source, scopes: paramScopes, path: `${path}.params.${name}` })] as const,
       );
       const rises =
         n.rises === undefined ? null : this.expr({ source: n.rises, scopes, expect: "int", path: `${path}.rises` });
@@ -1125,7 +1141,7 @@ class Compiler {
         ? null
         : this.expr({
             source: x.if,
-            scopes: actorScopes.map((s) => ({ ...s, ...REMINDER_SCOPE })),
+            scopes: actorsOf(x.entities).map(({ ce }) => ({ ...ce.scope, ...REMINDER_SCOPE })),
             expect: "bool",
             path: `reminders[${j}].if`,
           }),
@@ -1138,16 +1154,41 @@ class Compiler {
         this.expr({ source: x.if, scopes: [scope], expect: "bool", path: `codex.kinds.${kind}.reminders[${j}].if` });
       });
     }
+    // A rows field's Test inputs read the campaign fields and the row's values (house decision #173).
+    for (const kind of Object.keys(this.r.codex?.kinds ?? {}).sort()) {
+      const k = own(this.r.codex?.kinds ?? {}, kind);
+      for (const id of Object.keys(k?.fields ?? {}).sort()) {
+        const def = own(k?.fields ?? {}, id);
+        if (def?.type !== "rows") continue;
+        const scope = { ...codexScope({ fields: {}, campaign: this.r.campaignFields }), values: rowScope(def.columns) };
+        def.columns.forEach((c, i) => {
+          if (c.type !== "test") return;
+          for (const [name, source] of sortedEntries(c.inputs ?? {}))
+            this.expr({
+              source,
+              scopes: [scope],
+              path: `codex.kinds.${kind}.fields.${id}.columns[${i}].inputs.${name}`,
+            });
+        });
+      }
+    }
+    // A checklist step's room value reads the campaign fields (house decision #173).
+    this.r.checklist?.forEach((x, j) => {
+      if (x.now === undefined) return;
+      const scope = codexScope({ fields: {}, campaign: this.r.campaignFields });
+      this.expr({ source: x.now, scopes: [scope], path: `checklist[${j}].now` });
+    });
     // A generator's `when`, `filter` and `each.times` read the steps above them (house decision #98).
     this.r.generators?.forEach((g, i) =>
       this.problems.push(...generatorExprProblems({ r: this.r, g, path: `generators[${i}]` })),
     );
     const immune: Record<string, CompiledExpr> = {};
     this.r.conditions.forEach((c, j) => {
-      if (c.immune === undefined) return;
+      const im = immuneOf(c);
+      if (im === null) return;
       const expr = this.expr({
-        source: c.immune,
-        scopes: actorScopes,
+        source: im.if,
+        scopes: actorsOf(im.entities ?? undefined).map(({ ce }) => ce.scope),
         expect: "bool",
         path: `conditions[${j}].immune`,
       });

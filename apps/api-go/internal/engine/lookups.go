@@ -151,7 +151,8 @@ func (c *CompiledRuleset) ReadLookup(tableID string, result float64, inputs map[
 
 // PlanLookup is a typed result applied to a target (lookups.ts planLookup): the line and its effects as steps, in the
 // line's order, each repeated Times and left out when its When does not hold or its amounts are all 0.
-func (c *CompiledRuleset) PlanLookup(tableID string, result float64, inputs map[string]any, scope *Record) (*LookupRead, []LookupStep, *LookupRefusal) {
+// Entity is the target's actor type, which an immunity's entities read (house decision #174); "" when not known.
+func (c *CompiledRuleset) PlanLookup(tableID string, result float64, inputs map[string]any, scope *Record, entity string) (*LookupRead, []LookupStep, *LookupRefusal) {
 	read, refused := c.ReadLookup(tableID, result, inputs, scope)
 	if refused != nil {
 		return nil, nil, refused
@@ -181,7 +182,7 @@ func (c *CompiledRuleset) PlanLookup(tableID string, result float64, inputs map[
 			}
 			times = math.Max(0, math.Min(MaxEffectTimes, n))
 		}
-		step, err := c.stepOf(x, full, scope)
+		step, err := c.stepOf(x, full, scope, entity)
 		if err != nil {
 			return nil, nil, unreadable(err)
 		}
@@ -196,7 +197,7 @@ func (c *CompiledRuleset) PlanLookup(tableID string, result float64, inputs map[
 }
 
 // stepOf is one effect worked out once; nil when its amounts are all 0. Immunity reads the target without the inputs.
-func (c *CompiledRuleset) stepOf(x *CompiledTableEffect, scope, target *Record) (*LookupStep, error) {
+func (c *CompiledRuleset) stepOf(x *CompiledTableEffect, scope, target *Record, entity string) (*LookupStep, error) {
 	var failed error
 	num := func(e *CompiledExpr) int {
 		if e == nil || failed != nil {
@@ -215,7 +216,7 @@ func (c *CompiledRuleset) stepOf(x *CompiledTableEffect, scope, target *Record) 
 			return nil, failed
 		}
 	case "condition":
-		return &LookupStep{Kind: "condition", Condition: d.Condition, Immune: c.ImmuneTo(d.Condition, target)}, nil
+		return &LookupStep{Kind: "condition", Condition: d.Condition, Immune: c.ImmuneTo(d.Condition, entity, target)}, nil
 	case "grant":
 		return &LookupStep{Kind: "grant", Held: d.Held, Entry: d.Entry, Has: slices.Contains(c.HeldKeys(d.Held, target), d.Entry)}, nil
 	case "resource":

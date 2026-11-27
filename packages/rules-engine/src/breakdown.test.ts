@@ -5,6 +5,7 @@ import { breakdownOf } from "./breakdown.ts";
 import { compileRuleset } from "./compile.ts";
 import { deriveValues } from "./derived.ts";
 import { SAMPLE_D20 } from "./fixtures/sample-d20.ts";
+import { SAMPLE_SKIRMISH } from "./fixtures/sample-skirmish.ts";
 import type { RulesetInput } from "./manifest.ts";
 
 const HERO = {
@@ -111,5 +112,36 @@ test("a condition that sets an unset field the formula reads is credited with th
       ["Defense", 0],
       ["Steeled", total],
     ],
+  );
+});
+
+test("a spawn option is its own line for the GM side and folded in the base for a player seat", () => {
+  const input = structuredClone(SAMPLE_SKIRMISH);
+  const creature = input.entities.find((e) => e.id === "creature");
+  assert.ok(creature);
+  creature.derived = [...(creature.derived ?? []), { id: "parry", label: "Parry", expr: "guard + mod(attr.dex)" }];
+  const compiled = compile(input);
+  const values = {
+    fields: { name: "Brute", level: 2, "attr.str": 12, "attr.dex": 10, "attr.con": 12, guard: 11, kind: "boss" },
+    resources: {},
+    party: { characters: 3 },
+    options: ["hardened", "quick", "scaled"],
+  };
+  const total = deriveValues({ compiled, entity: "creature", values }).parry ?? 0;
+  const args = { compiled, entity: "creature", derivedId: "parry", values, total, actorId: "c1" };
+
+  const gm = breakdownOf({ ...args, viewer: { role: "gm", characterIds: [] } });
+  assert.deepEqual(
+    gm?.map((l) => [l.source, l.amount, l.cite]),
+    [
+      ["Parry", 11, null],
+      ["Hardened", 2, "Sample p.25"],
+      ["Quick", 1, "Sample p.25"],
+    ],
+  );
+  const player = breakdownOf({ ...args, viewer: { role: "player", characterIds: ["c1"] } });
+  assert.deepEqual(
+    player?.map((l) => [l.source, l.amount]),
+    [["Parry", total]],
   );
 });

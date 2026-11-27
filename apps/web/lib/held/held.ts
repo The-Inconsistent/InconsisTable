@@ -1,5 +1,7 @@
 import type { Actor } from "@inconsistable/core-schema";
-import type { Ruleset } from "@inconsistable/rules-engine";
+import type { FieldDef, Ruleset } from "@inconsistable/rules-engine";
+
+import { ledgerLines } from "@/lib/strike/strike";
 
 // What an actor holds up (house decision #91): the ruleset's list fields shown as chips, the items in each, and the
 // lists the end-one, end-all and add controls send back whole through field.set.
@@ -9,8 +11,8 @@ export interface HeldList {
   field: string;
   label: string;
   items: string[];
-  /** The entity type whose pack entries are the quick picks; null without any. */
-  picks: string | null;
+  /** Where the quick picks come from (pack entries of a type, or a list of the saved sheet); null without any. */
+  picks: NonNullable<Extract<FieldDef, { type: "list" }>["picks"]> | null;
   /** The most it holds; null for the server's own ceiling. */
   max: number | null;
   /** Whether the holder's own seat may change it, besides the GM side. */
@@ -29,7 +31,7 @@ export function heldLists({ ruleset, actor }: { ruleset: Ruleset | null | undefi
             field,
             label: def.label,
             items: itemsOf(actor.fields[field]),
-            picks: def.picks?.entity ?? null,
+            picks: def.picks ?? null,
             max: def.maxItems ?? null,
             owner: def.editableBy !== "gm",
           },
@@ -64,3 +66,15 @@ export function withItem({ list, item }: { list: HeldList; item: string }): stri
 
 /** The list without one item. */
 export const withoutItem = ({ list, item }: { list: HeldList; item: string }) => list.items.filter((x) => x !== item);
+
+/** The quick picks read from the actor's own saved sheet (house decision #171); null when they come from packs. */
+export const ownPicks = ({
+  list,
+  actor,
+}: {
+  list: HeldList;
+  actor: Pick<Actor, "ledger" | "items">;
+}): string[] | null =>
+  list.picks !== null && "from" in list.picks
+    ? [...new Set(ledgerLines({ lines: list.picks.lines, actor }).map((x) => x.name))]
+    : null;

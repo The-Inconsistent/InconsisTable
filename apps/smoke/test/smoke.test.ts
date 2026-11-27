@@ -20,6 +20,7 @@ import type {
   RoomImportReply,
 } from "@inconsistable/core-schema";
 import { HandoutLayout, MAX_PAGE_BYTES, RoomDocument } from "@inconsistable/core-schema";
+import { followRow, type CodexField, type RulesetInput } from "@inconsistable/rules-engine";
 // Made up for the engine's own tests (not exported from the package): a small ruleset and a pack for it.
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import {
@@ -1689,11 +1690,22 @@ test("tags, rows, a scene's picks with their switch and a reminder; a player rea
     [{ id: "x", from: { entity: "creature", key: "nobody" }, values: {} }],
     [{ id: "x", values: { check: { testId: "gone", inputs: {} } } }],
     [{ id: "x", values: { nope: 1 } }],
+    // Only the column's each input lists words (house decision #173).
+    [{ id: "x", values: { check: { testId: "check", inputs: { dc: ["12"] } } } }],
   ])
     refused(
       await owner.send({ type: "codex.save", id: place, kind: "location", fields: { dangers: bad } }),
       "badEntryField",
     );
+  // A check listing two abilities is kept as written: the screens draw one Test chip each (house decision #173).
+  const listed = [
+    { id: "m1", values: { name: "Mire", check: { testId: "check", inputs: { ability: ["str", "dex"] } } } },
+  ];
+  const mire = ok(
+    await owner.send({ type: "codex.save", kind: "location", title: "Mire", fields: { dangers: listed } }),
+  ).id!;
+  await owner.until(() => fieldsOf(owner, mire) !== undefined);
+  assert.deepEqual(fieldsOf(owner, mire), { dangers: listed });
   const band = ok(
     await owner.send({
       type: "codex.save",
@@ -1757,6 +1769,71 @@ test("tags, rows, a scene's picks with their switch and a reminder; a player rea
   await eventually(() => fieldsOf(bo, road)?.log !== undefined, "the party's road log");
   assert.deepEqual(fieldsOf(bo, road), { log });
   for (const c of [owner, ana, owner2, bo]) c.socket.close();
+});
+
+// House decision #89 (#230): a row filled from a pack entry follows it. On a crafted copy of the d20 sample whose
+// dangers the party reads, and a crafted pack: a pack update renames the followed row, the GM's own threat survives it,
+// and once the update makes the creature the GM's, a player is sent nothing of it (neither in the row nor by the rules).
+test("a row filled from a pack entry follows the pack, the GM's cells over it; a seat that may not read it gets none (#89)", async () => {
+  const ownerDevice = await device("lr-owner");
+  const me = caller(ownerDevice);
+  const ruleset = structuredClone(SAMPLE_D20);
+  const dangers = ruleset.codex?.kinds.location?.fields.dangers;
+  assert.ok(dangers?.type === "rows");
+  dangers.visibility = "party";
+  const def = dangers as Extract<CodexField, { type: "rows" }>;
+  const rs = await me.post<RulesetReply>("/rulesets", { ...ruleset, version: "0.1.99" });
+  assert.equal(rs.status, 201);
+  const pack = (name: string, visibility: string, level: number, version: string) => ({
+    ...SAMPLE_PACK,
+    id: "live-bestiary",
+    version,
+    entries: SAMPLE_PACK.entries.map((e) =>
+      e.key === "ember-wisp" ? { ...e, name, visibility, body: { ...e.body, name, level } } : e,
+    ),
+  });
+  const v1 = await me.post<PackReply>("/packs", pack("Ember Wisp", "party", 1, "0.1.0"));
+  const { campaignId } = (
+    await me.post<{ campaignId: string }>("/campaigns", { name: "Lr", rulesetVersionId: rs.body.versionId })
+  ).body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: v1.body.versionId }));
+  const anaDevice = await seatPlayer(owner, "lr-ana");
+  const ana = connect({ auth: { campaignId, cookie: anaDevice } });
+  await ana.until(() => true);
+
+  // The GM fills a row from the creature and sets its threat: only the key, the cite and the GM's cell are stored.
+  const row = { id: "d1", from: { entity: "creature", key: "ember-wisp", cite: "Sample p.40" }, values: { threat: 4 } };
+  const place = ok(
+    await owner.send({ type: "codex.save", kind: "location", title: "Ford", fields: { dangers: [row] } }),
+  ).id!;
+  ok(await owner.send({ type: "codex.reveal", id: place, visibility: "party", audienceMode: "all", audience: [] }));
+  const rowOf = (c: typeof owner) =>
+    (c.codex()?.entries.find((e) => e.id === place)?.fields.dangers as (typeof row)[] | undefined)?.[0];
+  await eventually(() => rowOf(ana) !== undefined, "the player reads the place's dangers");
+  assert.deepEqual(rowOf(owner), row);
+  assert.deepEqual(rowOf(ana), row);
+  type Served = {
+    entries: { type: string; key: string; name: string; cite: string | null; body: Record<string, unknown> }[];
+  };
+  const wispFor = async (token: string) =>
+    (await caller(token).get<Served>(`/campaigns/${campaignId}/rules?type=creature&key=ember-wisp&limit=1`)).body
+      .entries[0];
+  const read = async (token: string, c: typeof owner) =>
+    followRow({ def, row: rowOf(c)!, entry: await wispFor(token) }).values;
+  assert.deepEqual(await read(ownerDevice, owner), { name: "Ember Wisp", threat: 4 });
+  assert.deepEqual(await read(anaDevice, ana), { name: "Ember Wisp", threat: 4 });
+
+  // The pack's next version renames the creature and makes it the GM's; the room takes it in place of the first.
+  const v2 = await me.post<PackReply>("/packs", pack("Ember Spirit", "gm", 2, "0.2.0"));
+  ok(await owner.send({ type: "campaign.attachPack", packVersionId: v2.body.versionId }));
+  assert.deepEqual(await read(ownerDevice, owner), { name: "Ember Spirit", threat: 4 }, "followed, the GM's cell kept");
+  assert.deepEqual(rowOf(owner), row, "nothing of the pack was written into the row");
+  assert.equal(await wispFor(anaDevice), undefined, "the rules no longer serve the player the creature");
+  assert.deepEqual(await read(anaDevice, ana), { threat: 4 }, "the GM's cells alone");
+  assert.ok(!JSON.stringify(ana.codex()).includes("Ember"), "the player's codex holds nothing of the entry");
+  for (const c of [owner, ana]) c.socket.close();
 });
 
 // House decision #97 on the invented fixtures: a place made from a pack entry brings the places inside it, nested, each
@@ -5899,10 +5976,15 @@ test("health.harm: hit down, scarred, healed, destroyed, a mob thinned and muste
   s = await owner.until((x) => actorIn(x, hero)?.resources.wounds === 5);
   assert.deepEqual(cb(s, hero).states, [{ id: "hurt", label: "Hurt" }]);
 
-  // One hit past twice the Ogre's limit destroys it outright; its wounds do not move.
+  // Unhurt, the Ogre takes one hit past twice its limit as wounds (house decision #174); once wounded, the next such
+  // hit destroys it outright and its wounds do not move.
+  ok(await owner.send(harm("hit", { actorId: ogre, wounds: 7 })));
+  s = await owner.until((x) => (actorIn(x, ogre)?.resources.wounds ?? 0) > 0);
+  assert.notEqual(actorIn(s, ogre)?.fields.gone, true);
+  const wounded = actorIn(s, ogre)?.resources.wounds;
   ok(await owner.send(harm("hit", { actorId: ogre, wounds: 7 })));
   s = await owner.until((x) => actorIn(x, ogre)?.fields.gone === true);
-  assert.equal(actorIn(s, ogre)?.resources.wounds, 0);
+  assert.equal(actorIn(s, ogre)?.resources.wounds, wounded);
 
   // The swarm loses members, is mustered past its start, and Undo takes the last hit back.
   ok(await owner.send(harm("hit", { actorId: rats, wounds: 2 })));
@@ -6578,6 +6660,140 @@ test("character library: create, autosave, into a room and back, another user re
   const refusedGm = await me.post<{ code: string }>("/library/from-room", { campaignId, actorId: held });
   assert.equal(refusedGm.body.code, "libraryNotYours");
   for (const c of [owner, seat]) c.socket.close();
+});
+
+// House decisions #173 and #174 on the invented sides fixture: an immunity and a reminder read only on creatures, a
+// warded creature's notice with the number its hit calls for, and the chapter in its checklist step.
+test("sides fixture: immunity and reminders by actor type, a rising notice's number (#174)", async () => {
+  const ownerDevice = await device("owner-Warded");
+  const me = caller(ownerDevice);
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_SKIRMISH);
+  assert.equal(rs.status, 201);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Warded",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const owner = connect({ auth: { campaignId: made.body.campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  const hero = ok(await owner.send({ type: "actor.create", kind: "pc", name: "Hal" })).id!;
+
+  const stats = { "attr.str": 10, "attr.dex": 10, "attr.con": 10, guard: 1 };
+  await equip(hero, "character", { fields: { level: 6, ...stats }, resources: { hp: 20 } });
+  const boss = ok(await owner.send({ type: "actor.create", kind: "creature", name: "Boss" })).id!;
+  // Level 6, Grit 10: 22 Vigour at most.
+  await equip(boss, "creature", { fields: { level: 6, ...stats, kind: "boss" }, resources: { hp: 20 } });
+  ok(await owner.send({ type: "field.set", actorId: boss, field: "wards", value: ["Salt"] }));
+  await owner.until((s) => s.actors.find((a) => a.id === boss)?.entity === "creature");
+
+  // Reeling's immunity is read on creatures only: the Boss is immune, Hal of the same level is not.
+  refused(await owner.send({ type: "condition.add", actorId: boss, condition: "reeling" }), "conditionImmune");
+  ok(await owner.send({ type: "condition.add", actorId: hero, condition: "reeling" }));
+
+  // A hit on the warded Boss tells the GM the Resolve Test with its number: 3 taken plus its one ward.
+  const hit = await owner.send(hpStep(boss, "hp", -3));
+  assert.deepEqual(ok(hit).notices, [
+    {
+      code: "rule",
+      params: { rule: "warded", name: "Boss" },
+      text: "Boss keeps its wards up: Resolve Test, DN 4",
+    },
+  ]);
+  // Healing raises nothing.
+  assert.equal(ok(await owner.send(hpStep(boss, "hp", 1))).notices, undefined);
+
+  // The boss line is asked at the end of a creature's turn, never of Hal's.
+  const sides = (op: string, input: object) =>
+    owner.send({ type: "rule.op", primitive: "initiative.sides", op, input } as ActionInput);
+  ok(await owner.send({ type: "session.start" }));
+  ok(await owner.send({ type: "encounter.start" }));
+  ok(await owner.send({ type: "encounter.add", actorIds: [hero, boss], visibility: "full" }));
+  await owner.until((s) => s.encounter?.combatants.length === 2);
+  ok(await sides("begin", {}));
+  const cb = (s: LiveState, actorId: string) => s.encounter!.combatants.find((c) => c.actorId === actorId)!;
+  ok(await sides("pick", { id: hero }));
+  let s = await owner.until((x) => x.encounter?.currentId === cb(x, hero).id);
+  assert.equal(s.encounter!.reminders?.some((r) => r.id === "bossActs") ?? false, false);
+  ok(await sides("pick", { id: boss }));
+  s = await owner.until((x) => x.encounter?.currentId === cb(x, boss).id);
+  assert.deepEqual(
+    s.encounter!.reminders?.filter((r) => r.id === "bossActs").map((r) => [r.at, r.actorIds]),
+    [["turnEnd", [boss]]],
+  );
+  owner.socket.close();
+});
+
+test("the keys of #225 and #230 refuse what does not hold together (house decisions #171 to #174)", async () => {
+  const me = caller(await device("keys-refusals"));
+  const bad = structuredClone(SAMPLE_SKIRMISH) as RulesetInput;
+  const cite = "Sample p.30";
+  const creature = bad.entities.find((e) => e.id === "creature")!;
+  creature.fields = {
+    ...creature.fields,
+    held: { type: "list", label: "Held", chips: true, picks: { from: "ledger", lines: "powers" } },
+  };
+  bad.reminders = [
+    ...(bad.reminders ?? []),
+    { id: "loose", at: "turnEnd", text: "Loose", entities: ["creature"], cite },
+  ];
+  bad.conditions = bad.conditions?.map((c) =>
+    c.id === "reeling" ? { ...c, immune: { if: "level >= 5", entities: ["nobody"] } } : c,
+  );
+  bad.checklist = bad.checklist?.map((x) => (x.id === "chapter" ? { ...x, now: "campaign.nope" } : x));
+  bad.notices = [
+    ...(bad.notices ?? []),
+    {
+      id: "flat",
+      when: "crossed",
+      entities: ["creature"],
+      if: "res.hp > 0",
+      params: { n: "ctx.rose" },
+      text: "{n}",
+      cite,
+    },
+  ];
+  const quest = bad.codex!.kinds.quest!.fields.log as Extract<CodexField, { type: "rows" }>;
+  bad.codex!.kinds.quest!.fields.log = { ...quest, rolls: { table: "nope", into: "day", times: "chapter" } };
+  const refusedImport = await me.post<PackReply>("/rulesets", bad);
+  assert.equal(refusedImport.status, 422);
+  const paths = refusedImport.body.problems?.map((p) => p.path) ?? [];
+  for (const path of [
+    `entities[${bad.entities.findIndex((e) => e.id === "creature")}].fields.held.picks`,
+    `reminders[${(bad.reminders?.length ?? 1) - 1}].entities`,
+    `conditions[${bad.conditions!.findIndex((c) => c.id === "reeling")}].immune.entities[0]`,
+    "codex.kinds.quest.fields.log.rolls.table",
+  ])
+    assert.ok(paths.includes(path), `${path} in ${paths.join(", ")}`);
+
+  // The compile-time ones: a step's room value that reads no campaign field, a rate a rule that does not rise reads.
+  const unread = structuredClone(SAMPLE_SKIRMISH) as RulesetInput;
+  unread.checklist = unread.checklist?.map((x) => (x.id === "chapter" ? { ...x, now: "campaign.nope" } : x));
+  unread.notices = [
+    ...(unread.notices ?? []),
+    {
+      id: "flat",
+      when: "crossed",
+      entities: ["creature"],
+      if: "res.hp > 0",
+      params: { n: "ctx.rose" },
+      text: "{n}",
+      cite,
+    },
+  ];
+  const harmBad = structuredClone(SAMPLE_HARM) as RulesetInput;
+  const notCompiled = await me.post<PackReply>("/rulesets", unread);
+  assert.equal(notCompiled.status, 422);
+  const unreadPaths = notCompiled.body.problems?.map((p) => p.path) ?? [];
+  for (const path of [
+    `checklist[${unread.checklist!.findIndex((x) => x.id === "chapter")}].now`,
+    `notices[${unread.notices.length - 1}].params.n`,
+  ])
+    assert.ok(unreadPaths.includes(path), `${path} in ${unreadPaths.join(", ")}`);
+  harmBad.health!.harm!.profiles = harmBad.health!.harm!.profiles.map((p) =>
+    p.destroyed === undefined ? p : { ...p, destroyed: { ...p.destroyed, when: "1" } },
+  );
+  const notBool = await me.post<PackReply>("/rulesets", harmBad);
+  assert.equal(notBool.status, 422);
+  assert.ok(notBool.body.problems?.some((p) => p.path.endsWith(".destroyed.when")));
 });
 
 // House decision #81 on the invented sides fixture: reminder lines reach the combat side only, a whole side is barred

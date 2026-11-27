@@ -207,6 +207,7 @@ export function EntryEditor(props: EntryEditorProps) {
           entries={entries}
           onOpenEntry={onOpenEntry}
           act={act}
+          campaign={campaign}
           terms={
             ruleset && props.books && props.requestPage
               ? { ruleset, books: props.books, requestPage: props.requestPage }

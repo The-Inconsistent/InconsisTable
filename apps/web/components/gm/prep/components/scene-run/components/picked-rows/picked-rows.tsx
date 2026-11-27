@@ -28,7 +28,13 @@ export function PickedRows({ line, world, onSwitch, busy }: PickedRowsProps) {
         <li key={rowId} className="row between" data-state={on ? "on" : undefined} style={{ flexWrap: "wrap" }}>
           {row ? (
             <>
-              <RowChips ruleset={world.ruleset ?? null} def={field.def} row={row} />
+              <RowChips
+                ruleset={world.ruleset ?? null}
+                def={field.def}
+                row={row}
+                campaign={world.state.campaign.fields}
+                campaignId={world.state.campaign.id}
+              />
               <button
                 className="btn"
                 aria-pressed={on}

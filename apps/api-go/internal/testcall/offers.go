@@ -153,8 +153,12 @@ func applyOffer(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 	}
 	var testID string
 	var rawInputs []byte
-	err := tx.QueryRow(ctx, `SELECT test_id, inputs FROM test_call WHERE id = $1 AND campaign_id = $2`, callID, cid).
-		Scan(&testID, &rawInputs)
+	var hideTarget bool
+	var called []string
+	err := tx.QueryRow(ctx, `SELECT c.test_id, c.inputs, c.hide_target,
+			(SELECT array_agg(t.actor_id::text) FROM test_call_target t WHERE t.call_id = c.id)
+		FROM test_call c WHERE c.id = $1 AND c.campaign_id = $2`, callID, cid).
+		Scan(&testID, &rawInputs, &hideTarget, &called)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return cs.Result{}, cs.Fail("testNotHere")
 	}
@@ -182,7 +186,8 @@ func applyOffer(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 		return cs.Result{}, err
 	}
 	// Without a GM the seat that applies an offer applies it as the table (house decision #170), as a spend ask is done.
-	if !c.HasGM() {
+	noGM := !c.HasGM()
+	if noGM {
 		c.Seat = cs.Seat{Kind: cs.SeatAdmin}
 	}
 	rc, err := ruleset.Open(ctx, tx, c)
@@ -195,6 +200,9 @@ func applyOffer(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Re
 		return cs.Result{}, cs.Fail("characterNotFound")
 	case b.Scope == nil:
 		return cs.Result{}, cs.Fail("incomplete", cs.Params{"name": b.Row.Name, "detail": b.Problem})
+	// Only an offer the seat is shown: its changes would tell a number the table may not see.
+	case noGM && !offersShown(test, hideTarget, called, actorID, rc.Built):
+		return cs.Result{}, cs.Fail("offerNotOffered")
 	}
 	report, err := reportOf(ctx, tx, callID, actorID)
 	if err != nil {

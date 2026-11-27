@@ -160,6 +160,16 @@ func everyoneMay(visibility map[string]string, targets []string, built map[strin
 	return true
 }
 
+// offersShown is whether a room without a GM keeps a taker's offers, so every seat that may call Tests sees and applies
+// them (house decision #170): only where the call shows the number to beat and the modifier their total reads (a
+// reported Test has neither), and their changes read what the whole table sees on the taker. Load and test.applyOffer
+// both ask it, so a seat never applies an offer it is not shown.
+func offersShown(test *engine.CompiledTest, hideTarget bool, called []string, taker string, built map[string]*actor.Built) bool {
+	shown := test.Def.Kind == "reported" || (!hideTarget && everyoneMay(test.TargetVisibility, called, built, true) &&
+		everyoneMay(test.ModifierVisibility, called, built, true))
+	return shown && everyoneMay(test.OfferVisibility, []string{taker}, built, true)
+}
+
 func intPtr(n *int32) *int {
 	if n == nil {
 		return nil
@@ -312,10 +322,7 @@ func Load(ctx context.Context, conn core.Conn, campaignID string, sessionID *str
 				}
 			}
 			mine[i].Offers = offersOf(compiled, test, built[mine[i].ActorID], inputs, mine[i], applied[c.id+"/"+mine[i].ActorID])
-			// Without a GM the offers go to every seat that may call Tests (house decision #170): only where their
-			// changes read what the whole table sees, and the call shows the number to beat and the total they read.
-			shown := isReported || (showTarget && showModifier)
-			if noGM && (!shown || !everyoneMay(test.OfferVisibility, []string{mine[i].ActorID}, built, true)) {
+			if noGM && !offersShown(test, c.hideTarget, actorIDs, mine[i].ActorID, built) {
 				mine[i].Offers = nil
 			}
 			if acq := acquired[c.id]; acq != nil && acq.ActorID == mine[i].ActorID {

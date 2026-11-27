@@ -3885,6 +3885,39 @@ test("offers: without a GM the seats that call Tests see a result's offers and a
   for (const c of [owner, ana]) c.socket.close();
 });
 
+test("offers: without a GM no seat applies an offer it is not shown, such as one on a hidden number (house decision #170)", async () => {
+  const pool = structuredClone(SAMPLE_POOL);
+  pool.game = { title: "Pool", players: { min: 1, max: 4 }, modes: ["gm", "gmless"], cite: "Sample p.1" };
+  const { owner, ana, hero } = await d20Room("GmlessHiddenOffers", pool, { hp: 6, tempHp: 0 });
+  // The GM calls with the number to beat hidden; the table then goes without a GM between sessions.
+  ok(await owner.send({ type: "session.start" }));
+  const id = ok(
+    await owner.send({
+      type: "test.call",
+      testId: "skill",
+      actorIds: [hero],
+      inputs: { ability: "str", dn: 4, bonus: 0 },
+      hideTarget: true,
+    }),
+  ).id!;
+  ok(
+    await ana.send({
+      type: "test.report",
+      callId: id,
+      actorId: hero,
+      roll: { kind: "pool", counts: { hit: 1 }, special: [1] },
+    }),
+  );
+  ok(await owner.send({ type: "session.end" }));
+  ok(await owner.send({ type: "campaign.setTableMode", mode: "gmless" }));
+  ok(await ana.send({ type: "session.start" }));
+  // Its change would tell the hidden number by what it adds.
+  refused(await ana.send({ type: "test.applyOffer", callId: id, actorId: hero, offerId: "strain" }), "offerNotOffered");
+  const state = await ana.until((s) => s.campaign.tableMode === "gmless");
+  assert.equal(actorIn(state, hero)?.resources.tempHp, 0);
+  for (const c of [owner, ana]) c.socket.close();
+});
+
 test("offers: a called Test's result offers the GM its changes, applied once, undone whole, never told a phone", async () => {
   const { owner, ana, campaignId, hero } = await d20Room("Offers", SAMPLE_POOL, { hp: 6, tempHp: 0 });
   const screen = connect({ auth: { campaignId, token: ok(await owner.send({ type: "screen.issue" })).token! } });

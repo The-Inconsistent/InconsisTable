@@ -168,31 +168,34 @@ export function GeneratorWizard({
           {g.cite && <Cite cite={g.cite} />}
         </div>
       )}
-      <ol className="stack">
-        {g.steps.map((s, j) =>
-          asked[j] ? (
-            <li key={s.id}>{input(s, g.steps.slice(0, j), answers, (v) => setAnswers(set(answers, s.id, v)))}</li>
-          ) : null,
-        )}
-      </ol>
-      {g.each && count === null && <p className="dim small">{t("roundsLater")}</p>}
-      {count !== null &&
-        Array.from({ length: count }, (_, i) => {
-          const given = { ...answers, ...(rounds[i] ?? {}) };
-          const on = roundAsked(i);
-          const change = (id: string) => (v?: StepValue) =>
-            setRounds(
-              Array.from({ length: count }, (_, k) => (k === i ? set(rounds[k] ?? {}, id, v) : (rounds[k] ?? {}))),
+      {/* While ROLL ALL runs, every step's controls wait, so a tap is not overwritten by the loop. */}
+      <fieldset className="stack" disabled={inSheet && busy}>
+        <ol className="stack">
+          {g.steps.map((s, j) =>
+            asked[j] ? (
+              <li key={s.id}>{input(s, g.steps.slice(0, j), answers, (v) => setAnswers(set(answers, s.id, v)))}</li>
+            ) : null,
+          )}
+        </ol>
+        {g.each && count === null && <p className="dim small">{t("roundsLater")}</p>}
+        {count !== null &&
+          Array.from({ length: count }, (_, i) => {
+            const given = { ...answers, ...(rounds[i] ?? {}) };
+            const on = roundAsked(i);
+            const change = (id: string) => (v?: StepValue) =>
+              setRounds(
+                Array.from({ length: count }, (_, k) => (k === i ? set(rounds[k] ?? {}, id, v) : (rounds[k] ?? {}))),
+              );
+            return (
+              <fieldset key={i} className="stack generator-round">
+                <legend className="small">{t("round", { n: i + 1, count })}</legend>
+                {eachSteps.map((s, j) =>
+                  on[j] ? input(s, [...g.steps, ...eachSteps.slice(0, j)], given, change(s.id)) : null,
+                )}
+              </fieldset>
             );
-          return (
-            <fieldset key={i} className="stack generator-round">
-              <legend className="small">{t("round", { n: i + 1, count })}</legend>
-              {eachSteps.map((s, j) =>
-                on[j] ? input(s, [...g.steps, ...eachSteps.slice(0, j)], given, change(s.id)) : null,
-              )}
-            </fieldset>
-          );
-        })}
+          })}
+      </fieldset>
       {rootless && (
         <label className="stack">
           <span className="small">{t("under")}</span>

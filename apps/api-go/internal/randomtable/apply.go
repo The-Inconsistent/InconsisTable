@@ -2,6 +2,7 @@ package randomtable
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 
@@ -72,8 +73,9 @@ func Apply(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result,
 }
 
 // grantDeltas is a grant step (house decision #88): the entry's key added to the end of the kind's list field, the
-// write field.set makes. Refused for an actor type the kind is not for, an entry the room is not served, one the actor
-// holds already (the GM rolls again on that table, as the source app has it), or a kind already at its max.
+// write field.set makes, then each record it includes (house decision #165) that the room is served and the actor does
+// not hold yet. Refused for an actor type the kind is not for, an entry the room is not served, one the actor holds
+// already (the GM rolls again on that table, as the source app has it), or a kind its records would take past its max.
 func grantDeltas(ctx context.Context, tx core.Conn, rc *ruleset.Context, campaignID, actorID, name string, s engine.LookupStep) ([]engine.Delta, error) {
 	kind := rc.Compiled.Ruleset.Held[s.Held]
 	b := rc.Built[actorID]
@@ -91,14 +93,23 @@ func grantDeltas(ctx context.Context, tx core.Conn, rc *ruleset.Context, campaig
 	if slices.Contains(keys, s.Entry) {
 		return nil, cs.Fail("heldAlready", cs.Params{"name": name, "entry": entry})
 	}
-	if len(keys) >= kind.MaxOrDefault() {
-		return nil, cs.Fail("heldFull", cs.Params{"name": name, "kind": kind.Label})
-	}
 	next := make([]any, 0, len(keys)+1)
 	for _, k := range keys {
 		next = append(next, k)
 	}
 	next = append(next, s.Entry)
+	included, err := includedKeys(ctx, tx, campaignID, kind, s.Entry)
+	if err != nil {
+		return nil, err
+	}
+	for _, k := range included {
+		if !slices.Contains(next, any(k)) {
+			next = append(next, k)
+		}
+	}
+	if len(next) > kind.MaxOrDefault() {
+		return nil, cs.Fail("heldFull", cs.Params{"name": name, "kind": kind.Label})
+	}
 	return []engine.Delta{{Target: engine.DeltaTarget{ActorID: actorID, Field: kind.Field}, Kind: "set", Value: next}}, nil
 }
 
@@ -125,12 +136,32 @@ func applies(t *engine.RandomTable) bool {
 }
 
 // stepDeltas are the writes one step makes, through the operation it stands for. A condition the target is immune to
-// (now, after the steps before it) is nothing, with a notice.
+// (now, after the steps before it) is nothing, with a notice; so is the shock of a hit its target never takes, the
+// rest of the hit landing (house decision #163).
 func stepDeltas(ctx context.Context, tx core.Conn, rc *ruleset.Context, campaignID, actorID, name, source string, s engine.LookupStep) ([]engine.Delta, error) {
 	switch s.Kind {
 	case "harm":
-		return rc.Run(ctx, ruleset.Run{Primitive: "health.harm", Op: "hit",
-			Input: map[string]any{"actorId": actorID, "wounds": float64(s.Wounds), "shock": float64(s.Shock)}})
+		hit := func(shock int) ([]engine.Delta, error) {
+			return rc.Run(ctx, ruleset.Run{Primitive: "health.harm", Op: "hit",
+				Input: map[string]any{"actorId": actorID, "wounds": float64(s.Wounds), "shock": float64(shock)}})
+		}
+		deltas, err := hit(s.Shock)
+		var refused *cs.Error
+		if s.Shock == 0 || !errors.As(err, &refused) || refused.Code != "neverShocked" {
+			return deltas, err
+		}
+		label := "shock"
+		if harm := rc.Compiled.Ruleset.Health.Harm; harm != nil && harm.Shock != nil {
+			label = *harm.Shock
+			if i := slices.IndexFunc(rc.Compiled.Ruleset.Resources, func(r engine.Resource) bool { return r.ID == label }); i >= 0 {
+				label = rc.Compiled.Ruleset.Resources[i].Label
+			}
+		}
+		cs.Notify(ctx, cs.ShockSkipped(name, label))
+		if s.Wounds == 0 {
+			return nil, nil
+		}
+		return hit(0)
 	case "condition":
 		label := s.Condition
 		if def := rc.Compiled.Conditions[s.Condition]; def != nil {
@@ -156,4 +187,36 @@ func stepDeltas(ctx context.Context, tx core.Conn, rc *ruleset.Context, campaign
 		return grantDeltas(ctx, tx, rc, campaignID, actorID, name, s)
 	}
 	return []engine.Delta{{Target: engine.DeltaTarget{Pool: s.Pool}, Kind: "add", Value: float64(s.By)}}, nil
+}
+
+// includedKeys is the records a served entry brings with it (house decision #165): the keys its kind's `includes` list
+// field names that the room is served, in the entry's order. None for a kind without `includes`.
+func includedKeys(ctx context.Context, tx core.Conn, campaignID string, kind engine.HeldKind, key string) ([]string, error) {
+	if kind.Includes == nil {
+		return nil, nil
+	}
+	var body []byte
+	err := tx.QueryRow(ctx, `SELECT e.body FROM campaign_pack
+		JOIN pack_entry e ON e.pack_version_id = campaign_pack.pack_version_id
+		JOIN pack_version ON pack_version.id = e.pack_version_id JOIN pack ON pack.id = pack_version.pack_id
+		WHERE campaign_pack.campaign_id = $1 AND e.type = $2 AND e.key = $3 AND `+actor.ServedPacks("$1")+`
+		ORDER BY pack.slug LIMIT 1`, campaignID, kind.Entry, key).Scan(&body)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]any{}
+	if json.Unmarshal(body, &fields) != nil {
+		return nil, nil
+	}
+	out := []string{}
+	for _, k := range heldList(fields[*kind.Includes]) {
+		_, served, err := actor.ServedEntryName(ctx, tx, campaignID, kind.Entry, k)
+		if err != nil {
+			return nil, err
+		}
+		if served && k != key {
+			out = append(out, k)
+		}
+	}
+	return out, nil
 }

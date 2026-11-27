@@ -21,12 +21,13 @@ export function Held({ model, env }: HeldProps) {
     const result = await env.send({ type: "held.remove", actorId: env.actor.id, held: kind, entry: r.key });
     env.onError(result.ok ? null : result.error);
   };
-  // One effect in words: a whole amount added as a signed number and its label, anything else as written.
+  // One effect in words: a whole amount added, set or multiplied, in the platform's words; anything else as written.
   const words = (e: HeldRecord["effects"][number]) => {
     const x = effectOf({ ruleset: env.ruleset, entity: env.actor.entity, effect: e });
-    return x.by === null
-      ? t("heldOther", { label: x.label, mode: x.mode, value: x.value })
-      : t("heldAdd", { by: x.by, label: x.label });
+    if (x.by === null) return t("heldOther", { label: x.label, mode: x.mode, value: x.value });
+    if (x.mode === "override") return t("heldOverride", { by: x.by, label: x.label });
+    if (x.mode === "multiply") return t("heldMultiply", { by: x.by, label: x.label });
+    return t("heldAdd", { by: x.by, label: x.label });
   };
   return (
     <div className="stack w-held">

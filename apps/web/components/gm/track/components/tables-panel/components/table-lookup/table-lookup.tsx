@@ -3,13 +3,21 @@ import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
 import type { ActionInput, ActionResult, Actor, BookSource } from "@inconsistable/core-schema";
-import type { CompiledRuleset, LookupStep, RandomTable, Ruleset } from "@inconsistable/rules-engine";
+import {
+  inputBounds,
+  type CompiledRuleset,
+  type LookupStep,
+  type RandomTable,
+  type Ruleset,
+} from "@inconsistable/rules-engine";
 
 import { Cite } from "@/components/ui/cite/cite";
 import type { RequestPage } from "@/hooks/use-table/use-table";
-import { appliesTo, groupSteps, previewOf, typedOf } from "@/lib/lookup/lookup";
+import { RulesReply } from "@/lib/library/library";
+import { appliesTo, grantTypesOf, groupSteps, previewOf, typedOf } from "@/lib/lookup/lookup";
 
 type TableLookupProps = {
+  campaignId: string;
   tableId: string;
   table: RandomTable;
   compiled: CompiledRuleset;
@@ -29,11 +37,14 @@ type TableLookupProps = {
   start?: Readonly<Record<string, number | boolean>>;
 };
 
+const ENTRIES = 200;
+
 // A lookup on the GM's tables panel (house decision #87): the number the dice showed (ROLL fills it in when the
 // table may be rolled, I ROLLED is typing it), the inputs as switches and steppers, the line it reads worked out with
 // the engine for the picked target, and APPLY, which the server works out again before anything changes.
 export function TableLookup(props: TableLookupProps) {
   const {
+    campaignId,
     tableId,
     table,
     compiled,
@@ -52,6 +63,8 @@ export function TableLookup(props: TableLookupProps) {
   const te = useTranslations("errors");
   const [typed, setTyped] = useState("");
   const [inputs, setInputs] = useState<Record<string, number | boolean>>({ ...start });
+  // The served names of the records the table grants, by key; null until the first result is typed.
+  const [names, setNames] = useState<Record<string, string> | null>(null);
   const result = typedOf(typed);
   const plan = previewOf({ compiled, tableId, result, inputs, target, characters, campaign });
   const entry = plan?.ok ? table.entries[plan.entry] : undefined;
@@ -76,6 +89,26 @@ export function TableLookup(props: TableLookupProps) {
     setTyped("");
     onApplied();
   };
+  // The typed result; the first one also loads the names of the records the table grants, for the preview.
+  const handleTyped = async (text: string) => {
+    setTyped(text);
+    const types = grantTypesOf({ ruleset, table });
+    if (names !== null || types.length === 0) return;
+    setNames({});
+    try {
+      const read = await Promise.all(
+        types.map(async (type) => {
+          const path = `/api/campaigns/${encodeURIComponent(campaignId)}/rules?type=${encodeURIComponent(type)}&limit=${ENTRIES}`;
+          const res = await fetch(path);
+          const parsed = RulesReply.safeParse(await res.json());
+          return res.ok && parsed.success ? parsed.data.entries : [];
+        }),
+      );
+      setNames(Object.fromEntries(read.flat().map((e) => [e.key, e.name])));
+    } catch {
+      // A preview without names shows the keys, as before; the server names the record when it lands.
+    }
+  };
   // A stepper's − or +, held to its bounds.
   const handleStep = (id: string, by: number, min: number, max: number) =>
     setInputs((was) => ({ ...was, [id]: Math.max(min, Math.min(max, Number(was[id] ?? min) + by)) }));
@@ -86,7 +119,13 @@ export function TableLookup(props: TableLookupProps) {
       case "harm":
         return [
           ...(s.wounds !== 0 && harm ? [t("change", { by: s.wounds, label: label(harm.wounds) })] : []),
-          ...(s.shock !== 0 && harm?.shock ? [t("change", { by: s.shock, label: label(harm.shock) })] : []),
+          ...(s.shock !== 0 && harm?.shock
+            ? [
+                plan?.shockless
+                  ? t("immune", { label: label(harm.shock) })
+                  : t("change", { by: s.shock, label: label(harm.shock) }),
+              ]
+            : []),
         ];
       case "condition": {
         const name = ruleset.conditions.find((c) => c.id === s.condition)?.label ?? s.condition;
@@ -98,7 +137,8 @@ export function TableLookup(props: TableLookupProps) {
         return [t("change", { by: s.by, label: label(s.pool) })];
       case "grant": {
         const kind = ruleset.held?.[s.held]?.label ?? s.held;
-        return [s.has ? t("grantHas", { kind, entry: s.entry }) : t("grant", { kind, entry: s.entry })];
+        const entry = names?.[s.entry] ?? s.entry;
+        return [s.has ? t("grantHas", { kind, entry }) : t("grant", { kind, entry })];
       }
     }
   };
@@ -125,7 +165,7 @@ export function TableLookup(props: TableLookupProps) {
             className="input"
             inputMode="numeric"
             value={typed}
-            onChange={(e) => setTyped(e.target.value)}
+            onChange={(e) => void handleTyped(e.target.value)}
             aria-label={t("typedLabel", { title: table.title })}
           />
         </label>
@@ -148,22 +188,23 @@ export function TableLookup(props: TableLookupProps) {
           </label>
         ) : (
           <div key={x.id} className="row table-input">
-            <span>{x.label}</span>
+            {/* A die the GM rolls and types (house decision #164) names its dice beside the label. */}
+            <span>{x.dice ? t("diceInput", { label: x.label, dice: x.dice }) : x.label}</span>
             <span className="stepper" role="group" aria-label={x.label}>
               <button
                 type="button"
                 className="btn"
                 aria-label={t("less", { label: x.label })}
-                onClick={() => handleStep(x.id, -1, x.min ?? 0, x.max ?? 99)}
+                onClick={() => handleStep(x.id, -1, inputBounds(x).min ?? 0, inputBounds(x).max ?? 99)}
               >
                 −
               </button>
-              <output>{Number(inputs[x.id] ?? x.min ?? 0)}</output>
+              <output>{Number(inputs[x.id] ?? inputBounds(x).min ?? 0)}</output>
               <button
                 type="button"
                 className="btn"
                 aria-label={t("more", { label: x.label })}
-                onClick={() => handleStep(x.id, 1, x.min ?? 0, x.max ?? 99)}
+                onClick={() => handleStep(x.id, 1, inputBounds(x).min ?? 0, inputBounds(x).max ?? 99)}
               >
                 +
               </button>

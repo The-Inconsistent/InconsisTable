@@ -47,6 +47,19 @@ const harmIncoming = SAMPLE_HARM.panels![0]!;
  * goes) and, through a creature's level, a generator's pick filter (the generator goes).
  */
 export const CRAFTED_SEAT_CUTS: Record<string, RulesetInput> = {
+  // House decision #166: a `gm` clock a strike's figure tests with has(). A seat's copy has no such resource, so the
+  // figure is cut rather than served reading false (the GM's copy keeps it).
+  duelHasCut: {
+    ...SAMPLE_DUEL,
+    resources: [
+      ...SAMPLE_DUEL.resources!,
+      { id: "hiddenClock", label: "Clock", cite: "Sample p.3", scope: "entity", max: "4", visibility: "gm" },
+    ],
+    strikes: [
+      { ...lunge, shows: [{ id: "clock", label: "Clock", expr: "has(res.hiddenClock) ? 2 : 0", cite: "Sample p.5" }] },
+      ...SAMPLE_DUEL.strikes!.slice(1),
+    ],
+  },
   duelCuts: {
     ...SAMPLE_DUEL,
     entities: [

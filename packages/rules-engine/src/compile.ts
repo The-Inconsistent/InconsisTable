@@ -11,6 +11,7 @@ import type { BuildParams } from "./build/params.ts";
 import { codexScope } from "./codex.ts";
 import { generatorExprProblems } from "./generators.ts";
 import type { ExprScope, ExprType } from "./expr/expr.ast.ts";
+import { RES_ELSEWHERE } from "./expr/expr.check.ts";
 import { compileExpr, type CompiledExpr } from "./expr/expr.ts";
 import {
   acquiredKinds,
@@ -395,6 +396,8 @@ class Compiler {
     if (opts.res) {
       const ids = this.r.resources.filter((x) => carries(x, e)).map((x) => x.id);
       scope.res = { record: Object.fromEntries(ids.map((id) => [id, "int"])) };
+      const elsewhere = this.r.resources.filter((x) => !ids.includes(x.id)).map((x) => x.id);
+      scope[RES_ELSEWHERE] = { record: Object.fromEntries(elsewhere.map((id) => [id, "int"])) };
     }
     return scope;
   }

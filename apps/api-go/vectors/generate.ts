@@ -1715,6 +1715,20 @@ const LOOKUP_MANIFEST = {
       },
     ),
     plain: tbl("2d6", [span("x", 2, 7), span("y", 8, 12)]),
+    // A die the GM types (house decision #164) and has() of a resource the target does not carry, a party pool (#166).
+    more: tbl(
+      "d6",
+      [
+        span("m", 1, 3, {
+          apply: [
+            { kind: "resource", resource: "luck", by: "ctx.more", when: "has(res.luck)" },
+            { kind: "resource", resource: "hp", by: "-ctx.more", when: "!has(res.dread)" },
+          ],
+        }),
+        span("n", 4, 6, { apply: [{ kind: "pool", pool: "dread", by: "has(res.hp) ? 1 : 2" }] }),
+      ],
+      { visibility: "gm", typedOnly: true, inputs: [{ id: "more", label: "M", type: "int", dice: "2d3" }] },
+    ),
   },
 };
 MANIFESTS.push(LOOKUP_MANIFEST);
@@ -3281,6 +3295,11 @@ function heldCrafted(): object[] {
     one({}, marks({ label: "M", type: "list" })),
     one({ max: 0 }),
     one({ max: 51 }),
+    // A record's includes (house decision #165): a list field of the entry type, and nothing else.
+    one({ includes: "with" }, { entities: [pc, { ...mark, fields: { with: { label: "W", type: "list" } } }] }),
+    one({ includes: "with" }, { entities: [pc, { ...mark, fields: { with: { label: "W", type: "text" } } }] }),
+    one({ includes: "with" }),
+    one({ includes: "Bad" }),
     one({ unseen: "" }),
     one({ label: "x".repeat(61) }),
     { ...HELD_MANIFEST, held: Object.fromEntries(Array.from({ length: 11 }, (_, i) => [`k${i}`, HELD_KIND])) },
@@ -3319,6 +3338,16 @@ function lookupCrafted(): object[] {
     one({ ...line([pool]), typedOnly: false }),
     one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "bool", min: 1 }] }),
     one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "int", min: 3, max: 1 }] }),
+    // A die the GM types (house decision #164): plain NdX of at most 1000, a number, its own bounds.
+    one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "int", dice: "1d3" }] }),
+    one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "int", dice: "1d3", min: 1 }] }),
+    one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "bool", dice: "1d3" }] }),
+    one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "int", dice: "1d3+1" }] }),
+    one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "int", dice: "d66" }] }),
+    one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "int", dice: "10d101" }] }),
+    one({ ...line([pool]), inputs: [{ id: "x", label: "X", type: "int", dice: "x".repeat(21) }] }),
+    one({ ...line([{ ...pool, when: "has(res.nope) && has(attr.nope)" }]) }),
+    one({ ...line([{ ...pool, when: "has(nope.x)" }]) }),
     one({
       ...line([pool]),
       inputs: [
@@ -4689,7 +4718,8 @@ function lookupVectors() {
       if (rnd(3) !== 0) fields.growths = ["horn", "wings", "scales"].filter(() => rnd(2) === 0);
       const derived: Record<string, number> = {};
       for (const key of ["limit", "strainCap"]) if (rnd(12) !== 0) derived[key] = rnd(5);
-      const resources = { wounds: rnd(4) };
+      const resources: Record<string, number> = { wounds: rnd(4) };
+      for (const key of ["luck", "hp"]) if (rnd(3) !== 0) resources[key] = rnd(5);
       const scope = actorScope({ fields, derived, resources });
       out.push({
         manifest: index,

@@ -97,6 +97,7 @@ func LookupInputs(t *RandomTable, given map[string]any) (map[string]any, string)
 			continue
 		}
 		n := 0.0
+		lo, hi := x.Bounds()
 		switch {
 		case has:
 			f, isNumber := v.(float64)
@@ -104,10 +105,10 @@ func LookupInputs(t *RandomTable, given map[string]any) (map[string]any, string)
 				return nil, x.ID
 			}
 			n = f
-		case x.Min != nil:
-			n = float64(*x.Min)
+		case lo != nil:
+			n = float64(*lo)
 		}
-		if (x.Min != nil && n < float64(*x.Min)) || (x.Max != nil && n > float64(*x.Max)) {
+		if (lo != nil && n < float64(*lo)) || (hi != nil && n > float64(*hi)) {
 			return nil, x.ID
 		}
 		ctx[x.ID] = n

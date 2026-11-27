@@ -4,7 +4,16 @@ import { test } from "node:test";
 import { Ruleset, type WidgetRow } from "@inconsistable/rules-engine";
 
 import { SAMPLE_D20 } from "../../../../packages/rules-engine/src/fixtures/sample-d20.ts";
-import { ledgerLaidOut, pipsFilled, rowFor, signed, stepReached, type SheetActor, widgetOf } from "./sheet-widgets.ts";
+import {
+  effectOf,
+  ledgerLaidOut,
+  pipsFilled,
+  rowFor,
+  signed,
+  stepReached,
+  type SheetActor,
+  widgetOf,
+} from "./sheet-widgets.ts";
 
 const ruleset = Ruleset.parse(SAMPLE_D20);
 const actor: SheetActor = {
@@ -154,4 +163,17 @@ test("notes: only the text fields the seat holds", () => {
 test("an unknown widget draws nothing, and a bonus prints signed with a true minus", () => {
   assert.equal(model({ widget: "nope" }), null);
   assert.deepEqual([signed(2), signed(0), signed(-1)], ["+2", "0", "−1"]);
+});
+
+test("a held record's whole-number add, override or multiply is worded; anything else is shown as written", () => {
+  const ruleset = Ruleset.parse(SAMPLE_D20);
+  const entity = ruleset.entities.find((e) => e.base === "actor")?.id ?? "";
+  const by = (mode: string, value: string) =>
+    effectOf({ ruleset, entity, effect: { path: "derived.x", mode, value, phase: "derived" } as never }).by;
+  assert.equal(by("add", "2"), 2);
+  assert.equal(by("override", "13"), 13);
+  assert.equal(by("multiply", "2"), 2);
+  assert.equal(by("multiply", "1.5"), null);
+  assert.equal(by("upgrade", "1"), null);
+  assert.equal(by("override", ""), null);
 });

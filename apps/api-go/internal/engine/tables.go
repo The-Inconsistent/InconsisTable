@@ -41,6 +41,7 @@ type (
 		Type    string        `json:"type"`
 		Min     *int          `json:"min"`
 		Max     *int          `json:"max"`
+		Dice    *string       `json:"dice"`
 		Cite    *string       `json:"cite"`
 		Options []InputOption `json:"options"`
 	}
@@ -244,6 +245,16 @@ func (p *problems) lookup(r *Ruleset, id string, t *RandomTable) {
 		if x.Min != nil && x.Max != nil && *x.Max < *x.Min {
 			p.add(at+".max", "max is below min")
 		}
+		if x.Dice != nil {
+			if x.Type != "int" {
+				p.add(at+".dice", "only a number is typed from dice")
+			} else if x.Min != nil || x.Max != nil {
+				p.add(at, "a dice amount takes its bounds from its dice")
+			}
+			if count, sides, ok := PlainDice(*x.Dice); !ok || count*sides > 1000 {
+				p.add(at+".dice", `"%s" is not plain dice of at most 1000`, *x.Dice)
+			}
+		}
 	}
 	actors := map[string]bool{}
 	for _, e := range r.Entities {
@@ -411,4 +422,18 @@ func (e TableEntry) Copies() int {
 		return 1
 	}
 	return *e.Count
+}
+
+// Bounds is the input's bounds (manifest.ts inputBounds): its dice notation's range (house decision #164), else its own
+// min and max.
+func (x TableInput) Bounds() (lo, hi *int) {
+	if x.Dice == nil {
+		return x.Min, x.Max
+	}
+	count, sides, ok := PlainDice(*x.Dice)
+	if !ok {
+		return x.Min, x.Max
+	}
+	most := count * sides
+	return &count, &most
 }

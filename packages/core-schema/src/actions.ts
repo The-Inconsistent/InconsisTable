@@ -651,6 +651,7 @@ export const NoticeCode = z.enum([
   "sceneBegun",
   "revealSkipped",
   "conditionSkipped",
+  "shockSkipped",
   "advanced",
 ]);
 export type NoticeCode = z.infer<typeof NoticeCode>;
@@ -663,6 +664,7 @@ export const NOTICE_PARAMS = {
   sceneBegun: ["title", "revealed"], // the scene begun and how many of its reveal lines went out (house decision #86)
   revealSkipped: ["line", "reason"], // a scene's reveal line the begin skipped: its label or id, and the refusal code
   conditionSkipped: ["name", "condition"], // a lookup left out a condition its target is immune to (house decision #87)
+  shockSkipped: ["name", "shock"], // a lookup left out the shock of a hit its target never takes (house decision #163)
   // the advance field raised by hand counts as that many advances, from and to (house decision #96)
   advanced: ["field", "from", "to", "steps"],
 } as const satisfies Record<NoticeCode, readonly string[]>;

@@ -258,12 +258,25 @@ class Checker {
         arity(1, 1);
         const arg = first();
         if (pathOf(arg) === null) throw new ExprError("has() takes a path such as res.tempHp");
+        // A resource another actor type carries is a value that is not there on this one (house decision #166):
+        // `has(res.members)` reads false on a type without it, so one expression serves every type it is checked
+        // against. Only such a resource: one the manifest does not declare (a `gm` resource cut from a seat's copy, #101)
+        // must still refuse, so the part reading it is cut rather than served reading false.
+        if (arg.k === "get" && arg.obj.k === "id" && arg.obj.name === "res") {
+          const elsewhere = own(this.scope, RES_ELSEWHERE);
+          if (typeof elsewhere !== "string" && elsewhere && "record" in elsewhere && own(elsewhere.record, arg.key)) {
+            return "bool";
+          }
+        }
         this.check(arg);
         return "bool";
       }
     }
   }
 }
+
+/** The scope key, never an identifier, naming the resources an actor's scope lacks but another actor type carries. */
+export const RES_ELSEWHERE = "#resElsewhere";
 
 /** Type-check an AST against a scope: unknown identifiers and wrong types are refused here, at load, not at play. */
 export function checkExpr({ node, scope }: { node: ExprNode; scope: ExprScope }): CheckResult {

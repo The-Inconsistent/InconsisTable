@@ -17,8 +17,8 @@ export type SheetActor = Pick<Actor, "entity" | "fields" | "resources" | "derive
 /** One kind of record an actor holds, as the `held` widget lists it (house decision #88). */
 export type HeldGroup = { kind: string; label: string; records: HeldRecord[] };
 
-/** What one effect of a held record does, for the sheet to word: the label of what it changes, and its amount when
- * that is a whole number (anything else is shown as the importer wrote it). */
+/** What one effect of a held record does, for the sheet to word: the label of what it changes, and its amount when an
+ * `add`, `override` or `multiply` is by a whole number (house decision #167; anything else is shown as written). */
 export function effectOf({
   ruleset,
   entity,
@@ -36,8 +36,12 @@ export function effectOf({
     ruleset.resources.find((r) => r.id === id)?.label ??
     id;
   const n = Number(effect.value);
-  return { label, by: effect.mode === "add" && Number.isInteger(n) ? n : null, mode: effect.mode, value: effect.value };
+  const worded = WORDED_MODES.includes(effect.mode) && effect.value.trim() !== "" && Number.isInteger(n);
+  return { label, by: worded ? n : null, mode: effect.mode, value: effect.value };
 }
+
+/** The modes the sheet words with a whole number in the platform's words (house decision #167). */
+export const WORDED_MODES: readonly string[] = ["add", "override", "multiply"];
 
 export type SheetRow = {
   kind: "field" | "derived" | "resource";

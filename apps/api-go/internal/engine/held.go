@@ -27,7 +27,9 @@ type HeldKind struct {
 	Entities []string `json:"entities"`
 	Unseen   *string  `json:"unseen"`
 	Max      *int     `json:"max"`
-	Cite     *string  `json:"cite"`
+	// Includes is a list field of the entry type naming the records a record brings with it (house decision #165).
+	Includes *string `json:"includes"`
+	Cite     *string `json:"cite"`
 }
 
 // MaxOrDefault is how many of the kind an actor may hold.
@@ -47,6 +49,7 @@ var heldKindSchema = schema.Object(
 	schema.Req("entities", schema.Array(idSchema).Min(1).Max(50)),
 	schema.Opt("unseen", label(60)),
 	schema.Opt("max", schema.Int().Min(1).Max(50)),
+	schema.Opt("includes", fieldIDSchema),
 	schema.Opt("cite", citeSchema),
 )
 
@@ -62,6 +65,8 @@ func (p *problems) held(r *Ruleset, needCite func(*string, string)) {
 			p.add(path+".entry", `unknown entity "%s"`, k.Entry)
 		case entry.Base == "actor":
 			p.add(path+".entry", `"%s" is an actor`, k.Entry)
+		case k.Includes != nil && entry.Fields[*k.Includes].Type != "list":
+			p.add(path+".includes", `"%s" has no list field "%s"`, k.Entry, *k.Includes)
 		}
 		for i, e := range k.Entities {
 			holder := entityByID(r, e)

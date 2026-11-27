@@ -1197,6 +1197,13 @@ const servedManifests = Object.entries(SERVED_FIXTURES).flatMap(([fixture, input
     }),
   );
 });
+// has() of a `gm` resource is cut from a player's copy and kept in the GM's (house decision #166).
+const clockShown = (seatName: string) =>
+  servedManifests
+    .find((m) => m.fixture === "duelHasCut" && m.seatName === seatName && m.ctx.tableMode === "gm")
+    ?.manifest.strikes?.[0]?.shows?.some((x) => x.id === "clock");
+if (clockShown("player with characters") !== false || clockShown("gm") !== true)
+  throw new Error("has() of a gm resource is not cut from a player's copy");
 // A strike its owner sends that a player's copy does not carry as declared is refused at import (house decision #113):
 // the samples (none is), and the harm sample's sweep made to read a brute's GM-only guard, or a note a hero's GM-only
 // field, beside one that reads nothing hidden.

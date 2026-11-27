@@ -299,6 +299,15 @@ func (c *checker) call(x CallNode) ExprType {
 		if _, isPath := pathOf(x.Args[0]); !isPath {
 			exprFail("has() takes a path such as res.tempHp")
 		}
+		// A resource another actor type carries is a value that is not there on this one (house decision #166); one the
+		// manifest does not declare (cut from a seat's copy, #101) still refuses, as expr.check.ts.
+		if get, isGet := x.Args[0].(GetNode); isGet && get.Obj == Node(IdentNode{"res"}) {
+			if elsewhere, isRecord := c.scope[resElsewhere].(RecordType); isRecord {
+				if _, carried := elsewhere.Fields[get.Key]; carried {
+					return boolType
+				}
+			}
+		}
 		c.check(x.Args[0], false)
 		return boolType
 	}
@@ -340,6 +349,10 @@ type CompiledExpr struct {
 	Type   ExprType
 	Refs   []string
 }
+
+// resElsewhere is the scope key, never an identifier, naming the resources an actor's scope lacks but another actor
+// type carries (RES_ELSEWHERE in expr.check.ts).
+const resElsewhere = "#resElsewhere"
 
 // CompileExpr parses and type-checks. A nil expect takes any type; otherwise the wrong result type is refused.
 func CompileExpr(source string, scope map[string]ExprType, expect ExprType) (expr *CompiledExpr, err error) {

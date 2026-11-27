@@ -74,8 +74,8 @@ func BuildActor(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, lookup
 		return "", cs.Fail("noRuleset")
 	}
 	actorID := a.Str("actorId")
-	var entityType string
-	err = tx.QueryRow(ctx, `SELECT entity_type FROM actor WHERE id = $1 AND campaign_id = $2`, actorID, cid).Scan(&entityType)
+	var kind, entityType string
+	err = tx.QueryRow(ctx, `SELECT kind, entity_type FROM actor WHERE id = $1 AND campaign_id = $2`, actorID, cid).Scan(&kind, &entityType)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", cs.Fail("characterNotFound")
 	}
@@ -89,9 +89,15 @@ func BuildActor(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, lookup
 	if !slices.ContainsFunc(compiled.Ruleset.Creation, func(s engine.CreationStep) bool { return s.Actor == entity }) {
 		return "", cs.Fail("nothingToBuild")
 	}
+	// A type the ledger also builds is made by hand on the GM side only (house decision #199).
+	if compiled.Build != nil && entity == compiled.Build.Actor && !view.ActorGmSide(c, kind) {
+		return "", cs.Fail("byHandGm")
+	}
+	// Values, choices or a ledger build (a draft alone claims the actor for the ledger) mean it is made another way.
 	var values int
 	if err := tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM actor_field WHERE actor_id = $1)
-		+ (SELECT count(*) FROM actor_choice WHERE actor_id = $1)`, actorID).Scan(&values); err != nil {
+		+ (SELECT count(*) FROM actor_choice WHERE actor_id = $1)
+		+ (SELECT count(*) FROM actor_build WHERE actor_id = $1)`, actorID).Scan(&values); err != nil {
 		return "", err
 	}
 	if values > 0 {

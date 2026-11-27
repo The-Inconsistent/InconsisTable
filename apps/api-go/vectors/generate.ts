@@ -67,7 +67,7 @@ import { FnName } from "../../../packages/rules-engine/src/expr/expr.ast.ts";
 import { evaluate } from "../../../packages/rules-engine/src/expr/expr.eval.ts";
 import { parseExpr } from "../../../packages/rules-engine/src/expr/expr.parser.ts";
 import { SAMPLE_PACK, SAMPLE_PACK_EFFECTS } from "../../../packages/rules-engine/src/fixtures/sample-pack.ts";
-import { plainDice } from "../../../packages/rules-engine/src/manifest.ts";
+import { keptValue, plainDice } from "../../../packages/rules-engine/src/manifest.ts";
 import { canonicalJson, contentHash, diffHashes, sha256Hex } from "../../../packages/rules-engine/src/pack-hash.ts";
 import type {
   ActorState,
@@ -1328,6 +1328,20 @@ function fittingVectors() {
       effects: Array.from({ length: r(3) }, () => one(effects)),
     }));
     cases.push({ card, fitted, result: withFittedCard({ card, fitted }) });
+  }
+  return { cases };
+}
+
+// A build over a hand-made sheet (house decision #199): keptValue on numbers, lists with copies, and what is missing.
+function keptVectors() {
+  let seed = 199;
+  const r = (n: number) => (((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 2 ** 32) * n) | 0;
+  const one = <T>(items: readonly T[]): T => items[r(items.length)] as T;
+  const values = [3, 0, -2, 7, null, "x", ["A"], ["A", "B", "A"], ["B", "C"], [], ["C", "C", "C", "A"]];
+  const cases: unknown[] = [];
+  for (let i = 0; i < 300; i++) {
+    const x = { how: one(["greater", "merge"] as const), hand: one(values), built: one(values), max: 1 + r(5) };
+    cases.push({ ...x, result: keptValue(x) });
   }
   return { cases };
 }
@@ -4481,6 +4495,17 @@ const LEDGER_CHANGES: ((m: Mutable) => void)[] = [
   (m) => (m.build.keep = {}),
   (m) => (m.build.keep = { fields: Array.from({ length: 51 }, () => "xp") }),
   (m) => delete m.build.keep,
+  // House decision #199: a field kept as the greater number or merged as a list, and the path a type with both takes.
+  (m) =>
+    (m.build.keep = { fields: ["armourRating"], greater: ["armourRating", "species", "nope"], merge: ["keywords"] }),
+  (m) => (m.build.keep = { greater: ["armourRating"], merge: ["armourRating", "keywords", "keywords"] }),
+  (m) => (m.build.first = "steps"),
+  (m) => (m.build.first = "build"),
+  (m) => (m.build.first = "nope"),
+  (m) => {
+    m.creation = [{ id: "name", actor: "hero", kind: "fields", label: "Name", fields: ["species"], cite: "Base p.1" }];
+    m.build.first = "steps";
+  },
   // The GM's override of a derived value (house decision #96).
   (m) => (m.entities[0].derived[0].override = "species"),
   (m) => (m.entities[0].derived[0].override = "nope"),
@@ -5559,6 +5584,7 @@ const vectors = {
   strikes: strikeVectors(),
   acquire: acquireVectors(),
   fittings: fittingVectors(),
+  kept: keptVectors(),
   spawns: spawnVectors(),
   opInputKeys: opKeyVectors(),
   deltaChecks: deltaCheckVectors(),

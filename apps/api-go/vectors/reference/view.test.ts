@@ -641,7 +641,7 @@ test("a player on the ledger sample keeps the hero's Guard and its build, withou
   );
   assert.equal(served.build?.sheet.wealth, undefined);
   assert.equal(served.build?.sheet.corruption, undefined);
-  assert.deepEqual(served.build?.keep, { fields: ["armourRating"], resources: [] });
+  assert.deepEqual(served.build?.keep, { fields: [], resources: [], greater: ["armourRating"], merge: ["keywords"] });
   assert.equal(served.items?.give, undefined);
   assert.equal(served.items?.kinds.length, 4);
 });

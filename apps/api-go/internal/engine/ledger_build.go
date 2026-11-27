@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"math"
 	"slices"
 )
 
@@ -32,8 +33,8 @@ func (p *problems) build(r *Ruleset) {
 			holds[id] = kind
 		}
 	}
-	if slices.ContainsFunc(r.Creation, func(s CreationStep) bool { return s.Actor == b.Actor }) {
-		p.add("creation", "an actor type the ledger builder builds takes no creation steps")
+	if b.First != nil && *b.First == "steps" && !slices.ContainsFunc(r.Creation, func(s CreationStep) bool { return s.Actor == b.Actor }) {
+		p.add("build.first", "no creation step makes the %s", b.Actor)
 	}
 	tiers := b.Params.Tiers
 	if tier, ok := r.CampaignFields[b.Tier]; !ok {
@@ -150,6 +151,24 @@ func (p *problems) build(r *Ruleset) {
 				p.add(fmt.Sprintf("build.keep.fields[%d]", i), `%s has no field "%s"`, actor.ID, id)
 			}
 		}
+		kept := map[string]bool{}
+		for _, id := range k.Fields {
+			kept[id] = true
+		}
+		for _, g := range []struct {
+			how, typ string
+			ids      []string
+		}{{"greater", "int", k.Greater}, {"merge", "list", k.Merge}} {
+			for i, id := range g.ids {
+				path := fmt.Sprintf("build.keep.%s[%d]", g.how, i)
+				if f, has := actor.Fields[id]; !has || f.Type != g.typ {
+					p.add(path, `%s has no %s field "%s"`, actor.ID, g.typ, id)
+				} else if kept[id] {
+					p.add(path, `"%s" is kept already`, id)
+				}
+				kept[id] = true
+			}
+		}
 		for i, id := range k.Resources {
 			var found *Resource
 			for j := range r.Resources {
@@ -162,4 +181,38 @@ func (p *problems) build(r *Ruleset) {
 			}
 		}
 	}
+}
+
+// KeptValue is manifest.ts keptValue (house decision #199): a kept field of a build saved over a hand-made sheet, the
+// greater of two numbers, or the build's list with each hand-made item past the copies it has, at most max.
+func KeptValue(how string, hand, built any, max int) any {
+	if how == "greater" {
+		h, isNumber := hand.(float64)
+		if !isNumber {
+			return built
+		}
+		if b, ok := built.(float64); ok {
+			return math.Max(h, b)
+		}
+		return h
+	}
+	out := []any{}
+	if b, ok := built.([]any); ok {
+		out = append(out, b...)
+	}
+	seen := map[any]int{}
+	h, _ := hand.([]any)
+	for _, x := range h {
+		seen[x]++
+		n := 0
+		for _, y := range out {
+			if y == x {
+				n++
+			}
+		}
+		if n < seen[x] {
+			out = append(out, x)
+		}
+	}
+	return out[:min(len(out), max)]
 }

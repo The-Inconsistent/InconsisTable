@@ -543,6 +543,11 @@
     "takeFailed": "Không nhận được ghế. Hãy thử lại"
   },
   "builder": {
+    "path": {
+      "label": "Tạo nhân vật này",
+      "build": "DỰNG",
+      "steps": "LÀM TAY"
+    },
     "notAtTable": "Nhân vật này không có ở bàn này.",
     "isBuilt": "{name} đã tạo xong",
     "correctHint": "GM có thể sửa giá trị từ sheet.",
@@ -1873,7 +1878,8 @@
     "itemNotCounted": "{item} không được đếm.",
     "itemOnlySpend": "Chỉ GM thêm được {item}.",
     "roomNoSuchItem": "Tài liệu này không có vật phẩm đó của nhân vật.",
-    "keepSheetGm": "Chỉ GM lưu được bản dựng đè lên tờ nhân vật làm tay."
+    "keepSheetGm": "Chỉ GM lưu được bản dựng đè lên tờ nhân vật làm tay.",
+    "byHandGm": "Chỉ GM mới tạo được nhân vật loại này bằng tay."
   },
   "workspace": {
     "skip": "Bỏ qua, tới nội dung trang",

@@ -694,8 +694,11 @@ var buildSchema = schema.Object(
 	schema.Opt("keep", schema.Object(
 		schema.Def("fields", schema.Array(fieldIDSchema).Max(50), []any{}),
 		schema.Def("resources", schema.Array(idSchema).Max(20), []any{}),
+		schema.Opt("greater", schema.Array(fieldIDSchema).Max(50)),
+		schema.Opt("merge", schema.Array(fieldIDSchema).Max(50)),
 	)),
 	schema.Opt("libraryLine", schema.Enum(LibraryLineKinds...)),
+	schema.Opt("first", schema.Enum("build", "steps")),
 	schema.Req("cite", citeSchema),
 )
 

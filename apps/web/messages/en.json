@@ -543,6 +543,11 @@
     "takeFailed": "Couldn't take the seat. Try again"
   },
   "builder": {
+    "path": {
+      "label": "Make this character",
+      "build": "BUILD",
+      "steps": "BY HAND"
+    },
     "notAtTable": "That character isn't at this table.",
     "isBuilt": "{name} is built",
     "correctHint": "The GM can correct a value from the sheet.",
@@ -1873,7 +1878,8 @@
     "itemNotCounted": "{item} isn't counted.",
     "itemOnlySpend": "Only the GM adds to {item}.",
     "roomNoSuchItem": "No such item of this character in this document.",
-    "keepSheetGm": "Only the GM saves a build over a sheet made by hand."
+    "keepSheetGm": "Only the GM saves a build over a sheet made by hand.",
+    "byHandGm": "Only the GM makes a character of this type by hand."
   },
   "workspace": {
     "skip": "Skip to the page",

@@ -270,6 +270,7 @@ export const REFUSALS = {
   itemNotCounted: "{item} isn't counted.",
   itemOnlySpend: "Only the GM adds to {item}.",
   keepSheetGm: "Only the GM saves a build over a sheet made by hand.",
+  byHandGm: "Only the GM makes a character of this type by hand.",
   // Undo
   nothingToUndo: "Nothing to undo",
   nothingToTurnBack: "Nothing to turn back: no turn has started or ended in this fight this session.",

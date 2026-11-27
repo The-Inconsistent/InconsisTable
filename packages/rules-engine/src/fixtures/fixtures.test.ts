@@ -22,6 +22,7 @@ import {
   SAMPLE_LEDGER_RULESET_0_1_3,
   SAMPLE_LEDGER_RULESET_0_1_4,
   SAMPLE_LEDGER_RULESET_0_1_5,
+  SAMPLE_LEDGER_RULESET_0_1_6,
 } from "./sample-ledger-ruleset.ts";
 import type { RulesetInput } from "../manifest.ts";
 import { SAMPLE_DUEL, SAMPLE_DUEL_BEFORE_LISTS, SAMPLE_DUEL_BEFORE_PANELS } from "./sample-duel.ts";
@@ -63,7 +64,7 @@ const PINNED_0_1_5 = "0b4ebbea1f60b3883b9f88e058ac3f6900c5e37bb146a0dc46522f4e9c
 const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f709c6bf";
 const PINNED: Record<string, string> = {
   "sample-d20@0.1.17": "32a080fd97e800df941bdbfaad6eb56fad789fc8fcd6616ddfa5d87a5d2d0af4",
-  "sample-ledger@0.1.6": "717025a2783d882c3738ec979b565b9d330ee31297becd9560c0264be790ca73",
+  "sample-ledger@0.1.7": "e058c074efe9786ff8d87cbe51fcbe2163756f16b3fd27071199d9f58b53c6d2",
   "sample-skirmish@0.1.14": "2365ae8d6814618eaeb196dc521d37c7779df6a8f566655f426eb4fcdbcc8ae8",
   "sample-pool@0.1.4": "20a6d1b8a8d6031a0d3abfab5e5ceaade06eed14c7748e8226b4b1a68e35e182",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
@@ -159,6 +160,15 @@ test("a ruleset without the fitting keys or a yes-or-no acquisition input hashes
   assert.equal(
     sha256Hex(canonicalJson(result.compiled.ruleset)),
     "bc200e07badbdacfa62b6977db93d1c233db686ba2df7d0c27cbeece4f99cdf2",
+  );
+});
+
+test("a ruleset without a by-hand path or merged keeps hashes as before them (house decision #199)", () => {
+  const result = compileRuleset(SAMPLE_LEDGER_RULESET_0_1_6);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "717025a2783d882c3738ec979b565b9d330ee31297becd9560c0264be790ca73",
   );
 });
 

@@ -17,6 +17,7 @@ import {
   roomTier,
   sheetLinesOf,
   startingBuild,
+  madeBothWays,
   usesLedger,
   xpEarnedOf,
   xpFiguresOf,
@@ -62,6 +63,11 @@ test("the page shows the ledger builder for an untyped actor or one of the type 
   assert.equal(usesLedger({ ruleset: ledger, actor: { entity: "keyword" } }), false);
   assert.equal(usesLedger({ ruleset: plain, actor: { entity: "" } }), false);
   assert.equal(usesLedger({ ruleset: null, actor: { entity: "" } }), false);
+  // House decision #199: the ledger sample's hero is also made by hand, and the GM side may pick the steps.
+  assert.equal(madeBothWays(ledger), true);
+  assert.equal(madeBothWays(plain), false);
+  assert.equal(usesLedger({ ruleset: ledger, actor: { entity: "hero" }, path: "steps" }), false);
+  assert.equal(usesLedger({ ruleset: { ...ledger, creation: [] }, actor: { entity: "" }, path: "steps" }), true);
 });
 
 test("the starting build: the draft, else the build, else an empty one; keys in place", () => {

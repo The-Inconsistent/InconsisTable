@@ -211,10 +211,15 @@ func SaveBuild(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action, catalog
 	// Play changes the resources after the first save, so only the first one starts them.
 	target := StartTarget{ActorID: actorID, Fields: sheetFields(rules.Ruleset.Build, sheet), FieldsOnly: stored != nil}
 	if handMade {
-		for _, f := range rules.Ruleset.Build.Keep.Fields {
+		keep := rules.Ruleset.Build.Keep
+		for _, f := range keep.Fields {
 			delete(target.Fields, f)
 		}
-		target.KeepResources = rules.Ruleset.Build.Keep.Resources
+		target.KeepResources = keep.Resources
+		// The better armour and the merged lists (house decision #199): the hand-made value read beside the build's.
+		if err := keepMerged(ctx, tx, cid, rules, target.Fields, actorID); err != nil {
+			return cs.Result{}, err
+		}
 	}
 	if stored == nil {
 		target.Resources = map[string]float64{}
@@ -366,6 +371,36 @@ func sheetFields(b *engine.LedgerBuild, sheet *schema.Obj) map[string]any {
 	keywords, _ := get(sheet, "keywords").([]any)
 	out[b.Sheet.Keywords] = keywords
 	return out
+}
+
+// keepMerged writes into fields each `keep.greater` and `keep.merge` field as engine.KeptValue works it out from the
+// hand-made value and the build's (house decision #199).
+func keepMerged(ctx context.Context, tx core.Conn, cid string, rules *engine.CompiledRuleset, fields map[string]any, actorID string) error {
+	b := rules.Ruleset.Build
+	var actor *engine.EntityType
+	for i := range rules.Ruleset.Entities {
+		if rules.Ruleset.Entities[i].ID == b.Actor {
+			actor = &rules.Ruleset.Entities[i]
+		}
+	}
+	if actor == nil {
+		return nil // the manifest check names build.actor among the entities
+	}
+	for how, ids := range map[string][]string{"greater": b.Keep.Greater, "merge": b.Keep.Merge} {
+		for _, f := range ids {
+			def := actor.Fields[f]
+			hand, err := ReadTarget(ctx, tx, cid, engine.DeltaTarget{ActorID: actorID, Field: f}, def.Type)
+			if err != nil {
+				return err
+			}
+			limit := engine.MaxListItems
+			if def.MaxItems != nil {
+				limit = min(limit, int(*def.MaxItems))
+			}
+			fields[f] = engine.KeptValue(how, hand, fields[f], limit)
+		}
+	}
+	return nil
 }
 
 // NotReady is a buildNotReady refusal's detail, for a build resolved outside a room (the character library).

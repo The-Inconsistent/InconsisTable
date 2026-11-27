@@ -115,3 +115,50 @@ func TestABuildOverASheetMadeByHandKeepsWhatTheRulesetMarks(t *testing.T) {
 		p.send(gm, save(hero, dreamBuild))
 	})
 }
+
+// A hero made by hand on a type the ledger also builds (house decision #199): only the GM side, only once, and a
+// draft claims the hero for the ledger. A build over the sheet keeps the better armour and merges the keywords.
+func TestAHeroMadeByHandBesideTheLedgerAndBuiltOverMergesAsDeclared(t *testing.T) {
+	db := dbtest.Open(t)
+	lib := importLedger(t, db)
+	dbtest.Tx(t, db, func(tx pgx.Tx) {
+		p := ledgerPlay(t, tx, lib)
+		gm := p.room.GM()
+		byHand := func(id string, armour float64) map[string]any {
+			return map[string]any{"type": "actor.build", "actorId": id, "answers": map[string]any{
+				"byHand": map[string]any{"species": "Moth", "armourRating": armour, "mod.guard": 1.0}}}
+		}
+		// The build's own numbers, on a hero built plainly.
+		plain := p.room.Actor(t, tx, "pc", "Plain", "")
+		p.send(gm, save(plain, dreamBuild))
+		built := p.fields(plain)
+
+		hero := p.room.Actor(t, tx, "pc", "Wren", "")
+		ana := p.room.Seat(t, tx, dbtest.User(t, tx, "Ana"), hero)
+		p.refusedWith(ana, byHand(hero, 1), "byHandGm")
+		p.send(gm, byHand(hero, 99))
+		p.refusedWith(gm, byHand(hero, 99), "alreadyBuilt")
+		p.send(gm, map[string]any{"type": "field.set", "actorId": hero, "field": "keywords", "value": []any{"MOTH", "MOTH"}})
+		keep := save(hero, dreamBuild)
+		keep["keepSheet"] = true
+		p.send(gm, keep)
+		fields := p.fields(hero)
+		if fields["armourRating"] != 99 || fields["species"] != built["species"] {
+			t.Fatalf("the better armour kept, the rest the build's: %v (built %v)", fields, built)
+		}
+		want := "MOTH,MOTH"
+		if k, _ := built["keywords"].(string); k != "" {
+			want = k + "," + want
+		}
+		if fields["keywords"] != want {
+			t.Fatalf("the build's keywords, then the hand's past the copies it has: want %q, got %v", want, fields["keywords"])
+		}
+
+		// A draft claims a hero for the ledger: not made by hand after.
+		drafted := p.room.Actor(t, tx, "pc", "Drafted", "")
+		draft := save(drafted, dreamBuild)
+		draft["draft"] = true
+		p.send(gm, draft)
+		p.refusedWith(gm, byHand(drafted, 2), "alreadyBuilt")
+	})
+}

@@ -6,6 +6,7 @@ import type { LiveState, SpendRequest } from "@inconsistable/core-schema";
 import { compileRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import type { Send } from "@/hooks/use-table/use-table";
+import { changeFields, itemChange } from "@/lib/acquire-change/acquire-change";
 import { REQUEST_NOTE_MAX } from "@/lib/spend-request/spend-request";
 import { costText, inputsText, offersOf, spendOf } from "@/lib/spends/spends";
 
@@ -25,6 +26,10 @@ export function RequestBar({ state, labels, ruleset, send }: RequestBarProps) {
   const id = useId();
   const [denying, setDenying] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  // CHANGE on an acquisition (house decision #196): which ask is open, and what the GM typed for it.
+  const [changing, setChanging] = useState<string | null>(null);
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const [tags, setTags] = useState("");
   const [error, setError] = useState<string | null>(null);
   const compiled = useMemo(() => {
     const c = ruleset === null ? null : compileRuleset(ruleset);
@@ -62,6 +67,24 @@ export function RequestBar({ state, labels, ruleset, send }: RequestBarProps) {
   const handleApprove = async (requestId: string) => {
     const r = await send({ type: "request.approve", id: requestId });
     setError(r.ok ? null : r.error);
+  };
+  // APPROVE WITH CHANGES: the acquisition's Test reads the entry with what the GM typed, for this call only.
+  const handleApproveChanged = async (e: FormEvent, q: SpendRequest) => {
+    e.preventDefault();
+    const fields = ruleset && q.acquire ? changeFields({ ruleset, type: q.acquire.type }) : [];
+    const item = itemChange({ fields, typed, tags });
+    const r = await send({ type: "request.approve", id: q.id, ...(item ? { item } : {}) });
+    setError(r.ok ? null : r.error);
+    if (!r.ok) return;
+    setChanging(null);
+    setTyped({});
+    setTags("");
+  };
+  // CHANGE: opens the change form for one ask, or closes it, starting blank.
+  const handleChanging = (requestId: string) => {
+    setChanging(changing === requestId ? null : requestId);
+    setTyped({});
+    setTags("");
   };
   // DENY: answers with the reason, if any, then closes the reason field.
   const handleDeny = async (e: FormEvent, requestId: string) => {
@@ -108,6 +131,16 @@ export function RequestBar({ state, labels, ruleset, send }: RequestBarProps) {
                 >
                   {t("approve")}
                 </button>
+                {q.acquire && ruleset && (
+                  <button
+                    className="btn sm"
+                    aria-label={t("changeAria", { name, item: q.acquire.name })}
+                    aria-expanded={changing === q.id}
+                    onClick={() => handleChanging(q.id)}
+                  >
+                    {t("change")}
+                  </button>
+                )}
                 <button
                   className="btn sm"
                   aria-label={spent ? t("spendDenyAria", values) : t("denyAria", values)}
@@ -118,6 +151,44 @@ export function RequestBar({ state, labels, ruleset, send }: RequestBarProps) {
                 </button>
               </span>
             </div>
+            {changing === q.id && q.acquire && ruleset && (
+              <form className="stack" onSubmit={(e) => handleApproveChanged(e, q)}>
+                <p className="small dim">{t("changeHint")}</p>
+                {changeFields({ ruleset, type: q.acquire.type }).map((f) => (
+                  <label key={f.id} className="row">
+                    <span>{f.label}</span>
+                    {f.options ? (
+                      <select
+                        value={typed[f.id] ?? ""}
+                        onChange={(e) => setTyped({ ...typed, [f.id]: e.target.value })}
+                      >
+                        <option value="">{t("changeKeep")}</option>
+                        {f.options.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        inputMode="numeric"
+                        size={5}
+                        value={typed[f.id] ?? ""}
+                        placeholder={t("changeKeep")}
+                        onChange={(e) => setTyped({ ...typed, [f.id]: e.target.value })}
+                      />
+                    )}
+                  </label>
+                ))}
+                <label className="row">
+                  <span>{t("changeTags")}</span>
+                  <input value={tags} placeholder={t("changeKeep")} onChange={(e) => setTags(e.target.value)} />
+                </label>
+                <button className="btn sm primary" type="submit">
+                  {t("approveChanged")}
+                </button>
+              </form>
+            )}
             {denying === q.id && (
               <form className="row" onSubmit={(e) => handleDeny(e, q.id)}>
                 <label htmlFor={`${id}-${q.id}`}>{t("reason")}</label>

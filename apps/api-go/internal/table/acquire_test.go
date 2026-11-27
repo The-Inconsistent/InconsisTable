@@ -254,3 +254,27 @@ func TestAnAcquiredFittingIsFittedAtOnceToTheLineTheAskNamed(t *testing.T) {
 		}
 	})
 }
+
+// The GM changes the entry's values for one acquisition when approving (house decision #196): the bow read as rated 1
+// makes the number 9, the pack entry is unchanged, and a field the entry type lacks, a value that does not fit it, or a
+// change on an ask that is not an acquisition is refused.
+func TestTheGmChangesAnEntrysValuesForOneAcquisition(t *testing.T) {
+	db := dbtest.Open(t)
+	lib := importLedger(t, db)
+	dbtest.Tx(t, db, func(tx pgx.Tx) {
+		r := newAcquireRoom(t, tx, lib)
+		ask := r.send(r.ana, acquire(r.hero, "wargear.hunting-bow", map[string]any{"push": 0.0})).ID
+		approve := func(item map[string]any) map[string]any {
+			return map[string]any{"type": "request.approve", "id": ask, "item": item}
+		}
+		r.refusedWith(r.gm, approve(map[string]any{"fields": map[string]any{"nope": 1.0}}), "badRequest")
+		r.refusedWith(r.gm, approve(map[string]any{"fields": map[string]any{"rating": "high"}}), "fieldInvalid")
+		r.send(r.gm, approve(map[string]any{"fields": map[string]any{"rating": 1.0}}))
+		if call := r.call(r.ana); call == nil || *call.Targets[0].Target != 9 {
+			t.Fatalf("want the number read at rating 1 (9), got %+v", call)
+		}
+		if body := dbtest.Scalar[string](t, tx, `SELECT body->>'rating' FROM pack_entry WHERE key = 'wargear.hunting-bow'`); body != "3" {
+			t.Fatalf("the pack entry changed: %s", body)
+		}
+	})
+}

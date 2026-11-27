@@ -111,6 +111,48 @@ func TestAPoolSpendIsAskedSeenByThePartyAndPaidAtApproval(t *testing.T) {
 	})
 }
 
+// Undo of an approved spend gives its cost back and leaves the ask waiting, to be answered again (#227, house decision
+// #119), as an applied offer is applicable again.
+func TestUndoOfAnApprovedSpendLeavesItsAskPending(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		p := newSpendsPlay(t, tx, 0)
+		gm := p.room.GM()
+		wren := p.character("Wren", 3)
+		asker := p.room.Seat(t, tx, dbtest.User(t, tx, "P"), wren)
+		p.fill("momentum", 3)
+		id := p.send(asker, ask(wren, "rally", map[string]any{"dice": 2.0})).ID
+		p.send(gm, map[string]any{"type": "request.approve", "id": id})
+		wantPool(t, p, "momentum", 1)
+		p.send(gm, map[string]any{"type": "event.undo"})
+		wantPool(t, p, "momentum", 3)
+		if got := p.requestStatus(id); got != "pending" {
+			t.Fatalf("after undo: got %s", got)
+		}
+		if seen := p.seatView(gm).State.Requests; len(seen) != 1 || seen[0].ID != id {
+			t.Fatalf("the GM side sees the ask again: %+v", seen)
+		}
+		p.send(gm, map[string]any{"type": "request.approve", "id": id})
+		wantPool(t, p, "momentum", 1)
+	})
+}
+
+// In a room without a GM nobody answers, so a spend ask is done at once as the table, and no request waits.
+func TestASpendAskWithoutAGMIsDoneAtOnce(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		p := newSpendsPlay(t, tx, 0)
+		wren := p.character("Wren", 3)
+		asker := p.room.Seat(t, tx, dbtest.User(t, tx, "P"), wren)
+		p.fill("momentum", 3)
+		dbtest.Exec(t, tx, `UPDATE campaign SET table_mode = 'gmless' WHERE id = $1`, p.room.ID)
+		p.refused(asker, ask(wren, "rally", map[string]any{"dice": 4.0}), "badInput")
+		p.send(asker, ask(wren, "rally", map[string]any{"dice": 2.0}))
+		wantPool(t, p, "momentum", 1)
+		if n := dbtest.Scalar[int64](t, tx, `SELECT count(*) FROM spend_request WHERE campaign_id = $1`, p.room.ID); n != 0 {
+			t.Fatalf("requests waiting: %d", n)
+		}
+	})
+}
+
 func TestASpendThePoolCannotPayAtApprovalStaysPending(t *testing.T) {
 	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
 		p := newSpendsPlay(t, tx, 0)

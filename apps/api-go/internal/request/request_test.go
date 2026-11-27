@@ -125,6 +125,31 @@ func TestApproveSpendsClampedAndUndoRevertsIt(t *testing.T) {
 		if got := hp(t, tx, hero); got != 5 {
 			t.Fatalf("hp %d after undo, want 5", got)
 		}
+		// The undone approval leaves the ask waiting again, to be answered anew (house decision #119).
+		if got := status(t, tx, id); got != "pending" {
+			t.Fatalf("status %s after undo, want pending", got)
+		}
+		dbtest.Must[cs.Result](t)(request.Deny(ctx, tx, room.GM(), act("request.deny", id)))
+	})
+}
+
+// A spend at the floor changes nothing and logs no action: it is approved all the same, with nothing to reopen.
+func TestApprovingASpendThatChangesNothing(t *testing.T) {
+	dbtest.Tx(t, dbtest.Open(t), func(tx pgx.Tx) {
+		ctx := context.Background()
+		room, hero, player := table(t, tx)
+		dbtest.Exec(t, tx, `UPDATE actor_resource SET value = 0 WHERE actor_id = $1 AND resource_id = 'hp'`, hero)
+		id, err := send(tx, player, hero, "hp", 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dbtest.Must[cs.Result](t)(request.Approve(ctx, tx, room.GM(), act("request.approve", id)))
+		if got := status(t, tx, id); got != "approved" {
+			t.Fatalf("status %s", got)
+		}
+		if dbtest.Scalar[bool](t, tx, `SELECT action_id IS NOT NULL FROM spend_request WHERE id = $1`, id) {
+			t.Fatal("an action id for a spend that logged nothing")
+		}
 	})
 }
 

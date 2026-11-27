@@ -40,17 +40,19 @@ export function OrderView({ encounter, sides, conditions = [], heldOf, mine, onP
     const own = mine?.has(c.id) === true;
     const body = (
       <>
-        <span className="name">{c.name}</span>
-        {own && (
-          <span className="chip" data-you="true">
-            {t("you")}
-          </span>
-        )}
-        {first && (
-          <span className="chip" data-first="true">
-            {t("first")}
-          </span>
-        )}
+        <span className="row">
+          <span className="name">{c.name}</span>
+          {own && (
+            <span className="chip" data-you="true">
+              {t("you")}
+            </span>
+          )}
+          {first && (
+            <span className="chip" data-first="true">
+              {t("first")}
+            </span>
+          )}
+        </span>
         <HealthBar combatant={c} conditions={conditions} held={heldOf?.(c.actorId)} />
       </>
     );

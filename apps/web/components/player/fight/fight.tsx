@@ -11,6 +11,7 @@ import { OrderView } from "@/components/ui/order-view/order-view";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
 import { fightTabOf } from "@/lib/fight-tab/fight-tab";
 import { heldChips } from "@/lib/held/held";
+import { turnPartsOf } from "@/lib/sheet/sheet";
 
 type FightProps = {
   state: LiveState;
@@ -40,6 +41,8 @@ export function Fight({ state, ruleset, held, requests, send, books, requestPage
   const current = encounter.combatants.find((c) => c.id === encounter.currentId);
   // The seat's character acting now, while the fight runs: its turn rows are drawn.
   const turnActor = current && mine.has(current.id) && !encounter.paused ? actorOf(current.actorId) : undefined;
+  // A ruleset without `phoneTurn` rows draws nothing more on the turn.
+  const turnRows = turnActor && ruleset ? turnPartsOf({ ruleset, actor: turnActor }).length : 0;
   const card = encounter.combatants.find((c) => c.id === cardOf);
   const cardActor = card && actorOf(card.actorId);
 
@@ -62,7 +65,7 @@ export function Fight({ state, ruleset, held, requests, send, books, requestPage
         mine={mine}
         onPick={(c: Combatant) => setCardOf(c.id)}
       />
-      {turnActor && ruleset && (
+      {turnActor && ruleset && turnRows > 0 && (
         <section className="stack" aria-label={t("turnLabel", { name: turnActor.name })}>
           <h2 className="title">{t("yourTurn", { name: turnActor.name })}</h2>
           <SheetView

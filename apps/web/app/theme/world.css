@@ -282,6 +282,9 @@ html:has([data-world]) {
 [data-world] :is(.card, .sheet-card, .roll-card)::after,
 [data-world] :is(.card, .sheet-card):nth-child(even)::after {
   background: radial-gradient(circle at 35% 30%, var(--paper), var(--line) 55%, var(--ink-2));
+  box-shadow:
+    0 2px 2px rgb(0 0 0 / 0.5),
+    inset 0 0 0 1px color-mix(in srgb, var(--ink) 40%, transparent);
 }
 /* The acting slip is lit in the card's own colours, so a dark card stays dark. */
 [data-world] .combatant[data-acting="true"]::before {

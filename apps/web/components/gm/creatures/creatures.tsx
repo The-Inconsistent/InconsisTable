@@ -1,9 +1,9 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
 import { CombatVisibility, type LiveState, type Marker } from "@inconsistable/core-schema";
-import { Ruleset } from "@inconsistable/rules-engine";
+import { localRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { PrintCreature } from "@/components/print/print-creature/print-creature";
 import { BudgetLines } from "@/components/ui/budget-lines/budget-lines";
@@ -51,6 +51,7 @@ async function readRules({
 // the GM says otherwise); a temporary one goes when the encounter ends.
 export function Creatures({ campaignId, send, state, ruleset }: CreaturesProps) {
   const t = useTranslations("creatures");
+  const locale = useLocale();
   const tStatus = useTranslations("status");
   const tVisibility = useTranslations("combatVisibility");
   const tr = useRefusal();
@@ -79,11 +80,11 @@ export function Creatures({ campaignId, send, state, ruleset }: CreaturesProps) 
     try {
       const base = `/api/campaigns/${encodeURIComponent(campaignId)}/rules`;
       const room = await readRules({ path: `${base}?limit=1`, fallback: readFailed, tr });
-      const ruleset = Ruleset.safeParse(room.ruleset?.manifest);
-      if (!ruleset.success) throw new Error(t("pickRuleset"));
+      const ruleset = localRuleset(room.ruleset?.manifest, locale);
+      if (!ruleset) throw new Error(t("pickRuleset"));
       const name = q.trim() === "" ? "" : `&q=${encodeURIComponent(q.trim())}`;
       const replies = await Promise.all(
-        creatureTypes(ruleset.data).map((type) =>
+        creatureTypes(ruleset).map((type) =>
           readRules({
             path: `${base}?type=${encodeURIComponent(type)}${name}&limit=${PAGE}`,
             fallback: readFailed,
@@ -92,7 +93,7 @@ export function Creatures({ campaignId, send, state, ruleset }: CreaturesProps) 
         ),
       );
       const versions = new Map(replies.flatMap((r) => r.packs.map((p) => [p.slug, p.id] as const)));
-      setFound({ entries: replies.flatMap((r) => r.entries), versions, ruleset: ruleset.data });
+      setFound({ entries: replies.flatMap((r) => r.entries), versions, ruleset });
       setPicked(null);
     } catch (err) {
       setMessage({

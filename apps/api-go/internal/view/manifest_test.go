@@ -1,11 +1,30 @@
 package view
 
 import (
+	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	cs "github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/coreschema"
 )
+
+// A gm definition's label, in every language it is given in (issue #159), goes with the definition.
+func TestSeatManifestSendsAPlayerNoWordOfAGmLabel(t *testing.T) {
+	input := manifest()
+	doom := input["resources"].([]any)[1].(map[string]any)
+	doom["label"] = map[string]any{"en": "Doom", "vi": "Tai hoạ"}
+	player := cs.Ctx{CampaignID: "c", Seat: cs.Seat{Kind: cs.SeatMember, Role: "player"}}
+	served, err := json.Marshal(SeatManifest(input, player))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, word := range []string{"Doom", "Tai hoạ"} {
+		if strings.Contains(string(served), word) {
+			t.Errorf("a player is sent %q, a gm resource's label", word)
+		}
+	}
+}
 
 func def(id, visibility string) map[string]any {
 	return map[string]any{"id": id, "visibility": visibility}

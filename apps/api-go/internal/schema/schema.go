@@ -36,7 +36,12 @@ var Undefined = undefinedValue{}
 type context struct {
 	path   []any
 	issues []Issue
+	// read is the language Words are read in (ParseIn); nil while a document is only checked.
+	read *reading
 }
+
+// reading is ParseIn's language and the one it falls back to.
+type reading struct{ lang, fallback string }
 
 func (c *context) fail(format string, args ...any) {
 	c.issues = append(c.issues, Issue{slices.Clone(c.path), fmt.Sprintf(format, args...), false})
@@ -54,7 +59,17 @@ func (c *context) at(key any, read func()) {
 
 // Parse returns the normalized value, or the issues that refused it.
 func Parse(s Schema, value any) (any, []Issue) {
-	c := &context{}
+	return parseWith(s, value, nil)
+}
+
+// ParseIn is Parse with every Words read in lang, else in fallback, else in the first language it is given in: the
+// TypeScript `localize` over a parsed document (packages/rules-engine/src/words.ts).
+func ParseIn(s Schema, value any, lang, fallback string) (any, []Issue) {
+	return parseWith(s, value, &reading{lang, fallback})
+}
+
+func parseWith(s Schema, value any, read *reading) (any, []Issue) {
+	c := &context{read: read}
 	out := s.parse(value, c)
 	return out, c.issues
 }
@@ -268,7 +283,7 @@ func AnyOf(options ...Schema) Schema { return anyOfSchema{options} }
 func (s anyOfSchema) parse(value any, c *context) any {
 	var soft [][]Issue
 	for _, option := range s.options {
-		out, issues := Parse(option, value)
+		out, issues := parseWith(option, value, c.read)
 		if len(issues) == 0 {
 			return out
 		}

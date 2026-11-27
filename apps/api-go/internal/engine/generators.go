@@ -94,7 +94,7 @@ func (s StepRefs) MarshalJSON() ([]byte, error) {
 func generatorStepVariant(tag string, extra ...schema.Field) schema.Variant {
 	fields := append([]schema.Field{
 		schema.Req("id", idSchema),
-		schema.Req("label", label(80)),
+		schema.Req("label", text(80)),
 		schema.Opt("when", exprSource),
 		schema.Req("kind", schema.Literal(tag)),
 	}, extra...)
@@ -108,7 +108,7 @@ var (
 		generatorStepVariant("number", schema.Req("min", schema.Int().Min(-1000).Max(1000)),
 			schema.Req("max", schema.Int().Min(-1000).Max(1000))),
 		generatorStepVariant("choice", schema.Req("options", schema.Array(idSchema).Min(1).Max(20)),
-			schema.Opt("labels", schema.Record(idSchema, label(60)))),
+			schema.Opt("labels", schema.Record(idSchema, text(60)))),
 		generatorStepVariant("text", schema.Opt("maxLength", schema.Int().Min(1).Max(200))),
 	)
 	generatedEntry = []schema.Field{
@@ -118,7 +118,7 @@ var (
 	}
 	generatorSchema = schema.Object(
 		schema.Req("id", idSchema),
-		schema.Req("label", label(80)),
+		schema.Req("label", text(80)),
 		schema.Opt("cite", citeSchema),
 		schema.Req("steps", schema.Array(generatorStep).Min(1).Max(maxGeneratorSteps)),
 		schema.Opt("each", schema.Object(

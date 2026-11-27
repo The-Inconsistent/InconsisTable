@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { AdvantageMode, type TestOutcome } from "../enums.ts";
 import { plainDice, SumVsTarget } from "../manifest.ts";
+import { readIn } from "../words.ts";
 import { defineOp, refuse, type Delta, type Primitive } from "./primitive.ts";
 
 /**
@@ -85,7 +86,7 @@ function degreeOf({
 
 export const diceSumVsTarget: Primitive<SumVsTarget> = {
   id: "dice.sumVsTarget",
-  params: SumVsTarget,
+  params: readIn(SumVsTarget),
   ops: {
     resolve: defineOp<SumVsTarget, ResolveInput>({
       input: ResolveInput,

@@ -35,7 +35,7 @@ func testOf(rules *engine.CompiledRuleset, testID string) (*engine.CompiledTest,
 
 // The Test's declaration as stored, which the resolve ops take as their params.
 func paramsOf(rules *engine.CompiledRuleset, testID string) any {
-	tests, _ := rules.Ruleset.Normalized["tests"].(map[string]any)
+	tests, _ := rules.Ruleset.Local["tests"].(map[string]any)
 	return tests[testID]
 }
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { MAX_DICE } from "../dice/dice.ts";
 import { PoolFlag, type TestOutcome } from "../enums.ts";
 import { PoolSuccesses, type FaceRange } from "../manifest.ts";
+import { readIn } from "../words.ts";
 import { own } from "../own.ts";
 import { defineOp, refuse, type Primitive } from "./primitive.ts";
 
@@ -72,7 +73,7 @@ export function resolvePool({ params, input }: { params: PoolSuccesses; input: P
 
 export const dicePoolSuccesses: Primitive<PoolSuccesses> = {
   id: "dice.poolSuccesses",
-  params: PoolSuccesses,
+  params: readIn(PoolSuccesses),
   ops: {
     resolve: defineOp<PoolSuccesses, PoolResolveInput>({
       input: PoolResolveInput,

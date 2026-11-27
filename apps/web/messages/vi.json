@@ -6,12 +6,84 @@
   "common": {
     "brand": "InconsisTable"
   },
+  "terms": {
+    "party": {
+      "one": "nhóm",
+      "other": "nhóm"
+    },
+    "foe": {
+      "one": "địch",
+      "other": "địch"
+    },
+    "gm": {
+      "one": "GM",
+      "other": "GM"
+    },
+    "player": {
+      "one": "người chơi",
+      "other": "người chơi"
+    },
+    "session": {
+      "one": "buổi",
+      "other": "buổi"
+    },
+    "fight": {
+      "one": "giao tranh",
+      "other": "giao tranh"
+    },
+    "round": {
+      "one": "vòng",
+      "other": "vòng"
+    },
+    "turn": {
+      "one": "lượt",
+      "other": "lượt"
+    },
+    "character": {
+      "one": "nhân vật",
+      "other": "nhân vật"
+    },
+    "creature": {
+      "one": "sinh vật",
+      "other": "sinh vật"
+    },
+    "mob": {
+      "one": "đám đông",
+      "other": "đám đông"
+    },
+    "scene": {
+      "one": "cảnh",
+      "other": "cảnh"
+    },
+    "mission": {
+      "one": "nhiệm vụ",
+      "other": "nhiệm vụ"
+    },
+    "handout": {
+      "one": "tài liệu phát tay",
+      "other": "tài liệu phát tay"
+    },
+    "codex": {
+      "one": "sổ tay",
+      "other": "sổ tay"
+    },
+    "tableScreen": {
+      "one": "màn hình bàn",
+      "other": "màn hình bàn"
+    },
+    "markerRed": "đỏ",
+    "markerAmber": "hổ phách",
+    "markerGreen": "xanh lá",
+    "markerBlue": "xanh dương",
+    "markerPurple": "tím",
+    "markerWhite": "trắng"
+  },
   "status": {
-    "invalid": "Liên kết không hợp lệ hoặc đã bị thu hồi. Hãy xin GM mã QR mới.",
+    "invalid": "Liên kết không hợp lệ hoặc đã bị thu hồi. Hãy xin [gm] mã QR mới.",
     "nosignal": "Mất tín hiệu. Kiểm tra kết nối rồi thử lại.",
-    "noAccess": "Không có quyền vào. Hãy xin GM một lời mời.",
-    "noCharacter": "Chưa có nhân vật. Hãy hỏi GM.",
-    "noRuleset": "GM chưa chọn bộ luật.",
+    "noAccess": "Không có quyền vào. Hãy xin [gm] một lời mời.",
+    "noCharacter": "Chưa có [character]. Hãy hỏi [gm].",
+    "noRuleset": "[gm] chưa chọn bộ luật.",
     "syncing": "Đang đồng bộ…"
   },
   "localeSwitch": {
@@ -61,15 +133,15 @@
       "baseFace": "gốc",
       "tabs": "Mục",
       "tab": {
-        "fight": "Giao tranh",
+        "fight": "[Fight]",
         "sheet": "Phiếu",
         "notes": "Ghi chú"
       },
-      "round": "Vòng {round}",
-      "nextTurn": "Lượt kế",
-      "endFight": "Kết thúc trận",
-      "yourTurn": "Đến lượt bạn",
-      "order": "Thứ tự lượt",
+      "round": "[Round] {round}",
+      "nextTurn": "[Turn] kế",
+      "endFight": "Kết thúc [fight]",
+      "yourTurn": "Đến [turn] bạn",
+      "order": "Thứ tự [turn]",
       "names": {
         "first": "Ada Marrow",
         "second": "Người Gác Xám",
@@ -77,8 +149,8 @@
       },
       "nowActing": "Đang hành động",
       "firstPlayer": "Đi đầu",
-      "party": "Nhóm",
-      "foe": "Địch",
+      "party": "[Party]",
+      "foe": "[Foe]",
       "acting": "Đang hành động",
       "bloodied": "Gục",
       "health": "Máu {now} trên {max}",
@@ -108,8 +180,8 @@
       "grid": {
         "rating": "Mức"
       },
-      "gmOnly": "Ghi chú của GM",
-      "gmOnlyText": "Chỉ GM đọc được: người gác giữ chiếc chìa thứ hai.",
+      "gmOnly": "Ghi chú của [gm]",
+      "gmOnlyText": "Chỉ [gm] đọc được: người gác giữ chiếc chìa thứ hai.",
       "stat": {
         "health": "Máu",
         "defence": "Phòng thủ",
@@ -119,16 +191,16 @@
       "buttons": "Nút",
       "sheetTitle": "Con số này từ đâu ra",
       "sheetText": "Một bảng trồi lên từ mép dưới, mang màu của thẻ.",
-      "handouts": "Bố cục tài liệu phát tay",
+      "handouts": "Bố cục [handout]",
       "handoutTitle": "Cáo thị ở bến",
       "handoutHeader": "Số 4 · dán ở bến tàu",
       "handoutBody": "[06:40] Chuyến phà không rời bến.\n[06:52] Bờ bên kia thắp đèn, ba ngọn.\nChưa ai nhận các thùng hàng ở cầu tàu phía đông. Ai giữ sổ kiểm đếm hãy mang đến văn phòng bến cảng trước tiếng chuông chiều."
     }
   },
   "roles": {
-    "gm": "GM",
-    "cogm": "Co-GM",
-    "player": "Người chơi"
+    "gm": "[gm]",
+    "cogm": "Co-[gm]",
+    "player": "[Player]"
   },
   "admin": {
     "title": "Admin",
@@ -151,7 +223,7 @@
     "never": "Chưa chơi",
     "empty": "Không có campaign nào khớp.",
     "confirmTitle": "Mở {name} với tư cách admin?",
-    "confirmLogged": "Lần mở này được ghi lại cùng thời gian. Bạn sẽ thấy bàn chơi như GM của nó thấy.",
+    "confirmLogged": "Lần mở này được ghi lại cùng thời gian. Bạn sẽ thấy bàn chơi như [gm] của nó thấy.",
     "confirmOpen": "Mở với tư cách admin",
     "cancel": "Hủy",
     "tabsLabel": "Các mục quản trị",
@@ -164,19 +236,19 @@
     "loading": "Đang tải…",
     "usersFailed": "Không đọc được danh sách người dùng.",
     "room": {
-      "gms": "GM: {names}",
+      "gms": "[gm]: {names}",
       "none": "không có",
       "gone": "Phòng này không còn nữa.",
       "pickUser": "Chọn một người dùng",
       "loadingUsers": "Đang tải người dùng…",
-      "seatGm": "Cho làm GM",
-      "seated": "{name} giờ là GM ở đây.",
-      "abandon": "Kết thúc buổi {number} không thưởng",
-      "abandonAsk": "Kết thúc buổi {number} không thưởng?",
-      "abandoned": "Đã kết thúc buổi {number} không thưởng.",
-      "deleteSession": "Xoá buổi {number}",
-      "deleteSessionAsk": "Xoá buổi {number}? Phần thưởng của buổi đó vẫn giữ.",
-      "sessionDeleted": "Đã xoá buổi {number}.",
+      "seatGm": "Cho làm [gm]",
+      "seated": "{name} giờ là [gm] ở đây.",
+      "abandon": "Kết thúc [session] {number} không thưởng",
+      "abandonAsk": "Kết thúc [session] {number} không thưởng?",
+      "abandoned": "Đã kết thúc [session] {number} không thưởng.",
+      "deleteSession": "Xoá [session] {number}",
+      "deleteSessionAsk": "Xoá [session] {number}? Phần thưởng của [session] đó vẫn giữ.",
+      "sessionDeleted": "Đã xoá [session] {number}.",
       "confirm": "Xác nhận",
       "cancel": "Huỷ",
       "archive": "Lưu trữ",
@@ -192,9 +264,9 @@
       "noEvents": "Phòng này chưa có gì trong nhật ký.",
       "failed": "Không thực hiện được. Thử lại.",
       "roles": {
-        "gm": "GM",
-        "cogm": "đồng GM",
-        "player": "người chơi"
+        "gm": "[gm]",
+        "cogm": "đồng [gm]",
+        "player": "[player]"
       },
       "removeGm": "Gỡ {name}",
       "removed": "{name} không còn ngồi ở đây."
@@ -211,7 +283,7 @@
       "owner": "chủ phòng",
       "remove": "Gỡ khỏi mọi phòng",
       "removeTitle": "Gỡ {name} khỏi mọi phòng?",
-      "removeExplain": "{count, plural, other {# ghế của họ bị gỡ}}; nhân vật của họ vẫn ở lại. Phòng họ làm chủ vẫn giữ họ.",
+      "removeExplain": "{count, plural, other {# ghế của họ bị gỡ}}; [character] của họ vẫn ở lại. Phòng họ làm chủ vẫn giữ họ.",
       "typeName": "Gõ {name} để xác nhận",
       "tag": "#{tag}",
       "seen": "thấy lần cuối {when}",
@@ -222,26 +294,26 @@
       "failed": "Không thực hiện được. Thử lại."
     },
     "live": "Đang chơi",
-    "openSince": "Buổi {number} mở từ {when}"
+    "openSince": "[Session] {number} mở từ {when}"
   },
   "tableModes": {
-    "gm": "có GM",
-    "gmless": "không GM",
+    "gm": "có [gm]",
+    "gmless": "không [gm]",
     "solo": "một mình"
   },
   "chooseGame": {
     "title": "Chọn trò chơi",
-    "playersLabel": "Số người ở bàn",
-    "players": "{count} người",
+    "playersLabel": "Số [player] ở bàn",
+    "players": "{count} [player]",
     "anyPlayers": "Bao nhiêu cũng được",
-    "fewer": "Bớt một người",
-    "more": "Thêm một người",
+    "fewer": "Bớt một [player]",
+    "more": "Thêm một [player]",
     "sits": "Bàn ngồi kiểu nào",
     "genres": "Thể loại",
     "none": "Không game nào hợp bàn này. Nới bộ lọc, hoặc nhập một ruleset ở thư viện.",
-    "playersExact": "{count} người",
-    "playersRange": "{min} đến {max} người",
-    "playersUnknown": "Số người tuỳ ý"
+    "playersExact": "{count} [player]",
+    "playersRange": "{min} đến {max} [player]",
+    "playersUnknown": "Số [player] tuỳ ý"
   },
   "quickGame": {
     "title": "Chơi nhanh",
@@ -268,12 +340,12 @@
     "hints": {
       "game": "Chọn trò chơi, và các gói chiến dịch này dùng.",
       "campaign": "Các giá trị trò chơi giữ cho cả chiến dịch. Đổi sau trong Luật.",
-      "premise": "Chiến dịch nói về điều gì. Cả nhóm đọc được; trường ẩn chỉ bạn thấy.",
+      "premise": "Chiến dịch nói về điều gì. Cả [party] đọc được; trường ẩn chỉ bạn thấy.",
       "table": "Bàn ngồi thế nào, và những gì bàn bỏ qua. Mọi người đồng ý, không ai phải giải thích.",
       "name": "Xem lại tên, rồi tạo."
     },
     "packs": "Gói",
-    "packsHint": "Đánh dấu những gói chiến dịch này dùng. Trình tạo nhân vật sẽ đưa ra nội dung của chúng.",
+    "packsHint": "Đánh dấu những gói chiến dịch này dùng. Trình tạo [character] sẽ đưa ra nội dung của chúng.",
     "fromModule": "Đi kèm trò chơi",
     "premiseTitle": "Tiêu đề",
     "premiseLater": "Có thể chọn một tiền đề in sẵn ngay sau đó, ở các bước đầu của phòng.",
@@ -312,17 +384,17 @@
   "lobby": {
     "quickGame": "Chơi nhanh",
     "sits": "Bàn ngồi kiểu nào",
-    "sitsHint": "Mọi người cùng chạy bàn: không có GM, không có gì giấu ai.",
+    "sitsHint": "Mọi người cùng chạy bàn: không có [gm], không có gì giấu ai.",
     "plays": "{game} · {mode}",
     "yourCampaign": "Campaign của bạn",
     "yourName": "Tên của bạn",
-    "nameHint": "Người chơi khác thấy tên này tại bàn.",
+    "nameHint": "[Player] khác thấy tên này tại bàn.",
     "nameSaved": "Đã lưu tên.",
     "nameEmpty": "Hãy đặt một cái tên.",
     "nameFailed": "Không lưu được tên.",
     "owner": "Chủ campaign: {name}",
-    "characters": "{count, plural, other {# nhân vật}}",
-    "sessionRunning": "Buổi {number} đang chạy",
+    "characters": "{count, plural, other {# [character]}}",
+    "sessionRunning": "[Session] {number} đang chạy",
     "nameRequired": "Hãy đặt tên cho campaign",
     "createFailed": "Không tạo được campaign",
     "newCampaign": "Campaign mới",
@@ -336,16 +408,16 @@
     "archived": "Đã lưu trữ",
     "emptyMine": "Bạn chưa có campaign nào.",
     "emptySeated": "Chưa ai mời bạn vào bàn nào.",
-    "nextSession": "Buổi tới {when}",
+    "nextSession": "[Session] tới {when}",
     "creating": "Đang tạo…",
     "importRoom": "Nhập một phòng"
   },
   "characterLibrary": {
-    "notFound": "Không tìm thấy nhân vật.",
-    "needsAccount": "Thư viện nhân vật cần một tài khoản: hãy đăng nhập trước.",
+    "notFound": "Không tìm thấy [character].",
+    "needsAccount": "Thư viện [character] cần một tài khoản: hãy đăng nhập trước.",
     "lobby": {
-      "title": "Nhân vật của bạn",
-      "empty": "Chưa có. Dựng một nhân vật ở đây rồi mang vào phòng từ trình dựng của phòng đó.",
+      "title": "[Character] của bạn",
+      "empty": "Chưa có. Dựng một [character] ở đây rồi mang vào phòng từ trình dựng của phòng đó.",
       "unnamed": "Chưa đặt tên",
       "ready": "Sẵn sàng",
       "inProgress": "Đang dựng",
@@ -355,38 +427,38 @@
       "confirm": "Xóa hẳn",
       "deleteLabel": "Xóa {name}",
       "ruleset": "Bộ luật",
-      "new": "Nhân vật mới",
+      "new": "[Character] mới",
       "count": "{count} trên {cap}",
       "full": "xóa bớt một để có chỗ",
-      "noRuleset": "Dựng nhân vật ở đây với một bộ luật bạn đã nhập; nhân vật lưu từ một phòng cũng về đây.",
+      "noRuleset": "Dựng [character] ở đây với một bộ luật bạn đã nhập; [character] lưu từ một phòng cũng về đây.",
       "failed": "Không kết nối được thư viện của bạn. Hãy thử lại."
     },
     "builder": {
       "restored": "Khôi phục từ trình duyệt này: những thay đổi máy chủ chưa kịp lưu.",
-      "back": "← Nhân vật của bạn",
-      "unnamed": "Nhân vật chưa đặt tên",
+      "back": "← [Character] của bạn",
+      "unnamed": "[Character] chưa đặt tên",
       "lede": "{ruleset} · sửa lần cuối {when}. Mọi thay đổi được giữ ngay khi bạn làm.",
-      "name": "Tên nhân vật",
+      "name": "Tên [character]",
       "keep": "Giữ làm bản nháp",
       "kept": "Đã giữ.",
       "inARoom": "Bộ luật hoặc gói của nó không phải của bạn, nên nó được sửa trong một phòng có chúng: hãy mang nó vào từ trình dựng của phòng đó.",
-      "unreadable": "Không đọc được bộ luật của nhân vật này. Hãy thử lại.",
+      "unreadable": "Không đọc được bộ luật của [character] này. Hãy thử lại.",
       "failed": "Thư viện chưa lưu được. Hãy thử lại."
     },
     "import": {
       "open": "Nhập từ thư viện",
       "title": "Từ thư viện của bạn",
-      "lede": "Các nhân vật bạn dựng ngoài phòng. Một bản sao vào đây làm bản nháp của nhân vật này; bản trong thư viện vẫn giữ nguyên.",
-      "empty": "Thư viện của bạn chưa có gì. Dựng một nhân vật ở sảnh, rồi mang vào đây.",
+      "lede": "Các [character] bạn dựng ngoài phòng. Một bản sao vào đây làm bản nháp của [character] này; bản trong thư viện vẫn giữ nguyên.",
+      "empty": "Thư viện của bạn chưa có gì. Dựng một [character] ở sảnh, rồi mang vào đây.",
       "unnamed": "Chưa đặt tên",
-      "use": "Dùng nhân vật này",
+      "use": "Dùng [character] này",
       "close": "Đóng",
       "notDone": "đang dựng dở",
       "otherGame": "làm cho {slug}",
       "missingPack": "làm với {slug}, phòng này không có",
       "otherTier": "dựng ở Bậc {tier}",
       "otherVersion": "làm với phiên bản {version}: {detail}",
-      "unreadable": "Không đọc được nhân vật đó.",
+      "unreadable": "Không đọc được [character] đó.",
       "failed": "Không kết nối được thư viện của bạn. Hãy thử lại."
     },
     "save": {
@@ -403,8 +475,8 @@
     "noAdventures": "Tài liệu phòng này không có cuộc phiêu lưu nào.",
     "from": "Từ {name}",
     "pick": "Các cuộc phiêu lưu sẽ mang vào",
-    "scenes": "{count, plural, other {# cảnh}}",
-    "comesAsPrep": "Vào như phần chuẩn bị: các cảnh ở trạng thái dự kiến, mọi mục đều kín. Mục nào phòng này đã có cùng loại và tên thì dùng nguyên, không tạo lại.",
+    "scenes": "{count, plural, other {# [scene]}}",
+    "comesAsPrep": "Vào như phần chuẩn bị: các [scene] ở trạng thái dự kiến, mọi mục đều kín. Mục nào phòng này đã có cùng loại và tên thì dùng nguyên, không tạo lại.",
     "willMake": "{count, plural, other {Tạo # mục:}}",
     "willLink": "{count, plural, other {Dùng # mục phòng đã có:}}",
     "pictures": "{count, plural, other {Tải lên # ảnh.}}",
@@ -419,9 +491,9 @@
   "importRoom": {
     "tooLarge": "Tệp này vượt 100 MB. Hãy xuất lại không kèm ảnh.",
     "title": "Nhập một phòng",
-    "lede": "Tài liệu phòng sẽ thành một phòng mới do bạn sở hữu và điều hành với vai GM. Người chơi vào bằng lời mời, như mọi phòng khác.",
+    "lede": "Tài liệu phòng sẽ thành một phòng mới do bạn sở hữu và điều hành với vai [gm]. [Player] vào bằng lời mời, như mọi phòng khác.",
     "file": "Tài liệu phòng (.json)",
-    "fresh": "Bắt đầu mới: không phiên nào, không gì được tiết lộ, thương tổn và quỹ đã tiêu về lại như ban đầu, không có lịch phiên tới hay giới hạn. Dành cho một nhóm mới.",
+    "fresh": "Bắt đầu mới: không [session] nào, không gì được tiết lộ, thương tổn và quỹ đã tiêu về lại như ban đầu, không có lịch [session] tới hay giới hạn. Dành cho một nhóm mới.",
     "checking": "Đang đọc tài liệu…",
     "noRuleset": "Không có bộ luật, gói hay Thế giới nào.",
     "what": {
@@ -432,10 +504,10 @@
     "imported": "đã nhập",
     "missing": "chưa nhập",
     "makesTable": "Tại bàn:",
-    "makesCodex": "Trong sổ tay:",
+    "makesCodex": "Trong [codex]:",
     "count": "{kind}: {count}",
     "pictures": "{count, plural, other {# hình}}",
-    "sessions": "{count, plural, other {# buổi chơi}}",
+    "sessions": "{count, plural, other {# [session]}}",
     "clocks": "{count, plural, other {# đồng hồ}}",
     "confirm": "Nhập thành phòng mới",
     "importing": "Đang nhập…",
@@ -524,7 +596,7 @@
       "clocks": "Đồng hồ và thế cờ"
     },
     "templateNotes": {
-      "d20": "Một Test: xúc xắc cộng chỉnh sửa so với con số GM đặt khi gọi. Thêm bậc thành công nếu game của bạn có.",
+      "d20": "Một Test: xúc xắc cộng chỉnh sửa so với con số [gm] đặt khi gọi. Thêm bậc thành công nếu game của bạn có.",
       "bands": "Một Test chỉ báo kết quả với ba kết quả. Đổi tên và ghi trang trích dẫn.",
       "pool": "Một Test: gieo một nhúm xúc xắc và đếm các mặt tính điểm. Đặt loại xúc xắc, các mặt tính điểm và trích dẫn.",
       "percentile": "Gieo dưới ngưỡng không do app tính: bàn đọc xúc xắc rồi báo đó là kết quả nào.",
@@ -618,26 +690,26 @@
     "takeSeat": "Nhận ghế",
     "playAs": "Chơi {name}",
     "playAsGuest": "Chơi {name} với tư cách khách",
-    "pickCharacter": "Chọn nhân vật của bạn",
-    "allTaken": "Nhân vật nào cũng đã có người. Hãy tạo nhân vật mới:",
+    "pickCharacter": "Chọn [character] của bạn",
+    "allTaken": "[Character] nào cũng đã có người. Hãy tạo [character] mới:",
     "playLabel": "Chơi {name}",
     "play": "Chơi",
-    "newName": "Tên nhân vật mới",
+    "newName": "Tên [character] mới",
     "newButton": "Mới",
     "takeFailed": "Không nhận được ghế. Hãy thử lại"
   },
   "builder": {
     "path": {
-      "label": "Tạo nhân vật này",
+      "label": "Tạo [character] này",
       "build": "DỰNG",
       "steps": "LÀM TAY"
     },
-    "notAtTable": "Nhân vật này không có ở bàn này.",
+    "notAtTable": "[Character] này không có ở bàn này.",
     "isBuilt": "{name} đã tạo xong",
-    "correctHint": "GM có thể sửa giá trị từ sheet.",
+    "correctHint": "[gm] có thể sửa giá trị từ sheet.",
     "backToTable": "Về bàn",
     "nothingTitle": "Chưa có gì để tạo",
-    "nothingHint": "Bàn này chưa có bộ luật nào hỗ trợ tạo nhân vật. Hãy hỏi GM.",
+    "nothingHint": "Bàn này chưa có bộ luật nào hỗ trợ tạo [character]. Hãy hỏi [gm].",
     "fixSteps": "Hãy sửa các bước được đánh dấu bên dưới.",
     "backLink": "← Bàn",
     "buildTitle": "Tạo {name}",
@@ -645,10 +717,10 @@
     "stepOptional": "Tùy chọn",
     "stepTodo": "Cần làm",
     "makesLabel": "Kết quả",
-    "derivedLater": "Các chỉ số sẽ hiện trên sheet khi GM đặt xong phần còn lại.",
+    "derivedLater": "Các chỉ số sẽ hiện trên sheet khi [gm] đặt xong phần còn lại.",
     "derivedIncomplete": "Hoàn tất mọi bước để xem các chỉ số.",
     "recheck": "Bàn sẽ kiểm tra lại các chỉ số này khi bạn tạo.",
-    "buildButton": "Tạo nhân vật",
+    "buildButton": "Tạo [character]",
     "startOver": "Làm lại",
     "draftSaved": "Đã lưu nháp",
     "draftOff": "Chưa giữ nháp"
@@ -662,7 +734,7 @@
     "score": "Điểm {label}"
   },
   "chooseStep": {
-    "none": "Bàn này chưa gắn {label} nào. Hãy hỏi GM.",
+    "none": "Bàn này chưa gắn {label} nào. Hãy hỏi [gm].",
     "pickCount": "Chọn {count}: đã chọn {chosen}"
   },
   "fieldsStep": {
@@ -674,28 +746,28 @@
   "whisper": {
     "open": "Thì thầm",
     "openUnseen": "Thì thầm · {count}",
-    "openLabel": "Thì thầm với nhân vật, {count, plural, =0 {không có trả lời mới} other {# trả lời mới}}",
+    "openLabel": "Thì thầm với [character], {count, plural, =0 {không có trả lời mới} other {# trả lời mới}}",
     "title": "Thì thầm",
     "to": "Thì thầm với",
     "all": "Tất cả",
     "text": "Một dòng gửi họ",
     "send": "Gửi",
     "counter": "{used}/{max}",
-    "noCharacters": "Bàn chưa có nhân vật nào.",
-    "thisSession": "Buổi này",
-    "none": "Buổi này chưa có lời thì thầm nào.",
+    "noCharacters": "Bàn chưa có [character] nào.",
+    "thisSession": "[Session] này",
+    "none": "[Session] này chưa có lời thì thầm nào.",
     "toNames": "Gửi {names}",
     "takeBack": "Rút lại",
     "takeBackLabel": "Rút lại lời thì thầm gửi {names}",
     "read": "Đã đọc",
     "unread": "Chưa đọc",
     "gone": "(không còn)",
-    "sheetTitle": "GM thì thầm với bạn",
-    "fromGm": "Từ GM",
+    "sheetTitle": "[gm] thì thầm với bạn",
+    "fromGm": "Từ [gm]",
     "forName": "Gửi {name}",
     "more": "{count, plural, other {Còn # lời sau lời này}}",
     "reply": "Trả lời của bạn",
-    "replyPlaceholder": "Một dòng gửi lại GM",
+    "replyPlaceholder": "Một dòng gửi lại [gm]",
     "changeReply": "Đổi câu trả lời",
     "replied": "Bạn đã trả lời: {reply}",
     "notebook": "Lời thì thầm"
@@ -714,7 +786,7 @@
   "term": {
     "hint": "{label}: nghĩa là gì",
     "mark": "{label} nghĩa là gì",
-    "guide": "Cách đọc tờ nhân vật này",
+    "guide": "Cách đọc tờ [character] này",
     "guideTip": "Chạm vào một chữ gạch chân để xem nghĩa của nó."
   },
   "healthBar": {
@@ -727,12 +799,12 @@
   "marker": {
     "label": "Dấu màu",
     "none": "Không",
-    "red": "Đỏ",
-    "amber": "Hổ phách",
-    "green": "Xanh lá",
-    "blue": "Xanh dương",
-    "purple": "Tím",
-    "white": "Trắng",
+    "red": "[MarkerRed]",
+    "amber": "[MarkerAmber]",
+    "green": "[MarkerGreen]",
+    "blue": "[MarkerBlue]",
+    "purple": "[MarkerPurple]",
+    "white": "[MarkerWhite]",
     "swatch": "Dấu màu {colour}",
     "pick": "Dấu màu cho {name}"
   },
@@ -742,12 +814,12 @@
     "pick": "Tuỳ chọn cho {name}"
   },
   "budget": {
-    "title": "Ngân sách trận đấu",
+    "title": "Ngân sách [fight]",
     "line": "{label}: {used} trên {budget}",
     "unread": "{label}: {used}",
     "over": "vượt",
     "switches": "Công tắc ngân sách",
-    "seated": "{count, plural, other {# nhân vật đang ngồi}}"
+    "seated": "{count, plural, other {# [character] đang ngồi}}"
   },
   "rowShortcuts": {
     "less": "Giảm {label} của {name}",
@@ -796,15 +868,15 @@
     "moveOn": "Sang pha kế"
   },
   "orderView": {
-    "label": "Thứ tự lượt",
-    "round": "Vòng {round}",
-    "roundPhase": "Vòng {round} · {phase}",
+    "label": "Thứ tự [turn]",
+    "round": "[Round] {round}",
+    "roundPhase": "[Round] {round} · {phase}",
     "done": "Xong",
     "paused": "Tạm dừng",
     "first": "Người đi đầu",
     "lineSetup": "Đang dàn trận",
     "linePick": "{side}: chọn người hành động",
-    "lineComplete": "Hết vòng {round}",
+    "lineComplete": "Hết [round] {round}",
     "lineActing": "{name} đang hành động",
     "lineUnseen": "Có kẻ chưa lộ diện đang hành động",
     "mark": {
@@ -812,8 +884,8 @@
       "acting": "đang đi",
       "done": "đã đi",
       "holding": "đang giữ",
-      "noTurn": "không có lượt",
-      "out": "ngoài trận"
+      "noTurn": "không có [turn]",
+      "out": "ngoài [fight]"
     },
     "you": "Bạn"
   },
@@ -844,7 +916,7 @@
     "save": "Lưu"
   },
   "combatState": {
-    "acting": "ĐẾN LƯỢT",
+    "acting": "ĐẾN [TURN]",
     "dead": "CHẾT",
     "down": "GỤC",
     "stable": "ỔN ĐỊNH"
@@ -866,7 +938,7 @@
     }
   },
   "poolPad": {
-    "hidden": "Bạn không được xem số xúc xắc của dice pool. Hãy hỏi GM.",
+    "hidden": "Bạn không được xem số xúc xắc của dice pool. Hãy hỏi [gm].",
     "special": "đặc biệt",
     "specialDie": "Xúc xắc đặc biệt",
     "sorted": "đã xếp {counted}/{ordinary}, phần còn lại không được điểm",
@@ -888,7 +960,7 @@
     "valueOf": "{label}: {value} / {max}"
   },
   "rollPad": {
-    "notPlain": "Test này không đổ bằng xúc xắc thường. Hãy báo GM.",
+    "notPlain": "Test này không đổ bằng xúc xắc thường. Hãy báo [gm].",
     "rollType": "Kiểu đổ của {who}",
     "advantage": {
       "none": "Thường",
@@ -910,82 +982,82 @@
   },
   "table": {
     "offline": "MẤT TÍN HIỆU",
-    "session": "Buổi {number}"
+    "session": "[Session] {number}"
   },
   "settingsMenu": {
     "label": "Cài đặt",
     "language": "Ngôn ngữ",
-    "turnAlerts": "Rung và nháy khi tới lượt tôi",
-    "turnSound": "Âm báo khi tới lượt tôi"
+    "turnAlerts": "Rung và nháy khi tới [turn] tôi",
+    "turnSound": "Âm báo khi tới [turn] tôi"
   },
   "turnSoundSwitch": {
-    "label": "Âm báo lượt",
+    "label": "Âm báo [turn]",
     "on": "Bật",
     "off": "Tắt"
   },
   "alertsSwitch": {
-    "label": "Báo lượt",
+    "label": "Báo [turn]",
     "on": "Bật",
     "off": "Tắt"
   },
   "runTable": {
     "label": "Chạy bàn",
-    "start": "Bắt đầu buổi chơi",
-    "end": "Kết thúc buổi {number}",
-    "endConfirm": "Kết thúc buổi {number}",
+    "start": "Bắt đầu [session]",
+    "end": "Kết thúc [session] {number}",
+    "endConfirm": "Kết thúc [session] {number}",
     "cancel": "Huỷ",
     "recap": "Tóm tắt",
-    "recapHint": "Buổi này đã xảy ra gì? Để trống nếu bỏ qua.",
+    "recapHint": "[Session] này đã xảy ra gì? Để trống nếu bỏ qua.",
     "tabs": {
-      "fight": "Giao tranh",
+      "fight": "[Fight]",
       "tests": "Test",
-      "codex": "Codex",
+      "codex": "[Codex]",
       "party": "Phòng",
       "books": "Sách"
     }
   },
   "tableMode": {
     "title": "Bàn ngồi kiểu nào",
-    "betweenSessions": "Chỉ đổi giữa các buổi chơi.",
-    "becomesVisible": "Chuyển sang bàn không có GM thì các sinh vật và NPC GM đã chuẩn bị sẽ hiện cho cả bàn (tên và giá trị công khai; giá trị chỉ GM vẫn ẩn)."
+    "betweenSessions": "Chỉ đổi giữa các [session].",
+    "becomesVisible": "Chuyển sang bàn không có [gm] thì các [creature] và NPC [gm] đã chuẩn bị sẽ hiện cho cả bàn (tên và giá trị công khai; giá trị chỉ [gm] vẫn ẩn)."
   },
   "playerApp": {
-    "charactersLabel": "Nhân vật của bạn",
-    "noCharacter": "Chưa có nhân vật",
+    "charactersLabel": "[Character] của bạn",
+    "noCharacter": "Chưa có [character]",
     "continueBuilding": "Tạo tiếp",
-    "build": "Tạo nhân vật",
+    "build": "Tạo [character]",
     "rulesFailed": "Không đọc được luật. Kiểm tra kết nối rồi tải lại.",
     "sheetPending": "Tab này sẽ có nội dung khi bàn chọn bộ luật.",
     "tabPending": "Tab này sẽ có nội dung khi bàn chơi tiếp.",
     "leave": "Rời bàn này",
-    "tabsLabel": "Tab người chơi",
+    "tabsLabel": "Tab [player]",
     "tabLive": "{tab}, đang diễn ra",
     "tabNew": "{tab}, {count} mới",
     "status": {
-      "label": "Tình trạng trận",
-      "noFight": "Không có trận",
-      "yourTurn": "Đến lượt bạn",
+      "label": "Tình trạng [fight]",
+      "noFight": "Không có [fight]",
+      "yourTurn": "Đến [turn] bạn",
       "done": "Bạn: xong",
-      "round": "Vòng {round}"
+      "round": "[Round] {round}"
     },
     "tabs": {
       "sheet": "Sheet",
       "rules": "Luật",
-      "fight": "Trận",
+      "fight": "[Fight]",
       "map": "Bản đồ",
       "standings": "Xếp hạng",
       "notebook": "Sổ tay",
       "run": "Chạy bàn"
     },
-    "buildDraft": "Bản tạo dở dang của bạn đã được lưu. GM có thể mở nó để duyệt phần của GM."
+    "buildDraft": "Bản tạo dở dang của bạn đã được lưu. [gm] có thể mở nó để duyệt phần của [gm]."
   },
   "turnBanner": {
-    "yourTurn": "Đến lượt bạn, {name}",
+    "yourTurn": "Đến [turn] bạn, {name}",
     "side": {
-      "noTurn": "Vòng này bạn không có lượt",
-      "setup": "Trận đang được dàn",
+      "noTurn": "[Round] này bạn không có [turn]",
+      "setup": "[Fight] đang được dàn",
       "sideUp": "Phe bạn chọn: bạn đi được",
-      "done": "Bạn đã đi vòng này",
+      "done": "Bạn đã đi [round] này",
       "holding": "Bạn đang giữ một hành động"
     }
   },
@@ -998,8 +1070,8 @@
     "acquiring": "Để kiếm {item}",
     "reportedResult": "Kết quả: {label}",
     "pickResult": "{who} ra kết quả nào?",
-    "waiting": "Đang chờ GM",
-    "reportedWaiting": "Đã báo. Đang chờ GM",
+    "waiting": "Đang chờ [gm]",
+    "reportedWaiting": "Đã báo. Đang chờ [gm]",
     "closed": "Đã đóng",
     "rolled": "Đổ được {value}",
     "total": "tổng {total}",
@@ -1010,8 +1082,8 @@
       "criticalSuccess": "Thành công lớn",
       "criticalFailure": "Thất bại lớn"
     },
-    "label": "Test GM đã gọi",
-    "yourCharacter": "nhân vật của bạn",
+    "label": "Test [gm] đã gọi",
+    "yourCharacter": "[character] của bạn",
     "your": "của bạn",
     "rollPool": "Đổ {pool} {dice} cho {who}",
     "roll": "Đổ {dice} cho {who}",
@@ -1024,14 +1096,14 @@
     "more": "Thêm {label}"
   },
   "tableScreen": {
-    "between": "Giữa các buổi",
+    "between": "Giữa các [session]",
     "testInProgress": "Đang có Test",
     "rolledCount": "{test}: {reported}/{called} người đã đổ"
   },
   "checklist": {
     "anchors": {
-      "session": "Buổi chơi",
-      "characters": "Nhân vật",
+      "session": "[Session]",
+      "characters": "[Character]",
       "invite": "Mời",
       "ascension": "Ascension",
       "safety": "Ranh giới và màn che",
@@ -1054,40 +1126,40 @@
   },
   "scene": {
     "layers": {
-      "label": "Cảnh hay trận đánh",
-      "scene": "Cảnh",
-      "fight": "Trận đánh"
+      "label": "[Scene] hay [fight]",
+      "scene": "[Scene]",
+      "fight": "[Fight]"
     },
     "label": "{adventure}, {kind} {number}",
     "labelLoose": "{kind}",
-    "closed": "Ghi chú GM và mục đã đóng",
-    "gmNotes": "Ghi chú GM",
+    "closed": "Ghi chú [gm] và mục đã đóng",
+    "gmNotes": "Ghi chú [gm]",
     "reveal": {
       "show": "Cho xem",
       "seal": "Niêm lại",
-      "showName": "Cho cả nhóm xem {name}",
-      "sealName": "Niêm {name} lại, giấu khỏi cả nhóm",
+      "showName": "Cho cả [party] xem {name}",
+      "sealName": "Niêm {name} lại, giấu khỏi cả [party]",
       "shown": "Đã cho xem",
       "sealed": "Đã niêm",
       "readers": "Người đọc",
       "readersName": "Đổi người được đọc {name}"
     },
     "inScene": {
-      "title": "Trong cảnh này",
-      "empty": "Chưa có gì gắn với cảnh này. Gắn người, nơi chốn và tài liệu ở Chuẩn bị.",
-      "open": "Mở {name} trong Sổ tay",
-      "fight": "Trận đã chuẩn bị",
-      "creatures": "{count, plural, =0 {Chưa chuẩn bị sinh vật nào} other {Đã chuẩn bị # sinh vật}}"
+      "title": "Trong [scene] này",
+      "empty": "Chưa có gì gắn với [scene] này. Gắn người, nơi chốn và [handout] ở Chuẩn bị.",
+      "open": "Mở {name} trong [Codex]",
+      "fight": "[Fight] đã chuẩn bị",
+      "creatures": "{count, plural, =0 {Chưa chuẩn bị [creature] nào} other {Đã chuẩn bị # [creature]}}"
     },
     "whereNext": {
       "title": "Đi tiếp",
-      "none": "Cảnh này chưa có lối ra.",
-      "other": "Cảnh khác…",
-      "otherTitle": "Các cảnh khác trong cuộc phiêu lưu",
-      "noOthers": "Không còn cảnh nào khác."
+      "none": "[Scene] này chưa có lối ra.",
+      "other": "[Scene] khác…",
+      "otherTitle": "Các [scene] khác trong cuộc phiêu lưu",
+      "noOthers": "Không còn [scene] nào khác."
     },
     "strip": {
-      "label": "Các cảnh trong cuộc phiêu lưu",
+      "label": "Các [scene] trong cuộc phiêu lưu",
       "tab": "{number}. {title}",
       "played": "Đã chơi",
       "playing": "Đang chơi",
@@ -1096,33 +1168,33 @@
     "preview": {
       "title": "Xem trước {title}",
       "note": "Chưa gửi gì cho đến khi bạn bắt đầu.",
-      "begin": "Bắt đầu cảnh này",
+      "begin": "Bắt đầu [scene] này",
       "back": "Quay lại"
     },
     "none": {
-      "title": "Chưa có cảnh nào đang chơi",
-      "intro": "Bắt đầu cảnh kế tiếp của một cuộc phiêu lưu, hoặc mở trận đánh không cần cảnh.",
+      "title": "Chưa có [scene] nào đang chơi",
+      "intro": "Bắt đầu [scene] kế tiếp của một cuộc phiêu lưu, hoặc mở [fight] không cần [scene].",
       "begin": "Bắt đầu",
       "beginName": "Bắt đầu {title}",
       "next": "Kế tiếp trong {adventure}",
       "running": "Đang chạy",
-      "empty": "Không có cảnh nào chờ bắt đầu. Thêm cảnh vào cuộc phiêu lưu ở Chuẩn bị.",
-      "fight": "Mở trận đánh không cần cảnh"
+      "empty": "Không có [scene] nào chờ bắt đầu. Thêm [scene] vào cuộc phiêu lưu ở Chuẩn bị.",
+      "fight": "Mở [fight] không cần [scene]"
     },
     "missions": {
-      "title": "Nhiệm vụ",
+      "title": "[Mission]",
       "listedTo": "Dành cho {names}",
       "everyone": "Mọi người thấy được mục này",
-      "open": "Mở {title} trong Codex"
+      "open": "Mở {title} trong [Codex]"
     }
   },
   "gmApp": {
     "campaigns": "← Campaign",
-    "tabsLabel": "Tab GM",
+    "tabsLabel": "Tab [gm]",
     "readRules": "Đọc luật",
     "header": {
       "admin": "Quản trị",
-      "round": "Vòng {round}",
+      "round": "[Round] {round}",
       "yes": "Có",
       "no": "Không",
       "callTest": "Gọi một Test",
@@ -1131,11 +1203,11 @@
       "history": "Lịch sử"
     },
     "tabs": {
-      "scene": "Cảnh",
-      "track": "Trận",
+      "scene": "[Scene]",
+      "track": "[Fight]",
       "prep": "Chuẩn bị",
-      "codex": "Sổ tay",
-      "party": "Party",
+      "codex": "[Codex]",
+      "party": "[Party]",
       "tests": "Test",
       "standings": "Xếp hạng",
       "map": "Bản đồ",
@@ -1151,15 +1223,15 @@
     "longRest": "Nghỉ dài"
   },
   "duration": {
-    "ownTurnEnd": "đến hết lượt của nó",
-    "roundEnd": "đến hết vòng",
-    "encounterEnd": "đến khi trận kết thúc",
-    "manual": "đến khi GM gỡ bỏ"
+    "ownTurnEnd": "đến hết [turn] của nó",
+    "roundEnd": "đến hết [round]",
+    "encounterEnd": "đến khi [fight] kết thúc",
+    "manual": "đến khi [gm] gỡ bỏ"
   },
   "resetEvent": {
-    "sessionStart": "mỗi buổi chơi",
-    "sessionEnd": "cuối buổi chơi",
-    "encounterEnd": "cuối trận",
+    "sessionStart": "mỗi [session]",
+    "sessionEnd": "cuối [session]",
+    "encounterEnd": "cuối [fight]",
     "shortRest": "nghỉ ngắn",
     "longRest": "nghỉ dài"
   },
@@ -1174,11 +1246,11 @@
       "resources": "Tài nguyên",
       "fields": "Chi tiết"
     },
-    "nothing": "Bộ luật chưa có gì để hiện cho nhân vật này.",
+    "nothing": "Bộ luật chưa có gì để hiện cho [character] này.",
     "conditions": "Trạng thái",
     "none": "Không có.",
-    "turnsLeft": "{count, plural, other {còn # lượt}}",
-    "roundsLeft": "{count, plural, other {còn # vòng}}",
+    "turnsLeft": "{count, plural, other {còn # [turn]}}",
+    "roundsLeft": "{count, plural, other {còn # [round]}}",
     "jump": "Đến một mục",
     "ledger": {
       "talents": "Talent",
@@ -1261,12 +1333,12 @@
       "no": "{label}: không",
       "host": "Gắn vào",
       "loose": "Để rời",
-      "ask": "Xin GM",
-      "asking": "Đang chờ GM: {name}",
+      "ask": "Xin [gm]",
+      "asking": "Đang chờ [gm]: {name}",
       "cancel": "Hủy yêu cầu"
     },
     "override": {
-      "title": "GM ghi đè",
+      "title": "[gm] ghi đè",
       "value": "Đặt {label} thành",
       "hint": "Để trống: con số tính được quay lại.",
       "set": "Đặt",
@@ -1275,7 +1347,7 @@
   },
   "breakdown": {
     "hidden": "Các thành phần của chỉ số này không hiện trên điện thoại của bạn.",
-    "override": "{source}: GM ghi đè"
+    "override": "{source}: [gm] ghi đè"
   },
   "rulesReader": {
     "failed": "Không đọc được luật. Kiểm tra kết nối rồi thử lại.",
@@ -1303,9 +1375,9 @@
     "qrFailed": "Không vẽ được mã QR. Hãy thử lại",
     "campaignInviteTitle": "Lời mời campaign · {role}",
     "guestQrTitle": "QR khách · {name}",
-    "tableScreen": "Màn hình bàn",
-    "endSession": "Kết thúc buổi {number}",
-    "startSession": "Bắt đầu buổi chơi",
+    "tableScreen": "[TableScreen]",
+    "endSession": "Kết thúc [session] {number}",
+    "startSession": "Bắt đầu [session]",
     "invite": "Mời",
     "as": "Vai trò",
     "campaignQr": "Mã QR chiến dịch",
@@ -1313,7 +1385,7 @@
     "revokeScreens": "Thu hồi màn hình ({count})",
     "qrAlt": "Mã QR của {title}",
     "hide": "Ẩn",
-    "characters": "Nhân vật",
+    "characters": "[Character]",
     "open": "Còn trống",
     "closeSheet": "Đóng sheet của {name}",
     "openSheet": "Mở sheet của {name}",
@@ -1325,10 +1397,10 @@
     "guestQr": "QR khách",
     "revokeGuestLabel": "Thu hồi khách của {name}",
     "revokeGuest": "Thu hồi khách",
-    "restParty": "{rest} cho cả party",
-    "restPartyButton": "{rest} (party)",
+    "restParty": "{rest} cho cả [party]",
+    "restPartyButton": "{rest} ([party])",
     "restSkipped": "Không được nghỉ vì đang ở trạng thái đó: {names}",
-    "newCharacter": "Tên nhân vật mới",
+    "newCharacter": "Tên [character] mới",
     "add": "Thêm",
     "seats": "Ghế",
     "owner": "Chủ campaign",
@@ -1339,11 +1411,11 @@
     "remove": "Gỡ",
     "scopesOf": "Phạm vi của {name}",
     "scope": {
-      "combat": "Trận đánh",
-      "codex": "Sổ tay",
+      "combat": "[Fight]",
+      "codex": "[Codex]",
       "secrets": "Bí mật",
-      "party": "Party",
-      "session": "Buổi chơi"
+      "party": "[Party]",
+      "session": "[Session]"
     },
     "waitingFor": "Đang chờ {name} đồng ý nhận campaign.",
     "them": "họ",
@@ -1356,11 +1428,11 @@
     "archive": "Lưu trữ",
     "deleteLabel": "Gõ tên campaign để xóa",
     "deleteForGood": "Xóa vĩnh viễn",
-    "recap": "Tóm tắt buổi chơi",
-    "recapHint": "Buổi này đã xảy ra chuyện gì? Để trống nếu không cần.",
-    "endSessionConfirm": "Kết thúc buổi {number}",
+    "recap": "Tóm tắt [session]",
+    "recapHint": "[Session] này đã xảy ra chuyện gì? Để trống nếu không cần.",
+    "endSessionConfirm": "Kết thúc [session] {number}",
     "abandonSession": "Kết thúc không thưởng",
-    "deleteSession": "Xóa buổi {number}",
+    "deleteSession": "Xóa [session] {number}",
     "cancel": "Hủy",
     "ledger": {
       "build": "Tạo",
@@ -1370,11 +1442,11 @@
       "open": "Mở trình tạo",
       "openLabel": "Mở trình tạo cho {name}"
     },
-    "sessionTitle": "Tiêu đề buổi (không bắt buộc)",
-    "running": "Buổi {number} đang diễn ra",
-    "runningTitled": "Buổi {number}: {title} đang diễn ra",
+    "sessionTitle": "Tiêu đề [session] (không bắt buộc)",
+    "running": "[Session] {number} đang diễn ra",
+    "runningTitled": "[Session] {number}: {title} đang diễn ra",
     "inviteCharacter": "Mời",
-    "inviteCharacterLabel": "Mời một người chơi vào {name}: liên kết dùng một lần, cần đăng nhập",
+    "inviteCharacterLabel": "Mời một [player] vào {name}: liên kết dùng một lần, cần đăng nhập",
     "characterInviteTitle": "Lời mời cho {name}",
     "whisper": "Thì thầm",
     "whisperLabel": "Thì thầm với {name}"
@@ -1394,7 +1466,7 @@
   "rulesPanel": {
     "readFailed": "Không đọc được luật. Kiểm tra kết nối rồi tải lại.",
     "ruleset": "Bộ luật",
-    "noRuleset": "Chưa có bộ luật. Hãy ghim một bộ để tạo nhân vật và gọi Test.",
+    "noRuleset": "Chưa có bộ luật. Hãy ghim một bộ để tạo [character] và gọi Test.",
     "importFirst": "Bạn chưa nhập bộ luật nào. Hãy <link>nhập một bộ</link> trước.",
     "myRulesets": "Bộ luật của tôi",
     "switchTo": "Chuyển sang bộ này",
@@ -1430,73 +1502,73 @@
     "readFailed": "Không đọc được luật. Hãy thử lại",
     "pickRuleset": "Hãy chọn bộ luật trước (tab Luật)",
     "added": "Đã thêm {count} × {name}",
-    "title": "Thêm quái",
-    "searchLabel": "Tìm quái theo tên",
+    "title": "Thêm [creature]",
+    "searchLabel": "Tìm [creature] theo tên",
     "search": "Tìm",
-    "noMatch": "Không có quái nào khớp. Hãy gắn pack có quái trong tab Luật.",
-    "found": "Quái tìm thấy",
+    "noMatch": "Không có [creature] nào khớp. Hãy gắn pack có [creature] trong tab Luật.",
+    "found": "[Creature] tìm thấy",
     "level": "Cấp {level}",
-    "fewer": "Ít quái hơn",
+    "fewer": "Ít [creature] hơn",
     "howMany": "Bao nhiêu",
-    "more": "Nhiều quái hơn",
-    "temporary": "Tạm thời (biến mất khi trận kết thúc)",
+    "more": "Nhiều [creature] hơn",
+    "temporary": "Tạm thời (biến mất khi [fight] kết thúc)",
     "spawn": "Thêm {count} × {name}",
-    "asMob": "Thành đám đông gồm",
+    "asMob": "Thành [mob] gồm",
     "spawnMob": "Thêm {name} ×{count}",
     "addedMob": "Đã thêm {name} ×{count}",
-    "tableSees": "Khi đang có trận, cả bàn thấy"
+    "tableSees": "Khi đang có [fight], cả bàn thấy"
   },
   "track": {
-    "noTurnOrder": "Bộ luật này không có thứ tự lượt.",
-    "paused": "Tạm dừng — hãy bắt đầu buổi chơi để tiếp tục",
-    "nobody": "{mode, select, game {Chưa có ai trong ván. Hãy thêm người chơi ở bên dưới.} other {Chưa có ai trong trận. Hãy thêm party ở bên dưới.}}",
-    "noFight": "{mode, select, game {Chưa có ván nào đang chạy. Hãy bắt đầu một ván để thêm người chơi.} other {Chưa có trận nào đang chạy. Hãy bắt đầu một trận để thêm party và quái.}}",
-    "startSession": "{mode, select, game {Hãy bắt đầu buổi chơi ở tab Party, rồi bắt đầu ván ở đây.} other {Hãy bắt đầu buổi chơi ở tab Party, rồi bắt đầu trận ở đây.}}",
+    "noTurnOrder": "Bộ luật này không có thứ tự [turn].",
+    "paused": "Tạm dừng — hãy bắt đầu [session] để tiếp tục",
+    "nobody": "{mode, select, game {Chưa có ai trong ván. Hãy thêm [player] ở bên dưới.} other {Chưa có ai trong [fight]. Hãy thêm [party] ở bên dưới.}}",
+    "noFight": "{mode, select, game {Chưa có ván nào đang chạy. Hãy bắt đầu một ván để thêm [player].} other {Chưa có [fight] nào đang chạy. Hãy bắt đầu một [fight] để thêm [party] và [creature].}}",
+    "startSession": "{mode, select, game {Hãy bắt đầu [session] ở tab [Party], rồi bắt đầu ván ở đây.} other {Hãy bắt đầu [session] ở tab [Party], rồi bắt đầu [fight] ở đây.}}",
     "sheetOf": "Sheet của {name}",
     "callTestFor": "Gọi Test cho {name}",
-    "aCharacter": "một nhân vật"
+    "aCharacter": "một [character]"
   },
   "addCombatants": {
-    "everyone": "{mode, select, game {Mọi người ở bàn đều đã vào ván.} other {Mọi người ở bàn đều đã vào trận.}}",
-    "title": "{mode, select, game {Thêm vào ván} other {Thêm vào trận}}",
-    "addParty": "Thêm party ({count})",
-    "addLabel": "{mode, select, game {Thêm {name} vào ván} other {Thêm {name} vào trận}}",
+    "everyone": "{mode, select, game {Mọi người ở bàn đều đã vào ván.} other {Mọi người ở bàn đều đã vào [fight].}}",
+    "title": "{mode, select, game {Thêm vào ván} other {Thêm vào [fight]}}",
+    "addParty": "Thêm [party] ({count})",
+    "addLabel": "{mode, select, game {Thêm {name} vào ván} other {Thêm {name} vào [fight]}}",
     "add": "Thêm"
   },
   "fightBar": {
-    "label": "{mode, select, game {Điều khiển ván} other {Điều khiển trận}}",
-    "round": "Vòng {round}",
+    "label": "{mode, select, game {Điều khiển ván} other {Điều khiển [fight]}}",
+    "round": "[Round] {round}",
     "setup": "Đang dàn trận",
     "prev": "Trước",
-    "next": "Lượt sau",
-    "noFight": "{mode, select, game {Không có ván nào} other {Không có trận nào}}",
-    "startSessionFirst": "Hãy bắt đầu buổi chơi trước",
-    "start": "{mode, select, game {Bắt đầu ván} other {Bắt đầu trận}}",
+    "next": "[Turn] sau",
+    "noFight": "{mode, select, game {Không có ván nào} other {Không có [fight] nào}}",
+    "startSessionFirst": "Hãy bắt đầu [session] trước",
+    "start": "{mode, select, game {Bắt đầu ván} other {Bắt đầu [fight]}}",
     "undo": "Hoàn tác",
-    "turnBackNone": "Lùi lượt: buổi này chưa có bước lượt nào",
-    "turnBack": "Lùi lượt: {kind, select, turnStart {lượt của {name}} turnEnd {cuối lượt của {name}} begin {lúc bắt đầu vòng {round}} other {vòng {round}}}{later, plural, =0 {} other { (và # hành động sau)}}",
+    "turnBackNone": "Lùi [turn]: [session] này chưa có bước [turn] nào",
+    "turnBack": "Lùi [turn]: {kind, select, turnStart {[turn] của {name}} turnEnd {cuối [turn] của {name}} begin {lúc bắt đầu [round] {round}} other {[round] {round}}}{later, plural, =0 {} other { (và # hành động sau)}}",
     "turnBackConfirm": "Lùi lại {count} hành động?",
-    "endConfirm": "{mode, select, game {Dừng ván, không lưu kết quả} other {Kết thúc trận và xóa quái tạm thời}}",
-    "end": "{mode, select, game {Dừng ván} other {Kết thúc trận}}",
+    "endConfirm": "{mode, select, game {Dừng ván, không lưu kết quả} other {Kết thúc [fight] và xóa [creature] tạm thời}}",
+    "end": "{mode, select, game {Dừng ván} other {Kết thúc [fight]}}",
     "endGameConfirm": "Kết thúc ván và lưu kết quả (không hoàn tác được)",
     "endGame": "Kết thúc ván",
-    "begin": "Bắt đầu vòng 1",
-    "endTurn": "Kết thúc lượt của {name}",
-    "newRound": "Bắt đầu vòng {round}"
+    "begin": "Bắt đầu [round] 1",
+    "endTurn": "Kết thúc [turn] của {name}",
+    "newRound": "Bắt đầu [round] {round}"
   },
   "reminders": {
     "label": "Nhắc nhở",
     "barSides": "Chặn cả một phe",
     "barSide": "Chặn cả phe {side}",
     "freeSide": "Bỏ chặn cả phe {side}",
-    "turnStart": "Đầu lượt này",
-    "turnEnd": "Cuối lượt này",
-    "roundEnd": "Cuối vòng",
+    "turnStart": "Đầu [turn] này",
+    "turnEnd": "Cuối [turn] này",
+    "roundEnd": "Cuối [round]",
     "names": "{names}:",
-    "endsThisTurn": "{conditions} hết hiệu lực ở cuối lượt này"
+    "endsThisTurn": "{conditions} hết hiệu lực ở cuối [turn] này"
   },
   "orderList": {
-    "label": "Thứ tự lượt",
+    "label": "Thứ tự [turn]",
     "initiative": "Initiative của {name}",
     "moveUp": "Đẩy {name} lên trong các initiative bằng nhau",
     "moveUpSeat": "Dời {name} lên một ghế",
@@ -1506,8 +1578,8 @@
     "moveDown": "Đẩy {name} xuống trong các initiative bằng nhau"
   },
   "combatSide": {
-    "party": "Party",
-    "foe": "Địch",
+    "party": "[Party]",
+    "foe": "[Foe]",
     "other": "Khác"
   },
   "combatVisibility": {
@@ -1537,36 +1609,36 @@
     "deathSave": "Death save",
     "deathSaves": "Death save: {passed} đạt, {failed} trượt",
     "tableSees": "Cả bàn thấy",
-    "keep": "{mode, select, game {Giữ lại khi ván kết thúc} other {Giữ lại khi trận kết thúc}}",
+    "keep": "{mode, select, game {Giữ lại khi ván kết thúc} other {Giữ lại khi [fight] kết thúc}}",
     "conditions": "Trạng thái",
     "none": "Không có.",
     "removeCondition": "Gỡ {condition} khỏi {name}",
     "remove": "Gỡ",
     "conditionToAdd": "Trạng thái cần thêm",
     "addCondition": "Thêm trạng thái…",
-    "lastsLabel": "Kéo dài bao nhiêu lượt hoặc vòng",
+    "lastsLabel": "Kéo dài bao nhiêu [turn] hoặc [round]",
     "lasts": "Kéo dài",
     "add": "Thêm",
-    "removeFromFight": "{mode, select, game {Gỡ khỏi ván} other {Gỡ khỏi trận}}",
-    "turnActions": "Hành động lượt",
+    "removeFromFight": "{mode, select, game {Gỡ khỏi ván} other {Gỡ khỏi [fight]}}",
+    "turnActions": "Hành động [turn]",
     "side": {
-      "start": "Bắt đầu lượt",
-      "outOfTurn": "Chen lượt ({cost})",
+      "start": "Bắt đầu [turn]",
+      "outOfTurn": "Chen [turn] ({cost})",
       "justGo": "Cứ đi",
-      "endTurn": "Kết thúc lượt",
+      "endTurn": "Kết thúc [turn]",
       "hold": "Giữ hành động",
       "useHeld": "Dùng hành động đang giữ",
       "notYet": "Chưa đi",
       "markDone": "Đánh dấu đã đi",
-      "noTurn": "Không có lượt vòng này",
-      "takesTurn": "Có lượt",
+      "noTurn": "Không có [turn] [round] này",
+      "takesTurn": "Có [turn]",
       "lift": "Gỡ ({cost})"
     }
   },
   "tests": {
     "open": "Đang mở",
     "noneOpen": "Chưa có Test nào mở. Gọi một Test ở trên.",
-    "closedThisSession": "Đã đóng trong buổi này"
+    "closedThisSession": "Đã đóng trong [session] này"
   },
   "callCard": {
     "acquiring": "Để kiếm {item}",
@@ -1587,7 +1659,7 @@
     "hiddenTarget": "(cả bàn không được biết con số)",
     "poolLine": "{pool} xúc xắc ({modifier}) so với DN {target}",
     "plainLine": "{modifier} so với {target}",
-    "aCharacter": "một nhân vật",
+    "aCharacter": "một [character]",
     "changeLabel": "Sửa kết quả đổ của {name}",
     "reportLabel": "Báo kết quả cho {name}",
     "change": "Sửa",
@@ -1614,7 +1686,7 @@
     "test": "Test",
     "pick": "Chọn…",
     "whoRolls": "Ai đổ",
-    "noCharacter": "Chưa có nhân vật nào được tạo cho bộ luật này.",
+    "noCharacter": "Chưa có [character] nào được tạo cho bộ luật này.",
     "hideTarget": "Giấu con số cần vượt khỏi cả bàn",
     "showOutcome": "Cho họ biết đạt hay trượt",
     "callTest": "Gọi Test",
@@ -1650,15 +1722,15 @@
     "gameArchived": "Campaign này đã được lưu trữ",
     "archiveFirst": "Hãy lưu trữ campaign trước khi xóa",
     "typeNameToDelete": "Gõ tên campaign để xóa",
-    "sessionRunning": "Đang có một buổi chơi chạy",
-    "noSessionRunning": "Không có buổi chơi nào đang chạy",
-    "sessionNotFound": "Không tìm thấy buổi chơi",
-    "startSessionFirst": "Hãy bắt đầu một buổi chơi trước",
-    "sessionPaused": "Hãy bắt đầu một buổi chơi để tiếp tục",
-    "notLatestSession": "Chỉ xóa được buổi chơi gần nhất",
-    "endSessionFirst": "Hãy kết thúc buổi chơi trước khi xóa",
+    "sessionRunning": "Đang có một [session] chạy",
+    "noSessionRunning": "Không có [session] nào đang chạy",
+    "sessionNotFound": "Không tìm thấy [session]",
+    "startSessionFirst": "Hãy bắt đầu một [session] trước",
+    "sessionPaused": "Hãy bắt đầu một [session] để tiếp tục",
+    "notLatestSession": "Chỉ xóa được [session] gần nhất",
+    "endSessionFirst": "Hãy kết thúc [session] trước khi xóa",
     "recapAtSessionEnd": "Tóm tắt của buổi đang chơi được viết khi kết thúc buổi",
-    "noNextSession": "Chưa hẹn buổi chơi tới",
+    "noNextSession": "Chưa hẹn [session] tới",
     "noRuleset": "Campaign này chưa có bộ luật",
     "inviteExpired": "Lời mời này đã hết hạn hoặc đã được dùng. Hãy xin GM một lời mời mới",
     "inviteNotFound": "Không tìm thấy lời mời",
@@ -1688,7 +1760,7 @@
     "noOffer": "Không có lời nhượng nào để bạn nhận",
     "rulesetNotFound": "Không tìm thấy bộ luật",
     "charactersUseOtherVersion": "Các nhân vật ở đây đang dùng một phiên bản khác của bộ luật",
-    "endEncounterFirst": "Kết thúc trận trước khi đổi phiên bản bộ luật.",
+    "endEncounterFirst": "Kết thúc [fight] trước khi đổi phiên bản bộ luật.",
     "versionNotCompatible": "Phiên bản này không khớp với những gì đang chơi: {detail}",
     "detachPacksFirst": "Hãy gỡ các pack viết cho bộ luật kia trước",
     "charactersBuilt": "Các nhân vật ở đây đã dựng theo bộ luật này nên nó phải giữ nguyên",
@@ -1723,8 +1795,8 @@
     "buildNotReady": "Bản dựng chưa xong\n{detail}",
     "buildMadeAtTier": "Nhân vật này được tạo ở Bậc {tier}",
     "creationLocked": "Khi nhân vật đã tạo xong, chỉ GM mới đổi được các lựa chọn lúc tạo",
-    "noAward": "Bộ luật này không cho XP khi kết thúc buổi chơi",
-    "awardTooHigh": "Một buổi chơi cho tối đa {max} XP",
+    "noAward": "Bộ luật này không cho XP khi kết thúc [session]",
+    "awardTooHigh": "Một [session] cho tối đa {max} XP",
     "noAscension": "Bộ luật này không có Thăng Bậc",
     "topTier": "Bậc {tier} là Bậc cao nhất; không còn gì để Thăng Bậc",
     "nobodyToAscend": "Phòng này không có nhân vật nào còn sống để Thăng Bậc",
@@ -1760,7 +1832,7 @@
     "badInput": "Dữ liệu nhập không hợp lệ: {detail}",
     "unknownActor": "Không tìm thấy nhân vật: {detail}",
     "unknownResource": "Không tìm thấy tài nguyên: {detail}",
-    "noEncounter": "Không có trận nào đang chạy: {detail}",
+    "noEncounter": "Không có [fight] nào đang chạy: {detail}",
     "wrongState": "Không làm được lúc này: {detail}",
     "outOfTargets": "Không còn mục tiêu: {detail}",
     "unknownPool": "Không có pool đó.",
@@ -1768,7 +1840,7 @@
     "noHarmHere": "{name} không nhận đòn theo ruleset này",
     "neverShocked": "{name} không bao giờ nhận loại đó",
     "notAMob": "{name} không phải một đám đông",
-    "noMobsHere": "{name} không thể vào trận thành đám đông theo ruleset này",
+    "noMobsHere": "{name} không thể vào [fight] thành đám đông theo ruleset này",
     "noConvertHere": "{name} không thể chuyển sát thương theo ruleset này",
     "entryNotFound": "Không tìm thấy mục",
     "needSecretsScope": "Ghi chú GM cần quyền bí mật (secrets)",
@@ -1791,7 +1863,7 @@
     "noSuchEntryField": "Loại mục này không có trường {field}.",
     "badEntryField": "{field} không nhận giá trị đó: {detail}",
     "nothingToUndo": "Không có gì để hoàn tác",
-    "nothingToTurnBack": "Không có gì để lùi lượt: trong trận này, phiên này chưa có lượt nào bắt đầu hay kết thúc.",
+    "nothingToTurnBack": "Không có gì để lùi lượt: trong [fight] này, [session] này chưa có lượt nào bắt đầu hay kết thúc.",
     "turnBackRefused": "Không lùi lượt được: hành động {n} trên {count}, đếm ngược, không hoàn tác được. {reason}",
     "cantUndoKind": "Chưa hoàn tác được loại bước này",
     "undoGone": "Không hoàn tác được: {target} không còn nữa.",
@@ -1804,15 +1876,15 @@
     "requestAnsweredSince": "Không làm lại được: yêu cầu nó đã duyệt đã được trả lời hoặc rút lại từ đó.",
     "changedUnseen": "Không hoàn tác được: một thứ bạn không thấy đã đổi từ đó. GM làm được.",
     "redoClamped": "Không làm lại được: lần hoàn tác bị chặn ở giới hạn của {target}, nên làm lại sẽ không trả đúng những gì bước đó đã làm.",
-    "noEncounterRunning": "Không có trận nào đang chạy",
-    "encounterRunning": "Đang có một trận chạy",
-    "alreadyInFight": "{name} đã ở trong trận",
-    "notInFight": "Mục đó không ở trong trận",
-    "combatantNotInFight": "Người đó không ở trong trận",
+    "noEncounterRunning": "Không có [fight] nào đang chạy",
+    "encounterRunning": "Đang có một [fight] chạy",
+    "alreadyInFight": "{name} đã ở trong [fight]",
+    "notInFight": "Mục đó không ở trong [fight]",
+    "combatantNotInFight": "Người đó không ở trong [fight]",
     "noTurnOrder": "Bộ luật này không có thứ tự lượt.",
     "rerollUnsupported": "Bộ luật này tung lại initiative mỗi lượt, bộ theo dõi chưa chạy được kiểu đó",
     "nobodyActed": "Chưa ai hành động",
-    "firstTurn": "Đây là lượt đầu tiên của trận",
+    "firstTurn": "Đây là lượt đầu tiên của [fight]",
     "alreadyFirst": "Đã ở đầu",
     "alreadyLast": "Đã ở cuối",
     "notSeated": "Bộ luật này không có người đi đầu để đặt",
@@ -1893,7 +1965,7 @@
     "requestLimit": "Nhân vật này đang có quá nhiều yêu cầu chờ.",
     "requestNotAllowed": "Người chơi không thể tiêu thứ này.",
     "requestSpendYourself": "Bạn tự tiêu được thứ này.",
-    "changeBetweenSessions": "Chỉ đổi kiểu ngồi giữa các buổi chơi.",
+    "changeBetweenSessions": "Chỉ đổi kiểu ngồi giữa các [session].",
     "modeNotPlayed": "Game này không chơi kiểu đó.",
     "unknownCampaignField": "Game này không có thiết lập đó.",
     "campaignFieldValue": "Giá trị đó không hợp lệ: {detail}",
@@ -1931,7 +2003,7 @@
     "strikeNotFor": "Không thể ra đòn như vậy: {detail}.",
     "noMeans": "{detail}: hãy chọn thứ dùng để ra đòn, hoặc không chọn gì.",
     "noSuchMeans": "{name} không có thứ đó để ra đòn.",
-    "strikeNotInFight": "Cả hai bên của một đòn phải ở trong trận đang diễn ra.",
+    "strikeNotInFight": "Cả hai bên của một đòn phải ở trong [fight] đang diễn ra.",
     "strikeNoHarm": "Tổng đó không gây ra gì để áp dụng.",
     "strikeNotByOwner": "Chỉ GM áp dụng đòn này. Hãy báo GM số xúc xắc ra.",
     "strikeNotYourTurn": "Chỉ gửi đòn từ điện thoại trong lượt của chính nhân vật đó.",
@@ -1986,20 +2058,20 @@
     "admin": "Admin",
     "page": {
       "rooms": "Phòng chơi",
-      "characters": "Nhân vật",
+      "characters": "[Character]",
       "library": "Bộ luật & pack"
     },
     "lede": {
       "rooms": "Những bàn bạn dẫn và những bàn bạn ngồi chơi.",
-      "characters": "Mọi nhân vật bạn đang chơi, ở mọi bàn.",
+      "characters": "Mọi [character] bạn đang chơi, ở mọi bàn.",
       "library": "Bộ luật bạn đã nhập, các pack viết cho chúng và những World mà phòng của bạn khoác được. Chỉ phòng của bạn dùng được."
     },
-    "noCharacters": "Chưa có nhân vật. Hãy nhận lời mời vào một bàn, hoặc tạo nhân vật trong phòng bạn dẫn.",
+    "noCharacters": "Chưa có [character]. Hãy nhận lời mời vào một bàn, hoặc tạo [character] trong phòng bạn dẫn.",
     "kind": {
-      "pc": "Nhân vật người chơi",
+      "pc": "[Character] [player]",
       "companion": "Đồng hành",
       "npc": "NPC",
-      "creature": "Sinh vật",
+      "creature": "[Creature]",
       "group": "Nhóm",
       "vehicle": "Phương tiện",
       "hazard": "Mối nguy"
@@ -2029,14 +2101,14 @@
     "cancel": "Hủy",
     "filter": "Lọc theo loại",
     "all": "Tất cả",
-    "empty": "Chưa có mục nào. Hãy bắt đầu với một NPC, một địa điểm hoặc một tài liệu phát tay.",
+    "empty": "Chưa có mục nào. Hãy bắt đầu với một NPC, một địa điểm hoặc một [handout].",
     "noMatch": "Không có mục nào khớp.",
     "body": "Nội dung cả bàn thấy khi được tiết lộ",
-    "gmNotes": "Ghi chú GM (người chơi không bao giờ thấy)",
+    "gmNotes": "Ghi chú [gm] ([player] không bao giờ thấy)",
     "save": "Lưu",
     "delete": "Xóa",
     "confirmDelete": "Xóa hẳn \"{title}\"",
-    "typeToDeleteScenes": "Gõ tên cuộc phiêu lưu để xóa nó cùng các cảnh",
+    "typeToDeleteScenes": "Gõ tên cuộc phiêu lưu để xóa nó cùng các [scene]",
     "path": "Vị trí của {title}",
     "insideLabel": "Nằm trong",
     "insideNone": "Không (tầng ngoài cùng)",
@@ -2046,10 +2118,10 @@
     "reveal": "Ai được xem",
     "visibilityLabel": "Mức hiển thị",
     "audienceLabel": "Đối tượng",
-    "readers": "Nhân vật được xem",
-    "noCharacters": "Phòng này chưa có nhân vật nào.",
+    "readers": "[Character] được xem",
+    "noCharacters": "Phòng này chưa có [character] nào.",
     "revealButton": "Áp dụng",
-    "listed": "{count} nhân vật",
+    "listed": "{count} [character]",
     "picture": "Ảnh",
     "noPicture": "Chưa có ảnh.",
     "addPicture": "Thêm ảnh",
@@ -2070,44 +2142,44 @@
     },
     "kind": {
       "adventure": "Cuộc phiêu lưu",
-      "scene": "Cảnh",
+      "scene": "[Scene]",
       "npc": "NPC",
       "location": "Địa điểm",
       "faction": "Phe phái",
       "item": "Vật phẩm",
-      "handout": "Tài liệu phát tay",
+      "handout": "[Handout]",
       "quest": "Nhiệm vụ",
       "lore": "Truyền thuyết"
     },
     "visibility": {
-      "gm": "Chỉ GM",
-      "party": "Cả đoàn",
+      "gm": "Chỉ [gm]",
+      "party": "Cả [party]",
       "public": "Công khai"
     },
     "audience": {
       "all": "Mọi người",
-      "listed": "Nhân vật được chọn"
+      "listed": "[Character] được chọn"
     },
     "give": {
       "title": "Người giữ",
       "with": "Đang ở với {name}",
       "nobody": "Không ai giữ.",
       "giveTo": "Trao cho",
-      "pick": "Chọn nhân vật…",
+      "pick": "Chọn [character]…",
       "give": "Trao",
       "takeBack": "Lấy lại"
     },
     "addToScene": {
-      "title": "Thêm vào cảnh",
+      "title": "Thêm vào [scene]",
       "adventure": "Cuộc phiêu lưu",
-      "scene": "Cảnh",
+      "scene": "[Scene]",
       "noAdventure": "Không có cuộc phiêu lưu",
       "sceneOption": "{title} ({status})",
-      "add": "Thêm {name} vào cảnh",
+      "add": "Thêm {name} vào [scene]",
       "added": "Đã thêm vào {scene}"
     },
     "readersOf": "Ai đọc {title}",
-    "searchKey": "Tìm trong codex (nhấn /)",
+    "searchKey": "Tìm trong [codex] (nhấn /)",
     "hits": "{kind}: {count, plural, other {# kết quả}}",
     "hitLabel": "Xem nhanh {title}"
   },
@@ -2126,12 +2198,12 @@
   },
   "recaps": {
     "lastTime": "Lần trước",
-    "session": "Buổi {number}",
+    "session": "[Session] {number}",
     "dismiss": "Đã rõ",
-    "heading": "Tóm tắt các buổi",
-    "empty": "Chưa có tóm tắt nào. Chúng hiện ở đây khi một buổi kết thúc có tóm tắt.",
+    "heading": "Tóm tắt các [session]",
+    "empty": "Chưa có tóm tắt nào. Chúng hiện ở đây khi một [session] kết thúc có tóm tắt.",
     "edit": "Sửa",
-    "editLabel": "Sửa tóm tắt buổi {number}",
+    "editLabel": "Sửa tóm tắt [session] {number}",
     "text": "Tóm tắt",
     "save": "Lưu tóm tắt",
     "cancel": "Hủy"
@@ -2139,15 +2211,15 @@
   "prep": {
     "adventureTitle": "Tên cuộc phiêu lưu",
     "newAdventure": "Phiêu lưu mới",
-    "sceneTitle": "Tên cảnh",
-    "newScene": "Cảnh mới",
-    "sceneFromPack": "Cảnh từ gói",
+    "sceneTitle": "Tên [scene]",
+    "newScene": "[Scene] mới",
+    "sceneFromPack": "[Scene] từ gói",
     "create": "Tạo",
     "cancel": "Hủy",
-    "empty": "Chưa có cuộc phiêu lưu nào. Đặt tên một cái rồi thêm các cảnh.",
-    "noScenes": "Chưa có cảnh.",
-    "loose": "Cảnh ngoài cuộc phiêu lưu",
-    "pickScene": "Chọn một cảnh trên bảng, rồi mở nó.",
+    "empty": "Chưa có cuộc phiêu lưu nào. Đặt tên một cái rồi thêm các [scene].",
+    "noScenes": "Chưa có [scene].",
+    "loose": "[Scene] ngoài cuộc phiêu lưu",
+    "pickScene": "Chọn một [scene] trên bảng, rồi mở nó.",
     "moveUp": "Đưa {title} lên",
     "moveDown": "Đưa {title} xuống",
     "testsCount": "{count, plural, other {# Test}}",
@@ -2155,7 +2227,7 @@
     "noLinks": "Chưa liên kết gì.",
     "linkFilter": "Tìm mục để liên kết",
     "noCandidates": "Không có mục để liên kết.",
-    "openInCodex": "Mở trong CODEX",
+    "openInCodex": "Mở trong [CODEX]",
     "remove": "Gỡ",
     "unlink": "Gỡ liên kết {title}",
     "plannedTests": "Test dự kiến",
@@ -2165,12 +2237,12 @@
     "call": "Gọi",
     "unplan": "Bỏ dự kiến {id}",
     "lines": "Các dòng chuẩn bị",
-    "noLines": "Cảnh này chưa chuẩn bị gì.",
+    "noLines": "[Scene] này chưa chuẩn bị gì.",
     "kind": {
-      "reveals": "Cho cả nhóm xem",
+      "reveals": "Cho cả [party] xem",
       "tests": "Test",
       "pools": "Quỹ chung",
-      "roster": "Sinh vật",
+      "roster": "[Creature]",
       "exits": "Đi tiếp",
       "picks": "Chọn từ một nơi"
     },
@@ -2178,7 +2250,7 @@
       "reveals": "Thêm mục để cho xem",
       "tests": "Thêm Test",
       "pools": "Thêm dòng quỹ",
-      "roster": "Thêm sinh vật",
+      "roster": "Thêm [creature]",
       "exits": "Thêm lối ra",
       "picks": "Chọn dòng"
     },
@@ -2186,27 +2258,27 @@
       "pack": "Hỏng: gói của nó không còn gắn vào phòng này",
       "entry": "Hỏng: thứ nó nhắc tới không còn",
       "test": "Hỏng: bộ luật không có Test này",
-      "actor": "Hỏng: một nhân vật trong danh sách không còn",
+      "actor": "Hỏng: một [character] trong danh sách không còn",
       "pool": "Hỏng: bộ luật không có quỹ này",
-      "scene": "Hỏng: cảnh đó không còn",
+      "scene": "Hỏng: [scene] đó không còn",
       "field": "Hỏng: trường đó không còn chọn được",
       "row": "Hỏng: dòng này không còn trong mục của nó",
       "option": "Hỏng: bộ luật không có tuỳ chọn xuất hiện đó"
     },
     "blocked": {
-      "noFight": "Chưa có trận đánh nào. Hãy bắt đầu một trận trước.",
+      "noFight": "Chưa có [fight] nào. Hãy bắt đầu một [fight] trước.",
       "count": "Hơn 50 cùng lúc; hãy chia ra hai dòng.",
-      "mobCount": "Nhiều đám cùng lúc; bàn gửi mỗi lần một đám.",
-      "nobody": "Chưa có nhân vật nào ngồi vào bàn để làm Test này.",
+      "mobCount": "Nhiều [mob] cùng lúc; bàn gửi mỗi lần một [mob].",
+      "nobody": "Chưa có [character] nào ngồi vào bàn để làm Test này.",
       "short": "Quỹ không đủ để trả."
     },
     "summary": {
       "roster": "{count} × {name}",
-      "mob": "{count} × {name}, một đám {mob}",
+      "mob": "{count} × {name}, một [mob] {mob}",
       "test": "{test} · {who}",
       "testWith": "{test} · {inputs} · {who}",
       "party": "mọi người đang ngồi",
-      "pick": "một nhân vật đang ngồi, chọn lúc gửi",
+      "pick": "một [character] đang ngồi, chọn lúc gửi",
       "gone": "(không còn)",
       "pool": "{pool} {amount, number, ::sign-always}",
       "exit": "Tới {scene}",
@@ -2214,25 +2286,25 @@
       "picks": "{count, plural, other {# dòng}} của {entry}"
     },
     "form": {
-      "creature": "Sinh vật",
+      "creature": "[Creature]",
       "visibility": "Cả bàn thấy",
       "pool": "Quỹ",
       "amount": "Số lượng",
       "poolFrom": "Từ gói: {type}",
       "amountHint": "Dương là thêm, âm là tiêu. Không bao giờ là 0.",
       "text": "Dùng để làm gì",
-      "scene": "Cảnh",
+      "scene": "[Scene]",
       "entry": "Mục",
       "pick": "Chọn…",
       "label": "Nhãn (tuỳ chọn)",
       "exitLabel": "Nhãn",
-      "note": "Ghi chú cho GM (tuỳ chọn)",
+      "note": "Ghi chú cho [gm] (tuỳ chọn)",
       "takers": {
         "party": "Mọi người đang ngồi",
         "listed": "Chỉ những người này",
         "pick": "Một người, chọn lúc gửi"
       },
-      "rosterLabelHint": "Sinh vật mang tên này ở bàn, có đánh số.",
+      "rosterLabelHint": "[Creature] mang tên này ở bàn, có đánh số.",
       "outcomes": "Mỗi kết quả nghĩa là gì",
       "outcomeLabel": "Kết quả",
       "outcomeText": "Chuyện gì xảy ra",
@@ -2248,25 +2320,25 @@
     "moveLineUp": "Đưa dòng này lên",
     "moveLineDown": "Đưa dòng này xuống",
     "mode": {
-      "label": "Chuẩn bị hay chạy cảnh",
+      "label": "Chuẩn bị hay chạy [scene]",
       "prepare": "Chuẩn bị",
       "run": "Chạy"
     },
-    "sceneStatus": "Cảnh này đang ở đâu",
+    "sceneStatus": "[Scene] này đang ở đâu",
     "setStatus": {
       "planned": "Dự kiến",
-      "active": "Chơi cảnh này",
+      "active": "Chơi [scene] này",
       "done": "Xong",
       "skipped": "Bỏ qua"
     },
-    "startFight": "Bắt đầu trận đánh",
-    "joinFight": "Đưa họ vào trận",
+    "startFight": "Bắt đầu [fight]",
+    "joinFight": "Đưa họ vào [fight]",
     "fight": {
-      "start": "bước bắt đầu trận",
-      "party": "bước thêm các nhân vật đang ngồi",
-      "done": "Trận đã bắt đầu.",
+      "start": "bước bắt đầu [fight]",
+      "party": "bước thêm các [character] đang ngồi",
+      "done": "[Fight] đã bắt đầu.",
       "stopped": "Dừng ở {what}; những gì sau đó chưa được gửi.",
-      "skipped": "Trận đã bắt đầu. Chưa gửi: {lines}."
+      "skipped": "[Fight] đã bắt đầu. Chưa gửi: {lines}."
     },
     "who": "Ai?",
     "whoTakes": "Ai làm {what}",
@@ -2281,7 +2353,7 @@
     "pickedRows": "Đã chọn {field}",
     "switchRow": "{label}: {row}",
     "board": {
-      "pick": "Cảnh {number}, {title}",
+      "pick": "[Scene] {number}, {title}",
       "ready": "Sẵn sàng",
       "toFix": "Còn {count} việc",
       "exit": "Tới {label}",
@@ -2292,13 +2364,13 @@
     "glance": {
       "label": "{title} trong một cái nhìn",
       "empty": "Chưa liên kết hay chuẩn bị gì.",
-      "holds": "Cảnh có gì",
+      "holds": "[Scene] có gì",
       "count": "{label} {count}",
       "tests": "Test",
-      "fight": "Kẻ địch",
+      "fight": "Kẻ [foe]",
       "exits": "Lối ra",
-      "onEntry": "Hiện khi vào cảnh",
-      "nothingOnEntry": "Không có gì hiện khi vào cảnh.",
+      "onEntry": "Hiện khi vào [scene]",
+      "nothingOnEntry": "Không có gì hiện khi vào [scene].",
       "readyForTable": "Sẵn sàng cho bàn chơi",
       "toFix": "Còn {count} việc cần sửa",
       "fixField": "Điền {label}",
@@ -2307,13 +2379,13 @@
       "run": "Chạy từ đây"
     },
     "page": {
-      "previous": "Cảnh trước",
-      "next": "Cảnh sau",
-      "position": "Cảnh {number} trên {total}",
-      "strip": "Các cảnh của cuộc phiêu lưu này",
-      "tab": "Cảnh {number}, {title}",
+      "previous": "[Scene] trước",
+      "next": "[Scene] sau",
+      "position": "[Scene] {number} trên {total}",
+      "strip": "Các [scene] của cuộc phiêu lưu này",
+      "tab": "[Scene] {number}, {title}",
       "fields": "Trường",
-      "text": "Nội dung và ghi chú GM",
+      "text": "Nội dung và ghi chú [gm]",
       "nothingWritten": "Chưa viết gì.",
       "edit": "Sửa {part}",
       "closeEdit": "Thôi sửa {part}",
@@ -2322,7 +2394,7 @@
     "newEntry": "{kind} mới: {title}",
     "newEntryShort": "+ {kind}",
     "newEntryGroup": "Tạo “{title}” thành mục mới",
-    "newNotLinked": "Đã tạo “{title}” nhưng chưa liên kết với cảnh này.",
+    "newNotLinked": "Đã tạo “{title}” nhưng chưa liên kết với [scene] này.",
     "linkNamed": "Liên kết mọi mục được nhắc ({count})",
     "linkedNamed": "Đã liên kết {done} trên {total}."
   },
@@ -2336,10 +2408,10 @@
     },
     "panel": {
       "title": "Ranh giới và màn che",
-      "hint": "Mỗi dòng một mục, tối đa {items} mục, mỗi mục tối đa {chars} ký tự. Người chơi có thể gợi ý thêm từ điện thoại, không kèm tên.",
+      "hint": "Mỗi dòng một mục, tối đa {items} mục, mỗi mục tối đa {chars} ký tự. [Player] có thể gợi ý thêm từ điện thoại, không kèm tên.",
       "lines": "Ranh giới: không bao giờ xuất hiện ở bàn này",
       "veils": "Màn che: xảy ra ngoài trang",
-      "xCard": "Người chơi được chạm X-Card",
+      "xCard": "[Player] được chạm X-Card",
       "tooMany": "Mỗi danh sách tối đa {items} mục.",
       "tooLong": "Mỗi mục tối đa {chars} ký tự.",
       "save": "Lưu"
@@ -2417,7 +2489,7 @@
   },
   "notebook": {
     "entries": "Đã tiết lộ",
-    "recaps": "Tóm tắt các buổi",
+    "recaps": "Tóm tắt các [session]",
     "nothing": "Sổ tay chưa có gì.",
     "openQuests": "Nhiệm vụ đang mở",
     "new": "Mới",
@@ -2447,13 +2519,13 @@
   "archivedBanner": {
     "title": "Chỉ đọc",
     "text": "Campaign này đã đóng. Không gì ở bàn chơi thay đổi được cho đến khi mở lại.",
-    "reopen": "Mở lại ở Party"
+    "reopen": "Mở lại ở [Party]"
   },
   "actionNotices": {
     "label": "Kết quả vừa rồi",
     "poolFull": "{pool} đã đầy: mất {lost}",
     "restSkipped": "Không được nghỉ vì đang ở trạng thái đó: {names}",
-    "sessionDeleted": "Đã xóa buổi {number}; phần thưởng của buổi đó vẫn giữ",
+    "sessionDeleted": "Đã xóa [session] {number}; phần thưởng của [session] đó vẫn giữ",
     "sceneBegun": "Đã bắt đầu {title}: {revealed, plural, =0 {chưa tiết lộ gì} other {đã tiết lộ # mục}}",
     "revealSkipped": "Chưa tiết lộ: {line}",
     "rule": "{name}: {rule}",
@@ -2467,14 +2539,14 @@
     "ask": "Xin tiêu",
     "acquires": "{name} xin kiếm {item}",
     "acquireOn": "{name} xin kiếm {item}, gắn vào {host}",
-    "askAria": "Xin GM cho tiêu {label}",
+    "askAria": "Xin [gm] cho tiêu {label}",
     "amount": "Số {label} muốn tiêu",
     "less": "Xin bớt {label}",
     "more": "Xin thêm {label}",
-    "note": "Ghi chú cho GM (không bắt buộc)",
+    "note": "Ghi chú cho [gm] (không bắt buộc)",
     "send": "Gửi yêu cầu",
     "close": "Thôi",
-    "waiting": "Đang chờ GM: tiêu {amount} {label}",
+    "waiting": "Đang chờ [gm]: tiêu {amount} {label}",
     "cancel": "Hủy",
     "cancelAria": "Hủy yêu cầu tiêu {amount} {label}",
     "dismiss": "Đóng",
@@ -2498,10 +2570,10 @@
     "spends": "Chi tiêu",
     "spendsFor": "Chi tiêu cho {name}",
     "spendAsk": "Xin: {label}",
-    "spendAskAria": "Xin GM: {label}",
+    "spendAskAria": "Xin [gm]: {label}",
     "free": "miễn phí",
     "inputAria": "{input} cho {label}",
-    "spendWaiting": "Đang chờ GM: {label}",
+    "spendWaiting": "Đang chờ [gm]: {label}",
     "spendCancelAria": "Huỷ yêu cầu: {label}",
     "othersAsk": "{name} xin: {label}",
     "spendApproveAria": "Duyệt {name}: {label}",
@@ -2510,7 +2582,7 @@
     "spendDenied": "Đã từ chối: {label} cho {name}.",
     "spendDeniedWhy": "Đã từ chối: {label} cho {name}. {reason}",
     "spendDoAria": "{label} cho {name}",
-    "usedThisRound": "{label}: đã dùng trong vòng này",
+    "usedThisRound": "{label}: đã dùng trong [round] này",
     "openTable": "Mở {title}",
     "openTableAria": "Mở bảng {title} cho {name}",
     "quickAria": "{label}: {input} {value}"
@@ -2527,7 +2599,7 @@
     "custom": "Khác",
     "customLabel": "Số phần (2 đến 12)",
     "visibility": "Ai nhìn thấy",
-    "gm": "Chỉ GM",
+    "gm": "Chỉ [gm]",
     "party": "Cả bàn",
     "create": "Tạo đồng hồ",
     "cancel": "Hủy",
@@ -2541,7 +2613,7 @@
     "deleteConfirm": "Xóa {name}? Không thể hoàn tác.",
     "deleteYes": "Xóa đồng hồ",
     "about": "Về {title}",
-    "link": "Mục sổ tay liên kết",
+    "link": "Mục [codex] liên kết",
     "noLink": "Không có mục"
   },
   "mention": {
@@ -2556,6 +2628,7 @@
     "nothing": "Chưa có gì để soạn. Bài kiểm tra, tiết lộ, cuộc chạm trán và đồng hồ sẽ hiện ở đây."
   },
   "manifestForm": {
+    "inLanguage": "{label} bằng {language}",
     "choose": "Chưa đặt",
     "citePlaceholder": "Core tr.142",
     "citeHint": "Trang in, ví dụ Core tr.142.",
@@ -2599,7 +2672,7 @@
     "targetUnreadable": "Không đọc được tệp đó.",
     "blocks": {
       "sources": "Nguồn",
-      "fields": "Trường nhân vật",
+      "fields": "Trường [character]",
       "effects": "Hiệu ứng",
       "bands": "Mặt được tính điểm",
       "outcomes": "Kết quả, tốt nhất trước",
@@ -2616,12 +2689,12 @@
       "ruleset": {
         "about": "Giới thiệu",
         "game": "Trò chơi",
-        "fields": "Trường nhân vật",
+        "fields": "Trường [character]",
         "resources": "Tài nguyên",
         "conditions": "Trạng thái",
         "tests": "Phép thử",
-        "turn": "Thứ tự lượt",
-        "creation": "Bước tạo nhân vật",
+        "turn": "Thứ tự [turn]",
+        "creation": "Bước tạo [character]",
         "board": "Pha và tính điểm",
         "more": "Khác",
         "json": "JSON"
@@ -2686,9 +2759,9 @@
       "family": "Họ luật",
       "genres": "Thể loại (cách nhau bằng dấu phẩy)",
       "modes": "Kiểu ngồi bàn",
-      "strategy": "Thứ tự lượt",
+      "strategy": "Thứ tự [turn]",
       "score": "Điểm",
-      "rerollEachRound": "Gieo lại mỗi vòng",
+      "rerollEachRound": "Gieo lại mỗi [round]",
       "tiebreak": "Phá hòa",
       "firstPlayer": "Người đi đầu",
       "actor": "Thực thể nhân vật",
@@ -2719,10 +2792,10 @@
   },
   "fightLog": {
     "title": "NHẬT KÝ",
-    "empty": "Trận này chưa có gì.",
-    "roundHead": "Vòng {round}",
-    "between": "Giữa các lượt",
-    "turnOf": "Lượt của {name}",
+    "empty": "[Fight] này chưa có gì.",
+    "roundHead": "[Round] {round}",
+    "between": "Giữa các [turn]",
+    "turnOf": "[Turn] của {name}",
     "strike": "{attacker} đánh {target}: {outcome} ({total})",
     "strikeWith": "{attacker} đánh {target} bằng {means}: {outcome} ({total})",
     "change": "{name}: {by, number, ::sign-always} {label}",
@@ -2731,17 +2804,17 @@
     "conditionOn": "{name}: +{label}",
     "conditionOff": "{name}: −{label}",
     "acts": "{name} hành động",
-    "ends": "Hết lượt của {name}",
-    "round": "Bắt đầu vòng {round}",
+    "ends": "Hết [turn] của {name}",
+    "round": "Bắt đầu [round] {round}",
     "warn": "{name}: {text}",
     "undone": "(đã hoàn tác)",
     "other": "{count} thay đổi"
   },
   "history": {
-    "title": "Lịch sử buổi này",
-    "empty": "Buổi này chưa ghi lại gì.",
-    "reading": "Đang đọc lịch sử buổi này…",
-    "noSession": "Lịch sử liệt kê các hành động của buổi đang chơi. Hãy bắt đầu một buổi trước.",
+    "title": "Lịch sử [session] này",
+    "empty": "[Session] này chưa ghi lại gì.",
+    "reading": "Đang đọc lịch sử [session] này…",
+    "noSession": "Lịch sử liệt kê các hành động của [session] đang chơi. Hãy bắt đầu một [session] trước.",
     "undo": "Hoàn tác",
     "redo": "Làm lại",
     "undoLine": "Hoàn tác: {line}",
@@ -2776,28 +2849,28 @@
       "change": "{name}: {by, number, ::sign-always} {label}",
       "conditionOn": "{name} nhận {label}",
       "conditionOff": "{name} mất {label}",
-      "next": "lượt tiếp theo",
+      "next": "[turn] tiếp theo",
       "hold": "giữ hành động",
-      "back": "LÙI LƯỢT",
-      "begin": "bắt đầu trận",
+      "back": "LÙI [TURN]",
+      "begin": "bắt đầu [fight]",
       "mob": "{name} còn {members} thành viên",
       "reveal": "cho bàn thấy {name}",
       "hide": "giấu {name} khỏi bàn",
       "pool": "{label} {by, number, ::sign-always}",
       "go": "{name} hành động ngay, ngoài thứ tự",
-      "seize": "{name} giành lượt",
-      "aware": "{name} đã cảnh giác: có lượt đầu",
-      "ambush": "{name} bị phục kích: không có lượt đầu",
-      "remove": "đưa {name} ra khỏi trận"
+      "seize": "{name} giành [turn]",
+      "aware": "{name} đã cảnh giác: có [turn] đầu",
+      "ambush": "{name} bị phục kích: không có [turn] đầu",
+      "remove": "đưa {name} ra khỏi [fight]"
     },
     "why": {
       "unknown": "Không phải lệnh: thử một cái tên và đánh 3, +một trạng thái, tiếp, giữ, lùi hoặc bắtđầu.",
-      "noTarget": "Ai? Gõ một cái tên hoặc chọn một người trong trận.",
-      "noMatch": "Không ai trong trận tên là {words}.",
+      "noTarget": "Ai? Gõ một cái tên hoặc chọn một người trong [fight].",
+      "noMatch": "Không ai trong [fight] tên là {words}.",
       "ambiguous": "Ai trong số này? {names}",
       "noCondition": "Bộ luật này không có trạng thái {words}.",
       "needsCount": "Bao nhiêu? Gõ đám và một con số.",
-      "notHere": "Trận của trò chơi này không có lệnh đó."
+      "notHere": "[Fight] của trò chơi này không có lệnh đó."
     }
   },
   "strike": {
@@ -2809,9 +2882,9 @@
     "means": "Ra đòn bằng",
     "noMeans": "{name} không có gì để ra đòn.",
     "meansChips": "Đặc tính của nó",
-    "sayAloud": "Người chơi chỉ thấy thanh máu: hãy đọc to {label}, {number}.",
+    "sayAloud": "[Player] chỉ thấy thanh máu: hãy đọc to {label}, {number}.",
     "target": "Mục tiêu",
-    "noTarget": "Không ai trong trận mà đòn này có thể trúng.",
+    "noTarget": "Không ai trong [fight] mà đòn này có thể trúng.",
     "less": "Bớt {label}",
     "more": "Thêm {label}",
     "linesOf": "Những gì tạo nên {name}",
@@ -2823,25 +2896,25 @@
     "change": "{by, number, ::sign-always} {label}",
     "apply": "ÁP DỤNG",
     "send": "GỬI",
-    "tellGm": "Báo GM: {result}",
+    "tellGm": "Báo [gm]: {result}",
     "notes": "Sau đòn",
     "openTable": "MỞ {title}",
     "readFailed": "Không đọc được thứ dùng để ra đòn."
   },
   "tables": {
     "title": "Bảng ngẫu nhiên",
-    "gm": "Chỉ GM",
+    "gm": "Chỉ [gm]",
     "party": "Cả bàn",
     "owner": "Chia úp",
-    "noGm": "Phòng này không có GM, nên không có gì chỉ dành cho GM.",
+    "noGm": "Phòng này không có [gm], nên không có gì chỉ dành cho [gm].",
     "roll": "Gieo",
     "diceInput": "{label} ({dice})",
     "rolled": "ra {value}",
     "deal": "Chia",
     "dealTo": "Chia cho",
-    "dealCount": "Chia cho {count} nhân vật",
+    "dealCount": "Chia cho {count} [character]",
     "cancel": "Huỷ",
-    "aCharacter": "Một nhân vật",
+    "aCharacter": "Một [character]",
     "reshuffle": "Xáo lại",
     "reshuffleConfirm": "Thu hết bài của {title} về? Không ai hoàn tác được một lần chia.",
     "reshuffleYes": "Xáo lại",
@@ -2856,7 +2929,7 @@
     "logTyped": "Ghi lại",
     "target": "Cho",
     "pickTarget": "Chọn người áp dụng",
-    "fighting": "Trong trận",
+    "fighting": "Trong [fight]",
     "others": "Những người khác",
     "less": "Bớt {label}",
     "more": "Thêm {label}",
@@ -2878,7 +2951,7 @@
   },
   "pools": {
     "title": "Pool chung",
-    "planned": "Dự kiến trong cảnh này",
+    "planned": "Dự kiến trong [scene] này",
     "add": "Thêm 1 vào {label}",
     "take": "Bớt 1 khỏi {label}",
     "value": "{label}: {value}",
@@ -2896,7 +2969,7 @@
       "advance": "Tiến bộ"
     },
     "nav": {
-      "label": "Các bước tạo nhân vật",
+      "label": "Các bước tạo [character]",
       "step": "{n}. {step}",
       "left": "{count, plural, other {còn # việc cần xử lý}}",
       "next": "Tiếp: {step}"
@@ -2917,15 +2990,15 @@
       "creation": "Khi tạo: {spent} trên {budget} XP",
       "play": "Trong game · Rank {rank}: {spent} trên {budget} XP",
       "group": "{step} · {xp} XP",
-      "session": "Buổi {n} · {xp} XP",
-      "unrecorded": "Chưa ghi buổi · {xp} XP",
+      "session": "[Session] {n} · {xp} XP",
+      "unrecorded": "Chưa ghi [session] · {xp} XP",
       "nothing": "Chưa mua gì.",
       "todo": "Còn cần xử lý",
       "allDone": "Không còn gì. Sẵn sàng để lưu.",
       "kind": {
         "todo": "Cần làm",
         "error": "Sửa",
-        "gm": "GM"
+        "gm": "[gm]"
       },
       "goTo": "Đến bước này",
       "effects": "Trong game",
@@ -2953,8 +3026,8 @@
       "count": "Đang hiện {shown} trên {total}",
       "none": "Không có gì khớp.",
       "more": "Hiện thêm {count}",
-      "outOfReach": "Nhân vật này không thể có",
-      "gmJudges": "GM quyết định: {what}",
+      "outOfReach": "[Character] này không thể có",
+      "gmJudges": "[gm] quyết định: {what}",
       "taken": "Đã lấy",
       "closed": "Không lấy được",
       "take": "Lấy"
@@ -2968,14 +3041,14 @@
       "label": "Bước này còn cần",
       "todo": "Cần làm",
       "fix": "Sửa",
-      "gm": "GM",
+      "gm": "[gm]",
       "approve": "Duyệt",
       "approveLabel": "Duyệt: {what}",
-      "waiting": "Chờ GM",
-      "noTick": "Hãy quyết trong phần của GM"
+      "waiting": "Chờ [gm]",
+      "noTick": "Hãy quyết trong phần của [gm]"
     },
     "tier": {
-      "pick": "Tier của nhân vật",
+      "pick": "Tier của [character]",
       "tierN": "Tier {tier}",
       "budget": "{xp} XP để tiêu",
       "perTier": "{xp} XP mỗi Tier để tiêu",
@@ -2985,7 +3058,7 @@
       "official": "Chính thức",
       "homebrewIn": "Homebrew, được phép",
       "homebrewOut": "Homebrew, không hiện",
-      "roomTier": "Đây là Tier của phòng. GM đổi nó ở Luật, Thiết lập campaign."
+      "roomTier": "Đây là Tier của phòng. [gm] đổi nó ở Luật, Thiết lập campaign."
     },
     "archetype": {
       "advanced": "Tạo nâng cao",
@@ -3001,7 +3074,7 @@
       "keywords": "Keyword",
       "species": "Chủng loài",
       "ability": "Năng lực của một Archetype",
-      "abilityNote": "Cần GM đồng ý.",
+      "abilityNote": "Cần [gm] đồng ý.",
       "kit": "Trang bị",
       "value": "Value {value}"
     },
@@ -3033,7 +3106,7 @@
       "factionNote": "Không bắt buộc. Chạm lại phe đã lấy để bỏ.",
       "background": "Xuất thân",
       "tables": "Bảng xuất thân",
-      "noTables": "Chưa có bảng xuất thân nào mở cho nhân vật này.",
+      "noTables": "Chưa có bảng xuất thân nào mở cho [character] này.",
       "whichBonus": "Chỉ một phần thưởng được áp dụng",
       "bonus": "+{amount} {what}",
       "writeIn": "Hoặc tự viết",
@@ -3048,9 +3121,9 @@
     "ascension": {
       "atCreation": "Gói thăng cấp khi tạo",
       "inPlay": "Gói thăng cấp, Tier {from} → {to}",
-      "waived": "GM đã miễn gói cho lần thăng cấp này.",
+      "waived": "[gm] đã miễn gói cho lần thăng cấp này.",
       "archetype": "Thăng cấp Archetype",
-      "archetypeNote": "Cần Rank {rank} và GM đồng ý.",
+      "archetypeNote": "Cần Rank {rank} và [gm] đồng ý.",
       "tierN": "Tier {tier}",
       "notAtCreation": "Không lấy khi tạo",
       "onlyWith": "Khi tạo: chỉ với {keyword}"
@@ -3060,7 +3133,7 @@
       "languages": "Ngôn ngữ",
       "free": "Miễn phí",
       "buy": "Mua · {xp} XP",
-      "writtenIn": "Tự viết: chờ GM duyệt",
+      "writtenIn": "Tự viết: chờ [gm] duyệt",
       "writeIn": "Một ngôn ngữ bàn chưa có",
       "add": "Thêm",
       "remove": "Xóa",
@@ -3077,16 +3150,16 @@
       }
     },
     "gm": {
-      "title": "Quyết định của GM",
+      "title": "Quyết định của [gm]",
       "ticks": "{count, plural, =0 {Chưa duyệt mục nào} other {Đã duyệt # mục}}",
       "clearTicks": "Bỏ mọi duyệt",
-      "species": "Chủng loài theo GM",
+      "species": "Chủng loài theo [gm]",
       "noRuling": "Không có",
-      "keywords": "Keyword theo GM",
+      "keywords": "Keyword theo [gm]",
       "addKeyword": "Keyword cần thêm",
       "removeKeyword": "Xóa {keyword}",
       "add": "Thêm",
-      "mods": "Thưởng theo GM",
+      "mods": "Thưởng theo [gm]",
       "takeAway": "Lấy bớt",
       "give": "Cho thêm trang bị"
     },
@@ -3102,7 +3175,7 @@
       },
       "ascension": {
         "title": "Ascension",
-        "now": "Cả nhóm Ascend cùng nhau: đang ở Tier {tier}, sau đó là Tier {next}.",
+        "now": "Cả [party] Ascend cùng nhau: đang ở Tier {tier}, sau đó là Tier {next}.",
         "top": "Tier {tier} là cao nhất: không còn gì để Ascend.",
         "counted": "Ai được tính",
         "rank": "Rank {rank}",
@@ -3111,31 +3184,31 @@
         "short": "Thiếu {count}",
         "gone": "Không được tính",
         "goneNote": "Đã rời câu chuyện",
-        "nobody": "Không ai trong nhóm được tính cho Ascension.",
+        "nobody": "Không ai trong [party] được tính cho Ascension.",
         "experience": "Theo kinh nghiệm",
         "experienceNote": "Mọi người được tính đều đã nhận {needed} XP ở Tier này.",
         "experienceWaiting": "{ready} trên {count} sẵn sàng: mở khi mọi người được tính đều đã nhận {needed} XP ở Tier này.",
         "milestone": "Theo cột mốc",
-        "milestoneNote": "GM quyết định, ở một bước ngoặt của câu chuyện.",
+        "milestoneNote": "[gm] quyết định, ở một bước ngoặt của câu chuyện.",
         "waive": "Bỏ qua Gói Ascension",
         "confirm": "Xác nhận: mọi người lên Tier {tier}",
         "armedHint": "Bấm lần nữa để xác nhận. Bấm chỗ khác để hủy.",
         "busy": "Đang Ascend…"
       },
       "session": {
-        "title": "XP mỗi người buổi này",
+        "title": "XP mỗi người [session] này",
         "suggested": "Mức gợi ý",
         "amount": "XP mỗi người",
         "range": "Một số nguyên từ 0 đến {max}.",
-        "chosen": "Mỗi nhân vật nhận {xp} XP."
+        "chosen": "Mỗi [character] nhận {xp} XP."
       }
     },
     "dev": {
       "title": "Trình tạo theo sổ XP",
       "lede": "Chỉ dùng khi phát triển: trò chơi mẫu tự bịa của engine. Bản dựng chỉ nằm trong trang này và mất khi tải lại.",
       "seat": "Ghế",
-      "player": "Người chơi",
-      "gm": "Phía GM",
+      "player": "[Player]",
+      "gm": "Phía [gm]",
       "time": "Lúc nào",
       "creation": "Khi tạo",
       "inPlay": "Trong game ở Tier {tier}",
@@ -3144,7 +3217,7 @@
       "notReady": "Bước sau sẽ đặt nút lưu ở đây: chưa sẵn sàng.",
       "play": {
         "title": "Trong game",
-        "lede": "Các màn hình bàn chơi cần khi những nhân vật này đã vào game, với số liệu tự bịa. Không gửi gì đi.",
+        "lede": "Các màn hình bàn chơi cần khi những [character] này đã vào game, với số liệu tự bịa. Không gửi gì đi.",
         "ascension": "Trường hợp Ascension",
         "cases": {
           "short": "Có người còn thiếu",
@@ -3166,10 +3239,10 @@
       "loading": "Đang mở danh mục…",
       "failed": "Không đọc được danh mục. Kiểm tra kết nối rồi thử lại.",
       "retry": "Thử lại",
-      "save": "Lưu nhân vật",
-      "sendToGm": "Gửi cho GM",
+      "save": "Lưu [character]",
+      "sendToGm": "Gửi cho [gm]",
       "saveForLater": "Lưu để làm tiếp",
-      "sentToGm": "Đã gửi cho GM.",
+      "sentToGm": "Đã gửi cho [gm].",
       "savedForLater": "Đã lưu để làm tiếp.",
       "kept": "Đã lưu nháp",
       "notKept": "Chưa giữ nháp"
@@ -3196,17 +3269,17 @@
     },
     "sheet": {
       "one": "IN",
-      "oneLabel": "In phiếu nhân vật của {name}",
-      "oneTitle": "In phiếu nhân vật của {name}",
+      "oneLabel": "In phiếu [character] của {name}",
+      "oneTitle": "In phiếu [character] của {name}",
       "all": "IN CÁC PHIẾU",
-      "allLabel": "In phiếu của mọi nhân vật",
-      "allTitle": "In phiếu của cả nhóm",
-      "hint": "Mỗi nhân vật bắt đầu một trang mới. Ô để trống là để ghi bút chì: những gì thay đổi khi chơi.",
+      "allLabel": "In phiếu của mọi [character]",
+      "allTitle": "In phiếu của cả [party]",
+      "hint": "Mỗi [character] bắt đầu một trang mới. Ô để trống là để ghi bút chì: những gì thay đổi khi chơi.",
       "file": "phieu-nhan-vat.pdf"
     },
     "tents": {
       "button": "IN THẺ GẤP",
-      "label": "In một thẻ gấp cho mỗi nhân vật",
+      "label": "In một thẻ gấp cho mỗi [character]",
       "title": "In thẻ gấp",
       "file": "the-gap.pdf"
     },
@@ -3216,27 +3289,27 @@
       "title": "In thẻ",
       "one": "IN THẺ",
       "oneLabel": "In thẻ của {name}",
-      "hint": "In ở 100 % (đúng kích thước), không chọn vừa trang, để mỗi thẻ là 63 × 88 mm. Cắt theo đường xám; gấp thẻ gấp theo đường đứt, tên quay về phía người chơi.",
+      "hint": "In ở 100 % (đúng kích thước), không chọn vừa trang, để mỗi thẻ là 63 × 88 mm. Cắt theo đường xám; gấp thẻ gấp theo đường đứt, tên quay về phía [player].",
       "file": "the.pdf"
     },
     "handouts": {
-      "button": "IN TÀI LIỆU",
-      "label": "In tài liệu phát tay của {title}",
-      "title": "In tài liệu phát tay",
-      "one": "IN TÀI LIỆU",
-      "oneLabel": "In tài liệu {title}",
-      "hint": "Mỗi tài liệu một trang; tài liệu dài chạy sang trang sau. Để in hai tài liệu A5 trên một tờ A4, chọn 2 trang mỗi tờ trong hộp thoại in.",
+      "button": "IN [HANDOUT]",
+      "label": "In [handout] của {title}",
+      "title": "In [handout]",
+      "one": "IN [HANDOUT]",
+      "oneLabel": "In [handout] {title}",
+      "hint": "Mỗi [handout] một trang; [handout] dài chạy sang trang sau. Để in hai [handout] A5 trên một tờ A4, chọn 2 trang mỗi tờ trong hộp thoại in.",
       "file": "tai-lieu.pdf"
     },
     "runSheet": {
       "button": "IN PHIẾU DẪN TRUYỆN",
       "label": "In phiếu dẫn truyện của {title}",
       "title": "In phiếu dẫn truyện",
-      "hint": "Chỉ dành cho GM: phiếu có ghi chú của GM và kết quả của từng Test.",
-      "breaks": "Mỗi cảnh một trang mới",
+      "hint": "Chỉ dành cho [gm]: phiếu có ghi chú của [gm] và kết quả của từng Test.",
+      "breaks": "Mỗi [scene] một trang mới",
       "readAloud": "Đọc to",
-      "gmNotes": "Ghi chú của GM",
-      "budget": "Ngân sách trận đấu",
+      "gmNotes": "Ghi chú của [gm]",
+      "budget": "Ngân sách [fight]",
       "fields": "Chi tiết",
       "file": "phieu-dan-truyen.pdf"
     },
@@ -3278,16 +3351,16 @@
         "location": "Địa điểm",
         "faction": "Phe phái",
         "item": "Vật phẩm",
-        "handout": "Tài liệu phát tay",
+        "handout": "[Handout]",
         "lore": "Truyền thuyết",
         "quest": "Nhiệm vụ"
       },
       "line": {
-        "reveals": "Cho cả nhóm xem",
+        "reveals": "Cho cả [party] xem",
         "picks": "Chọn từ một nơi",
         "tests": "Test",
         "pools": "Quỹ chung",
-        "roster": "Sinh vật",
+        "roster": "[Creature]",
         "exits": "Đi tiếp",
         "planned": "Test đã lên kế hoạch"
       },
@@ -3297,25 +3370,25 @@
   },
   "journal": {
     "heading": "Nhật ký",
-    "empty": "Chưa có buổi nào. Mỗi buổi hiện ở đây khi bắt đầu.",
-    "session": "Buổi {number}",
+    "empty": "Chưa có [session] nào. Mỗi [session] hiện ở đây khi bắt đầu.",
+    "session": "[Session] {number}",
     "since": "từ {start}",
     "dates": "{start} đến {end}",
     "inProgress": "Đang diễn ra",
     "abandoned": "Kết thúc không thưởng",
     "award": "+{xp} XP mỗi người",
     "edit": "Sửa",
-    "editLabel": "Sửa buổi {number}",
+    "editLabel": "Sửa [session] {number}",
     "title": "Tiêu đề",
     "titleInvalid": "Tiêu đề tối đa 100 ký tự.",
     "recap": "Tóm tắt",
-    "notes": "Ghi chú của GM",
-    "notesLabel": "Ghi chú của GM (không bao giờ hiện cho người chơi)",
+    "notes": "Ghi chú của [gm]",
+    "notesLabel": "Ghi chú của [gm] (không bao giờ hiện cho [player])",
     "save": "Lưu",
     "cancel": "Hủy"
   },
   "nextSession": {
-    "heading": "Buổi tới",
+    "heading": "[Session] tới",
     "none": "Chưa đặt ngày.",
     "when": "Ngày và giờ",
     "place": "Địa điểm",
@@ -3329,7 +3402,7 @@
     "heading": "Lời mời đang mở",
     "room": "Lời mời vào phòng, với vai {role}",
     "character": "Lời mời cho {name}",
-    "gone": "một nhân vật đã xóa",
+    "gone": "một [character] đã xóa",
     "used": "{count, plural, =0 {chưa dùng} other {đã dùng # lần}}",
     "usedOf": "đã dùng {count} trên {max}",
     "until": "đến {when}",
@@ -3338,19 +3411,19 @@
     "revokeLabel": "Thu hồi: {what}"
   },
   "fightTab": {
-    "noFight": "Chưa có trận đánh. Khi GM bắt đầu, thẻ này sẽ hiện ra.",
+    "noFight": "Chưa có [fight]. Khi [gm] bắt đầu, thẻ này sẽ hiện ra.",
     "nowActing": "Đang hành động",
-    "yourTurn": "Lượt của bạn",
+    "yourTurn": "[Turn] của bạn",
     "you": "Bạn",
-    "settingUp": "GM đang dựng cảnh",
+    "settingUp": "[gm] đang dựng cảnh",
     "unseen": "Ai đó không thấy được",
     "nobody": "Chưa có ai",
     "pick": "{side} chọn người hành động",
-    "complete": "Hết vòng {round}",
+    "complete": "Hết [round] {round}",
     "upNext": "Kế tiếp: {name}",
     "after": "Còn {after} trên {of} người hành động sau bạn",
     "paused": "Tạm dừng",
-    "foeHidden": "Không có số liệu về kẻ này. Hãy hỏi GM xem một lần Thử có giúp biết thêm không."
+    "foeHidden": "Không có số liệu về kẻ này. Hãy hỏi [gm] xem một lần Thử có giúp biết thêm không."
   },
   "phoneStrip": {
     "label": "{name} tóm tắt",
@@ -3370,7 +3443,7 @@
     "missing": "Mục này không còn trong sổ tay của bạn.",
     "eyesOnly": "Chỉ mình bạn được xem",
     "goTo": "Đến",
-    "goToLabel": "Đến {title} trong Codex",
+    "goToLabel": "Đến {title} trong [Codex]",
     "hold": "Cho cả bàn xem",
     "holdLabel": "Giơ {title} lên cho cả bàn xem, toàn màn hình"
   },
@@ -3378,14 +3451,14 @@
     "show": "Trình chiếu",
     "showLabel": "Trình chiếu {title} cho cả bàn",
     "everyone": "Mọi người",
-    "only": "Hoặc chỉ những nhân vật này",
-    "toThem": "{count, plural, =0 {Trình chiếu cho họ} other {Trình chiếu cho # nhân vật}}",
+    "only": "Hoặc chỉ những [character] này",
+    "toThem": "{count, plural, =0 {Trình chiếu cho họ} other {Trình chiếu cho # [character*]}}",
     "showing": "Đang trình chiếu {title} cho {to}",
     "clear": "Thu lại",
     "clearLabel": "Thôi trình chiếu {title}",
     "close": "Đóng",
     "closeLabel": "Đóng {title}",
-    "fromGm": "GM đang trình chiếu",
+    "fromGm": "[gm] đang trình chiếu",
     "holding": "Đang cho cả bàn xem · màn hình luôn sáng"
   },
   "books": {

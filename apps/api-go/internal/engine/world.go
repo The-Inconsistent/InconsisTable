@@ -149,6 +149,8 @@ var worldSchema = schema.Object(
 		schema.Def("names", schema.PartialRecord(schema.String().Min(1).Max(maxHandoutLayoutName), HandoutLayouts...),
 			map[string]any{}),
 	)),
+	// The setting's words for the app's terms (issue #159).
+	schema.Opt("terms", schema.PartialRecord(termWords, TermIDs...)),
 )
 
 // maxHandoutLayoutName is MAX_HANDOUT_LAYOUT_NAME: the longest name a World gives one of the layouts.

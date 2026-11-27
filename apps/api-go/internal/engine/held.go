@@ -54,7 +54,7 @@ func (k HeldKind) MaxOrDefault() int {
 var packKeySchema = schema.String().Max(80).Regex(`^[a-z0-9]+([-_.][a-z0-9]+)*$`, "use lowercase letters, digits and - _ .")
 
 var heldKindSchema = schema.Object(
-	schema.Req("label", label(60)),
+	schema.Req("label", text(60)),
 	schema.Req("entry", idSchema),
 	schema.Req("field", fieldIDSchema),
 	schema.Req("entities", schema.Array(idSchema).Min(1).Max(50)),

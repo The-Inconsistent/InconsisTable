@@ -2,6 +2,7 @@
 // match: the lists, the base colours, the linear table, contrast at and around each floor, and valid and refused Worlds
 // with their problems and hashes. Every World here is invented. generate.ts writes these under `worlds`.
 import { SAMPLE_WORLD } from "../../../packages/rules-engine/src/fixtures/sample-world.ts";
+import { SAMPLE_WORLD_WORDS } from "../../../packages/rules-engine/src/fixtures/sample-words.ts";
 import {
   contrastHundredths,
   HANDOUT_LAYOUTS,
@@ -104,7 +105,18 @@ function cases(): unknown[] {
     { ...world({ light: {} }), name: "" },
     { ...world({ light: {} }), name: "n".repeat(80) },
     { ...world({ light: {} }), name: "n".repeat(81) },
+    // Terms (issue #159): a word, a word and its plural, per language, and refused ones.
+    SAMPLE_WORLD_WORDS,
     { ...world({ light: {} }), terms: { party: "crew" } },
+    { ...world({ light: {} }), terms: {} },
+    { ...world({ light: {} }), terms: { party: { one: "Crew", other: "Crews" }, gm: { vi: "Trưởng" } } },
+    { ...world({ light: {} }), terms: { crew: "Crew" } },
+    { ...world({ light: {} }), terms: { party: {} } },
+    { ...world({ light: {} }), terms: { party: { fr: "Équipe" } } },
+    { ...world({ light: {} }), terms: { party: { one: "Crew" } } },
+    { ...world({ light: {} }), terms: { party: { en: "" } } },
+    { ...world({ light: {} }), terms: { party: "x".repeat(61) } },
+    { ...world({ light: {} }), terms: { markerRed: "coral", tableScreen: { en: { one: "Wall", other: "Walls" } } } },
     // Handout layouts (house decision #72): offered, named, and refused.
     { ...world({ light: {} }), handouts: { layouts: ["plain"] } },
     { ...world({ light: {} }), handouts: { layouts: [...HANDOUT_LAYOUTS], names: { tablet: "Glass", plain: "Note" } } },
@@ -127,6 +139,7 @@ function cases(): unknown[] {
     { ...world({ light: {} }), pad: "x".repeat(MAX_WORLD_BYTES - 200) },
     { ...world({ light: {} }), pad: "x".repeat(MAX_WORLD_BYTES) },
   ];
+  for (const junk of JUNK) inputs.push({ ...world({ light: {} }), terms: junk });
   for (const key of ["id", "version", "core", "name", "theme"])
     for (const junk of JUNK) inputs.push({ ...world({ light: {} }), [key]: junk });
   for (const junk of JUNK) inputs.push({ ...world({ light: {} }), handouts: junk });

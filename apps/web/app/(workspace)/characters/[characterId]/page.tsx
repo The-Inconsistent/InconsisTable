@@ -1,6 +1,6 @@
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
-import { Ruleset } from "@inconsistable/rules-engine";
+import { localRuleset } from "@inconsistable/rules-engine";
 
 import { apiGet } from "@/app/server-api";
 import { LibraryBuild } from "@/components/builder/library-build/library-build";
@@ -24,10 +24,10 @@ export default async function LibraryCharacter({ params }: LibraryCharacterProps
     if (!entry.data.editable) return <LibraryBuild entry={entry.data} ruleset={null} catalogue={null} />;
     const rules = await apiGet(`/api/library/${id}/rules`);
     const body: unknown = rules.ok ? await rules.json() : null;
-    const manifest = Ruleset.safeParse((body as { manifest?: unknown } | null)?.manifest);
-    if (!manifest.success) return <StatusScreen text={t("status.nosignal")} />;
+    const manifest = localRuleset((body as { manifest?: unknown } | null)?.manifest, await getLocale());
+    if (!manifest) return <StatusScreen text={t("status.nosignal")} />;
     // The catalogue goes to the client as the api sent it: the client reads it as the room's builder does.
-    return <LibraryBuild entry={entry.data} ruleset={manifest.data} catalogue={body} />;
+    return <LibraryBuild entry={entry.data} ruleset={manifest} catalogue={body} />;
   } catch {
     return <StatusScreen text={t("status.nosignal")} />;
   }

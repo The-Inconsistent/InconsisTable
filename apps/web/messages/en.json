@@ -6,12 +6,84 @@
   "common": {
     "brand": "InconsisTable"
   },
+  "terms": {
+    "party": {
+      "one": "party",
+      "other": "parties"
+    },
+    "foe": {
+      "one": "foe",
+      "other": "foes"
+    },
+    "gm": {
+      "one": "GM",
+      "other": "GMs"
+    },
+    "player": {
+      "one": "player",
+      "other": "players"
+    },
+    "session": {
+      "one": "session",
+      "other": "sessions"
+    },
+    "fight": {
+      "one": "fight",
+      "other": "fights"
+    },
+    "round": {
+      "one": "round",
+      "other": "rounds"
+    },
+    "turn": {
+      "one": "turn",
+      "other": "turns"
+    },
+    "character": {
+      "one": "character",
+      "other": "characters"
+    },
+    "creature": {
+      "one": "creature",
+      "other": "creatures"
+    },
+    "mob": {
+      "one": "mob",
+      "other": "mobs"
+    },
+    "scene": {
+      "one": "scene",
+      "other": "scenes"
+    },
+    "mission": {
+      "one": "mission",
+      "other": "missions"
+    },
+    "handout": {
+      "one": "handout",
+      "other": "handouts"
+    },
+    "codex": {
+      "one": "codex",
+      "other": "codices"
+    },
+    "tableScreen": {
+      "one": "table screen",
+      "other": "table screens"
+    },
+    "markerRed": "red",
+    "markerAmber": "amber",
+    "markerGreen": "green",
+    "markerBlue": "blue",
+    "markerPurple": "purple",
+    "markerWhite": "white"
+  },
   "status": {
-    "invalid": "Link invalid or revoked. Ask your GM for a new QR code.",
+    "invalid": "Link invalid or revoked. Ask your [gm] for a new QR code.",
     "nosignal": "No signal. Check the connection and retry.",
-    "noAccess": "No access. Ask your GM for an invite.",
-    "noCharacter": "No character yet. Ask your GM.",
-    "noRuleset": "The GM hasn't picked a ruleset yet.",
+    "noAccess": "No access. Ask your [gm] for an invite.",
+    "noCharacter": "No [character] yet. Ask your [gm].",
+    "noRuleset": "The [gm] hasn't picked a ruleset yet.",
     "syncing": "Syncing…"
   },
   "localeSwitch": {
@@ -61,15 +133,15 @@
       "baseFace": "base",
       "tabs": "Sections",
       "tab": {
-        "fight": "Fight",
+        "fight": "[Fight]",
         "sheet": "Sheet",
         "notes": "Notes"
       },
-      "round": "Round {round}",
-      "nextTurn": "Next turn",
-      "endFight": "End fight",
-      "yourTurn": "Your turn",
-      "order": "Turn order",
+      "round": "[Round] {round}",
+      "nextTurn": "Next [turn]",
+      "endFight": "End [fight]",
+      "yourTurn": "Your [turn]",
+      "order": "[Turn] order",
       "names": {
         "first": "Ada Marrow",
         "second": "The Grey Warden",
@@ -77,8 +149,8 @@
       },
       "nowActing": "Now acting",
       "firstPlayer": "First",
-      "party": "Party",
-      "foe": "Foe",
+      "party": "[Party]",
+      "foe": "[Foe]",
       "acting": "Acting",
       "bloodied": "Down",
       "health": "Health {now} of {max}",
@@ -108,8 +180,8 @@
       "grid": {
         "rating": "Rating"
       },
-      "gmOnly": "GM notes",
-      "gmOnlyText": "Only the GM reads this: the warden keeps the second key.",
+      "gmOnly": "[gm] notes",
+      "gmOnlyText": "Only the [gm] reads this: the warden keeps the second key.",
       "stat": {
         "health": "Health",
         "defence": "Defence",
@@ -119,16 +191,16 @@
       "buttons": "Buttons",
       "sheetTitle": "Where this number comes from",
       "sheetText": "A bottom sheet rises from the edge, on the card colours.",
-      "handouts": "Handout layouts",
+      "handouts": "[Handout] layouts",
       "handoutTitle": "Notice at the quay",
       "handoutHeader": "No. 4 · posted at the quay",
       "handoutBody": "[06:40] The ferry did not sail.\n[06:52] Lanterns lit on the far bank, three of them.\nNo one has claimed the crates on the east pier. Whoever holds the tally should bring it to the harbour office before the evening bell."
     }
   },
   "roles": {
-    "gm": "GM",
-    "cogm": "Co-GM",
-    "player": "Player"
+    "gm": "[gm]",
+    "cogm": "Co-[gm]",
+    "player": "[Player]"
   },
   "admin": {
     "title": "Admin",
@@ -151,7 +223,7 @@
     "never": "Never",
     "empty": "No campaign matches.",
     "confirmTitle": "Open {name} as admin?",
-    "confirmLogged": "This opening is logged with the time. You will see the table the way its GM does.",
+    "confirmLogged": "This opening is logged with the time. You will see the table the way its [gm] does.",
     "confirmOpen": "Open as admin",
     "cancel": "Cancel",
     "tabsLabel": "Admin sections",
@@ -164,19 +236,19 @@
     "loading": "Loading…",
     "usersFailed": "The users could not be read.",
     "room": {
-      "gms": "GMs: {names}",
+      "gms": "[gm*]: {names}",
       "none": "none",
       "gone": "This room is gone.",
       "pickUser": "Pick a user",
       "loadingUsers": "Loading users…",
-      "seatGm": "Seat as GM",
-      "seated": "{name} is now a GM here.",
-      "abandon": "End session {number} without an award",
-      "abandonAsk": "End session {number} with no award?",
-      "abandoned": "Session {number} ended without an award.",
-      "deleteSession": "Delete session {number}",
-      "deleteSessionAsk": "Delete session {number}? What it awarded stays.",
-      "sessionDeleted": "Session {number} deleted.",
+      "seatGm": "Seat as [gm]",
+      "seated": "{name} is now a [gm] here.",
+      "abandon": "End [session] {number} without an award",
+      "abandonAsk": "End [session] {number} with no award?",
+      "abandoned": "[Session] {number} ended without an award.",
+      "deleteSession": "Delete [session] {number}",
+      "deleteSessionAsk": "Delete [session] {number}? What it awarded stays.",
+      "sessionDeleted": "[Session] {number} deleted.",
       "confirm": "Confirm",
       "cancel": "Cancel",
       "archive": "Archive",
@@ -192,9 +264,9 @@
       "noEvents": "Nothing logged for this room.",
       "failed": "That did not go through. Try again.",
       "roles": {
-        "gm": "GM",
-        "cogm": "co-GM",
-        "player": "player"
+        "gm": "[gm]",
+        "cogm": "co-[gm]",
+        "player": "[player]"
       },
       "removeGm": "Remove {name}",
       "removed": "{name} no longer sits here."
@@ -211,7 +283,7 @@
       "owner": "owner",
       "remove": "Remove from every room",
       "removeTitle": "Remove {name} from every room?",
-      "removeExplain": "{count, plural, one {Their # seat goes} other {Their # seats go}}; their characters stay. A room they own keeps them.",
+      "removeExplain": "{count, plural, one {Their # seat goes} other {Their # seats go}}; their [character*] stay. A room they own keeps them.",
       "typeName": "Type {name} to confirm",
       "tag": "#{tag}",
       "seen": "seen {when}",
@@ -222,26 +294,26 @@
       "failed": "That did not go through. Try again."
     },
     "live": "Live",
-    "openSince": "Session {number} open since {when}"
+    "openSince": "[Session] {number} open since {when}"
   },
   "tableModes": {
-    "gm": "with a GM",
-    "gmless": "GM-less",
+    "gm": "with a [gm]",
+    "gmless": "[gm]-less",
     "solo": "solo"
   },
   "chooseGame": {
     "title": "Choose game",
-    "playersLabel": "Players at the table",
-    "players": "{count, plural, one {# player} other {# players}}",
+    "playersLabel": "[Player*] at the table",
+    "players": "{count, plural, one {# [player]} other {# [player*]}}",
     "anyPlayers": "Any number",
-    "fewer": "One fewer player",
-    "more": "One more player",
+    "fewer": "One fewer [player]",
+    "more": "One more [player]",
     "sits": "How the table sits",
     "genres": "Genre",
     "none": "No game suits this table. Loosen a filter, or import a ruleset in the library.",
-    "playersExact": "{count, plural, one {# player} other {# players}}",
-    "playersRange": "{min} to {max} players",
-    "playersUnknown": "Any number of players"
+    "playersExact": "{count, plural, one {# [player]} other {# [player*]}}",
+    "playersRange": "{min} to {max} [player*]",
+    "playersUnknown": "Any number of [player*]"
   },
   "quickGame": {
     "title": "Quick game",
@@ -268,7 +340,7 @@
     "hints": {
       "game": "Pick the game, and the packs this campaign uses.",
       "campaign": "The values the game keeps for the whole campaign. Change them later in Rules.",
-      "premise": "What the campaign is about. The party reads it; a hidden field stays with you.",
+      "premise": "What the campaign is about. The [party] reads it; a hidden field stays with you.",
       "table": "How the table sits, and what it leaves out. Everyone agrees, nobody has to say why.",
       "name": "Check the name, then create."
     },
@@ -312,17 +384,17 @@
   "lobby": {
     "quickGame": "Quick game",
     "sits": "How the table sits",
-    "sitsHint": "Everyone runs the table together: no GM, nothing kept from anyone.",
+    "sitsHint": "Everyone runs the table together: no [gm], nothing kept from anyone.",
     "plays": "{game} · {mode}",
     "yourCampaign": "Your campaign",
     "yourName": "Your name",
-    "nameHint": "Other players see this at the table.",
+    "nameHint": "Other [player*] see this at the table.",
     "nameSaved": "Name saved.",
     "nameEmpty": "Give yourself a name.",
     "nameFailed": "Couldn't save the name.",
     "owner": "Owner: {name}",
-    "characters": "{count, plural, one {# character} other {# characters}}",
-    "sessionRunning": "Session {number} running",
+    "characters": "{count, plural, one {# [character]} other {# [character*]}}",
+    "sessionRunning": "[Session] {number} running",
     "nameRequired": "Give the campaign a name",
     "createFailed": "Couldn't create the campaign",
     "newCampaign": "New campaign",
@@ -336,15 +408,15 @@
     "archived": "Archived",
     "emptyMine": "You don't own a campaign yet.",
     "emptySeated": "Nobody has invited you to a table yet.",
-    "nextSession": "Next session {when}",
+    "nextSession": "Next [session] {when}",
     "creating": "Creating…",
     "importRoom": "Import a room"
   },
   "characterLibrary": {
-    "notFound": "Character not found.",
-    "needsAccount": "Your character library needs an account: sign in first.",
+    "notFound": "[Character] not found.",
+    "needsAccount": "Your [character] library needs an account: sign in first.",
     "lobby": {
-      "title": "Your characters",
+      "title": "Your [character*]",
       "empty": "None yet. Build one here and bring it into a room from that room's builder.",
       "unnamed": "Unnamed",
       "ready": "Ready",
@@ -355,28 +427,28 @@
       "confirm": "Delete for good",
       "deleteLabel": "Delete {name}",
       "ruleset": "Ruleset",
-      "new": "New character",
+      "new": "New [character]",
       "count": "{count} of {cap}",
       "full": "delete one to make room",
-      "noRuleset": "Build a character here with a ruleset you imported; one saved from a room comes here too.",
+      "noRuleset": "Build a [character] here with a ruleset you imported; one saved from a room comes here too.",
       "failed": "Couldn't reach your library. Try again."
     },
     "builder": {
       "restored": "Restored from this browser: changes the server had not kept yet.",
-      "back": "← Your characters",
-      "unnamed": "Unnamed character",
+      "back": "← Your [character*]",
+      "unnamed": "Unnamed [character]",
       "lede": "{ruleset} · last edited {when}. Every change is kept as you go.",
-      "name": "Character name",
+      "name": "[Character] name",
       "keep": "Keep as draft",
       "kept": "Kept.",
       "inARoom": "Its ruleset or packs are not yours, so it is edited in a room that has them: bring it in from that room's builder.",
-      "unreadable": "Couldn't read this character's ruleset. Try again.",
+      "unreadable": "Couldn't read this [character]'s ruleset. Try again.",
       "failed": "The library didn't save that. Try again."
     },
     "import": {
       "open": "Import from library",
       "title": "From your library",
-      "lede": "Characters you built outside a room. A copy comes in here as this character's draft; the one in your library stays as it is.",
+      "lede": "[Character*] you built outside a room. A copy comes in here as this [character]'s draft; the one in your library stays as it is.",
       "empty": "Nothing in your library yet. Build one from the lobby, then bring it in here.",
       "unnamed": "Unnamed",
       "use": "Use this one",
@@ -386,7 +458,7 @@
       "missingPack": "made with {slug}, which this room does not have",
       "otherTier": "built at Tier {tier}",
       "otherVersion": "made with version {version}: {detail}",
-      "unreadable": "Couldn't read that character.",
+      "unreadable": "Couldn't read that [character].",
       "failed": "Couldn't reach your library. Try again."
     },
     "save": {
@@ -403,8 +475,8 @@
     "noAdventures": "That room document has no adventures.",
     "from": "From {name}",
     "pick": "Adventures to bring",
-    "scenes": "{count, plural, one {# scene} other {# scenes}}",
-    "comesAsPrep": "Comes in as prep: scenes planned, every entry sealed. An entry this room already has by kind and name is used as it is, not made again.",
+    "scenes": "{count, plural, one {# [scene]} other {# [scene*]}}",
+    "comesAsPrep": "Comes in as prep: [scene*] planned, every entry sealed. An entry this room already has by kind and name is used as it is, not made again.",
     "willMake": "{count, plural, one {Makes # entry:} other {Makes # entries:}}",
     "willLink": "{count, plural, one {Uses # this room has:} other {Uses # this room has:}}",
     "pictures": "{count, plural, one {Uploads # picture.} other {Uploads # pictures.}}",
@@ -419,9 +491,9 @@
   "importRoom": {
     "tooLarge": "That file is over 100 MB. Export it again without pictures.",
     "title": "Import a room",
-    "lede": "A room document becomes a new room you own and run as GM. Players join it by invite, as in any room.",
+    "lede": "A room document becomes a new room you own and run as [gm]. [Player*] join it by invite, as in any room.",
     "file": "Room document (.json)",
-    "fresh": "Fresh start: no sessions, nothing revealed, harm and spent pools back to their start, no next session or limits. For a new group.",
+    "fresh": "Fresh start: no [session*], nothing revealed, harm and spent pools back to their start, no next [session] or limits. For a new group.",
     "checking": "Reading the document…",
     "noRuleset": "No ruleset, pack or World.",
     "what": {
@@ -432,10 +504,10 @@
     "imported": "imported",
     "missing": "not imported yet",
     "makesTable": "At the table:",
-    "makesCodex": "In the codex:",
+    "makesCodex": "In the [codex]:",
     "count": "{kind}: {count}",
     "pictures": "{count, plural, one {# picture} other {# pictures}}",
-    "sessions": "{count, plural, one {# session} other {# sessions}}",
+    "sessions": "{count, plural, one {# [session]} other {# [session*]}}",
     "clocks": "{count, plural, one {# clock} other {# clocks}}",
     "confirm": "Import as a new room",
     "importing": "Importing…",
@@ -524,7 +596,7 @@
       "clocks": "Clocks and position"
     },
     "templateNotes": {
-      "d20": "One Test: dice plus a modifier against a number the GM names when calling it. Add degrees of success if your game has them.",
+      "d20": "One Test: dice plus a modifier against a number the [gm] names when calling it. Add degrees of success if your game has them.",
       "bands": "One reported Test with three results. Rename them and cite the page.",
       "pool": "One Test: roll a pool of dice and count the faces that score. Set the die, the scoring faces and the cite.",
       "percentile": "Roll-under is not something the app works out: the table reads the dice and reports which result it was.",
@@ -618,26 +690,26 @@
     "takeSeat": "Take the seat",
     "playAs": "Play {name}",
     "playAsGuest": "Play {name} as a guest",
-    "pickCharacter": "Pick your character",
-    "allTaken": "Every character is taken. Start a new one:",
+    "pickCharacter": "Pick your [character]",
+    "allTaken": "Every [character] is taken. Start a new one:",
     "playLabel": "Play {name}",
     "play": "Play",
-    "newName": "New character name",
+    "newName": "New [character] name",
     "newButton": "New",
     "takeFailed": "Couldn't take the seat. Try again"
   },
   "builder": {
     "path": {
-      "label": "Make this character",
+      "label": "Make this [character]",
       "build": "BUILD",
       "steps": "BY HAND"
     },
-    "notAtTable": "That character isn't at this table.",
+    "notAtTable": "That [character] isn't at this table.",
     "isBuilt": "{name} is built",
-    "correctHint": "The GM can correct a value from the sheet.",
+    "correctHint": "The [gm] can correct a value from the sheet.",
     "backToTable": "Back to the table",
     "nothingTitle": "Nothing to build yet",
-    "nothingHint": "This table has no ruleset with a character builder. Ask the GM.",
+    "nothingHint": "This table has no ruleset with a [character] builder. Ask the [gm].",
     "fixSteps": "Fix the steps marked below.",
     "backLink": "← Table",
     "buildTitle": "Build {name}",
@@ -645,10 +717,10 @@
     "stepOptional": "Optional",
     "stepTodo": "To do",
     "makesLabel": "What this makes",
-    "derivedLater": "The numbers show on the sheet once the GM sets what is left.",
+    "derivedLater": "The numbers show on the sheet once the [gm] sets what is left.",
     "derivedIncomplete": "Finish every step to see the numbers.",
     "recheck": "The table checks these again when you build.",
-    "buildButton": "Build character",
+    "buildButton": "Build [character]",
     "startOver": "Start over",
     "draftSaved": "Draft saved",
     "draftOff": "Draft not kept"
@@ -662,7 +734,7 @@
     "score": "{label} score"
   },
   "chooseStep": {
-    "none": "No {label} is attached to this table yet. Ask the GM.",
+    "none": "No {label} is attached to this table yet. Ask the [gm].",
     "pickCount": "Pick {count}: {chosen} chosen"
   },
   "fieldsStep": {
@@ -674,28 +746,28 @@
   "whisper": {
     "open": "Whisper",
     "openUnseen": "Whisper · {count}",
-    "openLabel": "Whisper to characters, {count, plural, =0 {no new replies} one {# new reply} other {# new replies}}",
+    "openLabel": "Whisper to [character*], {count, plural, =0 {no new replies} one {# new reply} other {# new replies}}",
     "title": "Whisper",
     "to": "Whisper to",
     "all": "All",
     "text": "One line to them",
     "send": "Send",
     "counter": "{used}/{max}",
-    "noCharacters": "No characters at the table yet.",
-    "thisSession": "This session",
-    "none": "No whispers this session.",
+    "noCharacters": "No [character*] at the table yet.",
+    "thisSession": "This [session]",
+    "none": "No whispers this [session].",
     "toNames": "To {names}",
     "takeBack": "Take back",
     "takeBackLabel": "Take back the whisper to {names}",
     "read": "Read",
     "unread": "Not read",
     "gone": "(gone)",
-    "sheetTitle": "A whisper from the GM",
-    "fromGm": "From the GM",
+    "sheetTitle": "A whisper from the [gm]",
+    "fromGm": "From the [gm]",
     "forName": "To {name}",
     "more": "{count, plural, one {# more after this} other {# more after this}}",
     "reply": "Your reply",
-    "replyPlaceholder": "One line back to the GM",
+    "replyPlaceholder": "One line back to the [gm]",
     "changeReply": "Change your reply",
     "replied": "You replied: {reply}",
     "notebook": "Whispers"
@@ -727,12 +799,12 @@
   "marker": {
     "label": "Marker",
     "none": "None",
-    "red": "Red",
-    "amber": "Amber",
-    "green": "Green",
-    "blue": "Blue",
-    "purple": "Purple",
-    "white": "White",
+    "red": "[MarkerRed]",
+    "amber": "[MarkerAmber]",
+    "green": "[MarkerGreen]",
+    "blue": "[MarkerBlue]",
+    "purple": "[MarkerPurple]",
+    "white": "[MarkerWhite]",
     "swatch": "{colour} marker",
     "pick": "Marker for {name}"
   },
@@ -747,7 +819,7 @@
     "unread": "{label}: {used}",
     "over": "over",
     "switches": "Budget switches",
-    "seated": "{count, plural, one {# seated character} other {# seated characters}}"
+    "seated": "{count, plural, one {# seated [character]} other {# seated [character*]}}"
   },
   "rowShortcuts": {
     "less": "Decrease {label} of {name}",
@@ -796,15 +868,15 @@
     "moveOn": "Move on"
   },
   "orderView": {
-    "label": "Turn order",
-    "round": "Round {round}",
-    "roundPhase": "Round {round} · {phase}",
+    "label": "[Turn] order",
+    "round": "[Round] {round}",
+    "roundPhase": "[Round] {round} · {phase}",
     "done": "Done",
     "paused": "Paused",
     "first": "First player",
     "lineSetup": "Setting up",
     "linePick": "{side}: pick who acts",
-    "lineComplete": "Round {round} complete",
+    "lineComplete": "[Round] {round} complete",
     "lineActing": "{name} is acting",
     "lineUnseen": "Someone unseen is acting",
     "mark": {
@@ -812,7 +884,7 @@
       "acting": "acting",
       "done": "done",
       "holding": "holding",
-      "noTurn": "no turn this round",
+      "noTurn": "no [turn] this [round]",
       "out": "out"
     },
     "you": "You"
@@ -866,7 +938,7 @@
     }
   },
   "poolPad": {
-    "hidden": "Your pool size isn't shown to you. Ask the GM how many dice.",
+    "hidden": "Your pool size isn't shown to you. Ask the [gm] how many dice.",
     "special": "special",
     "specialDie": "Special die",
     "sorted": "{counted} of {ordinary} sorted, the rest scored nothing",
@@ -888,7 +960,7 @@
     "valueOf": "{label}: {value} of {max}"
   },
   "rollPad": {
-    "notPlain": "This Test is not rolled with plain dice. Tell the GM.",
+    "notPlain": "This Test is not rolled with plain dice. Tell the [gm].",
     "rollType": "Roll type for {who}",
     "advantage": {
       "none": "Normal",
@@ -910,82 +982,82 @@
   },
   "table": {
     "offline": "NO SIGNAL",
-    "session": "Session {number}"
+    "session": "[Session] {number}"
   },
   "settingsMenu": {
     "label": "Settings",
     "language": "Language",
-    "turnAlerts": "Buzz and flash on my turn",
-    "turnSound": "Sound on my turn"
+    "turnAlerts": "Buzz and flash on my [turn]",
+    "turnSound": "Sound on my [turn]"
   },
   "turnSoundSwitch": {
-    "label": "Sound on my turn",
+    "label": "Sound on my [turn]",
     "on": "On",
     "off": "Off"
   },
   "alertsSwitch": {
-    "label": "Turn alerts",
+    "label": "[Turn] alerts",
     "on": "On",
     "off": "Off"
   },
   "runTable": {
     "label": "Run the table",
-    "start": "Start a session",
-    "end": "End session {number}",
-    "endConfirm": "End session {number}",
+    "start": "Start a [session]",
+    "end": "End [session] {number}",
+    "endConfirm": "End [session] {number}",
     "cancel": "Cancel",
     "recap": "Recap",
-    "recapHint": "What happened this session? Leave empty to skip.",
+    "recapHint": "What happened this [session]? Leave empty to skip.",
     "tabs": {
-      "fight": "Fight",
+      "fight": "[Fight]",
       "tests": "Tests",
-      "codex": "Codex",
+      "codex": "[Codex]",
       "party": "Room",
       "books": "Books"
     }
   },
   "tableMode": {
     "title": "How the table sits",
-    "betweenSessions": "Change this between sessions.",
-    "becomesVisible": "Switching to a table without a GM makes the creatures and NPCs the GM prepared visible to the table (names and public values; GM-only values stay hidden)."
+    "betweenSessions": "Change this between [session*].",
+    "becomesVisible": "Switching to a table without a [gm] makes the [creature*] and NPCs the [gm] prepared visible to the table (names and public values; [gm]-only values stay hidden)."
   },
   "playerApp": {
-    "charactersLabel": "Your characters",
-    "noCharacter": "No character",
+    "charactersLabel": "Your [character*]",
+    "noCharacter": "No [character]",
     "continueBuilding": "Continue building",
-    "build": "Build character",
+    "build": "Build [character]",
     "rulesFailed": "Couldn't read the rules. Check the connection and reload.",
     "sheetPending": "This tab fills in when the table picks a ruleset.",
     "tabPending": "This tab fills in when the table plays on.",
     "leave": "Leave this table",
-    "tabsLabel": "Player tabs",
+    "tabsLabel": "[Player] tabs",
     "tabLive": "{tab}, running",
     "tabNew": "{tab}, {count} new",
     "status": {
-      "label": "Fight status",
-      "noFight": "No fight",
-      "yourTurn": "Your turn",
+      "label": "[Fight] status",
+      "noFight": "No [fight]",
+      "yourTurn": "Your [turn]",
       "done": "You: done",
-      "round": "Round {round}"
+      "round": "[Round] {round}"
     },
     "tabs": {
       "sheet": "Sheet",
       "rules": "Rules",
-      "fight": "Fight",
+      "fight": "[Fight]",
       "map": "Map",
       "notebook": "Notebook",
       "standings": "Standings",
       "run": "Run the table"
     },
-    "buildDraft": "Your unfinished build is saved. The GM can open it to approve their part."
+    "buildDraft": "Your unfinished build is saved. The [gm] can open it to approve their part."
   },
   "turnBanner": {
-    "yourTurn": "Your turn, {name}",
+    "yourTurn": "Your [turn], {name}",
     "side": {
-      "noTurn": "You take no turn this round",
-      "setup": "The fight is being set up",
+      "noTurn": "You take no [turn] this [round]",
+      "setup": "The [fight] is being set up",
       "sideUp": "Your side picks: you can act",
-      "done": "You have acted this round",
+      "done": "You have acted this [round]",
       "holding": "You are holding an action"
     }
   },
@@ -998,8 +1070,8 @@
     "acquiring": "To acquire {item}",
     "reportedResult": "Result: {label}",
     "pickResult": "What came up for {who}?",
-    "waiting": "Waiting for the GM",
-    "reportedWaiting": "Reported. Waiting for the GM",
+    "waiting": "Waiting for the [gm]",
+    "reportedWaiting": "Reported. Waiting for the [gm]",
     "closed": "Closed",
     "rolled": "Rolled {value}",
     "total": "total {total}",
@@ -1010,8 +1082,8 @@
       "criticalSuccess": "Critical success",
       "criticalFailure": "Critical failure"
     },
-    "label": "Tests called by the GM",
-    "yourCharacter": "your character",
+    "label": "Tests called by the [gm]",
+    "yourCharacter": "your [character]",
     "your": "your",
     "rollPool": "Roll {pool} {dice} for {who}",
     "roll": "Roll {dice} for {who}",
@@ -1024,14 +1096,14 @@
     "more": "More {label}"
   },
   "tableScreen": {
-    "between": "Between sessions",
+    "between": "Between [session*]",
     "testInProgress": "Test in progress",
     "rolledCount": "{test}: {reported} of {called} have rolled"
   },
   "checklist": {
     "anchors": {
-      "session": "Session",
-      "characters": "Characters",
+      "session": "[Session]",
+      "characters": "[Character*]",
       "invite": "Invite",
       "ascension": "Ascension",
       "safety": "Lines and veils",
@@ -1054,40 +1126,40 @@
   },
   "scene": {
     "layers": {
-      "label": "Scene or fight",
-      "scene": "Scene",
-      "fight": "Fight"
+      "label": "[Scene] or [fight]",
+      "scene": "[Scene]",
+      "fight": "[Fight]"
     },
     "label": "{adventure}, {kind} {number}",
     "labelLoose": "{kind}",
-    "closed": "GM notes and closed fields",
-    "gmNotes": "GM notes",
+    "closed": "[gm] notes and closed fields",
+    "gmNotes": "[gm] notes",
     "reveal": {
       "show": "Show",
       "seal": "Seal",
-      "showName": "Show {name} to the party",
-      "sealName": "Seal {name} from the party",
+      "showName": "Show {name} to the [party]",
+      "sealName": "Seal {name} from the [party]",
       "shown": "Shown",
       "sealed": "Sealed",
       "readers": "Readers",
       "readersName": "Change who reads {name}"
     },
     "inScene": {
-      "title": "In this scene",
-      "empty": "Nothing is linked to this scene. Link people, places and handouts in Prep.",
-      "open": "Open {name} in Codex",
-      "fight": "Prepared fight",
-      "creatures": "{count, plural, =0 {No creatures prepared} one {# creature prepared} other {# creatures prepared}}"
+      "title": "In this [scene]",
+      "empty": "Nothing is linked to this [scene]. Link people, places and [handout*] in Prep.",
+      "open": "Open {name} in [Codex]",
+      "fight": "Prepared [fight]",
+      "creatures": "{count, plural, =0 {No [creature*] prepared} one {# [creature] prepared} other {# [creature*] prepared}}"
     },
     "whereNext": {
       "title": "Where next",
-      "none": "This scene has no exits.",
-      "other": "Other scene…",
-      "otherTitle": "Other scenes in this adventure",
-      "noOthers": "No other scenes."
+      "none": "This [scene] has no exits.",
+      "other": "Other [scene]…",
+      "otherTitle": "Other [scene*] in this adventure",
+      "noOthers": "No other [scene*]."
     },
     "strip": {
-      "label": "Scenes in this adventure",
+      "label": "[Scene*] in this adventure",
       "tab": "{number}. {title}",
       "played": "Played",
       "playing": "Playing now",
@@ -1096,33 +1168,33 @@
     "preview": {
       "title": "Preview of {title}",
       "note": "Nothing is sent until you begin.",
-      "begin": "Begin this scene",
+      "begin": "Begin this [scene]",
       "back": "Back"
     },
     "none": {
-      "title": "No scene is being played",
-      "intro": "Begin the next scene of an adventure, or start a fight without one.",
+      "title": "No [scene] is being played",
+      "intro": "Begin the next [scene] of an adventure, or start a [fight] without one.",
       "begin": "Begin",
       "beginName": "Begin {title}",
       "next": "Next in {adventure}",
       "running": "Running",
-      "empty": "No scene is waiting to begin. Add scenes to an adventure in Prep.",
-      "fight": "Start a fight without a scene"
+      "empty": "No [scene] is waiting to begin. Add [scene*] to an adventure in Prep.",
+      "fight": "Start a [fight] without a [scene]"
     },
     "missions": {
-      "title": "Missions",
+      "title": "[Mission*]",
       "listedTo": "Listed to {names}",
       "everyone": "Everyone who sees it",
-      "open": "Open {title} in Codex"
+      "open": "Open {title} in [Codex]"
     }
   },
   "gmApp": {
     "campaigns": "← Campaigns",
-    "tabsLabel": "GM tabs",
+    "tabsLabel": "[gm] tabs",
     "readRules": "Read the rules",
     "header": {
       "admin": "Admin",
-      "round": "Round {round}",
+      "round": "[Round] {round}",
       "yes": "Yes",
       "no": "No",
       "callTest": "Call a Test",
@@ -1131,11 +1203,11 @@
       "history": "History"
     },
     "tabs": {
-      "scene": "Scene",
+      "scene": "[Scene]",
       "track": "Track",
       "prep": "Prep",
-      "codex": "Codex",
-      "party": "Party",
+      "codex": "[Codex]",
+      "party": "[Party]",
       "tests": "Tests",
       "standings": "Standings",
       "map": "Map",
@@ -1151,15 +1223,15 @@
     "longRest": "Long rest"
   },
   "duration": {
-    "ownTurnEnd": "until the end of its turn",
-    "roundEnd": "until the end of the round",
-    "encounterEnd": "until the fight ends",
-    "manual": "until the GM ends it"
+    "ownTurnEnd": "until the end of its [turn]",
+    "roundEnd": "until the end of the [round]",
+    "encounterEnd": "until the [fight] ends",
+    "manual": "until the [gm] ends it"
   },
   "resetEvent": {
-    "sessionStart": "each session",
-    "sessionEnd": "session end",
-    "encounterEnd": "fight end",
+    "sessionStart": "each [session]",
+    "sessionEnd": "[session] end",
+    "encounterEnd": "[fight] end",
     "shortRest": "short rest",
     "longRest": "long rest"
   },
@@ -1174,11 +1246,11 @@
       "resources": "Resources",
       "fields": "Details"
     },
-    "nothing": "The ruleset has nothing to show for this character yet.",
+    "nothing": "The ruleset has nothing to show for this [character] yet.",
     "conditions": "Conditions",
     "none": "None.",
-    "turnsLeft": "{count, plural, one {# turn left} other {# turns left}}",
-    "roundsLeft": "{count, plural, one {# round left} other {# rounds left}}",
+    "turnsLeft": "{count, plural, one {# [turn] left} other {# [turn*] left}}",
+    "roundsLeft": "{count, plural, one {# [round] left} other {# [round*] left}}",
     "jump": "Jump to a section",
     "ledger": {
       "talents": "Talents",
@@ -1261,12 +1333,12 @@
       "no": "{label}: no",
       "host": "Fit it to",
       "loose": "Keep it loose",
-      "ask": "Ask the GM",
-      "asking": "Waiting on the GM: {name}",
+      "ask": "Ask the [gm]",
+      "asking": "Waiting on the [gm]: {name}",
       "cancel": "Cancel the ask"
     },
     "override": {
-      "title": "The GM's override",
+      "title": "The [gm]'s override",
       "value": "{label} set to",
       "hint": "Blank: the worked-out number returns.",
       "set": "Set",
@@ -1275,7 +1347,7 @@
   },
   "breakdown": {
     "hidden": "The parts of this number aren't shown on your phone.",
-    "override": "{source}: the GM's override"
+    "override": "{source}: the [gm]'s override"
   },
   "rulesReader": {
     "failed": "Couldn't read the rules. Check the connection and try again.",
@@ -1303,9 +1375,9 @@
     "qrFailed": "Couldn't draw the QR code. Try again",
     "campaignInviteTitle": "Campaign invite · {role}",
     "guestQrTitle": "Guest QR · {name}",
-    "tableScreen": "Table screen",
-    "endSession": "End session {number}",
-    "startSession": "Start a session",
+    "tableScreen": "[TableScreen]",
+    "endSession": "End [session] {number}",
+    "startSession": "Start a [session]",
     "invite": "Invite",
     "as": "As",
     "campaignQr": "Campaign QR",
@@ -1313,7 +1385,7 @@
     "revokeScreens": "Revoke screens ({count})",
     "qrAlt": "QR code for {title}",
     "hide": "Hide",
-    "characters": "Characters",
+    "characters": "[Character*]",
     "open": "Open",
     "closeSheet": "Close the sheet of {name}",
     "openSheet": "Open the sheet of {name}",
@@ -1325,10 +1397,10 @@
     "guestQr": "Guest QR",
     "revokeGuestLabel": "Revoke guest of {name}",
     "revokeGuest": "Revoke guest",
-    "restParty": "{rest} for the whole party",
-    "restPartyButton": "{rest} (party)",
+    "restParty": "{rest} for the whole [party]",
+    "restPartyButton": "{rest} ([party])",
     "restSkipped": "Not rested in their state: {names}",
-    "newCharacter": "New character name",
+    "newCharacter": "New [character] name",
     "add": "Add",
     "seats": "Seats",
     "owner": "Owner",
@@ -1340,10 +1412,10 @@
     "scopesOf": "Scopes of {name}",
     "scope": {
       "combat": "Combat",
-      "codex": "Codex",
+      "codex": "[Codex]",
       "secrets": "Secrets",
-      "party": "Party",
-      "session": "Session"
+      "party": "[Party]",
+      "session": "[Session]"
     },
     "waitingFor": "Waiting for {name} to accept the campaign.",
     "them": "them",
@@ -1357,10 +1429,10 @@
     "deleteLabel": "Type the campaign's name to delete it",
     "deleteForGood": "Delete for good",
     "recap": "Recap",
-    "recapHint": "What happened this session? Leave empty to skip.",
-    "endSessionConfirm": "End session {number}",
+    "recapHint": "What happened this [session]? Leave empty to skip.",
+    "endSessionConfirm": "End [session] {number}",
     "abandonSession": "End without an award",
-    "deleteSession": "Delete session {number}",
+    "deleteSession": "Delete [session] {number}",
     "cancel": "Cancel",
     "ledger": {
       "build": "Build",
@@ -1370,11 +1442,11 @@
       "open": "Open builder",
       "openLabel": "Open the builder for {name}"
     },
-    "sessionTitle": "Title of the session (optional)",
-    "running": "Session {number} is running",
-    "runningTitled": "Session {number}: {title} is running",
+    "sessionTitle": "Title of the [session] (optional)",
+    "running": "[Session] {number} is running",
+    "runningTitled": "[Session] {number}: {title} is running",
     "inviteCharacter": "Invite",
-    "inviteCharacterLabel": "Invite a player to {name}: a link used once, signed in",
+    "inviteCharacterLabel": "Invite a [player] to {name}: a link used once, signed in",
     "characterInviteTitle": "Invite for {name}",
     "whisper": "Whisper",
     "whisperLabel": "Whisper to {name}"
@@ -1394,7 +1466,7 @@
   "rulesPanel": {
     "readFailed": "Couldn't read the rules. Check the connection and reload.",
     "ruleset": "Ruleset",
-    "noRuleset": "No ruleset yet. Pin one to build characters and call Tests.",
+    "noRuleset": "No ruleset yet. Pin one to build [character*] and call Tests.",
     "importFirst": "You haven't imported a ruleset. <link>Import one</link> first.",
     "myRulesets": "My rulesets",
     "switchTo": "Switch to this",
@@ -1430,84 +1502,84 @@
     "readFailed": "Couldn't read the rules. Try again",
     "pickRuleset": "Pick a ruleset first (Rules tab)",
     "added": "Added {count} × {name}",
-    "title": "Add creatures",
-    "searchLabel": "Search creatures by name",
+    "title": "Add [creature*]",
+    "searchLabel": "Search [creature*] by name",
     "search": "Search",
-    "noMatch": "No creature matches. Attach a pack with creatures in the Rules tab.",
-    "found": "Creatures found",
+    "noMatch": "No [creature] matches. Attach a pack with [creature*] in the Rules tab.",
+    "found": "[Creature*] found",
     "level": "Level {level}",
-    "fewer": "Fewer creatures",
+    "fewer": "Fewer [creature*]",
     "howMany": "How many",
-    "more": "More creatures",
+    "more": "More [creature*]",
     "temporary": "Temporary (gone when the encounter ends)",
     "spawn": "Spawn {count} × {name}",
-    "asMob": "As a mob of",
+    "asMob": "As a [mob] of",
     "spawnMob": "Spawn {name} ×{count}",
     "addedMob": "Added {name} ×{count}",
-    "tableSees": "In a running fight, the table sees"
+    "tableSees": "In a running [fight], the table sees"
   },
   "track": {
-    "noTurnOrder": "This ruleset has no turn order.",
-    "paused": "Paused — start a session to continue",
-    "nobody": "{mode, select, game {Nobody is in the game yet. Add the players below.} other {Nobody is in the fight yet. Add the party below.}}",
-    "noFight": "{mode, select, game {No game is running. Start one to add the players.} other {No fight is running. Start one to add the party and the creatures.}}",
-    "startSession": "{mode, select, game {Start a session in the Party tab, then start a game here.} other {Start a session in the Party tab, then start a fight here.}}",
+    "noTurnOrder": "This ruleset has no [turn] order.",
+    "paused": "Paused — start a [session] to continue",
+    "nobody": "{mode, select, game {Nobody is in the game yet. Add the [player*] below.} other {Nobody is in the [fight] yet. Add the [party] below.}}",
+    "noFight": "{mode, select, game {No game is running. Start one to add the [player*].} other {No [fight] is running. Start one to add the [party] and the [creature*].}}",
+    "startSession": "{mode, select, game {Start a [session] in the [Party] tab, then start a game here.} other {Start a [session] in the [Party] tab, then start a [fight] here.}}",
     "sheetOf": "Sheet of {name}",
     "callTestFor": "Call a Test for {name}",
-    "aCharacter": "a character"
+    "aCharacter": "a [character]"
   },
   "addCombatants": {
-    "everyone": "{mode, select, game {Everyone at the table is in the game.} other {Everyone at the table is in the fight.}}",
-    "title": "{mode, select, game {Add to the game} other {Add to the fight}}",
-    "addParty": "Add the party ({count})",
-    "addLabel": "{mode, select, game {Add {name} to the game} other {Add {name} to the fight}}",
+    "everyone": "{mode, select, game {Everyone at the table is in the game.} other {Everyone at the table is in the [fight].}}",
+    "title": "{mode, select, game {Add to the game} other {Add to the [fight]}}",
+    "addParty": "Add the [party] ({count})",
+    "addLabel": "{mode, select, game {Add {name} to the game} other {Add {name} to the [fight]}}",
     "add": "Add"
   },
   "fightBar": {
-    "label": "{mode, select, game {Game controls} other {Fight controls}}",
-    "round": "Round {round}",
+    "label": "{mode, select, game {Game controls} other {[Fight] controls}}",
+    "round": "[Round] {round}",
     "setup": "Setting up",
     "prev": "Prev",
-    "next": "Next turn",
-    "noFight": "{mode, select, game {No game} other {No fight}}",
-    "startSessionFirst": "Start a session first",
-    "start": "{mode, select, game {Start game} other {Start fight}}",
+    "next": "Next [turn]",
+    "noFight": "{mode, select, game {No game} other {No [fight]}}",
+    "startSessionFirst": "Start a [session] first",
+    "start": "{mode, select, game {Start game} other {Start [fight]}}",
     "undo": "Undo",
-    "turnBackNone": "Turn back: no turn step in this session",
-    "turnBack": "Turn back: {kind, select, turnStart {{name}'s turn} turnEnd {the end of {name}'s turn} begin {the start of round {round}} other {round {round}}}{later, plural, =0 {} other { (and # more)}}",
+    "turnBackNone": "[Turn] back: no [turn] step in this [session]",
+    "turnBack": "[Turn] back: {kind, select, turnStart {{name}'s [turn]} turnEnd {the end of {name}'s [turn]} begin {the start of [round] {round}} other {[round] {round}}}{later, plural, =0 {} other { (and # more)}}",
     "turnBackConfirm": "Take back {count} actions?",
-    "endConfirm": "{mode, select, game {Stop the game without saving results} other {End fight and clear temporary creatures}}",
-    "end": "{mode, select, game {Stop game} other {End fight}}",
+    "endConfirm": "{mode, select, game {Stop the game without saving results} other {End [fight] and clear temporary [creature*]}}",
+    "end": "{mode, select, game {Stop game} other {End [fight]}}",
     "endGameConfirm": "End game and save results (cannot be undone)",
     "endGame": "End game",
-    "begin": "Begin round 1",
-    "endTurn": "End {name}'s turn",
-    "newRound": "Begin round {round}"
+    "begin": "Begin [round] 1",
+    "endTurn": "End {name}'s [turn]",
+    "newRound": "Begin [round] {round}"
   },
   "reminders": {
     "label": "Reminders",
     "barSides": "Bar a whole side",
     "barSide": "Bar all {side}",
     "freeSide": "Free all {side}",
-    "turnStart": "At the start of this turn",
-    "turnEnd": "At the end of this turn",
-    "roundEnd": "At the end of the round",
+    "turnStart": "At the start of this [turn]",
+    "turnEnd": "At the end of this [turn]",
+    "roundEnd": "At the end of the [round]",
     "names": "{names}:",
-    "endsThisTurn": "{conditions} ends this turn"
+    "endsThisTurn": "{conditions} ends this [turn]"
   },
   "orderList": {
-    "label": "Turn order",
+    "label": "[Turn] order",
     "initiative": "Initiative of {name}",
     "moveUp": "Move {name} up among equal initiatives",
     "moveDown": "Move {name} down among equal initiatives",
     "moveUpSeat": "Move {name} up one seat",
     "moveDownSeat": "Move {name} down one seat",
     "first": "First player",
-    "makeFirst": "Make {name} the first player"
+    "makeFirst": "Make {name} the first [player]"
   },
   "combatSide": {
-    "party": "Party",
-    "foe": "Foe",
+    "party": "[Party]",
+    "foe": "[Foe]",
     "other": "Other"
   },
   "combatVisibility": {
@@ -1537,36 +1609,36 @@
     "deathSave": "Death save",
     "deathSaves": "Death saves: {passed} passed, {failed} failed",
     "tableSees": "The table sees",
-    "keep": "{mode, select, game {Keep when the game ends} other {Keep when the fight ends}}",
+    "keep": "{mode, select, game {Keep when the game ends} other {Keep when the [fight] ends}}",
     "conditions": "Conditions",
     "none": "None.",
     "removeCondition": "Remove {condition} from {name}",
     "remove": "Remove",
     "conditionToAdd": "Condition to add",
     "addCondition": "Add a condition…",
-    "lastsLabel": "Turns or rounds it lasts",
+    "lastsLabel": "[Turn*] or [round*] it lasts",
     "lasts": "Lasts",
     "add": "Add",
-    "removeFromFight": "{mode, select, game {Remove from game} other {Remove from fight}}",
-    "turnActions": "Turn actions",
+    "removeFromFight": "{mode, select, game {Remove from game} other {Remove from [fight]}}",
+    "turnActions": "[Turn] actions",
     "side": {
-      "start": "Start turn",
-      "outOfTurn": "Act out of turn ({cost})",
+      "start": "Start [turn]",
+      "outOfTurn": "Act out of [turn] ({cost})",
       "justGo": "Just go",
-      "endTurn": "End turn",
+      "endTurn": "End [turn]",
       "hold": "Hold action",
       "useHeld": "Use held action",
       "notYet": "Not yet",
       "markDone": "Mark done",
-      "noTurn": "No turn this round",
-      "takesTurn": "Takes its turn",
+      "noTurn": "No [turn] this [round]",
+      "takesTurn": "Takes its [turn]",
       "lift": "Lift ({cost})"
     }
   },
   "tests": {
     "open": "Open",
     "noneOpen": "No Test is open. Call one above.",
-    "closedThisSession": "Closed this session"
+    "closedThisSession": "Closed this [session]"
   },
   "callCard": {
     "acquiring": "To acquire {item}",
@@ -1587,7 +1659,7 @@
     "hiddenTarget": "(the table isn't told the number)",
     "poolLine": "{pool} dice ({modifier}) vs DN {target}",
     "plainLine": "{modifier} vs {target}",
-    "aCharacter": "a character",
+    "aCharacter": "a [character]",
     "changeLabel": "Change the roll of {name}",
     "reportLabel": "Report a roll for {name}",
     "change": "Change",
@@ -1614,7 +1686,7 @@
     "test": "Test",
     "pick": "Pick…",
     "whoRolls": "Who rolls",
-    "noCharacter": "No character is built for this ruleset yet.",
+    "noCharacter": "No [character] is built for this ruleset yet.",
     "hideTarget": "Hide the number to beat from the table",
     "showOutcome": "Tell them success or failure",
     "callTest": "Call Test",
@@ -1986,7 +2058,7 @@
     "admin": "Admin",
     "page": {
       "rooms": "Rooms",
-      "characters": "Characters",
+      "characters": "[Character*]",
       "library": "Rulesets & packs"
     },
     "lede": {
@@ -1994,12 +2066,12 @@
       "characters": "Everyone you play, at every table.",
       "library": "Your imported rulesets, the packs written for them, and the Worlds your rooms can wear. Only your rooms use them."
     },
-    "noCharacters": "No characters yet. Accept an invite to a table, or start one in a room you run.",
+    "noCharacters": "No [character*] yet. Accept an invite to a table, or start one in a room you run.",
     "kind": {
-      "pc": "Player character",
+      "pc": "[Player] [character]",
       "companion": "Companion",
       "npc": "NPC",
-      "creature": "Creature",
+      "creature": "[Creature]",
       "group": "Group",
       "vehicle": "Vehicle",
       "hazard": "Hazard"
@@ -2029,14 +2101,14 @@
     "cancel": "Cancel",
     "filter": "Filter by kind",
     "all": "All",
-    "empty": "No entries yet. Start with an NPC, a place or a handout.",
+    "empty": "No entries yet. Start with an NPC, a place or a [handout].",
     "noMatch": "No entry matches.",
     "body": "Text the table sees once revealed",
-    "gmNotes": "GM notes (never shown to players)",
+    "gmNotes": "[gm] notes (never shown to [player*])",
     "save": "Save",
     "delete": "Delete",
     "confirmDelete": "Delete \"{title}\" for good",
-    "typeToDeleteScenes": "Type the adventure's title to delete it with its scenes",
+    "typeToDeleteScenes": "Type the adventure's title to delete it with its [scene*]",
     "path": "Where {title} sits",
     "insideLabel": "Inside",
     "insideNone": "Nothing (top level)",
@@ -2046,10 +2118,10 @@
     "reveal": "Who sees it",
     "visibilityLabel": "Visibility",
     "audienceLabel": "Audience",
-    "readers": "Characters who see it",
-    "noCharacters": "No characters in this room yet.",
+    "readers": "[Character*] who see it",
+    "noCharacters": "No [character*] in this room yet.",
     "revealButton": "Apply",
-    "listed": "{count, plural, one {# character} other {# characters}}",
+    "listed": "{count, plural, one {# [character]} other {# [character*]}}",
     "picture": "Picture",
     "noPicture": "No picture yet.",
     "addPicture": "Add a picture",
@@ -2070,44 +2142,44 @@
     },
     "kind": {
       "adventure": "Adventure",
-      "scene": "Scene",
+      "scene": "[Scene]",
       "npc": "NPC",
       "location": "Location",
       "faction": "Faction",
       "item": "Item",
-      "handout": "Handout",
+      "handout": "[Handout]",
       "quest": "Quest",
       "lore": "Lore"
     },
     "visibility": {
-      "gm": "GM only",
-      "party": "Party",
+      "gm": "[gm] only",
+      "party": "[Party]",
       "public": "Public"
     },
     "audience": {
       "all": "Everyone",
-      "listed": "Chosen characters"
+      "listed": "Chosen [character*]"
     },
     "give": {
       "title": "Holder",
       "with": "With {name}",
       "nobody": "Nobody holds it.",
       "giveTo": "Give to",
-      "pick": "Pick a character…",
+      "pick": "Pick a [character]…",
       "give": "Give",
       "takeBack": "Take back"
     },
     "addToScene": {
-      "title": "Add to scene",
+      "title": "Add to [scene]",
       "adventure": "Adventure",
-      "scene": "Scene",
+      "scene": "[Scene]",
       "noAdventure": "No adventure",
       "sceneOption": "{title} ({status})",
-      "add": "Add {name} to the scene",
+      "add": "Add {name} to the [scene]",
       "added": "Added to {scene}"
     },
     "readersOf": "Who reads {title}",
-    "searchKey": "Search the codex (press /)",
+    "searchKey": "Search the [codex] (press /)",
     "hits": "{kind}: {count, plural, one {# match} other {# matches}}",
     "hitLabel": "Peek at {title}"
   },
@@ -2126,12 +2198,12 @@
   },
   "recaps": {
     "lastTime": "Last time",
-    "session": "Session {number}",
+    "session": "[Session] {number}",
     "dismiss": "Got it",
     "heading": "Recaps",
-    "empty": "No recaps yet. They appear here when a session ends with one.",
+    "empty": "No recaps yet. They appear here when a [session] ends with one.",
     "edit": "Edit",
-    "editLabel": "Edit the recap of session {number}",
+    "editLabel": "Edit the recap of [session] {number}",
     "text": "Recap",
     "save": "Save recap",
     "cancel": "Cancel"
@@ -2139,15 +2211,15 @@
   "prep": {
     "adventureTitle": "Adventure title",
     "newAdventure": "New adventure",
-    "sceneTitle": "Scene title",
-    "newScene": "New scene",
-    "sceneFromPack": "Scene from a pack",
+    "sceneTitle": "[Scene] title",
+    "newScene": "New [scene]",
+    "sceneFromPack": "[Scene] from a pack",
     "create": "Create",
     "cancel": "Cancel",
-    "empty": "No adventures yet. Name one, then add its scenes.",
-    "noScenes": "No scenes yet.",
-    "loose": "Scenes outside an adventure",
-    "pickScene": "Pick a scene on the board, then open it.",
+    "empty": "No adventures yet. Name one, then add its [scene*].",
+    "noScenes": "No [scene*] yet.",
+    "loose": "[Scene*] outside an adventure",
+    "pickScene": "Pick a [scene] on the board, then open it.",
     "moveUp": "Move {title} up",
     "moveDown": "Move {title} down",
     "testsCount": "{count, plural, one {# Test} other {# Tests}}",
@@ -2155,7 +2227,7 @@
     "noLinks": "Nothing linked yet.",
     "linkFilter": "Find an entry to link",
     "noCandidates": "No entry to link.",
-    "openInCodex": "Open in CODEX",
+    "openInCodex": "Open in [CODEX]",
     "remove": "Remove",
     "unlink": "Unlink {title}",
     "plannedTests": "Planned Tests",
@@ -2165,12 +2237,12 @@
     "call": "Call",
     "unplan": "Stop planning {id}",
     "lines": "Prepared lines",
-    "noLines": "Nothing prepared for this scene yet.",
+    "noLines": "Nothing prepared for this [scene] yet.",
     "kind": {
-      "reveals": "Shown to the party",
+      "reveals": "Shown to the [party]",
       "tests": "Tests",
       "pools": "Pools",
-      "roster": "Creatures",
+      "roster": "[Creature*]",
       "exits": "Where next",
       "picks": "Picked from a place"
     },
@@ -2178,7 +2250,7 @@
       "reveals": "Add an entry to show",
       "tests": "Add a Test",
       "pools": "Add a pool line",
-      "roster": "Add creatures",
+      "roster": "Add [creature*]",
       "exits": "Add an exit",
       "picks": "Pick rows"
     },
@@ -2186,27 +2258,27 @@
       "pack": "Broken: its pack is not attached to this room",
       "entry": "Broken: what it names is gone",
       "test": "Broken: the ruleset has no such Test",
-      "actor": "Broken: a listed character is gone",
+      "actor": "Broken: a listed [character] is gone",
       "pool": "Broken: the ruleset has no such pool",
-      "scene": "Broken: the scene is gone",
+      "scene": "Broken: the [scene] is gone",
       "field": "Broken: that field can no longer be picked",
       "row": "Broken: this row is gone from its entry",
       "option": "Broken: the ruleset has no such spawn option"
     },
     "blocked": {
-      "noFight": "No fight is running. Start one first.",
+      "noFight": "No [fight] is running. Start one first.",
       "count": "More than 50 at once; split them over two lines.",
-      "mobCount": "Several mobs at once; the table sends one mob at a time.",
-      "nobody": "No character holds a seat to take it.",
+      "mobCount": "Several [mob*] at once; the table sends one [mob] at a time.",
+      "nobody": "No [character] holds a seat to take it.",
       "short": "The pool can't pay this."
     },
     "summary": {
       "roster": "{count} × {name}",
-      "mob": "{count} × {name}, a mob of {mob}",
+      "mob": "{count} × {name}, a [mob] of {mob}",
       "test": "{test} · {who}",
       "testWith": "{test} · {inputs} · {who}",
       "party": "everyone seated",
-      "pick": "one seated character, picked when sent",
+      "pick": "one seated [character], picked when sent",
       "gone": "(gone)",
       "pool": "{pool} {amount, number, ::sign-always}",
       "exit": "To {scene}",
@@ -2214,25 +2286,25 @@
       "picks": "{count, plural, one {# row} other {# rows}} of {entry}"
     },
     "form": {
-      "creature": "Creature",
+      "creature": "[Creature]",
       "visibility": "The table sees",
       "pool": "Pool",
       "amount": "Amount",
       "poolFrom": "From a pack: {type}",
       "amountHint": "Positive adds, negative spends. Never 0.",
       "text": "What it is for",
-      "scene": "Scene",
+      "scene": "[Scene]",
       "entry": "Entry",
       "pick": "Pick…",
       "label": "Label (optional)",
       "exitLabel": "Label",
-      "note": "Note for the GM (optional)",
+      "note": "Note for the [gm] (optional)",
       "takers": {
         "party": "Everyone seated",
         "listed": "Only these",
         "pick": "One, picked when sent"
       },
-      "rosterLabelHint": "The creatures take this name at the table, numbered.",
+      "rosterLabelHint": "The [creature*] take this name at the table, numbered.",
       "outcomes": "What each result means",
       "outcomeLabel": "Result",
       "outcomeText": "What happens",
@@ -2248,25 +2320,25 @@
     "moveLineUp": "Move this line up",
     "moveLineDown": "Move this line down",
     "mode": {
-      "label": "Prepare or run the scene",
+      "label": "Prepare or run the [scene]",
       "prepare": "Prepare",
       "run": "Run"
     },
-    "sceneStatus": "Where this scene stands",
+    "sceneStatus": "Where this [scene] stands",
     "setStatus": {
       "planned": "Planned",
-      "active": "Play this scene",
+      "active": "Play this [scene]",
       "done": "Done",
       "skipped": "Skip"
     },
-    "startFight": "Start the fight",
-    "joinFight": "Bring them into the fight",
+    "startFight": "Start the [fight]",
+    "joinFight": "Bring them into the [fight]",
     "fight": {
-      "start": "the start of the fight",
-      "party": "the seated characters",
-      "done": "The fight is on.",
+      "start": "the start of the [fight]",
+      "party": "the seated [character*]",
+      "done": "The [fight] is on.",
       "stopped": "Stopped at {what}; nothing after it was sent.",
-      "skipped": "The fight is on. Not sent: {lines}."
+      "skipped": "The [fight] is on. Not sent: {lines}."
     },
     "who": "Who?",
     "whoTakes": "Who takes {what}",
@@ -2281,7 +2353,7 @@
     "pickedRows": "Picked {field}",
     "switchRow": "{label}: {row}",
     "board": {
-      "pick": "Scene {number}, {title}",
+      "pick": "[Scene] {number}, {title}",
       "ready": "Ready",
       "toFix": "{count} to fix",
       "exit": "To {label}",
@@ -2307,13 +2379,13 @@
       "run": "Run from here"
     },
     "page": {
-      "previous": "Previous scene",
-      "next": "Next scene",
-      "position": "Scene {number} of {total}",
-      "strip": "Scenes of this adventure",
-      "tab": "Scene {number}, {title}",
+      "previous": "Previous [scene]",
+      "next": "Next [scene]",
+      "position": "[Scene] {number} of {total}",
+      "strip": "[Scene*] of this adventure",
+      "tab": "[Scene] {number}, {title}",
       "fields": "Fields",
-      "text": "Text and GM notes",
+      "text": "Text and [gm] notes",
       "nothingWritten": "Nothing written yet.",
       "edit": "Edit {part}",
       "closeEdit": "Stop editing {part}",
@@ -2322,7 +2394,7 @@
     "newEntry": "New {kind}: {title}",
     "newEntryShort": "+ {kind}",
     "newEntryGroup": "Make “{title}” a new entry",
-    "newNotLinked": "“{title}” was made but not linked to this scene.",
+    "newNotLinked": "“{title}” was made but not linked to this [scene].",
     "linkNamed": "Link everything named ({count})",
     "linkedNamed": "{done} of {total} linked."
   },
@@ -2336,10 +2408,10 @@
     },
     "panel": {
       "title": "Lines and veils",
-      "hint": "One per line, up to {items}, each up to {chars} characters. Players can suggest more from their phones, without a name.",
+      "hint": "One per line, up to {items}, each up to {chars} characters. [Player*] can suggest more from their phones, without a name.",
       "lines": "Lines: never at this table",
       "veils": "Veils: happen off the page",
-      "xCard": "Players can touch the X-Card",
+      "xCard": "[Player*] can touch the X-Card",
       "tooMany": "A list holds at most {items} entries.",
       "tooLong": "Each entry is at most {chars} characters.",
       "save": "Save"
@@ -2447,13 +2519,13 @@
   "archivedBanner": {
     "title": "Read only",
     "text": "This campaign is closed. Nothing at the table can change until it is reopened.",
-    "reopen": "Reopen on Party"
+    "reopen": "Reopen on [Party]"
   },
   "actionNotices": {
     "label": "What that did",
     "poolFull": "{pool} is full: {lost} lost",
     "restSkipped": "Not rested in their state: {names}",
-    "sessionDeleted": "Session {number} deleted; what it awarded stays",
+    "sessionDeleted": "[Session] {number} deleted; what it awarded stays",
     "sceneBegun": "{title} begun: {revealed, plural, =0 {nothing revealed} one {# entry revealed} other {# entries revealed}}",
     "revealSkipped": "Not revealed: {line}",
     "rule": "{name}: {rule}",
@@ -2467,14 +2539,14 @@
     "ask": "Ask to spend",
     "acquires": "{name} asks to acquire {item}",
     "acquireOn": "{name} asks to acquire {item}, fitted to {host}",
-    "askAria": "Ask the GM to spend {label}",
+    "askAria": "Ask the [gm] to spend {label}",
     "amount": "How much {label} to spend",
     "less": "Ask for less {label}",
     "more": "Ask for more {label}",
-    "note": "Note for the GM (optional)",
+    "note": "Note for the [gm] (optional)",
     "send": "Send request",
     "close": "Never mind",
-    "waiting": "Waiting for the GM: spend {amount} {label}",
+    "waiting": "Waiting for the [gm]: spend {amount} {label}",
     "cancel": "Cancel",
     "cancelAria": "Cancel the request to spend {amount} {label}",
     "dismiss": "Dismiss",
@@ -2498,10 +2570,10 @@
     "spends": "Spends",
     "spendsFor": "Spends for {name}",
     "spendAsk": "Ask: {label}",
-    "spendAskAria": "Ask the GM: {label}",
+    "spendAskAria": "Ask the [gm]: {label}",
     "free": "free",
     "inputAria": "{input} for {label}",
-    "spendWaiting": "Waiting for the GM: {label}",
+    "spendWaiting": "Waiting for the [gm]: {label}",
     "spendCancelAria": "Cancel the ask: {label}",
     "othersAsk": "{name} asks: {label}",
     "spendApproveAria": "Approve {name}: {label}",
@@ -2510,7 +2582,7 @@
     "spendDenied": "Denied: {label} for {name}.",
     "spendDeniedWhy": "Denied: {label} for {name}. {reason}",
     "spendDoAria": "{label} for {name}",
-    "usedThisRound": "{label}: used this round",
+    "usedThisRound": "{label}: used this [round]",
     "openTable": "Open {title}",
     "openTableAria": "Open the {title} table for {name}",
     "quickAria": "{label}: {input} {value}"
@@ -2527,7 +2599,7 @@
     "custom": "Other",
     "customLabel": "Segments (2 to 12)",
     "visibility": "Who sees it",
-    "gm": "GM only",
+    "gm": "[gm] only",
     "party": "The table",
     "create": "Create clock",
     "cancel": "Cancel",
@@ -2541,7 +2613,7 @@
     "deleteConfirm": "Delete {name}? This cannot be undone.",
     "deleteYes": "Delete clock",
     "about": "About {title}",
-    "link": "Linked codex entry",
+    "link": "Linked [codex] entry",
     "noLink": "No entry"
   },
   "mention": {
@@ -2556,6 +2628,7 @@
     "nothing": "Nothing to draft yet. Tests, reveals, encounters and clocks show up here."
   },
   "manifestForm": {
+    "inLanguage": "{label} in {language}",
     "choose": "Not set",
     "citePlaceholder": "Core p.142",
     "citeHint": "Printed page, e.g. Core p.142.",
@@ -2599,7 +2672,7 @@
     "targetUnreadable": "Couldn't read that file.",
     "blocks": {
       "sources": "Sources",
-      "fields": "Character fields",
+      "fields": "[Character] fields",
       "effects": "Effects",
       "bands": "Scoring faces",
       "outcomes": "Results, best first",
@@ -2616,11 +2689,11 @@
       "ruleset": {
         "about": "About",
         "game": "Game",
-        "fields": "Character fields",
+        "fields": "[Character] fields",
         "resources": "Resources",
         "conditions": "Conditions",
         "tests": "Tests",
-        "turn": "Turn order",
+        "turn": "[Turn] order",
         "creation": "Creation steps",
         "board": "Phases and scoring",
         "more": "More",
@@ -2686,9 +2759,9 @@
       "family": "Family",
       "genres": "Genres (comma-separated)",
       "modes": "Table modes",
-      "strategy": "Turn order",
+      "strategy": "[Turn] order",
       "score": "Score",
-      "rerollEachRound": "Roll again each round",
+      "rerollEachRound": "Roll again each [round]",
       "tiebreak": "Tiebreakers",
       "firstPlayer": "First player",
       "actor": "Actor entity",
@@ -2719,10 +2792,10 @@
   },
   "fightLog": {
     "title": "LOG",
-    "empty": "Nothing yet in this fight.",
-    "roundHead": "Round {round}",
-    "between": "Between turns",
-    "turnOf": "{name}'s turn",
+    "empty": "Nothing yet in this [fight].",
+    "roundHead": "[Round] {round}",
+    "between": "Between [turn*]",
+    "turnOf": "{name}'s [turn]",
     "strike": "{attacker} strikes {target}: {outcome} ({total})",
     "strikeWith": "{attacker} strikes {target} with {means}: {outcome} ({total})",
     "change": "{name}: {by, number, ::sign-always} {label}",
@@ -2731,17 +2804,17 @@
     "conditionOn": "{name}: +{label}",
     "conditionOff": "{name}: −{label}",
     "acts": "{name} acts",
-    "ends": "{name}'s turn ends",
-    "round": "Round {round} begins",
+    "ends": "{name}'s [turn] ends",
+    "round": "[Round] {round} begins",
     "warn": "{name}: {text}",
     "undone": "(taken back)",
     "other": "{count, plural, one {# change} other {# changes}}"
   },
   "history": {
-    "title": "History of this session",
-    "empty": "Nothing logged in this session yet.",
-    "reading": "Reading the session's history…",
-    "noSession": "History lists the running session's actions. Start a session first.",
+    "title": "History of this [session]",
+    "empty": "Nothing logged in this [session] yet.",
+    "reading": "Reading the [session]'s history…",
+    "noSession": "History lists the running [session]'s actions. Start a [session] first.",
     "undo": "Undo",
     "redo": "Redo",
     "undoLine": "Undo: {line}",
@@ -2776,28 +2849,28 @@
       "change": "{name}: {by, number, ::sign-always} {label}",
       "conditionOn": "{name} gains {label}",
       "conditionOff": "{name} loses {label}",
-      "next": "the next turn",
+      "next": "the next [turn]",
       "hold": "hold the action",
-      "back": "TURN BACK",
-      "begin": "begin the fight",
+      "back": "[TURN] BACK",
+      "begin": "begin the [fight]",
       "mob": "{name} stands at {members} members",
       "reveal": "show {name} to the table",
       "hide": "hide {name} from the table",
       "pool": "{label} {by, number, ::sign-always}",
       "go": "{name} acts now, out of order",
-      "seize": "{name} seizes the turn",
-      "aware": "{name} is aware: takes a first turn",
-      "ambush": "{name} is ambushed: no first turn",
-      "remove": "take {name} out of the fight"
+      "seize": "{name} seizes the [turn]",
+      "aware": "{name} is aware: takes a first [turn]",
+      "ambush": "{name} is ambushed: no first [turn]",
+      "remove": "take {name} out of the [fight]"
     },
     "why": {
       "unknown": "Not an order: try a name and hit 3, +a condition, next, hold, back or begin.",
       "noTarget": "Whose? Type a name or select a combatant.",
-      "noMatch": "No one in the fight is called {words}.",
+      "noMatch": "No one in the [fight] is called {words}.",
       "ambiguous": "Which one? {names}",
       "noCondition": "This ruleset has no condition called {words}.",
       "needsCount": "How many? Type mob and a number.",
-      "notHere": "This game's fight has no such order."
+      "notHere": "This game's [fight] has no such order."
     }
   },
   "strike": {
@@ -2809,9 +2882,9 @@
     "means": "Strike with",
     "noMeans": "{name} has nothing to strike with.",
     "meansChips": "What it carries",
-    "sayAloud": "Its players see only a bar: say the {label} aloud, {number}.",
+    "sayAloud": "Its [player*] see only a bar: say the {label} aloud, {number}.",
     "target": "Target",
-    "noTarget": "No one in the fight this strike can land on.",
+    "noTarget": "No one in the [fight] this strike can land on.",
     "less": "Less {label}",
     "more": "More {label}",
     "linesOf": "What makes {name}",
@@ -2823,25 +2896,25 @@
     "change": "{by, number, ::sign-always} {label}",
     "apply": "APPLY",
     "send": "SEND",
-    "tellGm": "Tell the GM: {result}",
+    "tellGm": "Tell the [gm]: {result}",
     "notes": "After the strike",
     "openTable": "OPEN {title}",
     "readFailed": "Couldn't read what this strike is made with."
   },
   "tables": {
     "title": "Tables",
-    "gm": "GM only",
+    "gm": "[gm] only",
     "party": "The table",
     "owner": "Dealt face down",
-    "noGm": "Nobody runs this room as GM, so nothing can be GM-only.",
+    "noGm": "Nobody runs this room as [gm], so nothing can be [gm]-only.",
     "roll": "Roll",
     "diceInput": "{label} ({dice})",
     "rolled": "rolled {value}",
     "deal": "Deal",
     "dealTo": "Deal to",
-    "dealCount": "{count, plural, one {Deal to # character} other {Deal to # characters}}",
+    "dealCount": "{count, plural, one {Deal to # [character]} other {Deal to # [character*]}}",
     "cancel": "Cancel",
-    "aCharacter": "A character",
+    "aCharacter": "A [character]",
     "reshuffle": "Reshuffle",
     "reshuffleConfirm": "Take every card of {title} back? Nobody can undo a deal.",
     "reshuffleYes": "Reshuffle",
@@ -2856,7 +2929,7 @@
     "logTyped": "Log it",
     "target": "For",
     "pickTarget": "Pick who it is for",
-    "fighting": "In the fight",
+    "fighting": "In the [fight]",
     "others": "Everyone else",
     "less": "Less {label}",
     "more": "More {label}",
@@ -2878,7 +2951,7 @@
   },
   "pools": {
     "title": "Pools",
-    "planned": "Planned in this scene",
+    "planned": "Planned in this [scene]",
     "add": "Add 1 to {label}",
     "take": "Take 1 from {label}",
     "value": "{label}: {value}",
@@ -2917,7 +2990,7 @@
       "creation": "Creation: {spent} of {budget} XP",
       "play": "In play · Rank {rank}: {spent} of {budget} XP",
       "group": "{step} · {xp} XP",
-      "session": "Session {n} · {xp} XP",
+      "session": "[Session] {n} · {xp} XP",
       "unrecorded": "Not recorded yet · {xp} XP",
       "nothing": "Nothing bought yet.",
       "todo": "Still to settle",
@@ -2925,7 +2998,7 @@
       "kind": {
         "todo": "To do",
         "error": "Fix",
-        "gm": "GM"
+        "gm": "[gm]"
       },
       "goTo": "Go to step",
       "effects": "In play",
@@ -2953,8 +3026,8 @@
       "count": "Showing {shown} of {total}",
       "none": "Nothing matches.",
       "more": "Show {count} more",
-      "outOfReach": "Out of reach for this character",
-      "gmJudges": "The GM judges: {what}",
+      "outOfReach": "Out of reach for this [character]",
+      "gmJudges": "The [gm] judges: {what}",
       "taken": "Taken",
       "closed": "Closed",
       "take": "Take"
@@ -2968,14 +3041,14 @@
       "label": "What this step still needs",
       "todo": "To do",
       "fix": "Fix",
-      "gm": "GM",
+      "gm": "[gm]",
       "approve": "Approve",
       "approveLabel": "Approve: {what}",
-      "waiting": "Waits for the GM",
-      "noTick": "Rule on it in the GM's part"
+      "waiting": "Waits for the [gm]",
+      "noTick": "Rule on it in the [gm]'s part"
     },
     "tier": {
-      "pick": "Tier of this character",
+      "pick": "Tier of this [character]",
       "tierN": "Tier {tier}",
       "budget": "{xp} XP to spend",
       "perTier": "{xp} XP per Tier to spend",
@@ -2985,7 +3058,7 @@
       "official": "Official",
       "homebrewIn": "Homebrew, allowed",
       "homebrewOut": "Homebrew, not offered",
-      "roomTier": "This is the room's Tier. The GM changes it under Rules, Campaign settings."
+      "roomTier": "This is the room's Tier. The [gm] changes it under Rules, Campaign settings."
     },
     "archetype": {
       "advanced": "Advanced Creation",
@@ -3001,7 +3074,7 @@
       "keywords": "Keywords",
       "species": "Species",
       "ability": "An Archetype's Ability",
-      "abilityNote": "The GM must agree to it.",
+      "abilityNote": "The [gm] must agree to it.",
       "kit": "Wargear",
       "value": "Value {value}"
     },
@@ -3033,7 +3106,7 @@
       "factionNote": "Optional. Tap the one taken again for none.",
       "background": "Background",
       "tables": "Background tables",
-      "noTables": "No Background table is open to this character yet.",
+      "noTables": "No Background table is open to this [character] yet.",
       "whichBonus": "Which one bonus applies",
       "bonus": "+{amount} {what}",
       "writeIn": "Or write your own",
@@ -3048,9 +3121,9 @@
     "ascension": {
       "atCreation": "Ascension Package at creation",
       "inPlay": "Ascension Packages, Tier {from} → {to}",
-      "waived": "The GM waived the package for this Ascension.",
+      "waived": "The [gm] waived the package for this Ascension.",
       "archetype": "Archetype Ascension",
-      "archetypeNote": "Needs Rank {rank} and the GM's agreement.",
+      "archetypeNote": "Needs Rank {rank} and the [gm]'s agreement.",
       "tierN": "Tier {tier}",
       "notAtCreation": "Not at creation",
       "onlyWith": "At creation: {keyword} only"
@@ -3060,7 +3133,7 @@
       "languages": "Languages",
       "free": "Free",
       "buy": "Buy · {xp} XP",
-      "writtenIn": "Written in: the GM ticks it",
+      "writtenIn": "Written in: the [gm] ticks it",
       "writeIn": "A language the table doesn't list",
       "add": "Add",
       "remove": "Remove",
@@ -3077,7 +3150,7 @@
       }
     },
     "gm": {
-      "title": "The GM's rulings",
+      "title": "The [gm]'s rulings",
       "ticks": "{count, plural, =0 {No ticks given} one {# tick given} other {# ticks given}}",
       "clearTicks": "Take back every tick",
       "species": "Species by ruling",
@@ -3116,26 +3189,26 @@
         "experienceNote": "Everyone who counts has earned {needed} XP this Tier.",
         "experienceWaiting": "{ready} of {count} ready: offered once everyone who counts has earned {needed} XP this Tier.",
         "milestone": "By milestone",
-        "milestoneNote": "The GM's call, at a turn in the story.",
+        "milestoneNote": "The [gm]'s call, at a turn in the story.",
         "waive": "Waive the Ascension Package",
         "confirm": "Confirm: everyone to Tier {tier}",
         "armedHint": "Press again to confirm. Anything else cancels.",
         "busy": "Ascending…"
       },
       "session": {
-        "title": "XP each this session",
+        "title": "XP each this [session]",
         "suggested": "Suggested amounts",
         "amount": "XP each",
         "range": "A whole number from 0 to {max}.",
-        "chosen": "Each character gains {xp} XP."
+        "chosen": "Each [character] gains {xp} XP."
       }
     },
     "dev": {
       "title": "Ledger builder",
       "lede": "Development only: the engine's invented game. The build lives in this page and is lost on reload.",
       "seat": "Seat",
-      "player": "Player",
-      "gm": "GM side",
+      "player": "[Player]",
+      "gm": "[gm] side",
       "time": "When",
       "creation": "At creation",
       "inPlay": "In play at Tier {tier}",
@@ -3144,7 +3217,7 @@
       "notReady": "The next task puts the save button here: not ready yet.",
       "play": {
         "title": "Play",
-        "lede": "The screens a table needs once these characters are in play, on invented figures. Nothing is sent.",
+        "lede": "The screens a table needs once these [character*] are in play, on invented figures. Nothing is sent.",
         "ascension": "Ascension case",
         "cases": {
           "short": "Someone short",
@@ -3166,10 +3239,10 @@
       "loading": "Opening the catalogue…",
       "failed": "The catalogue could not be read. Check the connection and try again.",
       "retry": "Try again",
-      "save": "Save character",
-      "sendToGm": "Send to the GM",
+      "save": "Save [character]",
+      "sendToGm": "Send to the [gm]",
       "saveForLater": "Save for later",
-      "sentToGm": "Sent to the GM.",
+      "sentToGm": "Sent to the [gm].",
       "savedForLater": "Saved for later.",
       "kept": "Draft saved",
       "notKept": "Draft not kept"
@@ -3199,14 +3272,14 @@
       "oneLabel": "Print {name}'s sheet",
       "oneTitle": "Print {name}'s sheet",
       "all": "PRINT SHEETS",
-      "allLabel": "Print every character's sheet",
-      "allTitle": "Print the party's sheets",
-      "hint": "Each character starts a new page. Boxes left blank are for pencil: what changes in play.",
+      "allLabel": "Print every [character]'s sheet",
+      "allTitle": "Print the [party]'s sheets",
+      "hint": "Each [character] starts a new page. Boxes left blank are for pencil: what changes in play.",
       "file": "character-sheets.pdf"
     },
     "tents": {
       "button": "PRINT TENT CARDS",
-      "label": "Print a tent card for every character",
+      "label": "Print a tent card for every [character]",
       "title": "Print tent cards",
       "file": "tent-cards.pdf"
     },
@@ -3216,26 +3289,26 @@
       "title": "Print cards",
       "one": "PRINT CARD",
       "oneLabel": "Print the card of {name}",
-      "hint": "Print at 100 % (actual size), not fit to page, so each card is 63 × 88 mm. Cut on the grey lines; fold a tent card on the dashed line, the name facing the players.",
+      "hint": "Print at 100 % (actual size), not fit to page, so each card is 63 × 88 mm. Cut on the grey lines; fold a tent card on the dashed line, the name facing the [player*].",
       "file": "cards.pdf"
     },
     "handouts": {
-      "button": "PRINT HANDOUTS",
-      "label": "Print the handouts of {title}",
-      "title": "Print handouts",
-      "one": "PRINT HANDOUT",
-      "oneLabel": "Print the handout {title}",
-      "hint": "One handout to a page; a long one runs on to the next. For two A5 handouts on one A4 sheet, pick 2 pages per sheet in the print dialog.",
+      "button": "PRINT [HANDOUT*]",
+      "label": "Print the [handout*] of {title}",
+      "title": "Print [handout*]",
+      "one": "PRINT [HANDOUT]",
+      "oneLabel": "Print the [handout] {title}",
+      "hint": "One [handout] to a page; a long one runs on to the next. For two A5 [handout*] on one A4 sheet, pick 2 pages per sheet in the print dialog.",
       "file": "handouts.pdf"
     },
     "runSheet": {
       "button": "PRINT RUN SHEET",
       "label": "Print the run sheet of {title}",
       "title": "Print the run sheet",
-      "hint": "For the GM's eyes only: it holds the GM notes and what each Test's result does.",
-      "breaks": "Each scene on a new page",
+      "hint": "For the [gm]'s eyes only: it holds the [gm] notes and what each Test's result does.",
+      "breaks": "Each [scene] on a new page",
       "readAloud": "Read aloud",
-      "gmNotes": "GM notes",
+      "gmNotes": "[gm] notes",
       "budget": "Encounter budget",
       "fields": "Details",
       "file": "run-sheet.pdf"
@@ -3278,16 +3351,16 @@
         "location": "Places",
         "faction": "Factions",
         "item": "Items",
-        "handout": "Handouts",
+        "handout": "[Handout*]",
         "lore": "Lore",
         "quest": "Quests"
       },
       "line": {
-        "reveals": "Shown to the party",
+        "reveals": "Shown to the [party]",
         "picks": "Picked from a place",
         "tests": "Tests",
         "pools": "Pools",
-        "roster": "Creatures",
+        "roster": "[Creature*]",
         "exits": "Where next",
         "planned": "Planned Tests"
       },
@@ -3297,25 +3370,25 @@
   },
   "journal": {
     "heading": "Journal",
-    "empty": "No sessions yet. Each session appears here once it starts.",
-    "session": "Session {number}",
+    "empty": "No [session*] yet. Each [session] appears here once it starts.",
+    "session": "[Session] {number}",
     "since": "since {start}",
     "dates": "{start} to {end}",
     "inProgress": "In progress",
     "abandoned": "Ended without an award",
     "award": "+{xp} XP each",
     "edit": "Edit",
-    "editLabel": "Edit session {number}",
+    "editLabel": "Edit [session] {number}",
     "title": "Title",
     "titleInvalid": "A title is at most 100 characters.",
     "recap": "Recap",
-    "notes": "GM notes",
-    "notesLabel": "GM notes (never shown to players)",
+    "notes": "[gm] notes",
+    "notesLabel": "[gm] notes (never shown to [player*])",
     "save": "Save",
     "cancel": "Cancel"
   },
   "nextSession": {
-    "heading": "Next session",
+    "heading": "Next [session]",
     "none": "No date set.",
     "when": "Date and time",
     "place": "Place",
@@ -3329,7 +3402,7 @@
     "heading": "Open invites",
     "room": "Room invite, as {role}",
     "character": "Invite for {name}",
-    "gone": "a deleted character",
+    "gone": "a deleted [character]",
     "used": "{count, plural, =0 {not used yet} one {used once} other {used # times}}",
     "usedOf": "used {count} of {max}",
     "until": "until {when}",
@@ -3338,19 +3411,19 @@
     "revokeLabel": "Revoke: {what}"
   },
   "fightTab": {
-    "noFight": "No fight right now. When the GM starts one, this tab fills in.",
+    "noFight": "No [fight] right now. When the [gm] starts one, this tab fills in.",
     "nowActing": "Now acting",
-    "yourTurn": "Your turn",
+    "yourTurn": "Your [turn]",
     "you": "You",
-    "settingUp": "The GM is setting the scene",
+    "settingUp": "The [gm] is setting the scene",
     "unseen": "Someone unseen",
     "nobody": "Nobody yet",
     "pick": "{side} pick who acts",
-    "complete": "Round {round} complete",
+    "complete": "[Round] {round} complete",
     "upNext": "Up next: {name}",
     "after": "{after} of {of} still to act after you",
     "paused": "Paused",
-    "foeHidden": "No numbers on this one. Ask the GM whether a Test could tell you more."
+    "foeHidden": "No numbers on this one. Ask the [gm] whether a Test could tell you more."
   },
   "phoneStrip": {
     "label": "{name} at a glance",
@@ -3370,7 +3443,7 @@
     "missing": "This entry is not in your notebook any more.",
     "eyesOnly": "For your eyes only",
     "goTo": "Go to",
-    "goToLabel": "Go to {title} in Codex",
+    "goToLabel": "Go to {title} in [Codex]",
     "hold": "Show the table",
     "holdLabel": "Hold {title} up to the table, full screen"
   },
@@ -3378,14 +3451,14 @@
     "show": "Show to table",
     "showLabel": "Show {title} to the table",
     "everyone": "Everyone",
-    "only": "Or only these characters",
-    "toThem": "{count, plural, =0 {Show to them} one {Show to # character} other {Show to # characters}}",
+    "only": "Or only these [character*]",
+    "toThem": "{count, plural, =0 {Show to them} one {Show to # [character]} other {Show to # [character*]}}",
     "showing": "Showing {title} to {to}",
     "clear": "Clear",
     "clearLabel": "Stop showing {title}",
     "close": "Dismiss",
     "closeLabel": "Dismiss {title}",
-    "fromGm": "Shown by the GM",
+    "fromGm": "Shown by the [gm]",
     "holding": "Showing the table · the screen stays awake"
   },
   "books": {

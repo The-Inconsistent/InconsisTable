@@ -4,6 +4,7 @@
 export * from "./enums.ts";
 export { formatPath, type Problem } from "./problem.ts";
 export * from "./manifest.ts";
+export * from "./words.ts";
 export * from "./field-value.ts";
 export * from "./codex.ts";
 export * from "./checklist.ts";

@@ -74,7 +74,7 @@ test("a cost and an ask's inputs read in the ruleset's words", () => {
 });
 
 test("a use opens its table with the spend's inputs carried onto the table's (house decision #91)", () => {
-  const channel = SAMPLE_SKIRMISH.spends?.find((s) => s.id === "channel");
+  const channel = compiled.ruleset.spends?.find((s) => s.id === "channel");
   assert.ok(channel);
   const ruleset = compiled.ruleset;
   const opened = (inputs: Record<string, number>) => nextTable({ ruleset, spend: channel, inputs });

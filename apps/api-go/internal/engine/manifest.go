@@ -548,9 +548,11 @@ type (
 		Mode  string `json:"mode"`
 	}
 	// Ruleset is a parsed manifest. Normalized is the same document as decoded JSON, defaults applied: what gets stored
-	// and hashed.
+	// and hashed, every language of its labels kept (issue #159). Local is Normalized read in the ruleset's own language,
+	// as the typed fields are: what the api words with.
 	Ruleset struct {
 		Normalized map[string]any `json:"-"`
+		Local      map[string]any `json:"-"`
 
 		ID      string `json:"id"`
 		Extends *struct {
@@ -2056,11 +2058,19 @@ func ValidateRuleset(input any) (*Ruleset, []Problem) {
 		}
 		return nil, out
 	}
-	raw, err := json.Marshal(parsed)
+	// The typed ruleset is the document read in its own language (words.ts `Ruleset`); Normalized keeps every language.
+	// ponytail: what the api words (refusals, snapshot labels) is in the ruleset's language, not the seat's (house
+	// decision #214); the seat's language on the socket if a mixed-language table needs it.
+	lang, _ := parsed.(map[string]any)["language"].(string)
+	if lang == "" {
+		lang = Languages[0]
+	}
+	local, _ := schema.ParseIn(rulesetSchema, parsed, lang, lang)
+	raw, err := json.Marshal(local)
 	if err != nil {
 		panic(err)
 	}
-	r := &Ruleset{Normalized: parsed.(map[string]any)}
+	r := &Ruleset{Normalized: parsed.(map[string]any), Local: local.(map[string]any)}
 	if err := json.Unmarshal(raw, r); err != nil {
 		panic(err)
 	}

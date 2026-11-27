@@ -12,6 +12,7 @@ const served = {
   name: "Hoarfrost",
   theme: SAMPLE_WORLDS.hoarfrost,
   handouts: null,
+  terms: null,
 };
 
 test("a room with no World served wears no look", () => {

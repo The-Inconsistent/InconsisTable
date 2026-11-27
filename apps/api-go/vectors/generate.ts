@@ -89,6 +89,7 @@ import { firstOf, nextFirst, sequence } from "../../../packages/rules-engine/src
 import { poolSize } from "../../../packages/rules-engine/src/primitives/dice-pool-successes.ts";
 import { LAYOUT_TARGETS, WIDGETS } from "../../../packages/rules-engine/src/widgets.ts";
 import { moduleVectors } from "./module.ts";
+import { wordsVectors } from "./words.ts";
 import { worldVectors } from "./world.ts";
 
 const OUT = join(import.meta.dirname, "../internal/engine/testdata/vectors.json");
@@ -5658,6 +5659,7 @@ const vectors = {
   poolSizes: poolSizeVectors(),
   worlds: worldVectors(),
   modules: moduleVectors(),
+  words: wordsVectors(),
   // The widget list without the importer's descriptions, which only the TypeScript side carries.
   widgets: {
     list: WIDGETS.map(({ about: _about, slots, ...w }) => ({ ...w, slots: slots.map(({ about: _a, ...x }) => x) })),

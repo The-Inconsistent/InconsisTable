@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, type ChangeEvent, type KeyboardEvent, type ReactNode } from "react";
 
-import { formatPath } from "@inconsistable/rules-engine";
+import { formatPath, type Lang, LANGUAGES } from "@inconsistable/rules-engine";
 
 import { getAt, longTextWarning, problemsUnder, renameKey, setAt, type Path } from "@/lib/manifest-form/manifest-form";
 
@@ -26,6 +26,40 @@ export type Spec = {
 };
 
 const asText = (v: unknown) => (typeof v === "string" ? v : "");
+
+/** A label given per language (issue #159): a map from language to words. */
+const isWordsByLanguage = (v: unknown): v is Partial<Record<Lang, unknown>> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+// A label given per language: one box per language, each writing its own key, so editing one never drops another.
+function WordsInputs({
+  id,
+  label,
+  path,
+  words,
+}: {
+  id: string;
+  label: string;
+  path: Path;
+  words: Partial<Record<Lang, unknown>>;
+}) {
+  const t = useTranslations();
+  const form = useForm();
+  return (
+    <div className="mf-words" role="group" aria-label={label}>
+      {LANGUAGES.map((lang, i) => (
+        <input
+          key={lang}
+          id={i === 0 ? id : undefined}
+          value={asText(words[lang])}
+          onChange={(e) => form.set([...path, lang], e.target.value === "" ? undefined : e.target.value)}
+          aria-label={t("manifestForm.inLanguage", { label, language: t(`localeSwitch.name.${lang}`) })}
+          lang={lang}
+        />
+      ))}
+    </div>
+  );
+}
 
 // A comma-separated field keeps what is being typed until it loses focus: parsing on every key would eat the comma.
 function CsvInput({ id, spec, path }: { id: string; spec: Spec; path: Path }) {
@@ -119,6 +153,8 @@ export function Field({ path, spec }: { path: Path; spec: Spec }) {
         aria-describedby={hintId}
       />
     );
+  } else if (kind === "text" && isWordsByLanguage(value)) {
+    control = <WordsInputs id={id} label={label} path={full} words={value} />;
   } else {
     control = (
       <input

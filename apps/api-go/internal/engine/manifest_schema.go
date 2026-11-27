@@ -47,7 +47,7 @@ func label(n int) *schema.StringSchema { return schema.String().Min(1).Max(n) }
 
 func fieldDefVariant(tag string, extra ...schema.Field) schema.Variant {
 	fields := append([]schema.Field{
-		schema.Req("label", label(80)),
+		schema.Req("label", text(80)),
 		schema.Def("visibility", visibilityEnum, "gm"),
 		schema.Def("editableBy", editableByEnum, "gm"),
 		schema.Opt("cite", citeSchema),
@@ -63,7 +63,7 @@ var EnumTones = []string{"good", "bad"}
 // enumWords are what the screens show for an enum's values (house decision #71): a word, a short note and a tone (house
 // decision #76), by value id.
 var enumWords = []schema.Field{
-	schema.Opt("labels", schema.Record(idSchema, label(60))),
+	schema.Opt("labels", schema.Record(idSchema, text(60))),
 	schema.Opt("notes", schema.Record(idSchema, label(40))),
 	schema.Opt("tones", schema.Record(idSchema, schema.Enum(EnumTones...))),
 }
@@ -90,7 +90,7 @@ var fieldDefSchema = schema.Union("type",
 
 func codexFieldVariant(tag string, extra ...schema.Field) schema.Variant {
 	fields := append([]schema.Field{
-		schema.Req("label", label(80)),
+		schema.Req("label", text(80)),
 		schema.Def("visibility", schema.Enum("gm", "party"), "gm"),
 		schema.Opt("cite", citeSchema),
 		schema.Opt("summary", summarySchema),
@@ -120,7 +120,7 @@ const (
 func columnVariant(tag string, extra ...schema.Field) schema.Variant {
 	fields := append([]schema.Field{
 		schema.Req("id", idSchema),
-		schema.Req("label", label(60)),
+		schema.Req("label", text(60)),
 		schema.Req("type", schema.Literal(tag)),
 	}, extra...)
 	return schema.Variant{Tag: tag, Schema: schema.Object(fields...)}
@@ -155,7 +155,7 @@ var codexSchema = schema.Object(
 				schema.Opt("maxItems", schema.Int().Min(1).Max(MaxTags)),
 				schema.Opt("entities", schema.Array(idSchema).Min(1).Max(10)),
 				schema.Opt("options", schema.Array(idSchema).Min(1).Max(200)),
-				schema.Opt("labels", schema.Record(idSchema, label(MaxTagChars))),
+				schema.Opt("labels", schema.Record(idSchema, text(MaxTagChars))),
 				schema.Def("writeIn", schema.Bool(), false),
 				schema.Opt("upper", schema.Literal(true)),
 			),
@@ -167,7 +167,7 @@ var codexSchema = schema.Object(
 					schema.Opt("name", idSchema),
 					schema.Opt("values", schema.Record(idSchema, fieldIDSchema)),
 				)).Min(1).Max(maxRowPrefills)),
-				schema.Opt("pick", schema.Object(schema.Req("label", label(40)))),
+				schema.Opt("pick", schema.Object(schema.Req("label", text(40)))),
 				schema.Opt("rolls", schema.Object(
 					schema.Req("table", idSchema),
 					schema.Req("into", idSchema),
@@ -222,7 +222,7 @@ var fieldRoll = schema.Object(
 
 func campaignFieldVariant(tag string, extra ...schema.Field) schema.Variant {
 	fields := append([]schema.Field{
-		schema.Req("label", label(80)),
+		schema.Req("label", text(80)),
 		schema.Opt("cite", citeSchema),
 		schema.Opt("summary", summarySchema),
 		schema.Req("type", schema.Literal(tag)),
@@ -242,12 +242,12 @@ var campaignFieldSchema = schema.Union("type",
 
 var entityTypeSchema = schema.Object(
 	schema.Req("id", idSchema),
-	schema.Req("label", label(80)),
+	schema.Req("label", text(80)),
 	schema.Req("base", schema.Enum("actor", "item", "ability", "condition")),
 	schema.Def("fields", schema.Record(fieldIDSchema, fieldDefSchema), map[string]any{}),
 	schema.Def("derived", schema.Array(schema.Object(
 		schema.Req("id", idSchema),
-		schema.Req("label", label(80)),
+		schema.Req("label", text(80)),
 		schema.Req("expr", exprSource),
 		schema.Def("visibility", visibilityEnum, "gm"),
 		schema.Opt("cite", citeSchema),
@@ -258,7 +258,7 @@ var entityTypeSchema = schema.Object(
 
 var resourceSchema = schema.Object(
 	schema.Req("id", idSchema),
-	schema.Req("label", label(80)),
+	schema.Req("label", text(80)),
 	schema.Opt("cite", citeSchema),
 	schema.Opt("summary", summarySchema),
 	schema.Req("scope", schema.Enum("entity", "party", "gm", "campaign")),
@@ -287,7 +287,7 @@ var effectSchema = schema.Object(
 
 var conditionSchema = schema.Object(
 	schema.Req("id", idSchema),
-	schema.Req("label", label(80)),
+	schema.Req("label", text(80)),
 	schema.Opt("cite", citeSchema),
 	schema.Opt("summary", summarySchema),
 	schema.Def("effects", schema.Array(effectSchema).Max(50), []any{}),
@@ -326,25 +326,25 @@ var actorTypesSchema = schema.Array(idSchema).Min(1).Max(50)
 
 // testWords are what the screens call a Test, its inputs and a text input's options (house decision #77).
 var testWords = []schema.Field{
-	schema.Opt("label", label(80)),
-	schema.Opt("inputLabels", schema.Record(idSchema, label(60))),
-	schema.Opt("inputOptionLabels", schema.Record(idSchema, schema.Record(label(60), label(60)))),
+	schema.Opt("label", text(80)),
+	schema.Opt("inputLabels", schema.Record(idSchema, text(60))),
+	schema.Opt("inputOptionLabels", schema.Record(idSchema, schema.Record(label(60), text(60)))),
 }
 
 // testOutcomes are a Test's marks and offers (house decision #80).
 var testOutcomes = []schema.Field{
 	schema.Opt("marks", schema.Refined(schema.Record(idSchema, schema.Object(
-		schema.Req("label", label(60)),
+		schema.Req("label", text(60)),
 		schema.Opt("cite", citeSchema),
 	)), func(v any) bool { return len(v.(map[string]any)) <= MaxMarks }, "at most 10 marks")),
 	schema.Opt("choices", schema.Refined(schema.Record(idSchema, schema.Object(
-		schema.Req("label", label(60)),
+		schema.Req("label", text(60)),
 		schema.Opt("max", schema.Int().Min(1).Max(20)),
 		schema.Opt("cite", citeSchema),
 	)), func(v any) bool { return len(v.(map[string]any)) <= MaxChoices }, "at most 5 choices")),
 	schema.Opt("offers", schema.Array(schema.Object(
 		schema.Req("id", idSchema),
-		schema.Req("label", label(60)),
+		schema.Req("label", text(60)),
 		schema.Req("when", exprSource),
 		schema.Req("changes", schema.Array(schema.Object(
 			schema.Opt("pool", idSchema),
@@ -398,7 +398,7 @@ var diceMechanicSchema = schema.Union("kind",
 			append(faceRangeFields(), schema.Req("worth", schema.Int().Min(1).Max(10)))...,
 		)...)).Min(1).Max(10)),
 		schema.Opt("special", schema.Object(
-			schema.Req("label", label(40)),
+			schema.Req("label", text(40)),
 			schema.Req("count", schema.Int().Min(1).Max(10)),
 			schema.Def("flags", schema.PartialRecord(schema.Object(faceRangeFields()...), poolFlags...), map[string]any{}),
 		)),
@@ -408,7 +408,7 @@ var diceMechanicSchema = schema.Union("kind",
 		schema.Req("kind", schema.Literal("reported")),
 		schema.Req("outcomes", schema.Array(schema.Object(
 			schema.Req("id", idSchema),
-			schema.Req("label", label(60)),
+			schema.Req("label", text(60)),
 			schema.Opt("cite", citeSchema),
 		)).Min(2).Max(8)),
 		schema.Def("inputs", schema.Record(idSchema, schema.Enum("int", "bool", "text")), map[string]any{}),
@@ -438,7 +438,7 @@ var initiativeSchema = schema.Union("strategy",
 		schema.Req("strategy", schema.Literal("sides")),
 		schema.Req("sides", schema.Array(schema.Object(
 			schema.Req("id", idSchema),
-			schema.Req("label", label(40)),
+			schema.Req("label", text(40)),
 			schema.Opt("entities", schema.Array(idSchema).Max(20)),
 		)).Min(2).Max(4)),
 		schema.Opt("unableStates", schema.Array(idSchema).Max(20)),
@@ -496,7 +496,7 @@ var healthSchema = schema.Object(
 	)).Max(10), []any{}),
 	schema.Def("states", schema.Array(schema.Object(
 		schema.Req("id", idSchema),
-		schema.Opt("label", label(80)),
+		schema.Opt("label", text(80)),
 		schema.Req("when", exprSource),
 		schema.Opt("entities", actorTypesSchema),
 		schema.Opt("warn", label(80)),
@@ -536,7 +536,7 @@ var SpendClearEvents = []string{"sessionStart", "sessionEnd", "encounterEnd", "r
 // spendSchema is one entry of the manifest's spends (house decision #84).
 var spendSchema = schema.Object(
 	schema.Req("id", idSchema),
-	schema.Req("label", label(80)),
+	schema.Req("label", text(80)),
 	schema.Opt("cite", citeSchema),
 	schema.Opt("entities", schema.Array(idSchema).Min(1).Max(50)),
 	schema.Req("cost", schema.Array(schema.Object(
@@ -546,7 +546,7 @@ var spendSchema = schema.Object(
 		schema.Opt("byRun", schema.Bool()),
 	)).Max(5)),
 	schema.Opt("inputs", schema.Refined(schema.Record(idSchema, schema.Object(
-		schema.Req("label", label(60)),
+		schema.Req("label", text(60)),
 		schema.Req("min", schema.Int().Min(0).Max(1000)),
 		schema.Req("max", exprSource),
 	)), func(v any) bool { return len(v.(map[string]any)) <= 3 }, "at most 3 inputs")),
@@ -567,7 +567,7 @@ var spendSchema = schema.Object(
 var spawnSchema = schema.Object(
 	schema.Opt("options", schema.Array(schema.Object(
 		schema.Req("id", idSchema),
-		schema.Req("label", label(80)),
+		schema.Req("label", text(80)),
 		schema.Opt("cite", citeSchema),
 		schema.Opt("entities", schema.Array(idSchema).Min(1).Max(50)),
 		schema.Opt("when", exprSource),
@@ -587,13 +587,13 @@ var spawnSchema = schema.Object(
 		schema.Opt("cite", citeSchema),
 		schema.Req("lines", schema.Array(schema.Object(
 			schema.Req("id", idSchema),
-			schema.Req("label", label(80)),
+			schema.Req("label", text(80)),
 			schema.Req("cost", exprSource),
 			schema.Req("budget", exprSource),
 		)).Min(1).Max(8)),
 		schema.Opt("switches", schema.Array(schema.Object(
 			schema.Req("id", idSchema),
-			schema.Req("label", label(60)),
+			schema.Req("label", text(60)),
 			schema.Req("by", exprSource),
 		)).Max(4)),
 	)),
@@ -603,7 +603,7 @@ func stepVariant(tag string, extra ...schema.Field) schema.Variant {
 	fields := append([]schema.Field{
 		schema.Req("id", idSchema),
 		schema.Req("actor", idSchema),
-		schema.Req("label", label(80)),
+		schema.Req("label", text(80)),
 		schema.Opt("cite", citeSchema),
 		schema.Def("optional", schema.Bool(), false),
 		schema.Req("kind", schema.Literal(tag)),
@@ -713,12 +713,13 @@ var rulesetSchema = schema.Object(
 	schema.Req("id", rulesetID),
 	schema.Req("version", semVer),
 	schema.Req("core", semVerRange),
+	schema.Opt("language", schema.Enum(Languages...)),
 	schema.Opt("extends", schema.Object(schema.Req("id", rulesetID), schema.Req("version", semVer))),
 	schema.Req("sources", schema.Array(sourceSchema).Min(1).Max(50)),
-	schema.Def("terms", schema.Record(idSchema, label(60)), map[string]any{}),
+	schema.Def("terms", schema.Record(idSchema, termWords), map[string]any{}),
 	schema.Def("options", schema.Array(schema.Object(
 		schema.Req("id", idSchema),
-		schema.Req("label", label(80)),
+		schema.Req("label", text(80)),
 		schema.Opt("cite", citeSchema),
 		schema.Def("default", schema.Bool(), false),
 	)).Max(200), []any{}),
@@ -738,7 +739,7 @@ var rulesetSchema = schema.Object(
 	schema.Opt("initiative", initiativeSchema),
 	schema.Opt("phases", schema.Array(schema.Object(
 		schema.Req("id", idSchema),
-		schema.Req("label", label(40)),
+		schema.Req("label", text(40)),
 		schema.Req("mode", schema.Enum("turns", "simultaneous")),
 		schema.Opt("cite", citeSchema),
 	)).Min(1).Max(12)),
@@ -758,7 +759,7 @@ var rulesetSchema = schema.Object(
 	schema.Def("layout", schema.Record(idSchema, schema.Object(
 		schema.Req("sections", schema.Array(schema.Object(
 			schema.Req("id", idSchema),
-			schema.Req("label", label(80)),
+			schema.Req("label", text(80)),
 			schema.Req("show", layoutRows),
 		)).Max(50)),
 		schema.Opt("phoneTurn", layoutRows),
@@ -784,7 +785,7 @@ var rulesetSchema = schema.Object(
 	schema.Opt("requests", schema.Object(schema.Req("max", schema.Int().Min(1).Max(20)))),
 	schema.Opt("checklist", schema.Array(schema.Object(
 		schema.Req("id", idSchema),
-		schema.Req("label", label(80)),
+		schema.Req("label", text(80)),
 		schema.Opt("cite", citeSchema),
 		schema.Req("done", checklistCount),
 		schema.Opt("goto", schema.Object(
@@ -812,7 +813,7 @@ const maxPanels = 20
 
 var panelSchema = schema.Object(
 	schema.Req("id", idSchema),
-	schema.Req("label", label(80)),
+	schema.Req("label", text(80)),
 	schema.Opt("cite", citeSchema),
 	schema.Opt("entities", actorTypesSchema),
 	schema.Opt("foe", idSchema),
@@ -826,7 +827,7 @@ var panelSchema = schema.Object(
 		schema.Opt("cite", citeSchema),
 	)).Max(10)),
 	schema.Opt("figures", schema.Array(schema.Object(
-		schema.Req("label", label(60)),
+		schema.Req("label", text(60)),
 		schema.Req("expr", exprSource),
 		schema.Opt("cite", citeSchema),
 	)).Max(6)),
@@ -896,11 +897,11 @@ var (
 	layoutRows = schema.Array(schema.AnyOf(layoutPath, schema.Object(
 		schema.Req("widget", idSchema),
 		schema.Opt("variant", idSchema),
-		schema.Opt("label", label(80)),
+		schema.Opt("label", text(80)),
 		schema.Def("bind", schema.Record(idSchema, schema.AnyOf(layoutPath, schema.Array(layoutPath).Min(1).Max(40))),
 			map[string]any{}),
 		schema.Opt("steps", schema.Array(schema.Object(
-			schema.Req("label", label(40)),
+			schema.Req("label", text(40)),
 			schema.Req("size", schema.Int().Min(1).Max(MaxPipsPerStep)),
 		)).Min(1).Max(MaxPipSteps)),
 	))).Max(100)
@@ -927,7 +928,7 @@ var tableSchema = schema.Object(
 	schema.Opt("die", diceNotation),
 	schema.Req("entries", schema.Array(schema.Object(
 		schema.Req("id", idSchema),
-		schema.Req("label", label(80)),
+		schema.Req("label", text(80)),
 		schema.Opt("range", schema.Array(schema.Int().Min(-100_000).Max(100_000)).Min(1).Max(2)),
 		schema.Opt("weight", schema.Int().Min(1).Max(100)),
 		schema.Opt("count", schema.Int().Min(1).Max(20)),
@@ -947,7 +948,7 @@ var tableSchema = schema.Object(
 // tableInputSchema is a value set before applying a lookup or a strike (manifest.ts TableInput).
 var tableInputSchema = schema.Object(
 	schema.Req("id", idSchema),
-	schema.Req("label", label(60)),
+	schema.Req("label", text(60)),
 	schema.Req("type", schema.Enum("bool", "int")),
 	schema.Opt("min", schema.Int().Min(-1000).Max(1000)),
 	schema.Opt("max", schema.AnyOf(schema.Int().Min(-1000).Max(1000), exprSource)),
@@ -966,27 +967,27 @@ var (
 	// StrikeLedgerLines are the saved sheet's lists a strike's means may come from (STRIKE_LEDGER_LINES).
 	StrikeLedgerLines  = []string{"weapons", "powers"}
 	strikeFigureSchema = schema.Object(
-		schema.Req("label", label(60)),
+		schema.Req("label", text(60)),
 		schema.Req("expr", exprSource),
 		schema.Opt("cite", citeSchema),
 		strikeAdds,
 	)
 	strikeAdds = schema.Opt("adds", schema.Array(schema.Object(
-		schema.Req("label", label(60)),
+		schema.Req("label", text(60)),
 		schema.Req("by", exprSource),
 		schema.Opt("when", exprSource),
 		schema.Opt("cite", citeSchema),
 	)).Max(10))
 	strikeShowSchema = schema.Object(
 		schema.Req("id", idSchema),
-		schema.Req("label", label(60)),
+		schema.Req("label", text(60)),
 		schema.Req("expr", exprSource),
 		schema.Opt("cite", citeSchema),
 		strikeAdds,
 	)
 	strikeSchema = schema.Object(
 		schema.Req("id", idSchema),
-		schema.Req("label", label(80)),
+		schema.Req("label", text(80)),
 		schema.Opt("cite", citeSchema),
 		schema.Opt("entities", actorTypesSchema),
 		schema.Opt("targets", actorTypesSchema),
@@ -1016,7 +1017,7 @@ var (
 		schema.Opt("shows", schema.Array(strikeShowSchema).Max(maxStrikeShows)),
 		schema.Req("outcomes", schema.Array(schema.Object(
 			schema.Req("id", idSchema),
-			schema.Req("label", label(60)),
+			schema.Req("label", text(60)),
 			schema.Req("when", exprSource),
 			schema.Opt("wounds", exprSource),
 			schema.Opt("shock", exprSource),
@@ -1035,13 +1036,13 @@ var (
 	// strikeInputSchema is a lookup's input or a choice (manifest.ts StrikeInput, house decision #113).
 	strikeInputSchema = schema.Object(
 		schema.Req("id", idSchema),
-		schema.Req("label", label(60)),
+		schema.Req("label", text(60)),
 		schema.Req("type", schema.Enum("bool", "int", "choice")),
 		schema.Opt("min", schema.Int().Min(-1000).Max(1000)),
 		schema.Opt("max", schema.Int().Min(-1000).Max(1000)),
 		schema.Opt("cite", citeSchema),
 		schema.Opt("options", schema.Array(schema.Object(
-			schema.Req("label", label(60)),
+			schema.Req("label", text(60)),
 			schema.Req("value", schema.Int().Min(-1000).Max(1000)),
 		)).Min(2).Max(10)),
 	)

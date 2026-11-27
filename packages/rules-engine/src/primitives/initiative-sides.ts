@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { TurnKey } from "../enums.ts";
 import { SidesInitiative } from "../manifest.ts";
+import { readIn } from "../words.ts";
 import { own } from "../own.ts";
 import {
   charge,
@@ -170,7 +171,7 @@ function ending({ t, snap }: { t: TurnState; snap: Snap }): Delta[] {
 
 export const initiativeSides: Primitive<SidesInitiative> = {
   id: "initiative.sides",
-  params: SidesInitiative,
+  params: readIn(SidesInitiative),
   ops: {
     begin: defineOp<P, EmptyInput>({
       input: EmptyInput,

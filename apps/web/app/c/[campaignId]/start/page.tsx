@@ -1,8 +1,8 @@
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 
 import { Me } from "@inconsistable/core-schema";
-import { Ruleset } from "@inconsistable/rules-engine";
+import { localRuleset } from "@inconsistable/rules-engine";
 
 import { apiGet } from "@/app/server-api";
 import { FirstRun } from "@/components/gm/first-run/first-run";
@@ -38,10 +38,10 @@ export default async function Start({ params }: StartProps) {
     (seat.kind === "member" && seat.role !== "player") ||
     (me.tableMode !== "gm" && me.userId !== null && me.userId === me.campaignOwnerId);
   if (!runs) redirect(`/c/${campaignId}`);
-  const ruleset = Ruleset.safeParse(rules.ruleset?.manifest);
+  const ruleset = localRuleset(rules.ruleset?.manifest, await getLocale());
   return (
-    <RoomWorld world={rules.world}>
-      <FirstRun me={me} ruleset={ruleset.success ? ruleset.data : null} packs={rules.packs} />
+    <RoomWorld world={rules.world} ruleset={ruleset}>
+      <FirstRun me={me} ruleset={ruleset} packs={rules.packs} />
     </RoomWorld>
   );
 }

@@ -1,7 +1,7 @@
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { Me } from "@inconsistable/core-schema";
-import { Ruleset } from "@inconsistable/rules-engine";
+import { localRuleset } from "@inconsistable/rules-engine";
 
 import { apiGet } from "@/app/server-api";
 import { Builder } from "@/components/builder/builder";
@@ -31,19 +31,19 @@ export default async function Build({ params, searchParams }: BuildProps) {
     const room = RulesReply.safeParse(res.ok ? await res.json() : null);
     if (!room.success) return <StatusScreen text={t("nosignal")} />;
     if (!room.data.ruleset) return <StatusScreen text={t("noRuleset")} />;
-    const ruleset = Ruleset.safeParse(room.data.ruleset.manifest);
-    if (!ruleset.success) return <StatusScreen text={t("nosignal")} />;
+    const ruleset = localRuleset(room.data.ruleset.manifest, await getLocale());
+    if (!ruleset) return <StatusScreen text={t("nosignal")} />;
 
     // A ledger ruleset (house decision #62): the seat decides whether this user is on the actor's GM side.
     let me: Me | undefined;
-    if (ruleset.data.build) {
+    if (ruleset.build) {
       const res = await apiGet(`/api/campaigns/${campaignId}/me`);
       const mine = Me.safeParse(res.ok ? await res.json() : null);
       if (!mine.success) return <StatusScreen text={t("nosignal")} />;
       me = mine.data;
     }
 
-    const types = [...new Set(ruleset.data.creation.flatMap((s) => (s.kind === "choose" ? [s.pick] : [])))];
+    const types = [...new Set(ruleset.creation.flatMap((s) => (s.kind === "choose" ? [s.pick] : [])))];
     const replies = await Promise.all(
       types.map(async (type) => {
         const r = await apiGet(
@@ -59,11 +59,11 @@ export default async function Build({ params, searchParams }: BuildProps) {
     }
     const world = room.data.world;
     return (
-      <RoomWorld world={world}>
+      <RoomWorld world={world} ruleset={ruleset}>
         <Builder
           campaignId={p.campaignId}
           actorId={p.actorId}
-          ruleset={ruleset.data}
+          ruleset={ruleset}
           entries={entries}
           me={me}
           step={step}

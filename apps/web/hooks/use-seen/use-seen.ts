@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 
-import { readSeen, unseenCount, writeSeen } from "@/lib/seen/seen";
+import { initialSeen, markAllSeen, nextSeen, readSeen, unseenCount, writeSeen } from "@/lib/seen/seen";
 
 /**
- * How many of `keys` this device has not been shown. `keys` null: not loaded yet. While `viewing` (the thing is on
- * screen) everything it lists counts as shown, which is what leaving it would mark. The first visit seeds the list.
+ * What this device has not been shown of `keys` (null: not loaded yet). `count`: how many, 0 while `viewing` (the thing
+ * is on screen), which marks everything it lists. `fresh`: what was unseen when this viewing marked it, kept until the
+ * viewer leaves or calls `markAll` (MARK ALL READ). The first visit seeds the list, so nothing is fresh.
  */
 export function useSeen({
   storageKey,
@@ -15,17 +16,13 @@ export function useSeen({
   storageKey: string;
   keys: readonly string[] | null;
   viewing: boolean;
-}): number {
-  // `marked` is the list the set was last made from, so a changed list is noticed once.
-  const [seen, setSeen] = useState<{ set: ReadonlySet<string> | null; marked: string | null }>(() => ({
-    set: readSeen({ storageKey }),
-    marked: null,
-  }));
+}): { count: number; fresh: ReadonlySet<string>; markAll: () => void } {
+  const [seen, setSeen] = useState(() => initialSeen(readSeen({ storageKey })));
   const signature = keys?.join("\n") ?? null;
 
-  // Adjusting state during render: the first visit seeds, and an open tab marks what it lists.
-  if (keys !== null && (seen.set === null || viewing) && seen.marked !== signature)
-    setSeen({ set: new Set(keys), marked: signature });
+  // Adjusting state during render: the first visit seeds, an open list marks what it lists, leaving forgets `fresh`.
+  const next = nextSeen({ state: seen, keys, viewing });
+  if (next !== seen) setSeen(next);
 
   // Syncs with the device's storage: what was marked is kept for the next load.
   useEffect(() => {
@@ -33,5 +30,14 @@ export function useSeen({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `signature` stands for `keys`
   }, [signature, seen.marked, storageKey]);
 
-  return viewing || keys === null ? 0 : unseenCount({ keys, seen: seen.set });
+  // MARK ALL READ: what is listed now is seen and nothing stays fresh.
+  const markAll = () => {
+    if (keys !== null) setSeen((s) => markAllSeen({ state: s, keys }));
+  };
+
+  return {
+    count: viewing || keys === null ? 0 : unseenCount({ keys, seen: seen.set }),
+    fresh: seen.fresh,
+    markAll,
+  };
 }

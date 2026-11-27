@@ -951,7 +951,9 @@
       "showName": "Show {name} to the party",
       "sealName": "Seal {name} from the party",
       "shown": "Shown",
-      "sealed": "Sealed"
+      "sealed": "Sealed",
+      "readers": "Readers",
+      "readersName": "Change who reads {name}"
     },
     "inScene": {
       "title": "In this scene",
@@ -1951,7 +1953,11 @@
       "sceneOption": "{title} ({status})",
       "add": "Add {name} to the scene",
       "added": "Added to {scene}"
-    }
+    },
+    "readersOf": "Who reads {title}",
+    "searchKey": "Search the codex (press /)",
+    "hits": "{kind}: {count, plural, one {# match} other {# matches}}",
+    "hitLabel": "Peek at {title}"
   },
   "handout": {
     "layoutLabel": "Layout",
@@ -2256,7 +2262,30 @@
     "entries": "Revealed",
     "recaps": "Recaps",
     "nothing": "Nothing in your notebook yet.",
-    "openQuests": "Open quests"
+    "openQuests": "Open quests",
+    "new": "New",
+    "viewsLabel": "Notebook views",
+    "views": {
+      "inbox": "Inbox",
+      "mission": "Mission",
+      "archive": "Archive"
+    },
+    "viewNew": "{view}, {count} new",
+    "inboxEmpty": "Nothing new. The archive holds the rest.",
+    "markAllRead": "Mark all read",
+    "search": "Search your notebook",
+    "filter": "Show one kind",
+    "all": "All",
+    "kindCount": "{kind} ({count})",
+    "hits": "{kind}: {count, plural, one {# match} other {# matches}}",
+    "noMatch": "Nothing in your notebook matches.",
+    "premise": "Premise",
+    "quests": {
+      "orders": "Your orders ({count})",
+      "open": "Active",
+      "done": "Done",
+      "failed": "Failed"
+    }
   },
   "archivedBanner": {
     "title": "Read only",
@@ -2985,5 +3014,12 @@
     "noOptions": "None of these are attached to this table.",
     "needs": "Needs {needs}",
     "cannotUse": "Not now"
+  },
+  "peek": {
+    "title": "Entry",
+    "missing": "This entry is not in your notebook any more.",
+    "eyesOnly": "For your eyes only",
+    "goTo": "Go to",
+    "goToLabel": "Go to {title} in Codex"
   }
 }

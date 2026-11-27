@@ -951,7 +951,9 @@
       "showName": "Cho cả nhóm xem {name}",
       "sealName": "Niêm {name} lại, giấu khỏi cả nhóm",
       "shown": "Đã cho xem",
-      "sealed": "Đã niêm"
+      "sealed": "Đã niêm",
+      "readers": "Người đọc",
+      "readersName": "Đổi người được đọc {name}"
     },
     "inScene": {
       "title": "Trong cảnh này",
@@ -1951,7 +1953,11 @@
       "sceneOption": "{title} ({status})",
       "add": "Thêm {name} vào cảnh",
       "added": "Đã thêm vào {scene}"
-    }
+    },
+    "readersOf": "Ai đọc {title}",
+    "searchKey": "Tìm trong codex (nhấn /)",
+    "hits": "{kind}: {count, plural, other {# kết quả}}",
+    "hitLabel": "Xem nhanh {title}"
   },
   "handout": {
     "layoutLabel": "Bố cục",
@@ -2256,7 +2262,30 @@
     "entries": "Đã tiết lộ",
     "recaps": "Tóm tắt các buổi",
     "nothing": "Sổ tay chưa có gì.",
-    "openQuests": "Nhiệm vụ đang mở"
+    "openQuests": "Nhiệm vụ đang mở",
+    "new": "Mới",
+    "viewsLabel": "Các phần của sổ tay",
+    "views": {
+      "inbox": "Hộp thư",
+      "mission": "Cốt truyện",
+      "archive": "Lưu trữ"
+    },
+    "viewNew": "{view}, {count} mới",
+    "inboxEmpty": "Không có gì mới. Phần Lưu trữ giữ mọi thứ còn lại.",
+    "markAllRead": "Đánh dấu đã đọc hết",
+    "search": "Tìm trong sổ tay",
+    "filter": "Chỉ xem một loại",
+    "all": "Tất cả",
+    "kindCount": "{kind} ({count})",
+    "hits": "{kind}: {count} kết quả",
+    "noMatch": "Không có mục nào khớp trong sổ tay.",
+    "premise": "Tiền đề",
+    "quests": {
+      "orders": "Mệnh lệnh của bạn ({count})",
+      "open": "Đang mở",
+      "done": "Đã xong",
+      "failed": "Thất bại"
+    }
   },
   "archivedBanner": {
     "title": "Chỉ đọc",
@@ -2985,5 +3014,12 @@
     "noOptions": "Bàn này chưa gắn mục nào loại này.",
     "needs": "Cần {needs}",
     "cannotUse": "Chưa dùng được"
+  },
+  "peek": {
+    "title": "Mục",
+    "missing": "Mục này không còn trong sổ tay của bạn.",
+    "eyesOnly": "Chỉ mình bạn được xem",
+    "goTo": "Đến",
+    "goToLabel": "Đến {title} trong Codex"
   }
 }

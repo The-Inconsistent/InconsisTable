@@ -1,4 +1,4 @@
-import type { CodexEntry, CodexKind, HandoutLayout } from "@inconsistable/core-schema";
+import { CodexKind, QuestStatus, type CodexEntry, type HandoutLayout } from "@inconsistable/core-schema";
 
 /** The most readers a listed audience can hold (the action's own limit). */
 export const AUDIENCE_MAX = 50;
@@ -13,8 +13,21 @@ export type KindFilter = CodexKind | "all";
  * layout and header (house decision #72); another kind's holds neither. */
 export type EntryDraft = { title: string; body: string; gmNotes: string; layout?: HandoutLayout; header?: string };
 
-// The entries of the chosen kind whose title or body holds the query, case-insensitively. GM notes are not searched:
-// a co-GM without secrets would otherwise find entries by text they cannot read.
+// The words of an entry a search reads: its title, its body and the values of its declared fields (a tags field's words
+// too). GM notes are not read: a co-GM without secrets would otherwise find entries by text they cannot read, and the
+// server sends a seat only the fields it may see.
+const searchText = (e: CodexEntry) =>
+  [
+    e.title,
+    e.body,
+    ...Object.values(e.fields).flatMap((v) =>
+      Array.isArray(v) ? v.filter((w) => typeof w === "string") : [String(v)],
+    ),
+  ]
+    .join("\n")
+    .toLowerCase();
+
+// The entries of the chosen kind whose words hold the query, case-insensitively.
 export function filterEntries({
   entries,
   kind,
@@ -25,9 +38,15 @@ export function filterEntries({
   query: string;
 }): CodexEntry[] {
   const q = query.trim().toLowerCase();
-  return entries.filter(
-    (e) => (kind === "all" || e.kind === kind) && (q === "" || `${e.title}\n${e.body}`.toLowerCase().includes(q)),
-  );
+  return entries.filter((e) => (kind === "all" || e.kind === kind) && (q === "" || searchText(e).includes(q)));
+}
+
+/** The entries by kind, in the codex's kind order, each kind with at least one entry. */
+export function byKind(entries: readonly CodexEntry[]): { kind: CodexKind; entries: CodexEntry[] }[] {
+  return CodexKind.options.flatMap((kind) => {
+    const of = entries.filter((e) => e.kind === kind);
+    return of.length > 0 ? [{ kind, entries: of }] : [];
+  });
 }
 
 /** The entries newest revealed first (house decision #86); one with no time (revealed before it was kept) goes last. */
@@ -107,4 +126,78 @@ export function savePatch({
   if (draft.layout !== undefined && draft.layout !== entry.layout) patch.layout = draft.layout;
   if (draft.header !== undefined && draft.header !== entry.header) patch.header = draft.header;
   return patch;
+}
+
+/** A run of plain text, or an entry a name in it spells. */
+export type NamePart = { text: string } | { entry: CodexEntry };
+
+// Shorter names are left alone: a two-letter name would link half the prose.
+const MIN_NAME = 3;
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const linkers = new WeakMap<readonly CodexEntry[], (args: { text: string; self?: string }) => NamePart[]>();
+
+// Auto-link (#218, Auspex's nameLinker): plain text that spells an entry's whole title, case and all, as a whole word,
+// over the entries this seat holds only. Longest title first, so "Old Maren" wins over "Maren"; on a shared title an NPC
+// wins, then the codex's kind order. `self` keeps an entry from linking itself. Built once per list of entries.
+export function nameLinker(entries: readonly CodexEntry[]): (args: { text: string; self?: string }) => NamePart[] {
+  const cached = linkers.get(entries);
+  if (cached) return cached;
+  const rank = (e: CodexEntry) => (e.kind === "npc" ? -1 : CodexKind.options.indexOf(e.kind));
+  const byTitle = new Map<string, CodexEntry>();
+  for (const e of [...entries].sort((a, b) => rank(a) - rank(b)))
+    if (e.title.length >= MIN_NAME && !byTitle.has(e.title)) byTitle.set(e.title, e);
+  const alts = [...byTitle.keys()].sort((a, b) => b.length - a.length).map(escapeRe);
+  const re = alts.length > 0 ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${alts.join("|")})(?![\\p{L}\\p{N}])`, "gu") : null;
+  const link = ({ text, self }: { text: string; self?: string }): NamePart[] => {
+    const parts: NamePart[] = [];
+    let at = 0;
+    for (const m of re ? text.matchAll(re) : []) {
+      const hit = byTitle.get(m[0]);
+      if (!hit || hit.id === self) continue;
+      if (m.index > at) parts.push({ text: text.slice(at, m.index) });
+      parts.push({ entry: hit });
+      at = m.index + m[0].length;
+    }
+    if (at < text.length) parts.push({ text: text.slice(at) });
+    return parts;
+  };
+  linkers.set(entries, link);
+  return link;
+}
+
+// FOR YOUR EYES ONLY (#218): the entry was revealed to listed characters and this seat holds one of them. A phone's
+// audience is already cut to the characters it holds; a seat holding none (the GM side) never reads it so.
+export const forYourEyes = ({ entry, held }: { entry: CodexEntry; held: readonly string[] }): boolean =>
+  entry.visibility !== "gm" && entry.audienceMode === "listed" && entry.audience.some((a) => held.includes(a));
+
+/** The first line of a body that holds words, trimmed, for a compact card. */
+export const firstLine = (body: string): string =>
+  body
+    .split("\n")
+    .map((l) => l.trim())
+    .find(Boolean) ?? "";
+
+/** MISSION's quest groups in the order drawn: YOUR ORDERS (folded), then each quest status. */
+export const QUEST_GROUPS = ["orders", ...QuestStatus.options] as const;
+export type QuestGroup = (typeof QUEST_GROUPS)[number];
+
+// The quests by group (#218): one revealed to listed characters this seat holds is in YOUR ORDERS only, any other by its
+// own status. Groups without a quest are left out; each keeps the order given.
+export function questGroups({
+  entries,
+  held,
+}: {
+  entries: readonly CodexEntry[];
+  held: readonly string[];
+}): { group: QuestGroup; entries: CodexEntry[] }[] {
+  const quests = entries.filter((e) => e.kind === "quest");
+  const groupOf = (e: CodexEntry): QuestGroup | null => {
+    if (forYourEyes({ entry: e, held })) return "orders";
+    const status = QuestStatus.safeParse(e.status);
+    return status.success ? status.data : null;
+  };
+  return QUEST_GROUPS.flatMap((group) => {
+    const of = quests.filter((e) => groupOf(e) === group);
+    return of.length > 0 ? [{ group, entries: of }] : [];
+  });
 }

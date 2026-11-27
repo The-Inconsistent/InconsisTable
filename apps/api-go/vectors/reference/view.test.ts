@@ -796,6 +796,29 @@ test("a mention of an entry the seat cannot see becomes the hidden form; the GM 
   assert.equal(bodyFor(ctx(member("gm"), "u-gm")), body);
 });
 
+test("a recap's mentions are hidden like a body's, in the codex and the journal; the GM sees them whole (#136)", () => {
+  const text = "met @[Secret Name](secret) and @[Open](open)";
+  const recapped = {
+    ...snapshot,
+    state: { ...state, journal: state.journal.map((s) => ({ ...s, recap: text })) },
+    codex: { ...codex, recaps: codex.recaps.map((r) => ({ ...r, recap: text })) },
+  };
+  const view = (c: Ctx) => seatView({ snapshot: recapped, compiled, ctx: c });
+  const gmless = { ...ctx(member("player"), "u-x"), tableMode: "gmless" as const };
+  for (const c of [ctx(member("player"), "u-x"), ctx(member("cogm", ["session"]), "u-co")]) {
+    for (const r of view(c).codex.recaps) assert.equal(r.recap, "met @[…](hidden) and @[Open](open)");
+    assert.ok(!JSON.stringify(view(c)).includes("Secret Name"));
+  }
+  const gmlessView = seatView({
+    snapshot: { ...recapped, state: { ...recapped.state, campaign: { ...state.campaign, tableMode: "gmless" } } },
+    compiled,
+    ctx: gmless,
+  });
+  for (const s of gmlessView.state.journal) assert.equal(s.recap, "met @[…](hidden) and @[Open](open)");
+  const gm = view(ctx(member("gm"), "u-gm"));
+  assert.deepEqual([gm.codex.recaps[0]?.recap, gm.state.journal[0]?.recap], [text, text]);
+});
+
 test("a seat outside the codex side never receives the id of a picture not shown to the table", () => {
   const pictured = {
     ...snapshot,

@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 import {
   CodexKind,
@@ -18,8 +18,9 @@ import { GeneratorWizard } from "@/components/gm/codex/components/generator-wiza
 import { PackAdder } from "@/components/gm/codex/components/pack-adder/pack-adder";
 import { VisibilityBadge } from "@/components/gm/codex/components/visibility-badge/visibility-badge";
 import { EntryFieldChips } from "@/components/ui/entry-fields/entry-fields";
+import { RevealSwitch } from "@/components/ui/reveal-switch/reveal-switch";
 import type { RequestPage, Send } from "@/hooks/use-table/use-table";
-import { filterEntries, treeRows, unfolded, type KindFilter } from "@/lib/codex/codex";
+import { byKind, filterEntries, treeRows, unfolded, type KindFilter } from "@/lib/codex/codex";
 import { fromKinds } from "@/lib/entry-fields/entry-fields";
 import type { RulesEntry } from "@/lib/library/library";
 import type { Spawnable } from "@/lib/scene-prep/scene-prep";
@@ -43,6 +44,8 @@ type CodexProps = {
   requestPage?: RequestPage;
   /** The attached packs' creatures, for ADD TO SCENE on an entry made from one. */
   spawnable?: Spawnable | null;
+  /** Opens a search hit's peek (#218); without it a hit opens the entry here. */
+  onPeek?: (entryId: string) => void;
 };
 
 const NO_ENTRIES: readonly RulesEntry[] = [];
@@ -62,6 +65,7 @@ export function Codex({
   books,
   requestPage,
   spawnable = null,
+  onPeek,
 }: CodexProps) {
   const t = useTranslations("codex");
   const [own, setOwn] = useState<{ kind?: CodexKind; entry?: string }>({});
@@ -89,6 +93,26 @@ export function Codex({
   const shown = useMemo(() => filterEntries({ entries, kind, query }), [entries, kind, query]);
   const rows = useMemo(() => unfolded({ rows: treeRows(shown), folded }), [shown, folded]);
   const open = entries.find((e) => e.id === openId) ?? null;
+  const names = useMemo(() => new Map(state.actors.map((a) => [a.id, a.name])), [state.actors]);
+  const searching = query.trim() !== "";
+  const box = useRef<HTMLInputElement>(null);
+
+  // Syncs with the document's keyboard: "/" jumps to the search box (a tablet with a keyboard), unless a field has focus.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const at = e.target;
+      const typing =
+        at instanceof HTMLInputElement ||
+        at instanceof HTMLTextAreaElement ||
+        at instanceof HTMLSelectElement ||
+        (at instanceof HTMLElement && at.isContentEditable);
+      if (e.key !== "/" || typing || e.ctrlKey || e.metaKey || e.altKey) return;
+      e.preventDefault();
+      box.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   // Sends an action and shows its refusal, if any.
   const act = async (a: ActionInput) => {
@@ -149,9 +173,11 @@ export function Codex({
       <div className="row between">
         <input
           id="codex-search"
+          ref={box}
           type="search"
-          aria-label={t("search")}
-          placeholder={t("search")}
+          aria-label={t("searchKey")}
+          aria-keyshortcuts="/"
+          placeholder={t("searchKey")}
           value={query}
           onChange={handleQuery}
           style={{ flex: 1, minWidth: 0 }}
@@ -240,44 +266,80 @@ export function Codex({
         ))}
       </div>
       <div className="codex-layout">
-        <ul className="list codex-list">
-          {shown.length === 0 && <li className="dim">{entries.length === 0 ? t("empty") : t("noMatch")}</li>}
-          {rows.map(({ entry: e, depth, inside }) => (
-            <li
-              key={e.id}
-              className={depth > 0 ? "tree-child" : undefined}
-              style={{ marginInlineStart: Math.max(0, depth - 1) * 12 }}
-            >
-              {/* The title on top (two lines at most, the whole of it in the name and on hover), then one line of chips. */}
-              <button
-                className="btn codex-row"
-                aria-pressed={openId === e.id}
-                onClick={() => setOpenId(openId === e.id ? null : e.id)}
-                title={e.title}
+        {searching ? (
+          <div className="stack codex-hits">
+            {shown.length === 0 && <p className="dim">{t("noMatch")}</p>}
+            {byKind(shown).map((group) => (
+              <section key={group.kind} className="stack" style={{ gap: 4 }}>
+                <h3 className="w-label">{t("hits", { kind: t(`kind.${group.kind}`), count: group.entries.length })}</h3>
+                <ul className="list">
+                  {group.entries.map((e) => (
+                    <li key={e.id}>
+                      <button
+                        className="btn codex-row"
+                        aria-label={t("hitLabel", { title: e.title })}
+                        onClick={() => (onPeek ?? setOpenId)(e.id)}
+                      >
+                        <span className="codex-row-text">
+                          <strong className="codex-row-title">{e.title}</strong>
+                          <span className="codex-row-meta small">
+                            <EntryFieldChips ruleset={ruleset} entry={e} />
+                            <VisibilityBadge entry={e} />
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <ul className="list codex-list">
+            {shown.length === 0 && <li className="dim">{entries.length === 0 ? t("empty") : t("noMatch")}</li>}
+            {rows.map(({ entry: e, depth, inside }) => (
+              <li
+                key={e.id}
+                className={depth > 0 ? "tree-child" : undefined}
+                style={{ marginInlineStart: Math.max(0, depth - 1) * 12 }}
               >
-                <span className="codex-row-text">
-                  <strong className="codex-row-title">{e.title}</strong>
-                  <span className="codex-row-meta small">
-                    <span>{t(`kind.${e.kind}`)}</span>
-                    <EntryFieldChips ruleset={ruleset} entry={e} />
-                    {e.status && <span className="chip">{t(`status.${e.status}`)}</span>}
-                    <VisibilityBadge entry={e} />
-                  </span>
-                </span>
-              </button>
-              {inside > 0 && (
+                {/* The title on top (two lines at most, the whole of it in the name and on hover), then one line of chips. */}
                 <button
-                  className="btn sm"
-                  aria-expanded={!folded.has(e.id)}
-                  aria-label={t(folded.has(e.id) ? "unfold" : "fold", { count: inside, title: e.title })}
-                  onClick={handleFold(e.id)}
+                  className="btn codex-row"
+                  aria-pressed={openId === e.id}
+                  onClick={() => setOpenId(openId === e.id ? null : e.id)}
+                  title={e.title}
                 >
-                  {folded.has(e.id) ? "▸" : "▾"} {t("inside", { count: inside })}
+                  <span className="codex-row-text">
+                    <strong className="codex-row-title">{e.title}</strong>
+                    <span className="codex-row-meta small">
+                      <span>{t(`kind.${e.kind}`)}</span>
+                      <EntryFieldChips ruleset={ruleset} entry={e} />
+                      {e.status && <span className="chip">{t(`status.${e.status}`)}</span>}
+                    </span>
+                  </span>
                 </button>
-              )}
-            </li>
-          ))}
-        </ul>
+                {inside > 0 && (
+                  <button
+                    className="btn sm"
+                    aria-expanded={!folded.has(e.id)}
+                    aria-label={t(folded.has(e.id) ? "unfold" : "fold", { count: inside, title: e.title })}
+                    onClick={handleFold(e.id)}
+                  >
+                    {folded.has(e.id) ? "▸" : "▾"} {t("inside", { count: inside })}
+                  </button>
+                )}
+                {/* Who reads it (a listed reach opens the names) and the one-tap reveal (#218). */}
+                <span className="codex-row-acts small">
+                  <VisibilityBadge entry={e} names={e.audience.flatMap((id) => names.get(id) ?? [])} />
+                  {can("codex:reveal") && !state.campaign.archived && (
+                    <RevealSwitch entry={e} act={act} onListed={() => setOpenId(e.id)} />
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
         {open && (
           <EntryEditor
             key={open.id}

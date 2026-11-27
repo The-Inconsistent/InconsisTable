@@ -53,6 +53,16 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 	state := seatState(snapshot.State, compiled, c, sight)
 	state.MyDraft = myDraft
 	codex := seatEntryLinks(seatCodex(fielded, c, sight), compiled)
+	if !sight.Secrets && !sight.Codex {
+		// The journal's recaps read like the codex's (house decision #136): a mention of an entry the seat cannot see is hidden.
+		ids := map[string]bool{}
+		for _, e := range codex.Entries {
+			ids[e.ID] = true
+		}
+		for i := range state.Journal {
+			state.Journal[i].Recap = hideMentions(state.Journal[i].Recap, func(id string) bool { return ids[id] })
+		}
+	}
 	state.Clocks = seatClocks(state.Clocks, codex, sight)
 	state.Pools = seatPools(state.Pools, compiled, c)
 	state.Requests, state.RequestAnswers = seatRequests(state.Requests, state.RequestAnswers, c, sight, compiled, state.Pools)
@@ -459,6 +469,14 @@ func seatCodex(codex cs.Codex, c cs.Ctx, sight Sight) cs.Codex {
 		entries = append(entries, e)
 	}
 	out := cs.Codex{Entries: entries, Recaps: codex.Recaps}
+	if !sight.Secrets && !sight.Codex {
+		// A recap's mentions are hidden like an entry body's (house decision #136).
+		out.Recaps = make([]cs.SessionRecap, len(codex.Recaps))
+		for i, r := range codex.Recaps {
+			r.Recap = hideMentions(r.Recap, func(id string) bool { return ids[id] })
+			out.Recaps[i] = r
+		}
+	}
 	if sight.Secrets || sight.Codex {
 		out.LatestBegin = codex.LatestBegin // the sides that see a scene's status (house decision #105)
 	}

@@ -33,6 +33,8 @@ type RunTableProps = {
   requestPage: RequestPage;
   /** A quick game just made this room: open on PARTY with the invite QR up. */
   quick?: boolean;
+  /** Opens a codex search hit in the phone's peek (#218). */
+  onPeek?: (entryId: string) => void;
 };
 
 // RUN THE TABLE: a room without a GM is run by every phone at once, so the table's controls live here, behind one tab,
@@ -48,6 +50,7 @@ export function RunTable({
   books,
   requestPage,
   quick = false,
+  onPeek,
 }: RunTableProps) {
   const t = useTranslations("runTable");
   const can = (perm: Parameters<typeof canInCampaign>[0]["perm"]) => canInCampaign({ ctx: me, perm });
@@ -125,7 +128,7 @@ export function RunTable({
         ) : shown === "tests" ? (
           <Tests state={state} send={send} />
         ) : shown === "codex" ? (
-          <Codex me={me} state={state} codex={codex} send={send} ruleset={ruleset} />
+          <Codex me={me} state={state} codex={codex} send={send} ruleset={ruleset} onPeek={onPeek} />
         ) : (
           <div className="stack" style={{ gap: 24 }}>
             <TableModePicker me={me} state={state} ruleset={ruleset} send={send} />

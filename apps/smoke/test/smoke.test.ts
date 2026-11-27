@@ -5340,6 +5340,25 @@ test("an @mention of a hidden entry reaches a player as the hidden form, never w
   ana.socket.close();
 });
 
+test("a recap's @mention of a hidden entry reaches a player as the hidden form, the revealed one whole (#218)", async () => {
+  const { owner, campaignId } = await newRoom("RecapMention");
+  const ana = connect({ auth: { campaignId, cookie: await seatPlayer(owner, "ana-recap-mention") } });
+  await ana.until(() => true);
+  const save = async (a: Record<string, unknown>) => ok(await owner.send({ type: "codex.save", ...a } as never)).id!;
+  const secret = await save({ kind: "npc", title: "Veiled Duchess" });
+  const shown = await save({ kind: "location", title: "Ferry Landing" });
+  ok(await owner.send({ type: "codex.reveal", id: shown, visibility: "party", audienceMode: "all", audience: [] }));
+  const recap = `We met @[Veiled Duchess](${secret}) at @[Ferry Landing](${shown}).`;
+  ok(await owner.send({ type: "session.start", title: "One" }));
+  ok(await owner.send({ type: "session.end", recap }));
+  await eventually(() => ana.codex()?.recaps.length === 1, "the recap reaches the player");
+  assert.equal(ana.codex()?.recaps[0]?.recap, `We met @[…](hidden) at @[Ferry Landing](${shown}).`);
+  assert.ok(!JSON.stringify(ana.codex()).includes("Veiled Duchess"), "the hidden title is not in the player's codex");
+  assert.equal(owner.codex()?.recaps[0]?.recap, recap, "the GM receives it whole");
+  owner.socket.close();
+  ana.socket.close();
+});
+
 test("session:draftRecap: lines for a Test and a reveal; only the GM side may ask; nothing hidden is told", async () => {
   const { owner, ana, hero, call } = await testRoom("Draft");
   const draft = (s: { socket: { emitWithAck: (e: string) => Promise<unknown> } }) =>

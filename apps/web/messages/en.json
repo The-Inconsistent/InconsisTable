@@ -2620,6 +2620,7 @@
     "acts": "{name} acts",
     "ends": "{name}'s turn ends",
     "round": "Round {round} begins",
+    "warn": "{name}: {text}",
     "undone": "(taken back)",
     "other": "{count, plural, one {# change} other {# changes}}"
   },

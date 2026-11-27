@@ -1083,7 +1083,16 @@ export const Health = z.object({
   tracks: z.array(HealthTrack).max(10).default([]),
   /** Display states such as "bloodied": `when` is a boolean expression over the actor. */
   states: z
-    .array(z.object({ id: Id, label: z.string().min(1).max(80).optional(), when: ExprSource, entities: ActorTypes }))
+    .array(
+      z.object({
+        id: Id,
+        label: z.string().min(1).max(80).optional(),
+        when: ExprSource,
+        entities: ActorTypes,
+        /** The ruleset's own words for the fight's log when a write brings an actor into the state (house decision #190). */
+        warn: z.string().min(1).max(80).optional(),
+      }),
+    )
     .max(20)
     .default([]),
   cite: Cite.optional(),
@@ -1459,6 +1468,8 @@ export const StrikeOutcome = z.object({
   wounds: ExprSource.optional(),
   shock: ExprSource.optional(),
   cite: Cite.optional(),
+  /** The ruleset's own words for the fight's log when a strike lands this outcome (house decision #190). */
+  warn: z.string().min(1).max(80).optional(),
 });
 export type StrikeOutcome = z.infer<typeof StrikeOutcome>;
 

@@ -272,7 +272,15 @@ export function Track({ me, state, send, sheet, entries }: TrackProps) {
       ) : (
         !noTurnOrder && <p className="dim">{state.session ? t("noFight", { mode }) : t("startSession", { mode })}</p>
       )}
-      {encounter && <FightLog log={encounter.log ?? []} actors={actors} ruleset={rules ?? null} />}
+      {encounter && (
+        <FightLog
+          log={encounter.log ?? []}
+          actors={actors}
+          ruleset={rules ?? null}
+          compiled={compiled}
+          campaign={state.campaign.fields}
+        />
+      )}
       {!encounter && state.games[0] && <GameResult game={state.games[0]} onCorrect={handleCorrect} />}
       {sheet.ruleset && sheetActor && (
         <BottomSheet title={t("sheetOf", { name: sheetActor.name })} onClose={() => setSheetOf(null)}>

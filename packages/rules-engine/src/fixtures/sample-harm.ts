@@ -753,7 +753,7 @@ export const SAMPLE_HARM_0_1_11: RulesetInput = {
  * 0.1.12 (house decision #180): Incoming reads the acting swarm's size, which every seat reads, and a stance a hero may
  * take only with the maul carried sinks without it. 0.1.11 hashes as it did. Invented.
  */
-export const SAMPLE_HARM: RulesetInput = {
+export const SAMPLE_HARM_0_1_12: RulesetInput = {
   ...SAMPLE_HARM_0_1_11,
   version: "0.1.12",
   panels: SAMPLE_HARM_0_1_11.panels?.map((p) =>
@@ -776,6 +776,34 @@ export const SAMPLE_HARM: RulesetInput = {
           }
         : p,
   ),
+};
+
+/**
+ * 0.1.13 (house decision #190): the fight's log warns, in the ruleset's own words, when a hit fells a hero or brute or
+ * destroys one outright, and when a blow thins a swarm. 0.1.12 hashes as it did. Invented.
+ */
+export const SAMPLE_HARM: RulesetInput = {
+  ...SAMPLE_HARM_0_1_12,
+  version: "0.1.13",
+  health: {
+    ...SAMPLE_HARM_0_1_12.health,
+    states: [
+      ...(SAMPLE_HARM_0_1_12.health?.states ?? []).map((s) =>
+        s.id === "fallen" ? { ...s, warn: "Falls: each further wound leaves a scar" } : s,
+      ),
+      {
+        id: "gone",
+        label: "Gone",
+        when: "has(gone) && gone",
+        entities: ["hero", "brute"],
+        warn: "Destroyed outright",
+      },
+    ],
+  },
+  strikes: SAMPLE_HARM_0_1_12.strikes?.map((k) => ({
+    ...k,
+    outcomes: k.outcomes.map((o) => (o.id === "thinned" ? { ...o, warn: "One of the swarm drops" } : o)),
+  })),
 };
 
 /**

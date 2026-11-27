@@ -2620,6 +2620,7 @@
     "acts": "{name} hành động",
     "ends": "Hết lượt của {name}",
     "round": "Bắt đầu vòng {round}",
+    "warn": "{name}: {text}",
     "undone": "(đã hoàn tác)",
     "other": "{count} thay đổi"
   },

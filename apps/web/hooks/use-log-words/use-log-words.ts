@@ -32,6 +32,8 @@ export function useLogWords(): (p: LogPart) => string {
         return t("round", { round: p.round });
       case "other":
         return t("other", { count: p.count });
+      case "warn":
+        return t("warn", { name: p.name, text: p.text });
     }
   };
 }

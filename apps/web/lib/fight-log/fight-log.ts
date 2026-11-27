@@ -1,5 +1,12 @@
-import type { Actor, FightLogLine, HistoryLine } from "@inconsistable/core-schema";
-import type { Ruleset } from "@inconsistable/rules-engine";
+import type { Actor, FieldValue, FightLogLine, HistoryLine } from "@inconsistable/core-schema";
+import {
+  actorScope,
+  campaignValues,
+  healthStatesOf,
+  withLists,
+  type CompiledRuleset,
+  type Ruleset,
+} from "@inconsistable/rules-engine";
 
 // The fight's log on the GM's tracker (house decision #100): what each logged action of the running fight did, in the
 // platform's words: who, what, how much. Read-only; Undo and TURN BACK stay the tracker's buttons.
@@ -14,7 +21,8 @@ export type LogPart =
   | { kind: "ends"; name: string }
   | { kind: "round"; round: number }
   /** HISTORY only: an action whose writes the log does not tell, by how many there were. */
-  | { kind: "other"; count: number };
+  | { kind: "other"; count: number }
+  | { kind: "warn"; name: string; text: string };
 
 /** One action as a line: its parts in order, and whether Undo or TURN BACK took it back. */
 export type LogLine = { id: string; parts: LogPart[]; undone: boolean };
@@ -23,7 +31,10 @@ export type LogTurn = { actorId: string | null; name: string | null; lines: LogL
 /** One round's turns, newest first. */
 export type LogRound = { round: number; turns: LogTurn[] };
 
-type Names = ReadonlyMap<string, Pick<Actor, "name">>;
+type Names = ReadonlyMap<
+  string,
+  Pick<Actor, "name"> & Partial<Pick<Actor, "entity" | "fields" | "resources" | "derived">>
+>;
 
 const num = (v: unknown) => (typeof v === "number" ? v : 0);
 
@@ -84,6 +95,11 @@ export function actionParts({
   ruleset: Pick<Ruleset, "resources" | "conditions" | "entities" | "strikes"> | null;
 }): LogPart[] {
   const s = entry.strike;
+  const outcome =
+    s === undefined
+      ? undefined
+      : ruleset?.strikes?.find((k) => k.id === s.strikeId)?.outcomes.find((o) => o.id === s.outcome);
+  const target = s === undefined ? "" : (names.get(s.targetId)?.name ?? "");
   const strike: LogPart[] =
     s === undefined
       ? []
@@ -91,13 +107,12 @@ export function actionParts({
           {
             kind: "strike",
             attacker: names.get(s.attackerId)?.name ?? "",
-            target: names.get(s.targetId)?.name ?? "",
+            target,
             means: s.means,
-            outcome:
-              ruleset?.strikes?.find((k) => k.id === s.strikeId)?.outcomes.find((o) => o.id === s.outcome)?.label ??
-              s.outcome,
+            outcome: outcome?.label ?? s.outcome,
             total: s.total,
           },
+          ...(outcome?.warn === undefined ? [] : [{ kind: "warn" as const, name: target, text: outcome.warn }]),
         ];
   return [...strike, ...entry.writes.flatMap((w) => partsOf({ w, names, ruleset }))];
 }
@@ -130,6 +145,70 @@ export function historyLines({
   });
 }
 
+const fieldValue = (v: unknown): v is FieldValue =>
+  v === null ||
+  typeof v === "number" ||
+  typeof v === "string" ||
+  typeof v === "boolean" ||
+  (Array.isArray(v) && v.every((x) => typeof x === "string"));
+
+/**
+ * The warnings a line's writes raise (house decision #190): for each actor it wrote, every health state the ruleset
+ * words a `warn` for that holds once the writes are made and did not before them. The actor's other values are read as
+ * they stand now.
+ */
+// ponytail: an older line reads the actor's unwritten values as they stand now, so a state that also reads one changed
+// since may warn differently than it would have then; the server would keep each actor's values per action to do better
+function warningsOf({
+  entry,
+  names,
+  compiled,
+  campaign,
+}: {
+  entry: FightLogLine;
+  names: Names;
+  compiled: CompiledRuleset;
+  campaign?: Readonly<Record<string, number | string | boolean>>;
+}): LogPart[] {
+  const warned = new Map(compiled.ruleset.health.states.flatMap((s) => (s.warn === undefined ? [] : [[s.id, s.warn]])));
+  if (warned.size === 0) return [];
+  const written = new Set(
+    entry.writes.flatMap((w) =>
+      w.target.actorId !== undefined && (w.target.resource !== undefined || w.target.field !== undefined)
+        ? [w.target.actorId]
+        : [],
+    ),
+  );
+  return [...written].flatMap((id) => {
+    const a = names.get(id);
+    if (a?.entity === undefined) return [];
+    const entity = a.entity;
+    // The actor's states with its written values as they were before the line (the first write's) or after (the last).
+    const states = (side: "before" | "after") => {
+      const fields: Record<string, FieldValue> = { ...a.fields };
+      const resources: Record<string, number> = { ...a.resources };
+      const writes = entry.writes.filter((w) => w.target.actorId === id);
+      for (const w of side === "after" ? writes : writes.toReversed()) {
+        const v = w[side];
+        if (w.target.resource !== undefined && typeof v === "number") resources[w.target.resource] = v;
+        if (w.target.field !== undefined && fieldValue(v)) fields[w.target.field] = v;
+      }
+      try {
+        const scope = actorScope({ fields, derived: a.derived, resources, campaign });
+        return healthStatesOf({ compiled, entity, scope: withLists({ ruleset: compiled.ruleset, scope }) });
+      } catch {
+        return null;
+      }
+    };
+    const before = states("before");
+    const after = states("after");
+    if (before === null || after === null) return [];
+    return after.flatMap((s) =>
+      before.includes(s) || !warned.has(s) ? [] : [{ kind: "warn" as const, name: a.name, text: warned.get(s)! }],
+    );
+  });
+}
+
 /**
  * The log as rounds of turns of lines, newest first, from the encounter's `log` (already newest first). A strike is one
  * part before what its writes did; an action that left nothing the log tells is left out.
@@ -138,14 +217,24 @@ export function fightLog({
   log,
   names,
   ruleset,
+  compiled = null,
+  campaign,
 }: {
   log: readonly FightLogLine[];
   names: Names;
   ruleset: Pick<Ruleset, "resources" | "conditions" | "entities" | "strikes"> | null;
+  /** The ruleset compiled, for the health states a line's writes bring an actor into; without it, none are told. */
+  compiled?: CompiledRuleset | null;
+  /** The room's stored campaign values, which a health state may read. */
+  campaign?: Readonly<Record<string, unknown>>;
 }): LogRound[] {
   const rounds: LogRound[] = [];
+  const inPlay = compiled === null ? undefined : campaignValues({ compiled, stored: campaign ?? {} });
   for (const entry of log) {
-    const parts = actionParts({ entry, names, ruleset });
+    const parts = [
+      ...actionParts({ entry, names, ruleset }),
+      ...(compiled === null ? [] : warningsOf({ entry, names, compiled, campaign: inPlay })),
+    ];
     if (parts.length === 0) continue;
     let round = rounds.at(-1);
     if (round?.round !== entry.round) {

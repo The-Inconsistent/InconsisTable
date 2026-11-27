@@ -3567,13 +3567,27 @@ fieldset:disabled select {
   text-align: right;
   padding-right: 0;
 }
+/* A row's actions keep their words: they never shrink, and at a phone's width they stack in their cell. */
+.ledger td:last-child .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .ledger td:last-child .row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+/* Every confirm dialog: a card's corners and a working width, whatever a World makes of a button's radius (a pill
+   clips the title and the buttons, worst on a phone). */
 .ledger-confirm {
-  max-width: min(440px, calc(100vw - 32px));
+  width: min(480px, calc(100vw - 32px));
+  max-width: none;
   padding: 16px;
   background: var(--paper);
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: var(--radius-btn);
+  border-radius: var(--radius-card);
 }
 .ledger-confirm::backdrop {
   background: rgb(0 0 0 / 0.55);
@@ -3626,12 +3640,9 @@ fieldset:disabled select {
 .ledger-confirm .row {
   margin-top: 12px;
 }
-/* The room's MANAGE dialog holds a whole room's controls: a card's corners and a working width, whatever a World
-   makes of a button's radius (a pill would clip its corners). The short confirm dialogs keep theirs. */
+/* The room's MANAGE dialog holds a whole room's controls: a little wider. */
 .ledger-confirm.admin-manage {
   width: min(560px, calc(100vw - 32px));
-  max-width: none;
-  border-radius: var(--radius-card);
 }
 
 /* ---------- The workspace: rooms, characters, rulesets and packs ----------

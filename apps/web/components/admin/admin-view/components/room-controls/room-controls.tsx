@@ -7,7 +7,7 @@ import type { ActionInput, RoomExportReport } from "@inconsistable/core-schema";
 import type { RoomConfirm } from "@/components/admin/admin-view/components/room-controls/constants";
 import { ExportReport } from "@/components/ui/export-report/export-report";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
-import { adminFetch, AdminEvents, type AdminCampaign, type AdminUser } from "@/lib/admin/admin";
+import { adminFetch, AdminEvents, deviceTag, type AdminCampaign, type AdminUser } from "@/lib/admin/admin";
 import { saveExport } from "@/lib/room-export/room-export";
 
 type RoomControlsProps = {
@@ -24,6 +24,9 @@ type RoomControlsProps = {
 // room's rows of the admin log. Each step is an admin action at the room, logged by the api.
 export function RoomControls({ campaign: c, users, onChanged }: RoomControlsProps) {
   const t = useTranslations("admin.room");
+  const tUsers = useTranslations("admin.users");
+  // A user as the console names them: a device with its tag, since devices share a name (house decision #185).
+  const label = (u: AdminUser) => (u.account ? u.name : `${u.name} ${tUsers("tag", { tag: deviceTag(u.id) })}`);
   const refusal = useRefusal();
   const locale = useLocale();
   const pickId = useId();
@@ -62,7 +65,8 @@ export function RoomControls({ campaign: c, users, onChanged }: RoomControlsProp
   // SEAT AS GM: the picked user takes a GM seat here.
   const handleSeat = (e: FormEvent) => {
     e.preventDefault();
-    const name = users?.find((u) => u.id === pick)?.name ?? "";
+    const picked = users?.find((u) => u.id === pick);
+    const name = picked ? label(picked) : "";
     void act({ type: "member.seat", userId: pick }, t("seated", { name }));
   };
   // DELETE FOR GOOD: the room and everything in it, once its name is typed.
@@ -134,7 +138,7 @@ export function RoomControls({ campaign: c, users, onChanged }: RoomControlsProp
             <option value="">{users === null ? t("loadingUsers") : t("pickUser")}</option>
             {users?.map((u) => (
               <option key={u.id} value={u.id}>
-                {u.name}
+                {label(u)}
               </option>
             ))}
           </select>

@@ -1888,10 +1888,23 @@ test("a confirmed generator run makes a place with its chambers; a forged one is
   );
   ok(await owner.send({ type: "event.undo" }));
   await eventually(() => made.ids!.every((id) => entryOf(id) === undefined), "undone whole");
+  // More chambers for a warren already made (house decision #202): no warren of their own, under the one named.
+  const old = ok(await owner.send({ type: "codex.save", kind: "location", title: "Old warren" })).id!;
+  const more = ok(
+    await owner.send({
+      type: "codex.generate",
+      generatorId: "chambers",
+      values: { rooms: { value: 2 } },
+      each: chambers,
+      parentId: old,
+    }),
+  );
+  assert.equal(more.ids?.length, 2);
+  await eventually(() => more.ids!.every((id) => entryOf(id)?.parentId === old), "the chambers under the old warren");
   type Generators = { generators?: unknown[] };
   const generatorsOf = async (c: ReturnType<typeof caller>) =>
     ((await c.get<RulesReply>(`/campaigns/${campaignId}/rules`)).body.ruleset?.manifest as Generators).generators;
-  assert.equal((await generatorsOf(me))?.length, 2);
+  assert.equal((await generatorsOf(me))?.length, 3);
   assert.equal(await generatorsOf(caller(anaDevice)), undefined);
 
   // The second shape: one roll, one flat entry.

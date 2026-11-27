@@ -689,10 +689,11 @@ test("a strike, a generator and a codex kind's prefill are cut where they read w
     ["A clean line"],
   );
   const secrets = served(CRAFTED_SEAT_CUTS.d20Cuts!, ctx(member("cogm", ["codex", "codex.secrets"]), "u-co"));
-  // The warren's pick reads a creature's level the seat may not read; the shrine's reads nothing (house decision #179).
+  // The warren's pick reads a creature's level the seat may not read; the shrine's and the chambers' read nothing
+  // (house decisions #179, #202).
   assert.deepEqual(
     secrets.generators?.map((g) => g.id),
-    ["shrine"],
+    ["shrine", "chambers"],
   );
   assert.deepEqual(secrets.codex?.kinds.location?.from, [{ entity: "site", values: {}, children: "within" }]);
 });

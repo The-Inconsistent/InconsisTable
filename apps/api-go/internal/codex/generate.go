@@ -3,6 +3,7 @@ package codex
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"slices"
 
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/actor"
@@ -78,7 +79,13 @@ func Generate(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 	}
 	kind := g.Make.Kind
 	ids := []string{}
-	for i, p := range append([]engine.PlannedEntry{*root}, each...) {
+	planned := each
+	if root != nil {
+		planned = append([]engine.PlannedEntry{*root}, each...)
+	}
+	// A run with no entry of its own puts each round's entry under the one the GM names, or loose (house decision #202).
+	under, _ := a["parentId"].(string)
+	for i, p := range planned {
 		save := cs.Action{"type": "codex.save", "kind": kind}
 		if p.From != nil {
 			if save, err = saveFrom(ctx, tx, c, rules, kind, prefill(rules, kind, p.From.Entity), *find(p.From.Entity, p.From.Key)); err != nil {
@@ -100,7 +107,9 @@ func Generate(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 			save["fields"] = fields
 		}
 		parent := ""
-		if i > 0 {
+		if root == nil {
+			parent = under
+		} else if i > 0 {
 			parent = ids[0]
 		}
 		id, err := makeUnder(ctx, tx, c, save, parent)
@@ -108,6 +117,13 @@ func Generate(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Resu
 			return cs.Result{}, err
 		}
 		ids = append(ids, id)
+	}
+	if root == nil {
+		if len(ids) == 0 {
+			return cs.Result{}, nil // no rounds: nothing made, nothing to take back
+		}
+		a = maps.Clone(a)
+		delete(a, "parentId") // each round's entry is under it already
 	}
 	return logMade(ctx, tx, c, a, ids)
 }

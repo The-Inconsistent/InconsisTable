@@ -69,6 +69,7 @@ func Of(snapshot Snapshot, compiled *engine.CompiledRuleset, c cs.Ctx) SeatView 
 	state.Rolls, state.Dealt = seatTables(state.Rolls, state.Dealt, c, sight)
 	state.Whispers = seatWhispers(state.Whispers, c, sight)
 	state.History = seatHistory(snapshot.State, state, codex, compiled, c, sight)
+	state.Spotlight = seatSpotlight(state.Spotlight, codex, c, sight)
 	return SeatView{state, codex}
 }
 
@@ -191,6 +192,33 @@ func writeSeer(whole, seat cs.LiveState, codex cs.Codex, compiled *engine.Compil
 		}
 		return false
 	}
+}
+
+// The spotlight a seat receives (view.seat.ts seatSpotlight, house decision #139): the codex and secrets sides get it
+// whole, and so, without a GM, does a seat that may reveal (it sends SHOW, so it needs the bar and CLEAR). Anyone else
+// gets none for an entry its codex lacks, and of a listed audience only the characters it holds, none when that leaves
+// none: no phone learns who else was named, and the screen gets only one shown to everyone.
+func seatSpotlight(s *cs.Spotlight, codex cs.Codex, c cs.Ctx, sight Sight) *cs.Spotlight {
+	if s == nil || sight.Secrets || sight.Codex || (!c.HasGM() && cs.CanInCampaign(c, "codex:reveal", "")) {
+		return s
+	}
+	if !slices.ContainsFunc(codex.Entries, func(e cs.CodexEntry) bool { return e.ID == s.EntryID }) {
+		return nil
+	}
+	if len(s.Audience) == 0 {
+		return s
+	}
+	held := HeldBy(c)
+	mine := []string{}
+	for _, id := range s.Audience {
+		if holds(held, id) {
+			mine = append(mine, id)
+		}
+	}
+	if len(mine) == 0 {
+		return nil
+	}
+	return &cs.Spotlight{EntryID: s.EntryID, Audience: mine, At: s.At}
 }
 
 // The whispers a seat receives (view.seat.ts seatWhispers, house decision #93): the side that runs the session with a

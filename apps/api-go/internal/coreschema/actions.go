@@ -341,6 +341,9 @@ var ActionSchema = schema.Union("type",
 		schema.Opt("imageRevealed", schema.Bool()),
 	),
 	variant("codex.delete", schema.Req("id", id), schema.Opt("withScenes", schema.Bool())),
+	// SHOW TO TABLE (#2, house decision #139): showing reveals the entry for good; a new SHOW replaces the last.
+	variant("spotlight.show", schema.Req("entryId", id), schema.Def("audience", schema.Array(id).Max(50), []any{})),
+	variant("spotlight.clear"),
 	// Beginning a scene and taking the begin back (house decision #86).
 	variant("scene.begin", schema.Req("sceneId", id)),
 	variant("scene.undoBegin", schema.Req("beginId", id)),
@@ -512,6 +515,8 @@ var ActionPerms = map[string]string{
 	"codex.generate":          "codex:write",
 	"codex.reveal":            "codex:reveal",
 	"codex.delete":            "codex:write",
+	"spotlight.show":          "codex:reveal",
+	"spotlight.clear":         "codex:reveal",
 	"scene.begin":             "codex:write",
 	"scene.undoBegin":         "codex:write",
 	"codex.move":              "codex:write",

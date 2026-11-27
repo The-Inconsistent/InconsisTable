@@ -11,6 +11,7 @@ import { EntryPicture } from "@/components/ui/entry-picture/entry-picture";
 import { HandoutDoc } from "@/components/ui/handout-doc/handout-doc";
 import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { forYourEyes } from "@/lib/codex/codex";
+import { canHoldUp } from "@/lib/spotlight/spotlight";
 import type { RulesEntry } from "@/lib/library/library";
 
 type PeekProps = {
@@ -30,6 +31,8 @@ type PeekProps = {
   onClose: () => void;
   /** GO TO, for a seat that may write the codex: the entry in CODEX, where it is edited. */
   onGoTo?: (entryId: string) => void;
+  /** SHOW THE TABLE, on a phone: a handout or a picture held up full-screen (#2). */
+  onHold?: (entryId: string) => void;
 };
 
 // One look at an entry over the current screen (#218): from a mention, a search hit or an inbox card, on the GM's app and
@@ -45,6 +48,7 @@ export function Peek({
   onOpen,
   onClose,
   onGoTo,
+  onHold,
 }: PeekProps) {
   const t = useTranslations("peek");
   const tKind = useTranslations("codex.kind");
@@ -65,6 +69,15 @@ export function Peek({
           <span className="chip" data-eyes="only">
             {t("eyesOnly")}
           </span>
+        )}
+        {onHold && canHoldUp(entry) && (
+          <button
+            className="btn sm"
+            onClick={() => onHold(entry.id)}
+            aria-label={t("holdLabel", { title: entry.title })}
+          >
+            {t("hold")}
+          </button>
         )}
         {onGoTo && (
           <button

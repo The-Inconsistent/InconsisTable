@@ -67,6 +67,7 @@ func Archive(ctx context.Context, tx core.Conn, c cs.Ctx, _ cs.Action) (cs.Resul
 		`UPDATE session SET ended_at = now() WHERE campaign_id = $1 AND ended_at IS NULL`,
 		`UPDATE invite SET revoked_at = now() WHERE campaign_id = $1 AND revoked_at IS NULL`,
 		`DELETE FROM ownership_transfer WHERE campaign_id = $1`,
+		`DELETE FROM spotlight WHERE campaign_id = $1`, // the card comes down: an archived room takes no CLEAR
 		`UPDATE campaign SET archived_at = now() WHERE id = $1`,
 	} {
 		if _, err := tx.Exec(ctx, statement, c.CampaignID); err != nil {

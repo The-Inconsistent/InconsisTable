@@ -137,6 +137,10 @@ func UndoBegin(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Res
 	if _, err := tx.Exec(ctx, `DELETE FROM codex_reveal WHERE entry_id = ANY($1::uuid[])`, sealed); err != nil {
 		return cs.Result{}, err
 	}
+	// A sealed entry's card comes down, as a codex.reveal to the GM takes it down.
+	if _, err := tx.Exec(ctx, `DELETE FROM spotlight WHERE campaign_id = $1 AND entry_id = ANY($2::uuid[])`, cid, sealed); err != nil {
+		return cs.Result{}, err
+	}
 	for _, entry := range sealed {
 		if err := eventlog.LogEvent(ctx, tx, c, "codex.reveal",
 			map[string]any{"entryId": entry, "visibility": "gm", "audienceMode": "all"}); err != nil {

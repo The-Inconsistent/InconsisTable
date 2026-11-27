@@ -3107,6 +3107,22 @@
     "missing": "Mục này không còn trong sổ tay của bạn.",
     "eyesOnly": "Chỉ mình bạn được xem",
     "goTo": "Đến",
-    "goToLabel": "Đến {title} trong Codex"
+    "goToLabel": "Đến {title} trong Codex",
+    "hold": "Cho cả bàn xem",
+    "holdLabel": "Giơ {title} lên cho cả bàn xem, toàn màn hình"
+  },
+  "spotlight": {
+    "show": "Trình chiếu",
+    "showLabel": "Trình chiếu {title} cho cả bàn",
+    "everyone": "Mọi người",
+    "only": "Hoặc chỉ những nhân vật này",
+    "toThem": "{count, plural, =0 {Trình chiếu cho họ} other {Trình chiếu cho # nhân vật}}",
+    "showing": "Đang trình chiếu {title} cho {to}",
+    "clear": "Thu lại",
+    "clearLabel": "Thôi trình chiếu {title}",
+    "close": "Đóng",
+    "closeLabel": "Đóng {title}",
+    "fromGm": "GM đang trình chiếu",
+    "holding": "Đang cho cả bàn xem · màn hình luôn sáng"
   }
 }

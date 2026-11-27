@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { compileRuleset } from "@inconsistable/rules-engine";
 
@@ -15,12 +15,14 @@ import { MentionText } from "@/components/ui/mention-text/mention-text";
 import { OrderView } from "@/components/ui/order-view/order-view";
 import { RecapCard } from "@/components/ui/recap-card/recap-card";
 import { StatusScreen } from "@/components/ui/status-screen/status-screen";
+import { SpotlightCard } from "@/components/ui/spotlight-card/spotlight-card";
 import { XCardOverlay } from "@/components/ui/xcard/xcard-overlay";
 import { useTable } from "@/hooks/use-table/use-table";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
 import { heldChips } from "@/lib/held/held";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 import { rangeOf } from "@/lib/sheet/sheet";
+import { spotlitEntry, xcardUp } from "@/lib/spotlight/spotlight";
 import { screenCardsOf, type ScreenCardOf } from "@/lib/table-screen/table-screen";
 import { testWords } from "@/lib/test-inputs/test-inputs";
 
@@ -33,7 +35,10 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
   const t = useTranslations("tableScreen");
   const tTable = useTranslations("table");
   const tStatus = useTranslations("status");
+  const tSpot = useTranslations("spotlight");
   const { state, codex, online, xcard, send, requestPage } = useTable(campaignId);
+  // The X-card's touch count when it last went by: until then the spotlight yields to it.
+  const [xcardClosed, setXcardClosed] = useState(0);
   useWorldRefresh({ rendered: view?.first.world?.versionId ?? null, live: state?.campaign.worldVersionId });
   const ruleset = view?.ruleset ?? null;
   const compiled = useMemo(() => {
@@ -43,6 +48,7 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   const revealed = (codex?.entries ?? []).filter((e) => e.audienceMode === "all");
   const cards = screenCardsOf({ ruleset, state });
+  const spotEntry = spotlitEntry({ spotlight: state.spotlight, entries: codex?.entries ?? [], held: [] });
   const characters = state.actors.filter((a) => a.kind === "pc").length;
   // One card per actor, its bounds worked out from what the screen received.
   const cardOf = ({ actor, rows }: ScreenCardOf) =>
@@ -57,7 +63,20 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
     );
   return (
     <div className="surface-table" data-density="tv">
-      <XCardOverlay signal={xcard} tv />
+      <XCardOverlay signal={xcard} tv onClose={() => setXcardClosed(xcard)} />
+      {spotEntry && !xcardUp({ signal: xcard, closedAt: xcardClosed }) && (
+        // The GM's SHOW to everyone (#2): up on the TV until the GM clears it; a listed one never reaches the TV.
+        <SpotlightCard
+          key={state.spotlight?.at}
+          entry={spotEntry}
+          campaignId={campaignId}
+          entries={codex?.entries ?? []}
+          ruleset={ruleset}
+          known={view?.first.entries ?? []}
+          campaign={state.campaign.fields}
+          kicker={tSpot("fromGm")}
+        />
+      )}
       <main className="screen stack">
         {/* The screen has no header band: the badge is its first row instead. */}
         {!online && (

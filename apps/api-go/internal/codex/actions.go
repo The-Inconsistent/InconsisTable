@@ -355,6 +355,11 @@ func Reveal(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result
 	if _, err := tx.Exec(ctx, `DELETE FROM codex_reveal WHERE entry_id = $1`, id); err != nil {
 		return cs.Result{}, err
 	}
+	if a.Str("visibility") == "gm" { // a sealed entry's card comes down, or a later reveal would pop it up unasked
+		if _, err := tx.Exec(ctx, `DELETE FROM spotlight WHERE campaign_id = $1 AND entry_id = $2`, cid, id); err != nil {
+			return cs.Result{}, err
+		}
+	}
 	if listed && len(audience) > 0 {
 		if _, err := tx.Exec(ctx, `INSERT INTO codex_reveal (entry_id, actor_id) SELECT $1, unnest($2::uuid[])`, id, audience); err != nil {
 			return cs.Result{}, err

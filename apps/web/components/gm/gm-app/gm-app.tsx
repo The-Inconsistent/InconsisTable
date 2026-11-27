@@ -24,6 +24,7 @@ import { WhisperButton } from "@/components/gm/whisper-button/whisper-button";
 import { ActionNotices } from "@/components/ui/action-notices/action-notices";
 import { ArchivedBanner } from "@/components/ui/archived-banner/archived-banner";
 import { Peek } from "@/components/ui/peek/peek";
+import { ShowingBar } from "@/components/gm/codex/components/showing-bar/showing-bar";
 import { TableModePicker } from "@/components/player/run-table/table-mode-picker";
 import { Tests } from "@/components/gm/tests/tests";
 import { Standings } from "@/components/ui/standings/standings";
@@ -196,6 +197,9 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
         <CallBand state={state} send={send} onMore={() => openTab("tests")} />
       )}
       <ActionNotices notices={notices} onDismiss={dismissNotices} />
+      {canInCampaign({ ctx: me, perm: "codex:reveal" }) && (
+        <ShowingBar spotlight={state.spotlight} entries={codex?.entries ?? []} actors={state.actors} send={send} />
+      )}
       {state.campaign.archived && (
         <ArchivedBanner
           onReopen={canInCampaign({ ctx: me, perm: "campaign:archive" }) ? () => openTab("party") : undefined}

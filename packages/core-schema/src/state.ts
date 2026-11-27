@@ -323,6 +323,18 @@ export const WhisperReader = z.object({
   readAt: z.string().nullable(),
 });
 export type WhisperReader = z.infer<typeof WhisperReader>;
+/**
+ * What the GM holds up to the table (#2, house decision #139): one codex entry at a time, drawn by each seat from its own
+ * codex, so no entry text is copied and an edit shows at once. `audience`: the characters it is shown to, [] for
+ * everyone; a seat outside a listed audience receives no spotlight, and one inside receives only the characters it holds.
+ */
+export const Spotlight = z.object({
+  entryId: z.string(),
+  audience: z.array(z.string()),
+  at: z.string(), // when it was shown: a phone's DISMISS is kept per `at`, so a new SHOW opens again
+});
+export type Spotlight = z.infer<typeof Spotlight>;
+
 export const Whisper = z.object({
   id: z.string(),
   text: z.string(),
@@ -400,6 +412,8 @@ export const LiveState = z.object({
   // The running session's logged actions, newest first, at most 100 (house decision #133): the side that may undo them,
   // cut to the writes the seat sees. Never in a pushed state: the api fills it only to answer `session:history`.
   history: z.array(HistoryLine).optional(),
+  // The entry the GM is showing the table, as this seat may see it (house decision #139); null when none or not for it.
+  spotlight: Spotlight.nullable(),
 });
 export type LiveState = z.infer<typeof LiveState>;
 

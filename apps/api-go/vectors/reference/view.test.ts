@@ -9,6 +9,7 @@ import type {
   Combatant,
   Ctx,
   LiveState,
+  Spotlight,
   TestCall,
 } from "../../../../packages/core-schema/src/index.ts";
 import { ScenePrep } from "../../../../packages/core-schema/src/index.ts";
@@ -179,6 +180,7 @@ const state: LiveState = {
       readers: [{ actorId: "bran", reply: null, repliedAt: null, readAt: null }],
     },
   ],
+  spotlight: null,
   myDraft: null,
   tests: [sum, pool],
   testDefs: [{ id: "check", dice: "1d20", advantage: true, pool: null, outcomes: null, inputs: [] }],
@@ -892,6 +894,38 @@ test("a whisper reaches the GM side whole, its reader's seat with only that read
     ctx({ kind: "token", role: "screen", characterIds: [] }),
   ])
     assert.deepEqual(whispersOf(c), []);
+});
+
+test("a spotlight reaches the codex side whole; anyone else only on an entry it reads, cut to the characters it holds", () => {
+  const shown = (spotlight: Spotlight, c: Ctx) =>
+    seatView({ snapshot: { ...snapshot, state: { ...state, spotlight } }, compiled, ctx: c }).state.spotlight;
+  const at = "2026-11-01T10:00:00.000Z";
+  const everyone = { entryId: "open", audience: [], at };
+  const listed = { entryId: "for-lyra", audience: ["lyra", "kael"], at };
+  const hidden = { entryId: "secret", audience: [], at };
+  const codexSide = [ctx(member("gm"), "u-gm"), ctx(member("cogm", ["codex"]), "u-co")];
+  const screen = ctx({ kind: "token", role: "screen", characterIds: [] }, null);
+  const lyra = ctx(member("player", [], ["lyra", "bran"]), "u-lyra");
+  const kael = ctx({ kind: "token", role: "player", characterIds: ["kael"] }, null);
+  for (const s of [everyone, listed, hidden]) for (const c of codexSide) assert.deepEqual(shown(s, c), s);
+  // For everyone: every seat that reads the entry, the TV too, with no one named.
+  for (const c of [lyra, kael, screen, ctx(member("cogm"), "u-co")]) assert.deepEqual(shown(everyone, c), everyone);
+  // Listed: each named seat learns only its own character; the TV and a seat outside it get none.
+  assert.deepEqual(shown(listed, lyra), { ...listed, audience: ["lyra"] });
+  assert.deepEqual(shown(listed, kael), { ...listed, audience: ["kael"] });
+  assert.equal(shown({ ...listed, audience: ["kael"] }, lyra), null);
+  assert.equal(shown(listed, screen), null);
+  // On an entry a seat does not read: none, whoever it is for.
+  for (const c of [lyra, kael, screen]) assert.equal(shown(hidden, c), null);
+  // Without a GM a player that may reveal sends SHOW, so it gets it whole (its bar and CLEAR); the TV still gets none.
+  const gmless = (spotlight: Spotlight, c: Ctx) =>
+    seatView({
+      snapshot: { ...snapshot, state: { ...state, spotlight, campaign: { ...state.campaign, tableMode: "gmless" } } },
+      compiled,
+      ctx: c,
+    }).state.spotlight;
+  assert.deepEqual(gmless({ ...listed, audience: ["kael"] }, lyra), { ...listed, audience: ["kael"] });
+  assert.equal(gmless(listed, screen), null);
 });
 
 test("the journal reaches the seats that run the room, the notes the session side; a player gets neither", () => {

@@ -6,6 +6,7 @@ import type { ActionInput, CodexEntry } from "@inconsistable/core-schema";
 import { ItemGive } from "@/components/gm/codex/components/item-give/item-give";
 import { FightButton } from "@/components/gm/prep/components/scene-run/components/fight-button/fight-button";
 import { RevealSwitch } from "@/components/ui/reveal-switch/reveal-switch";
+import { ShowButton } from "@/components/gm/codex/components/show-button/show-button";
 import type { LineSender } from "@/hooks/use-line-sender/use-line-sender";
 import type { PrepWorld } from "@/lib/scene-prep/scene-prep";
 import { sceneCast } from "@/lib/scene-play/scene-play";
@@ -63,7 +64,12 @@ export function InThisScene({
                   >
                     {entry.title}
                   </button>
-                  {canReveal && !readOnly && <RevealSwitch entry={entry} act={act} />}
+                  {canReveal && !readOnly && (
+                    <span className="row" style={{ gap: 8 }}>
+                      <RevealSwitch entry={entry} act={act} />
+                      <ShowButton entry={entry} characters={characters} act={act} />
+                    </span>
+                  )}
                 </span>
                 {kind === "item" && canGive && !readOnly && (
                   <ItemGive entry={entry} characters={characters} act={act} />

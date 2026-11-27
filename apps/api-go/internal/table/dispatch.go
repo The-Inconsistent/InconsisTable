@@ -55,6 +55,10 @@ func TouchesOf(a cs.Action) Touches {
 		return Touches{State: true, Codex: true} // a clock about the deleted entry loses its link
 	case t == "codex.fromPack" || t == "codex.generate" || t == "event.undo" || t == "event.redo" || t == "event.turnBack":
 		return Touches{State: true, Codex: true} // logged for Undo, which deletes the entries it made (house decision #97)
+	case t == "codex.reveal" || t == "spotlight.show":
+		return Touches{State: true, Codex: true} // a seat whose entry is sealed loses the spotlight at once
+	case t == "spotlight.clear":
+		return Touches{State: true}
 	case strings.HasPrefix(t, "codex.") || strings.HasPrefix(t, "scene."):
 		return Touches{Codex: true}
 	case t == "session.end" || t == "session.edit" || t == "session.abandon" || t == "session.delete":
@@ -304,6 +308,8 @@ var handlers = map[string]handler{
 	"codex.link":     codex.Link,
 	"codex.unlink":   codex.Unlink,
 	// a scene begun and taken back (house decision #86)
+	"spotlight.show":  codex.ShowSpotlight,
+	"spotlight.clear": codex.ClearSpotlight,
 	"scene.begin":     codex.Begin,
 	"scene.undoBegin": codex.UndoBegin,
 	// clock/clock.go

@@ -12,7 +12,7 @@
     "@inconsistable/auth": "workspace:*",
     "@inconsistable/core-schema": "workspace:*",
     "@inconsistable/rules-engine": "workspace:*",
-    "next": "^16.4.3",
+    "next": "^16.4.6",
     "next-intl": "^4.14.9",
     "qrcode": "^1.5.4",
     "react": "^19.3.0",

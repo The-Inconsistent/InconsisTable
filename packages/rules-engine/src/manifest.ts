@@ -1746,6 +1746,22 @@ export const CHECKLIST_PREP_KINDS = ["roster", "tests", "pools", "exits", "revea
 /** The places of the GM's app a checklist step's GO TO may open (house decision #90): a tab, the codex at a kind. */
 export const CHECKLIST_TABS = ["track", "prep", "codex", "party", "tests", "map", "rules"] as const;
 
+/**
+ * The places inside a GM tab a checklist step's GO TO lands on (house decision #200), fixed by the app as Auspex's setup
+ * panel fixes them: PARTY's session band, characters, invite, Ascension, lines and veils and how the table sits; RULES'
+ * room settings (the campaign's own values), packs and World; TESTS' open calls.
+ */
+export const CHECKLIST_ANCHORS = {
+  party: ["session", "characters", "invite", "ascension", "safety", "tableMode"],
+  rules: ["settings", "packs", "world"],
+  tests: ["open"],
+} as const satisfies Partial<Record<(typeof CHECKLIST_TABS)[number], readonly string[]>>;
+export type ChecklistAnchor = (typeof CHECKLIST_ANCHORS)[keyof typeof CHECKLIST_ANCHORS][number];
+export const CHECKLIST_ANCHOR_IDS = [...new Set(Object.values(CHECKLIST_ANCHORS).flat())] as [
+  ChecklistAnchor,
+  ...ChecklistAnchor[],
+];
+
 const atLeast = { min: z.int().min(1).max(100).optional() };
 
 /**
@@ -1781,7 +1797,13 @@ export const ChecklistStep = z.object({
   label: z.string().min(1).max(80),
   cite: Cite.optional(),
   done: ChecklistCount,
-  goto: z.object({ tab: z.enum(CHECKLIST_TABS), kind: CodexEntryKind.optional() }).optional(),
+  goto: z
+    .object({
+      tab: z.enum(CHECKLIST_TABS),
+      kind: CodexEntryKind.optional(),
+      anchor: z.enum(CHECKLIST_ANCHOR_IDS).optional(),
+    })
+    .optional(),
   note: z.string().min(1).max(200).optional(),
   optional: z.boolean().optional(),
   /** A room value the step shows as "Now": an expression over `campaign` (house decision #173). */
@@ -3667,6 +3689,9 @@ function semanticProblems(r: Ruleset): Problem[] {
     checklistProblems({ r, done: s.done, path: `checklist[${i}].done`, out });
     if (s.goto?.kind !== undefined && s.goto.tab !== "codex")
       out.push({ path: `checklist[${i}].goto.kind`, message: "only the codex tab takes a kind" });
+    const anchors: readonly string[] | undefined = s.goto && own(CHECKLIST_ANCHORS, s.goto.tab);
+    if (s.goto?.anchor !== undefined && !anchors?.includes(s.goto.anchor))
+      out.push({ path: `checklist[${i}].goto.anchor`, message: `the ${s.goto.tab} tab has no "${s.goto.anchor}"` });
   });
   duplicates({ ids: (r.checklist ?? []).map((s) => s.id), path: "checklist", out });
   r.generators?.forEach((g, i) => {

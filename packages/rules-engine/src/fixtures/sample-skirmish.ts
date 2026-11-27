@@ -609,7 +609,7 @@ export const SAMPLE_SKIRMISH_0_1_13: RulesetInput = {
  * #92, as the source app counts), and a backlash may be eased by momentum spent, at most what the pool holds (house
  * decision #192). 0.1.13 hashes as it did. Invented.
  */
-export const SAMPLE_SKIRMISH: RulesetInput = {
+export const SAMPLE_SKIRMISH_0_1_14: RulesetInput = {
   ...SAMPLE_SKIRMISH_0_1_13,
   version: "0.1.14",
   spawn: {
@@ -637,4 +637,20 @@ export const SAMPLE_SKIRMISH: RulesetInput = {
       modifier: "ctx.extra - ctx.eased",
     },
   },
+};
+
+/**
+ * 0.1.15 (house decision #200): the checklist's GO TO lands inside its tab, on PARTY's lines and veils and on RULES'
+ * room settings where the chapter is picked. 0.1.14 hashes as it did. Invented.
+ */
+export const SAMPLE_SKIRMISH: RulesetInput = {
+  ...SAMPLE_SKIRMISH_0_1_14,
+  version: "0.1.15",
+  checklist: SAMPLE_SKIRMISH_0_1_14.checklist?.map((s) =>
+    s.id === "limits"
+      ? { ...s, goto: { tab: "party", anchor: "safety" } }
+      : s.id === "chapter"
+        ? { ...s, goto: { tab: "rules", anchor: "settings" } }
+        : s,
+  ),
 };

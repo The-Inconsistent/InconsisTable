@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { MAX_SAFETY_ITEMS, SAFETY_LINE_MAX, type Safety } from "@inconsistable/core-schema";
 
 import type { Send } from "@/hooks/use-table/use-table";
+import { anchorId } from "@/lib/checklist/checklist";
 
 type SafetyPanelProps = { safety: Safety; send: Send };
 
@@ -48,7 +49,7 @@ export function SafetyPanel({ safety, send }: SafetyPanelProps) {
   };
 
   return (
-    <form className="stack" onSubmit={handleSave}>
+    <form className="stack" onSubmit={handleSave} id={anchorId("safety")} tabIndex={-1}>
       <h2 className="head">{t("title")}</h2>
       <p className="dim small">{t("hint", { items: MAX_SAFETY_ITEMS, chars: SAFETY_LINE_MAX })}</p>
       <label className="stack">

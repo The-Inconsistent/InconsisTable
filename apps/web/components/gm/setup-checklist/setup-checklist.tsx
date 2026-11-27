@@ -23,11 +23,16 @@ export function SetupChecklist({ steps, room, onGo, terms }: SetupChecklistProps
   const t = useTranslations("checklist");
   const tTabs = useTranslations("gmApp.tabs");
   const tKind = useTranslations("codex.kind");
+  const tAnchor = useTranslations("checklist.anchors");
   const [open, setOpen] = useState<boolean | null>(null);
   const { ticks, next, doneCount } = checklistTicks({ steps, room });
   const shown = open ?? next !== null;
   const where = (goto: NonNullable<ChecklistStep["goto"]>) =>
-    goto.kind ? `${tTabs(goto.tab)} › ${tKind(goto.kind)}` : tTabs(goto.tab);
+    goto.kind
+      ? `${tTabs(goto.tab)} › ${tKind(goto.kind)}`
+      : goto.anchor
+        ? `${tTabs(goto.tab)} › ${tAnchor(goto.anchor)}`
+        : tTabs(goto.tab);
 
   return (
     <section className="card stack" aria-label={t("title")} data-panel="checklist" style={{ minWidth: 0 }}>

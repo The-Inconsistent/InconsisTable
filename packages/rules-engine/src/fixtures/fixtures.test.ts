@@ -51,6 +51,7 @@ import {
   SAMPLE_SKIRMISH_0_1_11,
   SAMPLE_SKIRMISH_0_1_12,
   SAMPLE_SKIRMISH_0_1_13,
+  SAMPLE_SKIRMISH_0_1_14,
   SAMPLE_SKIRMISH_BEFORE_CHECKLIST,
   SAMPLE_SKIRMISH_BEFORE_ONCE_PER_ROUND,
   SAMPLE_SKIRMISH_BEFORE_PANELS,
@@ -65,7 +66,7 @@ const PINNED_0_1_7 = "93d53cec5fc119d49a50ca0753d25cec00a698b0627b6078db971258f7
 const PINNED: Record<string, string> = {
   "sample-d20@0.1.17": "32a080fd97e800df941bdbfaad6eb56fad789fc8fcd6616ddfa5d87a5d2d0af4",
   "sample-ledger@0.1.7": "e058c074efe9786ff8d87cbe51fcbe2163756f16b3fd27071199d9f58b53c6d2",
-  "sample-skirmish@0.1.14": "2365ae8d6814618eaeb196dc521d37c7779df6a8f566655f426eb4fcdbcc8ae8",
+  "sample-skirmish@0.1.15": "f490f06e6cbf1f6850d41a6ede915c21f2889f92e82dafdf052f07179a562e49",
   "sample-pool@0.1.4": "20a6d1b8a8d6031a0d3abfab5e5ceaade06eed14c7748e8226b4b1a68e35e182",
   "sample-harvest@0.1.2": "2fc820d7848a9f7f3651808f01cc37beba01b47789f7464ca119f41578755fb0",
   "sample-no-order@0.1.0": "8c5906793a4476288d19981208416984e5515cdfeb3be0531e71718fbf2850e9",
@@ -203,6 +204,15 @@ test("a ruleset without a record's extras, a pool-capped stepper or the players'
     assert.ok(result.ok, `${fixture.id}@${fixture.version} compiles`);
     assert.equal(sha256Hex(canonicalJson(result.compiled.ruleset)), pinned);
   }
+});
+
+test("a checklist without GO TO anchors hashes as before them (house decision #200)", () => {
+  const result = compileRuleset(SAMPLE_SKIRMISH_0_1_14);
+  assert.ok(result.ok);
+  assert.equal(
+    sha256Hex(canonicalJson(result.compiled.ruleset)),
+    "2365ae8d6814618eaeb196dc521d37c7779df6a8f566655f426eb4fcdbcc8ae8",
+  );
 });
 
 test("a ruleset without a fixing kind hashes as before it (house decision #198)", () => {

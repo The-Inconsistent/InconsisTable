@@ -790,6 +790,7 @@ var rulesetSchema = schema.Object(
 		schema.Opt("goto", schema.Object(
 			schema.Req("tab", schema.Enum(ChecklistTabs...)),
 			schema.Opt("kind", schema.Enum(CodexKinds...)),
+			schema.Opt("anchor", schema.Enum(checklistAnchorIDs()...)),
 		)),
 		schema.Opt("note", label(200)),
 		schema.Opt("optional", schema.Bool()),
@@ -838,6 +839,27 @@ const maxChecklistSteps = 30
 
 // ChecklistTabs are the places of the GM's app a step's GO TO may open.
 var ChecklistTabs = []string{"track", "prep", "codex", "party", "tests", "map", "rules"}
+
+// ChecklistAnchors are the places inside a GM tab a step's GO TO lands on (house decision #200; manifest.ts
+// CHECKLIST_ANCHORS).
+var ChecklistAnchors = map[string][]string{
+	"party": {"session", "characters", "invite", "ascension", "safety", "tableMode"},
+	"rules": {"settings", "packs", "world"},
+	"tests": {"open"},
+}
+
+// checklistAnchorIDs is every anchor once, in manifest.ts CHECKLIST_ANCHOR_IDS' order.
+func checklistAnchorIDs() []string {
+	var out []string
+	for _, tab := range []string{"party", "rules", "tests"} {
+		for _, a := range ChecklistAnchors[tab] {
+			if !slices.Contains(out, a) {
+				out = append(out, a)
+			}
+		}
+	}
+	return out
+}
 
 var (
 	checklistPrepKinds = []string{"roster", "tests", "pools", "exits", "reveals", "picks"}

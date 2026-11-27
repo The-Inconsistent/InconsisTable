@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { canInCampaign, type Me } from "@inconsistable/core-schema";
-import type { ChecklistStep, Ruleset } from "@inconsistable/rules-engine";
+import type { ChecklistAnchor, ChecklistStep, Ruleset } from "@inconsistable/rules-engine";
 
 import { GM_TABS, type GmTab } from "@/components/gm/gm-app/constants";
 import { HeaderItems } from "@/components/gm/gm-app/components/header-items/header-items";
@@ -37,7 +37,7 @@ import { TransferOffer } from "@/components/ui/transfer-offer/transfer-offer";
 import { useBookServer } from "@/hooks/use-book-server/use-book-server";
 import { useTable } from "@/hooks/use-table/use-table";
 import { useWorldRefresh } from "@/hooks/use-world-refresh/use-world-refresh";
-import { checklistRoom } from "@/lib/checklist/checklist";
+import { anchorId, checklistRoom, revealAnchor } from "@/lib/checklist/checklist";
 import { headerItems } from "@/lib/header/header";
 import { gmAddress, parseGmAddress, type GmAddress } from "@/lib/gm-address/gm-address";
 import type { RulesTabData } from "@/lib/library/library";
@@ -130,12 +130,22 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
     openTab("codex", { entry: entryId });
   };
 
-  // A checklist step's GO TO (house decision #90): its tab, the codex listing its kind.
+  // A checklist step's GO TO (house decision #90): its tab, the codex listing its kind, the place inside it (#200).
+  const [anchor, setAnchor] = useState<ChecklistAnchor | null>(null);
   const handleGo = (goto: NonNullable<ChecklistStep["goto"]>) => {
     // A checklist step may still name the old TRACK tab: it is SCENE's FIGHT layer now.
     if (goto.tab === "track") openTab("scene", { layer: "fight" });
     else openTab(goto.tab, goto.kind ? { kind: goto.kind } : {});
+    setAnchor(goto.anchor ?? null);
   };
+  // Syncs with the DOM: once the tab GO TO opened has drawn the place, scrolls to it; it waits while the tab changes.
+  useEffect(() => {
+    if (anchor === null) return;
+    const frame = requestAnimationFrame(() => {
+      if (revealAnchor(anchor)) setAnchor(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [anchor, tab]);
 
   if (!state) return <StatusScreen text={tStatus("syncing")} />;
   return (
@@ -238,7 +248,9 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
                   terms={view?.ruleset ? { ruleset: view.ruleset, books, requestPage } : undefined}
                 />
               )}
-              <TableModePicker me={me} state={state} ruleset={view?.ruleset ?? null} send={send} />
+              <div id={anchorId("tableMode")} tabIndex={-1}>
+                <TableModePicker me={me} state={state} ruleset={view?.ruleset ?? null} send={send} />
+              </div>
               <Party
                 me={me}
                 state={state}

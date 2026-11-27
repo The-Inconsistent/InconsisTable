@@ -21,7 +21,8 @@ mutants=(
 caught=0
 for m in "${mutants[@]}"; do
   IFS='#' read -r name file expr prop <<<"$m"
-  sed -i "$expr" "$file"
+  # -i.bak, then drop the copy: the same call on GNU sed and on macOS (BSD) sed, where a bare -i takes the next word as a suffix.
+  sed -i.bak "$expr" "$file" && rm -f "$file.bak"
   if git diff --quiet -- "$file"; then
     echo "STALE  $name: the sed no longer matches $file; update this mutant"
     continue

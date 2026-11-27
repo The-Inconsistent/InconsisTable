@@ -831,6 +831,11 @@ html:has([data-world]) {
   [data-gm-nav="rail"] .gm-shell {
     padding-inline-end: 112px;
   }
+  /* Beside the rail the GM's page takes the width left, as Auspex's GM body does, instead of the centred column. */
+  [data-gm-nav="rail"] .gm-shell > .page {
+    max-width: none;
+    margin: 0;
+  }
   /* outranks the chrome's band rule ([data-world] :is(.band, .tabs, ...), whose list holds an attribute) */
   [data-gm-nav="rail"] .gm-shell > .gm-tabs.tabs {
     --paper: inherit;

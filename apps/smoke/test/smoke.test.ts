@@ -6331,6 +6331,9 @@ test("random tables: the server rolls and deals, the party sees a roll, a phone 
     await owner.send({ type: "table.deal", tableId: "role", actorIds: [actors[0]!, actors[0]!] }),
     /listed twice/,
   );
+  // Only a deck is dealt or reshuffled (house decision #224): the Season is rolled.
+  refused(await owner.send({ type: "table.deal", tableId: "season", actorIds: [actors[0]!] }), "tableNotDeck");
+  refused(await owner.send({ type: "table.reshuffle", tableId: "season" }), "tableNotDeck");
   ok(await owner.send({ type: "table.deal", tableId: "role", actorIds: actors }));
   const dealt = await owner.until((s) => s.dealt.length === 3);
   const deck = ["Farmer", "Miller", "Thief"];

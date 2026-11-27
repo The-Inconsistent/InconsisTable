@@ -91,6 +91,23 @@ const cases: [string, unknown][] = [
   ["an item", { ...base, actors: [{ ...actor(1), items: [{ id: uuid(1), kind: "k", name: " Rope ", quantity: 2 }] }] }],
   ["an item with a stray key", { ...base, actors: [{ ...actor(1), items: [{ id: uuid(1), kind: "k", weight: 2 }] }] }],
   ["too many items", { ...base, actors: [{ ...actor(1), items: times(201, (i) => ({ id: uuid(i), kind: "k" })) }] }],
+  ["condition stacks", { ...base, actors: [{ ...actor(1), conditions: ["dazed", { id: "marked", stacks: 3 }] }] }],
+  ["no stacks", { ...base, actors: [{ ...actor(1), conditions: [{ id: "marked", stacks: 0 }] }] }],
+  ["a condition with a stray key", { ...base, actors: [{ ...actor(1), conditions: [{ id: "marked", source: "x" }] }] }],
+  ["a retired actor", { ...base, actors: [{ ...actor(1), status: "retired" }] }],
+  ["an unknown status", { ...base, actors: [{ ...actor(1), status: "gone" }] }],
+  ["an advance part paid", { ...base, actors: [{ ...actor(1), xpAtAscension: 10, packageWaived: true }] }],
+  ["xp at ascension below 0", { ...base, actors: [{ ...actor(1), xpAtAscension: -1 }] }],
+  [
+    "a dated session",
+    {
+      ...base,
+      sessions: [{ startedAt: "2026-03-01T18:00:00Z", endedAt: "2026-03-01T22:00:00.000+01:00", award: 4 }],
+    },
+  ],
+  ["a session date", { ...base, sessions: [{ startedAt: "last week" }] }],
+  ["an award below 0", { ...base, sessions: [{ award: -1 }] }],
+  ["an award not whole", { ...base, sessions: [{ award: 1.5 }] }],
   ["an abandoned session", { ...base, sessions: [{ title: "Cut short", abandoned: true }] }],
   ["abandoned not a flag", { ...base, sessions: [{ abandoned: "yes" }] }],
   [

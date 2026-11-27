@@ -390,12 +390,28 @@ func (r *room) actors() {
 		for key, want := range values {
 			r.equal("resource "+key, want, resources[key])
 		}
+		// Each condition with its stacks (#232).
 		conditions := []string{}
-		for _, x := range r.query(`SELECT condition_id FROM actor_condition WHERE actor_id = $1`, id) {
+		for _, x := range r.query(`SELECT condition_id || ' x' || stacks FROM actor_condition WHERE actor_id = $1`, id) {
 			conditions = append(conditions, x[0].(string))
 		}
 		slices.Sort(conditions)
-		r.equal("conditions", sorted(a["conditions"]), conditions)
+		wantConditions := []string{}
+		list, _ := a["conditions"].([]any)
+		for _, c := range list {
+			if m, isMap := c.(map[string]any); isMap {
+				wantConditions = append(wantConditions, fmt.Sprintf("%v x%v", m["id"], m["stacks"]))
+			} else {
+				wantConditions = append(wantConditions, fmt.Sprintf("%v x1", c))
+			}
+		}
+		slices.Sort(wantConditions)
+		r.equal("conditions", wantConditions, conditions)
+		// Its status, and where a ledger build's next advance counts from (#232).
+		standing := r.query(`SELECT a.status, coalesce(b.xp_at_ascension, 0), coalesce(b.package_waived, false) FROM actor a
+			LEFT JOIN actor_build b ON b.actor_id = a.id WHERE a.id = $1`, id)[0]
+		r.equal("standing", []any{or(a["status"], "active"), or(a["xpAtAscension"], 0.0), or(a["packageWaived"], false)},
+			[]any{standing[0], float64(standing[1].(int32)), standing[2]})
 		// Items (house decision #95): each in order, its entry or name, its quantity, the host's entry it is fitted to, and
 		// the codex item a GIVE handed over by its title.
 		gotItems := []string{}
@@ -438,13 +454,26 @@ func (r *room) rest() {
 	if safety, has := room["safety"]; has {
 		r.equal("safety", safety, settings[3])
 	}
-	sessions := r.query(`SELECT number, title, recap, notes, ended_at IS NOT NULL FROM session WHERE campaign_id = $1 ORDER BY number`, r.id)
+	sessions := r.query(`SELECT number, title, recap, notes, ended_at IS NOT NULL, started_at, ended_at, award FROM session
+		WHERE campaign_id = $1 ORDER BY number`, r.id)
 	if len(sessions) != len(d.list("sessions")) {
 		r.t.Fatalf("sessions: want %d, got %d", len(d.list("sessions")), len(sessions))
 	}
 	for i, s := range d.list("sessions") {
 		r.equal(fmt.Sprintf("session %d", i+1), []any{i + 1, or(s["title"], ""), or(s["recap"], ""), or(s["notes"], ""), true},
 			[]any{sessions[i][0], sessions[i][1], r.text(sessions[i][2].(string)), r.text(sessions[i][3].(string)), sessions[i][4]})
+		// Its dates as the document gives them, and its award (#232).
+		for j, key := range []string{"startedAt", "endedAt"} {
+			if given, has := s[key].(string); has {
+				want, _ := time.Parse(time.RFC3339Nano, given)
+				r.equal(fmt.Sprintf("session %d %s", i+1, key), want.UTC(), sessions[i][5+j].(time.Time).UTC())
+			}
+		}
+		var award any
+		if n, has := sessions[i][7].(int32); has {
+			award = float64(n)
+		}
+		r.equal(fmt.Sprintf("session %d award", i+1), s["award"], award)
 	}
 	pools := map[string]any{}
 	for _, x := range r.query(`SELECT resource_id, value FROM resource_pool WHERE campaign_id = $1`, r.id) {
@@ -572,7 +601,7 @@ func TestADryRunLeavesNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if answer.CampaignID != nil || answer.Name != "Harbour Watch" || answer.Counts.Entries["scene"] != 2 || answer.Counts.Actors["pc"] != 1 ||
+	if answer.CampaignID != nil || answer.Name != "Harbour Watch" || answer.Counts.Entries["scene"] != 2 || answer.Counts.Actors["pc"] != 2 ||
 		answer.Counts.Pictures != 1 || answer.Counts.Sessions != 2 || answer.Counts.Clocks != 1 {
 		t.Errorf("answer: %+v", answer)
 	}

@@ -5,6 +5,7 @@ import { ScenePrep, SpawnOptionIds } from "./prep.ts";
 import {
   ActorKind,
   ActorName,
+  ActorStatus,
   AudienceMode,
   CampaignName,
   ClockName,
@@ -97,7 +98,16 @@ export const RoomActor = z
     fields: capped(z.record(z.string().min(1).max(120), FieldValue), ROOM_LIMITS.actorFields, "fields").optional(),
     resources: capped(z.record(Key, Amount), ROOM_LIMITS.actorResources, "resources").optional(),
     build: LedgerBuildText.optional(), // what build.save takes; never a draft. `fields` beside it: what it does not write
-    conditions: z.array(Key).max(ROOM_LIMITS.actorConditions).optional(),
+    // A condition by id, or with its stacks when it holds more than one (#232); its source and expiry do not travel.
+    conditions: z
+      .array(z.union([Key, z.strictObject({ id: Key, stacks: z.int().min(1).max(100) })]))
+      .max(ROOM_LIMITS.actorConditions)
+      .optional(),
+    status: ActorStatus.optional(), // active when absent; a character whose seat went is retired (#232)
+    // Where the ledger build's next advance counts from (#232): the XP at the last Ascension, and whether it waived the
+    // package.
+    xpAtAscension: z.int().min(0).max(1_000_000).optional(),
+    packageWaived: z.boolean().optional(),
     items: z.array(RoomItem).max(ROOM_LIMITS.actorItems).optional(),
     // The spawn options it was spawned with (house decision #92), fixed then: the import does not read their `when`.
     spawnOptions: SpawnOptionIds.optional(),
@@ -140,6 +150,10 @@ export const RoomSession = z.strictObject({
   recap: z.string().max(10_000).optional(),
   notes: z.string().max(10_000).optional(),
   abandoned: z.boolean().optional(), // ended without its award (session.abandon, house decision #85)
+  // When it started and ended (#232); the import's own time when absent. A session running at export ends then.
+  startedAt: z.iso.datetime({ offset: true }).optional(),
+  endedAt: z.iso.datetime({ offset: true }).optional(),
+  award: z.int().min(0).max(1_000_000).optional(), // the XP each character was given (house decision #120)
 });
 
 export const RoomClock = z
@@ -201,6 +215,17 @@ export const RoomDocument = z
   });
 export type RoomDocument = z.infer<typeof RoomDocument>;
 export type RoomDocumentInput = z.input<typeof RoomDocument>;
+
+// What an export says of itself (the `X-Room-Export` header, #232): the pictures it carries, the packs the room is no
+// longer served that it leaves out, the items of those packs it writes as hand-written lines, and the entries whose pack
+// entry it leaves out.
+export const RoomExportReport = z.object({
+  pictures: z.number(),
+  packs: z.number(),
+  items: z.number(),
+  sources: z.number(),
+});
+export type RoomExportReport = z.infer<typeof RoomExportReport>;
 
 // What POST /api/campaigns/import answers, for the dry run and the real one alike.
 export const RoomImportCounts = z.object({

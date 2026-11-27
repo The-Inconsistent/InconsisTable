@@ -2,6 +2,7 @@ package roomdoc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -64,7 +65,8 @@ func (s *Service) AdminExport(w http.ResponseWriter, r *http.Request) (any, erro
 	return WriteFile(r.Context(), s.DB, w, id, r.URL.Query().Get("pictures") != "0")
 }
 
-// WriteFile answers a room's document as a file named after the room (its name as a slug, then `.room.json`).
+// WriteFile answers a room's document as a file named after the room (its name as a slug, then `.room.json`), with
+// what it carries and leaves out in the `X-Room-Export` header (#232).
 func WriteFile(ctx context.Context, db *pgxpool.Pool, w http.ResponseWriter, campaignID string, pictures bool) (any, error) {
 	var name string
 	if err := db.QueryRow(ctx, `SELECT name FROM campaign WHERE id = $1`, campaignID).Scan(&name); errors.Is(err, pgx.ErrNoRows) {
@@ -72,12 +74,18 @@ func WriteFile(ctx context.Context, db *pgxpool.Pool, w http.ResponseWriter, cam
 	} else if err != nil {
 		return nil, err
 	}
-	// Write writes nothing until the document is known to fit, so a refusal before then is still an ordinary answer.
-	out := &started{w: w, file: Slug(name) + ".room.json"}
-	err := Write(ctx, db, out, campaignID, pictures)
+	// Nothing is written until the document is known to fit, so a refusal before then is still an ordinary answer.
+	doc, err := prepare(ctx, db, campaignID, pictures)
 	switch {
-	case err != nil && !out.began && errors.Is(err, ErrTooLarge):
+	case errors.Is(err, ErrTooLarge):
 		return nil, core.Refuse(http.StatusRequestEntityTooLarge, "roomExportTooLarge")
+	case err != nil:
+		return nil, err
+	}
+	report, _ := json.Marshal(doc.Report)
+	out := &started{w: w, file: Slug(name) + ".room.json", report: string(report)}
+	err = doc.write(ctx, db, out)
+	switch {
 	case err != nil && !out.began:
 		return nil, err
 	case err != nil:
@@ -89,9 +97,10 @@ func WriteFile(ctx context.Context, db *pgxpool.Pool, w http.ResponseWriter, cam
 
 // started sends the file's headers with its first bytes.
 type started struct {
-	w     http.ResponseWriter
-	file  string
-	began bool
+	w      http.ResponseWriter
+	file   string
+	report string
+	began  bool
 }
 
 func (s *started) Write(p []byte) (int, error) {
@@ -100,6 +109,7 @@ func (s *started) Write(p []byte) (int, error) {
 		s.w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		s.w.Header().Set("Content-Disposition", `attachment; filename="`+s.file+`"`)
 		s.w.Header().Set("Cache-Control", "no-store")
+		s.w.Header().Set("X-Room-Export", s.report)
 		s.w.WriteHeader(http.StatusOK)
 	}
 	return s.w.Write(p)

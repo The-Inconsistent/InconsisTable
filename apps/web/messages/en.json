@@ -175,7 +175,6 @@
       "archived": "Archived: the room is read-only.",
       "export": "Export",
       "exportWithoutPictures": "Export without pictures",
-      "exported": "Exported as {name}.",
       "unarchive": "Unarchive",
       "unarchived": "Unarchived.",
       "typeName": "Type {name} to delete this room and everything in it",
@@ -1267,7 +1266,13 @@
     "title": "Export",
     "lede": "This room as a room document: a backup, or a copy to import as a new room (fresh for a new group). It names the ruleset, packs and World it expects; whoever imports it needs their own.",
     "export": "Export",
-    "withoutPictures": "Export without pictures"
+    "withoutPictures": "Export without pictures",
+    "includes": "Includes {count, plural, one {# picture} other {# pictures}}",
+    "exported": "Saved {name}, with {pictures, plural, =0 {no pictures} one {# picture} other {# pictures}}.",
+    "packsLeft": "{count, plural, one {# pack the room is no longer served was} other {# packs the room is no longer served were}} left out.",
+    "itemsTurned": "{count, plural, one {# item from such a pack is} other {# items from such packs are}} written as a hand-written line.",
+    "sourcesLeft": "{count, plural, one {# link to such a pack's entry was} other {# links to such packs' entries were}} left out.",
+    "failed": "The export did not go through. Try again."
   },
   "rulesPanel": {
     "readFailed": "Couldn't read the rules. Check the connection and reload.",

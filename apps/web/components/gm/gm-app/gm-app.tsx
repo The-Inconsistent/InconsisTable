@@ -37,6 +37,7 @@ import { checklistRoom } from "@/lib/checklist/checklist";
 import { headerItems } from "@/lib/header/header";
 import { gmAddress, parseGmAddress, type GmAddress } from "@/lib/gm-address/gm-address";
 import type { RulesTabData } from "@/lib/library/library";
+import { pictureCount } from "@/lib/room-export/room-export";
 import type { RulesView } from "@/lib/rules-reader/rules-reader";
 import type { Spawnable } from "@/lib/scene-prep/scene-prep";
 import { resourceLabels } from "@/lib/spend-request/spend-request";
@@ -295,6 +296,7 @@ export function GmApp({ me, rules, view, spawnable, quick = false }: GmAppProps)
               ruleset={view?.ruleset ?? null}
               books={books}
               requestPage={requestPage}
+              pictures={pictureCount(codex?.entries ?? [])}
             />
             {view && (
               <section className="stack">

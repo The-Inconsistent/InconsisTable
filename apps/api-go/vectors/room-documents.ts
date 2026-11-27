@@ -24,6 +24,10 @@ export const ROOM_D20: RulesetInput = (() => {
   // Charms a character holds in play (house decision #88): gear by key, only the holder and the GM side read by name.
   const character = ruleset.entities![0]!;
   character.fields = { ...character.fields, charms: { type: "list", label: "Charms", visibility: "owner" } };
+  // Marked stacks here, so a document carries a condition's stacks (#232).
+  ruleset.conditions = ruleset.conditions!.map((c) =>
+    c.id === "marked" ? { ...c, stacking: "stack", maxStacks: 3 } : c,
+  );
   ruleset.held = {
     charm: {
       label: "Charms",
@@ -47,6 +51,7 @@ const id = (n: number) => `00000000-0000-4000-8000-${n.toString().padStart(12, "
 export const IDS = {
   mara: id(1),
   harbourmaster: id(2),
+  bram: id(3),
   town: id(10),
   quay: id(11),
   npc: id(12),
@@ -109,6 +114,15 @@ export const d20Document = (): RoomDocumentInput => ({
       name: "Harbourmaster Oyle",
       entityType: "creature",
       fields: { level: 1, "attr.con": 10, guard: 12 },
+    },
+    // A character whose seat went (#232): retired, still marked twice.
+    {
+      id: IDS.bram,
+      kind: "pc",
+      name: "Bram",
+      entityType: "character",
+      status: "retired",
+      conditions: [{ id: "marked", stacks: 2 }],
     },
   ],
   codex: [
@@ -206,9 +220,22 @@ export const d20Document = (): RoomDocumentInput => ({
       fields: { standing: "rival", seat: IDS.town, marks: ["Reedfolk", "Outsider"] },
     },
   ],
+  // Each with when it was played (#232).
   sessions: [
-    { title: "Arrival", recap: "The crew came ashore at @[Harbour town](" + IDS.town + ").", notes: "Slow start." },
-    { title: "The crates", recap: "A crate went missing.", notes: "" },
+    {
+      title: "Arrival",
+      recap: "The crew came ashore at @[Harbour town](" + IDS.town + ").",
+      notes: "Slow start.",
+      startedAt: "2026-02-20T18:00:00.000Z",
+      endedAt: "2026-02-20T21:30:00.000Z",
+    },
+    {
+      title: "The crates",
+      recap: "A crate went missing.",
+      notes: "",
+      startedAt: "2026-03-01T18:00:00.000Z",
+      endedAt: "2026-03-01T22:00:00.000Z",
+    },
   ],
   clocks: [{ name: "The tide rises", segments: 6, filled: 2, visibility: "party", entryId: IDS.quay }],
   images: [{ id: IDS.picture, mime: "image/jpeg", base64: TINY_JPEG }],
@@ -253,7 +280,8 @@ export const LEDGER_BUILD = JSON.stringify({
   wealth: 1,
 });
 
-// A room of the ledger fixture: its Tier, and one character built by the ledger builder.
+// A room of the ledger fixture: its Tier, one character built by the ledger builder with part of an advance paid, and a
+// session that gave an award.
 export const ledgerDocument = (): RoomDocumentInput => ({
   format: "inconsistable-room",
   version: 1,
@@ -270,6 +298,9 @@ export const ledgerDocument = (): RoomDocumentInput => ({
       name: "Wren",
       build: LEDGER_BUILD,
       fields: { xp: 12 },
+      // She has earned 2 XP since the last Ascension, which waived its package (#232).
+      xpAtAscension: 10,
+      packageWaived: true,
       // Items she holds (house decision #95): a bow with a lens fitted, stores, a staff a GIVE handed her, and a sight on
       // the staff her build gives.
       items: [
@@ -285,5 +316,14 @@ export const ledgerDocument = (): RoomDocumentInput => ({
   codex: [
     { id: IDS.npc, kind: "npc", title: "The lamplighter", visibility: "party" },
     { id: IDS.lanternEntry, kind: "item", title: "The old staff", fields: { of: "wargear.lantern-staff" } },
+  ],
+  sessions: [
+    {
+      title: "First light",
+      recap: "The lamps were lit.",
+      startedAt: "2026-04-02T17:00:00.000Z",
+      endedAt: "2026-04-02T20:00:00.000Z",
+      award: 4,
+    },
   ],
 });

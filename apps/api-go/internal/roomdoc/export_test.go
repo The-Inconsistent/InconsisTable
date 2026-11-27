@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -218,12 +219,11 @@ func gmView(t *testing.T, db *pgxpool.Pool, owner campaign.Owner, id string) any
 	}
 	v := view.Of(loaded.Snapshot, loaded.Compiled, gmOf(owner, id))
 	out := renamed(t, map[string]any{"state": v.State, "codex": v.Codex}, names(t, db, id))
-	// When a session started and ended is the import's time, never the document's (house decision #103).
 	var strip func(any)
 	strip = func(x any) {
 		switch x := x.(type) {
 		case map[string]any:
-			for _, key := range []string{"startedAt", "endedAt", "stateVersion", "rev"} {
+			for _, key := range []string{"stateVersion", "rev"} {
 				delete(x, key)
 			}
 			for _, child := range x {
@@ -249,7 +249,8 @@ func gmView(t *testing.T, db *pgxpool.Pool, owner campaign.Owner, id string) any
 
 // A room built through the table's actions, exported and imported, is the same room to its GM: three rooms, between
 // them every part a document carries (a spawned foe's options, an abandoned session, an entry made from a pack entry, a
-// build with items, a picture).
+// build with items, a picture, session dates and an award, a retired character, a stacked condition, an advance part
+// paid).
 func TestTheGMSeesTheSameRoom(t *testing.T) {
 	db := dbtest.Open(t)
 	v := load(t)
@@ -293,7 +294,14 @@ func TestTheGMSeesTheSameRoom(t *testing.T) {
 		map[string]any{"type": "clock.tick", "id": ids[5], "delta": 2},
 		map[string]any{"type": "session.start", "title": "The ford"},
 		map[string]any{"type": "session.end", "recap": "We held @[The ford](" + ids[4] + ")."},
+		// Reeling stacks (#232).
+		map[string]any{"type": "condition.add", "actorId": ids[2], "condition": "reeling"},
+		map[string]any{"type": "condition.add", "actorId": ids[2], "condition": "reeling"},
 	)
+	// Tamsin's seat went (#232).
+	if _, err := db.Exec(context.Background(), `UPDATE actor SET status = 'retired' WHERE id = $1`, ids[2]); err != nil {
+		t.Fatal(err)
+	}
 
 	for name, room := range map[string]string{"d20": d20, "ledger": ledger, "skirmish": skirmish} {
 		t.Run(name, func(t *testing.T) {
@@ -373,8 +381,8 @@ func TestAnExportLeavesTemporaryActorsOut(t *testing.T) {
 }
 
 // A fresh start (house decision #103): no sessions, nothing revealed, scenes planned and picks off, every resource and
-// pool at its start, no conditions, no next session or safety lines; builds, fields, held records, items and where an
-// entry came from stay.
+// pool at its start, no conditions, every character active, no next session or safety lines; builds and where their next
+// advance counts from, fields, held records, items and where an entry came from stay.
 func TestAFreshStart(t *testing.T) {
 	db := dbtest.Open(t)
 	v := load(t)
@@ -425,6 +433,17 @@ func TestAFreshStart(t *testing.T) {
 	_ = db.QueryRow(context.Background(), `SELECT count(*) FROM actor_build b JOIN actor a ON a.id = b.actor_id WHERE a.campaign_id = $1`, ledger).Scan(&builds)
 	if items != 5 || builds != 1 {
 		t.Errorf("a fresh start keeps builds and items: %d %d", builds, items)
+	}
+	// Every character active again; where an advance counts from stays with the build (#181).
+	if n := count(`SELECT count(*) FROM actor WHERE campaign_id = $1 AND status <> 'active'`); n != 0 {
+		t.Errorf("not active: %d", n)
+	}
+	var xpAt int
+	var waived bool
+	_ = db.QueryRow(context.Background(), `SELECT b.xp_at_ascension, b.package_waived FROM actor_build b JOIN actor a ON a.id = b.actor_id
+		WHERE a.campaign_id = $1`, ledger).Scan(&xpAt, &waived)
+	if xpAt != 10 || !waived {
+		t.Errorf("the advance: %d %v", xpAt, waived)
 	}
 	// A fitting on a line of the build stays on it (house decision #102).
 	var onLine int
@@ -532,5 +551,119 @@ func TestTheExportRoute(t *testing.T) {
 	}
 	if w := get("/api/admin/campaigns/"+room+"/export?pictures=0", "", "an-admin-key-for-the-test"); w.Code != http.StatusOK {
 		t.Errorf("admin: %d %s", w.Code, w.Body)
+	}
+}
+
+// A session still running when the room is exported comes back ended at the export's time, with no award (#232): nothing
+// is live in a new room.
+func TestAnExportEndsARunningSession(t *testing.T) {
+	db := dbtest.Open(t)
+	v := load(t)
+	owner := library(t, db, v)
+	room := imported(t, db, owner, v.document(t, "ledger"), Options{})
+	act(t, db, owner, room, map[string]any{"type": "session.start", "title": "Still going"})
+	e := exported(t, db, room, true)
+	sessions := doc(e).list("sessions")
+	last := sessions[len(sessions)-1]
+	exportedAt, _ := time.Parse(time.RFC3339Nano, e["exportedAt"].(string))
+	if last["title"] != "Still going" || last["endedAt"] != core.ISOTime(exportedAt) || last["award"] != nil || last["abandoned"] != nil {
+		t.Errorf("the running session: %v, exported at %v", last, e["exportedAt"])
+	}
+	copied := imported(t, db, owner, e, Options{})
+	var running int
+	_ = db.QueryRow(context.Background(), `SELECT count(*) FROM session WHERE campaign_id = $1 AND ended_at IS NULL`, copied).Scan(&running)
+	if running != 0 {
+		t.Errorf("a session still running: %d", running)
+	}
+}
+
+// What names a pack the room is no longer served is left out and counted (#232): a pack taken down leaves `expects`, an
+// item of a detached pack is written by hand under its key, an entry made from one loses its source and a field naming
+// one is cleared; the document still imports.
+func TestAnExportLeavesUnservedPacksOut(t *testing.T) {
+	db := dbtest.Open(t)
+	v := load(t)
+	owner := library(t, db, v)
+	ctx := context.Background()
+	report := func(room string) Report {
+		t.Helper()
+		p, err := prepare(ctx, db, room, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p.Report
+	}
+
+	ledger := imported(t, db, owner, v.document(t, "ledger"), Options{})
+	if r := report(ledger); r != (Report{}) {
+		t.Errorf("a room served all it names: %+v", r)
+	}
+	var pack string
+	_ = db.QueryRow(ctx, `SELECT pack_version_id::text FROM campaign_pack WHERE campaign_id = $1`, ledger).Scan(&pack)
+	act(t, db, owner, ledger, map[string]any{"type": "campaign.detachPack", "packVersionId": pack})
+	if r := report(ledger); r != (Report{Items: 5, Sources: 1}) {
+		t.Errorf("detached: %+v", r)
+	}
+	detached := exported(t, db, ledger, true)
+	for _, x := range doc(detached).list("actors")[0]["items"].([]any) {
+		item := x.(map[string]any)
+		if _, has := item["entry"]; has || !strings.Contains(item["name"].(string), ".") {
+			t.Errorf("an item of a detached pack: %v", item)
+		}
+	}
+	// Its items no longer stop the import. Her build still does, as it stops the room's own builder without its catalogue,
+	// so here she is a hero by hand, without the fitting on her build's line.
+	wren := doc(detached).list("actors")[0]
+	delete(wren, "build")
+	delete(wren, "fields")
+	delete(wren, "resources")
+	wren["entityType"] = "hero"
+	wren["items"] = slices.DeleteFunc(wren["items"].([]any), func(x any) bool { return x.(map[string]any)["fittedLine"] != nil })
+	if _, err := Import(ctx, db, owner, detached, Options{DryRun: true}); err != nil {
+		t.Errorf("the detached room's document: %v", err)
+	}
+
+	// A detached bestiary: the quay's danger row filled from a creature keeps its words and loses its `from`, the person
+	// made from one loses its source, Mara's charm goes, and the document imports.
+	detachedD20 := imported(t, db, owner, v.document(t, "d20"), Options{})
+	_ = db.QueryRow(ctx, `SELECT pack_version_id::text FROM campaign_pack WHERE campaign_id = $1`, detachedD20).Scan(&pack)
+	act(t, db, owner, detachedD20, map[string]any{"type": "campaign.detachPack", "packVersionId": pack})
+	if r := report(detachedD20); r != (Report{Pictures: 1, Sources: 3}) {
+		t.Errorf("detached d20: %+v", r)
+	}
+	e20 := exported(t, db, detachedD20, true)
+	if charms := doc(e20).list("actors")[0]["fields"].(map[string]any)["charms"]; len(charms.([]any)) != 0 {
+		t.Errorf("a charm of a detached pack: %v", charms)
+	}
+	for _, x := range doc(e20).list("codex") {
+		fields, _ := x["fields"].(map[string]any)
+		for _, row := range doc(fields).list("dangers") {
+			if _, has := row["from"]; has {
+				t.Errorf("a row keeps a detached pack's entry: %v", row)
+			}
+		}
+	}
+	if _, err := Import(ctx, db, owner, e20, Options{DryRun: true}); err != nil {
+		t.Errorf("the detached d20 room's document: %v", err)
+	}
+
+	d20 := imported(t, db, owner, v.document(t, "d20"), Options{})
+	if _, err := db.Exec(ctx, `UPDATE pack SET disabled_at = now() WHERE owner_user_id = $1 AND slug = 'sample-bestiary'`, owner.UserID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = db.Exec(ctx, `UPDATE pack SET disabled_at = NULL WHERE owner_user_id = $1`, owner.UserID)
+	})
+	if r := report(d20); r != (Report{Pictures: 1, Packs: 1, Sources: 3}) {
+		t.Errorf("taken down: %+v", r)
+	}
+	e := exported(t, db, d20, true)
+	if expects, _ := e["expects"].(map[string]any); expects["packs"] != nil && len(expects["packs"].([]any)) != 0 {
+		t.Errorf("expects: %v", expects)
+	}
+	for _, x := range doc(e).list("codex") {
+		if _, has := x["source"]; has {
+			t.Errorf("%v keeps a source", x["title"])
+		}
 	}
 }

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { TableMode } from "@inconsistable/core-schema";
-import { WorldHandouts, WorldTheme } from "@inconsistable/rules-engine";
+import { TermId, TermWords, WorldHandouts, WorldTheme } from "@inconsistable/rules-engine";
 
 // The importer's replies (apps/api-go/internal/pack/http.go). Parsed on arrival like every other reply.
 
@@ -145,6 +145,8 @@ export const RulesReply = z.object({
       name: z.string(),
       theme: WorldTheme,
       handouts: WorldHandouts.nullable(),
+      /** Its words for the app's terms (issue #159); null when it brings none. */
+      terms: z.partialRecord(TermId, TermWords).nullable(),
     })
     .nullable(),
 });

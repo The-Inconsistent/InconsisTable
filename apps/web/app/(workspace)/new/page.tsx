@@ -1,6 +1,6 @@
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
-import { Ruleset } from "@inconsistable/rules-engine";
+import { localRuleset, Ruleset } from "@inconsistable/rules-engine";
 
 import { apiGet, readLobby } from "@/app/server-api";
 import { NewCampaign } from "@/components/lobby/new-campaign/new-campaign";
@@ -13,8 +13,8 @@ import { ModuleList, PackList, RulesetList } from "@/lib/library/library";
 // What one ruleset asks in the wizard, from its newest version's manifest; null when it cannot be read.
 async function asked(id: string): Promise<WizardGame | null> {
   const res = await apiGet(`/api/rulesets/${encodeURIComponent(id)}/export`);
-  const parsed = Ruleset.safeParse(res.ok ? await res.json() : null);
-  return parsed.success ? wizardGame(parsed.data) : null;
+  const ruleset = localRuleset(res.ok ? await res.json() : null, await getLocale());
+  return ruleset ? wizardGame(ruleset) : null;
 }
 
 // NEW CAMPAIGN (house decision #142): the games the creator can start, and what each asks, read here so the wizard

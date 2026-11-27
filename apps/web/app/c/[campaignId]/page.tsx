@@ -1,10 +1,10 @@
 import type { Viewport } from "next";
 import { cookies } from "next/headers";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { cache } from "react";
 
 import { Me } from "@inconsistable/core-schema";
-import { Ruleset } from "@inconsistable/rules-engine";
+import { localRuleset, type Ruleset } from "@inconsistable/rules-engine";
 
 import { apiGet } from "@/app/server-api";
 import { ADMIN_PARAM } from "@/lib/admin/admin";
@@ -66,8 +66,8 @@ const rulesView = cache(async (campaignId: string): Promise<RulesView | null> =>
     const res = await apiGet(`/api/campaigns/${campaignId}/rules?limit=${RULES_PAGE}`);
     const first = RulesReply.safeParse(res.ok ? await res.json() : null);
     if (!first.success) return null;
-    const ruleset = Ruleset.safeParse(first.data.ruleset?.manifest);
-    return { ruleset: ruleset.success ? ruleset.data : null, first: first.data };
+    const ruleset = localRuleset(first.data.ruleset?.manifest, await getLocale());
+    return { ruleset, first: first.data };
   } catch {
     return null;
   }
@@ -149,7 +149,7 @@ export default async function Table({ params, searchParams }: TableProps) {
     const [rules, view] = await Promise.all([rulesTab(campaignId), rulesView(campaignId)]);
     const creatures = view ? await spawnable(campaignId, view.ruleset) : null;
     return (
-      <RoomWorld world={view?.first.world ?? null}>
+      <RoomWorld world={view?.first.world ?? null} ruleset={view?.ruleset}>
         <GmApp me={me} rules={rules} view={view} spawnable={creatures} quick={query.quick === "1"} />
       </RoomWorld>
     );
@@ -157,7 +157,7 @@ export default async function Table({ params, searchParams }: TableProps) {
   if (seat.kind === "token" && seat.role === "screen") {
     const view = await rulesView(campaignId);
     return (
-      <RoomWorld world={view?.first.world ?? null}>
+      <RoomWorld world={view?.first.world ?? null} ruleset={view?.ruleset}>
         <TableScreen campaignId={me.campaignId} view={view} />
       </RoomWorld>
     );
@@ -167,7 +167,7 @@ export default async function Table({ params, searchParams }: TableProps) {
   if (!seat.characterIds.length && !runsTheRoom) return <StatusScreen text={t("noCharacter")} />;
   const view = await rulesView(campaignId);
   return (
-    <RoomWorld world={view?.first.world ?? null}>
+    <RoomWorld world={view?.first.world ?? null} ruleset={view?.ruleset}>
       <PlayerApp me={me} view={view} quick={query.quick === "1"} />
     </RoomWorld>
   );

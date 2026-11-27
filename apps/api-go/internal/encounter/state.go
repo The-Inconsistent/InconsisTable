@@ -344,7 +344,7 @@ func sidesOf(out *cs.Encounter, e *Active, rules *engine.CompiledRuleset, built 
 		LastSide: e.LastSide, OutOfTurnSide: e.OutOfTurnSide, Held: held, Barred: barred, Unable: unable,
 	}
 	up := (*string)(nil)
-	if side, ok := engine.SideUp(rules.Ruleset.Normalized["initiative"], t); ok {
+	if side, ok := engine.SideUp(rules.Ruleset.Local["initiative"], t); ok {
 		up = &side
 	}
 	out.EncounterSides = &cs.EncounterSides{Begun: e.Begun, LastSide: e.LastSide, OutOfTurnSide: e.OutOfTurnSide, SideUp: up}
@@ -358,6 +358,6 @@ func sidesOf(out *cs.Encounter, e *Active, rules *engine.CompiledRuleset, built 
 	if acting != nil {
 		after.Done = append(slices.Clone(done), *acting)
 	}
-	_, pending := engine.SideUp(rules.Ruleset.Normalized["initiative"], &after)
+	_, pending := engine.SideUp(rules.Ruleset.Local["initiative"], &after)
 	return e.Begun && !pending
 }

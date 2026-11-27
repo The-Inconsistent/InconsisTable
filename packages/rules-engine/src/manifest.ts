@@ -27,6 +27,7 @@ import { MAX_EXPR_LENGTH } from "./expr/expr.ast.ts";
 import { checkFieldValue } from "./field-value.ts";
 import { own } from "./own.ts";
 import { formatPath, type Problem } from "./problem.ts";
+import { Lang, localize, type Localized, TermWords, Text } from "./words.ts";
 import { LAYOUT_TARGETS, MAX_PIP_STEPS, MAX_PIPS_PER_STEP, type WidgetSpec, widgetSpec } from "./widgets.ts";
 
 /** Manifests are user-written imports stored as JSONB: bound them before anything else reads them. */
@@ -90,10 +91,10 @@ export const Source = z.object({
   /** PDF page = printed page + pageOffset. */
   pageOffset: z.int().min(-1000).max(1000).optional(),
 });
-export type Source = z.infer<typeof Source>;
+export type Source = Localized<z.infer<typeof Source>>;
 
 const fieldBase = {
-  label: z.string().min(1).max(80),
+  label: Text(80),
   visibility: Visibility.default("gm"),
   editableBy: EditableBy.default("gm"),
   cite: Cite.optional(),
@@ -106,7 +107,7 @@ const fieldBase = {
  * decision #76). Optional on every enum.
  */
 const enumWords = {
-  labels: z.record(Id, z.string().min(1).max(60)).optional(),
+  labels: z.record(Id, Text(60)).optional(),
   notes: z.record(Id, z.string().min(1).max(40)).optional(),
   tones: z.record(Id, EnumTone).optional(),
 };
@@ -141,9 +142,9 @@ export const FieldDef = z.discriminatedUnion("type", [
       .optional(),
   }),
 ]);
-export type FieldDef = z.infer<typeof FieldDef>;
+export type FieldDef = Localized<z.infer<typeof FieldDef>>;
 
-const campaignFieldBase = { label: z.string().min(1).max(80), cite: Cite.optional(), summary: Summary.optional() };
+const campaignFieldBase = { label: Text(80), cite: Cite.optional(), summary: Summary.optional() };
 const CAMPAIGN_INT = z.int().min(-1000).max(1000);
 
 /**
@@ -167,12 +168,12 @@ export const CampaignField = z.discriminatedUnion("type", [
   }),
   z.object({ ...campaignFieldBase, type: z.literal("bool"), default: z.boolean() }),
 ]);
-export type CampaignField = z.infer<typeof CampaignField>;
+export type CampaignField = Localized<z.infer<typeof CampaignField>>;
 
 export const MAX_CAMPAIGN_FIELDS = 50;
 
 const codexFieldBase = {
-  label: z.string().min(1).max(80),
+  label: Text(80),
   visibility: CodexFieldVisibility.default("gm"),
   cite: Cite.optional(),
   summary: Summary.optional(),
@@ -192,7 +193,7 @@ export const MAX_CODEX_REMINDERS = 20;
  * One column of a `rows` field (house decision #89): an entry field's types, plus `test`, a Test of the ruleset with
  * its inputs, the two things a scene's prepared Test line holds (`testId`, `inputs`).
  */
-const columnBase = { id: Id, label: z.string().min(1).max(60) };
+const columnBase = { id: Id, label: Text(60) };
 export const MAX_COLUMN_INPUTS = 5;
 export const MAX_EACH_WORDS = 10;
 export const RowColumn = z.discriminatedUnion("type", [
@@ -216,7 +217,7 @@ export const RowColumn = z.discriminatedUnion("type", [
     each: Id.optional(),
   }),
 ]);
-export type RowColumn = z.infer<typeof RowColumn>;
+export type RowColumn = Localized<z.infer<typeof RowColumn>>;
 
 /**
  * How a pack entry of `entity` fills a new row (house decision #89): `name` the text column that takes the entry's
@@ -227,7 +228,7 @@ export const RowPrefill = z.object({
   name: Id.optional(),
   values: z.record(Id, FieldId).optional(),
 });
-export type RowPrefill = z.infer<typeof RowPrefill>;
+export type RowPrefill = Localized<z.infer<typeof RowPrefill>>;
 
 /**
  * Tables whose rolled lines fill a text field, or an entry's title, in the GM's editor (house decision #97): each table
@@ -249,7 +250,7 @@ export const FieldRoll = z.object({
     })
     .optional(),
 });
-export type FieldRoll = z.infer<typeof FieldRoll>;
+export type FieldRoll = Localized<z.infer<typeof FieldRoll>>;
 
 /**
  * How a pack entry of `entity` makes a codex entry of a kind (house decision #97): the mapping a row's prefill has
@@ -270,7 +271,7 @@ export const EntryPrefill = RowPrefill.extend({
     .optional(),
   roster: FieldId.optional(),
 });
-export type EntryPrefill = z.infer<typeof EntryPrefill>;
+export type EntryPrefill = Localized<z.infer<typeof EntryPrefill>>;
 
 /**
  * A field a kind of codex entry carries (ADR 0012 decision 2, house decision #71): an entity field's types and shapes,
@@ -295,7 +296,7 @@ export const CodexField = z.discriminatedUnion("type", [
     entities: z.array(Id).min(1).max(10).optional(),
     /** Fixed words offered, stored as their id and shown by `labels`. */
     options: z.array(Id).min(1).max(200).optional(),
-    labels: z.record(Id, z.string().min(1).max(MAX_TAG_CHARS)).optional(),
+    labels: z.record(Id, Text(MAX_TAG_CHARS)).optional(),
     /** Whether a word outside the suggestions may be written in. */
     writeIn: z.boolean().default(false),
     /** A write-in is kept upper-cased, as the game prints its tags (house decision #197). */
@@ -308,7 +309,7 @@ export const CodexField = z.discriminatedUnion("type", [
     maxRows: z.int().min(1).max(MAX_ROWS).optional(),
     from: z.array(RowPrefill).min(1).max(MAX_ROW_PREFILLS).optional(),
     /** A scene may pick this field's rows, each with one switch of this name (a prep `picks` line). */
-    pick: z.object({ label: z.string().min(1).max(40) }).optional(),
+    pick: z.object({ label: Text(40) }).optional(),
     /**
      * A table the GM's editor rolls, `times` (a whole-number campaign field) times or once, each line's label a new row's
      * `into` text column, within the cap (house decision #173). A prep aid through `table.roll`; nothing else rolls.
@@ -316,7 +317,7 @@ export const CodexField = z.discriminatedUnion("type", [
     rolls: z.object({ table: Id, into: Id, times: Id.optional() }).optional(),
   }),
 ]);
-export type CodexField = z.infer<typeof CodexField>;
+export type CodexField = Localized<z.infer<typeof CodexField>>;
 
 export const MAX_CODEX_FIELDS = 20;
 
@@ -332,7 +333,7 @@ export const CodexReminder = z.object({
   /** Of the reminders sharing a group, only the first that holds shows (house decision #172). */
   group: Id.optional(),
 });
-export type CodexReminder = z.infer<typeof CodexReminder>;
+export type CodexReminder = Localized<z.infer<typeof CodexReminder>>;
 
 /** The fields each kind of codex entry carries. Absent: an entry is a title and two texts, as in a room without one. */
 export const CodexBlock = z.object({
@@ -369,12 +370,12 @@ export const CodexBlock = z.object({
     }),
   ),
 });
-export type CodexBlock = z.infer<typeof CodexBlock>;
+export type CodexBlock = Localized<z.infer<typeof CodexBlock>>;
 export type CodexKindDef = NonNullable<CodexBlock["kinds"][keyof CodexBlock["kinds"]]>;
 
 export const DerivedDef = z.object({
   id: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   expr: ExprSource,
   visibility: Visibility.default("gm"),
   cite: Cite.optional(),
@@ -385,20 +386,20 @@ export const DerivedDef = z.object({
    */
   override: FieldId.optional(),
 });
-export type DerivedDef = z.infer<typeof DerivedDef>;
+export type DerivedDef = Localized<z.infer<typeof DerivedDef>>;
 
 export const EntityType = z.object({
   id: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   base: EntityBase,
   fields: z.record(FieldId, FieldDef).default({}),
   derived: z.array(DerivedDef).default([]),
 });
-export type EntityType = z.infer<typeof EntityType>;
+export type EntityType = Localized<z.infer<typeof EntityType>>;
 
 export const Resource = z.object({
   id: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   cite: Cite.optional(),
   summary: Summary.optional(),
   scope: ResourceScope,
@@ -415,7 +416,7 @@ export const Resource = z.object({
   visibility: Visibility.default("gm"),
   editableBy: EditableBy.default("gm"),
 });
-export type Resource = z.infer<typeof Resource>;
+export type Resource = Localized<z.infer<typeof Resource>>;
 
 export const Effect = z.object({
   /** A field id for phase `base`, `derived.<id>` for phase `derived`. */
@@ -428,11 +429,11 @@ export const Effect = z.object({
   /** Inherits its condition's cite when omitted. */
   cite: Cite.optional(),
 });
-export type Effect = z.infer<typeof Effect>;
+export type Effect = Localized<z.infer<typeof Effect>>;
 
 export const Condition = z.object({
   id: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   cite: Cite.optional(),
   summary: Summary.optional(),
   effects: z.array(Effect).max(50).default([]),
@@ -455,7 +456,7 @@ export const Condition = z.object({
    */
   immune: z.union([ExprSource, z.object({ if: ExprSource, entities: z.array(Id).min(1).max(50) })]).optional(),
 });
-export type Condition = z.infer<typeof Condition>;
+export type Condition = Localized<z.infer<typeof Condition>>;
 
 /**
  * A line the side running a fight is reminded of (house decision #81), in the ruleset's own words. `if` is a boolean in
@@ -471,7 +472,7 @@ export const Reminder = z.object({
   /** The actor types its `if` is read on; a combatant of another type never holds it (house decision #174). */
   entities: z.array(Id).min(1).max(50).optional(),
 });
-export type Reminder = z.infer<typeof Reminder>;
+export type Reminder = Localized<z.infer<typeof Reminder>>;
 
 /** A condition's `immune` as its expression and the actor types it is read on (null: every one). */
 export const immuneOf = (c: Pick<Condition, "immune">): { if: string; entities: readonly string[] | null } | null =>
@@ -487,7 +488,7 @@ export const RestRule = z.object({
   refusedIn: z.array(Id).min(1).max(20),
   cite: Cite.optional(),
 });
-export type RestRule = z.infer<typeof RestRule>;
+export type RestRule = Localized<z.infer<typeof RestRule>>;
 
 /**
  * The actor entity types a Test or a health state applies to (house decision #50). Absent: every actor type, and the
@@ -497,11 +498,11 @@ const ActorTypes = z.array(Id).min(1).max(50).optional();
 
 export const RuleOption = z.object({
   id: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   cite: Cite.optional(),
   default: z.boolean().default(false),
 });
-export type RuleOption = z.infer<typeof RuleOption>;
+export type RuleOption = Localized<z.infer<typeof RuleOption>>;
 
 /**
  * What the screens call a Test, its inputs and a text input's options (house decision #77); without a word the id (or
@@ -509,9 +510,9 @@ export type RuleOption = z.infer<typeof RuleOption>;
  * declared options.
  */
 const testWords = {
-  label: z.string().min(1).max(80).optional(),
-  inputLabels: z.record(Id, z.string().min(1).max(60)).optional(),
-  inputOptionLabels: z.record(Id, z.record(z.string().min(1).max(60), z.string().min(1).max(60))).optional(),
+  label: Text(80).optional(),
+  inputLabels: z.record(Id, Text(60)).optional(),
+  inputOptionLabels: z.record(Id, z.record(z.string().min(1).max(60), Text(60))).optional(),
 };
 
 export const MAX_OFFERS = 10;
@@ -524,15 +525,15 @@ export const MAX_CHOICES = 5;
  * modifier or pool, which the dice already rolled; false or 0 when the report leaves it out.
  */
 export const TestChoice = z.object({
-  label: z.string().min(1).max(60),
+  label: Text(60),
   max: z.int().min(1).max(20).optional(),
   cite: Cite.optional(),
 });
-export type TestChoice = z.infer<typeof TestChoice>;
+export type TestChoice = Localized<z.infer<typeof TestChoice>>;
 
 /** One write an offer makes: to a shared pool, or to a resource of the taker, by an integer expression. */
 export const OfferChange = z.object({ pool: Id.optional(), resource: Id.optional(), by: ExprSource });
-export type OfferChange = z.infer<typeof OfferChange>;
+export type OfferChange = Localized<z.infer<typeof OfferChange>>;
 
 /**
  * What a called Test's result offers the GM (house decision #80): when `when` holds for a taker's resolved report (read
@@ -540,12 +541,12 @@ export type OfferChange = z.infer<typeof OfferChange>;
  */
 export const TestOffer = z.object({
   id: Id,
-  label: z.string().min(1).max(60),
+  label: Text(60),
   when: ExprSource,
   changes: z.array(OfferChange).min(1).max(5),
   cite: Cite.optional(),
 });
-export type TestOffer = z.infer<typeof TestOffer>;
+export type TestOffer = Localized<z.infer<typeof TestOffer>>;
 
 /**
  * A Test's marks and offers (house decision #80): a mark is a yes-or-no the GM sets when calling, read as `ctx.<id>`
@@ -553,7 +554,7 @@ export type TestOffer = z.infer<typeof TestOffer>;
  */
 const testOutcomes = {
   marks: z
-    .record(Id, z.object({ label: z.string().min(1).max(60), cite: Cite.optional() }))
+    .record(Id, z.object({ label: Text(60), cite: Cite.optional() }))
     .refine((o) => Object.keys(o).length <= MAX_MARKS, `at most ${MAX_MARKS} marks`)
     .optional(),
   choices: z
@@ -586,7 +587,7 @@ export const Degrees = z.object({
   naturalShift: z.boolean().default(false),
   cite: Cite.optional(),
 });
-export type Degrees = z.infer<typeof Degrees>;
+export type Degrees = Localized<z.infer<typeof Degrees>>;
 
 /** Roll dice, add a modifier, compare with a target. Also the params of the `dice.sumVsTarget` primitive. */
 export const SumVsTarget = z.object({
@@ -602,11 +603,11 @@ export const SumVsTarget = z.object({
   /** Four outcomes instead of two (`criticalSuccess | success | failure | criticalFailure`). Excludes `critOn`. */
   degrees: Degrees.optional(),
 });
-export type SumVsTarget = z.infer<typeof SumVsTarget>;
+export type SumVsTarget = Localized<z.infer<typeof SumVsTarget>>;
 
 /** A run of faces of one die, both ends included. */
 export const FaceRange = z.object({ from: z.int().min(1).max(MAX_SIDES), to: z.int().min(1).max(MAX_SIDES) });
-export type FaceRange = z.infer<typeof FaceRange>;
+export type FaceRange = Localized<z.infer<typeof FaceRange>>;
 
 /**
  * A Dice pool: roll as many dice as the character's values say, count the faces that score, compare the score with
@@ -629,7 +630,7 @@ export const PoolSuccesses = z.object({
   /** Dice of the pool read one by one, whose faces flag the roll. They score like every other die. */
   special: z
     .object({
-      label: z.string().min(1).max(40),
+      label: Text(40),
       count: z.int().min(1).max(10),
       flags: z.partialRecord(PoolFlag, FaceRange).default({}),
     })
@@ -637,11 +638,11 @@ export const PoolSuccesses = z.object({
   /** The band whose dice may be shifted, as long as the roll still passes without them. */
   shift: Id.optional(),
 });
-export type PoolSuccesses = z.infer<typeof PoolSuccesses>;
+export type PoolSuccesses = Localized<z.infer<typeof PoolSuccesses>>;
 
 /** One result a reported Test can have. Listed best first. */
-export const ReportedOutcome = z.object({ id: Id, label: z.string().min(1).max(60), cite: Cite.optional() });
-export type ReportedOutcome = z.infer<typeof ReportedOutcome>;
+export const ReportedOutcome = z.object({ id: Id, label: Text(60), cite: Cite.optional() });
+export type ReportedOutcome = Localized<z.infer<typeof ReportedOutcome>>;
 
 /**
  * A Test the table rolls and works out itself (house decision #41): the manifest only names the outcomes, best first,
@@ -658,10 +659,10 @@ export const ReportedTest = z.object({
   ...testWords,
   ...testOutcomes,
 });
-export type ReportedTest = z.infer<typeof ReportedTest>;
+export type ReportedTest = Localized<z.infer<typeof ReportedTest>>;
 
 export const DiceMechanic = z.discriminatedUnion("kind", [SumVsTarget, PoolSuccesses, ReportedTest]);
-export type DiceMechanic = z.infer<typeof DiceMechanic>;
+export type DiceMechanic = Localized<z.infer<typeof DiceMechanic>>;
 
 /** Highest score acts first. Also the params of the `initiative.ranked` primitive. */
 export const RankedInitiative = z.object({
@@ -674,7 +675,7 @@ export const RankedInitiative = z.object({
   rerollEachRound: z.boolean().default(false),
   cite: Cite.optional(),
 });
-export type RankedInitiative = z.infer<typeof RankedInitiative>;
+export type RankedInitiative = Localized<z.infer<typeof RankedInitiative>>;
 
 /** Play goes round the table from the first player; nothing is scored. Also the params of `initiative.seated`. */
 export const SeatedInitiative = z.object({
@@ -683,10 +684,10 @@ export const SeatedInitiative = z.object({
   firstPlayer: z.enum(["fixed", "rotate", "manual"]),
   cite: Cite.optional(),
 });
-export type SeatedInitiative = z.infer<typeof SeatedInitiative>;
+export type SeatedInitiative = Localized<z.infer<typeof SeatedInitiative>>;
 
 const SideCost = z.object({ pool: Id, amount: z.int().min(1).max(20) });
-export type SideCost = z.infer<typeof SideCost>;
+export type SideCost = Localized<z.infer<typeof SideCost>>;
 
 /**
  * Sides alternate and the side that is up chooses who acts (house decision #57). Also the params of
@@ -699,7 +700,7 @@ export const SidesInitiative = z.object({
     .array(
       z.object({
         id: Id,
-        label: z.string().min(1).max(40),
+        label: Text(40),
         /** Actor entity types that join this side by default. */
         entities: z.array(Id).max(20).optional(),
       }),
@@ -728,20 +729,20 @@ export const SidesInitiative = z.object({
     .optional(),
   cite: Cite.optional(),
 });
-export type SidesInitiative = z.infer<typeof SidesInitiative>;
+export type SidesInitiative = Localized<z.infer<typeof SidesInitiative>>;
 
 /** One step of a round, played in turn or by everyone at once (house decision #37). */
 export const Phase = z.object({
   id: Id,
-  label: z.string().min(1).max(40),
+  label: Text(40),
   mode: z.enum(["turns", "simultaneous"]),
   cite: Cite.optional(),
 });
-export type Phase = z.infer<typeof Phase>;
+export type Phase = Localized<z.infer<typeof Phase>>;
 
 /** Who learns what a table rolled or dealt (house decision #49): the GM side, the whole table, or the card's holder. */
 export const TableVisibility = z.enum(["gm", "party", "owner"]);
-export type TableVisibility = z.infer<typeof TableVisibility>;
+export type TableVisibility = Localized<z.infer<typeof TableVisibility>>;
 
 /** The most kinds of held record a ruleset declares, and a kind's default and highest `max` (house decision #88). */
 export const MAX_HELD_KINDS = 10;
@@ -754,7 +755,7 @@ export const HELD_DEFAULT_MAX = 20;
  * effects under that word, never its name, key or cite; its field is then `owner` or `gm`.
  */
 export const HeldKind = z.object({
-  label: z.string().min(1).max(60),
+  label: Text(60),
   entry: Id,
   field: FieldId,
   entities: z.array(Id).min(1).max(50),
@@ -777,7 +778,7 @@ export const HeldKind = z.object({
   gear: z.object({ field: FieldId, kind: Id }).optional(),
   cite: Cite.optional(),
 });
-export type HeldKind = z.infer<typeof HeldKind>;
+export type HeldKind = Localized<z.infer<typeof HeldKind>>;
 
 /** The most kinds of item a ruleset declares, and an actor's default cap per kind (house decision #95). */
 export const MAX_ITEM_KINDS = 20;
@@ -836,7 +837,7 @@ export function hostTakesTraits({ items, type }: { items: ItemsBlock | undefined
  */
 export const ItemKind = z.object({
   id: Id,
-  label: z.string().min(1).max(60),
+  label: Text(60),
   entry: Id,
   tag: z.string().min(1).max(40).optional(),
   entities: z.array(Id).min(1).max(50),
@@ -861,15 +862,15 @@ export const ItemKind = z.object({
     .optional(),
   cite: Cite.optional(),
 });
-export type ItemKind = z.infer<typeof ItemKind>;
+export type ItemKind = Localized<z.infer<typeof ItemKind>>;
 
 /**
  * Items actors hold in play (house decision #95). `give`: the codex `item` field (a `ref`) that names the pack entry a
  * GIVE hands over, and the kind an item entry without one is given as, by its title.
  */
 /** One labelled part of a number an acquisition works out (house decision #102): the breakdown shows each. */
-export const AcquirePart = z.object({ label: z.string().min(1).max(60), value: ExprSource });
-export type AcquirePart = z.infer<typeof AcquirePart>;
+export const AcquirePart = z.object({ label: Text(60), value: ExprSource });
+export type AcquirePart = Localized<z.infer<typeof AcquirePart>>;
 
 /** The offers an acquisition's call carries, beside the Test's own (house decision #102). */
 export const ACQUIRE_OFFERS = { grant: "acquire", topUp: "acquireTopUp" } as const;
@@ -889,7 +890,7 @@ export const ItemAcquire = z.object({
     .record(Id, z.array(AcquirePart).min(1).max(6))
     .refine((o) => Object.keys(o).length <= 6, "at most 6 inputs"),
   picks: z
-    .record(Id, z.object({ label: z.string().min(1).max(60), min: z.int().min(-1000).max(1000), max: ExprSource }))
+    .record(Id, z.object({ label: Text(60), min: z.int().min(-1000).max(1000), max: ExprSource }))
     .refine((o) => Object.keys(o).length <= 3, "at most 3 picks")
     .optional(),
   if: ExprSource.optional(),
@@ -902,14 +903,14 @@ export const ItemAcquire = z.object({
   load: z.object({ field: FieldId, quantity: ExprSource }).optional(),
   cite: Cite.optional(),
 });
-export type ItemAcquire = z.infer<typeof ItemAcquire>;
+export type ItemAcquire = Localized<z.infer<typeof ItemAcquire>>;
 
 export const ItemsBlock = z.object({
   kinds: z.array(ItemKind).min(1).max(MAX_ITEM_KINDS),
   give: z.object({ ref: Id, loose: Id }).optional(),
   acquire: ItemAcquire.optional(),
 });
-export type ItemsBlock = z.infer<typeof ItemsBlock>;
+export type ItemsBlock = Localized<z.infer<typeof ItemsBlock>>;
 
 /** The most effects a row applies, inputs a lookup takes, and times one effect repeats (house decision #87). */
 export const MAX_ROW_EFFECTS = 8;
@@ -936,13 +937,13 @@ export const TableEffect = z.discriminatedUnion("kind", [
   // Grants the target the pack entry `entry` (its key) as a record of kind `held` (house decision #88).
   z.object({ kind: z.literal("grant"), held: Id, entry: PackKey, ...effectBase }),
 ]);
-export type TableEffect = z.infer<typeof TableEffect>;
+export type TableEffect = Localized<z.infer<typeof TableEffect>>;
 export type TableEffectKind = TableEffect["kind"];
 
 /** A value the GM sets before applying a lookup, read as `ctx.<id>`: a switch, or a stepper within its bounds. */
 export const TableInput = z.object({
   id: Id,
-  label: z.string().min(1).max(60),
+  label: Text(60),
   type: z.enum(["bool", "int"]),
   min: z.int().min(-1000).max(1000).optional(),
   /**
@@ -957,7 +958,7 @@ export const TableInput = z.object({
   dice: z.string().min(1).max(20).optional(),
   cite: Cite.optional(),
 });
-export type TableInput = z.infer<typeof TableInput>;
+export type TableInput = Localized<z.infer<typeof TableInput>>;
 
 /**
  * An input's bounds: its dice notation's range (house decision #164), else its own `min` and `max`; a `max` written as
@@ -977,7 +978,7 @@ export function inputBounds(x: Pick<TableInput, "min" | "max" | "dice">): { min?
  */
 export const TableEntry = z.object({
   id: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   /** [from, to], both ends inclusive; [from] on the last line is open-ended. */
   range: z.array(z.int().min(-100_000).max(100_000)).min(1).max(2).optional(),
   weight: z.int().min(1).max(100).optional(),
@@ -987,7 +988,7 @@ export const TableEntry = z.object({
   cite: Cite.optional(),
   next: Id.optional(),
 });
-export type TableEntry = z.infer<typeof TableEntry>;
+export type TableEntry = Localized<z.infer<typeof TableEntry>>;
 
 /**
  * A random table (design §3.4): rolled on a `die` whose outcomes the ranges tile exactly, or by weight; or dealt
@@ -1008,11 +1009,11 @@ export const RandomTable = z.object({
   modifier: ExprSource.optional(),
   entities: z.array(Id).min(1).max(50).optional(),
 });
-export type RandomTable = z.infer<typeof RandomTable>;
+export type RandomTable = Localized<z.infer<typeof RandomTable>>;
 
 export const ScoreOrder = z.enum(["high", "low"]);
 export const GameOutcome = z.enum(["win", "lose"]);
-export type GameOutcome = z.infer<typeof GameOutcome>;
+export type GameOutcome = Localized<z.infer<typeof GameOutcome>>;
 
 /**
  * How a game is scored and when it may end (design §4.8, house decisions #38-#40). `score`, tiebreaks and `when` read
@@ -1033,10 +1034,10 @@ export const Scoring = z.object({
     .default([]),
   cite: Cite.optional(),
 });
-export type Scoring = z.infer<typeof Scoring>;
+export type Scoring = Localized<z.infer<typeof Scoring>>;
 
 export const Initiative = z.discriminatedUnion("strategy", [RankedInitiative, SeatedInitiative, SidesInitiative]);
-export type Initiative = z.infer<typeof Initiative>;
+export type Initiative = Localized<z.infer<typeof Initiative>>;
 
 export const DeathSaves = z.object({
   successes: z.int().min(1).max(20),
@@ -1052,7 +1053,7 @@ export const DeathSaves = z.object({
   failuresOnDamage: z.int().min(1).max(20).optional(),
   failuresOnCriticalDamage: z.int().min(1).max(20).optional(),
 });
-export type DeathSaves = z.infer<typeof DeathSaves>;
+export type DeathSaves = Localized<z.infer<typeof DeathSaves>>;
 
 export const HealthTrack = z.object({
   resource: Id,
@@ -1065,7 +1066,7 @@ export const HealthTrack = z.object({
    */
   instantDeathOverflow: ExprSource.optional(),
 });
-export type HealthTrack = z.infer<typeof HealthTrack>;
+export type HealthTrack = Localized<z.infer<typeof HealthTrack>>;
 
 /**
  * How one group of actor types takes a hit under `health.harm` (house decision #66). Every expression is read on the
@@ -1098,7 +1099,7 @@ export const HarmProfile = z.object({
   /** true: `convert` moves wounds to the second track for this profile (house decision #84). Absent: it is refused. */
   convert: z.boolean().optional(),
 });
-export type HarmProfile = z.infer<typeof HarmProfile>;
+export type HarmProfile = Localized<z.infer<typeof HarmProfile>>;
 
 /** Damage that counts up toward a limit, and mobs: one combatant standing for many members (house decision #66). */
 export const Harm = z.object({
@@ -1111,7 +1112,7 @@ export const Harm = z.object({
   mob: z.object({ members: Id, start: FieldId }).optional(),
   profiles: z.array(HarmProfile).min(1).max(10),
 });
-export type Harm = z.infer<typeof Harm>;
+export type Harm = Localized<z.infer<typeof Harm>>;
 
 export const Health = z.object({
   tracks: z.array(HealthTrack).max(10).default([]),
@@ -1120,7 +1121,7 @@ export const Health = z.object({
     .array(
       z.object({
         id: Id,
-        label: z.string().min(1).max(80).optional(),
+        label: Text(80).optional(),
         when: ExprSource,
         entities: ActorTypes,
         /** The ruleset's own words for the fight's log when a write brings an actor into the state (house decision #190). */
@@ -1132,7 +1133,7 @@ export const Health = z.object({
   cite: Cite.optional(),
   harm: Harm.optional(),
 });
-export type Health = z.infer<typeof Health>;
+export type Health = Localized<z.infer<typeof Health>>;
 
 /** One house decision of the ruleset: where a book is ambiguous, what this ruleset does. Shown on RULES. */
 export const Decision = z.object({
@@ -1140,13 +1141,13 @@ export const Decision = z.object({
   text: z.string().min(1).max(1000),
   cite: Cite.optional(),
 });
-export type Decision = z.infer<typeof Decision>;
+export type Decision = Localized<z.infer<typeof Decision>>;
 
 const stepBase = {
   id: Id,
   /** The actor entity type the step builds. */
   actor: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   cite: Cite.optional(),
   /** true: the builder may skip the step. */
   optional: z.boolean().default(false),
@@ -1165,7 +1166,7 @@ export const ScoreMethod = z.discriminatedUnion("kind", [
     costs: z.record(z.string().regex(/^-?\d+$/, "a score such as 8"), z.int().min(0).max(1000)),
   }),
 ]);
-export type ScoreMethod = z.infer<typeof ScoreMethod>;
+export type ScoreMethod = Localized<z.infer<typeof ScoreMethod>>;
 
 export const CreationStep = z.discriminatedUnion("kind", [
   /** Pick pack entries of one entity type; `copy` moves a value of the chosen entry onto the actor. */
@@ -1188,7 +1189,7 @@ export const CreationStep = z.discriminatedUnion("kind", [
   /** Free input for the listed fields, checked against their `FieldDef`. */
   z.object({ ...stepBase, kind: z.literal(CreationKind.enum.fields), fields: z.array(FieldId).min(1).max(50) }),
 ]);
-export type CreationStep = z.infer<typeof CreationStep>;
+export type CreationStep = Localized<z.infer<typeof CreationStep>>;
 
 /**
  * The kinds of catalogue record the ledger builder reads, named as the keys of its `Creation` (build/schemas.ts), plus
@@ -1282,7 +1283,7 @@ export const LedgerBuild = z.object({
   first: z.enum(CREATION_PATHS).optional(),
   cite: Cite,
 });
-export type LedgerBuild = z.infer<typeof LedgerBuild>;
+export type LedgerBuild = Localized<z.infer<typeof LedgerBuild>>;
 
 /** How a character of a type both creation steps and the ledger make is made: built, or by hand (house decision #199). */
 export type CreationPath = (typeof CREATION_PATHS)[number];
@@ -1325,19 +1326,19 @@ const LayoutPath = z.string().max(130);
 export const WidgetRow = z.object({
   widget: Id,
   variant: Id.optional(),
-  label: z.string().min(1).max(80).optional(),
+  label: Text(80).optional(),
   bind: z.record(Id, z.union([LayoutPath, z.array(LayoutPath).min(1).max(40)])).default({}),
   /** A pips widget's rows: each a label and how many pips it holds. */
   steps: z
-    .array(z.object({ label: z.string().min(1).max(40), size: z.int().min(1).max(MAX_PIPS_PER_STEP) }))
+    .array(z.object({ label: Text(40), size: z.int().min(1).max(MAX_PIPS_PER_STEP) }))
     .min(1)
     .max(MAX_PIP_STEPS)
     .optional(),
 });
-export type WidgetRow = z.infer<typeof WidgetRow>;
+export type WidgetRow = Localized<z.infer<typeof WidgetRow>>;
 /** A field, derived or resource path drawn as a row of its own, or a widget. */
 export const LayoutRow = z.union([LayoutPath, WidgetRow]);
-export type LayoutRow = z.infer<typeof LayoutRow>;
+export type LayoutRow = Localized<z.infer<typeof LayoutRow>>;
 const LayoutRows = z.array(LayoutRow).max(100);
 
 /**
@@ -1345,7 +1346,7 @@ const LayoutRows = z.array(LayoutRow).max(100);
  * each a list of rows. A target left out keeps the platform's fixed screen. Never HTML.
  */
 export const Layout = z.object({
-  sections: z.array(z.object({ id: Id, label: z.string().min(1).max(80), show: LayoutRows })).max(50),
+  sections: z.array(z.object({ id: Id, label: Text(80), show: LayoutRows })).max(50),
   /** The phone on the seat's turn. */
   phoneTurn: LayoutRows.optional(),
   /** A combatant's row on the GM's tracker. */
@@ -1355,15 +1356,15 @@ export const Layout = z.object({
   /** The strip under the phone's header, on every tab (house decision #115). */
   phoneStrip: LayoutRows.optional(),
 });
-export type Layout = z.infer<typeof Layout>;
+export type Layout = Localized<z.infer<typeof Layout>>;
 
 /** The table events that cancel a spend's pending asks (house decision #84). */
 export const SpendClearEvent = z.enum(["sessionStart", "sessionEnd", "encounterEnd", "roundEnd"]);
-export type SpendClearEvent = z.infer<typeof SpendClearEvent>;
+export type SpendClearEvent = Localized<z.infer<typeof SpendClearEvent>>;
 
 /** What a spend's limit counts in (house decision #91). */
 export const SpendLimitPer = z.enum(["round"]);
-export type SpendLimitPer = z.infer<typeof SpendLimitPer>;
+export type SpendLimitPer = Localized<z.infer<typeof SpendLimitPer>>;
 
 /** Input names a spend may not take: `ctx.self` and `ctx.fight` are the platform's. */
 export const SPEND_CTX_ROOTS: ReadonlySet<string> = new Set(["self", "fight"]);
@@ -1378,7 +1379,7 @@ export const SpendCost = z.object({
   amount: ExprSource,
   byRun: z.boolean().optional(),
 });
-export type SpendCost = z.infer<typeof SpendCost>;
+export type SpendCost = Localized<z.infer<typeof SpendCost>>;
 
 /** One op a spend runs: an op of a primitive the ruleset declares, its input a value or an expression per key. */
 export const SpendStep = z.object({
@@ -1387,7 +1388,7 @@ export const SpendStep = z.object({
   /** A string is an expression (`ctx.self` is the asking actor's id); a number or boolean is taken as it is. */
   input: z.record(z.string().min(1).max(64), z.union([ExprSource, z.number(), z.boolean()])),
 });
-export type SpendStep = z.infer<typeof SpendStep>;
+export type SpendStep = Localized<z.infer<typeof SpendStep>>;
 
 /**
  * A spend (house decision #84): what a player may ask the GM to do for a cost, or the GM does in one tap. Every
@@ -1395,14 +1396,14 @@ export type SpendStep = z.infer<typeof SpendStep>;
  */
 export const Spend = z.object({
   id: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   cite: Cite.optional(),
   /** The actor types that may spend it; absent: every actor type. */
   entities: z.array(Id).min(1).max(50).optional(),
   cost: z.array(SpendCost).max(5),
   /** Numbers the asker picks, each within [min, max], read as `ctx.<name>`. */
   inputs: z
-    .record(Id, z.object({ label: z.string().min(1).max(60), min: z.int().min(0).max(1000), max: ExprSource }))
+    .record(Id, z.object({ label: Text(60), min: z.int().min(0).max(1000), max: ExprSource }))
     .refine((o) => Object.keys(o).length <= 3, "at most 3 inputs")
     .optional(),
   /** Boolean: the spend is available now. */
@@ -1421,7 +1422,7 @@ export const Spend = z.object({
    */
   then: z.object({ table: Id, inputs: z.record(Id, Id).optional(), if: ExprSource.optional() }).optional(),
 });
-export type Spend = z.infer<typeof Spend>;
+export type Spend = Localized<z.infer<typeof Spend>>;
 
 /**
  * One option a spawned actor may take (house decision #92), chosen at spawn and kept by the actor: `effects` are the
@@ -1430,14 +1431,14 @@ export type Spend = z.infer<typeof Spend>;
  */
 export const SpawnOption = z.object({
   id: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   cite: Cite.optional(),
   /** The actor types it applies to; absent: every actor type. */
   entities: z.array(Id).min(1).max(50).optional(),
   when: ExprSource.optional(),
   effects: z.array(Effect).max(20).default([]),
 });
-export type SpawnOption = z.infer<typeof SpawnOption>;
+export type SpawnOption = Localized<z.infer<typeof SpawnOption>>;
 
 /**
  * A change made once at spawn and fixed there (house decision #92): each `add` key is a field or a resource of the
@@ -1453,7 +1454,7 @@ export const SpawnAdjust = z.object({
     .refine((o) => Object.keys(o).length >= 1 && Object.keys(o).length <= 10, "1 to 10 values"),
   cite: Cite.optional(),
 });
-export type SpawnAdjust = z.infer<typeof SpawnAdjust>;
+export type SpawnAdjust = Localized<z.infer<typeof SpawnAdjust>>;
 
 /**
  * A reading aid for sizing a fight (house decision #92): each line's `cost` reads an entry's values with `ctx.count`
@@ -1463,15 +1464,15 @@ export type SpawnAdjust = z.infer<typeof SpawnAdjust>;
 export const SpawnBudget = z.object({
   cite: Cite.optional(),
   lines: z
-    .array(z.object({ id: Id, label: z.string().min(1).max(80), cost: ExprSource, budget: ExprSource }))
+    .array(z.object({ id: Id, label: Text(80), cost: ExprSource, budget: ExprSource }))
     .min(1)
     .max(8),
   switches: z
-    .array(z.object({ id: Id, label: z.string().min(1).max(60), by: ExprSource }))
+    .array(z.object({ id: Id, label: Text(60), by: ExprSource }))
     .max(4)
     .optional(),
 });
-export type SpawnBudget = z.infer<typeof SpawnBudget>;
+export type SpawnBudget = Localized<z.infer<typeof SpawnBudget>>;
 
 /** What spawning a pack entry may carry (house decision #92). */
 export const SpawnBlock = z.object({
@@ -1479,7 +1480,7 @@ export const SpawnBlock = z.object({
   adjust: z.array(SpawnAdjust).max(10).optional(),
   budget: SpawnBudget.optional(),
 });
-export type SpawnBlock = z.infer<typeof SpawnBlock>;
+export type SpawnBlock = Localized<z.infer<typeof SpawnBlock>>;
 
 /**
  * The most strike kinds a ruleset declares, the most values one reads of its means, and the most further numbers it
@@ -1514,20 +1515,20 @@ export const StrikeMeans = z.discriminatedUnion("from", [
   z.object({ from: z.literal("list"), field: FieldId, entry: Id }),
   z.object({ from: z.literal("items"), kind: Id }),
 ]);
-export type StrikeMeans = z.infer<typeof StrikeMeans>;
+export type StrikeMeans = Localized<z.infer<typeof StrikeMeans>>;
 
 /**
  * A number the strike guide shows (house decision #99): the base expression, then each addition whose `when` holds and
  * whose amount is not 0, each a line of the breakdown with its label and page.
  */
 export const StrikeFigure = z.object({
-  label: z.string().min(1).max(60),
+  label: Text(60),
   expr: ExprSource,
   cite: Cite.optional(),
   adds: z
     .array(
       z.object({
-        label: z.string().min(1).max(60),
+        label: Text(60),
         by: ExprSource,
         when: ExprSource.optional(),
         cite: Cite.optional(),
@@ -1536,16 +1537,16 @@ export const StrikeFigure = z.object({
     .max(10)
     .optional(),
 });
-export type StrikeFigure = z.infer<typeof StrikeFigure>;
+export type StrikeFigure = Localized<z.infer<typeof StrikeFigure>>;
 
 /** A further number the guide shows (house decision #99), a figure with an id: a weapon's damage, say. It decides nothing. */
 export const StrikeShow = StrikeFigure.extend({ id: Id });
-export type StrikeShow = z.infer<typeof StrikeShow>;
+export type StrikeShow = Localized<z.infer<typeof StrikeShow>>;
 
 /** What a typed total does (house decision #99): the first outcome whose `when` holds, and the hit it applies. */
 export const StrikeOutcome = z.object({
   id: Id,
-  label: z.string().min(1).max(60),
+  label: Text(60),
   when: ExprSource,
   wounds: ExprSource.optional(),
   shock: ExprSource.optional(),
@@ -1553,7 +1554,7 @@ export const StrikeOutcome = z.object({
   /** The ruleset's own words for the fight's log when a strike lands this outcome (house decision #190). */
   warn: z.string().min(1).max(80).optional(),
 });
-export type StrikeOutcome = z.infer<typeof StrikeOutcome>;
+export type StrikeOutcome = Localized<z.infer<typeof StrikeOutcome>>;
 
 /**
  * A value set before a strike: a lookup's switch or stepper (#87), or a `choice` (house decision #113), 2 to 10
@@ -1564,12 +1565,12 @@ export const StrikeInput = TableInput.omit({ dice: true, max: true }).extend({
   type: z.enum(["bool", "int", "choice"]),
   max: z.int().min(-1000).max(1000).optional(),
   options: z
-    .array(z.object({ label: z.string().min(1).max(60), value: z.int().min(-1000).max(1000) }))
+    .array(z.object({ label: Text(60), value: z.int().min(-1000).max(1000) }))
     .min(2)
     .max(10)
     .optional(),
 });
-export type StrikeInput = z.infer<typeof StrikeInput>;
+export type StrikeInput = Localized<z.infer<typeof StrikeInput>>;
 
 /**
  * A kind of strike a game has (house decision #99): an attacker of the `entities` types, with one of its means, on a
@@ -1582,7 +1583,7 @@ export type StrikeInput = z.infer<typeof StrikeInput>;
  */
 export const Strike = z.object({
   id: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   cite: Cite.optional(),
   /** The actor types that strike this way; absent: every actor type. */
   entities: ActorTypes,
@@ -1621,7 +1622,7 @@ export const Strike = z.object({
   /** At most `max` of this strike per attacker in a round of the fight (house decision #91's count; #113). */
   limit: z.object({ per: SpendLimitPer, max: z.int().min(1).max(10) }).optional(),
 });
-export type Strike = z.infer<typeof Strike>;
+export type Strike = Localized<z.infer<typeof Strike>>;
 
 /** The most panels a ruleset declares, and the most lines, figures and asks one shows (house decision #114). */
 export const MAX_PANELS = 20;
@@ -1641,7 +1642,7 @@ export const PanelOptions = z.object({
   usable: ExprSource.optional(),
   needs: FieldId.optional(),
 });
-export type PanelOptions = z.infer<typeof PanelOptions>;
+export type PanelOptions = Localized<z.infer<typeof PanelOptions>>;
 
 /**
  * A panel (house decision #114): what a phone shows its holder while it holds, in the ruleset's own short words. It
@@ -1652,7 +1653,7 @@ export type PanelOptions = z.infer<typeof PanelOptions>;
  */
 export const Panel = z.object({
   id: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   cite: Cite.optional(),
   /** The actor types whose phones show it; absent: every actor type. */
   entities: ActorTypes,
@@ -1670,17 +1671,17 @@ export const Panel = z.object({
     .max(MAX_PANEL_LINES)
     .optional(),
   figures: z
-    .array(z.object({ label: z.string().min(1).max(60), expr: ExprSource, cite: Cite.optional() }))
+    .array(z.object({ label: Text(60), expr: ExprSource, cite: Cite.optional() }))
     .max(MAX_PANEL_FIGURES)
     .optional(),
   spends: z.array(Id).min(1).max(MAX_PANEL_SPENDS).optional(),
   options: PanelOptions.optional(),
 });
-export type Panel = z.infer<typeof Panel>;
+export type Panel = Localized<z.infer<typeof Panel>>;
 
 /** How a table can sit for a game (docs/adr/0009-table-modes.md): with a GM, without one, or one player alone. */
 export const GameMode = z.enum(["gm", "gmless", "solo"]);
-export type GameMode = z.infer<typeof GameMode>;
+export type GameMode = Localized<z.infer<typeof GameMode>>;
 
 /** What the game is, for the room and the lobby. Descriptive data, never book text. */
 export const GameInfo = z.object({
@@ -1698,7 +1699,7 @@ export const GameInfo = z.object({
   /** The printed page that says the game plays without a GM or alone; needed for `gmless` and `solo`. */
   cite: Cite.optional(),
 });
-export type GameInfo = z.infer<typeof GameInfo>;
+export type GameInfo = Localized<z.infer<typeof GameInfo>>;
 
 /** The modes a ruleset allows; one with no `game` block is played with a GM. */
 export const modesOf = (r: { game?: { modes: readonly GameMode[] } }): readonly GameMode[] => r.game?.modes ?? ["gm"];
@@ -1708,14 +1709,14 @@ export const modesOf = (r: { game?: { modes: readonly GameMode[] } }): readonly 
  * `crossed`, on an action that took an actor from not meeting `if` to meeting it.
  */
 export const NoticeWhen = z.enum([...ResetEvent.options, "crossed"]);
-export type NoticeWhen = z.infer<typeof NoticeWhen>;
+export type NoticeWhen = Localized<z.infer<typeof NoticeWhen>>;
 export const MAX_NOTICE_TEXT = 120;
 export const MAX_NOTICES = 50;
 
 export const MAX_NOTICE_PARAMS = 5;
 /** A group rule (house decision #168): it holds when every (or any) actor of its types meets `if`. */
 export const NoticeGroup = z.enum(["every", "any"]);
-export type NoticeGroup = z.infer<typeof NoticeGroup>;
+export type NoticeGroup = Localized<z.infer<typeof NoticeGroup>>;
 
 /**
  * A line the server tells the seat that sent an action, about an actor (house decision #79). `if` reads the actor's
@@ -1738,7 +1739,7 @@ export const NoticeRule = z.object({
   rises: ExprSource.optional(),
   cite: Cite.optional(),
 });
-export type NoticeRule = z.infer<typeof NoticeRule>;
+export type NoticeRule = Localized<z.infer<typeof NoticeRule>>;
 
 export const MAX_CHECKLIST_STEPS = 30;
 /** The kinds of prepared line a checklist step may ask a scene to hold (core-schema PREP_KINDS, which it can't import). */
@@ -1786,7 +1787,7 @@ export const ChecklistCount = z.discriminatedUnion("count", [
   z.object({ count: z.literal("packs"), slug: z.string().min(1).max(64).optional(), ...atLeast }),
   z.object({ count: z.literal("safety") }),
 ]);
-export type ChecklistCount = z.infer<typeof ChecklistCount>;
+export type ChecklistCount = Localized<z.infer<typeof ChecklistCount>>;
 
 /**
  * One step of the setup checklist (house decision #90), in the book's order: its words, its page, what ticks it, where
@@ -1794,7 +1795,7 @@ export type ChecklistCount = z.infer<typeof ChecklistCount>;
  */
 export const ChecklistStep = z.object({
   id: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   cite: Cite.optional(),
   done: ChecklistCount,
   goto: z
@@ -1809,7 +1810,7 @@ export const ChecklistStep = z.object({
   /** A room value the step shows as "Now": an expression over `campaign` (house decision #173). */
   now: ExprSource.optional(),
 });
-export type ChecklistStep = z.infer<typeof ChecklistStep>;
+export type ChecklistStep = Localized<z.infer<typeof ChecklistStep>>;
 
 /** The most suggested lines a ruleset offers (core-schema MAX_SAFETY_ITEMS, which it can't import). */
 export const MAX_SAFETY_EXAMPLES = 30;
@@ -1836,7 +1837,7 @@ export const MAX_CHAIN = 8;
 
 const generatorStepBase = {
   id: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   /** A boolean over the earlier steps (`steps.<id>`) and the campaign: the step is asked only while it holds. */
   when: ExprSource.optional(),
 };
@@ -1861,11 +1862,11 @@ export const GeneratorStep = z.discriminatedUnion("kind", [
     ...generatorStepBase,
     kind: z.literal("choice"),
     options: z.array(Id).min(1).max(20),
-    labels: z.record(Id, z.string().min(1).max(60)).optional(),
+    labels: z.record(Id, Text(60)).optional(),
   }),
   z.object({ ...generatorStepBase, kind: z.literal("text"), maxLength: z.int().min(1).max(200).optional() }),
 ]);
-export type GeneratorStep = z.infer<typeof GeneratorStep>;
+export type GeneratorStep = Localized<z.infer<typeof GeneratorStep>>;
 
 /**
  * What one made entry takes (house decision #98): its title from a step, its declared fields from steps, and with
@@ -1878,11 +1879,11 @@ export const GeneratedEntry = z.object({
   /** A field to the step that fills it; a text field may name 2 to 4, their words joined by a space (house decision #179). */
   fields: z.record(Id, z.union([Id, z.array(Id).min(2)])).optional(),
 });
-export type GeneratedEntry = z.infer<typeof GeneratedEntry>;
+export type GeneratedEntry = Localized<z.infer<typeof GeneratedEntry>>;
 
 export const Generator = z.object({
   id: Id,
-  label: z.string().min(1).max(80),
+  label: Text(80),
   cite: Cite.optional(),
   steps: z.array(GeneratorStep).min(1).max(MAX_GENERATOR_STEPS),
   /** Steps asked `times` over (an integer over the steps above, 0 to 60), each round making one nested entry. */
@@ -1898,7 +1899,7 @@ export const Generator = z.object({
     root: z.literal(false).optional(),
   }),
 });
-export type Generator = z.infer<typeof Generator>;
+export type Generator = Localized<z.infer<typeof Generator>>;
 
 /** What the GM's header shows beside the room's name (house decision #109). */
 export const Header = z.object({
@@ -1907,15 +1908,22 @@ export const Header = z.object({
   /** The running fight's round. Needs an `initiative`. */
   round: z.literal(true).optional(),
 });
-export type Header = z.infer<typeof Header>;
+export type Header = Localized<z.infer<typeof Header>>;
 
-export const Ruleset = z.object({
+/**
+ * A ruleset as its document is written and stored: its labels and terms may be given per language (issue #159), held
+ * as `Words` until the ruleset is read in one language. `Ruleset` is the same document read in its own language.
+ */
+export const RulesetDocument = z.object({
   id: RulesetId,
   version: SemVer,
   core: SemVerRange,
+  /** The language its labels fall back to where one is not given in the viewer's. Absent: English. */
+  language: Lang.optional(),
   extends: z.object({ id: RulesetId, version: SemVer }).optional(),
   sources: z.array(Source).min(1).max(50),
-  terms: z.record(Id, z.string().min(1).max(60)).default({}),
+  /** Its words for the app's terms (issue #159): read in the viewer's language, then its own, then the app's word. */
+  terms: z.record(Id, TermWords).default({}),
   options: z.array(RuleOption).max(200).default([]),
   entities: z.array(EntityType).min(1).max(50),
   resources: z.array(Resource).max(200).default([]),
@@ -1976,8 +1984,25 @@ export const Ruleset = z.object({
   /** What a phone shows while it holds: incoming, hit, barred, dying, this turn's options (house decision #114). */
   panels: z.array(Panel).max(MAX_PANELS).optional(),
 });
-export type Ruleset = z.infer<typeof Ruleset>;
-export type RulesetInput = z.input<typeof Ruleset>;
+export type RulesetDocument = z.infer<typeof RulesetDocument>;
+
+/** The ruleset read in one language: every label and term a plain value. */
+export type Ruleset = Localized<RulesetDocument>;
+/** A ruleset document read in its own language (`language`, else English). */
+export const Ruleset = RulesetDocument.transform((doc): Ruleset =>
+  localize(doc, { lang: doc.language ?? "en", fallback: doc.language ?? "en" }),
+);
+export type RulesetInput = z.input<typeof RulesetDocument>;
+
+/**
+ * A served manifest read in the viewer's language, each label falling back to the ruleset's own language: what a
+ * screen shows. Null when it does not parse.
+ */
+export function localRuleset(manifest: unknown, lang: Lang): Ruleset | null {
+  const parsed = RulesetDocument.safeParse(manifest);
+  if (!parsed.success) return null;
+  return localize(parsed.data, { lang, fallback: parsed.data.language ?? "en" });
+}
 
 /**
  * Scope roots the expression language reserves; a field id may not start with one. `result` is a Test's report as its

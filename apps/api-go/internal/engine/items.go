@@ -147,7 +147,7 @@ func (b *ItemsBlock) KindOf(typ string, tags []string) *ItemKind {
 
 var itemKindSchema = schema.Object(
 	schema.Req("id", idSchema),
-	schema.Req("label", label(60)),
+	schema.Req("label", text(60)),
 	schema.Req("entry", idSchema),
 	schema.Opt("tag", label(40)),
 	schema.Req("entities", schema.Array(idSchema).Min(1).Max(50)),
@@ -174,11 +174,11 @@ var acquireSchema = schema.Object(
 	schema.Req("test", idSchema),
 	schema.Opt("kinds", schema.Array(idSchema).Min(1).Max(MaxItemKinds)),
 	schema.Req("inputs", schema.Refined(schema.Record(idSchema, schema.Array(schema.Object(
-		schema.Req("label", label(60)),
+		schema.Req("label", text(60)),
 		schema.Req("value", exprSource),
 	)).Min(1).Max(6)), func(v any) bool { return len(v.(map[string]any)) <= 6 }, "at most 6 inputs")),
 	schema.Opt("picks", schema.Refined(schema.Record(idSchema, schema.Object(
-		schema.Req("label", label(60)),
+		schema.Req("label", text(60)),
 		schema.Req("min", schema.Int().Min(-1000).Max(1000)),
 		schema.Req("max", exprSource),
 	)), func(v any) bool { return len(v.(map[string]any)) <= 3 }, "at most 3 picks")),

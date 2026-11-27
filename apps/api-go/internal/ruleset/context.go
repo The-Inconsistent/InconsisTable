@@ -22,12 +22,12 @@ import (
 // the client. A primitive missing here is not run through `rule.op` yet. dice.sumVsTarget takes its params from a named
 // Test, not from the ruleset's one block, so it runs through the test.* actions.
 var primitiveParams = map[string]func(r *engine.Ruleset) any{
-	"initiative.ranked": func(r *engine.Ruleset) any { return r.Normalized["initiative"] },
-	"initiative.seated": func(r *engine.Ruleset) any { return r.Normalized["initiative"] },
-	"initiative.sides":  func(r *engine.Ruleset) any { return r.Normalized["initiative"] },
-	"health.tracks":     func(r *engine.Ruleset) any { return r.Normalized["health"] },
+	"initiative.ranked": func(r *engine.Ruleset) any { return r.Local["initiative"] },
+	"initiative.seated": func(r *engine.Ruleset) any { return r.Local["initiative"] },
+	"initiative.sides":  func(r *engine.Ruleset) any { return r.Local["initiative"] },
+	"health.tracks":     func(r *engine.Ruleset) any { return r.Local["health"] },
 	"health.harm": func(r *engine.Ruleset) any {
-		health, _ := r.Normalized["health"].(map[string]any)
+		health, _ := r.Local["health"].(map[string]any)
 		return health["harm"]
 	},
 	"resource.capped":   func(*engine.Ruleset) any { return map[string]any{} },

@@ -3,11 +3,12 @@ import { z } from "zod";
 import { byteSize, RulesetId, SemVer, SemVerRange } from "./manifest.ts";
 import { canonicalJson, sha256Hex } from "./pack-hash.ts";
 import { formatPath, type Problem } from "./problem.ts";
+import { TermId, TermWords } from "./words.ts";
 
 // A World: the look of one setting, as an imported document beside the ruleset and the pack (docs/adr/0010, decision
 // 2). It holds values for the platform's Theme tokens and picks from the platform's own lists. It carries no code, no
 // font file and no image: every typeface, texture and shape it names is drawn by the platform.
-// This file is the contract: the token names and the lists. Terms are not in it yet (issue #159).
+// This file is the contract: the token names and the lists. Its words are `terms` (issue #159, words.ts).
 
 /** The largest World document the importer reads. */
 export const MAX_WORLD_BYTES = 64 * 1024;
@@ -185,6 +186,11 @@ export const World = z.object({
   theme: WorldTheme,
   /** Absent: every layout under the platform's names. */
   handouts: WorldHandouts.optional(),
+  /**
+   * The setting's words for the app's terms (issue #159), each for every language or one per language. A term it leaves
+   * out, or gives in no word for the viewer's language, is the ruleset's, else the app's own. Absent: none.
+   */
+  terms: z.partialRecord(TermId, TermWords).optional(),
 });
 export type World = z.infer<typeof World>;
 export type WorldInput = z.input<typeof World>;

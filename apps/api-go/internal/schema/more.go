@@ -1,6 +1,9 @@
 package schema
 
-import "math"
+import (
+	"math"
+	"strings"
+)
 
 // FloatSchema is z.number() that need not be whole, with its bounds.
 type FloatSchema struct {
@@ -174,6 +177,64 @@ type superRefinedSchema struct {
 // RefinedSoft is, and each message it returns an issue at the value's own path.
 func SuperRefined(inner Schema, check func(any) []string) Schema {
 	return superRefinedSchema{inner, check}
+}
+
+type wordsSchema struct {
+	words  Schema
+	either Schema
+	langs  []string
+}
+
+// Words is words.ts Words$ and TermWords: the words themselves, for every language, or a map from language (langs, in
+// fallback order) to words, which must name one. Under ParseIn the map is read as one language's words.
+func Words(words Schema, langs ...string) Schema {
+	// The map goes through a transform in zod, and a pipe whose input failed aborts: a map that fails is Invalid input.
+	return wordsSchema{words, AnyOf(words, aborting{byLanguage(words, langs)}), langs}
+}
+
+// ByLanguage is words.ts TermWords: the same choice as Words, never read in one language by ParseIn, because its
+// reader looks a language up itself.
+func ByLanguage(words Schema, langs ...string) Schema {
+	return AnyOf(words, byLanguage(words, langs))
+}
+
+func byLanguage(words Schema, langs []string) Schema {
+	return RefinedSoft(PartialRecord(words, langs...), func(v any) bool {
+		m, _, _ := mapOf(v)
+		return len(m) > 0
+	}, "give the words in at least one language")
+}
+
+// aborting is the input of a zod pipe: a failed check aborts there, so a union reads it as the wrong kind. An unknown
+// key does not (zod 4.6 reports it through the union, as the vectors show).
+type aborting struct{ inner Schema }
+
+func (s aborting) parse(value any, c *context) any {
+	before := len(c.issues)
+	out := s.inner.parse(value, c)
+	for i := before; i < len(c.issues); i++ {
+		if !strings.HasPrefix(c.issues[i].Message, "Unrecognized key") {
+			c.issues[i].hard = true
+		}
+	}
+	return out
+}
+
+func (s wordsSchema) parse(value any, c *context) any {
+	out := s.either.parse(value, c)
+	if c.read == nil || out == nil {
+		return out
+	}
+	if _, issues := Parse(s.words, value); len(issues) == 0 {
+		return out
+	}
+	m, _, _ := mapOf(out)
+	for _, lang := range append([]string{c.read.lang, c.read.fallback}, s.langs...) {
+		if v, ok := m[lang]; ok {
+			return v
+		}
+	}
+	return out
 }
 
 func (s superRefinedSchema) parse(value any, c *context) any {

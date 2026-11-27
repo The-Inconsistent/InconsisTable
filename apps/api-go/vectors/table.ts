@@ -21,7 +21,8 @@ import { compileRuleset } from "../../../packages/rules-engine/src/compile.ts";
 import { SAMPLE_D20 } from "../../../packages/rules-engine/src/fixtures/sample-d20.ts";
 import { SAMPLE_HARM } from "../../../packages/rules-engine/src/fixtures/sample-harm.ts";
 import { SAMPLE_SKIRMISH } from "../../../packages/rules-engine/src/fixtures/sample-skirmish.ts";
-import type { RulesetInput } from "../../../packages/rules-engine/src/manifest.ts";
+import { SAMPLE_WORDS, SAMPLE_WORDS_VI } from "../../../packages/rules-engine/src/fixtures/sample-words.ts";
+import { type Ruleset, RulesetDocument, type RulesetInput } from "../../../packages/rules-engine/src/manifest.ts";
 
 const VIEW_OUT = join(import.meta.dirname, "../internal/coreschema/testdata/views.json");
 const ACTION_OUT = join(import.meta.dirname, "../internal/coreschema/testdata/actions.json");
@@ -1226,14 +1227,31 @@ writeFileSync(
 // ---- Every sample's manifest as each seat is served it (house decision #101) ----
 
 // Each served manifest must compile: the generator stops on one that does not, and Go must cut the same parts.
-const SERVED_FIXTURES: Record<string, RulesetInput> = { ...SAMPLE_RULESETS, ...CRAFTED_SEAT_CUTS, view: VIEW_MANIFEST };
+const SERVED_FIXTURES: Record<string, RulesetInput> = {
+  ...SAMPLE_RULESETS,
+  ...CRAFTED_SEAT_CUTS,
+  view: VIEW_MANIFEST,
+  words: SAMPLE_WORDS,
+  wordsVi: SAMPLE_WORDS_VI,
+};
+// The stored document, every language of its labels kept (issue #159), as Go's Normalized is: what the rules route cuts
+// for a seat. The cut reads ids and visibility only, never a label, so it takes the document as it takes a ruleset.
+const documentOf = (input: unknown) => JSON.parse(JSON.stringify(RulesetDocument.parse(input))) as Ruleset;
 const servedManifests = Object.entries(SERVED_FIXTURES).flatMap(([fixture, input]) => {
   const c = compileRuleset(input);
   if (!c.ok) throw new Error(`${fixture} does not compile: ${JSON.stringify(c.problems)}`);
   return SEATS.flatMap(({ name, userId, seat }) =>
     (["gm", "gmless"] as const).map((tableMode) => {
       const ctx: Ctx = { campaignId: U(100), userId, campaignOwnerId: "owner", tableMode, seat };
-      const manifest = seatManifest({ ruleset: c.compiled.ruleset, ctx });
+      const manifest = seatManifest({ ruleset: documentOf(input), ctx });
+      // A GM-only pool's label, in either language, goes with the pool: never to a seat that is not sent the pool, and
+      // never to a player at a table with a GM.
+      const gmWord = JSON.stringify(manifest).includes("Hiểm hoạ");
+      const pool = manifest.resources.some((r) => r.id === "menace");
+      if (fixture === "words" && gmWord && (!pool || (name === "player with characters" && tableMode === "gm")))
+        throw new Error(`${fixture}, ${name} (${tableMode}): the GM pool's label is served`);
+      if (fixture === "words" && name === "gm" && tableMode === "gm" && !gmWord)
+        throw new Error("the GM is not sent the GM pool's label");
       const served = compileRuleset(manifest);
       if (!served.ok) throw new Error(`${fixture}, ${name} (${tableMode}): ${JSON.stringify(served.problems)}`);
       return { fixture, seatName: name, ctx, manifest };

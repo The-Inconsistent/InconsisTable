@@ -53,11 +53,11 @@ import {
   SAMPLE_NAMING_MODULE,
   SAMPLE_SKIRMISH_MODULE,
 } from "../../../packages/rules-engine/src/fixtures/sample-module.ts";
+import { SAMPLE_WORDS, SAMPLE_WORLD_WORDS } from "../../../packages/rules-engine/src/fixtures/sample-words.ts";
 import { SAMPLE_PARAMS } from "../../../packages/rules-engine/src/build/fixtures/sample-ledger.ts";
 import { buildSchemas } from "../../../packages/rules-engine/src/build/schemas.ts";
 import { breakdownOf } from "../../../packages/rules-engine/src/breakdown.ts";
 import { compileRuleset } from "../../../packages/rules-engine/src/compile.ts";
-import type { Spend } from "../../../packages/rules-engine/src/manifest.ts";
 import { FIXTURE_RULESET } from "./fixture.ts";
 import { FREEFORM } from "../../web/lib/freeform/freeform.ts";
 import { d20Document, IDS, LEDGER_BUILD, ROOM_D20 } from "../../api-go/vectors/room-documents.ts";
@@ -1179,6 +1179,7 @@ test("spends: an ask clears when its round moves on or its `if` stops holding (h
 
   // A round event the ruleset cannot name, and a next table's `if` that is not a yes or no, are refused.
   const me = caller(await device("moot-refusals"));
+  type Spend = NonNullable<RulesetInput["spends"]>[number];
   const importWith = async (change: (x: Spend) => Spend) => {
     const bad = structuredClone(SAMPLE_SKIRMISH);
     bad.spends = bad.spends?.map(change);
@@ -1549,6 +1550,36 @@ test("codex tree: places nest, never in a loop; a hidden middle is never named t
   owner.socket.close();
   ana.socket.close();
   screen.socket.close();
+});
+
+test("words: a ruleset's labels in two languages, and a seat sent only those of what it may read (#159)", async () => {
+  const ownerDevice = await device("words-owner");
+  const me = caller(ownerDevice);
+  const empty = await me.post<RulesetReply>("/rulesets", {
+    ...SAMPLE_WORDS,
+    version: "0.1.1",
+    resources: SAMPLE_WORDS.resources?.map((r) => (r.id === "hp" ? { ...r, label: {} } : r)),
+  });
+  assert.equal(empty.status, 422, "a label in no language");
+  const rs = await me.post<RulesetReply>("/rulesets", SAMPLE_WORDS);
+  assert.equal(rs.status, 201);
+  const made = await me.post<{ campaignId: string }>("/campaigns", {
+    name: "Words",
+    rulesetVersionId: rs.body.versionId,
+  });
+  const { campaignId } = made.body;
+  const owner = connect({ auth: { campaignId, cookie: ownerDevice } });
+  await owner.until(() => true);
+  const anaDevice = await seatPlayer(owner, "words-ana");
+  type Served = { ruleset: { manifest: { resources: { id: string; label: unknown }[] } } | null };
+  const served = async (who: ReturnType<typeof caller>) =>
+    (await who.get<Served>(`/campaigns/${campaignId}/rules?limit=1`)).body.ruleset?.manifest;
+  const gm = await served(me);
+  const player = await served(caller(anaDevice));
+  assert.deepEqual(gm?.resources.find((r) => r.id === "menace")?.label, { en: "Menace", vi: "Hiểm hoạ" });
+  assert.deepEqual(player?.resources.find((r) => r.id === "hp")?.label, { en: "Vigour", vi: "Sinh lực" });
+  assert.ok(!JSON.stringify(player).includes("Hiểm hoạ"), "a player is sent no word of the GM's pool");
+  owner.socket.close();
 });
 
 test("entry fields: the ruleset declares them, the GM sets them, a player and the screen read the party's (#71)", async () => {
@@ -2221,6 +2252,17 @@ test("a handout has a layout and a header, read by its player; the room's World 
   ok(await owner.send({ type: "campaign.setWorld", worldVersionId: plainer }));
   const after = await me.get<Rules>(`/campaigns/${campaignId}/rules`);
   assert.equal(after.body.world?.handouts, null, "a World without the part");
+  // The World's words (issue #159) reach every seat with the room's rules; a term outside the app's list is refused.
+  const worded = (await me.post<WorldReply>("/worlds", SAMPLE_WORLD_WORDS)).body.versionId!;
+  ok(await owner.send({ type: "campaign.setWorld", worldVersionId: worded }));
+  for (const reader of [me, caller(anaDevice)]) {
+    const { body } = await reader.get<{ world: { terms: unknown } | null }>(`/campaigns/${campaignId}/rules`);
+    assert.deepEqual(body.world?.terms, SAMPLE_WORLD_WORDS.terms);
+  }
+  const unknownTerm = await me.post<WorldReply>("/worlds", { ...SAMPLE_WORLD_WORDS, terms: { crew: "Crew" } });
+  assert.equal(unknownTerm.status, 422);
+  assert.deepEqual(unknownTerm.body.problems?.[0], { path: "terms", message: 'Unrecognized key: "crew"' });
+  ok(await owner.send({ type: "campaign.setWorld", worldVersionId: plainer }));
   ok(await owner.send({ type: "codex.save", id: ids.tablet!, kind: "handout", body: "Line two" }));
   await eventually(() => seen(ids.tablet!)?.body === "Line two", "the edit reaches the player");
   for (const layout of HandoutLayout.options) {

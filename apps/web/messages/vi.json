@@ -1343,7 +1343,8 @@
       "hint": "Để trống: con số tính được quay lại.",
       "set": "Đặt",
       "clear": "Xoá"
-    }
+    },
+    "picture": "Hình của {name}"
   },
   "breakdown": {
     "hidden": "Các thành phần của chỉ số này không hiện trên điện thoại của bạn.",
@@ -1932,6 +1933,7 @@
     "roomNoSuchEntry": "Tài liệu này không có mục đó.",
     "roomNoSuchActor": "Tài liệu này không có nhân vật đó.",
     "roomNoSuchPicture": "Tài liệu này không có hình đó.",
+    "roomPictureShared": "Hai nhân vật dùng chung hình này; mỗi nhân vật cần hình riêng.",
     "roomPictureEncoding": "Hình này không phải base64.",
     "roomValueClamped": "Phòng sẽ giữ {now} ở đây, không phải {value}.",
     "fromPackNotFor": "Loại mục này không được tạo từ kiểu đó.",
@@ -1960,6 +1962,7 @@
     "picturesFull": "Phòng này đã có 200 ảnh",
     "picturesTooHeavy": "Ảnh của phòng này đã đạt 100 MB",
     "pictureNotFound": "Không tìm thấy ảnh",
+    "picturesWaiting": "Hai ảnh bạn gửi vẫn đang chờ. Hãy thử lại sau vài phút",
     "requestNotFound": "Không tìm thấy yêu cầu",
     "requestAnswered": "Yêu cầu này đã được trả lời.",
     "requestLimit": "Nhân vật này đang có quá nhiều yêu cầu chờ.",

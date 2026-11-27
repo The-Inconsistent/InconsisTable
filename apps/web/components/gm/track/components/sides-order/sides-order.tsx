@@ -7,6 +7,7 @@ import type { SidesInitiative } from "@inconsistable/rules-engine";
 
 import { SideLine } from "@/components/ui/order-view/components/side-line/side-line";
 import { TurnMark } from "@/components/ui/order-view/components/turn-mark/turn-mark";
+import { ActorPicture } from "@/components/ui/actor-picture/actor-picture";
 import { HealthBar } from "@/components/ui/health-bar/health-bar";
 import type { HeldOf } from "@/lib/held/held";
 import { groupBySide, markOf } from "@/lib/sides/sides";
@@ -22,11 +23,22 @@ type SidesOrderProps = {
   heldOf?: HeldOf;
   /** A row's shortcuts beside its button: its tag and steppers (house decision #92). */
   shortcutsOf?: (actorId: string) => ReactNode;
+  /** The room, for each character's thumbnail (house decision #155). */
+  campaignId: string;
 };
 
 // The order of a sides fight: where it stands, then one group per side in the ruleset's order. Each row is a big target
 // that selects the combatant for the panel beside it and carries its turn mark.
-export function SidesOrder({ encounter, sides, actors, selectedId, onSelect, heldOf, shortcutsOf }: SidesOrderProps) {
+export function SidesOrder({
+  encounter,
+  sides,
+  actors,
+  selectedId,
+  onSelect,
+  heldOf,
+  shortcutsOf,
+  campaignId,
+}: SidesOrderProps) {
   const tState = useTranslations("combatState");
   const tVisibility = useTranslations("combatVisibility");
   return (
@@ -46,7 +58,10 @@ export function SidesOrder({ encounter, sides, actors, selectedId, onSelect, hel
                   data-selected={c.id === selectedId}
                 >
                   <button className="who" aria-pressed={c.id === selectedId} onClick={() => onSelect(c.id)}>
-                    <span className="name">{c.name}</span>
+                    <span className="name">
+                      <ActorPicture campaignId={campaignId} actor={actors.get(c.actorId) ?? { name: c.name }} />
+                      {c.name}
+                    </span>
                     <span className="row small dim">
                       <TurnMark mark={markOf({ encounter, combatant: c, sides })} />
                       <span className="chip">{tVisibility(c.visibility)}</span>

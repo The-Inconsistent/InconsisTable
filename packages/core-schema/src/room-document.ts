@@ -111,6 +111,9 @@ export const RoomActor = z
     items: z.array(RoomItem).max(ROOM_LIMITS.actorItems).optional(),
     // The spawn options it was spawned with (house decision #92), fixed then: the import does not read their `when`.
     spawnOptions: SpawnOptionIds.optional(),
+    // Its picture, one of this document's, and whether the table sees it (house decision #155).
+    imageId: LocalId.optional(),
+    imageRevealed: z.boolean().optional(),
   })
   .refine(
     (a) => a.build === undefined || a.entityType === undefined,

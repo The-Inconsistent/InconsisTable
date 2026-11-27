@@ -16,7 +16,7 @@ function Stats({ stats, columns }: { stats: CardStat[]; columns: number }) {
       {stats.map((st, i) => (
         <View key={i} style={{ width: `${100 / columns}%`, alignItems: "center", marginBottom: "1.5mm" }}>
           <Text style={{ ...s.label, textAlign: "center" }}>{st.label}</Text>
-          <Text style={{ fontSize: 15, fontWeight: 700 }}>{st.value}</Text>
+          <Text style={s.statValue}>{st.value}</Text>
         </View>
       ))}
     </View>
@@ -45,7 +45,7 @@ function Tent({ card }: { card: Extract<PrintCard, { kind: "tent" }> }) {
 function Face({ card }: { card: Exclude<PrintCard, { kind: "tent" }> }) {
   return (
     <View style={{ padding: "3mm", height: "100%" }}>
-      <Text style={{ fontSize: 13, fontWeight: 700, borderBottomWidth: 0.8, borderBottomColor: INK.line }}>
+      <Text style={s.cardTitle}>
         {card.name}
       </Text>
       {card.kind === "creature" && card.tags.length > 0 && <Text style={s.small}>{card.tags.join(", ")}</Text>}

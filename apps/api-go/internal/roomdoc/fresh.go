@@ -20,6 +20,7 @@ func fresh(d doc) doc {
 		delete(a, "resources")
 		delete(a, "conditions")
 		delete(a, "status")
+		delete(a, "imageRevealed") // its picture kept, held back again as an entry's is (house decision #156)
 	}
 	for _, e := range d.list("codex") {
 		for _, key := range []string{"visibility", "audienceMode", "audience", "imageRevealed", "revealedAt"} {

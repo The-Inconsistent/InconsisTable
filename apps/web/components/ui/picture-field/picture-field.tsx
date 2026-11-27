@@ -1,24 +1,43 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useRef, useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
 
-import type { ActionInput, CodexEntry } from "@inconsistable/core-schema";
-
-import { EntryPicture } from "@/components/ui/entry-picture/entry-picture";
 import { useRefusal } from "@/hooks/use-refusal/use-refusal";
 import { ApiMessage, PictureSaved, readJson } from "@/lib/api-reply/api-reply";
 import { shrinkPicture } from "@/lib/entry-picture/entry-picture";
 
 type PictureFieldProps = {
-  campaignId: string;
-  entry: CodexEntry;
+  /** The picture this seat received, if any. */
+  imageId: string | null | undefined;
+  /** Whether the table sees it. */
+  shown: boolean;
+  /** The picture as its surface draws it. */
+  preview: ReactNode;
+  /** Where the bytes go: the room's route for an entry, the actor's for a character (house decisions #70, #155). */
+  uploadUrl: string;
   can: { write: boolean; reveal: boolean };
-  act: (a: ActionInput) => Promise<{ ok: boolean }>;
+  /** Attaches the uploaded picture, or none. */
+  onAttach: (imageId: string | null) => Promise<unknown>;
+  /** Shows the picture to the table or holds it back. */
+  onShow: (shown: boolean) => Promise<unknown>;
+  /** The legend; the codex's PICTURE when absent. */
+  legend?: string;
+  className?: string;
 };
 
-// PICTURE: add, replace or remove the entry's picture, and show it to the table apart from the entry itself. A picked
-// file is shrunk on this device, uploaded, then attached at once (house decision #70).
-export function PictureField({ campaignId, entry, can, act }: PictureFieldProps) {
+// PICTURE: add, replace or remove a picture, and show it to the table apart from what it hangs on. A picked file is
+// shrunk on this device, uploaded, then attached at once.
+export function PictureField({
+  imageId,
+  shown,
+  preview,
+  uploadUrl,
+  can,
+  onAttach,
+  onShow,
+  legend,
+  className = "stack",
+}: PictureFieldProps) {
   const t = useTranslations("codex");
   const tr = useRefusal();
   const input = useRef<HTMLInputElement>(null);
@@ -28,11 +47,7 @@ export function PictureField({ campaignId, entry, can, act }: PictureFieldProps)
   // Uploads the bytes and answers the new id, or null after showing why not.
   const upload = async (picture: Blob) => {
     try {
-      const res = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}/images`, {
-        method: "POST",
-        headers: { "content-type": picture.type },
-        body: picture,
-      });
+      const res = await fetch(uploadUrl, { method: "POST", headers: { "content-type": picture.type }, body: picture });
       const body = await readJson(res);
       const saved = PictureSaved.safeParse(body);
       if (res.ok && saved.success) return saved.data.id;
@@ -44,7 +59,7 @@ export function PictureField({ campaignId, entry, can, act }: PictureFieldProps)
     return null;
   };
 
-  // A file picked: shrink it, upload it, attach it in place of any picture the entry had.
+  // A file picked: shrink it, upload it, attach it in place of any picture there was.
   const handlePick = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -58,36 +73,22 @@ export function PictureField({ campaignId, entry, can, act }: PictureFieldProps)
       setError(t("pictureUnreadable"));
     }
     const id = picture && (await upload(picture));
-    if (id) await act({ type: "codex.save", id: entry.id, kind: entry.kind, imageId: id });
+    if (id) await onAttach(id);
     setBusy(false);
   };
 
-  // REMOVE: the entry keeps no picture; the server deletes it when nothing else uses it.
-  const handleRemove = async () => {
-    await act({ type: "codex.save", id: entry.id, kind: entry.kind, imageId: null });
-  };
-
-  // The switch: whether the table sees the picture, apart from who reads the entry.
-  const handleShow = async (e: ChangeEvent<HTMLInputElement>) => {
-    await act({ type: "codex.reveal", id: entry.id, imageRevealed: e.target.checked });
-  };
-
   return (
-    <fieldset className="stack">
-      <legend>{t("picture")}</legend>
-      {entry.imageId ? (
-        <EntryPicture campaignId={campaignId} entry={entry} />
-      ) : (
-        <p className="dim small">{t("noPicture")}</p>
-      )}
+    <fieldset className={className}>
+      <legend>{legend ?? t("picture")}</legend>
+      {imageId ? preview : <p className="dim small">{t("noPicture")}</p>}
       {can.write && (
         <div className="row">
           <input ref={input} type="file" accept="image/*" hidden onChange={handlePick} />
           <button className="btn" disabled={busy} onClick={() => input.current?.click()}>
-            {entry.imageId ? t("replacePicture") : t("addPicture")}
+            {imageId ? t("replacePicture") : t("addPicture")}
           </button>
-          {entry.imageId && (
-            <button className="btn" disabled={busy} onClick={handleRemove}>
+          {imageId && (
+            <button className="btn" disabled={busy} onClick={() => onAttach(null)}>
               {t("removePicture")}
             </button>
           )}
@@ -98,9 +99,9 @@ export function PictureField({ campaignId, entry, can, act }: PictureFieldProps)
           {t("pictureWorking")}
         </p>
       )}
-      {can.reveal && entry.imageId && (
+      {can.reveal && imageId && (
         <label className="row">
-          <input type="checkbox" role="switch" checked={entry.imageRevealed} onChange={handleShow} />
+          <input type="checkbox" role="switch" checked={shown} onChange={(e) => onShow(e.target.checked)} />
           {t("showPicture")}
         </label>
       )}

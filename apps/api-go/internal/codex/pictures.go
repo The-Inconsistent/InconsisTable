@@ -19,9 +19,9 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/view"
 )
 
-// A picture on an entry (house decision #70). Uploading carries bytes, so it is REST; attaching (codex.save imageId)
-// and showing it to the table (codex.reveal imageRevealed) stay actions. Auspex's routes are the model
-// (wrath_glory apps/api/src/campaign/campaign.controller.ts, the images routes).
+// A picture on an entry (house decision #70) or an actor (#155). Uploading carries bytes, so it is REST; attaching
+// (codex.save imageId, actor.picture) and showing it to the table (codex.reveal and actor.picture imageRevealed) stay
+// actions. Auspex's routes are the model (wrath_glory apps/api/src/campaign/campaign.controller.ts, the images routes).
 
 // setPicture points an entry at a picture, or at none. A new picture starts hidden from the table; without a GM nothing
 // can be, so it is the party's at once, as a new entry is. The picture it no longer points at goes if nothing else does.
@@ -44,20 +44,13 @@ func setPicture(ctx context.Context, tx core.Conn, c cs.Ctx, entryID, picture st
 	return dropUnused(ctx, tx, c.CampaignID, old)
 }
 
-// dropUnused deletes a picture no entry points at any more.
+// dropUnused deletes a picture nothing points at any more.
 func dropUnused(ctx context.Context, tx core.Conn, campaignID string, picture *string) error {
-	if picture == nil {
-		return nil
-	}
-	var used bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM codex_entry WHERE image_id = $1)`, *picture).Scan(&used); err != nil || used {
-		return err
-	}
-	return image.Pictures.Delete(ctx, tx, campaignID, []string{*picture})
+	return image.DropUnused(ctx, tx, campaignID, picture)
 }
 
 // sweep deletes the room's pictures that were uploaded over a day ago and never attached, as Auspex's sweepImages does
-// on every codex save and delete (wrath_glory apps/api/src/codex/image.store.ts).
+// on every codex save and delete (wrath_glory apps/api/src/codex/image.store.ts). An actor's picture is attached too.
 func sweep(ctx context.Context, tx core.Conn, campaignID string) error {
 	held, err := image.Pictures.Usage(ctx, tx, campaignID)
 	if err != nil {
@@ -72,12 +65,7 @@ func sweep(ctx context.Context, tx core.Conn, campaignID string) error {
 	if len(stale) == 0 {
 		return nil
 	}
-	rows, err := tx.Query(ctx, `SELECT unnest($1::uuid[])::text EXCEPT
-		SELECT image_id::text FROM codex_entry WHERE campaign_id = $2 AND image_id IS NOT NULL`, stale, campaignID)
-	if err != nil {
-		return err
-	}
-	unused, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	unused, err := image.Unused(ctx, tx, campaignID, stale)
 	if err != nil || len(unused) == 0 {
 		return err
 	}
@@ -93,6 +81,58 @@ type Pictures struct {
 // Upload is POST /api/campaigns/:id/images: the picture is the raw body, its Content-Type image/webp or image/jpeg.
 // A seat that may write the codex uploads; the answer is the new id, which codex.save then attaches.
 func (s *Pictures) Upload(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.upload(w, r, func(c cs.Ctx) error {
+		if !cs.CanInCampaign(c, "codex:write", "") {
+			return core.Refuse(http.StatusForbidden, "noPermission")
+		}
+		return nil
+	})
+}
+
+// UploadForActor is POST /api/campaigns/:id/actors/:actorId/images (house decision #155): the seat holding the
+// character, or the GM side of it, uploads its picture; actor.picture then attaches it. A pack's creature gets one only
+// this way, from the GM side: a pack carries no picture.
+func (s *Pictures) UploadForActor(w http.ResponseWriter, r *http.Request) (any, error) {
+	actorID, err := core.Parse(cs.CampaignID, r.PathValue("actorId"))
+	if err != nil {
+		return nil, err
+	}
+	return s.upload(w, r, func(c cs.Ctx) error {
+		return MayPictureActor(r.Context(), s.DB, c, actorID.(string))
+	})
+}
+
+// MayPictureActor refuses a seat that may not give this actor of its room a picture: one neither holding it nor on the
+// GM side of it.
+func MayPictureActor(ctx context.Context, conn core.Conn, c cs.Ctx, actorID string) error {
+	if refused := cs.RequirePerm(c, "character:edit:own", actorID); refused != nil {
+		return core.Refuse(http.StatusForbidden, refused.Code)
+	}
+	var here bool
+	if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM actor WHERE id = $1 AND campaign_id = $2)`,
+		actorID, c.CampaignID).Scan(&here); err != nil {
+		return err
+	}
+	if !here {
+		return cs.Fail("characterNotFound")
+	}
+	// A player's pictures sit in the room's store beside the GM's: one sent and never attached waits a few minutes, and
+	// only a couple at once, so no seat can fill the room's count or bytes and lock the codex out of it.
+	if cs.CanInCampaign(c, "codex:write", "") {
+		return nil
+	}
+	waiting, err := image.Waiting(ctx, conn, c.CampaignID, c.UserID, image.WaitingFor)
+	if err != nil {
+		return err
+	}
+	if waiting >= image.MaxWaiting {
+		return cs.Fail("picturesWaiting")
+	}
+	return nil
+}
+
+// upload reads the body and stores it for a seat the check lets through.
+func (s *Pictures) upload(w http.ResponseWriter, r *http.Request, may func(cs.Ctx) error) (any, error) {
 	id, err := core.Parse(cs.CampaignID, r.PathValue("id"))
 	if err != nil {
 		return nil, err
@@ -103,6 +143,9 @@ func (s *Pictures) Upload(w http.ResponseWriter, r *http.Request) (any, error) {
 	}
 	if resolved == nil {
 		return nil, core.Refuse(http.StatusUnauthorized, "unauthorized")
+	}
+	if err := may(resolved.Ctx); err != nil {
+		return nil, err
 	}
 	declared, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if !slices.Contains(image.Mimes, declared) {
@@ -116,7 +159,7 @@ func (s *Pictures) Upload(w http.ResponseWriter, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	picture, err := StorePicture(r.Context(), s.DB, resolved.Ctx, declared, data)
+	picture, err := store(r.Context(), s.DB, resolved.Ctx, declared, data)
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +172,11 @@ func StorePicture(ctx context.Context, conn core.Conn, c cs.Ctx, declared string
 	if !cs.CanInCampaign(c, "codex:write", "") {
 		return "", core.Refuse(http.StatusForbidden, "noPermission")
 	}
+	return store(ctx, conn, c, declared, data)
+}
+
+// store stores a picture that fits the room, for a seat already let through.
+func store(ctx context.Context, conn core.Conn, c cs.Ctx, declared string, data []byte) (string, error) {
 	// ponytail: the room's quota is read outside the table's queue, so uploads racing each other can pass it by the few
 	// the upload limit lets through at once (as Auspex's can); a per-room lock in Put if that ever matters.
 	held, err := image.Pictures.Usage(ctx, conn, c.CampaignID)
@@ -177,8 +225,26 @@ func (s *Pictures) Serve(w http.ResponseWriter, r *http.Request) (any, error) {
 	return core.Written{}, nil
 }
 
-// servable is the picture when the seat may see it, else nil.
+// servable is the picture when the seat may see it, else nil. An actor's picture goes where the seat view sends its id
+// (house decision #155), the table screen included once it is shown.
 func servable(ctx context.Context, conn core.Conn, c cs.Ctx, picture string) (*image.Picture, error) {
+	rows, err := conn.Query(ctx, `SELECT id::text, kind, image_revealed FROM actor WHERE campaign_id = $1 AND image_id = $2`,
+		c.CampaignID, picture)
+	if err != nil {
+		return nil, err
+	}
+	onActor, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (bool, error) {
+		var id, kind string
+		var shown bool
+		err := r.Scan(&id, &kind, &shown)
+		return view.ShowsActorPicture(c, id, kind, shown), err
+	})
+	if err != nil {
+		return nil, err
+	}
+	if slices.Contains(onActor, true) {
+		return image.Pictures.Get(ctx, conn, c.CampaignID, picture)
+	}
 	if c.Role() == "screen" {
 		return nil, nil
 	}

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { compileRuleset } from "@inconsistable/rules-engine";
 
 import { ScreenCard } from "@/components/screen/table-screen/components/screen-card/screen-card";
+import { ActorPicture } from "@/components/ui/actor-picture/actor-picture";
 import { ClocksView } from "@/components/ui/clocks-view/clocks-view";
 import { EntryFields } from "@/components/ui/entry-fields/entry-fields";
 import { PoolsView } from "@/components/ui/pools-view/pools-view";
@@ -87,10 +88,16 @@ export function TableScreen({ campaignId, view }: TableScreenProps) {
         <h1 className="title">{state.campaign.name}</h1>
         <p>{state.session ? tTable("session", { number: state.session.number }) : t("between")}</p>
         <p className="dim">
+          {/* Each with its picture once its holder or the GM showed it to the table (house decision #155). */}
           {state.actors
             .filter((a) => a.kind === "pc")
-            .map((a) => a.name)
-            .join(" · ")}
+            .map((a, i) => (
+              <span key={a.id}>
+                {i > 0 && " · "}
+                <ActorPicture campaignId={campaignId} actor={a} />
+                {a.name}
+              </span>
+            ))}
         </p>
         {/* "Last time...": while a session runs and no fight has started. */}
         {state.session && !state.encounter && codex?.recaps[0] && (

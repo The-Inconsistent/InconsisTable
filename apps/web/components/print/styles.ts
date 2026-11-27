@@ -21,6 +21,8 @@ export const s = StyleSheet.create({
   label: { fontSize: PT.small, fontWeight: 700, textTransform: "uppercase" },
   small: { fontSize: PT.small },
   bold: { fontWeight: 700 },
+  statValue: { fontSize: 15, fontWeight: 700 },
+  cardTitle: { fontSize: 13, fontWeight: 700, borderBottomWidth: 0.8, borderBottomColor: INK.line },
   row: { flexDirection: "row", flexWrap: "wrap" },
   box: { borderWidth: 0.8, borderColor: INK.line, padding: "1.2mm", marginRight: "2mm", marginBottom: "1.5mm" },
   ruled: { borderBottomWidth: 0.5, borderBottomColor: INK.faint, height: "6mm" },

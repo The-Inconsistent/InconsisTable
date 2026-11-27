@@ -12,6 +12,7 @@ import { CreationPathPicker } from "@/components/builder/components/creation-pat
 import { FieldsStep } from "@/components/builder/components/fields-step/fields-step";
 import { DRAFT_DELAY_MS } from "@/components/builder/constants";
 import { LedgerBuild } from "@/components/builder/ledger-build/ledger-build";
+import { ActorPictureField } from "@/components/ui/actor-picture-field/actor-picture-field";
 import { Cite, CiteProvider } from "@/components/ui/cite/cite";
 import { LocaleSwitch } from "@/components/ui/locale-switch/locale-switch";
 import { ThemeSwitch } from "@/components/ui/theme-switch/theme-switch";
@@ -114,7 +115,7 @@ function BuilderGate({ campaignId, actorId, ruleset, entries, send, actor, draft
   return (
     <BuilderForm
       key={actorId}
-      {...{ campaignId, actorId, ruleset, entries, entity, send, campaign }}
+      {...{ campaignId, actorId, ruleset, entries, entity, send, campaign, actor }}
       name={actor.name}
       initial={draft}
     />
@@ -127,6 +128,7 @@ type BuilderFormProps = BuilderProps & {
   initial: Answers;
   send: Send;
   campaign: CampaignValues;
+  actor: Actor;
 };
 
 // The steps of one entity as cards on one column, the draft saved a moment after each change, the server's refusal
@@ -141,6 +143,7 @@ function BuilderForm({
   initial,
   send,
   campaign,
+  actor,
 }: BuilderFormProps) {
   const t = useTranslations("builder");
   const router = useRouter();
@@ -271,6 +274,9 @@ function BuilderForm({
             </section>
           );
         })}
+
+        {/* The last step: its picture, the player's own (house decision #155). */}
+        <ActorPictureField campaignId={campaignId} actor={actor} send={send} className="card stack" />
 
         <section className="card" aria-label={t("makesLabel")}>
           <h2 className="step-title">{t("makesLabel")}</h2>

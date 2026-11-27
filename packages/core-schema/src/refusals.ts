@@ -194,6 +194,8 @@ export const REFUSALS = {
   picturesFull: "This room already holds 200 pictures",
   picturesTooHeavy: "This room's pictures are at 100 MB",
   pictureNotFound: "Picture not found",
+  // An actor's picture: a seat outside the codex keeps few uploads waiting (house decision #155)
+  picturesWaiting: "Two pictures you sent are still waiting. Try again in a few minutes",
   // Spend requests
   requestNotFound: "Request not found",
   requestAnswered: "That request was already answered.",
@@ -368,6 +370,7 @@ export const REFUSALS = {
   roomNoSuchActor: "No such character in this document.",
   roomNoSuchItem: "No such item of this character in this document.",
   roomNoSuchPicture: "No such picture in this document.",
+  roomPictureShared: "Two characters share this picture; each holds its own.",
   roomPictureEncoding: "This picture is not base64.",
   roomValueClamped: "The room would hold {now} here, not {value}.",
   // An entry made from a pack entry (house decision #97).

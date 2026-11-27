@@ -150,6 +150,8 @@ func run() error {
 	// Pictures on codex entries: bytes go by REST, attaching and showing them are actions (house decision #70).
 	pictures := &codex.Pictures{DB: db, Auth: authService}
 	route(router, "POST", "/api/campaigns/:id/images", core.Serve(pictures.Upload))
+	// An actor's picture (house decision #155): the seat holding it or its GM side uploads, actor.picture attaches.
+	route(router, "POST", "/api/campaigns/:id/actors/:actorId/images", core.Serve(pictures.UploadForActor))
 	route(router, "GET", "/api/campaigns/:id/images/:imageId", core.Serve(pictures.Serve))
 
 	// Signing in through InconsisID, and the signed-in account's page.

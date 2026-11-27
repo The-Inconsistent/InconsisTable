@@ -9,6 +9,11 @@ export function pictureUrl({ campaignId, imageId }: { campaignId: string; imageI
   return `/api/campaigns/${encodeURIComponent(campaignId)}/images/${encodeURIComponent(imageId)}`;
 }
 
+/** Where a character's picture is uploaded: its holder's seat or the GM side only (house decision #155). */
+export function actorPictureUploadUrl({ campaignId, actorId }: { campaignId: string; actorId: string }): string {
+  return `/api/campaigns/${encodeURIComponent(campaignId)}/actors/${encodeURIComponent(actorId)}/images`;
+}
+
 // The size a picture is drawn at: its long side at most `longSide`, never enlarged, never under 1px.
 export function fitWithin({
   width,

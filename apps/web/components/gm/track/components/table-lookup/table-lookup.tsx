@@ -25,7 +25,7 @@ type TableLookupProps = {
   table: RandomTable;
   compiled: CompiledRuleset;
   ruleset: Ruleset;
-  /** The panel's target, carried from one table to the next. */
+  /** Who it is for: the drawer's picked target, or the panel's combatant; carried from one table to the next. */
   target: Actor | undefined;
   characters: number;
   campaign: Readonly<Record<string, unknown>>;
@@ -43,7 +43,7 @@ type TableLookupProps = {
 
 const ENTRIES = 200;
 
-// A lookup on the GM's tables panel (house decision #87): the number the dice showed (ROLL fills it in when the
+// A lookup in the GM's tables drawer or on a combatant's panel (house decisions #87, #225): the number the dice showed (ROLL fills it in when the
 // table may be rolled, I ROLLED is typing it), the inputs as switches and steppers, the line it reads worked out with
 // the engine for the picked target, and APPLY, which the server works out again before anything changes.
 export function TableLookup(props: TableLookupProps) {

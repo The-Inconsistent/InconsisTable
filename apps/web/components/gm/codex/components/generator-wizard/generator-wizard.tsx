@@ -1,6 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { ActionInput, ActionResult } from "@inconsistable/core-schema";
 import {
@@ -13,6 +14,7 @@ import {
 } from "@inconsistable/rules-engine";
 
 import { Cite } from "@/components/ui/cite/cite";
+import { nextRoll } from "@/lib/generators/generators";
 import type { RulesEntry } from "@/lib/library/library";
 
 import { StepInput } from "./components/step-input/step-input";
@@ -30,6 +32,13 @@ type GeneratorWizardProps = {
   /** The entries the confirm made, root first. */
   onMade: (ids: readonly string[]) => void;
   onClose: () => void;
+  /**
+   * In CODEX's generator sheet (house decision #226): the sheet's foot, where ADD TO CODEX goes (null until it is drawn),
+   * with ROLL ALL above the steps and AGAIN on each rolled step. Absent, the wizard is its own card (the first run's).
+   */
+  footer?: HTMLElement | null;
+  /** Told when a roll-all or a confirm starts and ends. */
+  onBusy?: (busy: boolean) => void;
 };
 
 // A generator run in the GM's browser (house decision #98): its steps in order (each asked while its `when` holds), every
@@ -43,6 +52,8 @@ export function GeneratorWizard({
   under,
   onMade,
   onClose,
+  footer,
+  onBusy,
 }: GeneratorWizardProps) {
   const t = useTranslations("generators");
   // A run with no entry of its own puts its rounds under an entry the GM names, the open one to start with (#202).
@@ -69,10 +80,55 @@ export function GeneratorWizard({
     answered(g.steps, answers, asked) &&
     Array.from({ length: count }, (_, i) => answered(eachSteps, rounds[i] ?? {}, roundAsked(i))).every(Boolean);
 
+  // Busy is the sheet's too: its generator picker waits while a run is rolling or confirming.
+  const working = (on: boolean) => {
+    setBusy(on);
+    onBusy?.(on);
+  };
+  // External system: the server's table.roll calls ROLL ALL makes one after another; once this run is gone, none more.
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
+  const inSheet = footer !== undefined;
+  const leftToRoll = nextRoll({ ruleset, generator: g, answers, rounds, campaign }) !== null;
+
+  // ROLL ALL: every asked roll step not yet done, in order and each to the end of its chain, one table.roll at a time;
+  // a round's steps once the run's own say how many rounds there are. A refusal stops it where it is.
+  const handleRollAll = async () => {
+    working(true);
+    try {
+      let own = answers;
+      let each = rounds;
+      let at = nextRoll({ ruleset, generator: g, answers: own, rounds: each, campaign });
+      while (at !== null) {
+        const r = await act({ type: "table.roll", tableId: at.table });
+        // The run went away (CLOSE, Escape, another generator): no roll after it.
+        if (!alive.current || !r.ok || !r.roll) break;
+        const { round, step } = at;
+        const given = round === null ? own : (each[round] ?? {});
+        const rolled = set(given, step, { rows: [...(given[step]?.rows ?? []), r.roll.entryId] });
+        if (round === null) own = rolled;
+        else
+          each = Array.from({ length: Math.max(each.length, round + 1) }, (_, k) =>
+            k === round ? rolled : (each[k] ?? {}),
+          );
+        setAnswers(own);
+        setRounds(each);
+        at = nextRoll({ ruleset, generator: g, answers: own, rounds: each, campaign });
+      }
+    } finally {
+      working(false);
+    }
+  };
+
   // CONFIRM: the asked answers and each round's, as one codex.generate.
   const handleConfirm = async () => {
     if (!ready || count === null) return;
-    setBusy(true);
     const only = (steps: readonly GeneratorStep[], given: Answers, on: readonly boolean[]) =>
       Object.fromEntries(
         steps.flatMap((s, j) => {
@@ -80,15 +136,19 @@ export function GeneratorWizard({
           return on[j] && v ? [[s.id, { ...v, rows: v.rows ? [...v.rows] : undefined }]] : [];
         }),
       );
-    const r = await act({
-      type: "codex.generate",
-      generatorId: g.id,
-      values: only(g.steps, answers, asked),
-      each: Array.from({ length: count }, (_, i) => only(eachSteps, rounds[i] ?? {}, roundAsked(i))),
-      ...(rootless && parentId !== "" ? { parentId } : {}),
-    });
-    setBusy(false);
-    if (r.ok) onMade(r.ids ?? (r.id ? [r.id] : []));
+    working(true);
+    try {
+      const r = await act({
+        type: "codex.generate",
+        generatorId: g.id,
+        values: only(g.steps, answers, asked),
+        each: Array.from({ length: count }, (_, i) => only(eachSteps, rounds[i] ?? {}, roundAsked(i))),
+        ...(rootless && parentId !== "" ? { parentId } : {}),
+      });
+      if (r.ok) onMade(r.ids ?? (r.id ? [r.id] : []));
+    } finally {
+      working(false);
+    }
   };
 
   const input = (
@@ -110,40 +170,56 @@ export function GeneratorWizard({
       act={act}
       pickedName={given[s.id]?.key ? (names[`${s.id}/${given[s.id]?.key}`] ?? null) : null}
       onPicked={(e: RulesEntry) => setNames({ ...names, [`${s.id}/${e.key}`]: e.name })}
+      again={inSheet}
     />
   );
 
+  const confirm = (
+    <button type="button" className="btn primary" disabled={!ready || busy} onClick={handleConfirm}>
+      {t(inSheet ? "add" : "confirm")}
+    </button>
+  );
+
   return (
-    <section className="card stack generator-wizard" aria-label={g.label}>
-      <div className="row between">
-        <h3 className="head">{g.label}</h3>
-        {g.cite && <Cite cite={g.cite} />}
-      </div>
-      <ol className="stack">
-        {g.steps.map((s, j) =>
-          asked[j] ? (
-            <li key={s.id}>{input(s, g.steps.slice(0, j), answers, (v) => setAnswers(set(answers, s.id, v)))}</li>
-          ) : null,
-        )}
-      </ol>
-      {g.each && count === null && <p className="dim small">{t("roundsLater")}</p>}
-      {count !== null &&
-        Array.from({ length: count }, (_, i) => {
-          const given = { ...answers, ...(rounds[i] ?? {}) };
-          const on = roundAsked(i);
-          const change = (id: string) => (v?: StepValue) =>
-            setRounds(
-              Array.from({ length: count }, (_, k) => (k === i ? set(rounds[k] ?? {}, id, v) : (rounds[k] ?? {}))),
+    <section className={inSheet ? "stack generator-wizard" : "card stack generator-wizard"} aria-label={g.label}>
+      {inSheet ? (
+        <button type="button" className="btn" disabled={!leftToRoll || busy} onClick={handleRollAll}>
+          {t("rollAll")}
+        </button>
+      ) : (
+        <div className="row between">
+          <h3 className="head">{g.label}</h3>
+          {g.cite && <Cite cite={g.cite} />}
+        </div>
+      )}
+      {/* While ROLL ALL runs, every step's controls wait, so a tap is not overwritten by the loop. */}
+      <fieldset className="stack" disabled={inSheet && busy}>
+        <ol className="stack">
+          {g.steps.map((s, j) =>
+            asked[j] ? (
+              <li key={s.id}>{input(s, g.steps.slice(0, j), answers, (v) => setAnswers(set(answers, s.id, v)))}</li>
+            ) : null,
+          )}
+        </ol>
+        {g.each && count === null && <p className="dim small">{t("roundsLater")}</p>}
+        {count !== null &&
+          Array.from({ length: count }, (_, i) => {
+            const given = { ...answers, ...(rounds[i] ?? {}) };
+            const on = roundAsked(i);
+            const change = (id: string) => (v?: StepValue) =>
+              setRounds(
+                Array.from({ length: count }, (_, k) => (k === i ? set(rounds[k] ?? {}, id, v) : (rounds[k] ?? {}))),
+              );
+            return (
+              <fieldset key={i} className="stack generator-round">
+                <legend className="small">{t("round", { n: i + 1, count })}</legend>
+                {eachSteps.map((s, j) =>
+                  on[j] ? input(s, [...g.steps, ...eachSteps.slice(0, j)], given, change(s.id)) : null,
+                )}
+              </fieldset>
             );
-          return (
-            <fieldset key={i} className="stack generator-round">
-              <legend className="small">{t("round", { n: i + 1, count })}</legend>
-              {eachSteps.map((s, j) =>
-                on[j] ? input(s, [...g.steps, ...eachSteps.slice(0, j)], given, change(s.id)) : null,
-              )}
-            </fieldset>
-          );
-        })}
+          })}
+      </fieldset>
       {rootless && (
         <label className="stack">
           <span className="small">{t("under")}</span>
@@ -157,14 +233,16 @@ export function GeneratorWizard({
           </select>
         </label>
       )}
-      <div className="row">
-        <button type="button" className="btn primary" disabled={!ready || busy} onClick={handleConfirm}>
-          {t("confirm")}
-        </button>
-        <button type="button" className="btn" onClick={onClose}>
-          {t("cancel")}
-        </button>
-      </div>
+      {inSheet ? (
+        footer && createPortal(confirm, footer)
+      ) : (
+        <div className="row">
+          {confirm}
+          <button type="button" className="btn" onClick={onClose}>
+            {t("cancel")}
+          </button>
+        </div>
+      )}
       <p className="small dim">{t("hint")}</p>
     </section>
   );

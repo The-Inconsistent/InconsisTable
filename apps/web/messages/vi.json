@@ -1474,7 +1474,6 @@
       "advanceXp": "Thăng tiến · {xp} XP",
       "seat": "Ghế",
       "tabs": "Ngăn của {name}",
-      "close": "Đóng",
       "closeLabel": "Đóng ngăn của {name}"
     },
     "objectives": {
@@ -2525,7 +2524,13 @@
     "round": "Vòng {n} trên {count}",
     "confirm": "Xác nhận và tạo",
     "cancel": "Hủy",
-    "hint": "Chưa có gì được tạo cho tới khi bạn xác nhận. Phần lời bạn tự viết sau."
+    "hint": "Chưa có gì được tạo cho tới khi bạn xác nhận. Phần lời bạn tự viết sau.",
+    "title": "Tạo ngẫu nhiên",
+    "pick": "Bộ tạo",
+    "rollAll": "Gieo tất cả",
+    "again": "Gieo lại",
+    "againOn": "Gieo lại {label}",
+    "add": "Thêm vào [codex]"
   },
   "notebook": {
     "entries": "Đã tiết lộ",

@@ -1474,7 +1474,6 @@
       "advanceXp": "Advance · {xp} XP",
       "seat": "Seat",
       "tabs": "Drawer of {name}",
-      "close": "Close",
       "closeLabel": "Close the drawer of {name}"
     },
     "objectives": {
@@ -2525,7 +2524,13 @@
     "round": "Round {n} of {count}",
     "confirm": "Confirm and make",
     "cancel": "Cancel",
-    "hint": "Nothing is made until you confirm. Write the words yourself afterwards."
+    "hint": "Nothing is made until you confirm. Write the words yourself afterwards.",
+    "title": "Generate",
+    "pick": "Generator",
+    "rollAll": "Roll all",
+    "again": "Again",
+    "againOn": "Roll {label} again",
+    "add": "Add to [codex]"
   },
   "notebook": {
     "entries": "Revealed",

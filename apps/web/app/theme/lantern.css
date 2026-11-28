@@ -174,7 +174,7 @@
 .card,
 .combatant,
 .bottom-sheet,
-.party-drawer,
+.side-drawer,
 .sheet-card {
   color-scheme: light;
   --paper: var(--parchment-hi);

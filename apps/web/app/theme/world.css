@@ -11,11 +11,11 @@ html:has([data-world]) {
   background: var(--paper);
 }
 /* The table is no longer forced dark, and a card no longer forced light: both follow the set the root shows. */
-[data-world] :is(.surface-table, .band, .parchment, .card, .combatant, .bottom-sheet, .party-drawer, .sheet-card) {
+[data-world] :is(.surface-table, .band, .parchment, .card, .combatant, .bottom-sheet, .side-drawer, .sheet-card) {
   color-scheme: inherit;
 }
 /* A plate in a card is lit and shaded in the card's own colours, so a dark card's buttons carry no cream edge. */
-[data-world] :is(.parchment, .card, .combatant, .bottom-sheet, .party-drawer, .sheet-card) {
+[data-world] :is(.parchment, .card, .combatant, .bottom-sheet, .side-drawer, .sheet-card) {
   --plate-lit: color-mix(in srgb, var(--parchment-hi) 70%, transparent);
   --plate-shade: color-mix(in srgb, var(--parchment-line) 60%, transparent);
 }
@@ -234,7 +234,7 @@ html:has([data-world]) {
 [data-world] :is(.mention, .tabs, .tab:not([aria-selected="true"]), .playing-card, .request-bar, .build-bar) {
   border-color: var(--line);
 }
-[data-world] :is(.lb-banner, .bottom-sheet, .party-drawer, .end-notice, .game-mine) {
+[data-world] :is(.lb-banner, .bottom-sheet, .side-drawer, .end-notice, .game-mine) {
   border-color: var(--line);
 }
 [data-world] .outcome-critical,

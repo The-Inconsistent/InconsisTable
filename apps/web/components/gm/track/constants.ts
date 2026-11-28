@@ -25,6 +25,9 @@ export const CLOCK_SEGMENTS_MIN = 2;
 export const CLOCK_SEGMENTS_MAX = 12;
 export const CLOCK_DEFAULTS = { name: "", segments: 4, visibility: "gm", entryId: null } as const;
 
+/** The element id of one table's card in the tables panel, which a spend's next table opens (house decision #91). */
+export const tableCardId = (tableId: string) => `table-card-${tableId}`;
+
 /** A table a spend opened (house decision #91): for the spender, its inputs carried over; `n` tells openings apart. */
 export type OpenedTable = {
   tableId: string;

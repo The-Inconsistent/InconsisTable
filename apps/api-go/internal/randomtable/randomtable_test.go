@@ -14,15 +14,14 @@ import (
 	"github.com/The-Inconsistent/InconsisTable/apps/api-go/internal/engine"
 )
 
-// The fixture plus tables of our own invention: a d6 table the party sees, a weighted table for the GM that is also a
-// deck (house decision #224), and a deck of five cards (two copies of Mole, one each of Host, Guard and Spy) dealt to the
-// holder alone.
+// The fixture plus tables of our own invention: a d6 table the party sees, a weighted table for the GM, and a deck of
+// five cards (two copies of Mole, one each of Host, Guard and Spy) dealt to the holder alone.
 var manifest = strings.Replace(dbtest.Fixture, `"conditions": [],`, `"conditions": [],
 	"tables": {
 		"season": {"title": "Season", "die": "d6", "visibility": "party", "cite": "Fixture p.7", "entries": [
 			{"id": "thaw", "label": "Thaw", "range": [1, 2]}, {"id": "bloom", "label": "Bloom", "range": [3, 4]},
 			{"id": "frost", "label": "Frost", "range": [5, 6]}]},
-		"omen": {"title": "Omen", "visibility": "gm", "deck": true, "cite": "Fixture p.8", "entries": [
+		"omen": {"title": "Omen", "visibility": "gm", "cite": "Fixture p.8", "entries": [
 			{"id": "calm", "label": "Calm", "weight": 3}, {"id": "storm", "label": "Storm", "weight": 1}]},
 		"role": {"title": "Role", "visibility": "owner", "cite": "Fixture p.9", "entries": [
 			{"id": "mole", "label": "Mole", "count": 2}, {"id": "host", "label": "Host"}, {"id": "guard", "label": "Guard"},
@@ -328,28 +327,6 @@ func TestReshuffleReturnsTheTablesCardsOnly(t *testing.T) {
 		}
 		if _, err := Reshuffle(context.Background(), tx, r.gm, cs.Action{"type": "table.reshuffle", "tableId": "nope"}); code(err) != "tableNotFound" {
 			t.Fatalf("unknown table: %v", err)
-		}
-	})
-}
-
-// Only a deck is dealt and reshuffled (house decision #224): one that says `deck` (omen) or an `owner` one (role).
-func TestOnlyADeckIsDealtOrReshuffled(t *testing.T) {
-	db := dbtest.Open(t)
-	dbtest.Tx(t, db, func(tx pgx.Tx) {
-		r := newRoom(t, tx, 2)
-		if err := deal(tx, r.gm, "season", r.actors[0]); code(err) != "tableNotDeck" {
-			t.Fatalf("a rolled table is not dealt: %v", err)
-		}
-		if _, err := Reshuffle(context.Background(), tx, r.gm, cs.Action{"type": "table.reshuffle", "tableId": "season"}); code(err) != "tableNotDeck" {
-			t.Fatalf("a rolled table is not reshuffled: %v", err)
-		}
-		for _, table := range []string{"omen", "role"} {
-			if err := deal(tx, r.gm, table, r.actors[0]); err != nil {
-				t.Fatalf("%s is a deck: %v", table, err)
-			}
-			if _, err := Reshuffle(context.Background(), tx, r.gm, cs.Action{"type": "table.reshuffle", "tableId": table}); err != nil {
-				t.Fatalf("%s is reshuffled: %v", table, err)
-			}
 		}
 	})
 }

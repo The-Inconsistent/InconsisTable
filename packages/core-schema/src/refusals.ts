@@ -213,7 +213,6 @@ export const REFUSALS = {
   // Random tables
   tableNotFound: "Table not found",
   tableDealOnly: "That table is dealt, not rolled.",
-  tableNotDeck: "That table is rolled, not dealt.",
   tableNoGm: "Nobody runs this room as GM, so nothing can be GM-only.",
   tableShort: "Not enough left to deal.",
   tableHeld: "Someone already holds a card from that table.",

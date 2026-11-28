@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { SAMPLE_D20_0_1_8 as SAMPLE_D20 } from "./fixtures/sample-d20.ts";
 import { SAMPLE_HARVEST } from "./fixtures/sample-harvest.ts";
-import { importProblems, isDeck, tableDie, validateRuleset, type RulesetInput } from "./manifest.ts";
+import { importProblems, tableDie, validateRuleset, type RulesetInput } from "./manifest.ts";
 import type { Problem } from "./problem.ts";
 
 // Random tables (house decision #49): ranges tile the die, weights stand without one, a rule entry cites its page.
@@ -21,16 +21,6 @@ const keys = (list: Problem[]) => list.map((p) => `${p.path} | ${p.message}`);
 
 test("the harvest sample's tables validate", () => {
   assert.ok(validateRuleset(SAMPLE_HARVEST).ok);
-});
-
-test("a table is dealt when it says deck or is owner, and deck is a yes or no (house decision #224)", () => {
-  const deck = table(undefined, [{ id: "a", label: "A", count: 2 }], { deck: true });
-  assert.deepEqual(problems(withTables(deck)), []);
-  assert.equal(problems(withTables(table(undefined, [{ id: "a", label: "A" }], { deck: "yes" }))).length, 1);
-  assert.equal(isDeck({ visibility: "party", deck: true }), true);
-  assert.equal(isDeck({ visibility: "owner" }), true);
-  assert.equal(isDeck({ visibility: "party" }), false);
-  assert.equal(isDeck({ visibility: "gm", deck: false }), false);
 });
 
 test("a die's ranges must tile its outcomes exactly", () => {

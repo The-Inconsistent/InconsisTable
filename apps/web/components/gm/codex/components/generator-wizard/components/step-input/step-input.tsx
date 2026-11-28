@@ -68,12 +68,10 @@ export function StepInput(props: StepInputProps) {
     };
   }, [campaignId, entity, q, t, tr]);
 
-  // A roll names its table after the step's label, unless the two read the same.
-  const tableTitle = step.kind === "roll" ? (ruleset.tables?.[step.table]?.title ?? step.table) : null;
   const header = (
     <span className="small dim">
       {step.label}
-      {tableTitle !== null && tableTitle !== step.label && ` · ${tableTitle}`}
+      {step.kind === "roll" && ` · ${ruleset.tables?.[step.table]?.title ?? step.table}`}
     </span>
   );
 

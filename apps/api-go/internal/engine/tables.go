@@ -77,7 +77,6 @@ type (
 		Inputs     []TableInput `json:"inputs"`
 		Modifier   *string      `json:"modifier"`
 		Entities   *[]string    `json:"entities"`
-		Deck       *bool        `json:"deck"`
 	}
 	// TableOutcomes is what a table die can roll.
 	TableOutcomes struct {
@@ -118,11 +117,6 @@ func TableDie(notation string) (TableOutcomes, bool) {
 	}
 	out := TableOutcomes{Min: t.Count, Max: t.Count * t.Die.Sides}
 	return out, out.Max-out.Min+1 <= MaxTableOutcomes
-}
-
-// IsDeck says whether a table is dealt (manifest.ts isDeck, house decision #224): it says `deck`, or it is `owner`.
-func (t *RandomTable) IsDeck() bool {
-	return (t.Deck != nil && *t.Deck) || t.Visibility == "owner"
 }
 
 // IsLookup says whether a table declares anything of a lookup (manifest.ts isLookup).

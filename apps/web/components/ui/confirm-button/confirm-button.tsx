@@ -9,13 +9,11 @@ type ConfirmButtonProps = {
   ariaLabel?: string;
   onConfirm: () => void;
   className?: string;
-  /** A line shown beside it while it waits for the second tap ("Nobody can undo a deal."). */
-  warning?: string;
 };
 
 // A one-way action behind a second tap on the same place (as PREP's DELETE): the first tap turns the button into
 // "… : tap again" with CANCEL beside it; no dialog, so the table stays in view.
-export function ConfirmButton({ label, ariaLabel, onConfirm, className = "btn", warning }: ConfirmButtonProps) {
+export function ConfirmButton({ label, ariaLabel, onConfirm, className = "btn" }: ConfirmButtonProps) {
   const t = useTranslations("confirmButton");
   const [armed, setArmed] = useState(false);
 
@@ -43,11 +41,6 @@ export function ConfirmButton({ label, ariaLabel, onConfirm, className = "btn", 
       <button className={className} onClick={() => setArmed(false)}>
         {t("cancel")}
       </button>
-      {warning && (
-        <span className="dim" role="status">
-          {warning}
-        </span>
-      )}
     </span>
   );
 }

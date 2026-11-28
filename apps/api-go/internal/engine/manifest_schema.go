@@ -943,7 +943,6 @@ var tableSchema = schema.Object(
 	schema.Opt("inputs", schema.Array(tableInputSchema).Min(1).Max(MaxLookupInputs)),
 	schema.Opt("modifier", exprSource),
 	schema.Opt("entities", schema.Array(idSchema).Min(1).Max(50)),
-	schema.Opt("deck", schema.Bool()),
 )
 
 // tableInputSchema is a value set before applying a lookup or a strike (manifest.ts TableInput).

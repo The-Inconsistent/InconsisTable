@@ -40,15 +40,6 @@ func tableOf(ctx context.Context, tx core.Conn, campaignID, id string) (*engine.
 	return nil, cs.Fail("tableNotFound")
 }
 
-// The table the action names when it is dealt (house decision #224), or tableNotFound or tableNotDeck.
-func deckOf(ctx context.Context, tx core.Conn, c cs.Ctx, id string) (*engine.RandomTable, error) {
-	t, err := tableOf(ctx, tx, c.CampaignID, id)
-	if err == nil && !t.IsDeck() {
-		return nil, cs.Fail("tableNotDeck")
-	}
-	return t, err
-}
-
 // A `gm` table keeps what it shows from the table, which a room without a GM cannot do.
 func checkGM(c cs.Ctx, t *engine.RandomTable) error {
 	if t.Visibility == "gm" && !c.HasGM() {
@@ -185,7 +176,7 @@ func refusal(r *engine.LookupRefusal, name string) error {
 // already dealt and not returned. The deck holds each entry `count` times. A refusal leaves nothing dealt.
 func Deal(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	tableID := a.Str("tableId")
-	t, err := deckOf(ctx, tx, c, tableID)
+	t, err := tableOf(ctx, tx, c.CampaignID, tableID)
 	if err != nil {
 		return cs.Result{}, err
 	}
@@ -249,7 +240,7 @@ func Deal(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, 
 // Reshuffle is table.reshuffle: every card of the table goes back to the deck.
 func Reshuffle(ctx context.Context, tx core.Conn, c cs.Ctx, a cs.Action) (cs.Result, error) {
 	tableID := a.Str("tableId")
-	t, err := deckOf(ctx, tx, c, tableID)
+	t, err := tableOf(ctx, tx, c.CampaignID, tableID)
 	if err != nil {
 		return cs.Result{}, err
 	}

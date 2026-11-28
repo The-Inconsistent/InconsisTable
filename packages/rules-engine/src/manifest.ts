@@ -995,7 +995,8 @@ export type TableEntry = Localized<z.infer<typeof TableEntry>>;
  * without replacement to characters. Never book text: the labels are the importer's own short words. A table with a
  * die may be a lookup (house decision #87): `typedOnly` takes the GM's typed result and is never rolled, `inputs` are
  * set before applying, `modifier` is added to the result before a line is read, and `entities` are the actor types it
- * applies to.
+ * applies to. `deck` says it is also dealt (house decision #224): only a deck, or an `owner` table, is dealt and
+ * reshuffled.
  */
 export const RandomTable = z.object({
   title: z.string().min(1).max(80),
@@ -1008,6 +1009,7 @@ export const RandomTable = z.object({
   inputs: z.array(TableInput).min(1).max(MAX_LOOKUP_INPUTS).optional(),
   modifier: ExprSource.optional(),
   entities: z.array(Id).min(1).max(50).optional(),
+  deck: z.boolean().optional(),
 });
 export type RandomTable = Localized<z.infer<typeof RandomTable>>;
 
@@ -2088,6 +2090,10 @@ export function isLookup(t: RandomTable): boolean {
     t.entries.some((e) => e.apply !== undefined || e.next !== undefined)
   );
 }
+
+/** Whether a table is dealt (house decision #224): it says `deck`, or it is `owner`, which is dealt face down. */
+export const isDeck = (t: Pick<RandomTable, "deck" | "visibility">): boolean =>
+  t.deck === true || t.visibility === "owner";
 
 /**
  * A die's ranges tile its outcomes exactly: no gap, no overlap, nothing outside; no die means weights, no ranges. The

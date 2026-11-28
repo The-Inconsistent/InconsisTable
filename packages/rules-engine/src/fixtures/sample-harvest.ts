@@ -7,7 +7,7 @@ import type { RulesetInput } from "../manifest.ts";
  */
 export const SAMPLE_HARVEST: RulesetInput = {
   id: "sample-harvest",
-  version: "0.1.2",
+  version: "0.1.3",
   core: "^0.1.0",
   // House decision #107: a round of the game is a scene; it is ready once its setup is written. No read-aloud field.
   codex: {
@@ -53,7 +53,8 @@ export const SAMPLE_HARVEST: RulesetInput = {
     cite: "Sample p.8",
   },
   // Random tables (house decision #49): one rolled on a die for the whole table, one weighted and kept from the
-  // players, and a deck of secret roles dealt without replacement (six cards).
+  // players, and a deck of secret roles dealt without replacement (six cards), which says it is a deck (house decision
+  // #224) although an `owner` table is dealt anyway.
   tables: {
     season: {
       title: "Season",
@@ -76,6 +77,7 @@ export const SAMPLE_HARVEST: RulesetInput = {
     role: {
       title: "Role",
       visibility: "owner",
+      deck: true,
       entries: [
         { id: "farmer", label: "Farmer", count: 3 },
         { id: "miller", label: "Miller", count: 2 },
